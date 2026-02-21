@@ -1,7 +1,13 @@
-# Amethyst Mod Manager
+
+<p align="center">
+    <img width="150" src="icons/logo.png" alt="Logo">
+</p>
+<h1 align="center">Amethyst Mod Manager</h1>
 
 A universal mod organiser for Linux.
-
+<p align="center">
+    <img width="800" src="icons/ui.png" alt="ui">
+</p>
 ## Key Features
 
 - **Mod Organiser like interface** - Designed to look and behave like Mod Organiser but on linux
