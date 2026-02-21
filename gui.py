@@ -5602,8 +5602,20 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             with zipfile.ZipFile(archive_path, "r") as z:
                 z.extractall(extract_dir)
         elif ext.endswith(".7z"):
-            with py7zr.SevenZipFile(archive_path, "r") as z:
-                z.extractall(extract_dir)
+            try:
+                with py7zr.SevenZipFile(archive_path, "r") as z:
+                    z.extractall(extract_dir)
+            except Exception as e7:
+                log_fn(f"py7zr failed ({e7}), retrying with libarchive…")
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                os.makedirs(extract_dir, exist_ok=True)
+                import libarchive
+                prev_cwd = os.getcwd()
+                try:
+                    os.chdir(extract_dir)
+                    libarchive.extract_file(archive_path)
+                finally:
+                    os.chdir(prev_cwd)
         elif any(ext.endswith(s) for s in (".tar.gz", ".tar.bz2", ".tar.xz", ".tar")):
             with tarfile.open(archive_path, "r:*") as t:
                 t.extractall(extract_dir)
@@ -5752,6 +5764,9 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
         else:
             if src.is_file():
                 dst.parent.mkdir(parents=True, exist_ok=True)
+                if dst.exists():
+                    dst.chmod(0o644)
+                    dst.unlink()
                 shutil.copy2(src, dst)
                 copied += 1
 
