@@ -15,6 +15,8 @@ Games/Skyrim/__pycache__/skyrim.cpython-313.pyc
 Games/Skyrim Special Edition/__pycache__/skyrim_se.cpython-313.pyc
 Games/Subnautica/__pycache__/__init__.cpython-313.pyc
 Games/Subnautica/__pycache__/Subnautica.cpython-313.pyc
+Games/TCG Card Shop Simulator/__pycache__/__init__.cpython-313.pyc
+Games/TCG Card Shop Simulator/__pycache__/TCG_Card_Shop_Simulator.cpython-313.pyc
 Games/The Sims 4/__pycache__/__init__.cpython-313.pyc
 Games/The Sims 4/__pycache__/the_sims_4.cpython-313.pyc
 Games/The Witcher 3/__pycache__/__init__.cpython-313.pyc
@@ -37,3 +39,5 @@ Utils/__pycache__/modlist.cpython-313.pyc
 Utils/__pycache__/plugin_parser.cpython-313.pyc
 Utils/__pycache__/plugins.cpython-313.pyc
 Utils/__pycache__/steam_finder.cpython-313.pyc
+Games/Oblivion/__pycache__/Oblivion.cpython-313.pyc
+.claude/settings.local.json
