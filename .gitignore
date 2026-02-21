@@ -1,0 +1,39 @@
+Games/__pycache__/__init__.cpython-313.pyc
+Games/__pycache__/base_game.cpython-313.pyc
+Games/Baldur's Gate 3/__pycache__/__init__.cpython-313.pyc
+Games/Baldur's Gate 3/__pycache__/baldurs_gate_3.cpython-313.pyc
+Games/Cyberpunk 2077/__pycache__/__init__.cpython-313.pyc
+Games/Cyberpunk 2077/__pycache__/cyberpunk_2077.cpython-313.pyc
+Games/Fallout 3/__pycache__/__init__.cpython-313.pyc
+Games/Fallout 3/__pycache__/Fallout_3.cpython-313.pyc
+Games/Fallout 4/__pycache__/__init__.cpython-313.pyc
+Games/Fallout 4/__pycache__/Fallout_4.cpython-313.pyc
+Games/Fallout New Vegas/__pycache__/__init__.cpython-313.pyc
+Games/Fallout New Vegas/__pycache__/Fallout_NV.cpython-313.pyc
+Games/Skyrim/__pycache__/__init__.cpython-313.pyc
+Games/Skyrim/__pycache__/skyrim.cpython-313.pyc
+Games/Skyrim Special Edition/__pycache__/skyrim_se.cpython-313.pyc
+Games/Subnautica/__pycache__/__init__.cpython-313.pyc
+Games/Subnautica/__pycache__/Subnautica.cpython-313.pyc
+Games/The Sims 4/__pycache__/__init__.cpython-313.pyc
+Games/The Sims 4/__pycache__/the_sims_4.cpython-313.pyc
+Games/The Witcher 3/__pycache__/__init__.cpython-313.pyc
+Games/The Witcher 3/__pycache__/witcher_3.cpython-313.pyc
+gui/__pycache__/__init__.cpython-313.pyc
+gui/__pycache__/add_game_dialog.cpython-313.pyc
+gui/__pycache__/downloads_panel.cpython-313.pyc
+gui/__pycache__/fomod_dialog.cpython-313.pyc
+LOOT/__pycache__/__init__.cpython-313.pyc
+LOOT/__pycache__/loot_sorter.cpython-313.pyc
+Utils/__pycache__/__init__.cpython-313.pyc
+Utils/__pycache__/config_paths.cpython-313.pyc
+Utils/__pycache__/deploy.cpython-313.pyc
+Utils/__pycache__/exe_args_builder.cpython-313.pyc
+Utils/__pycache__/filemap.cpython-313.pyc
+Utils/__pycache__/fomod_installer.cpython-313.pyc
+Utils/__pycache__/fomod_parser.cpython-313.pyc
+Utils/__pycache__/game_loader.cpython-313.pyc
+Utils/__pycache__/modlist.cpython-313.pyc
+Utils/__pycache__/plugin_parser.cpython-313.pyc
+Utils/__pycache__/plugins.cpython-313.pyc
+Utils/__pycache__/steam_finder.cpython-313.pyc
