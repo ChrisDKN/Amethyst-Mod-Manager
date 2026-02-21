@@ -1,13 +1,13 @@
-# Linux Mod Manager
+# Amethyst Mod Manager
 
 A universal mod organiser for Linux.
 
 ## Key Features
 
-- **Multi-game support** — The mod manager handles the staging of mods. Each game gets a script that handles the deployment of the staged mods, making it easy to add support for many games.
-- **FOMOD support** — Any mod that uses FOMOD for the install process will work.
+- **Mod Organiser like interface** - Designed to look and behave like Mod Organiser but on linux
+- **Multi-game support** — Support for many games
+- **FOMOD support** — Full Fomod support with last selections saved.
 - **LOOT support** — Plugins for games that use LOOT can be sorted using LOOT.
-- **MO2 backwards compatibility** — The staging uses a similar process to Mod Organiser 2, meaning you can transfer games from Mod Organiser 2 to here.
 
 ## Game Support and Status
 
@@ -29,7 +29,10 @@ A universal mod organiser for Linux.
 - Witcher 3
 - Cyberpunk 2077
 - The Sims 4
-- Baldur's Gate 3
+
+### Added but not working
+
+- Baldur's Gate 3 (Does not yet modify modsettings.lsx so will not currently work)
 
 ### Game Support to Add
 
@@ -101,5 +104,4 @@ As this is an early alpha build, the following needs testing:
 - Auto-detection of games installed by Heroic
 - Modlist.txt backup and restore function
 - Mod filters
-- Data tab search bar
 - A wizard to aid in the install of certain games (e.g. Fallout 3 downgrading and script extenders)

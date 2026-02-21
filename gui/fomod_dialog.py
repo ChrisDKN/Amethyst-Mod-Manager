@@ -68,7 +68,8 @@ class FomodDialog(ctk.CTkToplevel):
 
     def __init__(self, parent: ctk.CTk, config: ModuleConfig,
                  mod_root: str,
-                 installed_files: set[str] | None = None):
+                 installed_files: set[str] | None = None,
+                 saved_selections: dict[str, dict[str, list[str]]] | None = None):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title(f"FOMOD Installer — {config.name or 'Mod'}")
         self.geometry(f"{self.DIALOG_WIDTH}x{self.DIALOG_HEIGHT}")
@@ -81,6 +82,7 @@ class FomodDialog(ctk.CTkToplevel):
         self._installed     = installed_files or set()
         self._flag_state: dict[str, str] = {}
         self._all_selections: dict[str, dict[str, list[str]]] = {}
+        self._saved_selections = saved_selections or {}
         self._visible_steps: list[InstallStep] = []
         self._current_idx   = 0
         # Keeps {group_name: {"vars": ..., "type": group_type, "plugins": [Plugin, ...]}}
@@ -121,9 +123,50 @@ class FomodDialog(ctk.CTkToplevel):
         self.grid_rowconfigure(2, weight=0)
         self.grid_columnconfigure(0, weight=1)
 
+        self._create_indicator_images()
         self._build_title_bar()
         self._build_content_area()
         self._build_button_bar()
+
+    def _create_indicator_images(self):
+        """Pre-render radio and checkbox indicator images at a visible size."""
+        size = 18
+        accent = ACCENT
+        bg = BG_DEEP
+        border_col = BORDER
+
+        # --- Radio: off = empty circle, on = filled circle ---
+        radio_off = PilImage.new("RGBA", (size, size), (0, 0, 0, 0))
+        radio_on = PilImage.new("RGBA", (size, size), (0, 0, 0, 0))
+        from PIL import ImageDraw
+        d = ImageDraw.Draw(radio_off)
+        d.ellipse([1, 1, size - 2, size - 2], outline=border_col, width=2)
+        d = ImageDraw.Draw(radio_on)
+        d.ellipse([1, 1, size - 2, size - 2], outline=accent, width=2)
+        d.ellipse([4, 4, size - 5, size - 5], fill=accent)
+
+        # --- Check: off = empty box, on = filled box with check ---
+        check_off = PilImage.new("RGBA", (size, size), (0, 0, 0, 0))
+        check_on = PilImage.new("RGBA", (size, size), (0, 0, 0, 0))
+        d = ImageDraw.Draw(check_off)
+        d.rounded_rectangle([1, 1, size - 2, size - 2], radius=3, outline=border_col, width=2)
+        d = ImageDraw.Draw(check_on)
+        d.rounded_rectangle([1, 1, size - 2, size - 2], radius=3, fill=accent, outline=accent, width=2)
+        # Checkmark
+        d.line([(4, 9), (7, 13), (13, 5)], fill="white", width=2)
+
+        # Convert to tk PhotoImages (keep references to prevent GC)
+        self._radio_off = tk.PhotoImage(data=self._pil_to_png_bytes(radio_off))
+        self._radio_on = tk.PhotoImage(data=self._pil_to_png_bytes(radio_on))
+        self._check_off = tk.PhotoImage(data=self._pil_to_png_bytes(check_off))
+        self._check_on = tk.PhotoImage(data=self._pil_to_png_bytes(check_on))
+
+    @staticmethod
+    def _pil_to_png_bytes(img: PilImage.Image) -> bytes:
+        import io
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
 
     def _build_title_bar(self):
         bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
@@ -190,6 +233,11 @@ class FomodDialog(ctk.CTkToplevel):
         canvas.bind("<Button-4>", lambda e: canvas.yview("scroll", -1, "units"))
         canvas.bind("<Button-5>", lambda e: canvas.yview("scroll",  1, "units"))
 
+        # Bind scroll on the inner frame so all children inherit it
+        inner = self._options_scroll._parent_frame
+        inner.bind("<Button-4>", lambda e: canvas.yview("scroll", -1, "units"))
+        inner.bind("<Button-5>", lambda e: canvas.yview("scroll",  1, "units"))
+
     def _build_button_bar(self):
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=50)
         bar.grid(row=2, column=0, sticky="ew")
@@ -236,14 +284,30 @@ class FomodDialog(ctk.CTkToplevel):
         )
 
     def _load_step(self, idx: int):
+        # Freeze layout during bulk widget creation
+        inner = self._options_scroll._parent_frame
+        inner.grid_propagate(False)
+
         self._clear_options_panel()
         step = self._visible_steps[idx]
         self._group_widgets = {}
 
-        # Restore or compute default selections for this step
+        # Restore or compute default selections for this step.
+        # Priority: current session > saved from previous install > computed defaults.
+        # Saved selections are merged with auto-detected defaults so that newly
+        # installed mods still get their compatibility patches auto-selected.
         existing = self._all_selections.get(step.name)
         if existing is None:
-            existing = get_default_selections(step, self._flag_state, self._installed)
+            defaults = get_default_selections(step, self._flag_state, self._installed)
+            saved = self._saved_selections.get(step.name)
+            if saved is not None:
+                existing = dict(saved)
+                # Merge: add auto-detected defaults for groups where saved was empty
+                for group_name, default_plugins in defaults.items():
+                    if not existing.get(group_name) and default_plugins:
+                        existing[group_name] = default_plugins
+            else:
+                existing = defaults
 
         row_idx = 0
 
@@ -268,6 +332,9 @@ class FomodDialog(ctk.CTkToplevel):
             group_selections = existing.get(group.name, [])
             row_idx = self._render_group(group, row_idx, group_selections)
 
+        # Unfreeze and perform a single layout pass
+        inner.grid_propagate(True)
+
         self._update_progress()
 
         # Show description/image for first selected plugin in the step
@@ -277,16 +344,21 @@ class FomodDialog(ctk.CTkToplevel):
         else:
             self._clear_left_panel()
 
-        # Propagate scroll events from all child widgets to the canvas
-        self._bind_scroll_recursive(self._options_scroll)
+        # Bind scroll on all new children in one pass
+        self._bind_scroll_children()
 
-    def _bind_scroll_recursive(self, widget):
-        """Bind mouse-wheel events on *widget* and all descendants to scroll the options panel."""
+    def _bind_scroll_children(self):
+        """Bind mouse-wheel scroll on all current children of the options panel."""
         canvas = self._options_scroll._parent_canvas
-        widget.bind("<Button-4>", lambda e: canvas.yview("scroll", -1, "units"))
-        widget.bind("<Button-5>", lambda e: canvas.yview("scroll",  1, "units"))
-        for child in widget.winfo_children():
-            self._bind_scroll_recursive(child)
+        scroll_up = lambda e: canvas.yview("scroll", -1, "units")
+        scroll_dn = lambda e: canvas.yview("scroll",  1, "units")
+        # Use a stack instead of recursion for speed
+        stack = list(self._options_scroll.winfo_children())
+        while stack:
+            w = stack.pop()
+            w.bind("<Button-4>", scroll_up)
+            w.bind("<Button-5>", scroll_dn)
+            stack.extend(w.winfo_children())
 
     def _clear_options_panel(self):
         for widget in self._options_scroll.winfo_children():
@@ -314,6 +386,16 @@ class FomodDialog(ctk.CTkToplevel):
         gtype = group.group_type
         plugins = group.plugins
 
+        # Common style kwargs for lightweight tk radio/check widgets
+        _base_style = dict(
+            bg=BG_DEEP, fg=TEXT_MAIN, activebackground=BG_DEEP,
+            activeforeground=TEXT_MAIN, selectcolor=BG_DEEP,
+            font=FONT_NORMAL, bd=0, highlightthickness=0, anchor="w",
+            indicatoron=False, compound="left", padx=4, pady=2,
+        )
+        _radio_style = {**_base_style, "image": self._radio_off, "selectimage": self._radio_on}
+        _check_style = {**_base_style, "image": self._check_off, "selectimage": self._check_on}
+
         if gtype in ("SelectExactlyOne", "SelectAtMostOne"):
             # Radio buttons — one shared IntVar per group
             # Value -1 = nothing selected (allowed for SelectAtMostOne)
@@ -327,29 +409,27 @@ class FomodDialog(ctk.CTkToplevel):
 
             if gtype == "SelectAtMostOne":
                 # "None" option
-                rb = ctk.CTkRadioButton(
+                rb = tk.Radiobutton(
                     self._options_scroll,
-                    text="None",
-                    variable=radio_var, value=-1,
-                    font=FONT_NORMAL, text_color=TEXT_DIM,
-                    fg_color=ACCENT, hover_color=ACCENT_HOV,
-                    command=lambda: self._on_radio_change(group.name, radio_var, plugins)
+                    text=" None", variable=radio_var, value=-1,
+                    command=lambda: self._on_radio_change(group.name, radio_var, plugins),
+                    **{**_radio_style, "fg": TEXT_DIM},
                 )
                 rb.grid(row=row, column=0, sticky="w", padx=24, pady=2)
+                rb.bind("<Enter>", lambda _e: self._clear_left_panel())
                 row += 1
 
             for i, plugin in enumerate(plugins):
-                rb = ctk.CTkRadioButton(
+                rb = tk.Radiobutton(
                     self._options_scroll,
-                    text=plugin.name,
-                    variable=radio_var, value=i,
-                    font=FONT_NORMAL, text_color=TEXT_MAIN,
-                    fg_color=ACCENT, hover_color=ACCENT_HOV,
+                    text=f" {plugin.name}", variable=radio_var, value=i,
                     command=lambda p=plugin, v=radio_var: self._on_radio_change(
                         group.name, v, plugins
-                    )
+                    ),
+                    **_radio_style,
                 )
                 rb.grid(row=row, column=0, sticky="w", padx=24, pady=2)
+                rb.bind("<Enter>", lambda _e, p=plugin: self._update_description_and_image(p))
                 row += 1
 
             self._group_widgets[group.name] = {
@@ -363,17 +443,16 @@ class FomodDialog(ctk.CTkToplevel):
             check_vars: list[tk.BooleanVar] = []
             for plugin in plugins:
                 var = tk.BooleanVar(value=(plugin.name in selected_set))
-                cb = ctk.CTkCheckBox(
+                cb = tk.Checkbutton(
                     self._options_scroll,
-                    text=plugin.name,
-                    variable=var,
-                    font=FONT_NORMAL, text_color=TEXT_MAIN,
-                    fg_color=ACCENT, hover_color=ACCENT_HOV,
+                    text=f" {plugin.name}", variable=var,
                     command=lambda p=plugin, v=var: self._on_check_change(
                         group.name, p, v
-                    )
+                    ),
+                    **_check_style,
                 )
                 cb.grid(row=row, column=0, sticky="w", padx=24, pady=2)
+                cb.bind("<Enter>", lambda _e, p=plugin: self._update_description_and_image(p))
                 check_vars.append(var)
                 row += 1
 
@@ -386,12 +465,14 @@ class FomodDialog(ctk.CTkToplevel):
         elif gtype == "SelectAll":
             # Non-interactive — always selected
             for plugin in plugins:
-                ctk.CTkLabel(
+                lbl = tk.Label(
                     self._options_scroll,
                     text=f"  {plugin.name}",
-                    font=FONT_NORMAL, text_color=TEXT_DIM,
-                    fg_color="transparent", anchor="w"
-                ).grid(row=row, column=0, sticky="ew", padx=24, pady=2)
+                    bg=BG_DEEP, fg=TEXT_DIM, font=FONT_NORMAL,
+                    anchor="w",
+                )
+                lbl.grid(row=row, column=0, sticky="ew", padx=24, pady=2)
+                lbl.bind("<Enter>", lambda _e, p=plugin: self._update_description_and_image(p))
                 row += 1
 
             self._group_widgets[group.name] = {

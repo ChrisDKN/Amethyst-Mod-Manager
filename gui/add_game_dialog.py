@@ -518,10 +518,8 @@ class AddGameDialog(ctk.CTkToplevel):
         """Clear any custom staging path and revert to the default location."""
         self._custom_staging = None
         # Show the default path (bypassing any currently-saved custom path)
-        from pathlib import Path as _Path
-        default_path = (
-            _Path(__file__).parent.parent / "Profiles" / self._game.name / "mods"
-        )
+        from Utils.config_paths import get_profiles_dir
+        default_path = get_profiles_dir() / self._game.name / "mods"
         self._set_staging_text(str(default_path))
         self._staging_status_label.configure(
             text="Default location will be used.", text_color=TEXT_DIM

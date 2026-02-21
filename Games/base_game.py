@@ -182,7 +182,7 @@ class BaseGame(ABC):
         URL to download the LOOT masterlist YAML for this game.
         Only used when loot_sort_enabled is True.
         e.g. 'https://raw.githubusercontent.com/loot/skyrimse/v0.21/masterlist.yaml'
-        The masterlist is stored as ~/.config/ModManager/LOOT/data/masterlist_<game_id>.yaml.
+        The masterlist is stored as ~/.config/AmethystModManager/LOOT/data/masterlist_<game_id>.yaml.
         Return an empty string if no masterlist URL is known.
         """
         return ""
@@ -236,7 +236,7 @@ class BaseGame(ABC):
     def _paths_file(self) -> Path:
         """Path to this game's paths.json in the user config directory.
 
-        Resolves to: ~/.config/ModManager/games/<game_name>/paths.json
+        Resolves to: ~/.config/AmethystModManager/games/<game_name>/paths.json
 
         Stored outside the app bundle so it survives AppImage updates and
         works correctly when the AppImage filesystem is mounted read-only.

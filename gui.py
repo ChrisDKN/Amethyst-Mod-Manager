@@ -36,7 +36,7 @@ from Utils.plugins import (
 )
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
-from Utils.config_paths import get_exe_args_path
+from Utils.config_paths import get_exe_args_path, get_fomod_selections_path, get_profiles_dir
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -138,7 +138,7 @@ def _profiles_for_game(game_name: str) -> list[str]:
     if game is not None:
         profiles_dir = game.get_profile_root() / "profiles"
     else:
-        profiles_dir = Path(__file__).parent / "Profiles" / game_name / "profiles"
+        profiles_dir = get_profiles_dir() / game_name / "profiles"
     if not profiles_dir.is_dir():
         return ["default"]
     names = sorted(p.name for p in profiles_dir.iterdir() if p.is_dir())
@@ -155,7 +155,7 @@ def _create_profile(game_name: str, profile_name: str) -> Path:
     if game is not None:
         profiles_root = game.get_profile_root()
     else:
-        profiles_root = Path(__file__).parent / "Profiles" / game_name
+        profiles_root = get_profiles_dir() / game_name
     profile_dir = profiles_root / "profiles" / profile_name
     profile_dir.mkdir(parents=True, exist_ok=True)
     plugins = profile_dir / "plugins.txt"
@@ -2606,6 +2606,20 @@ class PluginPanel(ctk.CTkFrame):
             command=self._refresh_data_tab,
         ).pack(side="left", padx=8, pady=2)
 
+        self._data_search_var = tk.StringVar()
+        self._data_search_var.trace_add("write", self._on_data_search_changed)
+        search_entry = tk.Entry(
+            toolbar, textvariable=self._data_search_var,
+            bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            relief="flat", font=("Segoe UI", 10), width=30,
+        )
+        search_entry.pack(side="right", padx=8, pady=3)
+        search_entry.bind("<Escape>", lambda e: self._data_search_var.set(""))
+        tk.Label(
+            toolbar, text="Search:", bg=BG_HEADER, fg=TEXT_DIM,
+            font=("Segoe UI", 10),
+        ).pack(side="right")
+
         tree_frame = tk.Frame(tab, bg=BG_DEEP, bd=0)
         tree_frame.grid(row=1, column=0, sticky="nsew")
         tree_frame.grid_rowconfigure(0, weight=1)
@@ -2654,6 +2668,7 @@ class PluginPanel(ctk.CTkFrame):
     def _refresh_data_tab(self):
         """Reload the Data tab tree from filemap.txt."""
         self._data_tree.delete(*self._data_tree.get_children())
+        self._data_filemap_entries = []
         filemap_path_str = self._get_filemap_path()
         if filemap_path_str is None:
             self._data_tree.insert("", "end",
@@ -2664,23 +2679,33 @@ class PluginPanel(ctk.CTkFrame):
             self._data_tree.insert("", "end",
                 text="(filemap.txt not found)", values=("",))
             return
-        self._populate_data_tree(filemap_path)
+        self._data_filemap_entries = self._parse_filemap(filemap_path)
+        self._build_data_tree_from_entries(self._data_filemap_entries)
 
-    def _populate_data_tree(self, filemap_path: Path):
-        """Parse filemap.txt and build the tree hierarchy."""
-        # tree_dict maps folder names to sub-dicts; "__files__" holds list of (filename, mod)
-        tree_dict: dict = {}
+    @staticmethod
+    def _parse_filemap(filemap_path: Path):
+        """Parse filemap.txt and return a list of (rel_path, mod_name) tuples."""
+        entries = []
         with filemap_path.open(encoding="utf-8") as f:
             for line in f:
                 line = line.rstrip("\n")
                 if "\t" not in line:
                     continue
                 rel_path, mod_name = line.split("\t", 1)
-                parts = rel_path.replace("\\", "/").split("/")
-                node = tree_dict
-                for part in parts[:-1]:
-                    node = node.setdefault(part, {})
-                node.setdefault("__files__", []).append((parts[-1], mod_name))
+                entries.append((rel_path, mod_name))
+        return entries
+
+    def _build_data_tree_from_entries(self, entries):
+        """Build the tree hierarchy from a list of (rel_path, mod_name) entries."""
+        self._data_tree.delete(*self._data_tree.get_children())
+
+        tree_dict: dict = {}
+        for rel_path, mod_name in entries:
+            parts = rel_path.replace("\\", "/").split("/")
+            node = tree_dict
+            for part in parts[:-1]:
+                node = node.setdefault(part, {})
+            node.setdefault("__files__", []).append((parts[-1], mod_name))
 
         self._data_tree.tag_configure("folder", foreground="#56b6c2")
         self._data_tree.tag_configure("file",   foreground=TEXT_MAIN)
@@ -2704,6 +2729,30 @@ class PluginPanel(ctk.CTkFrame):
         for fname, mod in sorted(tree_dict.get("__files__", [])):
             self._data_tree.insert("", "end",
                 text=fname, values=(mod,), tags=("file",))
+
+    def _on_data_search_changed(self, *_):
+        """Filter the Data tree based on the search query."""
+        query = self._data_search_var.get().casefold()
+        if not hasattr(self, "_data_filemap_entries") or not self._data_filemap_entries:
+            return
+        if not query:
+            self._build_data_tree_from_entries(self._data_filemap_entries)
+            return
+        filtered = [
+            (rel_path, mod_name)
+            for rel_path, mod_name in self._data_filemap_entries
+            if query in rel_path.casefold() or query in mod_name.casefold()
+        ]
+        self._build_data_tree_from_entries(filtered)
+        # Expand all nodes so filtered results are visible
+        for item in self._data_tree.get_children():
+            self._expand_all(item)
+
+    def _expand_all(self, item):
+        """Recursively expand a treeview item and all its children."""
+        self._data_tree.item(item, open=True)
+        for child in self._data_tree.get_children(item):
+            self._expand_all(child)
 
     def _build_downloads_tab(self):
         tab = self._tabs.tab("Downloads")
@@ -3899,7 +3948,7 @@ class TopBar(ctk.CTkFrame):
         if game is not None:
             profile_dir = game.get_profile_root() / "profiles" / profile
         else:
-            profile_dir = Path(__file__).parent / "Profiles" / game_name / "profiles" / profile
+            profile_dir = get_profiles_dir() / game_name / "profiles" / profile
         if profile_dir.is_dir():
             shutil.rmtree(profile_dir)
         self._log(f"Profile '{profile}' removed.")
@@ -5582,18 +5631,6 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
     suggestions = _suggest_mod_names(raw_stem)
     mod_name = suggestions[0] if suggestions else raw_stem
 
-    # --- Check for existing mod folder ---
-    dest_root = game.get_mod_staging_path() / mod_name
-    replace_selected_only = False
-    if dest_root.exists():
-        replace_dialog = _ReplaceModDialog(parent_window, mod_name)
-        parent_window.wait_window(replace_dialog)
-        if replace_dialog.result == "cancel":
-            log_fn(f"Install cancelled — '{mod_name}' already exists.")
-            return
-        if replace_dialog.result == "selected":
-            replace_selected_only = True
-
     extract_dir = tempfile.mkdtemp(prefix="modmgr_")
 
     try:
@@ -5630,18 +5667,69 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             mod_root, config_path = fomod_result
             log_fn("FOMOD installer detected — opening wizard...")
             config = parse_module_config(config_path)
-            dialog = FomodDialog(parent_window, config, mod_root)
+
+            # Build set of installed/active plugin filenames for dependency checks.
+            # Lowercased for case-insensitive matching (FOMOD is Windows-native).
+            installed_files: set[str] = set()
+            if mod_panel is not None and mod_panel._modlist_path is not None:
+                plugins_path = mod_panel._modlist_path.parent / "plugins.txt"
+                if plugins_path.is_file():
+                    for entry in read_plugins(plugins_path):
+                        if entry.enabled:
+                            installed_files.add(entry.name.lower())
+
+            # Load saved FOMOD selections from a previous install
+            saved_selections = None
+            game_name = getattr(game, "name", "")
+            if game_name:
+                sel_path = get_fomod_selections_path(game_name, mod_name)
+                if sel_path.is_file():
+                    try:
+                        with open(sel_path, "r", encoding="utf-8") as f:
+                            saved_selections = json.load(f)
+                        log_fn("Restored previous FOMOD selections.")
+                    except Exception:
+                        saved_selections = None
+
+            dialog = FomodDialog(parent_window, config, mod_root,
+                                 installed_files=installed_files,
+                                 saved_selections=saved_selections)
             parent_window.wait_window(dialog)
             if dialog.result is None:
                 log_fn("FOMOD install cancelled.")
                 return
-            file_list = resolve_files(config, dialog.result)
+
+            # Save FOMOD selections for future reinstalls
+            if game_name:
+                sel_path = get_fomod_selections_path(game_name, mod_name)
+                try:
+                    with open(sel_path, "w", encoding="utf-8") as f:
+                        json.dump(dialog.result, f, indent=2)
+                except Exception:
+                    pass
+
+            file_list = resolve_files(config, dialog.result, installed_files)
             log_fn(f"FOMOD complete — {len(file_list)} file(s) to install.")
         else:
             # Direct install: copy everything from the archive root
             mod_root = extract_dir
             file_list = _resolve_direct_files(extract_dir)
             log_fn(f"Direct install — {len(file_list)} file(s) to install.")
+
+        # --- Check for existing mod folder ---
+        dest_root = game.get_mod_staging_path() / mod_name
+        replace_selected_only = False
+        replace_all = False
+        if dest_root.exists():
+            replace_dialog = _ReplaceModDialog(parent_window, mod_name)
+            parent_window.wait_window(replace_dialog)
+            if replace_dialog.result == "cancel":
+                log_fn(f"Install cancelled — '{mod_name}' already exists.")
+                return
+            if replace_dialog.result == "selected":
+                replace_selected_only = True
+            elif replace_dialog.result == "all":
+                replace_all = True
 
         # --- If replacing selected files only, show picker now ---
         if replace_selected_only:
@@ -5695,6 +5783,9 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
         # --- Copy into staging area ---
         dest_root = game.get_mod_staging_path() / mod_name
+        if replace_all and dest_root.exists():
+            shutil.rmtree(dest_root)
+            log_fn(f"Cleared existing mod folder for clean reinstall.")
         _copy_file_list(file_list, mod_root, dest_root, log_fn)
         log_fn(f"Installed '{mod_name}' → {dest_root}")
 
@@ -5726,7 +5817,9 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             mod_panel.reload_after_install()
 
     except Exception as e:
+        import traceback
         log_fn(f"Install error: {e}")
+        log_fn(traceback.format_exc())
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
 
@@ -5868,7 +5961,7 @@ class StatusBar(ctk.CTkFrame):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__(fg_color=BG_DEEP)
-        self.title("Linux Mod Manager")
+        self.title("Amethyst Mod Manager")
         self.geometry("1400x820")
         self.minsize(900, 600)
         self._build_layout()

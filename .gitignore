@@ -41,3 +41,5 @@ Utils/__pycache__/plugins.cpython-313.pyc
 Utils/__pycache__/steam_finder.cpython-313.pyc
 Games/Oblivion/__pycache__/Oblivion.cpython-313.pyc
 .claude/settings.local.json
+appimage/AppRun
+appimage/mod-manager.desktop

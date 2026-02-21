@@ -15,10 +15,10 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
+from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent
-_PROFILES_DIR = _PROJECT_ROOT / "Profiles"
+_PROFILES_DIR = get_profiles_dir()
 
 
 class Oblivion(BaseGame):

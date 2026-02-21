@@ -1,6 +1,6 @@
 """
 exe_args_builder.py
-Auto-populate ~/.config/ModManager/exe_args.json with sensible default argument prefixes
+Auto-populate ~/.config/AmethystModManager/exe_args.json with sensible default argument prefixes
 whenever a known tool executable is detected.
 
 Rules:

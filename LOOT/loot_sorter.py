@@ -14,7 +14,7 @@ Game support is driven by the game handler's properties:
   - loot_game_type: str     — libloot GameType attribute name (e.g. 'SkyrimSE')
   - loot_masterlist_url: str — URL to download the masterlist YAML
   - game_id: str            — used to derive the masterlist filename
-                              (masterlist_<game_id>.yaml in ~/.config/ModManager/LOOT/data/)
+                              (masterlist_<game_id>.yaml in ~/.config/AmethystModManager/LOOT/data/)
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ except ImportError:
 # Bundled masterlists shipped with the application (read-only in AppImage)
 _BUNDLED_DATA_DIR = Path(__file__).parent / "data"
 
-# User-writable masterlist directory in ~/.config/ModManager/LOOT/data/
+# User-writable masterlist directory in ~/.config/AmethystModManager/LOOT/data/
 from Utils.config_paths import get_loot_data_dir  # noqa: E402
 _DATA_DIR = get_loot_data_dir()
 
@@ -174,7 +174,7 @@ def sort_plugins(
         game_type_attr: libloot GameType attribute name (e.g. 'SkyrimSE').
                         Obtained from game.loot_game_type.
         game_id: Game ID used to locate the masterlist file
-                 (~/.config/ModManager/LOOT/data/masterlist_<game_id>.yaml).
+                 (~/.config/AmethystModManager/LOOT/data/masterlist_<game_id>.yaml).
                  Obtained from game.game_id.
 
     Returns:
