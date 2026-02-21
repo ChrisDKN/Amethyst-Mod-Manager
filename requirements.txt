@@ -1,0 +1,3 @@
+customtkinter
+py7zr
+Pillow
