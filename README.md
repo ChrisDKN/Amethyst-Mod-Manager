@@ -20,7 +20,9 @@ A universal mod organiser for Linux.
 - Fallout 3 GOTY  
   _Fallout 3 and GOTY need downgrading to work; a wizard will be added to help with this._
 - Fallout New Vegas
+- Oblivion
 - Subnautica
+- TCG Card Shop Simulator
 
 ### Added but Needs Testing
 
@@ -32,13 +34,11 @@ A universal mod organiser for Linux.
 ### Game Support to Add
 
 - Skyrim VR
-- Oblivion
 - Oblivion Remastered
 - Morrowind
 - Starfield
 - Hogwarts Legacy
 - KCD2
-- TCG Card Shop Simulator
 - And more
 
 ## Supporting Applications
