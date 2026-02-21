@@ -7,7 +7,7 @@ No UI, no file I/O. All functions are pure.
 from __future__ import annotations
 
 from Utils.fomod_parser import (
-    Dependency, FileInstall, Group, InstallStep,
+    ConditionalInstallPattern, Dependency, FileInstall, Group, InstallStep,
     ModuleConfig, Plugin, TypeDescriptor,
 )
 
@@ -38,7 +38,8 @@ def evaluate_dependency(dep: Dependency, flag_state: dict[str, str],
         return flag_state.get(dep.flag_name, "") == dep.flag_value
 
     if dep.dep_type == "file":
-        present = dep.file_name in installed_files
+        # Case-insensitive — FOMOD was designed for Windows
+        present = dep.file_name.lower() in installed_files
         if dep.file_state == "Active":
             return present
         # "Inactive" and "Missing" both mean the file should NOT be present
@@ -185,15 +186,18 @@ def update_flags(step: InstallStep, selections: dict[str, list[str]],
 # ---------------------------------------------------------------------------
 
 def resolve_files(config: ModuleConfig,
-                  all_selections: dict[str, dict[str, list[str]]]) -> list[tuple[str, str, bool]]:
+                  all_selections: dict[str, dict[str, list[str]]],
+                  installed_files: set[str] | None = None) -> list[tuple[str, str, bool]]:
     """
-    Build the final file install list from required files + user selections.
+    Build the final file install list from required files + user selections
+    + conditional file installs.
 
     all_selections: {step_name: {group_name: [plugin_name, ...]}}
     Returns list of (source_path, destination_path, is_folder) tuples with OS-normalized paths.
     Required files are always included first.
     """
     result: list[tuple[str, str, bool]] = []
+    inst_files = installed_files or set()
 
     # Always-install files
     for fi in config.required_files:
@@ -201,6 +205,9 @@ def resolve_files(config: ModuleConfig,
 
     # Selected plugin files — collect with priority for sorting
     prioritized: list[tuple[int, str, str, bool]] = []
+
+    # Build final flag state by replaying all steps in order
+    flag_state: dict[str, str] = {}
     for step in config.steps:
         step_selections = all_selections.get(step.name, {})
         for group in step.groups:
@@ -210,6 +217,14 @@ def resolve_files(config: ModuleConfig,
                     for fi in plugin.files:
                         prioritized.append((fi.priority, fi.source_path,
                                             fi.destination_path, fi.is_folder))
+                    flag_state.update(plugin.condition_flags)
+
+    # Conditional file installs — evaluate each pattern against final flag state
+    for pattern in config.conditional_file_installs:
+        if evaluate_dependency(pattern.dependency, flag_state, inst_files):
+            for fi in pattern.files:
+                prioritized.append((fi.priority, fi.source_path,
+                                    fi.destination_path, fi.is_folder))
 
     # Sort by priority (lower number = install first)
     prioritized.sort(key=lambda x: x[0])

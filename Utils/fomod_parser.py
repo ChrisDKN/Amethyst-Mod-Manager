@@ -100,12 +100,20 @@ class InstallStep:
 
 
 @dataclass
+class ConditionalInstallPattern:
+    """A single pattern inside <conditionalFileInstalls>."""
+    dependency: Dependency = field(default_factory=lambda: Dependency(dep_type="composite"))
+    files: list[FileInstall] = field(default_factory=list)
+
+
+@dataclass
 class ModuleConfig:
     """Top-level parsed FOMOD configuration."""
     name: str = ""
     module_image_path: str = ""
     steps: list[InstallStep] = field(default_factory=list)
     required_files: list[FileInstall] = field(default_factory=list)
+    conditional_file_installs: list[ConditionalInstallPattern] = field(default_factory=list)
 
 
 @dataclass
@@ -392,6 +400,21 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
     if steps_el is not None:
         for step_el in _findall(steps_el, "installStep"):
             config.steps.append(_parse_install_step(step_el))
+
+    # Conditional file installs
+    cfi_el = _find(root, "conditionalFileInstalls")
+    if cfi_el is not None:
+        patterns_el = _find(cfi_el, "patterns")
+        if patterns_el is not None:
+            for pattern_el in _findall(patterns_el, "pattern"):
+                dep_el = _find(pattern_el, "dependencies")
+                files_el = _find(pattern_el, "files")
+                pattern = ConditionalInstallPattern()
+                if dep_el is not None:
+                    pattern.dependency = _parse_dependency(dep_el)
+                if files_el is not None:
+                    pattern.files = _parse_files(files_el)
+                config.conditional_file_installs.append(pattern)
 
     return config
 
