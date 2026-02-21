@@ -20,20 +20,15 @@ Game support is driven by the game handler's properties:
 from __future__ import annotations
 
 import shutil
-import sys
 import urllib.request
 from pathlib import Path
 from dataclasses import dataclass
 
-# Add the bundled libloot module to the import path
-_LIB_DIR = Path(__file__).parent / "lib"
-if str(_LIB_DIR) not in sys.path:
-    sys.path.insert(0, str(_LIB_DIR))
-
 try:
-    import loot
+    import LOOT.loot as loot
     _AVAILABLE = True
 except ImportError:
+    loot = None
     _AVAILABLE = False
 
 # Bundled masterlists shipped with the application (read-only in AppImage)
