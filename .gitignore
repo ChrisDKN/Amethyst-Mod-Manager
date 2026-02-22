@@ -3738,3 +3738,5 @@ appimage/build/AmethystModManager.AppDir/usr/share/tcltk/tk8.6/ttk/utils.tcl
 appimage/build/AmethystModManager.AppDir/usr/share/tcltk/tk8.6/ttk/vistaTheme.tcl
 appimage/build/AmethystModManager.AppDir/usr/share/tcltk/tk8.6/ttk/winTheme.tcl
 appimage/build/AmethystModManager.AppDir/usr/share/tcltk/tk8.6/ttk/xpTheme.tcl
+Utils/__pycache__/modsettings.cpython-313.pyc
+Utils/__pycache__/pak_reader.cpython-313.pyc
