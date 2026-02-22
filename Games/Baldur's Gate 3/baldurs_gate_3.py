@@ -9,6 +9,11 @@ Mod structure:
 
   Only .pak files are deployed — other files (readmes, images, etc.) are
   excluded from the filemap automatically via mod_install_extensions.
+
+  After deploying .pak files, modsettings.lsx is generated automatically so
+  BG3 recognises the installed mods.  Mod load order follows the modlist
+  priority, with dependencies topologically sorted to appear before the
+  mods that require them.
 """
 
 import json
@@ -17,6 +22,7 @@ from pathlib import Path
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode, deploy_filemap, deploy_core, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
+from Utils.modsettings import write_modsettings, write_vanilla_modsettings
 from Utils.steam_finder import find_prefix
 
 _PROFILES_DIR = get_profiles_dir()
@@ -24,6 +30,12 @@ _PROFILES_DIR = get_profiles_dir()
 # Path inside the Proton prefix where BG3 reads mods from
 _MODS_SUBPATH = Path(
     "drive_c/users/steamuser/AppData/Local/Larian Studios/Baldur's Gate 3/Mods"
+)
+
+# Path inside the Proton prefix where BG3 reads modsettings.lsx
+_MODSETTINGS_SUBPATH = Path(
+    "drive_c/users/steamuser/AppData/Local/Larian Studios"
+    "/Baldur's Gate 3/PlayerProfiles/Public/modsettings.lsx"
 )
 
 
@@ -50,7 +62,7 @@ class BaldursGate3(BaseGame):
 
     @property
     def exe_name(self) -> str:
-        return "bg3.exe"
+        return "bin/bg3.exe"
 
     @property
     def steam_id(self) -> str:
@@ -186,6 +198,7 @@ class BaldursGate3(BaseGame):
           2. Hard-link every .pak listed in filemap.txt into the Mods folder
           3. Hard-link vanilla .pak files from Mods_Core/ for anything not
              provided by a mod
+          4. Generate modsettings.lsx so BG3 recognises the installed mods
         (Root Folder deployment is handled by the GUI after this returns.)
         """
         _log = log_fn or (lambda _: None)
@@ -196,6 +209,7 @@ class BaldursGate3(BaseGame):
         mods_dir = self._prefix_path / _MODS_SUBPATH
         filemap  = self.get_profile_root() / "filemap.txt"
         staging  = self.get_mod_staging_path()
+        modlist  = self.get_profile_root() / "profiles" / profile / "modlist.txt"
 
         mods_dir.mkdir(parents=True, exist_ok=True)
 
@@ -221,10 +235,16 @@ class BaldursGate3(BaseGame):
         linked_core = deploy_core(mods_dir, placed, mode=mode, log_fn=_log)
         _log(f"  Transferred {linked_core} vanilla file(s).")
 
+        _log("Step 4: Generating modsettings.lsx ...")
+        modsettings = self._prefix_path / _MODSETTINGS_SUBPATH
+        mod_count = write_modsettings(modsettings, modlist, staging,
+                                      log_fn=_log)
+
         _log(
             f"Deploy complete. "
             f"{linked_mod} mod + {linked_core} vanilla "
-            f"= {linked_mod + linked_core} total file(s) in Mods/."
+            f"= {linked_mod + linked_core} total file(s) in Mods/. "
+            f"modsettings.lsx written with {mod_count} mod(s)."
         )
 
     def restore(self, log_fn=None) -> None:
@@ -239,5 +259,9 @@ class BaldursGate3(BaseGame):
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
         restored = restore_data_core(mods_dir, log_fn=_log)
         _log(f"  Restored {restored} file(s). Mods_Core/ removed.")
+
+        _log("Restore: resetting modsettings.lsx to vanilla ...")
+        modsettings = self._prefix_path / _MODSETTINGS_SUBPATH
+        write_vanilla_modsettings(modsettings, log_fn=_log)
 
         _log("Restore complete.")
