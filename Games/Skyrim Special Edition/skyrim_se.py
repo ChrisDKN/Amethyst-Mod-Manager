@@ -53,6 +53,10 @@ class SkyrimSE(BaseGame):
         return "489830"
 
     @property
+    def nexus_game_domain(self) -> str:
+        return "skyrimspecialedition"
+
+    @property
     def loot_sort_enabled(self) -> bool:
         return True
 
@@ -89,6 +93,9 @@ class SkyrimSE(BaseGame):
     def load_paths(self) -> bool:
         self._migrate_old_config()
         if not self._paths_file.exists():
+            self._game_path = None
+            self._prefix_path = None
+            self._staging_path = None
             return False
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))

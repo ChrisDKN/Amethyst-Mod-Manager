@@ -48,10 +48,18 @@ class Subnautica(BaseGame):
     @property
     def steam_id(self) -> str:
         return "264710"
-    
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "subnautica"
+
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"plugins", "bepinex"}
+    
+    @property
+    def mods_dir(self) -> str:
+        return "BepInEx/Plugins"
     
     @property
     def plugin_extensions(self) -> list[str]:
@@ -80,7 +88,7 @@ class Subnautica(BaseGame):
         """Mods go into BepInEx/Plugins/ inside the game directory."""
         if self._game_path is None:
             return None
-        return self._game_path / "BepInEx" / "plugins"
+        return self._game_path / self.mods_dir
 
     def get_mod_staging_path(self) -> Path:
         if self._staging_path is not None:
@@ -94,6 +102,9 @@ class Subnautica(BaseGame):
     def load_paths(self) -> bool:
         self._migrate_old_config()
         if not self._paths_file.exists():
+            self._game_path = None
+            self._prefix_path = None
+            self._staging_path = None
             return False
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))
@@ -181,9 +192,10 @@ class Subnautica(BaseGame):
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
 
-        plugins_dir = self._game_path / "BepInEx" / "plugins"
+        plugins_dir = self._game_path / self.mods_dir
         filemap     = self.get_profile_root() / "filemap.txt"
         staging     = self.get_mod_staging_path()
+        core        = self.mods_dir + "_Core"
 
         plugins_dir.mkdir(parents=True, exist_ok=True)
         if not filemap.is_file():
@@ -192,11 +204,11 @@ class Subnautica(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
-        _log("Step 1: Moving BepInEx/plugins/ → plugins_Core/ ...")
+        _log(f"Step 1: Moving {plugins_dir.name}/ → {core}/ ...")
         moved = move_to_core(plugins_dir, log_fn=_log)
-        _log(f"  Moved {moved} file(s) to plugins_Core/.")
+        _log(f"  Moved {moved} file(s) to {core}/.")
 
-        _log(f"Step 2: Transferring mod files into plugins/ ({mode.name}) ...")
+        _log(f"Step 2: Transferring mod files into {plugins_dir} ({mode.name}) ...")
         linked_mod, placed = deploy_filemap(filemap, plugins_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
@@ -204,14 +216,14 @@ class Subnautica(BaseGame):
                                             progress_fn=progress_fn)
         _log(f"  Transferred {linked_mod} mod file(s).")
 
-        _log("Step 3: Filling gaps with vanilla files from plugins_Core/ ...")
+        _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")
         linked_core = deploy_core(plugins_dir, placed, mode=mode, log_fn=_log)
         _log(f"  Transferred {linked_core} vanilla file(s).")
 
         _log(
             f"Deploy complete. "
             f"{linked_mod} mod + {linked_core} vanilla "
-            f"= {linked_mod + linked_core} total file(s) in Plugins/."
+            f"= {linked_mod + linked_core} total file(s) in {plugins_dir.name}/."
         )
 
     def restore(self, log_fn=None) -> None:
@@ -221,18 +233,19 @@ class Subnautica(BaseGame):
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
 
-        plugins_dir = self._game_path / "BepInEx" / "plugins"
-
-        core_dir = plugins_dir.parent / "plugins_Core"
+        plugins_dir = self._game_path / self.mods_dir
+        core = self.mods_dir + "_Core"
+        core_dir = self._game_path / core
+        
         if core_dir.is_dir():
-            _log("Restore: clearing plugins/ and moving plugins_Core/ back ...")
+            _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")
             restored = restore_data_core(plugins_dir, core_dir=core_dir, log_fn=_log)
-            _log(f"  Restored {restored} file(s). plugins_Core/ removed.")
+            _log(f"  Restored {restored} file(s). {core}/ removed.")
         elif plugins_dir.is_dir():
-            _log("Restore: no plugins_Core/ found — clearing plugins/ ...")
+            _log(f"Restore: no {core}/ found — clearing {plugins_dir.name}/ ...")
             from Utils.deploy import _clear_dir
             removed = _clear_dir(plugins_dir)
-            _log(f"  Removed {removed} file(s) from plugins/.")
+            _log(f"  Removed {removed} file(s) from {plugins_dir.name}/.")
 
         _log("Restore complete.")
         
@@ -254,6 +267,11 @@ class Subnautica_Below_Zero(Subnautica):
     def steam_id(self) -> str:
         return "848450"
 
+    @property
+    def nexus_game_domain(self) -> str:
+        return "subnauticabelowzero"
+
+
 class TCG_Card_Shop_Simulator(Subnautica):
     
     @property
@@ -272,6 +290,10 @@ class TCG_Card_Shop_Simulator(Subnautica):
     def steam_id(self) -> str:
         return "3070070"
 
+    @property
+    def nexus_game_domain(self) -> str:
+        return "tcgcardshopsimulator"
+
 class Valhein(Subnautica):
     
     @property
@@ -289,7 +311,11 @@ class Valhein(Subnautica):
     @property
     def steam_id(self) -> str:
         return "892970"
-    
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "valheim"
+
 class Lethal_Company(Subnautica):
     
     @property
@@ -307,4 +333,8 @@ class Lethal_Company(Subnautica):
     @property
     def steam_id(self) -> str:
         return "1966720"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "lethalcompany"
         

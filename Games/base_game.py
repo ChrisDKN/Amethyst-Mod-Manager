@@ -133,6 +133,26 @@ class BaseGame(ABC):
         """
         return ""
 
+    @property
+    def heroic_app_names(self) -> list[str]:
+        """
+        Heroic Games Launcher app identifiers for this game.
+
+        Used as a fallback when the game is not found in Steam libraries.
+        Heroic uses different identifiers per store:
+          - Epic Games: the 'appName' string from the Epic catalogue
+            e.g. 'Pewee' for Cyberpunk 2077
+          - GOG: the numeric product ID as a string, or the exact game title
+            e.g. '1207658924' or 'The Witcher 3: Wild Hunt'
+
+        List multiple values if the game may appear under different IDs or
+        across stores, e.g. ['Pewee', '1207658924'].
+
+        Return an empty list (the default) to disable Heroic detection for
+        this game.
+        """
+        return []
+
     def get_prefix_path(self) -> Path | None:
         """
         Return the saved Proton prefix path (the pfx/ directory) for this game,
@@ -184,6 +204,16 @@ class BaseGame(ABC):
         e.g. 'https://raw.githubusercontent.com/loot/skyrimse/v0.21/masterlist.yaml'
         The masterlist is stored as ~/.config/AmethystModManager/LOOT/data/masterlist_<game_id>.yaml.
         Return an empty string if no masterlist URL is known.
+        """
+        return ""
+
+    @property
+    def nexus_game_domain(self) -> str:
+        """
+        Nexus Mods game domain name used for API requests.
+        e.g. 'skyrimspecialedition', 'cyberpunk2077', 'baldursgate3'
+        This is the subdomain used in URLs like nexusmods.com/<domain>/mods/...
+        Return an empty string to disable Nexus integration for this game.
         """
         return ""
 

@@ -3740,3 +3740,24 @@ appimage/build/AmethystModManager.AppDir/usr/share/tcltk/tk8.6/ttk/winTheme.tcl
 appimage/build/AmethystModManager.AppDir/usr/share/tcltk/tk8.6/ttk/xpTheme.tcl
 Utils/__pycache__/modsettings.cpython-313.pyc
 Utils/__pycache__/pak_reader.cpython-313.pyc
+Games/Bethesda/__pycache__/Bethesda.cpython-313.pyc
+Games/Bethesda/__pycache__/__init__.cpython-313.pyc
+Games/BepInEx/__pycache__/BepInEx.cpython-313.pyc
+Games/Bethesda/__pycache__/Fallout_3.cpython-313.pyc
+gui/__pycache__/browse_mods_panel.cpython-313.pyc
+gui/__pycache__/endorsed_mods_panel.cpython-313.pyc
+gui/__pycache__/nexus_settings_dialog.cpython-313.pyc
+gui/__pycache__/tracked_mods_panel.cpython-313.pyc
+Nexus/__pycache__/__init__.cpython-313.pyc
+Nexus/__pycache__/nexus_api.cpython-313.pyc
+Nexus/__pycache__/nexus_download.cpython-313.pyc
+Nexus/__pycache__/nexus_meta.cpython-313.pyc
+Nexus/__pycache__/nexus_requirements.cpython-313.pyc
+Nexus/__pycache__/nexus_update_checker.cpython-313.pyc
+Nexus/__pycache__/nxm_handler.cpython-313.pyc
+Utils/__pycache__/heroic_finder.cpython-313.pyc
+Games/Stardew Valley/__pycache__/Stardew Valley.cpython-313.pyc
+.vscode/settings.json
+
+Games/Oblivion/__pycache__/__init__.cpython-313.pyc
+Games/Oblivion/__pycache__/__init__.cpython-313.pyc

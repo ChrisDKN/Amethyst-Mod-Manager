@@ -46,6 +46,14 @@ class Cyberpunk2077(BaseGame):
     @property
     def steam_id(self) -> str:
         return "1091500"
+    
+    @property
+    def heroic_app_names(self) -> list[str]:
+        return ["Pewee"]  # Epic appName for Cyberpunk 2077
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "cyberpunk2077"
 
     @property
     def mod_required_top_level_folders(self) -> set[str]:
@@ -90,6 +98,9 @@ class Cyberpunk2077(BaseGame):
     def load_paths(self) -> bool:
         self._migrate_old_config()
         if not self._paths_file.exists():
+            self._game_path = None
+            self._prefix_path = None
+            self._staging_path = None
             return False
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))

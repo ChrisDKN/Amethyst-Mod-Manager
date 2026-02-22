@@ -20,6 +20,7 @@ import tkinter as tk
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode
 from Utils.steam_finder import find_steam_libraries, find_game_in_libraries, find_prefix
+from Utils.heroic_finder import find_heroic_game, find_heroic_prefix
 
 # ---------------------------------------------------------------------------
 # Colors / fonts (kept in sync with gui.py)
@@ -94,6 +95,8 @@ class AddGameDialog(ctk.CTkToplevel):
                 self._set_prefix(existing_pfx, status="configured")
             elif game.steam_id:
                 self._start_prefix_scan()
+            elif game.heroic_app_names:
+                self._start_heroic_prefix_scan()
             if hasattr(game, "get_deploy_mode"):
                 mode = game.get_deploy_mode()
                 self._deploy_mode_var.set({
@@ -179,11 +182,12 @@ class AddGameDialog(ctk.CTkToplevel):
             font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
         ).grid(row=5, column=0, sticky="ew", padx=16, pady=(8, 2))
 
+        _has_prefix_source = bool(self._game.steam_id or self._game.heroic_app_names)
         self._prefix_status_label = ctk.CTkLabel(
             body,
-            text="Scanning for prefix…" if self._game.steam_id else "No Steam ID — prefix not applicable.",
+            text="Scanning for prefix…" if _has_prefix_source else "No launcher ID — prefix not applicable.",
             font=FONT_NORMAL,
-            text_color=TEXT_WARN if self._game.steam_id else TEXT_DIM,
+            text_color=TEXT_WARN if _has_prefix_source else TEXT_DIM,
             anchor="w"
         )
         self._prefix_status_label.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 4))
@@ -199,7 +203,7 @@ class AddGameDialog(ctk.CTkToplevel):
             body, text="Browse manually…", width=160, height=28,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse_prefix,
-            state="normal" if self._game.steam_id else "disabled"
+            state="normal" if _has_prefix_source else "disabled"
         )
         self._prefix_browse_btn.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 8))
 
@@ -314,15 +318,20 @@ class AddGameDialog(ctk.CTkToplevel):
     def _scan_worker(self):
         libraries = find_steam_libraries()
         found = find_game_in_libraries(libraries, self._game.exe_name)
+        source = "steam"
+        if not found and self._game.heroic_app_names:
+            found = find_heroic_game(self._game.heroic_app_names)
+            if found:
+                source = "heroic"
         # Marshal result back to the main thread
-        self.after(0, lambda: self._on_scan_complete(found))
+        self.after(0, lambda: self._on_scan_complete(found, source))
 
-    def _on_scan_complete(self, found: Optional[Path]):
+    def _on_scan_complete(self, found: Optional[Path], source: str = "steam"):
         if found:
-            self._set_path(found, status="found")
+            self._set_path(found, status="found", source=source)
         else:
             self._status_label.configure(
-                text="Not found in Steam libraries. Browse manually to locate the game folder.",
+                text="Not found automatically. Browse manually to locate the game folder.",
                 text_color=TEXT_ERR
             )
             self._set_path_text("")
@@ -331,6 +340,8 @@ class AddGameDialog(ctk.CTkToplevel):
         # Kick off prefix scan regardless (game path scan result doesn't affect it)
         if self._game.steam_id:
             self._start_prefix_scan()
+        elif self._game.heroic_app_names:
+            self._start_heroic_prefix_scan()
 
     # ------------------------------------------------------------------
     # Prefix scan (runs in background thread)
@@ -353,7 +364,37 @@ class AddGameDialog(ctk.CTkToplevel):
             self._set_prefix(found, status="found")
         else:
             self._prefix_status_label.configure(
-                text="Prefix not found automatically. Browse manually if needed.",
+                text="Prefix not found automatically. Not needed if game is Linux native",
+                text_color=TEXT_WARN
+            )
+
+    # ------------------------------------------------------------------
+    # Heroic prefix scan (runs in background thread)
+    # ------------------------------------------------------------------
+
+    def _start_heroic_prefix_scan(self):
+        self._prefix_status_label.configure(
+            text="Scanning for Heroic Wine prefix…", text_color=TEXT_WARN
+        )
+        self._set_prefix_text("")
+        thread = threading.Thread(target=self._heroic_prefix_scan_worker, daemon=True)
+        thread.start()
+
+    def _heroic_prefix_scan_worker(self):
+        found = find_heroic_prefix(self._game.heroic_app_names)
+        self.after(0, lambda: self._on_heroic_prefix_scan_complete(found))
+
+    def _on_heroic_prefix_scan_complete(self, found: Optional[Path]):
+        if found:
+            self._found_prefix = found
+            self._set_prefix_text(str(found))
+            self._prefix_status_label.configure(
+                text="Found via Heroic Games Launcher.",
+                text_color=TEXT_OK
+            )
+        else:
+            self._prefix_status_label.configure(
+                text="Prefix not found automatically. Not needed if game is Linux native.",
                 text_color=TEXT_WARN
             )
 
@@ -361,12 +402,17 @@ class AddGameDialog(ctk.CTkToplevel):
     # Path helpers
     # ------------------------------------------------------------------
 
-    def _set_path(self, path: Path, status: str = "found"):
+    def _set_path(self, path: Path, status: str = "found", source: str = "steam"):
         self._found_path = path
         self._set_path_text(str(path))
         if status == "configured":
             self._status_label.configure(
                 text="Game already configured. You can update the path below.",
+                text_color=TEXT_OK
+            )
+        elif source == "heroic":
+            self._status_label.configure(
+                text="Found via Heroic Games Launcher.",
                 text_color=TEXT_OK
             )
         else:

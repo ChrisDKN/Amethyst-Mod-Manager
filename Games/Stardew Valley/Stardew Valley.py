@@ -1,14 +1,15 @@
 """
-Fallout_NV.py
-Game handler for Fallout: New Vegas.
+Stardew Valley.py
+Game handler for Stardew Valley.
 
 Mod structure:
-  Mods install into <game_path>/Data/
-  Staged mods live in Profiles/Fallout New Vegas/mods/
+  Mods install into <game_path>/Mods/
+  Staged mods live in Profiles/Stardew Valley/mods/
+
+  Root_Folder/ files deploy straight to the game install root (handled by GUI).
 """
 
 import json
-import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
@@ -18,8 +19,7 @@ from Utils.steam_finder import find_prefix
 
 _PROFILES_DIR = get_profiles_dir()
 
-
-class Fallout_NV(BaseGame):
+class StardewValley(BaseGame):
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -34,35 +34,43 @@ class Fallout_NV(BaseGame):
 
     @property
     def name(self) -> str:
-        return "Fallout New Vegas"
+        return "Stardew Valley"
 
     @property
     def game_id(self) -> str:
-        return "FalloutNV"
+        return "Stardew_Valley"
 
     @property
     def exe_name(self) -> str:
-        return "FalloutNVLauncher.exe"
-
-    @property
-    def plugin_extensions(self) -> list[str]:
-        return [".esp", ".esl", ".esm"]
+        return "Stardew Valley.dll"
 
     @property
     def steam_id(self) -> str:
-        return "22380"
+        return "413150"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "stardewvalley"
+
+    @property
+    def mods_dir(self) -> str:
+        return "Mods"
+    
+    @property
+    def plugin_extensions(self) -> list[str]:
+        return []
 
     @property
     def loot_sort_enabled(self) -> bool:
-        return True
+        return False
 
     @property
     def loot_game_type(self) -> str:
-        return "fonv"
+        return ""
 
     @property
     def loot_masterlist_url(self) -> str:
-        return "https://raw.githubusercontent.com/loot/falloutnv/v0.26/masterlist.yaml"
+        return ""
 
     # -----------------------------------------------------------------------
     # Paths
@@ -72,10 +80,10 @@ class Fallout_NV(BaseGame):
         return self._game_path
 
     def get_mod_data_path(self) -> Path | None:
-        """Mods go into the Data/ subfolder of the game root directory."""
+        """Mods go into Mods/ inside the game directory."""
         if self._game_path is None:
             return None
-        return self._game_path / "Data"
+        return self._game_path / self.mods_dir
 
     def get_mod_staging_path(self) -> Path:
         if self._staging_path is not None:
@@ -89,6 +97,9 @@ class Fallout_NV(BaseGame):
     def load_paths(self) -> bool:
         self._migrate_old_config()
         if not self._paths_file.exists():
+            self._game_path = None
+            self._prefix_path = None
+            self._staging_path = None
             return False
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))
@@ -107,7 +118,6 @@ class Fallout_NV(BaseGame):
             if raw_staging:
                 self._staging_path = Path(raw_staging)
             self._validate_staging()
-            # If prefix is missing or no longer valid, scan for it and persist
             if not self._prefix_path or not self._prefix_path.is_dir():
                 found = find_prefix(self.steam_id)
                 if found:
@@ -162,89 +172,14 @@ class Fallout_NV(BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
-    # The Fallout NV AppData folder inside the Proton prefix where the game
-    # reads plugins.txt from.
-    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/FalloutNV")
-
-    def _plugins_txt_target(self) -> Path | None:
-        """Return the in-prefix path where Fallout NV expects plugins.txt."""
-        if self._prefix_path is None:
-            return None
-        return self._prefix_path / self._APPDATA_SUBPATH / "plugins.txt"
-
-    def _symlink_plugins_txt(self, profile: str, log_fn) -> None:
-        """Symlink the active profile's plugins.txt into the Proton prefix."""
-        _log = log_fn
-        target = self._plugins_txt_target()
-        if target is None:
-            _log("  WARN: Prefix path not set — skipping plugins.txt symlink.")
-            return
-
-        source = self.get_profile_root() / "profiles" / profile / "plugins.txt"
-        if not source.is_file():
-            _log(f"  WARN: plugins.txt not found at {source} — skipping symlink.")
-            return
-
-        # Remove whatever is currently at the target (old symlink, real file, etc.)
-        if target.exists() or target.is_symlink():
-            target.unlink()
-
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.symlink_to(source)
-        _log(f"  Linked plugins.txt → {target}")
-
-    def _remove_plugins_txt_symlink(self, log_fn) -> None:
-        """Remove the plugins.txt symlink from the Proton prefix on restore."""
-        _log = log_fn
-        target = self._plugins_txt_target()
-        if target is None:
-            return
-        if target.is_symlink():
-            target.unlink()
-            _log("  Removed plugins.txt symlink from prefix.")
-
-    def _swap_launcher(self, log_fn) -> None:
-        """Replace FalloutNVLauncher.exe with nvse_loader.exe if present."""
-        _log = log_fn
-        if self._game_path is None:
-            return
-        nvse = self._game_path / "nvse_loader.exe"
-        if not nvse.is_file():
-            _log("  NVSE loader not found — skipping launcher swap.")
-            return
-        launcher = self._game_path / "FalloutNVLauncher.exe"
-        backup   = self._game_path / "FalloutNVLauncher.bak"
-        if launcher.is_file():
-            launcher.rename(backup)
-            _log("  Renamed FalloutNVLauncher.exe → FalloutNVLauncher.bak.")
-        shutil.copy2(nvse, launcher)
-        _log("  Copied nvse_loader.exe → FalloutNVLauncher.exe.")
-
-    def _restore_launcher(self, log_fn) -> None:
-        """Reverse the NVSE launcher swap if a backup exists."""
-        _log = log_fn
-        if self._game_path is None:
-            return
-        backup   = self._game_path / "FalloutNVLauncher.bak"
-        launcher = self._game_path / "FalloutNVLauncher.exe"
-        if not backup.is_file():
-            return
-        if launcher.is_file():
-            launcher.unlink()
-        backup.rename(launcher)
-        _log("  Restored FalloutNVLauncher.exe from .bak.")
-
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
-        """Deploy staged mods into the game's Data directory.
+        """Deploy staged mods into Mods/.
 
         Workflow:
-          1. Move everything currently in Data/ → Data_Core/
-          2. Hard-link every file listed in filemap.txt into Data/
-          3. Hard-link vanilla files from Data_Core/ into Data/ for anything
-             not provided by a mod
-          4. Symlink the active profile's plugins.txt into the Proton prefix
-          5. Swap launcher for NVSE
+          1. Move Mods/ → Mods_Core/  (vanilla backup)
+          2. Transfer mod files listed in filemap.txt into Mods/
+          3. Fill gaps with vanilla files from Mods_Core/
         (Root Folder deployment is handled by the GUI after this returns.)
         """
         _log = log_fn or (lambda _: None)
@@ -252,60 +187,55 @@ class Fallout_NV(BaseGame):
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
 
-        data_dir = self._game_path / "Data"
-        filemap  = self.get_profile_root() / "filemap.txt"
-        staging  = self.get_mod_staging_path()
+        plugins_dir = self._game_path / self.mods_dir
+        filemap     = self.get_profile_root() / "filemap.txt"
+        staging     = self.get_mod_staging_path()
+        core        = self.mods_dir + "_Core"
 
-        if not data_dir.is_dir():
-            raise RuntimeError(f"Data directory not found: {data_dir}")
         if not filemap.is_file():
             raise RuntimeError(
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
             )
 
-        _log("Step 1: Moving Data/ → Data_Core/ ...")
-        moved = move_to_core(data_dir, log_fn=_log)
-        _log(f"  Moved {moved} file(s) to Data_Core/.")
+        _log(f"Step 1: Moving {plugins_dir.name}/ → {core}/ ...")
+        moved = move_to_core(plugins_dir, log_fn=_log)
+        _log(f"  Moved {moved} file(s) to {core}/.")
+        plugins_dir.mkdir(parents=True, exist_ok=True)
 
-        _log(f"Step 2: Transferring mod files into Data/ ({mode.name}) ...")
-        linked_mod, placed = deploy_filemap(filemap, data_dir, staging,
+        _log(f"Step 2: Transferring mod files into {plugins_dir} ({mode.name}) ...")
+        linked_mod, placed = deploy_filemap(filemap, plugins_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
-                                            log_fn=_log,
-                                            progress_fn=progress_fn)
+                                            log_fn=_log,                             progress_fn=progress_fn)
         _log(f"  Transferred {linked_mod} mod file(s).")
 
-        _log("Step 3: Filling gaps with vanilla files from Data_Core/ ...")
-        linked_core = deploy_core(data_dir, placed, mode=mode, log_fn=_log)
+        _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")
+        linked_core = deploy_core(plugins_dir, placed, mode=mode, log_fn=_log)
         _log(f"  Transferred {linked_core} vanilla file(s).")
-
-        _log("Step 4: Symlinking plugins.txt into Proton prefix ...")
-        self._symlink_plugins_txt(profile, _log)
-
-        _log("Step 5: Swapping launcher for NVSE ...")
-        self._swap_launcher(_log)
 
         _log(
             f"Deploy complete. "
             f"{linked_mod} mod + {linked_core} vanilla "
-            f"= {linked_mod + linked_core} total file(s) in Data/."
+            f"= {linked_mod + linked_core} total file(s) in {plugins_dir.name}/."
         )
 
     def restore(self, log_fn=None) -> None:
-        """Restore Data/ to its vanilla state by moving Data_Core/ back."""
+        """Restore Mods/ to its vanilla state."""
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
 
-        data_dir = self._game_path / "Data"
-
-        _log("Restore: clearing Data/ and moving Data_Core/ back ...")
-        restored = restore_data_core(data_dir, log_fn=_log)
-        _log(f"  Restored {restored} file(s). Data_Core/ removed.")
-
-        self._remove_plugins_txt_symlink(_log)
-        self._restore_launcher(_log)
+        plugins_dir = self._game_path / self.mods_dir
+        core = self.mods_dir + "_Core"
+        core_dir = self._game_path / core
+        
+        if core_dir.is_dir():
+            _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")
+            restored = restore_data_core(plugins_dir, core_dir=core_dir, log_fn=_log)
+            _log(f"  Restored {restored} file(s). {core}/ removed.")
+        else:
+            _log(f"Restore: no {core}/ found — nothing to restore.")
 
         _log("Restore complete.")

@@ -57,6 +57,10 @@ class TheSims4(BaseGame):
         return "1222670"
 
     @property
+    def nexus_game_domain(self) -> str:
+        return "thesims4"
+
+    @property
     def mod_install_extensions(self) -> set[str]:
         return {".package", ".ts4script"}
 
@@ -101,6 +105,9 @@ class TheSims4(BaseGame):
     def load_paths(self) -> bool:
         self._migrate_old_config()
         if not self._paths_file.exists():
+            self._game_path = None
+            self._prefix_path = None
+            self._staging_path = None
             return False
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))

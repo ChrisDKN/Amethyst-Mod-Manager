@@ -75,6 +75,10 @@ class Example(BaseGame):
         return set()  # TODO: e.g. {"archive", "bin", "r6", "red4ext"} to prompt users when a mod has no recognised top-level folder
 
     @property
+    def mods_dir(self) -> str:
+        return "" # The place mods go into from root. Eg BepInEx/Plugins/ for BepInEx mods. If the game doesn't have a specific subfolder for mods, return "" and they will be deployed to the game root.
+    
+    @property
     def plugin_extensions(self) -> list[str]:
         return []  # TODO: e.g. [".esp", ".esl", ".esm"]; [] disables plugin panel
 
@@ -194,13 +198,46 @@ class Example(BaseGame):
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
-        
-        #Handled deployment of filemapped files
-        
-        return
+        _log = log_fn or (lambda _: None)
+
+        if self._game_path is None:
+            raise RuntimeError("Game path is not configured.")
+
+        # TODO: set this to the directory inside the game where mods are installed.
+        # e.g. self._game_path / "Data" for Bethesda games,
+        #      self._game_path / "Mods" for Stardew Valley, etc.
+        mods_dir = self._game_path / "TODO_mods_dir"
+
+        filemap = self.get_profile_root() / "filemap.txt"
+        staging = self.get_mod_staging_path()
+
+        # Step 1: Back up the vanilla mod folder so we can restore it later.
+        # Moves mods_dir/ → mods_dir_Core/ (e.g. Data/ → Data_Core/).
+        move_to_core(mods_dir, log_fn=_log)
+        mods_dir.mkdir(parents=True, exist_ok=True)
+
+        # Step 2: Link/copy mod files from staging into mods_dir.
+        # Reads filemap.txt to know which files belong to which mod.
+        # Returns the set of relative paths it placed (used in step 3).
+        _, placed = deploy_filemap(filemap, mods_dir, staging,
+                                   mode=mode, log_fn=_log,
+                                   progress_fn=progress_fn)
+
+        # Step 3: Fill any gaps with the backed-up vanilla files from _Core/.
+        # Files already placed by mods (in `placed`) are skipped.
+        deploy_core(mods_dir, placed, mode=mode, log_fn=_log)
 
     def restore(self, log_fn=None) -> None:
-        
-        #Handles restoring of game files
-        
-        return
+        _log = log_fn or (lambda _: None)
+
+        if self._game_path is None:
+            raise RuntimeError("Game path is not configured.")
+
+        # TODO: must match the mods_dir used in deploy() above.
+        mods_dir = self._game_path / "TODO_mods_dir"
+        core_dir = self._game_path / "TODO_mods_dir_Core"
+
+        # Clears mods_dir/ and moves core_dir/ back in its place,
+        # returning the game to its pre-deploy vanilla state.
+        if core_dir.is_dir():
+            restore_data_core(mods_dir, core_dir=core_dir, log_fn=_log)

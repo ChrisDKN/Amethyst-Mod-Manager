@@ -1,10 +1,10 @@
 """
-skyrim_se.py
-Game handler for Fallout 4.
+Bethesda.py
+Game handler for Various Bethesda games using the same deployment method.
 
 Mod structure:
   Mods install into <game_path>/Data/
-  Staged mods live in Profiles/Fallout 4/mods/
+  Staged mods live in Profiles/Fallout 3/mods/
 """
 
 import json
@@ -19,7 +19,7 @@ from Utils.steam_finder import find_prefix
 _PROFILES_DIR = get_profiles_dir()
 
 
-class Fallout_4(BaseGame):
+class Fallout_3(BaseGame):
 
     def __init__(self):
         self._game_path: Path | None = None
@@ -34,15 +34,15 @@ class Fallout_4(BaseGame):
 
     @property
     def name(self) -> str:
-        return "Fallout 4"
+        return "Fallout 3"
 
     @property
     def game_id(self) -> str:
-        return "Fallout4"
+        return "Fallout3"
 
     @property
     def exe_name(self) -> str:
-        return "Fallout4Launcher.exe"
+        return "Fallout3Launcher.exe"
 
     @property
     def plugin_extensions(self) -> list[str]:
@@ -50,7 +50,11 @@ class Fallout_4(BaseGame):
 
     @property
     def steam_id(self) -> str:
-        return "377160"
+        return "22300"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "fallout3"
 
     @property
     def loot_sort_enabled(self) -> bool:
@@ -58,11 +62,11 @@ class Fallout_4(BaseGame):
 
     @property
     def loot_game_type(self) -> str:
-        return "Fallout4"
+        return "fo3"
 
     @property
     def loot_masterlist_url(self) -> str:
-        return "https://raw.githubusercontent.com/loot/fallout4/v0.21/masterlist.yaml"
+        return "https://raw.githubusercontent.com/loot/fallout3/v0.26/masterlist.yaml"
 
     # -----------------------------------------------------------------------
     # Paths
@@ -89,6 +93,9 @@ class Fallout_4(BaseGame):
     def load_paths(self) -> bool:
         self._migrate_old_config()
         if not self._paths_file.exists():
+            self._game_path = None
+            self._prefix_path = None
+            self._staging_path = None
             return False
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))
@@ -162,12 +169,14 @@ class Fallout_4(BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
-    # The Fallout 4 AppData folder inside the Proton prefix where the game
-    # reads plugins.txt from.
-    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout4")
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout3")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "fose_loader.exe"
 
     def _plugins_txt_target(self) -> Path | None:
-        """Return the in-prefix path where Fallout 4 expects plugins.txt."""
+        """Return the in-prefix path where Fallout 3 expects plugins.txt."""
         if self._prefix_path is None:
             return None
         return self._prefix_path / self._APPDATA_SUBPATH / "plugins.txt"
@@ -204,35 +213,35 @@ class Fallout_4(BaseGame):
             _log("  Removed plugins.txt symlink from prefix.")
 
     def _swap_launcher(self, log_fn) -> None:
-        """Replace Fallout4Launcher.exe with f4se_loader.exe if present."""
+        """Replace the game launcher with the script extender if present."""
         _log = log_fn
         if self._game_path is None:
             return
-        f4se = self._game_path / "f4se_loader.exe"
-        if not f4se.is_file():
-            _log("  F4SE loader not found — skipping launcher swap.")
+        se = self._game_path / self._script_extender_exe
+        if not se.is_file():
+            _log(f"  {self._script_extender_exe} not found — skipping launcher swap.")
             return
-        launcher = self._game_path / "Fallout4Launcher.exe"
-        backup   = self._game_path / "Fallout4Launcher.bak"
+        launcher = self._game_path / self.exe_name
+        backup   = self._game_path / (Path(self.exe_name).stem + ".bak")
         if launcher.is_file():
             launcher.rename(backup)
-            _log("  Renamed Fallout4Launcher.exe → Fallout4Launcher.bak.")
-        shutil.copy2(f4se, launcher)
-        _log("  Copied f4se_loader.exe → Fallout4Launcher.exe.")
+            _log(f"  Renamed {self.exe_name} → {backup.name}.")
+        shutil.copy2(se, launcher)
+        _log(f"  Copied {self._script_extender_exe} → {self.exe_name}.")
 
     def _restore_launcher(self, log_fn) -> None:
-        """Reverse the F4SE launcher swap if a backup exists."""
+        """Reverse the script extender launcher swap if a backup exists."""
         _log = log_fn
         if self._game_path is None:
             return
-        backup   = self._game_path / "Fallout4Launcher.bak"
-        launcher = self._game_path / "Fallout4Launcher.exe"
+        backup   = self._game_path / (Path(self.exe_name).stem + ".bak")
+        launcher = self._game_path / self.exe_name
         if not backup.is_file():
             return
         if launcher.is_file():
             launcher.unlink()
         backup.rename(launcher)
-        _log("  Restored Fallout4Launcher.exe from .bak.")
+        _log(f"  Restored {self.exe_name} from {backup.name}.")
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
@@ -244,7 +253,7 @@ class Fallout_4(BaseGame):
           3. Hard-link vanilla files from Data_Core/ into Data/ for anything
              not provided by a mod
           4. Symlink the active profile's plugins.txt into the Proton prefix
-          5. Swap launcher for F4SE
+          5. Swap launcher for FOSE
         (Root Folder deployment is handled by the GUI after this returns.)
         """
         _log = log_fn or (lambda _: None)
@@ -283,7 +292,7 @@ class Fallout_4(BaseGame):
         _log("Step 4: Symlinking plugins.txt into Proton prefix ...")
         self._symlink_plugins_txt(profile, _log)
 
-        _log("Step 5: Swapping launcher for F4SE ...")
+        _log(f"Step 5: Swapping launcher for {self._script_extender_exe} ...")
         self._swap_launcher(_log)
 
         _log(
@@ -309,3 +318,176 @@ class Fallout_4(BaseGame):
         self._restore_launcher(_log)
 
         _log("Restore complete.")
+
+
+class Fallout3_GOTY(Fallout_3):
+    """Fallout 3 Game of the Year Edition — identical deployment to the base
+    game, only the name, game_id, and steam_id differ."""
+
+    @property
+    def name(self) -> str:
+        return "Fallout 3 GOTY"
+
+    @property
+    def game_id(self) -> str:
+        return "Fallout3GOTY"
+
+    @property
+    def steam_id(self) -> str:
+        return "22370"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "fallout3"
+
+
+class Fallout_NV(Fallout_3):
+
+    @property
+    def name(self) -> str:
+        return "Fallout New Vegas"
+
+    @property
+    def game_id(self) -> str:
+        return "FalloutNV"
+
+    @property
+    def exe_name(self) -> str:
+        return "FalloutNVLauncher.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "22380"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "newvegas"
+
+    @property
+    def loot_game_type(self) -> str:
+        return "fonv"
+
+    @property
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/falloutnv/v0.26/masterlist.yaml"
+
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/FalloutNV")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "nvse_loader.exe"
+
+
+class Fallout_4(Fallout_3):
+
+    @property
+    def name(self) -> str:
+        return "Fallout 4"
+
+    @property
+    def game_id(self) -> str:
+        return "Fallout4"
+
+    @property
+    def exe_name(self) -> str:
+        return "Fallout4Launcher.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "377160"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "fallout4"
+
+    @property
+    def loot_game_type(self) -> str:
+        return "Fallout4"
+
+    @property
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/fallout4/v0.21/masterlist.yaml"
+
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout4")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "f4se_loader.exe"
+
+
+class Oblivion(Fallout_3):
+
+    @property
+    def name(self) -> str:
+        return "Oblivion"
+
+    @property
+    def game_id(self) -> str:
+        return "Oblivion"
+
+    @property
+    def exe_name(self) -> str:
+        return "OblivionLauncher.exe"
+
+    @property
+    def plugin_extensions(self) -> list[str]:
+        return [".esp", ".esm"]
+
+    @property
+    def steam_id(self) -> str:
+        return "22330"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "oblivion"
+
+    @property
+    def loot_game_type(self) -> str:
+        return "Oblivion"
+
+    @property
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/oblivion/refs/heads/v0.26/masterlist.yaml"
+
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Oblivion")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "obse_loader.exe"
+
+
+class Skyrim(Fallout_3):
+
+    @property
+    def name(self) -> str:
+        return "Skyrim"
+
+    @property
+    def game_id(self) -> str:
+        return "skyrim"
+
+    @property
+    def exe_name(self) -> str:
+        return "SkyrimLauncher.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "72850"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "skyrim"
+
+    @property
+    def loot_game_type(self) -> str:
+        return "Skyrim"
+
+    @property
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/skyrim/master/masterlist.yaml"
+
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "skse_loader.exe"
