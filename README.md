@@ -16,6 +16,7 @@
 - **Multi-game support** — Support for many games
 - **FOMOD support** — Full Fomod support with last selections saved.
 - **LOOT support** — Plugins for games that use LOOT can be sorted using LOOT.
+- **Nexus API Support** — Integration with features provided by the Nexus Mods Api
 
 ## Game Support and Status
 
@@ -35,6 +36,7 @@
 - Valheim
 - Lethal Company
 - TCG Card Shop Simulator
+- Stardew Valley
 
 
 ### Added but Needs Testing

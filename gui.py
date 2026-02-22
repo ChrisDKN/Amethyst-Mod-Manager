@@ -6,6 +6,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import webbrowser
 import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk as ttk
@@ -19,7 +20,11 @@ from PIL import Image as PilImage, ImageTk
 
 from gui.fomod_dialog import FomodDialog
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
+from gui.nexus_settings_dialog import NexusSettingsDialog
 from gui.downloads_panel import DownloadsPanel
+from gui.tracked_mods_panel import TrackedModsPanel
+from gui.endorsed_mods_panel import EndorsedModsPanel
+from gui.browse_mods_panel import BrowseModsPanel
 from Games.base_game import BaseGame
 from Utils.fomod_installer import resolve_files
 from Utils.fomod_parser import detect_fomod, parse_module_config
@@ -37,6 +42,12 @@ from Utils.plugins import (
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
 from Utils.config_paths import get_exe_args_path, get_fomod_selections_path, get_profiles_dir
+from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
+from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
+from Nexus.nexus_download import NexusDownloader
+from Nexus.nexus_meta import build_meta_from_download, write_meta, read_meta, scan_installed_mods, resolve_nexus_meta_for_archive
+from Nexus.nexus_update_checker import check_for_updates
+from Nexus.nexus_requirements import check_missing_requirements
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -223,6 +234,39 @@ class ModListPanel(ctk.CTkFrame):
         if _cross_path.is_file():
             self._icon_cross = ImageTk.PhotoImage(
                 PilImage.open(_cross_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
+        # Update-available icon
+        self._icon_update: ImageTk.PhotoImage | None = None
+        _update_path = _ICONS_DIR / "update.png"
+        if _update_path.is_file():
+            self._icon_update = ImageTk.PhotoImage(
+                PilImage.open(_update_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
+        # Missing-requirements warning icon
+        self._icon_warning: ImageTk.PhotoImage | None = None
+        _warning_path = _ICONS_DIR / "warning.png"
+        if _warning_path.is_file():
+            self._icon_warning = ImageTk.PhotoImage(
+                PilImage.open(_warning_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
+        # Endorsed mod tick icon
+        self._icon_endorsed: ImageTk.PhotoImage | None = None
+        _tick_path = _ICONS_DIR / "tick.png"
+        if _tick_path.is_file():
+            self._icon_endorsed = ImageTk.PhotoImage(
+                PilImage.open(_tick_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
+        # Set of mod names that have a Nexus update available
+        self._update_mods: set[str] = set()
+
+        # Set of mod names that have missing Nexus requirements
+        self._missing_reqs: set[str] = set()
+        # Map mod name → list of missing requirement names (for tooltips / context menu)
+        self._missing_reqs_detail: dict[str, list[str]] = {}
+
+        # Set of mod names the user has endorsed on Nexus
+        self._endorsed_mods: set[str] = set()
+
         self._overrides:     dict[str, set[str]] = {}  # mod beats these mods
         self._overridden_by: dict[str, set[str]] = {}  # these mods beat this mod
         self._on_filemap_rebuilt: callable | None = None  # called after each filemap rebuild
@@ -267,6 +311,7 @@ class ModListPanel(ctk.CTkFrame):
         self._build_canvas()
         self._build_toolbar()
         self._build_search_bar()
+        self._build_download_bar()
 
     # ------------------------------------------------------------------
     # Public API
@@ -386,6 +431,56 @@ class ModListPanel(ctk.CTkFrame):
             self._search_entry.icursor("end"),
             "break"
         )[-1])
+
+    def _build_download_bar(self):
+        """Nexus download progress bar — hidden by default."""
+        self._dl_bar = ctk.CTkFrame(self, fg_color=BG_DEEP, corner_radius=0, height=36)
+        # Don't grid it yet — shown only during downloads
+        self._dl_bar.grid_propagate(False)
+
+        self._dl_label = ctk.CTkLabel(
+            self._dl_bar, text="", font=FONT_SMALL, text_color=TEXT_MAIN, anchor="w",
+        )
+        self._dl_label.pack(side="left", padx=(8, 6), pady=4)
+
+        self._dl_progress = ctk.CTkProgressBar(
+            self._dl_bar, width=200, height=14,
+            fg_color=BG_HEADER, progress_color=ACCENT,
+            corner_radius=4,
+        )
+        self._dl_progress.set(0)
+        self._dl_progress.pack(side="left", fill="x", expand=True, padx=(0, 6), pady=4)
+
+        self._dl_pct = ctk.CTkLabel(
+            self._dl_bar, text="0%", font=FONT_SMALL, text_color=TEXT_DIM,
+            width=48, anchor="e",
+        )
+        self._dl_pct.pack(side="right", padx=(0, 8), pady=4)
+
+    def show_download_progress(self, label: str = "Downloading..."):
+        """Show the download progress bar."""
+        self._dl_label.configure(text=label)
+        self._dl_progress.set(0)
+        self._dl_pct.configure(text="0%")
+        self._dl_bar.grid(row=4, column=0, sticky="ew")
+
+    def update_download_progress(self, current: int, total: int, label: str = ""):
+        """Update the download progress bar."""
+        if total > 0:
+            frac = min(current / total, 1.0)
+            self._dl_progress.set(frac)
+            pct = int(frac * 100)
+            cur_mb = current / (1024 * 1024)
+            tot_mb = total / (1024 * 1024)
+            self._dl_pct.configure(text=f"{pct}%")
+            if label:
+                self._dl_label.configure(text=label)
+            else:
+                self._dl_label.configure(text=f"Downloading: {cur_mb:.1f} / {tot_mb:.1f} MB")
+
+    def hide_download_progress(self):
+        """Hide the download progress bar."""
+        self._dl_bar.grid_forget()
 
     # ------------------------------------------------------------------
     # Layout helpers
@@ -533,10 +628,86 @@ class ModListPanel(ctk.CTkFrame):
                 ))
         self._load_sep_locks()
         self._load_collapsed()
+        self._scan_update_flags()
+        self._scan_missing_reqs_flags()
+        self._scan_endorsed_flags()
         self._rebuild_check_widgets()
         self._rebuild_filemap()
         self._redraw()
         self._update_info()
+
+    def _scan_update_flags(self):
+        """Scan meta.ini files to build the set of mods with updates available."""
+        self._update_mods.clear()
+        if self._modlist_path is None:
+            return
+        mods_dir = self._modlist_path.parent.parent.parent / "mods"
+        if not mods_dir.is_dir():
+            return
+        for entry in self._entries:
+            if entry.is_separator:
+                continue
+            meta_path = mods_dir / entry.name / "meta.ini"
+            if not meta_path.is_file():
+                continue
+            try:
+                meta = read_meta(meta_path)
+                if meta.has_update:
+                    self._update_mods.add(entry.name)
+            except Exception:
+                pass
+
+    def _scan_missing_reqs_flags(self):
+        """Scan meta.ini files to build the set of mods with missing requirements."""
+        self._missing_reqs.clear()
+        self._missing_reqs_detail.clear()
+        if self._modlist_path is None:
+            return
+        mods_dir = self._modlist_path.parent.parent.parent / "mods"
+        if not mods_dir.is_dir():
+            return
+        for entry in self._entries:
+            if entry.is_separator:
+                continue
+            meta_path = mods_dir / entry.name / "meta.ini"
+            if not meta_path.is_file():
+                continue
+            try:
+                meta = read_meta(meta_path)
+                if meta.missing_requirements:
+                    self._missing_reqs.add(entry.name)
+                    # Parse "modId:name;modId:name" into readable names
+                    names = []
+                    for pair in meta.missing_requirements.split(";"):
+                        parts = pair.split(":", 1)
+                        if len(parts) == 2:
+                            names.append(parts[1])
+                        elif parts[0]:
+                            names.append(parts[0])
+                    self._missing_reqs_detail[entry.name] = names
+            except Exception:
+                pass
+
+    def _scan_endorsed_flags(self):
+        """Scan meta.ini files to build the set of endorsed mods."""
+        self._endorsed_mods.clear()
+        if self._modlist_path is None:
+            return
+        mods_dir = self._modlist_path.parent.parent.parent / "mods"
+        if not mods_dir.is_dir():
+            return
+        for entry in self._entries:
+            if entry.is_separator:
+                continue
+            meta_path = mods_dir / entry.name / "meta.ini"
+            if not meta_path.is_file():
+                continue
+            try:
+                meta = read_meta(meta_path)
+                if meta.endorsed:
+                    self._endorsed_mods.add(entry.name)
+            except Exception:
+                pass
 
     def _rebuild_check_widgets(self):
         """Destroy old Checkbutton widgets and create one per non-separator entry."""
@@ -806,12 +977,25 @@ class ModListPanel(ctk.CTkFrame):
                 font=("Segoe UI", 11),
             )
 
-            if entry.locked:
+            # Flags column: warning (highest) > locked star > update > endorsed tick (lowest)
+            flag_x = self._COL_X[2] + 10
+            if entry.name in self._missing_reqs and self._icon_warning:
+                self._canvas.create_image(flag_x, y_mid, image=self._icon_warning, anchor="center")
+            elif entry.locked:
                 self._canvas.create_text(
-                    self._COL_X[2] + 25, y_mid,
+                    flag_x, y_mid,
                     text="★", anchor="center", fill="#e5c07b",
                     font=("Segoe UI", 11),
                 )
+                flag_x += 18
+                if entry.name in self._update_mods and self._icon_update:
+                    self._canvas.create_image(flag_x, y_mid, image=self._icon_update, anchor="center")
+                elif entry.name in self._endorsed_mods and self._icon_endorsed:
+                    self._canvas.create_image(flag_x, y_mid, image=self._icon_endorsed, anchor="center")
+            elif entry.name in self._update_mods and self._icon_update:
+                self._canvas.create_image(flag_x, y_mid, image=self._icon_update, anchor="center")
+            elif entry.name in self._endorsed_mods and self._icon_endorsed:
+                self._canvas.create_image(flag_x, y_mid, image=self._icon_endorsed, anchor="center")
 
             conflict = self._conflict_map.get(entry.name, CONFLICT_NONE)
             cx = self._COL_X[3] + 45
@@ -1359,6 +1543,49 @@ class ModListPanel(ctk.CTkFrame):
                 items.append(("Show Conflicts",
                                lambda n=name_capture: self._show_overwrites_dialog(n), False))
 
+        # Nexus options: Open on Nexus / Update Mod
+        if not is_separator and not is_synthetic and self._modlist_path is not None:
+            mod_name_capture = self._entries[idx].name
+            staging_root = self._modlist_path.parent.parent.parent / "mods"
+            meta_path = staging_root / mod_name_capture / "meta.ini"
+            if meta_path.is_file():
+                try:
+                    _ctx_meta = read_meta(meta_path)
+                    if _ctx_meta.mod_id > 0:
+                        # Prefer the current game's known domain over
+                        # whatever MO2 stored in meta.ini
+                        app = self.winfo_toplevel()
+                        _cur_game = _GAMES.get(getattr(
+                            getattr(app, "_topbar", None), "_game_var", tk.StringVar()).get(), None)
+                        _domain = (
+                            _cur_game.nexus_game_domain
+                            if _cur_game and _cur_game.nexus_game_domain
+                            else _ctx_meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
+                            if "/mods/" in _ctx_meta.nexus_page_url
+                            else _ctx_meta.game_domain
+                        )
+                        nexus_url = f"https://www.nexusmods.com/{_domain}/mods/{_ctx_meta.mod_id}"
+                        items.append(("Open on Nexus",
+                                       lambda u=nexus_url: self._open_nexus_page(u), False))
+                        # Endorse / Abstain based on current endorsement status
+                        if _ctx_meta.endorsed:
+                            items.append(("Abstain from Endorsement",
+                                           lambda n=mod_name_capture, d=_domain, m=_ctx_meta:
+                                               self._abstain_nexus_mod(n, d, m), False))
+                        else:
+                            items.append(("Endorse Mod",
+                                           lambda n=mod_name_capture, d=_domain, m=_ctx_meta:
+                                               self._endorse_nexus_mod(n, d, m), False))
+                except Exception:
+                    pass
+            if mod_name_capture in self._update_mods:
+                items.append(("Update Mod",
+                               lambda n=mod_name_capture: self._update_nexus_mod(n), False))
+            if mod_name_capture in self._missing_reqs:
+                dep_names = self._missing_reqs_detail.get(mod_name_capture, [])
+                items.append(("Missing Requirements",
+                               lambda n=mod_name_capture, d=dep_names: self._show_missing_reqs(n, d), False))
+
         # Multi-selection options: enable/disable/remove selected mods
         if len(self._sel_set) > 1:
             # Collect toggleable mods in selection (non-separator, non-locked, non-synthetic)
@@ -1429,6 +1656,47 @@ class ModListPanel(ctk.CTkFrame):
                 btn.bind("<Leave>", lambda _e, b=btn: b.configure(bg=BG_PANEL))
 
         popup.update_idletasks()
+
+        # Reposition if the popup would go off-screen.
+        # Use the main app window's bottom edge as the limit — this is
+        # more reliable than winfo_screenheight() on Steam Deck / Wayland /
+        # gamescope where the reported screen size may not match usable area.
+        pw = popup.winfo_reqwidth()
+        ph = popup.winfo_reqheight()
+        _app_toplevel = self.winfo_toplevel()
+        app_bottom = _app_toplevel.winfo_rooty() + _app_toplevel.winfo_height()
+        app_right  = _app_toplevel.winfo_rootx() + _app_toplevel.winfo_width()
+        nx = x if x + pw <= app_right else max(0, x - pw)
+        ny = y if y + ph <= app_bottom else max(0, y - ph)
+        popup.wm_geometry(f"+{nx}+{ny}")
+
+        # Dismiss when the application loses focus (e.g. Alt-Tab)
+        def _on_focus_out(event):
+            # Only dismiss if focus left the popup itself
+            try:
+                focus_w = popup.focus_get()
+                if focus_w is None:
+                    _dismiss()
+            except (tk.TclError, KeyError):
+                _dismiss()
+        popup.bind("<FocusOut>", _on_focus_out)
+
+        # Also watch the top-level app window
+        _app_toplevel = self.winfo_toplevel()
+        def _on_app_focus_out(_event):
+            if _alive[0]:
+                _dismiss()
+        _app_toplevel.bind("<FocusOut>", _on_app_focus_out, add="+")
+        # Unbind when popup closes to avoid leaking bindings
+        _orig_dismiss = _dismiss
+        def _dismiss_and_unbind(_event=None):
+            try:
+                _app_toplevel.unbind("<FocusOut>")
+            except (tk.TclError, KeyError):
+                pass
+            _orig_dismiss(_event)
+        _dismiss = _dismiss_and_unbind
+
         popup.bind("<Escape>", _dismiss)
 
         def _on_press(event):
@@ -1760,8 +2028,9 @@ class ModListPanel(ctk.CTkFrame):
         popup.update_idletasks()
         pw = popup.winfo_reqwidth()
         ph = popup.winfo_reqheight()
-        screen_w = popup.winfo_screenwidth()
-        screen_h = popup.winfo_screenheight()
+        _app_tl = self.winfo_toplevel()
+        app_right  = _app_tl.winfo_rootx() + _app_tl.winfo_width()
+        app_bottom = _app_tl.winfo_rooty() + _app_tl.winfo_height()
         if parent_popup is not None:
             # Position to the right of the parent menu
             px = parent_popup.winfo_rootx() + parent_popup.winfo_width()
@@ -1769,9 +2038,9 @@ class ModListPanel(ctk.CTkFrame):
         else:
             px = cx
             py = cy
-        # Clamp to screen
-        px = min(px, screen_w - pw)
-        py = min(py, screen_h - ph)
+        # Clamp to app window bounds
+        px = min(px, app_right - pw)
+        py = min(py, app_bottom - ph)
         px = max(px, 0)
         py = max(py, 0)
         popup.wm_geometry(f"+{px}+{py}")
@@ -1861,17 +2130,18 @@ class ModListPanel(ctk.CTkFrame):
         popup.update_idletasks()
         pw = popup.winfo_reqwidth()
         ph = popup.winfo_reqheight()
-        screen_w = popup.winfo_screenwidth()
-        screen_h = popup.winfo_screenheight()
+        _app_tl = self.winfo_toplevel()
+        app_right  = _app_tl.winfo_rootx() + _app_tl.winfo_width()
+        app_bottom = _app_tl.winfo_rooty() + _app_tl.winfo_height()
         if parent_popup is not None:
             px = parent_popup.winfo_rootx() + parent_popup.winfo_width()
             py = cy - ph // 2
         else:
             px = cx
             py = cy
-        # Clamp to screen
-        px = min(px, screen_w - pw)
-        py = min(py, screen_h - ph)
+        # Clamp to app window bounds
+        px = min(px, app_right - pw)
+        py = min(py, app_bottom - ph)
         px = max(px, 0)
         py = max(py, 0)
         popup.wm_geometry(f"+{px}+{py}")
@@ -1949,6 +2219,200 @@ class ModListPanel(ctk.CTkFrame):
             subprocess.Popen(["xdg-open", str(path)])
         except Exception as e:
             self._log(f"Could not open folder: {e}")
+
+    def _open_nexus_page(self, url: str) -> None:
+        """Open a Nexus Mods page in the default browser."""
+        if url:
+            webbrowser.open(url)
+            self._log(f"Nexus: Opened {url}")
+
+    def _show_missing_reqs(self, mod_name: str, dep_names: list[str]) -> None:
+        """Log the missing requirements for a mod."""
+        if not dep_names:
+            self._log(f"{mod_name}: No missing requirements recorded.")
+            return
+        self._log(f"{mod_name} is missing {len(dep_names)} requirement(s):")
+        for name in dep_names:
+            self._log(f"  • {name}")
+
+    def _endorse_nexus_mod(self, mod_name: str, domain: str, meta) -> None:
+        """Endorse a mod on Nexus Mods in a background thread."""
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            self._log("Nexus: Set your API key first.")
+            return
+        log_fn = self._log
+
+        def _worker():
+            try:
+                api.endorse_mod(domain, meta.mod_id, meta.version)
+                def _done():
+                    log_fn(f"Nexus: Endorsed '{mod_name}' ({meta.mod_id}).")
+                    # Update meta.ini
+                    try:
+                        if self._modlist_path is not None:
+                            staging_root = self._modlist_path.parent.parent.parent / "mods"
+                            meta_path = staging_root / mod_name / "meta.ini"
+                            if meta_path.is_file():
+                                m = read_meta(meta_path)
+                                m.endorsed = True
+                                write_meta(meta_path, m)
+                    except Exception:
+                        pass
+                    self._endorsed_mods.add(mod_name)
+                    self._redraw()
+                app.after(0, _done)
+            except Exception as exc:
+                app.after(0, lambda: log_fn(f"Nexus: Endorse failed — {exc}"))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _abstain_nexus_mod(self, mod_name: str, domain: str, meta) -> None:
+        """Abstain from endorsing a mod on Nexus Mods in a background thread."""
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            self._log("Nexus: Set your API key first.")
+            return
+        log_fn = self._log
+
+        def _worker():
+            try:
+                api.abstain_mod(domain, meta.mod_id, meta.version)
+                def _done():
+                    log_fn(f"Nexus: Abstained from '{mod_name}' ({meta.mod_id}).")
+                    # Update meta.ini
+                    try:
+                        if self._modlist_path is not None:
+                            staging_root = self._modlist_path.parent.parent.parent / "mods"
+                            meta_path = staging_root / mod_name / "meta.ini"
+                            if meta_path.is_file():
+                                m = read_meta(meta_path)
+                                m.endorsed = False
+                                write_meta(meta_path, m)
+                    except Exception:
+                        pass
+                    self._endorsed_mods.discard(mod_name)
+                    self._redraw()
+                app.after(0, _done)
+            except Exception as exc:
+                app.after(0, lambda: log_fn(f"Nexus: Abstain failed — {exc}"))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _update_nexus_mod(self, mod_name: str) -> None:
+        """Download the latest version of a mod from Nexus and install it."""
+        app = self.winfo_toplevel()
+        if getattr(app, "_nexus_api", None) is None:
+            self._log("Nexus: Set your API key first (Nexus button).")
+            return
+        if self._modlist_path is None:
+            return
+        staging_root = self._modlist_path.parent.parent.parent / "mods"
+        meta_path = staging_root / mod_name / "meta.ini"
+        if not meta_path.is_file():
+            self._log(f"Nexus: No metadata for {mod_name}")
+            return
+        try:
+            meta = read_meta(meta_path)
+        except Exception as exc:
+            self._log(f"Nexus: Could not read metadata — {exc}")
+            return
+        if meta.latest_file_id <= 0:
+            self._log(f"Nexus: No update info for {mod_name} — run Check Updates first.")
+            return
+
+        game_name = app._topbar._game_var.get()
+        game = _GAMES.get(game_name)
+        if game is None or not game.is_configured():
+            self._log("Nexus: No configured game selected.")
+            return
+        game_domain = game.nexus_game_domain or meta.game_domain
+
+        self._log(f"Nexus: Updating {mod_name}...")
+        self.show_download_progress(f"Updating: {mod_name}")
+        log_fn = self._log
+        mod_panel = self
+
+        def _worker():
+            api = app._nexus_api
+            downloader = app._nexus_downloader
+
+            # Check if the user is premium
+            is_premium = False
+            try:
+                user = api.validate()
+                is_premium = user.is_premium
+            except Exception:
+                pass
+
+            if not is_premium:
+                # Free user — open the mod's files page in the browser
+                files_url = f"https://www.nexusmods.com/{game_domain}/mods/{meta.mod_id}?tab=files"
+                def _fallback():
+                    mod_panel.hide_download_progress()
+                    webbrowser.open(files_url)
+                    log_fn(f"Nexus: Premium required for direct download.")
+                    log_fn(f"Nexus: Opened files page — click \"Download with Mod Manager\" there.")
+                app.after(0, _fallback)
+                return
+
+            # Premium user — direct download
+            mod_info = None
+            file_info = None
+            try:
+                mod_info = api.get_mod(game_domain, meta.mod_id)
+                files_resp = api.get_mod_files(game_domain, meta.mod_id)
+                for f in files_resp.files:
+                    if f.file_id == meta.latest_file_id:
+                        file_info = f
+                        break
+            except Exception:
+                pass
+
+            result = downloader.download_file(
+                game_domain=game_domain,
+                mod_id=meta.mod_id,
+                file_id=meta.latest_file_id,
+                progress_cb=lambda cur, total: app.after(
+                    0, lambda c=cur, t=total: mod_panel.update_download_progress(c, t)
+                ),
+            )
+
+            if result.success and result.file_path:
+                def _install():
+                    mod_panel.hide_download_progress()
+                    log_fn(f"Nexus: Installing update for {mod_name}...")
+                    _install_mod_from_archive(
+                        str(result.file_path), app, log_fn, game, mod_panel)
+                    # Update metadata
+                    try:
+                        new_meta = build_meta_from_download(
+                            game_domain=game_domain,
+                            mod_id=meta.mod_id,
+                            file_id=meta.latest_file_id,
+                            archive_name=result.file_name,
+                            mod_info=mod_info,
+                            file_info=file_info,
+                        )
+                        new_meta.has_update = False
+                        # Write to the original mod folder (user may have renamed)
+                        write_meta(meta_path, new_meta)
+                    except Exception as exc:
+                        log_fn(f"Nexus: Warning — could not update metadata: {exc}")
+                    # Refresh update flags
+                    mod_panel._scan_update_flags()
+                    mod_panel._redraw()
+                    log_fn(f"Nexus: {mod_name} updated successfully.")
+                app.after(0, _install)
+            else:
+                def _fail():
+                    mod_panel.hide_download_progress()
+                    log_fn(f"Nexus: Update download failed — {result.error}")
+                app.after(0, _fail)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _show_overwrites_dialog(self, mod_name: str) -> None:
         """Open the conflict detail dialog for a mod."""
@@ -2265,7 +2729,7 @@ class ModListPanel(ctk.CTkFrame):
 # PluginPanel
 # ---------------------------------------------------------------------------
 class PluginPanel(ctk.CTkFrame):
-    """Right panel: tabview with Plugins, Archives, Data, Saves, Downloads."""
+    """Right panel: tabview with Plugins, Archives, Data, Saves, Downloads, Tracked."""
 
     PLUGIN_HEADERS = ["", "Plugin Name", "Flags", "🔒", "Index"]
     ROW_H = 26
@@ -2335,7 +2799,7 @@ class PluginPanel(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
 
         # Executable toolbar
-        exe_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=36)
+        exe_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=42)
         exe_bar.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 0))
         exe_bar.grid_propagate(False)
 
@@ -2349,27 +2813,27 @@ class PluginPanel(ctk.CTkFrame):
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_exe_selected,
         )
-        self._exe_menu.pack(side="left", padx=(8, 4), pady=4)
+        self._exe_menu.pack(side="left", padx=(8, 4), pady=6)
 
         ctk.CTkButton(
-            exe_bar, text="▶ Run EXE", width=90, height=26, font=FONT_SMALL,
+            exe_bar, text="▶ Run EXE", width=90, height=28, font=FONT_SMALL,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_run_exe,
-        ).pack(side="left", padx=4, pady=4)
+        ).pack(side="left", padx=4, pady=6)
 
         self._exe_args_var = tk.StringVar(value="")
 
         ctk.CTkButton(
-            exe_bar, text="⚙ Configure", width=100, height=26, font=FONT_SMALL,
+            exe_bar, text="⚙ Configure", width=100, height=28, font=FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_configure_exe,
-        ).pack(side="left", padx=4, pady=4)
+        ).pack(side="left", padx=4, pady=6)
 
         ctk.CTkButton(
-            exe_bar, text="↺ Refresh", width=80, height=26, font=FONT_SMALL,
+            exe_bar, text="↺ Refresh", width=80, height=28, font=FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self.refresh_exe_list,
-        ).pack(side="left", padx=4, pady=4)
+        ).pack(side="left", padx=4, pady=6)
 
         self._tabs = ctk.CTkTabview(
             self, fg_color=BG_PANEL, corner_radius=4,
@@ -2382,12 +2846,15 @@ class PluginPanel(ctk.CTkFrame):
         )
         self._tabs.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
 
-        for name in ("Plugins", "Archives", "Data", "Saves", "Downloads"):
+        for name in ("Plugins", "Archives", "Data", "Saves", "Downloads", "Tracked", "Endorsed", "Browse"):
             self._tabs.add(name)
 
         self._build_plugins_tab()
         self._build_data_tab()
         self._build_downloads_tab()
+        self._build_tracked_tab()
+        self._build_endorsed_tab()
+        self._build_browse_tab()
 
         for name in ("Archives", "Saves"):
             tab = self._tabs.tab(name)
@@ -2761,6 +3228,492 @@ class PluginPanel(ctk.CTkFrame):
             log_fn=self._log,
             install_fn=self._install_from_downloads,
         )
+
+    def _build_tracked_tab(self):
+        tab = self._tabs.tab("Tracked")
+
+        def _get_api():
+            app = self.winfo_toplevel()
+            return getattr(app, "_nexus_api", None)
+
+        def _get_game_domain():
+            app = self.winfo_toplevel()
+            topbar = getattr(app, "_topbar", None)
+            if topbar is None:
+                return ""
+            game = _GAMES.get(topbar._game_var.get())
+            if game is None or not game.is_configured():
+                return ""
+            return game.nexus_game_domain
+
+        self._tracked_panel = TrackedModsPanel(
+            tab,
+            log_fn=self._log,
+            get_api=_get_api,
+            get_game_domain=_get_game_domain,
+            install_fn=self._install_from_tracked,
+        )
+
+    def _install_from_tracked(self, entry):
+        """Download and install a mod from the Tracked Mods panel.
+
+        For premium users: finds the latest MAIN file, downloads it directly,
+        and triggers the standard install flow.
+        For free users: opens the mod's files page in the browser so they can
+        click "Download with Mod Manager".
+        """
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            self._log("Tracked Mods: Set your Nexus API key first.")
+            return
+
+        topbar = getattr(app, "_topbar", None)
+        game = _GAMES.get(topbar._game_var.get()) if topbar else None
+        if game is None or not game.is_configured():
+            self._log("Tracked Mods: No configured game selected.")
+            return
+
+        domain = entry.domain_name
+        mod_id = entry.mod_id
+        mod_name = entry.name or f"Mod {mod_id}"
+
+        self._log(f"Tracked Mods: Installing '{mod_name}'...")
+
+        mod_panel = getattr(app, "_mod_panel", None)
+        if mod_panel:
+            mod_panel.show_download_progress(f"Installing: {mod_name}")
+        log_fn = self._log
+
+        def _worker():
+            downloader = getattr(app, "_nexus_downloader", None)
+            if downloader is None:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn("Tracked Mods: Downloader not initialised."),
+                ))
+                return
+
+            # Check if the user is premium
+            is_premium = False
+            try:
+                user = api.validate()
+                is_premium = user.is_premium
+            except Exception:
+                pass
+
+            if not is_premium:
+                files_url = f"https://www.nexusmods.com/{domain}/mods/{mod_id}?tab=files"
+                def _fallback():
+                    if mod_panel:
+                        mod_panel.hide_download_progress()
+                    webbrowser.open(files_url)
+                    log_fn("Tracked Mods: Premium required for direct download.")
+                    log_fn("Tracked Mods: Opened files page — click \"Download with Mod Manager\" there.")
+                app.after(0, _fallback)
+                return
+
+            # Premium user — find the latest MAIN file and download directly
+            mod_info = None
+            file_info = None
+            try:
+                mod_info = api.get_mod(domain, mod_id)
+                files_resp = api.get_mod_files(domain, mod_id)
+                main_files = [f for f in files_resp.files
+                              if f.category_name == "MAIN"]
+                if main_files:
+                    file_info = max(main_files,
+                                    key=lambda f: f.uploaded_timestamp)
+                elif files_resp.files:
+                    file_info = max(files_resp.files,
+                                    key=lambda f: f.uploaded_timestamp)
+            except Exception as exc:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Tracked Mods: Could not fetch file list — {exc}"),
+                ))
+                return
+
+            if file_info is None:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Tracked Mods: No files found for '{mod_name}'."),
+                ))
+                return
+
+            result = downloader.download_file(
+                game_domain=domain,
+                mod_id=mod_id,
+                file_id=file_info.file_id,
+                progress_cb=lambda cur, total: app.after(
+                    0, lambda c=cur, t=total: (
+                        mod_panel.update_download_progress(c, t)
+                        if mod_panel else None
+                    )
+                ),
+            )
+
+            if result.success and result.file_path:
+                def _install():
+                    if mod_panel:
+                        mod_panel.hide_download_progress()
+                    log_fn(f"Tracked Mods: Installing '{mod_name}'...")
+                    _install_mod_from_archive(
+                        str(result.file_path), app, log_fn, game, mod_panel)
+                    # Write Nexus metadata
+                    try:
+                        meta = build_meta_from_download(
+                            game_domain=domain,
+                            mod_id=mod_id,
+                            file_id=file_info.file_id,
+                            archive_name=result.file_name,
+                            mod_info=mod_info,
+                            file_info=file_info,
+                        )
+                        raw_stem = os.path.splitext(
+                            os.path.basename(str(result.file_path)))[0]
+                        if raw_stem.endswith(".tar"):
+                            raw_stem = os.path.splitext(raw_stem)[0]
+                        suggestions = _suggest_mod_names(raw_stem)
+                        folder_name = suggestions[0] if suggestions else raw_stem
+                        meta_path = (game.get_mod_staging_path()
+                                     / folder_name / "meta.ini")
+                        if meta_path.parent.is_dir():
+                            write_meta(meta_path, meta)
+                            log_fn(f"Tracked Mods: Saved metadata "
+                                   f"(mod {meta.mod_id}, v{meta.version})")
+                    except Exception as exc:
+                        log_fn(f"Tracked Mods: Warning — could not save "
+                               f"metadata: {exc}")
+                app.after(0, _install)
+            else:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Tracked Mods: Download failed — {result.error}"),
+                ))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _build_endorsed_tab(self):
+        tab = self._tabs.tab("Endorsed")
+
+        def _get_api():
+            app = self.winfo_toplevel()
+            return getattr(app, "_nexus_api", None)
+
+        def _get_game_domain():
+            app = self.winfo_toplevel()
+            topbar = getattr(app, "_topbar", None)
+            if topbar is None:
+                return ""
+            game = _GAMES.get(topbar._game_var.get())
+            if game is None or not game.is_configured():
+                return ""
+            return game.nexus_game_domain
+
+        self._endorsed_panel = EndorsedModsPanel(
+            tab,
+            log_fn=self._log,
+            get_api=_get_api,
+            get_game_domain=_get_game_domain,
+            install_fn=self._install_from_endorsed,
+        )
+
+    def _install_from_endorsed(self, entry):
+        """Download and install a mod from the Endorsed Mods panel.
+
+        For premium users: finds the latest MAIN file, downloads it directly,
+        and triggers the standard install flow.
+        For free users: opens the mod's files page in the browser so they can
+        click "Download with Mod Manager".
+        """
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            self._log("Endorsed Mods: Set your Nexus API key first.")
+            return
+
+        topbar = getattr(app, "_topbar", None)
+        game = _GAMES.get(topbar._game_var.get()) if topbar else None
+        if game is None or not game.is_configured():
+            self._log("Endorsed Mods: No configured game selected.")
+            return
+
+        domain = entry.domain_name
+        mod_id = entry.mod_id
+        mod_name = entry.name or f"Mod {mod_id}"
+
+        self._log(f"Endorsed Mods: Installing '{mod_name}'...")
+
+        mod_panel = getattr(app, "_mod_panel", None)
+        if mod_panel:
+            mod_panel.show_download_progress(f"Installing: {mod_name}")
+        log_fn = self._log
+
+        def _worker():
+            downloader = getattr(app, "_nexus_downloader", None)
+            if downloader is None:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn("Endorsed Mods: Downloader not initialised."),
+                ))
+                return
+
+            # Check if the user is premium
+            is_premium = False
+            try:
+                user = api.validate()
+                is_premium = user.is_premium
+            except Exception:
+                pass
+
+            if not is_premium:
+                files_url = f"https://www.nexusmods.com/{domain}/mods/{mod_id}?tab=files"
+                def _fallback():
+                    if mod_panel:
+                        mod_panel.hide_download_progress()
+                    webbrowser.open(files_url)
+                    log_fn("Endorsed Mods: Premium required for direct download.")
+                    log_fn("Endorsed Mods: Opened files page — click \"Download with Mod Manager\" there.")
+                app.after(0, _fallback)
+                return
+
+            # Premium user — find the latest MAIN file and download directly
+            mod_info = None
+            file_info = None
+            try:
+                mod_info = api.get_mod(domain, mod_id)
+                files_resp = api.get_mod_files(domain, mod_id)
+                main_files = [f for f in files_resp.files
+                              if f.category_name == "MAIN"]
+                if main_files:
+                    file_info = max(main_files,
+                                    key=lambda f: f.uploaded_timestamp)
+                elif files_resp.files:
+                    file_info = max(files_resp.files,
+                                    key=lambda f: f.uploaded_timestamp)
+            except Exception as exc:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Endorsed Mods: Could not fetch file list — {exc}"),
+                ))
+                return
+
+            if file_info is None:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Endorsed Mods: No files found for '{mod_name}'."),
+                ))
+                return
+
+            result = downloader.download_file(
+                game_domain=domain,
+                mod_id=mod_id,
+                file_id=file_info.file_id,
+                progress_cb=lambda cur, total: app.after(
+                    0, lambda c=cur, t=total: (
+                        mod_panel.update_download_progress(c, t)
+                        if mod_panel else None
+                    )
+                ),
+            )
+
+            if result.success and result.file_path:
+                def _install():
+                    if mod_panel:
+                        mod_panel.hide_download_progress()
+                    log_fn(f"Endorsed Mods: Installing '{mod_name}'...")
+                    _install_mod_from_archive(
+                        str(result.file_path), app, log_fn, game, mod_panel)
+                    # Write Nexus metadata
+                    try:
+                        meta = build_meta_from_download(
+                            game_domain=domain,
+                            mod_id=mod_id,
+                            file_id=file_info.file_id,
+                            archive_name=result.file_name,
+                            mod_info=mod_info,
+                            file_info=file_info,
+                        )
+                        raw_stem = os.path.splitext(
+                            os.path.basename(str(result.file_path)))[0]
+                        if raw_stem.endswith(".tar"):
+                            raw_stem = os.path.splitext(raw_stem)[0]
+                        suggestions = _suggest_mod_names(raw_stem)
+                        folder_name = suggestions[0] if suggestions else raw_stem
+                        meta_path = (game.get_mod_staging_path()
+                                     / folder_name / "meta.ini")
+                        if meta_path.parent.is_dir():
+                            write_meta(meta_path, meta)
+                            log_fn(f"Endorsed Mods: Saved metadata "
+                                   f"(mod {meta.mod_id}, v{meta.version})")
+                    except Exception as exc:
+                        log_fn(f"Endorsed Mods: Warning — could not save "
+                               f"metadata: {exc}")
+                app.after(0, _install)
+            else:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Endorsed Mods: Download failed — {result.error}"),
+                ))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _build_browse_tab(self):
+        tab = self._tabs.tab("Browse")
+
+        def _get_api():
+            app = self.winfo_toplevel()
+            return getattr(app, "_nexus_api", None)
+
+        def _get_game_domain():
+            app = self.winfo_toplevel()
+            topbar = getattr(app, "_topbar", None)
+            if topbar is None:
+                return ""
+            game = _GAMES.get(topbar._game_var.get())
+            if game is None or not game.is_configured():
+                return ""
+            return game.nexus_game_domain
+
+        self._browse_panel = BrowseModsPanel(
+            tab,
+            log_fn=self._log,
+            get_api=_get_api,
+            get_game_domain=_get_game_domain,
+            install_fn=self._install_from_browse,
+        )
+
+    def _install_from_browse(self, entry):
+        """Download and install a mod from the Browse panel."""
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            self._log("Browse: Set your Nexus API key first.")
+            return
+
+        topbar = getattr(app, "_topbar", None)
+        game = _GAMES.get(topbar._game_var.get()) if topbar else None
+        if game is None or not game.is_configured():
+            self._log("Browse: No configured game selected.")
+            return
+
+        domain = entry.domain_name
+        mod_id = entry.mod_id
+        mod_name = entry.name or f"Mod {mod_id}"
+
+        self._log(f"Browse: Installing '{mod_name}'...")
+
+        mod_panel = getattr(app, "_mod_panel", None)
+        if mod_panel:
+            mod_panel.show_download_progress(f"Installing: {mod_name}")
+        log_fn = self._log
+
+        def _worker():
+            downloader = getattr(app, "_nexus_downloader", None)
+            if downloader is None:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn("Browse: Downloader not initialised."),
+                ))
+                return
+
+            is_premium = False
+            try:
+                user = api.validate()
+                is_premium = user.is_premium
+            except Exception:
+                pass
+
+            if not is_premium:
+                files_url = f"https://www.nexusmods.com/{domain}/mods/{mod_id}?tab=files"
+                def _fallback():
+                    if mod_panel:
+                        mod_panel.hide_download_progress()
+                    webbrowser.open(files_url)
+                    log_fn("Browse: Premium required for direct download.")
+                    log_fn('Browse: Opened files page — click "Download with Mod Manager" there.')
+                app.after(0, _fallback)
+                return
+
+            mod_info = None
+            file_info = None
+            try:
+                mod_info = api.get_mod(domain, mod_id)
+                files_resp = api.get_mod_files(domain, mod_id)
+                main_files = [f for f in files_resp.files
+                              if f.category_name == "MAIN"]
+                if main_files:
+                    file_info = max(main_files,
+                                    key=lambda f: f.uploaded_timestamp)
+                elif files_resp.files:
+                    file_info = max(files_resp.files,
+                                    key=lambda f: f.uploaded_timestamp)
+            except Exception as exc:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Browse: Could not fetch file list — {exc}"),
+                ))
+                return
+
+            if file_info is None:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Browse: No files found for '{mod_name}'."),
+                ))
+                return
+
+            result = downloader.download_file(
+                game_domain=domain,
+                mod_id=mod_id,
+                file_id=file_info.file_id,
+                progress_cb=lambda cur, total: app.after(
+                    0, lambda c=cur, t=total: (
+                        mod_panel.update_download_progress(c, t)
+                        if mod_panel else None
+                    )
+                ),
+            )
+
+            if result.success and result.file_path:
+                def _install():
+                    if mod_panel:
+                        mod_panel.hide_download_progress()
+                    log_fn(f"Browse: Installing '{mod_name}'...")
+                    _install_mod_from_archive(
+                        str(result.file_path), app, log_fn, game, mod_panel)
+                    try:
+                        meta = build_meta_from_download(
+                            game_domain=domain,
+                            mod_id=mod_id,
+                            file_id=file_info.file_id,
+                            archive_name=result.file_name,
+                            mod_info=mod_info,
+                            file_info=file_info,
+                        )
+                        raw_stem = os.path.splitext(
+                            os.path.basename(str(result.file_path)))[0]
+                        if raw_stem.endswith(".tar"):
+                            raw_stem = os.path.splitext(raw_stem)[0]
+                        suggestions = _suggest_mod_names(raw_stem)
+                        folder_name = suggestions[0] if suggestions else raw_stem
+                        meta_path = (game.get_mod_staging_path()
+                                     / folder_name / "meta.ini")
+                        if meta_path.parent.is_dir():
+                            write_meta(meta_path, meta)
+                            log_fn(f"Browse: Saved metadata "
+                                   f"(mod {meta.mod_id}, v{meta.version})")
+                    except Exception as exc:
+                        log_fn(f"Browse: Warning — could not save "
+                               f"metadata: {exc}")
+                app.after(0, _install)
+            else:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log_fn(f"Browse: Download failed — {result.error}"),
+                ))
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _install_from_downloads(self, archive_path: str):
         """Trigger the standard install-mod flow for an archive from Downloads."""
@@ -3824,14 +4777,14 @@ class TopBar(ctk.CTkFrame):
 
         # Install Mod button
         ctk.CTkButton(
-            self, text="+ Install Mod", width=130, height=30, font=FONT_BOLD,
+            self, text="+ Install Mod", width=130, height=32, font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_install_mod
         ).pack(side="left", padx=8)
 
         # Deploy button
         self._deploy_btn = ctk.CTkButton(
-            self, text="▶ Deploy", width=100, height=30, font=FONT_BOLD,
+            self, text="▶ Deploy", width=100, height=32, font=FONT_BOLD,
             fg_color="#2d7a2d", hover_color="#3a9e3a", text_color="white",
             command=self._on_deploy
         )
@@ -3839,19 +4792,108 @@ class TopBar(ctk.CTkFrame):
 
         # Restore button
         self._restore_btn = ctk.CTkButton(
-            self, text="↩ Restore", width=100, height=30, font=FONT_BOLD,
+            self, text="↩ Restore", width=100, height=32, font=FONT_BOLD,
             fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
             command=self._on_restore
         )
         self._restore_btn.pack(side="left", padx=(0, 8))
 
         # Proton tools button
+        _proton_icon = _load_icon("proton.png", size=(18, 18))
         self._proton_btn = ctk.CTkButton(
-            self, text="🔧 Proton", width=100, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            self, text="Proton", width=100, height=32, font=FONT_BOLD,
+            image=_proton_icon, compound="left",
+            fg_color="#7b2d8b", hover_color="#9a3aae", text_color="white",
             command=self._on_proton_tools
         )
         self._proton_btn.pack(side="left", padx=(0, 8))
+
+        # Nexus Mods settings button
+        _nexus_icon = _load_icon("nexus.png", size=(18, 18))
+        ctk.CTkButton(
+            self, text="Nexus", width=80, height=32, font=FONT_BOLD,
+            image=_nexus_icon, compound="left",
+            fg_color="#da8e35", hover_color="#e5a04a", text_color="white",
+            command=self._on_nexus_settings
+        ).pack(side="left", padx=(0, 4))
+
+        # Check for Nexus mod updates button
+        self._update_btn = ctk.CTkButton(
+            self, text="Check Updates", width=120, height=32, font=FONT_BOLD,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_check_updates
+        )
+        self._update_btn.pack(side="left", padx=(0, 8))
+
+    def _on_nexus_settings(self):
+        """Open the Nexus Mods settings dialog."""
+        app = self.winfo_toplevel()
+        def _key_changed():
+            app._init_nexus_api()
+            self._log("Nexus API key updated.")
+        dialog = NexusSettingsDialog(app, on_key_changed=_key_changed)
+        app.wait_window(dialog)
+
+    def _on_check_updates(self):
+        """Check all installed Nexus mods for updates and missing requirements."""
+        app = self.winfo_toplevel()
+        if app._nexus_api is None:
+            self._log("Nexus: Set your API key first (Nexus button).")
+            return
+        game = _GAMES.get(self._game_var.get())
+        if game is None or not game.is_configured():
+            self._log("No configured game selected.")
+            return
+
+        staging = game.get_mod_staging_path()
+        self._update_btn.configure(text="Checking...", state="disabled")
+        log_fn = self._log
+
+        def _worker():
+            try:
+                # Phase 1: Check for updates
+                results = check_for_updates(
+                    app._nexus_api, staging,
+                    game_domain=game.nexus_game_domain,
+                    progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
+                )
+                # Phase 2: Check for missing requirements
+                app.after(0, lambda: log_fn("Nexus: Checking mod requirements..."))
+                missing = check_missing_requirements(
+                    app._nexus_api, staging,
+                    game_domain=game.nexus_game_domain,
+                    progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
+                )
+                def _done():
+                    self._update_btn.configure(text="Check Updates", state="normal")
+                    if results:
+                        log_fn(f"Nexus: {len(results)} update(s) available!")
+                        for u in results:
+                            log_fn(f"  ↑ {u.mod_name}: {u.installed_version} → {u.latest_version}")
+                    else:
+                        log_fn("Nexus: All mods are up to date.")
+                    if missing:
+                        log_fn(f"Nexus: {len(missing)} mod(s) have missing requirements!")
+                        for m in missing:
+                            names = ", ".join(r.mod_name for r in m.missing[:3])
+                            suffix = f" (+{len(m.missing) - 3} more)" if len(m.missing) > 3 else ""
+                            log_fn(f"  ⚠ {m.mod_name}: needs {names}{suffix}")
+                    else:
+                        log_fn("Nexus: All mod requirements satisfied.")
+                    # Refresh flags column so icons appear / disappear
+                    if hasattr(app, "_mod_panel"):
+                        app._mod_panel._scan_update_flags()
+                        app._mod_panel._scan_missing_reqs_flags()
+                        app._mod_panel._scan_endorsed_flags()
+                        app._mod_panel._redraw()
+                app.after(0, _done)
+            except Exception as exc:
+                app.after(0, lambda: (
+                    self._update_btn.configure(text="Check Updates", state="normal"),
+                    log_fn(f"Nexus: Check failed — {exc}"),
+                ))
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _on_proton_tools(self):
         game = _GAMES.get(self._game_var.get())
@@ -5656,9 +6698,25 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
         elif any(ext.endswith(s) for s in (".tar.gz", ".tar.bz2", ".tar.xz", ".tar")):
             with tarfile.open(archive_path, "r:*") as t:
                 t.extractall(extract_dir)
+        elif ext.endswith(".rar"):
+            try:
+                import rarfile
+                with rarfile.RarFile(archive_path, "r") as r:
+                    r.extractall(extract_dir)
+            except (ImportError, Exception) as e_rar:
+                log_fn(f"rarfile failed ({e_rar}), trying libarchive…")
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                os.makedirs(extract_dir, exist_ok=True)
+                import libarchive
+                prev_cwd = os.getcwd()
+                try:
+                    os.chdir(extract_dir)
+                    libarchive.extract_file(archive_path)
+                finally:
+                    os.chdir(prev_cwd)
         else:
             log_fn(f"Unsupported archive format: {os.path.basename(archive_path)}")
-            log_fn("Supported formats: .zip, .7z, .tar.gz")
+            log_fn("Supported formats: .zip, .7z, .rar, .tar.gz")
             return
 
         # --- Resolve file list ---
@@ -5812,6 +6870,43 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
         prepend_mod(modlist_path, mod_name, enabled=True)
         log_fn(f"Added '{mod_name}' to modlist.")
 
+        # --- Auto-detect Nexus metadata (filename parsing + MD5 lookup) ---
+        # Only for manual installs (NXM installs handle metadata separately).
+        # Run in a background thread so it doesn't block the UI.
+        meta_path = dest_root / "meta.ini"
+        _archive = Path(archive_path)
+        _game_domain = getattr(game, "nexus_game_domain", "")
+        if _game_domain and _archive.is_file():
+            def _detect_meta():
+                try:
+                    # Get the app's Nexus API instance (may be None)
+                    import tkinter as _tk
+                    app = None
+                    try:
+                        for w in parent_window.winfo_children():
+                            pass
+                        app = parent_window.winfo_toplevel()
+                    except Exception:
+                        pass
+                    api = getattr(app, "_nexus_api", None) if app else None
+
+                    meta = resolve_nexus_meta_for_archive(
+                        _archive, _game_domain,
+                        api=api,
+                        log_fn=lambda m: (
+                            app.after(0, lambda msg=m: log_fn(msg))
+                            if app else None
+                        ),
+                    )
+                    if meta:
+                        write_meta(meta_path, meta)
+                        msg = f"Nexus: Saved metadata for '{mod_name}' (mod {meta.mod_id})"
+                        if app:
+                            app.after(0, lambda: log_fn(msg))
+                except Exception:
+                    pass  # non-critical — don't break the install
+            threading.Thread(target=_detect_meta, daemon=True).start()
+
         # --- Refresh the mod panel ---
         if mod_panel is not None:
             mod_panel.reload_after_install()
@@ -5964,8 +7059,183 @@ class App(ctk.CTk):
         self.title("Amethyst Mod Manager")
         self.geometry("1400x820")
         self.minsize(900, 600)
+        self._nexus_api: NexusAPI | None = None
+        self._nexus_downloader: NexusDownloader | None = None
+        self._init_nexus_api()
         self._build_layout()
         self._startup_log()
+        # Process --nxm argument if the app was launched via protocol handler
+        self._handle_nxm_argv()
+
+    # -- Nexus API init -----------------------------------------------------
+
+    def _init_nexus_api(self):
+        """Load saved API key and initialise the Nexus client (if key exists)."""
+        key = load_api_key()
+        if key:
+            self._nexus_api = NexusAPI(api_key=key)
+            self._nexus_downloader = NexusDownloader(self._nexus_api)
+        else:
+            self._nexus_api = None
+            self._nexus_downloader = None
+
+    # -- NXM protocol handling ----------------------------------------------
+
+    def _handle_nxm_argv(self):
+        """Check sys.argv for --nxm <url> and kick off a download."""
+        import sys
+        if "--nxm" not in sys.argv:
+            return
+        try:
+            idx = sys.argv.index("--nxm")
+            nxm_url = sys.argv[idx + 1]
+        except (IndexError, ValueError):
+            return
+        self.after(500, lambda: self._process_nxm_link(nxm_url))
+
+    def _start_nxm_ipc(self):
+        """Start the IPC server so running instance can receive NXM links."""
+        def _on_nxm(url: str):
+            self.after(0, lambda: self._receive_nxm(url))
+        NxmIPC.start_server(_on_nxm)
+
+    def _receive_nxm(self, nxm_url: str):
+        """Handle an NXM link delivered via IPC from a second instance."""
+        self._status.log(f"Nexus: Received link from browser.")
+        # Raise the window so the user sees what's happening
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        self._process_nxm_link(nxm_url)
+
+    def _process_nxm_link(self, nxm_url: str):
+        """Download a mod from an nxm:// link and install it."""
+        log = self._status.log
+
+        if self._nexus_api is None or self._nexus_downloader is None:
+            log("Nexus: No API key configured — cannot download.")
+            log("Open the Nexus button in the toolbar to set your API key.")
+            from tkinter import messagebox
+            messagebox.showwarning(
+                "Nexus API Key Required",
+                "You need to set your Nexus Mods API key before downloading.\n\n"
+                "Click the \"Nexus\" button in the toolbar to enter your key.\n\n"
+                "Get your key from:\nnexusmods.com → Settings → API Keys",
+                parent=self,
+            )
+            return
+
+        try:
+            link = NxmLink.parse(nxm_url)
+        except ValueError as exc:
+            log(f"Nexus: Bad nxm:// URL — {exc}")
+            return
+
+        log(f"Nexus: Downloading mod {link.mod_id} file {link.file_id} "
+            f"from {link.game_domain}...")
+
+        # Show download progress bar on the mod panel
+        mod_panel = getattr(self, "_mod_panel", None)
+        if mod_panel:
+            mod_panel.show_download_progress("Downloading...")
+
+        # Try to auto-select the matching game
+        matched_game = None
+        for name, game in _GAMES.items():
+            if game.nexus_game_domain == link.game_domain and game.is_configured():
+                matched_game = (name, game)
+                break
+
+        if matched_game:
+            current = self._topbar._game_var.get()
+            if current != matched_game[0]:
+                self._topbar._game_var.set(matched_game[0])
+                self._topbar._on_game_change(matched_game[0])
+                log(f"Nexus: Switched to game '{matched_game[0]}'")
+
+        def _worker():
+            # Fetch mod + file info in parallel with the download for metadata
+            mod_info = None
+            file_info = None
+            try:
+                mod_info = self._nexus_api.get_mod(link.game_domain, link.mod_id)
+                # Update the progress bar label with the actual mod name
+                if mod_panel and mod_info:
+                    self.after(0, lambda: mod_panel.show_download_progress(
+                        f"Downloading: {mod_info.name}"))
+                files_resp = self._nexus_api.get_mod_files(link.game_domain, link.mod_id)
+                for f in files_resp.files:
+                    if f.file_id == link.file_id:
+                        file_info = f
+                        break
+            except Exception as exc:
+                log_fn = lambda m=str(exc): self.after(0, lambda: log(
+                    f"Nexus: Could not fetch mod info ({m}) — metadata will be partial."))
+                log_fn()
+
+            result = self._nexus_downloader.download_from_nxm(
+                link,
+                progress_cb=lambda cur, total: self.after(
+                    0, lambda c=cur, t=total: (
+                        mod_panel.update_download_progress(c, t)
+                        if mod_panel else None
+                    )
+                ),
+            )
+            if result.success and result.file_path:
+                self.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    self._nxm_install(
+                        result, matched_game, mod_info=mod_info, file_info=file_info),
+                ))
+            else:
+                self.after(0, lambda: (
+                    mod_panel.hide_download_progress() if mod_panel else None,
+                    log(f"Nexus: Download failed — {result.error}"),
+                ))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _nxm_install(self, result, matched_game, mod_info=None, file_info=None):
+        """Install a downloaded NXM file into the current game."""
+        log = self._status.log
+        game_name = self._topbar._game_var.get()
+        game = _GAMES.get(game_name)
+        if game is None or not game.is_configured():
+            log(f"Nexus: Downloaded {result.file_name} to {result.file_path}")
+            log("No configured game selected — install manually from Downloads tab.")
+            if hasattr(self, "_plugin_panel"):
+                dl_panel = getattr(self._plugin_panel, "_downloads_panel", None)
+                if dl_panel:
+                    dl_panel.refresh()
+            return
+
+        log(f"Nexus: Installing {result.file_name}...")
+        mod_panel = getattr(self, "_mod_panel", None)
+        _install_mod_from_archive(str(result.file_path), self, log, game, mod_panel)
+
+        # Write Nexus metadata to the installed mod's meta.ini
+        try:
+            meta = build_meta_from_download(
+                game_domain=result.game_domain,
+                mod_id=result.mod_id,
+                file_id=result.file_id,
+                archive_name=result.file_name,
+                mod_info=mod_info,
+                file_info=file_info,
+            )
+            # Determine the mod folder name (same logic as _install_mod_from_archive)
+            raw_stem = os.path.splitext(os.path.basename(str(result.file_path)))[0]
+            if raw_stem.endswith(".tar"):
+                raw_stem = os.path.splitext(raw_stem)[0]
+            suggestions = _suggest_mod_names(raw_stem)
+            folder_name = suggestions[0] if suggestions else raw_stem
+            meta_path = game.get_mod_staging_path() / folder_name / "meta.ini"
+            if meta_path.parent.is_dir():
+                write_meta(meta_path, meta)
+                log(f"Nexus: Saved metadata (mod {meta.mod_id}, v{meta.version})")
+        except Exception as exc:
+            log(f"Nexus: Warning — could not save metadata: {exc}")
 
     def _build_layout(self):
         self.grid_rowconfigure(0, weight=0)
@@ -5980,7 +7250,7 @@ class App(ctk.CTk):
         log = self._status.log
 
         self._topbar = TopBar(self, log_fn=log)
-        self._topbar.grid(row=0, column=0, sticky="ew")
+        self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))
 
         main = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         main.grid(row=1, column=0, sticky="nsew")
@@ -6082,11 +7352,36 @@ class App(ctk.CTk):
         total = len(_GAMES)
         self._status.log(f"Mod Manager ready. {configured}/{total} games configured.")
         self._status.log("Linux mode active. Using CustomTkinter UI framework.")
+        if self._nexus_api is not None:
+            self._status.log("Nexus Mods API key loaded.")
+        if NxmHandler.is_registered():
+            self._status.log("NXM protocol handler registered.")
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    import sys
+
+    # Register as nxm:// handler on first run (idempotent)
+    NxmHandler.register()
+
+    # Single-instance: if --nxm was passed and another instance is running,
+    # hand off the link and exit immediately.
+    if "--nxm" in sys.argv:
+        try:
+            idx = sys.argv.index("--nxm")
+            nxm_url = sys.argv[idx + 1]
+        except (IndexError, ValueError):
+            nxm_url = None
+
+        if nxm_url and NxmIPC.send_to_running(nxm_url):
+            # Link delivered to the running instance — nothing more to do.
+            sys.exit(0)
+        # Otherwise no instance is running; continue and open the app.
+
     app = App()
+    app._start_nxm_ipc()          # listen for NXM links from future instances
+    app.protocol("WM_DELETE_WINDOW", lambda: (NxmIPC.shutdown(), app.destroy()))
     app.mainloop()

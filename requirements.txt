@@ -3,3 +3,4 @@ py7zr
 libarchive-c
 Pillow
 lz4
+requests

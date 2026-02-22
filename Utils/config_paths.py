@@ -78,3 +78,13 @@ def get_fomod_selections_path(game_name: str, mod_name: str) -> Path:
     path = get_config_dir() / "games" / game_name / "fomod_selections" / f"{mod_name}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def get_nexus_config_dir() -> Path:
+    """Return the Nexus Mods config directory, creating it if needed.
+
+    Result: ~/.config/AmethystModManager/Nexus/
+    """
+    d = get_config_dir() / "Nexus"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
