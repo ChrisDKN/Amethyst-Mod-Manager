@@ -12,7 +12,8 @@
 
 ## Key Features
 
-- **Mod Organiser like interface** - Designed to look and behave like Mod Organiser but on linux
+- **Mod Organiser like interface** - Designed to look and behave like Mod Organiser
+- **Linux Native** — Designed for Linux
 - **Multi-game support** — Support for many games
 - **FOMOD support** — Full Fomod support with last selections saved.
 - **LOOT support** — Plugins for games that use LOOT can be sorted using LOOT.
@@ -113,7 +114,5 @@ As this is an early alpha build, the following needs testing:
 ## Planned Features
 
 - Ability to change theme/colours of the GUI
-- Auto-detection of games installed by Heroic
 - Modlist.txt backup and restore function
 - Mod filters
-- A wizard to aid in the install of certain games (e.g. Fallout 3 downgrading and script extenders)
