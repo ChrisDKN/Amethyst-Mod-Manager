@@ -94,7 +94,7 @@ You can also add multiple profiles with different configurations — simply crea
 
 > **Not currently recommended**
 
-You can move your mods, overwrite, `modlist.txt`, and `plugins.txt` from Mod Organiser. These should be recognised by Linux Mod Manager. This is not fully tested yet, so don't do this with large mod lists.
+You can move your mods, overwrite, `modlist.txt`, and `plugins.txt` from Mod Organiser. These should be recognised by Amethyst Mod Manager. This is not fully tested yet, so don't do this with large mod lists.
 
 ## Needs Testing
 
