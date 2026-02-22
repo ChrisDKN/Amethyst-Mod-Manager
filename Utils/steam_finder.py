@@ -236,21 +236,49 @@ def find_proton_for_game(steam_id: str) -> Path | None:
 def find_game_in_libraries(libraries: list[Path], exe_name: str) -> Path | None:
     """
     Search each library's steamapps/common/* subfolder for exe_name.
-    Checks one level deep: <library>/<GameFolder>/<exe_name>
     Returns the game root directory (the <GameFolder>) or None if not found.
+
+    exe_name may be a bare filename (e.g. "SkyrimSE.exe") — searched one
+    level deep — or a relative path with subdirectories (e.g. "bin/bg3.exe")
+    which is checked as an exact relative path under each game folder.
 
     The search is case-insensitive on the exe name to handle Linux/Proton layouts.
     """
     exe_lower = exe_name.lower()
+    has_subdir = "/" in exe_name or "\\" in exe_name
 
     for common in libraries:
         try:
             for game_dir in common.iterdir():
                 if not game_dir.is_dir():
                     continue
-                for entry in game_dir.iterdir():
-                    if entry.name.lower() == exe_lower and entry.is_file():
+                if has_subdir:
+                    # Check as a relative path: <GameFolder>/bin/bg3.exe
+                    candidate = game_dir / exe_name
+                    if candidate.is_file():
                         return game_dir
+                    # Case-insensitive fallback: walk the subpath segments
+                    parts = exe_lower.replace("\\", "/").split("/")
+                    cur = game_dir
+                    for part in parts:
+                        match = None
+                        try:
+                            for entry in cur.iterdir():
+                                if entry.name.lower() == part:
+                                    match = entry
+                                    break
+                        except PermissionError:
+                            break
+                        if match is None:
+                            break
+                        cur = match
+                    else:
+                        if cur.is_file():
+                            return game_dir
+                else:
+                    for entry in game_dir.iterdir():
+                        if entry.name.lower() == exe_lower and entry.is_file():
+                            return game_dir
         except PermissionError:
             continue
 
