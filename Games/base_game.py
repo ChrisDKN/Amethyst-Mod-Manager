@@ -8,11 +8,41 @@ To add support for a new game:
   3. Drop the file in — it will be auto-discovered by Utils/game_loader.py
 """
 
+from __future__ import annotations
+
 import shutil
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from Utils.config_paths import get_game_config_path
+
+if TYPE_CHECKING:
+    from typing import Any
+
+
+# ---------------------------------------------------------------------------
+# Wizard tool descriptor
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class WizardTool:
+    """Describes a single wizard tool available for a game.
+
+    Attributes:
+        id:          Unique machine-readable key, e.g. ``"downgrade_fo3"``.
+        label:       Short human-readable name shown on the button.
+        description: One-line explanation shown below the label.
+        dialog_class_path:  Dotted import path to the dialog class,
+                            e.g. ``"gui.wizard_fallout_downgrade.FalloutDowngradeWizard"``.
+                            Resolved lazily at runtime so game modules don't
+                            need to import heavy GUI code at load time.
+    """
+    id: str
+    label: str
+    description: str = ""
+    dialog_class_path: str = ""
 
 
 class BaseGame(ABC):
@@ -216,6 +246,22 @@ class BaseGame(ABC):
         Return an empty string to disable Nexus integration for this game.
         """
         return ""
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        """
+        Per-game helper tools shown in the Wizard dialog.
+
+        Override this in a game subclass to register tools that aid with
+        game-specific setup tasks (e.g. downgrading, patching, installing
+        runtimes).  Each entry is a :class:`WizardTool` whose
+        ``dialog_class_path`` points to the CTkToplevel that implements the
+        multi-step wizard.
+
+        Return an empty list (the default) to hide the Wizard button for
+        this game.
+        """
+        return []
 
     # -----------------------------------------------------------------------
     # Paths

@@ -21,6 +21,7 @@ from PIL import Image as PilImage, ImageTk
 from gui.fomod_dialog import FomodDialog
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
 from gui.nexus_settings_dialog import NexusSettingsDialog
+from gui.wizard_dialog import WizardDialog
 from gui.downloads_panel import DownloadsPanel
 from gui.tracked_mods_panel import TrackedModsPanel
 from gui.endorsed_mods_panel import EndorsedModsPanel
@@ -53,7 +54,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
 # ---------------------------------------------------------------------------
-# Color palette (MO2-inspired dark theme)
+# Color palette
 # ---------------------------------------------------------------------------
 BG_DEEP    = "#1a1a1a"
 BG_PANEL   = "#252526"
@@ -81,12 +82,12 @@ conflict_lower = "#9a0e0e"
 # ---------------------------------------------------------------------------
 # Fonts
 # ---------------------------------------------------------------------------
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_BOLD   = ("Segoe UI", 12, "bold")
-FONT_SMALL  = ("Segoe UI", 10)
+FONT_NORMAL = ("Segoe UI", 14)
+FONT_BOLD   = ("Segoe UI", 14, "bold")
+FONT_SMALL  = ("Segoe UI", 12)
 FONT_MONO   = ("Courier New", 14)
-FONT_SEP    = ("Segoe UI", 11, "bold")
-FONT_HEADER = ("Segoe UI", 11, "bold")
+FONT_SEP    = ("Segoe UI", 12, "bold")
+FONT_HEADER = ("Segoe UI", 12, "bold")
 
 # ---------------------------------------------------------------------------
 # Icons
@@ -207,6 +208,7 @@ class ModListPanel(ctk.CTkFrame):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0)
         self._log = log_fn or (lambda msg: None)
 
+        self._game = None
         self._entries:  list[ModEntry] = []
         self._sel_idx:  int = -1          # anchor of the current selection
         self._sel_set:  set[int] = set()  # all selected entry indices
@@ -318,6 +320,7 @@ class ModListPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def load_game(self, game, profile: str = "default") -> None:
+        self._game = game
         profile_dir = game.get_profile_root() / "profiles" / profile
         self._modlist_path = profile_dir / "modlist.txt"
         self._strip_prefixes    = game.mod_folder_strip_prefixes
@@ -386,6 +389,15 @@ class ModListPanel(ctk.CTkFrame):
             text_color=TEXT_MAIN, font=FONT_SMALL,
             command=self._move_down
         ).pack(side="left", padx=4, pady=5)
+
+        # Check for Nexus mod updates button
+        self._update_btn = ctk.CTkButton(
+            bar, text="Check Updates", width=110, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._on_check_updates
+        )
+        self._update_btn.pack(side="left", padx=4, pady=5)
 
         # Refresh button (icon only)
         refresh_icon = _load_icon("refresh.png", size=(16, 16))
@@ -2582,6 +2594,63 @@ class ModListPanel(ctk.CTkFrame):
     # Move Up / Down buttons
     # ------------------------------------------------------------------
 
+    def _on_check_updates(self):
+        """Check all installed Nexus mods for updates and missing requirements."""
+        app = self.winfo_toplevel()
+        if app._nexus_api is None:
+            self._log("Nexus: Set your API key first (Nexus button).")
+            return
+        game = self._game
+        if game is None or not game.is_configured():
+            self._log("No configured game selected.")
+            return
+
+        staging = game.get_mod_staging_path()
+        self._update_btn.configure(text="Checking...", state="disabled")
+        log_fn = self._log
+
+        def _worker():
+            try:
+                results = check_for_updates(
+                    app._nexus_api, staging,
+                    game_domain=game.nexus_game_domain,
+                    progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
+                )
+                app.after(0, lambda: log_fn("Nexus: Checking mod requirements..."))
+                missing = check_missing_requirements(
+                    app._nexus_api, staging,
+                    game_domain=game.nexus_game_domain,
+                    progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
+                )
+                def _done():
+                    self._update_btn.configure(text="Check Updates", state="normal")
+                    if results:
+                        log_fn(f"Nexus: {len(results)} update(s) available!")
+                        for u in results:
+                            log_fn(f"  ↑ {u.mod_name}: {u.installed_version} → {u.latest_version}")
+                    else:
+                        log_fn("Nexus: All mods are up to date.")
+                    if missing:
+                        log_fn(f"Nexus: {len(missing)} mod(s) have missing requirements!")
+                        for m in missing:
+                            names = ", ".join(r.mod_name for r in m.missing[:3])
+                            suffix = f" (+{len(m.missing) - 3} more)" if len(m.missing) > 3 else ""
+                            log_fn(f"  ⚠ {m.mod_name}: needs {names}{suffix}")
+                    else:
+                        log_fn("Nexus: All mod requirements satisfied.")
+                    self._scan_update_flags()
+                    self._scan_missing_reqs_flags()
+                    self._scan_endorsed_flags()
+                    self._redraw()
+                app.after(0, _done)
+            except Exception as exc:
+                app.after(0, lambda: (
+                    self._update_btn.configure(text="Check Updates", state="normal"),
+                    log_fn(f"Nexus: Check failed — {exc}"),
+                ))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
     def _move_up(self):
         indices = sorted(self._sel_set) if self._sel_set else (
             [self._sel_idx] if self._sel_idx >= 0 else []
@@ -4655,12 +4724,26 @@ class _GamePickerDialog(ctk.CTkToplevel):
         scroll.grid_columnconfigure(0, weight=1)
 
         self._var = tk.StringVar(value=game_names[0])
+
+        def _fwd_scroll(event):
+            scroll._parent_canvas.yview_scroll(
+                -1 if event.num == 4 else 1, "units"
+            )
+
         for i, name in enumerate(game_names):
-            ctk.CTkRadioButton(
+            rb = ctk.CTkRadioButton(
                 scroll, text=name, variable=self._var, value=name,
                 font=FONT_NORMAL, text_color=TEXT_MAIN,
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
-            ).grid(row=i, column=0, sticky="w", padx=12, pady=4)
+            )
+            rb.grid(row=i, column=0, sticky="w", padx=12, pady=4)
+
+        self.bind_all("<Button-4>", _fwd_scroll)
+        self.bind_all("<Button-5>", _fwd_scroll)
+        self.bind("<Destroy>", lambda e: (
+            self.unbind_all("<Button-4>"),
+            self.unbind_all("<Button-5>"),
+        ) if e.widget is self else None)
 
         btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
         btn_bar.grid(row=2, column=0, sticky="ew")
@@ -4727,7 +4810,7 @@ class TopBar(ctk.CTkFrame):
 
         ctk.CTkButton(
             self, text="+", width=30, height=30, font=FONT_BOLD,
-            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            fg_color="#2d7a2d", hover_color="#3a9a3a", text_color="white",
             command=self._on_add_game
         ).pack(side="left", padx=(0, 4))
 
@@ -4773,14 +4856,14 @@ class TopBar(ctk.CTkFrame):
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_profile_change
         )
-        self._profile_menu.pack(side="left", padx=(0, 16))
+        self._profile_menu.pack(side="left", padx=(0, 4))
 
         # Install Mod button
         ctk.CTkButton(
             self, text="+ Install Mod", width=130, height=32, font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_install_mod
-        ).pack(side="left", padx=8)
+        ).pack(side="left", padx=(0, 8))
 
         # Deploy button
         self._deploy_btn = ctk.CTkButton(
@@ -4808,6 +4891,16 @@ class TopBar(ctk.CTkFrame):
         )
         self._proton_btn.pack(side="left", padx=(0, 8))
 
+        # Wizard button (shown only when the game has wizard tools)
+        _wizard_icon = _load_icon("icon.png", size=(18, 18))
+        self._wizard_btn = ctk.CTkButton(
+            self, text="Wizard", width=100, height=32, font=FONT_BOLD,
+            image=_wizard_icon, compound="left",
+            fg_color="#4a1272", hover_color="#6318a0", text_color="white",
+            command=self._on_wizard
+        )
+        # Don't pack yet — _update_wizard_visibility() will show/hide it
+
         # Nexus Mods settings button
         _nexus_icon = _load_icon("nexus.png", size=(18, 18))
         ctk.CTkButton(
@@ -4817,13 +4910,8 @@ class TopBar(ctk.CTkFrame):
             command=self._on_nexus_settings
         ).pack(side="left", padx=(0, 4))
 
-        # Check for Nexus mod updates button
-        self._update_btn = ctk.CTkButton(
-            self, text="Check Updates", width=120, height=32, font=FONT_BOLD,
-            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
-            command=self._on_check_updates
-        )
-        self._update_btn.pack(side="left", padx=(0, 8))
+        # Show/hide wizard button for the initial game
+        self._update_wizard_visibility()
 
     def _on_nexus_settings(self):
         """Open the Nexus Mods settings dialog."""
@@ -4833,67 +4921,6 @@ class TopBar(ctk.CTkFrame):
             self._log("Nexus API key updated.")
         dialog = NexusSettingsDialog(app, on_key_changed=_key_changed)
         app.wait_window(dialog)
-
-    def _on_check_updates(self):
-        """Check all installed Nexus mods for updates and missing requirements."""
-        app = self.winfo_toplevel()
-        if app._nexus_api is None:
-            self._log("Nexus: Set your API key first (Nexus button).")
-            return
-        game = _GAMES.get(self._game_var.get())
-        if game is None or not game.is_configured():
-            self._log("No configured game selected.")
-            return
-
-        staging = game.get_mod_staging_path()
-        self._update_btn.configure(text="Checking...", state="disabled")
-        log_fn = self._log
-
-        def _worker():
-            try:
-                # Phase 1: Check for updates
-                results = check_for_updates(
-                    app._nexus_api, staging,
-                    game_domain=game.nexus_game_domain,
-                    progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
-                )
-                # Phase 2: Check for missing requirements
-                app.after(0, lambda: log_fn("Nexus: Checking mod requirements..."))
-                missing = check_missing_requirements(
-                    app._nexus_api, staging,
-                    game_domain=game.nexus_game_domain,
-                    progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
-                )
-                def _done():
-                    self._update_btn.configure(text="Check Updates", state="normal")
-                    if results:
-                        log_fn(f"Nexus: {len(results)} update(s) available!")
-                        for u in results:
-                            log_fn(f"  ↑ {u.mod_name}: {u.installed_version} → {u.latest_version}")
-                    else:
-                        log_fn("Nexus: All mods are up to date.")
-                    if missing:
-                        log_fn(f"Nexus: {len(missing)} mod(s) have missing requirements!")
-                        for m in missing:
-                            names = ", ".join(r.mod_name for r in m.missing[:3])
-                            suffix = f" (+{len(m.missing) - 3} more)" if len(m.missing) > 3 else ""
-                            log_fn(f"  ⚠ {m.mod_name}: needs {names}{suffix}")
-                    else:
-                        log_fn("Nexus: All mod requirements satisfied.")
-                    # Refresh flags column so icons appear / disappear
-                    if hasattr(app, "_mod_panel"):
-                        app._mod_panel._scan_update_flags()
-                        app._mod_panel._scan_missing_reqs_flags()
-                        app._mod_panel._scan_endorsed_flags()
-                        app._mod_panel._redraw()
-                app.after(0, _done)
-            except Exception as exc:
-                app.after(0, lambda: (
-                    self._update_btn.configure(text="Check Updates", state="normal"),
-                    log_fn(f"Nexus: Check failed — {exc}"),
-                ))
-
-        threading.Thread(target=_worker, daemon=True).start()
 
     def _on_proton_tools(self):
         game = _GAMES.get(self._game_var.get())
@@ -4907,6 +4934,31 @@ class TopBar(ctk.CTkFrame):
         self._log(f"Profile: {value}")
         self._reload_mod_panel()
 
+    def _on_wizard(self):
+        """Open the Wizard tool-selection dialog for the current game."""
+        game = _GAMES.get(self._game_var.get())
+        if game is None or not game.is_configured():
+            self._log("Wizard: no configured game selected.")
+            return
+        if not game.wizard_tools:
+            self._log("Wizard: no tools available for this game.")
+            return
+        dlg = WizardDialog(self.winfo_toplevel(), game, self._log)
+        self.winfo_toplevel().wait_window(dlg)
+
+    def _update_wizard_visibility(self):
+        """Show or hide the Wizard button based on the current game."""
+        game = _GAMES.get(self._game_var.get())
+        if game and game.wizard_tools:
+            # Ensure it's packed right after the Proton button
+            try:
+                self._wizard_btn.pack(side="left", padx=(0, 8),
+                                      after=self._proton_btn)
+            except Exception:
+                self._wizard_btn.pack(side="left", padx=(0, 8))
+        else:
+            self._wizard_btn.pack_forget()
+
     def _on_game_change(self, value: str):
         game = _GAMES.get(value)
         if game and game.is_configured():
@@ -4917,6 +4969,7 @@ class TopBar(ctk.CTkFrame):
         profiles = _profiles_for_game(value)
         self._profile_menu.configure(values=profiles)
         self._profile_var.set(profiles[0])
+        self._update_wizard_visibility()
         self._reload_mod_panel()
 
     def _reload_mod_panel(self):

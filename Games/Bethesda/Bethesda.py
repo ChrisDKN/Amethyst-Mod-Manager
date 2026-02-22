@@ -11,7 +11,7 @@ import json
 import shutil
 from pathlib import Path
 
-from Games.base_game import BaseGame
+from Games.base_game import BaseGame, WizardTool
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -67,6 +67,20 @@ class Fallout_3(BaseGame):
     @property
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/fallout3/v0.26/masterlist.yaml"
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return [
+            WizardTool(
+                id="downgrade_fo3",
+                label="Downgrade Fallout 3",
+                description=(
+                    "Downgrade to pre-Anniversary Edition so that "
+                    "the script extender (FOSE) works correctly."
+                ),
+                dialog_class_path="gui.wizard_fallout_downgrade.FalloutDowngradeWizard",
+            ),
+        ]
 
     # -----------------------------------------------------------------------
     # Paths
@@ -344,6 +358,10 @@ class Fallout3_GOTY(Fallout_3):
 class Fallout_NV(Fallout_3):
 
     @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
+
+    @property
     def name(self) -> str:
         return "Fallout New Vegas"
 
@@ -381,6 +399,10 @@ class Fallout_NV(Fallout_3):
 class Fallout_4(Fallout_3):
 
     @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
+
+    @property
     def name(self) -> str:
         return "Fallout 4"
 
@@ -415,7 +437,52 @@ class Fallout_4(Fallout_3):
         return "f4se_loader.exe"
 
 
+class Fallout_4VR(Fallout_3):
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
+
+    @property
+    def name(self) -> str:
+        return "Fallout 4 VR"
+
+    @property
+    def game_id(self) -> str:
+        return "Fallout4VR"
+
+    @property
+    def exe_name(self) -> str:
+        return "Fallout4VRLauncher.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "611660"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "fallout4vr"
+
+    @property
+    def loot_game_type(self) -> str:
+        return "Fallout4VR"
+
+    @property
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/fallout4/v0.21/masterlist.yaml"
+
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout4VR")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "f4sevr_loader.exe"
+
+
 class Oblivion(Fallout_3):
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
 
     @property
     def name(self) -> str:
@@ -459,6 +526,10 @@ class Oblivion(Fallout_3):
 class Skyrim(Fallout_3):
 
     @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
+
+    @property
     def name(self) -> str:
         return "Skyrim"
 
@@ -491,3 +562,88 @@ class Skyrim(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "skse_loader.exe"
+
+
+class SkyrimVR(Fallout_3):
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
+
+    @property
+    def name(self) -> str:
+        return "Skyrim VR"
+
+    @property
+    def game_id(self) -> str:
+        return "skyrimvr"
+
+    @property
+    def exe_name(self) -> str:
+        return "SkyrimVRLauncher.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "611670"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "skyrimvr"
+
+    @property
+    def loot_game_type(self) -> str:
+        return "SkyrimVR"
+
+    @property
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/skyrimse/v0.21/masterlist.yaml"
+
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim VR")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "sksevr_loader.exe"
+
+
+class Starfield(Fallout_3):
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return []
+
+    @property
+    def name(self) -> str:
+        return "Starfield"
+
+    @property
+    def game_id(self) -> str:
+        return "Starfield"
+
+    @property
+    def exe_name(self) -> str:
+        # Starfield has no separate launcher; the main executable is the launch target.
+        return "Starfield.exe"
+
+    @property
+    def plugin_extensions(self) -> list[str]:
+        # .esp support was added alongside native plugins.txt support in patch 1.12.30 (June 2024).
+        return [".esp", ".esl", ".esm"]
+
+    @property
+    def steam_id(self) -> str:
+        return "1716740"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "starfield"
+
+    @property
+    def loot_sort_enabled(self) -> bool:
+        return False
+
+    # plugins.txt lives at AppData/Local/Starfield/plugins.txt — same pattern as other Bethesda titles.
+    _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Starfield")
+
+    @property
+    def _script_extender_exe(self) -> str:
+        return "sfse_loader.exe"

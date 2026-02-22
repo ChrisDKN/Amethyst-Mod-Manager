@@ -26,15 +26,13 @@
 - Skyrim
 - Fallout 4
 - Fallout 3
-- Fallout 3 GOTY  
-  _Fallout 3 and GOTY need downgrading to work; a wizard will be added to help with this._
+- Fallout 3 GOTY
 - Fallout New Vegas
 - Oblivion
 - Baldur's Gate 3
 - Subnautica
 - Subnautica Below Zero
 - Valheim
-- Lethal Company
 - TCG Card Shop Simulator
 - Stardew Valley
 
@@ -44,13 +42,15 @@
 - Witcher 3
 - Cyberpunk 2077
 - The Sims 4
+- Starfield
+- Skyrim VR
+- Fallout 4 VR
+- Lethal Company
 
 ### Game Support to Add
 
-- Skyrim VR
 - Oblivion Remastered
 - Morrowind
-- Starfield
 - Hogwarts Legacy
 - KCD2
 - And more
