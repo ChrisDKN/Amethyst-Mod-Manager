@@ -31,16 +31,13 @@
 - Oblivion
 - Subnautica
 - TCG Card Shop Simulator
+- Baldur's Gate 3
 
 ### Added but Needs Testing
 
 - Witcher 3
 - Cyberpunk 2077
 - The Sims 4
-
-### Added but not working
-
-- Baldur's Gate 3 (Does not yet modify modsettings.lsx so will not currently work)
 
 ### Game Support to Add
 
@@ -105,6 +102,7 @@ As this is an early alpha build, the following needs testing:
 
 - Support on multiple Linux distros
 - Verification that all added games work
+- Baulders Gate 3 testing - The Mod manager can build modsettings.lsx but further testing is needed to know if it's working fully
 
 ## Planned Features
 
