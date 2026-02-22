@@ -2,3 +2,4 @@ customtkinter
 py7zr
 libarchive-c
 Pillow
+lz4
