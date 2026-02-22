@@ -141,7 +141,11 @@ class AddGameDialog(ctk.CTkToplevel):
         ).pack(side="left", padx=12, pady=8)
 
         # Body
-        body = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0)
+        body = ctk.CTkScrollableFrame(
+            self, fg_color=BG_PANEL, corner_radius=0,
+            scrollbar_button_color=BG_HEADER,
+            scrollbar_button_hover_color=ACCENT,
+        )
         body.grid(row=1, column=0, sticky="nsew")
         body.grid_columnconfigure(0, weight=1)
 
