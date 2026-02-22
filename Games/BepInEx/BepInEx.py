@@ -235,3 +235,76 @@ class Subnautica(BaseGame):
             _log(f"  Removed {removed} file(s) from plugins/.")
 
         _log("Restore complete.")
+        
+class Subnautica_Below_Zero(Subnautica):
+    
+    @property
+    def name(self) -> str:
+        return "Subnautica: Below Zero"
+
+    @property
+    def game_id(self) -> str:
+        return "Subnautica_Below_Zero"
+
+    @property
+    def exe_name(self) -> str:
+        return "SubnauticaZero.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "848450"
+
+class TCG_Card_Shop_Simulator(Subnautica):
+    
+    @property
+    def name(self) -> str:
+        return "TCG Card Shop Simulator"
+
+    @property
+    def game_id(self) -> str:
+        return "TCG_Card_Shop_Simulator"
+
+    @property
+    def exe_name(self) -> str:
+        return "TCG Card Shop Simulator.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "3070070"
+
+class Valhein(Subnautica):
+    
+    @property
+    def name(self) -> str:
+        return "Valheim"
+
+    @property
+    def game_id(self) -> str:
+        return "Valheim"
+
+    @property
+    def exe_name(self) -> str:
+        return "Valheim.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "892970"
+    
+class Lethal_Company(Subnautica):
+    
+    @property
+    def name(self) -> str:
+        return "Lethal Company"
+
+    @property
+    def game_id(self) -> str:
+        return "Lethal_Company"
+
+    @property
+    def exe_name(self) -> str:
+        return "Lethal Company.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "1966720"
+        

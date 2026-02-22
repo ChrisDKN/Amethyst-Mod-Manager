@@ -29,9 +29,13 @@
   _Fallout 3 and GOTY need downgrading to work; a wizard will be added to help with this._
 - Fallout New Vegas
 - Oblivion
-- Subnautica
-- TCG Card Shop Simulator
 - Baldur's Gate 3
+- Subnautica
+- Subnautica Below Zero
+- Valheim
+- Lethal Company
+- TCG Card Shop Simulator
+
 
 ### Added but Needs Testing
 
