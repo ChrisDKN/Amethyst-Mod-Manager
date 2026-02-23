@@ -36,13 +36,14 @@ from typing import Any
 import requests
 
 from Utils.config_paths import get_config_dir
+from version import __version__
 
 log = logging.getLogger(__name__)
 
 API_BASE = "https://api.nexusmods.com/v1"
 GRAPHQL_BASE = "https://api.nexusmods.com/v2/graphql"
 APP_NAME = "AmethystModManager"
-APP_VERSION = "1.0.0"
+APP_VERSION = __version__
 
 # How long to wait after a 429 before retrying (seconds)
 _RATE_LIMIT_BACKOFF = 2.0
@@ -78,6 +79,14 @@ class NexusGameInfo:
 
 
 @dataclass
+class NexusCategory:
+    """A mod category for a game."""
+    category_id: int
+    name: str
+    parent_category: int | None = None  # None = top-level
+
+
+@dataclass
 class NexusModInfo:
     """Mod metadata from /games/{domain}/mods/{id}."""
     mod_id: int
@@ -91,6 +100,7 @@ class NexusModInfo:
     domain_name: str
     picture_url: str = ""
     endorsement_count: int = 0
+    downloads_total: int = 0
     created_timestamp: int = 0
     updated_timestamp: int = 0
     available: bool = True
@@ -338,6 +348,44 @@ class NexusAPI:
             mods_count=g.get("mods_count", 0),
         )
 
+    def get_game_categories(self, game_domain: str) -> list[NexusCategory]:
+        """Return the mod categories for a game via the v1 REST API."""
+        data = self._get(f"/games/{game_domain}")
+        result: list[NexusCategory] = []
+        for c in data.get("categories", []):
+            # parent_category is either False or {"category_id": N, "name": "..."}
+            pc = c.get("parent_category")
+            parent = pc.get("category_id") if isinstance(pc, dict) else None
+            result.append(NexusCategory(
+                category_id=c.get("category_id", 0),
+                name=c.get("name", ""),
+                parent_category=parent,
+            ))
+        return result
+
+    @staticmethod
+    def _build_mods_filter(
+        game_domain: str, category_names: list[str] | None = None
+    ) -> dict:
+        """Build a ModsFilter dict, optionally restricting to specific category names."""
+        base: dict = {"gameDomainName": {"value": game_domain}}
+        if not category_names:
+            return base
+        if len(category_names) == 1:
+            base["categoryName"] = {"value": category_names[0]}
+            return base
+        # Multiple categories: AND(domain, OR(cat1, cat2, ...))
+        return {
+            "op": "AND",
+            "filter": [
+                {"gameDomainName": {"value": game_domain}},
+                {
+                    "op": "OR",
+                    "filter": [{"categoryName": {"value": n}} for n in category_names],
+                },
+            ],
+        }
+
     # -- Mods ---------------------------------------------------------------
 
     def get_mod(self, game_domain: str, mod_id: int) -> NexusModInfo:
@@ -582,6 +630,165 @@ class NexusAPI:
         except Exception as exc:
             log.debug("GraphQL requirements query error: %s", exc)
             return []
+
+    # -- Top mods (GraphQL v2) -----------------------------------------------
+
+    def get_top_mods(
+        self, game_domain: str, count: int = 10, offset: int = 0,
+        category_names: list[str] | None = None,
+    ) -> list[NexusModInfo]:
+        """
+        Fetch the all-time most-downloaded mods for a game via the GraphQL v2 API.
+
+        Results are sorted by total downloads descending.
+        Pass category_names to restrict results to specific categories.
+        """
+        query = """
+        query TopMods($filter: ModsFilter, $count: Int, $offset: Int) {
+            mods(
+                filter: $filter
+                sort: [{ downloads: { direction: DESC } }]
+                count: $count
+                offset: $offset
+            ) {
+                nodes {
+                    modId
+                    name
+                    summary
+                    description
+                    author
+                    version
+                    endorsements
+                    downloads
+                    pictureUrl
+                }
+            }
+        }
+        """
+        variables = {
+            "filter": self._build_mods_filter(game_domain, category_names),
+            "count": count,
+            "offset": offset,
+        }
+        try:
+            resp = self._session.post(
+                GRAPHQL_BASE,
+                json={"query": query, "variables": variables},
+                timeout=self._timeout,
+            )
+            if not resp.ok:
+                raise NexusAPIError(
+                    f"GraphQL top-mods query failed: {resp.status_code}",
+                    resp.status_code,
+                )
+            data = resp.json()
+            if "errors" in data:
+                raise NexusAPIError(
+                    f"GraphQL error: {data['errors'][0].get('message', 'unknown')}"
+                )
+            nodes = data.get("data", {}).get("mods", {}).get("nodes", [])
+            results: list[NexusModInfo] = []
+            for n in nodes:
+                results.append(NexusModInfo(
+                    mod_id=n.get("modId", 0),
+                    name=n.get("name", "") or "",
+                    summary=n.get("summary", "") or "",
+                    description=n.get("description", "") or "",
+                    version=n.get("version", "") or "",
+                    author=n.get("author", "") or "",
+                    category_id=0,
+                    game_id=0,
+                    domain_name=game_domain,
+                    endorsement_count=n.get("endorsements", 0) or 0,
+                    downloads_total=n.get("downloads", 0) or 0,
+                    picture_url=n.get("pictureUrl", "") or "",
+                ))
+            return results
+        except NexusAPIError:
+            raise
+        except Exception as exc:
+            raise NexusAPIError(f"GraphQL top-mods error: {exc}") from exc
+
+    def search_mods(
+        self, game_domain: str, query_text: str, count: int = 10, offset: int = 0,
+        category_names: list[str] | None = None,
+    ) -> list[NexusModInfo]:
+        """
+        Search mods by name for a game via the GraphQL v2 API.
+        Pass category_names to restrict results to specific categories.
+        """
+        base_filter = self._build_mods_filter(game_domain, category_names)
+        # Inject the name search into the filter
+        if "filter" in base_filter:
+            # nested AND structure — append name condition
+            base_filter["filter"].append({"nameStemmed": {"value": query_text}})
+        else:
+            base_filter["nameStemmed"] = {"value": query_text}
+        query = """
+        query SearchMods($filter: ModsFilter, $count: Int, $offset: Int) {
+            mods(
+                filter: $filter
+                sort: [{ downloads: { direction: DESC } }]
+                count: $count
+                offset: $offset
+            ) {
+                nodes {
+                    modId
+                    name
+                    summary
+                    description
+                    author
+                    version
+                    endorsements
+                    downloads
+                    pictureUrl
+                }
+            }
+        }
+        """
+        variables = {
+            "filter": base_filter,
+            "count": count,
+            "offset": offset,
+        }
+        try:
+            resp = self._session.post(
+                GRAPHQL_BASE,
+                json={"query": query, "variables": variables},
+                timeout=self._timeout,
+            )
+            if not resp.ok:
+                raise NexusAPIError(
+                    f"GraphQL search query failed: {resp.status_code}",
+                    resp.status_code,
+                )
+            data = resp.json()
+            if "errors" in data:
+                raise NexusAPIError(
+                    f"GraphQL error: {data['errors'][0].get('message', 'unknown')}"
+                )
+            nodes = data.get("data", {}).get("mods", {}).get("nodes", [])
+            results: list[NexusModInfo] = []
+            for n in nodes:
+                results.append(NexusModInfo(
+                    mod_id=n.get("modId", 0),
+                    name=n.get("name", "") or "",
+                    summary=n.get("summary", "") or "",
+                    description=n.get("description", "") or "",
+                    version=n.get("version", "") or "",
+                    author=n.get("author", "") or "",
+                    category_id=0,
+                    game_id=0,
+                    domain_name=game_domain,
+                    endorsement_count=n.get("endorsements", 0) or 0,
+                    downloads_total=n.get("downloads", 0) or 0,
+                    picture_url=n.get("pictureUrl", "") or "",
+                ))
+            return results
+        except NexusAPIError:
+            raise
+        except Exception as exc:
+            raise NexusAPIError(f"GraphQL search error: {exc}") from exc
 
     # -- Tracked mods -------------------------------------------------------
 
