@@ -11,6 +11,7 @@ Mod structure:
 
 import json
 from pathlib import Path
+import stat
 
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
@@ -293,29 +294,7 @@ class TCG_Card_Shop_Simulator(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "tcgcardshopsimulator"
-
-class Valhein(Subnautica):
     
-    @property
-    def name(self) -> str:
-        return "Valheim"
-
-    @property
-    def game_id(self) -> str:
-        return "Valheim"
-
-    @property
-    def exe_name(self) -> str:
-        return "Valheim.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "892970"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "valheim"
-
 class Lethal_Company(Subnautica):
     
     @property
@@ -337,4 +316,56 @@ class Lethal_Company(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "lethalcompany"
+
+class Valheim(Subnautica):
+    @property
+    def name(self) -> str:
+        return "Valheim"
+
+    @property
+    def game_id(self) -> str:
+        return "Valheim"
+
+    @property
+    def exe_name(self) -> str:
+        return "valheim.x86_64"
+
+    @property
+    def steam_id(self) -> str:
+        return "892970"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "valheim"
+
+    def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
+                profile: str = "default", progress_fn=None) -> None:
+        """Deploy staged mods into BepInEx/Plugins/ for Valheim, with extra steps."""
+        super().deploy(log_fn=log_fn, mode=mode, profile=profile, progress_fn=progress_fn)
+
+        """Run after all deployment steps, including Root_Folder moves."""
+        _log = log_fn or (lambda _: None)
+        game_path = self.get_game_path()
+        root_folder = self.get_mod_staging_path().parent / "Root_Folder"
+        candidates = []
+        if game_path is not None:
+            candidates.append(game_path / "start_game_bepinex.sh")
+        candidates.append(root_folder / "start_game_bepinex.sh")
+        found = False
+        for launcher in candidates:
+            if launcher.exists():
+                current_mode = launcher.stat().st_mode
+                launcher.chmod(current_mode | stat.S_IXUSR)
+                _log(f"Set executable bit (u+x) on {launcher}.")
+                found = True
+                break
+        if not found:
+            _log("Warning: start_game_bepinex.sh not found in game folder or Root_Folder; skipping chmod.")
+
+        # Log the Steam launch argument
+        _log(
+            "To launch Valheim with BepInEx on Linux, set the following as your Steam launch option:\n"
+            "    ./start_game_bepinex.sh %command%\n"
+            "You must add this manually in Steam (right-click Valheim > Properties > Launch Options)."
+        )
         
