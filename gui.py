@@ -28,6 +28,7 @@ from gui.endorsed_mods_panel import EndorsedModsPanel
 from gui.browse_mods_panel import BrowseModsPanel
 from Games.base_game import BaseGame
 from Utils.fomod_installer import resolve_files
+from version import __version__
 from Utils.fomod_parser import detect_fomod, parse_module_config
 from Utils.game_loader import discover_games
 from Utils.filemap import (build_filemap, CONFLICT_NONE, CONFLICT_WINS,
@@ -42,7 +43,7 @@ from Utils.plugins import (
 )
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
-from Utils.config_paths import get_exe_args_path, get_fomod_selections_path, get_profiles_dir
+from Utils.config_paths import get_exe_args_path, get_fomod_selections_path, get_profiles_dir, get_last_game_path
 from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
 from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
 from Nexus.nexus_download import NexusDownloader
@@ -183,6 +184,25 @@ def _create_profile(game_name: str, profile_name: str) -> Path:
     return profile_dir
 
 
+def _save_last_game(game_name: str) -> None:
+    """Persist the last-selected game name to the config directory."""
+    try:
+        get_last_game_path().write_text(
+            json.dumps({"last_game": game_name}), encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
+def _load_last_game() -> str | None:
+    """Return the previously saved game name, or None if not set / unreadable."""
+    try:
+        data = json.loads(get_last_game_path().read_text(encoding="utf-8"))
+        return data.get("last_game")
+    except (OSError, ValueError, KeyError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # ModRow
 # ---------------------------------------------------------------------------
@@ -199,10 +219,10 @@ class ModListPanel(ctk.CTkFrame):
     """
 
     ROW_H   = 26
-    HEADERS = ["", "Mod Name", "Flags", "Conflicts", "Priority"]
-    # x-start of each logical column (checkbox, name, flags, conflicts, priority)
+    HEADERS = ["", "Mod Name", "Flags", "Conflicts", "Installed", "Priority"]
+    # x-start of each logical column (checkbox, name, flags, conflicts, installed, priority)
     # Computed dynamically in _layout_columns(); defaults here.
-    _COL_X  = [4, 32, 0, 0, 0]   # patched in _layout_columns
+    _COL_X  = [4, 32, 0, 0, 0, 0]   # patched in _layout_columns
 
     def __init__(self, parent, log_fn=None):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0)
@@ -269,6 +289,9 @@ class ModListPanel(ctk.CTkFrame):
         # Set of mod names the user has endorsed on Nexus
         self._endorsed_mods: set[str] = set()
 
+        # Map mod name → install date display string
+        self._install_dates: dict[str, str] = {}
+
         self._overrides:     dict[str, set[str]] = {}  # mod beats these mods
         self._overridden_by: dict[str, set[str]] = {}  # these mods beat this mod
         self._on_filemap_rebuilt: callable | None = None  # called after each filemap rebuild
@@ -298,6 +321,11 @@ class ModListPanel(ctk.CTkFrame):
         # Search/filter
         self._filter_text: str = ""
         self._visible_indices: list[int] = []  # entry indices matching current filter
+
+        # Column sorting (visual only — never touches modlist.txt)
+        # _sort_column: None or one of "name", "installed", "flags", "conflicts", "priority"
+        self._sort_column: str | None = None
+        self._sort_ascending: bool = True
 
         # Checkbutton widgets reused per-row (canvas windows)
         self._check_vars:    list[tk.BooleanVar] = []
@@ -504,34 +532,49 @@ class ModListPanel(ctk.CTkFrame):
         # col 1: name       fills
         # col 2: flags      50px
         # col 3: conflicts  90px
-        # col 4: priority   64px  (+ 14px scrollbar gap)
-        right_cols = 50 + 90 + 64 + 14
+        # col 4: installed  68px
+        # col 5: priority   64px  (+ 14px scrollbar gap)
+        right_cols = 50 + 90 + 68 + 64 + 14
         name_w = max(80, canvas_w - 28 - right_cols)
         self._COL_X = [
-            4,                          # checkbox
-            32,                         # name left edge
-            32 + name_w,                # flags
-            32 + name_w + 50,           # conflicts
-            32 + name_w + 50 + 90,      # priority
+            4,                               # checkbox
+            32,                              # name left edge
+            32 + name_w,                     # flags
+            32 + name_w + 50,                # conflicts
+            32 + name_w + 50 + 90,           # installed
+            32 + name_w + 50 + 90 + 68,      # priority
         ]
         self._canvas_w = canvas_w
         self._name_col_right = 32 + name_w - 4
+
+    # Map header index → sort key name (index 0 is checkbox, not sortable)
+    _HEADER_SORT_KEYS = {1: "name", 2: "flags", 3: "conflicts", 4: "installed", 5: "priority"}
 
     def _update_header(self, canvas_w: int):
         for lbl in self._header_labels:
             lbl.destroy()
         self._header_labels.clear()
 
-        titles  = ["", "Mod Name", "Flags", "Conflicts", "Priority"]
+        titles  = ["", "Mod Name", "Flags", "Conflicts", "Installed", "Priority"]
         x_pos   = self._COL_X
-        anchors = ["center", "w", "center", "center", "center"]
-        widths  = [28, self._name_col_right - 32, 50, 90, 64]
+        anchors = ["center", "w", "center", "center", "center", "center"]
+        widths  = [28, self._name_col_right - 32, 50, 90, 68, 64]
         for i, (title, x, anc, w) in enumerate(zip(titles, x_pos, anchors, widths)):
+            sort_key = self._HEADER_SORT_KEYS.get(i)
+            # Show sort arrow on the active column
+            display = title
+            if sort_key and sort_key == self._sort_column:
+                arrow = " ▲" if self._sort_ascending else " ▼"
+                display = title + arrow
             lbl = tk.Label(
-                self._header, text=title, anchor=anc,
-                font=("Segoe UI", 11, "bold"), fg=TEXT_SEP,
-                bg=BG_HEADER, bd=0
+                self._header, text=display, anchor=anc,
+                font=("Segoe UI", 11, "bold"),
+                fg=ACCENT if sort_key == self._sort_column else TEXT_SEP,
+                bg=BG_HEADER, bd=0,
+                cursor="hand2" if sort_key else "",
             )
+            if sort_key:
+                lbl.bind("<Button-1>", lambda e, k=sort_key: self._on_header_click(k))
             lbl.place(x=x, y=0, height=28, width=w)
             self._header_labels.append(lbl)
 
@@ -612,6 +655,9 @@ class ModListPanel(ctk.CTkFrame):
         self._sel_idx = -1
         self._sel_set = set()
         self._drag_idx = -1
+        # Clear visual sort on reload so the list matches modlist.txt order
+        self._sort_column = None
+        self._sort_ascending = True
         # Destroy stale lock widgets before rebuilding
         for _, cb in self._lock_widgets.values():
             cb.destroy()
@@ -643,6 +689,7 @@ class ModListPanel(ctk.CTkFrame):
         self._scan_update_flags()
         self._scan_missing_reqs_flags()
         self._scan_endorsed_flags()
+        self._scan_install_dates()
         self._rebuild_check_widgets()
         self._rebuild_filemap()
         self._redraw()
@@ -718,6 +765,32 @@ class ModListPanel(ctk.CTkFrame):
                 meta = read_meta(meta_path)
                 if meta.endorsed:
                     self._endorsed_mods.add(entry.name)
+            except Exception:
+                pass
+
+    def _scan_install_dates(self):
+        """Scan meta.ini files to build the install date display strings per mod."""
+        self._install_dates.clear()
+        if self._modlist_path is None:
+            return
+        mods_dir = self._modlist_path.parent.parent.parent / "mods"
+        if not mods_dir.is_dir():
+            return
+        today = datetime.now().date()
+        for entry in self._entries:
+            if entry.is_separator:
+                continue
+            meta_path = mods_dir / entry.name / "meta.ini"
+            if not meta_path.is_file():
+                continue
+            try:
+                meta = read_meta(meta_path)
+                if meta.installed:
+                    dt = datetime.fromisoformat(meta.installed)
+                    if dt.date() == today:
+                        self._install_dates[entry.name] = dt.strftime("%-I:%M %p")
+                    else:
+                        self._install_dates[entry.name] = dt.strftime("%-m/%-d/%y")
             except Exception:
                 pass
 
@@ -1028,8 +1101,16 @@ class ModListPanel(ctk.CTkFrame):
                         fill=dot_color, font=("Segoe UI", 10),
                     )
 
+            install_text = self._install_dates.get(entry.name, "")
+            if install_text:
+                self._canvas.create_text(
+                    self._COL_X[4] + 34, y_mid,
+                    text=install_text, anchor="center", fill=TEXT_DIM,
+                    font=("Segoe UI", 10),
+                )
+
             self._canvas.create_text(
-                self._COL_X[4] + 32, y_mid,
+                self._COL_X[5] + 32, y_mid,
                 text=str(priorities.get(i, "")), anchor="center", fill=TEXT_DIM,
                 font=("Segoe UI", 10),
             )
@@ -1118,23 +1199,140 @@ class ModListPanel(ctk.CTkFrame):
         self._on_search_change()
 
     def _compute_visible_indices(self) -> list[int]:
-        """Return entry indices that match the current filter and are not hidden by a collapsed separator."""
+        """Return entry indices that match the current filter, collapsed state, and column sort."""
+        # Step 1: basic visibility (filter or collapse)
         if self._filter_text:
-            return [i for i, e in enumerate(self._entries)
+            base = [i for i, e in enumerate(self._entries)
                     if self._filter_text in e.name.lower()]
-        if not self._collapsed_seps:
-            return list(range(len(self._entries)))
-        result: list[int] = []
-        skip = False
-        for i, entry in enumerate(self._entries):
+        elif not self._collapsed_seps:
+            base = list(range(len(self._entries)))
+        else:
+            base = []
+            skip = False
+            for i, entry in enumerate(self._entries):
+                if entry.is_separator:
+                    skip = False
+                    base.append(i)
+                    if entry.name in self._collapsed_seps:
+                        skip = True
+                elif not skip:
+                    base.append(i)
+
+        # Step 2: apply column sort (visual only)
+        if self._sort_column is not None:
+            base = self._apply_column_sort(base)
+        return base
+
+    # ------------------------------------------------------------------
+    # Column sorting helpers (visual only — never touches modlist.txt)
+    # ------------------------------------------------------------------
+
+    def _on_header_click(self, sort_key: str):
+        """Handle a click on a sortable column header."""
+        if self._sort_column == sort_key:
+            # Same column clicked again — toggle direction, or clear on third click
+            if not self._sort_ascending:
+                # Already descending → clear sort
+                self._sort_column = None
+                self._sort_ascending = True
+            else:
+                self._sort_ascending = False
+        else:
+            self._sort_column = sort_key
+            self._sort_ascending = True
+        self._update_header(self._canvas_w)
+        self._redraw()
+
+    def _apply_column_sort(self, indices: list[int]) -> list[int]:
+        """Sort visible indices by the active column. Separators stay in place;
+        only mod rows within each separator group are reordered."""
+        if not self._sort_column:
+            return indices
+
+        # Split indices into groups: each group starts with a separator (or the
+        # implicit top-level group if the first entries aren't under a separator).
+        groups: list[list[int]] = []
+        current_sep: int | None = None
+        current_mods: list[int] = []
+        for idx in indices:
+            entry = self._entries[idx]
             if entry.is_separator:
-                skip = False
-                result.append(i)
-                if entry.name in self._collapsed_seps:
-                    skip = True
-            elif not skip:
-                result.append(i)
+                # Flush previous group
+                if current_sep is not None or current_mods:
+                    groups.append((current_sep, current_mods))
+                current_sep = idx
+                current_mods = []
+            else:
+                current_mods.append(idx)
+        # Flush last group
+        if current_sep is not None or current_mods:
+            groups.append((current_sep, current_mods))
+
+        # Build sort key function
+        key_fn = self._sort_key_fn()
+
+        result: list[int] = []
+        for sep_idx, mod_indices in groups:
+            if sep_idx is not None:
+                result.append(sep_idx)
+            sorted_mods = sorted(mod_indices, key=key_fn, reverse=not self._sort_ascending)
+            result.extend(sorted_mods)
         return result
+
+    def _sort_key_fn(self):
+        """Return a key function for sorting entry indices by the active column."""
+        col = self._sort_column
+
+        # Pre-compute priorities (same logic as _redraw)
+        priorities: dict[int, int] = {}
+        mod_count = sum(1 for e in self._entries if not e.is_separator)
+        p = mod_count - 1
+        for idx, entry in enumerate(self._entries):
+            if not entry.is_separator:
+                priorities[idx] = p
+                p -= 1
+
+        if col == "name":
+            return lambda i: self._entries[i].name.lower()
+        elif col == "installed":
+            def _installed_key(i):
+                date_str = self._install_dates.get(self._entries[i].name, "")
+                if not date_str:
+                    return (1, "")  # mods without date sort last
+                return (0, date_str)
+            return _installed_key
+        elif col == "flags":
+            def _flags_key(i):
+                name = self._entries[i].name
+                # Lower number = flagged (sorts first when ascending)
+                has_warning = name in self._missing_reqs
+                has_update = name in self._update_mods
+                has_endorsed = name in self._endorsed_mods
+                is_locked = self._entries[i].locked
+                score = 0
+                if has_warning:  score |= 8
+                if is_locked:    score |= 4
+                if has_update:   score |= 2
+                if has_endorsed: score |= 1
+                return -score  # negate so flagged mods sort first in ascending
+            return _flags_key
+        elif col == "conflicts":
+            # Order: partial (+-), loses (-), wins (+), full (x), none
+            _CONFLICT_ORDER = {
+                CONFLICT_PARTIAL: 0,
+                CONFLICT_LOSES:   1,
+                CONFLICT_WINS:    2,
+                CONFLICT_FULL:    3,
+                CONFLICT_NONE:    4,
+            }
+            def _conflict_key(i):
+                c = self._conflict_map.get(self._entries[i].name, CONFLICT_NONE)
+                return _CONFLICT_ORDER.get(c, 4)
+            return _conflict_key
+        elif col == "priority":
+            return lambda i: priorities.get(i, 0)
+        else:
+            return lambda i: i
 
     def _on_canvas_resize(self, event):
         self._layout_columns(event.width)
@@ -4802,7 +5000,9 @@ class TopBar(ctk.CTkFrame):
 
         # Left: Game label, + button, dropdown
         game_names = _load_games()
-        self._game_var = tk.StringVar(value=game_names[0])
+        _last_game = _load_last_game()
+        _initial_game = _last_game if (_last_game and _last_game in game_names) else game_names[0]
+        self._game_var = tk.StringVar(value=_initial_game)
 
         ctk.CTkLabel(
             self, text="Game:", font=FONT_BOLD, text_color=TEXT_MAIN
@@ -4846,7 +5046,7 @@ class TopBar(ctk.CTkFrame):
             command=self._on_remove_profile
         ).pack(side="left", padx=(0, 4))
 
-        initial_game_name = game_names[0]
+        initial_game_name = _initial_game
         profile_names = _profiles_for_game(initial_game_name)
         self._profile_var = tk.StringVar(value=profile_names[0])
         self._profile_menu = ctk.CTkOptionMenu(
@@ -4960,6 +5160,7 @@ class TopBar(ctk.CTkFrame):
             self._wizard_btn.pack_forget()
 
     def _on_game_change(self, value: str):
+        _save_last_game(value)
         game = _GAMES.get(value)
         if game and game.is_configured():
             self._log(f"Game: {value} — {game.get_game_path()}")
@@ -5072,6 +5273,7 @@ class TopBar(ctk.CTkFrame):
             self._game_menu.configure(values=configured or ["No games configured"])
             if picker.result in configured:
                 self._game_var.set(picker.result)
+                _save_last_game(picker.result)
                 self._reload_mod_panel()
 
     def _on_settings(self):
@@ -5204,6 +5406,51 @@ class TopBar(ctk.CTkFrame):
 # Install logic
 # ---------------------------------------------------------------------------
 
+def _strip_title_metadata(name: str) -> str:
+    """
+    Remove common metadata from a mod name: parenthesized/bracketed tags,
+    version strings, underscores-as-spaces, Nexus remnant suffixes, and
+    trailing noise.
+
+    Examples:
+        "SkyUI_5_2_SE"                    → "SkyUI"
+        "All in one (all game versions)"  → "All in one"
+        "Cool Mod (SE) v1.2.3"           → "Cool Mod"
+        "My_Awesome_Mod_v2_0"            → "My Awesome Mod"
+    """
+    s = name
+
+    # Strip residual Nexus-style suffix still containing alphanumeric version
+    # parts (e.g. -12604-5-2SE that the strict numeric strip missed).
+    s = re.sub(r"-\d{2,}(?:-[\w]+)*$", "", s)
+
+    # Replace underscores with spaces (common in Nexus filenames)
+    s = s.replace("_", " ")
+
+    # Remove content in parentheses and square brackets (e.g. "(SE)", "[1.0]")
+    s = re.sub(r"\s*\([^)]*\)", "", s)
+    s = re.sub(r"\s*\[[^\]]*\]", "", s)
+
+    # Remove trailing version-like patterns:  v1.2.3, V2.0, etc.
+    s = re.sub(r"\s+[vV]\d+(?:[.\-]\w+)*\s*$", "", s)
+    # Remove trailing dotted version:  1.0.0, 2.3.1
+    s = re.sub(r"\s+\d+(?:\.\d+)+\s*$", "", s)
+
+    # Remove trailing segments that are numeric or known edition/platform tags
+    # left over from underscore-replaced version strings (e.g. "SkyUI 5 2 SE")
+    _EDITION_TAGS = r"(?:SE|AE|LE|VR|SSE|GOTY|HD|UHD)"
+    s = re.sub(rf"(\s+(?:\d[\w]*|{_EDITION_TAGS}))+\s*$", "", s)
+
+    # Second pass for version patterns uncovered after stripping above
+    s = re.sub(r"\s+[vV]\d+(?:[.\-]\w+)*\s*$", "", s)
+
+    # Clean up any leftover dashes or whitespace at the edges
+    s = re.sub(r"[\s\-]+$", "", s)
+    s = re.sub(r"^[\s\-]+", "", s)
+
+    return s if s else name
+
+
 def _suggest_mod_names(filename_stem: str) -> list[str]:
     """
     Given a raw filename stem (no extension), return a list of name candidates
@@ -5211,18 +5458,27 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
 
     Nexus Mods format:  ModName-nexusid-version-timestamp
     e.g. "All in one (all game versions)-32444-11-1770897704"
-      → ["All in one (all game versions)", "All in one (all game versions)-32444-11-1770897704"]
+      → ["All in one", "All in one (all game versions)",
+         "All in one (all game versions)-32444-11-1770897704"]
 
-    The algorithm strips trailing dash-separated segments that are purely
-    numeric, stopping when it hits a non-numeric segment.
+    Steps:
+      1. Strip trailing dash-numeric segments (Nexus ID/version/timestamp).
+      2. Strip title metadata (parentheses, brackets, version strings, underscores).
+      3. Return de-duplicated list from cleanest to rawest.
     """
-    # Strip all trailing numeric dash-segments at once (Nexus: name-id-ver-timestamp)
-    clean = re.sub(r"(-\d+)+$", "", filename_stem).strip()
+    # Step 1: strip trailing numeric dash-segments (Nexus: name-id-ver-timestamp)
+    nexus_clean = re.sub(r"(-\d+)+$", "", filename_stem).strip()
 
+    # Step 2: strip title metadata from the Nexus-cleaned name
+    title_clean = _strip_title_metadata(nexus_clean)
+
+    # Build de-duplicated list from cleanest to rawest
+    seen = set()
     result = []
-    if clean and clean != filename_stem:
-        result.append(clean)
-    result.append(filename_stem)
+    for candidate in (title_clean, nexus_clean, filename_stem):
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            result.append(candidate)
     return result
 
 
@@ -5556,7 +5812,7 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
     def __init__(self, parent, game, log_fn):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title("Proton Tools")
-        self.geometry("340x200")
+        self.geometry("340x280")
         self.resizable(False, False)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -5596,6 +5852,14 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             body, text="Run EXE in this prefix …", command=self._run_exe, **btn_cfg
+        ).pack(pady=(0, 6))
+
+        ctk.CTkButton(
+            body, text="Open wine registry", command=self._run_regedit, **btn_cfg
+        ).pack(pady=(0, 6))
+
+        ctk.CTkButton(
+            body, text="Browse prefix", command=self._browse_prefix, **btn_cfg
         ).pack(pady=(0, 6))
 
     # ------------------------------------------------------------------
@@ -5655,6 +5919,45 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
             try:
                 subprocess.Popen(
                     ["python3", str(proton_script), "run", "winecfg"],
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+
+        self._close_and_run(_launch)
+
+    def _browse_prefix(self):
+        prefix_path = self._game.get_prefix_path()
+        if prefix_path is None or not prefix_path.is_dir():
+            self._log("Proton Tools: prefix not configured for this game.")
+            return
+
+        log = self._log
+        path = str(prefix_path)
+
+        def _launch():
+            log(f"Proton Tools: opening prefix folder …")
+            try:
+                subprocess.Popen(["xdg-open", path])
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+
+        self._close_and_run(_launch)
+
+    def _run_regedit(self):
+        proton_script, env = self._get_proton_env()
+        if proton_script is None:
+            return
+
+        log = self._log
+
+        def _launch():
+            log("Proton Tools: launching wine registry editor …")
+            try:
+                subprocess.Popen(
+                    ["python3", str(proton_script), "run", "regedit"],
                     env=env,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -6709,6 +7012,26 @@ def _check_mod_top_level(file_list: list[tuple[str, str, bool]],
     return False
 
 
+def _stamp_meta_install_date(meta_ini_path: Path) -> None:
+    """Write the current datetime as the ``installed`` key in meta.ini.
+
+    Only sets the key if it is not already present, so existing Nexus
+    metadata timestamps are never overwritten.
+    """
+    import configparser as _cp
+    parser = _cp.ConfigParser()
+    if meta_ini_path.is_file():
+        parser.read(str(meta_ini_path), encoding="utf-8")
+    if not parser.has_section("General"):
+        parser.add_section("General")
+    if not parser.get("General", "installed", fallback=""):
+        parser.set("General", "installed",
+                   datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+        meta_ini_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(meta_ini_path, "w", encoding="utf-8") as fh:
+            parser.write(fh)
+
+
 def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
                               game, mod_panel=None) -> None:
     """
@@ -6761,12 +7084,17 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 shutil.rmtree(extract_dir, ignore_errors=True)
                 os.makedirs(extract_dir, exist_ok=True)
                 import libarchive
-                prev_cwd = os.getcwd()
-                try:
-                    os.chdir(extract_dir)
-                    libarchive.extract_file(archive_path)
-                finally:
-                    os.chdir(prev_cwd)
+                with libarchive.file_reader(archive_path) as _arc:
+                    for _entry in _arc:
+                        _dest = os.path.join(extract_dir,
+                                             _entry.pathname.lstrip("/").replace("/", os.sep))
+                        if _entry.isdir:
+                            os.makedirs(_dest, exist_ok=True)
+                            continue
+                        os.makedirs(os.path.dirname(_dest) or extract_dir, exist_ok=True)
+                        with open(_dest, "wb") as _fh:
+                            for _block in _entry.get_blocks():
+                                _fh.write(_block)
         else:
             log_fn(f"Unsupported archive format: {os.path.basename(archive_path)}")
             log_fn("Supported formats: .zip, .7z, .rar, .tar.gz")
@@ -6778,6 +7106,19 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             mod_root, config_path = fomod_result
             log_fn("FOMOD installer detected — opening wizard...")
             config = parse_module_config(config_path)
+
+            # Prefer the FOMOD module name over the archive filename
+            if config.name:
+                fomod_clean = _strip_title_metadata(config.name)
+                # Rebuild suggestions: FOMOD-derived first, then filename-derived
+                seen = set()
+                new_suggestions = []
+                for c in (fomod_clean, config.name, *suggestions):
+                    if c and c not in seen:
+                        seen.add(c)
+                        new_suggestions.append(c)
+                suggestions = new_suggestions
+                mod_name = suggestions[0]
 
             # Build set of installed/active plugin filenames for dependency checks.
             # Lowercased for case-insensitive matching (FOMOD is Windows-native).
@@ -6899,6 +7240,9 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             log_fn(f"Cleared existing mod folder for clean reinstall.")
         _copy_file_list(file_list, mod_root, dest_root, log_fn)
         log_fn(f"Installed '{mod_name}' → {dest_root}")
+
+        # --- Stamp install timestamp in meta.ini ---
+        _stamp_meta_install_date(dest_root / "meta.ini")
 
         # --- Scan newly installed mod for plugin files and append to plugins.txt ---
         plugin_exts = getattr(game, "plugin_extensions", [])
@@ -7109,12 +7453,13 @@ class StatusBar(ctk.CTkFrame):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__(fg_color=BG_DEEP)
-        self.title("Amethyst Mod Manager")
         self.geometry("1400x820")
         self.minsize(900, 600)
         self._nexus_api: NexusAPI | None = None
         self._nexus_downloader: NexusDownloader | None = None
+        self._nexus_username: str | None = None
         self._init_nexus_api()
+        self._update_window_title()
         self._build_layout()
         self._startup_log()
         # Process --nxm argument if the app was launched via protocol handler
@@ -7122,15 +7467,34 @@ class App(ctk.CTk):
 
     # -- Nexus API init -----------------------------------------------------
 
+    def _update_window_title(self):
+        """Set the window title, showing Nexus username when logged in."""
+        if self._nexus_username:
+            self.title(f"Amethyst Mod Manager - Logged in to Nexus as {self._nexus_username}")
+        else:
+            self.title("Amethyst Mod Manager")
+
     def _init_nexus_api(self):
         """Load saved API key and initialise the Nexus client (if key exists)."""
         key = load_api_key()
         if key:
             self._nexus_api = NexusAPI(api_key=key)
             self._nexus_downloader = NexusDownloader(self._nexus_api)
+            # Fetch the username in background so the title updates after the API responds
+            def _fetch_user():
+                try:
+                    user = self._nexus_api.validate()
+                    self._nexus_username = user.name
+                except Exception:
+                    self._nexus_username = None
+                self.after(0, self._update_window_title)
+            threading.Thread(target=_fetch_user, daemon=True).start()
         else:
             self._nexus_api = None
             self._nexus_downloader = None
+            self._nexus_username = None
+            # Update title synchronously when key is absent / cleared
+            self.after(0, self._update_window_title)
 
     # -- NXM protocol handling ----------------------------------------------
 
