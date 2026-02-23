@@ -7,8 +7,12 @@ Mod structure:
     drive_c/users/steamuser/AppData/Local/Larian Studios/Baldur's Gate 3/Mods/
   Staged mods live in Profiles/Baldur's Gate 3/mods/
 
-  Only .pak files are deployed — other files (readmes, images, etc.) are
-  excluded from the filemap automatically via mod_install_extensions.
+  Only .pak files are deployed to the Mods folder — other files (readmes,
+  images, etc.) are excluded from the filemap via mod_install_extensions.
+
+  Mods that contain a bin/ folder have those files deployed to the game's
+  root install directory instead (via filemap_root.txt), since BG3 native
+  mods expect bin/ to sit alongside the game executable.
 
   After deploying .pak files, modsettings.lsx is generated automatically so
   BG3 recognises the installed mods.  Mod load order follows the modlist
@@ -20,7 +24,10 @@ import json
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, deploy_filemap, deploy_core, move_to_core, restore_data_core
+from Utils.deploy import (
+    LinkMode, deploy_filemap, deploy_core, move_to_core, restore_data_core,
+    deploy_filemap_to_root, restore_filemap_from_root,
+)
 from Utils.config_paths import get_profiles_dir
 from Utils.modsettings import write_modsettings, write_vanilla_modsettings
 from Utils.steam_finder import find_prefix
@@ -77,8 +84,12 @@ class BaldursGate3(BaseGame):
         return {"mods"}
 
     @property
+    def mod_root_deploy_folders(self) -> set[str]:
+        return {"bin"}
+
+    @property
     def mod_install_extensions(self) -> set[str]:
-        return {".pak",".json"}
+        return {".pak",".json",".lsx"}
 
     @property
     def plugin_extensions(self) -> list[str]:
@@ -242,15 +253,30 @@ class BaldursGate3(BaseGame):
         linked_core = deploy_core(mods_dir, placed, mode=mode, log_fn=_log)
         _log(f"  Transferred {linked_core} vanilla file(s).")
 
-        _log("Step 4: Generating modsettings.lsx ...")
+        # Step 4 (optional): deploy root-targeted files (e.g. bin/) to game root
+        linked_root = 0
+        filemap_root = self.get_profile_root() / "filemap_root.txt"
+        if filemap_root.is_file() and self._game_path:
+            _log("Step 4: Deploying root-targeted files (bin/, …) to game root ...")
+            linked_root, _ = deploy_filemap_to_root(
+                filemap_root, self._game_path, staging,
+                mode=mode, strip_prefixes=self.mod_folder_strip_prefixes,
+                log_fn=_log, progress_fn=progress_fn,
+            )
+            _log(f"  Transferred {linked_root} file(s) to game root.")
+
+        _log("Step 5: Generating modsettings.lsx ...")
         modsettings = self._prefix_path / _MODSETTINGS_SUBPATH
+        game_data = self._game_path / "Data" if self._game_path else None
         mod_count = write_modsettings(modsettings, modlist, staging,
-                                      log_fn=_log)
+                                      log_fn=_log,
+                                      game_data_path=game_data)
 
         _log(
             f"Deploy complete. "
             f"{linked_mod} mod + {linked_core} vanilla "
             f"= {linked_mod + linked_core} total file(s) in Mods/. "
+            f"{linked_root} file(s) deployed to game root. "
             f"modsettings.lsx written with {mod_count} mod(s)."
         )
 
@@ -262,6 +288,15 @@ class BaldursGate3(BaseGame):
             raise RuntimeError("Prefix path is not configured.")
 
         mods_dir = self._prefix_path / _MODS_SUBPATH
+
+        # Undo root-targeted files (bin/, …) placed into game root
+        filemap_root = self.get_profile_root() / "filemap_root.txt"
+        if self._game_path:
+            removed_root = restore_filemap_from_root(
+                filemap_root, self._game_path, log_fn=_log,
+            )
+            if removed_root:
+                _log(f"  Removed {removed_root} root-deployed file(s).")
 
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
         restored = restore_data_core(mods_dir, log_fn=_log)

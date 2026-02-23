@@ -27,10 +27,31 @@ log = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# UUIDs for base-game / engine modules that should be ignored as dependencies
+# UUIDs for base-game / engine modules that should be ignored as dependencies.
+# Patch / DLC modules added in later game updates are discovered dynamically
+# by scanning the game's Data/ directory (see scan_game_data_uuids).
 _SYSTEM_UUIDS: frozenset[str] = frozenset({
+    # Core engine / story modules
     "28ac9ce2-2aba-8cda-b3b5-6e922f71b6b8",   # GustavDev
-    "cb555efe-2d9e-131f-8195-a89329d218ea",     # GustavX
+    "991c9c7a-fb80-40cb-8f0d-b92d4e80e9b1",   # Gustav
+    "cb555efe-2d9e-131f-8195-a89329d218ea",    # GustavX
+    "ed539163-bb70-431b-96a7-f5b2eda5376b",   # Shared
+    "3d0c5ff8-c95d-c907-ff3e-34b204f1c630",   # SharedDev
+    "b77b6210-ac50-4cb1-a3d5-5702fb9c744c",   # Honour
+    "767d0062-d82c-279c-e16b-dfee7fe94cdd",   # HonourX
+    # DLC dice sets
+    "e842840a-2449-588c-b0c4-22122cfce31b",   # DiceSet_01
+    "b176a0ac-d79f-ed9d-5a87-5c2c80874e10",   # DiceSet_02
+    "e0a4d990-7b9b-8fa9-d7c6-04017c6cf5b1",   # DiceSet_03
+    "77a2155f-4b35-4f0c-e7ff-4338f91426a4",   # DiceSet_04
+    "6efc8f44-cc2a-0273-d4b1-681d3faa411b",   # DiceSet_05
+    "ee4989eb-aab8-968f-8674-812ea2f4bfd7",   # DiceSet_06
+    "bf19bab4-4908-ef39-9065-ced469c0f877",   # DiceSet_07
+    # UI / feature modules
+    "630daa32-70f8-3da5-41b9-154fe8410236",   # MainUI
+    "ee5a55ff-eb38-0b27-c5b0-f358dc306d34",   # ModBrowser
+    "55ef175c-59e3-b44b-3fb2-8f86acc5d550",   # PhotoMode
+    "e1ce736b-52e6-e713-e9e7-e6abbb15a198",   # CrossplayUI
 })
 
 _GUSTAV_DEV = {
@@ -190,6 +211,37 @@ def scan_mod_paks(
 
 
 # ---------------------------------------------------------------------------
+# Base-game module discovery
+# ---------------------------------------------------------------------------
+
+def scan_game_data_uuids(game_data_path: Path) -> set[str]:
+    """Scan .pak files in the game's Data/ directory and return their UUIDs.
+
+    BG3 ships base-game, DLC, and patch modules as .pak files under
+    ``<game_root>/Data/``.  Mods that override Gustav often inherit
+    dependencies on these modules; without knowing their UUIDs the
+    dependency checker would emit false "not installed" warnings.
+
+    Only the file-list header of each .pak is read (a few KB regardless
+    of total file size), so this is fast even for multi-GB archives.
+    """
+    uuids: set[str] = set()
+    if not game_data_path.is_dir():
+        return uuids
+    for pak in game_data_path.glob("*.pak"):
+        try:
+            xml_text = extract_meta_lsx(pak)
+        except Exception:
+            continue
+        if xml_text is None:
+            continue
+        info = parse_meta_lsx(xml_text)
+        if info is not None and info.uuid:
+            uuids.add(info.uuid)
+    return uuids
+
+
+# ---------------------------------------------------------------------------
 # Dependency-aware ordering
 # ---------------------------------------------------------------------------
 
@@ -270,8 +322,14 @@ def write_modsettings(
     modlist_path: Path,
     staging_root: Path,
     log_fn=None,
+    game_data_path: Path | None = None,
 ) -> int:
     """End-to-end: scan paks, resolve order, write modsettings.lsx.
+
+    *game_data_path* — optional path to the game's ``Data/`` directory.
+    When provided, .pak files there are scanned so that base-game / DLC /
+    patch module UUIDs are recognised during the dependency check and don't
+    produce false "not installed" warnings.
 
     Returns the number of mod entries written (excluding GustavDev).
     """
@@ -285,7 +343,6 @@ def write_modsettings(
     _log(f"  Found metadata for {len(mod_infos)} mod(s).")
 
     if not mod_infos:
-        # No mods — write vanilla modsettings with just GustavDev
         _log("No mod metadata found — writing vanilla modsettings.lsx.")
         xml = build_modsettings_xml([])
         modsettings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -296,8 +353,16 @@ def write_modsettings(
     ordered = resolve_load_order(enabled, mod_infos)
     _log(f"  Load order: {', '.join(m.name for m in ordered)}")
 
-    # Check for missing dependencies
+    # Build the set of UUIDs that are known to exist (installed mods +
+    # base-game engine modules).  Scanning the game's Data/ directory
+    # catches patch, DLC, and hotfix modules that ship with the game.
     all_uuids = set(mod_infos.keys()) | _SYSTEM_UUIDS
+    if game_data_path is not None:
+        _log("Scanning game Data/ for base-game module UUIDs ...")
+        game_uuids = scan_game_data_uuids(game_data_path)
+        all_uuids |= game_uuids
+        _log(f"  Found {len(game_uuids)} base-game module(s).")
+
     for mod in ordered:
         for dep_uuid in mod.dependencies:
             if dep_uuid not in all_uuids:

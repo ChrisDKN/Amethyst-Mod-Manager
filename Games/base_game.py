@@ -35,14 +35,18 @@ class WizardTool:
         label:       Short human-readable name shown on the button.
         description: One-line explanation shown below the label.
         dialog_class_path:  Dotted import path to the dialog class,
-                            e.g. ``"gui.wizard_fallout_downgrade.FalloutDowngradeWizard"``.
+                            e.g. ``"wizards.fallout_downgrade.FalloutDowngradeWizard"``.
                             Resolved lazily at runtime so game modules don't
                             need to import heavy GUI code at load time.
+        extra:       Arbitrary keyword arguments forwarded to the dialog
+                     constructor.  Lets a single dialog class serve multiple
+                     games with different configuration (URLs, keywords, etc.).
     """
     id: str
     label: str
     description: str = ""
     dialog_class_path: str = ""
+    extra: dict = field(default_factory=dict)
 
 
 class BaseGame(ABC):
@@ -134,6 +138,27 @@ class BaseGame(ABC):
         declaring {".pak"} here filters out .txt readme files, images, etc.
 
         Return an empty set (the default) to include all files.
+        """
+        return set()
+
+    @property
+    def mod_root_deploy_folders(self) -> set[str]:
+        """
+        Lowercase top-level folder names inside a mod that should be deployed
+        to the game's root directory instead of the normal mod data path.
+
+        During filemap building, files whose first path segment (after
+        strip-prefix processing) matches one of these names are written to a
+        separate ``filemap_root.txt`` and bypass the ``mod_install_extensions``
+        filter.  The game's ``deploy()`` method is responsible for deploying
+        that file into the game root.
+
+        Example: Baldur's Gate 3 mods normally install ``.pak`` files into the
+        Proton-prefix Mods folder, but some mods ship a ``bin/`` folder that
+        must land in the game's install root.  Declaring ``{"bin"}`` here
+        routes those files accordingly.
+
+        Return an empty set (the default) to disable this behaviour.
         """
         return set()
 
