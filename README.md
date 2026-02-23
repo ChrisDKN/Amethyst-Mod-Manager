@@ -1,6 +1,6 @@
 
 <p align="center">
-    <img width="150" src="icons/logo.png" alt="Logo">
+    <img width="150" src="icons/Logo.png" alt="Logo">
 </p>
 <h1 align="center">Amethyst Mod Manager</h1>
 
