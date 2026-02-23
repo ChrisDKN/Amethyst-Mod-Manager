@@ -237,6 +237,7 @@ class ModListPanel(ctk.CTkFrame):
         self._modlist_path: Path | None = None
         self._strip_prefixes:    set[str] = set()
         self._install_extensions: set[str] = set()
+        self._root_deploy_folders: set[str] = set()
         self._root_folder_enabled: bool = True
         self._conflict_map:  dict[str, int]      = {}  # mod_name → CONFLICT_* constant
 
@@ -353,6 +354,7 @@ class ModListPanel(ctk.CTkFrame):
         self._modlist_path = profile_dir / "modlist.txt"
         self._strip_prefixes    = game.mod_folder_strip_prefixes
         self._install_extensions = getattr(game, "mod_install_extensions", set())
+        self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
         self._reload()
 
     def reload_after_install(self):
@@ -2918,6 +2920,7 @@ class ModListPanel(ctk.CTkFrame):
         output            = modlist_path.parent.parent.parent / "filemap.txt"
         strip_prefixes    = self._strip_prefixes
         install_extensions = self._install_extensions
+        root_deploy_folders = self._root_deploy_folders
 
         def _worker():
             try:
@@ -2925,6 +2928,7 @@ class ModListPanel(ctk.CTkFrame):
                     modlist_path, staging, output,
                     strip_prefixes=strip_prefixes,
                     allowed_extensions=install_extensions or None,
+                    root_deploy_folders=root_deploy_folders or None,
                 )
                 self.after(0, lambda: _done(count, conflict_map, overrides, overridden_by, None))
             except Exception as exc:
@@ -3050,13 +3054,18 @@ class PluginPanel(ctk.CTkFrame):
         # User-locked plugins: plugin name (original case) → bool
         self._plugin_locks: dict[str, bool] = {}
 
-        # Checkbutton widgets (one per entry, placed as canvas windows)
-        self._pcheck_vars: list[tk.BooleanVar] = []
-        self._pcheck_buttons: list[tk.Checkbutton] = []
-
-        # Lock checkbutton widgets (one per entry, placed as canvas windows)
-        self._plock_vars: list[tk.BooleanVar] = []
-        self._plock_buttons: list[tk.Checkbutton] = []
+        # Virtual-list pool (fixed-size widget + canvas item pool for visible rows)
+        self._pool_size: int = 60
+        self._pool_data_idx: list[int] = []
+        self._pool_bg: list[int] = []
+        self._pool_name: list[int] = []
+        self._pool_idx_text: list[int] = []
+        self._pool_warn: list[int | None] = []
+        self._pool_check_vars: list[tk.BooleanVar] = []
+        self._pool_check_cbs: list[tk.Checkbutton] = []
+        self._pool_lock_vars: list[tk.BooleanVar] = []
+        self._pool_lock_cbs: list[tk.Checkbutton] = []
+        self._predraw_after_id: str | None = None
 
         # Canvas dimensions
         self._pcanvas_w: int = 400
@@ -3136,8 +3145,11 @@ class PluginPanel(ctk.CTkFrame):
     # Executable toolbar — scan / run
     # ------------------------------------------------------------------
 
+    # Extensions detected in the executable dropdown (.exe always, .bat for wrapper support)
+    _EXE_SCAN_EXTENSIONS = {".exe", ".bat"}
+
     def refresh_exe_list(self):
-        """Scan for .exe files and populate the dropdown."""
+        """Scan for .exe and .bat files and populate the dropdown."""
         exes: list[Path] = []
 
         if self._game is not None:
@@ -3146,7 +3158,7 @@ class PluginPanel(ctk.CTkFrame):
                 if hasattr(self._game, "get_mod_staging_path") else None
             )
 
-            # 1. Scan filemap for .exe files — resolve from the mods staging folder
+            # 1. Scan filemap for .exe/.bat files — resolve from the mods staging folder
             if staging is not None and staging.is_dir():
                 filemap_path = staging.parent / "filemap.txt"
                 if filemap_path.is_file():
@@ -3156,7 +3168,7 @@ class PluginPanel(ctk.CTkFrame):
                             if not line or "\t" not in line:
                                 continue
                             rel_path, mod_name = line.split("\t", 1)
-                            if not rel_path.lower().endswith(".exe"):
+                            if Path(rel_path).suffix.lower() not in self._EXE_SCAN_EXTENSIONS:
                                 continue
                             mod_dir = staging / mod_name
                             candidate = mod_dir / rel_path
@@ -3165,13 +3177,14 @@ class PluginPanel(ctk.CTkFrame):
                     except OSError:
                         pass
 
-            # 2. Scan Profiles/<game>/Applications/ for .exe files (recursive)
+            # 2. Scan Profiles/<game>/Applications/ for .exe/.bat files (recursive)
             if staging is not None:
                 apps_dir = staging.parent / "Applications"
                 if apps_dir.is_dir():
-                    for entry in apps_dir.rglob("*.exe"):
-                        if entry.is_file():
-                            exes.append(entry)
+                    for ext in self._EXE_SCAN_EXTENSIONS:
+                        for entry in apps_dir.rglob(f"*{ext}"):
+                            if entry.is_file():
+                                exes.append(entry)
 
         if not exes:
             self._exe_paths = []
@@ -3255,14 +3268,16 @@ class PluginPanel(ctk.CTkFrame):
                 return i
         return -1
 
-    def _on_run_exe(self):
-        """Launch the selected exe in the game's Proton prefix."""
-        from Utils.steam_finder import (
-            find_any_installed_proton,
-            find_proton_for_game,
-            find_steam_root_for_proton_script,
-        )
+    # ── .bat wrapper registry ──────────────────────────────────────────
+    # Maps lowercase .bat filenames to wrapper launcher methods.
+    # When the user tries to "Run" a .bat that has an entry here, the
+    # wrapper is invoked instead of launching the .bat through Proton.
+    _BAT_WRAPPERS: dict[str, str] = {
+        "vramr.bat": "_run_vramr_wrapper",
+    }
 
+    def _on_run_exe(self):
+        """Launch the selected exe/bat in the game's Proton prefix."""
         idx = self._exe_var_index()
         if idx < 0 or not self._exe_paths:
             self._log("Run EXE: no executable selected.")
@@ -3278,6 +3293,22 @@ class PluginPanel(ctk.CTkFrame):
             self._log("Run EXE: no game selected.")
             return
 
+        # Check for a native wrapper before falling through to Proton
+        wrapper_method = self._BAT_WRAPPERS.get(exe_path.name.lower())
+        if wrapper_method is not None:
+            getattr(self, wrapper_method)(exe_path)
+            return
+
+        self._run_exe_via_proton(exe_path, game)
+
+    def _run_exe_via_proton(self, exe_path: Path, game):
+        """Standard Proton launch path for .exe files."""
+        from Utils.steam_finder import (
+            find_any_installed_proton,
+            find_proton_for_game,
+            find_steam_root_for_proton_script,
+        )
+
         prefix_path = (
             game.get_prefix_path()
             if hasattr(game, "get_prefix_path") else None
@@ -3286,7 +3317,6 @@ class PluginPanel(ctk.CTkFrame):
             self._log("Run EXE: Proton prefix not configured for this game.")
             return
 
-        # The Proton script expects STEAM_COMPAT_DATA_PATH to be the parent of pfx/
         compat_data = prefix_path.parent
 
         steam_id = getattr(game, "steam_id", "")
@@ -3334,6 +3364,41 @@ class PluginPanel(ctk.CTkFrame):
                 self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    # ── VRAMr wrapper ────────────────────────────────────────────────
+
+    def _run_vramr_wrapper(self, bat_path: Path):
+        """Show a preset picker and run VRAMr natively via the Linux wrapper."""
+        game = self._game
+        if game is None:
+            self._log("VRAMr: no game selected.")
+            return
+
+        data_dir = (
+            game.get_mod_data_path()
+            if hasattr(game, "get_mod_data_path") else None
+        )
+        if data_dir is None or not data_dir.is_dir():
+            self._log("VRAMr: game Data directory not configured or missing.")
+            return
+
+        staging = (
+            game.get_mod_staging_path()
+            if hasattr(game, "get_mod_staging_path") else None
+        )
+        if staging is None:
+            self._log("VRAMr: mod staging path not configured.")
+            return
+
+        output_dir = staging / "VRAMr"
+
+        _VRAMrPresetDialog(
+            self.winfo_toplevel(),
+            bat_dir=bat_path.parent,
+            game_data_dir=data_dir,
+            output_dir=output_dir,
+            log_fn=self._log,
+        )
 
     def _build_data_tab(self):
         tab = self._tabs.tab("Data")
@@ -4035,7 +4100,7 @@ class PluginPanel(ctk.CTkFrame):
         self._pcanvas.bind("<Button-4>",        self._on_pscroll_up)
         self._pcanvas.bind("<Button-5>",        self._on_pscroll_down)
         self._pcanvas.bind("<MouseWheel>",      self._on_pmousewheel)
-        self._pvsb.bind("<B1-Motion>",          lambda e: self._predraw())
+        self._pvsb.bind("<B1-Motion>",          lambda e: self._schedule_predraw())
         self._pcanvas.bind("<ButtonPress-1>",   self._on_pmouse_press)
         self._pcanvas.bind("<B1-Motion>",       self._on_pmouse_drag)
         self._pcanvas.bind("<ButtonRelease-1>", self._on_pmouse_release)
@@ -4053,6 +4118,82 @@ class PluginPanel(ctk.CTkFrame):
             text_color=TEXT_MAIN, font=FONT_SMALL,
             command=self._sort_plugins_loot,
         ).pack(side="left", padx=8, pady=5)
+
+        self._create_pool()
+
+    # ------------------------------------------------------------------
+    # Virtual-list pool
+    # ------------------------------------------------------------------
+
+    def _create_pool(self) -> None:
+        """Pre-allocate a fixed set of canvas items and checkbutton widgets."""
+        c = self._pcanvas
+        for s in range(self._pool_size):
+            self._pool_data_idx.append(-1)
+
+            bg_id = c.create_rectangle(0, -200, 0, -200, fill="", outline="", state="hidden")
+            name_id = c.create_text(0, -200, text="", anchor="w", fill="",
+                                    font=("Segoe UI", 11), state="hidden")
+            idx_id = c.create_text(0, -200, text="", anchor="center", fill="",
+                                   font=("Segoe UI", 10), state="hidden")
+            warn_id: int | None = None
+            if self._warning_icon:
+                warn_id = c.create_image(0, -200, image=self._warning_icon,
+                                         anchor="center", state="hidden")
+
+            self._pool_bg.append(bg_id)
+            self._pool_name.append(name_id)
+            self._pool_idx_text.append(idx_id)
+            self._pool_warn.append(warn_id)
+
+            var = tk.BooleanVar(value=False)
+            cb = tk.Checkbutton(
+                c, variable=var,
+                bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
+                fg=ACCENT, indicatoron=True,
+                bd=0, highlightthickness=0,
+                command=lambda slot=s: self._on_pool_check_toggle(slot),
+            )
+            self._pool_check_vars.append(var)
+            self._pool_check_cbs.append(cb)
+
+            lock_var = tk.BooleanVar(value=False)
+            lock_cb = tk.Checkbutton(
+                c, variable=lock_var,
+                bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
+                fg=TEXT_MAIN, indicatoron=True,
+                bd=0, highlightthickness=0,
+                command=lambda slot=s: self._on_pool_lock_toggle(slot),
+            )
+            self._pool_lock_vars.append(lock_var)
+            self._pool_lock_cbs.append(lock_cb)
+
+    def _on_pool_check_toggle(self, slot: int) -> None:
+        """A pooled enable-checkbox was clicked — map back to data row."""
+        data_idx = self._pool_data_idx[slot] if slot < len(self._pool_data_idx) else -1
+        if data_idx < 0 or data_idx >= len(self._plugin_entries):
+            return
+        entry = self._plugin_entries[data_idx]
+        if entry.name.lower() in self._vanilla_plugins:
+            return
+        entry.enabled = self._pool_check_vars[slot].get()
+        self._save_plugins()
+        self._check_all_masters()
+        self._predraw()
+
+    def _on_pool_lock_toggle(self, slot: int) -> None:
+        """A pooled lock-checkbox was clicked — map back to data row."""
+        data_idx = self._pool_data_idx[slot] if slot < len(self._pool_data_idx) else -1
+        if data_idx < 0 or data_idx >= len(self._plugin_entries):
+            return
+        name = self._plugin_entries[data_idx].name
+        locked = self._pool_lock_vars[slot].get()
+        if locked:
+            self._plugin_locks[name] = True
+        else:
+            self._plugin_locks.pop(name, None)
+        self._save_plugin_locks()
+        self._predraw()
 
     # ------------------------------------------------------------------
     # LOOT sorting
@@ -4234,18 +4375,6 @@ class PluginPanel(ctk.CTkFrame):
             return
         path.write_text(json.dumps(self._plugin_locks, indent=2), encoding="utf-8")
 
-    def _on_plugin_lock_toggle(self, idx: int) -> None:
-        """Handle lock checkbox toggle for a plugin."""
-        if 0 <= idx < len(self._plugin_entries):
-            name = self._plugin_entries[idx].name
-            locked = self._plock_vars[idx].get()
-            if locked:
-                self._plugin_locks[name] = True
-            else:
-                self._plugin_locks.pop(name, None)
-            self._save_plugin_locks()
-            self._predraw()
-
     # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
@@ -4273,17 +4402,6 @@ class PluginPanel(ctk.CTkFrame):
         self._psel_set = set()
         self._drag_idx = -1
 
-        # Destroy old checkbutton widgets
-        for cb in self._pcheck_buttons:
-            cb.destroy()
-        self._pcheck_buttons.clear()
-        self._pcheck_vars.clear()
-
-        for cb in self._plock_buttons:
-            cb.destroy()
-        self._plock_buttons.clear()
-        self._plock_vars.clear()
-
         if self._plugins_path is None or not self._plugin_extensions:
             self._plugin_entries = []
             self._predraw()
@@ -4293,14 +4411,10 @@ class PluginPanel(ctk.CTkFrame):
         mod_entries = read_plugins(self._plugins_path)
         mod_map = {e.name.lower(): e for e in mod_entries}
 
-        # loadorder.txt records the full order (vanilla + mod plugins)
-        # so vanilla plugins keep the positions LOOT assigned them.
         loadorder_path = self._plugins_path.parent / "loadorder.txt"
         saved_order = read_loadorder(loadorder_path)
 
         if saved_order:
-            # Rebuild entries in saved order, pulling enabled state from
-            # plugins.txt for mod plugins; vanilla plugins are always enabled.
             ordered: list[PluginEntry] = []
             seen: set[str] = set()
             for name in saved_order:
@@ -4314,15 +4428,12 @@ class PluginPanel(ctk.CTkFrame):
                     ordered.append(PluginEntry(
                         name=self._vanilla_plugins[low], enabled=True,
                     ))
-                # else: plugin removed since last sort — skip it
 
-            # Append any mod plugins not yet in loadorder (newly installed)
             for e in mod_entries:
                 if e.name.lower() not in seen:
                     ordered.append(e)
                     seen.add(e.name.lower())
 
-            # Append any vanilla plugins not yet in loadorder (newly detected)
             _ext_order = {".esm": 0, ".esp": 1, ".esl": 2}
             for low, orig in sorted(
                 self._vanilla_plugins.items(),
@@ -4334,7 +4445,6 @@ class PluginPanel(ctk.CTkFrame):
 
             self._plugin_entries = ordered
         else:
-            # No loadorder.txt yet — fall back to prepending vanilla plugins
             existing_lower = {e.name.lower() for e in mod_entries}
             _ext_order = {".esm": 0, ".esp": 1, ".esl": 2}
             vanilla_prepend = [
@@ -4346,32 +4456,6 @@ class PluginPanel(ctk.CTkFrame):
                 if lower not in existing_lower
             ]
             self._plugin_entries = vanilla_prepend + mod_entries
-
-        # Build checkbutton widgets for each entry
-        for i, entry in enumerate(self._plugin_entries):
-            is_vanilla = entry.name.lower() in self._vanilla_plugins
-            var = tk.BooleanVar(value=entry.enabled)
-            cb = tk.Checkbutton(
-                self._pcanvas, variable=var,
-                bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
-                fg=ACCENT, indicatoron=True,
-                bd=0, highlightthickness=0,
-                state="disabled" if is_vanilla else "normal",
-                command=lambda idx=i: self._on_plugin_toggle(idx),
-            )
-            self._pcheck_vars.append(var)
-            self._pcheck_buttons.append(cb)
-
-            lock_var = tk.BooleanVar(value=bool(self._plugin_locks.get(entry.name, False)))
-            lock_cb = tk.Checkbutton(
-                self._pcanvas, variable=lock_var,
-                bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
-                fg=TEXT_MAIN, indicatoron=True,
-                bd=0, highlightthickness=0,
-                command=lambda idx=i: self._on_plugin_lock_toggle(idx),
-            )
-            self._plock_vars.append(lock_var)
-            self._plock_buttons.append(lock_cb)
 
         self._check_all_masters()
         self._predraw()
@@ -4385,111 +4469,110 @@ class PluginPanel(ctk.CTkFrame):
         """
         if self._plugins_path is None:
             return
-        all_entries: list[PluginEntry] = []
         mod_entries: list[PluginEntry] = []
-        for i, entry in enumerate(self._plugin_entries):
-            enabled = self._pcheck_vars[i].get() if i < len(self._pcheck_vars) else entry.enabled
-            e = PluginEntry(name=entry.name, enabled=enabled)
-            all_entries.append(e)
+        for entry in self._plugin_entries:
             if entry.name.lower() not in self._vanilla_plugins:
-                mod_entries.append(e)
+                mod_entries.append(entry)
         write_plugins(self._plugins_path, mod_entries)
-        write_loadorder(self._plugins_path.parent / "loadorder.txt", all_entries)
-
-    def _on_plugin_toggle(self, idx: int) -> None:
-        """Handle checkbox toggle for a plugin."""
-        if 0 <= idx < len(self._plugin_entries):
-            if self._plugin_entries[idx].name.lower() in self._vanilla_plugins:
-                return
-            self._plugin_entries[idx].enabled = self._pcheck_vars[idx].get()
-            self._save_plugins()
-            self._check_all_masters()
-            self._predraw()
+        write_loadorder(self._plugins_path.parent / "loadorder.txt", self._plugin_entries)
 
     # ------------------------------------------------------------------
     # Canvas drawing
     # ------------------------------------------------------------------
 
     def _predraw(self):
-        """Full redraw of the plugin canvas."""
-        self._pcanvas.delete("all")
-
+        """Redraw by reconfiguring the pre-allocated pool of canvas items."""
+        self._predraw_after_id = None
+        c = self._pcanvas
         cw = self._pcanvas_w
         entries = self._plugin_entries
         dragging = self._drag_idx >= 0 and self._drag_moved
+        n = len(entries)
+        total_h = n * self.ROW_H
 
-        # Park all checkbuttons off-screen to avoid hide→show flicker
-        for cb in self._pcheck_buttons:
-            cb.place(x=-9999, y=-9999)
-        for cb in self._plock_buttons:
-            cb.place(x=-9999, y=-9999)
+        canvas_top = int(c.canvasy(0))
+        canvas_h = c.winfo_height()
+        first_row = max(0, canvas_top // self.ROW_H)
+        last_row = min(n, (canvas_top + canvas_h) // self.ROW_H + 2)
+        vis_count = last_row - first_row
 
-        canvas_top = int(self._pcanvas.canvasy(0))
-        canvas_bottom = canvas_top + self._pcanvas.winfo_height()
+        for s in range(self._pool_size):
+            row = first_row + s
+            if s < vis_count and row < n:
+                entry = entries[row]
+                y_top = row * self.ROW_H
+                y_bot = y_top + self.ROW_H
+                y_mid = y_top + self.ROW_H // 2
 
-        total_h = len(entries) * self.ROW_H
+                is_sel = (row in self._psel_set) or (row == self._drag_idx and self._drag_moved)
+                if is_sel:
+                    bg = BG_SELECT
+                elif row == self._phover_idx:
+                    bg = BG_HOVER_ROW
+                else:
+                    bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
 
-        for row, entry in enumerate(entries):
-            y_top = row * self.ROW_H
-            y_bot = y_top + self.ROW_H
-            # Skip rows outside viewport (virtualisation)
-            if y_bot < canvas_top or y_top > canvas_bottom:
-                continue
+                c.coords(self._pool_bg[s], 0, y_top, cw, y_bot)
+                c.itemconfigure(self._pool_bg[s], fill=bg, state="normal")
 
-            y_mid = y_top + self.ROW_H // 2
+                name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
+                c.coords(self._pool_name[s], self._pcol_x[1], y_mid)
+                c.itemconfigure(self._pool_name[s], text=entry.name,
+                                fill=name_color, state="normal")
 
-            is_sel = (row in self._psel_set) or (row == self._drag_idx and self._drag_moved)
-            if is_sel:
-                bg = BG_SELECT
-            elif row == self._phover_idx:
-                bg = BG_HOVER_ROW
+                c.coords(self._pool_idx_text[s], self._pcol_x[4] + 25, y_mid)
+                c.itemconfigure(self._pool_idx_text[s], text=f"{row:03d}",
+                                fill=TEXT_DIM, state="normal")
+
+                warn_id = self._pool_warn[s]
+                if warn_id is not None:
+                    if entry.name in self._missing_masters:
+                        flags_mid_x = (self._pcol_x[2] + self._pcol_x[3]) // 2
+                        c.coords(warn_id, flags_mid_x, y_mid)
+                        c.itemconfigure(warn_id, state="normal")
+                    else:
+                        c.itemconfigure(warn_id, state="hidden")
+
+                self._pool_data_idx[s] = row
+
+                if not dragging:
+                    is_vanilla = entry.name.lower() in self._vanilla_plugins
+                    self._pool_check_vars[s].set(entry.enabled)
+                    self._pool_check_cbs[s].configure(
+                        bg=bg, activebackground=bg,
+                        state="disabled" if is_vanilla else "normal",
+                    )
+                    widget_y = y_top - canvas_top
+                    self._pool_check_cbs[s].place(
+                        x=self._pcol_x[0], y=widget_y,
+                        width=24, height=self.ROW_H)
+
+                    is_locked = bool(self._plugin_locks.get(entry.name, False))
+                    self._pool_lock_vars[s].set(is_locked)
+                    self._pool_lock_cbs[s].configure(bg=bg, activebackground=bg)
+                    self._pool_lock_cbs[s].place(
+                        x=self._pcol_x[3], y=widget_y,
+                        width=24, height=self.ROW_H)
+                else:
+                    self._pool_check_cbs[s].place_forget()
+                    self._pool_lock_cbs[s].place_forget()
             else:
-                bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
+                c.itemconfigure(self._pool_bg[s], state="hidden")
+                c.itemconfigure(self._pool_name[s], state="hidden")
+                c.itemconfigure(self._pool_idx_text[s], state="hidden")
+                if self._pool_warn[s] is not None:
+                    c.itemconfigure(self._pool_warn[s], state="hidden")
+                self._pool_check_cbs[s].place_forget()
+                self._pool_lock_cbs[s].place_forget()
+                self._pool_data_idx[s] = -1
 
-            self._pcanvas.create_rectangle(0, y_top, cw, y_bot, fill=bg, outline="")
+        c.configure(scrollregion=(0, 0, cw, max(total_h, canvas_h)))
 
-            # Checkbutton (only when not dragging)
-            if not dragging and row < len(self._pcheck_buttons):
-                cb = self._pcheck_buttons[row]
-                cb.configure(bg=bg, activebackground=bg)
-                widget_y = y_top - canvas_top
-                cb.place(x=self._pcol_x[0], y=widget_y,
-                         width=24, height=self.ROW_H)
-
-            # Plugin name
-            name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
-            self._pcanvas.create_text(
-                self._pcol_x[1], y_mid,
-                text=entry.name, anchor="w", fill=name_color,
-                font=("Segoe UI", 11),
-            )
-
-            # Flags — warning icon for missing masters
-            if entry.name in self._missing_masters and self._warning_icon:
-                flags_mid_x = (self._pcol_x[2] + self._pcol_x[3]) // 2
-                self._pcanvas.create_image(
-                    flags_mid_x, y_mid,
-                    image=self._warning_icon, anchor="center",
-                )
-
-            # Lock checkbox
-            if not dragging and row < len(self._plock_buttons):
-                lock_cb = self._plock_buttons[row]
-                lock_cb.configure(bg=bg, activebackground=bg)
-                widget_y = y_top - canvas_top
-                lock_cb.place(x=self._pcol_x[3], y=widget_y,
-                              width=24, height=self.ROW_H)
-
-            # Index
-            self._pcanvas.create_text(
-                self._pcol_x[4] + 25, y_mid,
-                text=f"{row:03d}", anchor="center", fill=TEXT_DIM,
-                font=("Segoe UI", 10),
-            )
-
-        self._pcanvas.configure(scrollregion=(
-            0, 0, cw, max(total_h, self._pcanvas.winfo_height())
-        ))
+    def _schedule_predraw(self) -> None:
+        """Debounced _predraw — coalesces rapid scroll/resize events."""
+        if self._predraw_after_id is not None:
+            self.after_cancel(self._predraw_after_id)
+        self._predraw_after_id = self.after_idle(self._predraw)
 
     # ------------------------------------------------------------------
     # Missing masters detection
@@ -4566,6 +4649,22 @@ class PluginPanel(ctk.CTkFrame):
             self._tooltip_win.destroy()
             self._tooltip_win = None
 
+    def _update_row_bg(self, data_row: int) -> None:
+        """Update just the background colour of a single data row's pool slot."""
+        for s in range(self._pool_size):
+            if self._pool_data_idx[s] == data_row:
+                is_sel = data_row in self._psel_set
+                if is_sel:
+                    bg = BG_SELECT
+                elif data_row == self._phover_idx:
+                    bg = BG_HOVER_ROW
+                else:
+                    bg = BG_ROW if data_row % 2 == 0 else BG_ROW_ALT
+                self._pcanvas.itemconfigure(self._pool_bg[s], fill=bg)
+                self._pool_check_cbs[s].configure(bg=bg, activebackground=bg)
+                self._pool_lock_cbs[s].configure(bg=bg, activebackground=bg)
+                break
+
     def _on_pmouse_motion(self, event) -> None:
         """Show tooltip when hovering over a warning icon in the Flags column, and update hover highlight."""
         canvas_y = int(self._pcanvas.canvasy(event.y))
@@ -4573,16 +4672,18 @@ class PluginPanel(ctk.CTkFrame):
         if row < 0 or row >= len(self._plugin_entries):
             self._hide_tooltip()
             if self._phover_idx != -1:
+                old = self._phover_idx
                 self._phover_idx = -1
-                self._predraw()
+                self._update_row_bg(old)
             return
 
-        # Update hover highlight
         if row != self._phover_idx:
+            old = self._phover_idx
             self._phover_idx = row
-            self._predraw()
+            if old >= 0:
+                self._update_row_bg(old)
+            self._update_row_bg(row)
 
-        # Check if cursor is in the Flags column
         x = event.x
         if len(self._pcol_x) >= 5 and self._pcol_x[2] <= x < self._pcol_x[3]:
             entry = self._plugin_entries[row]
@@ -4591,7 +4692,6 @@ class PluginPanel(ctk.CTkFrame):
                 screen_x = event.x_root
                 screen_y = event.y_root
                 text = "Missing masters:\n" + "\n".join(f"  - {m}" for m in missing)
-                # Only recreate if not already showing for this row
                 if self._tooltip_win is None:
                     self._show_tooltip(screen_x, screen_y, text)
                 return
@@ -4601,8 +4701,9 @@ class PluginPanel(ctk.CTkFrame):
     def _on_pmouse_leave(self, event) -> None:
         self._hide_tooltip()
         if self._phover_idx != -1:
+            old = self._phover_idx
             self._phover_idx = -1
-            self._predraw()
+            self._update_row_bg(old)
 
     # ------------------------------------------------------------------
     # Scroll events
@@ -4612,19 +4713,19 @@ class PluginPanel(ctk.CTkFrame):
         self._pcanvas_w = event.width
         self._layout_plugin_cols(event.width)
         self._update_plugin_header(event.width)
-        self._predraw()
+        self._schedule_predraw()
 
     def _on_pscroll_up(self, _event):
         self._pcanvas.yview("scroll", -50, "units")
-        self._predraw()
+        self._schedule_predraw()
 
     def _on_pscroll_down(self, _event):
         self._pcanvas.yview("scroll", 50, "units")
-        self._predraw()
+        self._schedule_predraw()
 
     def _on_pmousewheel(self, event):
         self._pcanvas.yview("scroll", -50 if event.delta > 0 else 50, "units")
-        self._predraw()
+        self._schedule_predraw()
 
     # ------------------------------------------------------------------
     # Mouse events (select + drag)
@@ -4697,7 +4798,6 @@ class PluginPanel(ctk.CTkFrame):
         if self._drag_idx < 0 or not self._plugin_entries:
             return
 
-        # Auto-scroll near edges
         h = self._pcanvas.winfo_height()
         if event.y < 40:
             self._pcanvas.yview("scroll", -1, "units")
@@ -4707,9 +4807,7 @@ class PluginPanel(ctk.CTkFrame):
         cy = self._pevent_canvas_y(event)
         n = len(self._plugin_entries)
 
-        # Multi-selection drag: move all selected (non-locked) entries as a group
         if len(self._psel_set) > 1 and self._drag_idx in self._psel_set:
-            # Exclude locked entries from the movable set
             sorted_sel = sorted(
                 i for i in self._psel_set if not self._is_plugin_locked(i)
             )
@@ -4724,24 +4822,13 @@ class PluginPanel(ctk.CTkFrame):
             self._drag_slot = slot
             self._drag_moved = True
 
-            # Extract the selected entries (highest index first to avoid shift issues)
             extracted = []
             for i in sorted(sorted_sel, reverse=True):
-                extracted.insert(0, (
-                    self._plugin_entries.pop(i),
-                    self._pcheck_vars.pop(i),
-                    self._pcheck_buttons.pop(i),
-                    self._plock_vars.pop(i),
-                    self._plock_buttons.pop(i),
-                ))
+                extracted.insert(0, self._plugin_entries.pop(i))
 
             insert_at = max(0, min(slot, len(self._plugin_entries)))
-            for j, (entry, var, cb, lvar, lcb) in enumerate(extracted):
+            for j, entry in enumerate(extracted):
                 self._plugin_entries.insert(insert_at + j, entry)
-                self._pcheck_vars.insert(insert_at + j, var)
-                self._pcheck_buttons.insert(insert_at + j, cb)
-                self._plock_vars.insert(insert_at + j, lvar)
-                self._plock_buttons.insert(insert_at + j, lcb)
 
             self._drag_idx = insert_at
             self._sel_idx = insert_at
@@ -4755,27 +4842,12 @@ class PluginPanel(ctk.CTkFrame):
             self._drag_moved = True
 
             entry = self._plugin_entries.pop(self._drag_idx)
-            var = self._pcheck_vars.pop(self._drag_idx)
-            cb = self._pcheck_buttons.pop(self._drag_idx)
-            lvar = self._plock_vars.pop(self._drag_idx)
-            lcb = self._plock_buttons.pop(self._drag_idx)
-
             insert_at = max(0, min(slot, len(self._plugin_entries)))
             self._plugin_entries.insert(insert_at, entry)
-            self._pcheck_vars.insert(insert_at, var)
-            self._pcheck_buttons.insert(insert_at, cb)
-            self._plock_vars.insert(insert_at, lvar)
-            self._plock_buttons.insert(insert_at, lcb)
 
             self._drag_idx = insert_at
             self._sel_idx = insert_at
             self._psel_set = {insert_at}
-
-        # Rebind toggle commands to match new indices
-        for i, cb2 in enumerate(self._pcheck_buttons):
-            cb2.configure(command=lambda idx=i: self._on_plugin_toggle(idx))
-        for i, lcb2 in enumerate(self._plock_buttons):
-            lcb2.configure(command=lambda idx=i: self._on_plugin_lock_toggle(idx))
 
         self._predraw()
 
@@ -4869,8 +4941,6 @@ class PluginPanel(ctk.CTkFrame):
         for i in indices:
             if 0 <= i < len(self._plugin_entries):
                 self._plugin_entries[i].enabled = True
-                if i < len(self._pcheck_vars):
-                    self._pcheck_vars[i].set(True)
         self._save_plugins()
         self._check_all_masters()
         self._predraw()
@@ -4880,8 +4950,6 @@ class PluginPanel(ctk.CTkFrame):
         for i in indices:
             if 0 <= i < len(self._plugin_entries):
                 self._plugin_entries[i].enabled = False
-                if i < len(self._pcheck_vars):
-                    self._pcheck_vars[i].set(False)
         self._save_plugins()
         self._check_all_masters()
         self._predraw()
@@ -6268,6 +6336,136 @@ def _to_wine_path(linux_path: "Path | str") -> str:
     return "Z:" + str(linux_path).replace("/", "\\")
 
 
+# ---------------------------------------------------------------------------
+# VRAMr preset picker + runner dialog
+# ---------------------------------------------------------------------------
+
+class _VRAMrPresetDialog(ctk.CTkToplevel):
+    """Modal dialog that lets the user pick a VRAMr preset, then runs the
+    optimisation pipeline in a background thread while streaming output to
+    the mod manager's log panel."""
+
+    _PRESETS = [
+        ("hq",          "High Quality",  "2K / 2K / 1K / 1K  — 4K modlist downscaled to 2K"),
+        ("quality",     "Quality",       "2K / 1K / 1K / 1K  — Balance of quality & savings"),
+        ("optimum",     "Optimum",       "2K / 1K / 512 / 512 — Good starting point"),
+        ("performance", "Performance",   "2K / 512 / 512 / 512 — Big gains, lower close-up"),
+        ("vanilla",     "Vanilla",       "512 / 512 / 512 / 512 — Just run the game"),
+    ]
+
+    def __init__(self, parent, *, bat_dir: Path, game_data_dir: Path,
+                 output_dir: Path, log_fn):
+        super().__init__(parent, fg_color="#1a1a1a")
+        self.title("VRAMr — Choose Preset")
+        self.geometry("520x380")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(100, self._make_modal)
+
+        self._bat_dir = bat_dir
+        self._game_data_dir = game_data_dir
+        self._output_dir = output_dir
+        self._log = log_fn
+        self._preset_var = tk.StringVar(value="optimum")
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _on_close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+    def _build(self):
+        ctk.CTkLabel(
+            self, text="VRAMr Texture Optimiser",
+            font=("Segoe UI", 16, "bold"), text_color="#d4d4d4",
+        ).pack(pady=(16, 4))
+        ctk.CTkLabel(
+            self, text="Select an optimisation preset, then click Run.",
+            font=("Segoe UI", 12), text_color="#858585",
+        ).pack(pady=(0, 12))
+
+        # Preset radio buttons
+        frame = ctk.CTkFrame(self, fg_color="#252526", corner_radius=6)
+        frame.pack(padx=20, pady=4, fill="x")
+
+        for key, label, desc in self._PRESETS:
+            row = ctk.CTkFrame(frame, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=3)
+            ctk.CTkRadioButton(
+                row, text=label, variable=self._preset_var, value=key,
+                font=("Segoe UI", 13), text_color="#d4d4d4",
+                fg_color="#0078d4", hover_color="#1084d8",
+                border_color="#444444",
+            ).pack(side="left")
+            ctk.CTkLabel(
+                row, text=desc,
+                font=("Segoe UI", 11), text_color="#858585",
+            ).pack(side="left", padx=(12, 0))
+
+        # Output info
+        ctk.CTkLabel(
+            self, text=f"Output: {self._output_dir}",
+            font=("Segoe UI", 11), text_color="#858585", wraplength=480,
+        ).pack(pady=(12, 4))
+
+        # Run button
+        ctk.CTkButton(
+            self, text="▶  Run VRAMr", width=160, height=36,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#0078d4", hover_color="#1084d8", text_color="white",
+            command=self._on_run,
+        ).pack(pady=(8, 16))
+
+    def _on_run(self):
+        preset = self._preset_var.get()
+        self._log(f"VRAMr: starting with '{preset}' preset...")
+
+        bat_dir = self._bat_dir
+        game_data_dir = self._game_data_dir
+        output_dir = self._output_dir
+        log_fn = self._log
+        # Grab the App instance for thread-safe scheduling
+        app = self.winfo_toplevel().master
+        # Auto-open the log panel so the user can see progress
+        if hasattr(app, "_status"):
+            app._status.show_log()
+        self._on_close()
+
+        def _log_safe(msg: str):
+            try:
+                if hasattr(app, "call_threadsafe"):
+                    app.call_threadsafe(lambda m=msg: log_fn(m))
+                else:
+                    log_fn(msg)
+            except Exception:
+                pass
+
+        def _worker():
+            try:
+                from wrappers.vramr import run_vramr
+                run_vramr(
+                    bat_dir=bat_dir,
+                    game_data_dir=game_data_dir,
+                    output_dir=output_dir,
+                    preset=preset,
+                    log_fn=_log_safe,
+                )
+            except Exception as exc:
+                _log_safe(f"VRAMr error: {exc}")
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+
 class _ExeConfigDialog(ctk.CTkToplevel):
     """Modal dialog for configuring command-line arguments for a Windows exe.
 
@@ -7442,6 +7640,11 @@ class StatusBar(ctk.CTkFrame):
             self.configure(height=self._COLLAPSED_H)
             self._toggle_btn.configure(text="▲ Show")
 
+    def show_log(self):
+        """Ensure the log panel is expanded (no-op if already visible)."""
+        if not self._visible:
+            self._toggle_log()
+
     def set_progress(self, done: int, total: int) -> None:
         """Show / update the progress bar.  Call from main thread only."""
         if not self._progress_visible:
@@ -7478,6 +7681,12 @@ class App(ctk.CTk):
         super().__init__(fg_color=BG_DEEP)
         self.geometry("1400x820")
         self.minsize(900, 600)
+        # Thread-safe callback queue — background threads must never call
+        # widget.after() directly (Python 3.13 Tkinter enforces this).
+        # Use  app.call_threadsafe(fn)  instead.
+        import queue as _queue
+        self._ts_queue: _queue.Queue = _queue.Queue()
+        self._poll_threadsafe_queue()
         self._nexus_api: NexusAPI | None = None
         self._nexus_downloader: NexusDownloader | None = None
         self._nexus_username: str | None = None
@@ -7491,6 +7700,29 @@ class App(ctk.CTk):
         if icon_path.is_file():
             icon_img = tk.PhotoImage(file=str(icon_path))
             self.iconphoto(False, icon_img)
+
+    # -- Thread-safe callback scheduling ------------------------------------
+
+    def call_threadsafe(self, fn):
+        """Schedule *fn* to run on the main/UI thread.
+
+        Safe to call from any thread — the callback is placed on a queue that
+        the main-loop polls every 50 ms.  Use this instead of
+        ``widget.after(0, fn)`` from background threads.
+        """
+        self._ts_queue.put(fn)
+
+    def _poll_threadsafe_queue(self):
+        import queue as _queue
+        while True:
+            try:
+                fn = self._ts_queue.get_nowait()
+                fn()
+            except _queue.Empty:
+                break
+            except Exception:
+                pass
+        self.after(50, self._poll_threadsafe_queue)
 
     # -- Nexus API init -----------------------------------------------------
 
@@ -7514,7 +7746,7 @@ class App(ctk.CTk):
                     self._nexus_username = user.name
                 except Exception:
                     self._nexus_username = None
-                self.after(0, self._update_window_title)
+                self.call_threadsafe(self._update_window_title)
             threading.Thread(target=_fetch_user, daemon=True).start()
         else:
             self._nexus_api = None
