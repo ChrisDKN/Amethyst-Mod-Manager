@@ -1,6 +1,6 @@
 """
-Subnautica.py
-Game handler for Subnautica.
+BepInEx.py
+Game handler for BepInEx-based games.
 
 Mod structure:
   Mods install into <game_path>/BepInEx/Plugins/
