@@ -1,6 +1,6 @@
 """
 Downloads panel — scans the user's Downloads folder for archive files
-(.zip, .7z, .tar.gz, .tar) and displays them in a canvas list.
+(.zip, .7z, .rar, .tar.gz, .tar) and displays them in a canvas list.
 
 Right-clicking an entry triggers the standard mod-install flow as if the
 user had clicked "Install Mod" and selected that file manually.
@@ -37,7 +37,7 @@ NAME_PAD_L = 8   # left padding for the filename text
 NAME_PAD_R = 8   # gap between filename text and size column
 
 # Archive extensions we care about (lowercase, with dot)
-_ARCHIVE_EXTS = {".zip", ".7z", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"}
+_ARCHIVE_EXTS = {".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"}
 
 
 def _is_archive(name: str) -> bool:
