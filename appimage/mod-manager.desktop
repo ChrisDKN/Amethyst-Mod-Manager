@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mod Manager
+Comment=Game mod manager for Linux
+Exec=mod-manager
+Icon=mod-manager
+Categories=Game;
+Terminal=false
+StartupWMClass=mod-manager

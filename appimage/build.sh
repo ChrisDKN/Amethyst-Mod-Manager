@@ -57,6 +57,7 @@ APP_DIR="${APPDIR}/usr/app"
 mkdir -p "$APP_DIR"
 
 cp "${PROJECT_DIR}/gui.py" "$APP_DIR/"
+cp "${PROJECT_DIR}/version.py" "$APP_DIR/"
 
 for dir in gui Utils Games LOOT Nexus icons; do
     cp -r "${PROJECT_DIR}/${dir}" "$APP_DIR/${dir}"
