@@ -7487,6 +7487,10 @@ class App(ctk.CTk):
         self._startup_log()
         # Process --nxm argument if the app was launched via protocol handler
         self._handle_nxm_argv()
+        icon_path = Path(__file__).parent / "icons" / "title-bar.png"
+        if icon_path.is_file():
+            icon_img = tk.PhotoImage(file=str(icon_path))
+            self.iconphoto(False, icon_img)
 
     # -- Nexus API init -----------------------------------------------------
 
