@@ -600,6 +600,12 @@ class Oblivion(Fallout_3):
     def _script_extender_exe(self) -> str:
         return "obse_loader.exe"
 
+    def _plugins_txt_target(self) -> Path | None:
+        """Return the in-prefix path where Oblivion expects Plugins.txt (capital P)."""
+        if self._prefix_path is None:
+            return None
+        return self._prefix_path / self._APPDATA_SUBPATH / "Plugins.txt"
+
 
 class Skyrim(Fallout_3):
 
