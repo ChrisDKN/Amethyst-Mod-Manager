@@ -30,22 +30,18 @@
 - Fallout 3 GOTY
 - Fallout New Vegas
 - Oblivion
-- Baldur's Gate 3
-- Subnautica
-- Subnautica Below Zero
-- Valheim (Add ./start_game_bepinex.sh %command% to steam launch arguments)
-- TCG Card Shop Simulator
-- Stardew Valley
-
-
-### Added but Needs Testing
-
-- Witcher 3
-- Cyberpunk 2077
-- The Sims 4
 - Starfield
 - Skyrim VR
 - Fallout 4 VR
+- Baldur's Gate 3
+- Cyberpunk 2077
+- Witcher 3
+- Subnautica
+- Subnautica Below Zero
+- Valheim
+- TCG Card Shop Simulator
+- Stardew Valley
+- The Sims 4
 - Lethal Company
 
 ### Game Support to Add
@@ -68,13 +64,14 @@ The manager supports many supporting applications used to mod games. Place the a
 - **DynDOLOD** — Working with `-d` and `-o` args
 - **TexGen** — Working with `-d` and `-o` args
 - **Bethini Pie** — Just works
+- **Vramr** - Working using an experimental python wrapper using compressonator instead of using texconv through proton
+- **Witcher 3 Script merger** - Working, Game path added to config automatically
 
 ### Not Yet Added or Tested
 
 - Bodyslide and Outfits Studio
 - Synthesis
 - Wrye Bash — Should work / not yet added/tested
-- Witcher 3 Script Merger — Needs adding/testing
 
 ## Usage
 
@@ -91,7 +88,7 @@ You can also add multiple profiles with different configurations — simply crea
 
 ## Running Windows Apps (e.g. SSEEdit)
 
-1. Add the folder containing the exe to Applications in the game's staging path.
+1. Add the folder containing the exe to Applications folder in the game's staging path.
 2. Hit **Refresh** on the top right.
 3. You can configure the exe to change the arguments or the output mod/folder.
 4. Make sure your game is deployed before running so the application gets the right files.
@@ -110,6 +107,19 @@ As this is an early alpha build, the following needs testing:
 - Support on multiple Linux distros
 - Verification that all added games work
 - Baulders Gate 3 testing - The Mod manager can build modsettings.lsx but further testing is needed to know if it's working fully
+
+## VRAMr
+
+VRAMr (Version 15.0723) works by using an experimental python wrapper. The optimisation step is also changed to use compressonator which is faster with native Linux support vs running texconv through Wine/Proton
+
+**Any issues with this should be reported here and not to the VRAMr devs, This is experimental and not an offical Linux release**
+
+- Place the Vramr folder in Skyrim Special Edition/Applications/ in the games staging foler
+- In Amethyst mod manager, run VRAMr.bat
+- It will run the wrapper script, Progress will be added to the log
+- Output will be placed as a mod in a VRAMr folder
+
+Support for other applications (BENDr and ParallaxR) may be added in future
 
 ## Planned Features
 
