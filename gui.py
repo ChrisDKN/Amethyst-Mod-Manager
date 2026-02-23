@@ -3257,7 +3257,11 @@ class PluginPanel(ctk.CTkFrame):
 
     def _on_run_exe(self):
         """Launch the selected exe in the game's Proton prefix."""
-        from Utils.steam_finder import find_proton_for_game
+        from Utils.steam_finder import (
+            find_any_installed_proton,
+            find_proton_for_game,
+            find_steam_root_for_proton_script,
+        )
 
         idx = self._exe_var_index()
         if idx < 0 or not self._exe_paths:
@@ -3286,20 +3290,27 @@ class PluginPanel(ctk.CTkFrame):
         compat_data = prefix_path.parent
 
         steam_id = getattr(game, "steam_id", "")
-        if not steam_id:
-            self._log("Run EXE: game has no Steam ID — cannot determine Proton version.")
-            return
-        proton_script = find_proton_for_game(steam_id)
+        proton_script = find_proton_for_game(steam_id) if steam_id else None
         if proton_script is None:
+            proton_script = find_any_installed_proton()
+            if proton_script is None:
+                if steam_id:
+                    self._log(
+                        f"Run EXE: could not find Proton version for app {steam_id}, "
+                        "and no installed Proton tool was found."
+                    )
+                else:
+                    self._log("Run EXE: no Steam ID and no installed Proton tool was found.")
+                return
             self._log(
-                f"Run EXE: could not find the Proton version assigned to app {steam_id}. "
-                "Check that Steam has run the game at least once."
+                f"Run EXE: using fallback Proton tool {proton_script.parent.name} "
+                "(no per-game Steam mapping found)."
             )
-            return
 
-        # Determine Steam root from proton script path
-        # Proton is at: <steam_root>/steamapps/common/<ProtonName>/proton
-        steam_root = proton_script.parent.parent.parent.parent
+        steam_root = find_steam_root_for_proton_script(proton_script)
+        if steam_root is None:
+            self._log("Run EXE: could not determine Steam root for the selected Proton tool.")
+            return
 
         env = os.environ.copy()
         env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
@@ -5866,7 +5877,11 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
     def _get_proton_env(self):
         """Return (proton_script, env) or log an error and return (None, None)."""
-        from Utils.steam_finder import find_proton_for_game
+        from Utils.steam_finder import (
+            find_any_installed_proton,
+            find_proton_for_game,
+            find_steam_root_for_proton_script,
+        )
 
         prefix_path = self._game.get_prefix_path()
         if prefix_path is None or not prefix_path.is_dir():
@@ -5874,20 +5889,28 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
             return None, None
 
         steam_id = getattr(self._game, "steam_id", "")
-        if not steam_id:
-            self._log("Proton Tools: game has no Steam ID — cannot determine Proton version.")
-            return None, None
-
-        proton_script = find_proton_for_game(steam_id)
+        proton_script = find_proton_for_game(steam_id) if steam_id else None
         if proton_script is None:
+            proton_script = find_any_installed_proton()
+            if proton_script is None:
+                if steam_id:
+                    self._log(
+                        f"Proton Tools: could not find Proton version for app {steam_id}, "
+                        "and no installed Proton tool was found."
+                    )
+                else:
+                    self._log("Proton Tools: no Steam ID and no installed Proton tool was found.")
+                return None, None
             self._log(
-                f"Proton Tools: could not find Proton version for app {steam_id}. "
-                "Check that Steam has run the game at least once."
+                f"Proton Tools: using fallback Proton tool {proton_script.parent.name} "
+                "(no per-game Steam mapping found)."
             )
-            return None, None
 
         compat_data = prefix_path.parent
-        steam_root = proton_script.parent.parent.parent.parent
+        steam_root = find_steam_root_for_proton_script(proton_script)
+        if steam_root is None:
+            self._log("Proton Tools: could not determine Steam root for the selected Proton tool.")
+            return None, None
 
         env = os.environ.copy()
         env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)

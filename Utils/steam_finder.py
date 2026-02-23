@@ -25,6 +25,117 @@ _VDF_FILENAME = "libraryfolders.vdf"
 _COMMON_SUBDIR = Path("steamapps") / "common"
 
 
+def _normalize_tool_name(name: str) -> str:
+    return "".join(ch for ch in name.lower() if ch.isalnum())
+
+
+def _proton_sort_key(name: str) -> tuple[int, tuple[int, ...], str]:
+    """
+    Sort key for Proton tool names.
+
+    Priority:
+      1) GE-Proton builds before Valve Proton builds
+      2) Higher numeric versions first
+      3) Name as a final tie-breaker
+    """
+    lower = name.lower()
+    is_ge = lower.startswith("ge-proton")
+    nums = tuple(int(n) for n in re.findall(r"\d+", lower))
+    return (0 if is_ge else 1, tuple(-n for n in nums), lower)
+
+
+def find_any_installed_proton(preferred_name: str = "") -> Path | None:
+    """
+    Find an installed Proton launcher script without requiring a Steam app mapping.
+
+    This is used as a fallback for custom prefixes where Steam does not maintain
+    a CompatToolMapping entry for the selected app ID.
+
+    Args:
+        preferred_name: Optional Proton tool directory name to prefer,
+                        e.g. "GE-Proton10-28".
+    """
+    preferred_norm = _normalize_tool_name(preferred_name) if preferred_name else ""
+
+    candidates: list[Path] = []
+    for steam_root in _STEAM_CANDIDATES:
+        for search_dir in (
+            steam_root / "compatibilitytools.d",
+            steam_root / "steamapps" / "common",
+        ):
+            if not search_dir.is_dir():
+                continue
+            try:
+                for entry in search_dir.iterdir():
+                    if not entry.is_dir():
+                        continue
+                    proton_script = entry / "proton"
+                    if proton_script.is_file():
+                        candidates.append(proton_script)
+            except OSError:
+                continue
+
+    if not candidates:
+        return None
+
+    if preferred_norm:
+        for candidate in candidates:
+            if _normalize_tool_name(candidate.parent.name) == preferred_norm:
+                return candidate
+
+    proton_like = [
+        c for c in candidates
+        if c.parent.name.lower().startswith(("proton", "ge-proton"))
+    ]
+    if not proton_like:
+        proton_like = candidates
+
+    proton_like.sort(key=lambda p: _proton_sort_key(p.parent.name))
+    return proton_like[0]
+
+
+def find_steam_root_for_proton_script(proton_script: Path) -> Path | None:
+    """
+    Resolve the Steam root directory that owns a given Proton script path.
+
+    Supports Proton installs from both:
+      - <steam_root>/steamapps/common/<Tool>/proton
+      - <steam_root>/compatibilitytools.d/<Tool>/proton
+    """
+    script = proton_script.resolve()
+
+    for steam_root in _STEAM_CANDIDATES:
+        try:
+            rel = script.relative_to(steam_root.resolve())
+        except Exception:
+            continue
+
+        if len(rel.parts) < 2:
+            continue
+
+        if rel.parts[0] == "steamapps" and len(rel.parts) >= 4 and rel.parts[1] == "common":
+            return steam_root
+        if rel.parts[0] == "compatibilitytools.d" and len(rel.parts) >= 3:
+            return steam_root
+
+    parts = script.parts
+    try:
+        idx = parts.index("compatibilitytools.d")
+        if idx > 0:
+            return Path(*parts[:idx])
+    except ValueError:
+        pass
+
+    try:
+        idx = parts.index("steamapps")
+        if idx > 0:
+            return Path(*parts[:idx])
+    except ValueError:
+        pass
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------

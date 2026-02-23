@@ -434,7 +434,11 @@ class FalloutDowngradeWizard(ctk.CTkToplevel):
     # ------------------------------------------------------------------
 
     def _get_proton_env(self):
-        from Utils.steam_finder import find_proton_for_game
+        from Utils.steam_finder import (
+            find_any_installed_proton,
+            find_proton_for_game,
+            find_steam_root_for_proton_script,
+        )
 
         prefix_path = self._game.get_prefix_path()
         if prefix_path is None or not prefix_path.is_dir():
@@ -442,17 +446,25 @@ class FalloutDowngradeWizard(ctk.CTkToplevel):
             return None, None
 
         steam_id = getattr(self._game, "steam_id", "")
-        if not steam_id:
-            self._log("Wizard: game has no Steam ID.")
-            return None, None
-
-        proton_script = find_proton_for_game(steam_id)
+        proton_script = find_proton_for_game(steam_id) if steam_id else None
         if proton_script is None:
-            self._log(f"Wizard: could not find Proton for app {steam_id}.")
-            return None, None
+            proton_script = find_any_installed_proton()
+            if proton_script is None:
+                if steam_id:
+                    self._log(f"Wizard: could not find Proton for app {steam_id}, and no installed Proton tool was found.")
+                else:
+                    self._log("Wizard: game has no Steam ID and no installed Proton tool was found.")
+                return None, None
+            self._log(
+                f"Wizard: using fallback Proton tool {proton_script.parent.name} "
+                "(no per-game Steam mapping found)."
+            )
 
         compat_data = prefix_path.parent
-        steam_root = proton_script.parent.parent.parent.parent
+        steam_root = find_steam_root_for_proton_script(proton_script)
+        if steam_root is None:
+            self._log("Wizard: could not determine Steam root for the selected Proton tool.")
+            return None, None
 
         env = os.environ.copy()
         env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
