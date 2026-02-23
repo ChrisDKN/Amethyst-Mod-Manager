@@ -4,3 +4,4 @@ libarchive-c
 Pillow
 lz4
 requests
+websocket-client
