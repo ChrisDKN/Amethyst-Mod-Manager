@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import keyring
 import requests
 
 from Utils.config_paths import get_config_dir
@@ -162,38 +163,75 @@ class NexusModRequirement:
 
 
 # ---------------------------------------------------------------------------
-# API key persistence
+# API key persistence (system keyring)
 # ---------------------------------------------------------------------------
 
+_KEYRING_SERVICE = "AmethystModManager"
+_KEYRING_USER = "nexus_api_key"
+
+
 def _api_key_path() -> Path:
+    """Path of legacy plaintext key file (used only for migration)."""
     return get_config_dir() / "nexus_api_key"
 
 
-def load_api_key() -> str:
-    """Load saved API key from disk, or return empty string."""
+def _migrate_legacy_key() -> str:
+    """If legacy plaintext file exists, move it to keyring and return the key."""
     p = _api_key_path()
-    if p.is_file():
-        return p.read_text().strip()
-    return ""
+    if not p.is_file():
+        return ""
+    try:
+        key = p.read_text().strip()
+        if key:
+            keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
+        try:
+            p.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return key
+    except (OSError, keyring.errors.KeyringError) as e:
+        log.warning("Nexus API key migration from file failed: %s", e)
+        return ""
+
+
+def load_api_key() -> str:
+    """Load saved API key from system keyring, or return empty string."""
+    try:
+        key = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
+        if key:
+            return key.strip()
+        # No key in keyring: try migrating from legacy file
+        return _migrate_legacy_key()
+    except keyring.errors.KeyringError as e:
+        log.warning("Keyring unavailable for Nexus API key: %s", e)
+        return _migrate_legacy_key()
 
 
 def save_api_key(key: str) -> None:
-    """Persist the API key to the config directory."""
-    p = _api_key_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(key.strip())
-    # Restrict permissions: owner-only read
+    """Persist the API key to the system keyring."""
+    key = key.strip()
     try:
-        p.chmod(0o600)
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
+    except keyring.errors.KeyringError as e:
+        log.warning("Keyring unavailable for saving Nexus API key: %s", e)
+        raise RuntimeError(f"Cannot save API key: {e}") from e
+    # Remove legacy file if it exists
+    try:
+        _api_key_path().unlink(missing_ok=True)
     except OSError:
         pass
 
 
 def clear_api_key() -> None:
-    """Delete the stored API key."""
-    p = _api_key_path()
+    """Delete the stored API key from the keyring."""
     try:
-        p.unlink(missing_ok=True)
+        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
+    except keyring.errors.PasswordDeleteError:
+        pass
+    except keyring.errors.KeyringError as e:
+        log.warning("Keyring unavailable when clearing Nexus API key: %s", e)
+    try:
+        _api_key_path().unlink(missing_ok=True)
     except OSError:
         pass
 

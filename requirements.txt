@@ -5,3 +5,4 @@ Pillow
 lz4
 requests
 websocket-client
+keyring
