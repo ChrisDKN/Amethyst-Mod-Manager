@@ -17,6 +17,7 @@ import customtkinter as ctk
 import tkinter as tk
 
 from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
+from Nexus.nexus_sso import NexusSSOClient
 from Nexus.nxm_handler import NxmHandler
 
 # ---------------------------------------------------------------------------
@@ -53,7 +54,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
     """
 
     WIDTH  = 520
-    HEIGHT = 380
+    HEIGHT = 500
 
     def __init__(self, parent, on_key_changed=None):
         super().__init__(parent, fg_color=BG_DEEP)
@@ -66,6 +67,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         self._on_key_changed = on_key_changed
         self.result: Optional[bool] = None
         self._key_changed = False
+        self._sso_client: Optional[NexusSSOClient] = None
 
         self._build()
         self.after(50, self._safe_grab)
@@ -89,9 +91,41 @@ class NexusSettingsDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             self,
-            text="Get your key from: nexusmods.com → Settings → API Keys",
+            text="Log in via browser, or paste a personal API key manually.",
             font=FONT_SMALL, text_color=TEXT_DIM,
         ).pack(padx=16, pady=(2, 8), anchor="w")
+
+        # -- SSO Login --
+        sso_frame = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
+        sso_frame.pack(padx=16, pady=(0, 6), fill="x")
+
+        ctk.CTkLabel(
+            sso_frame, text="Browser Login (SSO)",
+            font=FONT_BOLD, text_color=TEXT_MAIN,
+        ).pack(side="left", padx=(8, 12), pady=8)
+
+        self._sso_btn = ctk.CTkButton(
+            sso_frame, text="Log in via Nexus Mods", width=180, font=FONT_BOLD,
+            fg_color="#d98f40", hover_color="#e5a04d", text_color="white",
+            command=self._on_sso_login,
+        )
+        self._sso_btn.pack(side="left", padx=4, pady=8)
+
+        self._sso_cancel_btn = ctk.CTkButton(
+            sso_frame, text="Cancel", width=70, font=FONT_SMALL,
+            fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
+            command=self._on_sso_cancel,
+        )
+        # hidden by default; shown only while SSO is in progress
+
+        # -- Separator --
+        ctk.CTkFrame(self, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=2)
+
+        ctk.CTkLabel(
+            self,
+            text="Or paste a personal API key (nexusmods.com → Settings → API Keys):",
+            font=FONT_SMALL, text_color=TEXT_DIM,
+        ).pack(padx=16, pady=(4, 4), anchor="w")
 
         # -- Key entry --
         key_frame = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
@@ -256,7 +290,57 @@ class NexusSettingsDialog(ctk.CTkToplevel):
     def _set_status(self, text: str, color: str = TEXT_DIM):
         self._status_label.configure(text=text, text_color=color)
 
+    # -- SSO login ----------------------------------------------------------
+
+    def _on_sso_login(self):
+        """Start the SSO flow."""
+        self._sso_btn.configure(state="disabled", text="Waiting...")
+        self._sso_cancel_btn.pack(side="left", padx=(4, 8), pady=8)
+        self._set_status("Starting SSO login...", TEXT_DIM)
+
+        self._sso_client = NexusSSOClient(
+            on_api_key=self._sso_on_key,
+            on_error=self._sso_on_error,
+            on_status=self._sso_on_status,
+        )
+        self._sso_client.start()
+
+    def _on_sso_cancel(self):
+        """Cancel a running SSO flow."""
+        if self._sso_client:
+            self._sso_client.cancel()
+            self._sso_client = None
+        self._sso_btn.configure(state="normal", text="Log in via Nexus Mods")
+        self._sso_cancel_btn.pack_forget()
+        self._set_status("SSO login cancelled.", TEXT_WARN)
+
+    def _sso_on_key(self, api_key: str):
+        """Called from SSO thread when the API key is received."""
+        def _update():
+            save_api_key(api_key)
+            self._key_var.set(api_key)
+            self._key_changed = True
+            self._sso_btn.configure(state="normal", text="Log in via Nexus Mods")
+            self._sso_cancel_btn.pack_forget()
+            self._set_status("✓ Logged in via SSO — API key saved!", TEXT_OK)
+        self.after(0, _update)
+
+    def _sso_on_error(self, msg: str):
+        """Called from SSO thread on error."""
+        def _update():
+            self._sso_btn.configure(state="normal", text="Log in via Nexus Mods")
+            self._sso_cancel_btn.pack_forget()
+            self._set_status(f"✗ SSO: {msg}", TEXT_ERR)
+        self.after(0, _update)
+
+    def _sso_on_status(self, msg: str):
+        """Called from SSO thread with status updates."""
+        self.after(0, lambda: self._set_status(msg, TEXT_DIM))
+
     def _on_close(self):
+        # Cancel any active SSO flow
+        if self._sso_client and self._sso_client.is_running:
+            self._sso_client.cancel()
         if self._key_changed and self._on_key_changed:
             self._on_key_changed()
         self.result = self._key_changed
