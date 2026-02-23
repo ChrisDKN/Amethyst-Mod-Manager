@@ -58,7 +58,7 @@
 
 ## Supporting Applications
 
-The manager supports many supporting applications used to mod games. The arguments/config used to run them will be auto-generated to make setup easier.
+The manager supports many supporting applications used to mod games. Place the applications in the games applications folder and they will be auto detected. The arguments/config used to run them will be auto-generated to make setup easier.
 
 ### Currently Supported and Working
 
