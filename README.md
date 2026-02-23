@@ -33,7 +33,7 @@
 - Baldur's Gate 3
 - Subnautica
 - Subnautica Below Zero
-- Valheim
+- Valheim (Add ./start_game_bepinex.sh %command% to steam launch arguments)
 - TCG Card Shop Simulator
 - Stardew Valley
 
@@ -116,3 +116,4 @@ As this is an early alpha build, the following needs testing:
 - Ability to change theme/colours of the GUI
 - Modlist.txt backup and restore function
 - Mod filters
+- Properly Cleanup / Move files created by mods 

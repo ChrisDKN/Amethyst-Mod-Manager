@@ -1,3 +1,4 @@
 *.cpython-313.pyc
 .claude/settings.local.json
 .vscode/settings.json
+TodoList.txt
