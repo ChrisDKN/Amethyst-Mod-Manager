@@ -11,6 +11,7 @@ Mod structure:
 """
 
 import json
+import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
@@ -44,7 +45,7 @@ class Witcher3(BaseGame):
 
     @property
     def exe_name(self) -> str:
-        return "witcher3.exe"
+        return "bin/x64/witcher3.exe"
     
     @property
     def heroic_app_names(self) -> list[str]:
@@ -213,7 +214,9 @@ class Witcher3(BaseGame):
         _log(f"Deploy complete. {linked_mod} mod file(s) placed in game root.")
 
     def restore(self, log_fn=None) -> None:
-        """Remove deployed mod files from the game root and restore any vanilla files."""
+        """Remove deployed mod files from the game root and restore any vanilla files.
+        Also copies any _MergedFiles from mods to the overwrite folder."""
+        import shutil
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:
@@ -225,3 +228,15 @@ class Witcher3(BaseGame):
         _log("Restore: removing mod files and restoring vanilla files ...")
         removed = restore_filemap_from_root(filemap, game_root, log_fn=_log)
         _log(f"Restore complete. {removed} mod file(s) removed from game root.")
+
+        mods_dir = game_root / "mods"
+        if mods_dir.is_dir():
+            merged_dir = self.get_profile_root() / "mods" / "Merged_Mods" / "mods"
+            merged_dir.mkdir(parents=True, exist_ok=True)
+            for folder in mods_dir.iterdir():
+                if folder.is_dir() and "_MergedFiles" in folder.name:
+                    dest = merged_dir / folder.name
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    shutil.move(str(folder), dest)
+                    _log(f"Moved merged files folder '{folder.name}' to {merged_dir}.")
