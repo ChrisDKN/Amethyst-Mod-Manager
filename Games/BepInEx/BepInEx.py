@@ -59,7 +59,7 @@ class Subnautica(BaseGame):
     
     @property
     def mods_dir(self) -> str:
-        return "BepInEx/Plugins"
+        return "BepInEx/plugins"
     
     @property
     def plugin_extensions(self) -> list[str]:
