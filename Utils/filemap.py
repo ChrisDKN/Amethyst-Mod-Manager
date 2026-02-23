@@ -46,10 +46,12 @@ def _scan_dir(
     source_dir: str,
     strip_prefixes: frozenset[str] = frozenset(),
     allowed_extensions: frozenset[str] = frozenset(),
-) -> tuple[str, dict[str, str]]:
+    root_deploy_folders: frozenset[str] = frozenset(),
+) -> tuple[str, dict[str, str], dict[str, str]]:
     """Walk source_dir with os.scandir (fast, no Pathlib overhead).
 
-    Returns (source_name, {rel_key_lower: rel_str_original}).
+    Returns (source_name, normal_files, root_files) where each dict is
+    {rel_key_lower: rel_str_original}.
     Pure function — no shared state, safe to call from any thread.
 
     strip_prefixes — lowercase top-level folder names to remove from the
@@ -61,8 +63,14 @@ def _scan_dir(
     allowed_extensions — when non-empty, only files whose lowercase extension
     (including the leading dot) appears in this set are included.  e.g.
     allowed_extensions={".pak"} drops all non-.pak files from the result.
+
+    root_deploy_folders — lowercase top-level folder names (checked after
+    strip-prefix processing) whose files should be deployed to the game root
+    instead of the mod data path.  These files bypass the allowed_extensions
+    filter and are returned in the separate root_files dict.
     """
     result: dict[str, str] = {}
+    root_result: dict[str, str] = {}
     # Iterative scandir stack — avoids rglob/Pathlib per-entry object cost
     stack = [("", source_dir)]
     while stack:
@@ -78,11 +86,6 @@ def _scan_dir(
                     elif entry.is_file(follow_symlinks=False):
                         if entry.name in _EXCLUDE_NAMES:
                             continue
-                        # Extension filter — drop files not in the allowed set
-                        if allowed_extensions:
-                            ext = os.path.splitext(entry.name)[1].lower()
-                            if ext not in allowed_extensions:
-                                continue
                         rel_str = prefix + entry.name
                         # Strip leading wrapper folders declared by the game.
                         # Repeat until no more matching prefixes remain so that
@@ -95,10 +98,22 @@ def _scan_dir(
                                     rel_str = remainder
                                 else:
                                     break
+                        # Route files under root_deploy_folders to the root dict
+                        # (bypasses the extension filter).
+                        if root_deploy_folders and "/" in rel_str:
+                            top_seg = rel_str.split("/", 1)[0]
+                            if top_seg.lower() in root_deploy_folders:
+                                root_result[rel_str.lower()] = rel_str
+                                continue
+                        # Extension filter — drop files not in the allowed set
+                        if allowed_extensions:
+                            ext = os.path.splitext(entry.name)[1].lower()
+                            if ext not in allowed_extensions:
+                                continue
                         result[rel_str.lower()] = rel_str
         except OSError:
             pass
-    return source_name, result
+    return source_name, result, root_result
 
 
 def _pick_canonical_segment(a: str, b: str) -> str:
@@ -157,6 +172,7 @@ def build_filemap(
     output_path: Path,
     strip_prefixes: set[str] | None = None,
     allowed_extensions: set[str] | None = None,
+    root_deploy_folders: set[str] | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -164,6 +180,11 @@ def build_filemap(
     allowed_extensions — when non-empty, only files with a matching lowercase
     extension (e.g. {".pak"}) are included in the filemap.  Pass None or an
     empty set to include all files (default behaviour).
+
+    root_deploy_folders — top-level folder names whose files should be
+    deployed to the game root instead of the mod data path.  These are
+    written to a sibling ``filemap_root.txt`` and bypass the extension
+    filter.  Pass None or an empty set to disable (default).
 
     Returns:
         (count, conflict_map, overrides, overridden_by)
@@ -187,14 +208,19 @@ def build_filemap(
 
     _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
     _exts  = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
+    _root  = frozenset(s.lower() for s in root_deploy_folders) if root_deploy_folders else frozenset()
 
     # Scan all directories in parallel (I/O bound)
     raw: dict[str, dict[str, str]] = {}
-    futures = {_POOL.submit(_scan_dir, name, d, _strip, _exts): name for name, d in scan_targets}
+    raw_root: dict[str, dict[str, str]] = {}
+    futures = {_POOL.submit(_scan_dir, name, d, _strip, _exts, _root): name
+               for name, d in scan_targets}
     for fut in futures:
-        name, files = fut.result()
+        name, files, root_files = fut.result()
         if files:
             raw[name] = files
+        if root_files:
+            raw_root[name] = root_files
 
     # Keep a copy of the original on-disk paths before normalisation so that
     # the filemap always records the real path for the winning mod's file.
@@ -270,5 +296,29 @@ def build_filemap(
         for rel_key in sorted_keys:
             rel_str, mod_name = filemap[rel_key]
             f.write(f"{rel_str}\t{mod_name}\n")
+
+    # Write root-deploy filemap if any root files were found.
+    root_output = output_path.parent / "filemap_root.txt"
+    if raw_root:
+        _normalize_folder_cases(raw_root)
+        root_winner: dict[str, str] = {}
+        for name in priority_order:
+            rfiles = raw_root.get(name)
+            if not rfiles:
+                continue
+            for rel_key in rfiles:
+                root_winner[rel_key] = name
+        root_filemap: dict[str, tuple[str, str]] = {}
+        for rel_key, winner in root_winner.items():
+            rel_str = raw_root[winner].get(rel_key, rel_key)
+            root_filemap[rel_key] = (rel_str, winner)
+        sorted_root = sorted(root_filemap)
+        with root_output.open("w", encoding="utf-8") as f:
+            for rel_key in sorted_root:
+                rel_str, mod_name = root_filemap[rel_key]
+                f.write(f"{rel_str}\t{mod_name}\n")
+        count += len(sorted_root)
+    elif root_output.is_file():
+        root_output.unlink()
 
     return count, conflict_map, overrides, overridden_by
