@@ -11,7 +11,7 @@ Allows the user to:
 from __future__ import annotations
 
 import threading
-from typing import Optional
+from typing import Callable, Optional
 
 import customtkinter as ctk
 import tkinter as tk
@@ -56,7 +56,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
     WIDTH  = 520
     HEIGHT = 500
 
-    def __init__(self, parent, on_key_changed=None):
+    def __init__(self, parent, on_key_changed=None, log_fn: Optional[Callable[[str], None]] = None):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title("Nexus Mods Settings")
         self.geometry(f"{self.WIDTH}x{self.HEIGHT}")
@@ -65,6 +65,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._on_key_changed = on_key_changed
+        self._log = log_fn or (lambda _: None)
         self.result: Optional[bool] = None
         self._key_changed = False
         self._sso_client: Optional[NexusSSOClient] = None
@@ -110,6 +111,9 @@ class NexusSettingsDialog(ctk.CTkToplevel):
             command=self._on_sso_login,
         )
         self._sso_btn.pack(side="left", padx=4, pady=8)
+        # Login via Nexus Mods (SSO) not yet implemented — keep button disabled
+        self._sso_btn.configure(state="disabled")
+        self._log("Login via Nexus Mods is not yet implemented; button disabled.")
 
         self._sso_cancel_btn = ctk.CTkButton(
             sso_frame, text="Cancel", width=70, font=FONT_SMALL,

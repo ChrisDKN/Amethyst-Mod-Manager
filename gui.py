@@ -5198,7 +5198,7 @@ class TopBar(ctk.CTkFrame):
         def _key_changed():
             app._init_nexus_api()
             self._log("Nexus API key updated.")
-        dialog = NexusSettingsDialog(app, on_key_changed=_key_changed)
+        dialog = NexusSettingsDialog(app, on_key_changed=_key_changed, log_fn=self._log)
         app.wait_window(dialog)
 
     def _on_proton_tools(self):
