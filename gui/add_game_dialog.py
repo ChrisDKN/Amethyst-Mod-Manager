@@ -63,8 +63,8 @@ class AddGameDialog(ctk.CTkToplevel):
             print(f"Configured: {dialog.result}")
     """
 
-    WIDTH  = 560
-    HEIGHT = 780
+    WIDTH  = 700
+    HEIGHT = 620
 
     def __init__(self, parent, game: BaseGame):
         super().__init__(parent, fg_color=BG_DEEP)
@@ -153,38 +153,38 @@ class AddGameDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             body, text="Game Installation Folder",
             font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 2))
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
 
         self._status_label = ctk.CTkLabel(
             body, text="Scanning Steam libraries…",
             font=FONT_NORMAL, text_color=TEXT_WARN, anchor="w"
         )
-        self._status_label.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._status_label.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 2))
 
         self._path_box = ctk.CTkTextbox(
-            body, height=48, font=FONT_MONO,
+            body, height=42, font=FONT_MONO,
             fg_color=BG_ROW, text_color=TEXT_MAIN,
             state="disabled", wrap="none", corner_radius=4
         )
-        self._path_box.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._path_box.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 2))
 
         self._browse_btn = ctk.CTkButton(
-            body, text="Browse manually…", width=160, height=28,
+            body, text="Browse manually…", width=160, height=26,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse
         )
-        self._browse_btn.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 12))
+        self._browse_btn.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 8))
 
         # Divider
         ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
-            row=4, column=0, sticky="ew", padx=16, pady=4
+            row=4, column=0, sticky="ew", padx=16, pady=2
         )
 
         # --- Proton prefix section (only shown when steam_id is set) ---
         ctk.CTkLabel(
             body, text="Proton Prefix (compatdata/pfx)",
             font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=5, column=0, sticky="ew", padx=16, pady=(8, 2))
+        ).grid(row=5, column=0, sticky="ew", padx=16, pady=(6, 2))
 
         _has_prefix_source = bool(self._game.steam_id or self._game.heroic_app_names)
         self._prefix_status_label = ctk.CTkLabel(
@@ -194,88 +194,88 @@ class AddGameDialog(ctk.CTkToplevel):
             text_color=TEXT_WARN if _has_prefix_source else TEXT_DIM,
             anchor="w"
         )
-        self._prefix_status_label.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._prefix_status_label.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 2))
 
         self._prefix_box = ctk.CTkTextbox(
-            body, height=48, font=FONT_MONO,
+            body, height=42, font=FONT_MONO,
             fg_color=BG_ROW, text_color=TEXT_MAIN,
             state="disabled", wrap="none", corner_radius=4
         )
-        self._prefix_box.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._prefix_box.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 2))
 
         self._prefix_browse_btn = ctk.CTkButton(
-            body, text="Browse manually…", width=160, height=28,
+            body, text="Browse manually…", width=160, height=26,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse_prefix,
             state="normal" if _has_prefix_source else "disabled"
         )
-        self._prefix_browse_btn.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 8))
+        self._prefix_browse_btn.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 6))
 
         # Divider
         ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
-            row=9, column=0, sticky="ew", padx=16, pady=4
+            row=9, column=0, sticky="ew", padx=16, pady=2
         )
 
         # --- Mod Staging Folder section ---
         ctk.CTkLabel(
             body, text="Mod Staging Folder",
             font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=10, column=0, sticky="ew", padx=16, pady=(8, 2))
+        ).grid(row=10, column=0, sticky="ew", padx=16, pady=(6, 2))
 
         self._staging_status_label = ctk.CTkLabel(
             body, text="Default location will be used.",
             font=FONT_NORMAL, text_color=TEXT_DIM, anchor="w"
         )
-        self._staging_status_label.grid(row=11, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._staging_status_label.grid(row=11, column=0, sticky="ew", padx=16, pady=(0, 2))
 
         self._staging_box = ctk.CTkTextbox(
-            body, height=48, font=FONT_MONO,
+            body, height=42, font=FONT_MONO,
             fg_color=BG_ROW, text_color=TEXT_MAIN,
             state="disabled", wrap="none", corner_radius=4
         )
-        self._staging_box.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 4))
+        self._staging_box.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 2))
 
         _staging_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
-        _staging_btn_frame.grid(row=13, column=0, sticky="w", padx=16, pady=(0, 8))
+        _staging_btn_frame.grid(row=13, column=0, sticky="w", padx=16, pady=(0, 6))
 
         ctk.CTkButton(
-            _staging_btn_frame, text="Browse manually…", width=160, height=28,
+            _staging_btn_frame, text="Browse manually…", width=160, height=26,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse_staging
         ).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
-            _staging_btn_frame, text="Reset to default", width=130, height=28,
+            _staging_btn_frame, text="Reset to default", width=130, height=26,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_reset_staging
         ).pack(side="left")
 
         # Divider
         ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
-            row=14, column=0, sticky="ew", padx=16, pady=4
+            row=14, column=0, sticky="ew", padx=16, pady=2
         )
 
-        # --- Deploy method section ---
+        # --- Deploy method section (horizontal radio buttons) ---
         ctk.CTkLabel(
             body, text="Deploy Method",
             font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=15, column=0, sticky="ew", padx=16, pady=(8, 4))
+        ).grid(row=15, column=0, sticky="ew", padx=16, pady=(6, 4))
+
+        _deploy_row = ctk.CTkFrame(body, fg_color="transparent")
+        _deploy_row.grid(row=16, column=0, sticky="w", padx=16, pady=(0, 10))
 
         _mode_options = [
             ("Hardlink (Recommended)", "hardlink"),
             ("Symlink",                "symlink"),
             ("Direct Copy",            "copy"),
         ]
-        for idx, (label, value) in enumerate(_mode_options):
-            is_last = idx == len(_mode_options) - 1
+        for label, value in _mode_options:
             ctk.CTkRadioButton(
-                body, text=label,
+                _deploy_row, text=label,
                 variable=self._deploy_mode_var, value=value,
                 font=FONT_NORMAL, text_color=TEXT_MAIN,
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
-            ).grid(row=16 + idx,
-                   column=0, sticky="w", padx=24,
-                   pady=(2, 12) if is_last else 2)
+            ).pack(side="left", padx=(0, 20))
 
         # Button bar
         btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
