@@ -36,7 +36,7 @@ FONT_SMALL  = ("Segoe UI", 12)
 def _resolve_dialog_class(dotted_path: str) -> type:
     """Import and return the class referenced by *dotted_path*.
 
-    Example: ``"gui.wizard_fallout_downgrade.FalloutDowngradeWizard"``
+    Example: ``"wizards.fallout_downgrade.FalloutDowngradeWizard"``
     """
     module_path, class_name = dotted_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
@@ -154,6 +154,7 @@ class WizardDialog(ctk.CTkToplevel):
         log = self._log
         parent = self._parent
         path = tool.dialog_class_path
+        extra = tool.extra
 
         # Close the picker first
         try:
@@ -166,7 +167,7 @@ class WizardDialog(ctk.CTkToplevel):
         def _launch():
             try:
                 cls = _resolve_dialog_class(path)
-                dlg = cls(parent, game, log)
+                dlg = cls(parent, game, log, **extra)
                 parent.wait_window(dlg)
             except Exception as exc:
                 log(f"Wizard error: {exc}")

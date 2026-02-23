@@ -108,14 +108,29 @@ def _extract_archive(archive: Path, dest: Path) -> list[Path]:
                 created.append(dest / info.filename)
 
     elif name_lower.endswith(".7z"):
-        if py7zr is None:
-            raise RuntimeError("py7zr is not installed — cannot extract .7z archives.")
-        with py7zr.SevenZipFile(archive, "r") as zf:
-            zf.extractall(dest)
-            for root, _dirs, files in os.walk(dest):
-                for f in files:
-                    p = Path(root) / f
-                    created.append(p)
+        extracted_via_cli = False
+        try:
+            subprocess.run(
+                ["7z", "x", str(archive), f"-o{dest}", "-y"],
+                check=True, capture_output=True,
+            )
+            extracted_via_cli = True
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+
+        if not extracted_via_cli:
+            if py7zr is None:
+                raise RuntimeError(
+                    "Cannot extract .7z archive: the 7z command was not found "
+                    "and py7zr is not installed."
+                )
+            with py7zr.SevenZipFile(archive, "r") as zf:
+                zf.extractall(dest)
+
+        for root, _dirs, files in os.walk(dest):
+            for f in files:
+                p = Path(root) / f
+                created.append(p)
 
     elif name_lower.endswith((".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz")):
         with tarfile.open(archive, "r:*") as tf:
