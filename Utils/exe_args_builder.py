@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
 from typing import Callable, NamedTuple
 
 # ---------------------------------------------------------------------------
@@ -105,6 +106,7 @@ EXE_PROFILES: dict[str, _ExeProfile] = {
 # Executables whose entries are intentionally left blank (handled separately).
 EXE_SKIP: frozenset[str] = frozenset({
     "PGPatcher.exe",
+    "WitcherScriptMerger.exe",
 })
 
 # ---------------------------------------------------------------------------
@@ -233,10 +235,33 @@ def _bootstrap_pgpatcher_settings(
 # Public API
 # ---------------------------------------------------------------------------
 
-from Utils.config_paths import get_exe_args_path  # noqa: E402
 
+from Utils.config_paths import get_exe_args_path  # noqa: E402
 _EXE_ARGS_FILE = get_exe_args_path()
 
+def update_witcher3_script_merger_config(game_root: Path, exe_path: Path) -> bool:
+    """
+    Update the WitcherScriptMerger.exe.config file to set the GameDirectory key.
+    Returns True if the file was updated, False otherwise.
+    """
+    
+    config_path = exe_path.parent / "WitcherScriptMerger.exe.config"
+    if config_path.exists() and game_root is not None:
+        wine_path = _to_wine_path(game_root)
+        tree = ET.parse(config_path)
+        root = tree.getroot()
+        app_settings = root.find('appSettings')
+        if app_settings is None:
+            return False
+        updated = False
+        for add in app_settings.findall('add'):
+            if add.attrib.get('key') == 'GameDirectory':
+                if add.attrib.get('value') != wine_path:
+                    add.set('value', wine_path)
+                    updated = True
+        if updated:
+            tree.write(config_path, encoding='utf-8', xml_declaration=True)
+    return updated
 
 def build_default_exe_args(
     detected_exes: list[Path],
@@ -282,6 +307,8 @@ def build_default_exe_args(
 
     changed = False
 
+
+
     for exe_path in detected_exes:
         name = exe_path.name
 
@@ -292,6 +319,8 @@ def build_default_exe_args(
                 changed = True
             if name == "PGPatcher.exe":
                 _bootstrap_pgpatcher_settings(exe_path, game_path, staging_path, _log)
+            if name == "WitcherScriptMerger.exe":
+                update_witcher3_script_merger_config(game_path, exe_path) # type: ignore
             continue
 
         # Skip unknowns and already-configured entries
