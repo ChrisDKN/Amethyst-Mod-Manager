@@ -11,7 +11,7 @@ import json
 import shutil
 from pathlib import Path
 
-from Games.base_game import BaseGame
+from Games.base_game import BaseGame, WizardTool
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -67,6 +67,21 @@ class SkyrimSE(BaseGame):
     @property
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/skyrimse/v0.21/masterlist.yaml"
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return [
+            WizardTool(
+                id="install_se_skyrimse",
+                label="Install Script Extender (SKSE64)",
+                description="Download and install SKSE64 into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://skse.silverlock.org/beta/skse64_2_02_06.7z",
+                    "archive_keywords": ["skse64"],
+                },
+            ),
+        ]
 
     # -----------------------------------------------------------------------
     # Paths

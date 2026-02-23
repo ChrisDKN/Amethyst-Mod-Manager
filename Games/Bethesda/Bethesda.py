@@ -78,7 +78,17 @@ class Fallout_3(BaseGame):
                     "Downgrade to pre-Anniversary Edition so that "
                     "the script extender (FOSE) works correctly."
                 ),
-                dialog_class_path="gui.wizard_fallout_downgrade.FalloutDowngradeWizard",
+                dialog_class_path="wizards.fallout_downgrade.FalloutDowngradeWizard",
+            ),
+            WizardTool(
+                id="install_se_fo3",
+                label="Install Script Extender (FOSE)",
+                description="Download and install FOSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://fose.silverlock.org/download/fose_v1_2_beta2.7z",
+                    "archive_keywords": ["fose"],
+                },
             ),
         ]
 
@@ -354,12 +364,47 @@ class Fallout3_GOTY(Fallout_3):
     def nexus_game_domain(self) -> str:
         return "fallout3"
 
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return [
+            WizardTool(
+                id="downgrade_fo3goty",
+                label="Downgrade Fallout 3 GOTY",
+                description=(
+                    "Downgrade to pre-Anniversary Edition so that "
+                    "the script extender (FOSE) works correctly."
+                ),
+                dialog_class_path="wizards.fallout_downgrade.FalloutDowngradeWizard",
+            ),
+            WizardTool(
+                id="install_se_fo3goty",
+                label="Install Script Extender (FOSE)",
+                description="Download and install FOSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://fose.silverlock.org/download/fose_v1_2_beta2.7z",
+                    "archive_keywords": ["fose"],
+                },
+            ),
+        ]
+
 
 class Fallout_NV(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_fonv",
+                label="Install Script Extender (xNVSE)",
+                description="Download and install xNVSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://www.nexusmods.com/newvegas/mods/67883",
+                    "archive_keywords": ["xnvse"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:
@@ -400,7 +445,18 @@ class Fallout_4(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_fo4",
+                label="Install Script Extender (F4SE)",
+                description="Download and install F4SE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://www.nexusmods.com/fallout4/mods/42147",
+                    "archive_keywords": ["Fallout 4 Script Extender"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:
@@ -441,7 +497,18 @@ class Fallout_4VR(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_fo4vr",
+                label="Install Script Extender (F4SEVR)",
+                description="Download and install F4SEVR into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://www.nexusmods.com/fallout4/mods/42159",
+                    "archive_keywords": ["Fallout 4 Script Extender VR"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:
@@ -482,7 +549,18 @@ class Oblivion(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_oblivion",
+                label="Install Script Extender (OBSE)",
+                description="Download and install OBSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://www.nexusmods.com/oblivion/mods/37952",
+                    "archive_keywords": ["xobse"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:
@@ -527,7 +605,18 @@ class Skyrim(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_skyrim",
+                label="Install Script Extender (SKSE)",
+                description="Download and install SKSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://skse.silverlock.org/beta/skse_1_07_03.7z",
+                    "archive_keywords": ["skse"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:
@@ -568,7 +657,18 @@ class SkyrimVR(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_skyrimvr",
+                label="Install Script Extender (SKSEVR)",
+                description="Download and install SKSEVR into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://skse.silverlock.org/beta/sksevr_2_00_12.7z",
+                    "archive_keywords": ["sksevr"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:
@@ -609,7 +709,18 @@ class Starfield(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return []
+        return [
+            WizardTool(
+                id="install_se_starfield",
+                label="Install Script Extender (SFSE)",
+                description="Download and install SFSE into the game folder.",
+                dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+                extra={
+                    "download_url": "https://www.nexusmods.com/starfield/mods/106",
+                    "archive_keywords": ["sfse"],
+                },
+            ),
+        ]
 
     @property
     def name(self) -> str:

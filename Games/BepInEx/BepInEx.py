@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 import stat
 
-from Games.base_game import BaseGame
+from Games.base_game import BaseGame, WizardTool
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -337,6 +337,26 @@ class Valheim(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "valheim"
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return [
+            WizardTool(
+                id="install_bepinex_valheim",
+                label="Install BepInEx",
+                description="Download and install BepInEx into the game folder.",
+                dialog_class_path="wizards.bepinex.BepInExWizard",
+                extra={
+                    "download_url": "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/5.4.2333/",
+                    "archive_keywords": ["denikson-bepinexpack_valheim"],
+                    "inner_folder": "BepInExPack_Valheim",
+                    "chmod_files": [
+                        "start_server_bepinex.sh",
+                        "start_game_bepinex.sh",
+                    ],
+                },
+            ),
+        ]
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                 profile: str = "default", progress_fn=None) -> None:
