@@ -88,3 +88,11 @@ def get_nexus_config_dir() -> Path:
     d = get_config_dir() / "Nexus"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def get_last_game_path() -> Path:
+    """Return the path to the last-opened game state file.
+
+    Result: ~/.config/AmethystModManager/last_game.json
+    """
+    return get_config_dir() / "last_game.json"
