@@ -26,6 +26,7 @@ from gui.downloads_panel import DownloadsPanel
 from gui.tracked_mods_panel import TrackedModsPanel
 from gui.endorsed_mods_panel import EndorsedModsPanel
 from gui.browse_mods_panel import BrowseModsPanel
+from gui.ctk_components import CTkTreeview
 from Games.base_game import BaseGame
 from Utils.fomod_installer import resolve_files
 from version import __version__
@@ -2402,7 +2403,8 @@ class ModListPanel(ctk.CTkFrame):
 
         win = tk.Toplevel(self.winfo_toplevel())
         win.title(f"Deployment paths — {mod_name}")
-        win.configure(bg=BG_PANEL, highlightthickness=0, highlightbackground=BG_PANEL)
+        win.configure(bg=BG_PANEL, highlightthickness=0,
+                      highlightbackground=BG_PANEL, highlightcolor=BG_PANEL)
         win.transient(self.winfo_toplevel())
         win.resizable(True, True)
         # Single content frame with no border so no white edge from WM
@@ -2436,12 +2438,13 @@ class ModListPanel(ctk.CTkFrame):
                         background=_tree_bg, foreground=TEXT_MAIN,
                         fieldbackground=_tree_bg, rowheight=22,
                         font=("Segoe UI", 10),
-                        bordercolor=BG_ROW, borderwidth=1)
+                        bordercolor=BG_ROW, borderwidth=1,
+                        focuscolor=_tree_bg)
         style.configure(_heading_style,
                         background=BG_HEADER, foreground=TEXT_SEP,
-                        font=("Segoe UI", 10), bordercolor=BG_ROW, borderwidth=1)
+                        font=("Segoe UI", 10), borderwidth=0)
         style.map(_tree_style,
-                  background=[("selected", BG_SELECT)],
+                  background=[("selected", BG_SELECT), ("focus", _tree_bg)],
                   foreground=[("selected", TEXT_MAIN)])
 
         tree = ttk.Treeview(
@@ -2459,8 +2462,8 @@ class ModListPanel(ctk.CTkFrame):
 
         vsb = tk.Scrollbar(
             list_frame, orient="vertical", command=tree.yview,
-            bg=_scrollbar_bg, troughcolor=_scrollbar_bg, activebackground=_scrollbar_bg,
-            highlightthickness=0, borderwidth=0,
+            bg=_scrollbar_bg, troughcolor=BG_DEEP, activebackground=ACCENT,
+            highlightthickness=0, bd=0,
         )
         tree.configure(yscrollcommand=vsb.set)
         tree.pack(side="left", fill="both", expand=True)
@@ -3659,58 +3662,23 @@ class PluginPanel(ctk.CTkFrame):
             font=("Segoe UI", 10),
         ).pack(side="right")
 
-        tree_frame = tk.Frame(tab, bg=BG_DEEP, bd=0, highlightthickness=0)
-        tree_frame.grid(row=1, column=0, sticky="nsew")
-        tree_frame.grid_rowconfigure(0, weight=1)
-        tree_frame.grid_columnconfigure(0, weight=1)
-
-        style = ttk.Style()
-        style.configure("DataTree.Treeview",
-                        background=BG_DEEP, foreground=TEXT_MAIN,
-                        fieldbackground=BG_DEEP, rowheight=22,
-                        font=("Segoe UI", 10), borderwidth=0)
-        style.configure("DataTree.Treeview.Heading",
-                        background=BG_HEADER, foreground=TEXT_SEP,
-                        font=("Segoe UI", 10, "bold"), relief="flat")
-        style.map("DataTree.Treeview",
-                  background=[("selected", BG_SELECT)],
-                  foreground=[("selected", TEXT_MAIN)])
-
-        self._data_tree = ttk.Treeview(
-            tree_frame,
+        self._data_tree = CTkTreeview(
+            tab,
             columns=("mod",),
-            displaycolumns=("mod",),
-            style="DataTree.Treeview",
+            headings={"#0": "Path", "mod": "Winning Mod"},
+            column_config={
+                "#0": {"minwidth": 200, "stretch": True},
+                "mod": {"minwidth": 160, "width": 200, "stretch": False},
+            },
             selectmode="browse",
+            show_label=False,
         )
-        self._data_tree.heading("#0",  text="Path",        anchor="w")
-        self._data_tree.heading("mod", text="Winning Mod", anchor="w")
-        self._data_tree.column("#0",  minwidth=200, stretch=True)
-        self._data_tree.column("mod", minwidth=160, width=200, stretch=False)
+        self._data_tree.grid(row=1, column=0, sticky="nsew")
 
-        vsb = tk.Scrollbar(tree_frame, orient="vertical",
-                            command=self._data_tree.yview,
-                            bg="#383838", troughcolor=BG_PANEL,
-                            activebackground="#383838",
-                            highlightthickness=0,
-                            highlightbackground="#383838", highlightcolor="#383838")
-        hsb = tk.Scrollbar(tree_frame, orient="horizontal",
-                            command=self._data_tree.xview,
-                            bg="#383838", troughcolor=BG_PANEL,
-                            activebackground="#383838",
-                            highlightthickness=0,
-                            highlightbackground="#383838", highlightcolor="#383838")
-        self._data_tree.configure(yscrollcommand=vsb.set,
-                                   xscrollcommand=hsb.set)
-        self._data_tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        tree_frame.grid_rowconfigure(1, weight=0)
-
-        self._data_tree.bind("<Button-4>",
-            lambda e: self._data_tree.yview_scroll(-3, "units"))
-        self._data_tree.bind("<Button-5>",
-            lambda e: self._data_tree.yview_scroll( 3, "units"))
+        self._data_tree.treeview.bind("<Button-4>",
+            lambda e: self._data_tree.treeview.yview_scroll(-3, "units"))
+        self._data_tree.treeview.bind("<Button-5>",
+            lambda e: self._data_tree.treeview.yview_scroll(3, "units"))
 
     def _refresh_data_tab(self):
         """Reload the Data tab tree from filemap.txt."""
