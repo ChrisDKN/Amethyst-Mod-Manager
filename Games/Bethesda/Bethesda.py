@@ -760,10 +760,14 @@ class Starfield(Fallout_3):
     @property
     def nexus_game_domain(self) -> str:
         return "starfield"
+    
+    @property
+    def loot_game_type(self) -> str:
+        return "Starfield"
 
     @property
-    def loot_sort_enabled(self) -> bool:
-        return False
+    def loot_masterlist_url(self) -> str:
+        return "https://raw.githubusercontent.com/loot/starfield/v0.26/masterlist.yaml"
 
     # plugins.txt lives at AppData/Local/Starfield/plugins.txt — same pattern as other Bethesda titles.
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Starfield")
