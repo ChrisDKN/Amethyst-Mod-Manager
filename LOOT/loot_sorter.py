@@ -188,7 +188,7 @@ def sort_plugins(
     if not _AVAILABLE:
         raise RuntimeError(
             "libloot is not available. "
-            "Build it with: cd LOOT/libloot/python && maturin develop"
+            "Rebuild it with: ./LOOT/rebuild_libloot.sh"
         )
 
     if not game_type_attr:
