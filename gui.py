@@ -236,6 +236,7 @@ class ModListPanel(ctk.CTkFrame):
         self._highlighted_mod: str | None = None  # mod highlighted by plugin panel selection
         self._modlist_path: Path | None = None
         self._strip_prefixes:    set[str] = set()
+        self._mod_strip_prefixes: dict[str, list[str]] = {}  # mod name -> top-level folders to ignore
         self._install_extensions: set[str] = set()
         self._root_deploy_folders: set[str] = set()
         self._root_folder_enabled: bool = True
@@ -610,6 +611,33 @@ class ModListPanel(ctk.CTkFrame):
             return None
         return self._modlist_path.parent / "root_folder_state.json"
 
+    def _mod_strip_prefixes_path(self) -> Path | None:
+        if self._modlist_path is None:
+            return None
+        return self._modlist_path.parent / "mod_strip_prefixes.json"
+
+    def _load_mod_strip_prefixes(self) -> None:
+        path = self._mod_strip_prefixes_path()
+        if path and path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    self._mod_strip_prefixes = {
+                        k: v if isinstance(v, list) else []
+                        for k, v in data.items() if isinstance(k, str)
+                    }
+                    return
+            except Exception:
+                pass
+        self._mod_strip_prefixes = {}
+
+    def _save_mod_strip_prefixes(self) -> None:
+        path = self._mod_strip_prefixes_path()
+        if path is None:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self._mod_strip_prefixes, indent=2), encoding="utf-8")
+
     def _load_root_folder_state(self) -> None:
         path = self._root_folder_state_path()
         if path and path.is_file():
@@ -671,6 +699,7 @@ class ModListPanel(ctk.CTkFrame):
             mods_dir = self._modlist_path.parent.parent.parent / "mods"
             sync_modlist_with_mods_folder(self._modlist_path, mods_dir)
             self._load_root_folder_state()
+            self._load_mod_strip_prefixes()
             self._entries = read_modlist(self._modlist_path)
             # Prepend synthetic Overwrite row — always first (highest priority),
             # never saved to modlist.txt.
@@ -1744,6 +1773,11 @@ class ModListPanel(ctk.CTkFrame):
                                lambda inis=ini_files: self._show_ini_picker(
                                    inis, parent_dismiss=_dismiss,
                                    parent_popup=popup), True))
+            # Deployment paths — which top-level folders to ignore
+            if mod_folder is not None:
+                mod_name_cap = self._entries[idx].name
+                items.append(("Set deployment paths…",
+                               lambda m=mod_name_cap, p=mod_folder: self._show_mod_strip_dialog(m, p), False))
 
         if mod_folder is not None:
             items.append(("Open folder", lambda p=mod_folder: self._open_folder(p), False))
@@ -2360,15 +2394,208 @@ class ModListPanel(ctk.CTkFrame):
 
         return popup
 
-        def _on_press(event):
-            if not _alive[0]:
+    def _show_mod_strip_dialog(self, mod_name: str, mod_folder: Path) -> None:
+        """Open a dialog to set which folders (at any depth) to ignore during deployment.
+        Checked folders are stripped so their contents deploy one level up."""
+        if not mod_folder.is_dir():
+            return
+
+        win = tk.Toplevel(self.winfo_toplevel())
+        win.title(f"Deployment paths — {mod_name}")
+        win.configure(bg=BG_PANEL, highlightthickness=0, highlightbackground=BG_PANEL)
+        win.transient(self.winfo_toplevel())
+        win.resizable(True, True)
+        # Single content frame with no border so no white edge from WM
+        content = tk.Frame(win, bg=BG_PANEL, bd=0, highlightthickness=0)
+        content.pack(fill="both", expand=True)
+
+        msg = tk.Label(
+            content, text="Select folders to ignore during deployment (at any depth).\n"
+                          "Their contents will be deployed one level up:",
+            bg=BG_PANEL, fg=TEXT_MAIN, font=FONT_SMALL,
+            justify="left",
+        )
+        msg.pack(anchor="w", padx=12, pady=(12, 8))
+
+        self._load_mod_strip_prefixes()
+        current = self._mod_strip_prefixes.get(mod_name, [])
+        # Support both formats: full paths (e.g. "Tree", "Meshes/Architecture") and legacy segment names only
+        use_path_format = any("/" in p for p in current)
+        current_set = {p.lower() for p in current} if use_path_format else {s.lower() for s in current}
+        vars_map: dict[str, tk.BooleanVar] = {}  # rel_path -> var
+        scroll_h = 320
+        _scrollbar_bg = "#383838"
+        list_frame = tk.Frame(content, bg=_scrollbar_bg, bd=0, highlightthickness=0)
+        list_frame.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+        _tree_bg = "#1a1a1a"
+        _tree_style = "ModStrip.Treeview"
+        _heading_style = "ModStrip.Treeview.Heading"
+        style = ttk.Style()
+        style.configure(_tree_style,
+                        background=_tree_bg, foreground=TEXT_MAIN,
+                        fieldbackground=_tree_bg, rowheight=22,
+                        font=("Segoe UI", 10),
+                        bordercolor=BG_ROW, borderwidth=1)
+        style.configure(_heading_style,
+                        background=BG_HEADER, foreground=TEXT_SEP,
+                        font=("Segoe UI", 10), bordercolor=BG_ROW, borderwidth=1)
+        style.map(_tree_style,
+                  background=[("selected", BG_SELECT)],
+                  foreground=[("selected", TEXT_MAIN)])
+
+        tree = ttk.Treeview(
+            list_frame,
+            columns=("check",),
+            show="tree headings",
+            style=_tree_style,
+            selectmode="browse",
+            height=scroll_h // 22,
+        )
+        tree.heading("#0", text="Folder", anchor="w")
+        tree.heading("check", text="", anchor="w")
+        tree.column("#0", minwidth=200, stretch=True)
+        tree.column("check", width=28, stretch=False)
+
+        vsb = tk.Scrollbar(
+            list_frame, orient="vertical", command=tree.yview,
+            bg=_scrollbar_bg, troughcolor=_scrollbar_bg, activebackground=_scrollbar_bg,
+            highlightthickness=0, borderwidth=0,
+        )
+        tree.configure(yscrollcommand=vsb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+        def _iid(rel_path: str) -> str:
+            return rel_path.replace("/", "\u241f")
+
+        def _rel(iid: str) -> str:
+            return iid.replace("\u241f", "/")
+
+        def _scroll_canvas(evt):
+            if getattr(evt, "delta", 0) > 0:
+                tree.yview_scroll(-3, "units")
+            else:
+                tree.yview_scroll(3, "units")
+        tree.bind("<Button-4>", lambda e: tree.yview_scroll(-3, "units"))
+        tree.bind("<Button-5>", lambda e: tree.yview_scroll(3, "units"))
+        tree.bind("<MouseWheel>", _scroll_canvas)
+        list_frame.bind("<Button-4>", lambda e: tree.yview_scroll(-3, "units"))
+        list_frame.bind("<Button-5>", lambda e: tree.yview_scroll(3, "units"))
+        list_frame.bind("<MouseWheel>", _scroll_canvas)
+        content.bind("<MouseWheel>", _scroll_canvas)
+        content.bind("<Button-4>", lambda e: tree.yview_scroll(-3, "units"))
+        content.bind("<Button-5>", lambda e: tree.yview_scroll(3, "units"))
+        win.bind("<MouseWheel>", _scroll_canvas)
+        win.bind("<Button-4>", lambda e: tree.yview_scroll(-3, "units"))
+        win.bind("<Button-5>", lambda e: tree.yview_scroll(3, "units"))
+
+        def _scan(parent_path: str, parent_iid: str, depth: int) -> None:
+            if depth > 3:
                 return
-            wx, wy = popup.winfo_rootx(), popup.winfo_rooty()
-            ww, wh = popup.winfo_width(), popup.winfo_height()
-            if not (wx <= event.x_root <= wx + ww and wy <= event.y_root <= wy + wh):
-                _dismiss()
-        popup.bind_all("<ButtonPress-1>", _on_press)
-        popup.bind_all("<ButtonPress-3>", _on_press)
+            full = mod_folder / parent_path if parent_path else mod_folder
+            try:
+                entries = sorted(full.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+            except OSError:
+                return
+            for p in entries:
+                if not p.is_dir() or p.is_symlink():
+                    continue
+                rel = f"{parent_path}/{p.name}" if parent_path else p.name
+                name = p.name
+                if use_path_format:
+                    var = tk.BooleanVar(value=rel.lower() in current_set)
+                else:
+                    var = tk.BooleanVar(value=name.lower() in current_set)
+                vars_map[rel] = var
+                check_char = "\u2611" if var.get() else "\u2610"  # ☑ / ☐
+                iid = _iid(rel)
+                tree.insert(parent_iid, "end", iid=iid, text=name, values=(check_char,),
+                            open=False)
+                _scan(rel, iid, depth + 1)
+
+        _scan("", "", 0)
+
+        def _on_toggle(evt):
+            region = tree.identify_region(evt.x, evt.y)
+            if region == "tree":
+                return
+            item = tree.identify_row(evt.y)
+            if not item:
+                return
+            rel = _rel(item)
+            if rel not in vars_map:
+                return
+            var = vars_map[rel]
+            var.set(not var.get())
+            tree.set(item, "check", "\u2611" if var.get() else "\u2610")
+
+        tree.bind("<ButtonRelease-1>", _on_toggle)
+
+        if not vars_map:
+            tree.insert("", "end", iid="__none__", text="(No folders found in this mod.)", values=("",))
+            vars_map["__none__"] = tk.BooleanVar(value=False)
+
+        def _ok():
+            chosen = [
+                rel_path for rel_path, v in vars_map.items()
+                if rel_path != "__none__" and v.get()
+            ]
+            self._mod_strip_prefixes[mod_name] = chosen
+            self._save_mod_strip_prefixes()
+            self._rebuild_filemap()
+            self._redraw()
+            win.destroy()
+
+        def _cancel():
+            win.destroy()
+
+        def _clear_all():
+            for rel_path, v in vars_map.items():
+                if rel_path == "__none__":
+                    continue
+                v.set(False)
+                try:
+                    tree.set(_iid(rel_path), "check", "\u2610")
+                except tk.TclError:
+                    pass
+
+        def _mkbtn(parent, text, cmd, bg, **kwargs):
+            opts = dict(
+                font=FONT_SMALL, relief="flat", overrelief="flat",
+                padx=16, pady=4, cursor="hand2",
+                highlightthickness=0, highlightbackground=bg, highlightcolor=bg,
+                borderwidth=0, activebackground=bg, activeforeground=TEXT_MAIN,
+            )
+            opts.update(kwargs)
+            return tk.Button(parent, text=text, command=cmd, bg=bg, fg=TEXT_MAIN, **opts)
+
+        btn_frame = tk.Frame(content, bg=BG_ROW, bd=0, highlightthickness=0)
+        btn_frame.pack(fill="x", padx=12, pady=(0, 12))
+        _mkbtn(btn_frame, "OK", _ok, ACCENT).pack(side="right", padx=(8, 0))
+        _mkbtn(btn_frame, "Cancel", _cancel, BG_ROW).pack(side="right")
+        _mkbtn(btn_frame, "Clear all", _clear_all, BG_ROW).pack(side="right")
+
+        win.update_idletasks()
+        w, h = 430, 480
+        win.geometry(f"{w}x{h}")
+        win.minsize(360, 220)
+        win.maxsize(0, h)  # cap height so scrollbar is used; 0 = no width cap
+        # Center on the main window (or on screen if main window size not yet available)
+        app = self.winfo_toplevel()
+        ax = app.winfo_rootx()
+        ay = app.winfo_rooty()
+        aw = app.winfo_width()
+        ah = app.winfo_height()
+        if aw <= 1 or ah <= 1:
+            sw = win.winfo_screenwidth()
+            sh = win.winfo_screenheight()
+            wx = max(0, (sw - w) // 2)
+            wy = max(0, (sh - h) // 2)
+        else:
+            wx = ax + max(0, (aw - w) // 2)
+            wy = ay + max(0, (ah - h) // 2)
+        win.geometry(f"+{wx}+{wy}")
 
     def _move_to_separator(self, mod_idx: int, sep_name: str):
         """Move the mod at mod_idx to directly below the named separator."""
@@ -2927,6 +3154,7 @@ class ModListPanel(ctk.CTkFrame):
                 count, conflict_map, overrides, overridden_by = build_filemap(
                     modlist_path, staging, output,
                     strip_prefixes=strip_prefixes,
+                    per_mod_strip_prefixes=self._mod_strip_prefixes,
                     allowed_extensions=install_extensions or None,
                     root_deploy_folders=root_deploy_folders or None,
                 )
@@ -3405,14 +3633,14 @@ class PluginPanel(ctk.CTkFrame):
         tab.grid_rowconfigure(1, weight=1)
         tab.grid_columnconfigure(0, weight=1)
 
-        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28)
+        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28, highlightthickness=0)
         toolbar.grid(row=0, column=0, sticky="ew")
         toolbar.grid_propagate(False)
         tk.Button(
             toolbar, text="↺ Refresh",
-            bg=BG_HEADER, fg=TEXT_MAIN, activebackground=BG_HOVER,
+            bg=ACCENT, fg=TEXT_MAIN, activebackground=ACCENT_HOV,
             relief="flat", font=("Segoe UI", 10),
-            bd=0, cursor="hand2",
+            bd=0, cursor="hand2", highlightthickness=0,
             command=self._refresh_data_tab,
         ).pack(side="left", padx=8, pady=2)
 
@@ -3422,6 +3650,7 @@ class PluginPanel(ctk.CTkFrame):
             toolbar, textvariable=self._data_search_var,
             bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
             relief="flat", font=("Segoe UI", 10), width=30,
+            highlightthickness=0, highlightbackground=BG_DEEP,
         )
         search_entry.pack(side="right", padx=8, pady=3)
         search_entry.bind("<Escape>", lambda e: self._data_search_var.set(""))
@@ -3430,7 +3659,7 @@ class PluginPanel(ctk.CTkFrame):
             font=("Segoe UI", 10),
         ).pack(side="right")
 
-        tree_frame = tk.Frame(tab, bg=BG_DEEP, bd=0)
+        tree_frame = tk.Frame(tab, bg=BG_DEEP, bd=0, highlightthickness=0)
         tree_frame.grid(row=1, column=0, sticky="nsew")
         tree_frame.grid_rowconfigure(0, weight=1)
         tree_frame.grid_columnconfigure(0, weight=1)
@@ -3439,7 +3668,7 @@ class PluginPanel(ctk.CTkFrame):
         style.configure("DataTree.Treeview",
                         background=BG_DEEP, foreground=TEXT_MAIN,
                         fieldbackground=BG_DEEP, rowheight=22,
-                        font=("Segoe UI", 10))
+                        font=("Segoe UI", 10), borderwidth=0)
         style.configure("DataTree.Treeview.Heading",
                         background=BG_HEADER, foreground=TEXT_SEP,
                         font=("Segoe UI", 10, "bold"), relief="flat")
@@ -3459,10 +3688,18 @@ class PluginPanel(ctk.CTkFrame):
         self._data_tree.column("#0",  minwidth=200, stretch=True)
         self._data_tree.column("mod", minwidth=160, width=200, stretch=False)
 
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical",
-                            command=self._data_tree.yview)
-        hsb = ttk.Scrollbar(tree_frame, orient="horizontal",
-                            command=self._data_tree.xview)
+        vsb = tk.Scrollbar(tree_frame, orient="vertical",
+                            command=self._data_tree.yview,
+                            bg="#383838", troughcolor=BG_PANEL,
+                            activebackground="#383838",
+                            highlightthickness=0,
+                            highlightbackground="#383838", highlightcolor="#383838")
+        hsb = tk.Scrollbar(tree_frame, orient="horizontal",
+                            command=self._data_tree.xview,
+                            bg="#383838", troughcolor=BG_PANEL,
+                            activebackground="#383838",
+                            highlightthickness=0,
+                            highlightbackground="#383838", highlightcolor="#383838")
         self._data_tree.configure(yscrollcommand=vsb.set,
                                    xscrollcommand=hsb.set)
         self._data_tree.grid(row=0, column=0, sticky="nsew")

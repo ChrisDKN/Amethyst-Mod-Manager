@@ -22,7 +22,7 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
+from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 
@@ -219,8 +219,12 @@ class Example(BaseGame):
         # Step 2: Link/copy mod files from staging into mods_dir.
         # Reads filemap.txt to know which files belong to which mod.
         # Returns the set of relative paths it placed (used in step 3).
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
         _, placed = deploy_filemap(filemap, mods_dir, staging,
-                                   mode=mode, log_fn=_log,
+                                   mode=mode,
+                                   per_mod_strip_prefixes=per_mod_strip,
+                                   log_fn=_log,
                                    progress_fn=progress_fn)
 
         # Step 3: Fill any gaps with the backed-up vanilla files from _Core/.

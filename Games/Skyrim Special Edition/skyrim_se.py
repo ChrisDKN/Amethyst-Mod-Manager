@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
-from Utils.deploy import LinkMode, deploy_core, deploy_filemap, move_to_core, restore_data_core
+from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 
@@ -327,9 +327,12 @@ class SkyrimSE(BaseGame):
         _log(f"  Moved {moved} file(s) to Data_Core/.")
 
         _log(f"Step 3: Transferring mod files into Data/ ({mode.name}) ...")
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
         linked_mod, placed = deploy_filemap(filemap, data_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
+                                            per_mod_strip_prefixes=per_mod_strip,
                                             log_fn=_log,
                                             progress_fn=progress_fn)
         _log(f"  Transferred {linked_mod} mod file(s).")
