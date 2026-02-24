@@ -47,6 +47,10 @@ class Fallout_3(BaseGame):
     @property
     def plugin_extensions(self) -> list[str]:
         return [".esp", ".esl", ".esm"]
+    
+    @property
+    def mod_folder_strip_prefixes(self) -> set[str]:
+        return {"Data", "data","FO3 RWL"}
 
     @property
     def steam_id(self) -> str:
