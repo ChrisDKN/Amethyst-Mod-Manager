@@ -208,7 +208,7 @@ class Cyberpunk2077(BaseGame):
                                                progress_fn=progress_fn)
         _log(f"Deploy complete. {linked_mod} mod file(s) placed in game root.")
 
-    def restore(self, log_fn=None) -> None:
+    def restore(self, log_fn=None, progress_fn=None) -> None:
         """Remove deployed mod files from the game root and restore any vanilla files."""
         _log = log_fn or (lambda _: None)
 

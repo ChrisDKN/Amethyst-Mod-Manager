@@ -224,7 +224,7 @@ class StardewValley(BaseGame):
             f"= {linked_mod + linked_core} total file(s) in {plugins_dir.name}/."
         )
 
-    def restore(self, log_fn=None) -> None:
+    def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore Mods/ to its vanilla state."""
         _log = log_fn or (lambda _: None)
 

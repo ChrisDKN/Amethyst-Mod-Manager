@@ -356,7 +356,7 @@ class SkyrimSE(BaseGame):
             f"= {linked_mod + linked_core} total file(s) in Data/."
         )
 
-    def restore(self, log_fn=None) -> None:
+    def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore Data/ to its vanilla state."""
         _log = log_fn or (lambda _: None)
 

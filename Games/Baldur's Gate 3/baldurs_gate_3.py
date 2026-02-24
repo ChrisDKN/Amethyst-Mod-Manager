@@ -284,7 +284,7 @@ class BaldursGate3(BaseGame):
             f"modsettings.lsx written with {mod_count} mod(s)."
         )
 
-    def restore(self, log_fn=None) -> None:
+    def restore(self, log_fn=None, progress_fn=None) -> None:
         """Remove deployed mods and restore the vanilla Mods folder."""
         _log = log_fn or (lambda _: None)
 

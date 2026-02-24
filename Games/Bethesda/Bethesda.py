@@ -332,7 +332,7 @@ class Fallout_3(BaseGame):
             f"= {linked_mod + linked_core} total file(s) in Data/."
         )
 
-    def restore(self, log_fn=None) -> None:
+    def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore Data/ to its vanilla state by moving Data_Core/ back."""
         _log = log_fn or (lambda _: None)
 

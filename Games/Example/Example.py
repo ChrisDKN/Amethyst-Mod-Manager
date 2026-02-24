@@ -231,7 +231,7 @@ class Example(BaseGame):
         # Files already placed by mods (in `placed`) are skipped.
         deploy_core(mods_dir, placed, mode=mode, log_fn=_log)
 
-    def restore(self, log_fn=None) -> None:
+    def restore(self, log_fn=None, progress_fn=None) -> None:
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:
