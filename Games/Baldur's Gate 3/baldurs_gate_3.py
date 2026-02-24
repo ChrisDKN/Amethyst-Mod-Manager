@@ -26,7 +26,7 @@ from pathlib import Path
 from Games.base_game import BaseGame
 from Utils.deploy import (
     LinkMode, deploy_filemap, deploy_core, move_to_core, restore_data_core,
-    deploy_filemap_to_root, restore_filemap_from_root,
+    deploy_filemap_to_root, load_per_mod_strip_prefixes, restore_filemap_from_root,
 )
 from Utils.config_paths import get_profiles_dir
 from Utils.modsettings import write_modsettings, write_vanilla_modsettings
@@ -242,9 +242,12 @@ class BaldursGate3(BaseGame):
         _log(f"  Moved {moved} file(s) to Mods_Core/.")
 
         _log(f"Step 2: Transferring mod .pak files into Mods/ ({mode.name}) ...")
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
         linked_mod, placed = deploy_filemap(filemap, mods_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
+                                            per_mod_strip_prefixes=per_mod_strip,
                                             log_fn=_log,
                                             progress_fn=progress_fn)
         _log(f"  Transferred {linked_mod} mod file(s).")
@@ -261,6 +264,7 @@ class BaldursGate3(BaseGame):
             linked_root, _ = deploy_filemap_to_root(
                 filemap_root, self._game_path, staging,
                 mode=mode, strip_prefixes=self.mod_folder_strip_prefixes,
+                per_mod_strip_prefixes=per_mod_strip,
                 log_fn=_log, progress_fn=progress_fn,
             )
             _log(f"  Transferred {linked_root} file(s) to game root.")

@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, deploy_filemap_to_root, restore_filemap_from_root
+from Utils.deploy import LinkMode, deploy_filemap_to_root, load_per_mod_strip_prefixes, restore_filemap_from_root
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 
@@ -206,9 +206,12 @@ class Witcher3(BaseGame):
             )
 
         _log(f"Transferring mod files into game root ({mode.name}) ...")
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
         linked_mod, _ = deploy_filemap_to_root(filemap, game_root, staging,
                                                mode=mode,
                                                strip_prefixes=self.mod_folder_strip_prefixes,
+                                               per_mod_strip_prefixes=per_mod_strip,
                                                log_fn=_log,
                                                progress_fn=progress_fn)
         _log(f"Deploy complete. {linked_mod} mod file(s) placed in game root.")

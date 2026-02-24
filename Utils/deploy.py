@@ -24,10 +24,34 @@ Typical deploy workflow:
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from enum import Enum, auto
 from pathlib import Path
+
+
+def load_per_mod_strip_prefixes(profile_dir: Path) -> dict[str, list[str]]:
+    """Load per-mod strip prefixes from profile_dir/mod_strip_prefixes.json.
+
+    Returns a dict mapping mod name to list of top-level folder names to
+    ignore during deployment (contents move up one level). Missing or
+    invalid file returns {}.
+    """
+    path = profile_dir / "mod_strip_prefixes.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {}
+        return {
+            k: v if isinstance(v, list) else []
+            for k, v in data.items()
+            if isinstance(k, str)
+        }
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 class LinkMode(Enum):
@@ -122,6 +146,7 @@ def deploy_filemap(
     staging_root: Path,
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: set[str] | None = None,
+    per_mod_strip_prefixes: dict[str, list[str]] | None = None,
     log_fn=None,
     progress_fn=None,
 ) -> tuple[int, set[str]]:
@@ -135,6 +160,9 @@ def deploy_filemap(
                      files whose leading folder was stripped from the filemap
                      path (e.g. rel_str "Nautilus/Nautilus.dll" may live on
                      disk as "plugins/Nautilus/Nautilus.dll").
+    per_mod_strip_prefixes — optional dict mapping mod name to list of
+                     top-level folder names to prepend when resolving (user-
+                     configured "ignore" folders for that mod).
     progress_fn    — optional callable(done: int, total: int) called after
                      each file is transferred.
 
@@ -145,6 +173,7 @@ def deploy_filemap(
     """
     _log = log_fn or (lambda _: None)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
+    _per_mod = per_mod_strip_prefixes or {}
     overwrite_dir = staging_root.parent / "overwrite"
 
     already_seen: set[str] = set()
@@ -178,7 +207,7 @@ def deploy_filemap(
 
         # If still not found, try re-adding stripped prefixes — the filemap
         # stripped them during build but the file on disk still has them.
-        # Try every ordered combination of 1 or 2 prefix segments.
+        # First try global strip_prefixes (1 or 2 segments).
         if src is None and _strip:
             prefixes = sorted(_strip)  # deterministic order
             for p1 in prefixes:
@@ -195,6 +224,28 @@ def deploy_filemap(
                         break
                 if src is not None:
                     break
+
+        # Then try per-mod: full path prefixes first, then segment-name chain
+        if src is None and mod_name != _OVERWRITE_NAME:
+            mod_strip = _per_mod.get(mod_name)
+            if mod_strip:
+                path_prefixes = [p for p in mod_strip if "/" in p]
+                for p in path_prefixes:
+                    candidate = _resolve_nocase(
+                        mod_root, p + "/" + rel_str, cache=nocase_cache)
+                    if candidate is not None:
+                        src = candidate
+                        break
+                if src is None:
+                    segment_list = [p for p in mod_strip if "/" not in p]
+                    prefix_path = ""
+                    for seg in segment_list:
+                        prefix_path = prefix_path + seg + "/" if prefix_path else seg + "/"
+                        candidate = _resolve_nocase(
+                            mod_root, prefix_path + rel_str, cache=nocase_cache)
+                        if candidate is not None:
+                            src = candidate
+                            break
 
         if src is None:
             _log(f"  WARN: source not found — {rel_str} ({mod_name})")
@@ -506,6 +557,7 @@ def deploy_filemap_to_root(
     staging_root: Path,
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: set[str] | None = None,
+    per_mod_strip_prefixes: dict[str, list[str]] | None = None,
     log_fn=None,
     progress_fn=None,
 ) -> tuple[int, set[str]]:
@@ -522,6 +574,7 @@ def deploy_filemap_to_root(
     staging_root  — Profiles/<game>/mods/
     mode          — transfer method
     strip_prefixes — forwarded to source-file resolution (same as deploy_filemap)
+    per_mod_strip_prefixes — optional dict mod name -> list of strip folders
     log_fn        — optional logging callable
     progress_fn   — optional callable(done: int, total: int)
 
@@ -532,6 +585,7 @@ def deploy_filemap_to_root(
     """
     _log = log_fn or (lambda _: None)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
+    _per_mod = per_mod_strip_prefixes or {}
     overwrite_dir = staging_root.parent / "overwrite"
     backup_dir    = filemap_path.parent / _FILEMAP_BACKUP_DIR
     log_path      = filemap_path.parent / _FILEMAP_LOG_NAME
@@ -580,6 +634,26 @@ def deploy_filemap_to_root(
                         break
                 if src is not None:
                     break
+        if src is None and mod_name != _OVERWRITE_NAME:
+            mod_strip = _per_mod.get(mod_name)
+            if mod_strip:
+                path_prefixes = [p for p in mod_strip if "/" in p]
+                for p in path_prefixes:
+                    candidate = _resolve_nocase(
+                        mod_root, p + "/" + rel_str, cache=nocase_cache)
+                    if candidate is not None:
+                        src = candidate
+                        break
+                if src is None:
+                    segment_list = [p for p in mod_strip if "/" not in p]
+                    prefix_path = ""
+                    for seg in segment_list:
+                        prefix_path = prefix_path + seg + "/" if prefix_path else seg + "/"
+                        candidate = _resolve_nocase(
+                            mod_root, prefix_path + rel_str, cache=nocase_cache)
+                        if candidate is not None:
+                            src = candidate
+                            break
         if src is None:
             _log(f"  WARN: source not found — {rel_str} ({mod_name})")
             continue
