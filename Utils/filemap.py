@@ -47,12 +47,16 @@ def _scan_dir(
     strip_prefixes: frozenset[str] = frozenset(),
     allowed_extensions: frozenset[str] = frozenset(),
     root_deploy_folders: frozenset[str] = frozenset(),
+    strip_path_prefixes: list[str] | None = None,
 ) -> tuple[str, dict[str, str], dict[str, str]]:
     """Walk source_dir with os.scandir (fast, no Pathlib overhead).
 
     Returns (source_name, normal_files, root_files) where each dict is
     {rel_key_lower: rel_str_original}.
     Pure function — no shared state, safe to call from any thread.
+
+    strip_path_prefixes — full path prefixes to strip once (e.g. ["Tree", "Meshes/Architecture"]).
+    Applied first, before strip_prefixes. Longest match wins. Case-insensitive.
 
     strip_prefixes — lowercase top-level folder names to remove from the
     start of each relative path before adding it to the result.  Only the
@@ -87,6 +91,14 @@ def _scan_dir(
                         if entry.name in _EXCLUDE_NAMES:
                             continue
                         rel_str = prefix + entry.name
+                        # Strip full path prefixes first (per-mod "ignore this folder" paths).
+                        if strip_path_prefixes:
+                            rel_lower = rel_str.lower()
+                            for path_prefix in sorted(strip_path_prefixes, key=lambda x: -len(x)):
+                                p_lower = path_prefix.lower()
+                                if rel_lower == p_lower or rel_lower.startswith(p_lower + "/"):
+                                    rel_str = rel_str[len(path_prefix):].lstrip("/")
+                                    break
                         # Strip leading wrapper folders declared by the game.
                         # Repeat until no more matching prefixes remain so that
                         # e.g. "bepinex/plugins/Mod/Mod.dll" → "Mod/Mod.dll"
@@ -171,11 +183,16 @@ def build_filemap(
     staging_root: Path,
     output_path: Path,
     strip_prefixes: set[str] | None = None,
+    per_mod_strip_prefixes: dict[str, list[str]] | None = None,
     allowed_extensions: set[str] | None = None,
     root_deploy_folders: set[str] | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
+
+    per_mod_strip_prefixes — optional dict mapping mod name to a list of
+    top-level folder names to strip for that mod only (contents move up one
+    level during deployment).  Merged with strip_prefixes when scanning.
 
     allowed_extensions — when non-empty, only files with a matching lowercase
     extension (e.g. {".pak"}) are included in the filemap.  Pass None or an
@@ -207,14 +224,33 @@ def build_filemap(
     ] + [(OVERWRITE_NAME, overwrite_str)]
 
     _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
+    _per_mod = per_mod_strip_prefixes or {}
     _exts  = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
     _root  = frozenset(s.lower() for s in root_deploy_folders) if root_deploy_folders else frozenset()
+
+    def _strip_for_mod(name: str) -> frozenset[str]:
+        mod_strip = _per_mod.get(name)
+        if not mod_strip:
+            return _strip
+        segment_names = [s for s in mod_strip if "/" not in s]
+        return _strip | frozenset(s.lower() for s in segment_names)
+
+    def _path_prefixes_for_mod(name: str) -> list[str]:
+        mod_strip = _per_mod.get(name)
+        if not mod_strip:
+            return []
+        return [s for s in mod_strip if "/" in s]
 
     # Scan all directories in parallel (I/O bound)
     raw: dict[str, dict[str, str]] = {}
     raw_root: dict[str, dict[str, str]] = {}
-    futures = {_POOL.submit(_scan_dir, name, d, _strip, _exts, _root): name
-               for name, d in scan_targets}
+    futures = {
+        _POOL.submit(
+            _scan_dir, name, d, _strip_for_mod(name), _exts, _root,
+            strip_path_prefixes=_path_prefixes_for_mod(name),
+        ): name
+        for name, d in scan_targets
+    }
     for fut in futures:
         name, files, root_files = fut.result()
         if files:
