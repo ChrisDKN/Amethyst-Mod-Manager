@@ -44,6 +44,10 @@
 - The Sims 4
 - Lethal Company
 
+### Added / Needs additional testing
+
+- Mewgenics
+
 ### Game Support to Add
 
 - Oblivion Remastered

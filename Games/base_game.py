@@ -180,6 +180,18 @@ class BaseGame(ABC):
         return set()
 
     @property
+    def mod_auto_strip_until_required(self) -> bool:
+        """
+        When True and mod_required_top_level_folders is non-empty, the
+        installer will try to strip leading path segments (one or more
+        top-level folders) until at least one remaining top-level folder
+        is in mod_required_top_level_folders, instead of showing the
+        prefix dialog. When False (the default), the dialog is shown
+        when no required top-level folder is found.
+        """
+        return False
+
+    @property
     def steam_id(self) -> str:
         """
         Steam App ID for this game, e.g. '377160' for Fallout 4.
@@ -271,6 +283,16 @@ class BaseGame(ABC):
         Return an empty string to disable Nexus integration for this game.
         """
         return ""
+
+    @property
+    def restore_before_deploy(self) -> bool:
+        """
+        When True (the default), the GUI runs restore() before deploy() when
+        the user clicks Deploy, to clean the game state first. Set to False
+        for games where deploy() itself restores then applies mods in one
+        cycle (e.g. unpack → remove modded → add mods → repack).
+        """
+        return True
 
     @property
     def wizard_tools(self) -> list[WizardTool]:

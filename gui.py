@@ -1,3 +1,4 @@
+import errno
 import json
 import os
 import re
@@ -44,7 +45,7 @@ from Utils.plugins import (
 )
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
-from Utils.config_paths import get_exe_args_path, get_fomod_selections_path, get_profiles_dir, get_last_game_path
+from Utils.config_paths import get_config_dir, get_exe_args_path, get_fomod_selections_path, get_profiles_dir, get_last_game_path
 from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
 from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
 from Nexus.nexus_download import NexusDownloader
@@ -204,6 +205,41 @@ def _load_last_game() -> str | None:
         return None
 
 
+def _clear_game_config(game_name: str) -> None:
+    """Remove this game's config from ~/.config/AmethystModManager/games/<game_name>/.
+    Causes the game to show as unconfigured on next use."""
+    game_config_dir = get_config_dir() / "games" / game_name
+    try:
+        if game_config_dir.is_dir():
+            shutil.rmtree(game_config_dir)
+    except OSError:
+        pass
+    game = _GAMES.get(game_name)
+    if game is not None:
+        game.load_paths()
+
+
+def _handle_missing_profile_root(topbar, game_name: str) -> None:
+    """Profile/staging folder was deleted: clear game config, refresh list, switch to another game or clear last_game."""
+    _clear_game_config(game_name)
+    game_names = _load_games()
+    topbar._game_menu.configure(values=game_names)
+    if game_names and game_names[0] != "No games configured":
+        topbar._game_var.set(game_names[0])
+        if hasattr(topbar, "_profile_menu") and topbar._profile_menu is not None:
+            profiles = _profiles_for_game(game_names[0])
+            topbar._profile_menu.configure(values=profiles)
+            topbar._profile_var.set(profiles[0])
+        topbar._reload_mod_panel()
+    else:
+        get_last_game_path().unlink(missing_ok=True)
+        topbar._game_var.set("No games configured")
+        if hasattr(topbar, "_profile_menu") and topbar._profile_menu is not None:
+            topbar._profile_menu.configure(values=["default"])
+            topbar._profile_var.set("default")
+        topbar._reload_mod_panel()
+
+
 # ---------------------------------------------------------------------------
 # ModRow
 # ---------------------------------------------------------------------------
@@ -351,6 +387,11 @@ class ModListPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def load_game(self, game, profile: str = "default") -> None:
+        if game is None:
+            self._game = None
+            self._modlist_path = None
+            self._reload()
+            return
         self._game = game
         profile_dir = game.get_profile_root() / "profiles" / profile
         self._modlist_path = profile_dir / "modlist.txt"
@@ -5331,7 +5372,15 @@ class TopBar(ctk.CTkFrame):
         ).pack(side="left", padx=(0, 4))
 
         initial_game_name = _initial_game
-        profile_names = _profiles_for_game(initial_game_name)
+        try:
+            profile_names = _profiles_for_game(initial_game_name)
+        except (FileNotFoundError, OSError) as e:
+            if getattr(e, "errno", None) == errno.ENOENT or isinstance(e, FileNotFoundError):
+                _handle_missing_profile_root(self, initial_game_name)
+                initial_game_name = self._game_var.get()
+                profile_names = _profiles_for_game(initial_game_name)
+            else:
+                raise
         self._profile_var = tk.StringVar(value=profile_names[0])
         self._profile_menu = ctk.CTkOptionMenu(
             self, values=profile_names, variable=self._profile_var,
@@ -5482,12 +5531,22 @@ class TopBar(ctk.CTkFrame):
                 data_path = game.get_mod_data_path() if hasattr(game, 'get_mod_data_path') else None
                 app._plugin_panel._data_dir = data_path
                 app._plugin_panel._game = game
-            app._mod_panel.load_game(game, self._profile_var.get())
+            try:
+                app._mod_panel.load_game(game, self._profile_var.get())
+            except (FileNotFoundError, OSError) as e:
+                if getattr(e, "errno", None) == errno.ENOENT or isinstance(e, FileNotFoundError):
+                    _handle_missing_profile_root(self, self._game_var.get())
+                    return
+                raise
             # load_game already triggered _on_filemap_rebuilt which refreshed
             # the plugins tab, so just ensure state is consistent.
             if hasattr(app, "_plugin_panel"):
                 app._plugin_panel._refresh_plugins_tab()
                 app._plugin_panel.refresh_exe_list()
+        else:
+            if hasattr(app, "_plugin_panel"):
+                app._plugin_panel._plugin_entries = []
+            app._mod_panel.load_game(None, "")
 
     def _on_add_profile(self):
         game_name = self._game_var.get()
@@ -5598,6 +5657,22 @@ class TopBar(ctk.CTkFrame):
             self._log(f"Deploy: '{game.name}' does not support deployment.")
             return
 
+        profile = self._profile_var.get()
+
+        # Mewgenics: ask whether to use Steam launch command or repack
+        if game.name == "Mewgenics":
+            choice_dlg = _MewgenicsDeployChoiceDialog(self.winfo_toplevel())
+            self.winfo_toplevel().wait_window(choice_dlg)
+            if choice_dlg.result is None:
+                return
+            if choice_dlg.result == "steam":
+                launch_string = game.get_modpaths_launch_string(profile)
+                launch_dlg = _MewgenicsLaunchCommandDialog(
+                    self.winfo_toplevel(), launch_string
+                )
+                return
+            # choice_dlg.result == "repack" -> fall through to normal deploy
+
         app = self.winfo_toplevel()
         root_folder_enabled = (
             app._mod_panel._root_folder_enabled
@@ -5605,7 +5680,6 @@ class TopBar(ctk.CTkFrame):
         )
         root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
         game_root = game.get_game_path()
-        profile = self._profile_var.get()
 
         status_bar = self.winfo_toplevel()._status
 
@@ -5614,13 +5688,13 @@ class TopBar(ctk.CTkFrame):
             def _tlog(msg):
                 self.after(0, lambda m=msg: self._log(m))
 
-            def _progress(done: int, total: int):
-                self.after(0, lambda d=done, t=total: status_bar.set_progress(d, t))
+            def _progress(done: int, total: int, phase: str | None = None):
+                self.after(0, lambda d=done, t=total, p=phase: status_bar.set_progress(d, t, p))
 
             try:
-                if hasattr(game, "restore"):
+                if getattr(game, "restore_before_deploy", True) and hasattr(game, "restore"):
                     try:
-                        game.restore(log_fn=_tlog)
+                        game.restore(log_fn=_tlog, progress_fn=_progress)
                     except RuntimeError:
                         pass
                 if root_folder_dir.is_dir() and game_root:
@@ -5632,9 +5706,10 @@ class TopBar(ctk.CTkFrame):
 
                 rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
                 if rf_allowed and root_folder_enabled and root_folder_dir.is_dir() and game_root:
-                    _tlog("Root Folder: transferring files to game root ...")
-                    deploy_root_folder(root_folder_dir, game_root,
-                                       mode=deploy_mode, log_fn=_tlog)
+                    count = deploy_root_folder(root_folder_dir, game_root,
+                                            mode=deploy_mode, log_fn=_tlog)
+                    if count:
+                        _tlog("Root Folder: transferred files to game root.")
             except Exception as e:
                 self.after(0, lambda err=e: self._log(f"Deploy error: {err}"))
             finally:
@@ -5652,14 +5727,18 @@ class TopBar(ctk.CTkFrame):
 
         root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
         game_root = game.get_game_path()
+        status_bar = self.winfo_toplevel()._status
 
         def _worker():
             def _tlog(msg):
                 self.after(0, lambda m=msg: self._log(m))
 
+            def _progress(done: int, total: int, phase: str | None = None):
+                self.after(0, lambda d=done, t=total, p=phase: status_bar.set_progress(d, t, p))
+
             try:
                 if hasattr(game, "restore"):
-                    game.restore(log_fn=_tlog)
+                    game.restore(log_fn=_tlog, progress_fn=_progress)
                 else:
                     _tlog(f"Restore: '{game.name}' does not support restore.")
                 if root_folder_dir.is_dir() and game_root:
@@ -5668,6 +5747,7 @@ class TopBar(ctk.CTkFrame):
                 self.after(0, lambda err=e: self._log(f"Restore error: {err}"))
             finally:
                 self.after(0, lambda: self._set_deploy_buttons_enabled(True))
+                self.after(1500, status_bar.clear_progress)
 
         self._set_deploy_buttons_enabled(False)
         threading.Thread(target=_worker, daemon=True).start()
@@ -6415,6 +6495,125 @@ class _ProfileNameDialog(ctk.CTkToplevel):
     def _on_cancel(self):
         self.grab_release()
         self.destroy()
+
+
+class _MewgenicsDeployChoiceDialog(ctk.CTkToplevel):
+    """Modal dialog: choose Steam launch command or repack modded files."""
+
+    def __init__(self, parent):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Mewgenics — Deploy method")
+        self.geometry("420x200")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.after(100, self._make_modal)
+
+        self.result: str | None = None  # "steam" | "repack" | None
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self, text="How do you want to deploy mods?",
+            font=FONT_HEADER, text_color=TEXT_MAIN, anchor="w"
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 12))
+
+        ctk.CTkButton(
+            self, text="Steam launch command (Safer / Recommended)",
+            font=FONT_NORMAL, fg_color=BG_PANEL, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, anchor="w",
+            command=lambda: self._choose("steam")
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=4)
+        ctk.CTkLabel(
+            self, text="Copy -modpaths for Steam/Lutris Launch Options (no repack).",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w"
+        ).grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 8))
+
+        ctk.CTkButton(
+            self, text="Repack gpak. (No command needed / not recommended)",
+            font=FONT_NORMAL, fg_color=BG_PANEL, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, anchor="w",
+            command=lambda: self._choose("repack")
+        ).grid(row=3, column=0, sticky="ew", padx=16, pady=4)
+        ctk.CTkLabel(
+            self, text="Unpack resources.gpak, merge mods, repack.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w"
+        ).grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 12))
+
+    def _choose(self, choice: str):
+        self.result = choice
+        self.grab_release()
+        self.destroy()
+
+    def _on_cancel(self):
+        self.grab_release()
+        self.destroy()
+
+
+class _MewgenicsLaunchCommandDialog(ctk.CTkToplevel):
+    """Shows the -modpaths launch string and offers Copy to clipboard."""
+
+    def __init__(self, parent, launch_string: str):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Mewgenics — Steam / Lutris launch command")
+        self.geometry("560x280")
+        self.resizable(True, True)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self._launch_string = launch_string
+        self._build()
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            self,
+            text="Paste this into Steam Launch Options or Lutris Arguments:",
+            font=FONT_SMALL, text_color=TEXT_MAIN, anchor="w", wraplength=520
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 8))
+
+        self._text = ctk.CTkTextbox(
+            self, font=FONT_MONO, fg_color=BG_PANEL, text_color=TEXT_MAIN,
+            wrap="word", height=120
+        )
+        self._text.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 8))
+        self._text.insert("1.0", self._launch_string)
+        self._text.configure(state="disabled")
+
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=44)
+        bar.grid(row=2, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar, text="Copy to clipboard", width=140, height=28, font=FONT_NORMAL,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._copy
+        ).pack(side="right", padx=(4, 8), pady=8)
+        ctk.CTkButton(
+            bar, text="Close", width=80, height=28, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self.destroy
+        ).pack(side="right", padx=4, pady=8)
+
+    def _copy(self):
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(self._launch_string)
+            self.update_idletasks()
+        except Exception:
+            pass
 
 
 class _OverwritesDialog(tk.Toplevel):
@@ -7428,6 +7627,31 @@ class _SelectFilesDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+def _apply_strip_prefixes_to_file_list(
+    file_list: list[tuple[str, str, bool]],
+    strip_prefixes: set[str],
+) -> list[tuple[str, str, bool]]:
+    """
+    Strip leading path segments from each dst_rel that match strip_prefixes
+    (case-insensitive), repeatedly until the first segment is not in the set.
+    Matches the logic used during filemap build. Returns a new list.
+    """
+    if not strip_prefixes:
+        return file_list
+    strip_lower = {p.lower() for p in strip_prefixes}
+    result: list[tuple[str, str, bool]] = []
+    for src_rel, dst_rel, is_folder in file_list:
+        d = dst_rel.replace("\\", "/").strip("/")
+        while "/" in d:
+            first, remainder = d.split("/", 1)
+            if first.lower() in strip_lower:
+                d = remainder
+            else:
+                break
+        result.append((src_rel, d, is_folder))
+    return result
+
+
 def _check_mod_top_level(file_list: list[tuple[str, str, bool]],
                          required: set[str]) -> bool:
     """Return True if at least one file's top-level folder matches a required name."""
@@ -7436,6 +7660,36 @@ def _check_mod_top_level(file_list: list[tuple[str, str, bool]],
         if top in required:
             return True
     return False
+
+
+def _try_auto_strip_top_level(
+    file_list: list[tuple[str, str, bool]],
+    required: set[str],
+    max_strip_depth: int = 5,
+) -> tuple[list[tuple[str, str, bool]], bool]:
+    """
+    Try stripping leading path segments until at least one file has a top-level
+    folder in required. Returns (new_file_list, True) if a strip depth worked,
+    otherwise (original file_list, False).
+    """
+    required_lower = {r.lower() for r in required}
+    if _check_mod_top_level(file_list, required_lower):
+        return (file_list, True)
+    for strip_depth in range(1, max_strip_depth + 1):
+        new_list: list[tuple[str, str, bool]] = []
+        has_required = False
+        for src_rel, dst_rel, is_folder in file_list:
+            parts = dst_rel.replace("\\", "/").strip("/").split("/")
+            if len(parts) <= strip_depth:
+                continue
+            new_dst = "/".join(parts[strip_depth:])
+            top = parts[strip_depth].lower()
+            if top in required_lower:
+                has_required = True
+            new_list.append((src_rel, new_dst, is_folder))
+        if has_required and new_list:
+            return (new_list, True)
+    return (file_list, False)
 
 
 def _stamp_meta_install_date(meta_ini_path: Path) -> None:
@@ -7620,6 +7874,11 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             file_list = [(s, d, f) for s, d, f in file_list if d in chosen]
             log_fn(f"Replace selected: {len(file_list)} file(s) chosen.")
 
+        # --- Strip leading segments that match mod_folder_strip_prefixes (before required check) ---
+        strip_prefixes = getattr(game, "mod_folder_strip_prefixes", set())
+        if strip_prefixes:
+            file_list = _apply_strip_prefixes_to_file_list(file_list, strip_prefixes)
+
         # --- Apply automatic install prefix (e.g. "mods" for Witcher 3) ---
         install_prefix = getattr(game, "mod_install_prefix", "")
         if install_prefix:
@@ -7647,17 +7906,23 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
         # --- Check mod structure (games with required top-level folders) ---
         required = getattr(game, "mod_required_top_level_folders", set())
+        did_auto_strip = False
         if required and not _check_mod_top_level(file_list, required):
-            dlg = _SetPrefixDialog(parent_window, required, file_list)
-            parent_window.wait_window(dlg)
-            if dlg.result is None:
-                log_fn("Install cancelled — mod structure not mapped.")
-                return
-            action, prefix = dlg.result
-            if action == "prefix" and prefix:
-                prefix = prefix.strip().strip("/").replace("\\", "/")
-                file_list = [(s, f"{prefix}/{d}", f) for s, d, f in file_list]
-                log_fn(f"Remapped mod files under '{prefix}/'.")
+            if getattr(game, "mod_auto_strip_until_required", False):
+                file_list, did_auto_strip = _try_auto_strip_top_level(file_list, required)
+                if did_auto_strip:
+                    log_fn("Auto-stripped top-level folder(s) so mod matches expected structure.")
+            if not did_auto_strip:
+                dlg = _SetPrefixDialog(parent_window, required, file_list)
+                parent_window.wait_window(dlg)
+                if dlg.result is None:
+                    log_fn("Install cancelled — mod structure not mapped.")
+                    return
+                action, prefix = dlg.result
+                if action == "prefix" and prefix:
+                    prefix = prefix.strip().strip("/").replace("\\", "/")
+                    file_list = [(s, f"{prefix}/{d}", f) for s, d, f in file_list]
+                    log_fn(f"Remapped mod files under '{prefix}/'.")
 
         # --- Copy into staging area ---
         dest_root = game.get_mod_staging_path() / mod_name
@@ -7826,6 +8091,7 @@ class StatusBar(ctk.CTkFrame):
         )
         self._progress_bar.set(0)
         self._progress_visible = False
+        self._progress_phase = ""
 
         self._textbox = ctk.CTkTextbox(
             self, font=FONT_MONO, fg_color=BG_DEEP,
@@ -7850,16 +8116,22 @@ class StatusBar(ctk.CTkFrame):
         if not self._visible:
             self._toggle_log()
 
-    def set_progress(self, done: int, total: int) -> None:
-        """Show / update the progress bar.  Call from main thread only."""
+    def set_progress(self, done: int, total: int, phase: str | None = None) -> None:
+        """Show / update the progress bar.  Call from main thread only.
+        phase: optional label (e.g. 'Unpacking', 'Repacking'); kept until next set_progress with a different phase.
+        """
         if not self._progress_visible:
             # Pack bar first (rightmost after toggle btn), then label to its left.
             self._progress_bar.pack(side="right", padx=(0, 8))
             self._progress_label.pack(side="right", padx=(0, 4))
             self._progress_visible = True
+        if phase is not None:
+            self._progress_phase = phase
+        phase_str = getattr(self, "_progress_phase", "") or ""
+        label = f"{phase_str}: {done} / {total}" if phase_str else f"{done} / {total}"
         frac = done / total if total > 0 else 0
         self._progress_bar.set(frac)
-        self._progress_label.configure(text=f"{done} / {total}")
+        self._progress_label.configure(text=label)
 
     def clear_progress(self) -> None:
         """Hide the progress bar when the operation finishes."""
@@ -7869,6 +8141,7 @@ class StatusBar(ctk.CTkFrame):
             self._progress_visible = False
         self._progress_bar.set(0)
         self._progress_label.configure(text="")
+        self._progress_phase = ""
 
     def log(self, message: str):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -8214,19 +8487,25 @@ class App(ctk.CTk):
         initial_game = _GAMES.get(self._topbar._game_var.get())
         if initial_game and initial_game.is_configured():
             profile = self._topbar._profile_var.get()
-            plugins_path = (
-                initial_game.get_profile_root()
-                / "profiles" / profile / "plugins.txt"
-            )
-            self._plugin_panel._plugins_path = plugins_path
-            self._plugin_panel._plugin_extensions = initial_game.plugin_extensions
-            self._plugin_panel._vanilla_plugins = _vanilla_plugins_for_game(initial_game)
-            self._plugin_panel._staging_root = initial_game.get_mod_staging_path()
-            data_path = initial_game.get_mod_data_path() if hasattr(initial_game, 'get_mod_data_path') else None
-            self._plugin_panel._data_dir = data_path
-            self._plugin_panel._game = initial_game
-            self._mod_panel.load_game(initial_game, profile)
-            self._plugin_panel.refresh_exe_list()
+            try:
+                plugins_path = (
+                    initial_game.get_profile_root()
+                    / "profiles" / profile / "plugins.txt"
+                )
+                self._plugin_panel._plugins_path = plugins_path
+                self._plugin_panel._plugin_extensions = initial_game.plugin_extensions
+                self._plugin_panel._vanilla_plugins = _vanilla_plugins_for_game(initial_game)
+                self._plugin_panel._staging_root = initial_game.get_mod_staging_path()
+                data_path = initial_game.get_mod_data_path() if hasattr(initial_game, 'get_mod_data_path') else None
+                self._plugin_panel._data_dir = data_path
+                self._plugin_panel._game = initial_game
+                self._mod_panel.load_game(initial_game, profile)
+                self._plugin_panel.refresh_exe_list()
+            except (FileNotFoundError, OSError) as e:
+                if getattr(e, "errno", None) == errno.ENOENT or isinstance(e, FileNotFoundError):
+                    _handle_missing_profile_root(self._topbar, self._topbar._game_var.get())
+                else:
+                    raise
 
     def _startup_log(self):
         configured = sum(1 for g in _GAMES.values() if g.is_configured())
