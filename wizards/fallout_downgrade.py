@@ -108,6 +108,16 @@ def _extract_archive(archive: Path, dest: Path) -> list[Path]:
                 created.append(dest / info.filename)
 
     elif name_lower.endswith(".7z"):
+        # Get list of member names from the archive so we only track extracted
+        # paths (never the whole game folder — see cleanup).
+        member_names: list[str] = []
+        if py7zr is not None:
+            try:
+                with py7zr.SevenZipFile(archive, "r") as zf:
+                    member_names = zf.getnames()
+            except Exception:
+                pass
+
         extracted_via_cli = False
         try:
             subprocess.run(
@@ -126,11 +136,21 @@ def _extract_archive(archive: Path, dest: Path) -> list[Path]:
                 )
             with py7zr.SevenZipFile(archive, "r") as zf:
                 zf.extractall(dest)
+                if not member_names:
+                    member_names = zf.getnames()
 
-        for root, _dirs, files in os.walk(dest):
-            for f in files:
-                p = Path(root) / f
+        # Only record paths that were in the archive, not the entire dest tree
+        for name in member_names:
+            if not name or name.endswith("/"):
+                continue
+            p = (dest / name).resolve()
+            try:
+                if not (p.is_file() or p.is_symlink()):
+                    continue
+                p.relative_to(dest)  # ensure under dest (no path traversal)
                 created.append(p)
+            except (OSError, ValueError):
+                pass
 
     elif name_lower.endswith((".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz")):
         with tarfile.open(archive, "r:*") as tf:
