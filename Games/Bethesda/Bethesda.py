@@ -62,7 +62,7 @@ class Fallout_3(BaseGame):
 
     @property
     def loot_game_type(self) -> str:
-        return "fo3"
+        return "Fallout3"
 
     @property
     def loot_masterlist_url(self) -> str:
@@ -428,7 +428,7 @@ class Fallout_NV(Fallout_3):
 
     @property
     def loot_game_type(self) -> str:
-        return "fonv"
+        return "FalloutNV"
 
     @property
     def loot_masterlist_url(self) -> str:
@@ -518,7 +518,7 @@ class Fallout_4VR(Fallout_3):
     def game_id(self) -> str:
         return "Fallout4VR"
 
-    @property
+    @property 
     def exe_name(self) -> str:
         return "Fallout4VRLauncher.exe"
 
@@ -536,7 +536,7 @@ class Fallout_4VR(Fallout_3):
 
     @property
     def loot_masterlist_url(self) -> str:
-        return "https://raw.githubusercontent.com/loot/fallout4/v0.21/masterlist.yaml"
+        return "https://raw.githubusercontent.com/loot/fallout4vr/v0.21/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout4VR")
 
@@ -702,7 +702,7 @@ class SkyrimVR(Fallout_3):
 
     @property
     def loot_masterlist_url(self) -> str:
-        return "https://raw.githubusercontent.com/loot/skyrimse/v0.21/masterlist.yaml"
+        return "https://raw.githubusercontent.com/loot/skyrimvr/v0.21/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim VR")
 
