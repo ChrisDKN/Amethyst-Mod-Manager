@@ -3,3 +3,5 @@
 .vscode/settings.json
 TodoList.txt
 Games/BepInEx/__pycache__/BepInEx.cpython-313.pyc
+appimage/build/appimagetool
+appimage/build/python3.13.AppImage
