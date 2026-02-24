@@ -1,13 +1,13 @@
 
 <p align="center">
-    <img width="250" src="icons/Logo.png" alt="Logo">
+    <img width="250" src="src/icons/Logo.png" alt="Logo">
 </p>
 <h1 align="center">Amethyst Mod Manager</h1>
 
 <h3 align="center">A mod manager for Linux.</h3>
 
 <p align="center">
-    <img width="800" src="icons/ui.png" alt="ui">
+    <img width="800" src="src/icons/ui.png" alt="ui">
 </p>
 
 ## Key Features
