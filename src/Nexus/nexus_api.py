@@ -381,6 +381,42 @@ class NexusAPI:
         """Return the most recently observed rate limits."""
         return self._rate
 
+    def refresh_rate_limits(self) -> None:
+        """Make a GET request to update rate limit state from response headers.
+        Uses the same endpoint as Vortex's API Limit Checker (/games.json) so the
+        returned remaining counts reflect all usage (this app + Swagger + others).
+        Does not log the response body to avoid log spam.
+        """
+        url = API_BASE + "/games.json"
+        try:
+            resp = self._session.get(url, timeout=self._timeout)
+        except requests.ConnectionError as exc:
+            raise NexusAPIError(f"Connection failed: {exc}", url=url) from exc
+        except requests.Timeout as exc:
+            raise NexusAPIError(
+                f"Request timed out after {self._timeout}s", url=url
+            ) from exc
+        self._update_rate_limits(resp)
+        # Log raw rate-limit headers and stored values (to verify server sends cumulative counts)
+        rl_headers = {k: v for k, v in resp.headers.items() if "rl" in k.lower()}
+        app_log(f"Nexus API: rate limit headers received: {rl_headers}")
+        r = self._rate
+        app_log(
+            f"Nexus API: rate limits refreshed — "
+            f"hourly {r.hourly_remaining}/{r.hourly_limit}, daily {r.daily_remaining}/{r.daily_limit}"
+        )
+        if resp.status_code == 429:
+            raise RateLimitError(url)
+        if resp.status_code == 401:
+            raise NexusAPIError("Invalid or expired API key", 401, url)
+        if not resp.ok:
+            try:
+                body = resp.json()
+                msg = body.get("message", resp.reason)
+            except Exception:
+                msg = resp.text[:300] if resp.text else resp.reason
+            raise NexusAPIError(msg, resp.status_code, url)
+
     # -- Account ------------------------------------------------------------
 
     def validate(self) -> NexusUser:
@@ -663,21 +699,25 @@ class NexusAPI:
         External requirements (non-Nexus links) are included with is_external=True.
         """
         query = """
-        query ($modId: Int!, $gameDomainName: String!) {
-            modRequirements(modId: $modId, gameDomainName: $gameDomainName) {
-                nexusRequirements {
-                    nodes {
-                        modId
-                        modName
-                        gameId
-                        url
-                        externalRequirement
+        query ModRequirements($ids: [CompositeDomainWithIdInput!]!) {
+            legacyModsByDomain(ids: $ids) {
+                nodes {
+                    modRequirements {
+                        nexusRequirements {
+                            nodes {
+                                modId
+                                modName
+                                gameId
+                                url
+                                externalRequirement
+                            }
+                        }
                     }
                 }
             }
         }
         """
-        variables = {"modId": mod_id, "gameDomainName": game_domain}
+        variables = {"ids": [{"gameDomain": game_domain, "modId": mod_id}]}
         try:
             resp = self._session.post(
                 GRAPHQL_BASE,
@@ -689,8 +729,15 @@ class NexusAPI:
                 app_log(f"GraphQL requirements query failed: {resp.status_code}")
                 return []
             data = resp.json()
-            nodes = (
+            mod_nodes = (
                 data.get("data", {})
+                .get("legacyModsByDomain", {})
+                .get("nodes", [])
+            )
+            if not mod_nodes:
+                return []
+            nodes = (
+                mod_nodes[0]
                 .get("modRequirements", {})
                 .get("nexusRequirements", {})
                 .get("nodes", [])

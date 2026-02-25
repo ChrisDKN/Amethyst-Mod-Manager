@@ -60,20 +60,8 @@ class Cyberpunk2077(BaseGame):
         return {"bin", "r6", "archive", "red4ext","engine"}
 
     @property
-    def plugin_extensions(self) -> list[str]:
-        return []
-
-    @property
-    def loot_sort_enabled(self) -> bool:
-        return False
-
-    @property
-    def loot_game_type(self) -> str:
-        return ""
-
-    @property
-    def loot_masterlist_url(self) -> str:
-        return ""
+    def mod_auto_strip_until_required(self) -> bool:
+        return True
 
     # -----------------------------------------------------------------------
     # Paths
