@@ -21,58 +21,30 @@
 
 ## Game Support and Status
 
-### Working
+| Status | Game | Game |
+|--------|------|------|
+| Working | Skyrim Special Edition | Skyrim |
+| Working | Fallout 4 | Fallout 3 |
+| Working | Fallout 3 GOTY | Fallout New Vegas |
+| Working | Oblivion | Starfield |
+| Working | Skyrim VR | Fallout 4 VR |
+| Working | Baldur's Gate 3 | Cyberpunk 2077 |
+| Working | Witcher 3 | Kingdom Come: Deliverance II |
+| Working | Subnautica | Subnautica Below Zero |
+| Working | Valheim | TCG Card Shop Simulator |
+| Working | Stardew Valley | The Sims 4 |
+| Working | Lethal Company | Mewgenics |
+| To Add | Oblivion Remastered | Morrowind |
+| To Add | Hogwarts Legacy | And more |
 
-- Skyrim Special Edition
-- Skyrim
-- Fallout 4
-- Fallout 3
-- Fallout 3 GOTY
-- Fallout New Vegas
-- Oblivion
-- Starfield
-- Skyrim VR
-- Fallout 4 VR
-- Baldur's Gate 3
-- Cyberpunk 2077
-- Witcher 3
-- Kingdom Come: Deliverance II
-- Subnautica
-- Subnautica Below Zero
-- Valheim
-- TCG Card Shop Simulator
-- Stardew Valley
-- The Sims 4
-- Lethal Company
-- Mewgenics
+## Install
 
-### Game Support to Add
+Run the following command in a terminal. It will appear in your applications menu under Games and Utilities.
 
-- Oblivion Remastered
-- Morrowind
-- Hogwarts Legacy
-- And more
+```bash
+curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/appimage/Amethyst-MM-installer.sh | bash
+```
 
-## Supporting Applications
-
-The manager supports many supporting applications used to mod games. Place the applications in the games applications folder and they will be auto detected. The arguments/config used to run them will be auto-generated to make setup easier.
-
-### Currently Supported and Working
-
-- **Pandora Behaviour Engine** — Working with `--tesv:` and `--output:` args
-- **SSEEdit** — Working with `-d` and `-o` args
-- **pgpatcher** — Working (requires `d3dcompiler_47` installed to the game prefix via Protontricks)
-- **DynDOLOD** — Working with `-d` and `-o` args
-- **TexGen** — Working with `-d` and `-o` args
-- **Bethini Pie** — Just works
-- **Vramr** - Working using an experimental python wrapper using compressonator instead of using texconv through proton
-- **Witcher 3 Script merger** - Working, Game path added to config automatically
-
-### Not Yet Added or Tested
-
-- Bodyslide and Outfits Studio
-- Synthesis
-- Wrye Bash — Should work / not yet added/tested
 
 ## Usage
 
@@ -87,6 +59,24 @@ The manager supports many supporting applications used to mod games. Place the a
 
 You can also add multiple profiles with different configurations — simply create/swap to that profile and deploy it.
 
+## Supporting Applications
+
+The manager supports many supporting applications used to mod games. Place the applications in the games applications folder and they will be auto detected. The arguments/config used to run them will be auto-generated to make setup easier.
+
+| Status | Application | Notes |
+|--------|-------------|-------|
+| Working | **Pandora Behaviour Engine** | `--tesv:` and `--output:` args |
+| Working | **SSEEdit** | `-d` and `-o` args |
+| Working | **pgpatcher** | Requires `d3dcompiler_47` installed to the game prefix via Protontricks |
+| Working | **DynDOLOD** | `-d` and `-o` args |
+| Working | **TexGen** | `-d` and `-o` args |
+| Working | **Bethini Pie** | Just works |
+| Working | **Vramr** | Experimental python wrapper using compressonator instead of texconv through proton |
+| Working | **Witcher 3 Script merger** | Game path added to config automatically |
+| Not Yet Added/Tested | Bodyslide and Outfits Studio | |
+| Not Yet Added/Tested | Synthesis | |
+| Not Yet Added/Tested | Wrye Bash | |
+
 ## Running Windows Apps (e.g. SSEEdit)
 
 1. Add the folder containing the exe to Applications folder in the game's staging path.
@@ -94,13 +84,6 @@ You can also add multiple profiles with different configurations — simply crea
 3. You can configure the exe to change the arguments or the output mod/folder.
 4. Make sure your game is deployed before running so the application gets the right files.
 5. Hit **Run exe** — it will run using the Proton version and prefix the game uses.
-
-## Backwards Compatibility with Mod Organiser 2
-
-> **Not currently recommended**
-
-You can move your mods, overwrite, `modlist.txt`, and `plugins.txt` from Mod Organiser. These should be recognised by Amethyst Mod Manager. This is not fully tested yet, so don't do this with large mod lists.
-
 ## Needs Testing
 
 As this is an early alpha build, the following needs testing:
