@@ -24,6 +24,7 @@ from gui.fomod_dialog import FomodDialog
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
 from gui.nexus_settings_dialog import NexusSettingsDialog
 from gui.modlist_filters_dialog import ModlistFiltersDialog
+from gui.backup_restore_dialog import BackupRestoreDialog
 from gui.wizard_dialog import WizardDialog
 from gui.downloads_panel import DownloadsPanel
 from gui.tracked_mods_panel import TrackedModsPanel
@@ -32,6 +33,7 @@ from gui.browse_mods_panel import BrowseModsPanel
 from gui.ctk_components import CTkTreeview
 from Games.base_game import BaseGame
 from Utils.fomod_installer import resolve_files
+from Utils.profile_backup import create_backup
 from version import __version__
 from Utils.fomod_parser import detect_fomod, parse_module_config
 from Utils.game_loader import discover_games
@@ -419,6 +421,8 @@ class ModListPanel(ctk.CTkFrame):
             self._game = None
             self._modlist_path = None
             self._reload()
+            if hasattr(self, "_restore_backup_btn"):
+                self._restore_backup_btn.configure(state="disabled")
             return
         self._game = game
         profile_dir = game.get_profile_root() / "profiles" / profile
@@ -427,6 +431,8 @@ class ModListPanel(ctk.CTkFrame):
         self._install_extensions = getattr(game, "mod_install_extensions", set())
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
         self._reload()
+        if hasattr(self, "_restore_backup_btn"):
+            self._restore_backup_btn.configure(state="normal")
 
     def reload_after_install(self):
         self._reload()
@@ -516,6 +522,15 @@ class ModListPanel(ctk.CTkFrame):
             text_color=TEXT_MAIN, font=FONT_SMALL,
             command=self._on_open_filters
         ).pack(side="left", padx=4, pady=5)
+
+        self._restore_backup_btn = ctk.CTkButton(
+            bar, text="Restore backup", width=110, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._on_restore_backup,
+            state="disabled",
+        )
+        self._restore_backup_btn.pack(side="left", padx=4, pady=5)
 
         # Refresh button (icon only)
         refresh_icon = _load_icon("refresh.png", size=(16, 16))
@@ -3305,6 +3320,26 @@ class ModListPanel(ctk.CTkFrame):
             on_apply=self._apply_modlist_filters,
         )
 
+    def _on_restore_backup(self):
+        """Open the backup restore dialog for the current profile."""
+        if not self._modlist_path or not self._modlist_path.parent.is_dir():
+            return
+        app = self.winfo_toplevel()
+        profile_dir = self._modlist_path.parent
+        profile_name = getattr(
+            getattr(app, "_topbar", None),
+            "_profile_var",
+            None,
+        )
+        profile_name = profile_name.get() if profile_name is not None else "default"
+        dlg = BackupRestoreDialog(
+            app,
+            profile_dir,
+            profile_name=profile_name,
+            on_restored=lambda: app._topbar._reload_mod_panel(),
+        )
+        app.wait_window(dlg)
+
     def _apply_modlist_filters(self, state: dict):
         """Apply filter state from the filters dialog and redraw."""
         self._filter_show_disabled = state.get("filter_show_disabled", False)
@@ -5965,6 +6000,13 @@ class TopBar(ctk.CTkFrame):
                         pass
                 if root_folder_dir.is_dir() and game_root:
                     restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
+
+                # Backup modlist/plugins before deploy
+                profile_dir = game.get_profile_root() / "profiles" / profile
+                try:
+                    create_backup(profile_dir, _tlog)
+                except Exception as backup_err:
+                    _tlog(f"Backup skipped: {backup_err}")
 
                 deploy_mode = game.get_deploy_mode() if hasattr(game, "get_deploy_mode") else LinkMode.HARDLINK
                 game.deploy(log_fn=_tlog, profile=profile, progress_fn=_progress,

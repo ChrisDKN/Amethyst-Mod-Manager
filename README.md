@@ -125,6 +125,4 @@ Support for other applications (BENDr and ParallaxR) may be added in future
 ## Planned Features
 
 - Ability to change theme/colours of the GUI
-- Modlist.txt backup and restore function
-- Mod filters
 - Properly Cleanup / Move files created by mods 
