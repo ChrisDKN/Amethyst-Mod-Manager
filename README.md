@@ -36,6 +36,7 @@
 - Baldur's Gate 3
 - Cyberpunk 2077
 - Witcher 3
+- Kingdom Come: Deliverance II
 - Subnautica
 - Subnautica Below Zero
 - Valheim
@@ -43,9 +44,6 @@
 - Stardew Valley
 - The Sims 4
 - Lethal Company
-
-### Added / Needs additional testing
-
 - Mewgenics
 
 ### Game Support to Add
@@ -53,7 +51,6 @@
 - Oblivion Remastered
 - Morrowind
 - Hogwarts Legacy
-- KCD2
 - And more
 
 ## Supporting Applications
