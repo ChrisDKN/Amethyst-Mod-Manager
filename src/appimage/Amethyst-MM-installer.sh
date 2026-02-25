@@ -75,7 +75,7 @@ echo "Icon installed to $ICONS_DIR/$ICON_NAME."
 DESKTOP_FILE="$APPLICATIONS_DESKTOP_DIR/$DESKTOP_NAME"
 cat > "$DESKTOP_FILE" << EOF
 [Desktop Entry]
-Version=0.3.0
+Version=${LATEST_VERSION}
 Type=Application
 Name=Amethyst Mod Manager
 Comment=Linux Mod Manager
