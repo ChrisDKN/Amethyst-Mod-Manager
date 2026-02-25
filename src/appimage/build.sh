@@ -5,13 +5,21 @@ set -euo pipefail
 # Mod Manager — AppImage build script
 #
 # Usage:  bash appimage/build.sh
-# Output: appimage/build/AmethystModManager-x86_64.AppImage
+# Output: appimage/build/AmethystModManager-<version>-x86_64.AppImage
 # ──────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="${SCRIPT_DIR}/build"
 APPDIR="${BUILD_DIR}/AmethystModManager.AppDir"
+
+# Read version from version.py for output filename
+VERSION=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "${PROJECT_DIR}/version.py")
+if [ -z "$VERSION" ]; then
+    echo "ERROR: Could not read __version__ from ${PROJECT_DIR}/version.py"
+    exit 1
+fi
+OUTPUT_APPIMAGE="AmethystModManager-${VERSION}-x86_64.AppImage"
 
 # URLs — update these if newer versions are available
 PYTHON_APPIMAGE_URL="https://github.com/niess/python-appimage/releases/download/python3.13/python3.13.9-cp313-cp313-manylinux_2_28_x86_64.AppImage"
@@ -110,10 +118,10 @@ chmod +x "$APPIMAGETOOL"
 
 echo "=== Building AppImage ==="
 cd "$BUILD_DIR"
-ARCH=x86_64 "$APPIMAGETOOL" --no-appstream "$APPDIR" "AmethystModManager-x86_64.AppImage"
+ARCH=x86_64 "$APPIMAGETOOL" --no-appstream "$APPDIR" "$OUTPUT_APPIMAGE"
 
 # ── Done ─────────────────────────────────────────────────────────────
 echo ""
 echo "=== Build complete ==="
-echo "AppImage: ${BUILD_DIR}/AmethystModManager-x86_64.AppImage"
-echo "Size: $(du -h "${BUILD_DIR}/AmethystModManager-x86_64.AppImage" | cut -f1)"
+echo "AppImage: ${BUILD_DIR}/${OUTPUT_APPIMAGE}"
+echo "Size: $(du -h "${BUILD_DIR}/${OUTPUT_APPIMAGE}" | cut -f1)"
