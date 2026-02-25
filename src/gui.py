@@ -39,7 +39,13 @@ from Utils.filemap import (build_filemap, CONFLICT_NONE, CONFLICT_WINS,
                            CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
                            OVERWRITE_NAME, ROOT_FOLDER_NAME)
 from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode
-from Utils.modlist import ModEntry, read_modlist, write_modlist, prepend_mod
+from Utils.modlist import (
+    ModEntry,
+    read_modlist,
+    write_modlist,
+    prepend_mod,
+    ensure_mod_preserving_position,
+)
 from Utils.plugins import (
     PluginEntry, read_plugins, write_plugins, append_plugin,
     read_loadorder, write_loadorder,
@@ -1919,6 +1925,7 @@ class ModListPanel(ctk.CTkFrame):
             items.append(("Remove separator", lambda: self._remove_separator(idx), False))
         elif not is_separator and not self._entries[idx].locked:
             items.append(("Rename mod", lambda: self._rename_mod(idx), False))
+            items.append(("Set priority…", lambda i=idx: self._set_priority(i), False))
             items.append(("Remove mod", lambda: self._remove_mod(idx), False))
             # Move to separator — collect separator names now so they're stable
             sep_names = [e.name for e in self._entries
@@ -3358,6 +3365,73 @@ class ModListPanel(ctk.CTkFrame):
         sorted_fwd = sorted(indices)
         label = self._entries[sorted_fwd[0] + 1].name if len(indices) == 1 else f"{len(indices)} items"
         self._log(f"Moved '{label}' down")
+
+    def _set_priority(self, idx: int):
+        """Prompt for a target position and move the mod there.
+
+        Priority: 0 = bottom (lowest), highest number = top. So e.g. with 200 mods,
+        entering 0 puts the mod at the bottom; entering 199 or 470 puts it at the top.
+        """
+        if not (0 <= idx < len(self._entries)):
+            return
+        entry = self._entries[idx]
+        if entry.is_separator or entry.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
+            return
+        if entry.locked:
+            return
+
+        mod_indices = [
+            i for i, e in enumerate(self._entries)
+            if not e.is_separator and e.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+        ]
+        total_mods = len(mod_indices)
+        if total_mods <= 1:
+            return
+
+        top = self.winfo_toplevel()
+        dlg = _PriorityDialog(top, entry.name, total_mods)
+        top.wait_window(dlg)
+        value = dlg.result
+        if value is None:
+            return
+
+        # 0 = bottom (rank total_mods-1), highest = top (rank 0)
+        target_rank = total_mods - 1 - min(value, total_mods - 1)
+
+        try:
+            current_rank = mod_indices.index(idx)
+        except ValueError:
+            return
+
+        if target_rank == current_rank:
+            return
+
+        target_idx = mod_indices[target_rank]
+        from_idx = idx
+        to_idx = target_idx
+        if from_idx < to_idx:
+            to_idx -= 1
+
+        moved_entry = self._entries.pop(from_idx)
+        moved_cb = self._check_buttons.pop(from_idx)
+        moved_var = self._check_vars.pop(from_idx)
+
+        self._entries.insert(to_idx, moved_entry)
+        self._check_buttons.insert(to_idx, moved_cb)
+        self._check_vars.insert(to_idx, moved_var)
+
+        for i, cb in enumerate(self._check_buttons):
+            if cb is not None:
+                cb.configure(command=lambda idx=i: self._on_toggle(idx))
+
+        self._sel_idx = to_idx
+        self._sel_set = {to_idx}
+        self._visible_indices = self._compute_visible_indices()
+        self._redraw()
+        self._update_info()
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._log(f"Set priority for '{moved_entry.name}' to position {value}")
 
     # ------------------------------------------------------------------
     # Persist + info
@@ -6362,6 +6436,126 @@ class _RenameDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+class _PriorityDialog(ctk.CTkToplevel):
+    """Modal dialog to set a mod's position in the modlist."""
+
+    def __init__(self, parent, mod_name: str, total_mods: int):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Set Priority")
+        self.geometry("380x160")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.after(100, self._make_modal)
+
+        self.result: int | None = None
+        self._mod_name = mod_name
+        self._total_mods = total_mods
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+            self._entry.focus_set()
+            self._entry.select_range(0, "end")
+        except Exception:
+            pass
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self,
+            text=f"Set position for '{self._mod_name}'",
+            font=FONT_NORMAL,
+            text_color=TEXT_MAIN,
+            anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 4))
+
+        ctk.CTkLabel(
+            self,
+            text=f"0 = bottom, highest number = top (e.g. {self._total_mods - 1} or higher = top).",
+            font=FONT_SMALL,
+            text_color=TEXT_DIM,
+            anchor="w",
+            justify="left",
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+
+        self._var = tk.StringVar(value="")
+        self._entry = ctk.CTkEntry(
+            self,
+            textvariable=self._var,
+            font=FONT_NORMAL,
+            fg_color=BG_PANEL,
+            text_color=TEXT_MAIN,
+            border_color=BORDER,
+        )
+        self._entry.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 8))
+        self._entry.bind("<Return>", lambda _e: self._on_ok())
+
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=44)
+        bar.grid(row=3, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar,
+            text="Cancel",
+            width=80,
+            height=28,
+            font=FONT_NORMAL,
+            fg_color=BG_HEADER,
+            hover_color=BG_HOVER,
+            text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=8)
+        ctk.CTkButton(
+            bar,
+            text="Set",
+            width=80,
+            height=28,
+            font=FONT_BOLD,
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOV,
+            text_color="white",
+            command=self._on_ok,
+        ).pack(side="right", padx=4, pady=8)
+
+    def _on_ok(self):
+        raw = self._var.get().strip()
+        try:
+            value = int(raw)
+        except ValueError:
+            tk.messagebox.showerror(
+                "Invalid Value",
+                "Please enter a whole number.",
+                parent=self,
+            )
+            return
+        if value < 0:
+            tk.messagebox.showerror(
+                "Invalid Value",
+                "Please enter 0 or a positive number.",
+                parent=self,
+            )
+            return
+        self.result = value
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+    def _on_cancel(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+
 class _ProtonToolsDialog(ctk.CTkToplevel):
     """Modal dialog with Proton-related tools for the selected game."""
 
@@ -8140,6 +8334,9 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
         # --- Copy into staging area ---
         dest_root = game.get_mod_staging_path() / mod_name
+        # Remember whether this mod folder already existed so we can preserve
+        # its position in modlist.txt when performing a replacement.
+        was_existing_mod = dest_root.exists()
         if replace_all and dest_root.exists():
             shutil.rmtree(dest_root)
             log_fn(f"Cleared existing mod folder for clean reinstall.")
@@ -8163,13 +8360,20 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             if added:
                 log_fn(f"plugins.txt: added {added} plugin(s) from '{mod_name}'.")
 
-        # --- Add to modlist.txt (top = highest priority) ---
+        # --- Add to modlist.txt (top = highest priority for new mods) ---
         if mod_panel is not None and mod_panel._modlist_path is not None:
             modlist_path = mod_panel._modlist_path
         else:
             profile_dir = game.get_profile_root() / "profiles" / "default"
             modlist_path = profile_dir / "modlist.txt"
-        prepend_mod(modlist_path, mod_name, enabled=True)
+
+        if was_existing_mod:
+            # When replacing an existing mod, keep its current priority slot.
+            ensure_mod_preserving_position(modlist_path, mod_name, enabled=True)
+        else:
+            # Fresh installs still go to the top of the list.
+            prepend_mod(modlist_path, mod_name, enabled=True)
+
         log_fn(f"Added '{mod_name}' to modlist.")
 
         # --- Auto-detect Nexus metadata (filename parsing + MD5 lookup) ---
