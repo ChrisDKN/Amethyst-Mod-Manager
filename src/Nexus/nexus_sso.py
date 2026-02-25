@@ -32,7 +32,6 @@ Usage
 from __future__ import annotations
 
 import json
-import logging
 import threading
 import uuid
 import webbrowser
@@ -41,8 +40,7 @@ from typing import Callable, Optional
 import websocket  # websocket-client
 
 from version import __version__
-
-log = logging.getLogger(__name__)
+from Utils.app_log import app_log
 
 SSO_WEBSOCKET_URL = "wss://sso.nexusmods.com"
 SSO_AUTH_URL = "https://www.nexusmods.com/sso"
@@ -142,12 +140,12 @@ class NexusSSOClient:
             )
         except Exception as exc:
             if not self._cancelled:
-                log.exception("SSO connection failed")
+                app_log("SSO connection failed")
                 self._on_error(f"SSO connection failed: {exc}")
 
     def _on_open(self, ws: websocket.WebSocketApp) -> None:
         """WebSocket connected — send the SSO handshake."""
-        log.info("SSO WebSocket connected")
+        app_log("SSO WebSocket connected")
         self._on_status("Connected — sending authorisation request...")
 
         payload = {
@@ -163,12 +161,12 @@ class NexusSSOClient:
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
-            log.warning("SSO: unparseable message: %s", raw[:200])
+            app_log(f"SSO: unparseable message: {raw[:200]}")
             return
 
         if not msg.get("success"):
             error = msg.get("error", "Unknown SSO error")
-            log.error("SSO error: %s", error)
+            app_log(f"SSO error: {error}")
             self._on_error(f"SSO error: {error}")
             ws.close()
             return
@@ -178,7 +176,7 @@ class NexusSSOClient:
         # -- Connection token (store for reconnects) --
         if "connection_token" in data:
             self._connection_token = data["connection_token"]
-            log.debug("SSO connection token received")
+            app_log("SSO connection token received")
 
             # Now open the browser for the user to authorise
             if not self._browser_opened:
@@ -190,14 +188,14 @@ class NexusSSOClient:
                 self._on_status(
                     "Opening browser — please authorise the app on Nexus Mods..."
                 )
-                log.info("Opening SSO auth URL: %s", auth_url)
+                app_log(f"Opening SSO auth URL: {auth_url}")
                 webbrowser.open(auth_url)
 
         # -- API key received! --
         if "api_key" in data:
             api_key = data["api_key"]
             self._got_key = True
-            log.info("SSO: API key received successfully")
+            app_log("SSO: API key received successfully")
             self._on_status("API key received!")
             self._on_api_key(api_key)
             ws.close()
@@ -206,7 +204,7 @@ class NexusSSOClient:
         """Handle WebSocket-level errors."""
         if self._cancelled:
             return
-        log.warning("SSO WebSocket error: %s", error)
+        app_log(f"SSO WebSocket error: {error}")
 
     def _on_close(self, ws: websocket.WebSocketApp, close_status: int | None,
                   close_msg: str | None) -> None:
@@ -214,8 +212,7 @@ class NexusSSOClient:
         if self._cancelled or self._got_key:
             return
 
-        log.info("SSO connection closed (status=%s), will reconnect in %.0fs",
-                 close_status, _RECONNECT_DELAY)
+        app_log(f"SSO connection closed (status={close_status}), will reconnect in {_RECONNECT_DELAY:.0f}s")
         self._on_status("Connection lost — reconnecting...")
 
         import time

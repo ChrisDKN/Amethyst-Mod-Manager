@@ -24,7 +24,6 @@ Usage
 from __future__ import annotations
 
 import json
-import logging
 import os
 import re
 import shutil
@@ -37,7 +36,7 @@ from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
-log = logging.getLogger(__name__)
+from Utils.app_log import app_log
 
 # Path for the Unix domain socket used for single-instance IPC
 _SOCKET_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
@@ -180,7 +179,7 @@ class NxmHandler:
         )
 
         desktop_path.write_text(desktop_content)
-        log.info("Wrote NXM .desktop file: %s", desktop_path)
+        app_log(f"Wrote NXM .desktop file: {desktop_path}")
 
         # Register as default handler
         if shutil.which("xdg-mime"):
@@ -191,13 +190,13 @@ class NxmHandler:
                     check=True,
                     capture_output=True,
                 )
-                log.info("Registered nxm:// protocol handler via xdg-mime")
+                app_log("Registered nxm:// protocol handler via xdg-mime")
                 return True
             except subprocess.CalledProcessError as exc:
-                log.warning("xdg-mime default failed: %s", exc.stderr)
+                app_log(f"xdg-mime default failed: {exc.stderr}")
                 return False
 
-        log.warning("xdg-mime not found — nxm:// handler not registered")
+        app_log("xdg-mime not found — nxm:// handler not registered")
         return False
 
     @classmethod
@@ -205,9 +204,9 @@ class NxmHandler:
         """Remove the .desktop file (best-effort)."""
         try:
             cls._desktop_path().unlink(missing_ok=True)
-            log.info("Removed NXM .desktop file")
+            app_log("Removed NXM .desktop file")
         except OSError as exc:
-            log.warning("Could not remove NXM .desktop: %s", exc)
+            app_log(f"Could not remove NXM .desktop: {exc}")
 
     @classmethod
     def is_registered(cls) -> bool:
@@ -261,10 +260,10 @@ class NxmIPC:
             payload = json.dumps({"nxm_url": nxm_url}).encode("utf-8")
             sock.sendall(payload)
             sock.close()
-            log.info("Sent NXM link to running instance")
+            app_log("Sent NXM link to running instance")
             return True
         except (ConnectionRefusedError, FileNotFoundError, OSError) as exc:
-            log.debug("No running instance to hand off to: %s", exc)
+            app_log(f"No running instance to hand off to: {exc}")
             # Stale socket — clean up
             _SOCKET_PATH.unlink(missing_ok=True)
             return False
@@ -298,17 +297,17 @@ class NxmIPC:
                         msg = json.loads(data.decode("utf-8"))
                         url = msg.get("nxm_url", "")
                         if url:
-                            log.info("Received NXM link from new instance: %s", url)
+                            app_log(f"Received NXM link from new instance: {url}")
                             callback(url)
                 except Exception as exc:
-                    log.warning("Error handling IPC message: %s", exc)
+                    app_log(f"Error handling IPC message: {exc}")
                 finally:
                     conn.close()
 
         t = threading.Thread(target=_accept_loop, daemon=True, name="nxm-ipc")
         t.start()
         cls._thread = t
-        log.info("NXM IPC server listening on %s", _SOCKET_PATH)
+        app_log(f"NXM IPC server listening on {_SOCKET_PATH}")
 
     @classmethod
     def shutdown(cls) -> None:

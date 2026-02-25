@@ -17,15 +17,12 @@ Usage::
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
 from Nexus.nexus_api import NexusAPI, NexusAPIError
 from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, read_meta, write_meta
-
-log = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[str], None]
 

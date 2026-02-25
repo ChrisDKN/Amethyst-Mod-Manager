@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import urllib.request
 import webbrowser
 import tkinter as tk
 import tkinter.messagebox
@@ -22,6 +23,8 @@ from PIL import Image as PilImage, ImageTk
 from gui.fomod_dialog import FomodDialog
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
 from gui.nexus_settings_dialog import NexusSettingsDialog
+from gui.modlist_filters_dialog import ModlistFiltersDialog
+from gui.backup_restore_dialog import BackupRestoreDialog
 from gui.wizard_dialog import WizardDialog
 from gui.downloads_panel import DownloadsPanel
 from gui.tracked_mods_panel import TrackedModsPanel
@@ -30,6 +33,7 @@ from gui.browse_mods_panel import BrowseModsPanel
 from gui.ctk_components import CTkTreeview
 from Games.base_game import BaseGame
 from Utils.fomod_installer import resolve_files
+from Utils.profile_backup import create_backup
 from version import __version__
 from Utils.fomod_parser import detect_fomod, parse_module_config
 from Utils.game_loader import discover_games
@@ -37,7 +41,13 @@ from Utils.filemap import (build_filemap, CONFLICT_NONE, CONFLICT_WINS,
                            CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL,
                            OVERWRITE_NAME, ROOT_FOLDER_NAME)
 from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode
-from Utils.modlist import ModEntry, read_modlist, write_modlist, prepend_mod
+from Utils.modlist import (
+    ModEntry,
+    read_modlist,
+    write_modlist,
+    prepend_mod,
+    ensure_mod_preserving_position,
+)
 from Utils.plugins import (
     PluginEntry, read_plugins, write_plugins, append_plugin,
     read_loadorder, write_loadorder,
@@ -46,6 +56,7 @@ from Utils.plugins import (
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
 from Utils.config_paths import get_config_dir, get_exe_args_path, get_fomod_selections_path, get_profiles_dir, get_last_game_path
+from Utils.app_log import set_app_log
 from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
 from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
 from Nexus.nexus_download import NexusDownloader
@@ -371,6 +382,13 @@ class ModListPanel(ctk.CTkFrame):
 
         # Search/filter
         self._filter_text: str = ""
+        self._filter_show_disabled: bool = False
+        self._filter_show_enabled: bool = False
+        self._filter_hide_separators: bool = False
+        self._filter_conflict_winning: bool = False
+        self._filter_conflict_losing: bool = False
+        self._filter_conflict_partial: bool = False
+        self._filter_conflict_full: bool = False
         self._visible_indices: list[int] = []  # entry indices matching current filter
 
         # Column sorting (visual only — never touches modlist.txt)
@@ -403,6 +421,8 @@ class ModListPanel(ctk.CTkFrame):
             self._game = None
             self._modlist_path = None
             self._reload()
+            if hasattr(self, "_restore_backup_btn"):
+                self._restore_backup_btn.configure(state="disabled")
             return
         self._game = game
         profile_dir = game.get_profile_root() / "profiles" / profile
@@ -411,6 +431,8 @@ class ModListPanel(ctk.CTkFrame):
         self._install_extensions = getattr(game, "mod_install_extensions", set())
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
         self._reload()
+        if hasattr(self, "_restore_backup_btn"):
+            self._restore_backup_btn.configure(state="normal")
 
     def reload_after_install(self):
         self._reload()
@@ -475,6 +497,16 @@ class ModListPanel(ctk.CTkFrame):
             command=self._move_down
         ).pack(side="left", padx=4, pady=5)
 
+        # Expand/Collapse all separators toggle
+        self._expand_collapse_all_btn = ctk.CTkButton(
+            bar, text="Expand all", width=90, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._toggle_all_separators
+        )
+        self._expand_collapse_all_btn.pack(side="left", padx=4, pady=5)
+        self._update_expand_collapse_all_btn()
+
         # Check for Nexus mod updates button
         self._update_btn = ctk.CTkButton(
             bar, text="Check Updates", width=110, height=26,
@@ -483,6 +515,22 @@ class ModListPanel(ctk.CTkFrame):
             command=self._on_check_updates
         )
         self._update_btn.pack(side="left", padx=4, pady=5)
+
+        ctk.CTkButton(
+            bar, text="Filters", width=80, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._on_open_filters
+        ).pack(side="left", padx=4, pady=5)
+
+        self._restore_backup_btn = ctk.CTkButton(
+            bar, text="Restore backup", width=110, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._on_restore_backup,
+            state="disabled",
+        )
+        self._restore_backup_btn.pack(side="left", padx=4, pady=5)
 
         # Refresh button (icon only)
         refresh_icon = _load_icon("refresh.png", size=(16, 16))
@@ -771,6 +819,7 @@ class ModListPanel(ctk.CTkFrame):
                 ))
         self._load_sep_locks()
         self._load_collapsed()
+        self._update_expand_collapse_all_btn()
         self._scan_update_flags()
         self._scan_missing_reqs_flags()
         self._scan_endorsed_flags()
@@ -1312,7 +1361,59 @@ class ModListPanel(ctk.CTkFrame):
                 elif not skip:
                     base.append(i)
 
-        # Step 2: apply column sort (visual only)
+        # Step 2: hide separators filter
+        if self._filter_hide_separators:
+            base = [i for i in base if not self._entries[i].is_separator]
+
+        # Step 3: enabled/disabled filter
+        # When showing only disabled (or only enabled), keep separators only if their
+        # block has at least one matching mod; otherwise the separator is hidden.
+        if self._filter_show_disabled and not self._filter_show_enabled:
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_disabled(i):
+                        result.append(i)
+                elif not entry.enabled:
+                    result.append(i)
+            base = result
+        elif self._filter_show_enabled and not self._filter_show_disabled:
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_enabled(i):
+                        result.append(i)
+                elif entry.enabled:
+                    result.append(i)
+            base = result
+        # if both or neither: no enabled-state filter
+
+        # Step 4: conflict type filter
+        # When filtering by conflict type, keep separators only if their block has at least one matching mod.
+        if (self._filter_conflict_winning or self._filter_conflict_losing
+                or self._filter_conflict_partial or self._filter_conflict_full):
+            allowed = set()
+            if self._filter_conflict_winning:
+                allowed.add(CONFLICT_WINS)
+            if self._filter_conflict_losing:
+                allowed.add(CONFLICT_LOSES)
+            if self._filter_conflict_partial:
+                allowed.add(CONFLICT_PARTIAL)
+            if self._filter_conflict_full:
+                allowed.add(CONFLICT_FULL)
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_conflict_in(i, allowed):
+                        result.append(i)
+                elif self._conflict_map.get(entry.name, CONFLICT_NONE) in allowed:
+                    result.append(i)
+            base = result
+
+        # Step 5: apply column sort (visual only)
         if self._sort_column is not None:
             base = self._apply_column_sort(base)
         return base
@@ -1495,7 +1596,6 @@ class ModListPanel(ctk.CTkFrame):
                 self._redraw()
                 self._update_info()
                 label = "Overwrite" if self._entries[idx].name == OVERWRITE_NAME else "Root Folder"
-                self._log(f"Selected: {label}")
                 if self._on_mod_selected_cb is not None:
                     self._on_mod_selected_cb()
             else:
@@ -1557,7 +1657,6 @@ class ModListPanel(ctk.CTkFrame):
             self._on_mod_selected_cb()
         self._redraw()
         self._update_info()
-        self._log(f"Selected: {self._entries[idx].name}")
         if self._entries[idx].locked:
             # * entries are selectable but not draggable
             self._drag_idx = -1
@@ -1605,6 +1704,28 @@ class ModListPanel(ctk.CTkFrame):
         while end < len(self._entries) and not self._entries[end].is_separator:
             end += 1
         return range(sep_idx, end)
+
+    def _sep_block_has_disabled(self, sep_idx: int) -> bool:
+        """True if this separator's block contains at least one disabled mod."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator and not self._entries[i].enabled:
+                return True
+        return False
+
+    def _sep_block_has_enabled(self, sep_idx: int) -> bool:
+        """True if this separator's block contains at least one enabled mod."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator and self._entries[i].enabled:
+                return True
+        return False
+
+    def _sep_block_has_conflict_in(self, sep_idx: int, allowed: set) -> bool:
+        """True if this separator's block contains at least one mod whose conflict status is in allowed."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator:
+                if self._conflict_map.get(self._entries[i].name, CONFLICT_NONE) in allowed:
+                    return True
+        return False
 
     def _on_mouse_drag(self, event):
         if self._drag_idx < 0 or not self._entries:
@@ -1708,7 +1829,6 @@ class ModListPanel(ctk.CTkFrame):
                 self._sel_idx = clicked
                 self._sel_set = {clicked}
                 self._update_info()
-                self._log(f"Selected: {self._entries[clicked].name}")
         self._drag_idx = -1
         self._drag_origin_idx = -1
         self._drag_moved = False
@@ -1820,6 +1940,7 @@ class ModListPanel(ctk.CTkFrame):
             items.append(("Remove separator", lambda: self._remove_separator(idx), False))
         elif not is_separator and not self._entries[idx].locked:
             items.append(("Rename mod", lambda: self._rename_mod(idx), False))
+            items.append(("Set priority…", lambda i=idx: self._set_priority(i), False))
             items.append(("Remove mod", lambda: self._remove_mod(idx), False))
             # Move to separator — collect separator names now so they're stable
             sep_names = [e.name for e in self._entries
@@ -2053,6 +2174,37 @@ class ModListPanel(ctk.CTkFrame):
         else:
             self._collapsed_seps.add(sep_name)
         self._save_collapsed()
+        self._update_expand_collapse_all_btn()
+        self._redraw()
+
+    def _toggleable_separator_names(self) -> list[str]:
+        """Separator names that can be collapsed (excludes Overwrite and Root Folder)."""
+        return [e.name for e in self._entries
+                if e.is_separator and e.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)]
+
+    def _update_expand_collapse_all_btn(self) -> None:
+        if not getattr(self, "_expand_collapse_all_btn", None):
+            return
+        sep_names = self._toggleable_separator_names()
+        if not sep_names:
+            self._expand_collapse_all_btn.configure(text="Expand all")
+            return
+        any_collapsed = any(s in self._collapsed_seps for s in sep_names)
+        self._expand_collapse_all_btn.configure(
+            text="Expand all" if any_collapsed else "Collapse all"
+        )
+
+    def _toggle_all_separators(self) -> None:
+        sep_names = self._toggleable_separator_names()
+        if not sep_names:
+            return
+        sep_set = set(sep_names)
+        if all(s in self._collapsed_seps for s in sep_names):
+            self._collapsed_seps -= sep_set
+        else:
+            self._collapsed_seps |= sep_set
+        self._save_collapsed()
+        self._update_expand_collapse_all_btn()
         self._redraw()
 
     def _remove_separator(self, idx: int):
@@ -2069,6 +2221,7 @@ class ModListPanel(ctk.CTkFrame):
             self._save_sep_locks()
             self._collapsed_seps.discard(sname)
             self._save_collapsed()
+            self._update_expand_collapse_all_btn()
             if self._sel_idx == idx:
                 self._sel_idx = -1
             elif self._sel_idx > idx:
@@ -2238,6 +2391,7 @@ class ModListPanel(ctk.CTkFrame):
             self._collapsed_seps.discard(old_name)
             self._collapsed_seps.add(new_name)
             self._save_collapsed()
+            self._update_expand_collapse_all_btn()
         if old_name in self._sep_locks:
             self._sep_locks[new_name] = self._sep_locks.pop(old_name)
             self._save_sep_locks()
@@ -2750,9 +2904,12 @@ class ModListPanel(ctk.CTkFrame):
 
         def _worker():
             try:
-                api.endorse_mod(domain, meta.mod_id, meta.version)
-                def _done():
+                result = api.endorse_mod(domain, meta.mod_id, meta.version)
+                def _done(res):
                     log_fn(f"Nexus: Endorsed '{mod_name}' ({meta.mod_id}).")
+                    if res is not None:
+                        body = json.dumps(res, indent=None)
+                        log_fn(f"  Response: {body[:500]}{'...' if len(body) > 500 else ''}")
                     # Update meta.ini
                     try:
                         if self._modlist_path is not None:
@@ -2766,7 +2923,7 @@ class ModListPanel(ctk.CTkFrame):
                         pass
                     self._endorsed_mods.add(mod_name)
                     self._redraw()
-                app.after(0, _done)
+                app.after(0, lambda: _done(result))
             except Exception as exc:
                 app.after(0, lambda: log_fn(f"Nexus: Endorse failed — {exc}"))
 
@@ -2783,9 +2940,12 @@ class ModListPanel(ctk.CTkFrame):
 
         def _worker():
             try:
-                api.abstain_mod(domain, meta.mod_id, meta.version)
-                def _done():
+                result = api.abstain_mod(domain, meta.mod_id, meta.version)
+                def _done(res):
                     log_fn(f"Nexus: Abstained from '{mod_name}' ({meta.mod_id}).")
+                    if res is not None:
+                        body = json.dumps(res, indent=None)
+                        log_fn(f"  Response: {body[:500]}{'...' if len(body) > 500 else ''}")
                     # Update meta.ini
                     try:
                         if self._modlist_path is not None:
@@ -2799,7 +2959,7 @@ class ModListPanel(ctk.CTkFrame):
                         pass
                     self._endorsed_mods.discard(mod_name)
                     self._redraw()
-                app.after(0, _done)
+                app.after(0, lambda: _done(result))
             except Exception as exc:
                 app.after(0, lambda: log_fn(f"Nexus: Abstain failed — {exc}"))
 
@@ -3143,6 +3303,55 @@ class ModListPanel(ctk.CTkFrame):
 
         threading.Thread(target=_worker, daemon=True).start()
 
+    def _on_open_filters(self):
+        """Open the modlist filters dialog."""
+        state = {
+            "filter_show_disabled": self._filter_show_disabled,
+            "filter_show_enabled": self._filter_show_enabled,
+            "filter_hide_separators": self._filter_hide_separators,
+            "filter_winning": self._filter_conflict_winning,
+            "filter_losing": self._filter_conflict_losing,
+            "filter_partial": self._filter_conflict_partial,
+            "filter_full": self._filter_conflict_full,
+        }
+        ModlistFiltersDialog(
+            self.winfo_toplevel(),
+            initial_state=state,
+            on_apply=self._apply_modlist_filters,
+        )
+
+    def _on_restore_backup(self):
+        """Open the backup restore dialog for the current profile."""
+        if not self._modlist_path or not self._modlist_path.parent.is_dir():
+            return
+        app = self.winfo_toplevel()
+        profile_dir = self._modlist_path.parent
+        profile_name = getattr(
+            getattr(app, "_topbar", None),
+            "_profile_var",
+            None,
+        )
+        profile_name = profile_name.get() if profile_name is not None else "default"
+        dlg = BackupRestoreDialog(
+            app,
+            profile_dir,
+            profile_name=profile_name,
+            on_restored=lambda: app._topbar._reload_mod_panel(),
+        )
+        app.wait_window(dlg)
+
+    def _apply_modlist_filters(self, state: dict):
+        """Apply filter state from the filters dialog and redraw."""
+        self._filter_show_disabled = state.get("filter_show_disabled", False)
+        self._filter_show_enabled = state.get("filter_show_enabled", False)
+        self._filter_hide_separators = state.get("filter_hide_separators", False)
+        self._filter_conflict_winning = state.get("filter_winning", False)
+        self._filter_conflict_losing = state.get("filter_losing", False)
+        self._filter_conflict_partial = state.get("filter_partial", False)
+        self._filter_conflict_full = state.get("filter_full", False)
+        self._visible_indices = self._compute_visible_indices()
+        self._redraw()
+
     def _move_up(self):
         indices = sorted(self._sel_set) if self._sel_set else (
             [self._sel_idx] if self._sel_idx >= 0 else []
@@ -3191,6 +3400,73 @@ class ModListPanel(ctk.CTkFrame):
         sorted_fwd = sorted(indices)
         label = self._entries[sorted_fwd[0] + 1].name if len(indices) == 1 else f"{len(indices)} items"
         self._log(f"Moved '{label}' down")
+
+    def _set_priority(self, idx: int):
+        """Prompt for a target position and move the mod there.
+
+        Priority: 0 = bottom (lowest), highest number = top. So e.g. with 200 mods,
+        entering 0 puts the mod at the bottom; entering 199 or 470 puts it at the top.
+        """
+        if not (0 <= idx < len(self._entries)):
+            return
+        entry = self._entries[idx]
+        if entry.is_separator or entry.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
+            return
+        if entry.locked:
+            return
+
+        mod_indices = [
+            i for i, e in enumerate(self._entries)
+            if not e.is_separator and e.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+        ]
+        total_mods = len(mod_indices)
+        if total_mods <= 1:
+            return
+
+        top = self.winfo_toplevel()
+        dlg = _PriorityDialog(top, entry.name, total_mods)
+        top.wait_window(dlg)
+        value = dlg.result
+        if value is None:
+            return
+
+        # 0 = bottom (rank total_mods-1), highest = top (rank 0)
+        target_rank = total_mods - 1 - min(value, total_mods - 1)
+
+        try:
+            current_rank = mod_indices.index(idx)
+        except ValueError:
+            return
+
+        if target_rank == current_rank:
+            return
+
+        target_idx = mod_indices[target_rank]
+        from_idx = idx
+        to_idx = target_idx
+        if from_idx < to_idx:
+            to_idx -= 1
+
+        moved_entry = self._entries.pop(from_idx)
+        moved_cb = self._check_buttons.pop(from_idx)
+        moved_var = self._check_vars.pop(from_idx)
+
+        self._entries.insert(to_idx, moved_entry)
+        self._check_buttons.insert(to_idx, moved_cb)
+        self._check_vars.insert(to_idx, moved_var)
+
+        for i, cb in enumerate(self._check_buttons):
+            if cb is not None:
+                cb.configure(command=lambda idx=i: self._on_toggle(idx))
+
+        self._sel_idx = to_idx
+        self._sel_set = {to_idx}
+        self._visible_indices = self._compute_visible_indices()
+        self._redraw()
+        self._update_info()
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._log(f"Set priority for '{moved_entry.name}' to position {value}")
 
     # ------------------------------------------------------------------
     # Persist + info
@@ -3293,7 +3569,7 @@ class ModListPanel(ctk.CTkFrame):
 # PluginPanel
 # ---------------------------------------------------------------------------
 class PluginPanel(ctk.CTkFrame):
-    """Right panel: tabview with Plugins, Archives, Data, Saves, Downloads, Tracked."""
+    """Right panel: tabview with Plugins, Archives, Data, Downloads, Tracked."""
 
     PLUGIN_HEADERS = ["", "Plugin Name", "Flags", "🔒", "Index"]
     ROW_H = 26
@@ -3415,7 +3691,7 @@ class PluginPanel(ctk.CTkFrame):
         )
         self._tabs.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
 
-        for name in ("Plugins", "Archives", "Data", "Saves", "Downloads", "Tracked", "Endorsed", "Browse"):
+        for name in ("Plugins", "Archives", "Data", "Downloads", "Tracked", "Endorsed", "Browse"):
             self._tabs.add(name)
 
         self._build_plugins_tab()
@@ -3425,7 +3701,7 @@ class PluginPanel(ctk.CTkFrame):
         self._build_endorsed_tab()
         self._build_browse_tab()
 
-        for name in ("Archives", "Saves"):
+        for name in ("Archives",):
             tab = self._tabs.tab(name)
             tab.grid_rowconfigure(0, weight=1)
             tab.grid_columnconfigure(0, weight=1)
@@ -5054,7 +5330,6 @@ class PluginPanel(ctk.CTkFrame):
         self._drag_slot = -1
         self._predraw()
         plugin_name = self._plugin_entries[idx].name
-        self._log(f"Selected plugin: {plugin_name}")
         if self._on_mod_selected_cb is not None:
             self._on_mod_selected_cb()
         if self._on_plugin_selected_cb is not None:
@@ -5231,7 +5506,6 @@ class PluginPanel(ctk.CTkFrame):
             if clicked in self._psel_set:
                 self._sel_idx = clicked
                 self._psel_set = {clicked}
-                self._log(f"Selected plugin: {self._plugin_entries[clicked].name}")
         self._drag_idx = -1
         self._drag_moved = False
         self._drag_slot = -1
@@ -5727,6 +6001,13 @@ class TopBar(ctk.CTkFrame):
                 if root_folder_dir.is_dir() and game_root:
                     restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
 
+                # Backup modlist/plugins before deploy
+                profile_dir = game.get_profile_root() / "profiles" / profile
+                try:
+                    create_backup(profile_dir, _tlog)
+                except Exception as backup_err:
+                    _tlog(f"Backup skipped: {backup_err}")
+
                 deploy_mode = game.get_deploy_mode() if hasattr(game, "get_deploy_mode") else LinkMode.HARDLINK
                 game.deploy(log_fn=_tlog, profile=profile, progress_fn=_progress,
                             mode=deploy_mode)
@@ -6197,13 +6478,133 @@ class _RenameDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+class _PriorityDialog(ctk.CTkToplevel):
+    """Modal dialog to set a mod's position in the modlist."""
+
+    def __init__(self, parent, mod_name: str, total_mods: int):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Set Priority")
+        self.geometry("380x160")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.after(100, self._make_modal)
+
+        self.result: int | None = None
+        self._mod_name = mod_name
+        self._total_mods = total_mods
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+            self._entry.focus_set()
+            self._entry.select_range(0, "end")
+        except Exception:
+            pass
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self,
+            text=f"Set position for '{self._mod_name}'",
+            font=FONT_NORMAL,
+            text_color=TEXT_MAIN,
+            anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 4))
+
+        ctk.CTkLabel(
+            self,
+            text=f"0 = bottom, highest number = top (e.g. {self._total_mods - 1} or higher = top).",
+            font=FONT_SMALL,
+            text_color=TEXT_DIM,
+            anchor="w",
+            justify="left",
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+
+        self._var = tk.StringVar(value="")
+        self._entry = ctk.CTkEntry(
+            self,
+            textvariable=self._var,
+            font=FONT_NORMAL,
+            fg_color=BG_PANEL,
+            text_color=TEXT_MAIN,
+            border_color=BORDER,
+        )
+        self._entry.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 8))
+        self._entry.bind("<Return>", lambda _e: self._on_ok())
+
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=44)
+        bar.grid(row=3, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar,
+            text="Cancel",
+            width=80,
+            height=28,
+            font=FONT_NORMAL,
+            fg_color=BG_HEADER,
+            hover_color=BG_HOVER,
+            text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=8)
+        ctk.CTkButton(
+            bar,
+            text="Set",
+            width=80,
+            height=28,
+            font=FONT_BOLD,
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOV,
+            text_color="white",
+            command=self._on_ok,
+        ).pack(side="right", padx=4, pady=8)
+
+    def _on_ok(self):
+        raw = self._var.get().strip()
+        try:
+            value = int(raw)
+        except ValueError:
+            tk.messagebox.showerror(
+                "Invalid Value",
+                "Please enter a whole number.",
+                parent=self,
+            )
+            return
+        if value < 0:
+            tk.messagebox.showerror(
+                "Invalid Value",
+                "Please enter 0 or a positive number.",
+                parent=self,
+            )
+            return
+        self.result = value
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+    def _on_cancel(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+
 class _ProtonToolsDialog(ctk.CTkToplevel):
     """Modal dialog with Proton-related tools for the selected game."""
 
     def __init__(self, parent, game, log_fn):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title("Proton Tools")
-        self.geometry("340x280")
+        self.geometry("340x314")
         self.resizable(False, False)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -6251,6 +6652,10 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             body, text="Browse prefix", command=self._browse_prefix, **btn_cfg
+        ).pack(pady=(0, 6))
+
+        ctk.CTkButton(
+            body, text="Open game folder", command=self._open_game_folder, **btn_cfg
         ).pack(pady=(0, 6))
 
     # ------------------------------------------------------------------
@@ -6342,6 +6747,24 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         def _launch():
             log(f"Proton Tools: opening prefix folder …")
+            try:
+                subprocess.Popen(["xdg-open", path])
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+
+        self._close_and_run(_launch)
+
+    def _open_game_folder(self):
+        game_path = self._game.get_game_path()
+        if game_path is None or not game_path.is_dir():
+            self._log("Proton Tools: game folder not configured or not found.")
+            return
+
+        log = self._log
+        path = str(game_path)
+
+        def _launch():
+            log("Proton Tools: opening game folder …")
             try:
                 subprocess.Popen(["xdg-open", path])
             except Exception as e:
@@ -7953,6 +8376,9 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
         # --- Copy into staging area ---
         dest_root = game.get_mod_staging_path() / mod_name
+        # Remember whether this mod folder already existed so we can preserve
+        # its position in modlist.txt when performing a replacement.
+        was_existing_mod = dest_root.exists()
         if replace_all and dest_root.exists():
             shutil.rmtree(dest_root)
             log_fn(f"Cleared existing mod folder for clean reinstall.")
@@ -7976,13 +8402,20 @@ def _install_mod_from_archive(archive_path: str, parent_window, log_fn,
             if added:
                 log_fn(f"plugins.txt: added {added} plugin(s) from '{mod_name}'.")
 
-        # --- Add to modlist.txt (top = highest priority) ---
+        # --- Add to modlist.txt (top = highest priority for new mods) ---
         if mod_panel is not None and mod_panel._modlist_path is not None:
             modlist_path = mod_panel._modlist_path
         else:
             profile_dir = game.get_profile_root() / "profiles" / "default"
             modlist_path = profile_dir / "modlist.txt"
-        prepend_mod(modlist_path, mod_name, enabled=True)
+
+        if was_existing_mod:
+            # When replacing an existing mod, keep its current priority slot.
+            ensure_mod_preserving_position(modlist_path, mod_name, enabled=True)
+        else:
+            # Fresh installs still go to the top of the list.
+            prepend_mod(modlist_path, mod_name, enabled=True)
+
         log_fn(f"Added '{mod_name}' to modlist.")
 
         # --- Auto-detect Nexus metadata (filename parsing + MD5 lookup) ---
@@ -8176,6 +8609,53 @@ class StatusBar(ctk.CTkFrame):
         self._textbox.insert("end", f"[{timestamp}]  {message}\n")
         self._textbox.see("end")
         self._textbox.configure(state="disabled")
+        # Append to log file with full timestamp
+        try:
+            log_path = get_config_dir() / "amethyst.log"
+            with open(log_path, "a", encoding="utf-8") as f:
+                full_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{full_ts}]  {message}\n")
+        except OSError:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# App update check
+# ---------------------------------------------------------------------------
+_APP_UPDATE_VERSION_URL = "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/version.py"
+_APP_UPDATE_RELEASES_URL = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases"
+
+
+def _parse_version(s: str) -> tuple[int, ...]:
+    """Convert a version string like '0.3.0' to a tuple of ints for comparison."""
+    out = []
+    for part in s.strip().split("."):
+        part = re.sub(r"[^0-9].*$", "", part)
+        out.append(int(part) if part.isdigit() else 0)
+    return tuple(out) if out else (0,)
+
+
+def _fetch_latest_version() -> str | None:
+    """Fetch the latest __version__ from the repo; return None on error."""
+    try:
+        req = urllib.request.Request(
+            _APP_UPDATE_VERSION_URL,
+            headers={"User-Agent": "Amethyst-Mod-Manager"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+        m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', body)
+        return m.group(1).strip() if m else None
+    except Exception:
+        return None
+
+
+def _is_newer_version(current: str, latest: str) -> bool:
+    """Return True if latest is newer than current (strictly greater)."""
+    try:
+        return _parse_version(latest) > _parse_version(current)
+    except (ValueError, TypeError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -8201,6 +8681,8 @@ class App(ctk.CTk):
         self._startup_log()
         # Process --nxm argument if the app was launched via protocol handler
         self._handle_nxm_argv()
+        # Check for app update after a short delay (non-blocking)
+        self.after(2000, self._check_for_app_update)
         icon_path = Path(__file__).parent / "icons" / "title-bar.png"
         if icon_path.is_file():
             icon_img = tk.PhotoImage(file=str(icon_path))
@@ -8259,6 +8741,31 @@ class App(ctk.CTk):
             self._nexus_username = None
             # Update title synchronously when key is absent / cleared
             self.after(0, self._update_window_title)
+
+    # -- App update check ---------------------------------------------------
+
+    def _check_for_app_update(self):
+        """Run in background: fetch latest version and prompt to download if newer."""
+
+        def _do_check():
+            latest = _fetch_latest_version()
+            if latest is None:
+                return
+            if _is_newer_version(__version__, latest):
+
+                def _show():
+                    msg = (
+                        f"A new version of Amethyst Mod Manager is available.\n\n"
+                        f"Current: {__version__}\n"
+                        f"Latest:  {latest}\n\n"
+                        "Open the releases page to download?"
+                    )
+                    if tk.messagebox.askyesno("Update available", msg, parent=self):
+                        webbrowser.open(_APP_UPDATE_RELEASES_URL)
+
+                self.call_threadsafe(_show)
+
+        threading.Thread(target=_do_check, daemon=True).start()
 
     # -- NXM protocol handling ----------------------------------------------
 
@@ -8429,6 +8936,7 @@ class App(ctk.CTk):
         self._status.grid(row=2, column=0, sticky="ew")
 
         log = self._status.log
+        set_app_log(log, self.after)
 
         self._topbar = TopBar(self, log_fn=log)
         self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))

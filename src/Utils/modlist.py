@@ -102,3 +102,27 @@ def prepend_mod(modlist_path: Path, mod_name: str, enabled: bool = True) -> None
     entries = [e for e in entries if e.name != mod_name]
     entries.insert(0, ModEntry(name=mod_name, enabled=enabled, locked=False))
     write_modlist(modlist_path, entries)
+
+
+def ensure_mod_preserving_position(
+    modlist_path: Path,
+    mod_name: str,
+    enabled: bool = True,
+) -> None:
+    """
+    Ensure a mod exists in modlist.txt without changing its existing position.
+
+    If an entry with the same name already exists, its order is preserved and
+    only the enabled flag is updated. If no entry exists, the mod is added at
+    the top (highest priority), matching prepend_mod's behaviour for new mods.
+    """
+    entries = read_modlist(modlist_path)
+    for e in entries:
+        if e.name == mod_name:
+            e.enabled = enabled
+            write_modlist(modlist_path, entries)
+            return
+
+    # If not already present, add as a new top-priority entry.
+    entries.insert(0, ModEntry(name=mod_name, enabled=enabled, locked=False))
+    write_modlist(modlist_path, entries)

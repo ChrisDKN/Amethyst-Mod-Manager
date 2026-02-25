@@ -159,6 +159,8 @@ class EndorsedModsPanel:
         )
         self._vsb = tk.Scrollbar(
             canvas_frame, orient="vertical", command=self._canvas.yview,
+            bg="#383838", troughcolor=BG_DEEP, activebackground=ACCENT,
+            highlightthickness=0, bd=0,
         )
         self._canvas.configure(yscrollcommand=self._vsb.set)
         self._canvas.grid(row=0, column=0, sticky="nsew")

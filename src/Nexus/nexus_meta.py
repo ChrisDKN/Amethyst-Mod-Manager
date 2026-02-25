@@ -26,14 +26,13 @@ This module provides:
 from __future__ import annotations
 
 import configparser
-import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-log = logging.getLogger(__name__)
+from Utils.app_log import app_log
 
 
 @dataclass
@@ -195,7 +194,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     with open(meta_ini_path, "w", encoding="utf-8") as f:
         cp.write(f)
 
-    log.debug("Wrote meta.ini: %s", meta_ini_path)
+    app_log(f"Wrote meta.ini: {meta_ini_path}")
 
 
 def build_meta_from_download(
