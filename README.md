@@ -1,13 +1,13 @@
 
 <p align="center">
-    <img width="250" src="icons/Logo.png" alt="Logo">
+    <img width="250" src="src/icons/Logo.png" alt="Logo">
 </p>
 <h1 align="center">Amethyst Mod Manager</h1>
 
 <h3 align="center">A mod manager for Linux.</h3>
 
 <p align="center">
-    <img width="800" src="icons/ui.png" alt="ui">
+    <img width="800" src="src/icons/ui.png" alt="ui">
 </p>
 
 ## Key Features
@@ -36,6 +36,7 @@
 - Baldur's Gate 3
 - Cyberpunk 2077
 - Witcher 3
+- Kingdom Come: Deliverance II
 - Subnautica
 - Subnautica Below Zero
 - Valheim
@@ -43,13 +44,13 @@
 - Stardew Valley
 - The Sims 4
 - Lethal Company
+- Mewgenics
 
 ### Game Support to Add
 
 - Oblivion Remastered
 - Morrowind
 - Hogwarts Legacy
-- KCD2
 - And more
 
 ## Supporting Applications
