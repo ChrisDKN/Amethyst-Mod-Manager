@@ -23,6 +23,7 @@ from PIL import Image as PilImage, ImageTk
 from gui.fomod_dialog import FomodDialog
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
 from gui.nexus_settings_dialog import NexusSettingsDialog
+from gui.modlist_filters_dialog import ModlistFiltersDialog
 from gui.wizard_dialog import WizardDialog
 from gui.downloads_panel import DownloadsPanel
 from gui.tracked_mods_panel import TrackedModsPanel
@@ -373,6 +374,13 @@ class ModListPanel(ctk.CTkFrame):
 
         # Search/filter
         self._filter_text: str = ""
+        self._filter_show_disabled: bool = False
+        self._filter_show_enabled: bool = False
+        self._filter_hide_separators: bool = False
+        self._filter_conflict_winning: bool = False
+        self._filter_conflict_losing: bool = False
+        self._filter_conflict_partial: bool = False
+        self._filter_conflict_full: bool = False
         self._visible_indices: list[int] = []  # entry indices matching current filter
 
         # Column sorting (visual only — never touches modlist.txt)
@@ -477,6 +485,16 @@ class ModListPanel(ctk.CTkFrame):
             command=self._move_down
         ).pack(side="left", padx=4, pady=5)
 
+        # Expand/Collapse all separators toggle
+        self._expand_collapse_all_btn = ctk.CTkButton(
+            bar, text="Expand all", width=90, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._toggle_all_separators
+        )
+        self._expand_collapse_all_btn.pack(side="left", padx=4, pady=5)
+        self._update_expand_collapse_all_btn()
+
         # Check for Nexus mod updates button
         self._update_btn = ctk.CTkButton(
             bar, text="Check Updates", width=110, height=26,
@@ -485,6 +503,13 @@ class ModListPanel(ctk.CTkFrame):
             command=self._on_check_updates
         )
         self._update_btn.pack(side="left", padx=4, pady=5)
+
+        ctk.CTkButton(
+            bar, text="Filters", width=80, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_SMALL,
+            command=self._on_open_filters
+        ).pack(side="left", padx=4, pady=5)
 
         # Refresh button (icon only)
         refresh_icon = _load_icon("refresh.png", size=(16, 16))
@@ -773,6 +798,7 @@ class ModListPanel(ctk.CTkFrame):
                 ))
         self._load_sep_locks()
         self._load_collapsed()
+        self._update_expand_collapse_all_btn()
         self._scan_update_flags()
         self._scan_missing_reqs_flags()
         self._scan_endorsed_flags()
@@ -1314,7 +1340,59 @@ class ModListPanel(ctk.CTkFrame):
                 elif not skip:
                     base.append(i)
 
-        # Step 2: apply column sort (visual only)
+        # Step 2: hide separators filter
+        if self._filter_hide_separators:
+            base = [i for i in base if not self._entries[i].is_separator]
+
+        # Step 3: enabled/disabled filter
+        # When showing only disabled (or only enabled), keep separators only if their
+        # block has at least one matching mod; otherwise the separator is hidden.
+        if self._filter_show_disabled and not self._filter_show_enabled:
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_disabled(i):
+                        result.append(i)
+                elif not entry.enabled:
+                    result.append(i)
+            base = result
+        elif self._filter_show_enabled and not self._filter_show_disabled:
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_enabled(i):
+                        result.append(i)
+                elif entry.enabled:
+                    result.append(i)
+            base = result
+        # if both or neither: no enabled-state filter
+
+        # Step 4: conflict type filter
+        # When filtering by conflict type, keep separators only if their block has at least one matching mod.
+        if (self._filter_conflict_winning or self._filter_conflict_losing
+                or self._filter_conflict_partial or self._filter_conflict_full):
+            allowed = set()
+            if self._filter_conflict_winning:
+                allowed.add(CONFLICT_WINS)
+            if self._filter_conflict_losing:
+                allowed.add(CONFLICT_LOSES)
+            if self._filter_conflict_partial:
+                allowed.add(CONFLICT_PARTIAL)
+            if self._filter_conflict_full:
+                allowed.add(CONFLICT_FULL)
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_conflict_in(i, allowed):
+                        result.append(i)
+                elif self._conflict_map.get(entry.name, CONFLICT_NONE) in allowed:
+                    result.append(i)
+            base = result
+
+        # Step 5: apply column sort (visual only)
         if self._sort_column is not None:
             base = self._apply_column_sort(base)
         return base
@@ -1605,6 +1683,28 @@ class ModListPanel(ctk.CTkFrame):
         while end < len(self._entries) and not self._entries[end].is_separator:
             end += 1
         return range(sep_idx, end)
+
+    def _sep_block_has_disabled(self, sep_idx: int) -> bool:
+        """True if this separator's block contains at least one disabled mod."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator and not self._entries[i].enabled:
+                return True
+        return False
+
+    def _sep_block_has_enabled(self, sep_idx: int) -> bool:
+        """True if this separator's block contains at least one enabled mod."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator and self._entries[i].enabled:
+                return True
+        return False
+
+    def _sep_block_has_conflict_in(self, sep_idx: int, allowed: set) -> bool:
+        """True if this separator's block contains at least one mod whose conflict status is in allowed."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator:
+                if self._conflict_map.get(self._entries[i].name, CONFLICT_NONE) in allowed:
+                    return True
+        return False
 
     def _on_mouse_drag(self, event):
         if self._drag_idx < 0 or not self._entries:
@@ -2052,6 +2152,37 @@ class ModListPanel(ctk.CTkFrame):
         else:
             self._collapsed_seps.add(sep_name)
         self._save_collapsed()
+        self._update_expand_collapse_all_btn()
+        self._redraw()
+
+    def _toggleable_separator_names(self) -> list[str]:
+        """Separator names that can be collapsed (excludes Overwrite and Root Folder)."""
+        return [e.name for e in self._entries
+                if e.is_separator and e.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)]
+
+    def _update_expand_collapse_all_btn(self) -> None:
+        if not getattr(self, "_expand_collapse_all_btn", None):
+            return
+        sep_names = self._toggleable_separator_names()
+        if not sep_names:
+            self._expand_collapse_all_btn.configure(text="Expand all")
+            return
+        any_collapsed = any(s in self._collapsed_seps for s in sep_names)
+        self._expand_collapse_all_btn.configure(
+            text="Expand all" if any_collapsed else "Collapse all"
+        )
+
+    def _toggle_all_separators(self) -> None:
+        sep_names = self._toggleable_separator_names()
+        if not sep_names:
+            return
+        sep_set = set(sep_names)
+        if all(s in self._collapsed_seps for s in sep_names):
+            self._collapsed_seps -= sep_set
+        else:
+            self._collapsed_seps |= sep_set
+        self._save_collapsed()
+        self._update_expand_collapse_all_btn()
         self._redraw()
 
     def _remove_separator(self, idx: int):
@@ -2068,6 +2199,7 @@ class ModListPanel(ctk.CTkFrame):
             self._save_sep_locks()
             self._collapsed_seps.discard(sname)
             self._save_collapsed()
+            self._update_expand_collapse_all_btn()
             if self._sel_idx == idx:
                 self._sel_idx = -1
             elif self._sel_idx > idx:
@@ -2237,6 +2369,7 @@ class ModListPanel(ctk.CTkFrame):
             self._collapsed_seps.discard(old_name)
             self._collapsed_seps.add(new_name)
             self._save_collapsed()
+            self._update_expand_collapse_all_btn()
         if old_name in self._sep_locks:
             self._sep_locks[new_name] = self._sep_locks.pop(old_name)
             self._save_sep_locks()
@@ -3147,6 +3280,35 @@ class ModListPanel(ctk.CTkFrame):
                 ))
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_open_filters(self):
+        """Open the modlist filters dialog."""
+        state = {
+            "filter_show_disabled": self._filter_show_disabled,
+            "filter_show_enabled": self._filter_show_enabled,
+            "filter_hide_separators": self._filter_hide_separators,
+            "filter_winning": self._filter_conflict_winning,
+            "filter_losing": self._filter_conflict_losing,
+            "filter_partial": self._filter_conflict_partial,
+            "filter_full": self._filter_conflict_full,
+        }
+        ModlistFiltersDialog(
+            self.winfo_toplevel(),
+            initial_state=state,
+            on_apply=self._apply_modlist_filters,
+        )
+
+    def _apply_modlist_filters(self, state: dict):
+        """Apply filter state from the filters dialog and redraw."""
+        self._filter_show_disabled = state.get("filter_show_disabled", False)
+        self._filter_show_enabled = state.get("filter_show_enabled", False)
+        self._filter_hide_separators = state.get("filter_hide_separators", False)
+        self._filter_conflict_winning = state.get("filter_winning", False)
+        self._filter_conflict_losing = state.get("filter_losing", False)
+        self._filter_conflict_partial = state.get("filter_partial", False)
+        self._filter_conflict_full = state.get("filter_full", False)
+        self._visible_indices = self._compute_visible_indices()
+        self._redraw()
 
     def _move_up(self):
         indices = sorted(self._sel_set) if self._sel_set else (
