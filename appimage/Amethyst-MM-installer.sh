@@ -7,8 +7,8 @@
 
 set -e
 
-APPIMAGE_URL="https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/appimage/build/AmethystModManager-x86_64.AppImage"
-ICON_URL="https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/icons/title-bar.png"
+APPIMAGE_URL="https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/AmethystModManager-x86_64.AppImage"
+ICON_URL="https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/icons/title-bar.png"
 
 # ~/Applications: not standard on all distros; we create it (common on Steam Deck)
 APPLICATIONS_DIR="${HOME}/Applications"
