@@ -16,7 +16,14 @@ from typing import Callable, Optional
 import customtkinter as ctk
 import tkinter as tk
 
-from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
+from Nexus.nexus_api import (
+    NexusAPI,
+    NexusAPIError,
+    NexusRateLimits,
+    load_api_key,
+    save_api_key,
+    clear_api_key,
+)
 from Nexus.nexus_sso import NexusSSOClient
 from Nexus.nxm_handler import NxmHandler
 
@@ -54,7 +61,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
     """
 
     WIDTH  = 520
-    HEIGHT = 500
+    HEIGHT = 580
 
     def __init__(self, parent, on_key_changed=None, log_fn: Optional[Callable[[str], None]] = None):
         super().__init__(parent, fg_color=BG_DEEP)
@@ -186,6 +193,37 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         # -- Separator --
         ctk.CTkFrame(self, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)
 
+        # -- API Rate Limit section --
+        ctk.CTkLabel(
+            self, text="API Rate Limit",
+            font=FONT_BOLD, text_color=TEXT_MAIN,
+        ).pack(padx=16, pady=(8, 2), anchor="w")
+
+        ctk.CTkLabel(
+            self,
+            text="Current Nexus API request quota (hourly and daily). Click Refresh to fetch latest.",
+            font=FONT_SMALL, text_color=TEXT_DIM,
+        ).pack(padx=16, pady=(0, 6), anchor="w")
+
+        rate_frame = ctk.CTkFrame(self, fg_color="transparent")
+        rate_frame.pack(padx=16, pady=4, fill="x")
+
+        self._rate_limit_label = ctk.CTkLabel(
+            rate_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
+        )
+        self._rate_limit_label.pack(side="left", padx=(0, 12))
+
+        self._rate_refresh_btn = ctk.CTkButton(
+            rate_frame, text="Refresh", width=80, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_refresh_rate_limits,
+        )
+        self._rate_refresh_btn.pack(side="left")
+        self._update_rate_limit_display()
+
+        # -- Separator --
+        ctk.CTkFrame(self, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)
+
         # -- NXM Handler section --
         ctk.CTkLabel(
             self, text="NXM Protocol Handler",
@@ -288,6 +326,73 @@ class NexusSettingsDialog(ctk.CTkToplevel):
             self._nxm_status.configure(text="Status: Registered ✓", text_color=TEXT_OK)
         else:
             self._nxm_status.configure(text="Status: Not registered", text_color=TEXT_DIM)
+
+    # -- API Rate Limit -----------------------------------------------------
+
+    def _get_nexus_api(self) -> Optional[NexusAPI]:
+        """Return the app's Nexus API instance if available (parent is the main App)."""
+        app = self.master  # dialog was created with parent=App, not winfo_toplevel() which is self
+        return getattr(app, "_nexus_api", None)
+
+    def _format_rate_limits(self, r: NexusRateLimits) -> str:
+        def _line(label: str, remaining: int, limit: int) -> str:
+            if remaining < 0 or limit < 0:
+                return f"{label}: —"
+            return f"{label}: {remaining:,} / {limit:,} remaining"
+
+        hourly = _line("Hourly", r.hourly_remaining, r.hourly_limit)
+        daily = _line("Daily", r.daily_remaining, r.daily_limit)
+        return f"{hourly}  ·  {daily}"
+
+    def _update_rate_limit_display(self) -> None:
+        """Update the rate limit label from the app's Nexus API (main thread only)."""
+        api = self._get_nexus_api()
+        if api is None:
+            self._rate_limit_label.configure(
+                text="Save and validate your API key, then click Refresh.",
+                text_color=TEXT_DIM,
+            )
+            return
+        r = api.rate_limits
+        if r.hourly_remaining < 0 and r.daily_remaining < 0:
+            self._rate_limit_label.configure(
+                text="No data yet. Click Refresh to check your quota.",
+                text_color=TEXT_DIM,
+            )
+            return
+        self._rate_limit_label.configure(
+            text=self._format_rate_limits(r),
+            text_color=TEXT_MAIN,
+        )
+
+    def _on_refresh_rate_limits(self) -> None:
+        """Fetch fresh rate limits via a lightweight API call (runs in thread)."""
+        api = self._get_nexus_api()
+        if api is None:
+            self._set_status("Set and save your API key first.", TEXT_WARN)
+            return
+
+        self._rate_refresh_btn.configure(state="disabled", text="Refreshing...")
+        self._set_status("Checking API rate limits...", TEXT_DIM)
+
+        def _worker() -> None:
+            err: Optional[Exception] = None
+            try:
+                api.refresh_rate_limits()  # GET /games, same as Vortex; returns real cumulative remaining
+            except Exception as e:
+                err = e
+
+            def _on_done() -> None:
+                self._rate_refresh_btn.configure(state="normal", text="Refresh")
+                if err is not None:
+                    self._set_status(f"✗ {err}", TEXT_ERR)
+                else:
+                    self._set_status("Rate limits updated.", TEXT_OK)
+                self._update_rate_limit_display()
+
+            self.after(0, _on_done)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     # -- Helpers ------------------------------------------------------------
 
