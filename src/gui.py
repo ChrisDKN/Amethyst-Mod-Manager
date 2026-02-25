@@ -317,6 +317,18 @@ class ModListPanel(ctk.CTkFrame):
             self._icon_endorsed = ImageTk.PhotoImage(
                 PilImage.open(_tick_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
 
+        # Separator collapse/expand arrows (right = collapsed, arrow = expanded)
+        self._icon_sep_right: ImageTk.PhotoImage | None = None
+        self._icon_sep_arrow: ImageTk.PhotoImage | None = None
+        _right_path = _ICONS_DIR / "right.png"
+        _arrow_path = _ICONS_DIR / "arrow.png"
+        if _right_path.is_file():
+            self._icon_sep_right = ImageTk.PhotoImage(
+                PilImage.open(_right_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+        if _arrow_path.is_file():
+            self._icon_sep_arrow = ImageTk.PhotoImage(
+                PilImage.open(_arrow_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
         # Set of mod names that have a Nexus update available
         self._update_mods: set[str] = set()
 
@@ -1020,9 +1032,18 @@ class ModListPanel(ctk.CTkFrame):
                                               fill=row_bg, outline="")
                 # Draw collapse toggle triangle on real separators only
                 if not is_synthetic:
-                    tri = "▶" if entry.name in self._collapsed_seps else "▼"
-                    self._canvas.create_text(10, y_mid, text=tri, anchor="center",
-                                             fill=TEXT_DIM, font=("Segoe UI", 9))
+                    if entry.name in self._collapsed_seps:
+                        if self._icon_sep_right:
+                            self._canvas.create_image(10, y_mid, image=self._icon_sep_right, anchor="center")
+                        else:
+                            self._canvas.create_text(10, y_mid, text="▶", anchor="center",
+                                                     fill=TEXT_DIM, font=("Segoe UI", 9))
+                    else:
+                        if self._icon_sep_arrow:
+                            self._canvas.create_image(10, y_mid, image=self._icon_sep_arrow, anchor="center")
+                        else:
+                            self._canvas.create_text(10, y_mid, text="▼", anchor="center",
+                                                     fill=TEXT_DIM, font=("Segoe UI", 9))
                 if is_overwrite:
                     label = "Overwrite"
                 elif is_root_folder:
@@ -5334,14 +5355,14 @@ class TopBar(ctk.CTkFrame):
         ).pack(side="left", padx=(12, 4))
 
         ctk.CTkButton(
-            self, text="+", width=30, height=30, font=FONT_BOLD,
+            self, text="+", width=32, height=32, font=FONT_BOLD,
             fg_color="#2d7a2d", hover_color="#3a9a3a", text_color="white",
             command=self._on_add_game
         ).pack(side="left", padx=(0, 4))
 
         self._game_menu = ctk.CTkOptionMenu(
             self, values=game_names, variable=self._game_var,
-            width=180, font=FONT_NORMAL,
+            width=180, height=32, font=FONT_NORMAL,
             fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_game_change
@@ -5349,7 +5370,7 @@ class TopBar(ctk.CTkFrame):
         self._game_menu.pack(side="left", padx=(0, 4))
 
         ctk.CTkButton(
-            self, text="⚙", width=30, height=30, font=FONT_BOLD,
+            self, text="⚙", width=32, height=32, font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_settings
         ).pack(side="left", padx=(0, 16))
@@ -5360,13 +5381,13 @@ class TopBar(ctk.CTkFrame):
         ).pack(side="left", padx=(0, 4))
 
         ctk.CTkButton(
-            self, text="+", width=30, height=30, font=FONT_BOLD,
+            self, text="+", width=32, height=32, font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_add_profile
         ).pack(side="left", padx=(0, 2))
 
         ctk.CTkButton(
-            self, text="−", width=30, height=30, font=FONT_BOLD,
+            self, text="−", width=32, height=32, font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_remove_profile
         ).pack(side="left", padx=(0, 4))
@@ -5384,7 +5405,7 @@ class TopBar(ctk.CTkFrame):
         self._profile_var = tk.StringVar(value=profile_names[0])
         self._profile_menu = ctk.CTkOptionMenu(
             self, values=profile_names, variable=self._profile_var,
-            width=160, font=FONT_NORMAL,
+            width=160, height=32, font=FONT_NORMAL,
             fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_profile_change
@@ -5392,30 +5413,36 @@ class TopBar(ctk.CTkFrame):
         self._profile_menu.pack(side="left", padx=(0, 4))
 
         # Install Mod button
+        _install_mod_icon = _load_icon("install.png", size=(30, 30))
         ctk.CTkButton(
-            self, text="+ Install Mod", width=130, height=32, font=FONT_BOLD,
+            self, text="Install Mod", width=100, height=32, font=FONT_BOLD,
+            image=_install_mod_icon, compound="left",
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_install_mod
         ).pack(side="left", padx=(0, 8))
 
         # Deploy button
+        _deploy_icon = _load_icon("deploy.png", size=(30, 30))
         self._deploy_btn = ctk.CTkButton(
-            self, text="▶ Deploy", width=100, height=32, font=FONT_BOLD,
+            self, text="Deploy", width=100, height=32, font=FONT_BOLD,
+            image=_deploy_icon, compound="left",
             fg_color="#2d7a2d", hover_color="#3a9e3a", text_color="white",
             command=self._on_deploy
         )
         self._deploy_btn.pack(side="left", padx=(0, 8))
 
         # Restore button
+        _restore_icon = _load_icon("restore.png", size=(30, 30))
         self._restore_btn = ctk.CTkButton(
-            self, text="↩ Restore", width=100, height=32, font=FONT_BOLD,
+            self, text="Restore", width=100, height=32, font=FONT_BOLD,
+            image=_restore_icon, compound="left",
             fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
             command=self._on_restore
         )
         self._restore_btn.pack(side="left", padx=(0, 8))
 
         # Proton tools button
-        _proton_icon = _load_icon("proton.png", size=(18, 18))
+        _proton_icon = _load_icon("proton.png", size=(30, 30))
         self._proton_btn = ctk.CTkButton(
             self, text="Proton", width=100, height=32, font=FONT_BOLD,
             image=_proton_icon, compound="left",
@@ -5425,7 +5452,7 @@ class TopBar(ctk.CTkFrame):
         self._proton_btn.pack(side="left", padx=(0, 8))
 
         # Wizard button (shown only when the game has wizard tools)
-        _wizard_icon = _load_icon("icon.png", size=(18, 18))
+        _wizard_icon = _load_icon("wizard.png", size=(30, 30))
         self._wizard_btn = ctk.CTkButton(
             self, text="Wizard", width=100, height=32, font=FONT_BOLD,
             image=_wizard_icon, compound="left",
@@ -5435,9 +5462,9 @@ class TopBar(ctk.CTkFrame):
         # Don't pack yet — _update_wizard_visibility() will show/hide it
 
         # Nexus Mods settings button
-        _nexus_icon = _load_icon("nexus.png", size=(18, 18))
+        _nexus_icon = _load_icon("nexus.png", size=(30, 30))
         ctk.CTkButton(
-            self, text="Nexus", width=80, height=32, font=FONT_BOLD,
+            self, text="Nexus", width=100, height=32, font=FONT_BOLD,
             image=_nexus_icon, compound="left",
             fg_color="#da8e35", hover_color="#e5a04a", text_color="white",
             command=self._on_nexus_settings
