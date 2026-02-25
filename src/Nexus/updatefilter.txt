@@ -1,3 +1,9 @@
 #Used to filter false positives in missing requirements by modid
+#Ids separated by # makes the script check for other mods first for example 33746#92109 Dynamic animation replacer is satisfied if Open animation replacer is installed
 
 30379
+120946
+58101
+62089
+135822
+33746#92109

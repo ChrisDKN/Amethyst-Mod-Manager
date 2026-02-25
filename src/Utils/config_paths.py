@@ -96,3 +96,14 @@ def get_last_game_path() -> Path:
     Result: ~/.config/AmethystModManager/last_game.json
     """
     return get_config_dir() / "last_game.json"
+
+
+def get_requirement_external_tool_mod_ids_path() -> Path:
+    """Return the path to the cached requirement filter (external tool mod IDs).
+
+    Fetched from GitHub and merged with user additions. Users can edit this file
+    to add mod IDs; new IDs from the remote are appended on the next fetch.
+
+    Result: ~/.config/AmethystModManager/requirement_external_tool_mod_ids.txt
+    """
+    return get_config_dir() / "requirement_external_tool_mod_ids.txt"

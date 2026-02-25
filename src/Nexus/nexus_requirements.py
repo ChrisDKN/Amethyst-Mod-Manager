@@ -25,10 +25,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
+import requests
+
 from Nexus.nexus_api import NexusAPI, NexusModRequirement
 from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, read_meta, write_meta
+from Utils.config_paths import get_requirement_external_tool_mod_ids_path
 
 ProgressCallback = Callable[[str], None]
+
+# Remote list of mod IDs to treat as external tools (script extenders, xEdit, etc.).
+# Fetched on each requirement check; new IDs are merged into the local cache.
+REQUIREMENT_FILTER_URL = (
+    "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/Nexus/updatefilter.txt"
+)
+_FETCH_TIMEOUT = 10
 
 
 @dataclass
@@ -37,6 +47,103 @@ class MissingRequirementInfo:
     mod_name: str                                     # local folder name
     mod_id: int
     missing: list[NexusModRequirement] = field(default_factory=list)
+
+
+def _parse_filter_text(
+    text: str,
+) -> tuple[set[int], dict[int, set[int]]]:
+    """
+    Parse filter file: one entry per line. Skip empty lines and # comments.
+
+    Lines:
+      - "12345"       -> add 12345 to external IDs (never flag as missing).
+      - "33746#92109" -> requirement 33746 is satisfied if 92109 is installed.
+
+    Returns (external_ids, requirement_alternatives).
+    requirement_alternatives[required_id] = set of alternative mod IDs.
+    """
+    external: set[int] = set()
+    alternatives: dict[int, set[int]] = {}
+    for line in text.splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#"):
+            continue
+        if "#" in raw:
+            part0, _, part1 = raw.partition("#")
+            try:
+                req_id = int(part0.strip())
+                alt_id = int(part1.strip())
+                alternatives.setdefault(req_id, set()).add(alt_id)
+            except ValueError:
+                continue
+        else:
+            try:
+                external.add(int(raw))
+            except ValueError:
+                continue
+    return external, alternatives
+
+
+def _filter_content_lines(text: str) -> list[str]:
+    """Return list of stripped non-empty, non-comment lines (for merge comparison)."""
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def _load_requirement_filter() -> tuple[set[int], dict[int, set[int]]]:
+    """
+    Load external-tool IDs and requirement alternatives from cache + remote.
+
+    Fetches from GitHub and merges with the local cache: keeps all cache lines
+    (user additions) and appends any new lines from the remote. Returns
+    (external_tool_mod_ids, requirement_alternatives). For "req#alt", requirement
+    req is considered satisfied if req or any alt is in the installed mod list.
+    """
+    cache_path = get_requirement_external_tool_mod_ids_path()
+    cache_text = ""
+    if cache_path.exists():
+        try:
+            cache_text = cache_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+
+    cache_external, cache_alternatives = _parse_filter_text(cache_text)
+    cache_line_set = set(_filter_content_lines(cache_text))
+
+    remote_text = ""
+    try:
+        resp = requests.get(REQUIREMENT_FILTER_URL, timeout=_FETCH_TIMEOUT)
+        if resp.ok:
+            remote_text = resp.text
+    except Exception:
+        pass
+
+    remote_external, remote_alternatives = _parse_filter_text(remote_text)
+    remote_lines = _filter_content_lines(remote_text)
+
+    # Merge: union of externals; for alternatives, union sets per key
+    merged_external = cache_external | remote_external
+    merged_alternatives: dict[int, set[int]] = {}
+    for key in set(cache_alternatives) | set(remote_alternatives):
+        merged_alternatives[key] = cache_alternatives.get(key, set()) | remote_alternatives.get(key, set())
+
+    # Append new lines from remote to cache (keeps user additions, adds new remote entries)
+    if remote_lines:
+        new_lines = [line for line in remote_lines if line not in cache_line_set]
+        if new_lines:
+            try:
+                with cache_path.open("a", encoding="utf-8") as f:
+                    if cache_path.stat().st_size > 0:
+                        f.write("\n")
+                    for line in new_lines:
+                        f.write(line + "\n")
+            except OSError:
+                pass
+
+    return merged_external, merged_alternatives
 
 
 def check_missing_requirements(
@@ -95,6 +202,9 @@ def check_missing_requirements(
     # 2. Build set of all installed Nexus mod IDs
     installed_mod_ids: set[int] = {m.mod_id for m in installed if m.mod_id > 0}
 
+    # External tools (never flag) and requirement alternatives (req satisfied if alt installed)
+    external_tool_mod_ids, requirement_alternatives = _load_requirement_filter()
+
     # Deduplicate by mod_id
     by_mod_id: dict[int, list[NexusModMeta]] = {}
     for meta in checkable:
@@ -136,6 +246,13 @@ def check_missing_requirements(
                 continue
             if req.mod_id <= 0:
                 continue
+            if req.mod_id in external_tool_mod_ids:
+                # External tools (script extenders, xEdit) — installed to game folder, not mod list
+                continue
+            if req.mod_id in requirement_alternatives:
+                # e.g. 33746#92109: requirement 33746 satisfied if 92109 (Open Animation Replacer) installed
+                if requirement_alternatives[req.mod_id] & installed_mod_ids:
+                    continue
             if req.mod_id not in installed_mod_ids:
                 missing.append(req)
 
