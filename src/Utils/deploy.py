@@ -110,18 +110,20 @@ def move_to_core(
     Returns the number of files moved.
 
     If core_dir already exists it is removed first so we always start clean.
+    If deploy_dir is empty, core_dir is still created (empty) so restore always
+    finds a core folder and does not report "nothing to restore".
     """
     _log = log_fn or (lambda _: None)
     core_dir = core_dir or _default_core(deploy_dir)
 
-    # Collect files first — skip the backup entirely if the folder is empty.
-    files = [p for p in deploy_dir.rglob("*") if p.is_file()] if deploy_dir.is_dir() else []
-    if not files:
-        return 0
-
     if core_dir.exists():
         _log(f"  {core_dir.name} already exists — removing old backup first.")
         shutil.rmtree(core_dir)
+
+    files = [p for p in deploy_dir.rglob("*") if p.is_file()] if deploy_dir.is_dir() else []
+    if not files:
+        core_dir.mkdir(parents=True, exist_ok=True)
+        return 0
 
     for src in files:
         rel = src.relative_to(deploy_dir)
