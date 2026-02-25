@@ -107,12 +107,14 @@ class BrowseModsPanel:
         get_api: Optional[Callable] = None,
         get_game_domain: Optional[Callable] = None,
         install_fn: Optional[Callable] = None,
+        visible_categories: Optional[list[tuple[str, str]]] = None,
     ):
         self._parent = parent_tab
         self._log = log_fn or (lambda msg: None)
         self._get_api = get_api or (lambda: None)
         self._get_game_domain = get_game_domain or (lambda: "")
         self._install_fn = install_fn or (lambda entry: None)
+        self._visible_categories = visible_categories if visible_categories is not None else VISIBLE_CATEGORIES
 
         self._entries: list[BrowseModEntry] = []
         self._hover_idx: int = -1
@@ -155,13 +157,13 @@ class BrowseModsPanel:
 
         # Category cycle button — hidden when only one visible category
         self._cat_btn = tk.Button(
-            toolbar, text=f"▸ {VISIBLE_CATEGORIES[0][0]}",
+            toolbar, text=f"▸ {self._visible_categories[0][0]}",
             bg=BG_HEADER, fg=TEXT_MAIN, activebackground=BG_HOVER,
             relief="flat", font=FONT_SMALL,
             bd=0, cursor="hand2",
             command=self._cycle_category,
         )
-        if len(VISIBLE_CATEGORIES) > 1:
+        if len(self._visible_categories) > 1:
             self._cat_btn.pack(side="left", padx=8, pady=2)
 
         self._refresh_btn = tk.Button(
@@ -286,9 +288,9 @@ class BrowseModsPanel:
 
     def _cycle_category(self):
         """Cycle to the next browse category and auto-refresh."""
-        self._cat_idx = (self._cat_idx + 1) % len(VISIBLE_CATEGORIES)
+        self._cat_idx = (self._cat_idx + 1) % len(self._visible_categories)
         self._page = 0
-        label, _ = VISIBLE_CATEGORIES[self._cat_idx]
+        label, _ = self._visible_categories[self._cat_idx]
         self._cat_btn.configure(text=f"▸ {label}")
         self._update_pager()
         self.refresh()
@@ -306,7 +308,7 @@ class BrowseModsPanel:
 
     def _update_pager(self, result_count: int = 10):
         """Enable/disable Prev & Next based on current category and page."""
-        is_top = VISIBLE_CATEGORIES[self._cat_idx][1] == "get_top_mods" and not self._search_active
+        is_top = self._visible_categories[self._cat_idx][1] == "get_top_mods" and not self._search_active
         can_prev = is_top and self._page > 0
         can_next = is_top and result_count >= 10
         self._prev_btn.configure(
@@ -350,7 +352,7 @@ class BrowseModsPanel:
             return
         self._loading = True
         self._refresh_btn.configure(state="disabled")
-        cat_label, cat_method = VISIBLE_CATEGORIES[self._cat_idx]
+        cat_label, cat_method = self._visible_categories[self._cat_idx]
         self._status_label.configure(text=f"Loading {cat_label}…")
 
         page = self._page
@@ -488,7 +490,7 @@ class BrowseModsPanel:
         self._rebuild_buttons()
         self._repaint()
         self._update_pager(0)
-        cat_label, _ = VISIBLE_CATEGORIES[self._cat_idx]
+        cat_label, _ = self._visible_categories[self._cat_idx]
         self._status_label.configure(text=f"▸ {cat_label} — click Refresh")
 
     # ------------------------------------------------------------------

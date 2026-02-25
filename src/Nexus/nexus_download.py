@@ -26,7 +26,6 @@ Usage
 
 from __future__ import annotations
 
-import logging
 import os
 import threading
 from dataclasses import dataclass, field
@@ -37,8 +36,7 @@ import requests
 
 from .nexus_api import NexusAPI, NexusDownloadLink, NexusAPIError
 from .nxm_handler import NxmLink
-
-log = logging.getLogger(__name__)
+from Utils.app_log import app_log
 
 # Default chunk size for streaming downloads (256 KB)
 _CHUNK_SIZE = 256 * 1024
@@ -271,7 +269,7 @@ class NexusDownloader:
                 )
             except Exception as exc:
                 last_error = str(exc)
-                log.warning("Mirror %s failed: %s", link.name, exc)
+                app_log(f"Mirror {link.name} failed: {exc}")
                 continue
 
         return DownloadResult(
@@ -331,8 +329,7 @@ class NexusDownloader:
                     if progress_cb:
                         progress_cb(downloaded, total)
 
-        log.info("Downloaded %s (%d bytes) → %s",
-                 file_name, downloaded, dest)
+        app_log(f"Downloaded {file_name} ({downloaded} bytes) → {dest}")
 
         return DownloadResult(
             success=True,

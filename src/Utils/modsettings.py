@@ -13,15 +13,13 @@ The GustavDev base-game entry is always written first and never removed.
 
 from __future__ import annotations
 
-import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from Utils.modlist import ModEntry, read_modlist
 from Utils.pak_reader import extract_meta_lsx
-
-log = logging.getLogger(__name__)
+from Utils.app_log import app_log
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -197,7 +195,7 @@ def scan_mod_paks(
             try:
                 xml_text = extract_meta_lsx(pak)
             except Exception as exc:
-                log.warning("Failed to read %s: %s", pak, exc)
+                app_log(f"Failed to read {pak}: {exc}")
                 continue
             if xml_text is None:
                 continue

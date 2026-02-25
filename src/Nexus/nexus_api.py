@@ -27,7 +27,6 @@ Usage
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,9 +36,8 @@ import keyring
 import requests
 
 from Utils.config_paths import get_config_dir
+from Utils.app_log import app_log
 from version import __version__
-
-log = logging.getLogger(__name__)
 
 API_BASE = "https://api.nexusmods.com/v1"
 GRAPHQL_BASE = "https://api.nexusmods.com/v2/graphql"
@@ -49,6 +47,33 @@ APP_VERSION = __version__
 # How long to wait after a 429 before retrying (seconds)
 _RATE_LIMIT_BACKOFF = 2.0
 _MAX_RETRIES = 3
+
+# Keys to redact when logging API responses (values replaced with [REDACTED])
+_SENSITIVE_KEYS = frozenset({"key", "email", "api_key", "token", "authorization", "password"})
+
+
+def _redact_sensitive_response(text: str) -> str:
+    """Return response text with sensitive fields redacted for safe logging."""
+    if not text or not text.strip():
+        return text
+    try:
+        data = json.loads(text)
+        redacted = _redact_sensitive_dict(data)
+        return json.dumps(redacted, indent=None, default=str)
+    except Exception:
+        return text
+
+
+def _redact_sensitive_dict(obj: Any) -> Any:
+    """Recursively copy obj, replacing values for sensitive keys with [REDACTED]."""
+    if isinstance(obj, dict):
+        return {
+            k: "[REDACTED]" if k.lower() in _SENSITIVE_KEYS else _redact_sensitive_dict(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_redact_sensitive_dict(item) for item in obj]
+    return obj
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +200,7 @@ def _api_key_path() -> Path:
     return get_config_dir() / "nexus_api_key"
 
 
-def _migrate_legacy_key() -> str:
+def _migrate_legacy_key() -> str: # plain text key used during testing only. No longer used.
     """If legacy plaintext file exists, move it to keyring and return the key."""
     p = _api_key_path()
     if not p.is_file():
@@ -190,7 +215,7 @@ def _migrate_legacy_key() -> str:
             pass
         return key
     except (OSError, keyring.errors.KeyringError) as e:
-        log.warning("Nexus API key migration from file failed: %s", e)
+        app_log(f"Nexus API key migration from file failed: {e}")
         return ""
 
 
@@ -203,7 +228,7 @@ def load_api_key() -> str:
         # No key in keyring: try migrating from legacy file
         return _migrate_legacy_key()
     except keyring.errors.KeyringError as e:
-        log.warning("Keyring unavailable for Nexus API key: %s", e)
+        app_log(f"Keyring unavailable for Nexus API key: {e}")
         return _migrate_legacy_key()
 
 
@@ -213,7 +238,7 @@ def save_api_key(key: str) -> None:
     try:
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
     except keyring.errors.KeyringError as e:
-        log.warning("Keyring unavailable for saving Nexus API key: %s", e)
+        app_log(f"Keyring unavailable for saving Nexus API key: {e}")
         raise RuntimeError(f"Cannot save API key: {e}") from e
     # Remove legacy file if it exists
     try:
@@ -229,7 +254,7 @@ def clear_api_key() -> None:
     except keyring.errors.PasswordDeleteError:
         pass
     except keyring.errors.KeyringError as e:
-        log.warning("Keyring unavailable when clearing Nexus API key: %s", e)
+        app_log(f"Keyring unavailable when clearing Nexus API key: {e}")
     try:
         _api_key_path().unlink(missing_ok=True)
     except OSError:
@@ -293,6 +318,22 @@ class NexusAPI:
         if "x-rl-daily-limit" in h:
             self._rate.daily_limit = int(h["x-rl-daily-limit"])
 
+    def _log_response(self, method: str, path: str, resp: requests.Response) -> None:
+        """Log request and response to the app log (status + body, truncated). Redacts sensitive fields (key, email, etc.)."""
+        try:
+            status_msg = f"Nexus API {method} {path} → {resp.status_code}"
+            app_log(status_msg)
+            body_str = resp.text if resp.text is not None else "(empty)"
+            body_str = _redact_sensitive_response(body_str)
+            if len(body_str) > 1200:
+                body_str = body_str[:1200] + "..."
+            app_log(f"  Response: {body_str}")
+        except Exception:
+            try:
+                app_log(f"Nexus API {method} {path} → {resp.status_code}")
+            except Exception:
+                pass
+
     def _get(self, path: str, params: dict | None = None,
              retries: int = _MAX_RETRIES) -> Any:
         """Issue a GET request against the v1 API, with retry on 429."""
@@ -310,11 +351,12 @@ class NexusAPI:
                     url=url) from exc
 
             self._update_rate_limits(resp)
+            self._log_response("GET", path, resp)
 
             if resp.status_code == 429:
                 wait = _RATE_LIMIT_BACKOFF * (attempt + 1)
-                log.warning("Nexus 429 rate-limited, backing off %.1fs "
-                            "(attempt %d/%d)", wait, attempt + 1, retries)
+                app_log(f"Nexus 429 rate-limited, backing off {wait:.1f}s "
+                        f"(attempt {attempt + 1}/{retries})")
                 time.sleep(wait)
                 continue
 
@@ -593,6 +635,7 @@ class NexusAPI:
             timeout=self._timeout,
         )
         self._update_rate_limits(resp)
+        self._log_response("POST", f"/games/{game_domain}/mods/{mod_id}/endorse", resp)
         resp.raise_for_status()
         return resp.json()
 
@@ -604,6 +647,7 @@ class NexusAPI:
             timeout=self._timeout,
         )
         self._update_rate_limits(resp)
+        self._log_response("POST", f"/games/{game_domain}/mods/{mod_id}/abstain", resp)
         resp.raise_for_status()
         return resp.json()
 
@@ -640,8 +684,9 @@ class NexusAPI:
                 json={"query": query, "variables": variables},
                 timeout=self._timeout,
             )
+            self._log_response("POST", "GraphQL modRequirements", resp)
             if not resp.ok:
-                log.debug("GraphQL requirements query failed: %s", resp.status_code)
+                app_log(f"GraphQL requirements query failed: {resp.status_code}")
                 return []
             data = resp.json()
             nodes = (
@@ -666,7 +711,7 @@ class NexusAPI:
                 ))
             return results
         except Exception as exc:
-            log.debug("GraphQL requirements query error: %s", exc)
+            app_log(f"GraphQL requirements query error: {exc}")
             return []
 
     # -- Top mods (GraphQL v2) -----------------------------------------------
@@ -714,6 +759,7 @@ class NexusAPI:
                 json={"query": query, "variables": variables},
                 timeout=self._timeout,
             )
+            self._log_response("POST", "GraphQL topMods", resp)
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL top-mods query failed: {resp.status_code}",
@@ -795,6 +841,7 @@ class NexusAPI:
                 json={"query": query, "variables": variables},
                 timeout=self._timeout,
             )
+            self._log_response("POST", "GraphQL searchMods", resp)
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL search query failed: {resp.status_code}",
@@ -842,6 +889,7 @@ class NexusAPI:
             timeout=self._timeout,
         )
         self._update_rate_limits(resp)
+        self._log_response("POST", "/user/tracked_mods", resp)
         if resp.status_code == 422:
             # Already tracked — not an error
             return {"message": "Already tracked"}
@@ -856,6 +904,7 @@ class NexusAPI:
             timeout=self._timeout,
         )
         self._update_rate_limits(resp)
+        self._log_response("DELETE", "/user/tracked_mods", resp)
         resp.raise_for_status()
         return resp.json()
 

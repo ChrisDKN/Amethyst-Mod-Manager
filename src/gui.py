@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import urllib.request
 import webbrowser
 import tkinter as tk
 import tkinter.messagebox
@@ -46,6 +47,7 @@ from Utils.plugins import (
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
 from Utils.config_paths import get_config_dir, get_exe_args_path, get_fomod_selections_path, get_profiles_dir, get_last_game_path
+from Utils.app_log import set_app_log
 from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
 from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
 from Nexus.nexus_download import NexusDownloader
@@ -1495,7 +1497,6 @@ class ModListPanel(ctk.CTkFrame):
                 self._redraw()
                 self._update_info()
                 label = "Overwrite" if self._entries[idx].name == OVERWRITE_NAME else "Root Folder"
-                self._log(f"Selected: {label}")
                 if self._on_mod_selected_cb is not None:
                     self._on_mod_selected_cb()
             else:
@@ -1557,7 +1558,6 @@ class ModListPanel(ctk.CTkFrame):
             self._on_mod_selected_cb()
         self._redraw()
         self._update_info()
-        self._log(f"Selected: {self._entries[idx].name}")
         if self._entries[idx].locked:
             # * entries are selectable but not draggable
             self._drag_idx = -1
@@ -1708,7 +1708,6 @@ class ModListPanel(ctk.CTkFrame):
                 self._sel_idx = clicked
                 self._sel_set = {clicked}
                 self._update_info()
-                self._log(f"Selected: {self._entries[clicked].name}")
         self._drag_idx = -1
         self._drag_origin_idx = -1
         self._drag_moved = False
@@ -2750,9 +2749,12 @@ class ModListPanel(ctk.CTkFrame):
 
         def _worker():
             try:
-                api.endorse_mod(domain, meta.mod_id, meta.version)
-                def _done():
+                result = api.endorse_mod(domain, meta.mod_id, meta.version)
+                def _done(res):
                     log_fn(f"Nexus: Endorsed '{mod_name}' ({meta.mod_id}).")
+                    if res is not None:
+                        body = json.dumps(res, indent=None)
+                        log_fn(f"  Response: {body[:500]}{'...' if len(body) > 500 else ''}")
                     # Update meta.ini
                     try:
                         if self._modlist_path is not None:
@@ -2766,7 +2768,7 @@ class ModListPanel(ctk.CTkFrame):
                         pass
                     self._endorsed_mods.add(mod_name)
                     self._redraw()
-                app.after(0, _done)
+                app.after(0, lambda: _done(result))
             except Exception as exc:
                 app.after(0, lambda: log_fn(f"Nexus: Endorse failed — {exc}"))
 
@@ -2783,9 +2785,12 @@ class ModListPanel(ctk.CTkFrame):
 
         def _worker():
             try:
-                api.abstain_mod(domain, meta.mod_id, meta.version)
-                def _done():
+                result = api.abstain_mod(domain, meta.mod_id, meta.version)
+                def _done(res):
                     log_fn(f"Nexus: Abstained from '{mod_name}' ({meta.mod_id}).")
+                    if res is not None:
+                        body = json.dumps(res, indent=None)
+                        log_fn(f"  Response: {body[:500]}{'...' if len(body) > 500 else ''}")
                     # Update meta.ini
                     try:
                         if self._modlist_path is not None:
@@ -2799,7 +2804,7 @@ class ModListPanel(ctk.CTkFrame):
                         pass
                     self._endorsed_mods.discard(mod_name)
                     self._redraw()
-                app.after(0, _done)
+                app.after(0, lambda: _done(result))
             except Exception as exc:
                 app.after(0, lambda: log_fn(f"Nexus: Abstain failed — {exc}"))
 
@@ -3293,7 +3298,7 @@ class ModListPanel(ctk.CTkFrame):
 # PluginPanel
 # ---------------------------------------------------------------------------
 class PluginPanel(ctk.CTkFrame):
-    """Right panel: tabview with Plugins, Archives, Data, Saves, Downloads, Tracked."""
+    """Right panel: tabview with Plugins, Archives, Data, Downloads, Tracked."""
 
     PLUGIN_HEADERS = ["", "Plugin Name", "Flags", "🔒", "Index"]
     ROW_H = 26
@@ -3415,7 +3420,7 @@ class PluginPanel(ctk.CTkFrame):
         )
         self._tabs.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
 
-        for name in ("Plugins", "Archives", "Data", "Saves", "Downloads", "Tracked", "Endorsed", "Browse"):
+        for name in ("Plugins", "Archives", "Data", "Downloads", "Tracked", "Endorsed", "Browse"):
             self._tabs.add(name)
 
         self._build_plugins_tab()
@@ -3425,7 +3430,7 @@ class PluginPanel(ctk.CTkFrame):
         self._build_endorsed_tab()
         self._build_browse_tab()
 
-        for name in ("Archives", "Saves"):
+        for name in ("Archives",):
             tab = self._tabs.tab(name)
             tab.grid_rowconfigure(0, weight=1)
             tab.grid_columnconfigure(0, weight=1)
@@ -5054,7 +5059,6 @@ class PluginPanel(ctk.CTkFrame):
         self._drag_slot = -1
         self._predraw()
         plugin_name = self._plugin_entries[idx].name
-        self._log(f"Selected plugin: {plugin_name}")
         if self._on_mod_selected_cb is not None:
             self._on_mod_selected_cb()
         if self._on_plugin_selected_cb is not None:
@@ -5231,7 +5235,6 @@ class PluginPanel(ctk.CTkFrame):
             if clicked in self._psel_set:
                 self._sel_idx = clicked
                 self._psel_set = {clicked}
-                self._log(f"Selected plugin: {self._plugin_entries[clicked].name}")
         self._drag_idx = -1
         self._drag_moved = False
         self._drag_slot = -1
@@ -6203,7 +6206,7 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
     def __init__(self, parent, game, log_fn):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title("Proton Tools")
-        self.geometry("340x280")
+        self.geometry("340x314")
         self.resizable(False, False)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -6251,6 +6254,10 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             body, text="Browse prefix", command=self._browse_prefix, **btn_cfg
+        ).pack(pady=(0, 6))
+
+        ctk.CTkButton(
+            body, text="Open game folder", command=self._open_game_folder, **btn_cfg
         ).pack(pady=(0, 6))
 
     # ------------------------------------------------------------------
@@ -6342,6 +6349,24 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         def _launch():
             log(f"Proton Tools: opening prefix folder …")
+            try:
+                subprocess.Popen(["xdg-open", path])
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+
+        self._close_and_run(_launch)
+
+    def _open_game_folder(self):
+        game_path = self._game.get_game_path()
+        if game_path is None or not game_path.is_dir():
+            self._log("Proton Tools: game folder not configured or not found.")
+            return
+
+        log = self._log
+        path = str(game_path)
+
+        def _launch():
+            log("Proton Tools: opening game folder …")
             try:
                 subprocess.Popen(["xdg-open", path])
             except Exception as e:
@@ -8176,6 +8201,53 @@ class StatusBar(ctk.CTkFrame):
         self._textbox.insert("end", f"[{timestamp}]  {message}\n")
         self._textbox.see("end")
         self._textbox.configure(state="disabled")
+        # Append to log file with full timestamp
+        try:
+            log_path = get_config_dir() / "amethyst.log"
+            with open(log_path, "a", encoding="utf-8") as f:
+                full_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{full_ts}]  {message}\n")
+        except OSError:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# App update check
+# ---------------------------------------------------------------------------
+_APP_UPDATE_VERSION_URL = "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/version.py"
+_APP_UPDATE_RELEASES_URL = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases"
+
+
+def _parse_version(s: str) -> tuple[int, ...]:
+    """Convert a version string like '0.3.0' to a tuple of ints for comparison."""
+    out = []
+    for part in s.strip().split("."):
+        part = re.sub(r"[^0-9].*$", "", part)
+        out.append(int(part) if part.isdigit() else 0)
+    return tuple(out) if out else (0,)
+
+
+def _fetch_latest_version() -> str | None:
+    """Fetch the latest __version__ from the repo; return None on error."""
+    try:
+        req = urllib.request.Request(
+            _APP_UPDATE_VERSION_URL,
+            headers={"User-Agent": "Amethyst-Mod-Manager"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+        m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', body)
+        return m.group(1).strip() if m else None
+    except Exception:
+        return None
+
+
+def _is_newer_version(current: str, latest: str) -> bool:
+    """Return True if latest is newer than current (strictly greater)."""
+    try:
+        return _parse_version(latest) > _parse_version(current)
+    except (ValueError, TypeError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -8201,6 +8273,8 @@ class App(ctk.CTk):
         self._startup_log()
         # Process --nxm argument if the app was launched via protocol handler
         self._handle_nxm_argv()
+        # Check for app update after a short delay (non-blocking)
+        self.after(2000, self._check_for_app_update)
         icon_path = Path(__file__).parent / "icons" / "title-bar.png"
         if icon_path.is_file():
             icon_img = tk.PhotoImage(file=str(icon_path))
@@ -8259,6 +8333,31 @@ class App(ctk.CTk):
             self._nexus_username = None
             # Update title synchronously when key is absent / cleared
             self.after(0, self._update_window_title)
+
+    # -- App update check ---------------------------------------------------
+
+    def _check_for_app_update(self):
+        """Run in background: fetch latest version and prompt to download if newer."""
+
+        def _do_check():
+            latest = _fetch_latest_version()
+            if latest is None:
+                return
+            if _is_newer_version(__version__, latest):
+
+                def _show():
+                    msg = (
+                        f"A new version of Amethyst Mod Manager is available.\n\n"
+                        f"Current: {__version__}\n"
+                        f"Latest:  {latest}\n\n"
+                        "Open the releases page to download?"
+                    )
+                    if tk.messagebox.askyesno("Update available", msg, parent=self):
+                        webbrowser.open(_APP_UPDATE_RELEASES_URL)
+
+                self.call_threadsafe(_show)
+
+        threading.Thread(target=_do_check, daemon=True).start()
 
     # -- NXM protocol handling ----------------------------------------------
 
@@ -8429,6 +8528,7 @@ class App(ctk.CTk):
         self._status.grid(row=2, column=0, sticky="ew")
 
         log = self._status.log
+        set_app_log(log, self.after)
 
         self._topbar = TopBar(self, log_fn=log)
         self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))
