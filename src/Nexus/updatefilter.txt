@@ -1,9 +1,19 @@
-#Used to filter false positives in missing requirements by modid
+#Used to filter false positives in missing requirements by modid. Often mods have requirements of external tools or redundant mods that are picked up by the update checker, this filters them out.
 #Ids separated by # makes the script check for other mods first for example 33746#92109 Dynamic animation replacer is satisfied if Open animation replacer is installed
+#This list is saved to .config and can be added to manually. The saved list is appended to with updates so no redownloading of the mod manager is required
 
-30379
-120946
-58101
-62089
-135822
-33746#92109
+skyrimspecialedition:30379
+skyrimspecialedition:120946
+skyrimspecialedition:58101
+skyrimspecialedition:62089
+skyrimspecialedition:135822
+skyrimspecialedition:33746#92109
+skyrimspecialedition:30457
+skyrimspecialedition:201
+skyrimspecialedition:106441
+
+fallout4:2737
+fallout4:42147
+oblivion:37952
+newvegas:67883
+starfield:106

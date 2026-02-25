@@ -27,6 +27,9 @@ from typing import Callable, Optional
 
 import requests
 
+# Game scope: None = apply to all games; str = Nexus game domain (e.g. "fallout4", "skyrimspecialedition")
+GameScope = Optional[str]
+
 from Nexus.nexus_api import NexusAPI, NexusModRequirement
 from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, read_meta, write_meta
 from Utils.config_paths import get_requirement_external_tool_mod_ids_path
@@ -51,34 +54,48 @@ class MissingRequirementInfo:
 
 def _parse_filter_text(
     text: str,
-) -> tuple[set[int], dict[int, set[int]]]:
+) -> tuple[set[tuple[GameScope, int]], dict[tuple[GameScope, int], set[int]]]:
     """
     Parse filter file: one entry per line. Skip empty lines and # comments.
 
-    Lines:
-      - "12345"       -> add 12345 to external IDs (never flag as missing).
-      - "33746#92109" -> requirement 33746 is satisfied if 92109 is installed.
+    Optional game prefix: "game_domain:..." applies the rule only to that game.
+    No prefix applies to all games (backward compatible).
 
-    Returns (external_ids, requirement_alternatives).
-    requirement_alternatives[required_id] = set of alternative mod IDs.
+    Lines:
+      - "12345"              -> external for all games (never flag 12345).
+      - "fallout4:42147"     -> external only for Fallout 4 (F4SE).
+      - "33746#92109"        -> alternative for all games.
+      - "skyrimspecialedition:33746#92109" -> alternative only for Skyrim SE.
+
+    Returns (external_set, alternatives_dict).
+    external_set contains (game_scope, mod_id); alternatives key is (game_scope, req_id).
     """
-    external: set[int] = set()
-    alternatives: dict[int, set[int]] = {}
+    external: set[tuple[GameScope, int]] = set()
+    alternatives: dict[tuple[GameScope, int], set[int]] = {}
     for line in text.splitlines():
         raw = line.strip()
         if not raw or raw.startswith("#"):
             continue
-        if "#" in raw:
-            part0, _, part1 = raw.partition("#")
+        # Optional "game_domain:" prefix (first colon only)
+        scope: GameScope = None
+        rest = raw
+        if ":" in raw:
+            before, _, after = raw.partition(":")
+            if before.strip() and after.strip():
+                scope = before.strip().lower()
+                rest = after.strip()
+        if "#" in rest:
+            part0, _, part1 = rest.partition("#")
             try:
                 req_id = int(part0.strip())
                 alt_id = int(part1.strip())
-                alternatives.setdefault(req_id, set()).add(alt_id)
+                key = (scope, req_id)
+                alternatives.setdefault(key, set()).add(alt_id)
             except ValueError:
                 continue
         else:
             try:
-                external.add(int(raw))
+                external.add((scope, int(rest)))
             except ValueError:
                 continue
     return external, alternatives
@@ -93,14 +110,16 @@ def _filter_content_lines(text: str) -> list[str]:
     ]
 
 
-def _load_requirement_filter() -> tuple[set[int], dict[int, set[int]]]:
+def _load_requirement_filter() -> tuple[
+    set[tuple[GameScope, int]],
+    dict[tuple[GameScope, int], set[int]],
+]:
     """
     Load external-tool IDs and requirement alternatives from cache + remote.
 
-    Fetches from GitHub and merges with the local cache: keeps all cache lines
-    (user additions) and appends any new lines from the remote. Returns
-    (external_tool_mod_ids, requirement_alternatives). For "req#alt", requirement
-    req is considered satisfied if req or any alt is in the installed mod list.
+    Fetches from GitHub and merges with the local cache. Returns
+    (external_set, alternatives_dict) with game-scoped keys so e.g. 42147
+    can be external for Fallout 4 only, not for Skyrim. No prefix = all games.
     """
     cache_path = get_requirement_external_tool_mod_ids_path()
     cache_text = ""
@@ -126,7 +145,7 @@ def _load_requirement_filter() -> tuple[set[int], dict[int, set[int]]]:
 
     # Merge: union of externals; for alternatives, union sets per key
     merged_external = cache_external | remote_external
-    merged_alternatives: dict[int, set[int]] = {}
+    merged_alternatives: dict[tuple[GameScope, int], set[int]] = {}
     for key in set(cache_alternatives) | set(remote_alternatives):
         merged_alternatives[key] = cache_alternatives.get(key, set()) | remote_alternatives.get(key, set())
 
@@ -144,6 +163,30 @@ def _load_requirement_filter() -> tuple[set[int], dict[int, set[int]]]:
                 pass
 
     return merged_external, merged_alternatives
+
+
+def _is_external_for_game(
+    game_domain: str,
+    mod_id: int,
+    external_set: set[tuple[GameScope, int]],
+) -> bool:
+    """True if mod_id is treated as external (don't flag) for this game."""
+    scope: GameScope = (game_domain.strip().lower() or None) if game_domain else None
+    return (None, mod_id) in external_set or (scope, mod_id) in external_set
+
+
+def _alternative_satisfied_for_game(
+    game_domain: str,
+    req_id: int,
+    installed_mod_ids: set[int],
+    alternatives_dict: dict[tuple[GameScope, int], set[int]],
+) -> bool:
+    """True if requirement req_id is satisfied by an alternative for this game."""
+    scope: GameScope = (game_domain.strip().lower() or None) if game_domain else None
+    for key in ((None, req_id), (scope, req_id)):
+        if key in alternatives_dict and alternatives_dict[key] & installed_mod_ids:
+            return True
+    return False
 
 
 def check_missing_requirements(
@@ -202,8 +245,8 @@ def check_missing_requirements(
     # 2. Build set of all installed Nexus mod IDs
     installed_mod_ids: set[int] = {m.mod_id for m in installed if m.mod_id > 0}
 
-    # External tools (never flag) and requirement alternatives (req satisfied if alt installed)
-    external_tool_mod_ids, requirement_alternatives = _load_requirement_filter()
+    # External tools (never flag) and requirement alternatives; both can be game-scoped
+    external_set, alternatives_dict = _load_requirement_filter()
 
     # Deduplicate by mod_id
     by_mod_id: dict[int, list[NexusModMeta]] = {}
@@ -246,13 +289,12 @@ def check_missing_requirements(
                 continue
             if req.mod_id <= 0:
                 continue
-            if req.mod_id in external_tool_mod_ids:
+            if _is_external_for_game(game_domain, req.mod_id, external_set):
                 # External tools (script extenders, xEdit) — installed to game folder, not mod list
                 continue
-            if req.mod_id in requirement_alternatives:
+            if _alternative_satisfied_for_game(game_domain, req.mod_id, installed_mod_ids, alternatives_dict):
                 # e.g. 33746#92109: requirement 33746 satisfied if 92109 (Open Animation Replacer) installed
-                if requirement_alternatives[req.mod_id] & installed_mod_ids:
-                    continue
+                continue
             if req.mod_id not in installed_mod_ids:
                 missing.append(req)
 
