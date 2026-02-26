@@ -22,30 +22,28 @@ from Utils.deploy import LinkMode
 from Utils.steam_finder import find_steam_libraries, find_game_in_libraries, find_prefix
 from Utils.heroic_finder import find_heroic_game, find_heroic_prefix
 
-# ---------------------------------------------------------------------------
-# Colors / fonts (kept in sync with gui.py)
-# ---------------------------------------------------------------------------
-BG_DEEP    = "#1a1a1a"
-BG_PANEL   = "#252526"
-BG_HEADER  = "#2a2a2b"
-BG_ROW     = "#2d2d2d"
-BG_HOVER   = "#094771"
-ACCENT     = "#0078d4"
-ACCENT_HOV = "#1084d8"
-TEXT_MAIN  = "#d4d4d4"
-TEXT_DIM   = "#858585"
-TEXT_SEP   = "#b0b0b0"
-BORDER     = "#444444"
-TEXT_OK    = "#98c379"
-TEXT_ERR   = "#e06c75"
-TEXT_WARN  = "#e5c07b"
-RED_BTN    = "#a83232"
-RED_HOV    = "#c43c3c"
-
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_BOLD   = ("Segoe UI", 12, "bold")
-FONT_SMALL  = ("Segoe UI", 10)
-FONT_MONO   = ("Courier New", 11)
+from gui.theme import (
+    BG_DEEP,
+    BG_PANEL,
+    BG_HEADER,
+    BG_ROW,
+    BG_HOVER,
+    ACCENT,
+    ACCENT_HOV,
+    TEXT_MAIN,
+    TEXT_DIM,
+    TEXT_SEP,
+    BORDER,
+    TEXT_OK,
+    TEXT_ERR,
+    TEXT_WARN,
+    RED_BTN,
+    RED_HOV,
+    FONT_NORMAL,
+    FONT_BOLD,
+    FONT_SMALL,
+    FONT_MONO,
+)
 
 
 # ---------------------------------------------------------------------------

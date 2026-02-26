@@ -52,14 +52,17 @@ def get_profiles_dir() -> Path:
 
     Inside an AppImage, $MOD_MANAGER_PROFILES_DIR is set by AppRun to a
     writable location (~/.config/AmethystModManager/Profiles).  Outside an AppImage
-    the default is <project_root>/Profiles.
+    the default is get_config_dir()/Profiles so config and Profiles stay consistent
+    regardless of launch method (run.sh, AppImage, etc.).
     """
     env = os.environ.get("MOD_MANAGER_PROFILES_DIR")
     if env:
         p = Path(env)
         p.mkdir(parents=True, exist_ok=True)
         return p
-    return Path(__file__).parent.parent / "Profiles"
+    p = get_config_dir() / "Profiles"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 def get_exe_args_path() -> Path:

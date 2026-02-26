@@ -10,25 +10,23 @@ import os
 import tkinter as tk
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Theme constants (kept in sync with gui.py)
-# ---------------------------------------------------------------------------
-BG_DEEP    = "#1a1a1a"
-BG_PANEL   = "#252526"
-BG_HEADER  = "#2a2a2b"
-BG_ROW     = "#2d2d2d"
-BG_ROW_ALT = "#303030"
-BG_HOVER   = "#094771"
-BG_SELECT  = "#0f5fa3"
-ACCENT     = "#0078d4"
-TEXT_MAIN  = "#d4d4d4"
-TEXT_DIM   = "#858585"
-TEXT_SEP   = "#b0b0b0"
-BORDER     = "#444444"
-
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_SMALL  = ("Segoe UI", 10)
-FONT_HEADER = ("Segoe UI", 11, "bold")
+from gui.theme import (
+    BG_DEEP,
+    BG_HEADER,
+    BG_PANEL,
+    BG_ROW,
+    BG_ROW_ALT,
+    BG_HOVER,
+    BG_SELECT,
+    ACCENT,
+    TEXT_MAIN,
+    TEXT_DIM,
+    TEXT_SEP,
+    BORDER,
+    FONT_NORMAL,
+    FONT_SMALL,
+    FONT_HEADER,
+)
 
 ROW_H     = 40
 BTN_COL_W = 90   # px reserved on the right for the Install button
