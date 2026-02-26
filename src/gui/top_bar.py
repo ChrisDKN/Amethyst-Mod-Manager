@@ -41,7 +41,7 @@ from gui.dialogs import (
     _MewgenicsDeployChoiceDialog,
     _MewgenicsLaunchCommandDialog,
 )
-from gui.path_utils import _pick_file_zenity
+from gui.path_utils import pick_file_mod_archive
 from gui.install_mod import install_mod_from_archive
 from gui.add_game_dialog import AddGameDialog
 from gui.nexus_settings_dialog import NexusSettingsDialog
@@ -368,6 +368,7 @@ class TopBar(ctk.CTkFrame):
             if picker.result in configured:
                 self._game_var.set(picker.result)
                 _save_last_game(picker.result)
+                self._update_wizard_visibility()
                 self._reload_mod_panel()
 
     def _on_settings(self):
@@ -511,17 +512,19 @@ class TopBar(ctk.CTkFrame):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _on_install_mod(self):
-        path = _pick_file_zenity("Select Mod Archive")
-        if not path:
-            return
-        game = _gh._GAMES.get(self._game_var.get())
-        if game is None or not game.is_configured():
-            self._log("No configured game selected — use + to set the game path first.")
-            return
-        self._log(f"Installing: {os.path.basename(path)}")
-        app = self.winfo_toplevel()
-        mod_panel = getattr(app, "_mod_panel", None)
-        install_mod_from_archive(path, app, self._log, game, mod_panel)
+        def _on_file_picked(path: str) -> None:
+            if not path:
+                return
+            game = _gh._GAMES.get(self._game_var.get())
+            if game is None or not game.is_configured():
+                self._log("No configured game selected — use + to set the game path first.")
+                return
+            self._log(f"Installing: {os.path.basename(path)}")
+            app = self.winfo_toplevel()
+            mod_panel = getattr(app, "_mod_panel", None)
+            install_mod_from_archive(path, app, self._log, game, mod_panel)
+
+        pick_file_mod_archive("Select Mod Archive", lambda p: self.after(0, lambda: _on_file_picked(p)))
 
 
 # ---------------------------------------------------------------------------

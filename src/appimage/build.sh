@@ -43,10 +43,12 @@ cd "$BUILD_DIR"
 mv squashfs-root "$APPDIR"
 
 # ── Step 3: Install pip dependencies ─────────────────────────────────
+# Use requirements-appimage.txt (excludes PyGObject — needs system GLib to build).
+# Portal file chooser falls back to zenity when PyGObject is unavailable.
 echo "=== Installing pip dependencies ==="
 PYTHON_BIN="${APPDIR}/opt/python3.13/bin/python3.13"
 "$PYTHON_BIN" -m pip install --no-cache-dir --quiet \
-    -r "${PROJECT_DIR}/requirements.txt"
+    -r "${PROJECT_DIR}/requirements-appimage.txt"
 
 # ── Step 4: Bundle libarchive system library ─────────────────────────
 # libarchive-c is a ctypes wrapper that needs the system libarchive.so

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Amethyst Mod Manager
+Comment=Linux Mod Manager
+Exec=amethyst-mod-manager
+Icon=io.github.Amethyst.ModManager
+Categories=Game;Utility;
+Terminal=false
+StartupWMClass=amethyst-mod-manager

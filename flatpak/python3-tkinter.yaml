@@ -1,0 +1,41 @@
+# Tkinter support for Flatpak (from Inkscape's working Flathub manifest)
+# https://github.com/flathub/org.inkscape.Inkscape/blob/master/python3-tkinter.yaml
+name: tkinter
+buildsystem: simple
+build-commands:
+  - pip3 install --prefix=${FLATPAK_DEST} --no-build-isolation .
+sources:
+  - type: git
+    url: https://github.com/iwalton3/tkinter-standalone
+    commit: 8e78e38ef0cceb44a3a0062e1c314a4ff3f981db
+modules:
+  - name: tcl
+    buildsystem: autotools
+    config-opts:
+      - --disable-zipfs
+    subdir: unix
+    post-install:
+      - chmod 755 /app/lib/libtcl*.so
+    cleanup:
+      - /bin
+      - /lib/pkgconfig
+      - /man
+    sources:
+      - type: archive
+        url: https://prdownloads.sourceforge.net/tcl/tcl9.0.3-src.tar.gz
+        sha256: 2537ba0c86112c8c953f7c09d33f134dd45c0fb3a71f2d7f7691fd301d2c33a6
+  - name: tk
+    buildsystem: autotools
+    config-opts:
+      - --disable-zipfs
+    subdir: unix
+    post-install:
+      - chmod 755 /app/lib/libtcl*tk*.so
+    cleanup:
+      - /bin
+      - /lib/pkgconfig
+      - /man
+    sources:
+      - type: archive
+        url: https://prdownloads.sourceforge.net/tcl/tk9.0.3-src.tar.gz
+        sha256: bf344efadb618babb7933f69275620f72454d1c8220130da93e3f7feb0efbf9b
