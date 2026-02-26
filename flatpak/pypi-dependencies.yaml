@@ -1,0 +1,220 @@
+# Generated with flatpak-pip-generator --requirements-file=src/requirements.txt --output flatpak/pypi-dependencies --yaml
+build-commands: []
+buildsystem: simple
+modules:
+  - name: python3-customtkinter
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "customtkinter" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/3b/b1/b43b33001a77256b335511e75f257d001082350b8506c8807f30c98db052/customtkinter-5.2.2-py3-none-any.whl
+        sha256: 14ad3e7cd3cb3b9eb642b9d4e8711ae80d3f79fb82545ad11258eeffb2e6b37c
+      - type: file
+        url: https://files.pythonhosted.org/packages/f2/f2/728f041460f1b9739b85ee23b45fa5a505962ea11fd85bdbe2a02b021373/darkdetect-0.8.0-py3-none-any.whl
+        sha256: a7509ccf517eaad92b31c214f593dbcf138ea8a43b2935406bbd565e15527a85
+      - type: file
+        url: https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl
+        sha256: b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529
+  - name: python3-py7zr
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "py7zr" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/f4/b1/36a5182ce1d8ef9ef32bff69037bd28b389bbdb66338f8069e61da7028cb/backports_zstd-1.3.0.tar.gz
+        sha256: e8b2d68e2812f5c9970cabc5e21da8b409b5ed04e79b4585dbffa33e9b45ebe2
+      - type: file
+        url: https://files.pythonhosted.org/packages/f7/16/c92ca344d646e71a43b8bb353f0a6490d7f6e06210f8554c8f874e454285/brotli-1.2.0.tar.gz
+        sha256: e310f77e41941c13340a95976fe66a8a95b01e783d430eeaf7a2f87e0a57dd0a
+      # Use wheels: sdist has broken metadata
+      - type: file
+        url: https://files.pythonhosted.org/packages/c0/c5/038dc2593bbc4272d87eac8c9f75692267d47f834ced888f6d81995df606/inflate64-1.0.4-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: f62a13d0327631778fa2a47c308ae2b07b2659b7bb8564783259ac65949f8c0c
+      - type: file
+        url: https://files.pythonhosted.org/packages/ca/04/399e82d8f5003dd92c8a0c5c1a9a8ce0919114710a496cbe88848bff3a72/inflate64-1.0.4-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+        sha256: a984b9287ff0fb596eb058d66a9e94530556afd2b7c054b44f2e0aeeff894e8f
+      - type: file
+        url: https://files.pythonhosted.org/packages/22/31/ec5f46fd4c83185b806aa9c736e228cb780f13990a9cf4da0beb70025fcc/multivolumefile-0.2.3-py3-none-any.whl
+        sha256: 237f4353b60af1703087cf7725755a1f6fcaeeea48421e1896940cd1c920d678
+      - type: file
+        url: https://files.pythonhosted.org/packages/aa/c6/d1ddf4abb55e93cebc4f2ed8b5d6dbad109ecb8d63748dd2b20ab5e57ebe/psutil-7.2.2.tar.gz
+        sha256: 0746f5f8d406af344fd547f1c8daa5f5c33dbc293bb8d6a16d80b4bb88f59372
+      - type: file
+        url: https://files.pythonhosted.org/packages/f0/9c/762284710ead9076eeecd55fb60509c19cd1f4bea811df5f3603725b44cb/py7zr-1.1.0-py3-none-any.whl
+        sha256: 5921bc30fb72b5453aafe3b2183664c08ef508cde2655988d5e9bd6078353ef7
+      # Use wheels: sdist has broken metadata (pip rejects despite version)
+      - type: file
+        url: https://files.pythonhosted.org/packages/86/43/2ce282501a39f32f27cef2a3ee11c621f9d5348da4441d2326f2fcc9b17e/pybcj-1.0.7-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: 029112255c22de66e0117bec932c8be341ed20c56dcf6a961c14689f7f0ce772
+      - type: file
+        url: https://files.pythonhosted.org/packages/b0/a6/7df6b55b64b370e2d42aa51b88402336d7f17c97eda284755f404d8d6047/pybcj-1.0.7-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+        sha256: 8a5fcd40a4ce8f0c5428032ec5db9f03abb42214b993886cdf558e5644de636e
+      - type: file
+        url: https://files.pythonhosted.org/packages/c9/85/e24bf90972a30b0fcd16c73009add1d7d7cd9140c2498a68252028899e41/pycryptodomex-3.23.0.tar.gz
+        sha256: 71909758f010c82bc99b0abf4ea12012c98962fbf0583c2164f8b84533c2e4da
+      # Use wheels: sdist has broken metadata (reports version 0.0.0). cp313 for GNOME Platform 49 / Python 3.13
+      - type: file
+        url: https://files.pythonhosted.org/packages/64/fd/673d429df719affa1445611288aab6111c0bc87e51eb4677fe2421a1dd64/pyppmd-1.3.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: bd00522ddfcc292304577386b6c217758c0c10e1fb9ce7877ad7d3b7b821a808
+      - type: file
+        url: https://files.pythonhosted.org/packages/76/9c/09ab8b4f00473f210284dacf837cae8355ad900f3fd8fd98b2bba12de4fa/pyppmd-1.3.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+        sha256: 3b765ae21f7ed2f4ea8f32bfd9e3a4a8d738e73fc8f8dcddec9cbe2c898d60be
+      - type: file
+        url: https://files.pythonhosted.org/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl
+        sha256: 72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917
+  - name: python3-libarchive-c
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "libarchive-c" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/88/3f/ff00c588ebd7eae46a9d6223389f5ae28a3af4b6d975c0f2a6d86b1342b9/libarchive_c-5.3-py3-none-any.whl
+        sha256: 651550a6ec39266b78f81414140a1e04776c935e72dfc70f1d7c8e0a3672ffba
+  - name: python3-Pillow
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "Pillow" --no-build-isolation
+    sources:
+      # Use wheels: sdist requires pybind11 and libjpeg etc. at build time
+      - type: file
+        url: https://files.pythonhosted.org/packages/71/24/538bff45bde96535d7d998c6fed1a751c75ac7c53c37c90dc2601b243893/pillow-12.1.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+        sha256: 47b94983da0c642de92ced1702c5b6c292a84bd3a8e1d1702ff923f183594717
+      - type: file
+        url: https://files.pythonhosted.org/packages/29/9b/d6ecd956bb1266dd1045e995cce9b8d77759e740953a1c9aad9502a0461e/pillow-12.1.1-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl
+        sha256: 5a8eb7ed8d4198bccbd07058416eeec51686b498e784eda166395a23eb99138e
+  - name: python3-lz4
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "lz4" --no-build-isolation
+    sources:
+      # Use wheels: sdist has broken metadata
+      - type: file
+        url: https://files.pythonhosted.org/packages/d2/fb/ba9256c48266a09012ed1d9b0253b9aa4fe9cdff094f8febf5b26a4aa2a2/lz4-4.4.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: 451039b609b9a88a934800b5fc6ee401c89ad9c175abf2f4d9f8b2e4ef1afc64
+      - type: file
+        url: https://files.pythonhosted.org/packages/89/d1/f1d259352227bb1c185288dd694121ea303e43404aa77560b879c90e7073/lz4-4.4.5-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+        sha256: 533298d208b58b651662dd972f52d807d48915176e5b032fb4f8c3b6f5fe535c
+  - name: python3-requests
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "requests" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/9a/3c/c17fb3ca2d9c3acff52e30b309f538586f9f5b9c9cf454f3845fc9af4881/certifi-2026.2.25-py3-none-any.whl
+        sha256: 027692e4402ad994f1c42e52a4997a9763c646b73e4096e4d5d6db8af1d6f0fa
+      - type: file
+        url: https://files.pythonhosted.org/packages/13/69/33ddede1939fdd074bce5434295f38fae7136463422fe4fd3e0e89b98062/charset_normalizer-3.4.4.tar.gz
+        sha256: 94537985111c35f28720e43603b8e7b43a6ecfb2ce1d3058bbe955b73404e21a
+      - type: file
+        url: https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl
+        sha256: 771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea
+      - type: file
+        url: https://files.pythonhosted.org/packages/1e/db/4254e3eabe8020b458f1a747140d32277ec7a271daf1d235b70dc0b4e6e3/requests-2.32.5-py3-none-any.whl
+        sha256: 2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6
+      - type: file
+        url: https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl
+        sha256: bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4
+  - name: python3-websocket-client
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "websocket-client" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/34/db/b10e48aa8fff7407e67470363eac595018441cf32d5e1001567a7aeba5d2/websocket_client-1.9.0-py3-none-any.whl
+        sha256: af248a825037ef591efbf6ed20cc5faa03d3b47b9e5a2230a529eeee1c1fc3ef
+  - name: python3-keyring
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "keyring" --no-build-isolation
+    sources:
+      # Use wheels: cffi and cryptography sdists need Rust/maturin to build
+      - type: file
+        url: https://files.pythonhosted.org/packages/98/df/0a1755e750013a2081e863e7cd37e0cdd02664372c754e5560099eb7aa44/cffi-2.0.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+        sha256: c8d3b5532fc71b7a77c09192b4a5a200ea992702734a2e9279a37f2478236f26
+      - type: file
+        url: https://files.pythonhosted.org/packages/a9/f5/a2c23eb03b61a0b8747f211eb716446c826ad66818ddc7810cc2cc19b3f2/cffi-2.0.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
+        sha256: d48a880098c96020b02d5a1f7d9251308510ce8858940e6fa99ece33f610838b
+      - type: file
+        url: https://files.pythonhosted.org/packages/63/e7/471ab61099a3920b0c77852ea3f0ea611c9702f651600397ac567848b897/cryptography-46.0.5-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+        sha256: 4d7e3d356b8cd4ea5aff04f129d5f66ebdc7b6f8eae802b93739ed520c47c79b
+      - type: file
+        url: https://files.pythonhosted.org/packages/ff/9e/6b4397a3e3d15123de3b1806ef342522393d50736c13b20ec4c9ea6693a6/cryptography-46.0.5-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
+        sha256: c18ff11e86df2e28854939acde2d003f7984f721eba450b56a200ad90eeb0e6b
+      - type: file
+        url: https://files.pythonhosted.org/packages/7f/66/b15ce62552d84bbfcec9a4873ab79d993a1dd4edb922cbfccae192bd5b5f/jaraco.classes-3.4.0-py3-none-any.whl
+        sha256: f662826b6bed8cace05e7ff873ce0f9283b5c924470fe664fff1c2f00f581790
+      - type: file
+        url: https://files.pythonhosted.org/packages/8d/48/aa685dbf1024c7bd82bede569e3a85f82c32fd3d79ba5fea578f0159571a/jaraco_context-6.1.0-py3-none-any.whl
+        sha256: a43b5ed85815223d0d3cfdb6d7ca0d2bc8946f28f30b6f3216bda070f68badda
+      - type: file
+        url: https://files.pythonhosted.org/packages/fd/c4/813bb09f0985cb21e959f21f2464169eca882656849adf727ac7bb7e1767/jaraco_functools-4.4.0-py3-none-any.whl
+        sha256: 9eec1e36f45c818d9bf307c8948eb03b2b56cd44087b3cdc989abca1f20b9176
+      - type: file
+        url: https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl
+        sha256: 97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683
+      - type: file
+        url: https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl
+        sha256: be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f
+      - type: file
+        url: https://files.pythonhosted.org/packages/a4/8e/469e5a4a2f5855992e425f3cb33804cc07bf18d48f2db061aec61ce50270/more_itertools-10.8.0-py3-none-any.whl
+        sha256: 52d4362373dcf7c52546bc4af9a86ee7c4579df9a8dc268be0a2f949d376cc9b
+      - type: file
+        url: https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl
+        sha256: b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992
+      - type: file
+        url: https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl
+        sha256: 0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137
+  - name: python3-importlib_metadata
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "importlib_metadata" --no-build-isolation
+    sources:
+      - &id001
+        type: file
+        url: https://files.pythonhosted.org/packages/fa/5e/f8e9a1d23b9c20a551a8a02ea3637b4642e22c2626e3a13a9a29cdea99eb/importlib_metadata-8.7.1-py3-none-any.whl
+        sha256: 5a1f80bf1daa489495071efbb095d75a634cf28a8bc299581244063b53176151
+      - &id002
+        type: file
+        url: https://files.pythonhosted.org/packages/2e/54/647ade08bf0db230bfea292f893923872fd20be6ac6f53b2b936ba839d75/zipp-3.23.0-py3-none-any.whl
+        sha256: 071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e
+  - name: python3-backports.tarfile
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "backports.tarfile" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/b9/fa/123043af240e49752f1c4bd24da5053b6bd00cad78c2be53c0d1e8b975bc/backports.tarfile-1.2.0-py3-none-any.whl
+        sha256: 77e284d754527b01fb1e6fa8a1afe577858ebe4e9dad8919e34c862cb399bc34
+  - name: python3-importlib_metadata
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "importlib_metadata" --no-build-isolation
+    sources:
+      - *id001
+      - *id002
+  # PyGObject + pycairo for XDG Desktop Portal file chooser (gi.repository.Gio, GLib)
+  - name: python3-pygobject
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} pycairo PyGObject --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/1c/41/91955188e97c7b85fbaac6bbf4e33de028899e0aa31bdce99b1afe2eeb17/pycairo-1.26.0.tar.gz
+        sha256: 2dddd0a874fbddb21e14acd9b955881ee1dc6e63b9c549a192d613a907f9cbeb
+      - type: file
+        url: https://files.pythonhosted.org/packages/f9/9e/6bab1ed3bd878f0912d9a0600c21f3d88bab0e8a8d4c3ce50f5cf336faaf/pygobject-3.48.2.tar.gz
+        sha256: c3c0a7afbe5b2c1c64dc0530109b4dd571085153dbedfbccb8ec7c5ad233f977
+name: pypi-dependencies

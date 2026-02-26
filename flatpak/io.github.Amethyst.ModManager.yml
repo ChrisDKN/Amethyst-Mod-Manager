@@ -1,0 +1,62 @@
+app-id: io.github.Amethyst.ModManager
+runtime: org.gnome.Platform
+runtime-version: "49"
+sdk: org.gnome.Sdk
+
+command: amethyst-mod-manager
+
+# Sandbox permissions
+# - network: Nexus API send/receive, version checks, downloads
+# - x11/wayland: GUI display
+# - dri: GPU rendering
+# - home: mod staging (user-configurable path, e.g. anywhere in ~/), game paths, Steam libraries, config (~/.config/AmethystModManager)
+# - run/media, media, mnt: Steam libraries on SD cards and removable drives (Steam Deck, etc.)
+# - ~/.var/app/com.valvesoftware.Steam: Steam Flatpak data (home excludes ~/.var/app)
+# - talk-name=org.freedesktop.secrets: keyring (Nexus API key storage and retrieval)
+finish-args:
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --share=ipc
+  - --filesystem=home
+  - --filesystem=/run/media
+  - --filesystem=/media
+  - --filesystem=/mnt
+  - --filesystem=~/.var/app/com.valvesoftware.Steam
+  - --talk-name=org.freedesktop.secrets
+
+tags:
+  - modmanager
+  - games
+  - modding
+
+modules:
+  # Tkinter
+  - python3-tkinter.yaml
+  # Python Dependencies 
+  - pypi-dependencies.yaml
+
+  - name: amethyst-mod-manager
+    buildsystem: simple
+    build-commands:
+      - install -d /app/share/amethyst-mod-manager
+      - cp -a src/gui.py src/version.py src/gui src/Utils src/Games src/LOOT src/Nexus src/icons src/wizards src/wrappers src/gpak /app/share/amethyst-mod-manager/
+
+      - install -d /app/bin
+      - |
+        printf '%s\n' '#!/bin/sh' \
+          'export MOD_MANAGER_GAMES="/app/share/amethyst-mod-manager/Games"' \
+          'export XDG_DATA_DIRS=/app/share:/usr/share' \
+          'cd /app/share/amethyst-mod-manager' \
+          'exec python3 gui.py "$@"' > /app/bin/amethyst-mod-manager
+      - chmod +x /app/bin/amethyst-mod-manager
+      - install -d /app/share/applications
+      - install -m 644 flatpak/io.github.Amethyst.ModManager.desktop /app/share/applications/
+      - install -d /app/share/icons/hicolor/64x64/apps /app/share/icons/hicolor/128x128/apps /app/share/icons/hicolor/256x256/apps
+      - install -m 644 src/appimage/mod-manager.png /app/share/icons/hicolor/64x64/apps/io.github.Amethyst.ModManager.png
+      - install -m 644 src/appimage/mod-manager.png /app/share/icons/hicolor/128x128/apps/io.github.Amethyst.ModManager.png
+      - install -m 644 src/appimage/mod-manager.png /app/share/icons/hicolor/256x256/apps/io.github.Amethyst.ModManager.png
+    sources:
+      - type: dir
+        path: ..

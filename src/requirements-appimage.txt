@@ -1,0 +1,12 @@
+# AppImage build: excludes PyGObject (requires GLib/GObject to build from source).
+# Portal file chooser falls back to zenity; zenity is typically available on host.
+customtkinter
+py7zr
+libarchive-c
+Pillow
+lz4
+requests
+websocket-client
+keyring
+importlib_metadata
+backports.tarfile

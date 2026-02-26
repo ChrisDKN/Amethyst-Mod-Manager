@@ -4,6 +4,7 @@ Used by App. Imports theme, game_helpers, dialogs, install_mod, subpanels.
 """
 
 import os
+import threading
 import tkinter as tk
 import tkinter.ttk as ttk
 from pathlib import Path

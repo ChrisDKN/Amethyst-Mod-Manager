@@ -7,4 +7,9 @@ appimage/build/appimagetool
 appimage/build/python3.13.AppImage
 LOOT/libloot
 .venv
+<<<<<<< HEAD
 .flatpak-builder
+=======
+.venv-flatpak
+.flatpak-builder
+>>>>>>> ba2d941e3d1bac81500ed103eb994aea98c4dcda
