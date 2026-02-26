@@ -116,10 +116,11 @@ class App(ctk.CTk):
 
     def _update_window_title(self):
         """Set the window title, showing Nexus username when logged in."""
+        base = f"Amethyst Mod Manager v{__version__}"
         if self._nexus_username:
-            self.title(f"Amethyst Mod Manager - Logged in to Nexus as {self._nexus_username}")
+            self.title(f"{base} - Logged in to Nexus as {self._nexus_username}")
         else:
-            self.title("Amethyst Mod Manager")
+            self.title(base)
 
     def _init_nexus_api(self):
         """Load saved API key and initialise the Nexus client (if key exists)."""
