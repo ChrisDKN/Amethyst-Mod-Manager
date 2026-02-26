@@ -19,19 +19,17 @@ from typing import Callable, Optional
 import customtkinter as ctk
 import tkinter as tk
 
-# ---------------------------------------------------------------------------
-# Colors / fonts (kept in sync with gui.py)
-# ---------------------------------------------------------------------------
-BG_DEEP    = "#1a1a1a"
-BG_PANEL   = "#252526"
-BG_HEADER  = "#2a2a2b"
-TEXT_MAIN  = "#d4d4d4"
-TEXT_DIM   = "#858585"
-BORDER     = "#444444"
-
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_BOLD   = ("Segoe UI", 12, "bold")
-FONT_SMALL  = ("Segoe UI", 10)
+from gui.theme import (
+    BG_DEEP,
+    BG_PANEL,
+    BG_HEADER,
+    TEXT_MAIN,
+    TEXT_DIM,
+    BORDER,
+    FONT_NORMAL,
+    FONT_BOLD,
+    FONT_SMALL,
+)
 
 
 def _default_state():
