@@ -368,6 +368,7 @@ class TopBar(ctk.CTkFrame):
             if picker.result in configured:
                 self._game_var.set(picker.result)
                 _save_last_game(picker.result)
+                self._update_wizard_visibility()
                 self._reload_mod_panel()
 
     def _on_settings(self):
