@@ -185,6 +185,7 @@ class NexusModRequirement:
     game_domain: str = ""
     url: str = ""
     is_external: bool = False  # True if it's an external (non-Nexus) requirement
+    notes: str = ""  # Notes about the mod requirement (from GraphQL ModRequirement)
 
 
 # ---------------------------------------------------------------------------
@@ -710,6 +711,7 @@ class NexusAPI:
                                 gameId
                                 url
                                 externalRequirement
+                                notes
                             }
                         }
                     }
@@ -755,6 +757,7 @@ class NexusAPI:
                     game_domain=n.get("gameId", game_domain),
                     url=n.get("url", ""),
                     is_external=bool(n.get("externalRequirement", False)),
+                    notes=n.get("notes", "") or "",
                 ))
             return results
         except Exception as exc:

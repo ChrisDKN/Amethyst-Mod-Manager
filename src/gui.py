@@ -14,6 +14,7 @@ import tkinter.messagebox
 import tkinter.ttk as ttk
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 import customtkinter as ctk
 import py7zr
 from datetime import datetime
@@ -57,7 +58,7 @@ from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
 from Utils.config_paths import get_config_dir, get_exe_args_path, get_fomod_selections_path, get_profiles_dir, get_last_game_path
 from Utils.app_log import set_app_log
-from Nexus.nexus_api import NexusAPI, NexusAPIError, load_api_key, save_api_key, clear_api_key
+from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModRequirement, load_api_key, save_api_key, clear_api_key
 from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
 from Nexus.nexus_download import NexusDownloader
 from Nexus.nexus_meta import build_meta_from_download, write_meta, read_meta, scan_installed_mods, resolve_nexus_meta_for_archive
@@ -347,6 +348,8 @@ class ModListPanel(ctk.CTkFrame):
         self._missing_reqs: set[str] = set()
         # Map mod name → list of missing requirement names (for tooltips / context menu)
         self._missing_reqs_detail: dict[str, list[str]] = {}
+        # Mod names for which the user chose "Ignore requirements" (flag hidden, per profile)
+        self._ignored_missing_reqs: set[str] = set()
 
         # Set of mod names the user has endorsed on Nexus
         self._endorsed_mods: set[str] = set()
@@ -389,6 +392,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filter_conflict_losing: bool = False
         self._filter_conflict_partial: bool = False
         self._filter_conflict_full: bool = False
+        self._filter_missing_reqs: bool = False
         self._visible_indices: list[int] = []  # entry indices matching current filter
 
         # Column sorting (visual only — never touches modlist.txt)
@@ -420,6 +424,7 @@ class ModListPanel(ctk.CTkFrame):
         if game is None:
             self._game = None
             self._modlist_path = None
+            self._ignored_missing_reqs = set()
             self._reload()
             if hasattr(self, "_restore_backup_btn"):
                 self._restore_backup_btn.configure(state="disabled")
@@ -430,6 +435,17 @@ class ModListPanel(ctk.CTkFrame):
         self._strip_prefixes    = game.mod_folder_strip_prefixes
         self._install_extensions = getattr(game, "mod_install_extensions", set())
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
+        # Load ignored missing-requirements list (one mod name per line)
+        ignored_path = profile_dir / "ignored_missing_requirements.txt"
+        self._ignored_missing_reqs = set()
+        if ignored_path.is_file():
+            try:
+                self._ignored_missing_reqs = {
+                    line.strip() for line in ignored_path.read_text().splitlines()
+                    if line.strip()
+                }
+            except OSError:
+                pass
         self._reload()
         if hasattr(self, "_restore_backup_btn"):
             self._restore_backup_btn.configure(state="normal")
@@ -881,6 +897,20 @@ class ModListPanel(ctk.CTkFrame):
             except Exception:
                 pass
 
+    def _save_ignored_missing_reqs(self) -> None:
+        """Persist _ignored_missing_reqs to profile's ignored_missing_requirements.txt."""
+        if self._modlist_path is None:
+            return
+        profile_dir = self._modlist_path.parent
+        path = profile_dir / "ignored_missing_requirements.txt"
+        try:
+            if self._ignored_missing_reqs:
+                path.write_text("\n".join(sorted(self._ignored_missing_reqs)) + "\n")
+            elif path.is_file():
+                path.unlink()
+        except OSError:
+            pass
+
     def _scan_endorsed_flags(self):
         """Scan meta.ini files to build the set of endorsed mods."""
         self._endorsed_mods.clear()
@@ -1207,7 +1237,8 @@ class ModListPanel(ctk.CTkFrame):
 
             # Flags column: warning (highest) > locked star > update > endorsed tick (lowest)
             flag_x = self._COL_X[2] + 10
-            if entry.name in self._missing_reqs and self._icon_warning:
+            if (entry.name in self._missing_reqs and entry.name not in self._ignored_missing_reqs
+                    and self._icon_warning):
                 self._canvas.create_image(flag_x, y_mid, image=self._icon_warning, anchor="center")
             elif entry.locked:
                 self._canvas.create_text(
@@ -1413,6 +1444,19 @@ class ModListPanel(ctk.CTkFrame):
                     result.append(i)
             base = result
 
+        # Step 4b: missing requirements filter (show only mods with missing reqs, not ignored)
+        if self._filter_missing_reqs:
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_missing_reqs(i):
+                        result.append(i)
+                elif (entry.name in self._missing_reqs
+                      and entry.name not in self._ignored_missing_reqs):
+                    result.append(i)
+            base = result
+
         # Step 5: apply column sort (visual only)
         if self._sort_column is not None:
             base = self._apply_column_sort(base)
@@ -1500,7 +1544,8 @@ class ModListPanel(ctk.CTkFrame):
             def _flags_key(i):
                 name = self._entries[i].name
                 # Lower number = flagged (sorts first when ascending)
-                has_warning = name in self._missing_reqs
+                has_warning = (name in self._missing_reqs
+                              and name not in self._ignored_missing_reqs)
                 has_update = name in self._update_mods
                 has_endorsed = name in self._endorsed_mods
                 is_locked = self._entries[i].locked
@@ -1724,6 +1769,15 @@ class ModListPanel(ctk.CTkFrame):
         for i in self._sep_block_range(sep_idx):
             if not self._entries[i].is_separator:
                 if self._conflict_map.get(self._entries[i].name, CONFLICT_NONE) in allowed:
+                    return True
+        return False
+
+    def _sep_block_has_missing_reqs(self, sep_idx: int) -> bool:
+        """True if this separator's block contains at least one mod with missing requirements (not ignored)."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator:
+                name = self._entries[i].name
+                if name in self._missing_reqs and name not in self._ignored_missing_reqs:
                     return True
         return False
 
@@ -2885,13 +2939,256 @@ class ModListPanel(ctk.CTkFrame):
             self._log(f"Nexus: Opened {url}")
 
     def _show_missing_reqs(self, mod_name: str, dep_names: list[str]) -> None:
-        """Log the missing requirements for a mod."""
-        if not dep_names:
-            self._log(f"{mod_name}: No missing requirements recorded.")
+        """Open a CTk window listing missing requirements in browse-tab style, with View/Install and Ignore checkbox."""
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            self._log("Nexus: Set your API key first.")
             return
-        self._log(f"{mod_name} is missing {len(dep_names)} requirement(s):")
-        for name in dep_names:
-            self._log(f"  • {name}")
+        if self._modlist_path is None:
+            self._log("No profile loaded.")
+            return
+        topbar = getattr(app, "_topbar", None)
+        game = _GAMES.get(topbar._game_var.get()) if topbar else None
+        domain = (game.nexus_game_domain if game and game.is_configured() else "") or ""
+
+        staging_root = self._modlist_path.parent.parent.parent / "mods"
+        meta_path = staging_root / mod_name / "meta.ini"
+        if not meta_path.is_file():
+            self._log(f"{mod_name}: No meta.ini found.")
+            return
+        try:
+            meta = read_meta(meta_path)
+        except Exception:
+            self._log(f"{mod_name}: Could not read meta.ini.")
+            return
+        if meta.mod_id <= 0:
+            self._log(f"{mod_name}: No Nexus mod ID.")
+            return
+        if not domain and "/mods/" in meta.nexus_page_url:
+            domain = meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
+        if not domain:
+            self._log("Could not determine game domain.")
+            return
+
+        # Parse missing mod IDs from meta.ini
+        missing_ids: set[int] = set()
+        for pair in (meta.missing_requirements or "").split(";"):
+            part = pair.split(":", 1)[0].strip()
+            if part:
+                try:
+                    missing_ids.add(int(part))
+                except ValueError:
+                    pass
+
+        win = ctk.CTkToplevel(app)
+        win.title(f"Missing requirements — {mod_name}")
+        win.geometry("640x400")
+        win.minsize(400, 300)
+        win.configure(fg_color=BG_PANEL)
+
+        # Header
+        header = ctk.CTkFrame(win, fg_color=BG_HEADER, corner_radius=0, height=36)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        ctk.CTkLabel(
+            header, text=f"Missing requirements for: {mod_name}",
+            font=FONT_SMALL, text_color=TEXT_MAIN,
+        ).pack(side="left", padx=10, pady=6)
+
+        # Status (Loading… or error)
+        status_var = tk.StringVar(value="Loading…")
+        status_lbl = ctk.CTkLabel(
+            win, textvariable=status_var,
+            font=FONT_SMALL, text_color=TEXT_DIM,
+        )
+        status_lbl.pack(pady=20)
+
+        # Scrollable list area (canvas + scrollbar) — built after fetch
+        list_frame = tk.Frame(win, bg=BG_DEEP)
+        list_frame.pack(fill="both", expand=True, padx=4, pady=4)
+        list_frame.grid_rowconfigure(0, weight=1)
+        list_frame.grid_columnconfigure(0, weight=1)
+        canvas = tk.Canvas(
+            list_frame, bg=BG_DEEP, bd=0, highlightthickness=0,
+            yscrollincrement=1, takefocus=0,
+        )
+        vsb = tk.Scrollbar(list_frame, orient="vertical", command=canvas.yview,
+                           bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
+                           highlightthickness=0, bd=0)
+        canvas.configure(yscrollcommand=vsb.set)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        ROW_H = 56
+        BTN_W = 70
+        VIEW_W = 56
+        NAME_PAD = 10
+
+        def _on_wheel(e):
+            if getattr(e, "delta", 0):
+                canvas.yview_scroll(-1 if e.delta > 0 else 1, "units")
+            return "break"
+
+        canvas.bind("<MouseWheel>", _on_wheel)
+
+        # Footer: Ignore checkbox + Close
+        footer = ctk.CTkFrame(win, fg_color=BG_HEADER, corner_radius=0, height=44)
+        footer.pack(fill="x", side="bottom")
+        footer.pack_propagate(False)
+        ignore_var = tk.BooleanVar(value=mod_name in self._ignored_missing_reqs)
+        ctk.CTkCheckBox(
+            footer, text="Ignore requirements",
+            variable=ignore_var,
+            font=FONT_SMALL, text_color=TEXT_MAIN,
+            checkbox_width=18, checkbox_height=18,
+        ).pack(side="left", padx=12, pady=10)
+        def _on_close():
+            if ignore_var.get():
+                self._ignored_missing_reqs.add(mod_name)
+            else:
+                self._ignored_missing_reqs.discard(mod_name)
+            self._save_ignored_missing_reqs()
+            self._redraw()
+            win.destroy()
+        ctk.CTkButton(
+            footer, text="Close", width=80, height=28,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            command=_on_close,
+        ).pack(side="right", padx=12, pady=8)
+
+        # Resolve app that has _install_from_browse (may be parent of toplevel, not toplevel itself)
+        _app = app
+        for _ in range(5):
+            if hasattr(_app, "_install_from_browse"):
+                break
+            _app = getattr(_app, "master", None) or getattr(_app, "parent", None)
+            if _app is None:
+                break
+        install_from_browse = getattr(_app, "_install_from_browse", None) if _app else None
+
+        def _mod_url(req: NexusModRequirement) -> str:
+            return req.url or f"https://www.nexusmods.com/{domain or req.game_domain or ''}/mods/{req.mod_id}"
+
+        def _on_install(req: NexusModRequirement):
+            if install_from_browse is not None:
+                entry = SimpleNamespace(
+                    mod_id=req.mod_id,
+                    domain_name=domain or req.game_domain or "",
+                    name=req.mod_name or f"Mod {req.mod_id}",
+                )
+                install_from_browse(entry)
+            else:
+                # No install callback (e.g. wrong widget hierarchy) or user not premium: open mod in browser
+                webbrowser.open(_mod_url(req))
+                self._log(f"Nexus: Opened {req.mod_name} in browser.")
+
+        def _populate(missing_list: list[NexusModRequirement]) -> None:
+            status_lbl.pack_forget()
+            canvas_w = [600]
+
+            def _on_resize(ev):
+                canvas_w[0] = max(ev.width, 200)
+                _repaint()
+
+            list_frame.bind("<Configure>", _on_resize)
+            row_bounds: list[tuple[int, int]] = []
+            view_btns: list[tk.Button] = []
+            install_btns: list[tk.Button] = []
+
+            def _repaint():
+                canvas.delete("all")
+                row_bounds.clear()
+                cw = canvas_w[0]
+                btn_left = cw - 2 * BTN_W - 16
+                name_max_px = max(btn_left - NAME_PAD - 8, 20)
+                y = 0
+                for i, req in enumerate(missing_list):
+                    y_top = y
+                    notes = (req.notes or "").strip() or "No notes"
+                    title = req.mod_name + (" (External)" if req.is_external else "")
+                    # Measure wrapped notes height
+                    line_h = 16
+                    lines = 1
+                    w = name_max_px
+                    for chunk in notes.replace("\n", " ").split():
+                        pass  # simplified: one line for notes
+                    desc_h = min(line_h * 2, 32)
+                    row_h = max(ROW_H, 24 + desc_h + 12)
+                    y_bot = y_top + row_h
+                    row_bounds.append((y_top, y_bot))
+                    bg = BG_ROW_ALT if i % 2 else BG_ROW
+                    canvas.create_rectangle(0, y_top, cw, y_bot, fill=bg, outline="")
+                    canvas.create_text(
+                        NAME_PAD, y_top + 12,
+                        text=title[:80] + ("…" if len(title) > 80 else ""),
+                        anchor="w", font=("Segoe UI", 11), fill=TEXT_MAIN,
+                    )
+                    canvas.create_text(
+                        NAME_PAD, y_top + 30,
+                        text=notes[:120] + ("…" if len(notes) > 120 else ""),
+                        anchor="nw", width=name_max_px,
+                        font=("Segoe UI", 10), fill=TEXT_DIM,
+                    )
+                    y = y_bot
+                total_h = max(y, 1)
+                canvas.configure(scrollregion=(0, 0, cw, total_h))
+
+                # Buttons: create or reuse
+                while len(view_btns) < len(missing_list):
+                    idx = len(view_btns)
+                    req = missing_list[idx]
+                    url = req.url or f"https://www.nexusmods.com/{domain or req.game_domain}/mods/{req.mod_id}"
+                    vb = tk.Button(
+                        canvas, text="View",
+                        bg=ACCENT, fg="#ffffff", activebackground=ACCENT_HOV,
+                        relief="flat", font=("Segoe UI", 10), bd=0,
+                        highlightthickness=0, cursor="hand2",
+                        command=lambda u=url: webbrowser.open(u),
+                    )
+                    ib = tk.Button(
+                        canvas, text="Install",
+                        bg="#2d7a2d", fg="#ffffff", activebackground="#3a9e3a",
+                        relief="flat", font=("Segoe UI", 10), bd=0,
+                        highlightthickness=0, cursor="hand2",
+                        command=lambda r=req: _on_install(r),
+                    )
+                    view_btns.append(vb)
+                    install_btns.append(ib)
+                for idx in range(len(missing_list)):
+                    y_top, y_bot = row_bounds[idx]
+                    cy = y_top + (y_bot - y_top) // 2
+                    vx = cw - BTN_W - 4 - BTN_W - 4
+                    ix = cw - BTN_W - 4
+                    canvas.create_window(vx, cy, window=view_btns[idx], width=VIEW_W, height=28, tags="btns")
+                    canvas.create_window(ix, cy, window=install_btns[idx], width=BTN_W, height=28, tags="btns")
+
+            _repaint()
+
+        def _fetch_done(missing_list: list[NexusModRequirement] | None, err: str | None) -> None:
+            def _run():
+                if err:
+                    status_var.set(err)
+                    return
+                if not missing_list:
+                    status_var.set("No missing requirements (list is empty).")
+                    return
+                _populate(missing_list)
+            app.after(0, _run)
+
+        def _worker():
+            err = None
+            missing_list: list[NexusModRequirement] = []
+            try:
+                all_reqs = api.get_mod_requirements(domain, meta.mod_id)
+                for r in all_reqs:
+                    if r.mod_id in missing_ids:
+                        missing_list.append(r)
+            except Exception as e:
+                err = f"Could not load requirements: {e}"
+            _fetch_done(missing_list, err)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _endorse_nexus_mod(self, mod_name: str, domain: str, meta) -> None:
         """Endorse a mod on Nexus Mods in a background thread."""
@@ -3313,6 +3610,7 @@ class ModListPanel(ctk.CTkFrame):
             "filter_losing": self._filter_conflict_losing,
             "filter_partial": self._filter_conflict_partial,
             "filter_full": self._filter_conflict_full,
+            "filter_missing_reqs": self._filter_missing_reqs,
         }
         ModlistFiltersDialog(
             self.winfo_toplevel(),
@@ -3349,6 +3647,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filter_conflict_losing = state.get("filter_losing", False)
         self._filter_conflict_partial = state.get("filter_partial", False)
         self._filter_conflict_full = state.get("filter_full", False)
+        self._filter_missing_reqs = state.get("filter_missing_reqs", False)
         self._visible_indices = self._compute_visible_indices()
         self._redraw()
 

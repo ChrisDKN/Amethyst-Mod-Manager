@@ -11,6 +11,7 @@ skyrimspecialedition:33746#92109
 skyrimspecialedition:30457
 skyrimspecialedition:201
 skyrimspecialedition:106441
+skyrimspecialedition:60033#133232
 
 fallout4:2737
 fallout4:42147
