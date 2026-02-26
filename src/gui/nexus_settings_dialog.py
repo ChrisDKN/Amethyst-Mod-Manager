@@ -27,27 +27,25 @@ from Nexus.nexus_api import (
 from Nexus.nexus_sso import NexusSSOClient
 from Nexus.nxm_handler import NxmHandler
 
-# ---------------------------------------------------------------------------
-# Colors / fonts (kept in sync with gui.py)
-# ---------------------------------------------------------------------------
-BG_DEEP    = "#1a1a1a"
-BG_PANEL   = "#252526"
-BG_HEADER  = "#2a2a2b"
-BG_ROW     = "#2d2d2d"
-BG_HOVER   = "#094771"
-ACCENT     = "#0078d4"
-ACCENT_HOV = "#1084d8"
-TEXT_MAIN  = "#d4d4d4"
-TEXT_DIM   = "#858585"
-TEXT_OK    = "#98c379"
-TEXT_ERR   = "#e06c75"
-TEXT_WARN  = "#e5c07b"
-BORDER     = "#444444"
-
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_BOLD   = ("Segoe UI", 12, "bold")
-FONT_SMALL  = ("Segoe UI", 10)
-FONT_MONO   = ("Courier New", 11)
+from gui.theme import (
+    BG_DEEP,
+    BG_PANEL,
+    BG_HEADER,
+    BG_ROW,
+    BG_HOVER,
+    ACCENT,
+    ACCENT_HOV,
+    TEXT_MAIN,
+    TEXT_DIM,
+    TEXT_OK,
+    TEXT_ERR,
+    TEXT_WARN,
+    BORDER,
+    FONT_NORMAL,
+    FONT_BOLD,
+    FONT_SMALL,
+    FONT_MONO,
+)
 
 
 class NexusSettingsDialog(ctk.CTkToplevel):

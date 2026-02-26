@@ -228,6 +228,13 @@ def load_api_key() -> str:
             return key.strip()
         # No key in keyring: try migrating from legacy file
         return _migrate_legacy_key()
+    except UnicodeDecodeError as e:
+        app_log(f"Nexus API key in keyring is invalid/corrupted ({e}). Clear and re-enter in Nexus settings.")
+        try:
+            keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
+        except Exception:
+            pass
+        return _migrate_legacy_key()
     except keyring.errors.KeyringError as e:
         app_log(f"Keyring unavailable for Nexus API key: {e}")
         return _migrate_legacy_key()

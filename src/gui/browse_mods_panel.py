@@ -23,22 +23,20 @@ from typing import Callable, Optional
 import requests
 from PIL import Image as PilImage, ImageTk
 
-# ---------------------------------------------------------------------------
-# Theme constants (kept in sync with gui.py)
-# ---------------------------------------------------------------------------
-BG_DEEP    = "#1a1a1a"
-BG_PANEL   = "#252526"
-BG_HEADER  = "#2a2a2b"
-BG_ROW     = "#2d2d2d"
-BG_ROW_ALT = "#303030"
-BG_HOVER   = "#094771"
-ACCENT     = "#0078d4"
-ACCENT_HOV = "#1084d8"
-TEXT_MAIN  = "#d4d4d4"
-TEXT_DIM   = "#858585"
-
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_SMALL  = ("Segoe UI", 10)
+from gui.theme import (
+    BG_DEEP,
+    BG_PANEL,
+    BG_HEADER,
+    BG_ROW,
+    BG_ROW_ALT,
+    BG_HOVER,
+    ACCENT,
+    ACCENT_HOV,
+    TEXT_MAIN,
+    TEXT_DIM,
+    FONT_NORMAL,
+    FONT_SMALL,
+)
 
 ROW_H      = 48
 BTN_COL_W  = 150

@@ -20,28 +20,26 @@ from Utils.fomod_installer import (
     resolve_plugin_type,
 )
 
-# ---------------------------------------------------------------------------
-# Color / font constants (kept in sync with gui.py)
-# ---------------------------------------------------------------------------
-BG_DEEP    = "#1a1a1a"
-BG_PANEL   = "#252526"
-BG_HEADER  = "#2a2a2b"
-BG_ROW     = "#2d2d2d"
-BG_SEP     = "#383838"
-BG_HOVER   = "#094771"
-BG_SELECT  = "#0f5fa3"
-ACCENT     = "#0078d4"
-ACCENT_HOV = "#1084d8"
-TEXT_MAIN  = "#d4d4d4"
-TEXT_DIM   = "#858585"
-TEXT_SEP   = "#b0b0b0"
-BORDER     = "#444444"
-
-FONT_NORMAL = ("Segoe UI", 12)
-FONT_BOLD   = ("Segoe UI", 12, "bold")
-FONT_SMALL  = ("Segoe UI", 10)
-FONT_HEADER = ("Segoe UI", 11, "bold")
-FONT_SEP    = ("Segoe UI", 11, "bold")
+from gui.theme import (
+    BG_DEEP,
+    BG_PANEL,
+    BG_HEADER,
+    BG_ROW,
+    BG_SEP,
+    BG_HOVER,
+    BG_SELECT,
+    ACCENT,
+    ACCENT_HOV,
+    TEXT_MAIN,
+    TEXT_DIM,
+    TEXT_SEP,
+    BORDER,
+    FONT_NORMAL,
+    FONT_BOLD,
+    FONT_SMALL,
+    FONT_HEADER,
+    FONT_SEP,
+)
 
 
 # ---------------------------------------------------------------------------
