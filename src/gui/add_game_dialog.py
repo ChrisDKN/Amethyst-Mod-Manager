@@ -3,13 +3,12 @@ add_game_dialog.py
 Modal dialog for locating and registering a game installation.
 
 Scans all Steam library paths for the game's exe automatically,
-with a manual folder-picker fallback via zenity.
+with a manual folder-picker fallback via XDG portal or zenity.
 """
 
 from __future__ import annotations
 
 import shutil
-import subprocess
 import threading
 from pathlib import Path
 from typing import Optional
@@ -18,6 +17,7 @@ import customtkinter as ctk
 import tkinter as tk
 
 from Games.base_game import BaseGame
+from Utils.portal_filechooser import pick_folder
 from Utils.deploy import LinkMode
 from Utils.steam_finder import find_steam_libraries, find_game_in_libraries, find_prefix
 from Utils.heroic_finder import find_heroic_game, find_heroic_prefix
@@ -477,37 +477,23 @@ class AddGameDialog(ctk.CTkToplevel):
     # Handlers
     # ------------------------------------------------------------------
 
-    def _run_zenity(self, title: str, callback):
-        """Run zenity in a background thread so the Tkinter event loop stays
-        responsive.  The grab is released before zenity opens and re-acquired
-        once it closes — without this, the modal grab blocks all X11 events
-        and freezes the entire desktop while the file picker is open.
+    def _run_folder_picker(self, title: str, callback):
+        """Run a folder picker (XDG portal or zenity) in a background thread.
+        The grab is released before the picker opens and re-acquired once it
+        closes — without this, the modal grab blocks X11 and freezes the desktop.
 
         callback(chosen: Path | None) is called on the main thread with the
-        selected directory, or None if the user cancelled or zenity is missing.
+        selected directory, or None if the user cancelled or picker is unavailable.
         """
         self.grab_release()
 
-        def _worker():
-            chosen = None
-            try:
-                result = subprocess.run(
-                    ["zenity", "--file-selection", "--directory",
-                     f"--title={title}"],
-                    capture_output=True, text=True,
-                )
-                if result.returncode == 0:
-                    p = Path(result.stdout.strip())
-                    if p.is_dir():
-                        chosen = p
-            except FileNotFoundError:
-                chosen = None  # zenity not installed
-            self.after(0, lambda: self._zenity_done(chosen, callback))
+        def _on_picked(chosen: Optional[Path]) -> None:
+            self.after(0, lambda: self._folder_picker_done(chosen, callback))
 
-        threading.Thread(target=_worker, daemon=True).start()
+        pick_folder(title, _on_picked)
 
-    def _zenity_done(self, chosen: Optional[Path], callback):
-        """Called on the main thread after zenity closes."""
+    def _folder_picker_done(self, chosen: Optional[Path], callback):
+        """Called on the main thread after the folder picker closes."""
         try:
             self.grab_set()
         except Exception:
@@ -515,7 +501,7 @@ class AddGameDialog(ctk.CTkToplevel):
         callback(chosen)
 
     def _on_browse(self):
-        """Open a zenity folder picker so the user can locate the game manually."""
+        """Open a folder picker so the user can locate the game manually."""
         def _apply(chosen: Optional[Path]):
             if chosen:
                 self._set_path(chosen, status="found")
@@ -524,15 +510,15 @@ class AddGameDialog(ctk.CTkToplevel):
                 )
             else:
                 self._status_label.configure(
-                    text="No folder selected or zenity not found.",
+                    text="No folder selected or folder picker unavailable.",
                     text_color=TEXT_WARN
                 )
-        self._run_zenity(
+        self._run_folder_picker(
             f"Select {self._game.name} installation folder", _apply
         )
 
     def _on_browse_prefix(self):
-        """Open a zenity folder picker so the user can locate the prefix manually."""
+        """Open a folder picker so the user can locate the prefix manually."""
         def _apply(chosen: Optional[Path]):
             if chosen:
                 self._set_prefix(chosen, status="found")
@@ -541,24 +527,24 @@ class AddGameDialog(ctk.CTkToplevel):
                 )
             else:
                 self._prefix_status_label.configure(
-                    text="No folder selected or zenity not found.",
+                    text="No folder selected or folder picker unavailable.",
                     text_color=TEXT_WARN
                 )
-        self._run_zenity(
+        self._run_folder_picker(
             f"Select Proton prefix folder (pfx/) for {self._game.name}", _apply
         )
 
     def _on_browse_staging(self):
-        """Open a zenity folder picker to choose a custom mod staging folder."""
+        """Open a folder picker to choose a custom mod staging folder."""
         def _apply(chosen: Optional[Path]):
             if chosen:
                 self._set_staging(chosen, status="found")
             else:
                 self._staging_status_label.configure(
-                    text="No folder selected or zenity not found.",
+                    text="No folder selected or folder picker unavailable.",
                     text_color=TEXT_WARN
                 )
-        self._run_zenity(
+        self._run_folder_picker(
             f"Select mod staging folder for {self._game.name}", _apply
         )
 

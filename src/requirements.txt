@@ -9,3 +9,4 @@ keyring
 importlib_metadata
 backports.tarfile
 importlib_metadata
+PyGObject
