@@ -6,3 +6,6 @@ lz4
 requests
 websocket-client
 keyring
+importlib_metadata
+backports.tarfile
+importlib_metadata

@@ -7,3 +7,10 @@ appimage/build/appimagetool
 appimage/build/python3.13.AppImage
 LOOT/libloot
 .venv
+.venv-flatpak
+.flatpak-builder
+flatpak/build.sh
+flatpak/io.github.Amethyst.ModManager.yml
+flatpak/pypi-dependencies.yaml
+flatpak/python3-tkinter.yaml
+flatpak/test.sh
