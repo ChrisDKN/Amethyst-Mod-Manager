@@ -19,24 +19,6 @@
 - **LOOT support** — Plugins for games that use LOOT can be sorted using LOOT.
 - **Nexus API Support** — Integration with features provided by the Nexus Mods Api
 
-## Game Support and Status
-
-| Status | Game | Game |
-|--------|------|------|
-| Working | Skyrim Special Edition | Skyrim |
-| Working | Fallout 4 | Fallout 3 |
-| Working | Fallout 3 GOTY | Fallout New Vegas |
-| Working | Oblivion | Starfield |
-| Working | Skyrim VR | Fallout 4 VR |
-| Working | Baldur's Gate 3 | Cyberpunk 2077 |
-| Working | Witcher 3 | Kingdom Come: Deliverance II |
-| Working | Subnautica | Subnautica Below Zero |
-| Working | Valheim | TCG Card Shop Simulator |
-| Working | Stardew Valley | The Sims 4 |
-| Working | Lethal Company | Mewgenics |
-| To Add | Oblivion Remastered | Morrowind |
-| To Add | Hogwarts Legacy | And more |
-
 ## Install
 
 Run the following command in a terminal. It will appear in your applications menu under Games and Utilities.
@@ -45,6 +27,25 @@ Run the following command in a terminal. It will appear in your applications men
 curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/appimage/Amethyst-MM-installer.sh | bash
 ```
 
+## Games Supported
+
+- Skyrim (Normal, SE and VR)
+- Fallout 3 (Normal and Goty)
+- Fallout 4 (Normal and VR)
+- Fallout New Vegas
+- Starfield
+- Oblivion
+- Baldur's Gate 3
+- Witcher 3
+- Cyberpunk 2077
+- Mewgenics
+- Stardew Valley
+- Kingdom Come Deliverance (1 and 2)
+- Subnautica
+- Subnautica Below Zero
+- The Sims 4
+- Tcg Card Shop Simulator
+- Lethal Company
 
 ## Usage
 
@@ -86,7 +87,7 @@ The manager supports many supporting applications used to mod games. Place the a
 5. Hit **Run exe** — it will run using the Proton version and prefix the game uses.
 ## Needs Testing
 
-As this is an early alpha build, the following needs testing:
+As this application is fairly new, the following needs testing:
 
 - Support on multiple Linux distros
 - Verification that all added games work
@@ -104,8 +105,3 @@ VRAMr (Version 15.0723) works by using an experimental python wrapper. The optim
 - Output will be placed as a mod in a VRAMr folder
 
 Support for other applications (BENDr and ParallaxR) may be added in future
-
-## Planned Features
-
-- Ability to change theme/colours of the GUI
-- Properly Cleanup / Move files created by mods 
