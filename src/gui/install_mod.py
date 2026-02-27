@@ -175,11 +175,16 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
 
 
 def install_mod_from_archive(archive_path: str, parent_window, log_fn,
-                             game, mod_panel=None) -> None:
+                             game, mod_panel=None,
+                             on_installed=None) -> None:
     """
     Extract archive to a temp directory, detect FOMOD, run the wizard if
     present, then copy the resolved files into the game's mod staging area.
     Supports .zip, .7z, and .tar.* formats.
+
+    on_installed : optional callable()
+        Called after a successful install, before the function returns.
+        Use this to e.g. delete the source archive or refresh the UI.
     """
     ext = archive_path.lower()
     raw_stem = os.path.splitext(os.path.basename(archive_path))[0]
@@ -446,6 +451,12 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 except Exception:
                     pass
             threading.Thread(target=_detect_meta, daemon=True).start()
+
+        if on_installed is not None:
+            try:
+                on_installed()
+            except Exception:
+                pass
 
         if mod_panel is not None:
             mod_panel.reload_after_install()
