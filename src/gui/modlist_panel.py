@@ -69,6 +69,8 @@ from gui.nexus_settings_dialog import NexusSettingsDialog
 
 from Utils.filemap import (
     build_filemap,
+    rebuild_mod_index,
+    remove_from_mod_index,
     CONFLICT_NONE,
     CONFLICT_WINS,
     CONFLICT_LOSES,
@@ -102,9 +104,10 @@ class ModListPanel(ctk.CTkFrame):
     Left panel: column header, canvas-based mod list, toolbar.
 
     Rows are drawn as canvas items rather than individual CTk widgets.
-    One tk.Checkbutton per visible row is placed as a canvas window —
-    all other columns are drawn as canvas text items.  This gives smooth
-    scrolling and instant load for large mod lists.
+    One tk.Checkbutton per visible row is embedded via canvas.create_window
+    (not place), so it composites properly with the canvas and avoids opaque
+    Checkbutton backgrounds.  All other columns are drawn as canvas text items.
+    This gives smooth scrolling and instant load for large mod lists.
     """
 
     ROW_H   = 26
@@ -203,6 +206,9 @@ class ModListPanel(ctk.CTkFrame):
         self._on_mod_selected_cb: callable | None = None  # called when a mod is selected
         self._filemap_pending: bool = False   # True while a background rebuild is running
         self._filemap_dirty:   bool = False   # True if another rebuild was requested while one was running
+        self._filemap_after_id: str | None = None  # after() handle for debounce timer
+        self._filemap_rescan_index: bool = False  # True if next rebuild should regenerate modindex.txt first
+        self._redraw_after_id: str | None = None  # after_idle handle for scroll-debounce
 
         # Drag state
         self._drag_idx:      int = -1      # entry index being dragged (stays fixed during drag)
@@ -234,18 +240,42 @@ class ModListPanel(ctk.CTkFrame):
         self._filter_conflict_full: bool = False
         self._filter_missing_reqs: bool = False
         self._visible_indices: list[int] = []  # entry indices matching current filter
+        self._vis_dirty: bool = True           # True when _visible_indices needs recomputing
 
         # Column sorting (visual only — never touches modlist.txt)
         # _sort_column: None or one of "name", "installed", "flags", "conflicts", "priority"
         self._sort_column: str | None = None
         self._sort_ascending: bool = True
 
-        # Checkbutton widgets reused per-row (canvas windows)
-        self._check_vars:    list[tk.BooleanVar] = []
-        self._check_buttons: list[tk.Checkbutton] = []
+        # Per-entry logical state (parallel to _entries, aligned by index)
+        self._check_vars:    list[tk.BooleanVar | None] = []
+        # _check_buttons kept as a None-filled list so drag reorder code can pop/insert
+        # without touching real widgets.  Visual rendering uses the pool below.
+        self._check_buttons: list[None] = []
 
         # Lock checkboxes for separator rows: sep_name → (BooleanVar, Checkbutton)
+        # These are kept for reuse across redraws (one permanent widget per separator).
         self._lock_widgets: dict[str, tuple[tk.BooleanVar, tk.Checkbutton]] = {}
+
+        # Virtual-list pool — pre-allocated canvas items + widgets for visible rows.
+        # Only _pool_size slots are ever created; they are reconfigured on every draw.
+        self._pool_size: int = 60
+        self._pool_data_idx: list[int] = []          # slot → entry index (-1 = unused)
+        self._pool_bg: list[int] = []                # rectangle canvas item ids
+        self._pool_name: list[int] = []              # text canvas item ids (mod name / sep label)
+        self._pool_flag_icon: list[int] = []         # image canvas item ids (flags column)
+        self._pool_conflict_icon1: list[int] = []    # image canvas item ids (conflict col left)
+        self._pool_conflict_icon2: list[int] = []    # image canvas item ids (conflict col right)
+        self._pool_install_text: list[int] = []      # text canvas item ids (install date)
+        self._pool_priority_text: list[int] = []     # text canvas item ids (priority)
+        self._pool_sep_icon: list[int] = []          # image canvas item ids (collapse arrow)
+        self._pool_sep_line_l: list[int] = []        # line canvas item ids (separator left line)
+        self._pool_sep_line_r: list[int] = []        # line canvas item ids (separator right line)
+        self._pool_check_vars: list[tk.BooleanVar] = []
+        self._pool_cb_rect: list[int] = []   # canvas rectangle ids for checkbox outline
+        self._pool_cb_mark: list[int] = []   # canvas text ids for checkmark
+        # Pool canvas_w cached for pool creation after canvas exists
+        self._canvas_w: int = 600
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -325,7 +355,7 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas.bind("<Configure>",      self._on_canvas_resize)
         self._canvas.bind("<Button-4>",       self._on_scroll_up)
         self._canvas.bind("<Button-5>",       self._on_scroll_down)
-        self._vsb.bind("<B1-Motion>",         lambda e: self._redraw())
+        self._vsb.bind("<B1-Motion>",         lambda e: self._schedule_redraw())
         self._canvas.bind("<MouseWheel>",     self._on_mousewheel)
         self._canvas.bind("<ButtonPress-1>",  self._on_mouse_press)
         self._canvas.bind("<B1-Motion>",      self._on_mouse_drag)
@@ -333,6 +363,8 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas.bind("<ButtonRelease-3>", self._on_right_click)
         self._canvas.bind("<Motion>",         self._on_mouse_motion)
         self._canvas.bind("<Leave>",          self._on_mouse_leave)
+
+        self._create_pool()
 
     def _build_toolbar(self):
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
@@ -681,6 +713,8 @@ class ModListPanel(ctk.CTkFrame):
         self._scan_endorsed_flags()
         self._scan_install_dates()
         self._rebuild_check_widgets()
+        # Refresh always rescans all mod folders to rebuild the index from scratch.
+        self._filemap_rescan_index = True
         self._rebuild_filemap()
         self._redraw()
         self._update_info()
@@ -799,63 +833,137 @@ class ModListPanel(ctk.CTkFrame):
                 pass
 
     def _rebuild_check_widgets(self):
-        """Destroy old Checkbutton widgets and create one per non-separator entry."""
-        # Clear vars first so any variable-trace callbacks triggered by destroy()
-        # see an empty list and do not call _save_modlist with stale data.
-        old_buttons = list(self._check_buttons)
+        """Rebuild per-entry BooleanVars (logical state only — visual pool is separate)."""
         self._check_buttons.clear()
         self._check_vars.clear()
-        for cb in old_buttons:
-            if cb is not None:
-                cb.destroy()
+        self._vis_dirty = True
 
-        for i, entry in enumerate(self._entries):
+        for entry in self._entries:
             if entry.is_separator:
-                # Placeholder so indices stay aligned with self._entries
+                # Placeholder keeps indices aligned with self._entries
                 self._check_vars.append(None)
                 self._check_buttons.append(None)
                 continue
             var = tk.BooleanVar(value=entry.enabled)
-            state = "disabled" if entry.locked else "normal"
-            cb = tk.Checkbutton(
-                self._canvas,
-                variable=var,
-                bg=BG_ROW if i % 2 == 0 else BG_ROW_ALT,
-                activebackground=BG_HOVER,
-                selectcolor=BG_DEEP,
-                fg=ACCENT,
-                bd=0, highlightthickness=0,
-                command=lambda idx=i: self._on_toggle(idx),
-                state=state,
-            )
             self._check_vars.append(var)
-            self._check_buttons.append(cb)
+            self._check_buttons.append(None)  # visual widget comes from pool
+
+    # ------------------------------------------------------------------
+    # Virtual-list pool
+    # ------------------------------------------------------------------
+
+    def _create_pool(self) -> None:
+        """Pre-allocate a fixed set of canvas items and checkbutton widgets.
+
+        Called once after the canvas is created.  On every _redraw() call the
+        pool items are reconfigured (coords/text/fill/state) rather than deleted
+        and recreated.  Items outside the visible viewport are set to
+        state='hidden' so Tkinter does not render them.
+        """
+        c = self._canvas
+        for s in range(self._pool_size):
+            self._pool_data_idx.append(-1)
+
+            # Background rectangle
+            bg_id = c.create_rectangle(0, -200, 0, -200, fill="", outline="", state="hidden")
+            # Mod name / separator label text
+            name_id = c.create_text(0, -200, text="", anchor="w", fill="",
+                                    font=("Segoe UI", 11), state="hidden")
+            # Flags column icon (warning / lock star / update / endorsed)
+            flag_id = c.create_image(0, -200, anchor="center", state="hidden")
+            # Conflict icons (left slot and right slot)
+            conf1_id = c.create_image(0, -200, anchor="center", state="hidden")
+            conf2_id = c.create_image(0, -200, anchor="center", state="hidden")
+            # Install date text
+            inst_id = c.create_text(0, -200, text="", anchor="center", fill="",
+                                    font=("Segoe UI", 10), state="hidden")
+            # Priority text
+            prio_id = c.create_text(0, -200, text="", anchor="center", fill="",
+                                    font=("Segoe UI", 10), state="hidden")
+            # Separator collapse icon
+            sep_icon_id = c.create_image(0, -200, anchor="center", state="hidden")
+            # Separator decorative lines (left and right of label)
+            sep_line_l = c.create_line(0, -200, 0, -200, fill="", width=1, state="hidden")
+            sep_line_r = c.create_line(0, -200, 0, -200, fill="", width=1, state="hidden")
+
+            self._pool_bg.append(bg_id)
+            self._pool_name.append(name_id)
+            self._pool_flag_icon.append(flag_id)
+            self._pool_conflict_icon1.append(conf1_id)
+            self._pool_conflict_icon2.append(conf2_id)
+            self._pool_install_text.append(inst_id)
+            self._pool_priority_text.append(prio_id)
+            self._pool_sep_icon.append(sep_icon_id)
+            self._pool_sep_line_l.append(sep_line_l)
+            self._pool_sep_line_r.append(sep_line_r)
+
+            # Canvas-drawn checkbox (no tk.Checkbutton) — avoids opaque widget background
+            # on Linux. Rect + checkmark text, click handled via tag_bind.
+            var = tk.BooleanVar(value=False)
+            self._pool_check_vars.append(var)
+            cb_tag = f"pool_cb_{s}"
+            rect_id = c.create_rectangle(
+                0, -200, 0, -200, outline=BORDER, width=1, state="hidden",
+                tags=(cb_tag, "pool_cb"),
+            )
+            mark_id = c.create_text(
+                0, -200, text="✓", anchor="center", fill=ACCENT,
+                font=("Segoe UI", 12, "bold"), state="hidden",
+                tags=(cb_tag, "pool_cb"),
+            )
+            self._pool_cb_rect.append(rect_id)
+            self._pool_cb_mark.append(mark_id)
+            def _cb_press(e, slot=s):
+                return "break"
+            def _cb_release(e, slot=s):
+                self._on_pool_check_toggle(slot)
+                return "break"
+            def _cb_enter(e, slot=s):
+                c.config(cursor="hand2")
+            def _cb_leave(e, slot=s):
+                c.config(cursor="")
+            c.tag_bind(cb_tag, "<ButtonPress-1>", _cb_press)
+            c.tag_bind(cb_tag, "<ButtonRelease-1>", _cb_release)
+            c.tag_bind(cb_tag, "<Enter>", _cb_enter)
+            c.tag_bind(cb_tag, "<Leave>", _cb_leave)
+
+    def _on_pool_check_toggle(self, slot: int) -> None:
+        """A pooled enable-checkbox was clicked — map back to the entry and toggle."""
+        entry_idx = self._pool_data_idx[slot] if slot < len(self._pool_data_idx) else -1
+        if entry_idx < 0:
+            return
+        if entry_idx < len(self._entries) and self._entries[entry_idx].locked:
+            return
+        # Toggle: flip current value, sync to logical var, persist
+        checked = not self._pool_check_vars[slot].get()
+        self._pool_check_vars[slot].set(checked)
+        if entry_idx < len(self._check_vars) and self._check_vars[entry_idx] is not None:
+            self._check_vars[entry_idx].set(checked)
+        self._on_toggle(entry_idx)
 
     # ------------------------------------------------------------------
     # Drawing
     # ------------------------------------------------------------------
 
     def _redraw(self):
-        """Full redraw of all canvas items."""
-        self._canvas.delete("all")
+        """Pool-based redraw: reconfigure pre-allocated canvas items for the visible viewport.
 
+        No delete("all") — items outside the viewport are hidden via state="hidden".
+        This is the same technique used by the plugin panel for smooth scrolling.
+        """
+        self._redraw_after_id = None
+        c = self._canvas
+        # Clear any previously drawn drag overlay so it doesn't persist between frames.
+        c.delete("drag_overlay")
         cw = self._canvas_w
         dragging = self._drag_idx >= 0 and self._drag_moved
 
-        # Move all widgets off-screen instead of hiding them.
-        # place_forget() causes a hide→show flicker; parking at y=-9999
-        # keeps the widget alive and invisible without triggering a redraw flash.
-        for cb in self._check_buttons:
-            if cb is not None:
-                cb.place(x=-9999, y=-9999)
-        for _var, cb in self._lock_widgets.values():
-            cb.place(x=-9999, y=-9999)
+        canvas_top = int(c.canvasy(0))
+        canvas_h = c.winfo_height()
 
-        canvas_top    = int(self._canvas.canvasy(0))
-        canvas_bottom = canvas_top + self._canvas.winfo_height()
-
-        # Compute which entries are visible under the current filter
+        # Always recompute visible indices (filter/sort may have changed).
         self._visible_indices = self._compute_visible_indices()
+        self._vis_dirty = False
 
         # Pre-compute which entry indices are part of the active drag
         drag_indices: set[int] = set()
@@ -866,14 +974,20 @@ class ModListPanel(ctk.CTkFrame):
             else:
                 drag_indices = {self._drag_idx}
 
-        # During drag, exclude the dragged entries from the rendered list so they
-        # don't leave a gap — the ghost overlay shows them at the cursor instead.
+        # During drag, exclude the dragged entries from the rendered list.
         if dragging and drag_indices:
             vis = [i for i in self._visible_indices if i not in drag_indices]
         else:
             vis = self._visible_indices
 
-        total_h = len(vis) * self.ROW_H
+        n = len(vis)
+        total_h = n * self.ROW_H
+        row_h = self.ROW_H
+
+        # Viewport slice: only reconfigure pool slots for visible rows.
+        first_row = max(0, canvas_top // row_h)
+        last_row  = min(n, (canvas_top + canvas_h) // row_h + 2)
+        vis_count = last_row - first_row
 
         # Pre-compute priorities from the full (unfiltered) list
         priorities: dict[int, int] = {}
@@ -884,17 +998,10 @@ class ModListPanel(ctk.CTkFrame):
                 priorities[idx] = p
                 p -= 1
 
-        _DOT_COLORS = {
-            CONFLICT_WINS:    "#98c379",
-            CONFLICT_LOSES:   "#e06c75",
-            CONFLICT_PARTIAL: "#e5c07b",
-            CONFLICT_FULL:    "#cccccc",
-        }
-
         sel_entry = (self._entries[self._sel_idx]
                      if 0 <= self._sel_idx < len(self._entries) else None)
 
-        # Pre-compute which separator indices should be highlighted for conflict context
+        # Pre-compute separator highlight sets
         conflict_sep_indices: set[int] = set()
         if sel_entry and not sel_entry.is_separator:
             sel_name = sel_entry.name
@@ -910,228 +1017,349 @@ class ModListPanel(ctk.CTkFrame):
                 if si >= 0:
                     conflict_sep_indices.add(si)
 
-        # Pre-compute which separator index contains the plugin-highlighted mod
         highlighted_sep_idx: int = -1
         if self._highlighted_mod:
             highlighted_sep_idx = self._sep_idx_for_mod(self._highlighted_mod)
 
-        for row, i in enumerate(vis):
-            entry = self._entries[i]
-            y_top = row * self.ROW_H
-            y_bot = y_top + self.ROW_H
-            # Skip rows outside viewport (virtualisation)
-            if y_bot < canvas_top or y_top > canvas_bottom:
-                continue
+        # Track which _lock_widgets keys were placed this frame (for separator widgets)
+        new_placed_lock: set[str] = set()
 
-            y_mid = y_top + self.ROW_H // 2
+        # Reconfigure pool slots
+        for s in range(self._pool_size):
+            row = first_row + s
+            if s < vis_count and row < n:
+                i = vis[row]
+                entry = self._entries[i]
+                y_top = row * row_h
+                y_bot = y_top + row_h
+                y_mid = y_top + row_h // 2
+                widget_y = y_top - canvas_top  # widget-space y for placed widgets
 
-            if entry.is_separator:
-                is_overwrite    = (entry.name == OVERWRITE_NAME)
-                is_root_folder  = (entry.name == ROOT_FOLDER_NAME)
-                is_synthetic    = is_overwrite or is_root_folder
-                is_sel_row = (i in self._sel_set)
-                if is_overwrite:
-                    base_bg = "#1e2a1e"
-                    txt_col = "#6dbf6d"
-                elif is_root_folder:
-                    base_bg = "#1e1e2e" if entry.enabled else BG_SEP
-                    txt_col = "#7aa2f7" if entry.enabled else TEXT_DIM
-                else:
-                    base_bg = BG_SEP
-                    txt_col = TEXT_SEP
-                if is_sel_row:
-                    row_bg = BG_SELECT
-                elif not is_synthetic and i in conflict_sep_indices:
-                    row_bg = conflict_separator 
-                elif not is_synthetic and i == highlighted_sep_idx:
-                    row_bg = plugin_separator 
-                else:
-                    row_bg = base_bg
-                self._canvas.create_rectangle(0, y_top, cw, y_bot,
-                                              fill=row_bg, outline="")
-                # Draw collapse toggle triangle on real separators only
-                if not is_synthetic:
-                    if entry.name in self._collapsed_seps:
-                        if self._icon_sep_right:
-                            self._canvas.create_image(10, y_mid, image=self._icon_sep_right, anchor="center")
+                self._pool_data_idx[s] = i
+
+                if entry.is_separator:
+                    is_overwrite   = (entry.name == OVERWRITE_NAME)
+                    is_root_folder = (entry.name == ROOT_FOLDER_NAME)
+                    is_synthetic   = is_overwrite or is_root_folder
+                    is_sel_row = (i in self._sel_set)
+
+                    if is_overwrite:
+                        base_bg = "#1e2a1e"
+                        txt_col = "#6dbf6d"
+                    elif is_root_folder:
+                        base_bg = "#1e1e2e" if entry.enabled else BG_SEP
+                        txt_col = "#7aa2f7" if entry.enabled else TEXT_DIM
+                    else:
+                        base_bg = BG_SEP
+                        txt_col = TEXT_SEP
+
+                    if is_sel_row:
+                        row_bg = BG_SELECT
+                    elif not is_synthetic and i in conflict_sep_indices:
+                        row_bg = conflict_separator
+                    elif not is_synthetic and i == highlighted_sep_idx:
+                        row_bg = plugin_separator
+                    else:
+                        row_bg = base_bg
+
+                    # Background rectangle
+                    c.coords(self._pool_bg[s], 0, y_top, cw, y_bot)
+                    c.itemconfigure(self._pool_bg[s], fill=row_bg, outline="", state="normal")
+
+                    # Separator label (pool name item, centred, bold)
+                    if is_overwrite:
+                        label = "Overwrite"
+                    elif is_root_folder:
+                        label = "Root Folder"
+                    else:
+                        label = entry.display_name
+
+                    mid_x = cw // 2
+                    c.coords(self._pool_name[s], mid_x, y_mid)
+                    c.itemconfigure(self._pool_name[s], text=label, anchor="center",
+                                    fill=txt_col, font=("Segoe UI", 10, "bold"), state="normal")
+
+                    # Decorative lines flanking the label
+                    lock_w  = 28 if not is_synthetic else 0
+                    right_edge = cw - lock_w - 8
+                    left_edge  = 32 if is_root_folder else (20 if not is_synthetic else 8)
+                    text_pad   = 6
+                    label_hw   = len(label) * 4 + text_pad
+                    c.coords(self._pool_sep_line_l[s],
+                             left_edge, y_mid, mid_x - label_hw, y_mid)
+                    c.itemconfigure(self._pool_sep_line_l[s], fill=BORDER, state="normal")
+                    c.coords(self._pool_sep_line_r[s],
+                             mid_x + label_hw, y_mid, right_edge, y_mid)
+                    c.itemconfigure(self._pool_sep_line_r[s], fill=BORDER, state="normal")
+
+                    # Collapse icon (real separators only)
+                    if not is_synthetic:
+                        if entry.name in self._collapsed_seps:
+                            icon = self._icon_sep_right
+                            fallback = "▶"
                         else:
-                            self._canvas.create_text(10, y_mid, text="▶", anchor="center",
-                                                     fill=TEXT_DIM, font=("Segoe UI", 9))
-                    else:
-                        if self._icon_sep_arrow:
-                            self._canvas.create_image(10, y_mid, image=self._icon_sep_arrow, anchor="center")
+                            icon = self._icon_sep_arrow
+                            fallback = "▼"
+                        if icon:
+                            c.coords(self._pool_sep_icon[s], 10, y_mid)
+                            c.itemconfigure(self._pool_sep_icon[s],
+                                            image=icon, state="normal")
                         else:
-                            self._canvas.create_text(10, y_mid, text="▼", anchor="center",
-                                                     fill=TEXT_DIM, font=("Segoe UI", 9))
-                if is_overwrite:
-                    label = "Overwrite"
-                elif is_root_folder:
-                    label = "Root Folder"
-                else:
-                    label = entry.display_name
-                # Synthetic rows: no lock widget on right; root folder gets left-side checkbox
-                lock_w = 28 if not is_synthetic else 0
-                right_edge = cw - lock_w - 8
-                left_edge = 32 if is_root_folder else (20 if not is_synthetic else 8)
-                # Always center text at the true canvas midpoint so all separator types align
-                mid_x = cw // 2
-                text_pad = 6
-                self._canvas.create_line(left_edge, y_mid, mid_x - len(label) * 4 - text_pad,
-                                         y_mid, fill=BORDER, width=1)
-                self._canvas.create_line(mid_x + len(label) * 4 + text_pad, y_mid,
-                                         right_edge, y_mid, fill=BORDER, width=1)
-                self._canvas.create_text(
-                    mid_x, y_mid, text=label, anchor="center",
-                    fill=txt_col, font=("Segoe UI", 10, "bold"),
-                )
-                if is_overwrite and self._overrides.get(OVERWRITE_NAME):
-                    cx = self._COL_X[3] + 45
-                    if self._icon_minus and self._icon_plus:
-                        self._canvas.create_image(cx - 8, y_mid, image=self._icon_minus, anchor="center")
-                        self._canvas.create_image(cx + 8, y_mid, image=self._icon_plus, anchor="center")
+                            # No image — use a text item; reuse pool_name won't work here,
+                            # so just hide the image slot and draw nothing extra.
+                            c.itemconfigure(self._pool_sep_icon[s], state="hidden")
                     else:
-                        self._canvas.create_text(
-                            cx, y_mid, text="●", anchor="center",
-                            fill="#e5c07b", font=("Segoe UI", 10),
-                        )
-                # Enable/disable checkbox for Root Folder row (left side, like regular mods)
-                if is_root_folder:
-                    rf_key = ROOT_FOLDER_NAME
-                    if rf_key not in self._lock_widgets:
-                        var = tk.BooleanVar(value=entry.enabled)
-                        cb = tk.Checkbutton(
-                            self._canvas,
-                            variable=var,
-                            bg=base_bg, activebackground=base_bg,
-                            selectcolor=BG_DEEP,
-                            fg=ACCENT,
-                            bd=1, highlightthickness=0,
-                            command=self._on_root_folder_toggle,
-                        )
-                        self._lock_widgets[rf_key] = (var, cb)
-                    else:
-                        var, cb = self._lock_widgets[rf_key]
-                        var.set(entry.enabled)
-                        cb.configure(bg=base_bg, activebackground=base_bg)
-                    widget_y = y_top - canvas_top
-                    cb.place(x=self._COL_X[0], y=widget_y,
-                             width=24, height=self.ROW_H)
-                # Lock checkbox for real separators
-                elif not is_synthetic:
-                    sname = entry.name
-                    if sname not in self._lock_widgets:
-                        var = tk.BooleanVar(value=self._sep_locks.get(sname, False))
-                        cb = tk.Checkbutton(
-                            self._canvas,
-                            variable=var, text="🔒",
-                            bg=row_bg, activebackground=row_bg,
-                            selectcolor=BG_DEEP, fg=TEXT_SEP,
-                            font=("Segoe UI", 9),
-                            bd=0, highlightthickness=0,
-                            command=lambda n=sname: self._on_sep_lock_toggle(n),
-                        )
-                        self._lock_widgets[sname] = (var, cb)
-                    else:
-                        var, cb = self._lock_widgets[sname]
-                        cb.configure(bg=row_bg, activebackground=row_bg)
-                    widget_y = y_top - canvas_top
-                    cb.place(x=cw - lock_w - 8, y=widget_y,
-                             width=lock_w, height=self.ROW_H)
-                continue
+                        c.itemconfigure(self._pool_sep_icon[s], state="hidden")
 
-            is_sel = (i in self._sel_set) or (i == self._drag_idx)
-            if is_sel:
-                bg = BG_SELECT
-            elif entry.name == self._highlighted_mod:
-                bg = plugin_mod
-            elif i == self._hover_idx:
-                bg = BG_HOVER_ROW
-            elif sel_entry and (not sel_entry.is_separator
-                                or sel_entry.name == OVERWRITE_NAME):
-                sel_name = sel_entry.name
-                if entry.name in self._overrides.get(sel_name, set()):
-                    bg = conflict_higher
-                elif entry.name in self._overridden_by.get(sel_name, set()):
-                    bg = conflict_lower
+                    # Overwrite row conflict icons in conflict column
+                    if is_overwrite and self._overrides.get(OVERWRITE_NAME):
+                        cx = self._COL_X[3] + 45
+                        if self._icon_minus:
+                            c.coords(self._pool_conflict_icon1[s], cx - 8, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_minus, state="normal")
+                        else:
+                            c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                        if self._icon_plus:
+                            c.coords(self._pool_conflict_icon2[s], cx + 8, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon2[s],
+                                            image=self._icon_plus, state="normal")
+                        else:
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                    else:
+                        c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                        c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+
+                    # Hide mod-only items
+                    c.itemconfigure(self._pool_flag_icon[s], state="hidden")
+                    c.itemconfigure(self._pool_install_text[s], state="hidden")
+                    c.itemconfigure(self._pool_priority_text[s], state="hidden")
+
+                    # Pool check widget — hidden for separators
+                    c.itemconfigure(self._pool_cb_rect[s], state="hidden")
+                    c.itemconfigure(self._pool_cb_mark[s], state="hidden")
+
+                    # Persistent separator widgets (lock / root-folder enable checkbox)
+                    if is_root_folder:
+                        rf_key = ROOT_FOLDER_NAME
+                        if rf_key not in self._lock_widgets:
+                            var = tk.BooleanVar(value=entry.enabled)
+                            cb = tk.Checkbutton(
+                                c, variable=var,
+                                bg=base_bg, activebackground=base_bg,
+                                selectcolor=BG_DEEP, fg=ACCENT,
+                                bd=1, highlightthickness=0,
+                                command=self._on_root_folder_toggle,
+                            )
+                            self._lock_widgets[rf_key] = (var, cb)
+                        else:
+                            var, cb = self._lock_widgets[rf_key]
+                            var.set(entry.enabled)
+                            cb.configure(bg=base_bg, activebackground=base_bg)
+                        cb.place(x=self._COL_X[0], y=widget_y,
+                                 width=24, height=row_h)
+                        new_placed_lock.add(rf_key)
+                    elif not is_synthetic:
+                        sname = entry.name
+                        if sname not in self._lock_widgets:
+                            var2 = tk.BooleanVar(value=self._sep_locks.get(sname, False))
+                            cb2 = tk.Checkbutton(
+                                c, variable=var2, text="🔒",
+                                bg=row_bg, activebackground=row_bg,
+                                selectcolor=BG_DEEP, fg=TEXT_SEP,
+                                font=("Segoe UI", 9),
+                                bd=0, highlightthickness=0,
+                                command=lambda n=sname: self._on_sep_lock_toggle(n),
+                            )
+                            self._lock_widgets[sname] = (var2, cb2)
+                        else:
+                            var2, cb2 = self._lock_widgets[sname]
+                            cb2.configure(bg=row_bg, activebackground=row_bg)
+                        cb2.place(x=cw - lock_w - 8, y=widget_y,
+                                  width=lock_w, height=row_h)
+                        new_placed_lock.add(sname)
+
                 else:
-                    bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
+                    # --- Regular mod row ---
+                    is_sel = (i in self._sel_set) or (i == self._drag_idx)
+                    if is_sel:
+                        bg = BG_SELECT
+                    elif entry.name == self._highlighted_mod:
+                        bg = plugin_mod
+                    elif i == self._hover_idx:
+                        bg = BG_HOVER_ROW
+                    elif sel_entry and (not sel_entry.is_separator
+                                        or sel_entry.name == OVERWRITE_NAME):
+                        sel_name = sel_entry.name
+                        if entry.name in self._overrides.get(sel_name, set()):
+                            bg = conflict_higher
+                        elif entry.name in self._overridden_by.get(sel_name, set()):
+                            bg = conflict_lower
+                        else:
+                            bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
+                    else:
+                        bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
+
+                    # Background
+                    c.coords(self._pool_bg[s], 0, y_top, cw, y_bot)
+                    c.itemconfigure(self._pool_bg[s], fill=bg, outline="", state="normal")
+
+                    # Name text
+                    name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
+                    c.coords(self._pool_name[s], self._COL_X[1], y_mid)
+                    c.itemconfigure(self._pool_name[s], text=entry.name, anchor="w",
+                                    fill=name_color, font=("Segoe UI", 11), state="normal")
+
+                    # Hide separator-only items
+                    c.itemconfigure(self._pool_sep_icon[s], state="hidden")
+                    c.itemconfigure(self._pool_sep_line_l[s], state="hidden")
+                    c.itemconfigure(self._pool_sep_line_r[s], state="hidden")
+
+                    # Flags icon
+                    flag_x = self._COL_X[2] + 10
+                    if (entry.name in self._missing_reqs
+                            and entry.name not in self._ignored_missing_reqs
+                            and self._icon_warning):
+                        c.coords(self._pool_flag_icon[s], flag_x, y_mid)
+                        c.itemconfigure(self._pool_flag_icon[s],
+                                        image=self._icon_warning, state="normal")
+                    elif entry.locked:
+                        # ★ star drawn as text — reuse install_text slot's text item
+                        # for the star; hide the image icon slot
+                        c.itemconfigure(self._pool_flag_icon[s], state="hidden")
+                        c.coords(self._pool_install_text[s], flag_x, y_mid)
+                        c.itemconfigure(self._pool_install_text[s],
+                                        text="★", anchor="center", fill="#e5c07b",
+                                        font=("Segoe UI", 11), state="normal")
+                        # secondary icon after star
+                        flag_x2 = flag_x + 18
+                        if entry.name in self._update_mods and self._icon_update:
+                            c.coords(self._pool_priority_text[s], flag_x2, y_mid)
+                            c.itemconfigure(self._pool_priority_text[s],
+                                            text="", state="hidden")
+                            c.coords(self._pool_conflict_icon1[s], flag_x2, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_update, state="normal")
+                        elif entry.name in self._endorsed_mods and self._icon_endorsed:
+                            c.coords(self._pool_conflict_icon1[s], flag_x2, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_endorsed, state="normal")
+                        else:
+                            c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                        c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                    elif entry.name in self._update_mods and self._icon_update:
+                        c.coords(self._pool_flag_icon[s], flag_x, y_mid)
+                        c.itemconfigure(self._pool_flag_icon[s],
+                                        image=self._icon_update, state="normal")
+                    elif entry.name in self._endorsed_mods and self._icon_endorsed:
+                        c.coords(self._pool_flag_icon[s], flag_x, y_mid)
+                        c.itemconfigure(self._pool_flag_icon[s],
+                                        image=self._icon_endorsed, state="normal")
+                    else:
+                        c.itemconfigure(self._pool_flag_icon[s], state="hidden")
+
+                    # Conflict icons (non-locked rows; locked rows' icons already set above)
+                    if not entry.locked:
+                        conflict = self._conflict_map.get(entry.name, CONFLICT_NONE)
+                        cx = self._COL_X[3] + 45
+                        if conflict == CONFLICT_WINS and self._icon_plus:
+                            c.coords(self._pool_conflict_icon1[s], cx, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_plus, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        elif conflict == CONFLICT_LOSES and self._icon_minus:
+                            c.coords(self._pool_conflict_icon1[s], cx, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_minus, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        elif conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
+                            c.coords(self._pool_conflict_icon1[s], cx - 8, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_minus, state="normal")
+                            c.coords(self._pool_conflict_icon2[s], cx + 8, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon2[s],
+                                            image=self._icon_plus, state="normal")
+                        elif conflict == CONFLICT_FULL and self._icon_cross:
+                            c.coords(self._pool_conflict_icon1[s], cx, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_cross, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        else:
+                            c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+
+                        # Install date text
+                        install_text = self._install_dates.get(entry.name, "")
+                        if install_text:
+                            c.coords(self._pool_install_text[s], self._COL_X[4] + 34, y_mid)
+                            c.itemconfigure(self._pool_install_text[s],
+                                            text=install_text, anchor="center",
+                                            fill=TEXT_DIM, font=("Segoe UI", 10), state="normal")
+                        else:
+                            c.itemconfigure(self._pool_install_text[s], state="hidden")
+
+                        # Priority text
+                        c.coords(self._pool_priority_text[s], self._COL_X[5] + 32, y_mid)
+                        c.itemconfigure(self._pool_priority_text[s],
+                                        text=str(priorities.get(i, "")), anchor="center",
+                                        fill=TEXT_DIM, font=("Segoe UI", 10), state="normal")
+                    else:
+                        # locked row — install date / priority still shown
+                        install_text = self._install_dates.get(entry.name, "")
+                        if install_text:
+                            c.coords(self._pool_install_text[s], self._COL_X[4] + 34, y_mid)
+                            c.itemconfigure(self._pool_install_text[s],
+                                            text=install_text, anchor="center",
+                                            fill=TEXT_DIM, font=("Segoe UI", 10), state="normal")
+                        c.coords(self._pool_priority_text[s], self._COL_X[5] + 32, y_mid)
+                        c.itemconfigure(self._pool_priority_text[s],
+                                        text=str(priorities.get(i, "")), anchor="center",
+                                        fill=TEXT_DIM, font=("Segoe UI", 10), state="normal")
+
+                    # Enable/disable checkbox (canvas-drawn, no opaque widget)
+                    if not dragging and i < len(self._check_vars) and self._check_vars[i] is not None:
+                        self._pool_check_vars[s].set(self._check_vars[i].get())
+                        checked = self._pool_check_vars[s].get()
+                        cb_cx = self._COL_X[0] + 12
+                        cb_size = 14
+                        x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
+                        x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
+                        c.coords(self._pool_cb_rect[s], x1, y1, x2, y2)
+                        fill = BG_DEEP if checked else bg
+                        c.itemconfigure(self._pool_cb_rect[s],
+                                        fill=fill, outline=BORDER, state="normal")
+                        c.coords(self._pool_cb_mark[s], cb_cx, y_mid)
+                        c.itemconfigure(self._pool_cb_mark[s],
+                                        state="normal" if checked else "hidden")
+                    else:
+                        c.itemconfigure(self._pool_cb_rect[s], state="hidden")
+                        c.itemconfigure(self._pool_cb_mark[s], state="hidden")
+
             else:
-                bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
+                # Slot outside the visible range — hide all items
+                c.itemconfigure(self._pool_bg[s], state="hidden")
+                c.itemconfigure(self._pool_name[s], state="hidden")
+                c.itemconfigure(self._pool_flag_icon[s], state="hidden")
+                c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                c.itemconfigure(self._pool_install_text[s], state="hidden")
+                c.itemconfigure(self._pool_priority_text[s], state="hidden")
+                c.itemconfigure(self._pool_sep_icon[s], state="hidden")
+                c.itemconfigure(self._pool_sep_line_l[s], state="hidden")
+                c.itemconfigure(self._pool_sep_line_r[s], state="hidden")
+                c.itemconfigure(self._pool_cb_rect[s], state="hidden")
+                c.itemconfigure(self._pool_cb_mark[s], state="hidden")
+                self._pool_data_idx[s] = -1
 
-            self._canvas.create_rectangle(0, y_top, cw, y_bot, fill=bg, outline="")
+        # Park separator (lock) widgets that are no longer on screen.
+        # Park at (-9999, -9999) instead of place_forget() to avoid the
+        # hide→show flicker that causes arrows/checkboxes to flash on scroll.
+        for key, (_var, cb) in self._lock_widgets.items():
+            if key not in new_placed_lock:
+                cb.place(x=-9999, y=-9999)
 
-            # Only place checkbutton widgets when not dragging (avoids flicker)
-            if not dragging:
-                cb = self._check_buttons[i]
-                cb.configure(bg=bg, activebackground=bg)
-                widget_y = y_top - canvas_top
-                cb.place(x=self._COL_X[0], y=widget_y,
-                         width=24, height=self.ROW_H)
-
-            name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
-            self._canvas.create_text(
-                self._COL_X[1], y_mid,
-                text=entry.name, anchor="w", fill=name_color,
-                font=("Segoe UI", 11),
-            )
-
-            # Flags column: warning (highest) > locked star > update > endorsed tick (lowest)
-            flag_x = self._COL_X[2] + 10
-            if (entry.name in self._missing_reqs and entry.name not in self._ignored_missing_reqs
-                    and self._icon_warning):
-                self._canvas.create_image(flag_x, y_mid, image=self._icon_warning, anchor="center")
-            elif entry.locked:
-                self._canvas.create_text(
-                    flag_x, y_mid,
-                    text="★", anchor="center", fill="#e5c07b",
-                    font=("Segoe UI", 11),
-                )
-                flag_x += 18
-                if entry.name in self._update_mods and self._icon_update:
-                    self._canvas.create_image(flag_x, y_mid, image=self._icon_update, anchor="center")
-                elif entry.name in self._endorsed_mods and self._icon_endorsed:
-                    self._canvas.create_image(flag_x, y_mid, image=self._icon_endorsed, anchor="center")
-            elif entry.name in self._update_mods and self._icon_update:
-                self._canvas.create_image(flag_x, y_mid, image=self._icon_update, anchor="center")
-            elif entry.name in self._endorsed_mods and self._icon_endorsed:
-                self._canvas.create_image(flag_x, y_mid, image=self._icon_endorsed, anchor="center")
-
-            conflict = self._conflict_map.get(entry.name, CONFLICT_NONE)
-            cx = self._COL_X[3] + 45
-            if conflict == CONFLICT_WINS and self._icon_plus:
-                self._canvas.create_image(cx, y_mid, image=self._icon_plus, anchor="center")
-            elif conflict == CONFLICT_LOSES and self._icon_minus:
-                self._canvas.create_image(cx, y_mid, image=self._icon_minus, anchor="center")
-            elif conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
-                self._canvas.create_image(cx - 8, y_mid, image=self._icon_minus, anchor="center")
-                self._canvas.create_image(cx + 8, y_mid, image=self._icon_plus, anchor="center")
-            elif conflict == CONFLICT_FULL and self._icon_cross:
-                self._canvas.create_image(cx, y_mid, image=self._icon_cross, anchor="center")
-            elif conflict in (CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL):
-                dot_color = _DOT_COLORS.get(conflict)
-                if dot_color:
-                    self._canvas.create_text(
-                        cx, y_mid, text="●", anchor="center",
-                        fill=dot_color, font=("Segoe UI", 10),
-                    )
-
-            install_text = self._install_dates.get(entry.name, "")
-            if install_text:
-                self._canvas.create_text(
-                    self._COL_X[4] + 34, y_mid,
-                    text=install_text, anchor="center", fill=TEXT_DIM,
-                    font=("Segoe UI", 10),
-                )
-
-            self._canvas.create_text(
-                self._COL_X[5] + 32, y_mid,
-                text=str(priorities.get(i, "")), anchor="center", fill=TEXT_DIM,
-                font=("Segoe UI", 10),
-            )
-
-        self._canvas.configure(scrollregion=(
-            0, 0, cw, max(total_h, self._canvas.winfo_height())
-        ))
+        # The drag overlay uses its own tagged items drawn on top
+        c.configure(scrollregion=(0, 0, cw, max(total_h, canvas_h)))
 
     def _draw_drag_overlay(self):
         """Draw a drag ghost under the cursor + a blue insertion line at the target slot."""
@@ -1419,17 +1647,30 @@ class ModListPanel(ctk.CTkFrame):
         self._update_header(event.width)
         self._redraw()
 
+    def _schedule_redraw(self) -> None:
+        """Coalesce rapid scroll events into a single _redraw() call via after_idle.
+
+        Without this, rapid scroll events fire _redraw() multiple times per
+        event-loop cycle.  Because canvas items (canvas-space) and placed widgets
+        (widget-space) are updated together inside _redraw(), a partial repaint
+        between two consecutive _redraw() calls can show widgets at stale positions
+        — the grey-box / misplaced-widget glitch seen when scrolling.
+        """
+        if self._redraw_after_id is not None:
+            self.after_cancel(self._redraw_after_id)
+        self._redraw_after_id = self.after_idle(self._redraw)
+
     def _on_scroll_up(self, _event):
         self._canvas.yview("scroll", -50, "units")
-        self._redraw()
+        self._schedule_redraw()
 
     def _on_scroll_down(self, _event):
         self._canvas.yview("scroll", 50, "units")
-        self._redraw()
+        self._schedule_redraw()
 
     def _on_mousewheel(self, event):
-        self._canvas.yview("scroll", -50 if event.delta > 0 else 6, "units")
-        self._redraw()
+        self._canvas.yview("scroll", -50 if event.delta > 0 else 50, "units")
+        self._schedule_redraw()
 
     # ------------------------------------------------------------------
     # Hit-testing
@@ -1502,7 +1743,7 @@ class ModListPanel(ctk.CTkFrame):
                 if self._sep_locks.get(self._entries[idx].name, False):
                     blk = self._sep_block_range(idx)
                     pending_block = [
-                        (self._entries[i], self._check_buttons[i], self._check_vars[i])
+                        (self._entries[i], None, self._check_vars[i])
                         for i in blk
                     ]
                     is_block = True
@@ -1565,7 +1806,7 @@ class ModListPanel(ctk.CTkFrame):
         if len(self._sel_set) > 1 and idx in self._sel_set and not is_block:
             sorted_sel = sorted(self._sel_set)
             block = [
-                (self._entries[i], self._check_buttons[i], self._check_vars[i])
+                (self._entries[i], None, self._check_vars[i])
                 for i in sorted_sel
             ]
             # Anchor the drag at the first selected index
@@ -1710,9 +1951,6 @@ class ModListPanel(ctk.CTkFrame):
                 self._drag_idx = insert_at
                 self._sel_idx  = insert_at
 
-            for i, cb2 in enumerate(self._check_buttons):
-                if cb2 is not None:
-                    cb2.configure(command=lambda idx=i: self._on_toggle(idx))
             self._save_modlist()
             self._rebuild_filemap()
         elif was_pending and self._drag_idx < 0:
@@ -2138,26 +2376,22 @@ class ModListPanel(ctk.CTkFrame):
         )
         if not confirmed:
             return
-        # Delete the mod folder from staging
+        # Delete the mod folder from staging and drop it from the index
         if self._modlist_path is not None:
             # Staging path is <profiles_root>/<game>/mods/<mod_name>
             staging = self._modlist_path.parent.parent.parent / "mods" / entry.name
             if staging.is_dir():
                 shutil.rmtree(staging)
+            index_path = self._modlist_path.parent.parent.parent / "modindex.txt"
+            remove_from_mod_index(index_path, [entry.name])
         # Remove from lists
         self._entries.pop(idx)
-        cb = self._check_buttons.pop(idx)
+        self._check_buttons.pop(idx)
         self._check_vars.pop(idx)
-        if cb is not None:
-            cb.destroy()
         if self._sel_idx == idx:
             self._sel_idx = -1
         elif self._sel_idx > idx:
             self._sel_idx -= 1
-        # Fix toggle callbacks for shifted rows
-        for i, cb2 in enumerate(self._check_buttons):
-            if cb2 is not None:
-                cb2.configure(command=lambda i=i: self._on_toggle(i))
         self._save_modlist()
         self._rebuild_filemap()
         self._redraw()
@@ -2201,8 +2435,11 @@ class ModListPanel(ctk.CTkFrame):
         if not confirmed:
             return
         staging_root = None
+        index_path = None
         if self._modlist_path is not None:
             staging_root = self._modlist_path.parent.parent.parent / "mods"
+            index_path = self._modlist_path.parent.parent.parent / "modindex.txt"
+        removed_names: list[str] = []
         # Remove from highest index first to avoid shifting
         for i in sorted(indices, reverse=True):
             if not (0 <= i < len(self._entries)):
@@ -2215,17 +2452,14 @@ class ModListPanel(ctk.CTkFrame):
                 staging = staging_root / entry.name
                 if staging.is_dir():
                     shutil.rmtree(staging)
+                removed_names.append(entry.name)
             self._entries.pop(i)
-            cb = self._check_buttons.pop(i)
+            self._check_buttons.pop(i)
             self._check_vars.pop(i)
-            if cb is not None:
-                cb.destroy()
+        if index_path is not None and removed_names:
+            remove_from_mod_index(index_path, removed_names)
         self._sel_idx = -1
         self._sel_set = set()
-        # Fix toggle callbacks for shifted rows
-        for i, cb2 in enumerate(self._check_buttons):
-            if cb2 is not None:
-                cb2.configure(command=lambda i=i: self._on_toggle(i))
         self._save_modlist()
         self._rebuild_filemap()
         self._redraw()
@@ -2725,7 +2959,7 @@ class ModListPanel(ctk.CTkFrame):
 
         # Pull the mod out
         entry = self._entries.pop(mod_idx)
-        cb    = self._check_buttons.pop(mod_idx)
+        self._check_buttons.pop(mod_idx)
         var   = self._check_vars.pop(mod_idx)
 
         # Recalculate sep_idx after removal
@@ -2735,13 +2969,8 @@ class ModListPanel(ctk.CTkFrame):
         # Insert directly below the separator
         dest = sep_idx + 1
         self._entries.insert(dest, entry)
-        self._check_buttons.insert(dest, cb)
+        self._check_buttons.insert(dest, None)
         self._check_vars.insert(dest, var)
-
-        # Fix toggle callbacks for all rows
-        for i, cb2 in enumerate(self._check_buttons):
-            if cb2 is not None:
-                cb2.configure(command=lambda i=i: self._on_toggle(i))
 
         self._sel_idx = dest
         self._save_modlist()
@@ -3300,10 +3529,6 @@ class ModListPanel(ctk.CTkFrame):
         # Keep check_vars / check_buttons aligned (None for separators)
         self._check_vars.insert(insert_at, None)
         self._check_buttons.insert(insert_at, None)
-        # Fix toggle callbacks for rows that shifted
-        for i, cb in enumerate(self._check_buttons):
-            if cb is not None:
-                cb.configure(command=lambda idx=i: self._on_toggle(idx))
         if self._sel_idx >= insert_at:
             self._sel_idx += 1
         self._save_modlist()
@@ -3339,21 +3564,10 @@ class ModListPanel(ctk.CTkFrame):
         insert_at = ref_idx + 1
         entry = ModEntry(name=mod_name, enabled=True, locked=False, is_separator=False)
         self._entries.insert(insert_at, entry)
-        # Create checkbox widgets for the new mod
+        # Create logical var for the new mod (visual rendering uses pool)
         var = tk.BooleanVar(value=True)
-        cb = tk.Checkbutton(
-            self._canvas, variable=var,
-            bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
-            fg=TEXT_MAIN, indicatoron=True,
-            bd=0, highlightthickness=0,
-            command=lambda idx=insert_at: self._on_toggle(idx),
-        )
         self._check_vars.insert(insert_at, var)
-        self._check_buttons.insert(insert_at, cb)
-        # Fix toggle callbacks for all rows
-        for i, cb2 in enumerate(self._check_buttons):
-            if cb2 is not None:
-                cb2.configure(command=lambda idx=i: self._on_toggle(idx))
+        self._check_buttons.insert(insert_at, None)
         if self._sel_idx >= insert_at:
             self._sel_idx += 1
         self._save_modlist()
@@ -3488,7 +3702,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filter_conflict_partial = state.get("filter_partial", False)
         self._filter_conflict_full = state.get("filter_full", False)
         self._filter_missing_reqs = state.get("filter_missing_reqs", False)
-        self._visible_indices = self._compute_visible_indices()
+        self._vis_dirty = True
         self._redraw()
 
     def _move_up(self):
@@ -3503,9 +3717,6 @@ class ModListPanel(ctk.CTkFrame):
             self._entries[i], self._entries[i - 1] = self._entries[i - 1], self._entries[i]
             self._check_vars[i], self._check_vars[i - 1] = self._check_vars[i - 1], self._check_vars[i]
             self._check_buttons[i], self._check_buttons[i - 1] = self._check_buttons[i - 1], self._check_buttons[i]
-        for j, cb in enumerate(self._check_buttons):
-            if cb is not None:
-                cb.configure(command=lambda idx=j: self._on_toggle(idx))
         self._sel_set = {i - 1 for i in indices}
         self._sel_idx = self._sel_idx - 1 if self._sel_idx >= 0 else -1
         self._redraw()
@@ -3527,9 +3738,6 @@ class ModListPanel(ctk.CTkFrame):
             self._entries[i], self._entries[i + 1] = self._entries[i + 1], self._entries[i]
             self._check_vars[i], self._check_vars[i + 1] = self._check_vars[i + 1], self._check_vars[i]
             self._check_buttons[i], self._check_buttons[i + 1] = self._check_buttons[i + 1], self._check_buttons[i]
-        for j, cb in enumerate(self._check_buttons):
-            if cb is not None:
-                cb.configure(command=lambda idx=j: self._on_toggle(idx))
         self._sel_set = {i + 1 for i in indices}
         self._sel_idx = self._sel_idx + 1 if self._sel_idx >= 0 else -1
         self._redraw()
@@ -3594,13 +3802,9 @@ class ModListPanel(ctk.CTkFrame):
         self._check_buttons.insert(to_idx, moved_cb)
         self._check_vars.insert(to_idx, moved_var)
 
-        for i, cb in enumerate(self._check_buttons):
-            if cb is not None:
-                cb.configure(command=lambda idx=i: self._on_toggle(idx))
-
         self._sel_idx = to_idx
         self._sel_set = {to_idx}
-        self._visible_indices = self._compute_visible_indices()
+        self._vis_dirty = True
         self._redraw()
         self._update_info()
         self._save_modlist()
@@ -3612,25 +3816,57 @@ class ModListPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def _rebuild_filemap(self):
-        """Kick off a background filemap rebuild. Safe to call from the main thread."""
+        """Kick off a background filemap rebuild. Safe to call from the main thread.
+
+        Calls are debounced: rapid successive calls within 150 ms are coalesced
+        into a single rebuild to avoid hammering the disk when the user quickly
+        enables/disables several mods in a row.
+        """
+        if self._modlist_path is None:
+            return
+        # Cancel any pending debounce timer and reset it.
+        if self._filemap_after_id is not None:
+            self.after_cancel(self._filemap_after_id)
+            self._filemap_after_id = None
+        if self._filemap_pending:
+            # A rebuild is already running; mark dirty so we re-run when it finishes.
+            self._filemap_dirty = True
+            return
+        # Debounce: wait 150 ms before actually starting the rebuild so that a
+        # burst of rapid changes (e.g. toggling several mods) becomes one rebuild.
+        self._filemap_after_id = self.after(150, self._rebuild_filemap_now)
+
+    def _rebuild_filemap_now(self):
+        """Internal: actually start the rebuild after the debounce delay."""
+        self._filemap_after_id = None
         if self._modlist_path is None:
             return
         if self._filemap_pending:
-            # A rebuild is already running; mark dirty so we re-run when it finishes.
             self._filemap_dirty = True
             return
         self._filemap_pending = True
         self._filemap_dirty = False
 
-        modlist_path      = self._modlist_path
-        staging           = modlist_path.parent.parent.parent / "mods"
-        output            = modlist_path.parent.parent.parent / "filemap.txt"
-        strip_prefixes    = self._strip_prefixes
-        install_extensions = self._install_extensions
+        modlist_path        = self._modlist_path
+        staging             = modlist_path.parent.parent.parent / "mods"
+        output              = modlist_path.parent.parent.parent / "filemap.txt"
+        strip_prefixes      = self._strip_prefixes
+        install_extensions  = self._install_extensions
         root_deploy_folders = self._root_deploy_folders
+        rescan_index        = self._filemap_rescan_index
+        self._filemap_rescan_index = False
 
         def _worker():
             try:
+                if rescan_index:
+                    rebuild_mod_index(
+                        output.parent / "modindex.txt",
+                        staging,
+                        strip_prefixes=strip_prefixes,
+                        per_mod_strip_prefixes=self._mod_strip_prefixes,
+                        allowed_extensions=install_extensions or None,
+                        root_deploy_folders=root_deploy_folders or None,
+                    )
                 count, conflict_map, overrides, overridden_by = build_filemap(
                     modlist_path, staging, output,
                     strip_prefixes=strip_prefixes,

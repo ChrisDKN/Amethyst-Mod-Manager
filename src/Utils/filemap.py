@@ -11,6 +11,20 @@ Format (one line per file):
 
 Paths are stored in their original case but deduplicated case-insensitively
 so that Windows-style case-insensitive conflicts are handled correctly.
+
+Mod Index
+---------
+modindex.txt lives next to filemap.txt and caches the file list of every
+mod so that build_filemap() can skip the expensive disk scan on every
+enable/disable/reorder.  The index is only updated when mods are installed
+or removed (or when the user hits the Refresh button).
+
+Index format — one header line then one data line per file:
+    #modindex v2
+    <mod_name>\\t<rel_key_lower>\\t<rel_str_normalized>\\t<kind>
+where <kind> is "n" (normal) or "r" (root-deploy).
+Paths stored in the index are already folder-case-normalized across all mods
+so build_filemap() can skip the normalize step entirely.
 """
 
 from __future__ import annotations
@@ -38,7 +52,14 @@ ROOT_FOLDER_NAME = "[Root_Folder]"
 _EXCLUDE_NAMES = frozenset({"meta.ini"})
 
 # Reuse a modest thread pool across calls rather than creating one per call
-_POOL = ThreadPoolExecutor(max_workers=8)
+_POOL = ThreadPoolExecutor(max_workers=20)
+
+_INDEX_HEADER = "#modindex v2\n"
+
+# In-memory cache: (path_str, mtime) → parsed index
+# Avoids re-parsing the ~5 MB index file on every filemap rebuild.
+_IndexCache = dict[str, tuple[dict[str, str], dict[str, str]]]
+_index_cache: tuple[str, float, _IndexCache] | None = None  # (path, mtime, data)
 
 
 def _scan_dir(
@@ -75,6 +96,12 @@ def _scan_dir(
     """
     result: dict[str, str] = {}
     root_result: dict[str, str] = {}
+    # Pre-sort once (longest match first) so we don't re-sort inside the per-file loop.
+    # Each entry is (lowercase_prefix, len_of_original_prefix) for O(1) strip-by-length.
+    sorted_path_prefixes: list[tuple[str, int]] = (
+        sorted(((p.lower(), len(p)) for p in strip_path_prefixes), key=lambda t: -t[1])
+        if strip_path_prefixes else []
+    )
     # Iterative scandir stack — avoids rglob/Pathlib per-entry object cost
     stack = [("", source_dir)]
     while stack:
@@ -92,12 +119,11 @@ def _scan_dir(
                             continue
                         rel_str = prefix + entry.name
                         # Strip full path prefixes first (per-mod "ignore this folder" paths).
-                        if strip_path_prefixes:
+                        if sorted_path_prefixes:
                             rel_lower = rel_str.lower()
-                            for path_prefix in sorted(strip_path_prefixes, key=lambda x: -len(x)):
-                                p_lower = path_prefix.lower()
+                            for p_lower, p_len in sorted_path_prefixes:
                                 if rel_lower == p_lower or rel_lower.startswith(p_lower + "/"):
-                                    rel_str = rel_str[len(path_prefix):].lstrip("/")
+                                    rel_str = rel_str[p_len:].lstrip("/")
                                     break
                         # Strip leading wrapper folders declared by the game.
                         # Repeat until no more matching prefixes remain so that
@@ -166,8 +192,10 @@ def _normalize_folder_cases(all_files: dict[str, dict[str, str]]) -> None:
         return
 
     # Rewrite rel_str values so every folder segment uses the canonical casing.
+    # We only mutate values (never add/remove keys), so iterating keys() directly is safe.
     for files in all_files.values():
-        for rel_key, rel_str in list(files.items()):
+        for rel_key in files:
+            rel_str = files[rel_key]
             parts = rel_str.split("/")
             # Normalise folder segments (all but the last), leave filename alone
             new_parts = [
@@ -177,6 +205,192 @@ def _normalize_folder_cases(all_files: dict[str, dict[str, str]]) -> None:
             if new_rel != rel_str:
                 files[rel_key] = new_rel
 
+
+# ---------------------------------------------------------------------------
+# Mod index — persistent cache of each mod's file list
+# ---------------------------------------------------------------------------
+
+def read_mod_index(
+    index_path: Path,
+) -> dict[str, tuple[dict[str, str], dict[str, str]]] | None:
+    """Read modindex.txt and return {mod_name: (normal_files, root_files)}.
+
+    Returns None if the index does not exist or has an unrecognised header
+    (caller should fall back to a full disk scan).
+    Paths in the returned dicts are already folder-case-normalized.
+    Results are cached in memory by (path, mtime) so repeated calls within
+    the same session are free.
+    """
+    global _index_cache
+    path_str = str(index_path)
+    try:
+        mtime = index_path.stat().st_mtime
+    except OSError:
+        return None
+    if _index_cache is not None and _index_cache[0] == path_str and _index_cache[1] == mtime:
+        return _index_cache[2]
+    try:
+        with index_path.open("r", encoding="utf-8") as f:
+            if f.readline() != _INDEX_HEADER:
+                return None
+            index: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+            for line in f:
+                line = line.rstrip("\n")
+                if not line:
+                    continue
+                parts = line.split("\t", 3)
+                if len(parts) != 4:
+                    continue
+                mod_name, rel_key, rel_str, kind = parts
+                if mod_name not in index:
+                    index[mod_name] = ({}, {})
+                if kind == "r":
+                    index[mod_name][1][rel_key] = rel_str
+                else:
+                    index[mod_name][0][rel_key] = rel_str
+    except OSError:
+        return None
+    _index_cache = (path_str, mtime, index)
+    return index
+
+
+def _write_mod_index(
+    index_path: Path,
+    index: dict[str, tuple[dict[str, str], dict[str, str]]],
+) -> None:
+    """Normalize paths, write the full index atomically, then update the cache."""
+    global _index_cache
+    # Normalize folder-case across all mods before writing so build_filemap
+    # can skip the normalize step entirely on every rebuild.
+    _normalize_folder_cases({name: normal for name, (normal, _) in index.items()})
+    _normalize_folder_cases({name: root   for name, (_, root)   in index.items() if root})
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = index_path.with_suffix(".tmp")
+    try:
+        with tmp.open("w", encoding="utf-8") as f:
+            f.write(_INDEX_HEADER)
+            for mod_name, (normal, root) in index.items():
+                for rel_key, rel_str in normal.items():
+                    f.write(f"{mod_name}\t{rel_key}\t{rel_str}\tn\n")
+                for rel_key, rel_str in root.items():
+                    f.write(f"{mod_name}\t{rel_key}\t{rel_str}\tr\n")
+        tmp.replace(index_path)
+    except OSError:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+    # Update the in-memory cache to match what was just written.
+    try:
+        mtime = index_path.stat().st_mtime
+        _index_cache = (str(index_path), mtime, index)
+    except OSError:
+        _index_cache = None
+
+
+def update_mod_index(
+    index_path: Path,
+    mod_name: str,
+    normal_files: dict[str, str],
+    root_files: dict[str, str],
+) -> None:
+    """Add or replace a single mod's entry in the index.
+
+    Reads the existing index (if any), replaces the entry for mod_name,
+    and writes the result atomically.  Call this after installing a mod.
+    """
+    index = read_mod_index(index_path) or {}
+    index[mod_name] = (normal_files, root_files)
+    _write_mod_index(index_path, index)
+
+
+def remove_from_mod_index(index_path: Path, mod_names: list[str]) -> None:
+    """Remove one or more mods from the index and rewrite it atomically.
+
+    Call this after deleting mod folders from staging.
+    No-op if the index does not exist or the mod is not in it.
+    """
+    if not index_path.is_file():
+        return
+    index = read_mod_index(index_path)
+    if not index:
+        return
+    changed = False
+    for name in mod_names:
+        if name in index:
+            del index[name]
+            changed = True
+    if changed:
+        _write_mod_index(index_path, index)
+
+
+def rebuild_mod_index(
+    index_path: Path,
+    staging_root: Path,
+    strip_prefixes: set[str] | None = None,
+    per_mod_strip_prefixes: dict[str, list[str]] | None = None,
+    allowed_extensions: set[str] | None = None,
+    root_deploy_folders: set[str] | None = None,
+) -> None:
+    """Scan every mod folder under staging_root and rewrite the full index.
+
+    This is the slow path, triggered by the Refresh button.  Normal filemap
+    rebuilds (enable/disable/reorder) use the cached index instead.
+
+    The overwrite folder is also indexed under OVERWRITE_NAME.
+    """
+    _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
+    _per_mod = per_mod_strip_prefixes or {}
+    _exts  = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
+    _root  = frozenset(s.lower() for s in root_deploy_folders) if root_deploy_folders else frozenset()
+
+    staging_str   = str(staging_root)
+    overwrite_str = str(staging_root.parent / "overwrite")
+
+    # Collect all mod folders that exist on disk
+    scan_targets: list[tuple[str, str]] = []
+    try:
+        with os.scandir(staging_str) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    scan_targets.append((entry.name, entry.path))
+    except OSError:
+        pass
+    scan_targets.append((OVERWRITE_NAME, overwrite_str))
+
+    def _strip_for_mod(name: str) -> frozenset[str]:
+        mod_strip = _per_mod.get(name)
+        if not mod_strip:
+            return _strip
+        segment_names = [s for s in mod_strip if "/" not in s]
+        return _strip | frozenset(s.lower() for s in segment_names)
+
+    def _path_prefixes_for_mod(name: str) -> list[str]:
+        mod_strip = _per_mod.get(name)
+        if not mod_strip:
+            return []
+        return [s for s in mod_strip if "/" in s]
+
+    futures = {
+        _POOL.submit(
+            _scan_dir, name, d, _strip_for_mod(name), _exts, _root,
+            strip_path_prefixes=_path_prefixes_for_mod(name),
+        ): name
+        for name, d in scan_targets
+    }
+
+    index: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+    for fut in futures:
+        name, normal, root = fut.result()
+        index[name] = (normal, root)
+
+    _write_mod_index(index_path, index)
+
+
+# ---------------------------------------------------------------------------
+# Main filemap builder
+# ---------------------------------------------------------------------------
 
 def build_filemap(
     modlist_path: Path,
@@ -189,6 +403,10 @@ def build_filemap(
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
+
+    Reads file lists from modindex.txt (fast path) when available.
+    Falls back to a full disk scan if the index is missing or corrupt,
+    and writes a fresh index as a side-effect of that scan.
 
     per_mod_strip_prefixes — optional dict mapping mod name to a list of
     top-level folder names to strip for that mod only (contents move up one
@@ -215,68 +433,40 @@ def build_filemap(
     # (modlist index 0 = highest priority, last index = lowest priority)
     enabled_low_to_high = list(reversed(enabled))
 
-    staging_str   = str(staging_root)
-    overwrite_str = str(staging_root.parent / "overwrite")
+    priority_order = [e.name for e in enabled_low_to_high if e.name != ROOT_FOLDER_NAME] + [OVERWRITE_NAME]
 
-    scan_targets: list[tuple[str, str]] = [
-        (e.name, os.path.join(staging_str, e.name)) for e in enabled_low_to_high
-        if e.name != ROOT_FOLDER_NAME
-    ] + [(OVERWRITE_NAME, overwrite_str)]
+    index_path = output_path.parent / "modindex.txt"
+    index = read_mod_index(index_path)
 
-    _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
-    _per_mod = per_mod_strip_prefixes or {}
-    _exts  = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
-    _root  = frozenset(s.lower() for s in root_deploy_folders) if root_deploy_folders else frozenset()
+    if index is None:
+        # Index missing or corrupt — fall back to full disk scan and rebuild it.
+        rebuild_mod_index(
+            index_path, staging_root,
+            strip_prefixes=strip_prefixes,
+            per_mod_strip_prefixes=per_mod_strip_prefixes,
+            allowed_extensions=allowed_extensions,
+            root_deploy_folders=root_deploy_folders,
+        )
+        index = read_mod_index(index_path) or {}
 
-    def _strip_for_mod(name: str) -> frozenset[str]:
-        mod_strip = _per_mod.get(name)
-        if not mod_strip:
-            return _strip
-        segment_names = [s for s in mod_strip if "/" not in s]
-        return _strip | frozenset(s.lower() for s in segment_names)
-
-    def _path_prefixes_for_mod(name: str) -> list[str]:
-        mod_strip = _per_mod.get(name)
-        if not mod_strip:
-            return []
-        return [s for s in mod_strip if "/" in s]
-
-    # Scan all directories in parallel (I/O bound)
-    raw: dict[str, dict[str, str]] = {}
+    # Build raw / raw_root from the index for the mods we care about.
+    raw:      dict[str, dict[str, str]] = {}
     raw_root: dict[str, dict[str, str]] = {}
-    futures = {
-        _POOL.submit(
-            _scan_dir, name, d, _strip_for_mod(name), _exts, _root,
-            strip_path_prefixes=_path_prefixes_for_mod(name),
-        ): name
-        for name, d in scan_targets
-    }
-    for fut in futures:
-        name, files, root_files = fut.result()
-        if files:
-            raw[name] = files
-        if root_files:
-            raw_root[name] = root_files
-
-    # Keep a copy of the original on-disk paths before normalisation so that
-    # the filemap always records the real path for the winning mod's file.
-    # rel_key_lower → actual rel_str as found on disk for that mod.
-    raw_orig: dict[str, dict[str, str]] = {
-        name: dict(files) for name, files in raw.items()
-    }
-
-    # Normalise folder-name casing across all mods so that "Plugins" and
-    # "plugins" from different mods resolve to the same canonical folder name
-    # for deduplication purposes.  raw_orig is left untouched.
-    _normalize_folder_cases(raw)
+    for name in priority_order:
+        entry = index.get(name)
+        if entry is None:
+            continue
+        normal, root = entry
+        if normal:
+            raw[name] = dict(normal)
+        if root:
+            raw_root[name] = dict(root)
 
     # filemap: lowercase_rel_path → (winning_mod_name,)
-    # We track the winner name here and look up the real path from raw_orig.
     filemap_winner: dict[str, str] = {}
     mod_files: dict[str, set[str]] = {}
 
     # Merge in priority order so higher-priority mods overwrite lower ones
-    priority_order = [e.name for e in enabled_low_to_high] + [OVERWRITE_NAME]
     for name in priority_order:
         files = raw.get(name)
         if not files:
@@ -290,7 +480,6 @@ def build_filemap(
     # one consistent directory name (e.g. always "Scripts/", never "scripts/").
     filemap: dict[str, tuple[str, str]] = {}
     for rel_key, winner in filemap_winner.items():
-        # normalised path from raw[winner] — folder segments have canonical casing
         rel_str = raw[winner].get(rel_key, rel_key)
         filemap[rel_key] = (rel_str, winner)
 
@@ -336,7 +525,6 @@ def build_filemap(
     # Write root-deploy filemap if any root files were found.
     root_output = output_path.parent / "filemap_root.txt"
     if raw_root:
-        _normalize_folder_cases(raw_root)
         root_winner: dict[str, str] = {}
         for name in priority_order:
             rfiles = raw_root.get(name)

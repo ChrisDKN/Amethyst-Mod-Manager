@@ -27,6 +27,7 @@ from Utils.fomod_installer import resolve_files
 from Utils.config_paths import get_fomod_selections_path
 from Utils.plugins import read_plugins, append_plugin
 from Utils.modlist import prepend_mod, ensure_mod_preserving_position
+from Utils.filemap import _scan_dir, update_mod_index
 from Nexus.nexus_meta import write_meta, resolve_nexus_meta_for_archive
 
 
@@ -375,6 +376,20 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         log_fn(f"Installed '{mod_name}' → {dest_root}")
 
         _stamp_meta_install_date(dest_root / "meta.ini")
+
+        # Update the mod index for just this mod so the next filemap rebuild
+        # reads from the index instead of rescanning all mod folders.
+        try:
+            _strip = frozenset(s.lower() for s in (getattr(game, "strip_prefixes", None) or []))
+            _exts  = frozenset(e.lower() for e in (getattr(game, "install_extensions", None) or []))
+            _root  = frozenset(s.lower() for s in (getattr(game, "root_deploy_folders", None) or []))
+            _, normal_files, root_files = _scan_dir(
+                mod_name, str(dest_root), _strip, _exts, _root,
+            )
+            _index_path = modlist_path.parent.parent.parent / "modindex.txt"
+            update_mod_index(_index_path, mod_name, normal_files, root_files)
+        except Exception:
+            pass  # non-fatal — next rebuild will fall back to a full rescan
 
         plugin_exts = getattr(game, "plugin_extensions", [])
         if plugin_exts and mod_panel is not None and mod_panel._modlist_path is not None:
