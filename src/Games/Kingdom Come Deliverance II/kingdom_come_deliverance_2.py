@@ -53,7 +53,7 @@ class KingdomComeDeliverance2(BaseGame):
 
     @property
     def exe_name(self) -> str:
-        return "KingdomCome.exe"
+        return "bin/Win64MasterMasterSteamPGO/KingdomCome.exe"
 
     @property
     def steam_id(self) -> str:
@@ -243,3 +243,25 @@ class KingdomComeDeliverance2(BaseGame):
         if restored > 0:
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         _log("Restore complete.")
+        
+class KingdomComeDeliverance(KingdomComeDeliverance2):
+
+    @property
+    def name(self) -> str:
+        return "Kingdom Come: Deliverance"
+
+    @property
+    def game_id(self) -> str:
+        return "kingdom_come_deliverance"
+
+    @property
+    def exe_name(self) -> str:
+        return "bin/win64/KingdomCome.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "379430"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "kingdomcomedeliverance"
