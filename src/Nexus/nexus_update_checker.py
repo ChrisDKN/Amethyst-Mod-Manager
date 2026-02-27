@@ -47,6 +47,7 @@ def check_for_updates(
     game_domain: str = "",
     progress_cb: Optional[ProgressCallback] = None,
     save_results: bool = True,
+    enabled_only: Optional[set] = None,
 ) -> list[UpdateInfo]:
     """
     Check all Nexus-sourced mods under *staging_root* for updates.
@@ -83,6 +84,9 @@ def check_for_updates(
     if not installed:
         _log("No Nexus-sourced mods found.")
         return []
+
+    if enabled_only is not None:
+        installed = [m for m in installed if m.mod_name in enabled_only]
 
     # Only check mods that have a file_id (otherwise we can't compare)
     checkable = [m for m in installed if m.file_id > 0]

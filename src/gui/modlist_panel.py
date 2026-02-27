@@ -201,6 +201,9 @@ class ModListPanel(ctk.CTkFrame):
         # Mod names for which the user chose "Ignore requirements" (flag hidden, per profile)
         self._ignored_missing_reqs: set[str] = set()
 
+        # Tooltip state (missing requirements hover)
+        self._tooltip_win: tk.Toplevel | None = None
+
         # Set of mod names the user has endorsed on Nexus
         self._endorsed_mods: set[str] = set()
 
@@ -2041,9 +2044,38 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
 
+    # ------------------------------------------------------------------
+    # Tooltip for missing requirements
+    # ------------------------------------------------------------------
+
+    def _show_tooltip(self, x: int, y: int, text: str) -> None:
+        """Show a tooltip window near the given screen coordinates."""
+        self._hide_tooltip()
+        tw = tk.Toplevel(self)
+        tw.wm_overrideredirect(True)
+        tw.configure(bg="#1a1a2e")
+        lbl = tk.Label(
+            tw, text=text, justify="left",
+            bg="#1a1a2e", fg="#ff6b6b",
+            font=("Segoe UI", 10), padx=8, pady=4,
+            wraplength=350,
+        )
+        lbl.pack()
+        tw.update_idletasks()
+        tip_w = tw.winfo_reqwidth()
+        tip_x = x - tip_w - 4
+        tw.wm_geometry(f"+{tip_x}+{y + 8}")
+        self._tooltip_win = tw
+
+    def _hide_tooltip(self) -> None:
+        if self._tooltip_win:
+            self._tooltip_win.destroy()
+            self._tooltip_win = None
+
     def _on_mouse_motion(self, event):
         """Update hover highlight as the mouse moves over the modlist."""
         if not self._entries or self._drag_idx >= 0:
+            self._hide_tooltip()
             return
         cy = self._event_canvas_y(event)
         vis = self._visible_indices
@@ -2053,8 +2085,28 @@ class ModListPanel(ctk.CTkFrame):
             self._hover_idx = new_hover
             self._redraw()
 
+        # Show tooltip when hovering over the flags column warning icon
+        x = event.x
+        flags_col_start = self._COL_X[2]
+        flags_col_end = self._COL_X[3] if len(self._COL_X) > 3 else flags_col_start + 50
+        if flags_col_start <= x < flags_col_end and 0 <= row < len(vis):
+            entry = self._entries[vis[row]]
+            if (not entry.is_separator
+                    and entry.name in self._missing_reqs
+                    and entry.name not in self._ignored_missing_reqs):
+                missing = self._missing_reqs_detail.get(entry.name, [])
+                if missing:
+                    text = "Missing requirements:\n" + "\n".join(f"  - {m}" for m in missing)
+                else:
+                    text = "Missing requirements"
+                if self._tooltip_win is None:
+                    self._show_tooltip(event.x_root, event.y_root, text)
+                return
+        self._hide_tooltip()
+
     def _on_mouse_leave(self, event):
         """Clear hover highlight when mouse leaves the canvas."""
+        self._hide_tooltip()
         if self._hover_idx != -1:
             self._hover_idx = -1
             self._redraw()
@@ -2464,6 +2516,7 @@ class ModListPanel(ctk.CTkFrame):
             self._sel_idx -= 1
         self._save_modlist()
         self._rebuild_filemap()
+        self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
 
@@ -2476,6 +2529,7 @@ class ModListPanel(ctk.CTkFrame):
                     self._check_vars[i].set(True)
         self._save_modlist()
         self._rebuild_filemap()
+        self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
 
@@ -2488,6 +2542,7 @@ class ModListPanel(ctk.CTkFrame):
                     self._check_vars[i].set(False)
         self._save_modlist()
         self._rebuild_filemap()
+        self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
 
@@ -2532,6 +2587,7 @@ class ModListPanel(ctk.CTkFrame):
         self._sel_set = set()
         self._save_modlist()
         self._rebuild_filemap()
+        self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
 
@@ -3665,6 +3721,7 @@ class ModListPanel(ctk.CTkFrame):
             self._entries[idx].enabled = var.get()
             self._save_modlist()
             self._rebuild_filemap()
+            self._scan_missing_reqs_flags()
             self._redraw()
             self._update_info()
 
@@ -3684,6 +3741,7 @@ class ModListPanel(ctk.CTkFrame):
             return
 
         staging = game.get_mod_staging_path()
+        enabled_names = {e.name for e in self._entries if e.enabled and not e.is_separator}
         self._update_btn.configure(text="Checking...", state="disabled")
         log_fn = self._log
 
@@ -3693,12 +3751,14 @@ class ModListPanel(ctk.CTkFrame):
                     app._nexus_api, staging,
                     game_domain=game.nexus_game_domain,
                     progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
+                    enabled_only=enabled_names,
                 )
                 app.after(0, lambda: log_fn("Nexus: Checking mod requirements..."))
                 missing = check_missing_requirements(
                     app._nexus_api, staging,
                     game_domain=game.nexus_game_domain,
                     progress_cb=lambda m: app.after(0, lambda msg=m: log_fn(msg)),
+                    enabled_only=enabled_names,
                 )
                 def _done():
                     self._update_btn.configure(text="Check Updates", state="normal")

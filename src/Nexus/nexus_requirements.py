@@ -195,6 +195,7 @@ def check_missing_requirements(
     game_domain: str = "",
     progress_cb: Optional[ProgressCallback] = None,
     save_results: bool = True,
+    enabled_only: Optional[set] = None,
 ) -> list[MissingRequirementInfo]:
     """
     Check all Nexus-sourced mods under *staging_root* for missing requirements.
@@ -229,6 +230,9 @@ def check_missing_requirements(
     if not installed:
         _log("No Nexus-sourced mods found.")
         return []
+
+    if enabled_only is not None:
+        installed = [m for m in installed if m.mod_name in enabled_only]
 
     checkable = [m for m in installed if m.mod_id > 0]
     if not checkable:
