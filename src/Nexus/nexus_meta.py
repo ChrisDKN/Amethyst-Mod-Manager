@@ -197,6 +197,28 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     app_log(f"Wrote meta.ini: {meta_ini_path}")
 
 
+def ensure_installed_stamp(meta_ini_path: Path) -> bool:
+    """
+    If ``installed`` is missing from meta.ini, backfill it from the file's mtime
+    in MO2 format (YYYY-MM-DDTHH:MM:SS) for backwards compatibility.  Returns
+    True if a stamp was written.
+    """
+    if not meta_ini_path.is_file():
+        return False
+    cp = configparser.ConfigParser()
+    cp.read(str(meta_ini_path), encoding="utf-8")
+    if not cp.has_section(_SECTION):
+        cp.add_section(_SECTION)
+    if cp.get(_SECTION, "installed", fallback=""):
+        return False
+    mtime = meta_ini_path.stat().st_mtime
+    dt = datetime.fromtimestamp(mtime)
+    cp.set(_SECTION, "installed", dt.strftime("%Y-%m-%dT%H:%M:%S"))
+    with open(meta_ini_path, "w", encoding="utf-8") as f:
+        cp.write(f)
+    return True
+
+
 def build_meta_from_download(
     *,
     game_domain: str,

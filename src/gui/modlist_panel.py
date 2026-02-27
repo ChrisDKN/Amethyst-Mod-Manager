@@ -90,7 +90,7 @@ from Utils.modlist import (
 from Utils.plugin_parser import check_missing_masters
 from Utils.profile_backup import create_backup
 from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModRequirement
-from Nexus.nexus_meta import build_meta_from_download, write_meta, read_meta
+from Nexus.nexus_meta import build_meta_from_download, ensure_installed_stamp, read_meta, write_meta
 from Nexus.nexus_update_checker import check_for_updates
 from Nexus.nexus_requirements import check_missing_requirements
 import webbrowser
@@ -823,6 +823,8 @@ class ModListPanel(ctk.CTkFrame):
                 continue
             try:
                 meta = read_meta(meta_path)
+                if not meta.installed and ensure_installed_stamp(meta_path):
+                    meta = read_meta(meta_path)
                 if meta.installed:
                     dt = datetime.fromisoformat(meta.installed)
                     if dt.date() == today:
@@ -3559,8 +3561,11 @@ class ModListPanel(ctk.CTkFrame):
         # Create the staging folder
         staging = self._modlist_path.parent.parent.parent / "mods" / mod_name
         staging.mkdir(parents=True, exist_ok=True)
-        # Write a minimal meta.ini so MO2 recognizes the folder
-        (staging / "meta.ini").write_text("[General]\n", encoding="utf-8")
+        # Write a minimal meta.ini so MO2 recognizes the folder (incl. installed in MO2 format)
+        installed = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        (staging / "meta.ini").write_text(
+            f"[General]\ninstalled={installed}\n", encoding="utf-8"
+        )
         insert_at = ref_idx + 1
         entry = ModEntry(name=mod_name, enabled=True, locked=False, is_separator=False)
         self._entries.insert(insert_at, entry)
