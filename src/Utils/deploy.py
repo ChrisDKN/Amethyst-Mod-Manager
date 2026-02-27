@@ -454,6 +454,9 @@ def restore_root_folder(
     # Remove files we placed.
     for rel_str in placed:
         dst = game_root / rel_str
+        if not _path_under_root(dst, game_root):
+            _log(f"  SKIP: path traversal blocked — {rel_str}")
+            continue
         if dst.is_file() or dst.is_symlink():
             dst.unlink()
             removed += 1
@@ -465,6 +468,9 @@ def restore_root_folder(
                 continue
             rel = bak_src.relative_to(backup_dir)
             orig = game_root / rel
+            if not _path_under_root(orig, game_root):
+                _log(f"  SKIP: path traversal blocked — {rel}")
+                continue
             orig.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(bak_src), str(orig))
             _log(f"  Restored {rel} from Root_Backup/")
@@ -476,7 +482,13 @@ def restore_root_folder(
     # Wipe entire top-level directories we freshly created — removes any
     # game-generated files written into them after deploy.
     for dir_name in created_dirs:
+        if ".." in dir_name or "/" in dir_name or "\\" in dir_name:
+            _log(f"  SKIP: path traversal blocked — {dir_name}/")
+            continue
         d = game_root / dir_name
+        if not _path_under_root(d, game_root):
+            _log(f"  SKIP: path traversal blocked — {dir_name}/")
+            continue
         if d.is_dir():
             shutil.rmtree(d, ignore_errors=True)
             _log(f"  Removed created directory {dir_name}/")
@@ -724,6 +736,9 @@ def restore_filemap_from_root(
 
     for rel_str in placed:
         dst = game_root / rel_str
+        if not _path_under_root(dst, game_root):
+            _log(f"  SKIP: path traversal blocked — {rel_str}")
+            continue
         if dst.is_file() or dst.is_symlink():
             dst.unlink()
             removed += 1
@@ -735,6 +750,9 @@ def restore_filemap_from_root(
                 continue
             rel = bak_src.relative_to(backup_dir)
             orig = game_root / rel
+            if not _path_under_root(orig, game_root):
+                _log(f"  SKIP: path traversal blocked — {rel}")
+                continue
             orig.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(bak_src), str(orig))
             _log(f"  Restored {rel} from filemap_backup/")
@@ -761,6 +779,15 @@ def restore_filemap_from_root(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _path_under_root(path: Path, root: Path) -> bool:
+    """Return True if path resolves to a location under root (no path traversal)."""
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
 
 def _resolve_nocase(root: Path, rel_str: str,
                     cache: dict[Path, dict[str, Path]] | None = None) -> Path | None:

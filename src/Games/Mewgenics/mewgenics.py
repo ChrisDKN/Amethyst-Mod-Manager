@@ -65,6 +65,10 @@ def _remove_filemap_paths_from_dir(
             continue
         seen.add(rel_norm.lower())
         target = unpack_dir / rel_str
+        try:
+            target.resolve().relative_to(unpack_dir.resolve())
+        except ValueError:
+            continue  # path traversal — skip
         if target.is_file():
             if backup_dir is not None:
                 backup_file = backup_dir / rel_norm
@@ -105,8 +109,12 @@ def _restore_vanilla_from_backup(
             continue
         seen.add(rel_norm.lower())
         backup_file = backup_dir / rel_norm
+        dest = unpack_dir / rel_str
+        try:
+            dest.resolve().relative_to(unpack_dir.resolve())
+        except ValueError:
+            continue  # path traversal — skip
         if backup_file.is_file():
-            dest = unpack_dir / rel_str
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(backup_file, dest)
             restored += 1

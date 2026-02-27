@@ -105,7 +105,14 @@ def _extract_archive(archive: Path, dest: Path) -> list[Path]:
                 if info.is_dir():
                     continue
                 zf.extract(info, dest)
-                created.append(dest / info.filename)
+                p = (dest / info.filename).resolve()
+                try:
+                    if not (p.is_file() or p.is_symlink()):
+                        continue
+                    p.relative_to(dest)  # ensure under dest (no path traversal)
+                    created.append(p)
+                except (OSError, ValueError):
+                    pass
 
     elif name_lower.endswith(".7z"):
         # Get list of member names from the archive so we only track extracted
@@ -157,7 +164,14 @@ def _extract_archive(archive: Path, dest: Path) -> list[Path]:
             tf.extractall(dest)
             for m in tf.getmembers():
                 if m.isfile():
-                    created.append(dest / m.name)
+                    p = (dest / m.name).resolve()
+                    try:
+                        if not (p.is_file() or p.is_symlink()):
+                            continue
+                        p.relative_to(dest)  # ensure under dest (no path traversal)
+                        created.append(p)
+                    except (OSError, ValueError):
+                        pass
     else:
         raise RuntimeError(f"Unsupported archive format: {archive.name}")
 
