@@ -35,6 +35,7 @@ from gui.theme import (
     TEXT_SEP,
     plugin_mod,
     _ICONS_DIR,
+    load_icon as _load_icon,
 )
 from gui.game_helpers import _GAMES, _vanilla_plugins_for_game
 from gui.dialogs import _PriorityDialog, _ExeConfigDialog, _VRAMrPresetDialog
@@ -166,7 +167,7 @@ class PluginPanel(ctk.CTkFrame):
         self._exe_paths: list[Path] = []
         self._exe_menu = ctk.CTkOptionMenu(
             exe_bar, values=["(no executables)"], variable=self._exe_var,
-            width=200, font=FONT_SMALL,
+            width=175, font=FONT_SMALL,
             fg_color=BG_PANEL, button_color=ACCENT, button_hover_color=ACCENT_HOV,
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_exe_selected,
@@ -182,13 +183,15 @@ class PluginPanel(ctk.CTkFrame):
         self._exe_args_var = tk.StringVar(value="")
 
         ctk.CTkButton(
-            exe_bar, text="⚙ Configure", width=100, height=28, font=FONT_SMALL,
+            exe_bar, text="⚙", width=30, height=30, font=FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_configure_exe,
         ).pack(side="left", padx=4, pady=6)
-
+                
+        refresh_icon = _load_icon("refresh.png", size=(16, 16))
         ctk.CTkButton(
-            exe_bar, text="↺ Refresh", width=80, height=28, font=FONT_SMALL,
+            exe_bar, text="" if refresh_icon else "↺", image=refresh_icon,  
+            width=30, height=30, font=FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self.refresh_exe_list,
         ).pack(side="left", padx=4, pady=6)
