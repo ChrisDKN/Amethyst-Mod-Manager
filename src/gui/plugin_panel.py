@@ -33,6 +33,7 @@ from gui.theme import (
     TEXT_DIM,
     TEXT_MAIN,
     TEXT_SEP,
+    plugin_mod,
     _ICONS_DIR,
 )
 from gui.game_helpers import _GAMES, _vanilla_plugins_for_game
@@ -63,6 +64,19 @@ from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_ava
 from Nexus.nexus_meta import build_meta_from_download, write_meta, read_meta
 
 
+def _truncate_plugin_name(widget: tk.Widget, text: str, font: tuple, max_px: int) -> str:
+    """Return *text* truncated with '…' so it fits within *max_px* pixels."""
+    if max_px <= 0:
+        return ""
+    if widget.tk.call("font", "measure", font, text) <= max_px:
+        return text
+    ellipsis = "…"
+    ellipsis_w = widget.tk.call("font", "measure", font, ellipsis)
+    while text and widget.tk.call("font", "measure", font, text) + ellipsis_w > max_px:
+        text = text[:-1]
+    return text + ellipsis
+
+
 # ---------------------------------------------------------------------------
 # PluginPanel
 # ---------------------------------------------------------------------------
@@ -88,6 +102,7 @@ class PluginPanel(ctk.CTkFrame):
         self._psel_set: set[int] = set()  # all selected plugin indices
         self._phover_idx: int = -1        # plugin row index under the mouse cursor
         self._plugin_mod_map: dict[str, str] = {}  # plugin name → staging mod folder name
+        self._highlighted_plugins: set[str] = set()  # plugin names highlighted when their mod is selected
         self._on_plugin_selected_cb = None  # callable(mod_name: str | None)
         self._on_mod_selected_cb = None     # callable() — notify mod panel a plugin was selected
 
@@ -1433,6 +1448,16 @@ class PluginPanel(ctk.CTkFrame):
             self._psel_set = set()
             self._predraw()
 
+    def set_highlighted_plugins(self, mod_name: str | None):
+        """Highlight plugins belonging to the given mod (orange), e.g. when a mod is selected."""
+        if mod_name is None:
+            new_highlighted = set()
+        else:
+            new_highlighted = {p for p, m in self._plugin_mod_map.items() if m == mod_name}
+        if new_highlighted != self._highlighted_plugins:
+            self._highlighted_plugins = new_highlighted
+            self._predraw()
+
     # ------------------------------------------------------------------
     # Plugins tab refresh (canvas-based)
     # ------------------------------------------------------------------
@@ -1442,6 +1467,7 @@ class PluginPanel(ctk.CTkFrame):
         self._sel_idx = -1
         self._psel_set = set()
         self._drag_idx = -1
+        self._highlighted_plugins = set()
 
         if self._plugins_path is None or not self._plugin_extensions:
             self._plugin_entries = []
@@ -1548,6 +1574,8 @@ class PluginPanel(ctk.CTkFrame):
                 is_sel = (row in self._psel_set) or (row == self._drag_idx and self._drag_moved)
                 if is_sel:
                     bg = BG_SELECT
+                elif entry.name in self._highlighted_plugins:
+                    bg = plugin_mod
                 elif row == self._phover_idx:
                     bg = BG_HOVER_ROW
                 else:
@@ -1557,8 +1585,11 @@ class PluginPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_bg[s], fill=bg, state="normal")
 
                 name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
+                name_max_px = self._pcol_x[2] - self._pcol_x[1] - 4
+                name_font = ("Segoe UI", 11)
+                display_name = _truncate_plugin_name(c, entry.name, name_font, name_max_px)
                 c.coords(self._pool_name[s], self._pcol_x[1], y_mid)
-                c.itemconfigure(self._pool_name[s], text=entry.name,
+                c.itemconfigure(self._pool_name[s], text=display_name,
                                 fill=name_color, state="normal")
 
                 c.coords(self._pool_idx_text[s], self._pcol_x[4] + 25, y_mid)
@@ -1694,9 +1725,12 @@ class PluginPanel(ctk.CTkFrame):
         """Update just the background colour of a single data row's pool slot."""
         for s in range(self._pool_size):
             if self._pool_data_idx[s] == data_row:
+                entry = self._plugin_entries[data_row] if data_row < len(self._plugin_entries) else None
                 is_sel = data_row in self._psel_set
                 if is_sel:
                     bg = BG_SELECT
+                elif entry and entry.name in self._highlighted_plugins:
+                    bg = plugin_mod
                 elif data_row == self._phover_idx:
                     bg = BG_HOVER_ROW
                 else:
@@ -1826,6 +1860,7 @@ class PluginPanel(ctk.CTkFrame):
             self._drag_start_y = 0
         self._drag_moved = False
         self._drag_slot = -1
+        self._highlighted_plugins = set()  # clear mod→plugin highlight when selecting a plugin
         self._predraw()
         plugin_name = self._plugin_entries[idx].name
         if self._on_mod_selected_cb is not None:

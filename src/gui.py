@@ -417,6 +417,13 @@ class App(ctk.CTk):
         def _on_mod_selected():
             self._plugin_panel.clear_plugin_selection()
             self._mod_panel.set_highlighted_mod(None)
+            # Highlight plugins belonging to the selected mod
+            mod_name = None
+            if self._mod_panel._sel_idx >= 0 and self._mod_panel._sel_idx < len(self._mod_panel._entries):
+                entry = self._mod_panel._entries[self._mod_panel._sel_idx]
+                if not entry.is_separator:
+                    mod_name = entry.name
+            self._plugin_panel.set_highlighted_plugins(mod_name)
         self._mod_panel._on_mod_selected_cb = _on_mod_selected  # mod selected → clear plugin selection + highlight
 
         # Load initial game + profile — set plugin paths BEFORE load_game
