@@ -47,7 +47,8 @@ from gui.add_game_dialog import AddGameDialog
 from gui.nexus_settings_dialog import NexusSettingsDialog
 from gui.wizard_dialog import WizardDialog
 from Utils.config_paths import get_profiles_dir
-from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode
+from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode, load_per_mod_strip_prefixes
+from Utils.filemap import build_filemap
 from Utils.profile_backup import create_backup
 
 
@@ -452,8 +453,26 @@ class TopBar(ctk.CTkFrame):
                 if root_folder_dir.is_dir() and game_root:
                     restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
 
+                # Rebuild filemap.txt before deploy so any files rescued into
+                # overwrite/ during restore are included with [Overwrite] priority.
+                profile_root = game.get_profile_root()
+                staging      = game.get_mod_staging_path()
+                modlist_path = profile_root / "profiles" / profile / "modlist.txt"
+                filemap_out  = profile_root / "filemap.txt"
+                if modlist_path.is_file():
+                    try:
+                        build_filemap(
+                            modlist_path, staging, filemap_out,
+                            strip_prefixes=game.mod_folder_strip_prefixes or None,
+                            per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
+                            allowed_extensions=game.mod_install_extensions or None,
+                            root_deploy_folders=game.mod_root_deploy_folders or None,
+                        )
+                    except Exception as fm_err:
+                        _tlog(f"Filemap rebuild warning: {fm_err}")
+
                 # Backup modlist/plugins before deploy
-                profile_dir = game.get_profile_root() / "profiles" / profile
+                profile_dir = modlist_path.parent
                 try:
                     create_backup(profile_dir, _tlog)
                 except Exception as backup_err:

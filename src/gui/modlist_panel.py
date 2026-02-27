@@ -206,6 +206,8 @@ class ModListPanel(ctk.CTkFrame):
 
         # Map mod name → install date display string
         self._install_dates: dict[str, str] = {}
+        # Map mod name → install datetime for sorting (parallel to _install_dates)
+        self._install_datetimes: dict[str, datetime] = {}
 
         self._overrides:     dict[str, set[str]] = {}  # mod beats these mods
         self._overridden_by: dict[str, set[str]] = {}  # these mods beat this mod
@@ -826,6 +828,7 @@ class ModListPanel(ctk.CTkFrame):
     def _scan_install_dates(self):
         """Scan meta.ini files to build the install date display strings per mod."""
         self._install_dates.clear()
+        self._install_datetimes.clear()
         if self._modlist_path is None:
             return
         mods_dir = self._modlist_path.parent.parent.parent / "mods"
@@ -848,6 +851,7 @@ class ModListPanel(ctk.CTkFrame):
                         self._install_dates[entry.name] = dt.strftime("%-I:%M %p")
                     else:
                         self._install_dates[entry.name] = dt.strftime("%-m/%-d/%y")
+                    self._install_datetimes[entry.name] = dt
             except Exception:
                 pass
 
@@ -1670,10 +1674,10 @@ class ModListPanel(ctk.CTkFrame):
             return lambda i: self._entries[i].name.lower()
         elif col == "installed":
             def _installed_key(i):
-                date_str = self._install_dates.get(self._entries[i].name, "")
-                if not date_str:
-                    return (1, "")  # mods without date sort last
-                return (0, date_str)
+                dt = self._install_datetimes.get(self._entries[i].name)
+                if dt is None:
+                    return (1, datetime.min)  # mods without date sort last
+                return (0, dt)
             return _installed_key
         elif col == "flags":
             def _flags_key(i):
