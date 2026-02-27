@@ -519,12 +519,18 @@ def restore_root_folder(
 def restore_data_core(
     deploy_dir: Path,
     core_dir: Path | None = None,
+    overwrite_dir: Path | None = None,
     log_fn=None,
 ) -> int:
     """Undo a deploy: clear deploy_dir and move core_dir contents back.
 
-    deploy_dir — directory to restore (e.g. <game_path>/Data)
-    core_dir   — vanilla backup to restore from; defaults to Data_Core/ sibling
+    deploy_dir    — directory to restore (e.g. <game_path>/Data)
+    core_dir      — vanilla backup to restore from; defaults to Data_Core/ sibling
+    overwrite_dir — if given, any file in deploy_dir that is not a deployed mod
+                    file and not present in core_dir (i.e. created at runtime by
+                    the game or a mod) is moved here before clearing, preserving
+                    its relative path.  Existing files in overwrite_dir are
+                    overwritten.  Pass Profiles/<game>/overwrite/.
     Returns the number of files restored.
 
     If core_dir does not exist (e.g. the deploy dir was empty at deploy time
@@ -537,6 +543,51 @@ def restore_data_core(
     if not core_dir.is_dir():
         _log(f"  No {core_dir.name}/ found — nothing to restore (skipping).")
         return 0
+
+    # Rescue runtime-created files into overwrite/ before wiping deploy_dir.
+    # A file is runtime-created if it:
+    #   - is not a symlink (symlinks are deployed mod files)
+    #   - has a single hard-link count (nlink > 1 means it is a deployed hardlink)
+    #   - is not present in core_dir (not a vanilla file)
+    if overwrite_dir is not None and deploy_dir.is_dir():
+        core_lower: set[str] = {
+            f.relative_to(core_dir).as_posix().lower()
+            for f in core_dir.rglob("*") if f.is_file()
+        }
+        rescued = 0
+        for src in deploy_dir.rglob("*"):
+            if not src.is_file():
+                continue
+            if src.is_symlink():
+                continue  # deployed mod symlink
+            if src.stat().st_nlink > 1:
+                continue  # deployed mod hardlink
+            rel = src.relative_to(deploy_dir)
+            if rel.as_posix().lower() in core_lower:
+                continue  # vanilla file — will be restored from core
+            dst = overwrite_dir / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dst))
+            rescued += 1
+        if rescued:
+            _log(f"  Rescued {rescued} runtime-created file(s) → overwrite/.")
+            # Update modindex.txt so the next build_filemap call immediately
+            # sees the rescued files under [Overwrite] without a full rescan.
+            try:
+                from Utils.filemap import update_mod_index, read_mod_index, OVERWRITE_NAME
+                index_path = overwrite_dir.parent / "modindex.txt"
+                existing = read_mod_index(index_path) or {}
+                existing_normal, existing_root = existing.get(OVERWRITE_NAME, ({}, {}))
+                # Walk overwrite_dir to build the complete current file list.
+                new_normal: dict[str, str] = dict(existing_normal)
+                for f in overwrite_dir.rglob("*"):
+                    if f.is_file() and not f.is_symlink():
+                        rel = f.relative_to(overwrite_dir)
+                        rel_str = rel.as_posix()
+                        new_normal[rel_str.lower()] = rel_str
+                update_mod_index(index_path, OVERWRITE_NAME, new_normal, existing_root)
+            except Exception:
+                pass
 
     removed = _clear_dir(deploy_dir) if deploy_dir.is_dir() else 0
     _log(f"  Removed {removed} file(s) from {deploy_dir.name}/.")

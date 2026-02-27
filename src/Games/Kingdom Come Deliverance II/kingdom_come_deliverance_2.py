@@ -238,7 +238,8 @@ class KingdomComeDeliverance2(BaseGame):
 
         _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back if present ...")
         restored = restore_data_core(
-            plugins_dir, core_dir=core_dir, log_fn=_log
+            plugins_dir, core_dir=core_dir,
+            overwrite_dir=self.get_profile_root() / "overwrite", log_fn=_log
         )
         if restored > 0:
             _log(f"  Restored {restored} file(s). {core}/ removed.")

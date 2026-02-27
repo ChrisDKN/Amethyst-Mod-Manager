@@ -243,7 +243,7 @@ class Subnautica(BaseGame):
         
         if core_dir.is_dir():
             _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back ...")
-            restored = restore_data_core(plugins_dir, core_dir=core_dir, log_fn=_log)
+            restored = restore_data_core(plugins_dir, core_dir=core_dir, overwrite_dir=self.get_profile_root() / "overwrite", log_fn=_log)
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         elif plugins_dir.is_dir():
             _log(f"Restore: no {core}/ found — clearing {plugins_dir.name}/ ...")

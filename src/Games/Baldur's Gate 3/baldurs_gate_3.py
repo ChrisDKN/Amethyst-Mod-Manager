@@ -303,7 +303,7 @@ class BaldursGate3(BaseGame):
                 _log(f"  Removed {removed_root} root-deployed file(s).")
 
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
-        restored = restore_data_core(mods_dir, log_fn=_log)
+        restored = restore_data_core(mods_dir, overwrite_dir=self.get_profile_root() / "overwrite", log_fn=_log)
         _log(f"  Restored {restored} file(s). Mods_Core/ removed.")
 
         _log("Restore: resetting modsettings.lsx to vanilla ...")

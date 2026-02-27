@@ -244,4 +244,4 @@ class Example(BaseGame):
         # Clears mods_dir/ and moves core_dir/ back in its place,
         # returning the game to its pre-deploy vanilla state.
         if core_dir.is_dir():
-            restore_data_core(mods_dir, core_dir=core_dir, log_fn=_log)
+            restore_data_core(mods_dir, core_dir=core_dir, overwrite_dir=self.get_profile_root() / "overwrite", log_fn=_log)

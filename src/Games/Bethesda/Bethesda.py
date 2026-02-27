@@ -342,7 +342,7 @@ class Fallout_3(BaseGame):
         data_dir = self._game_path / "Data"
 
         _log("Restore: clearing Data/ and moving Data_Core/ back ...")
-        restored = restore_data_core(data_dir, log_fn=_log)
+        restored = restore_data_core(data_dir, overwrite_dir=self.get_profile_root() / "overwrite", log_fn=_log)
         _log(f"  Restored {restored} file(s). Data_Core/ removed.")
 
         self._remove_plugins_txt_symlink(_log)

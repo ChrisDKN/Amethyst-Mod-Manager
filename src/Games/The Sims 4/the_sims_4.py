@@ -243,7 +243,7 @@ class TheSims4(BaseGame):
         mods_dir = self._prefix_path / _MODS_SUBPATH
 
         _log("Restore: clearing Mods/ and moving Mods_Core/ back ...")
-        restored = restore_data_core(mods_dir, log_fn=_log)
+        restored = restore_data_core(mods_dir, overwrite_dir=self.get_profile_root() / "overwrite", log_fn=_log)
         _log(f"  Restored {restored} file(s). Mods_Core/ removed.")
 
         _log("Restore complete.")
