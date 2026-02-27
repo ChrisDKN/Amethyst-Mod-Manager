@@ -184,6 +184,13 @@ class ModListPanel(ctk.CTkFrame):
             self._icon_sep_arrow = ImageTk.PhotoImage(
                 PilImage.open(_arrow_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
 
+        # Separator lock icon
+        self._icon_lock: ImageTk.PhotoImage | None = None
+        _lock_path = _ICONS_DIR / "lock.png"
+        if _lock_path.is_file():
+            self._icon_lock = ImageTk.PhotoImage(
+                PilImage.open(_lock_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
         # Set of mod names that have a Nexus update available
         self._update_mods: set[str] = set()
 
@@ -1206,12 +1213,20 @@ class ModListPanel(ctk.CTkFrame):
                                 fill=BG_DEEP if locked_state else row_bg,
                                 tags=(lk_tag2, "lock_cb"),
                             )
-                            mark2_id = c.create_text(
-                                lk_x, y_mid, text="🔒", anchor="center",
-                                fill=TEXT_SEP, font=("Segoe UI", 9),
-                                state="normal" if locked_state else "hidden",
-                                tags=(lk_tag2, "lock_cb"),
-                            )
+                            if self._icon_lock:
+                                mark2_id = c.create_image(
+                                    lk_x, y_mid, anchor="center",
+                                    image=self._icon_lock,
+                                    state="normal" if locked_state else "hidden",
+                                    tags=(lk_tag2, "lock_cb"),
+                                )
+                            else:
+                                mark2_id = c.create_text(
+                                    lk_x, y_mid, text="🔒", anchor="center",
+                                    fill=TEXT_SEP, font=("Segoe UI", 9),
+                                    state="normal" if locked_state else "hidden",
+                                    tags=(lk_tag2, "lock_cb"),
+                                )
                             self._lock_cb_rects[sname] = rect2_id
                             self._lock_cb_marks[sname] = mark2_id
                             c.tag_bind(lk_tag2, "<ButtonRelease-1>",

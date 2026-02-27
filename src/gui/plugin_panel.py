@@ -120,6 +120,13 @@ class PluginPanel(ctk.CTkFrame):
             _img = PilImage.open(_warn_path).convert("RGBA").resize((16, 16), PilImage.LANCZOS)
             self._warning_icon = ImageTk.PhotoImage(_img)
 
+        # Lock icon
+        self._icon_lock: ImageTk.PhotoImage | None = None
+        _lock_path = _ICONS_DIR / "lock.png"
+        if _lock_path.is_file():
+            self._icon_lock = ImageTk.PhotoImage(
+                PilImage.open(_lock_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+
         # Tooltip state
         self._tooltip_win: tk.Toplevel | None = None
 
@@ -1244,11 +1251,19 @@ class PluginPanel(ctk.CTkFrame):
                 0, -200, 0, -200, outline=BORDER, width=1, state="hidden",
                 tags=(lk_tag, "plk"),
             )
-            lk_mark = c.create_text(
-                0, -200, text="🔒", anchor="center", fill=TEXT_MAIN,
-                font=("Segoe UI", 9), state="hidden",
-                tags=(lk_tag, "plk"),
-            )
+            if self._icon_lock:
+                lk_mark = c.create_image(
+                    0, -200, anchor="center",
+                    image=self._icon_lock,
+                    state="hidden",
+                    tags=(lk_tag, "plk"),
+                )
+            else:
+                lk_mark = c.create_text(
+                    0, -200, text="🔒", anchor="center", fill=TEXT_MAIN,
+                    font=("Segoe UI", 9), state="hidden",
+                    tags=(lk_tag, "plk"),
+                )
             self._pool_lock_rects.append(lk_rect)
             self._pool_lock_marks.append(lk_mark)
             def _lk_release(e, slot=s):
