@@ -343,6 +343,8 @@ class ModListPanel(ctk.CTkFrame):
 
         self._canvas = tk.Canvas(frame, bg=BG_DEEP, bd=0, highlightthickness=0,
                                  yscrollincrement=1, takefocus=0)
+        self._marker_strip = tk.Canvas(frame, bg=BG_DEEP, bd=0, highlightthickness=0,
+                                       width=4, takefocus=0)
         self._vsb = tk.Scrollbar(frame, orient="vertical",
                                  command=self._canvas.yview,
                                  bg=BG_SEP, troughcolor=BG_DEEP,
@@ -350,7 +352,9 @@ class ModListPanel(ctk.CTkFrame):
                                  highlightthickness=0, bd=0)
         self._canvas.configure(yscrollcommand=self._vsb.set)
         self._canvas.grid(row=0, column=0, sticky="nsew")
-        self._vsb.grid(row=0, column=1, sticky="ns")
+        self._marker_strip.grid(row=0, column=1, sticky="ns")
+        self._vsb.grid(row=0, column=2, sticky="ns")
+        self._marker_strip.bind("<Configure>", lambda e: self._draw_marker_strip())
 
         self._canvas_w = 600   # updated on first <Configure>
         self._canvas.bind("<Configure>",      self._on_canvas_resize)
@@ -1406,6 +1410,8 @@ class ModListPanel(ctk.CTkFrame):
 
         # The drag overlay uses its own tagged items drawn on top
         c.configure(scrollregion=(0, 0, cw, max(total_h, canvas_h)))
+
+        self._draw_marker_strip()
 
     def _draw_drag_overlay(self):
         """Draw a drag ghost under the cursor + a blue insertion line at the target slot."""
@@ -3970,7 +3976,63 @@ class ModListPanel(ctk.CTkFrame):
         """Highlight the given mod (by name) in the modlist, e.g. when a plugin is selected."""
         if mod_name != self._highlighted_mod:
             self._highlighted_mod = mod_name
-            self._redraw()
+            self._redraw()  # _redraw calls _draw_marker_strip internally
+
+    def _draw_marker_strip(self):
+        """Draw colour-coded tick marks on the narrow strip beside the scrollbar.
+
+        - Orange : the mod whose plugin is selected (_highlighted_mod)
+        - Green  : mods that win over the selected mod (conflict_higher)
+        - Red    : mods that lose to the selected mod (conflict_lower)
+        """
+        c = self._marker_strip
+        c.delete("marker")
+        vis = self._visible_indices
+        if not vis:
+            return
+        strip_h = c.winfo_height()
+        if strip_h <= 1:
+            return
+        n = len(vis)
+
+        # Build a name→entry-index lookup for the visible list (and a fast path to
+        # the entry-index→row mapping used for collapsed-separator fallback).
+        ei_to_row: dict[int, int] = {ei: r for r, ei in enumerate(vis)}
+        name_to_row: dict[str, int] = {self._entries[ei].name: r for r, ei in enumerate(vis)}
+
+        def _row_for_mod(mod_name: str) -> int | None:
+            """Return the visible row index for mod_name, falling back to its separator."""
+            row = name_to_row.get(mod_name)
+            if row is not None:
+                return row
+            sep_ei = self._sep_idx_for_mod(mod_name)
+            if sep_ei >= 0:
+                return ei_to_row.get(sep_ei)
+            return None
+
+        def _tick(row_idx: int, colour: str):
+            frac = row_idx / n
+            y = max(2, min(int(frac * strip_h), strip_h - 4))
+            c.create_rectangle(0, y, 4, y + 3, fill=colour, outline="", tags="marker")
+
+        # Orange tick for the plugin-highlighted mod.
+        if self._highlighted_mod:
+            row = _row_for_mod(self._highlighted_mod)
+            if row is not None:
+                _tick(row, plugin_mod)
+
+        # Green/red ticks for conflict highlights when a mod is selected.
+        sel_entry = (self._entries[self._sel_idx]
+                     if 0 <= self._sel_idx < len(self._entries) else None)
+        if sel_entry and not sel_entry.is_separator:
+            for mod_name in self._overrides.get(sel_entry.name, set()):
+                row = _row_for_mod(mod_name)
+                if row is not None:
+                    _tick(row, conflict_higher)
+            for mod_name in self._overridden_by.get(sel_entry.name, set()):
+                row = _row_for_mod(mod_name)
+                if row is not None:
+                    _tick(row, conflict_lower)
 
     def clear_selection(self):
         """Clear the mod list selection, e.g. when a plugin is selected."""
