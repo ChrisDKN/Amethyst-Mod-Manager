@@ -253,9 +253,10 @@ class ModListPanel(ctk.CTkFrame):
         # without touching real widgets.  Visual rendering uses the pool below.
         self._check_buttons: list[None] = []
 
-        # Lock checkboxes for separator rows: sep_name → (BooleanVar, Checkbutton)
-        # These are kept for reuse across redraws (one permanent widget per separator).
-        self._lock_widgets: dict[str, tuple[tk.BooleanVar, tk.Checkbutton]] = {}
+        # Lock canvas items for separator rows: sep_name → canvas item id
+        # Pure canvas rect + checkmark — scroll in sync automatically.
+        self._lock_cb_rects: dict[str, int] = {}
+        self._lock_cb_marks: dict[str, int] = {}
 
         # Virtual-list pool — pre-allocated canvas items + widgets for visible rows.
         # Only _pool_size slots are ever created; they are reconfigured on every draw.
@@ -678,10 +679,15 @@ class ModListPanel(ctk.CTkFrame):
         # Clear visual sort on reload so the list matches modlist.txt order
         self._sort_column = None
         self._sort_ascending = True
-        # Destroy stale lock widgets before rebuilding
-        for _, cb in self._lock_widgets.values():
-            cb.destroy()
-        self._lock_widgets.clear()
+        # Remove stale lock canvas items before rebuilding
+        c = getattr(self, "_canvas", None)
+        if c is not None:
+            for item_id in self._lock_cb_rects.values():
+                c.delete(item_id)
+            for item_id in self._lock_cb_marks.values():
+                c.delete(item_id)
+        self._lock_cb_rects.clear()
+        self._lock_cb_marks.clear()
         if self._modlist_path is None:
             self._entries = []
         else:
@@ -1023,8 +1029,8 @@ class ModListPanel(ctk.CTkFrame):
         if self._highlighted_mod:
             highlighted_sep_idx = self._sep_idx_for_mod(self._highlighted_mod)
 
-        # Track which _lock_widgets keys were placed this frame (for separator widgets)
-        new_placed_lock: set[str] = set()
+        # Track which lock canvas items were repositioned this frame
+        _visited_lock_keys: set[str] = set()
 
         # Reconfigure pool slots
         for s in range(self._pool_size):
@@ -1035,7 +1041,6 @@ class ModListPanel(ctk.CTkFrame):
                 y_top = row * row_h
                 y_bot = y_top + row_h
                 y_mid = y_top + row_h // 2
-                widget_y = y_top - canvas_top  # widget-space y for placed widgets
 
                 self._pool_data_idx[s] = i
 
@@ -1141,45 +1146,85 @@ class ModListPanel(ctk.CTkFrame):
                     c.itemconfigure(self._pool_cb_rect[s], state="hidden")
                     c.itemconfigure(self._pool_cb_mark[s], state="hidden")
 
-                    # Persistent separator widgets (lock / root-folder enable checkbox)
+                    # Canvas-drawn lock / root-folder enable checkbox (no tk widget —
+                    # canvas items scroll in sync automatically).
                     if is_root_folder:
                         rf_key = ROOT_FOLDER_NAME
-                        if rf_key not in self._lock_widgets:
-                            var = tk.BooleanVar(value=entry.enabled)
-                            cb = tk.Checkbutton(
-                                c, variable=var,
-                                bg=base_bg, activebackground=base_bg,
-                                selectcolor=BG_DEEP, fg=ACCENT,
-                                bd=1, highlightthickness=0,
-                                command=self._on_root_folder_toggle,
+                        _visited_lock_keys.add(rf_key)
+                        checked_rf = entry.enabled
+                        cb_cx = self._COL_X[0] + 12
+                        cb_size = 14
+                        x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
+                        x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
+                        if rf_key not in self._lock_cb_rects:
+                            lk_tag = "lock_cb_root"
+                            rect_id = c.create_rectangle(
+                                x1, y1, x2, y2,
+                                outline=BORDER, width=1,
+                                fill=BG_DEEP if checked_rf else base_bg,
+                                tags=(lk_tag, "lock_cb"),
                             )
-                            self._lock_widgets[rf_key] = (var, cb)
+                            mark_id = c.create_text(
+                                cb_cx, y_mid, text="✓", anchor="center",
+                                fill=ACCENT, font=("Segoe UI", 12, "bold"),
+                                state="normal" if checked_rf else "hidden",
+                                tags=(lk_tag, "lock_cb"),
+                            )
+                            self._lock_cb_rects[rf_key] = rect_id
+                            self._lock_cb_marks[rf_key] = mark_id
+                            c.tag_bind(lk_tag, "<ButtonRelease-1>",
+                                       lambda e: self._on_root_folder_toggle())
+                            c.tag_bind(lk_tag, "<Enter>",
+                                       lambda e: c.config(cursor="hand2"))
+                            c.tag_bind(lk_tag, "<Leave>",
+                                       lambda e: c.config(cursor=""))
                         else:
-                            var, cb = self._lock_widgets[rf_key]
-                            var.set(entry.enabled)
-                            cb.configure(bg=base_bg, activebackground=base_bg)
-                        cb.place(x=self._COL_X[0], y=widget_y,
-                                 width=24, height=row_h)
-                        new_placed_lock.add(rf_key)
+                            rect_id = self._lock_cb_rects[rf_key]
+                            mark_id = self._lock_cb_marks[rf_key]
+                            c.coords(rect_id, x1, y1, x2, y2)
+                            c.itemconfigure(rect_id, fill=BG_DEEP if checked_rf else base_bg)
+                            c.coords(mark_id, cb_cx, y_mid)
+                            c.itemconfigure(mark_id,
+                                            state="normal" if checked_rf else "hidden")
                     elif not is_synthetic:
                         sname = entry.name
-                        if sname not in self._lock_widgets:
-                            var2 = tk.BooleanVar(value=self._sep_locks.get(sname, False))
-                            cb2 = tk.Checkbutton(
-                                c, variable=var2, text="🔒",
-                                bg=row_bg, activebackground=row_bg,
-                                selectcolor=BG_DEEP, fg=TEXT_SEP,
-                                font=("Segoe UI", 9),
-                                bd=0, highlightthickness=0,
-                                command=lambda n=sname: self._on_sep_lock_toggle(n),
+                        _visited_lock_keys.add(sname)
+                        locked_state = self._sep_locks.get(sname, False)
+                        lk_x = cw - lock_w - 8 + lock_w // 2
+                        cb_size2 = 14
+                        x1, y1 = lk_x - cb_size2 // 2, y_mid - cb_size2 // 2
+                        x2, y2 = lk_x + cb_size2 // 2, y_mid + cb_size2 // 2
+                        if sname not in self._lock_cb_rects:
+                            lk_tag2 = f"lock_cb_{len(self._lock_cb_rects)}"
+                            rect2_id = c.create_rectangle(
+                                x1, y1, x2, y2,
+                                outline=BORDER, width=1,
+                                fill=BG_DEEP if locked_state else row_bg,
+                                tags=(lk_tag2, "lock_cb"),
                             )
-                            self._lock_widgets[sname] = (var2, cb2)
+                            mark2_id = c.create_text(
+                                lk_x, y_mid, text="🔒", anchor="center",
+                                fill=TEXT_SEP, font=("Segoe UI", 9),
+                                state="normal" if locked_state else "hidden",
+                                tags=(lk_tag2, "lock_cb"),
+                            )
+                            self._lock_cb_rects[sname] = rect2_id
+                            self._lock_cb_marks[sname] = mark2_id
+                            c.tag_bind(lk_tag2, "<ButtonRelease-1>",
+                                       lambda e, n=sname: self._on_sep_lock_toggle(n))
+                            c.tag_bind(lk_tag2, "<Enter>",
+                                       lambda e: c.config(cursor="hand2"))
+                            c.tag_bind(lk_tag2, "<Leave>",
+                                       lambda e: c.config(cursor=""))
                         else:
-                            var2, cb2 = self._lock_widgets[sname]
-                            cb2.configure(bg=row_bg, activebackground=row_bg)
-                        cb2.place(x=cw - lock_w - 8, y=widget_y,
-                                  width=lock_w, height=row_h)
-                        new_placed_lock.add(sname)
+                            rect2_id = self._lock_cb_rects[sname]
+                            mark2_id = self._lock_cb_marks[sname]
+                            c.coords(rect2_id, x1, y1, x2, y2)
+                            c.itemconfigure(rect2_id,
+                                            fill=BG_DEEP if locked_state else row_bg)
+                            c.coords(mark2_id, lk_x, y_mid)
+                            c.itemconfigure(mark2_id,
+                                            state="normal" if locked_state else "hidden")
 
                 else:
                     # --- Regular mod row ---
@@ -1353,12 +1398,11 @@ class ModListPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_cb_mark[s], state="hidden")
                 self._pool_data_idx[s] = -1
 
-        # Park separator (lock) widgets that are no longer on screen.
-        # Park at (-9999, -9999) instead of place_forget() to avoid the
-        # hide→show flicker that causes arrows/checkboxes to flash on scroll.
-        for key, (_var, cb) in self._lock_widgets.items():
-            if key not in new_placed_lock:
-                cb.place(x=-9999, y=-9999)
+        # Park lock canvas items for separators not in the current viewport.
+        for key, rect_id in self._lock_cb_rects.items():
+            if key not in _visited_lock_keys:
+                c.coords(rect_id, 0, -200, 0, -200)
+                c.coords(self._lock_cb_marks[key], 0, -200)
 
         # The drag overlay uses its own tagged items drawn on top
         c.configure(scrollregion=(0, 0, cw, max(total_h, canvas_h)))
@@ -2286,21 +2330,19 @@ class ModListPanel(ctk.CTkFrame):
         popup.bind_all("<ButtonPress-3>", _on_press)
 
     def _on_root_folder_toggle(self) -> None:
-        if ROOT_FOLDER_NAME in self._lock_widgets:
-            self._root_folder_enabled = self._lock_widgets[ROOT_FOLDER_NAME][0].get()
-            self._save_root_folder_state()
-            # Update the synthetic entry's enabled state in-place
-            for entry in self._entries:
-                if entry.name == ROOT_FOLDER_NAME:
-                    entry.enabled = self._root_folder_enabled
-                    break
-            self._redraw()
+        self._root_folder_enabled = not self._root_folder_enabled
+        self._save_root_folder_state()
+        # Update the synthetic entry's enabled state in-place
+        for entry in self._entries:
+            if entry.name == ROOT_FOLDER_NAME:
+                entry.enabled = self._root_folder_enabled
+                break
+        self._redraw()
 
     def _on_sep_lock_toggle(self, sep_name: str) -> None:
-        if sep_name in self._lock_widgets:
-            locked = self._lock_widgets[sep_name][0].get()
-            self._sep_locks[sep_name] = locked
-            self._save_sep_locks()
+        self._sep_locks[sep_name] = not self._sep_locks.get(sep_name, False)
+        self._save_sep_locks()
+        self._redraw()
 
     def _toggle_collapse(self, sep_name: str) -> None:
         if sep_name in self._collapsed_seps:
@@ -2347,10 +2389,11 @@ class ModListPanel(ctk.CTkFrame):
             self._entries.pop(idx)
             self._check_vars.pop(idx)
             self._check_buttons.pop(idx)
-            # Clean up lock widget for this separator
-            if sname in self._lock_widgets:
-                self._lock_widgets[sname][1].destroy()
-                del self._lock_widgets[sname]
+            # Clean up lock canvas items for this separator
+            if sname in self._lock_cb_rects:
+                self._canvas.delete(self._lock_cb_rects.pop(sname))
+            if sname in self._lock_cb_marks:
+                self._canvas.delete(self._lock_cb_marks.pop(sname))
             self._sep_locks.pop(sname, None)
             self._save_sep_locks()
             self._collapsed_seps.discard(sname)
@@ -2525,8 +2568,10 @@ class ModListPanel(ctk.CTkFrame):
         if old_name in self._sep_locks:
             self._sep_locks[new_name] = self._sep_locks.pop(old_name)
             self._save_sep_locks()
-        if old_name in self._lock_widgets:
-            self._lock_widgets[new_name] = self._lock_widgets.pop(old_name)
+        if old_name in self._lock_cb_rects:
+            self._lock_cb_rects[new_name] = self._lock_cb_rects.pop(old_name)
+        if old_name in self._lock_cb_marks:
+            self._lock_cb_marks[new_name] = self._lock_cb_marks.pop(old_name)
         entry.name = new_name
         self._save_modlist()
         self._redraw()

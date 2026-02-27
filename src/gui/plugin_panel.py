@@ -3,6 +3,7 @@ Plugin panel: Plugins, Archives, Data, Downloads, Tracked, Endorsed tabs.
 Used by App. Imports theme, game_helpers, dialogs, install_mod, subpanels.
 """
 
+import json
 import os
 import threading
 import tkinter as tk
@@ -144,10 +145,10 @@ class PluginPanel(ctk.CTkFrame):
         self._pool_name: list[int] = []
         self._pool_idx_text: list[int] = []
         self._pool_warn: list[int | None] = []
-        self._pool_check_vars: list[tk.BooleanVar] = []
-        self._pool_check_cbs: list[tk.Checkbutton] = []
-        self._pool_lock_vars: list[tk.BooleanVar] = []
-        self._pool_lock_cbs: list[tk.Checkbutton] = []
+        self._pool_check_rects: list[int] = []
+        self._pool_check_marks: list[int] = []
+        self._pool_lock_rects: list[int] = []
+        self._pool_lock_marks: list[int] = []
         self._predraw_after_id: str | None = None
 
         # Canvas dimensions
@@ -1127,7 +1128,17 @@ class PluginPanel(ctk.CTkFrame):
             return
         self._log(f"Installing: {os.path.basename(archive_path)}")
         mod_panel = getattr(app, "_mod_panel", None)
-        install_mod_from_archive(archive_path, app, self._log, game, mod_panel)
+
+        def _cleanup():
+            try:
+                Path(archive_path).unlink(missing_ok=True)
+                self._log(f"Removed archive: {os.path.basename(archive_path)}")
+            except OSError:
+                pass
+            self._downloads_panel.refresh()
+
+        install_mod_from_archive(archive_path, app, self._log, game, mod_panel,
+                                 on_installed=_cleanup)
 
     def _build_plugins_tab(self):
         tab = self._tabs.tab("Plugins")
@@ -1205,27 +1216,47 @@ class PluginPanel(ctk.CTkFrame):
             self._pool_idx_text.append(idx_id)
             self._pool_warn.append(warn_id)
 
-            var = tk.BooleanVar(value=False)
-            cb = tk.Checkbutton(
-                c, variable=var,
-                bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
-                fg=ACCENT, indicatoron=True,
-                bd=0, highlightthickness=0,
-                command=lambda slot=s: self._on_pool_check_toggle(slot),
+            cb_tag = f"pcb_{s}"
+            cb_rect = c.create_rectangle(
+                0, -200, 0, -200, outline=BORDER, width=1, state="hidden",
+                tags=(cb_tag, "pcb"),
             )
-            self._pool_check_vars.append(var)
-            self._pool_check_cbs.append(cb)
+            cb_mark = c.create_text(
+                0, -200, text="✓", anchor="center", fill=ACCENT,
+                font=("Segoe UI", 12, "bold"), state="hidden",
+                tags=(cb_tag, "pcb"),
+            )
+            self._pool_check_rects.append(cb_rect)
+            self._pool_check_marks.append(cb_mark)
+            def _cb_release(e, slot=s):
+                self._on_pool_check_toggle(slot)
+                return "break"
+            def _cb_enter(e):
+                c.config(cursor="hand2")
+            def _cb_leave(e):
+                c.config(cursor="")
+            c.tag_bind(cb_tag, "<ButtonRelease-1>", _cb_release)
+            c.tag_bind(cb_tag, "<Enter>", _cb_enter)
+            c.tag_bind(cb_tag, "<Leave>", _cb_leave)
 
-            lock_var = tk.BooleanVar(value=False)
-            lock_cb = tk.Checkbutton(
-                c, variable=lock_var,
-                bg=BG_ROW, activebackground=BG_ROW, selectcolor=BG_DEEP,
-                fg=TEXT_MAIN, indicatoron=True,
-                bd=0, highlightthickness=0,
-                command=lambda slot=s: self._on_pool_lock_toggle(slot),
+            lk_tag = f"plk_{s}"
+            lk_rect = c.create_rectangle(
+                0, -200, 0, -200, outline=BORDER, width=1, state="hidden",
+                tags=(lk_tag, "plk"),
             )
-            self._pool_lock_vars.append(lock_var)
-            self._pool_lock_cbs.append(lock_cb)
+            lk_mark = c.create_text(
+                0, -200, text="🔒", anchor="center", fill=TEXT_MAIN,
+                font=("Segoe UI", 9), state="hidden",
+                tags=(lk_tag, "plk"),
+            )
+            self._pool_lock_rects.append(lk_rect)
+            self._pool_lock_marks.append(lk_mark)
+            def _lk_release(e, slot=s):
+                self._on_pool_lock_toggle(slot)
+                return "break"
+            c.tag_bind(lk_tag, "<ButtonRelease-1>", _lk_release)
+            c.tag_bind(lk_tag, "<Enter>", _cb_enter)
+            c.tag_bind(lk_tag, "<Leave>", _cb_leave)
 
     def _on_pool_check_toggle(self, slot: int) -> None:
         """A pooled enable-checkbox was clicked — map back to data row."""
@@ -1235,7 +1266,7 @@ class PluginPanel(ctk.CTkFrame):
         entry = self._plugin_entries[data_idx]
         if entry.name.lower() in self._vanilla_plugins:
             return
-        entry.enabled = self._pool_check_vars[slot].get()
+        entry.enabled = not entry.enabled
         self._save_plugins()
         self._check_all_masters()
         self._predraw()
@@ -1246,7 +1277,7 @@ class PluginPanel(ctk.CTkFrame):
         if data_idx < 0 or data_idx >= len(self._plugin_entries):
             return
         name = self._plugin_entries[data_idx].name
-        locked = self._pool_lock_vars[slot].get()
+        locked = not bool(self._plugin_locks.get(name, False))
         if locked:
             self._plugin_locks[name] = True
         else:
@@ -1612,33 +1643,44 @@ class PluginPanel(ctk.CTkFrame):
 
                 if not dragging:
                     is_vanilla = entry.name.lower() in self._vanilla_plugins
-                    self._pool_check_vars[s].set(entry.enabled)
-                    self._pool_check_cbs[s].configure(
-                        bg=bg, activebackground=bg,
-                        state="disabled" if is_vanilla else "normal",
-                    )
-                    widget_y = y_top - canvas_top
-                    self._pool_check_cbs[s].place(
-                        x=self._pcol_x[0], y=widget_y,
-                        width=24, height=self.ROW_H)
+                    cb_cx = self._pcol_x[0] + 12
+                    cb_size = 14
+                    cx1, cy1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
+                    cx2, cy2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
+                    c.coords(self._pool_check_rects[s], cx1, cy1, cx2, cy2)
+                    c.itemconfigure(self._pool_check_rects[s],
+                                    fill=BG_DEEP if entry.enabled else bg,
+                                    state="normal")
+                    c.coords(self._pool_check_marks[s], cb_cx, y_mid)
+                    c.itemconfigure(self._pool_check_marks[s],
+                                    fill=TEXT_DIM if is_vanilla else ACCENT,
+                                    state="normal" if entry.enabled else "hidden")
 
                     is_locked = bool(self._plugin_locks.get(entry.name, False))
-                    self._pool_lock_vars[s].set(is_locked)
-                    self._pool_lock_cbs[s].configure(bg=bg, activebackground=bg)
-                    self._pool_lock_cbs[s].place(
-                        x=self._pcol_x[3], y=widget_y,
-                        width=24, height=self.ROW_H)
+                    lk_cx = self._pcol_x[3] + 12
+                    c.coords(self._pool_lock_rects[s], lk_cx - cb_size // 2, cy1,
+                             lk_cx + cb_size // 2, cy2)
+                    c.itemconfigure(self._pool_lock_rects[s],
+                                    fill=BG_DEEP if is_locked else bg,
+                                    state="normal")
+                    c.coords(self._pool_lock_marks[s], lk_cx, y_mid)
+                    c.itemconfigure(self._pool_lock_marks[s],
+                                    state="normal" if is_locked else "hidden")
                 else:
-                    self._pool_check_cbs[s].place_forget()
-                    self._pool_lock_cbs[s].place_forget()
+                    c.itemconfigure(self._pool_check_rects[s], state="hidden")
+                    c.itemconfigure(self._pool_check_marks[s], state="hidden")
+                    c.itemconfigure(self._pool_lock_rects[s], state="hidden")
+                    c.itemconfigure(self._pool_lock_marks[s], state="hidden")
             else:
                 c.itemconfigure(self._pool_bg[s], state="hidden")
                 c.itemconfigure(self._pool_name[s], state="hidden")
                 c.itemconfigure(self._pool_idx_text[s], state="hidden")
                 if self._pool_warn[s] is not None:
                     c.itemconfigure(self._pool_warn[s], state="hidden")
-                self._pool_check_cbs[s].place_forget()
-                self._pool_lock_cbs[s].place_forget()
+                c.itemconfigure(self._pool_check_rects[s], state="hidden")
+                c.itemconfigure(self._pool_check_marks[s], state="hidden")
+                c.itemconfigure(self._pool_lock_rects[s], state="hidden")
+                c.itemconfigure(self._pool_lock_marks[s], state="hidden")
                 self._pool_data_idx[s] = -1
 
         c.configure(scrollregion=(0, 0, cw, max(total_h, canvas_h)))
@@ -1739,8 +1781,6 @@ class PluginPanel(ctk.CTkFrame):
                 else:
                     bg = BG_ROW if data_row % 2 == 0 else BG_ROW_ALT
                 self._pcanvas.itemconfigure(self._pool_bg[s], fill=bg)
-                self._pool_check_cbs[s].configure(bg=bg, activebackground=bg)
-                self._pool_lock_cbs[s].configure(bg=bg, activebackground=bg)
                 break
 
     def _on_pmouse_motion(self, event) -> None:

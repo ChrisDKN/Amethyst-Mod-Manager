@@ -302,7 +302,15 @@ class App(ctk.CTk):
 
         log(f"Nexus: Installing {result.file_name}...")
         mod_panel = getattr(self, "_mod_panel", None)
-        install_mod_from_archive(str(result.file_path), self, log, game, mod_panel)
+        _archive_path = result.file_path
+        _installed = False
+
+        def _on_installed():
+            nonlocal _installed
+            _installed = True
+
+        install_mod_from_archive(str(_archive_path), self, log, game, mod_panel,
+                                 on_installed=_on_installed)
 
         # Write Nexus metadata to the installed mod's meta.ini
         try:
@@ -315,7 +323,7 @@ class App(ctk.CTk):
                 file_info=file_info,
             )
             # Determine the mod folder name (same logic as install_mod_from_archive)
-            raw_stem = os.path.splitext(os.path.basename(str(result.file_path)))[0]
+            raw_stem = os.path.splitext(os.path.basename(str(_archive_path)))[0]
             if raw_stem.endswith(".tar"):
                 raw_stem = os.path.splitext(raw_stem)[0]
             suggestions = _suggest_mod_names(raw_stem)
@@ -326,6 +334,17 @@ class App(ctk.CTk):
                 log(f"Nexus: Saved metadata (mod {meta.mod_id}, v{meta.version})")
         except Exception as exc:
             log(f"Nexus: Warning — could not save metadata: {exc}")
+
+        if _installed and _archive_path and _archive_path.is_file():
+            try:
+                _archive_path.unlink()
+                log(f"Nexus: Removed archive {_archive_path.name}")
+            except OSError:
+                pass
+            if hasattr(self, "_plugin_panel"):
+                dl_panel = getattr(self._plugin_panel, "_downloads_panel", None)
+                if dl_panel:
+                    dl_panel.refresh()
 
     def _build_layout(self):
         self.grid_rowconfigure(0, weight=0)
