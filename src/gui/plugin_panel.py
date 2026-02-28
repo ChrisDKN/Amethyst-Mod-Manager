@@ -2101,8 +2101,3 @@ class PluginPanel(ctk.CTkFrame):
         self._drag_moved = False
         self._drag_slot = -1
         self._predraw()
-
-
-# ---------------------------------------------------------------------------
-# Game picker dialog (used by the + button to select an unconfigured game)
-# ---------------------------------------------------------------------------

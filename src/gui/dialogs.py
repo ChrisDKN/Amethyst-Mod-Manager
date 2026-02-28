@@ -3,6 +3,7 @@ Modal dialogs used by ModListPanel, PluginPanel, TopBar, and install_mod.
 Uses theme, path_utils; does not import panels or App to avoid circular imports.
 """
 
+import colorsys
 import json
 import os
 import re
@@ -13,6 +14,8 @@ import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk as ttk
 from pathlib import Path
+
+from PIL import Image as _PilImage, ImageDraw as _PilDraw, ImageTk as _PilTk
 
 import customtkinter as ctk
 
@@ -1932,5 +1935,288 @@ class _SelectFilesDialog(ctk.CTkToplevel):
         self.destroy()
 
     def _on_cancel(self):
+        self.grab_release()
+        self.destroy()
+
+
+# ---------------------------------------------------------------------------
+# Separator color picker dialog
+# ---------------------------------------------------------------------------
+class _SepColorPickerDialog(ctk.CTkToplevel):
+    """
+    Custom color picker styled to match the app theme.
+    Shows a HSV colour wheel, a brightness slider, a live hex entry,
+    and a live colour-preview swatch.
+
+    result: str | None  — hex colour like "#rrggbb", or None if cancelled.
+    reset:  bool        — True if the user clicked "Reset to default".
+    """
+
+    _WHEEL_SIZE = 200
+    _SLIDER_H   = 20
+
+    def __init__(self, parent, initial_color: str | None = None):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Choose Separator Color")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel_color)
+
+        self.result: str | None = None
+        self.reset: bool = False
+
+        self._hue: float = 0.0
+        self._sat: float = 0.8
+        self._val: float = 0.7
+
+        if initial_color:
+            try:
+                r, g, b = (int(initial_color[i:i+2], 16) for i in (1, 3, 5))
+                self._hue, self._sat, self._val = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+            except Exception:
+                pass
+
+        self._wheel_img: _PilTk.PhotoImage | None = None
+        self._slider_img: _PilTk.PhotoImage | None = None
+        self._suppress_hex_trace = False
+
+        self._build()
+        self._draw_wheel()
+        self._draw_slider()
+        self._update_all()
+
+        self.after(80, self._make_modal)
+
+        self.update_idletasks()
+        w = self._WHEEL_SIZE + 32
+        h = self.winfo_reqheight()
+        owner = parent
+        x = owner.winfo_rootx() + (owner.winfo_width()  - w) // 2
+        y = owner.winfo_rooty() + (owner.winfo_height() - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Layout
+    # ------------------------------------------------------------------
+    def _build(self):
+        PAD = 16
+        ws  = self._WHEEL_SIZE
+        self.grid_columnconfigure(0, weight=1)
+
+        # Colour wheel
+        wheel_frame = tk.Frame(self, bg=BG_DEEP)
+        wheel_frame.grid(row=0, column=0, pady=(PAD, 4))
+        self._wheel_canvas = tk.Canvas(
+            wheel_frame, width=ws, height=ws,
+            bg=BG_DEEP, highlightthickness=0, cursor="crosshair",
+        )
+        self._wheel_canvas.pack()
+        self._wheel_canvas.bind("<ButtonPress-1>", self._on_wheel_press)
+        self._wheel_canvas.bind("<B1-Motion>",      self._on_wheel_drag)
+        self._cross_h = self._wheel_canvas.create_line(0,0,0,0, fill="white", width=1)
+        self._cross_v = self._wheel_canvas.create_line(0,0,0,0, fill="white", width=1)
+
+        # Brightness slider
+        self._slider_canvas = tk.Canvas(
+            self, width=ws, height=self._SLIDER_H,
+            bg=BG_DEEP, highlightthickness=0, cursor="sb_h_double_arrow",
+        )
+        self._slider_canvas.grid(row=1, column=0, padx=PAD, pady=(0, 10), sticky="ew")
+        self._slider_canvas.bind("<ButtonPress-1>", self._on_slider_press)
+        self._slider_canvas.bind("<B1-Motion>",      self._on_slider_drag)
+        self._slider_thumb = self._slider_canvas.create_rectangle(
+            0, 0, 0, self._SLIDER_H, outline="white", width=2,
+        )
+
+        # Preview swatch
+        self._swatch = tk.Frame(self, height=28, bg=BG_DEEP, relief="flat", bd=0)
+        self._swatch.grid(row=2, column=0, padx=PAD, pady=(0, 6), sticky="ew")
+
+        # Hex entry row
+        hex_row = tk.Frame(self, bg=BG_DEEP)
+        hex_row.grid(row=3, column=0, padx=PAD, pady=(0, 10), sticky="ew")
+        hex_row.grid_columnconfigure(1, weight=1)
+        tk.Label(
+            hex_row, text="#", bg=BG_DEEP, fg=TEXT_SEP,
+            font=("Segoe UI", 13),
+        ).grid(row=0, column=0, padx=(0, 2))
+        self._hex_var = tk.StringVar()
+        self._hex_entry = tk.Entry(
+            hex_row, textvariable=self._hex_var,
+            bg=BG_PANEL, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            relief="flat", font=("Segoe UI", 13), bd=4, width=7,
+        )
+        self._hex_entry.grid(row=0, column=1, sticky="ew")
+        self._hex_var.trace_add("write", self._on_hex_typed)
+
+        # Button bar
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
+        bar.grid(row=4, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar, text="Cancel", width=80, height=30, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel_color,
+        ).pack(side="right", padx=(4, 12), pady=10)
+        ctk.CTkButton(
+            bar, text="OK", width=80, height=30, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_ok,
+        ).pack(side="right", padx=4, pady=10)
+        ctk.CTkButton(
+            bar, text="Reset to default", width=120, height=30, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_reset,
+        ).pack(side="left", padx=12, pady=10)
+
+    # ------------------------------------------------------------------
+    # Drawing
+    # ------------------------------------------------------------------
+    def _draw_wheel(self):
+        import math
+        ws  = self._WHEEL_SIZE
+        img = _PilImage.new("RGB", (ws, ws), BG_DEEP)
+        px  = img.load()
+        cx  = cy = ws / 2
+        r   = ws / 2 - 2
+        for y in range(ws):
+            for x in range(ws):
+                dx, dy = x - cx, y - cy
+                dist = (dx*dx + dy*dy) ** 0.5
+                if dist <= r:
+                    hue = (math.atan2(-dy, dx) / (2 * math.pi)) % 1.0
+                    sat = dist / r
+                    rv, gv, bv = colorsys.hsv_to_rgb(hue, sat, self._val)
+                    px[x, y] = (int(rv*255), int(gv*255), int(bv*255))
+        self._wheel_img = _PilTk.PhotoImage(img)
+        self._wheel_canvas.create_image(0, 0, anchor="nw", image=self._wheel_img)
+        self._wheel_canvas.tag_raise(self._cross_h)
+        self._wheel_canvas.tag_raise(self._cross_v)
+
+    def _draw_slider(self):
+        ws  = self._WHEEL_SIZE
+        sh  = self._SLIDER_H
+        img = _PilImage.new("RGB", (ws, sh))
+        drw = _PilDraw.Draw(img)
+        rv, gv, bv = colorsys.hsv_to_rgb(self._hue, self._sat, 1.0)
+        for x in range(ws):
+            t  = x / max(ws - 1, 1)
+            drw.line([(x, 0), (x, sh)],
+                     fill=(int(rv*t*255), int(gv*t*255), int(bv*t*255)))
+        self._slider_img = _PilTk.PhotoImage(img)
+        self._slider_canvas.create_image(0, 0, anchor="nw", image=self._slider_img)
+        self._slider_canvas.tag_raise(self._slider_thumb)
+
+    def _update_crosshair(self):
+        import math
+        ws  = self._WHEEL_SIZE
+        cx  = cy = ws / 2
+        r   = ws / 2 - 2
+        angle = self._hue * 2 * math.pi
+        px_ = cx + self._sat * r * math.cos(angle)
+        py_ = cy - self._sat * r * math.sin(angle)
+        arm = 6
+        self._wheel_canvas.coords(self._cross_h, px_-arm, py_, px_+arm, py_)
+        self._wheel_canvas.coords(self._cross_v, px_, py_-arm, px_, py_+arm)
+        rv, gv, bv = colorsys.hsv_to_rgb(self._hue, self._sat, self._val)
+        lum = 0.2126*rv + 0.7152*gv + 0.0722*bv
+        col = "#000000" if lum > 0.5 else "#ffffff"
+        self._wheel_canvas.itemconfigure(self._cross_h, fill=col)
+        self._wheel_canvas.itemconfigure(self._cross_v, fill=col)
+
+    def _update_slider_thumb(self):
+        ws  = self._WHEEL_SIZE
+        sh  = self._SLIDER_H
+        tx  = int(self._val * (ws - 1))
+        hw  = 5
+        self._slider_canvas.coords(
+            self._slider_thumb,
+            max(0, tx-hw), 0, min(ws, tx+hw), sh,
+        )
+
+    def _current_hex(self) -> str:
+        rv, gv, bv = colorsys.hsv_to_rgb(self._hue, self._sat, self._val)
+        return "#{:02x}{:02x}{:02x}".format(int(rv*255), int(gv*255), int(bv*255))
+
+    def _update_all(self, redraw_wheel=False, redraw_slider=False):
+        if redraw_wheel:
+            self._draw_wheel()
+        if redraw_slider:
+            self._draw_slider()
+        self._update_crosshair()
+        self._update_slider_thumb()
+        self._swatch.configure(bg=self._current_hex())
+        new_hex = self._current_hex()[1:]
+        self._suppress_hex_trace = True
+        if self._hex_var.get().lower() != new_hex:
+            self._hex_var.set(new_hex)
+        self._suppress_hex_trace = False
+
+    # ------------------------------------------------------------------
+    # Events
+    # ------------------------------------------------------------------
+    def _wheel_xy_to_hs(self, x, y):
+        import math
+        ws  = self._WHEEL_SIZE
+        cx  = cy = ws / 2
+        r   = ws / 2 - 2
+        dx, dy = x - cx, y - cy
+        dist   = min((dx*dx + dy*dy) ** 0.5, r)
+        hue    = (math.atan2(-dy, dx) / (2 * math.pi)) % 1.0
+        sat    = dist / r
+        return hue, sat
+
+    def _on_wheel_press(self, event):
+        self._hue, self._sat = self._wheel_xy_to_hs(event.x, event.y)
+        self._update_all(redraw_slider=True)
+
+    def _on_wheel_drag(self, event):
+        self._hue, self._sat = self._wheel_xy_to_hs(event.x, event.y)
+        self._update_all(redraw_slider=True)
+
+    def _on_slider_press(self, event):
+        self._val = max(0.0, min(1.0, event.x / max(self._WHEEL_SIZE - 1, 1)))
+        self._update_all(redraw_wheel=True)
+
+    def _on_slider_drag(self, event):
+        self._val = max(0.0, min(1.0, event.x / max(self._WHEEL_SIZE - 1, 1)))
+        self._update_all(redraw_wheel=True)
+
+    def _on_hex_typed(self, *_):
+        if self._suppress_hex_trace:
+            return
+        raw = self._hex_var.get().strip().lstrip("#")
+        if len(raw) == 6:
+            try:
+                r = int(raw[0:2], 16)
+                g = int(raw[2:4], 16)
+                b = int(raw[4:6], 16)
+                h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+                self._hue, self._sat, self._val = h, s, v
+                self._update_all(redraw_wheel=True, redraw_slider=True)
+            except ValueError:
+                pass
+
+    def _on_ok(self):
+        self.result = self._current_hex()
+        self.grab_release()
+        self.destroy()
+
+    def _on_reset(self):
+        self.reset = True
+        self.grab_release()
+        self.destroy()
+
+    def _on_cancel_color(self):
         self.grab_release()
         self.destroy()

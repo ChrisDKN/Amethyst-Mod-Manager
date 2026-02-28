@@ -5,6 +5,7 @@ Builds the main window (App) from gui panels and runs the event loop.
 
 import errno
 import os
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -29,7 +30,7 @@ if not os.environ.get("MOD_MANAGER_GAMES"):
 
 import customtkinter as ctk
 
-from gui.theme import BG_DEEP, BORDER
+from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_MAIN
 from gui.game_helpers import (
     _GAMES,
     _vanilla_plugins_for_game,
@@ -45,6 +46,7 @@ from gui.version_check import (
     _fetch_latest_version,
     _is_newer_version,
     _APP_UPDATE_RELEASES_URL,
+    _APP_UPDATE_INSTALLER_URL,
 )
 
 from version import __version__
@@ -57,6 +59,109 @@ from Nexus.nexus_meta import build_meta_from_download, write_meta
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
+
+_INSTALLER_CMD = (
+    f"curl -sSL {_APP_UPDATE_INSTALLER_URL} | bash"
+)
+
+
+def _run_installer():
+    """Run the AppImage installer in a subprocess."""
+    try:
+        subprocess.Popen(
+            ["bash", "-c", _INSTALLER_CMD],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        pass
+
+
+class _UpdateAvailableDialog(ctk.CTkToplevel):
+    """Modal dialog when a new app version is available. Offers update via installer or open releases page."""
+
+    def __init__(self, parent, current_version: str, latest_version: str):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Update available")
+        self.geometry("440x220")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(100, self._make_modal)
+
+        self._parent = parent
+        self._current = current_version
+        self._latest = latest_version
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        msg = (
+            f"A new version of Amethyst Mod Manager is available.\n\n"
+            f"Current: {self._current}\n"
+            f"Latest:  {self._latest}"
+        )
+        ctk.CTkLabel(
+            self, text=msg, font=FONT_NORMAL, text_color=TEXT_MAIN,
+            justify="left", anchor="w"
+        ).grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 12))
+
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        btn_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkButton(
+            btn_frame, text="Update via installer",
+            width=160, height=32, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_update
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame, text="Open releases page",
+            width=140, height=32, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_releases
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame, text="Later",
+            width=80, height=32, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close
+        ).pack(side="left")
+
+    def _on_update(self):
+        _run_installer()
+        self.grab_release()
+        self.destroy()
+        tk.messagebox.showinfo(
+            "Update started",
+            "The update installer has been started.\n\n"
+            "Please close and reopen the application when the installer finishes.",
+            parent=self._parent,
+        )
+
+    def _on_releases(self):
+        webbrowser.open(_APP_UPDATE_RELEASES_URL)
+        self.grab_release()
+        self.destroy()
+
+    def _on_close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
 
 
 # ---------------------------------------------------------------------------
@@ -156,14 +261,8 @@ class App(ctk.CTk):
             if _is_newer_version(__version__, latest):
 
                 def _show():
-                    msg = (
-                        f"A new version of Amethyst Mod Manager is available.\n\n"
-                        f"Current: {__version__}\n"
-                        f"Latest:  {latest}\n\n"
-                        "Open the releases page to download?"
-                    )
-                    if tk.messagebox.askyesno("Update available", msg, parent=self):
-                        webbrowser.open(_APP_UPDATE_RELEASES_URL)
+                    dlg = _UpdateAvailableDialog(self, __version__, latest)
+                    self.wait_window(dlg)
 
                 self.call_threadsafe(_show)
 
