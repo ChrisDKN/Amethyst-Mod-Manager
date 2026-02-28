@@ -60,19 +60,62 @@ from Nexus.nexus_meta import build_meta_from_download, write_meta
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
-_INSTALLER_CMD = (
-    f"curl -sSL {_APP_UPDATE_INSTALLER_URL} | bash"
-)
-
-
 def _run_installer():
-    """Run the AppImage installer in a subprocess."""
+    """Run the AppImage installer in a detached subprocess.
+
+    The AppImage runtime sets SSL_CERT_FILE / CURL_CA_BUNDLE to a path inside
+    its own mount point.  That mount is gone once the app exits, so curl would
+    fail with a certificate error.  We scrub those variables (and any other
+    AppImage-injected ones) from the child environment before launching.
+    Output is logged to $XDG_CONFIG_HOME/amethyst-update.log for debugging.
+    sleep 2 gives the app time to fully exit before the installer overwrites
+    the running AppImage.
+    """
+    import os
+    config_dir = os.path.join(
+        os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+        "AmethystModManager",
+    )
+    os.makedirs(config_dir, exist_ok=True)
+    log_path = os.path.join(config_dir, "amethyst-update.log")
+    cmd = (
+        f"sleep 2 && "
+        f"SCRIPT=$(mktemp /tmp/amethyst-installer-XXXXXX.sh) && "
+        f"curl -sSL {_APP_UPDATE_INSTALLER_URL} -o \"$SCRIPT\" && "
+        f"chmod +x \"$SCRIPT\" && "
+        f"bash \"$SCRIPT\" && "
+        f"rm -f \"$SCRIPT\""
+    )
+
+    # Build a clean environment: start from the current env then strip every
+    # variable that the AppImage runtime injects and that would be invalid once
+    # the mount is gone.
+    _APPIMAGE_ENV_PREFIXES = (
+        "APPDIR", "APPIMAGE", "OWD",
+        "SSL_CERT_FILE", "SSL_CERT_DIR",
+        "CURL_CA_BUNDLE",
+        "LD_LIBRARY_PATH",
+        "LD_PRELOAD",
+        "PYTHONHOME", "PYTHONPATH",
+        "GDK_PIXBUF_MODULEDIR", "GDK_PIXBUF_MODULE_FILE",
+        "GIO_MODULE_DIR",
+        "GSETTINGS_SCHEMA_DIR",
+        "GTK_PATH", "GTK_IM_MODULE_FILE",
+        "QT_PLUGIN_PATH",
+        "PERLLIB", "PERL5LIB",
+    )
+    clean_env = {
+        k: v for k, v in os.environ.items()
+        if not any(k.startswith(p) for p in _APPIMAGE_ENV_PREFIXES)
+    }
+
     try:
         subprocess.Popen(
-            ["bash", "-c", _INSTALLER_CMD],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            ["bash", "-c", cmd],
+            stdout=open(log_path, "w"),
+            stderr=subprocess.STDOUT,
             start_new_session=True,
+            env=clean_env,
         )
     except Exception:
         pass
@@ -144,12 +187,13 @@ class _UpdateAvailableDialog(ctk.CTkToplevel):
         _run_installer()
         self.grab_release()
         self.destroy()
-        tk.messagebox.showinfo(
-            "Update started",
-            "The update installer has been started.\n\n"
-            "Please close and reopen the application when the installer finishes.",
-            parent=self._parent,
-        )
+        # Close the app so the running AppImage is released and can be replaced.
+        try:
+            from Nexus.nxm_handler import NxmIPC
+            NxmIPC.shutdown()
+        except Exception:
+            pass
+        self._parent.destroy()
 
     def _on_releases(self):
         webbrowser.open(_APP_UPDATE_RELEASES_URL)
