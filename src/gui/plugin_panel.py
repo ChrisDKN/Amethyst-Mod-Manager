@@ -5,6 +5,7 @@ Used by App. Imports theme, game_helpers, dialogs, install_mod, subpanels.
 
 import json
 import os
+import subprocess
 import threading
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -367,6 +368,7 @@ class PluginPanel(ctk.CTkFrame):
     # wrapper is invoked instead of launching the .bat through Proton.
     _BAT_WRAPPERS: dict[str, str] = {
         "vramr.bat": "_run_vramr_wrapper",
+        "bendr.bat": "_run_bendr_wrapper",
     }
 
     def _on_run_exe(self):
@@ -486,6 +488,42 @@ class PluginPanel(ctk.CTkFrame):
         output_dir = staging / "VRAMr"
 
         _VRAMrPresetDialog(
+            self.winfo_toplevel(),
+            bat_dir=bat_path.parent,
+            game_data_dir=data_dir,
+            output_dir=output_dir,
+            log_fn=self._log,
+        )
+
+    # ── BENDr wrapper ─────────────────────────────────────────────────
+
+    def _run_bendr_wrapper(self, bat_path: Path):
+        """Run BENDr normal-map pipeline via the Linux wrapper."""
+        game = self._game
+        if game is None:
+            self._log("BENDr: no game selected.")
+            return
+
+        data_dir = (
+            game.get_mod_data_path()
+            if hasattr(game, "get_mod_data_path") else None
+        )
+        if data_dir is None or not data_dir.is_dir():
+            self._log("BENDr: game Data directory not configured or missing.")
+            return
+
+        staging = (
+            game.get_mod_staging_path()
+            if hasattr(game, "get_mod_staging_path") else None
+        )
+        if staging is None:
+            self._log("BENDr: mod staging path not configured.")
+            return
+
+        output_dir = staging / "BENDr"
+
+        from gui.dialogs import _BENDrRunDialog
+        _BENDrRunDialog(
             self.winfo_toplevel(),
             bat_dir=bat_path.parent,
             game_data_dir=data_dir,
