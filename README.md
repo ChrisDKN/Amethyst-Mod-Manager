@@ -71,12 +71,15 @@ The manager supports many supporting applications used to mod games. Place the a
 | Working | **pgpatcher** | Requires `d3dcompiler_47` installed to the game prefix via Protontricks |
 | Working | **DynDOLOD** | `-d` and `-o` args |
 | Working | **TexGen** | `-d` and `-o` args |
+| Working | **xLodGen** | `-d` and `-o` args. Game argument appended at runtime |
 | Working | **Bethini Pie** | Just works |
-| Working | **Vramr** | Experimental python wrapper using compressonator instead of texconv through proton |
+| Working | **Vramr** | Experimental python wrapper See below for instructions|
+| Working | **Bendr** | Experimental python wrapper See below for instructions|
+| Working | **Wrye Bash** | `-o` Auto generated for selected game at runtime |
+| Working | **Synthesis** | Requires .net10 sdk and .net5 runtime installed into the prefix (Use the proton tools window to do this) |
 | Working | **Witcher 3 Script merger** | Game path added to config automatically |
-| Not Yet Added/Tested | Bodyslide and Outfits Studio | |
-| Not Yet Added/Tested | Synthesis | |
-| Not Yet Added/Tested | Wrye Bash | |
+| Not Sure | Bodyslide and Outfits Studio | Opens with the correct Data path but UI shows nothing |
+
 
 ## Running Windows Apps (e.g. SSEEdit)
 

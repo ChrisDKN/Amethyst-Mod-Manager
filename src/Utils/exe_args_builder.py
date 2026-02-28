@@ -101,7 +101,7 @@ EXE_PROFILES: dict[str, _ExeProfile] = {
         game_path_suffix="Data",
         output_flag="-o:",
     ),
-    
+
     # xLodGen -------------------------------------------------------------------
     "xLODGenx64.exe": _ExeProfile(
         game_flag="-d:",
@@ -113,12 +113,27 @@ EXE_PROFILES: dict[str, _ExeProfile] = {
         game_path_suffix="Data",
         output_flag="-o:",
     ),
+
+}
+
+# game_id → xLODGen game selection flag
+_XLODGEN_GAME_FLAGS: dict[str, str] = {
+    "Fallout3":     "-fo3",
+    "Fallout3GOTY": "-fo3",
+    "FalloutNV":    "-fnv",
+    "Fallout4":     "-fo4",
+    "Fallout4VR":   "-fo4vr",
+    "skyrim":       "-tes5",
+    "skyrimvr":     "-tes5vr",
+    "skyrim_se":    "-sse",
+    "Starfield":    "-sf1",
 }
 
 # Executables whose entries are intentionally left blank (handled separately).
 EXE_SKIP: frozenset[str] = frozenset({
     "PGPatcher.exe",
     "WitcherScriptMerger.exe",
+    "Wrye Bash.exe",       # -o path injected at runtime from active game
 })
 
 # ---------------------------------------------------------------------------
@@ -342,6 +357,10 @@ def build_default_exe_args(
         profile = EXE_PROFILES[name]
         parts: list[str] = []
 
+        def _flag_sep(flag: str) -> str:
+            """Return '' if flag ends with ':' (e.g. '-o:'), else ' '."""
+            return "" if flag.endswith(":") else " "
+
         # Game-root argument
         if profile.game_flag and game_path:
             target = (
@@ -349,15 +368,17 @@ def build_default_exe_args(
                 if profile.game_path_suffix
                 else game_path
             )
-            parts.append(f'{profile.game_flag}"{_to_wine_path(target)}"')
+            sep = _flag_sep(profile.game_flag)
+            parts.append(f'{profile.game_flag}{sep}"{_to_wine_path(target)}"')
 
         # Output argument — defaults to the overwrite folder
         if profile.output_flag:
+            sep = _flag_sep(profile.output_flag)
             overwrite_path = staging_path.parent / "overwrite" if staging_path else None
             if overwrite_path:
-                parts.append(f'{profile.output_flag}"{_to_wine_path(overwrite_path)}"')
+                parts.append(f'{profile.output_flag}{sep}"{_to_wine_path(overwrite_path)}"')
             else:
-                parts.append(f'{profile.output_flag}"<select output folder>"')
+                parts.append(f'{profile.output_flag}{sep}"<select output folder>"')
 
         default_args = " ".join(parts)
         existing[name] = default_args

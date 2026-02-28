@@ -442,7 +442,25 @@ class PluginPanel(ctk.CTkFrame):
         env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
 
         import shlex
-        extra_args = shlex.split(self._exe_args_var.get())
+        try:
+            extra_args = shlex.split(self._exe_args_var.get())
+        except ValueError as e:
+            self._log(f"Run EXE: invalid arguments — {e}")
+            return
+
+        # Inject runtime-only args not saved to exe_args.json
+        if exe_path.name in ("xLODGenx64.exe", "xLODGen.exe"):
+            from Utils.exe_args_builder import _XLODGEN_GAME_FLAGS
+            game_id = getattr(game, "game_id", None)
+            xlodgen_flag = _XLODGEN_GAME_FLAGS.get(game_id, "") if game_id else ""
+            if xlodgen_flag and xlodgen_flag not in extra_args:
+                extra_args.append(xlodgen_flag)
+
+        if exe_path.name == "Wrye Bash.exe" and "-o" not in extra_args:
+            from Utils.exe_args_builder import _to_wine_path
+            game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+            if game_path:
+                extra_args += ["-o", _to_wine_path(game_path)]
 
         self._log(f"Run EXE: launching {exe_path.name} via {proton_script.parent.name} ...")
 
