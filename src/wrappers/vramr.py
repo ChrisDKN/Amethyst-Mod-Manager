@@ -103,8 +103,8 @@ def _wine_run(
     assert proc.stdout is not None
     for line in proc.stdout:
         stripped = line.rstrip("\n\r")
-        if not stripped:
-            continue
+        if stripped:
+            log_fn(f"  {stripped}")
     proc.wait()
 
     if proc.returncode != 0:
