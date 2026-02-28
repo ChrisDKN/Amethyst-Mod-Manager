@@ -93,15 +93,17 @@ As this application is fairly new, the following needs testing:
 - Verification that all added games work
 - Baulders Gate 3 testing - The Mod manager can build modsettings.lsx but further testing is needed to know if it's working fully
 
-## VRAMr
+## VRAMr + BENDr
 
 VRAMr (Version 15.0723) works by using an experimental python wrapper. The optimisation step is also changed to use compressonator which is faster with native Linux support vs running texconv through Wine/Proton
 
+BENDr (Version 2.21) Uses a similar process
+
 **Any issues with this should be reported here and not to the VRAMr devs, This is experimental and not an offical Linux release**
 
-- Place the Vramr folder in Skyrim Special Edition/Applications/ in the games staging foler
-- In Amethyst mod manager, run VRAMr.bat
+- Place the Vramr/Bendr folder in Skyrim Special Edition/Applications/ in the games staging foler
+- In Amethyst mod manager, run VRAMr.bat/BENDr.bat
 - It will run the wrapper script, Progress will be added to the log
-- Output will be placed as a mod in a VRAMr folder
+- Output will be placed as a mod in a VRAMr/BENDr folder
 
-Support for other applications (BENDr and ParallaxR) may be added in future
+Support for other applications (arallaxR) may be added in future
