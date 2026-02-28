@@ -44,6 +44,7 @@ from gui.theme import (
     _ICONS_DIR,
     load_icon as _load_icon,
 )
+from gui.ctk_components import CTkPopupMenu
 from gui.game_helpers import (
     _GAMES,
     _load_games,
@@ -60,6 +61,7 @@ from gui.dialogs import (
     _ModNameDialog,
     _OverwritesDialog,
     _PriorityDialog,
+    _SepColorPickerDialog,
 )
 from gui.install_mod import install_mod_from_archive
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
@@ -238,6 +240,9 @@ class ModListPanel(ctk.CTkFrame):
         # Separator lock state: sep_name → bool (True = locked, block drag disabled)
         self._sep_locks: dict[str, bool] = {}
 
+        # Separator custom background colors: sep_name → hex color string
+        self._sep_colors: dict[str, str] = {}
+
         # Collapsed separators: set of sep names whose mods are hidden
         self._collapsed_seps: set[str] = set()
 
@@ -289,6 +294,7 @@ class ModListPanel(ctk.CTkFrame):
         self._pool_cb_mark: list[int] = []   # canvas text ids for checkmark
         # Pool canvas_w cached for pool creation after canvas exists
         self._canvas_w: int = 600
+        self._context_menu: CTkPopupMenu | None = None
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -613,6 +619,30 @@ class ModListPanel(ctk.CTkFrame):
             return
         path.write_text(json.dumps(self._sep_locks, indent=2), encoding="utf-8")
 
+    def _sep_colors_path(self) -> Path | None:
+        if self._modlist_path is None:
+            return None
+        return self._modlist_path.parent / "separator_colors.json"
+
+    def _load_sep_colors(self) -> None:
+        path = self._sep_colors_path()
+        if path and path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    self._sep_colors = {k: v for k, v in data.items()
+                                        if isinstance(k, str) and isinstance(v, str)}
+                    return
+            except Exception:
+                pass
+        self._sep_colors = {}
+
+    def _save_sep_colors(self) -> None:
+        path = self._sep_colors_path()
+        if path is None:
+            return
+        path.write_text(json.dumps(self._sep_colors, indent=2), encoding="utf-8")
+
     def _root_folder_state_path(self) -> Path | None:
         if self._modlist_path is None:
             return None
@@ -728,6 +758,7 @@ class ModListPanel(ctk.CTkFrame):
                     locked=True, is_separator=True
                 ))
         self._load_sep_locks()
+        self._load_sep_colors()
         self._load_collapsed()
         self._update_expand_collapse_all_btn()
         self._scan_update_flags()
@@ -1075,7 +1106,8 @@ class ModListPanel(ctk.CTkFrame):
                         base_bg = "#1e1e2e" if entry.enabled else BG_SEP
                         txt_col = "#7aa2f7" if entry.enabled else TEXT_DIM
                     else:
-                        base_bg = BG_SEP
+                        custom_color = self._sep_colors.get(entry.name)
+                        base_bg = custom_color if custom_color else BG_SEP
                         txt_col = TEXT_SEP
 
                     if is_sel_row:
@@ -2147,88 +2179,56 @@ class ModListPanel(ctk.CTkFrame):
     def _show_context_menu(self, x: int, y: int, idx: int, is_separator: bool,
                            ini_files: list[Path] | None = None,
                            mod_folder: Path | None = None):
-        """Custom popup menu — grab_set captures all clicks; outside clicks dismiss it."""
-        popup = tk.Toplevel(self._canvas)
-        popup.wm_overrideredirect(True)
-        popup.wm_geometry(f"+{x}+{y}")
-        popup.configure(bg=BORDER)
+        """CTkPopupMenu for mod list context menu. Supports submenus."""
+        if self._context_menu is None:
+            self._context_menu = CTkPopupMenu(
+                self.winfo_toplevel(), width=220, title=""
+            )
+        menu = self._context_menu
+        menu.clear()
 
-        _alive = [True]
-        _active_sub = [None]  # tracks the currently open submenu Toplevel
-
-        def _close_active_sub():
-            if _active_sub[0] is not None:
-                try:
-                    _active_sub[0].destroy()
-                except tk.TclError:
-                    pass
-                _active_sub[0] = None
-
-        def _dismiss(_event=None):
-            if _alive[0]:
-                _alive[0] = False
-                _close_active_sub()
-                popup.destroy()
-
-        def _pick(cmd):
-            if _alive[0]:
-                _alive[0] = False
-                _close_active_sub()
-                popup.destroy()
-                cmd()
-
-        inner = tk.Frame(popup, bg=BG_PANEL, bd=0)
-        inner.pack(padx=1, pady=1)
-
-        is_overwrite   = self._entries[idx].name == OVERWRITE_NAME
+        is_overwrite = self._entries[idx].name == OVERWRITE_NAME
         is_root_folder = self._entries[idx].name == ROOT_FOLDER_NAME
-        is_synthetic   = is_overwrite or is_root_folder
-        # items: list of (label, callback, is_submenu)
-        items = [
-            ("Add separator above", lambda: self._add_separator(idx, above=True), False),
-            ("Add separator below", lambda: self._add_separator(idx, above=False), False),
-        ]
+        is_synthetic = is_overwrite or is_root_folder
+
+        menu.add_command("Add separator above", lambda: self._add_separator(idx, above=True))
+        menu.add_command("Add separator below", lambda: self._add_separator(idx, above=False))
         if self._modlist_path is not None and not is_synthetic:
-            items.append(("Create empty mod below", lambda: self._create_empty_mod(idx), False))
+            menu.add_command("Create empty mod below", lambda: self._create_empty_mod(idx))
         if is_separator and not is_synthetic:
-            items.append(("Rename separator", lambda: self._rename_separator(idx), False))
-            items.append(("Remove separator", lambda: self._remove_separator(idx), False))
+            menu.add_command("Rename separator", lambda: self._rename_separator(idx))
+            menu.add_command("Change separator color", lambda: self._change_separator_color(idx))
+            menu.add_command("Remove separator", lambda: self._remove_separator(idx))
         elif not is_separator and not self._entries[idx].locked:
-            items.append(("Rename mod", lambda: self._rename_mod(idx), False))
-            items.append(("Set priority…", lambda i=idx: self._set_priority(i), False))
-            items.append(("Remove mod", lambda: self._remove_mod(idx), False))
-            # Move to separator — collect separator names now so they're stable
+            menu.add_command("Rename mod", lambda: self._rename_mod(idx))
+            menu.add_command("Set priority…", lambda: self._set_priority(idx))
+            menu.add_command("Remove mod", lambda: self._remove_mod(idx))
             sep_names = [e.name for e in self._entries
                          if e.is_separator and e.name != OVERWRITE_NAME
                          and e.name != ROOT_FOLDER_NAME]
             if sep_names:
-                items.append(("Move to separator ▶",
-                               lambda sn=sep_names: self._show_separator_picker(
-                                   idx, sn, parent_dismiss=_dismiss,
-                                   parent_popup=popup), True))
-            # INI files submenu
+                menu.add_submenu("Move to separator",
+                    lambda: self._show_separator_picker(idx, sep_names,
+                        parent_dismiss=menu._withdraw, parent_popup=menu))
             if ini_files:
-                items.append(("INI files ▶",
-                               lambda inis=ini_files: self._show_ini_picker(
-                                   inis, parent_dismiss=_dismiss,
-                                   parent_popup=popup), True))
-            # Deployment paths — which top-level folders to ignore
+                menu.add_submenu("INI files",
+                    lambda: self._show_ini_picker(ini_files,
+                        parent_dismiss=menu._withdraw, parent_popup=menu))
             if mod_folder is not None:
                 mod_name_cap = self._entries[idx].name
-                items.append(("Set deployment paths…",
-                               lambda m=mod_name_cap, p=mod_folder: self._show_mod_strip_dialog(m, p), False))
+                menu.add_command("Set deployment paths…",
+                    lambda: self._show_mod_strip_dialog(mod_name_cap, mod_folder))
 
         if mod_folder is not None:
-            items.append(("Open folder", lambda p=mod_folder: self._open_folder(p), False))
+            menu.add_command("Open folder", lambda: self._open_folder(mod_folder))
 
         if not is_separator:
             conflict_status = self._conflict_map.get(self._entries[idx].name, CONFLICT_NONE)
             if conflict_status != CONFLICT_NONE:
                 name_capture = self._entries[idx].name
-                items.append(("Show Conflicts",
-                               lambda n=name_capture: self._show_overwrites_dialog(n), False))
+                menu.add_command("Show Conflicts",
+                    lambda: self._show_overwrites_dialog(name_capture))
 
-        # Nexus options: Open on Nexus / Update Mod
         if not is_separator and not is_synthetic and self._modlist_path is not None:
             mod_name_capture = self._entries[idx].name
             staging_root = self._modlist_path.parent.parent.parent / "mods"
@@ -2237,8 +2237,6 @@ class ModListPanel(ctk.CTkFrame):
                 try:
                     _ctx_meta = read_meta(meta_path)
                     if _ctx_meta.mod_id > 0:
-                        # Prefer the current game's known domain over
-                        # whatever MO2 stored in meta.ini
                         app = self.winfo_toplevel()
                         _cur_game = _GAMES.get(getattr(
                             getattr(app, "_topbar", None), "_game_var", tk.StringVar()).get(), None)
@@ -2250,30 +2248,25 @@ class ModListPanel(ctk.CTkFrame):
                             else _ctx_meta.game_domain
                         )
                         nexus_url = f"https://www.nexusmods.com/{_domain}/mods/{_ctx_meta.mod_id}"
-                        items.append(("Open on Nexus",
-                                       lambda u=nexus_url: self._open_nexus_page(u), False))
-                        # Endorse / Abstain based on current endorsement status
+                        menu.add_command("Open on Nexus",
+                            lambda: self._open_nexus_page(nexus_url))
                         if _ctx_meta.endorsed:
-                            items.append(("Abstain from Endorsement",
-                                           lambda n=mod_name_capture, d=_domain, m=_ctx_meta:
-                                               self._abstain_nexus_mod(n, d, m), False))
+                            menu.add_command("Abstain from Endorsement",
+                                lambda: self._abstain_nexus_mod(mod_name_capture, _domain, _ctx_meta))
                         else:
-                            items.append(("Endorse Mod",
-                                           lambda n=mod_name_capture, d=_domain, m=_ctx_meta:
-                                               self._endorse_nexus_mod(n, d, m), False))
+                            menu.add_command("Endorse Mod",
+                                lambda: self._endorse_nexus_mod(mod_name_capture, _domain, _ctx_meta))
                 except Exception:
                     pass
             if mod_name_capture in self._update_mods:
-                items.append(("Update Mod",
-                               lambda n=mod_name_capture: self._update_nexus_mod(n), False))
+                menu.add_command("Update Mod",
+                    lambda: self._update_nexus_mod(mod_name_capture))
             if mod_name_capture in self._missing_reqs:
                 dep_names = self._missing_reqs_detail.get(mod_name_capture, [])
-                items.append(("Missing Requirements",
-                               lambda n=mod_name_capture, d=dep_names: self._show_missing_reqs(n, d), False))
+                menu.add_command("Missing Requirements",
+                    lambda: self._show_missing_reqs(mod_name_capture, dep_names))
 
-        # Multi-selection options: enable/disable/remove selected mods
         if len(self._sel_set) > 1:
-            # Collect toggleable mods in selection (non-separator, non-locked, non-synthetic)
             toggleable = [
                 i for i in sorted(self._sel_set)
                 if 0 <= i < len(self._entries)
@@ -2283,128 +2276,15 @@ class ModListPanel(ctk.CTkFrame):
             ]
             if toggleable:
                 count = len(toggleable)
-                items.append((f"Enable selected ({count})",
-                               lambda idxs=toggleable: self._enable_selected_mods(idxs), False))
-                items.append((f"Disable selected ({count})",
-                               lambda idxs=toggleable: self._disable_selected_mods(idxs), False))
+                menu.add_command(f"Enable selected ({count})",
+                    lambda: self._enable_selected_mods(toggleable))
+                menu.add_command(f"Disable selected ({count})",
+                    lambda: self._disable_selected_mods(toggleable))
                 if self._modlist_path is not None:
-                    items.append((f"Remove selected ({count})",
-                                   lambda idxs=toggleable: self._remove_selected_mods(idxs), False))
+                    menu.add_command(f"Remove selected ({count})",
+                        lambda: self._remove_selected_mods(toggleable))
 
-        for label, cmd, is_submenu in items:
-            btn = tk.Label(
-                inner, text=label, anchor="w",
-                bg=BG_PANEL, fg=TEXT_MAIN,
-                font=("Segoe UI", 11),
-                padx=12, pady=5, cursor="hand2",
-            )
-            btn.pack(fill="x")
-            if is_submenu:
-                def _open_sub(_e, b=btn, c=cmd):
-                    _close_active_sub()
-                    b.configure(bg=BG_SELECT)
-                    _active_sub[0] = c()
-                def _leave_sub(_e, b=btn):
-                    b.configure(bg=BG_PANEL)
-                    # Small delay so the user can move to the submenu
-                    def _check_close():
-                        if _active_sub[0] is None:
-                            return
-                        try:
-                            px, py = popup.winfo_pointerxy()
-                            # Check if pointer is over the submenu
-                            sx = _active_sub[0].winfo_rootx()
-                            sy = _active_sub[0].winfo_rooty()
-                            sw = _active_sub[0].winfo_width()
-                            sh = _active_sub[0].winfo_height()
-                            if sx <= px <= sx + sw and sy <= py <= sy + sh:
-                                return
-                            # Check if pointer is over the parent popup
-                            wx = popup.winfo_rootx()
-                            wy = popup.winfo_rooty()
-                            ww = popup.winfo_width()
-                            wh = popup.winfo_height()
-                            if wx <= px <= wx + ww and wy <= py <= wy + wh:
-                                return
-                            _close_active_sub()
-                        except tk.TclError:
-                            pass
-                    popup.after(150, _check_close)
-                btn.bind("<Enter>", _open_sub)
-                btn.bind("<Leave>", _leave_sub)
-            else:
-                def _enter_normal(_e, b=btn):
-                    _close_active_sub()
-                    b.configure(bg=BG_SELECT)
-                btn.bind("<ButtonRelease-1>", lambda _e, c=cmd: _pick(c))
-                btn.bind("<Enter>", _enter_normal)
-                btn.bind("<Leave>", lambda _e, b=btn: b.configure(bg=BG_PANEL))
-
-        popup.update_idletasks()
-
-        # Reposition if the popup would go off-screen.
-        # Use the main app window's bottom edge as the limit — this is
-        # more reliable than winfo_screenheight() on Steam Deck / Wayland /
-        # gamescope where the reported screen size may not match usable area.
-        pw = popup.winfo_reqwidth()
-        ph = popup.winfo_reqheight()
-        _app_toplevel = self.winfo_toplevel()
-        app_bottom = _app_toplevel.winfo_rooty() + _app_toplevel.winfo_height()
-        app_right  = _app_toplevel.winfo_rootx() + _app_toplevel.winfo_width()
-        nx = x if x + pw <= app_right else max(0, x - pw)
-        ny = y if y + ph <= app_bottom else max(0, y - ph)
-        popup.wm_geometry(f"+{nx}+{ny}")
-
-        # Dismiss when the application loses focus (e.g. Alt-Tab)
-        def _on_focus_out(event):
-            # Only dismiss if focus left the popup itself
-            try:
-                focus_w = popup.focus_get()
-                if focus_w is None:
-                    _dismiss()
-            except (tk.TclError, KeyError):
-                _dismiss()
-        popup.bind("<FocusOut>", _on_focus_out)
-
-        # Also watch the top-level app window
-        _app_toplevel = self.winfo_toplevel()
-        def _on_app_focus_out(_event):
-            if _alive[0]:
-                _dismiss()
-        _app_toplevel.bind("<FocusOut>", _on_app_focus_out, add="+")
-        # Unbind when popup closes to avoid leaking bindings
-        _orig_dismiss = _dismiss
-        def _dismiss_and_unbind(_event=None):
-            try:
-                _app_toplevel.unbind("<FocusOut>")
-            except (tk.TclError, KeyError):
-                pass
-            _orig_dismiss(_event)
-        _dismiss = _dismiss_and_unbind
-
-        popup.bind("<Escape>", _dismiss)
-
-        def _on_press(event):
-            if not _alive[0]:
-                return
-            ex, ey = event.x_root, event.y_root
-            # Check if click is inside the parent popup
-            wx, wy = popup.winfo_rootx(), popup.winfo_rooty()
-            ww, wh = popup.winfo_width(), popup.winfo_height()
-            if wx <= ex <= wx + ww and wy <= ey <= wy + wh:
-                return
-            # Check if click is inside the active submenu
-            if _active_sub[0] is not None:
-                try:
-                    sx, sy = _active_sub[0].winfo_rootx(), _active_sub[0].winfo_rooty()
-                    sw, sh = _active_sub[0].winfo_width(), _active_sub[0].winfo_height()
-                    if sx <= ex <= sx + sw and sy <= ey <= sy + sh:
-                        return
-                except tk.TclError:
-                    pass
-            _dismiss()
-        popup.bind_all("<ButtonPress-1>", _on_press)
-        popup.bind_all("<ButtonPress-3>", _on_press)
+        menu.popup(x, y)
 
     def _on_root_folder_toggle(self) -> None:
         self._root_folder_enabled = not self._root_folder_enabled
@@ -2473,6 +2353,8 @@ class ModListPanel(ctk.CTkFrame):
                 self._canvas.delete(self._lock_cb_marks.pop(sname))
             self._sep_locks.pop(sname, None)
             self._save_sep_locks()
+            if self._sep_colors.pop(sname, None) is not None:
+                self._save_sep_colors()
             self._collapsed_seps.discard(sname)
             self._save_collapsed()
             self._update_expand_collapse_all_btn()
@@ -2649,6 +2531,9 @@ class ModListPanel(ctk.CTkFrame):
         if old_name in self._sep_locks:
             self._sep_locks[new_name] = self._sep_locks.pop(old_name)
             self._save_sep_locks()
+        if old_name in self._sep_colors:
+            self._sep_colors[new_name] = self._sep_colors.pop(old_name)
+            self._save_sep_colors()
         if old_name in self._lock_cb_rects:
             self._lock_cb_rects[new_name] = self._lock_cb_rects.pop(old_name)
         if old_name in self._lock_cb_marks:
@@ -2657,12 +2542,31 @@ class ModListPanel(ctk.CTkFrame):
         self._save_modlist()
         self._redraw()
 
+    def _change_separator_color(self, idx: int) -> None:
+        if not (0 <= idx < len(self._entries)):
+            return
+        entry = self._entries[idx]
+        if not entry.is_separator:
+            return
+        current = self._sep_colors.get(entry.name) or None
+        dlg = _SepColorPickerDialog(self.winfo_toplevel(), initial_color=current)
+        self.winfo_toplevel().wait_window(dlg)
+        if dlg.reset:
+            self._sep_colors.pop(entry.name, None)
+            self._save_sep_colors()
+            self._redraw()
+        elif dlg.result is not None:
+            self._sep_colors[entry.name] = dlg.result
+            self._save_sep_colors()
+            self._redraw()
+
     def _show_separator_picker(self, mod_idx: int, sep_names: list[str],
                                parent_dismiss=None,
                                parent_popup=None) -> tk.Toplevel:
         """Show a second popup listing all separators; clicking one moves the mod below it.
         Returns the popup widget so the caller can manage its lifecycle."""
         popup = tk.Toplevel(self._canvas)
+        popup.wm_withdraw()
         popup.wm_overrideredirect(True)
         popup.configure(bg=BORDER)
         cx, cy = popup.winfo_pointerxy()
@@ -2711,10 +2615,12 @@ class ModListPanel(ctk.CTkFrame):
         outer.pack(padx=1, pady=1)
 
         if needs_scroll:
-            # Canvas + scrollbar for long lists
+            # Canvas + scrollbar for long lists (match modlist scrollbar style)
             canvas = tk.Canvas(outer, bg=BG_PANEL, bd=0, highlightthickness=0,
                                width=popup_w, height=popup_h)
-            vsb = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+            vsb = tk.Scrollbar(outer, orient="vertical", command=canvas.yview,
+                               bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
+                               highlightthickness=0, bd=0)
             canvas.configure(yscrollcommand=vsb.set)
             canvas.pack(side="left", fill="both", expand=True)
             vsb.pack(side="right", fill="y")
@@ -2725,8 +2631,20 @@ class ModListPanel(ctk.CTkFrame):
                 canvas.configure(scrollregion=canvas.bbox("all"))
                 canvas.itemconfigure(canvas_window, width=canvas.winfo_width())
             inner.bind("<Configure>", _on_inner_resize)
-            canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
-            canvas.bind("<Button-5>", lambda e: canvas.yview_scroll( 3, "units"))
+
+            def _on_wheel(evt):
+                if getattr(evt, "delta", 0) > 0:
+                    canvas.yview_scroll(-3, "units")
+                else:
+                    canvas.yview_scroll(3, "units")
+
+            def _bind_scroll(widget):
+                widget.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
+                widget.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
+                widget.bind("<MouseWheel>", _on_wheel)
+
+            for w in (canvas, vsb, inner, outer, popup):
+                _bind_scroll(w)
         else:
             inner = tk.Frame(outer, bg=BG_PANEL, bd=0, width=popup_w)
             inner.pack(fill="both", expand=True)
@@ -2743,6 +2661,8 @@ class ModListPanel(ctk.CTkFrame):
             btn.bind("<ButtonRelease-1>", lambda _e, n=name: _pick(n))
             btn.bind("<Enter>", lambda _e, b=btn: b.configure(bg=BG_SELECT))
             btn.bind("<Leave>", lambda _e, b=btn: b.configure(bg=BG_PANEL))
+            if needs_scroll:
+                _bind_scroll(btn)
 
         popup.update_idletasks()
         pw = popup.winfo_reqwidth()
@@ -2763,6 +2683,7 @@ class ModListPanel(ctk.CTkFrame):
         px = max(px, 0)
         py = max(py, 0)
         popup.wm_geometry(f"+{px}+{py}")
+        popup.wm_deiconify()
 
         return popup
 
@@ -2772,6 +2693,7 @@ class ModListPanel(ctk.CTkFrame):
         """Show a submenu listing all INI files; clicking one opens it.
         Returns the popup widget so the caller can manage its lifecycle."""
         popup = tk.Toplevel(self._canvas)
+        popup.wm_withdraw()
         popup.wm_overrideredirect(True)
         popup.configure(bg=BORDER)
         cx, cy = popup.winfo_pointerxy()
@@ -2816,7 +2738,9 @@ class ModListPanel(ctk.CTkFrame):
         if needs_scroll:
             canvas = tk.Canvas(outer, bg=BG_PANEL, bd=0, highlightthickness=0,
                                width=popup_w, height=popup_h)
-            vsb = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+            vsb = tk.Scrollbar(outer, orient="vertical", command=canvas.yview,
+                              bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
+                              highlightthickness=0, bd=0)
             canvas.configure(yscrollcommand=vsb.set)
             canvas.pack(side="left", fill="both", expand=True)
             vsb.pack(side="right", fill="y")
@@ -2827,8 +2751,20 @@ class ModListPanel(ctk.CTkFrame):
                 canvas.configure(scrollregion=canvas.bbox("all"))
                 canvas.itemconfigure(canvas_window, width=canvas.winfo_width())
             inner.bind("<Configure>", _on_inner_resize)
-            canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
-            canvas.bind("<Button-5>", lambda e: canvas.yview_scroll( 3, "units"))
+
+            def _on_wheel(evt):
+                if getattr(evt, "delta", 0) > 0:
+                    canvas.yview_scroll(-3, "units")
+                else:
+                    canvas.yview_scroll(3, "units")
+
+            def _bind_scroll(widget):
+                widget.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
+                widget.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
+                widget.bind("<MouseWheel>", _on_wheel)
+
+            for w in (canvas, vsb, inner, outer, popup):
+                _bind_scroll(w)
         else:
             inner = tk.Frame(outer, bg=BG_PANEL, bd=0, width=popup_w)
             inner.pack(fill="both", expand=True)
@@ -2845,6 +2781,8 @@ class ModListPanel(ctk.CTkFrame):
             btn.bind("<ButtonRelease-1>", lambda _e, p=ini_path: _pick(p))
             btn.bind("<Enter>", lambda _e, b=btn: b.configure(bg=BG_SELECT))
             btn.bind("<Leave>", lambda _e, b=btn: b.configure(bg=BG_PANEL))
+            if needs_scroll:
+                _bind_scroll(btn)
 
         popup.update_idletasks()
         pw = popup.winfo_reqwidth()
@@ -2864,6 +2802,7 @@ class ModListPanel(ctk.CTkFrame):
         px = max(px, 0)
         py = max(py, 0)
         popup.wm_geometry(f"+{px}+{py}")
+        popup.wm_deiconify()
 
         return popup
 
@@ -3633,8 +3572,9 @@ class ModListPanel(ctk.CTkFrame):
                         rel_to_losers.setdefault(rel, []).append(loser_mod)
 
         files_i_win_final: list[tuple[str, str]] = [
-            (orig, ", ".join(rel_to_losers.get(orig.lower(), [])))
+            (orig, beaten_str)
             for orig, _ in files_i_win
+            if (beaten_str := ", ".join(rel_to_losers.get(orig.lower(), [])))
         ]
 
         _OverwritesDialog(
@@ -4129,7 +4069,3 @@ class ModListPanel(ctk.CTkFrame):
             elif e.name == mod_name:
                 return result
         return -1
-
-
-# ---------------------------------------------------------------------------
-# PluginPanel
