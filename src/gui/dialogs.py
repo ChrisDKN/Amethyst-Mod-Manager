@@ -1297,6 +1297,103 @@ class _VRAMrPresetDialog(ctk.CTkToplevel):
         threading.Thread(target=_worker, daemon=True).start()
 
 
+# BENDr run dialog
+# ---------------------------------------------------------------------------
+class _BENDrRunDialog(ctk.CTkToplevel):
+    """Modal confirmation dialog that runs the BENDr pipeline in a background thread."""
+
+    def __init__(self, parent, *, bat_dir: Path, game_data_dir: Path,
+                 output_dir: Path, log_fn):
+        super().__init__(parent, fg_color="#1a1a1a")
+        self.title("BENDr — Normal Map Processor")
+        self.geometry("480x260")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(100, self._make_modal)
+
+        self._bat_dir = bat_dir
+        self._game_data_dir = game_data_dir
+        self._output_dir = output_dir
+        self._log = log_fn
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _on_close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+    def _build(self):
+        ctk.CTkLabel(
+            self, text="BENDr Normal Map Processor",
+            font=("Segoe UI", 16, "bold"), text_color="#d4d4d4",
+        ).pack(pady=(16, 4))
+        ctk.CTkLabel(
+            self,
+            text=(
+                "Processes normal maps and parallax textures:\n"
+                "BSA extract → filter → parallax prep → bend normals → BC7 compress"
+            ),
+            font=("Segoe UI", 12), text_color="#858585", justify="center",
+        ).pack(pady=(0, 12))
+
+        ctk.CTkLabel(
+            self, text=f"Output: {self._output_dir}",
+            font=("Segoe UI", 11), text_color="#858585", wraplength=440,
+        ).pack(pady=(4, 12))
+
+        ctk.CTkButton(
+            self, text="▶  Run BENDr", width=160, height=36,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#0078d4", hover_color="#1084d8", text_color="white",
+            command=self._on_run,
+        ).pack(pady=(0, 16))
+
+    def _on_run(self):
+        self._log("BENDr: starting pipeline...")
+
+        bat_dir = self._bat_dir
+        game_data_dir = self._game_data_dir
+        output_dir = self._output_dir
+        log_fn = self._log
+        app = self.winfo_toplevel().master
+        if hasattr(app, "_status"):
+            app._status.show_log()
+        self._on_close()
+
+        def _log_safe(msg: str):
+            try:
+                if hasattr(app, "call_threadsafe"):
+                    app.call_threadsafe(lambda m=msg: log_fn(m))
+                else:
+                    log_fn(msg)
+            except Exception:
+                pass
+
+        def _worker():
+            try:
+                from wrappers.bendr import run_bendr
+                run_bendr(
+                    bat_dir=bat_dir,
+                    game_data_dir=game_data_dir,
+                    output_dir=output_dir,
+                    log_fn=_log_safe,
+                )
+            except Exception as exc:
+                _log_safe(f"BENDr error: {exc}")
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+
 class _ExeConfigDialog(ctk.CTkToplevel):
     """Modal dialog for configuring command-line arguments for a Windows exe."""
 

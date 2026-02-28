@@ -101,6 +101,18 @@ EXE_PROFILES: dict[str, _ExeProfile] = {
         game_path_suffix="Data",
         output_flag="-o:",
     ),
+    
+    # xLodGen -------------------------------------------------------------------
+    "xLODGenx64.exe": _ExeProfile(
+        game_flag="-d:",
+        game_path_suffix="Data",
+        output_flag="-o:",
+    ),
+    "xLODGen.exe": _ExeProfile(
+        game_flag="-d:",
+        game_path_suffix="Data",
+        output_flag="-o:",
+    ),
 }
 
 # Executables whose entries are intentionally left blank (handled separately).

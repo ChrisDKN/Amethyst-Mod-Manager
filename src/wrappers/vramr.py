@@ -523,6 +523,9 @@ def run_vramr(
     if work_output.exists():
         shutil.rmtree(work_output, ignore_errors=True)
 
+    # Remove the Wine prefix — it's only needed during the run
+    shutil.rmtree(prefix, ignore_errors=True)
+
     _file_log("VRAMr Complete")
     _log("VRAMr: Complete! Output is ready as a mod.")
     _progress(100)
