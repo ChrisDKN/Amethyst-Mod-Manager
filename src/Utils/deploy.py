@@ -549,11 +549,21 @@ def restore_data_core(
     #   - is not a symlink (symlinks are deployed mod files)
     #   - has a single hard-link count (nlink > 1 means it is a deployed hardlink)
     #   - is not present in core_dir (not a vanilla file)
+    #   - is not listed in filemap.txt (copied mod files have nlink==1 when their
+    #     staging copy was replaced after deploy, breaking the hardlink)
     if overwrite_dir is not None and deploy_dir.is_dir():
         core_lower: set[str] = {
             f.relative_to(core_dir).as_posix().lower()
             for f in core_dir.rglob("*") if f.is_file()
         }
+        filemap_lower: set[str] = set()
+        filemap_path = overwrite_dir.parent / "filemap.txt"
+        if filemap_path.is_file():
+            with filemap_path.open(encoding="utf-8") as _fm:
+                for _line in _fm:
+                    _line = _line.rstrip("\n")
+                    if "\t" in _line:
+                        filemap_lower.add(_line.split("\t", 1)[0].lower())
         rescued = 0
         for src in deploy_dir.rglob("*"):
             if not src.is_file():
@@ -563,8 +573,11 @@ def restore_data_core(
             if src.stat().st_nlink > 1:
                 continue  # deployed mod hardlink
             rel = src.relative_to(deploy_dir)
-            if rel.as_posix().lower() in core_lower:
+            rel_lower = rel.as_posix().lower()
+            if rel_lower in core_lower:
                 continue  # vanilla file — will be restored from core
+            if rel_lower in filemap_lower:
+                continue  # known mod file whose hardlink was broken by a staging update
             dst = overwrite_dir / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
