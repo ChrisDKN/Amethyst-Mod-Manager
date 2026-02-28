@@ -236,7 +236,13 @@ def load_api_key() -> str:
             pass
         return _migrate_legacy_key()
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for Nexus API key: {e}")
+        app_log(
+            f"Keyring unavailable for Nexus API key: {e}\n"
+            "To fix, run in a terminal:\n"
+            "  sudo pacman -S gnome-keyring libsecret\n"
+            "  systemctl --user enable gnome-keyring-daemon\n"
+            "  systemctl --user start gnome-keyring-daemon"
+        )
         return _migrate_legacy_key()
 
 
@@ -246,7 +252,13 @@ def save_api_key(key: str) -> None:
     try:
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for saving Nexus API key: {e}")
+        app_log(
+            f"Keyring unavailable for saving Nexus API key: {e}\n"
+            "To fix, run in a terminal:\n"
+            "  sudo pacman -S gnome-keyring libsecret\n"
+            "  systemctl --user enable gnome-keyring-daemon\n"
+            "  systemctl --user start gnome-keyring-daemon"
+        )
         raise RuntimeError(f"Cannot save API key: {e}") from e
     # Remove legacy file if it exists
     try:
