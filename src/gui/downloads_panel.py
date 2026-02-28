@@ -10,6 +10,7 @@ import os
 import tkinter as tk
 from pathlib import Path
 
+from gui.ctk_components import CTkPopupMenu
 from gui.theme import (
     BG_DEEP,
     BG_HEADER,
@@ -84,6 +85,7 @@ class DownloadsPanel:
         self._canvas_w: int = 400
         # One persistent button per file row — never destroyed except on refresh
         self._btn_widgets: list[tk.Button] = []
+        self._context_menu: CTkPopupMenu | None = None
 
         self._build(parent_tab)
         self.refresh()
@@ -335,10 +337,11 @@ class DownloadsPanel:
             return
 
         fpath = self._files[idx]
-        menu = tk.Menu(self._canvas, tearoff=0,
-                       bg=BG_PANEL, fg=TEXT_MAIN,
-                       activebackground=ACCENT,
-                       activeforeground=TEXT_MAIN,
-                       font=FONT_SMALL)
-        menu.add_command(label="Install Mod", command=lambda: self._on_install(fpath))
-        menu.tk_popup(event.x_root, event.y_root)
+        if self._context_menu is None:
+            self._context_menu = CTkPopupMenu(
+                self._parent.winfo_toplevel(), width=200, title=""
+            )
+        menu = self._context_menu
+        menu.clear()
+        menu.add_command("Install Mod", lambda: self._on_install(fpath))
+        menu.popup(event.x_root, event.y_root)

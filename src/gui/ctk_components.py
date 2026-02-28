@@ -62,6 +62,9 @@ def _load_icon_image(path, size=(15, 15)):
     return img
 
 
+# Menu background (match theme panel for seamless look; also used as transparent target)
+_MENU_BG = "#252526"
+
 ICON_PATH = {
     "close": (os.path.join(ICON_DIR, "close_black.png"), os.path.join(ICON_DIR, "close_white.png")),
     "images": list(os.path.join(ICON_DIR, f"image{i}.jpg") for i in range(1, 4)),
@@ -566,12 +569,21 @@ class CTkLoader(ctk.CTkFrame):
         self.destroy()
 
 
+# Menu item dimensions for CTkPopupMenu
+_MENU_ITEM_H = 28
+_MENU_SEP_H = 4
+_MENU_PAD = 6
+_MENU_MIN_W = 160
+
+
 class CTkPopupMenu(ctk.CTkToplevel):
+    """CTk-styled popup menu. Supports add_command() and add_separator() for context menus."""
+
     def __init__(self,
                  master=None,
                  width=250,
                  height=270,
-                 title="Title",
+                 title=None,
                  corner_radius=8,
                  border_width=0,
                  **kwargs):
@@ -587,31 +599,55 @@ class CTkPopupMenu(ctk.CTkToplevel):
         self.corner = corner_radius
         self.border = border_width
         self.hidden = True
+        self._content_height = _MENU_PAD * 2
+        self._has_items = False
 
+        self.configure(fg_color=_MENU_BG)
         if sys.platform.startswith("win"):
             self.after(100, lambda: self.overrideredirect(True))
             self.transparent_color = self._apply_appearance_mode(self._fg_color)
             self.attributes("-transparentcolor", self.transparent_color)
         elif sys.platform.startswith("darwin"):
             self.overrideredirect(True)
-            self.transparent_color = 'systemTransparent'
+            self.transparent_color = "systemTransparent"
             self.attributes("-transparent", True)
         else:
-            self.attributes("-type", "splash")
-            self.transparent_color = '#000001'
-            self.corner = 0
+            self.overrideredirect(True)
+            self.transparent_color = _MENU_BG
             self.withdraw()
 
-        self.frame = ctk.CTkFrame(self, bg_color=self.transparent_color, corner_radius=self.corner,
-                                  border_width=self.border, **kwargs)
+        self.frame = ctk.CTkFrame(self, bg_color=self.transparent_color, fg_color=_MENU_BG,
+                                  corner_radius=self.corner, border_width=self.border, **kwargs)
         self.frame.pack(expand=True, fill="both")
+        self.frame.grid_columnconfigure(0, weight=1)
 
-        self.title = ctk.CTkLabel(self.frame, text=title, font=("", 16))
-        self.title.pack(expand=True, fill="x", padx=10, pady=5)
+        self._title_label = None
+        self._item_row = 0
+        if title:
+            self._title_label = ctk.CTkLabel(self.frame, text=title, font=("", 16))
+            self._title_label.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+            self._content_height += 26
+            self._item_row = 1
+        self._sep_color = self._apply_appearance_mode(("#D0D0D0", "#505050"))
+        self._alive = [True]
+        self._active_sub = [None]  # Currently open submenu (for hover submenus)
+        self._active_sub_trigger = [None]  # Trigger btn that owns the open submenu
+        self._submenu_icon = None
+        if ICON_PATH.get("right") and os.path.isfile(ICON_PATH["right"]):
+            try:
+                self._submenu_icon = ctk.CTkImage(
+                    Image.open(ICON_PATH["right"]), Image.open(ICON_PATH["right"]), (12, 12)
+                )
+            except Exception:
+                pass
 
-        self.master.bind("<ButtonPress>", lambda event: self._withdraw_off(), add="+")
-        self.bind("<Button-1>", lambda event: self._withdraw(), add="+")
-        self.master.bind("<Configure>", lambda event: self._withdraw(), add="+")
+        if master is not None:
+            master.bind("<Configure>", lambda e: self._withdraw(), add="+")
+            app_tl = master.winfo_toplevel()
+            if app_tl != self:
+                app_tl.bind("<FocusOut>", self._on_focus_out, add="+")
+        self.bind("<Escape>", lambda e: self._withdraw(), add="+")
+        self.bind("<FocusOut>", self._on_focus_out, add="+")
 
         self.resizable(width=False, height=False)
         self.transient(self.master_window)
@@ -620,22 +656,213 @@ class CTkPopupMenu(ctk.CTkToplevel):
 
         self.withdraw()
 
-    def _withdraw(self):
-        self.withdraw()
-        self.hidden = True
+    def add_command(self, label: str, command=None):
+        """Add a menu item. command is called when the menu is dismissed."""
+        btn = ctk.CTkButton(
+            self.frame, text=label, anchor="w",
+            fg_color="transparent", hover=True,
+            text_color=ctk.ThemeManager.theme["CTkLabel"]["text_color"],
+            hover_color=ctk.ThemeManager.theme["CTkButton"]["hover_color"],
+            corner_radius=4, height=_MENU_ITEM_H,
+            command=lambda: self._on_item_click(command),
+        )
+        btn.grid(row=self._item_row, column=0, sticky="ew", padx=6, pady=1)
+        self._item_row += 1
+        self._content_height += _MENU_ITEM_H + 2
+        self._has_items = True
+        return btn
 
-    def _withdraw_off(self):
-        if self.hidden:
+    def add_separator(self):
+        """Add a visual separator between menu items."""
+        sep = ctk.CTkFrame(self.frame, height=_MENU_SEP_H, fg_color=self._sep_color)
+        sep.grid(row=self._item_row, column=0, sticky="ew", padx=8, pady=2)
+        sep.grid_propagate(False)
+        self._item_row += 1
+        self._content_height += _MENU_SEP_H + 4
+
+    def add_submenu(self, label: str, submenu_fn):
+        """Add a submenu item. On hover, submenu_fn() is called; it should return the submenu
+        toplevel. The caller must pass parent_dismiss and parent_popup into the picker.
+        Uses right.png icon when available."""
+        kwargs = {
+            "text": label, "anchor": "w",
+            "fg_color": "transparent", "hover": True,
+            "text_color": ctk.ThemeManager.theme["CTkLabel"]["text_color"],
+            "hover_color": ctk.ThemeManager.theme["CTkButton"]["hover_color"],
+            "corner_radius": 4, "height": _MENU_ITEM_H,
+        }
+        if self._submenu_icon is not None:
+            kwargs["image"] = self._submenu_icon
+            kwargs["compound"] = "right"
+        btn = ctk.CTkButton(self.frame, **kwargs)
+        btn.grid(row=self._item_row, column=0, sticky="ew", padx=6, pady=1)
+
+        def _open_sub(_e=None):
+            # If this trigger already owns the open submenu, never close/reopen
+            # (avoids flicker from spurious Enter when moving within submenu)
+            if self._active_sub_trigger[0] is btn:
+                return
+            self._close_active_sub()
+            sub = submenu_fn()
+            self._active_sub[0] = sub
+            self._active_sub_trigger[0] = btn
+
+        def _leave_sub(_e=None):
+            def _check_close():
+                if self._active_sub[0] is None or not self.winfo_exists():
+                    return
+                # Only close if this trigger still owns the submenu (user didn't
+                # switch to another submenu item)
+                if self._active_sub_trigger[0] is not btn:
+                    return
+                try:
+                    px, py = self.winfo_pointerxy()
+                    # Keep open if pointer is over the submenu popup
+                    sx = self._active_sub[0].winfo_rootx()
+                    sy = self._active_sub[0].winfo_rooty()
+                    sw = self._active_sub[0].winfo_width()
+                    sh = self._active_sub[0].winfo_height()
+                    if sx <= px <= sx + sw and sy <= py <= sy + sh:
+                        return
+                    # Keep open if pointer is still over this trigger button
+                    bx = btn.winfo_rootx()
+                    by = btn.winfo_rooty()
+                    bw = btn.winfo_width()
+                    bh = btn.winfo_height()
+                    if bx <= px <= bx + bw and by <= py <= by + bh:
+                        return
+                    self._close_active_sub()
+                except Exception:
+                    pass
+            self.after(150, _check_close)
+
+        btn.configure(command=_open_sub)
+        btn.bind("<Enter>", _open_sub)
+        btn.bind("<Leave>", _leave_sub)
+
+        self._item_row += 1
+        self._content_height += _MENU_ITEM_H + 2
+        self._has_items = True
+        return btn
+
+    def _close_active_sub(self):
+        if self._active_sub[0] is not None:
+            try:
+                self._active_sub[0].destroy()
+            except Exception:
+                pass
+            self._active_sub[0] = None
+        self._active_sub_trigger[0] = None
+
+    def clear(self):
+        """Remove all menu items. Use before rebuilding for reuse."""
+        for w in self.frame.winfo_children():
+            if w is not self._title_label:
+                w.destroy()
+        self._item_row = 1 if self._title_label else 0
+        self._content_height = _MENU_PAD * 2 + (26 if self._title_label else 0)
+        self._has_items = False
+
+    def _on_item_click(self, command):
+        if command is not None:
+            self._withdraw()
+            command()
+
+    def _on_focus_out(self, event=None):
+        """Close menu when window loses focus (e.g. Alt-Tab). Deferred to avoid dismissing
+        when focus moves to our own popup on first show."""
+        if not self._alive[0]:
+            return
+
+        def _check():
+            if not self._alive[0] or not self.winfo_exists():
+                return
+            try:
+                f = self.focus_get()
+                if f is None:
+                    self._withdraw()
+                    return
+                w = f
+                while w:
+                    if w == self or (self._active_sub[0] and w == self._active_sub[0]):
+                        return
+                    try:
+                        w = w.master
+                    except Exception:
+                        break
+                self._withdraw()
+            except Exception:
+                pass
+        self.after(50, _check)
+
+    def _on_global_click(self, event):
+        if not self._alive[0]:
+            return
+        if not self.winfo_exists():
+            return
+        ex, ey = event.x_root, event.y_root
+        wx, wy = self.winfo_rootx(), self.winfo_rooty()
+        ww, wh = self.winfo_width(), self.winfo_height()
+        if wx <= ex <= wx + ww and wy <= ey <= wy + wh:
+            return
+        if self._active_sub[0] is not None:
+            try:
+                sx = self._active_sub[0].winfo_rootx()
+                sy = self._active_sub[0].winfo_rooty()
+                sw = self._active_sub[0].winfo_width()
+                sh = self._active_sub[0].winfo_height()
+                if sx <= ex <= sx + sw and sy <= ey <= sy + sh:
+                    return
+            except Exception:
+                pass
+        self._withdraw()
+
+    def _withdraw(self):
+        self._alive[0] = False
+        self._close_active_sub()
+        if self.winfo_exists():
             self.withdraw()
         self.hidden = True
 
     def popup(self, x=None, y=None):
+        """Show the menu at screen coordinates (x, y). Uses cursor position if not provided."""
+        self._alive[0] = True
+        self._close_active_sub()
+        if self._has_items:
+            self.height = max(50, self._content_height)
+            self.width = max(_MENU_MIN_W, self.width)
+        if x is None or y is None:
+            try:
+                px, py = self.winfo_pointerxy()
+                x = x if x is not None else px
+                y = y if y is not None else py
+            except Exception:
+                x = x if x is not None else 0
+                y = y if y is not None else 0
         self.x = x
         self.y = y
+        self.geometry('{}x{}+{}+{}'.format(self.width, self.height, self.x, self.y))
+        self.update_idletasks()
+        # Reposition if off-screen (use app window bounds like modlist)
+        if self.master_window is not None:
+            try:
+                app_tl = self.master_window.winfo_toplevel()
+                app_right = app_tl.winfo_rootx() + app_tl.winfo_width()
+                app_bottom = app_tl.winfo_rooty() + app_tl.winfo_height()
+                pw, ph = self.winfo_reqwidth(), self.winfo_reqheight()
+                nx = x if x + pw <= app_right else max(0, x - pw)
+                ny = y if y + ph <= app_bottom else max(0, y - ph)
+                self.geometry('{}x{}+{}+{}'.format(self.width, self.height, nx, ny))
+                self.x, self.y = nx, ny
+            except Exception:
+                pass
         self.deiconify()
         self.focus()
-        self.geometry('{}x{}+{}+{}'.format(self.width, self.height, self.x, self.y))
         self.hidden = False
+        if not getattr(self, "_global_bound", False):
+            self.bind_all("<ButtonPress-1>", self._on_global_click, add="+")
+            self.bind_all("<ButtonPress-3>", self._on_global_click, add="+")
+            self._global_bound = True
 
 
 def do_popup(event, frame):
