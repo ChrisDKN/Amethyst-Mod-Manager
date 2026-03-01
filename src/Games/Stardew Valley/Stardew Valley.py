@@ -12,7 +12,7 @@ Mod structure:
 import json
 from pathlib import Path
 
-from Games.base_game import BaseGame
+from Games.base_game import BaseGame, WizardTool
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, move_to_core, restore_data_core
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -63,6 +63,17 @@ class StardewValley(BaseGame):
     @property
     def loot_sort_enabled(self) -> bool:
         return False
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return [
+            WizardTool(
+                id="install_smapi",
+                label="Install SMAPI",
+                description="Download and install SMAPI (mod loader) for Stardew Valley.",
+                dialog_class_path="wizards.smapi.SmapiWizard",
+            ),
+        ]
 
     @property
     def loot_game_type(self) -> str:
