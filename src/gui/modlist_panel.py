@@ -83,7 +83,7 @@ from Utils.filemap import (
     OVERWRITE_NAME,
     ROOT_FOLDER_NAME,
 )
-from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode
+from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode, load_per_mod_strip_prefixes
 from Utils.modlist import (
     ModEntry,
     read_modlist,
@@ -3540,7 +3540,34 @@ class ModListPanel(ctk.CTkFrame):
 
         # Walk this mod's staging folder to get its file set
         my_staging = staging_root / mod_name
-        my_files: dict[str, str] = {}   # lowercase_rel -> original_rel
+        profile_dir = self._modlist_path.parent
+        per_mod = load_per_mod_strip_prefixes(profile_dir)
+        strip_lower = {s.lower() for s in self._strip_prefixes}
+
+        def _strip_for(name: str, rel: str) -> str:
+            """Strip prefixes the same way filemap.py does for a given mod."""
+            # Per-mod path prefixes (contain "/") — strip longest match first
+            mod_paths = sorted(
+                (p for p in per_mod.get(name, []) if "/" in p),
+                key=lambda p: -len(p),
+            )
+            if mod_paths:
+                rel_lower = rel.lower()
+                for p in mod_paths:
+                    p_lower = p.lower()
+                    if rel_lower.startswith(p_lower + "/"):
+                        rel = rel[len(p) + 1:]
+                        break
+                    elif rel_lower == p_lower:
+                        rel = ""
+                        break
+            # Per-mod segment names (no "/") merged with game-level strip_prefixes
+            mod_segs = strip_lower | {s.lower() for s in per_mod.get(name, []) if "/" not in s}
+            while "/" in rel and rel.split("/", 1)[0].lower() in mod_segs:
+                rel = rel.split("/", 1)[1]
+            return rel
+
+        my_files: dict[str, str] = {}   # lowercase_rel -> original_rel (after strip)
         if my_staging.is_dir():
             for dirpath, _, fnames in os.walk(my_staging):
                 for fname in fnames:
@@ -3548,7 +3575,9 @@ class ModListPanel(ctk.CTkFrame):
                         continue
                     full = os.path.join(dirpath, fname)
                     rel = os.path.relpath(full, my_staging).replace("\\", "/")
-                    my_files[rel.lower()] = rel
+                    rel = _strip_for(mod_name, rel)
+                    if rel:
+                        my_files[rel.lower()] = rel
 
         # Classify each file
         files_i_win:  list[tuple[str, str]] = []   # (path, beaten mods str)
@@ -3576,8 +3605,8 @@ class ModListPanel(ctk.CTkFrame):
                     if fname.lower() == "meta.ini":
                         continue
                     full = os.path.join(dirpath, fname)
-                    rel = os.path.relpath(full, loser_staging).replace("\\", "/").lower()
-                    if rel in my_files:
+                    rel = _strip_for(loser_mod, os.path.relpath(full, loser_staging).replace("\\", "/")).lower()
+                    if rel and rel in my_files:
                         rel_to_losers.setdefault(rel, []).append(loser_mod)
 
         files_i_win_final: list[tuple[str, str]] = [

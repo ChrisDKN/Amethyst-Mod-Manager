@@ -36,6 +36,7 @@ from gui.theme import (
     TEXT_MAIN,
     TEXT_SEP,
     BG_SELECT,
+    BG_SEP,
 )
 from gui.path_utils import _to_wine_path
 from Utils.config_paths import get_exe_args_path
@@ -1154,6 +1155,7 @@ class _OverwritesDialog(tk.Toplevel):
         self.minsize(600, 380)
         self.configure(bg=BG_DEEP)
         self.transient(parent)
+        self.update_idletasks()
         self.grab_set()
         self.focus_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -1247,7 +1249,9 @@ class _OverwritesDialog(tk.Toplevel):
         tv.column("#0",   minwidth=180, stretch=True)
         tv.column("col1", minwidth=150, width=180, stretch=False)
 
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tv.yview)
+        vsb = tk.Scrollbar(tree_frame, orient="vertical", command=tv.yview,
+                           bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
+                           highlightthickness=0, bd=0)
         tv.configure(yscrollcommand=vsb.set)
         tv.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
