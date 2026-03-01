@@ -46,6 +46,7 @@ curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/s
 - Subnautica Below Zero
 - The Sims 4
 - Tcg Card Shop Simulator
+- Valheim
 - Lethal Company
 
 ## Usage
