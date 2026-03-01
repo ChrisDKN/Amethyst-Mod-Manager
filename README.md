@@ -118,5 +118,6 @@ ParallaxR (Version 2.0) Uses a similar process, Requires a patched ucrtbase.dll 
 - It will run the wrapper script, Progress will be added to the log, A temporary wine prefix will be created in the home directory
 - Output will be placed as a mod in a VRAMr/BENDr/ParallaxR folder. Refresh the modlist and enable it. Delete it if you want to do another run but remember to deploy before you do so.
 
-**Planned Features**
+## Planned Features
+
 - Adding/Installing collections directly into the manager as a new profile, This would be for Nexus premium users only but the manager would handle the installation of collections and add them as separate profiles you can switch between to deploy. This will require the application to be Registered with Nexus first but the frameworks to allow this feature to work already exist and shouldn't be too hard to implement.
