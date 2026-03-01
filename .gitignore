@@ -8,3 +8,4 @@ LOOT/libloot
 .venv-flatpak
 .flatpak-builder
 src/appimage/build
+/AUR
