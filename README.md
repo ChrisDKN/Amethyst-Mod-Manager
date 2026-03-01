@@ -101,7 +101,7 @@ As this application is fairly new, the following needs testing:
 
 ## VRAMr + BENDr + ParallaxR
 
-The following applications were tested and run in Ge-proton 10, It is reccomemded to have ge-proton 10 installed for these to work. These are very experimental and may not work as expected.
+The following applications were tested and run in Ge-proton 10, It is recommended to have ge-proton 10 installed for these to work. These are very experimental and may not work as expected.
 
 VRAMr (Version 15.0723) works by using an experimental python wrapper. The optimisation step is also changed to use compressonator which is faster with native Linux support vs running texconv through Wine/Proton
 
@@ -117,3 +117,6 @@ ParallaxR (Version 2.0) Uses a similar process, Requires a patched ucrtbase.dll 
 - In Amethyst mod manager, run VRAMr.bat/BENDr.bat/ParallaxR.bat **Make sure your modlist is deployed first**
 - It will run the wrapper script, Progress will be added to the log, A temporary wine prefix will be created in the home directory
 - Output will be placed as a mod in a VRAMr/BENDr/ParallaxR folder. Refresh the modlist and enable it. Delete it if you want to do another run but remember to deploy before you do so.
+
+**Planned Features**
+- Adding/Installing collections directly into the manager as a new profile, This would be for Nexus premium users only but the manager would handle the installation of collections and add them as separate profiles you can switch between to deploy. This will require the application to be Registered with Nexus first but the frameworks to allow this feature to work already exist and shouldn't be too hard to implement.
