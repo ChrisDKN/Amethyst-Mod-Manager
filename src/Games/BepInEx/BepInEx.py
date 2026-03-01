@@ -51,6 +51,10 @@ class Subnautica(BaseGame):
         return "264710"
 
     @property
+    def heroic_app_names(self) -> list[str]:
+        return ["Jaguar"]  # Epic appName for Subnautica
+
+    @property
     def nexus_game_domain(self) -> str:
         return "subnautica"
 
@@ -272,12 +276,16 @@ class Subnautica_Below_Zero(Subnautica):
         return "848450"
 
     @property
+    def heroic_app_names(self) -> list[str]:
+        return ["Niobe"]  # Epic appName for Subnautica: Below Zero
+
+    @property
     def nexus_game_domain(self) -> str:
         return "subnauticabelowzero"
 
 
 class TCG_Card_Shop_Simulator(Subnautica):
-    
+
     @property
     def name(self) -> str:
         return "TCG Card Shop Simulator"
@@ -288,18 +296,22 @@ class TCG_Card_Shop_Simulator(Subnautica):
 
     @property
     def exe_name(self) -> str:
-        return "TCG Card Shop Simulator.exe"
+        return "Card Shop Simulator.exe"
 
     @property
     def steam_id(self) -> str:
         return "3070070"
 
     @property
+    def heroic_app_names(self) -> list[str]:
+        return []
+
+    @property
     def nexus_game_domain(self) -> str:
         return "tcgcardshopsimulator"
-    
+
 class Lethal_Company(Subnautica):
-    
+
     @property
     def name(self) -> str:
         return "Lethal Company"
@@ -315,6 +327,10 @@ class Lethal_Company(Subnautica):
     @property
     def steam_id(self) -> str:
         return "1966720"
+
+    @property
+    def heroic_app_names(self) -> list[str]:
+        return []
 
     @property
     def nexus_game_domain(self) -> str:
@@ -336,6 +352,10 @@ class Valheim(Subnautica):
     @property
     def steam_id(self) -> str:
         return "892970"
+
+    @property
+    def heroic_app_names(self) -> list[str]:
+        return []
 
     @property
     def nexus_game_domain(self) -> str:

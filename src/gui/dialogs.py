@@ -746,8 +746,13 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         steam_id = getattr(self._game, "steam_id", "")
         proton_script = find_proton_for_game(steam_id) if steam_id else None
+
+        compat_data = prefix_path.parent
+
         if proton_script is None:
-            proton_script = find_any_installed_proton()
+            from gui.plugin_panel import _read_prefix_runner
+            preferred_runner = _read_prefix_runner(compat_data)
+            proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
                 if steam_id:
                     self._log(
@@ -762,7 +767,6 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
                 "(no per-game Steam mapping found)."
             )
 
-        compat_data = prefix_path.parent
         steam_root = find_steam_root_for_proton_script(proton_script)
         if steam_root is None:
             self._log("Proton Tools: could not determine Steam root for the selected Proton tool.")
@@ -771,6 +775,12 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
         env = os.environ.copy()
         env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
         env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
+        game_path = self._game.get_game_path() if hasattr(self._game, "get_game_path") else None
+        if game_path:
+            env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
+        if steam_id:
+            env.setdefault("SteamAppId", steam_id)
+            env.setdefault("SteamGameId", steam_id)
 
         return proton_script, env
 
@@ -1476,10 +1486,12 @@ class _ExeConfigDialog(ctk.CTkToplevel):
 
     _EXE_ARGS_FILE = get_exe_args_path()
 
-    def __init__(self, parent, exe_path: "Path", game, saved_args: str = ""):
+    def __init__(self, parent, exe_path: "Path", game, saved_args: str = "",
+                 custom_exes: "list | None" = None, launch_mode: "str | None" = None,
+                 deploy_before_launch: "bool | None" = None):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title(f"Configure: {exe_path.name}")
-        self.geometry("640x560")
+        self.geometry("480x210" if launch_mode is not None else "640x560")
         self.resizable(True, True)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_cancel)
@@ -1487,7 +1499,17 @@ class _ExeConfigDialog(ctk.CTkToplevel):
         self._exe_path = exe_path
         self._game = game
         self._saved_args = saved_args
+        self._custom_exes: "list" = list(custom_exes) if custom_exes else []
+        # launch_mode is None when the exe is not the game's own launcher (hides dropdown)
+        self._initial_launch_mode: "str | None" = launch_mode
+        self._launch_mode_var = tk.StringVar(value=launch_mode or "auto")
+        self._deploy_before_launch_var = tk.BooleanVar(
+            value=True if deploy_before_launch is None else deploy_before_launch
+        )
         self.result: "str | None" = None
+        self.launch_mode: "str | None" = None  # set on Save when dropdown is shown
+        self.deploy_before_launch: "bool | None" = None  # set on Save when shown
+        self.removed: bool = False
 
         self._game_path: "Path | None" = (
             game.get_game_path() if hasattr(game, "get_game_path") else None
@@ -1508,12 +1530,13 @@ class _ExeConfigDialog(ctk.CTkToplevel):
         self._radio_buttons: list[ctk.CTkRadioButton] = []
 
         self._build()
-        self._load_saved()
-
-        self._game_flag_var.trace_add("write", self._assemble)
-        self._output_flag_var.trace_add("write", self._assemble)
-        self._mod_var.trace_add("write", self._assemble)
-        self._search_var.trace_add("write", self._on_search_changed)
+        if self._initial_launch_mode is None:
+            self._load_saved()
+            self._game_flag_var.trace_add("write", self._assemble)
+            self._output_flag_var.trace_add("write", self._assemble)
+        if self._initial_launch_mode is None:
+            self._mod_var.trace_add("write", self._assemble)
+            self._search_var.trace_add("write", self._on_search_changed)
 
         self.after(80, self._make_modal)
 
@@ -1536,84 +1559,119 @@ class _ExeConfigDialog(ctk.CTkToplevel):
 
     def _build(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
 
-        sec1 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
-        sec1.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
-        sec1.grid_columnconfigure(1, weight=1)
+        is_game_exe = self._initial_launch_mode is not None
 
-        ctk.CTkLabel(
-            sec1, text="Game path argument", font=FONT_BOLD,
-            text_color=TEXT_MAIN, anchor="w",
-        ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+        if not is_game_exe:
+            self.grid_rowconfigure(2, weight=1)
 
-        ctk.CTkLabel(
-            sec1, text="Flag:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
-        ).grid(row=1, column=0, sticky="w", padx=(10, 4), pady=4)
-        ctk.CTkEntry(
-            sec1, textvariable=self._game_flag_var, font=FONT_SMALL,
-            fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
-            placeholder_text="e.g. --tesv:",
-        ).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
+            sec1 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
+            sec1.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+            sec1.grid_columnconfigure(1, weight=1)
 
-        wine_game = _to_wine_path(self._game_path) if self._game_path else "(game path not set)"
-        ctk.CTkLabel(
-            sec1, text=f"Path:  {wine_game}", font=FONT_SMALL,
-            text_color=TEXT_DIM, anchor="w", wraplength=560,
-        ).grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
+            ctk.CTkLabel(
+                sec1, text="Game path argument", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
 
-        sec2 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
-        sec2.grid(row=1, column=0, sticky="ew", padx=12, pady=4)
-        sec2.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(
+                sec1, text="Flag:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            ).grid(row=1, column=0, sticky="w", padx=(10, 4), pady=4)
+            ctk.CTkEntry(
+                sec1, textvariable=self._game_flag_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="e.g. --tesv:",
+            ).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
 
-        ctk.CTkLabel(
-            sec2, text="Output argument", font=FONT_BOLD,
-            text_color=TEXT_MAIN, anchor="w",
-        ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+            wine_game = _to_wine_path(self._game_path) if self._game_path else "(game path not set)"
+            ctk.CTkLabel(
+                sec1, text=f"Path:  {wine_game}", font=FONT_SMALL,
+                text_color=TEXT_DIM, anchor="w", wraplength=560,
+            ).grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
 
-        ctk.CTkLabel(
-            sec2, text="Flag:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
-        ).grid(row=1, column=0, sticky="w", padx=(10, 4), pady=4)
-        ctk.CTkEntry(
-            sec2, textvariable=self._output_flag_var, font=FONT_SMALL,
-            fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
-            placeholder_text="e.g. --output:",
-        ).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
+            sec2 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
+            sec2.grid(row=1, column=0, sticky="ew", padx=12, pady=4)
+            sec2.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(
-            sec2, text="Mod:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
-        ).grid(row=2, column=0, sticky="w", padx=(10, 4), pady=(0, 4))
-        ctk.CTkEntry(
-            sec2, textvariable=self._search_var, font=FONT_SMALL,
-            fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
-            placeholder_text="filter mods...",
-        ).grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 4))
+            ctk.CTkLabel(
+                sec2, text="Output argument", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
 
-        self._mod_scroll = ctk.CTkScrollableFrame(
-            self, fg_color=BG_PANEL, corner_radius=6,
-        )
-        self._mod_scroll.grid(row=2, column=0, sticky="nsew", padx=12, pady=4)
-        self._mod_scroll.grid_columnconfigure(0, weight=1)
-        self._rebuild_mod_list()
+            ctk.CTkLabel(
+                sec2, text="Flag:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            ).grid(row=1, column=0, sticky="w", padx=(10, 4), pady=4)
+            ctk.CTkEntry(
+                sec2, textvariable=self._output_flag_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="e.g. --output:",
+            ).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
 
-        sec3 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
-        sec3.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
-        sec3.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(
+                sec2, text="Mod:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            ).grid(row=2, column=0, sticky="w", padx=(10, 4), pady=(0, 4))
+            ctk.CTkEntry(
+                sec2, textvariable=self._search_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="filter mods...",
+            ).grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 4))
 
-        ctk.CTkLabel(
-            sec3, text="Final argument (editable)", font=FONT_BOLD,
-            text_color=TEXT_MAIN, anchor="w",
-        ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
+            self._mod_scroll = ctk.CTkScrollableFrame(
+                self, fg_color=BG_PANEL, corner_radius=6,
+            )
+            self._mod_scroll.grid(row=2, column=0, sticky="nsew", padx=12, pady=4)
+            self._mod_scroll.grid_columnconfigure(0, weight=1)
+            self._rebuild_mod_list()
 
-        self._final_box = ctk.CTkTextbox(
-            sec3, height=56, font=FONT_NORMAL,
-            fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
-            border_width=1, wrap="word",
-        )
-        self._final_box.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+            sec3 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
+            sec3.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
+            sec3.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                sec3, text="Final argument (editable)", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
+
+            self._final_box = ctk.CTkTextbox(
+                sec3, height=56, font=FONT_NORMAL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                border_width=1, wrap="word",
+            )
+            self._final_box.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+
+        # Launcher mode — only shown when this exe is the game's own launcher
+        if is_game_exe:
+            sec4 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
+            sec4.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+            sec4.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(
+                sec4, text="Launch via", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+            ctk.CTkOptionMenu(
+                sec4, values=["Auto", "Steam", "Heroic", "None"],
+                variable=self._launch_mode_var,
+                width=140, font=FONT_SMALL,
+                fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
+                dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
+                command=lambda _: None,
+            ).grid(row=0, column=1, sticky="w", padx=(0, 10), pady=(8, 4))
+            ctk.CTkLabel(
+                sec4,
+                text="Auto detects Steam/Heroic ownership. Force a specific launcher or\n"
+                     "None to always launch the exe directly via Proton.",
+                font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+            ).grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 4))
+            ctk.CTkCheckBox(
+                sec4, text="Deploy mods before launching",
+                variable=self._deploy_before_launch_var,
+                font=FONT_SMALL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
+                checkmark_color=BG_DEEP,
+            ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
 
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=48)
-        bar.grid(row=4, column=0, sticky="ew")
+        bar.grid(row=1 if is_game_exe else 5, column=0, sticky="ew")
         bar.grid_propagate(False)
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
             side="top", fill="x"
@@ -1628,6 +1686,13 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_save,
         ).pack(side="right", padx=4, pady=9)
+        # Remove button — only shown for custom exes (those saved via Add custom EXE)
+        if self._exe_path in self._custom_exes:
+            ctk.CTkButton(
+                bar, text="Remove EXE", width=110, height=30, font=FONT_NORMAL,
+                fg_color="#8B1A1A", hover_color="#B22222", text_color="white",
+                command=self._on_remove,
+            ).pack(side="left", padx=(12, 4), pady=9)
 
     def _rebuild_mod_list(self):
         for rb in self._radio_buttons:
@@ -1718,17 +1783,27 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             self._set_final_text(self._saved_args)
 
     def _on_save(self):
-        final = self._get_final_text()
-        try:
-            data = json.loads(self._EXE_ARGS_FILE.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            data = {}
-        data[self._exe_path.name] = final
-        try:
-            self._EXE_ARGS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        except OSError:
-            pass
-        self.result = final
+        if self._initial_launch_mode is not None:
+            self.launch_mode = self._launch_mode_var.get().lower()
+            self.deploy_before_launch = self._deploy_before_launch_var.get()
+        else:
+            final = self._get_final_text()
+            try:
+                data = json.loads(self._EXE_ARGS_FILE.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+            data[self._exe_path.name] = final
+            try:
+                self._EXE_ARGS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            except OSError:
+                pass
+            self.result = final
+        self.grab_release()
+        self.destroy()
+
+    def _on_remove(self):
+        self.removed = True
+        self.result = None
         self.grab_release()
         self.destroy()
 

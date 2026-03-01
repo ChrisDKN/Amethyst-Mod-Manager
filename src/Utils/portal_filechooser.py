@@ -31,6 +31,10 @@ _PORTAL_PATH = "/org/freedesktop/portal/desktop"
 _FILE_CHOOSER_IFACE = "org.freedesktop.portal.FileChooser"
 _REQUEST_IFACE = "org.freedesktop.portal.Request"
 
+# Sentinel returned by portal impls to mean "portal worked, user cancelled".
+# Distinct from None which means "portal unavailable/failed → try zenity".
+_CANCELLED = object()
+
 
 def _uri_to_path(uri: str) -> Path | None:
     """Convert file:// URI to Path. Returns None if not a file URI."""
@@ -44,11 +48,12 @@ def _uri_to_path(uri: str) -> Path | None:
     return Path(path_str)
 
 
-def _run_portal_folder_impl(title: str, parent_window: str) -> Path | None:
+def _run_portal_folder_impl(title: str, parent_window: str) -> Path | object | None:
     """
     Run the portal folder picker. Must be called from a thread that can run
     a GLib main loop (not the main Tkinter thread).
-    Returns the selected folder or None.
+    Returns the selected Path, _CANCELLED if the user dismissed the dialog,
+    or None if the portal is unavailable/failed (caller should try zenity).
     """
     try:
         from gi.repository import Gio, GLib
@@ -85,7 +90,8 @@ def _run_portal_folder_impl(title: str, parent_window: str) -> Path | None:
                 if uri:
                     result_holder.append(_uri_to_path(uri))
         if not result_holder:
-            result_holder.append(None)
+            # User cancelled — portal worked but nothing selected
+            result_holder.append(_CANCELLED)
         loop.quit()
 
     try:
@@ -175,10 +181,11 @@ def _run_portal_folder_impl(title: str, parent_window: str) -> Path | None:
     return result_holder[0] if result_holder else None
 
 
-def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[str, list[str]]]) -> Path | None:
+def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[str, list[str]]]) -> Path | object | None:
     """
     Run the portal file picker. Must be called from a thread that can run
-    a GLib main loop. Returns the selected file or None.
+    a GLib main loop. Returns the selected Path, _CANCELLED if the user
+    dismissed the dialog, or None if the portal is unavailable/failed.
     filters: [(label, ["*.zip", "*.7z", ...]), ...]
     """
     try:
@@ -187,7 +194,7 @@ def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[st
         _debug_log(f"ImportError: {e}")
         return None
 
-    result_holder: list[Path | None] = []
+    result_holder: list = []
     context = GLib.MainContext.new()
     context.push_thread_default()
     try:
@@ -214,7 +221,7 @@ def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[st
                 if uri:
                     result_holder.append(_uri_to_path(uri))
         if not result_holder:
-            result_holder.append(None)
+            result_holder.append(_CANCELLED)
         loop.quit()
 
     try:
@@ -349,13 +356,15 @@ def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
     with the selected Path or None.
     """
     def _worker() -> None:
-        chosen: Path | None = None
+        result = None
         try:
-            chosen = _run_portal_folder_impl(title, "")
+            result = _run_portal_folder_impl(title, "")
         except Exception:
             pass
-        if chosen is None:
-            chosen = _zenity_folder(title)
+        if result is _CANCELLED:
+            callback(None)
+            return
+        chosen = result if isinstance(result, Path) else _zenity_folder(title)
         callback(chosen)
 
     threading.Thread(target=_worker, daemon=True).start()
@@ -369,13 +378,15 @@ _MOD_ARCHIVE_FILTERS = [
 
 def _run_file_picker_worker(title: str, filters: list[tuple[str, list[str]]], cb: Callable[[Path | None], None]) -> None:
     """Worker for file picker; runs in background thread."""
-    chosen: Path | None = None
+    result = None
     try:
-        chosen = _run_portal_file_impl(title, "", filters)
+        result = _run_portal_file_impl(title, "", filters)
     except Exception:
         pass
-    if chosen is None:
-        chosen = _zenity_file(title)
+    if result is _CANCELLED:
+        cb(None)
+        return
+    chosen = result if isinstance(result, Path) else _zenity_file(title)
     cb(chosen)
 
 

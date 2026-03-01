@@ -67,6 +67,15 @@ from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_ava
 from Nexus.nexus_meta import build_meta_from_download, write_meta, read_meta
 
 
+def _read_prefix_runner(compat_data: Path) -> str:
+    """Read the Proton runner name from <compat_data>/config_info (first line).
+    Returns an empty string if the file is absent or unreadable."""
+    try:
+        return (compat_data / "config_info").read_text(encoding="utf-8").splitlines()[0].strip()
+    except (OSError, IndexError):
+        return ""
+
+
 def _truncate_plugin_name(widget: tk.Widget, text: str, font: tuple, max_px: int) -> str:
     """Return *text* truncated with '…' so it fits within *max_px* pixels."""
     if max_px <= 0:
@@ -245,8 +254,18 @@ class PluginPanel(ctk.CTkFrame):
     def refresh_exe_list(self):
         """Scan for .exe and .bat files and populate the dropdown."""
         exes: list[Path] = []
+        game_exe_path: Path | None = None
 
         if self._game is not None:
+            # 0. Add the game's own exe (exe_name resolved against game_path)
+            game_path = self._game.get_game_path() if hasattr(self._game, "get_game_path") else None
+            exe_name = self._game.exe_name if hasattr(self._game, "exe_name") else None
+            if game_path and exe_name:
+                candidate = game_path / exe_name
+                if candidate.is_file():
+                    game_exe_path = candidate
+                    exes.append(candidate)
+
             staging = (
                 self._game.get_mod_staging_path()
                 if hasattr(self._game, "get_mod_staging_path") else None
@@ -271,7 +290,8 @@ class PluginPanel(ctk.CTkFrame):
                     except OSError:
                         pass
 
-            # 2. Scan Profiles/<game>/Applications/ for .exe/.bat files (recursive)
+            # 2. Scan Profiles/<game>/Applications/ for .exe/.bat files (recursive),
+            #    excluding custom_exes.json entries (added separately below)
             if staging is not None:
                 apps_dir = staging.parent / "Applications"
                 if apps_dir.is_dir():
@@ -280,26 +300,33 @@ class PluginPanel(ctk.CTkFrame):
                             if entry.is_file():
                                 exes.append(entry)
 
-        if not exes:
-            self._exe_paths = []
-            self._exe_menu.configure(values=["(no executables)"])
-            self._exe_var.set("(no executables)")
-            return
+            # 3. Custom exes saved via "Add custom EXE" (arbitrary paths on disk)
+            for p in self._load_custom_exes():
+                if p not in exes:
+                    exes.append(p)
 
-        # Sort: Applications/ entries first, then filemap entries, alphabetical within each
+        # Sort: game exe first, then Applications/, then custom/filemap entries, alpha within each
         apps_dir_root = None
         if self._game and hasattr(self._game, "get_mod_staging_path"):
             staging = self._game.get_mod_staging_path()
             apps_dir_root = staging.parent / "Applications"
 
+        custom_set = set(self._load_custom_exes())
+
         def _sort_key(p: Path):
+            if game_exe_path is not None and p == game_exe_path:
+                return (0, p.name.lower())
             in_apps = apps_dir_root is not None and p.is_relative_to(apps_dir_root)
-            return (0 if in_apps else 1, p.name.lower())
+            if in_apps:
+                return (1, p.name.lower())
+            if p in custom_set:
+                return (2, p.name.lower())
+            return (3, p.name.lower())
 
         exes.sort(key=_sort_key)
 
         # Auto-populate exe_args.json with default prefixes for known tools
-        if self._game is not None:
+        if self._game is not None and exes:
             try:
                 from Utils.exe_args_builder import build_default_exe_args
                 build_default_exe_args(exes, self._game, log_fn=self._log)
@@ -307,13 +334,21 @@ class PluginPanel(ctk.CTkFrame):
                 pass
 
         self._exe_paths = exes
-        labels = [p.name for p in exes]
+        labels = [p.name for p in exes] + [self._ADD_CUSTOM_SENTINEL]
+        if not exes:
+            labels = ["(no executables)", self._ADD_CUSTOM_SENTINEL]
         self._exe_menu.configure(values=labels)
-        self._exe_var.set(labels[0])
-        self._on_exe_selected(labels[0])
+        if exes:
+            self._exe_var.set(labels[0])
+            self._on_exe_selected(labels[0])
+        else:
+            self._exe_var.set("(no executables)")
 
     def _on_exe_selected(self, name: str):
         """Called when the user selects an exe from the dropdown. Loads saved args if present."""
+        if name == self._ADD_CUSTOM_SENTINEL:
+            self._add_custom_exe()
+            return
         idx = self._exe_var_index()
         if idx < 0 or not self._exe_paths:
             self._exe_args_var.set("")
@@ -322,6 +357,142 @@ class PluginPanel(ctk.CTkFrame):
         self._exe_args_var.set(self._load_exe_args(exe_path.name))
 
     _EXE_ARGS_FILE = get_exe_args_path()
+    _ADD_CUSTOM_SENTINEL = "+ Add custom EXE…"
+    _CUSTOM_EXES_FILE = "custom_exes.json"
+    _LAUNCH_MODE_FILE = "exe_launch_mode.json"
+
+    def _get_launch_mode_path(self) -> "Path | None":
+        """Return path to <game>/Applications/exe_launch_mode.json, or None if no game."""
+        if self._game is None:
+            return None
+        staging = (
+            self._game.get_mod_staging_path()
+            if hasattr(self._game, "get_mod_staging_path") else None
+        )
+        if staging is None:
+            return None
+        return staging.parent / "Applications" / self._LAUNCH_MODE_FILE
+
+    def _load_launch_mode(self, exe_name: str) -> str:
+        """Return saved launch mode for exe_name ('auto', 'steam', 'heroic', 'none')."""
+        p = self._get_launch_mode_path()
+        if p is None or not p.is_file():
+            return "auto"
+        try:
+            return json.loads(p.read_text(encoding="utf-8")).get(exe_name, "auto")
+        except (OSError, ValueError):
+            return "auto"
+
+    def _save_launch_mode(self, exe_name: str, mode: str) -> None:
+        p = self._get_launch_mode_path()
+        if p is None:
+            return
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            data = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        except (OSError, ValueError):
+            data = {}
+        data[exe_name] = mode
+        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def _load_deploy_before_launch(self) -> bool:
+        """Return whether deploy-before-launch is enabled (default True)."""
+        p = self._get_launch_mode_path()
+        if p is None or not p.is_file():
+            return True
+        try:
+            return json.loads(p.read_text(encoding="utf-8")).get("__deploy_before_launch", True)
+        except (OSError, ValueError):
+            return True
+
+    def _save_deploy_before_launch(self, enabled: bool) -> None:
+        p = self._get_launch_mode_path()
+        if p is None:
+            return
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            data = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        except (OSError, ValueError):
+            data = {}
+        data["__deploy_before_launch"] = enabled
+        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def _is_game_exe(self, exe_path: "Path") -> bool:
+        """Return True if exe_path is this game's own launcher exe."""
+        if self._game is None:
+            return False
+        game_exe_name = getattr(self._game, "exe_name", None)
+        if not game_exe_name:
+            return False
+        return exe_path.name.lower() == Path(game_exe_name).name.lower()
+
+    def _get_custom_exes_path(self) -> "Path | None":
+        """Return path to <game>/Applications/custom_exes.json, or None if no game."""
+        if self._game is None:
+            return None
+        staging = (
+            self._game.get_mod_staging_path()
+            if hasattr(self._game, "get_mod_staging_path") else None
+        )
+        if staging is None:
+            return None
+        return staging.parent / "Applications" / self._CUSTOM_EXES_FILE
+
+    def _load_custom_exes(self) -> "list[Path]":
+        """Return list of custom exe Paths saved in custom_exes.json."""
+        p = self._get_custom_exes_path()
+        if p is None or not p.is_file():
+            return []
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            return [Path(s) for s in data if Path(s).is_file()]
+        except (OSError, ValueError):
+            return []
+
+    def _save_custom_exes(self, paths: "list[Path]") -> None:
+        p = self._get_custom_exes_path()
+        if p is None:
+            return
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps([str(x) for x in paths], indent=2), encoding="utf-8")
+
+    _EXE_PICKER_FILTERS = [
+        ("Executables (*.exe, *.bat)", ["*.exe", "*.bat"]),
+        ("All files", ["*"]),
+    ]
+
+    def _add_custom_exe(self) -> None:
+        """Open native file browser (XDG portal / zenity), save chosen exe, refresh list."""
+        from Utils.portal_filechooser import _run_file_picker_worker
+
+        def _on_picked(chosen: "Path | None") -> None:
+            if chosen is None:
+                # User cancelled — restore previous selection
+                if self._exe_paths:
+                    self.after(0, lambda: self._exe_var.set(self._exe_paths[0].name))
+                else:
+                    self.after(0, lambda: self._exe_var.set("(no executables)"))
+                return
+            existing = self._load_custom_exes()
+            if chosen not in existing:
+                existing.append(chosen)
+                self._save_custom_exes(existing)
+
+            def _refresh_and_select():
+                self.refresh_exe_list()
+                for p in self._exe_paths:
+                    if p == chosen:
+                        self._exe_var.set(p.name)
+                        self._on_exe_selected(p.name)
+                        break
+
+            self.after(0, _refresh_and_select)
+
+        threading.Thread(
+            target=_run_file_picker_worker,
+            args=("Select executable", self._EXE_PICKER_FILTERS, _on_picked),
+            daemon=True,
+        ).start()
 
     def _load_exe_args(self, exe_name: str) -> str:
         """Load saved args for an exe from Utils/exe_args.json."""
@@ -344,15 +515,30 @@ class PluginPanel(ctk.CTkFrame):
             self._log("Configure: no game selected.")
             return
         saved_args = self._load_exe_args(exe_path.name)
+        custom_exes = self._load_custom_exes()
+        is_game_exe = self._is_game_exe(exe_path)
+        saved_launch_mode = self._load_launch_mode(exe_path.name) if is_game_exe else None
+        deploy_before_launch = self._load_deploy_before_launch() if is_game_exe else None
         dialog = _ExeConfigDialog(
             self.winfo_toplevel(),
             exe_path=exe_path,
             game=game,
             saved_args=saved_args,
+            custom_exes=custom_exes,
+            launch_mode=saved_launch_mode,
+            deploy_before_launch=deploy_before_launch,
         )
         self.winfo_toplevel().wait_window(dialog)
         if dialog.result is not None:
             self._exe_args_var.set(dialog.result)
+        if dialog.launch_mode is not None:
+            self._save_launch_mode(exe_path.name, dialog.launch_mode)
+        if dialog.deploy_before_launch is not None:
+            self._save_deploy_before_launch(dialog.deploy_before_launch)
+        if dialog.removed:
+            remaining = [p for p in custom_exes if p != exe_path]
+            self._save_custom_exes(remaining)
+            self.refresh_exe_list()
 
     def _exe_var_index(self) -> int:
         """Return the index of the currently selected exe in _exe_paths."""
@@ -394,6 +580,105 @@ class PluginPanel(ctk.CTkFrame):
             getattr(self, wrapper_method)(exe_path)
             return
 
+        is_game_exe = self._is_game_exe(exe_path)
+
+        if is_game_exe and self._load_deploy_before_launch():
+            # Run deploy in a background thread, then launch the game when done.
+            self._log("Run EXE: deploying mods before launch…")
+            self._run_deploy_then_launch(exe_path, game)
+            return
+
+        self._launch_exe(exe_path, game)
+
+    def _run_deploy_then_launch(self, exe_path: "Path", game):
+        """Deploy mods in a background thread, then call _launch_exe on the main thread."""
+        from Utils.filemap import build_filemap
+        from Utils.deploy import LinkMode, deploy_root_folder, restore_root_folder, load_per_mod_strip_prefixes
+
+        try:
+            topbar = self.winfo_toplevel()._topbar
+            profile = topbar._profile_var.get()
+        except AttributeError:
+            profile = "default"
+
+        root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
+        game_root = game.get_game_path()
+
+        def _worker():
+            def _tlog(msg):
+                self.after(0, lambda m=msg: self._log(m))
+
+            try:
+                if getattr(game, "restore_before_deploy", True) and hasattr(game, "restore"):
+                    try:
+                        game.restore(log_fn=_tlog)
+                    except RuntimeError:
+                        pass
+                if root_folder_dir.is_dir() and game_root:
+                    restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
+
+                profile_root = game.get_profile_root()
+                staging = game.get_mod_staging_path()
+                modlist_path = profile_root / "profiles" / profile / "modlist.txt"
+                filemap_out = profile_root / "filemap.txt"
+                if modlist_path.is_file():
+                    try:
+                        build_filemap(
+                            modlist_path, staging, filemap_out,
+                            strip_prefixes=game.mod_folder_strip_prefixes or None,
+                            per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
+                            allowed_extensions=game.mod_install_extensions or None,
+                            root_deploy_folders=game.mod_root_deploy_folders or None,
+                        )
+                    except Exception as fm_err:
+                        _tlog(f"Run EXE: filemap rebuild warning: {fm_err}")
+
+                deploy_mode = game.get_deploy_mode() if hasattr(game, "get_deploy_mode") else LinkMode.HARDLINK
+                game.deploy(log_fn=_tlog, profile=profile, mode=deploy_mode)
+
+                rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
+                if rf_allowed and root_folder_dir.is_dir() and game_root:
+                    deploy_root_folder(root_folder_dir, game_root, mode=deploy_mode, log_fn=_tlog)
+
+                _tlog("Run EXE: deploy complete, launching…")
+                self.after(0, lambda: self._launch_exe(exe_path, game))
+            except Exception as e:
+                self.after(0, lambda err=e: self._log(f"Run EXE: deploy error: {err}"))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _launch_exe(self, exe_path: "Path", game):
+        """Route to Steam/Heroic/Proton depending on launch mode (game exe) or always Proton."""
+        if self._is_game_exe(exe_path):
+            mode = self._load_launch_mode(exe_path.name)  # 'auto'|'steam'|'heroic'|'none'
+            steam_id = getattr(game, "steam_id", "")
+            heroic_app_names = getattr(game, "heroic_app_names", [])
+
+            if mode == "steam":
+                if steam_id:
+                    self._run_game_via_steam(steam_id)
+                else:
+                    self._log("Run EXE: launch mode is Steam but game has no Steam ID.")
+                return
+
+            if mode == "heroic":
+                if heroic_app_names:
+                    self._run_game_via_heroic(heroic_app_names)
+                else:
+                    self._log("Run EXE: launch mode is Heroic but game has no Heroic app name.")
+                return
+
+            if mode == "none":
+                pass  # fall through to direct Proton launch below
+
+            else:  # "auto"
+                if steam_id and self._game_is_steam_install(game):
+                    self._run_game_via_steam(steam_id)
+                    return
+                if heroic_app_names and self._game_is_heroic_install(game):
+                    self._run_game_via_heroic(heroic_app_names)
+                    return
+
         self._run_exe_via_proton(exe_path, game)
 
     def _run_exe_via_proton(self, exe_path: Path, game):
@@ -417,7 +702,10 @@ class PluginPanel(ctk.CTkFrame):
         steam_id = getattr(game, "steam_id", "")
         proton_script = find_proton_for_game(steam_id) if steam_id else None
         if proton_script is None:
-            proton_script = find_any_installed_proton()
+            # Read the runner name from the prefix's config_info so we use the
+            # same Proton version the prefix was built with (e.g. GE-Proton10-28).
+            preferred_runner = _read_prefix_runner(compat_data)
+            proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
                 if steam_id:
                     self._log(
@@ -440,6 +728,14 @@ class PluginPanel(ctk.CTkFrame):
         env = os.environ.copy()
         env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
         env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
+        # Proton expects these to locate the game install and per-game shader/compat caches.
+        # Without them GE-Proton (and others) fall back to app ID 0 / skip library detection.
+        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if game_path:
+            env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
+        if steam_id:
+            env.setdefault("SteamAppId", steam_id)
+            env.setdefault("SteamGameId", steam_id)
 
         import shlex
         try:
@@ -470,6 +766,71 @@ class PluginPanel(ctk.CTkFrame):
                     ["python3", str(proton_script), "run", str(exe_path)] + extra_args,
                     env=env,
                     cwd=exe_path.parent,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _game_is_steam_install(self, game) -> bool:
+        """Return True if the game folder lives inside a Steam library (steamapps/common)."""
+        game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        if game_path is None:
+            return False
+        from Utils.steam_finder import find_steam_libraries
+        try:
+            resolved = game_path.resolve()
+            for lib in find_steam_libraries():
+                if resolved.is_relative_to(lib.resolve()):
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _run_game_via_steam(self, steam_id: str) -> None:
+        """Launch the game through Steam (steam://rungameid) so the Steam API initialises."""
+        self._log(f"Run EXE: launching via Steam (app {steam_id}) ...")
+
+        def _worker():
+            try:
+                subprocess.Popen(
+                    ["steam", f"steam://rungameid/{steam_id}"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _game_is_heroic_install(self, game) -> bool:
+        """Return True if Heroic knows about this game (it's in an Epic/GOG library)."""
+        app_names = getattr(game, "heroic_app_names", [])
+        if not app_names:
+            return False
+        from Utils.heroic_finder import find_heroic_launch_info
+        try:
+            return find_heroic_launch_info(app_names) is not None
+        except Exception:
+            return False
+
+    def _run_game_via_heroic(self, heroic_app_names: list) -> None:
+        """Launch the game through Heroic (heroic://launch) so Epic/GOG auth initialises."""
+        from Utils.heroic_finder import find_heroic_launch_info
+        info = find_heroic_launch_info(heroic_app_names)
+        if info is None:
+            self._log("Run EXE: game not found in Heroic library, falling through to Proton.")
+            return
+        store, app_name = info
+        url = f"heroic://launch/{store}/{app_name}"
+        self._log(f"Run EXE: launching via Heroic ({store}/{app_name}) ...")
+
+        def _worker():
+            try:
+                subprocess.Popen(
+                    ["xdg-open", url],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )

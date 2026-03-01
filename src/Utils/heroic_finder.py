@@ -201,6 +201,41 @@ def find_heroic_game(app_names: list[str]) -> Path | None:
     return None
 
 
+def find_heroic_launch_info(app_names: list[str]) -> "tuple[str, str] | None":
+    """
+    Search Heroic config for a game matching any of the given app_names.
+    Returns (store, matched_app_name) where store is 'legendary' (Epic) or 'gog',
+    or None if not found.
+
+    The returned values can be used to build a heroic:// launch URL:
+        heroic://launch/<store>/<app_name>
+    """
+    for heroic_root in _find_heroic_config_roots():
+        installed = _load_epic_installed(heroic_root)
+        for app_name in app_names:
+            if app_name in installed:
+                install_path = installed[app_name].get("install_path", "")
+                if install_path and Path(install_path).is_dir():
+                    return ("legendary", app_name)
+        library = _load_gog_library(heroic_root)
+        app_names_lower = [n.lower() for n in app_names]
+        for entry in library:
+            if not isinstance(entry, dict):
+                continue
+            entry_id = str(entry.get("app_name") or entry.get("appName") or "")
+            entry_title = str(entry.get("title") or "")
+            for app_name in app_names:
+                if (
+                    entry_id == app_name
+                    or entry_id.lower() == app_name.lower()
+                    or entry_title.lower() == app_name.lower()
+                ):
+                    install_path = entry.get("install_path", "")
+                    if install_path and Path(install_path).is_dir():
+                        return ("gog", entry_id or app_name)
+    return None
+
+
 def find_heroic_prefix(app_names: list[str]) -> Path | None:
     """
     Search all Heroic config roots for the Wine prefix of a game matching any
