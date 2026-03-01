@@ -101,11 +101,37 @@ def _run_portal_folder_impl(title: str, parent_window: str) -> Path | None:
             None,
         )
 
+        # Check the interface is actually available before making the call.
+        # On systems without a FileChooser portal backend (e.g. SteamOS with only
+        # xdg-desktop-portal-steam), get_cached_property returns None for version.
+        ver = portal.get_cached_property("version")
+        if ver is None:
+            _debug_log(f"FileChooser interface not available on this portal (no backend)")
+            return None
+
         token = f"amethyst_{uuid.uuid4().hex[:16]}"
         options: dict[str, GLib.Variant] = {
             "directory": GLib.Variant("b", True),
             "handle_token": GLib.Variant("s", token),
         }
+
+        # Pre-compute the expected handle path and subscribe BEFORE calling OpenFile
+        # to avoid a race where the Response signal arrives before we subscribe.
+        # Format: /org/freedesktop/portal/desktop/request/<sender>/<token>
+        # where <sender> is the unique name with leading ':' dropped and '.' → '_'.
+        sender = conn.get_unique_name().lstrip(":").replace(".", "_")
+        predicted_handle = f"/org/freedesktop/portal/desktop/request/{sender}/{token}"
+        _debug_log(f"Pre-subscribing on predicted handle: {predicted_handle}")
+        sub_id = conn.signal_subscribe(
+            _PORTAL_BUS,
+            _REQUEST_IFACE,
+            "Response",
+            predicted_handle,
+            None,
+            Gio.DBusSignalFlags.NONE,
+            on_response,
+            None,
+        )
 
         handle = portal.call_sync(
             "OpenFile",
@@ -117,20 +143,25 @@ def _run_portal_folder_impl(title: str, parent_window: str) -> Path | None:
         handle_path = handle.get_child_value(0).get_string()
         if not handle_path:
             _debug_log("No handle path returned")
+            conn.signal_unsubscribe(sub_id)
             return None
 
-        _debug_log(f"Subscribing to Response on {handle_path}")
-        # Subscribe to Response signal before the portal processes (avoid race)
-        conn.signal_subscribe(
-            _PORTAL_BUS,
-            _REQUEST_IFACE,
-            "Response",
-            handle_path,
-            None,
-            Gio.DBusSignalFlags.NONE,
-            on_response,
-            None,
-        )
+        # If the portal returned a different path (shouldn't happen with handle_token),
+        # re-subscribe on the real path.
+        if handle_path != predicted_handle:
+            _debug_log(f"Handle mismatch: predicted={predicted_handle} actual={handle_path}; re-subscribing")
+            conn.signal_unsubscribe(sub_id)
+            conn.signal_subscribe(
+                _PORTAL_BUS,
+                _REQUEST_IFACE,
+                "Response",
+                handle_path,
+                None,
+                Gio.DBusSignalFlags.NONE,
+                on_response,
+                None,
+            )
+
         _debug_log("Running main loop, waiting for user...")
         loop.run()
     except Exception as e:
@@ -198,6 +229,10 @@ def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[st
             None,
         )
 
+        if portal.get_cached_property("version") is None:
+            _debug_log("FileChooser interface not available on this portal (no backend)")
+            return None
+
         # filters: a(sa(us)) - list of (name, [(0, "*.zip"), (0, "*.7z"), ...])
         filter_array = []
         for label, patterns in filters:
@@ -209,6 +244,20 @@ def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[st
             "filters": GLib.Variant("a(sa(us))", filter_array),
         }
 
+        # Pre-subscribe to avoid Response signal race (same as folder picker above)
+        sender = conn.get_unique_name().lstrip(":").replace(".", "_")
+        predicted_handle = f"/org/freedesktop/portal/desktop/request/{sender}/{token}"
+        sub_id = conn.signal_subscribe(
+            _PORTAL_BUS,
+            _REQUEST_IFACE,
+            "Response",
+            predicted_handle,
+            None,
+            Gio.DBusSignalFlags.NONE,
+            on_response,
+            None,
+        )
+
         handle = portal.call_sync(
             "OpenFile",
             GLib.Variant("(ssa{sv})", (parent_window, title, options)),
@@ -218,18 +267,22 @@ def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[st
         )
         handle_path = handle.get_child_value(0).get_string()
         if not handle_path:
+            conn.signal_unsubscribe(sub_id)
             return None
 
-        conn.signal_subscribe(
-            _PORTAL_BUS,
-            _REQUEST_IFACE,
-            "Response",
-            handle_path,
-            None,
-            Gio.DBusSignalFlags.NONE,
-            on_response,
-            None,
-        )
+        if handle_path != predicted_handle:
+            conn.signal_unsubscribe(sub_id)
+            conn.signal_subscribe(
+                _PORTAL_BUS,
+                _REQUEST_IFACE,
+                "Response",
+                handle_path,
+                None,
+                Gio.DBusSignalFlags.NONE,
+                on_response,
+                None,
+            )
+
         loop.run()
     except Exception as e:
         _debug_log(f"Exception: {e}")
@@ -240,6 +293,53 @@ def _run_portal_file_impl(title: str, parent_window: str, filters: list[tuple[st
         context.pop_thread_default()
 
     return result_holder[0] if result_holder else None
+
+
+def _is_flatpak() -> bool:
+    return os.path.exists("/.flatpak-info")
+
+
+def _zenity_candidates() -> list[list[str]]:
+    """Return zenity invocation candidates to try in order."""
+    if _is_flatpak():
+        # Inside flatpak: try flatpak-spawn --host first (needs org.freedesktop.Flatpak
+        # talk-name), then fall back to zenity directly in case it's in the runtime.
+        return [["flatpak-spawn", "--host", "zenity"], ["zenity"]]
+    return [["zenity"]]
+
+
+def _run_zenity(args: list[str]) -> subprocess.CompletedProcess[str] | None:
+    """Try each zenity candidate with the given args. Returns first successful run or None."""
+    for cmd in _zenity_candidates():
+        try:
+            result = subprocess.run(cmd + args, capture_output=True, text=True)
+            return result
+        except FileNotFoundError:
+            continue
+    return None
+
+
+def _zenity_folder(title: str) -> Path | None:
+    result = _run_zenity(["--file-selection", "--directory", f"--title={title}"])
+    if result is not None and result.returncode == 0:
+        p = Path(result.stdout.strip())
+        if p.is_dir():
+            return p
+    return None
+
+
+def _zenity_file(title: str) -> Path | None:
+    result = _run_zenity([
+        "--file-selection",
+        f"--title={title}",
+        "--file-filter=Mod Archives (*.zip, *.7z, *.tar.gz, *.tar) | *.zip *.7z *.tar.gz *.tar",
+        "--file-filter=All files | *",
+    ])
+    if result is not None and result.returncode == 0:
+        p = Path(result.stdout.strip())
+        if p.is_file():
+            return p
+    return None
 
 
 def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
@@ -255,17 +355,7 @@ def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
         except Exception:
             pass
         if chosen is None:
-            try:
-                result = subprocess.run(
-                    ["zenity", "--file-selection", "--directory", f"--title={title}"],
-                    capture_output=True, text=True,
-                )
-                if result.returncode == 0:
-                    p = Path(result.stdout.strip())
-                    if p.is_dir():
-                        chosen = p
-            except FileNotFoundError:
-                pass
+            chosen = _zenity_folder(title)
         callback(chosen)
 
     threading.Thread(target=_worker, daemon=True).start()
@@ -285,22 +375,7 @@ def _run_file_picker_worker(title: str, filters: list[tuple[str, list[str]]], cb
     except Exception:
         pass
     if chosen is None:
-        try:
-            result = subprocess.run(
-                [
-                    "zenity", "--file-selection",
-                    f"--title={title}",
-                    "--file-filter=Mod Archives (*.zip, *.7z, *.tar.gz, *.tar) | *.zip *.7z *.tar.gz *.tar",
-                    "--file-filter=All files | *",
-                ],
-                capture_output=True, text=True,
-            )
-            if result.returncode == 0:
-                p = Path(result.stdout.strip())
-                if p.is_file():
-                    chosen = p
-        except FileNotFoundError:
-            pass
+        chosen = _zenity_file(title)
     cb(chosen)
 
 
