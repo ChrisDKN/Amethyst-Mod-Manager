@@ -22,6 +22,7 @@
 ## Install
 
 Run the following command in a terminal. It will appear in your applications menu under Games and Utilities.
+**The Application may ask to set a password, This is for the OS keyring to store your nexus API key as we do not store it in a plain text file. Set the password to anything you want**
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/appimage/Amethyst-MM-installer.sh | bash
