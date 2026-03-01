@@ -41,6 +41,83 @@ from gui.path_utils import _to_wine_path
 from Utils.config_paths import get_exe_args_path
 
 
+# ---------------------------------------------------------------------------
+# Themed message helpers (replaces tk.messagebox which ignores dark theme)
+# ---------------------------------------------------------------------------
+
+def _center_dialog(dlg, parent, w: int, h: int):
+    """Position dlg centered over parent using a known fixed size."""
+    try:
+        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+    except Exception:
+        dlg.geometry(f"{w}x{h}")
+
+
+def ask_yes_no(title: str, message: str, parent=None) -> bool:
+    """Dark-themed yes/no confirmation dialog. Returns True if Yes clicked."""
+    result = [False]
+
+    dlg = ctk.CTkToplevel(parent, fg_color=BG_DEEP)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    if parent is not None:
+        dlg.transient(parent)
+    _center_dialog(dlg, parent, 400, 160)
+
+    # Icon + message
+    body = ctk.CTkFrame(dlg, fg_color="transparent")
+    body.pack(fill="x", padx=20, pady=(18, 4))
+    ctk.CTkLabel(body, text="?", font=("", 28, "bold"),
+                 text_color=ACCENT, width=36).pack(side="left", anchor="n", padx=(0, 12))
+    ctk.CTkLabel(body, text=message, font=FONT_NORMAL,
+                 text_color=TEXT_MAIN, wraplength=300, justify="left").pack(side="left")
+
+    # Buttons
+    btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+    btn_row.pack(fill="x", padx=20, pady=(8, 16))
+    ctk.CTkButton(btn_row, text="No", width=80, font=FONT_BOLD,
+                  fg_color=BG_PANEL, hover_color=BG_HEADER, text_color=TEXT_MAIN,
+                  command=dlg.destroy).pack(side="right", padx=(4, 0))
+    def _yes():
+        result[0] = True
+        dlg.destroy()
+    ctk.CTkButton(btn_row, text="Yes", width=80, font=FONT_BOLD,
+                  fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                  command=_yes).pack(side="right", padx=4)
+
+    dlg.after(50, dlg.grab_set)
+    dlg.wait_window()
+    return result[0]
+
+
+def show_error(title: str, message: str, parent=None) -> None:
+    """Dark-themed error dialog."""
+    dlg = ctk.CTkToplevel(parent, fg_color=BG_DEEP)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    if parent is not None:
+        dlg.transient(parent)
+    _center_dialog(dlg, parent, 400, 140)
+
+    body = ctk.CTkFrame(dlg, fg_color="transparent")
+    body.pack(fill="x", padx=20, pady=(18, 4))
+    ctk.CTkLabel(body, text="✕", font=("", 24, "bold"),
+                 text_color="#e06c75", width=36).pack(side="left", anchor="n", padx=(0, 12))
+    ctk.CTkLabel(body, text=message, font=FONT_NORMAL,
+                 text_color=TEXT_MAIN, wraplength=300, justify="left").pack(side="left")
+
+    btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+    btn_row.pack(fill="x", padx=20, pady=(8, 16))
+    ctk.CTkButton(btn_row, text="OK", width=80, font=FONT_BOLD,
+                  fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                  command=dlg.destroy).pack(side="right")
+
+    dlg.after(50, dlg.grab_set)
+    dlg.wait_window()
+
+
 def _build_tree_str(paths: list[str]) -> str:
     """Convert a flat list of slash-separated paths into an ASCII folder tree."""
     root: dict = {}
@@ -567,14 +644,14 @@ class _PriorityDialog(ctk.CTkToplevel):
         try:
             value = int(raw)
         except ValueError:
-            tk.messagebox.showerror(
+            show_error(
                 "Invalid Value",
                 "Please enter a whole number.",
                 parent=self,
             )
             return
         if value < 0:
-            tk.messagebox.showerror(
+            show_error(
                 "Invalid Value",
                 "Please enter 0 or a positive number.",
                 parent=self,
