@@ -1592,7 +1592,7 @@ class _ExeConfigDialog(ctk.CTkToplevel):
                  deploy_before_launch: "bool | None" = None):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title(f"Configure: {exe_path.name}")
-        self.geometry("480x210" if launch_mode is not None else "640x560")
+        self.geometry("480x180" if launch_mode is not None else "640x410")
         self.resizable(True, True)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_cancel)
@@ -1625,10 +1625,9 @@ class _ExeConfigDialog(ctk.CTkToplevel):
         self._game_flag_var = tk.StringVar(value="")
         self._output_flag_var = tk.StringVar(value="")
         self._mod_var = tk.StringVar(value="")
-        self._search_var = tk.StringVar(value="")
         self._mod_entries: list[tuple[str, "Path"]] = self._load_mod_entries()
-        self._filtered_entries: list[tuple[str, "Path"]] = list(self._mod_entries)
-        self._radio_buttons: list[ctk.CTkRadioButton] = []
+        self._mod_popup: "tk.Toplevel | None" = None
+        self._mod_popup_click_id: str = ""
 
         self._build()
         if self._initial_launch_mode is None:
@@ -1637,7 +1636,6 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             self._output_flag_var.trace_add("write", self._assemble)
         if self._initial_launch_mode is None:
             self._mod_var.trace_add("write", self._assemble)
-            self._search_var.trace_add("write", self._on_search_changed)
 
         self.after(80, self._make_modal)
 
@@ -1647,7 +1645,7 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             entries.append(("overwrite", self._overwrite_path))
         if self._mods_path and self._mods_path.is_dir():
             for e in sorted(self._mods_path.iterdir(), key=lambda p: p.name.casefold()):
-                if e.is_dir():
+                if e.is_dir() and "_separator" not in e.name:
                     entries.append((e.name, e))
         return entries
 
@@ -1664,8 +1662,6 @@ class _ExeConfigDialog(ctk.CTkToplevel):
         is_game_exe = self._initial_launch_mode is not None
 
         if not is_game_exe:
-            self.grid_rowconfigure(2, weight=1)
-
             sec1 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
             sec1.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
             sec1.grid_columnconfigure(1, weight=1)
@@ -1710,22 +1706,30 @@ class _ExeConfigDialog(ctk.CTkToplevel):
 
             ctk.CTkLabel(
                 sec2, text="Mod:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
-            ).grid(row=2, column=0, sticky="w", padx=(10, 4), pady=(0, 4))
-            ctk.CTkEntry(
-                sec2, textvariable=self._search_var, font=FONT_SMALL,
+            ).grid(row=2, column=0, sticky="w", padx=(10, 4), pady=(0, 8))
+            mod_row = ctk.CTkFrame(sec2, fg_color="transparent")
+            mod_row.grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 8))
+            mod_row.grid_columnconfigure(0, weight=1)
+            self._mod_entry = ctk.CTkEntry(
+                mod_row, textvariable=self._mod_var, font=FONT_SMALL,
                 fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
-                placeholder_text="filter mods...",
-            ).grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 4))
-
-            self._mod_scroll = ctk.CTkScrollableFrame(
-                self, fg_color=BG_PANEL, corner_radius=6,
+                placeholder_text="search mods...",
             )
-            self._mod_scroll.grid(row=2, column=0, sticky="nsew", padx=12, pady=4)
-            self._mod_scroll.grid_columnconfigure(0, weight=1)
-            self._rebuild_mod_list()
+            self._mod_entry.grid(row=0, column=0, sticky="ew")
+            self._mod_entry._entry.bind(
+                "<Control-a>",
+                lambda e: (self._mod_entry._entry.select_range(0, "end"),
+                           self._mod_entry._entry.icursor("end"), "break")[2],
+            )
+            ctk.CTkButton(
+                mod_row, text="▼", width=28, font=FONT_SMALL,
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                command=self._open_mod_popup,
+            ).grid(row=0, column=1, padx=(4, 0))
+            self._mod_var.trace_add("write", self._on_mod_typed)
 
             sec3 = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
-            sec3.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
+            sec3.grid(row=2, column=0, sticky="ew", padx=12, pady=4)
             sec3.grid_columnconfigure(0, weight=1)
 
             ctk.CTkLabel(
@@ -1772,7 +1776,7 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
 
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=48)
-        bar.grid(row=1 if is_game_exe else 5, column=0, sticky="ew")
+        bar.grid(row=1 if is_game_exe else 3, column=0, sticky="ew")
         bar.grid_propagate(False)
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
             side="top", fill="x"
@@ -1795,30 +1799,120 @@ class _ExeConfigDialog(ctk.CTkToplevel):
                 command=self._on_remove,
             ).pack(side="left", padx=(12, 4), pady=9)
 
-    def _rebuild_mod_list(self):
-        for rb in self._radio_buttons:
-            rb.destroy()
-        self._radio_buttons.clear()
 
-        for display, path in self._filtered_entries:
-            rb = ctk.CTkRadioButton(
-                self._mod_scroll, text=display,
-                variable=self._mod_var, value=display,
-                font=FONT_SMALL, text_color=TEXT_MAIN,
-                fg_color=ACCENT, hover_color=ACCENT_HOV,
+    def _on_mod_typed(self, *_):
+        """Refresh popup list as the user types."""
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._populate_mod_popup()
+
+    def _open_mod_popup(self):
+        """Open (or close) the bounded scrollable mod picker."""
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._mod_popup.destroy()
+            self._mod_popup = None
+            return
+
+        popup = tk.Toplevel(self)
+        popup.overrideredirect(True)
+        popup.configure(bg=BG_PANEL)
+        self._mod_popup = popup
+
+        # Position below the entry widget
+        self._mod_entry.update_idletasks()
+        x = self._mod_entry.winfo_rootx()
+        y = self._mod_entry.winfo_rooty() + self._mod_entry.winfo_height() + 2
+        w = self._mod_entry.winfo_width() + 32  # include button width
+        popup.geometry(f"{w}x300+{x}+{y}")
+
+        scroll = ctk.CTkScrollableFrame(popup, fg_color=BG_PANEL, corner_radius=0)
+        scroll.pack(fill="both", expand=True)
+        scroll.grid_columnconfigure(0, weight=1)
+        self._mod_popup_scroll = scroll
+        self._populate_mod_popup()
+
+        popup.bind("<Escape>", lambda _: self._close_mod_popup())
+        popup.lift()
+
+        # Scroll wheel — forward to the inner canvas of the CTkScrollableFrame
+        def _forward_scroll(event):
+            canvas = scroll._parent_canvas
+            if event.num == 4 or event.delta > 0:
+                canvas.yview_scroll(-1, "units")
+            else:
+                canvas.yview_scroll(1, "units")
+        popup.bind("<MouseWheel>", _forward_scroll)
+        popup.bind("<Button-4>", _forward_scroll)
+        popup.bind("<Button-5>", _forward_scroll)
+
+        # Delay binding so the current click (on ▼) doesn't immediately close the popup
+        def _bind_click_dismiss():
+            if self._mod_popup and self._mod_popup.winfo_exists():
+                self._mod_popup_click_id = self.bind(
+                    "<Button-1>", self._on_root_click_while_popup, add="+"
+                )
+        self.after(100, _bind_click_dismiss)
+        # Start polling to close when the app loses focus to another window
+        self._poll_mod_popup_focus()
+
+    def _poll_mod_popup_focus(self):
+        if not self._mod_popup or not self._mod_popup.winfo_exists():
+            return
+        # Check if mouse pointer is over any of our app's widgets
+        try:
+            mx, my = self.winfo_pointerx(), self.winfo_pointery()
+            widget_under = self.winfo_containing(mx, my)
+        except Exception:
+            widget_under = None
+        # Close only when pointer is outside all our windows AND dialog has no focus
+        # (i.e. user switched to another application entirely)
+        if widget_under is None and not self.focus_get():
+            self._close_mod_popup()
+            return
+        self.after(300, self._poll_mod_popup_focus)
+
+    def _close_mod_popup(self):
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._mod_popup.destroy()
+        self._mod_popup = None
+        try:
+            self.unbind("<Button-1>", self._mod_popup_click_id)
+        except Exception:
+            pass
+
+    def _on_root_click_while_popup(self, event):
+        if not self._mod_popup or not self._mod_popup.winfo_exists():
+            self._close_mod_popup()
+            return
+        # Don't close if the click was inside the popup
+        px, py, pw, ph = (
+            self._mod_popup.winfo_rootx(), self._mod_popup.winfo_rooty(),
+            self._mod_popup.winfo_width(), self._mod_popup.winfo_height(),
+        )
+        if px <= event.x_root <= px + pw and py <= event.y_root <= py + ph:
+            return
+        self._close_mod_popup()
+
+    def _populate_mod_popup(self):
+        scroll = self._mod_popup_scroll
+        for w in scroll.winfo_children():
+            w.destroy()
+        query = self._mod_var.get().casefold()
+        names = [n for n, _ in self._mod_entries]
+        filtered = [n for n in names if query in n.casefold()] if query else names
+        for name in filtered:
+            btn = ctk.CTkButton(
+                scroll, text=name, anchor="w", font=FONT_SMALL,
+                fg_color="transparent", hover_color=BG_HOVER, text_color=TEXT_MAIN,
+                height=26, corner_radius=4,
+                command=lambda n=name: self._select_mod(n),
             )
-            rb.grid(sticky="w", padx=6, pady=1)
-            self._radio_buttons.append(rb)
+            btn.pack(fill="x", padx=4, pady=1)
 
-    def _on_search_changed(self, *_):
-        query = self._search_var.get().casefold()
-        if query:
-            self._filtered_entries = [
-                (n, p) for n, p in self._mod_entries if query in n.casefold()
-            ]
-        else:
-            self._filtered_entries = list(self._mod_entries)
-        self._rebuild_mod_list()
+    def _select_mod(self, name: str):
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._mod_popup.destroy()
+            self._mod_popup = None
+        self._mod_var.set(name)
 
     def _assemble(self, *_):
         parts: list[str] = []
