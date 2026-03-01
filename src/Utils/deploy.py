@@ -551,6 +551,8 @@ def restore_data_core(
     #   - is not present in core_dir (not a vanilla file)
     #   - is not listed in filemap.txt (copied mod files have nlink==1 when their
     #     staging copy was replaced after deploy, breaking the hardlink)
+    #   - is not listed in modindex.txt (catches cross-profile mod files not in
+    #     the current filemap.txt — e.g. when switching profiles)
     if overwrite_dir is not None and deploy_dir.is_dir():
         core_lower: set[str] = {
             f.relative_to(core_dir).as_posix().lower()
@@ -564,6 +566,18 @@ def restore_data_core(
                     _line = _line.rstrip("\n")
                     if "\t" in _line:
                         filemap_lower.add(_line.split("\t", 1)[0].lower())
+        # Build a set of every file known to any mod in the index (all profiles,
+        # all mods, enabled or disabled).  Runtime-created files won't appear here,
+        # so any hit means "this is a mod file, don't rescue it".
+        modindex_lower: set[str] = set()
+        try:
+            from Utils.filemap import read_mod_index
+            _index = read_mod_index(overwrite_dir.parent / "modindex.txt")
+            if _index:
+                for _mod_name, (_normal, _root) in _index.items():
+                    modindex_lower.update(_normal.keys())
+        except Exception:
+            pass
         rescued = 0
         for src in deploy_dir.rglob("*"):
             if not src.is_file():
@@ -578,6 +592,8 @@ def restore_data_core(
                 continue  # vanilla file — will be restored from core
             if rel_lower in filemap_lower:
                 continue  # known mod file whose hardlink was broken by a staging update
+            if rel_lower in modindex_lower:
+                continue  # known mod file (any mod/profile) — not runtime-created
             dst = overwrite_dir / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
