@@ -68,11 +68,11 @@ The manager supports many supporting applications used to mod games. Place the a
 
 | Status | Application | Notes |
 |--------|-------------|-------|
-| Working | **Pandora Behaviour Engine** | `--tesv:` and `--output:` args |
-| Working | **SSEEdit** | `-d` and `-o` args |
-| Working | **pgpatcher** | Requires `d3dcompiler_47` installed to the game prefix via Protontricks |
-| Working | **DynDOLOD** | `-d` and `-o` args |
-| Working | **TexGen** | `-d` and `-o` args |
+| Working | **Pandora Behaviour Engine** | `--tesv:` and `--output:` args applied at runtime|
+| Working | **SSEEdit** | `-d` and `-o` args applied at runtime|
+| Working | **pgpatcher** | Requires `d3dcompiler_47` installed to the game prefix via Protontricks. Config auto generated to include Data directory and output folder |
+| Working | **DynDOLOD** | `-d` and `-o` args applied at runtime|
+| Working | **TexGen** | `-d` and `-o` args applied at runtime|
 | Working | **xLodGen** | `-d` and `-o` args. Game argument appended at runtime |
 | Working | **Bethini Pie** | Just works |
 | Experimental | **Vramr** | Experimental python wrapper See below for instructions|
