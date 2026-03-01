@@ -62,8 +62,10 @@ from gui.dialogs import (
     _OverwritesDialog,
     _PriorityDialog,
     _SepColorPickerDialog,
+    ask_yes_no,
+    show_error,
 )
-from gui.install_mod import install_mod_from_archive
+from gui.install_mod import install_mod_from_archive, _show_mod_notification
 from gui.add_game_dialog import AddGameDialog, sync_modlist_with_mods_folder
 from gui.modlist_filters_dialog import ModlistFiltersDialog
 from gui.backup_restore_dialog import BackupRestoreDialog
@@ -2373,7 +2375,7 @@ class ModListPanel(ctk.CTkFrame):
         entry = self._entries[idx]
         if entry.is_separator:
             return
-        confirmed = tk.messagebox.askyesno(
+        confirmed = ask_yes_no(
             "Remove Mod",
             f"Remove '{entry.name}'?\n\nThis will delete the mod folder and cannot be undone.",
             parent=self.winfo_toplevel(),
@@ -2401,6 +2403,7 @@ class ModListPanel(ctk.CTkFrame):
         self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
+        _show_mod_notification(self.winfo_toplevel(), f"Removed: {entry.name}", state="warning")
 
     def _enable_selected_mods(self, indices: list[int]):
         """Enable all mods at the given indices."""
@@ -2434,7 +2437,7 @@ class ModListPanel(ctk.CTkFrame):
                  if 0 <= i < len(self._entries)]
         if not names:
             return
-        confirmed = tk.messagebox.askyesno(
+        confirmed = ask_yes_no(
             "Remove Mods",
             f"Remove {len(names)} selected mod(s)?\n\nThis will delete the mod folders and cannot be undone.",
             parent=self.winfo_toplevel(),
@@ -2472,6 +2475,12 @@ class ModListPanel(ctk.CTkFrame):
         self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
+        if removed_names:
+            if len(removed_names) == 1:
+                msg = f"Removed: {removed_names[0]}"
+            else:
+                msg = f"Removed {len(removed_names)} mods"
+            _show_mod_notification(self.winfo_toplevel(), msg, state="warning")
 
     def _rename_mod(self, idx: int):
         if not (0 <= idx < len(self._entries)):
@@ -2492,7 +2501,7 @@ class ModListPanel(ctk.CTkFrame):
             new_folder = staging_root / new_name
             if old_folder.is_dir():
                 if new_folder.exists():
-                    tk.messagebox.showerror(
+                    show_error(
                         "Rename Failed",
                         f"A mod named '{new_name}' already exists.",
                         parent=top,
@@ -3618,7 +3627,7 @@ class ModListPanel(ctk.CTkFrame):
         # Check for name collision
         existing = {e.name for e in self._entries}
         if mod_name in existing:
-            tk.messagebox.showerror(
+            show_error(
                 "Name Conflict",
                 f"A mod or separator named '{mod_name}' already exists.",
                 parent=self.winfo_toplevel(),

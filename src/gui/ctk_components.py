@@ -256,12 +256,9 @@ class CTkNotification(ctk.CTkFrame):
     def __init__(self, master, state: str = "info", message: str = "message", side: str = "right_bottom"):
         self.root = master
         self.width = 400
-        self.height = 60
-        super().__init__(self.root, width=self.width, height=self.height, corner_radius=5, border_width=1)
-        self.grid_propagate(False)
+        super().__init__(self.root, width=self.width, corner_radius=5, border_width=1)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
 
         self.horizontal, self.vertical = side.split("_")
 
@@ -272,12 +269,16 @@ class CTkNotification(ctk.CTkFrame):
 
         self.close_icon = ctk.CTkImage(Image.open(ICON_PATH["close"][0]), Image.open(ICON_PATH["close"][1]), (20, 20))
 
-        self.message_label = ctk.CTkLabel(self, text=f"  {message}", font=("", 13), image=self.icon, compound="left")
+        # Reserve space for icon (24px) + padx (15+5) + close btn (20+10+10) = ~84px
+        _wrap = self.width - 84
+        self.message_label = ctk.CTkLabel(self, text=f"  {message}", font=("", 13), image=self.icon,
+                                          compound="left", wraplength=_wrap, justify="left",
+                                          anchor="w")
         self.message_label.grid(row=0, column=0, sticky="nsw", padx=15, pady=10)
 
         self.close_btn = ctk.CTkButton(self, text="", image=self.close_icon, width=20, height=20, hover=False,
                                        fg_color="transparent", command=self.close_notification)
-        self.close_btn.grid(row=0, column=1, sticky="nse", padx=10, pady=10)
+        self.close_btn.grid(row=0, column=1, sticky="ne", padx=10, pady=10)
 
         if place_frame:
             place_frame(self.root, self, self.horizontal, self.vertical)

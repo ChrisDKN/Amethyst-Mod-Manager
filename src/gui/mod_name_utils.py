@@ -66,10 +66,13 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
       2. Strip title metadata (parentheses, brackets, version strings, underscores).
       3. Return de-duplicated list from cleanest to rawest.
     """
-    # Step 1: strip trailing numeric dash-segments (Nexus: name-id-ver-timestamp)
-    nexus_clean = re.sub(r"(-\d+)+$", "", filename_stem).strip()
+    # Step 1: strip duplicate-download suffix added by browsers/OS (e.g. " (1)", " (2)")
+    stem = re.sub(r"\s*\(\d+\)\s*$", "", filename_stem).strip()
 
-    # Step 2: strip title metadata from the Nexus-cleaned name
+    # Step 2 (was 1): strip trailing numeric dash-segments (Nexus: name-id-ver-timestamp)
+    nexus_clean = re.sub(r"(-\d+)+$", "", stem).strip()
+
+    # Step 3 (was 2): strip title metadata from the Nexus-cleaned name
     title_clean = _strip_title_metadata(nexus_clean)
 
     # Build de-duplicated list from cleanest to rawest

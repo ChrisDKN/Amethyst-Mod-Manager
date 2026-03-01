@@ -29,6 +29,38 @@ from Utils.plugins import read_plugins, append_plugin
 from Utils.modlist import prepend_mod, ensure_mod_preserving_position
 from Utils.filemap import _scan_dir, update_mod_index
 from Nexus.nexus_meta import write_meta, resolve_nexus_meta_for_archive
+from gui.ctk_components import CTkNotification
+
+
+def _show_mod_notification(parent_window, message: str, state: str = "success") -> None:
+    """Show a notification on the root window, auto-dismiss after 4 s."""
+    try:
+        root = parent_window.winfo_toplevel()
+        notif = CTkNotification(root, state=state, message=message)
+
+        def _reposition(*_):
+            try:
+                rw = root.winfo_width()
+                rh = root.winfo_height()
+                notif.place(x=rw - notif.width - 20,
+                            y=rh - notif.winfo_reqheight() - 20)
+            except Exception:
+                pass
+
+        notif.update_idletasks()
+        _reposition()
+        _bind_id = root.bind("<Configure>", _reposition, add="+")
+
+        def _dismiss():
+            try:
+                root.unbind("<Configure>", _bind_id)
+                notif.destroy()
+            except Exception:
+                pass
+
+        root.after(4000, _dismiss)
+    except Exception:
+        pass
 
 
 def _build_tree_str(paths: list[str]) -> str:
@@ -159,10 +191,16 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
         dst = dest_root / dst_rel
 
         if is_folder:
+            # Empty destination means copy the folder itself into dest_root
+            if not dst_rel:
+                dst = dest_root / src.name
             if src.is_dir():
                 shutil.copytree(src, dst, dirs_exist_ok=True)
                 copied += 1
         else:
+            # Empty destination means place file at dest_root using source filename
+            if not dst_rel:
+                dst = dest_root / src.name
             if src.is_file():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 if dst.exists():
@@ -451,6 +489,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 except Exception:
                     pass
             threading.Thread(target=_detect_meta, daemon=True).start()
+
+        _show_mod_notification(parent_window, f"Installed: {mod_name}")
 
         if on_installed is not None:
             try:

@@ -40,6 +40,7 @@ from gui.dialogs import (
     _ProtonToolsDialog,
     _MewgenicsDeployChoiceDialog,
     _MewgenicsLaunchCommandDialog,
+    ask_yes_no,
 )
 from gui.path_utils import pick_file_mod_archive
 from gui.install_mod import install_mod_from_archive
@@ -325,7 +326,7 @@ class TopBar(ctk.CTkFrame):
         if profile == "default":
             self._log("Cannot remove the default profile.")
             return
-        confirmed = tk.messagebox.askyesno(
+        confirmed = ask_yes_no(
             "Remove Profile",
             f"Remove profile '{profile}'?\n\nThis will delete modlist.txt and plugins.txt for this profile.",
             parent=self.winfo_toplevel(),
