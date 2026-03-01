@@ -42,7 +42,7 @@ class StardewValley(BaseGame):
 
     @property
     def exe_name(self) -> str:
-        return "Stardew Valley.dll"
+        return "StardewValley"
 
     @property
     def steam_id(self) -> str:
