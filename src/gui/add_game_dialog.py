@@ -9,6 +9,7 @@ with a manual folder-picker fallback via XDG portal or zenity.
 from __future__ import annotations
 
 import shutil
+import subprocess
 import threading
 from pathlib import Path
 from typing import Optional
@@ -166,12 +167,22 @@ class AddGameDialog(ctk.CTkToplevel):
         )
         self._path_box.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 2))
 
+        _path_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
+        _path_btn_frame.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 8))
+
         self._browse_btn = ctk.CTkButton(
-            body, text="Browse manually…", width=160, height=26,
+            _path_btn_frame, text="Browse manually…", width=160, height=26,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse
         )
-        self._browse_btn.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 8))
+        self._browse_btn.pack(side="left", padx=(0, 6))
+
+        self._open_btn = ctk.CTkButton(
+            _path_btn_frame, text="Open", width=70, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_open_path, state="disabled"
+        )
+        self._open_btn.pack(side="left")
 
         # Divider
         ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
@@ -201,13 +212,23 @@ class AddGameDialog(ctk.CTkToplevel):
         )
         self._prefix_box.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 2))
 
+        _prefix_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
+        _prefix_btn_frame.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 6))
+
         self._prefix_browse_btn = ctk.CTkButton(
-            body, text="Browse manually…", width=160, height=26,
+            _prefix_btn_frame, text="Browse manually…", width=160, height=26,
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse_prefix,
             state="normal" if _has_prefix_source else "disabled"
         )
-        self._prefix_browse_btn.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 6))
+        self._prefix_browse_btn.pack(side="left", padx=(0, 6))
+
+        self._prefix_open_btn = ctk.CTkButton(
+            _prefix_btn_frame, text="Open", width=70, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_open_prefix, state="disabled"
+        )
+        self._prefix_open_btn.pack(side="left")
 
         # Divider
         ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
@@ -241,6 +262,13 @@ class AddGameDialog(ctk.CTkToplevel):
             font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, command=self._on_browse_staging
         ).pack(side="left", padx=(0, 6))
+
+        self._staging_open_btn = ctk.CTkButton(
+            _staging_btn_frame, text="Open", width=70, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_open_staging
+        )
+        self._staging_open_btn.pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
             _staging_btn_frame, text="Reset to default", width=130, height=26,
@@ -423,6 +451,7 @@ class AddGameDialog(ctk.CTkToplevel):
                 text_color=TEXT_OK
             )
         self._add_btn.configure(state="normal")
+        self._open_btn.configure(state="normal")
 
     def _set_path_text(self, text: str):
         self._path_box.configure(state="normal")
@@ -444,6 +473,7 @@ class AddGameDialog(ctk.CTkToplevel):
                 text="Found via Steam compatdata.",
                 text_color=TEXT_OK
             )
+        self._prefix_open_btn.configure(state="normal")
 
     def _set_prefix_text(self, text: str):
         self._prefix_box.configure(state="normal")
@@ -547,6 +577,21 @@ class AddGameDialog(ctk.CTkToplevel):
         self._run_folder_picker(
             f"Select mod staging folder for {self._game.name}", _apply
         )
+
+    def _on_open_path(self):
+        """Open the game installation folder in the file manager."""
+        if self._found_path:
+            subprocess.Popen(["xdg-open", str(self._found_path)])
+
+    def _on_open_prefix(self):
+        """Open the Proton prefix folder in the file manager."""
+        if self._found_prefix:
+            subprocess.Popen(["xdg-open", str(self._found_prefix)])
+
+    def _on_open_staging(self):
+        """Open the mod staging folder in the file manager."""
+        path = self._custom_staging or self._game.get_mod_staging_path()
+        subprocess.Popen(["xdg-open", str(path)])
 
     def _on_reset_staging(self):
         """Clear any custom staging path and revert to the default location."""
