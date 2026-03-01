@@ -8,6 +8,7 @@ import os
 import subprocess
 import threading
 import tkinter as tk
+import webbrowser
 import tkinter.ttk as ttk
 from pathlib import Path
 
@@ -1134,9 +1135,13 @@ class PluginPanel(ctk.CTkFrame):
                 def _fallback():
                     if mod_panel:
                         mod_panel.hide_download_progress()
-                    webbrowser.open(files_url)
                     log_fn("Tracked Mods: Premium required for direct download.")
-                    log_fn("Tracked Mods: Opened files page — click \"Download with Mod Manager\" there.")
+                    log_fn(f"Tracked Mods: Opening files page — click \"Download with Mod Manager\" there.")
+                    log_fn(f"Tracked Mods: {files_url}")
+                    try:
+                        webbrowser.open(files_url)
+                    except Exception as exc:
+                        log_fn(f"Tracked Mods: Could not open browser — {exc}")
                 app.after(0, _fallback)
                 return
 
@@ -1299,9 +1304,13 @@ class PluginPanel(ctk.CTkFrame):
                 def _fallback():
                     if mod_panel:
                         mod_panel.hide_download_progress()
-                    webbrowser.open(files_url)
                     log_fn("Endorsed Mods: Premium required for direct download.")
-                    log_fn("Endorsed Mods: Opened files page — click \"Download with Mod Manager\" there.")
+                    log_fn(f"Endorsed Mods: Opening files page — click \"Download with Mod Manager\" there.")
+                    log_fn(f"Endorsed Mods: {files_url}")
+                    try:
+                        webbrowser.open(files_url)
+                    except Exception as exc:
+                        log_fn(f"Endorsed Mods: Could not open browser — {exc}")
                 app.after(0, _fallback)
                 return
 
@@ -1457,9 +1466,13 @@ class PluginPanel(ctk.CTkFrame):
                 def _fallback():
                     if mod_panel:
                         mod_panel.hide_download_progress()
-                    webbrowser.open(files_url)
                     log_fn("Browse: Premium required for direct download.")
-                    log_fn('Browse: Opened files page — click "Download with Mod Manager" there.')
+                    log_fn(f'Browse: Opening files page — click "Download with Mod Manager" there.')
+                    log_fn(f"Browse: {files_url}")
+                    try:
+                        webbrowser.open(files_url)
+                    except Exception as exc:
+                        log_fn(f"Browse: Could not open browser — {exc}")
                 app.after(0, _fallback)
                 return
 
