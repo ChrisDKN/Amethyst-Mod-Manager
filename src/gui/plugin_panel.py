@@ -556,6 +556,7 @@ class PluginPanel(ctk.CTkFrame):
     _BAT_WRAPPERS: dict[str, str] = {
         "vramr.bat": "_run_vramr_wrapper",
         "bendr.bat": "_run_bendr_wrapper",
+        "parallaxr.bat": "_run_parallaxr_wrapper",
     }
 
     def _on_run_exe(self):
@@ -904,6 +905,42 @@ class PluginPanel(ctk.CTkFrame):
 
         from gui.dialogs import _BENDrRunDialog
         _BENDrRunDialog(
+            self.winfo_toplevel(),
+            bat_dir=bat_path.parent,
+            game_data_dir=data_dir,
+            output_dir=output_dir,
+            log_fn=self._log,
+        )
+
+    # ── ParallaxR wrapper ──────────────────────────────────────────────
+
+    def _run_parallaxr_wrapper(self, bat_path: Path):
+        """Run ParallaxR parallax-texture pipeline via the Linux wrapper."""
+        game = self._game
+        if game is None:
+            self._log("ParallaxR: no game selected.")
+            return
+
+        data_dir = (
+            game.get_mod_data_path()
+            if hasattr(game, "get_mod_data_path") else None
+        )
+        if data_dir is None or not data_dir.is_dir():
+            self._log("ParallaxR: game Data directory not configured or missing.")
+            return
+
+        staging = (
+            game.get_mod_staging_path()
+            if hasattr(game, "get_mod_staging_path") else None
+        )
+        if staging is None:
+            self._log("ParallaxR: mod staging path not configured.")
+            return
+
+        output_dir = staging / "ParallaxR"
+
+        from gui.dialogs import _ParallaxRRunDialog
+        _ParallaxRRunDialog(
             self.winfo_toplevel(),
             bat_dir=bat_path.parent,
             game_data_dir=data_dir,

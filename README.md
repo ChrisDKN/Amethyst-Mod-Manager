@@ -75,8 +75,9 @@ The manager supports many supporting applications used to mod games. Place the a
 | Working | **TexGen** | `-d` and `-o` args |
 | Working | **xLodGen** | `-d` and `-o` args. Game argument appended at runtime |
 | Working | **Bethini Pie** | Just works |
-| Working | **Vramr** | Experimental python wrapper See below for instructions|
-| Working | **Bendr** | Experimental python wrapper See below for instructions|
+| Experimental | **Vramr** | Experimental python wrapper See below for instructions|
+| Experimental | **Bendr** | Experimental python wrapper See below for instructions|
+| Experimental | **ParallaxR** | Experimental python wrapper See below for instructions|
 | Working | **Wrye Bash** | `-o` Auto generated for selected game at runtime |
 | Working | **Synthesis** | Requires .net10 sdk and .net5 runtime installed into the prefix (Use the proton tools window to do this) |
 | Working | **Witcher 3 Script merger** | Game path added to config automatically |
@@ -98,17 +99,21 @@ As this application is fairly new, the following needs testing:
 - Verification that all added games work
 - Baulders Gate 3 testing - The Mod manager can build modsettings.lsx but further testing is needed to know if it's working fully
 
-## VRAMr + BENDr
+## VRAMr + BENDr + ParallaxR
+
+The following applications were tested and run in Ge-proton 10, It is reccomemded to have ge-proton 10 installed for these to work. These are very experimental and may not work as expected.
 
 VRAMr (Version 15.0723) works by using an experimental python wrapper. The optimisation step is also changed to use compressonator which is faster with native Linux support vs running texconv through Wine/Proton
 
 BENDr (Version 2.21) Uses a similar process
 
+ParallaxR (Version 2.0) Uses a similar process, Requires a patched ucrtbase.dll (This one can be quite slow, Not much I can do about that)
+
+> Why is ucrtbase.dll included? Wine is missing implementations for a few C99 math functions (crealf, cimagf, etc.) that HeightMap.exe requires. This is a copy of Wine's own ucrtbase.dll with those ~4 stub functions patched to work correctly.
+
 **Any issues with this should be reported here and not to the VRAMr devs, This is experimental and not an offical Linux release**
 
-- Place the Vramr/Bendr folder in Skyrim Special Edition/Applications/ in the games staging foler
-- In Amethyst mod manager, run VRAMr.bat/BENDr.bat
-- It will run the wrapper script, Progress will be added to the log
-- Output will be placed as a mod in a VRAMr/BENDr folder
-
-Support for other applications (ParallaxR) may be added in future
+- Place the Vramr/Bendr/ParallaxR folder in Skyrim Special Edition/Applications/ in the games staging folder
+- In Amethyst mod manager, run VRAMr.bat/BENDr.bat/ParallaxR.bat **Make sure your modlist is deployed first**
+- It will run the wrapper script, Progress will be added to the log, A temporary wine prefix will be created in the home directory
+- Output will be placed as a mod in a VRAMr/BENDr/ParallaxR folder. Refresh the modlist and enable it. Delete it if you want to do another run but remember to deploy before you do so.

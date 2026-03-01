@@ -16,7 +16,9 @@ Public entry point:  run_vramr(...)
 from __future__ import annotations
 
 import os
-import platform
+import pty
+import re
+import select
 import shutil
 import sqlite3
 import subprocess
@@ -26,6 +28,8 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\[[?][0-9;]*[A-Za-z]|\x1b[A-Za-z]|\r")
 
 from Utils.config_paths import get_config_dir
 from Utils.steam_finder import find_any_installed_proton
@@ -92,24 +96,80 @@ def _wine_run(
     display = label or Path(exe).name
     log_fn(f"── {display} ──")
 
-    proc = subprocess.Popen(
-        [wine, exe] + args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        env=env,
-        text=True,
-        errors="replace",
-    )
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        stripped = line.rstrip("\n\r")
-        if stripped:
-            log_fn(f"  {stripped}")
-    proc.wait()
+    # Use a PTY so the frozen Python exes see a real console, not a pipe.
+    # Without a PTY, isatty() returns False and Python initialises sys.stdout
+    # with Wine's GetACP() fallback (cp1252), causing alive_progress to emit
+    # Unicode escape sequences instead of spinner characters.
+    master_fd, slave_fd = pty.openpty()
+    try:
+        proc = subprocess.Popen(
+            [wine, exe] + args,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            env=env,
+        )
+        os.close(slave_fd)
+        slave_fd = -1
+
+        buf = b""
+        while True:
+            try:
+                r, _, _ = select.select([master_fd], [], [], 0.1)
+            except (ValueError, OSError):
+                break
+            if r:
+                try:
+                    chunk = os.read(master_fd, 4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                buf += chunk
+                while b"\n" in buf:
+                    line_bytes, buf = buf.split(b"\n", 1)
+                    line = line_bytes.decode("utf-8", errors="replace")
+                    stripped = _ANSI_RE.sub("", line).rstrip("\r")
+                    if stripped.strip():
+                        log_fn(f"  {stripped}")
+            elif proc.poll() is not None:
+                break
+
+        # Flush remaining buffer
+        try:
+            while True:
+                chunk = os.read(master_fd, 4096)
+                if not chunk:
+                    break
+                buf += chunk
+        except OSError:
+            pass
+        if buf:
+            line = buf.decode("utf-8", errors="replace")
+            stripped = _ANSI_RE.sub("", line).rstrip("\r\n")
+            if stripped.strip():
+                log_fn(f"  {stripped}")
+
+        proc.wait()
+    finally:
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+        if slave_fd != -1:
+            try:
+                os.close(slave_fd)
+            except OSError:
+                pass
 
     if proc.returncode != 0:
         log_fn(f"  WARNING: {display} exited with code {proc.returncode}")
     return proc.returncode
+
+
+def _ensure_utf8_prefix(wine: str, prefix: str) -> None:
+    """Ensure the Wine prefix exists and has its NLS code pages set to UTF-8."""
+    from wrappers.bendr import _ensure_utf8_prefix as _bendr_ensure_utf8_prefix
+    _bendr_ensure_utf8_prefix(wine, prefix)
 
 
 def _timestamp() -> str:
@@ -381,6 +441,7 @@ def run_vramr(
     wine = _find_wine()
     prefix = os.path.expanduser("~/vramr_wine_prefix")
     _log(f"  Wine: {wine}")
+    _ensure_utf8_prefix(wine, prefix)
 
     # Ensure native CompressonatorCLI is available
     comp_cli = _ensure_compressonator(_log)
