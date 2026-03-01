@@ -24,7 +24,7 @@ from Nexus.nexus_api import (
     save_api_key,
     clear_api_key,
 )
-from Nexus.nexus_sso import NexusSSOClient
+from Nexus.nexus_oauth import NexusOAuthClient, OAuthTokens, clear_oauth_tokens, CLIENT_ID
 from Nexus.nxm_handler import NxmHandler
 
 from gui.theme import (
@@ -73,7 +73,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         self._log = log_fn or (lambda _: None)
         self.result: Optional[bool] = None
         self._key_changed = False
-        self._sso_client: Optional[NexusSSOClient] = None
+        self._oauth_client: Optional[NexusOAuthClient] = None
 
         self._build()
         self.after(50, self._safe_grab)
@@ -101,12 +101,12 @@ class NexusSettingsDialog(ctk.CTkToplevel):
             font=FONT_SMALL, text_color=TEXT_DIM,
         ).pack(padx=16, pady=(2, 8), anchor="w")
 
-        # -- SSO Login --
+        # -- OAuth Login --
         sso_frame = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
         sso_frame.pack(padx=16, pady=(0, 6), fill="x")
 
         ctk.CTkLabel(
-            sso_frame, text="Browser Login (SSO)",
+            sso_frame, text="Browser Login",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(side="left", padx=(8, 12), pady=8)
 
@@ -116,16 +116,16 @@ class NexusSettingsDialog(ctk.CTkToplevel):
             command=self._on_sso_login,
         )
         self._sso_btn.pack(side="left", padx=4, pady=8)
-        # Login via Nexus Mods (SSO) not yet implemented — keep button disabled
-        self._sso_btn.configure(state="disabled")
-        self._log("Login via Nexus Mods is not yet implemented; button disabled.")
+        # Disable button until a CLIENT_ID is configured
+        if not CLIENT_ID:
+            self._sso_btn.configure(state="disabled")
 
         self._sso_cancel_btn = ctk.CTkButton(
             sso_frame, text="Cancel", width=70, font=FONT_SMALL,
             fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
             command=self._on_sso_cancel,
         )
-        # hidden by default; shown only while SSO is in progress
+        # hidden by default; shown only while OAuth is in progress
 
         # -- Separator --
         ctk.CTkFrame(self, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=2)
@@ -397,57 +397,76 @@ class NexusSettingsDialog(ctk.CTkToplevel):
     def _set_status(self, text: str, color: str = TEXT_DIM):
         self._status_label.configure(text=text, text_color=color)
 
-    # -- SSO login ----------------------------------------------------------
+    # -- OAuth login ---------------------------------------------------------
 
     def _on_sso_login(self):
-        """Start the SSO flow."""
+        """Start the OAuth 2.0 + PKCE browser login flow."""
         self._sso_btn.configure(state="disabled", text="Waiting...")
         self._sso_cancel_btn.pack(side="left", padx=(4, 8), pady=8)
-        self._set_status("Starting SSO login...", TEXT_DIM)
+        self._set_status("Starting browser login...", TEXT_DIM)
 
-        self._sso_client = NexusSSOClient(
-            on_api_key=self._sso_on_key,
-            on_error=self._sso_on_error,
-            on_status=self._sso_on_status,
+        self._oauth_client = NexusOAuthClient(
+            on_token=self._oauth_on_token,
+            on_error=self._oauth_on_error,
+            on_status=self._oauth_on_status,
         )
-        self._sso_client.start()
+        self._oauth_client.start()
 
     def _on_sso_cancel(self):
-        """Cancel a running SSO flow."""
-        if self._sso_client:
-            self._sso_client.cancel()
-            self._sso_client = None
-        self._sso_btn.configure(state="normal", text="Log in via Nexus Mods")
+        """Cancel a running OAuth flow."""
+        if self._oauth_client:
+            self._oauth_client.cancel()
+            self._oauth_client = None
+        self._sso_btn.configure(state="normal" if CLIENT_ID else "disabled",
+                                text="Log in via Nexus Mods")
         self._sso_cancel_btn.pack_forget()
-        self._set_status("SSO login cancelled.", TEXT_WARN)
+        self._set_status("Login cancelled.", TEXT_WARN)
 
-    def _sso_on_key(self, api_key: str):
-        """Called from SSO thread when the API key is received."""
+    def _oauth_on_token(self, tokens: OAuthTokens):
+        """Called from OAuth thread when tokens are received."""
         def _update():
-            save_api_key(api_key)
-            self._key_var.set(api_key)
+            # Validate via API and show username, using Bearer token
             self._key_changed = True
-            self._sso_btn.configure(state="normal", text="Log in via Nexus Mods")
+            self._sso_btn.configure(state="normal" if CLIENT_ID else "disabled",
+                                    text="Log in via Nexus Mods")
             self._sso_cancel_btn.pack_forget()
-            self._set_status("✓ Logged in via SSO — API key saved!", TEXT_OK)
+            self._set_status("✓ Logged in via Nexus Mods!", TEXT_OK)
+            # Trigger a validate call so the user name appears
+            self._validate_oauth(tokens)
         self.after(0, _update)
 
-    def _sso_on_error(self, msg: str):
-        """Called from SSO thread on error."""
+    def _validate_oauth(self, tokens: OAuthTokens):
+        """Validate the OAuth token and display the user's name."""
+        def _worker():
+            try:
+                from Nexus.nexus_api import NexusAPI
+                api = NexusAPI.from_oauth(tokens)
+                user = api.validate()
+                premium = " (Premium)" if user.is_premium else ""
+                self.after(0, lambda: self._set_status(
+                    f"✓ Logged in as {user.name}{premium}", TEXT_OK))
+            except Exception as exc:
+                self.after(0, lambda: self._set_status(
+                    f"✓ Logged in (could not fetch user info: {exc})", TEXT_OK))
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _oauth_on_error(self, msg: str):
+        """Called from OAuth thread on error."""
         def _update():
-            self._sso_btn.configure(state="normal", text="Log in via Nexus Mods")
+            self._sso_btn.configure(state="normal" if CLIENT_ID else "disabled",
+                                    text="Log in via Nexus Mods")
             self._sso_cancel_btn.pack_forget()
-            self._set_status(f"✗ SSO: {msg}", TEXT_ERR)
+            self._set_status(f"✗ Login failed: {msg}", TEXT_ERR)
         self.after(0, _update)
 
-    def _sso_on_status(self, msg: str):
-        """Called from SSO thread with status updates."""
+    def _oauth_on_status(self, msg: str):
+        """Called from OAuth thread with status updates."""
         self.after(0, lambda: self._set_status(msg, TEXT_DIM))
 
     def _on_close(self):
-        # Cancel any active SSO flow
-        if self._sso_client and self._sso_client.is_running:
-            self._sso_client.cancel()
+        # Cancel any active OAuth flow
+        if self._oauth_client and self._oauth_client.is_running:
+            self._oauth_client.cancel()
         if self._key_changed and self._on_key_changed:
             self._on_key_changed()
         self.result = self._key_changed

@@ -303,6 +303,10 @@ class NexusAPI:
     """
     Synchronous Nexus Mods v1 REST client.
 
+    Supports two auth modes:
+      - API key  (legacy):  NexusAPI(api_key="...")
+      - OAuth Bearer token: NexusAPI.from_oauth(tokens)
+
     Parameters
     ----------
     api_key : str
@@ -323,6 +327,37 @@ class NexusAPI:
             "Application-Version": APP_VERSION,
             "Accept": "application/json",
         })
+
+    @classmethod
+    def from_oauth(cls, tokens: "Any", timeout: float = 30.0) -> "NexusAPI":
+        """
+        Create a NexusAPI instance authenticated via an OAuth Bearer token.
+
+        Parameters
+        ----------
+        tokens : OAuthTokens
+            Tokens obtained from nexus_oauth.load_oauth_tokens() or the login flow.
+            The access_token is used as a Bearer token; the APIKEY header is omitted.
+        timeout : float
+            Request timeout in seconds.
+        """
+        # Import here to avoid a circular dependency at module load time
+        from Nexus.nexus_oauth import refresh_if_needed
+        tokens = refresh_if_needed(tokens)
+
+        instance = cls.__new__(cls)
+        instance._key = ""
+        instance._timeout = timeout
+        instance._rate = NexusRateLimits()
+        instance._session = requests.Session()
+        instance._session.headers.update({
+            "Authorization": f"Bearer {tokens.access_token}",
+            "Content-Type": "application/json",
+            "Application-Name": APP_NAME,
+            "Application-Version": APP_VERSION,
+            "Accept": "application/json",
+        })
+        return instance
 
     # -- low-level ----------------------------------------------------------
 
