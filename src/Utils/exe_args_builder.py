@@ -58,6 +58,8 @@ class _ExeProfile(NamedTuple):
 # Add new executables here — one entry per exe name (case-sensitive).
 # ---------------------------------------------------------------------------
 
+_DATA_PROFILE = _ExeProfile(game_flag="-d:", game_path_suffix="Data", output_flag="-o:")
+
 EXE_PROFILES: dict[str, _ExeProfile] = {
     # Pandora Behaviour Engine+ ------------------------------------------------
     "Pandora Behaviour Engine+.exe": _ExeProfile(
@@ -66,54 +68,17 @@ EXE_PROFILES: dict[str, _ExeProfile] = {
         output_flag="--output:",
     ),
 
-    # SSEEdit / xEdit family ---------------------------------------------------
-    "SSEEdit64.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",    # points at <game root>/Data
-        output_flag="-o:",
-    ),
-    "SSEEdit.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-
-    # DynDOLOD -----------------------------------------------------------------
-    "DynDOLODx64.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-    "DynDOLOD.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-
-    # TexGen -------------------------------------------------------------------
-    "TexGenx64.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-    "TexGen.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-
-    # xLodGen -------------------------------------------------------------------
-    "xLODGenx64.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-    "xLODGen.exe": _ExeProfile(
-        game_flag="-d:",
-        game_path_suffix="Data",
-        output_flag="-o:",
-    ),
-
+    # xEdit / DynDOLOD / TexGen / xLODGen family --------------------
+    **{name: _DATA_PROFILE for name in (
+        "SSEEdit64.exe", "SSEEdit.exe", "SSEEditQuickAutoClean.exe",
+        "TES5Edit.exe", "TES5EditQuickAutoClean.exe", "TES5Edit64.exe", 
+        "DynDOLODx64.exe", "DynDOLOD.exe",
+        "TexGenx64.exe", "TexGen.exe",
+        "xLODGenx64.exe", "xLODGen.exe",
+        "FO4Edit.exe","FO4Edit64.exe","FO4EditQuickAutoClean.exe",
+        "TES4Edit.exe","TES4EditQuickAutoClean.exe","TES4Edit64.exe",
+        "FNVEdit.exe","FNVEdit64.exe","FNVEditQuickAutoClean.exe"
+    )},
 }
 
 # game_id → xLODGen game selection flag

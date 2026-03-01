@@ -65,7 +65,7 @@ You can also add multiple profiles with different configurations — simply crea
 
 ## Supporting Applications
 
-The manager supports many supporting applications used to mod games. Place the applications in the games applications folder and they will be auto detected. The arguments/config used to run them will be auto-generated to make setup easier.
+The manager supports many supporting applications used to mod games. Place the applications in the games applications folder (**In the staging folder**) and they will be auto detected. The arguments/config used to run them will be auto-generated to make setup easier.
 
 | Status | Application | Notes |
 |--------|-------------|-------|
@@ -81,9 +81,10 @@ The manager supports many supporting applications used to mod games. Place the a
 | Experimental | **ParallaxR** | Experimental python wrapper See below for instructions|
 | Working | **Wrye Bash** | `-o` Auto generated for selected game at runtime |
 | Working | **Synthesis** | Requires .net10 sdk and .net5 runtime installed into the prefix (Use the proton tools window to do this) |
+| Working | **Bodyslide and Outfits Studio** | Add as a mod > Deploy > refresh the exe list > Run the exe and it should work |
 | Working | **Witcher 3 Script merger** | Game path added to config automatically |
-| Not Sure | Bodyslide and Outfits Studio | Opens with the correct Data path but UI shows nothing |
 
+The other xedit applications for the other games also work as well as the quickautoclean applications.
 
 ## Running Windows Apps (e.g. SSEEdit)
 

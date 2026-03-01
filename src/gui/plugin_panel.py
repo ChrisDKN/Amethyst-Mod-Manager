@@ -252,6 +252,16 @@ class PluginPanel(ctk.CTkFrame):
     # Extensions detected in the executable dropdown (.exe always, .bat for wrapper support)
     _EXE_SCAN_EXTENSIONS = {".exe", ".bat"}
 
+    # These exes only work correctly when run from the game's Data folder.
+    # Only show them in the dropdown if they appear under Data/ in the filemap
+    # (i.e. they have been deployed there).
+    _DATA_FOLDER_ONLY_EXES = frozenset({
+        "OutfitStudio x64.exe",
+        "OutfitStudio.exe",
+        "BodySlide x64.exe",
+        "BodySlide.exe",
+    })
+
     def refresh_exe_list(self):
         """Scan for .exe and .bat files and populate the dropdown."""
         exes: list[Path] = []
@@ -272,6 +282,17 @@ class PluginPanel(ctk.CTkFrame):
                 if hasattr(self._game, "get_mod_staging_path") else None
             )
 
+            # Build a set of Data-folder-only exe names that are actually present
+            # under game_path/Data/ (recursively) after deployment.
+            data_folder_deployed: set[str] = set()
+            if game_path is not None:
+                data_dir = game_path / "Data"
+                if data_dir.is_dir():
+                    for name in self._DATA_FOLDER_ONLY_EXES:
+                        for _ in data_dir.rglob(name):
+                            data_folder_deployed.add(name)
+                            break  # one hit is enough
+
             # 1. Scan filemap for .exe/.bat files — resolve from the mods staging folder
             if staging is not None and staging.is_dir():
                 filemap_path = staging.parent / "filemap.txt"
@@ -282,8 +303,14 @@ class PluginPanel(ctk.CTkFrame):
                             if not line or "\t" not in line:
                                 continue
                             rel_path, mod_name = line.split("\t", 1)
-                            if Path(rel_path).suffix.lower() not in self._EXE_SCAN_EXTENSIONS:
+                            rel = Path(rel_path)
+                            if rel.suffix.lower() not in self._EXE_SCAN_EXTENSIONS:
                                 continue
+                            # Exes that require the Data folder are only shown
+                            # if they have been deployed there.
+                            if rel.name in self._DATA_FOLDER_ONLY_EXES:
+                                if rel.name not in data_folder_deployed:
+                                    continue
                             mod_dir = staging / mod_name
                             candidate = mod_dir / rel_path
                             if candidate.is_file():
@@ -298,7 +325,7 @@ class PluginPanel(ctk.CTkFrame):
                 if apps_dir.is_dir():
                     for ext in self._EXE_SCAN_EXTENSIONS:
                         for entry in apps_dir.rglob(f"*{ext}"):
-                            if entry.is_file():
+                            if entry.is_file() and entry.name not in self._DATA_FOLDER_ONLY_EXES:
                                 exes.append(entry)
 
             # 3. Custom exes saved via "Add custom EXE" (arbitrary paths on disk)
@@ -760,14 +787,23 @@ class PluginPanel(ctk.CTkFrame):
             if game_path:
                 extra_args += ["-o", _to_wine_path(game_path)]
 
+        # For exes that must run from the game's Data folder, resolve the
+        # deployed path so both the exe path and cwd point there.
+        launch_path = exe_path
+        if exe_path.name in self._DATA_FOLDER_ONLY_EXES and game_path is not None:
+            data_dir = game_path / "Data"
+            for hit in data_dir.rglob(exe_path.name):
+                launch_path = hit
+                break
+
         self._log(f"Run EXE: launching {exe_path.name} via {proton_script.parent.name} ...")
 
         def _worker():
             try:
                 subprocess.Popen(
-                    ["python3", str(proton_script), "run", str(exe_path)] + extra_args,
+                    ["python3", str(proton_script), "run", str(launch_path)] + extra_args,
                     env=env,
-                    cwd=exe_path.parent,
+                    cwd=launch_path.parent,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
