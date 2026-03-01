@@ -57,6 +57,7 @@ curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/s
 5. Sort your mods in the mod list panel. You can add separators to group them.
 6. If using a LOOT-supported game, you can sort and move plugins in the Plugins tab.
 7. Click **Deploy** to move the mods to the game folder, or **Restore** to undo this.
+8. Run the game via your normal method, Steam/Heroic/Lutris. You can also run the game in the top right with the run exe button.
 
 You can also add multiple profiles with different configurations — simply create/swap to that profile and deploy it.
 
@@ -109,4 +110,4 @@ BENDr (Version 2.21) Uses a similar process
 - It will run the wrapper script, Progress will be added to the log
 - Output will be placed as a mod in a VRAMr/BENDr folder
 
-Support for other applications (arallaxR) may be added in future
+Support for other applications (ParallaxR) may be added in future
