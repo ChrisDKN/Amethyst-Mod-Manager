@@ -2207,7 +2207,7 @@ class ModListPanel(ctk.CTkFrame):
                         plugin_ext = {e.lower() for e in app._plugin_panel._plugin_extensions}
                     if plugin_ext:
                         plugin_files = sorted(
-                            p.name for p in mod_dir.iterdir()
+                            p.name for p in mod_dir.rglob("*")
                             if p.is_file() and p.suffix.lower() in plugin_ext
                         )
             elif entry.name == OVERWRITE_NAME:
