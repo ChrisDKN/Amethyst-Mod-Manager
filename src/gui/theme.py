@@ -42,12 +42,12 @@ conflict_lower = "#9a0e0e"
 # ---------------------------------------------------------------------------
 # Fonts
 # ---------------------------------------------------------------------------
-FONT_NORMAL = ("Segoe UI", 14)
-FONT_BOLD   = ("Segoe UI", 14, "bold")
-FONT_SMALL  = ("Segoe UI", 12)
-FONT_MONO   = ("Courier New", 14)
-FONT_SEP    = ("Segoe UI", 12, "bold")
-FONT_HEADER = ("Segoe UI", 12, "bold")
+FONT_NORMAL = ("TkDefaultFont", 14)
+FONT_BOLD   = ("TkDefaultFont", 14, "bold")
+FONT_SMALL  = ("TkDefaultFont", 12)
+FONT_MONO   = ("TkFixedFont", 14)
+FONT_SEP    = ("TkDefaultFont", 12, "bold")
+FONT_HEADER = ("TkDefaultFont", 12, "bold")
 
 # ---------------------------------------------------------------------------
 # Icons (package-relative: src/gui/theme.py -> src/icons)
