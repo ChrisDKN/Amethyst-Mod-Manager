@@ -1640,11 +1640,6 @@ class PluginPanel(ctk.CTkFrame):
         mod_panel = getattr(app, "_mod_panel", None)
 
         def _cleanup():
-            try:
-                Path(archive_path).unlink(missing_ok=True)
-                self._log(f"Removed archive: {os.path.basename(archive_path)}")
-            except OSError:
-                pass
             self._downloads_panel.refresh()
 
         install_mod_from_archive(archive_path, app, self._log, game, mod_panel,
