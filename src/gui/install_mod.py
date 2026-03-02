@@ -236,10 +236,12 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
     try:
         if ext.endswith(".zip"):
+            log_fn("Extracting with zipfile…")
             with zipfile.ZipFile(archive_path, "r") as z:
                 z.extractall(extract_dir)
         elif ext.endswith(".7z"):
             try:
+                log_fn("Extracting with py7zr…")
                 with py7zr.SevenZipFile(archive_path, "r") as z:
                     z.extractall(extract_dir)
             except Exception as e7:
@@ -253,23 +255,43 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 )
                 if result.returncode != 0:
                     raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
+                log_fn("Extracted with bsdtar.")
         elif any(ext.endswith(s) for s in (".tar.gz", ".tar.bz2", ".tar.xz", ".tar")):
+            log_fn("Extracting with tarfile…")
             with tarfile.open(archive_path, "r:*") as t:
                 t.extractall(extract_dir)
         elif ext.endswith(".rar"):
+            import subprocess
+            _rar_done = False
             try:
                 import rarfile
+                log_fn("Extracting with rarfile…")
                 with rarfile.RarFile(archive_path, "r") as r:
                     r.extractall(extract_dir)
-            except (ImportError, Exception) as e_rar:
-                log_fn(f"rarfile failed ({e_rar}), trying bsdtar…")
-                import subprocess
+                _rar_done = True
+            except ImportError:
+                pass
+            except Exception as e_rar:
+                log_fn(f"rarfile failed ({e_rar}), trying next method…")
+            if not _rar_done and shutil.which("unrar"):
+                log_fn("Extracting with unrar…")
+                result = subprocess.run(
+                    ["unrar", "x", "-y", archive_path, extract_dir + os.sep],
+                    capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    log_fn(f"unrar failed ({result.stderr.strip()}), trying bsdtar…")
+                else:
+                    _rar_done = True
+            if not _rar_done:
+                log_fn("Extracting with bsdtar…")
                 result = subprocess.run(
                     ["bsdtar", "-xf", archive_path, "-C", extract_dir],
                     capture_output=True, text=True,
                 )
                 if result.returncode != 0:
                     raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
+                log_fn("Extracted with bsdtar.")
         else:
             log_fn(f"Unsupported archive format: {os.path.basename(archive_path)}")
             log_fn("Supported formats: .zip, .7z, .rar, .tar.gz")

@@ -65,15 +65,6 @@ modules:
       - type: file
         url: https://files.pythonhosted.org/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl
         sha256: 72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917
-  - name: python3-libarchive-c
-    buildsystem: simple
-    build-commands:
-      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
-        --prefix=${FLATPAK_DEST} "libarchive-c" --no-build-isolation
-    sources:
-      - type: file
-        url: https://files.pythonhosted.org/packages/88/3f/ff00c588ebd7eae46a9d6223389f5ae28a3af4b6d975c0f2a6d86b1342b9/libarchive_c-5.3-py3-none-any.whl
-        sha256: 651550a6ec39266b78f81414140a1e04776c935e72dfc70f1d7c8e0a3672ffba
   - name: python3-Pillow
     buildsystem: simple
     build-commands:
