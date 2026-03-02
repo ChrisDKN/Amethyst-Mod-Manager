@@ -742,7 +742,7 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
     def __init__(self, parent, game, log_fn):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title("Proton Tools")
-        self.geometry("340x314")
+        self.geometry("380x340")
         self.resizable(False, False)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_close)

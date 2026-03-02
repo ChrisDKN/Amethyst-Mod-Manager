@@ -557,9 +557,9 @@ class ModListPanel(ctk.CTkFrame):
         # col 1: name       fills
         # col 2: flags      50px
         # col 3: conflicts  90px
-        # col 4: installed  68px
+        # col 4: installed  95px
         # col 5: priority   64px  (+ 14px scrollbar gap)
-        right_cols = 50 + 90 + 68 + 64 + 14
+        right_cols = 50 + 90 + 95 + 64 + 14
         name_w = max(80, canvas_w - 28 - right_cols)
         self._COL_X = [
             4,                               # checkbox
@@ -567,7 +567,7 @@ class ModListPanel(ctk.CTkFrame):
             32 + name_w,                     # flags
             32 + name_w + 50,                # conflicts
             32 + name_w + 50 + 90,           # installed
-            32 + name_w + 50 + 90 + 68,      # priority
+            32 + name_w + 50 + 90 + 95,      # priority
         ]
         self._canvas_w = canvas_w
         self._name_col_right = 32 + name_w - 4
@@ -583,7 +583,7 @@ class ModListPanel(ctk.CTkFrame):
         titles  = ["", "Mod Name", "Flags", "Conflicts", "Installed", "Priority"]
         x_pos   = self._COL_X
         anchors = ["center", "w", "center", "center", "center", "center"]
-        widths  = [28, self._name_col_right - 32, 50, 90, 68, 64]
+        widths  = [28, self._name_col_right - 32, 50, 90, 95, 64]
         for i, (title, x, anc, w) in enumerate(zip(titles, x_pos, anchors, widths)):
             sort_key = self._HEADER_SORT_KEYS.get(i)
             # Show sort arrow on the active column

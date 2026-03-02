@@ -58,8 +58,8 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         # dialog.result is True if the key was changed, False/None otherwise
     """
 
-    WIDTH  = 520
-    HEIGHT = 580
+    WIDTH  = 560
+    HEIGHT = 620
 
     def __init__(self, parent, on_key_changed=None, log_fn: Optional[Callable[[str], None]] = None):
         super().__init__(parent, fg_color=BG_DEEP)

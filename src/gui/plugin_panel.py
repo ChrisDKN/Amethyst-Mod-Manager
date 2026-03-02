@@ -1922,7 +1922,7 @@ class PluginPanel(ctk.CTkFrame):
         # col 4: index      50px + 14px scrollbar gap
         idx_w = 50 + 14
         lock_w = 28
-        flags_w = 40
+        flags_w = 50
         flags_x = max(80, w - idx_w - lock_w - flags_w)
         self._pcol_x = [4, 32, flags_x, flags_x + flags_w, flags_x + flags_w + lock_w]
 
