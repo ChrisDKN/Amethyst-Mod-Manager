@@ -75,6 +75,7 @@ from Utils.filemap import (
     build_filemap,
     rebuild_mod_index,
     remove_from_mod_index,
+    fix_flat_staging_folders,
     CONFLICT_NONE,
     CONFLICT_WINS,
     CONFLICT_LOSES,
@@ -140,6 +141,7 @@ class ModListPanel(ctk.CTkFrame):
         self._mod_strip_prefixes: dict[str, list[str]] = {}  # mod name -> top-level folders to ignore
         self._install_extensions: set[str] = set()
         self._root_deploy_folders: set[str] = set()
+        self._staging_requires_subdir: bool = False
         self._root_folder_enabled: bool = True
         self._conflict_map:  dict[str, int]      = {}  # mod_name → CONFLICT_* constant
 
@@ -333,6 +335,7 @@ class ModListPanel(ctk.CTkFrame):
         self._strip_prefixes    = game.mod_folder_strip_prefixes
         self._install_extensions = getattr(game, "mod_install_extensions", set())
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
+        self._staging_requires_subdir = getattr(game, "mod_staging_requires_subdir", False)
         # Load ignored missing-requirements list (one mod name per line)
         ignored_path = profile_dir / "ignored_missing_requirements.txt"
         self._ignored_missing_reqs = set()
@@ -1405,7 +1408,7 @@ class ModListPanel(ctk.CTkFrame):
                         # Install date text
                         install_text = self._install_dates.get(entry.name, "")
                         if install_text:
-                            c.coords(self._pool_install_text[s], self._COL_X[4] + 34, y_mid)
+                            c.coords(self._pool_install_text[s], self._COL_X[4] + 47, y_mid)
                             c.itemconfigure(self._pool_install_text[s],
                                             text=install_text, anchor="center",
                                             fill=TEXT_DIM, font=("Segoe UI", _theme.FS10), state="normal")
@@ -1421,7 +1424,7 @@ class ModListPanel(ctk.CTkFrame):
                         # locked row — install date / priority still shown
                         install_text = self._install_dates.get(entry.name, "")
                         if install_text:
-                            c.coords(self._pool_install_text[s], self._COL_X[4] + 34, y_mid)
+                            c.coords(self._pool_install_text[s], self._COL_X[4] + 47, y_mid)
                             c.itemconfigure(self._pool_install_text[s],
                                             text=install_text, anchor="center",
                                             fill=TEXT_DIM, font=("Segoe UI", _theme.FS10), state="normal")
@@ -4089,12 +4092,22 @@ class ModListPanel(ctk.CTkFrame):
         install_extensions  = self._install_extensions
         root_deploy_folders = self._root_deploy_folders
         rescan_index        = self._filemap_rescan_index
+        staging_requires_subdir = self._staging_requires_subdir
         self._filemap_rescan_index = False
         disabled_plugins    = read_disabled_plugins(modlist_path.parent / "disabled_plugins.json")
         self._disabled_plugins_map = disabled_plugins
 
         def _worker():
+            nonlocal rescan_index
             try:
+                if staging_requires_subdir:
+                    fixed = fix_flat_staging_folders(staging)
+                    if fixed:
+                        rescan_index = True
+                        self.after(0, lambda names=fixed: self._log(
+                            f"Auto-fixed {len(names)} mod(s) with flat staging structure: "
+                            + ", ".join(names)
+                        ))
                 if rescan_index:
                     rebuild_mod_index(
                         output.parent / "modindex.txt",
