@@ -42,12 +42,48 @@ conflict_lower = "#9a0e0e"
 # ---------------------------------------------------------------------------
 # Fonts
 # ---------------------------------------------------------------------------
-FONT_NORMAL = ("TkDefaultFont", 14)
-FONT_BOLD   = ("TkDefaultFont", 14, "bold")
-FONT_SMALL  = ("TkDefaultFont", 12)
-FONT_MONO   = ("TkFixedFont", 14)
-FONT_SEP    = ("TkDefaultFont", 12, "bold")
-FONT_HEADER = ("TkDefaultFont", 12, "bold")
+# Base sizes are tuned for Windows/SteamOS at 96 DPI (tk scaling ~1.0).
+# Call init_fonts(tk_widget) once after the root window is created to
+# rescale these if the system reports a different DPI.
+FONT_NORMAL = ("Segoe UI", 14)
+FONT_BOLD   = ("Segoe UI", 14, "bold")
+FONT_SMALL  = ("Segoe UI", 12)
+FONT_MONO   = ("Courier New", 14)
+FONT_SEP    = ("Segoe UI", 12, "bold")
+FONT_HEADER = ("Segoe UI", 12, "bold")
+
+
+def init_fonts(widget) -> None:
+    """Rescale font sizes based on the actual Tk DPI scaling factor.
+
+    Tk's default scaling assumes 72 DPI (1 point = 1 pixel).  Most modern
+    systems run at 96 DPI (scaling ~1.33) or higher.  We treat 1.33 as the
+    baseline (what the sizes above were designed for) and shrink/grow
+    relative to that so fonts look the same physical size everywhere.
+    """
+    global FONT_NORMAL, FONT_BOLD, FONT_SMALL, FONT_MONO, FONT_SEP, FONT_HEADER
+
+    try:
+        scaling = float(widget.tk.call("tk", "scaling"))
+    except Exception:
+        return  # leave defaults untouched
+
+    # 1.3333 = 96 DPI / 72 pt — the baseline we designed for
+    baseline = 1.3333
+    if abs(scaling - baseline) < 0.05:
+        return  # close enough, no adjustment needed
+
+    factor = baseline / scaling  # <1 when scaling > baseline (HiDPI)
+
+    def _scale(size: int) -> int:
+        return max(8, round(size * factor))
+
+    FONT_NORMAL = ("Segoe UI", _scale(14))
+    FONT_BOLD   = ("Segoe UI", _scale(14), "bold")
+    FONT_SMALL  = ("Segoe UI", _scale(12))
+    FONT_MONO   = ("Courier New", _scale(14))
+    FONT_SEP    = ("Segoe UI", _scale(12), "bold")
+    FONT_HEADER = ("Segoe UI", _scale(12), "bold")
 
 # ---------------------------------------------------------------------------
 # Icons (package-relative: src/gui/theme.py -> src/icons)

@@ -30,7 +30,7 @@ if not os.environ.get("MOD_MANAGER_GAMES"):
 
 import customtkinter as ctk
 
-from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_MAIN
+from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_MAIN, init_fonts
 from gui.game_helpers import (
     _GAMES,
     _vanilla_plugins_for_game,
@@ -220,7 +220,7 @@ class _UpdateAvailableDialog(ctk.CTkToplevel):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__(fg_color=BG_DEEP)
-        self.tk.call("tk", "scaling", 1.0)
+        init_fonts(self)
         self.geometry("1400x820")
         self.minsize(900, 600)
         # Thread-safe callback queue — background threads must never call
