@@ -4002,8 +4002,6 @@ class ModListPanel(ctk.CTkFrame):
         target_idx = mod_indices[target_rank]
         from_idx = idx
         to_idx = target_idx
-        if from_idx < to_idx:
-            to_idx -= 1
 
         moved_entry = self._entries.pop(from_idx)
         moved_cb = self._check_buttons.pop(from_idx)
