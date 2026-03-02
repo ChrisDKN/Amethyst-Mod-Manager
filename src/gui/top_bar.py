@@ -354,7 +354,7 @@ class TopBar(ctk.CTkFrame):
         if not all_names:
             self._log("No game handlers discovered.")
             return
-        picker = _GamePickerDialog(self.winfo_toplevel(), all_names)
+        picker = _GamePickerDialog(self.winfo_toplevel(), all_names, games=_gh._GAMES)
         self.winfo_toplevel().wait_window(picker)
         if picker.result is None:
             return

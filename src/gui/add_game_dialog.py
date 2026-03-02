@@ -67,7 +67,7 @@ class AddGameDialog(ctk.CTkToplevel):
 
     def __init__(self, parent, game: BaseGame):
         super().__init__(parent, fg_color=BG_DEEP)
-        self.title(f"Add Game — {game.name}")
+        self.title(f"Reconfigure Game — {game.name}")
         self.geometry(f"{self.WIDTH}x{self.HEIGHT}")
         self.resizable(False, False)
         self.transient(parent)

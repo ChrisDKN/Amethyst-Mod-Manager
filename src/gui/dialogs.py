@@ -143,55 +143,55 @@ def _build_tree_str(paths: list[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Game picker dialog
+# Game picker dialog — card grid
 # ---------------------------------------------------------------------------
 class _GamePickerDialog(ctk.CTkToplevel):
-    _ROW_H   = 36
-    _MIN_H   = 200
-    _MAX_H   = 520
-    _WIDTH   = 340
+    _CARD_W  = 160
+    _CARD_H  = 200
+    _IMG_H   = 130
+    _COLS    = 4
+    _PAD     = 12
 
-    def __init__(self, parent, game_names: list[str]):
+    def __init__(self, parent, game_names: list[str], games: dict | None = None):
         super().__init__(parent, fg_color=BG_DEEP)
-        self.title("Add / Reconfigure Game")
-        self.resizable(False, True)
+        self.title("Add Game")
+        self.resizable(True, True)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._cancel)
         self.result: str | None = None
+
+        self._games = games or {}
+        self._icons_dir = Path(__file__).resolve().parent.parent / "icons" / "games"
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         ctk.CTkLabel(
-            self, text="Select a game to configure:",
+            self, text="Select a game to add / reconfigure:",
             font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w"
         ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 6))
 
-        scroll = ctk.CTkScrollableFrame(self, fg_color=BG_PANEL, corner_radius=6)
-        scroll.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 8))
-        scroll.grid_columnconfigure(0, weight=1)
-
-        self._var = tk.StringVar(value=game_names[0])
+        scroll = ctk.CTkScrollableFrame(self, fg_color=BG_DEEP, corner_radius=0)
+        scroll.grid(row=1, column=0, sticky="nsew", padx=0, pady=(0, 0))
 
         def _fwd_scroll(event):
             scroll._parent_canvas.yview_scroll(
                 -1 if event.num == 4 else 1, "units"
             )
-
-        for i, name in enumerate(game_names):
-            rb = ctk.CTkRadioButton(
-                scroll, text=name, variable=self._var, value=name,
-                font=FONT_NORMAL, text_color=TEXT_MAIN,
-                fg_color=ACCENT, hover_color=ACCENT_HOV,
-            )
-            rb.grid(row=i, column=0, sticky="w", padx=12, pady=4)
-
         self.bind_all("<Button-4>", _fwd_scroll)
         self.bind_all("<Button-5>", _fwd_scroll)
         self.bind("<Destroy>", lambda e: (
             self.unbind_all("<Button-4>"),
             self.unbind_all("<Button-5>"),
         ) if e.widget is self else None)
+
+        # Keep CTkImage refs alive
+        self._img_refs: list = []
+
+        for i, name in enumerate(game_names):
+            col = i % self._COLS
+            row = i // self._COLS
+            self._build_card(scroll, name, row, col)
 
         btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
         btn_bar.grid(row=2, column=0, sticky="ew")
@@ -204,29 +204,92 @@ class _GamePickerDialog(ctk.CTkToplevel):
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._cancel
         ).pack(side="right", padx=(4, 12), pady=10)
-        ctk.CTkButton(
-            btn_bar, text="Select", width=90, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
-            command=self._ok
-        ).pack(side="right", padx=4, pady=10)
 
-        ideal_list_h = len(game_names) * self._ROW_H + 16
-        h = max(self._MIN_H, min(self._MAX_H, ideal_list_h + 120))
+        cols = self._COLS
+        w = cols * (self._CARD_W + self._PAD) + self._PAD + 8
+        rows_count = (len(game_names) + cols - 1) // cols
+        content_h = rows_count * (self._CARD_H + self._PAD) + self._PAD
+        h = min(max(300, content_h + 120), 700)
         owner = parent
-        x = owner.winfo_rootx() + (owner.winfo_width()  - self._WIDTH) // 2
+        x = owner.winfo_rootx() + (owner.winfo_width()  - w) // 2
         y = owner.winfo_rooty() + (owner.winfo_height() - h) // 2
-        self.geometry(f"{self._WIDTH}x{h}+{x}+{y}")
+        self.geometry(f"{w}x{h}+{x}+{y}")
 
         self.after(50, self._make_modal)
+
+    def _build_card(self, parent, name: str, row: int, col: int):
+        game = self._games.get(name)
+        game_id = game.game_id if game else name.lower().replace(" ", "_")
+
+        card = ctk.CTkFrame(
+            parent,
+            fg_color=BG_PANEL,
+            corner_radius=8,
+            border_width=1,
+            border_color=BORDER,
+            width=self._CARD_W,
+            height=self._CARD_H,
+        )
+        card.grid(
+            row=row, column=col,
+            padx=(self._PAD if col == 0 else self._PAD // 2, self._PAD // 2),
+            pady=(self._PAD, 0),
+            sticky="nsew",
+        )
+        card.grid_propagate(False)
+        card.grid_columnconfigure(0, weight=1)
+        card.grid_rowconfigure(0, weight=1)
+
+        # Game image
+        img_frame = ctk.CTkFrame(card, fg_color=BG_DEEP, corner_radius=6,
+                                  width=self._CARD_W - 8, height=self._IMG_H)
+        img_frame.grid(row=0, column=0, padx=4, pady=(4, 0), sticky="nsew")
+        img_frame.grid_propagate(False)
+
+        img_path = self._icons_dir / f"{game_id}.png"
+        if not img_path.is_file():
+            # Try lowercase fallback
+            img_path = self._icons_dir / f"{game_id.lower()}.png"
+        if img_path.is_file():
+            raw = _PilImage.open(img_path).convert("RGBA")
+            tw, th = self._CARD_W - 8, self._IMG_H
+            raw.thumbnail((tw, th), _PilImage.LANCZOS)
+            ctk_img = ctk.CTkImage(light_image=raw, dark_image=raw, size=(raw.width, raw.height))
+            self._img_refs.append(ctk_img)
+            img_lbl = ctk.CTkLabel(img_frame, image=ctk_img, text="")
+        else:
+            img_lbl = ctk.CTkLabel(img_frame, text="?", font=("Segoe UI", 36, "bold"),
+                                   text_color=TEXT_DIM)
+        img_lbl.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Game name
+        ctk.CTkLabel(
+            card, text=name, font=("Segoe UI", 12, "bold"), text_color=TEXT_MAIN,
+            wraplength=self._CARD_W - 10, anchor="center", justify="center",
+        ).grid(row=1, column=0, padx=4, pady=(4, 2), sticky="ew")
+
+        # Add button
+        def _select(n=name):
+            self.result = n
+            self.grab_release()
+            self.destroy()
+
+        ctk.CTkButton(
+            card, text="Add", height=26, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=_select,
+        ).grid(row=2, column=0, padx=8, pady=(0, 8), sticky="ew")
+
+        # Hover highlight
+        def _enter(e, c=card): c.configure(border_color=ACCENT)
+        def _leave(e, c=card): c.configure(border_color=BORDER)
+        for w in (card, img_frame, img_lbl):
+            w.bind("<Enter>", _enter)
+            w.bind("<Leave>", _leave)
 
     def _make_modal(self):
         self.grab_set()
         self.focus_set()
-
-    def _ok(self):
-        self.result = self._var.get()
-        self.grab_release()
-        self.destroy()
 
     def _cancel(self):
         self.grab_release()
