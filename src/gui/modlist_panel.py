@@ -458,7 +458,7 @@ class ModListPanel(ctk.CTkFrame):
         # Refresh button (icon only)
         refresh_icon = _load_icon("refresh.png", size=(16, 16))
         ctk.CTkButton(
-            bar, text="" if refresh_icon else "↺", image=refresh_icon,
+            bar, text="Refresh Modlist" if refresh_icon else "↺", image=refresh_icon,
             width=30, height=26,
             fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
