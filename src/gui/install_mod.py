@@ -243,16 +243,16 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 with py7zr.SevenZipFile(archive_path, "r") as z:
                     z.extractall(extract_dir)
             except Exception as e7:
-                log_fn(f"py7zr failed ({e7}), retrying with libarchive…")
+                log_fn(f"py7zr failed ({e7}), retrying with bsdtar…")
+                import subprocess
                 shutil.rmtree(extract_dir, ignore_errors=True)
                 os.makedirs(extract_dir, exist_ok=True)
-                import libarchive
-                prev_cwd = os.getcwd()
-                try:
-                    os.chdir(extract_dir)
-                    libarchive.extract_file(archive_path)
-                finally:
-                    os.chdir(prev_cwd)
+                result = subprocess.run(
+                    ["bsdtar", "-xf", archive_path, "-C", extract_dir],
+                    capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
         elif any(ext.endswith(s) for s in (".tar.gz", ".tar.bz2", ".tar.xz", ".tar")):
             with tarfile.open(archive_path, "r:*") as t:
                 t.extractall(extract_dir)
@@ -262,21 +262,14 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 with rarfile.RarFile(archive_path, "r") as r:
                     r.extractall(extract_dir)
             except (ImportError, Exception) as e_rar:
-                log_fn(f"rarfile failed ({e_rar}), trying libarchive…")
-                shutil.rmtree(extract_dir, ignore_errors=True)
-                os.makedirs(extract_dir, exist_ok=True)
-                import libarchive
-                with libarchive.file_reader(archive_path) as _arc:
-                    for _entry in _arc:
-                        _dest = os.path.join(extract_dir,
-                                             _entry.pathname.lstrip("/").replace("/", os.sep))
-                        if _entry.isdir:
-                            os.makedirs(_dest, exist_ok=True)
-                            continue
-                        os.makedirs(os.path.dirname(_dest) or extract_dir, exist_ok=True)
-                        with open(_dest, "wb") as _fh:
-                            for _block in _entry.get_blocks():
-                                _fh.write(_block)
+                log_fn(f"rarfile failed ({e_rar}), trying bsdtar…")
+                import subprocess
+                result = subprocess.run(
+                    ["bsdtar", "-xf", archive_path, "-C", extract_dir],
+                    capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
         else:
             log_fn(f"Unsupported archive format: {os.path.basename(archive_path)}")
             log_fn("Supported formats: .zip, .7z, .rar, .tar.gz")
