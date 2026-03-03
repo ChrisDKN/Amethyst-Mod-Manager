@@ -37,9 +37,10 @@ def _strip_title_metadata(name: str) -> str:
     s = re.sub(r"\s+\d+(?:\.\d+)+\s*$", "", s)
 
     # Remove trailing segments that are numeric or known edition/platform tags
-    # left over from underscore-replaced version strings (e.g. "SkyUI 5 2 SE")
     _EDITION_TAGS = r"(?:SE|AE|LE|VR|SSE|GOTY|HD|UHD)"
-    s = re.sub(rf"(\s+(?:\d[\w]*|{_EDITION_TAGS}))+\s*$", "", s)
+    s = re.sub(rf"(\s+(?:\d[\w]*|{_EDITION_TAGS})){{2,}}\s*$", "", s)
+    s = re.sub(rf"\s+{_EDITION_TAGS}\s*$", "", s)
+    s = re.sub(r"(?<=\d)\s+\d+\s*$", "", s)
 
     # Second pass for version patterns uncovered after stripping above
     s = re.sub(r"\s+[vV]\d+(?:[.\-]\w+)*\s*$", "", s)
