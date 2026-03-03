@@ -454,6 +454,7 @@ def build_filemap(
     allowed_extensions: set[str] | None = None,
     root_deploy_folders: set[str] | None = None,
     disabled_plugins: dict[str, list[str]] | None = None,
+    conflict_ignore_filenames: set[str] | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -474,6 +475,10 @@ def build_filemap(
     deployed to the game root instead of the mod data path.  These are
     written to a sibling ``filemap_root.txt`` and bypass the extension
     filter.  Pass None or an empty set to disable (default).
+
+    conflict_ignore_filenames — lowercase filenames (not paths) excluded from
+    conflict tracking.  Files still appear in the filemap but do not count
+    toward a mod's conflict status.  Pass None or an empty set to disable.
 
     Returns:
         (count, conflict_map, overrides, overridden_by)
@@ -541,9 +546,13 @@ def build_filemap(
     overrides:     dict[str, set[str]] = {s: set() for s in priority_order}
     overridden_by: dict[str, set[str]] = {s: set() for s in priority_order}
 
+    _ignore_fnames = {f.lower() for f in conflict_ignore_filenames} if conflict_ignore_filenames else set()
+
     current_holder: dict[str, str] = {}
     for name in priority_order:
         for key in mod_files.get(name, ()):
+            if _ignore_fnames and key.rsplit("/", 1)[-1] in _ignore_fnames:
+                continue
             if key in current_holder:
                 loser = current_holder[key]
                 overrides[name].add(loser)

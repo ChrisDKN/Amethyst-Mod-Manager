@@ -332,10 +332,11 @@ class ModListPanel(ctk.CTkFrame):
         self._game = game
         profile_dir = game.get_profile_root() / "profiles" / profile
         self._modlist_path = profile_dir / "modlist.txt"
-        self._strip_prefixes    = game.mod_folder_strip_prefixes
+        self._strip_prefixes    = game.mod_folder_strip_prefixes | getattr(game, "mod_folder_strip_prefixes_post", set())
         self._install_extensions = getattr(game, "mod_install_extensions", set())
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
         self._staging_requires_subdir = getattr(game, "mod_staging_requires_subdir", False)
+        self._conflict_ignore_filenames = getattr(game, "conflict_ignore_filenames", set())
         # Load ignored missing-requirements list (one mod name per line)
         ignored_path = profile_dir / "ignored_missing_requirements.txt"
         self._ignored_missing_reqs = set()
@@ -4205,6 +4206,7 @@ class ModListPanel(ctk.CTkFrame):
                     allowed_extensions=install_extensions or None,
                     root_deploy_folders=root_deploy_folders or None,
                     disabled_plugins=disabled_plugins or None,
+                    conflict_ignore_filenames=self._conflict_ignore_filenames or None,
                 )
                 self.after(0, lambda: _done(count, conflict_map, overrides, overridden_by, None))
             except Exception as exc:

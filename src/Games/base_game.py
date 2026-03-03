@@ -113,6 +113,39 @@ class BaseGame(ABC):
         return set()
 
     @property
+    def conflict_ignore_filenames(self) -> set[str]:
+        """
+        Lowercase filenames that are excluded from conflict detection.
+
+        Files whose name (not path) matches an entry here are counted in the
+        filemap as normal but do not contribute to a mod's conflict status.
+        Useful for metadata files that many mods ship (e.g. modinfo.ini) which would otherwise cause spurious conflict markers.
+
+        Return an empty set (the default) to disable.
+        """
+        return set()
+
+    @property
+    def mod_folder_strip_prefixes_post(self) -> set[str]:
+        """
+        Like mod_folder_strip_prefixes, but applied AFTER mod_required_top_level_folders
+        and mod_auto_strip_until_required have run at install time.
+
+        Use this when the folder to strip is the same one declared in
+        mod_required_top_level_folders — so auto-strip can first normalise the
+        mod structure down to that folder, then this property removes it.
+
+        Example: REFramework mods must contain a top-level reframework/ folder
+        (validated by mod_required_top_level_folders), which is then stripped
+        here so files are staged as bare content paths.
+
+        Also applied during filemap building (same as mod_folder_strip_prefixes).
+
+        Return an empty set (the default) to disable.
+        """
+        return set()
+
+    @property
     def mod_install_prefix(self) -> str:
         """
         A forward-slash path segment automatically prepended to every file's

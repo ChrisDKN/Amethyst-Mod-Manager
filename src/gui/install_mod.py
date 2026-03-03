@@ -444,6 +444,10 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     file_list = [(s, f"{prefix}/{d}", f) for s, d, f in file_list]
                     log_fn(f"Remapped mod files under '{prefix}/'.")
 
+        post_strip_prefixes = getattr(game, "mod_folder_strip_prefixes_post", set())
+        if post_strip_prefixes:
+            file_list = _apply_strip_prefixes_to_file_list(file_list, post_strip_prefixes)
+
         dest_root = game.get_mod_staging_path() / mod_name
         was_existing_mod = dest_root.exists()
         if replace_all and dest_root.exists():
