@@ -6,7 +6,7 @@ from datetime import datetime
 import tkinter as tk
 import customtkinter as ctk
 
-from Utils.config_paths import get_config_dir
+from Utils.config_paths import get_logs_dir
 from gui.ctk_components import CTkProgressPopup
 from gui.theme import (
     BG_DEEP,
@@ -62,6 +62,10 @@ class StatusBar(ctk.CTkFrame):
             wrap="none", corner_radius=0
         )
         # Start hidden — don't pack the textbox yet
+
+        # One log file per session, named with a timestamp
+        _ts = datetime.now().strftime("%m-%d-%y-%H%M%S")
+        self._log_file = get_logs_dir() / f"amethyst-{_ts}.log"
 
     def _toggle_log(self):
         self._visible = not self._visible
@@ -130,8 +134,7 @@ class StatusBar(ctk.CTkFrame):
         self._textbox.configure(state="disabled")
         # Append to log file with full timestamp
         try:
-            log_path = get_config_dir() / "amethyst.log"
-            with open(log_path, "a", encoding="utf-8") as f:
+            with open(self._log_file, "a", encoding="utf-8") as f:
                 full_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"[{full_ts}]  {message}\n")
         except OSError:

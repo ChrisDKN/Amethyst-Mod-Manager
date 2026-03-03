@@ -101,6 +101,16 @@ def get_last_game_path() -> Path:
     return get_config_dir() / "last_game.json"
 
 
+def get_logs_dir() -> Path:
+    """Return the logs directory, creating it if it doesn't exist.
+
+    Result: ~/.config/AmethystModManager/logs/
+    """
+    d = get_config_dir() / "logs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def get_requirement_external_tool_mod_ids_path() -> Path:
     """Return the path to the cached requirement filter (external tool mod IDs).
 
