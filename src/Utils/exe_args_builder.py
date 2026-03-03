@@ -233,18 +233,23 @@ _EXE_ARGS_FILE = get_exe_args_path()
 
 def update_witcher3_script_merger_config(game_root: Path, exe_path: Path) -> bool:
     """
-    Update the WitcherScriptMerger.exe.config file to set the GameDirectory key.
-    Returns True if the file was updated, False otherwise.
+    Update the WitcherScriptMerger config file to set the GameDirectory key.
+    Handles both WitcherScriptMerger.exe.config (legacy) and WitcherScriptMerger.dll.config (newer).
+    Returns True if any file was updated, False otherwise.
     """
-    
-    config_path = exe_path.parent / "WitcherScriptMerger.exe.config"
-    if config_path.exists() and game_root is not None:
-        wine_path = _to_wine_path(game_root)
+    if game_root is None:
+        return False
+    wine_path = _to_wine_path(game_root)
+    any_updated = False
+    for config_name in ("WitcherScriptMerger.exe.config", "WitcherScriptMerger.dll.config"):
+        config_path = exe_path.parent / config_name
+        if not config_path.exists():
+            continue
         tree = ET.parse(config_path)
         root = tree.getroot()
         app_settings = root.find('appSettings')
         if app_settings is None:
-            return False
+            continue
         updated = False
         for add in app_settings.findall('add'):
             if add.attrib.get('key') == 'GameDirectory':
@@ -253,7 +258,8 @@ def update_witcher3_script_merger_config(game_root: Path, exe_path: Path) -> boo
                     updated = True
         if updated:
             tree.write(config_path, encoding='utf-8', xml_declaration=True)
-    return updated
+            any_updated = True
+    return any_updated
 
 def build_default_exe_args(
     detected_exes: list[Path],
