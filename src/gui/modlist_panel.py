@@ -266,6 +266,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filter_conflict_full: bool = False
         self._filter_missing_reqs: bool = False
         self._filter_has_disabled_plugins: bool = False
+        self._filter_has_updates: bool = False
         self._disabled_plugins_map: dict[str, list[str]] = {}  # mod_name → [plugin, ...]
         self._visible_indices: list[int] = []  # entry indices matching current filter
         self._vis_dirty: bool = True           # True when _visible_indices needs recomputing
@@ -1737,6 +1738,18 @@ class ModListPanel(ctk.CTkFrame):
                     result.append(i)
             base = result
 
+        # Step 4d: updates filter (show only mods with an update available)
+        if self._filter_has_updates:
+            result = []
+            for i in base:
+                entry = self._entries[i]
+                if entry.is_separator:
+                    if self._sep_block_has_updates(i):
+                        result.append(i)
+                elif entry.name in self._update_mods:
+                    result.append(i)
+            base = result
+
         # Step 5: apply column sort (visual only)
         if self._sort_column is not None:
             base = self._apply_column_sort(base)
@@ -2079,6 +2092,14 @@ class ModListPanel(ctk.CTkFrame):
         for i in self._sep_block_range(sep_idx):
             if not self._entries[i].is_separator:
                 if self._entries[i].name in self._disabled_plugins_map:
+                    return True
+        return False
+
+    def _sep_block_has_updates(self, sep_idx: int) -> bool:
+        """True if this separator's block contains at least one mod with an update available."""
+        for i in self._sep_block_range(sep_idx):
+            if not self._entries[i].is_separator:
+                if self._entries[i].name in self._update_mods:
                     return True
         return False
 
@@ -3986,6 +4007,7 @@ class ModListPanel(ctk.CTkFrame):
             "filter_full": self._filter_conflict_full,
             "filter_missing_reqs": self._filter_missing_reqs,
             "filter_has_disabled_plugins": self._filter_has_disabled_plugins,
+            "filter_has_updates": self._filter_has_updates,
         }
         ModlistFiltersDialog(
             self.winfo_toplevel(),
@@ -4024,6 +4046,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filter_conflict_full = state.get("filter_full", False)
         self._filter_missing_reqs = state.get("filter_missing_reqs", False)
         self._filter_has_disabled_plugins = state.get("filter_has_disabled_plugins", False)
+        self._filter_has_updates = state.get("filter_has_updates", False)
         self._vis_dirty = True
         self._redraw()
 
