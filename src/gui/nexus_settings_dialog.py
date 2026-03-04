@@ -294,9 +294,158 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         if not key:
             self._set_status("Nothing to save — key is empty.", TEXT_WARN)
             return
-        save_api_key(key)
+        try:
+            save_api_key(key)
+        except RuntimeError:
+            self._show_keyring_error_popup()
+            self._set_status("Save failed — no keyring available.", TEXT_ERR)
+            return
         self._key_changed = True
         self._set_status("Key saved.", TEXT_OK)
+
+    def _show_keyring_error_popup(self):
+        """Show a themed popup explaining that no keyring backend is available."""
+        W, H = 560, 500
+        dlg = ctk.CTkToplevel(self, fg_color=BG_DEEP)
+        dlg.title("No Keyring Available")
+        dlg.resizable(False, False)
+        dlg.transient(self)
+        try:
+            x = self.winfo_rootx() + (self.winfo_width() - W) // 2
+            y = self.winfo_rooty() + (self.winfo_height() - H) // 2
+            dlg.geometry(f"{W}x{H}+{x}+{y}")
+        except Exception:
+            dlg.geometry(f"{W}x{H}")
+
+        # -- Button bar (packed first so it stays fixed at the bottom) --
+        bar = ctk.CTkFrame(dlg, fg_color=BG_PANEL, corner_radius=0, height=52)
+        bar.pack(fill="x", side="bottom")
+        bar.pack_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x", side="top")
+        ctk.CTkButton(bar, text="OK", width=90, height=32, font=FONT_BOLD,
+                      fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                      command=dlg.destroy).pack(side="right", padx=12, pady=10)
+
+        # -- Scrollable body --
+        scroll = ctk.CTkScrollableFrame(dlg, fg_color=BG_DEEP,
+                                        scrollbar_button_color=BG_PANEL,
+                                        scrollbar_button_hover_color=BG_HOVER)
+        scroll.pack(fill="both", expand=True)
+        scroll.grid_columnconfigure(0, weight=1)
+
+        # Forward mouse-wheel scroll events to the scrollable canvas
+        def _fwd_scroll(event):
+            scroll._parent_canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
+        dlg.bind_all("<Button-4>", _fwd_scroll)
+        dlg.bind_all("<Button-5>", _fwd_scroll)
+        dlg.bind("<Destroy>", lambda e: (
+            dlg.unbind_all("<Button-4>"),
+            dlg.unbind_all("<Button-5>"),
+        ) if e.widget is dlg else None)
+
+        # -- Header --
+        hdr = ctk.CTkFrame(scroll, fg_color="transparent")
+        hdr.pack(fill="x", padx=20, pady=(16, 6))
+        ctk.CTkLabel(hdr, text="✕", font=("Segoe UI", 22, "bold"),
+                     text_color=TEXT_ERR, width=32).pack(side="left", anchor="n", padx=(0, 10))
+        ctk.CTkLabel(hdr, text="No keyring service found on your system.",
+                     font=FONT_BOLD, text_color=TEXT_MAIN,
+                     wraplength=460, justify="left").pack(side="left", anchor="n")
+
+        ctk.CTkLabel(scroll,
+                     text="Your API key could not be saved. A keyring backend is required to "
+                          "securely store credentials. Install and enable one for your distribution:",
+                     font=FONT_NORMAL, text_color=TEXT_DIM,
+                     wraplength=500, justify="left").pack(anchor="w", padx=20, pady=(0, 10))
+
+        _CMD_FONT = ("Courier New", 11)
+
+        def _make_cmd_row(parent, cmd_text, is_comment):
+            """Add a comment label or a copyable command row to parent."""
+            if is_comment:
+                ctk.CTkLabel(parent, text=cmd_text, font=_CMD_FONT,
+                             text_color=TEXT_DIM, anchor="w"
+                             ).pack(anchor="w", padx=12, pady=(4, 0))
+                return
+
+            row = ctk.CTkFrame(parent, fg_color="transparent")
+            row.pack(fill="x", padx=8, pady=(4, 0))
+            row.grid_columnconfigure(0, weight=1)
+
+            entry = tk.Entry(
+                row,
+                readonlybackground=BG_ROW, bg=BG_ROW, fg=TEXT_MAIN,
+                font=_CMD_FONT, relief="flat", bd=0,
+                state="readonly", cursor="xterm",
+                highlightthickness=1, highlightbackground=BORDER,
+                insertbackground=TEXT_MAIN, disabledforeground=TEXT_MAIN,
+            )
+            entry.configure(state="normal")
+            entry.insert(0, cmd_text)
+            entry.configure(state="readonly")
+            entry.grid(row=0, column=0, sticky="ew", ipady=5, padx=(2, 4))
+
+            # Forward scroll from the entry widget too
+            entry.bind("<Button-4>", lambda e: scroll._parent_canvas.yview_scroll(-1, "units"))
+            entry.bind("<Button-5>", lambda e: scroll._parent_canvas.yview_scroll( 1, "units"))
+
+            copy_btn = ctk.CTkButton(
+                row, text="Copy", width=58, height=28, font=FONT_SMALL,
+                fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+                corner_radius=4,
+            )
+            copy_btn.grid(row=0, column=1, sticky="e", padx=(0, 2))
+
+            def _copy(btn=copy_btn, text=cmd_text):
+                dlg.clipboard_clear()
+                dlg.clipboard_append(text)
+                dlg.update()
+                btn.configure(text="Copied!")
+                dlg.after(1500, lambda: btn.configure(text="Copy"))
+
+            copy_btn.configure(command=_copy)
+
+        distros = [
+            ("Arch Linux / SteamOS", [
+                ("sudo pacman -S gnome-keyring libsecret", False),
+                ("systemctl --user enable --now gnome-keyring-daemon", False),
+            ]),
+            ("Ubuntu / Debian / Linux Mint", [
+                ("sudo apt install gnome-keyring libsecret-1-0", False),
+                ("# Log out and back in, or run:", True),
+                ("dbus-run-session -- gnome-keyring-daemon --unlock", False),
+            ]),
+            ("Fedora / RHEL / CentOS", [
+                ("sudo dnf install gnome-keyring libsecret", False),
+                ("systemctl --user enable --now gnome-keyring-daemon", False),
+            ]),
+            ("openSUSE", [
+                ("sudo zypper install gnome-keyring libsecret-1-0", False),
+                ("systemctl --user enable --now gnome-keyring-daemon", False),
+            ]),
+            ("Generic fallback (any distro)", [
+                ("pip install keyring secretstorage", False),
+                ("# Or install KWallet if on a KDE desktop.", True),
+            ]),
+        ]
+
+        for section_title, cmds in distros:
+            ctk.CTkLabel(scroll, text=section_title, font=FONT_BOLD,
+                         text_color=TEXT_MAIN, anchor="w"
+                         ).pack(anchor="w", padx=20, pady=(6, 2))
+            block = ctk.CTkFrame(scroll, fg_color=BG_PANEL, corner_radius=6)
+            block.pack(fill="x", padx=20, pady=(0, 8))
+            for cmd_text, is_comment in cmds:
+                _make_cmd_row(block, cmd_text, is_comment)
+            ctk.CTkFrame(block, fg_color="transparent", height=6).pack()
+
+        ctk.CTkLabel(scroll,
+                     text="After installing, restart the application and try again.",
+                     font=FONT_SMALL, text_color=TEXT_DIM,
+                     wraplength=500, justify="left").pack(anchor="w", padx=20, pady=(0, 14))
+
+        dlg.after(50, dlg.grab_set)
+        dlg.wait_window()
 
     def _on_clear(self):
         clear_api_key()
