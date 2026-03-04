@@ -44,7 +44,7 @@ from gui.dialogs import (
 )
 from gui.ctk_components import CTkAlert
 from gui.path_utils import pick_file_mod_archive
-from gui.install_mod import install_mod_from_archive
+from gui.install_mod import install_mod_from_archive, _show_mod_notification
 from gui.add_game_dialog import AddGameDialog
 from gui.nexus_settings_dialog import NexusSettingsDialog
 from gui.wizard_dialog import WizardDialog
@@ -550,6 +550,11 @@ class TopBar(ctk.CTkFrame):
         root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
         game_root = game.get_game_path()
         status_bar = self.winfo_toplevel()._status
+        game_name = game.name
+
+        _show_mod_notification(self, f"Restoring {game_name}", state="info")
+
+        _success = [True]
 
         def _worker():
             def _tlog(msg):
@@ -562,14 +567,17 @@ class TopBar(ctk.CTkFrame):
                 if hasattr(game, "restore"):
                     game.restore(log_fn=_tlog, progress_fn=_progress)
                 else:
-                    _tlog(f"Restore: '{game.name}' does not support restore.")
+                    _tlog(f"Restore: '{game_name}' does not support restore.")
                 if root_folder_dir.is_dir() and game_root:
                     restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
             except Exception as e:
+                _success[0] = False
                 self.after(0, lambda err=e: self._log(f"Restore error: {err}"))
             finally:
                 self.after(0, lambda: self._set_deploy_buttons_enabled(True))
                 self.after(1500, status_bar.clear_progress)
+                if _success[0]:
+                    self.after(0, lambda: _show_mod_notification(self, f"{game_name} Restored", state="success"))
 
         self._set_deploy_buttons_enabled(False)
         threading.Thread(target=_worker, daemon=True).start()
