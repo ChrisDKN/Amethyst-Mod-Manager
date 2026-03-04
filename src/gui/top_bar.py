@@ -42,6 +42,7 @@ from gui.dialogs import (
     _MewgenicsLaunchCommandDialog,
     ask_yes_no,
 )
+from gui.ctk_components import CTkAlert
 from gui.path_utils import pick_file_mod_archive
 from gui.install_mod import install_mod_from_archive
 from gui.add_game_dialog import AddGameDialog
@@ -326,12 +327,15 @@ class TopBar(ctk.CTkFrame):
         if profile == "default":
             self._log("Cannot remove the default profile.")
             return
-        confirmed = ask_yes_no(
-            "Remove Profile",
-            f"Remove profile '{profile}'?\n\nThis will delete modlist.txt and plugins.txt for this profile.",
+        alert = CTkAlert(
+            state="warning",
+            title="Remove Profile",
+            body_text=f"Are you sure you want to remove the '{profile}' profile?\n\nThis will delete modlist.txt and plugins.txt for this profile.",
+            btn1="Remove",
+            btn2="Cancel",
             parent=self.winfo_toplevel(),
         )
-        if not confirmed:
+        if alert.get() != "Remove":
             return
         game = _gh._GAMES.get(game_name)
         if game is not None:

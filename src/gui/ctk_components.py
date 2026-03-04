@@ -108,24 +108,29 @@ TEXT = "Some quick example text to build on the card title and make up the bulk 
 
 class CTkAlert(ctk.CTkToplevel):
     def __init__(self, state: str = "info", title: str = "Title",
-                 body_text: str = "Body text", btn1: str = "OK", btn2: str = "Cancel"):
-        super().__init__()
+                 body_text: str = "Body text", btn1: str = "OK", btn2: str = "Cancel",
+                 parent=None):
+        self._parent_ref = parent
+        super().__init__(master=parent)
         self.old_y = None
         self.old_x = None
         self.width = 420
-        self.height = 200
-        if center_window:
-            center_window(self, self.width, self.height)
+        self.height = 220
         self.resizable(False, False)
         self.overrideredirect(True)
+        if parent is not None:
+            self.transient(parent)
+        # Defer centering until after the window is fully realized
+        self.withdraw()
+        self.after(10, self._center_and_show)
         self.lift()
 
         self.x = self.winfo_x()
         self.y = self.winfo_y()
         self.event = None
 
+        self.transparent_color = self._apply_appearance_mode(self.cget("fg_color"))
         if sys.platform.startswith("win"):
-            self.transparent_color = self._apply_appearance_mode(self.cget("fg_color"))
             self.attributes("-transparentcolor", self.transparent_color)
 
         self.bg_color = self._apply_appearance_mode(ctk.ThemeManager.theme["CTkFrame"]["fg_color"])
@@ -173,6 +178,27 @@ class CTkAlert(ctk.CTkToplevel):
         self.btn_2.grid(row=2, column=1, padx=(5, 10), pady=20, sticky="e")
 
         self.bind("<Escape>", lambda e: self.button_event())
+
+    def _center_and_show(self):
+        """Position the alert centered on the parent window, then reveal it."""
+        parent = self._parent_ref
+        if parent is not None:
+            try:
+                parent.update_idletasks()
+                px = parent.winfo_rootx()
+                py = parent.winfo_rooty()
+                pw = parent.winfo_width()
+                ph = parent.winfo_height()
+                cx = px + (pw - self.width) // 2
+                cy = py + (ph - self.height) // 2
+                self.geometry(f"{self.width}x{self.height}+{cx}+{cy}")
+            except Exception:
+                pass
+        elif center_window:
+            center_window(self, self.width, self.height)
+        self.deiconify()
+        self.lift()
+        self.focus_force()
 
     def get(self):
         if self.winfo_exists():
