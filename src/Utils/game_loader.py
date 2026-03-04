@@ -23,8 +23,8 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 
-_EXCLUDED_STEMS   = {"__init__", "base_game", "ue5_game"}
-_EXCLUDED_FOLDERS = {"Example"}
+_EXCLUDED_STEMS   = {"__init__", "base_game", "ue5_game", "custom_game"}
+_EXCLUDED_FOLDERS = {"Example", "Custom"}
 
 # Cache so we keep using the same path even if cwd changes later (e.g. after os.chdir in install_mod)
 _games_dir_cache: Path | None = None
@@ -168,6 +168,7 @@ def discover_games() -> dict[str, BaseGame]:
     """
     Scan Games/<GameFolder>/*.py, load each module from its file path, find
     BaseGame subclasses, instantiate them, and return {game.name: instance}.
+    Also loads user-defined custom games from the config directory.
     """
     games: dict[str, BaseGame] = {}
     games_dir = _find_games_dir()
@@ -200,4 +201,14 @@ def discover_games() -> dict[str, BaseGame]:
                     games[instance.name] = instance
         except Exception:
             pass
+
+    # Merge user-defined custom games (JSON files in ~/.config/.../custom_games/)
+    try:
+        from Games.Custom.custom_game import load_all_custom_games
+        for name, instance in load_all_custom_games().items():
+            if name not in games:          # built-in games take priority
+                games[name] = instance
+    except Exception:
+        pass
+
     return games

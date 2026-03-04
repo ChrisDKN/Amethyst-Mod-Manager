@@ -362,6 +362,11 @@ class TopBar(ctk.CTkFrame):
         self.winfo_toplevel().wait_window(picker)
         if picker.result is None:
             return
+
+        # If the result is not yet in _GAMES (new custom game), reload the registry
+        if picker.result not in _gh._GAMES:
+            _load_games()
+
         game = _gh._GAMES.get(picker.result)
         if game is None:
             return
@@ -392,6 +397,31 @@ class TopBar(ctk.CTkFrame):
         if game is None:
             self._log("No game selected.")
             return
+
+        # For user-defined custom games, open the definition editor first
+        if getattr(game, "is_custom", False):
+            from gui.custom_game_dialog import CustomGameDialog
+            defn_dlg = CustomGameDialog(self.winfo_toplevel(), existing=getattr(game, "_defn", None))
+            self.winfo_toplevel().wait_window(defn_dlg)
+            if defn_dlg.deleted:
+                self._log(f"Deleted custom game: {game_name}")
+                # Remove from registry and clear configured path
+                _gh._GAMES.pop(game_name, None)
+                game.load_paths()  # wipes in-memory paths
+                configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                self._game_menu.configure(values=configured or ["No games configured"])
+                if configured:
+                    self._game_var.set(configured[0])
+                    self._on_game_change(configured[0])
+                else:
+                    self._game_var.set("No games configured")
+                    self._on_game_change("No games configured")
+                return
+            if defn_dlg.saved_game is not None:
+                # Reload registry to pick up definition changes
+                _load_games()
+                game = _gh._GAMES.get(defn_dlg.saved_game.name) or game
+
         dialog = AddGameDialog(self.winfo_toplevel(), game)
         self.winfo_toplevel().wait_window(dialog)
         if getattr(dialog, "removed", False):

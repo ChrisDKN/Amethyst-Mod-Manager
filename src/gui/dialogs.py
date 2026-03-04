@@ -39,7 +39,7 @@ from gui.theme import (
     BG_SEP,
 )
 from gui.path_utils import _to_wine_path
-from Utils.config_paths import get_exe_args_path
+from Utils.config_paths import get_exe_args_path, get_custom_game_images_dir
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +206,12 @@ class _GamePickerDialog(ctk.CTkToplevel):
             command=self._cancel
         ).pack(side="right", padx=(4, 12), pady=10)
 
+        ctk.CTkButton(
+            btn_bar, text="+ Define Custom Game", width=170, height=30, font=FONT_BOLD,
+            fg_color="#2d7a2d", hover_color="#3a9a3a", text_color="white",
+            command=self._on_define_custom_game,
+        ).pack(side="left", padx=(12, 4), pady=10)
+
         cols = self._COLS
         w = cols * (self._CARD_W + self._PAD) + self._PAD + 8
         rows_count = (len(game_names) + cols - 1) // cols
@@ -251,6 +257,11 @@ class _GamePickerDialog(ctk.CTkToplevel):
         if not img_path.is_file():
             # Try lowercase fallback
             img_path = self._icons_dir / f"{game_id.lower()}.png"
+        if not img_path.is_file():
+            # Fall back to cached custom-game image (downloaded from image_url)
+            custom_img = get_custom_game_images_dir() / f"{game_id}.png"
+            if custom_img.is_file():
+                img_path = custom_img
         if img_path.is_file():
             raw = _PilImage.open(img_path).convert("RGBA")
             tw, th = self._CARD_W - 8, self._IMG_H
@@ -298,6 +309,17 @@ class _GamePickerDialog(ctk.CTkToplevel):
     def _make_modal(self):
         self.grab_set()
         self.focus_set()
+
+    def _on_define_custom_game(self):
+        """Open the custom game definition dialog, then return the new game name."""
+        # Lazy import to avoid circular dependency
+        from gui.custom_game_dialog import CustomGameDialog
+        dlg = CustomGameDialog(self)
+        self.wait_window(dlg)
+        if dlg.saved_game is not None:
+            self.result = dlg.saved_game.name
+            self.grab_release()
+            self.destroy()
 
     def _cancel(self):
         self.grab_release()

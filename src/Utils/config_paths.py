@@ -120,3 +120,29 @@ def get_requirement_external_tool_mod_ids_path() -> Path:
     Result: ~/.config/AmethystModManager/requirement_external_tool_mod_ids.txt
     """
     return get_config_dir() / "requirement_external_tool_mod_ids.txt"
+
+
+def get_custom_games_dir() -> Path:
+    """Return the directory where user-defined custom game JSON files are stored.
+
+    Users drop one JSON file per game here to add support for games not built
+    into the application.
+
+    Result: ~/.config/AmethystModManager/custom_games/
+    """
+    d = get_config_dir() / "custom_games"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_custom_game_images_dir() -> Path:
+    """Return the directory where downloaded custom game banner images are cached.
+
+    When a user provides an image URL in the custom game definition, the image
+    is downloaded once and stored here so the game picker can display it offline.
+
+    Result: ~/.config/AmethystModManager/custom_game_images/
+    """
+    d = get_config_dir() / "custom_game_images"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
