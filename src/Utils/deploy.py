@@ -183,7 +183,7 @@ def deploy_filemap(
     already_seen: set[str] = set()
     tasks: list[tuple[Path, Path, str]] = []
     placed_lower: set[str] = set()
-    nocase_cache: dict[Path, dict[str, Path]] = {}
+    nocase_cache: dict[Path, dict[str, list[Path]]] = {}
 
     # Read all lines first so we know the total for progress reporting.
     raw_lines: list[str] = []
@@ -748,7 +748,7 @@ def deploy_filemap_to_root(
     already_seen: set[str] = set()
     placed_lower: set[str] = set()
     placed_log:   list[str] = []
-    nocase_cache: dict[Path, dict[str, Path]] = {}
+    nocase_cache: dict[Path, dict[str, list[Path]]] = {}
 
     raw_lines: list[str] = []
     with filemap_path.open(encoding="utf-8") as f:
@@ -927,37 +927,51 @@ def _path_under_root(path: Path, root: Path) -> bool:
 
 
 def _resolve_nocase(root: Path, rel_str: str,
-                    cache: dict[Path, dict[str, Path]] | None = None) -> Path | None:
+                    cache: dict[Path, dict[str, list[Path]]] | None = None) -> Path | None:
     """Resolve a relative path case-insensitively under root.
 
     Each path segment is matched case-insensitively against the real
     filesystem entries so that a canonical rel_str (e.g. "Scripts/foo.pex")
     will find the actual file even if the mod folder uses "scripts/foo.pex".
 
-    An optional *cache* dict maps directory Paths to {lowercase_name: entry}
+    When a directory contains multiple entries whose names differ only in case
+    (e.g. both "Textures/" and "textures/"), *all* are explored so the correct
+    file is found regardless of which casing the filemap recorded.
+
+    An optional *cache* dict maps directory Paths to {lowercase_name: [entries]}
     dicts so that repeated lookups in the same directory avoid re-scanning.
 
     Returns the resolved Path if it exists, or None.
     """
     if cache is None:
         cache = {}
-    current = root
     parts = rel_str.replace("\\", "/").split("/")
-    for part in parts:
-        part_lower = part.lower()
+    # Stack entries: (current_dir, parts_index)
+    stack: list[tuple[Path, int]] = [(root, 0)]
+    while stack:
+        current, idx = stack.pop()
+        if idx == len(parts):
+            if current.is_file():
+                return current
+            continue
+        part_lower = parts[idx].lower()
         listing = cache.get(current)
         if listing is None:
+            listing = {}
             try:
-                listing = {e.name.lower(): e for e in current.iterdir()}
+                for e in current.iterdir():
+                    key = e.name.lower()
+                    if key not in listing:
+                        listing[key] = []
+                    listing[key].append(e)
             except OSError:
-                return None
+                pass
             cache[current] = listing
-        matched = listing.get(part_lower)
-        if matched is None:
-            return None
-        current = matched
-    if current.is_file():
-        return current
+        candidates = listing.get(part_lower)
+        if not candidates:
+            continue
+        for candidate in candidates:
+            stack.append((candidate, idx + 1))
     return None
 
 
