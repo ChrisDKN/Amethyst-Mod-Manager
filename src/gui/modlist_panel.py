@@ -3728,6 +3728,15 @@ class ModListPanel(ctk.CTkFrame):
 
             if result.success and result.file_path:
                 def _install():
+                    # Defer if a modal dialog (e.g. FOMOD wizard) currently has
+                    # the input grab — running install_mod_from_archive inside
+                    # wait_window's event loop causes the UI to freeze.
+                    try:
+                        if app.grab_current() is not None:
+                            app.after(500, _install)
+                            return
+                    except Exception:
+                        pass
                     mod_panel.hide_download_progress(cancel=cancel_event)
                     log_fn(f"Nexus: Installing update for {mod_name}...")
                     install_mod_from_archive(

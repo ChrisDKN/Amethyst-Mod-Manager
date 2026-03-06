@@ -253,9 +253,41 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
     try:
         if ext.endswith(".zip"):
-            log_fn("Extracting with zipfile…")
-            with zipfile.ZipFile(archive_path, "r") as z:
-                z.extractall(extract_dir)
+            import subprocess
+            _zip_done = False
+            try:
+                log_fn("Extracting with zipfile…")
+                with zipfile.ZipFile(archive_path, "r") as z:
+                    z.extractall(extract_dir)
+                _zip_done = True
+            except Exception as e_zip:
+                log_fn(f"zipfile failed ({e_zip}), retrying with 7z…")
+            if not _zip_done:
+                _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+                if _7z_bin:
+                    shutil.rmtree(extract_dir, ignore_errors=True)
+                    os.makedirs(extract_dir, exist_ok=True)
+                    result = subprocess.run(
+                        [_7z_bin, "x", archive_path, f"-o{extract_dir}", "-y"],
+                        capture_output=True, text=True,
+                    )
+                    if result.returncode == 0:
+                        _zip_done = True
+                        log_fn("Extracted with 7z.")
+                    else:
+                        log_fn(f"7z failed ({result.stderr.strip()}), retrying with bsdtar…")
+                else:
+                    log_fn("7z/7za not found, trying bsdtar…")
+            if not _zip_done:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                os.makedirs(extract_dir, exist_ok=True)
+                result = subprocess.run(
+                    ["bsdtar", "-xf", archive_path, "-C", extract_dir],
+                    capture_output=True, text=True,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
+                log_fn("Extracted with bsdtar.")
         elif ext.endswith(".7z"):
             import subprocess
             _7z_done = False

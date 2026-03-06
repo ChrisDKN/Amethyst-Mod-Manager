@@ -1466,6 +1466,15 @@ class PluginPanel(ctk.CTkFrame):
 
             if result.success and result.file_path:
                 def _install():
+                    # Defer if a modal dialog (e.g. FOMOD wizard) currently has
+                    # the input grab — running install_mod_from_archive inside
+                    # wait_window's event loop causes the UI to freeze.
+                    try:
+                        if app.grab_current() is not None:
+                            app.after(500, _install)
+                            return
+                    except Exception:
+                        pass
                     if mod_panel:
                         mod_panel.hide_download_progress(cancel=cancel_event_tracked)
                     log_fn(f"Tracked Mods: Installing '{mod_name}'...")
@@ -1637,6 +1646,15 @@ class PluginPanel(ctk.CTkFrame):
 
             if result.success and result.file_path:
                 def _install():
+                    # Defer if a modal dialog (e.g. FOMOD wizard) currently has
+                    # the input grab — running install_mod_from_archive inside
+                    # wait_window's event loop causes the UI to freeze.
+                    try:
+                        if app.grab_current() is not None:
+                            app.after(500, _install)
+                            return
+                    except Exception:
+                        pass
                     if mod_panel:
                         mod_panel.hide_download_progress(cancel=cancel_event_endorsed)
                     log_fn(f"Endorsed Mods: Installing '{mod_name}'...")
@@ -2149,6 +2167,12 @@ class PluginPanel(ctk.CTkFrame):
 
     def _update_plugin_header(self, w: int):
         """Rebuild header labels to match current column positions."""
+        # Guard against callbacks firing after the widget has been destroyed.
+        try:
+            if not self._pheader.winfo_exists():
+                return
+        except Exception:
+            return
         for lbl in self._pheader_labels:
             lbl.destroy()
         self._pheader_labels.clear()
