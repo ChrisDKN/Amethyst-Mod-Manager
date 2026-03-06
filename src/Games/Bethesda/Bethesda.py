@@ -59,6 +59,10 @@ class Fallout_3(BaseGame):
     @property
     def nexus_game_domain(self) -> str:
         return "fallout3"
+    
+    @property
+    def mod_folder_strip_prefixes(self) -> set[str]:
+        return {"Data"}
 
     @property
     def loot_sort_enabled(self) -> bool:
