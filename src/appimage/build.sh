@@ -76,6 +76,38 @@ chmod +x "${APPDIR}/usr/bin/7zzs"
 rm -rf "$SEVENZIP_TAR" "$SEVENZIP_TMP"
 echo "  Bundled: 7zzs ($(du -h "${APPDIR}/usr/bin/7zzs" | cut -f1))"
 
+# ── Step 4c: Create 7z/7za symlinks pointing to 7zzs ─────────────────
+# Ensures shutil.which("7z") and shutil.which("7za") also resolve to
+# the bundled static binary when the host has no 7zip package installed.
+echo "=== Creating 7z/7za compatibility symlinks ==="
+ln -sf 7zzs "${APPDIR}/usr/bin/7z"
+ln -sf 7zzs "${APPDIR}/usr/bin/7za"
+echo "  Symlinked: 7z → 7zzs, 7za → 7zzs"
+
+# ── Step 4d: Bundle bsdtar ────────────────────────────────────────────
+# bsdtar (libarchive CLI) is the final .7z fallback.  Copy the binary
+# and all non-libc shared libraries so it works on any distro.
+# libarchive.so is already in usr/lib; remaining deps (liblzma, libbz2,
+# libzstd, liblz4, libxml2, libicu*, libacl, libcrypto, etc.) go there too.
+echo "=== Bundling bsdtar ==="
+BSDTAR_BIN="$(which bsdtar 2>/dev/null || true)"
+if [ -n "$BSDTAR_BIN" ]; then
+    cp "$BSDTAR_BIN" "${APPDIR}/usr/bin/bsdtar"
+    chmod +x "${APPDIR}/usr/bin/bsdtar"
+    # Copy every .so dependency except the handful that MUST come from the host
+    ldd "$BSDTAR_BIN" 2>/dev/null | awk '/=>/ { print $3 }' \
+        | grep -Ev '(linux-vdso|ld-linux|libc\.so|libm\.so|libdl\.so|libpthread\.so|librt\.so|libgcc_s\.so|libstdc\+\+\.so)' \
+        | while read -r lib; do
+            [ -f "$lib" ] || continue
+            if cp -n "$lib" "${APPDIR}/usr/lib/" 2>/dev/null; then
+                echo "  Bundled dep: $(basename "$lib")"
+            fi
+        done
+    echo "  Bundled: bsdtar ($(du -h "${APPDIR}/usr/bin/bsdtar" | cut -f1))"
+else
+    echo "  WARNING: bsdtar not found on build system — skipping"
+fi
+
 # ── Step 5: Copy application code ────────────────────────────────────
 echo "=== Copying application code ==="
 APP_DIR="${APPDIR}/usr/app"
