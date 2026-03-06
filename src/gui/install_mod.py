@@ -8,13 +8,13 @@ import os
 import shutil
 import tarfile
 import tempfile
+import threading
+import zipfile
 
 # Ensures only one FOMOD dialog is shown at a time even when collection installs
 # run parallel extraction workers.  Any worker that needs user input acquires this
 # lock, marshals the dialog to the main thread, waits for the result, then releases.
 _fomod_dialog_lock = threading.Lock()
-import threading
-import zipfile
 from pathlib import Path
 from datetime import datetime
 
