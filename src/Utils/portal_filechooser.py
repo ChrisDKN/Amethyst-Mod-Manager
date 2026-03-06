@@ -349,6 +349,90 @@ def _zenity_file(title: str) -> Path | None:
     return None
 
 
+def _kdialog_folder(title: str) -> Path | None:
+    """Folder picker via kdialog (KDE). Returns None if kdialog is unavailable."""
+    try:
+        result = subprocess.run(
+            ["kdialog", "--getexistingdirectory", str(Path.home()), "--title", title],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            p = Path(result.stdout.strip())
+            if p.is_dir():
+                return p
+    except FileNotFoundError:
+        pass
+    return None
+
+
+_MOD_ARCHIVE_MIMETYPES = "application/zip application/x-7z-compressed application/x-tar"
+
+
+def _kdialog_file(title: str) -> Path | None:
+    """File picker via kdialog (KDE). Returns None if kdialog is unavailable."""
+    try:
+        result = subprocess.run(
+            [
+                "kdialog", "--getopenfilename", str(Path.home()),
+                "*.zip *.7z *.tar.gz *.tar|Mod Archives (*.zip, *.7z, *.tar.gz, *.tar)",
+                "--title", title,
+            ],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            p = Path(result.stdout.strip())
+            if p.is_file():
+                return p
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def _tkinter_folder(title: str) -> Path | None:
+    """Last-resort folder picker using tkinter.filedialog (always available)."""
+    try:
+        import tkinter as tk
+        import tkinter.filedialog as fd
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        chosen = fd.askdirectory(title=title, parent=root)
+        root.destroy()
+        if chosen:
+            p = Path(chosen)
+            if p.is_dir():
+                return p
+    except Exception as e:
+        _debug_log(f"tkinter folder picker failed: {e}")
+    return None
+
+
+def _tkinter_file(title: str) -> Path | None:
+    """Last-resort file picker using tkinter.filedialog (always available)."""
+    try:
+        import tkinter as tk
+        import tkinter.filedialog as fd
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        chosen = fd.askopenfilename(
+            title=title,
+            filetypes=[
+                ("Mod Archives", "*.zip *.7z *.tar.gz *.tar"),
+                ("All files", "*"),
+            ],
+            parent=root,
+        )
+        root.destroy()
+        if chosen:
+            p = Path(chosen)
+            if p.is_file():
+                return p
+    except Exception as e:
+        _debug_log(f"tkinter file picker failed: {e}")
+    return None
+
+
 def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
     """
     Open a native folder picker via XDG portal (or zenity fallback).
@@ -364,7 +448,13 @@ def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
         if result is _CANCELLED:
             callback(None)
             return
-        chosen = result if isinstance(result, Path) else _zenity_folder(title)
+        chosen: Path | None = result if isinstance(result, Path) else None
+        if chosen is None:
+            chosen = _zenity_folder(title)
+        if chosen is None:
+            chosen = _kdialog_folder(title)
+        if chosen is None:
+            chosen = _tkinter_folder(title)
         callback(chosen)
 
     threading.Thread(target=_worker, daemon=True).start()
@@ -386,7 +476,13 @@ def _run_file_picker_worker(title: str, filters: list[tuple[str, list[str]]], cb
     if result is _CANCELLED:
         cb(None)
         return
-    chosen = result if isinstance(result, Path) else _zenity_file(title)
+    chosen: Path | None = result if isinstance(result, Path) else None
+    if chosen is None:
+        chosen = _zenity_file(title)
+    if chosen is None:
+        chosen = _kdialog_file(title)
+    if chosen is None:
+        chosen = _tkinter_file(title)
     cb(chosen)
 
 
