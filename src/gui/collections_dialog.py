@@ -637,24 +637,23 @@ class CollectionDetailDialog(tk.Frame):
         # Maps collection.json position (or fallback index) → installed folder name
         install_order: list[tuple[int, str]] = []  # (sort_key, folder_name)
 
-        for seq_idx, mod in enumerate(ordered_mods):
-            if not self.winfo_exists():
-                break
+        # ------------------------------------------------------------------
+        # Classify: already-installed (skip) vs needs downloading
+        # ------------------------------------------------------------------
+        to_download: list = []  # CollectionMod objects that still need DL+install
 
+        for mod in ordered_mods:
             if not mod.file_id:
                 self._log(f"Collection install: skipping '{mod.mod_name}' — no file ID")
                 skipped += 1
                 continue
 
-            # Skip mods already installed from a previous (possibly partial) run.
             # Check 1: fileid in meta.ini matches exactly
             existing_folder: str = ""
             if mod.file_id in already_installed_by_fid:
                 existing_folder = already_installed_by_fid[mod.file_id]
             else:
-                # Check 2: try every name candidate the installer might use as folder name
-                # (logicalFilename, schema name, GraphQL mod_name — all run through
-                #  _suggest_mod_names so we test every stripped variant).
+                # Check 2: predicted folder name (logicalFilename / schema name / mod_name)
                 logical = schema_file_id_to_logical.get(mod.file_id, "") or ""
                 schema_name = schema_pos_to_name.get(schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
                 candidates: list[str] = []
@@ -668,46 +667,52 @@ class CollectionDetailDialog(tk.Frame):
                     if key in staging_lower_map:
                         existing_folder = staging_lower_map[key]
                         break
+
             if existing_folder:
                 self._log(f"Collection install: '{mod.mod_name}' already installed as '{existing_folder}' — skipping")
                 install_order.append((_sort_key(mod), existing_folder))
                 installed += 1
-                continue
+            else:
+                to_download.append(mod)
 
-            sort_key = _sort_key(mod)
-            n = installed + skipped + 1
-            try:
-                self.after(0, lambda m=mod, i=n: self._status_var.set(
-                    f"Downloading {i}/{total}: {m.mod_name}…"
-                ))
-            except Exception:
-                break
+        # ------------------------------------------------------------------
+        # Step 2a: Download up to 3 mods in parallel
+        # ------------------------------------------------------------------
+        import concurrent.futures as _cf
 
-            # Create a progress popup on the main thread
-            mod_panel = getattr(app, "_mod_panel", None)
+        _DL_WORKERS = 3
+        _dl_results: dict[int, object] = {}  # file_id → DownloadResult|None
+        _dl_lock = threading.Lock()
+        _dl_done = 0
+        _dl_total = len(to_download)
+        mod_panel = getattr(app, "_mod_panel", None)
+
+        def _download_one(mod):
+            nonlocal _dl_done
+
+            # --- Create a stacked progress popup only for files >= 10 MB ---
+            _POPUP_MIN_BYTES = 10 * 1024 * 1024
             dl_cancel = None
-            if mod_panel is not None:
-                _cancel_ready = threading.Event()
-                _cancel_holder: list = [None]
+            if mod_panel is not None and getattr(mod, "size_bytes", 0) >= _POPUP_MIN_BYTES:
+                _ce_holder: list = [None]
+                _ce_ready = threading.Event()
 
-                def _create_popup(mn=mod.mod_name, i=n, t=total):
+                def _make_popup(mn=mod.mod_name):
                     try:
                         ce = mod_panel.get_download_cancel_event()
-                        mod_panel.show_download_progress(
-                            f"[{i}/{t}] {mn}", cancel=ce
-                        )
-                        _cancel_holder[0] = ce
+                        mod_panel.show_download_progress(mn, cancel=ce)
+                        _ce_holder[0] = ce
                     except Exception:
                         pass
                     finally:
-                        _cancel_ready.set()
+                        _ce_ready.set()
 
                 try:
-                    self.after(0, _create_popup)
+                    self.after(0, _make_popup)
                 except Exception:
-                    _cancel_ready.set()
-                _cancel_ready.wait(timeout=5)
-                dl_cancel = _cancel_holder[0]
+                    _ce_ready.set()
+                _ce_ready.wait(timeout=5)
+                dl_cancel = _ce_holder[0]
 
             def _progress_cb(cur: int, tot: int, _ce=dl_cancel):
                 if mod_panel is None or _ce is None:
@@ -722,6 +727,7 @@ class CollectionDetailDialog(tk.Frame):
                 except Exception:
                     pass
 
+            # --- Download ---
             try:
                 result = downloader.download_file(
                     game_domain=self._game_domain,
@@ -732,25 +738,56 @@ class CollectionDetailDialog(tk.Frame):
                 )
             except Exception as exc:
                 self._log(f"Collection install: download failed for '{mod.mod_name}': {exc}")
-                skipped += 1
-                if dl_cancel is not None and mod_panel is not None:
-                    try:
-                        mod_panel.after(0, lambda ce=dl_cancel: mod_panel.hide_download_progress(cancel=ce))
-                    except Exception:
-                        pass
-                continue
+                result = None
 
-            # Close the progress popup now that download is done
+            # --- Hide popup ---
             if dl_cancel is not None and mod_panel is not None:
                 try:
                     mod_panel.after(0, lambda ce=dl_cancel: mod_panel.hide_download_progress(cancel=ce))
                 except Exception:
                     pass
 
-            if not result.success or not result.file_path:
+            with _dl_lock:
+                _dl_done += 1
+                _dl_results[mod.file_id] = result
+                done = _dl_done
+            try:
+                self.after(0, lambda d=done, t=_dl_total: self._status_var.set(
+                    f"Downloading: {d}/{t} complete\u2026"
+                ))
+            except Exception:
+                pass
+
+        if to_download:
+            try:
+                self.after(0, lambda n=_dl_total, w=_DL_WORKERS: self._status_var.set(
+                    f"Downloading {n} mod(s) — up to {w} at a time\u2026"
+                ))
+            except Exception:
+                pass
+            with _cf.ThreadPoolExecutor(max_workers=_DL_WORKERS) as _pool:
+                list(_pool.map(_download_one, to_download))
+
+        # ------------------------------------------------------------------
+        # Step 2b: Install downloaded archives sequentially (main thread)
+        # ------------------------------------------------------------------
+        for seq_idx, mod in enumerate(to_download, 1):
+            if not self.winfo_exists():
+                break
+
+            result = _dl_results.get(mod.file_id)
+            if result is None or not result.success or not result.file_path:
                 self._log(f"Collection install: download failed for '{mod.mod_name}'")
                 skipped += 1
                 continue
+
+            sort_key = _sort_key(mod)
+            try:
+                self.after(0, lambda m=mod, i=seq_idx, t=_dl_total: self._status_var.set(
+                    f"Installing {i}/{t}: {m.mod_name}\u2026"
+                ))
+            except Exception:
+                break
 
             # Snapshot staging dir to detect the newly-installed folder
             before_folders: set[str] = set()
@@ -763,11 +800,9 @@ class CollectionDetailDialog(tk.Frame):
             # Install on the main thread, wait for it to finish
             done_event = threading.Event()
             archive_path = str(result.file_path)
-            current_mod = mod
-
             auto_fomod = fomod_by_file_id.get(mod.file_id)
 
-            def _do_install(ap=archive_path, cm=current_mod, af=auto_fomod):
+            def _do_install(ap=archive_path, cm=mod, af=auto_fomod):
                 try:
                     install_mod_from_archive(
                         ap, self, self._log, self._game,
