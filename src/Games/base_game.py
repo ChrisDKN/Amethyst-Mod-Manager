@@ -229,16 +229,24 @@ class BaseGame(ABC):
     def mod_required_file_types(self) -> set[str]:
         """
         File extensions (e.g. {".esp", ".esm", ".esl"}) that are recognised as
-        valid top-level content for this game's mods.  Checked as a fallback
-        when mod_required_top_level_folders fails: if the mod contains a file
-        with one of these extensions directly at its root (or can be stripped
-        down to one), the folder-structure check is skipped.
+        valid top-level content for this game's mods.
 
-        mod_auto_strip_until_required also applies here — if enabled, leading
-        folder segments are stripped until a qualifying file sits at the top
-        level.
+        Can be used in two ways:
 
-        Return an empty set (the default) to disable this fallback.
+        1. Alongside mod_required_top_level_folders (fallback): if the
+           top-level folder check fails, the installer checks whether the mod
+           contains a file with one of these extensions at its root (or can be
+           stripped down to one) before falling through to the prefix dialog.
+
+        2. Standalone (without mod_required_top_level_folders): if no required
+           top-level folders are declared, this check runs on its own — the mod
+           must have a qualifying file at its top level, or the auto-strip /
+           prefix-dialog / install-as-is fallbacks apply as normal.
+
+        mod_auto_strip_until_required and mod_install_as_is_if_no_match both
+        apply in either mode.
+
+        Return an empty set (the default) to disable this check entirely.
         """
         return set()
 

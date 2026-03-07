@@ -578,6 +578,25 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                         prefix = prefix.strip().strip("/").replace("\\", "/")
                         file_list = [(s, f"{prefix}/{d}", f) for s, d, f in file_list]
                         log_fn(f"Remapped mod files under '{prefix}/'.")
+        elif not required and required_file_types and not _check_mod_top_level_file_types(file_list, required_file_types):
+            if auto_strip:
+                file_list, did_auto_strip = _try_auto_strip_for_file_types(file_list, required_file_types)
+                if did_auto_strip:
+                    log_fn("Auto-stripped top-level folder(s) to expose recognised file type(s).")
+            if not did_auto_strip:
+                if install_as_is:
+                    log_fn("Mod structure unrecognised — installing as-is (no prefix applied).")
+                else:
+                    dlg = _SetPrefixDialog(parent_window, set(), file_list)
+                    parent_window.wait_window(dlg)
+                    if dlg.result is None:
+                        log_fn("Install cancelled — mod structure not mapped.")
+                        return
+                    action, prefix = dlg.result
+                    if action == "prefix" and prefix:
+                        prefix = prefix.strip().strip("/").replace("\\", "/")
+                        file_list = [(s, f"{prefix}/{d}", f) for s, d, f in file_list]
+                        log_fn(f"Remapped mod files under '{prefix}/'.")
 
         post_strip_prefixes = getattr(game, "mod_folder_strip_prefixes_post", set())
         if post_strip_prefixes:
