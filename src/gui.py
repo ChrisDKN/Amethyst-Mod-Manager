@@ -525,7 +525,7 @@ class App(ctk.CTk):
         log = self._status.log
         set_app_log(log, self.after)
 
-        self._topbar = TopBar(self, log_fn=log)
+        self._topbar = TopBar(self, log_fn=log, show_add_game_panel_fn=self.show_game_picker)
         self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))
 
         main = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
@@ -534,6 +534,8 @@ class App(ctk.CTk):
         main.grid_columnconfigure(1, weight=0)
         main.grid_columnconfigure(2, weight=4, minsize=480)
         main.grid_rowconfigure(0, weight=1)
+        self._main_frame = main
+        self._game_picker_panel = None
 
         self._mod_panel = ModListPanel(main, log_fn=log)
         self._mod_panel.grid(row=0, column=0, sticky="nsew")
@@ -668,6 +670,42 @@ class App(ctk.CTk):
             self._mod_panel.load_game(None, "")
             if hasattr(self._plugin_panel, "_plugin_entries"):
                 self._plugin_panel._plugin_entries = []
+
+    # -- Game picker panel (inline overlay) --------------------------------
+
+    def show_game_picker(self, game_names: list, on_game_selected):
+        """Show the game-picker card grid, overlaying the main content area."""
+        self.hide_game_picker()
+
+        from gui.dialogs import GamePickerPanel
+
+        def _on_selected(name: str, already_configured: bool):
+            self.hide_game_picker()
+            on_game_selected(name, already_configured)
+
+        def _on_cancel():
+            self.hide_game_picker()
+
+        self._game_picker_panel = GamePickerPanel(
+            self._main_frame,
+            game_names,
+            games=_GAMES,
+            on_game_selected=_on_selected,
+            on_cancel=_on_cancel,
+        )
+        self._game_picker_panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._game_picker_panel.lift()
+
+    def hide_game_picker(self):
+        """Remove the game-picker panel and restore the normal content area."""
+        panel = self._game_picker_panel
+        if panel is not None:
+            self._game_picker_panel = None
+            try:
+                panel.place_forget()
+                panel.destroy()
+            except Exception:
+                pass
 
     def _startup_log(self):
         configured = sum(1 for g in _GAMES.values() if g.is_configured())

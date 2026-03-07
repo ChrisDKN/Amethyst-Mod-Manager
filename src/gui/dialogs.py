@@ -365,6 +365,320 @@ class _GamePickerDialog(ctk.CTkToplevel):
 
 
 # ---------------------------------------------------------------------------
+# GamePickerPanel — inline frame version that replaces the mod-list area
+# ---------------------------------------------------------------------------
+
+class GamePickerPanel(tk.Frame):
+    """
+    Game-picker card grid that embeds directly in the main window (no Toplevel).
+
+    Placed over the main content area with ``place(relx=0, rely=0,
+    relwidth=1, relheight=1)``.  Columns reflow automatically when the
+    window is resized, matching the behaviour of the Collections browser.
+
+    Callbacks
+    ---------
+    on_game_selected(name: str, already_configured: bool)
+        Called when the user clicks "Add" or "Select" on a card.
+    on_cancel()
+        Called when the user clicks the "✕ Cancel" / Close button.
+    """
+
+    _CARD_W = 160
+    _CARD_H = 200
+    _IMG_H  = 130
+    _PAD    = 12
+
+    def __init__(
+        self,
+        parent: tk.Widget,
+        game_names: list,
+        games: dict | None = None,
+        on_game_selected=None,
+        on_cancel=None,
+    ):
+        super().__init__(parent, bg=BG_DEEP)
+        self._game_names = game_names
+        self._games = games or {}
+        self._icons_dir = Path(__file__).resolve().parent.parent / "icons" / "games"
+        self._on_game_selected = on_game_selected or (lambda n, c: None)
+        self._on_cancel = on_cancel or (lambda: None)
+
+        self._img_refs: list = []
+        self._img_labels: dict = {}           # game_id → (img_lbl, img_frame)
+        self._card_widgets: list = []          # list of card frames (in order)
+        self._curr_cols: int = 4
+
+        self._build()
+
+        # Download banner images for custom games in background
+        try:
+            from Games.Custom.custom_game import download_missing_custom_game_images
+            download_missing_custom_game_images(on_done=self._on_image_downloaded)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Build
+    # ------------------------------------------------------------------
+
+    def _build(self):
+        self.grid_rowconfigure(0, weight=0)   # title bar
+        self.grid_rowconfigure(1, weight=0)   # subtitle
+        self.grid_rowconfigure(2, weight=1)   # canvas
+        self.grid_rowconfigure(3, weight=0)   # button bar
+        self.grid_columnconfigure(0, weight=1)
+
+        # ---- Title bar ----
+        title_bar = tk.Frame(self, bg=BG_HEADER, height=40)
+        title_bar.grid(row=0, column=0, sticky="ew")
+        title_bar.grid_propagate(False)
+
+        tk.Label(
+            title_bar, text="Add Game",
+            font=FONT_BOLD, fg=TEXT_MAIN, bg=BG_HEADER, anchor="w",
+        ).pack(side="left", padx=12, pady=8)
+
+        tk.Button(
+            title_bar, text="✕  Cancel",
+            bg="#6b3333", fg="#ffffff", activebackground="#8c4444",
+            activeforeground="#ffffff",
+            relief="flat", font=FONT_SMALL,
+            bd=0, highlightthickness=0, cursor="hand2",
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=6)
+
+        # Separator under title bar
+        tk.Frame(self, bg=BORDER, height=1).grid(row=0, column=0, sticky="ews")
+
+        # ---- Subtitle ----
+        tk.Label(
+            self, text="Select a game to add:",
+            font=FONT_BOLD, fg=TEXT_MAIN, bg=BG_DEEP, anchor="w",
+        ).grid(row=1, column=0, sticky="ew", padx=16, pady=(8, 2))
+
+        # ---- Scrollable canvas ----
+        canvas_frame = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0)
+        canvas_frame.grid(row=2, column=0, sticky="nsew")
+        canvas_frame.grid_rowconfigure(0, weight=1)
+        canvas_frame.grid_columnconfigure(0, weight=1)
+
+        self._canvas = tk.Canvas(
+            canvas_frame, bg=BG_DEEP, bd=0,
+            highlightthickness=0, yscrollincrement=4, takefocus=0,
+        )
+        vsb = tk.Scrollbar(
+            canvas_frame, orient="vertical", command=self._canvas.yview,
+            bg="#383838", troughcolor=BG_DEEP, activebackground=ACCENT,
+            highlightthickness=0, bd=0,
+        )
+        self._canvas.configure(yscrollcommand=vsb.set)
+        self._canvas.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        self._inner = ctk.CTkFrame(self._canvas, fg_color=BG_DEEP)
+        self._inner_id = self._canvas.create_window(
+            (0, 0), window=self._inner, anchor="nw"
+        )
+
+        self._inner.bind("<Configure>", self._on_inner_configure)
+        self._canvas.bind("<Configure>", self._on_canvas_configure)
+        for w in (self._canvas, self._inner):
+            w.bind("<Button-4>", lambda e: self._canvas.yview_scroll(-8, "units"))
+            w.bind("<Button-5>", lambda e: self._canvas.yview_scroll(8, "units"))
+
+        # Build cards
+        for name in self._game_names:
+            self._build_card(name)
+        self._regrid_cards()
+
+        # ---- Bottom button bar ----
+        btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
+        btn_bar.grid(row=3, column=0, sticky="ew")
+        btn_bar.grid_propagate(False)
+        ctk.CTkFrame(btn_bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            btn_bar, text="+ Define Custom Game",
+            width=170, height=30, font=FONT_BOLD,
+            fg_color="#2d7a2d", hover_color="#3a9a3a", text_color="white",
+            command=self._on_define_custom_game,
+        ).pack(side="left", padx=(12, 4), pady=10)
+
+    # ------------------------------------------------------------------
+    # Card building
+    # ------------------------------------------------------------------
+
+    def _build_card(self, name: str):
+        game    = self._games.get(name)
+        game_id = game.game_id if game else name.lower().replace(" ", "_")
+
+        card = ctk.CTkFrame(
+            self._inner,
+            fg_color=BG_PANEL,
+            corner_radius=8,
+            border_width=1,
+            border_color=BORDER,
+            width=self._CARD_W,
+            height=self._CARD_H,
+        )
+        card.grid_propagate(False)
+        card.grid_columnconfigure(0, weight=1)
+        card.grid_rowconfigure(0, weight=1)
+
+        # Image area
+        img_frame = ctk.CTkFrame(
+            card, fg_color=BG_DEEP, corner_radius=6,
+            width=self._CARD_W - 8, height=self._IMG_H,
+        )
+        img_frame.grid(row=0, column=0, padx=4, pady=(4, 0), sticky="nsew")
+        img_frame.grid_propagate(False)
+
+        img_path = self._icons_dir / f"{game_id}.png"
+        if not img_path.is_file():
+            img_path = self._icons_dir / f"{game_id.lower()}.png"
+        if not img_path.is_file():
+            from Utils.config_paths import get_custom_game_images_dir as _gcgid
+            custom_img = _gcgid() / f"{game_id}.png"
+            if custom_img.is_file():
+                img_path = custom_img
+
+        if img_path.is_file():
+            raw = _PilImage.open(img_path).convert("RGBA")
+            tw, th = self._CARD_W - 8, self._IMG_H
+            raw.thumbnail((tw, th), _PilImage.LANCZOS)
+            ctk_img = ctk.CTkImage(
+                light_image=raw, dark_image=raw, size=(raw.width, raw.height)
+            )
+            self._img_refs.append(ctk_img)
+            img_lbl = ctk.CTkLabel(img_frame, image=ctk_img, text="")
+        else:
+            img_lbl = ctk.CTkLabel(
+                img_frame, text="?", font=("Segoe UI", 36, "bold"),
+                text_color=TEXT_DIM,
+            )
+        img_lbl.place(relx=0.5, rely=0.5, anchor="center")
+        self._img_labels[game_id] = (img_lbl, img_frame)
+
+        ctk.CTkLabel(
+            card, text=name,
+            font=("Segoe UI", 12, "bold"), text_color=TEXT_MAIN,
+            wraplength=self._CARD_W - 10, anchor="center", justify="center",
+        ).grid(row=1, column=0, padx=4, pady=(4, 2), sticky="ew")
+
+        is_configured = bool(game and game.is_configured())
+
+        def _select(n=name, already=is_configured):
+            self._on_game_selected(n, already)
+
+        btn_text  = "Select" if is_configured else "Add"
+        btn_fg    = "#2d7a2d" if is_configured else ACCENT
+        btn_hover = "#3a9a3a" if is_configured else ACCENT_HOV
+
+        ctk.CTkButton(
+            card, text=btn_text, height=26, font=FONT_BOLD,
+            fg_color=btn_fg, hover_color=btn_hover, text_color="white",
+            command=_select,
+        ).grid(row=2, column=0, padx=8, pady=(0, 8), sticky="ew")
+
+        # Hover highlight
+        def _enter(e, c=card): c.configure(border_color=ACCENT)
+        def _leave(e, c=card): c.configure(border_color=BORDER)
+        # Bind scroll forwarding on all card children
+        for w in (card, img_frame, img_lbl):
+            w.bind("<Enter>", _enter)
+            w.bind("<Leave>", _leave)
+            w.bind("<Button-4>", lambda e: self._canvas.yview_scroll(-8, "units"))
+            w.bind("<Button-5>", lambda e: self._canvas.yview_scroll(8, "units"))
+
+        self._card_widgets.append(card)
+
+    # ------------------------------------------------------------------
+    # Column-reflow (mirrors CollectionsDialog._regrid_cards)
+    # ------------------------------------------------------------------
+
+    def _on_inner_configure(self, _event=None):
+        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        self._canvas.itemconfig(self._inner_id, width=event.width)
+        self._regrid_cards()
+
+    def _regrid_cards(self):
+        canvas_w = self._canvas.winfo_width() or (
+            self._curr_cols * (self._CARD_W + self._PAD * 2)
+        )
+        cols = max(1, canvas_w // (self._CARD_W + self._PAD * 2))
+        self._curr_cols = cols
+
+        total_card_w = cols * self._CARD_W + (cols - 1) * self._PAD
+        x_pad = max(self._PAD, (canvas_w - total_card_w) // 2)
+
+        for idx, card in enumerate(self._card_widgets):
+            col = idx % cols
+            row = idx // cols
+            card.grid(
+                row=row, column=col,
+                padx=(
+                    x_pad if col == 0 else self._PAD // 2,
+                    x_pad if col == cols - 1 else self._PAD // 2,
+                ),
+                pady=self._PAD,
+                sticky="n",
+            )
+        for c in range(cols):
+            self._inner.grid_columnconfigure(c, weight=1)
+
+    # ------------------------------------------------------------------
+    # Live image updates (custom games)
+    # ------------------------------------------------------------------
+
+    def _on_image_downloaded(self, game_id: str) -> None:
+        """Called from a worker thread when a banner image has been cached."""
+        def _apply():
+            entry = self._img_labels.get(game_id)
+            if entry is None:
+                return
+            img_lbl, img_frame = entry
+            try:
+                if not img_lbl.winfo_exists():
+                    return
+            except Exception:
+                return
+            from Utils.config_paths import get_custom_game_images_dir as _gcgid
+            img_path = _gcgid() / f"{game_id}.png"
+            if not img_path.is_file():
+                return
+            try:
+                raw = _PilImage.open(img_path).convert("RGBA")
+                tw, th = self._CARD_W - 8, self._IMG_H
+                raw.thumbnail((tw, th), _PilImage.LANCZOS)
+                ctk_img = ctk.CTkImage(
+                    light_image=raw, dark_image=raw, size=(raw.width, raw.height)
+                )
+                self._img_refs.append(ctk_img)
+                img_lbl.configure(image=ctk_img, text="")
+            except Exception:
+                pass
+        try:
+            self.after(0, _apply)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Custom game definition
+    # ------------------------------------------------------------------
+
+    def _on_define_custom_game(self):
+        from gui.custom_game_dialog import CustomGameDialog
+        dlg = CustomGameDialog(self.winfo_toplevel())
+        self.winfo_toplevel().wait_window(dlg)
+        if dlg.saved_game is not None:
+            self._on_game_selected(dlg.saved_game.name, False)
+
+
+# ---------------------------------------------------------------------------
 # Name mod dialog
 # ---------------------------------------------------------------------------
 class NameModDialog(ctk.CTkToplevel):

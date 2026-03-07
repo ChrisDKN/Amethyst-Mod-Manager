@@ -58,10 +58,11 @@ from Utils.profile_backup import create_backup
 # TopBar
 # ---------------------------------------------------------------------------
 class TopBar(ctk.CTkFrame):
-    def __init__(self, parent, log_fn=None):
+    def __init__(self, parent, log_fn=None, show_add_game_panel_fn=None):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0, height=46)
         self.grid_propagate(False)
         self._log = log_fn or (lambda msg: None)
+        self._show_add_game_panel_fn = show_add_game_panel_fn
 
         # Bottom separator line
         ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(
@@ -394,48 +395,65 @@ class TopBar(ctk.CTkFrame):
         if not all_names:
             self._log("No game handlers discovered.")
             return
-        picker = _GamePickerDialog(self.winfo_toplevel(), all_names, games=_gh._GAMES)
-        self.winfo_toplevel().wait_window(picker)
-        if picker.result is None:
+
+        if self._show_add_game_panel_fn:
+            # Show the picker inline (replaces the mod-list area)
+            self._show_add_game_panel_fn(all_names, self._handle_game_picked)
+        else:
+            # Fallback: original modal dialog
+            picker = _GamePickerDialog(self.winfo_toplevel(), all_names, games=_gh._GAMES)
+            self.winfo_toplevel().wait_window(picker)
+            if picker.result is None:
+                return
+            self._handle_game_picked(
+                picker.result,
+                getattr(picker, "selected_only", False),
+            )
+
+    def _handle_game_picked(self, result: str | None, already_configured: bool):
+        """Process the result of the game picker (inline panel or modal dialog)."""
+        if result is None:
             return
 
         # If the result is not yet in _GAMES (new custom game), reload the registry
-        if picker.result not in _gh._GAMES:
+        if result not in _gh._GAMES:
             _load_games()
 
-        game = _gh._GAMES.get(picker.result)
+        game = _gh._GAMES.get(result)
         if game is None:
             return
+
         # Game already configured — just switch to it without re-running AddGameDialog
-        if getattr(picker, "selected_only", False):
+        if already_configured:
             configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
             self._game_menu.configure(values=configured or ["No games configured"])
-            self._game_var.set(picker.result)
-            _save_last_game(picker.result)
+            self._game_var.set(result)
+            _save_last_game(result)
             self._update_wizard_visibility()
             # Reset profile dropdown for the newly selected game BEFORE reloading
-            new_profiles = _profiles_for_game(picker.result)
+            new_profiles = _profiles_for_game(result)
             self._profile_menu.configure(values=new_profiles)
-            game_obj = _gh._GAMES.get(picker.result)
+            game_obj = _gh._GAMES.get(result)
             last_profile = game_obj.get_last_active_profile() if game_obj else "default"
             self._profile_var.set(last_profile if last_profile in new_profiles else new_profiles[0])
             self._reload_mod_panel()
             return
+
         dialog = AddGameDialog(self.winfo_toplevel(), game)
         self.winfo_toplevel().wait_window(dialog)
         if dialog.result is not None:
             self._log(f"Game path set: {dialog.result}")
             configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
             self._game_menu.configure(values=configured or ["No games configured"])
-            if picker.result in configured:
-                self._game_var.set(picker.result)
-                _save_last_game(picker.result)
+            if result in configured:
+                self._game_var.set(result)
+                _save_last_game(result)
                 self._update_wizard_visibility()
                 # Reset profile dropdown for the newly added game BEFORE reloading
                 # so the old game's profiles are not inherited.
-                new_profiles = _profiles_for_game(picker.result)
+                new_profiles = _profiles_for_game(result)
                 self._profile_menu.configure(values=new_profiles)
-                game_obj = _gh._GAMES.get(picker.result)
+                game_obj = _gh._GAMES.get(result)
                 last_profile = game_obj.get_last_active_profile() if game_obj else "default"
                 self._profile_var.set(last_profile if last_profile in new_profiles else new_profiles[0])
                 self._reload_mod_panel()
