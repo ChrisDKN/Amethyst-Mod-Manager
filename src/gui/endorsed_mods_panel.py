@@ -78,6 +78,7 @@ class EndorsedModsPanel:
         self._img_cache: dict[str, ctk.CTkImage] = {}
         self._img_loading: set[str] = set()
         self._cols: int = CARD_COLS
+        self._regrid_after_id = None
         self._context_menu: CTkPopupMenu | None = None
 
         self._build(parent_tab)
@@ -147,7 +148,9 @@ class EndorsedModsPanel:
 
     def _on_canvas_configure(self, event):
         self._canvas.itemconfig(self._inner_id, width=event.width)
-        self._regrid_cards()
+        if self._regrid_after_id:
+            self._canvas.after_cancel(self._regrid_after_id)
+        self._regrid_after_id = self._canvas.after(150, self._regrid_cards)
 
     def _scroll(self, units: int):
         self._canvas.yview_scroll(units, "units")
@@ -191,8 +194,10 @@ class EndorsedModsPanel:
         self._load_images()
 
     def _regrid_cards(self):
-        total_card_w = self._cols * CARD_W + (self._cols - 1) * CARD_PAD
         canvas_w = self._canvas.winfo_width() or (self._cols * (CARD_W + CARD_PAD * 2))
+        self._cols = max(1, canvas_w // (CARD_W + CARD_PAD * 2))
+
+        total_card_w = self._cols * CARD_W + (self._cols - 1) * CARD_PAD
         x_pad = max(CARD_PAD, (canvas_w - total_card_w) // 2)
 
         for idx, mc in enumerate(self._cards):
