@@ -67,6 +67,10 @@ class Witcher3(BaseGame):
     @property
     def mod_required_top_level_folders(self) -> set[str]:
         return {"mods", "bin"}
+    
+    @property
+    def mod_auto_strip_until_required(self) -> bool:
+        return True
 
     @property
     def plugin_extensions(self) -> list[str]:

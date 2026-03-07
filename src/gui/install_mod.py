@@ -636,6 +636,9 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         if strip_prefixes:
             file_list = _apply_strip_prefixes_to_file_list(file_list, strip_prefixes)
 
+        required = getattr(game, "mod_required_top_level_folders", set())
+        required_lower = {r.lower() for r in required}
+
         install_prefix = getattr(game, "mod_install_prefix", "")
         if install_prefix:
             install_prefix = install_prefix.strip().strip("/").replace("\\", "/")
@@ -644,6 +647,10 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             for s, d, f in file_list:
                 d_parts = d.replace("\\", "/").split("/")
                 d_parts_lower = [p.lower() for p in d_parts]
+                # Skip prefix if the top-level folder is already a required folder
+                if d_parts_lower[0] in required_lower:
+                    new_file_list.append((s, d, f))
+                    continue
                 match_len = 0
                 for i in range(len(prefix_parts), 0, -1):
                     if d_parts_lower[:i] == prefix_parts[-i:]:
@@ -656,8 +663,6 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     new_file_list.append((s, d, f))
             file_list = new_file_list
             log_fn(f"Auto-prefixed mod files under '{install_prefix}/' (where needed).")
-
-        required = getattr(game, "mod_required_top_level_folders", set())
         required_file_types = getattr(game, "mod_required_file_types", set())
         auto_strip = getattr(game, "mod_auto_strip_until_required", False)
         install_as_is = getattr(game, "mod_install_as_is_if_no_match", False)
