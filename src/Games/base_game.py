@@ -312,6 +312,16 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def alt_steam_ids(self) -> list[str]:
+        """
+        Additional Steam App IDs for alternate editions of this game
+        (e.g. GOTY, Complete Edition) that share the same game folder and
+        Proton prefix layout.  Checked when the primary steam_id prefix is
+        not found.  Return an empty list if there are no alternates.
+        """
+        return []
+
+    @property
     def heroic_app_names(self) -> list[str]:
         """
         Heroic Games Launcher app identifiers for this game.
