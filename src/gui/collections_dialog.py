@@ -1078,8 +1078,15 @@ class CollectionDetailDialog(tk.Frame):
                 ))
             except Exception:
                 pass
+            # Sort largest archives first so big downloads start immediately
+            # and bandwidth is never idle waiting for a large mod at the end.
+            _to_download_sorted = sorted(
+                to_download,
+                key=lambda m: getattr(m, "size_bytes", 0) or 0,
+                reverse=True,
+            )
             with _cf.ThreadPoolExecutor(max_workers=_DL_WORKERS) as _pool:
-                list(_pool.map(_download_one, to_download))
+                list(_pool.map(_download_one, _to_download_sorted))
 
         # ------------------------------------------------------------------
         # Step 2b: Install downloaded archives in parallel worker threads.
