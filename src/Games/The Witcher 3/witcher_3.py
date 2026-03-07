@@ -62,13 +62,26 @@ _VANILLA_BACKUP_DIR = "Amethyst_vanilla_files"
 #   "dlcs"  — alternative plural container name
 _SKIP_SEGMENTS = frozenset({"mods", "dlc", "dlcs"})
 
+# Top-level game-root folders that are NOT prefixed — they should be deployed
+# directly at the game root with their own folder name preserved.
+# When one of these is found (possibly buried under an archive wrapper like
+# "Full/" or "Lite/"), everything from that segment onward is kept and
+# deployed to the game root ("").
+_ROOT_SEGMENTS = frozenset({"bin"})
+
 
 def _route_path(staged_rel: str) -> tuple[str, str]:
     """Return (dest_prefix, final_rel) for a staged filemap path.
 
-    Scans directory segments (not the filename) looking for the first segment
-    that starts with "mod" or "dlc" (case-insensitive) and is NOT a bare
-    container folder ("mods", "dlc", "dlcs").
+    Scans directory segments (not the filename) looking for:
+      - A segment in _SKIP_SEGMENTS  → skip it and look deeper
+      - A segment in _ROOT_SEGMENTS  → deploy path-from-here at game root
+      - A segment starting with "mod" → deploy under mods/
+      - A segment starting with "dlc" → deploy under dlc/
+
+    All other segments (archive wrappers like "Full/", "Lite/", version
+    folders, etc.) are silently skipped so that the correct inner structure
+    is found regardless of how many wrapper folders the archive contains.
 
     Returns:
       dest_prefix — game-root-relative destination directory (empty = root)
@@ -76,13 +89,14 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
                     modname folder lands directly inside mods/ or dlc/
 
     Examples:
-      "modFoo/content/x.xml"                  → ("mods", "modFoo/content/x.xml")
-      "TrueFires_v1.01/modFoo/content/x.xml"  → ("mods", "modFoo/content/x.xml")
-      "mods/modFoo/content/x.xml"             → ("mods", "modFoo/content/x.xml")
-      "dlcFoo/content/x.xml"                  → ("dlc",  "dlcFoo/content/x.xml")
-      "dlc/dlcFoo/content/x.xml"              → ("dlc",  "dlcFoo/content/x.xml")
-      "bin/x64/d3d11.dll"                     → ("",     "bin/x64/d3d11.dll")
-      "mods/My Loose Setup/patch.xml"         → ("",     "mods/My Loose Setup/patch.xml")
+      "modFoo/content/x.xml"                      → ("mods", "modFoo/content/x.xml")
+      "TrueFires_v1.01/modFoo/content/x.xml"      → ("mods", "modFoo/content/x.xml")
+      "mods/modFoo/content/x.xml"                 → ("mods", "modFoo/content/x.xml")
+      "Full/mods/modFoo/content/x.xml"            → ("mods", "modFoo/content/x.xml")
+      "dlcFoo/content/x.xml"                      → ("dlc",  "dlcFoo/content/x.xml")
+      "Full/DLC/dlcFoo/content/x.xml"             → ("dlc",  "dlcFoo/content/x.xml")
+      "bin/x64/d3d11.dll"                         → ("",     "bin/x64/d3d11.dll")
+      "Full/bin/config/r4game/user_config.xml"    → ("",     "bin/config/r4game/user_config.xml")
     """
     norm     = staged_rel.replace("\\", "/")
     segments = norm.split("/")
@@ -92,12 +106,14 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
         low = seg.lower()
         if low in _SKIP_SEGMENTS:
             continue          # known container — look deeper
+        if low in _ROOT_SEGMENTS:
+            return "", "/".join(segments[i:])   # e.g. bin/... at game root
         if low.startswith("mod"):
             return "mods", "/".join(segments[i:])
         if low.startswith("dlc"):
             return "dlc", "/".join(segments[i:])
 
-    # No mod*/dlc* folder found — deploy to game root as-is
+    # No recognised folder found — deploy to game root as-is
     return "", norm
 
 
@@ -132,11 +148,15 @@ class Witcher3(BaseGame):
 
     @property
     def heroic_app_names(self) -> list[str]:
-        return ["1207658924", "The Witcher 3: Wild Hunt"]  # GOG ID + title fallback
+        return ["1207658924","1207664643","1640424747","1495134320","1207664663","The Witcher 3: Wild Hunt"]  # GOG ID + title fallback
 
     @property
     def steam_id(self) -> str:
         return "292030"
+
+    @property
+    def alt_steam_ids(self) -> list[str]:
+        return ["499450"]  # The Witcher 3: Wild Hunt – Game of the Year Edition
 
     @property
     def nexus_game_domain(self) -> str:
@@ -213,7 +233,11 @@ class Witcher3(BaseGame):
                 self._staging_path = Path(raw_staging)
             self._validate_staging()
             if not self._prefix_path or not self._prefix_path.is_dir():
-                found = find_prefix(self.steam_id)
+                found = None
+                for sid in [self.steam_id] + self.alt_steam_ids:
+                    found = find_prefix(sid)
+                    if found:
+                        break
                 if found:
                     self._prefix_path = found
                     self.save_paths()
@@ -300,11 +324,33 @@ class Witcher3(BaseGame):
         overwrite_dir      = staging.parent / "overwrite"
         vanilla_backup_dir = game_path / _VANILLA_BACKUP_DIR
 
+        # Load any existing manifest so we can distinguish previously-deployed
+        # mod files (hardlinks that look like regular files) from real vanilla
+        # files.  Without this, a re-deploy without a prior restore would
+        # incorrectly back up its own hardlinks as "vanilla files".
+        manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
+        _already_deployed: set[str] = set()
+        if manifest_path.is_file():
+            try:
+                _already_deployed = {
+                    ln.strip().lower()
+                    for ln in manifest_path.read_text(encoding="utf-8").splitlines()
+                    if ln.strip()
+                }
+            except OSError:
+                pass
+
         manifest:  list[str] = []
         linked    = 0
         skipped   = 0
         backed_up = 0
         nocase_cache: dict[Path, dict[str, list[Path]]] = {}
+        # Track files placed in THIS deploy run so that duplicate filemap
+        # entries routing to the same destination don't back each other up.
+        # (e.g. Full/mods/modBrutalBlood/… and Lite/mods/modBrutalBlood/…
+        # both route to mods/modBrutalBlood/… — the second placement must not
+        # treat the first hardlink as a vanilla file.)
+        _placed_this_run: set[str] = set()
 
         lines = [
             ln.rstrip("\n")
@@ -333,34 +379,76 @@ class Witcher3(BaseGame):
                     progress_fn(i + 1, total)
                 continue
 
-            dest_file.parent.mkdir(parents=True, exist_ok=True)
             try:
-                # Back up any real vanilla file before overwriting it.
-                # Symlinks are our own previous deploys — don't back those up.
-                if dest_file.is_file() and not dest_file.is_symlink():
-                    game_rel = dest_file.relative_to(game_path)
-                    backup_target = vanilla_backup_dir / game_rel
-                    if not backup_target.exists():
-                        backup_target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(dest_file, backup_target)
-                        backed_up += 1
+                # Full case-insensitive resolution from the game root so that
+                # intermediate directories with different casing
+                # (e.g. the mod stages "Content/" but "content/" already
+                # exists on disk) are matched at every path segment, not just
+                # at the filename level.
+                rel_from_game = dest_file.relative_to(game_path).as_posix()
+                actual_dest = (
+                    _resolve_nocase(game_path, rel_from_game, cache=nocase_cache)
+                    or dest_file
+                )
 
-                if dest_file.exists() or dest_file.is_symlink():
-                    dest_file.unlink()
+                # If this logical destination was already placed in this deploy
+                # run, skip it entirely — a later same-dest entry (e.g. a
+                # lowercase "content/" folder that's the mod-author's vanilla
+                # backup sitting next to an uppercase "Content/" mod folder)
+                # must NOT overwrite the already-placed modded file.
+                # Do this BEFORE mkdir so the duplicate-cased directory is
+                # never created in the game folder.
+                game_rel       = actual_dest.relative_to(game_path)
+                game_rel_lower = game_rel.as_posix().lower()
+                if game_rel_lower in _placed_this_run:
+                    skipped += 1
+                    if progress_fn:
+                        progress_fn(i + 1, total)
+                    continue
+
+                # Place at actual_dest (existing on-disk casing) so we don't
+                # create a duplicate-cased sibling directory.
+                actual_dest.parent.mkdir(parents=True, exist_ok=True)
+
+                # Back up any real vanilla file before overwriting it.
+                # Skip if:
+                #  - it's a symlink (our own previous deploy)
+                #  - it's already listed in the prior manifest (previous deploy
+                #    that wasn't restored — hardlinks look like regular files)
+                #  - its inode matches the source (hardlink from a previous
+                #    deploy not captured by the manifest)
+                if actual_dest.is_file() and not actual_dest.is_symlink():
+                    if game_rel_lower not in _already_deployed:
+                        try:
+                            is_our_hardlink = (
+                                actual_dest.stat().st_ino == src.stat().st_ino
+                            )
+                        except OSError:
+                            is_our_hardlink = False
+                        if not is_our_hardlink:
+                            backup_target = vanilla_backup_dir / game_rel
+                            if not backup_target.exists():
+                                backup_target.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(actual_dest, backup_target)
+                                backed_up += 1
+
+                if actual_dest.exists() or actual_dest.is_symlink():
+                    actual_dest.unlink()
 
                 if mode == LinkMode.SYMLINK:
-                    dest_file.symlink_to(src)
+                    actual_dest.symlink_to(src)
                 elif mode == LinkMode.COPY:
-                    shutil.copy2(src, dest_file)
+                    shutil.copy2(src, actual_dest)
                 else:
                     try:
-                        dest_file.hardlink_to(src)
+                        actual_dest.hardlink_to(src)
                     except (OSError, NotImplementedError):
-                        shutil.copy2(src, dest_file)
+                        shutil.copy2(src, actual_dest)
 
                 # Record the game-root-relative path for the restore manifest
-                game_file_rel = dest_file.relative_to(game_path).as_posix()
+                game_file_rel = actual_dest.relative_to(game_path).as_posix()
                 manifest.append(game_file_rel)
+                _placed_this_run.add(game_file_rel.lower())
                 linked += 1
             except OSError as exc:
                 _log(f"  ERROR placing {final_rel}: {exc}")
@@ -428,14 +516,22 @@ class Witcher3(BaseGame):
                 return src
 
         # 4. One-level deep scan — the archive may have an extra wrapper folder
-        #    (e.g. TrueFires_v1.01_part_1/) between the staging root and the
-        #    mod-name folder.  Try inner_rel inside each immediate subdir.
+        #    (e.g. TrueFires_v1.01_part_1/, Full/, Lite/) between the staging
+        #    root and the mod content.  Try both:
+        #      a) inner (dest-prefix stripped) — e.g. modFoo/content/x inside Full/
+        #      b) norm  (full routed path)     — e.g. mods/modFoo/content/x inside Full/
+        #    The second form handles archives like Full/mods/modFoo/content/x
+        #    where the mods/ container is inside the wrapper directory.
         try:
             for sub in mod_root.iterdir():
                 if sub.is_dir():
                     src = _resolve_nocase(sub, inner, cache=cache)
                     if src is not None:
                         return src
+                    if inner != norm:
+                        src = _resolve_nocase(sub, norm, cache=cache)
+                        if src is not None:
+                            return src
         except OSError:
             pass
 
