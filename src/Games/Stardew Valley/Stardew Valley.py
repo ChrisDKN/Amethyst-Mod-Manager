@@ -57,6 +57,10 @@ class StardewValley(BaseGame):
         return "Mods"
     
     @property
+    def mod_folder_strip_prefixes(self) -> set[str]:
+        return {"mods"}
+    
+    @property
     def plugin_extensions(self) -> list[str]:
         return []
 
