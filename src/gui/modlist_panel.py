@@ -313,20 +313,26 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas_w: int = 600
         self._context_menu: CTkPopupMenu | None = None
 
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_columnconfigure(0, weight=0, minsize=0)  # filter side panel
+        self.grid_columnconfigure(1, weight=1)              # main content
 
+        self._build_new_profile_bar()
         self._build_header()
         self._build_canvas()
         self._build_toolbar()
         self._build_search_bar()
         self._build_download_bar()
+        self._build_filter_side_panel()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def load_game(self, game, profile: str = "default") -> None:
+        # Hide any open new-profile bar when switching game/profile
+        if hasattr(self, "_new_profile_bar"):
+            self.hide_new_profile_bar()
         _collections_was_open = getattr(self, "_collections_panel", None) is not None
         if game is None:
             self._game = None
@@ -372,16 +378,95 @@ class ModListPanel(ctk.CTkFrame):
     # Build
     # ------------------------------------------------------------------
 
+    def _build_new_profile_bar(self):
+        """Inline bar (row 0) shown when the user clicks '+' to create a profile."""
+        bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
+        bar.grid(row=0, column=1, sticky="ew")
+        bar.grid_propagate(False)
+        bar.grid_remove()  # hidden by default
+        self._new_profile_bar = bar
+
+        ctk.CTkLabel(
+            bar, text="New profile:", font=_theme.FONT_NORMAL,
+            text_color=TEXT_MAIN,
+        ).pack(side="left", padx=(8, 4), pady=6)
+
+        self._new_profile_var = tk.StringVar()
+        self._new_profile_entry = ctk.CTkEntry(
+            bar, textvariable=self._new_profile_var, font=_theme.FONT_NORMAL,
+            fg_color=BG_PANEL, text_color=TEXT_MAIN, border_color=BORDER,
+            width=180, height=26,
+        )
+        self._new_profile_entry.pack(side="left", padx=(0, 8), pady=6)
+        self._new_profile_entry.bind("<Return>", lambda _e: self._on_new_profile_create())
+        self._new_profile_entry.bind("<Escape>", lambda _e: self.hide_new_profile_bar())
+
+        self._new_profile_specific_mods_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            bar,
+            text="Use Profile Specific Mods",
+            variable=self._new_profile_specific_mods_var,
+            font=_theme.FONT_NORMAL,
+            text_color=TEXT_MAIN,
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOV,
+            border_color=BORDER,
+            checkmark_color="white",
+            width=22, height=22,
+        ).pack(side="left", padx=(0, 12), pady=6)
+
+        ctk.CTkButton(
+            bar, text="Create", width=72, height=26, font=_theme.FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_new_profile_create,
+        ).pack(side="left", padx=(0, 4), pady=6)
+
+        ctk.CTkButton(
+            bar, text="Cancel", width=72, height=26, font=_theme.FONT_NORMAL,
+            fg_color=BG_HOVER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self.hide_new_profile_bar,
+        ).pack(side="left", padx=(0, 8), pady=6)
+
+    # ------------------------------------------------------------------
+    # New-profile bar public API
+    # ------------------------------------------------------------------
+
+    def show_new_profile_bar(self, on_create_fn):
+        """Reveal the inline new-profile bar and focus the name entry.
+
+        *on_create_fn(name: str, profile_specific_mods: bool)* is called when
+        the user confirms; it can do validation and profile creation.
+        """
+        self._new_profile_create_fn = on_create_fn
+        self._new_profile_var.set("")
+        self._new_profile_specific_mods_var.set(False)
+        self._new_profile_bar.grid()
+        self._new_profile_entry.focus_set()
+
+    def hide_new_profile_bar(self):
+        """Hide the inline new-profile bar."""
+        self._new_profile_bar.grid_remove()
+        self._new_profile_create_fn = None
+
+    def _on_new_profile_create(self):
+        name = self._new_profile_var.get().strip()
+        if not name:
+            return
+        fn = getattr(self, "_new_profile_create_fn", None)
+        self.hide_new_profile_bar()
+        if fn:
+            fn(name, self._new_profile_specific_mods_var.get())
+
     def _build_header(self):
         self._header = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=28)
-        self._header.grid(row=0, column=0, sticky="ew")
+        self._header.grid(row=1, column=1, sticky="ew")
         self._header.grid_propagate(False)
         # Header labels placed after canvas is built (we need its width)
         self._header_labels: list[ctk.CTkLabel] = []
 
     def _build_canvas(self):
         frame = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0)
-        frame.grid(row=1, column=0, sticky="nsew")
+        frame.grid(row=2, column=1, sticky="nsew")
         frame.grid_rowconfigure(0, weight=1)
         frame.grid_columnconfigure(0, weight=1)
 
@@ -417,7 +502,7 @@ class ModListPanel(ctk.CTkFrame):
 
     def _build_toolbar(self):
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
-        bar.grid(row=2, column=0, sticky="ew")
+        bar.grid(row=3, column=1, sticky="ew")
         bar.grid_propagate(False)
 
         ctk.CTkButton(
@@ -446,12 +531,13 @@ class ModListPanel(ctk.CTkFrame):
         )
         self._update_btn.pack(side="left", padx=4, pady=5)
 
-        ctk.CTkButton(
+        self._filter_btn = ctk.CTkButton(
             bar, text="Filters", width=80, height=26,
             fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
             command=self._on_open_filters
-        ).pack(side="left", padx=4, pady=5)
+        )
+        self._filter_btn.pack(side="left", padx=4, pady=5)
 
         self._restore_backup_btn = ctk.CTkButton(
             bar, text="Restore backup", width=110, height=26,
@@ -483,7 +569,7 @@ class ModListPanel(ctk.CTkFrame):
 
     def _build_search_bar(self):
         bar = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0, height=32)
-        bar.grid(row=3, column=0, sticky="ew")
+        bar.grid(row=4, column=1, sticky="ew")
         bar.grid_propagate(False)
 
         tk.Label(bar, text="🔍", bg=BG_DEEP, fg=TEXT_DIM,
@@ -524,6 +610,81 @@ class ModListPanel(ctk.CTkFrame):
         """Initialise the download-popup slot list."""
         self._dl_slots: list["ModListPanel._DlSlot"] = []
         self._dl_cancel_locked: bool = False
+
+    def _build_filter_side_panel(self):
+        """Build the inline filter side panel (column 0, initially hidden)."""
+        self._filter_panel_open = False
+
+        panel = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0,
+                             width=300)
+        panel.grid(row=0, column=0, rowspan=5, sticky="nsew")
+        panel.grid_propagate(False)
+        panel.grid_remove()  # hidden by default
+        self._filter_side_panel = panel
+
+        # ── Header row ──────────────────────────────────────────────
+        header = tk.Frame(panel, bg=BG_HEADER, height=36)
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
+
+        tk.Label(
+            header, text="Filters", bg=BG_HEADER, fg=TEXT_MAIN,
+            font=_theme.FONT_BOLD, anchor="w",
+        ).pack(side="left", padx=10, pady=6)
+
+        # Close (×) button
+        close_btn = tk.Label(
+            header, text="×", bg=BG_HEADER, fg=TEXT_DIM,
+            font=("Segoe UI", 16, "bold"), cursor="hand2",
+        )
+        close_btn.pack(side="right", padx=8)
+        close_btn.bind("<Button-1>", lambda _e: self._close_filter_side_panel())
+        close_btn.bind("<Enter>",    lambda _e: close_btn.configure(fg=TEXT_MAIN))
+        close_btn.bind("<Leave>",    lambda _e: close_btn.configure(fg=TEXT_DIM))
+
+        # Separator
+        tk.Frame(panel, bg=BORDER, height=1).pack(fill="x")
+
+        # ── Scrollable checkbox area ─────────────────────────────────
+        scroll_frame = ctk.CTkScrollableFrame(
+            panel, fg_color="transparent", corner_radius=0,
+        )
+        scroll_frame.pack(fill="both", expand=True, padx=8, pady=6)
+
+        opts = [
+            ("filter_show_disabled",       "Show only disabled mods"),
+            ("filter_show_enabled",        "Show only enabled mods"),
+            ("filter_hide_separators",     "Hide separators"),
+            ("filter_winning",             "Show only winning conflicts"),
+            ("filter_losing",              "Show only losing conflicts"),
+            ("filter_partial",             "Show only winning & losing conflicts"),
+            ("filter_full",                "Show only fully conflicted mods"),
+            ("filter_missing_reqs",        "Show only missing requirements"),
+            ("filter_has_disabled_plugins","Show only mods with disabled plugins"),
+            ("filter_has_updates",         "Show only mods with updates"),
+        ]
+
+        self._fsp_vars: dict[str, tk.BooleanVar] = {}
+        for key, label in opts:
+            var = tk.BooleanVar(value=False)
+            self._fsp_vars[key] = var
+            ctk.CTkCheckBox(
+                scroll_frame,
+                text=label,
+                variable=var,
+                font=_theme.FONT_SMALL,
+                text_color=TEXT_MAIN,
+                fg_color=ACCENT,
+                hover_color=ACCENT_HOV,
+                border_color=BORDER,
+                checkmark_color="white",
+                command=self._on_filter_panel_change,
+            ).pack(anchor="w", pady=3)
+
+    def _on_filter_panel_change(self):
+        """Called when any checkbox in the inline filter panel changes."""
+        state = {k: v.get() for k, v in self._fsp_vars.items()}
+        self._apply_modlist_filters(state)
 
     def _reposition_all_dl_popups(self, *_) -> None:
         """Stack all live download popups upward from the bottom-right corner."""
@@ -2886,31 +3047,46 @@ class ModListPanel(ctk.CTkFrame):
         return popup
 
     def _show_disable_plugins_dialog(self, mod_name: str, plugin_files: list[str]) -> None:
-        """Open the Disable Plugins dialog for a mod and save results."""
+        """Open the Disable Plugins panel/dialog for a mod and save results."""
         if self._modlist_path is None:
             return
         disabled_path = self._modlist_path.parent / "disabled_plugins.json"
         all_disabled = read_disabled_plugins(disabled_path)
         currently_disabled = set(all_disabled.get(mod_name, []))
 
-        dlg = _DisablePluginsDialog(
-            self.winfo_toplevel(),
-            mod_name=mod_name,
-            plugin_names=plugin_files,
-            disabled=currently_disabled,
-        )
-        self.wait_window(dlg)
-        if dlg.result is None:
-            return  # cancelled
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_disable_plugins_panel", None)
+        if show_fn:
+            def _on_panel_done(panel):
+                if panel.result is None:
+                    return
+                self._finish_disable_plugins(mod_name, panel.result, currently_disabled,
+                                             disabled_path, all_disabled)
+            show_fn(mod_name, plugin_files, currently_disabled, _on_panel_done)
+        else:
+            dlg = _DisablePluginsDialog(
+                self.winfo_toplevel(),
+                mod_name=mod_name,
+                plugin_names=plugin_files,
+                disabled=currently_disabled,
+            )
+            self.wait_window(dlg)
+            if dlg.result is None:
+                return
+            self._finish_disable_plugins(mod_name, dlg.result, currently_disabled,
+                                         disabled_path, all_disabled)
 
-        if dlg.result:
-            all_disabled[mod_name] = sorted(dlg.result)
+    def _finish_disable_plugins(self, mod_name, result, currently_disabled,
+                                disabled_path, all_disabled):
+        """Persist disable-plugins result and update plugins.txt immediately."""
+        if result:
+            all_disabled[mod_name] = sorted(result)
         else:
             all_disabled.pop(mod_name, None)
 
         # Compute which plugins for this mod were just re-enabled vs newly disabled
-        newly_disabled = dlg.result - currently_disabled  # was enabled, now disabled
-        newly_enabled  = currently_disabled - dlg.result  # was disabled, now enabled
+        newly_disabled = result - currently_disabled
+        newly_enabled  = currently_disabled - result
 
         write_disabled_plugins(disabled_path, all_disabled)
         self._disabled_plugins_map = all_disabled
@@ -3088,6 +3264,21 @@ class ModListPanel(ctk.CTkFrame):
         if not mod_folder.is_dir():
             return
 
+        self._load_mod_strip_prefixes()
+        current = self._mod_strip_prefixes.get(mod_name, [])
+        use_path_format = any("/" in p for p in current)
+
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_deploy_paths_panel", None)
+        if show_fn:
+            def _on_save(chosen):
+                self._mod_strip_prefixes[mod_name] = chosen
+                self._save_mod_strip_prefixes()
+                self._reload()
+            show_fn(mod_name, mod_folder, current, use_path_format, _on_save)
+            return
+
+        # ---- fallback: original Toplevel implementation ----
         win = tk.Toplevel(self.winfo_toplevel())
         win.title(f"Deployment paths — {mod_name}")
         win.configure(bg=BG_PANEL, highlightthickness=0,
@@ -3908,12 +4099,17 @@ class ModListPanel(ctk.CTkFrame):
             if (beaten_str := ", ".join(rel_to_losers.get(orig.lower(), [])))
         ]
 
-        _OverwritesDialog(
-            self.winfo_toplevel(),
-            mod_name=mod_name,
-            files_win=files_i_win_final,
-            files_lose=files_i_lose,
-        )
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_conflicts_panel", None)
+        if show_fn:
+            show_fn(mod_name, files_i_win_final, files_i_lose)
+        else:
+            _OverwritesDialog(
+                app,
+                mod_name=mod_name,
+                files_win=files_i_win_final,
+                files_lose=files_i_lose,
+            )
 
     def _add_separator(self, ref_idx: int, above: bool):
         """Prompt for a separator name and insert it above or below ref_idx."""
@@ -4085,27 +4281,39 @@ class ModListPanel(ctk.CTkFrame):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _on_open_filters(self):
-        """Open the modlist filters dialog."""
-        state = {
-            "filter_show_disabled": self._filter_show_disabled,
-            "filter_show_enabled": self._filter_show_enabled,
-            "filter_hide_separators": self._filter_hide_separators,
-            "filter_winning": self._filter_conflict_winning,
-            "filter_losing": self._filter_conflict_losing,
-            "filter_partial": self._filter_conflict_partial,
-            "filter_full": self._filter_conflict_full,
-            "filter_missing_reqs": self._filter_missing_reqs,
-            "filter_has_disabled_plugins": self._filter_has_disabled_plugins,
-            "filter_has_updates": self._filter_has_updates,
-        }
-        ModlistFiltersDialog(
-            self.winfo_toplevel(),
-            initial_state=state,
-            on_apply=self._apply_modlist_filters,
-        )
+        """Toggle the inline filter side panel."""
+        if getattr(self, "_filter_panel_open", False):
+            self._close_filter_side_panel()
+        else:
+            self._open_filter_side_panel()
+
+    def _open_filter_side_panel(self):
+        """Show the filter side panel and sync checkboxes to current state."""
+        self._filter_panel_open = True
+        self.grid_columnconfigure(0, minsize=300)
+        self._filter_side_panel.grid()
+        # Sync checkbox vars to current live filter state
+        self._fsp_vars["filter_show_disabled"].set(self._filter_show_disabled)
+        self._fsp_vars["filter_show_enabled"].set(self._filter_show_enabled)
+        self._fsp_vars["filter_hide_separators"].set(self._filter_hide_separators)
+        self._fsp_vars["filter_winning"].set(self._filter_conflict_winning)
+        self._fsp_vars["filter_losing"].set(self._filter_conflict_losing)
+        self._fsp_vars["filter_partial"].set(self._filter_conflict_partial)
+        self._fsp_vars["filter_full"].set(self._filter_conflict_full)
+        self._fsp_vars["filter_missing_reqs"].set(self._filter_missing_reqs)
+        self._fsp_vars["filter_has_disabled_plugins"].set(self._filter_has_disabled_plugins)
+        self._fsp_vars["filter_has_updates"].set(self._filter_has_updates)
+        self._filter_btn.configure(fg_color=ACCENT, hover_color=ACCENT_HOV)
+
+    def _close_filter_side_panel(self):
+        """Hide the filter side panel."""
+        self._filter_panel_open = False
+        self._filter_side_panel.grid_remove()
+        self.grid_columnconfigure(0, minsize=0)
+        self._filter_btn.configure(fg_color=BG_HEADER, hover_color=BG_HOVER)
 
     def _on_restore_backup(self):
-        """Open the backup restore dialog for the current profile."""
+        """Open the backup restore panel/dialog for the current profile."""
         if not self._modlist_path or not self._modlist_path.parent.is_dir():
             return
         app = self.winfo_toplevel()
@@ -4116,13 +4324,21 @@ class ModListPanel(ctk.CTkFrame):
             None,
         )
         profile_name = profile_name.get() if profile_name is not None else "default"
-        dlg = BackupRestoreDialog(
-            app,
-            profile_dir,
-            profile_name=profile_name,
-            on_restored=lambda: app._topbar._reload_mod_panel(),
-        )
-        app.wait_window(dlg)
+        show_fn = getattr(app, "show_backup_restore_panel", None)
+        if show_fn:
+            show_fn(
+                profile_dir,
+                profile_name,
+                on_restored=lambda: app._topbar._reload_mod_panel(),
+            )
+        else:
+            dlg = BackupRestoreDialog(
+                app,
+                profile_dir,
+                profile_name=profile_name,
+                on_restored=lambda: app._topbar._reload_mod_panel(),
+            )
+            app.wait_window(dlg)
 
     def _apply_modlist_filters(self, state: dict):
         """Apply filter state from the filters dialog and redraw."""

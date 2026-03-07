@@ -20,6 +20,7 @@ from gui.theme import (
     BG_DEEP,
     BG_PANEL,
     BG_HEADER,
+    BG_HOVER,
     ACCENT,
     ACCENT_HOV,
     TEXT_MAIN,
@@ -171,3 +172,109 @@ class WizardDialog(ctk.CTkToplevel):
                 log(f"Wizard error: {exc}")
 
         parent.after(50, _launch)
+
+
+class WizardPanel(ctk.CTkFrame):
+    """Inline panel for wizard tool selection — overlays the plugin panel while open."""
+
+    def __init__(self, parent, game: "BaseGame", log_fn=None, on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._game = game
+        self._log = log_fn or (lambda msg: None)
+        self._on_done = on_done or (lambda p: None)
+        self._build()
+
+    def _build(self):
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
+        title_bar.grid(row=0, column=0, sticky="ew")
+        title_bar.grid_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Wizard — {self._game.name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12, pady=8)
+        ctk.CTkButton(
+            title_bar, text="✕", width=32, height=32, font=FONT_BOLD,
+            fg_color="transparent", hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close,
+        ).pack(side="right", padx=4, pady=4)
+
+        # Body
+        body = ctk.CTkScrollableFrame(
+            self, fg_color=BG_DEEP, corner_radius=0,
+            scrollbar_button_color=BG_HEADER,
+            scrollbar_button_hover_color=ACCENT,
+        )
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            body, text="Select a helper tool:",
+            font=FONT_SMALL, text_color=TEXT_DIM,
+        ).pack(pady=(12, 12), anchor="w", padx=16)
+
+        tools = self._game.wizard_tools
+        if not tools:
+            ctk.CTkLabel(
+                body, text="No tools available for this game.",
+                font=FONT_NORMAL, text_color=TEXT_DIM,
+            ).pack(pady=20)
+            return
+
+        for tool in tools:
+            self._add_tool_row(body, tool)
+
+    def _add_tool_row(self, parent, tool: "WizardTool"):
+        row = ctk.CTkFrame(parent, fg_color=BG_PANEL, corner_radius=6)
+        row.pack(fill="x", pady=(0, 8), padx=16)
+
+        inner = ctk.CTkFrame(row, fg_color="transparent")
+        inner.pack(fill="x", padx=12, pady=10)
+
+        text_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        text_frame.pack(side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(
+            text_frame, text=tool.label,
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(anchor="w")
+
+        if tool.description:
+            ctk.CTkLabel(
+                text_frame, text=tool.description,
+                font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+                wraplength=280,
+            ).pack(anchor="w")
+
+        ctk.CTkButton(
+            inner, text="Open", width=70, height=30, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=lambda t=tool: self._open_tool(t),
+        ).pack(side="right", padx=(8, 0))
+
+    def _open_tool(self, tool: "WizardTool"):
+        """Close the panel and open the tool's dedicated wizard dialog."""
+        game = self._game
+        log = self._log
+        toplevel = self.winfo_toplevel()
+        path = tool.dialog_class_path
+        extra = tool.extra
+
+        self._on_done(self)
+
+        def _launch():
+            try:
+                cls = _resolve_dialog_class(path)
+                dlg = cls(toplevel, game, log, **extra)
+                toplevel.wait_window(dlg)
+            except Exception as exc:
+                log(f"Wizard error: {exc}")
+
+        toplevel.after(50, _launch)
+
+    def _on_close(self):
+        self._on_done(self)

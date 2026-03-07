@@ -26,6 +26,7 @@ from gui.theme import (
     BG_HEADER,
     BG_HOVER,
     BG_PANEL,
+    BG_ROW,
     BORDER,
     FONT_BOLD,
     FONT_HEADER,
@@ -1403,6 +1404,220 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+class ProtonToolsPanel(ctk.CTkFrame):
+    """Inline panel for Proton tools — overlays the plugin panel while open."""
+
+    def __init__(self, parent, game, log_fn, on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._game = game
+        self._log = log_fn
+        self._on_done = on_done or (lambda p: None)
+        self._build()
+
+    def _build(self):
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
+        title_bar.grid(row=0, column=0, sticky="ew")
+        title_bar.grid_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Proton Tools — {self._game.name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12, pady=8)
+        ctk.CTkButton(
+            title_bar, text="✕", width=32, height=32, font=FONT_BOLD,
+            fg_color="transparent", hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close,
+        ).pack(side="right", padx=4, pady=4)
+
+        # Body — centred vertically/horizontally
+        body = ctk.CTkFrame(self, fg_color=BG_DEEP)
+        body.grid(row=1, column=0, sticky="nsew")
+
+        inner = ctk.CTkFrame(body, fg_color="transparent")
+        inner.place(relx=0.5, rely=0.5, anchor="center")
+
+        btn_cfg = dict(width=260, height=34, font=FONT_BOLD,
+                       fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
+
+        ctk.CTkButton(inner, text="Run winecfg",             command=self._run_winecfg,      **btn_cfg).pack(pady=(0, 6))
+        ctk.CTkButton(inner, text="Run protontricks",         command=self._run_protontricks, **btn_cfg).pack(pady=(0, 6))
+        ctk.CTkButton(inner, text="Run EXE in this prefix …", command=self._run_exe,          **btn_cfg).pack(pady=(0, 6))
+        ctk.CTkButton(inner, text="Open wine registry",       command=self._run_regedit,      **btn_cfg).pack(pady=(0, 6))
+        ctk.CTkButton(inner, text="Browse prefix",            command=self._browse_prefix,    **btn_cfg).pack(pady=(0, 6))
+        ctk.CTkButton(inner, text="Open game folder",         command=self._open_game_folder, **btn_cfg).pack(pady=(0, 6))
+
+    def _get_proton_env(self):
+        from Utils.steam_finder import (
+            find_any_installed_proton,
+            find_proton_for_game,
+            find_steam_root_for_proton_script,
+        )
+        prefix_path = self._game.get_prefix_path()
+        if prefix_path is None or not prefix_path.is_dir():
+            self._log("Proton Tools: prefix not configured for this game.")
+            return None, None
+
+        steam_id = getattr(self._game, "steam_id", "")
+        proton_script = find_proton_for_game(steam_id) if steam_id else None
+        compat_data = prefix_path.parent
+
+        if proton_script is None:
+            from gui.plugin_panel import _read_prefix_runner
+            preferred_runner = _read_prefix_runner(compat_data)
+            proton_script = find_any_installed_proton(preferred_runner)
+            if proton_script is None:
+                if steam_id:
+                    self._log(f"Proton Tools: could not find Proton version for app {steam_id}, "
+                              "and no installed Proton tool was found.")
+                else:
+                    self._log("Proton Tools: no Steam ID and no installed Proton tool was found.")
+                return None, None
+            self._log(f"Proton Tools: using fallback Proton tool {proton_script.parent.name} "
+                      "(no per-game Steam mapping found).")
+
+        steam_root = find_steam_root_for_proton_script(proton_script)
+        if steam_root is None:
+            self._log("Proton Tools: could not determine Steam root for the selected Proton tool.")
+            return None, None
+
+        env = os.environ.copy()
+        env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
+        env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
+        game_path = self._game.get_game_path() if hasattr(self._game, "get_game_path") else None
+        if game_path:
+            env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
+        if steam_id:
+            env.setdefault("SteamAppId", steam_id)
+            env.setdefault("SteamGameId", steam_id)
+        return proton_script, env
+
+    def _close_and_run(self, fn):
+        toplevel = self.winfo_toplevel()
+        self._on_done(self)
+        toplevel.after(50, fn)
+
+    def _run_winecfg(self):
+        proton_script, env = self._get_proton_env()
+        if proton_script is None:
+            return
+        log = self._log
+        def _launch():
+            log("Proton Tools: launching winecfg …")
+            try:
+                subprocess.Popen(["python3", str(proton_script), "run", "winecfg"],
+                                 env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+        self._close_and_run(_launch)
+
+    def _browse_prefix(self):
+        prefix_path = self._game.get_prefix_path()
+        if prefix_path is None or not prefix_path.is_dir():
+            self._log("Proton Tools: prefix not configured for this game.")
+            return
+        log = self._log
+        path = str(prefix_path)
+        def _launch():
+            log("Proton Tools: opening prefix folder …")
+            try:
+                xdg_open(path)
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+        self._close_and_run(_launch)
+
+    def _open_game_folder(self):
+        game_path = self._game.get_game_path()
+        if game_path is None or not game_path.is_dir():
+            self._log("Proton Tools: game folder not configured or not found.")
+            return
+        log = self._log
+        path = str(game_path)
+        def _launch():
+            log("Proton Tools: opening game folder …")
+            try:
+                xdg_open(path)
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+        self._close_and_run(_launch)
+
+    def _run_regedit(self):
+        proton_script, env = self._get_proton_env()
+        if proton_script is None:
+            return
+        log = self._log
+        def _launch():
+            log("Proton Tools: launching wine registry editor …")
+            try:
+                subprocess.Popen(["python3", str(proton_script), "run", "regedit"],
+                                 env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+        self._close_and_run(_launch)
+
+    def _run_protontricks(self):
+        steam_id = getattr(self._game, "steam_id", "")
+        if not steam_id:
+            self._log("Proton Tools: game has no Steam ID — cannot run protontricks.")
+            return
+        if shutil.which("protontricks") is not None:
+            cmd = ["protontricks", steam_id, "--gui"]
+        elif shutil.which("flatpak") is not None and subprocess.run(
+            ["flatpak", "info", "com.github.Matoking.protontricks"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ).returncode == 0:
+            cmd = ["flatpak", "run", "com.github.Matoking.protontricks", steam_id, "--gui"]
+        else:
+            self._log("Proton Tools: 'protontricks' is not installed or not in PATH.")
+            return
+        log = self._log
+        def _launch():
+            log(f"Proton Tools: launching protontricks for app {steam_id}: It may take a while to open")
+            try:
+                subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+        self._close_and_run(_launch)
+
+    def _run_exe(self):
+        proton_script, env = self._get_proton_env()
+        if proton_script is None:
+            return
+        log = self._log
+        def _launch():
+            try:
+                result = subprocess.run(
+                    ["zenity", "--file-selection",
+                     "--title=Select EXE to run in this prefix",
+                     "--file-filter=Executables (*.exe) | *.exe",
+                     "--file-filter=All files | *"],
+                    capture_output=True, text=True,
+                )
+                if result.returncode != 0 or not result.stdout.strip():
+                    return
+                exe_path = Path(result.stdout.strip())
+            except FileNotFoundError:
+                log("Proton Tools: zenity not found — cannot open file picker.")
+                return
+            if not exe_path.is_file():
+                log(f"Proton Tools: file not found: {exe_path}")
+                return
+            log(f"Proton Tools: launching {exe_path.name} via {proton_script.parent.name} …")
+            try:
+                subprocess.Popen(["python3", str(proton_script), "run", str(exe_path)],
+                                 env=env, cwd=exe_path.parent,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as e:
+                log(f"Proton Tools error: {e}")
+        self._close_and_run(_launch)
+
+    def _on_close(self):
+        self._on_done(self)
+
+
 class _ProfileNameDialog(ctk.CTkToplevel):
     """Small modal dialog that asks for a new profile name."""
 
@@ -1726,6 +1941,134 @@ class _OverwritesDialog(tk.Toplevel):
 
 
 # ---------------------------------------------------------------------------
+# OverwritesPanel — inline overlay version of _OverwritesDialog
+# ---------------------------------------------------------------------------
+
+class OverwritesPanel(ctk.CTkFrame):
+    """Inline panel (overlays _mod_panel_container) showing conflict details."""
+
+    def __init__(self, parent, mod_name: str,
+                 files_win: list[tuple[str, str]],
+                 files_lose: list[tuple[str, str]],
+                 on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._on_done = on_done or (lambda p: None)
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Conflicts: {mod_name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        # Body
+        body = tk.Frame(self, bg=BG_DEEP)
+        body.pack(fill="both", expand=True)
+        body.grid_rowconfigure(0, weight=1)
+        body.grid_rowconfigure(1, weight=1)
+        body.grid_columnconfigure(0, weight=1)
+
+        self._build_pane(
+            body, row=0, col=0,
+            header=f"Files overriding others  ({len(files_win)})",
+            header_color="#98c379",
+            col0_title="File path",
+            col1_title="Mod(s) beaten",
+            rows=files_win,
+        )
+        self._build_pane(
+            body, row=1, col=0,
+            header=f"Files overridden by others  ({len(files_lose)})",
+            header_color="#e06c75",
+            col0_title="File path",
+            col1_title="Winning mod",
+            rows=files_lose,
+        )
+
+        footer = tk.Frame(self, bg=BG_PANEL, height=44)
+        footer.pack(fill="x")
+        footer.pack_propagate(False)
+        tk.Frame(footer, bg=BORDER, height=1).pack(side="top", fill="x")
+        tk.Button(
+            footer, text="Close",
+            bg=BG_HEADER, fg=TEXT_MAIN, activebackground=BG_HOVER,
+            relief="flat", font=("Segoe UI", 11),
+            padx=16, pady=3, cursor="hand2",
+            command=self._on_close,
+        ).pack(side="right", padx=12, pady=6)
+
+    def _build_pane(self, body, row, col, header, header_color,
+                    col0_title, col1_title, rows):
+        outer = tk.Frame(body, bg=BG_PANEL)
+        outer.grid(
+            row=row, column=col, sticky="nsew",
+            padx=8,
+            pady=(8 if row == 0 else 4, 4 if row == 0 else 8),
+        )
+        outer.grid_rowconfigure(1, weight=1)
+        outer.grid_columnconfigure(0, weight=1)
+
+        tk.Label(
+            outer, text=header,
+            bg=BG_PANEL, fg=header_color,
+            font=("Segoe UI", 10, "bold"), anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 2))
+
+        tree_frame = tk.Frame(outer, bg=BG_DEEP)
+        tree_frame.grid(row=1, column=0, sticky="nsew")
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+
+        uid = f"OvPanel{row}{id(self)}"
+        style = ttk.Style()
+        style.configure(f"{uid}.Treeview",
+                        background=BG_DEEP, foreground=TEXT_MAIN,
+                        fieldbackground=BG_DEEP, rowheight=20,
+                        font=("Segoe UI", 9))
+        style.configure(f"{uid}.Treeview.Heading",
+                        background=BG_HEADER, foreground=TEXT_SEP,
+                        font=("Segoe UI", 9, "bold"), relief="flat")
+        style.map(f"{uid}.Treeview",
+                  background=[("selected", BG_SELECT)],
+                  foreground=[("selected", TEXT_MAIN)])
+
+        tv = ttk.Treeview(
+            tree_frame,
+            columns=("col1",),
+            displaycolumns=("col1",),
+            show="headings tree",
+            style=f"{uid}.Treeview",
+            selectmode="browse",
+        )
+        tv.heading("#0",   text=col0_title, anchor="w")
+        tv.heading("col1", text=col1_title, anchor="w")
+        tv.column("#0",   minwidth=180, stretch=True)
+        tv.column("col1", minwidth=150, width=180, stretch=False)
+
+        vsb = tk.Scrollbar(tree_frame, orient="vertical", command=tv.yview,
+                           bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
+                           highlightthickness=0, bd=0)
+        tv.configure(yscrollcommand=vsb.set)
+        tv.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        tv.bind("<Button-4>", lambda e: tv.yview_scroll(-3, "units"))
+        tv.bind("<Button-5>", lambda e: tv.yview_scroll( 3, "units"))
+
+        for path, mod_str in rows:
+            tv.insert("", "end", text=path, values=(mod_str,))
+        if not rows:
+            tv.insert("", "end", text="(none)", values=("",))
+
+    def _on_close(self):
+        self._on_done(self)
 # VRAMr preset picker
 # ---------------------------------------------------------------------------
 class _VRAMrPresetDialog(ctk.CTkToplevel):
@@ -2480,6 +2823,438 @@ class _ExeConfigDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+# ---------------------------------------------------------------------------
+# ExeConfigPanel — inline overlay version of _ExeConfigDialog
+# ---------------------------------------------------------------------------
+
+class ExeConfigPanel(ctk.CTkFrame):
+    """Inline panel version of _ExeConfigDialog. Overlays the plugin-panel container.
+    Uses on_done(panel) callback; caller reads panel.result / .launch_mode / etc."""
+
+    _EXE_ARGS_FILE = get_exe_args_path()
+
+    def __init__(self, parent, exe_path: "Path", game, saved_args: str = "",
+                 custom_exes: "list | None" = None, launch_mode: "str | None" = None,
+                 deploy_before_launch: "bool | None" = None,
+                 is_hidden: bool = False, on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+
+        self._exe_path = exe_path
+        self._game = game
+        self._saved_args = saved_args
+        self._custom_exes: "list" = list(custom_exes) if custom_exes else []
+        self._initial_launch_mode: "str | None" = launch_mode
+        self._launch_mode_var = tk.StringVar(value=launch_mode or "auto")
+        self._deploy_before_launch_var = tk.BooleanVar(
+            value=True if deploy_before_launch is None else deploy_before_launch
+        )
+        self._hide_var = tk.BooleanVar(value=is_hidden)
+        self._on_done = on_done or (lambda p: None)
+        self.result: "str | None" = None
+        self.launch_mode: "str | None" = None
+        self.deploy_before_launch: "bool | None" = None
+        self.hide: "bool | None" = None
+        self.removed: bool = False
+
+        self._game_path: "Path | None" = (
+            game.get_game_path() if hasattr(game, "get_game_path") else None
+        )
+        self._mods_path: "Path | None" = (
+            game.get_effective_mod_staging_path() if hasattr(game, "get_effective_mod_staging_path") else None
+        )
+        self._overwrite_path: "Path | None" = (
+            self._mods_path.parent / "overwrite" if self._mods_path else None
+        )
+
+        self._game_flag_var = tk.StringVar(value="")
+        self._output_flag_var = tk.StringVar(value="")
+        self._mod_var = tk.StringVar(value="")
+        self._mod_entries: list[tuple[str, "Path"]] = self._load_mod_entries()
+        self._mod_popup: "tk.Toplevel | None" = None
+        self._mod_popup_click_id: str = ""
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Configure: {exe_path.name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        # Body frame — grid layout lives here
+        self._body = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        self._body.pack(fill="both", expand=True)
+
+        self._build()
+
+        if self._initial_launch_mode is None:
+            self._load_saved()
+            self._game_flag_var.trace_add("write", self._assemble)
+            self._output_flag_var.trace_add("write", self._assemble)
+            self._mod_var.trace_add("write", self._assemble)
+
+    def _load_mod_entries(self) -> "list[tuple[str, Path]]":
+        entries: list[tuple[str, Path]] = []
+        if self._overwrite_path and self._overwrite_path.is_dir():
+            entries.append(("overwrite", self._overwrite_path))
+        if self._mods_path and self._mods_path.is_dir():
+            for e in sorted(self._mods_path.iterdir(), key=lambda p: p.name.casefold()):
+                if e.is_dir() and "_separator" not in e.name:
+                    entries.append((e.name, e))
+        return entries
+
+    def _build(self):
+        body = self._body
+        body.grid_columnconfigure(0, weight=1)
+
+        is_game_exe = self._initial_launch_mode is not None
+
+        if not is_game_exe:
+            sec1 = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+            sec1.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+            sec1.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(
+                sec1, text="Game path argument", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+
+            ctk.CTkLabel(
+                sec1, text="Flag:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            ).grid(row=1, column=0, sticky="w", padx=(10, 4), pady=4)
+            ctk.CTkEntry(
+                sec1, textvariable=self._game_flag_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="e.g. --tesv:",
+            ).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
+
+            wine_game = _to_wine_path(self._game_path) if self._game_path else "(game path not set)"
+            ctk.CTkLabel(
+                sec1, text=f"Path:  {wine_game}", font=FONT_SMALL,
+                text_color=TEXT_DIM, anchor="w", wraplength=560,
+            ).grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
+
+            sec2 = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+            sec2.grid(row=1, column=0, sticky="ew", padx=12, pady=4)
+            sec2.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(
+                sec2, text="Output argument", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+
+            ctk.CTkLabel(
+                sec2, text="Flag:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            ).grid(row=1, column=0, sticky="w", padx=(10, 4), pady=4)
+            ctk.CTkEntry(
+                sec2, textvariable=self._output_flag_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="e.g. --output:",
+            ).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
+
+            ctk.CTkLabel(
+                sec2, text="Mod:", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            ).grid(row=2, column=0, sticky="w", padx=(10, 4), pady=(0, 8))
+            mod_row = ctk.CTkFrame(sec2, fg_color="transparent")
+            mod_row.grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 8))
+            mod_row.grid_columnconfigure(0, weight=1)
+            self._mod_entry = ctk.CTkEntry(
+                mod_row, textvariable=self._mod_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="search mods...",
+            )
+            self._mod_entry.grid(row=0, column=0, sticky="ew")
+            self._mod_entry._entry.bind(
+                "<Control-a>",
+                lambda e: (self._mod_entry._entry.select_range(0, "end"),
+                           self._mod_entry._entry.icursor("end"), "break")[2],
+            )
+            ctk.CTkButton(
+                mod_row, text="\u25bc", width=28, font=FONT_SMALL,
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                command=self._open_mod_popup,
+            ).grid(row=0, column=1, padx=(4, 0))
+            self._mod_var.trace_add("write", self._on_mod_typed)
+
+            sec3 = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+            sec3.grid(row=2, column=0, sticky="ew", padx=12, pady=4)
+            sec3.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                sec3, text="Final argument (editable)", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
+
+            self._final_box = ctk.CTkTextbox(
+                sec3, height=56, font=FONT_NORMAL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                border_width=1, wrap="word",
+            )
+            self._final_box.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+
+        if is_game_exe:
+            sec4 = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+            sec4.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 4))
+            sec4.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(
+                sec4, text="Launch via", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+            ctk.CTkOptionMenu(
+                sec4, values=["Auto", "Steam", "Heroic", "None"],
+                variable=self._launch_mode_var,
+                width=140, font=FONT_SMALL,
+                fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
+                dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
+                command=lambda _: None,
+            ).grid(row=0, column=1, sticky="w", padx=(0, 10), pady=(8, 4))
+            ctk.CTkLabel(
+                sec4,
+                text="Auto detects Steam/Heroic ownership. Force a specific launcher or\n"
+                     "None to always launch the exe directly via Proton.",
+                font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+            ).grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 4))
+            ctk.CTkCheckBox(
+                sec4, text="Deploy mods before launching",
+                variable=self._deploy_before_launch_var,
+                font=FONT_SMALL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
+                checkmark_color=BG_DEEP,
+            ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
+
+        bar = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=0, height=48)
+        bar.grid(row=1 if is_game_exe else 3, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar, text="Cancel", width=90, height=30, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=9)
+        ctk.CTkButton(
+            bar, text="Save", width=90, height=30, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_save,
+        ).pack(side="right", padx=4, pady=9)
+        if self._exe_path in self._custom_exes:
+            ctk.CTkButton(
+                bar, text="Remove EXE", width=110, height=30, font=FONT_NORMAL,
+                fg_color="#8B1A1A", hover_color="#B22222", text_color="white",
+                command=self._on_remove,
+            ).pack(side="left", padx=(12, 4), pady=9)
+        if not is_game_exe:
+            ctk.CTkCheckBox(
+                bar, text="Hide from dropdown",
+                variable=self._hide_var,
+                font=FONT_SMALL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
+                checkmark_color=BG_DEEP,
+            ).pack(side="left", padx=(12, 4), pady=9)
+
+    def _on_mod_typed(self, *_):
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._populate_mod_popup()
+
+    def _open_mod_popup(self):
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._mod_popup.destroy()
+            self._mod_popup = None
+            return
+
+        popup = tk.Toplevel(self.winfo_toplevel())
+        popup.overrideredirect(True)
+        popup.configure(bg=BG_PANEL)
+        self._mod_popup = popup
+
+        self._mod_entry.update_idletasks()
+        x = self._mod_entry.winfo_rootx()
+        y = self._mod_entry.winfo_rooty() + self._mod_entry.winfo_height() + 2
+        w = self._mod_entry.winfo_width() + 32
+        popup.geometry(f"{w}x300+{x}+{y}")
+
+        scroll = ctk.CTkScrollableFrame(popup, fg_color=BG_PANEL, corner_radius=0)
+        scroll.pack(fill="both", expand=True)
+        scroll.grid_columnconfigure(0, weight=1)
+        self._mod_popup_scroll = scroll
+        self._populate_mod_popup(show_all=True)
+
+        popup.bind("<Escape>", lambda _: self._close_mod_popup())
+        popup.lift()
+
+        def _forward_scroll(event):
+            canvas = scroll._parent_canvas
+            if event.num == 4 or event.delta > 0:
+                canvas.yview_scroll(-1, "units")
+            else:
+                canvas.yview_scroll(1, "units")
+        popup.bind("<MouseWheel>", _forward_scroll)
+        popup.bind("<Button-4>", _forward_scroll)
+        popup.bind("<Button-5>", _forward_scroll)
+
+        def _bind_click_dismiss():
+            if self._mod_popup and self._mod_popup.winfo_exists():
+                self._mod_popup_click_id = self.bind(
+                    "<Button-1>", self._on_root_click_while_popup, add="+"
+                )
+        self.after(100, _bind_click_dismiss)
+        self._poll_mod_popup_focus()
+
+    def _poll_mod_popup_focus(self):
+        if not self._mod_popup or not self._mod_popup.winfo_exists():
+            return
+        try:
+            mx, my = self.winfo_pointerx(), self.winfo_pointery()
+            widget_under = self.winfo_containing(mx, my)
+        except Exception:
+            widget_under = None
+        if widget_under is None and not self.focus_get():
+            self._close_mod_popup()
+            return
+        self.after(300, self._poll_mod_popup_focus)
+
+    def _close_mod_popup(self):
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._mod_popup.destroy()
+        self._mod_popup = None
+        try:
+            self.unbind("<Button-1>", self._mod_popup_click_id)
+        except Exception:
+            pass
+
+    def _on_root_click_while_popup(self, event):
+        if not self._mod_popup or not self._mod_popup.winfo_exists():
+            self._close_mod_popup()
+            return
+        px, py, pw, ph = (
+            self._mod_popup.winfo_rootx(), self._mod_popup.winfo_rooty(),
+            self._mod_popup.winfo_width(), self._mod_popup.winfo_height(),
+        )
+        if px <= event.x_root <= px + pw and py <= event.y_root <= py + ph:
+            return
+        self._close_mod_popup()
+
+    def _populate_mod_popup(self, show_all: bool = False):
+        scroll = self._mod_popup_scroll
+        for w in scroll.winfo_children():
+            w.destroy()
+        query = self._mod_var.get().casefold()
+        names = [n for n, _ in self._mod_entries]
+        filtered = names if (show_all or not query) else [n for n in names if query in n.casefold()]
+        for name in filtered:
+            btn = ctk.CTkButton(
+                scroll, text=name, anchor="w", font=FONT_SMALL,
+                fg_color="transparent", hover_color=BG_HOVER, text_color=TEXT_MAIN,
+                height=26, corner_radius=4,
+                command=lambda n=name: self._select_mod(n),
+            )
+            btn.pack(fill="x", padx=4, pady=1)
+
+    def _select_mod(self, name: str):
+        if self._mod_popup and self._mod_popup.winfo_exists():
+            self._mod_popup.destroy()
+            self._mod_popup = None
+        self._mod_var.set(name)
+
+    def _assemble(self, *_):
+        parts: list[str] = []
+
+        game_flag = self._game_flag_var.get().strip()
+        if game_flag and self._game_path:
+            wine = _to_wine_path(self._game_path)
+            parts.append(f'{game_flag}"{wine}"')
+
+        out_flag = self._output_flag_var.get().strip()
+        selected = self._mod_var.get()
+        if out_flag and selected:
+            path = next((p for n, p in self._mod_entries if n == selected), None)
+            if path:
+                parts.append(f'{out_flag}"{_to_wine_path(path)}"')
+
+        assembled = " ".join(parts)
+        self._set_final_text(assembled)
+
+    def _set_final_text(self, text: str):
+        self._final_box.delete("1.0", "end")
+        self._final_box.insert("1.0", text)
+
+    def _get_final_text(self) -> str:
+        return self._final_box.get("1.0", "end").strip()
+
+    def _parse_saved_args(self, args: str):
+        segments = re.findall(r'(\S+?)"([^"]+)"', args)
+
+        game_wine = _to_wine_path(self._game_path).rstrip("\\") if self._game_path else None
+
+        for flag, quoted_path in segments:
+            normalised = quoted_path.rstrip("\\")
+
+            if game_wine and (normalised == game_wine
+                              or normalised.startswith(game_wine + "\\")):
+                self._game_flag_var.set(flag)
+                continue
+
+            matched = False
+            for name, path in self._mod_entries:
+                mod_wine = _to_wine_path(path).rstrip("\\")
+                if normalised == mod_wine or normalised.startswith(mod_wine + "\\"):
+                    self._output_flag_var.set(flag)
+                    self._mod_var.set(name)
+                    matched = True
+                    break
+
+            if not matched:
+                tail = normalised.rsplit("\\", 1)[-1] if "\\" in normalised else ""
+                if tail:
+                    self._output_flag_var.set(flag)
+                    for name, _path in self._mod_entries:
+                        if name == tail:
+                            self._mod_var.set(name)
+                            break
+                    else:
+                        self._mod_var.set(tail)
+
+    def _load_saved(self):
+        if self._saved_args:
+            self._parse_saved_args(self._saved_args)
+            self._set_final_text(self._saved_args)
+
+    def _on_save(self):
+        if self._initial_launch_mode is not None:
+            self.launch_mode = self._launch_mode_var.get().lower()
+            self.deploy_before_launch = self._deploy_before_launch_var.get()
+        else:
+            final = self._get_final_text()
+            try:
+                data = json.loads(self._EXE_ARGS_FILE.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+            data[self._exe_path.name] = final
+            try:
+                self._EXE_ARGS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            except OSError:
+                pass
+            self.result = final
+            self.hide = self._hide_var.get()
+        self._on_done(self)
+
+    def _on_remove(self):
+        self.removed = True
+        self.result = None
+        self._on_done(self)
+
+    def _on_cancel(self):
+        self._on_done(self)
+
+
 class _ReplaceModDialog(ctk.CTkToplevel):
     """Modal dialog shown when installing a mod whose name already exists.
     result: "all" | "selected" | "cancel"
@@ -2975,6 +3750,111 @@ class _DisablePluginsDialog(ctk.CTkToplevel):
 
 
 # ---------------------------------------------------------------------------
+# DisablePluginsPanel — inline overlay version of _DisablePluginsDialog
+# ---------------------------------------------------------------------------
+
+class DisablePluginsPanel(ctk.CTkFrame):
+    """
+    Inline panel version of _DisablePluginsDialog. Overlays _plugin_panel_container.
+    result: set[str] of plugin names to disable, or None if cancelled.
+    """
+
+    def __init__(self, parent, mod_name: str,
+                 plugin_names: list[str], disabled: set[str],
+                 on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self.result: set[str] | None = None
+        self._plugin_names = plugin_names
+        self._disabled_lower = {n.lower() for n in disabled}
+        self._on_done = on_done or (lambda p: None)
+        self._vars: list[tuple[tk.BooleanVar, str]] = []
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Disable Plugins \u2014 {mod_name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        self._build()
+
+    def _build(self):
+        ctk.CTkLabel(
+            self,
+            text="Checked plugins are enabled and will appear in plugins.txt.\n"
+                 "Uncheck a plugin to exclude it.",
+            font=FONT_SMALL,
+            text_color=TEXT_DIM,
+            anchor="w",
+            justify="left",
+        ).pack(anchor="w", padx=16, pady=(12, 6))
+
+        scroll = ctk.CTkScrollableFrame(self, fg_color=BG_PANEL, corner_radius=6)
+        scroll.pack(fill="both", expand=True, padx=12, pady=(0, 4))
+        scroll.grid_columnconfigure(0, weight=1)
+
+        for i, name in enumerate(self._plugin_names):
+            var = tk.BooleanVar(value=name.lower() not in self._disabled_lower)
+            self._vars.append((var, name))
+            ctk.CTkCheckBox(
+                scroll,
+                text=name,
+                variable=var,
+                font=FONT_NORMAL,
+                text_color=TEXT_MAIN,
+                fg_color=ACCENT,
+                hover_color=ACCENT_HOV,
+                checkmark_color="white",
+                border_color=BORDER,
+            ).grid(row=i, column=0, sticky="w", padx=8, pady=3)
+
+        helper = ctk.CTkFrame(self, fg_color="transparent")
+        helper.pack(fill="x", padx=12, pady=(0, 4))
+        ctk.CTkButton(
+            helper, text="Enable All", width=90, height=24, font=FONT_SMALL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=lambda: [v.set(True) for v, _ in self._vars],
+        ).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(
+            helper, text="Disable All", width=90, height=24, font=FONT_SMALL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=lambda: [v.set(False) for v, _ in self._vars],
+        ).pack(side="left")
+
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
+        bar.pack(fill="x")
+        bar.pack_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar, text="Cancel", width=80, height=28, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=12)
+        ctk.CTkButton(
+            bar, text="Save", width=80, height=28, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_ok,
+        ).pack(side="right", padx=4, pady=12)
+
+    def _on_ok(self):
+        self.result = {name for var, name in self._vars if not var.get()}
+        self._on_done(self)
+
+    def _on_cancel(self):
+        self._on_done(self)
+
+
+# ---------------------------------------------------------------------------
 # Separator color picker dialog
 # ---------------------------------------------------------------------------
 class _SepColorPickerDialog(ctk.CTkToplevel):
@@ -3427,4 +4307,328 @@ class _ExeFilterDialog(ctk.CTkToplevel):
             self._save_fn(self._items)
             self._refresh_fn()
         self._refresh_list()
+
+
+# ---------------------------------------------------------------------------
+# ExeFilterPanel — inline overlay version of _ExeFilterDialog
+# ---------------------------------------------------------------------------
+
+class ExeFilterPanel(ctk.CTkFrame):
+    """Inline panel version of _ExeFilterDialog. Overlays the plugin-panel container."""
+
+    def __init__(self, parent, load_fn, save_fn, refresh_fn, on_done=None, **_kwargs):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._load_fn = load_fn
+        self._save_fn = save_fn
+        self._refresh_fn = refresh_fn
+        self._on_done = on_done or (lambda p: None)
+        self._items: list[str] = list(load_fn())
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text="EXE Filter List",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        self._build()
+        self.bind("<Return>", lambda _: self._on_add())
+
+    def _build(self):
+        ctk.CTkLabel(
+            self,
+            text=(
+                "User-hidden executables are listed here.\n"
+                "Use the \u2699 Configure button on any EXE to hide or unhide it."
+            ),
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).pack(padx=14, pady=(10, 8), anchor="w")
+
+        self._list_frame = ctk.CTkScrollableFrame(
+            self, fg_color=BG_PANEL, corner_radius=6,
+        )
+        self._list_frame.pack(fill="both", expand=True, padx=14, pady=(0, 10))
+        self._list_frame.grid_columnconfigure(0, weight=1)
+        self._refresh_list()
+
+        add_row = ctk.CTkFrame(self, fg_color="transparent")
+        add_row.pack(fill="x", padx=14, pady=(0, 10))
+        add_row.grid_columnconfigure(0, weight=1)
+
+        self._entry_var = tk.StringVar()
+        self._entry_widget = ctk.CTkEntry(
+            add_row, textvariable=self._entry_var, font=FONT_SMALL,
+            fg_color=BG_PANEL, text_color=TEXT_MAIN, border_color=BORDER,
+            placeholder_text="e.g.  my_helper.exe",
+        )
+        self._entry_widget.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(
+            add_row, text="Add", width=72, height=28, font=FONT_SMALL,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_add,
+        ).grid(row=0, column=1)
+
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
+        bar.pack(fill="x")
+        bar.pack_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar, text="Close", width=80, height=30, font=FONT_NORMAL,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_close,
+        ).pack(side="right", padx=12, pady=10)
+
+    def _refresh_list(self):
+        for w in self._list_frame.winfo_children():
+            w.destroy()
+
+        user_items = sorted(self._items)
+
+        if not user_items:
+            ctk.CTkLabel(
+                self._list_frame,
+                text="(no user-hidden executables)",
+                font=FONT_SMALL, text_color=TEXT_DIM,
+            ).grid(row=0, column=0, pady=10)
+            return
+
+        for row_idx, name in enumerate(user_items):
+            row = ctk.CTkFrame(self._list_frame, fg_color="transparent")
+            row.grid(row=row_idx, column=0, sticky="ew", pady=1)
+            row.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(
+                row, text=name, font=FONT_SMALL, text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="ew", padx=8)
+            ctk.CTkButton(
+                row, text="\u2715", width=28, height=24, font=FONT_SMALL,
+                fg_color=BG_HEADER, hover_color="#8B1A1A", text_color=TEXT_MAIN,
+                command=lambda n=name: self._on_remove(n),
+            ).grid(row=0, column=1, padx=(4, 4))
+
+    def _on_add(self):
+        raw = self._entry_var.get().strip()
+        if not raw:
+            return
+        name = raw.lower()
+        if name not in self._items:
+            self._items.append(name)
+            self._save_fn(self._items)
+            self._refresh_fn()
+        self._entry_var.set("")
+        self._refresh_list()
+        try:
+            self._entry_widget.focus_set()
+        except Exception:
+            pass
+
+    def _on_remove(self, name: str):
+        if name in self._items:
+            self._items.remove(name)
+            self._save_fn(self._items)
+            self._refresh_fn()
+        self._refresh_list()
+
+    def _on_close(self):
+        self._on_done(self)
+
+
+# ---------------------------------------------------------------------------
+# DeploymentPathsPanel — inline overlay version of _show_mod_strip_dialog
+# ---------------------------------------------------------------------------
+
+class DeploymentPathsPanel(ctk.CTkFrame):
+    """Inline panel (overlays _mod_panel_container) for setting deployment path
+    strip prefixes. Calls on_save(chosen_paths) then on_done(panel) on OK,
+    or just on_done(panel) on cancel/close."""
+
+    def __init__(self, parent, mod_name: str, mod_folder: "Path",
+                 current_prefixes: "list[str]", use_path_format: bool,
+                 on_save=None, on_done=None):
+        super().__init__(parent, fg_color=BG_PANEL, corner_radius=0)
+        self._mod_name = mod_name
+        self._mod_folder = mod_folder
+        self._on_save = on_save or (lambda chosen: None)
+        self._on_done = on_done or (lambda p: None)
+
+        use_path_format = use_path_format
+        current_set = {p.lower() for p in current_prefixes}
+        self._vars_map: dict[str, tk.BooleanVar] = {}
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Deployment paths \u2014 {mod_name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        # Message
+        tk.Label(
+            self,
+            text="Select folders to ignore during deployment (at any depth).\n"
+                 "Their contents will be deployed one level up:",
+            bg=BG_PANEL, fg=TEXT_MAIN, font=FONT_SMALL, justify="left",
+        ).pack(anchor="w", padx=12, pady=(10, 6))
+
+        # Tree area
+        _scrollbar_bg = "#383838"
+        _tree_bg = BG_DEEP
+        list_frame = tk.Frame(self, bg=_scrollbar_bg, bd=0, highlightthickness=0)
+        list_frame.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+        _uid = f"DPPanel{id(self)}"
+        style = ttk.Style()
+        style.configure(
+            f"{_uid}.Treeview",
+            background=_tree_bg, foreground=TEXT_MAIN,
+            fieldbackground=_tree_bg, rowheight=22,
+            font=("Segoe UI", 10),
+            bordercolor=BG_ROW, borderwidth=1, focuscolor=_tree_bg,
+        )
+        style.configure(
+            f"{_uid}.Treeview.Heading",
+            background=BG_HEADER, foreground=TEXT_SEP,
+            font=("Segoe UI", 10), borderwidth=0,
+        )
+        style.map(
+            f"{_uid}.Treeview",
+            background=[("selected", BG_SELECT), ("focus", _tree_bg)],
+            foreground=[("selected", TEXT_MAIN)],
+        )
+
+        self._tree = ttk.Treeview(
+            list_frame,
+            columns=("check",),
+            show="tree headings",
+            style=f"{_uid}.Treeview",
+            selectmode="browse",
+        )
+        self._tree.heading("#0", text="Folder", anchor="w")
+        self._tree.heading("check", text="", anchor="w")
+        self._tree.column("#0", minwidth=200, stretch=True)
+        self._tree.column("check", width=28, stretch=False)
+
+        vsb = tk.Scrollbar(
+            list_frame, orient="vertical", command=self._tree.yview,
+            bg=_scrollbar_bg, troughcolor=BG_DEEP, activebackground=ACCENT,
+            highlightthickness=0, bd=0,
+        )
+        self._tree.configure(yscrollcommand=vsb.set)
+        self._tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+        for widget in (self._tree, list_frame, self):
+            widget.bind("<Button-4>", lambda e: self._tree.yview_scroll(-3, "units"))
+            widget.bind("<Button-5>", lambda e: self._tree.yview_scroll( 3, "units"))
+
+        def _iid(rel_path: str) -> str:
+            return rel_path.replace("/", "\u241f")
+
+        def _rel(iid: str) -> str:
+            return iid.replace("\u241f", "/")
+
+        def _scan(parent_path: str, parent_iid: str, depth: int) -> None:
+            if depth > 3:
+                return
+            full = mod_folder / parent_path if parent_path else mod_folder
+            try:
+                entries = sorted(full.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+            except OSError:
+                return
+            for p in entries:
+                if not p.is_dir() or p.is_symlink():
+                    continue
+                rel = f"{parent_path}/{p.name}" if parent_path else p.name
+                name = p.name
+                if use_path_format:
+                    var = tk.BooleanVar(value=rel.lower() in current_set)
+                else:
+                    var = tk.BooleanVar(value=name.lower() in current_set)
+                self._vars_map[rel] = var
+                check_char = "\u2611" if var.get() else "\u2610"
+                iid = _iid(rel)
+                self._tree.insert(parent_iid, "end", iid=iid, text=name,
+                                  values=(check_char,), open=False)
+                _scan(rel, iid, depth + 1)
+
+        _scan("", "", 0)
+
+        if not self._vars_map:
+            self._tree.insert("", "end", iid="__none__",
+                              text="(No folders found in this mod.)", values=("",))
+            self._vars_map["__none__"] = tk.BooleanVar(value=False)
+
+        self._iid_fn = _iid
+        self._rel_fn = _rel
+
+        def _on_toggle(evt):
+            region = self._tree.identify_region(evt.x, evt.y)
+            if region == "tree":
+                return
+            item = self._tree.identify_row(evt.y)
+            if not item:
+                return
+            rel = _rel(item)
+            if rel not in self._vars_map:
+                return
+            v = self._vars_map[rel]
+            v.set(not v.get())
+            self._tree.set(item, "check", "\u2611" if v.get() else "\u2610")
+
+        self._tree.bind("<ButtonRelease-1>", _on_toggle)
+
+        # Button bar
+        btn_frame = tk.Frame(self, bg=BG_ROW, bd=0, highlightthickness=0)
+        btn_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+        def _mkbtn(parent, text, cmd, bg):
+            return tk.Button(
+                parent, text=text, command=cmd, bg=bg, fg=TEXT_MAIN,
+                font=FONT_SMALL, relief="flat", overrelief="flat",
+                padx=16, pady=4, cursor="hand2",
+                highlightthickness=0, borderwidth=0,
+                activebackground=bg, activeforeground=TEXT_MAIN,
+            )
+
+        _mkbtn(btn_frame, "OK", self._on_ok, ACCENT).pack(side="right", padx=(8, 0))
+        _mkbtn(btn_frame, "Cancel", self._on_cancel, BG_ROW).pack(side="right")
+        _mkbtn(btn_frame, "Clear all", self._on_clear_all, BG_ROW).pack(side="right")
+
+    def _on_ok(self):
+        chosen = [
+            rel for rel, v in self._vars_map.items()
+            if rel != "__none__" and v.get()
+        ]
+        self._on_save(chosen)
+        self._on_done(self)
+
+    def _on_cancel(self):
+        self._on_done(self)
+
+    def _on_clear_all(self):
+        for rel, v in self._vars_map.items():
+            if rel == "__none__":
+                continue
+            v.set(False)
+            try:
+                self._tree.set(self._iid_fn(rel), "check", "\u2610")
+            except tk.TclError:
+                pass
 

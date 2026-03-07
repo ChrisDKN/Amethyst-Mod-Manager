@@ -761,6 +761,637 @@ class AddGameDialog(ctk.CTkToplevel):
 
 
 # ---------------------------------------------------------------------------
+# ReconfigureGamePanel — inline (non-modal) version of AddGameDialog
+# ---------------------------------------------------------------------------
+
+class ReconfigureGamePanel(ctk.CTkFrame):
+    """
+    Inline panel for reconfiguring a game's installation paths.
+
+    Placed directly inside the main content area (replaces ModListPanel while
+    open).  Calls ``on_done(panel)`` when the user saves, cancels, or removes
+    the game instance.
+
+    Usage (App):
+        panel = ReconfigureGamePanel(parent_frame, game, on_done=self.hide_reconfigure_panel)
+        panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+    """
+
+    def __init__(self, parent, game: BaseGame, on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+
+        self._game = game
+        self._on_done = on_done or (lambda p: None)
+
+        self._found_path: Optional[Path] = None
+        self._found_prefix: Optional[Path] = None
+        self._custom_staging: Optional[Path] = None
+        self.result: Optional[Path] = None
+        self.removed: bool = False
+        self._deploy_mode_var = tk.StringVar(value="hardlink")
+
+        self._build_ui()
+
+        # If already configured, pre-populate all fields
+        if game.is_configured():
+            self._set_path(game.get_game_path(), status="configured")
+            existing_pfx = game.get_prefix_path()
+            if existing_pfx and existing_pfx.is_dir():
+                self._set_prefix(existing_pfx, status="configured")
+            elif game.steam_id:
+                self._start_prefix_scan()
+            elif game.heroic_app_names:
+                self._start_heroic_prefix_scan()
+            if hasattr(game, "get_deploy_mode"):
+                mode = game.get_deploy_mode()
+                self._deploy_mode_var.set({
+                    LinkMode.SYMLINK: "symlink",
+                    LinkMode.COPY:    "copy",
+                }.get(mode, "hardlink"))
+            if hasattr(game, "_staging_path") and game._staging_path is not None:
+                self._custom_staging = game._staging_path
+                self._set_staging(game._staging_path, status="configured")
+            else:
+                self._set_staging_text(str(game.get_mod_staging_path()))
+        else:
+            self._start_scan()
+            self._set_staging_text(str(game.get_mod_staging_path()))
+
+    # ------------------------------------------------------------------
+    # UI
+    # ------------------------------------------------------------------
+
+    def _build_ui(self):
+        self.grid_rowconfigure(0, weight=0)  # title bar
+        self.grid_rowconfigure(1, weight=1)  # body
+        self.grid_rowconfigure(2, weight=0)  # button bar
+        self.grid_columnconfigure(0, weight=1)
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
+        title_bar.grid(row=0, column=0, sticky="ew")
+        title_bar.grid_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Reconfigure Game — {self._game.name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w"
+        ).pack(side="left", padx=12, pady=8)
+
+        # Body
+        body = ctk.CTkScrollableFrame(
+            self, fg_color=BG_PANEL, corner_radius=0,
+            scrollbar_button_color=BG_HEADER,
+            scrollbar_button_hover_color=ACCENT,
+        )
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1)
+
+        # --- Game path section ---
+        ctk.CTkLabel(
+            body, text="Game Installation Folder",
+            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
+
+        self._status_label = ctk.CTkLabel(
+            body, text="Scanning Steam libraries…",
+            font=FONT_NORMAL, text_color=TEXT_WARN, anchor="w"
+        )
+        self._status_label.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        self._path_box = ctk.CTkTextbox(
+            body, height=42, font=FONT_MONO,
+            fg_color=BG_ROW, text_color=TEXT_MAIN,
+            state="disabled", wrap="none", corner_radius=4
+        )
+        self._path_box.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        _path_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
+        _path_btn_frame.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 8))
+
+        self._browse_btn = ctk.CTkButton(
+            _path_btn_frame, text="Browse manually…", width=160, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_browse
+        )
+        self._browse_btn.pack(side="left", padx=(0, 6))
+
+        self._open_btn = ctk.CTkButton(
+            _path_btn_frame, text="Open", width=70, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_open_path, state="disabled"
+        )
+        self._open_btn.pack(side="left")
+
+        # Divider
+        ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
+            row=4, column=0, sticky="ew", padx=16, pady=2
+        )
+
+        # --- Proton prefix section ---
+        ctk.CTkLabel(
+            body, text="Proton Prefix (compatdata/pfx)",
+            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
+        ).grid(row=5, column=0, sticky="ew", padx=16, pady=(6, 2))
+
+        _has_prefix_source = bool(self._game.steam_id or self._game.heroic_app_names)
+        self._prefix_status_label = ctk.CTkLabel(
+            body,
+            text="Scanning for prefix…" if _has_prefix_source else "No launcher ID — prefix not applicable.",
+            font=FONT_NORMAL,
+            text_color=TEXT_WARN if _has_prefix_source else TEXT_DIM,
+            anchor="w"
+        )
+        self._prefix_status_label.grid(row=6, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        self._prefix_box = ctk.CTkTextbox(
+            body, height=42, font=FONT_MONO,
+            fg_color=BG_ROW, text_color=TEXT_MAIN,
+            state="disabled", wrap="none", corner_radius=4
+        )
+        self._prefix_box.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        _prefix_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
+        _prefix_btn_frame.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 6))
+
+        self._prefix_browse_btn = ctk.CTkButton(
+            _prefix_btn_frame, text="Browse manually…", width=160, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_browse_prefix,
+            state="normal" if _has_prefix_source else "disabled"
+        )
+        self._prefix_browse_btn.pack(side="left", padx=(0, 6))
+
+        self._prefix_open_btn = ctk.CTkButton(
+            _prefix_btn_frame, text="Open", width=70, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_open_prefix, state="disabled"
+        )
+        self._prefix_open_btn.pack(side="left")
+
+        # Divider
+        ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
+            row=9, column=0, sticky="ew", padx=16, pady=2
+        )
+
+        # --- Mod Staging Folder section ---
+        ctk.CTkLabel(
+            body, text="Mod Staging Folder",
+            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
+        ).grid(row=10, column=0, sticky="ew", padx=16, pady=(6, 2))
+
+        self._staging_status_label = ctk.CTkLabel(
+            body, text="Default location will be used.",
+            font=FONT_NORMAL, text_color=TEXT_DIM, anchor="w"
+        )
+        self._staging_status_label.grid(row=11, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        self._staging_box = ctk.CTkTextbox(
+            body, height=42, font=FONT_MONO,
+            fg_color=BG_ROW, text_color=TEXT_MAIN,
+            state="disabled", wrap="none", corner_radius=4
+        )
+        self._staging_box.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        _staging_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
+        _staging_btn_frame.grid(row=13, column=0, sticky="w", padx=16, pady=(0, 6))
+
+        ctk.CTkButton(
+            _staging_btn_frame, text="Browse manually…", width=160, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_browse_staging
+        ).pack(side="left", padx=(0, 6))
+
+        self._staging_open_btn = ctk.CTkButton(
+            _staging_btn_frame, text="Open", width=70, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_open_staging
+        )
+        self._staging_open_btn.pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            _staging_btn_frame, text="Reset to default", width=130, height=26,
+            font=FONT_SMALL, fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, command=self._on_reset_staging
+        ).pack(side="left")
+
+        # Divider
+        ctk.CTkFrame(body, fg_color=BORDER, height=1, corner_radius=0).grid(
+            row=14, column=0, sticky="ew", padx=16, pady=2
+        )
+
+        # --- Deploy method section ---
+        ctk.CTkLabel(
+            body, text="Deploy Method",
+            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
+        ).grid(row=15, column=0, sticky="ew", padx=16, pady=(6, 4))
+
+        _deploy_row = ctk.CTkFrame(body, fg_color="transparent")
+        _deploy_row.grid(row=16, column=0, sticky="w", padx=16, pady=(0, 10))
+
+        _mode_options = [
+            ("Hardlink (Recommended)", "hardlink"),
+            ("Symlink",                "symlink"),
+            ("Direct Copy",            "copy"),
+        ]
+        for label, value in _mode_options:
+            ctk.CTkRadioButton(
+                _deploy_row, text=label,
+                variable=self._deploy_mode_var, value=value,
+                font=FONT_NORMAL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV,
+            ).pack(side="left", padx=(0, 20))
+
+        # Button bar
+        btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
+        btn_bar.grid(row=2, column=0, sticky="ew")
+        btn_bar.grid_propagate(False)
+        ctk.CTkFrame(btn_bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+
+        self._cancel_btn = ctk.CTkButton(
+            btn_bar, text="Cancel", width=100, height=30, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel
+        )
+        self._cancel_btn.pack(side="right", padx=(4, 12), pady=10)
+
+        self._add_btn = ctk.CTkButton(
+            btn_bar, text="Save", width=110, height=30, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            state="disabled", command=self._on_add
+        )
+        self._add_btn.pack(side="right", padx=4, pady=10)
+
+        if self._game.is_configured():
+            self._remove_btn = ctk.CTkButton(
+                btn_bar, text="Remove Instance", width=140, height=30,
+                font=FONT_BOLD, fg_color=RED_BTN, hover_color=RED_HOV,
+                text_color="white", command=self._on_remove
+            )
+            self._remove_btn.pack(side="left", padx=(12, 4), pady=10)
+
+            self._clean_btn = ctk.CTkButton(
+                btn_bar, text="Clean Game Folder", width=150, height=30,
+                font=FONT_NORMAL, fg_color=RED_BTN, hover_color=RED_HOV,
+                text_color="white", command=self._on_clean_game_folder
+            )
+            self._clean_btn.pack(side="left", padx=(0, 4), pady=10)
+
+    # ------------------------------------------------------------------
+    # Steam / prefix scan workers
+    # ------------------------------------------------------------------
+
+    def _start_scan(self):
+        self._status_label.configure(text="Scanning Steam libraries…", text_color=TEXT_WARN)
+        self._add_btn.configure(state="disabled")
+        self._set_path_text("")
+        threading.Thread(target=self._scan_worker, daemon=True).start()
+
+    def _scan_worker(self):
+        libraries = find_steam_libraries()
+        found = find_game_in_libraries(libraries, self._game.exe_name)
+        source = "steam"
+        if not found and self._game.heroic_app_names:
+            found = find_heroic_game(self._game.heroic_app_names)
+            if found:
+                source = "heroic"
+        self.after(0, lambda: self._on_scan_complete(found, source))
+
+    def _on_scan_complete(self, found: Optional[Path], source: str = "steam"):
+        if found:
+            self._set_path(found, status="found", source=source)
+        else:
+            self._status_label.configure(
+                text="Not found automatically. Browse manually to locate the game folder.",
+                text_color=TEXT_ERR
+            )
+            self._set_path_text("")
+            self._add_btn.configure(state="disabled")
+        if self._game.steam_id:
+            self._start_prefix_scan()
+        elif self._game.heroic_app_names:
+            self._start_heroic_prefix_scan()
+
+    def _start_prefix_scan(self):
+        self._prefix_status_label.configure(
+            text="Scanning for Proton prefix…", text_color=TEXT_WARN
+        )
+        self._set_prefix_text("")
+        threading.Thread(target=self._prefix_scan_worker, daemon=True).start()
+
+    def _prefix_scan_worker(self):
+        found = find_prefix(self._game.steam_id)
+        self.after(0, lambda: self._on_prefix_scan_complete(found))
+
+    def _on_prefix_scan_complete(self, found: Optional[Path]):
+        if found:
+            self._set_prefix(found, status="found")
+        else:
+            self._prefix_status_label.configure(
+                text="Prefix not found automatically. Not needed if game is Linux native",
+                text_color=TEXT_WARN
+            )
+
+    def _start_heroic_prefix_scan(self):
+        self._prefix_status_label.configure(
+            text="Scanning for Heroic Wine prefix…", text_color=TEXT_WARN
+        )
+        self._set_prefix_text("")
+        threading.Thread(target=self._heroic_prefix_scan_worker, daemon=True).start()
+
+    def _heroic_prefix_scan_worker(self):
+        found = find_heroic_prefix(self._game.heroic_app_names)
+        self.after(0, lambda: self._on_heroic_prefix_scan_complete(found))
+
+    def _on_heroic_prefix_scan_complete(self, found: Optional[Path]):
+        if found:
+            self._found_prefix = found
+            self._set_prefix_text(str(found))
+            self._prefix_status_label.configure(
+                text="Found via Heroic Games Launcher.",
+                text_color=TEXT_OK
+            )
+        else:
+            self._prefix_status_label.configure(
+                text="Prefix not found automatically. Not needed if game is Linux native.",
+                text_color=TEXT_WARN
+            )
+
+    # ------------------------------------------------------------------
+    # Path helpers
+    # ------------------------------------------------------------------
+
+    def _set_path(self, path: Path, status: str = "found", source: str = "steam"):
+        self._found_path = path
+        self._set_path_text(str(path))
+        if status == "configured":
+            self._status_label.configure(
+                text="Game already configured. You can update the path below.",
+                text_color=TEXT_OK
+            )
+        elif source == "heroic":
+            self._status_label.configure(
+                text="Found via Heroic Games Launcher.",
+                text_color=TEXT_OK
+            )
+        else:
+            self._status_label.configure(
+                text="Found via Steam libraries.",
+                text_color=TEXT_OK
+            )
+        self._add_btn.configure(state="normal")
+        self._open_btn.configure(state="normal")
+
+    def _set_path_text(self, text: str):
+        self._path_box.configure(state="normal")
+        self._path_box.delete("1.0", "end")
+        if text:
+            self._path_box.insert("end", text)
+        self._path_box.configure(state="disabled")
+
+    def _set_prefix(self, path: Path, status: str = "found"):
+        self._found_prefix = path
+        self._set_prefix_text(str(path))
+        if status == "configured":
+            self._prefix_status_label.configure(
+                text="Prefix already configured. You can update the path below.",
+                text_color=TEXT_OK
+            )
+        else:
+            self._prefix_status_label.configure(
+                text="Found via Steam compatdata.",
+                text_color=TEXT_OK
+            )
+        self._prefix_open_btn.configure(state="normal")
+
+    def _set_prefix_text(self, text: str):
+        self._prefix_box.configure(state="normal")
+        self._prefix_box.delete("1.0", "end")
+        if text:
+            self._prefix_box.insert("end", text)
+        self._prefix_box.configure(state="disabled")
+
+    def _set_staging(self, path: Path, status: str = "found"):
+        self._custom_staging = path
+        self._set_staging_text(str(path))
+        if status == "configured":
+            self._staging_status_label.configure(
+                text="Custom staging folder already configured.",
+                text_color=TEXT_OK
+            )
+        else:
+            self._staging_status_label.configure(
+                text="Custom staging folder selected.",
+                text_color=TEXT_OK
+            )
+
+    def _set_staging_text(self, text: str):
+        self._staging_box.configure(state="normal")
+        self._staging_box.delete("1.0", "end")
+        if text:
+            self._staging_box.insert("end", text)
+        self._staging_box.configure(state="disabled")
+
+    # ------------------------------------------------------------------
+    # Handlers
+    # ------------------------------------------------------------------
+
+    def _run_folder_picker(self, title: str, callback):
+        """Run a folder picker in a background thread and call callback on the main thread."""
+        def _on_picked(chosen: Optional[Path]) -> None:
+            self.after(0, lambda: callback(chosen))
+        pick_folder(title, _on_picked)
+
+    def _on_browse(self):
+        def _apply(chosen: Optional[Path]):
+            if chosen:
+                self._set_path(chosen, status="found")
+                self._status_label.configure(
+                    text="Folder selected manually.", text_color=TEXT_OK
+                )
+            else:
+                self._status_label.configure(
+                    text="No folder selected or folder picker unavailable.",
+                    text_color=TEXT_WARN
+                )
+        self._run_folder_picker(
+            f"Select {self._game.name} installation folder", _apply
+        )
+
+    def _on_browse_prefix(self):
+        def _apply(chosen: Optional[Path]):
+            if chosen:
+                self._set_prefix(chosen, status="found")
+                self._prefix_status_label.configure(
+                    text="Prefix folder selected manually.", text_color=TEXT_OK
+                )
+            else:
+                self._prefix_status_label.configure(
+                    text="No folder selected or folder picker unavailable.",
+                    text_color=TEXT_WARN
+                )
+        self._run_folder_picker(
+            f"Select Proton prefix folder (pfx/) for {self._game.name}", _apply
+        )
+
+    def _on_browse_staging(self):
+        def _apply(chosen: Optional[Path]):
+            if chosen:
+                self._set_staging(chosen, status="found")
+            else:
+                self._staging_status_label.configure(
+                    text="No folder selected or folder picker unavailable.",
+                    text_color=TEXT_WARN
+                )
+        self._run_folder_picker(
+            f"Select mod staging folder for {self._game.name}", _apply
+        )
+
+    def _on_open_path(self):
+        if self._found_path:
+            xdg_open(self._found_path)
+
+    def _on_open_prefix(self):
+        if self._found_prefix:
+            xdg_open(self._found_prefix)
+
+    def _on_open_staging(self):
+        path = self._custom_staging or self._game.get_mod_staging_path()
+        xdg_open(path)
+
+    def _on_reset_staging(self):
+        self._custom_staging = None
+        from Utils.config_paths import get_profiles_dir
+        default_path = get_profiles_dir() / self._game.name / "mods"
+        self._set_staging_text(str(default_path))
+        self._staging_status_label.configure(
+            text="Default location will be used.", text_color=TEXT_DIM
+        )
+
+    def _on_remove(self):
+        from Utils.config_paths import get_game_config_path
+        from Utils.deploy import restore_root_folder
+
+        profile_root = self._game.get_profile_root()
+        paths_json = get_game_config_path(self._game.name)
+
+        lines = [
+            f"Removes the instance configuration for {self._game.name}.\n",
+            f"Deleted:\n",
+            f"  • Game configuration ({paths_json.name})\n",
+            f"  • Generated caches (filemap, modindex, etc.)\n",
+            f"  • The game will be restored to its vanilla state\n",
+            f"\nKept (your data is safe):\n",
+            f"  • Mods folder:  {profile_root / 'mods'}\n",
+            f"  • Profiles (modlist, plugins):  {profile_root / 'profiles'}\n",
+            f"  • Overwrite:  {profile_root / 'overwrite'}\n",
+            f"\nThis action cannot be undone. Continue?",
+        ]
+        msg = "".join(lines)
+
+        confirm = _RemoveConfirmDialog(self.winfo_toplevel(), self._game.name, msg)
+        self.winfo_toplevel().wait_window(confirm)
+        if not confirm.confirmed:
+            return
+
+        try:
+            if hasattr(self._game, "restore"):
+                self._game.restore()
+        except Exception:
+            pass
+
+        try:
+            root_folder_dir = profile_root / "Root_Folder"
+            game_root = self._game.get_game_path()
+            if root_folder_dir.is_dir() and game_root:
+                restore_root_folder(root_folder_dir, game_root)
+        except Exception:
+            pass
+
+        _KEEP = {"mods", "profiles", "overwrite"}
+        if profile_root.is_dir():
+            for child in profile_root.iterdir():
+                if child.name in _KEEP:
+                    continue
+                if child.is_dir():
+                    shutil.rmtree(child, ignore_errors=True)
+                else:
+                    child.unlink(missing_ok=True)
+
+        if paths_json.is_file():
+            paths_json.unlink(missing_ok=True)
+            try:
+                paths_json.parent.rmdir()
+            except OSError:
+                pass
+
+        self.result = None
+        self.removed = True
+        self._on_done(self)
+
+    def _on_clean_game_folder(self):
+        game_path = self._game.get_game_path()
+        if not game_path:
+            return
+
+        target_dir = game_path
+        if hasattr(self._game, "get_mod_data_path"):
+            data_path = self._game.get_mod_data_path()
+            if data_path and data_path != game_path:
+                target_dir = data_path
+
+        if not target_dir or not target_dir.is_dir():
+            return
+
+        confirm = _CleanGameFolderDialog(self.winfo_toplevel(), self._game.name, target_dir)
+        self.winfo_toplevel().wait_window(confirm)
+        if not confirm.confirmed:
+            return
+
+        from Utils.deploy import remove_deployed_files, restore_filemap_from_root
+        removed = 0
+
+        if hasattr(self._game, "get_effective_filemap_path"):
+            try:
+                filemap_path = self._game.get_effective_filemap_path()
+                removed += restore_filemap_from_root(filemap_path, target_dir)
+            except Exception:
+                pass
+
+        removed += remove_deployed_files(target_dir)
+
+        if hasattr(self._game, "post_clean_game_folder"):
+            self._game.post_clean_game_folder()
+
+        self._status_label.configure(
+            text=f"Clean complete — {removed} deployed file(s) removed.",
+            text_color=TEXT_OK,
+        )
+
+    def _on_add(self):
+        if self._found_path is None:
+            return
+        self._game.set_game_path(self._found_path)
+        if self._found_prefix is not None:
+            self._game.set_prefix_path(self._found_prefix)
+        if hasattr(self._game, "set_deploy_mode"):
+            mode = {
+                "symlink": LinkMode.SYMLINK,
+                "copy":    LinkMode.COPY,
+            }.get(self._deploy_mode_var.get(), LinkMode.HARDLINK)
+            self._game.set_deploy_mode(mode)
+        if hasattr(self._game, "set_staging_path"):
+            self._game.set_staging_path(self._custom_staging)
+        _create_profile_structure(self._game)
+        self.result = self._found_path
+        self._on_done(self)
+
+    def _on_cancel(self):
+        self.result = None
+        self._on_done(self)
+
+
+# ---------------------------------------------------------------------------
 # Remove-confirmation dialog
 # ---------------------------------------------------------------------------
 

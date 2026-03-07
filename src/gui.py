@@ -525,7 +525,14 @@ class App(ctk.CTk):
         log = self._status.log
         set_app_log(log, self.after)
 
-        self._topbar = TopBar(self, log_fn=log, show_add_game_panel_fn=self.show_game_picker)
+        self._topbar = TopBar(
+            self, log_fn=log,
+            show_add_game_panel_fn=self.show_game_picker,
+            show_reconfigure_panel_fn=self.show_reconfigure_panel,
+            show_proton_panel_fn=self.show_proton_panel,
+            show_wizard_panel_fn=self.show_wizard_panel,
+            show_nexus_panel_fn=self.show_nexus_panel,
+        )
         self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))
 
         main = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
@@ -536,22 +543,42 @@ class App(ctk.CTk):
         main.grid_rowconfigure(0, weight=1)
         self._main_frame = main
         self._game_picker_panel = None
+        self._reconfigure_panel = None
 
-        self._mod_panel = ModListPanel(main, log_fn=log)
+        self._mod_panel_container = ctk.CTkFrame(main, fg_color="transparent", corner_radius=0)
+        self._mod_panel_container.grid(row=0, column=0, sticky="nsew")
+        self._mod_panel_container.grid_rowconfigure(0, weight=1)
+        self._mod_panel_container.grid_columnconfigure(0, weight=1)
+
+        self._mod_panel = ModListPanel(self._mod_panel_container, log_fn=log)
         self._mod_panel.grid(row=0, column=0, sticky="nsew")
 
         ctk.CTkFrame(main, fg_color=BORDER, width=1, corner_radius=0).grid(
             row=0, column=1, sticky="ns"
         )
 
+        self._plugin_panel_container = ctk.CTkFrame(main, fg_color="transparent", corner_radius=0)
+        self._plugin_panel_container.grid(row=0, column=2, sticky="nsew")
+        self._plugin_panel_container.grid_rowconfigure(0, weight=1)
+        self._plugin_panel_container.grid_columnconfigure(0, weight=1)
+
         self._plugin_panel = PluginPanel(
-            main, log_fn=log,
+            self._plugin_panel_container, log_fn=log,
             get_filemap_path=lambda: (
                 str(self._mod_panel._filemap_path)
                 if self._mod_panel._filemap_path else None
             ),
         )
-        self._plugin_panel.grid(row=0, column=2, sticky="nsew")
+        self._plugin_panel.grid(row=0, column=0, sticky="nsew")
+        self._proton_panel  = None
+        self._wizard_panel  = None
+        self._nexus_panel   = None
+        self._backup_restore_panel = None
+        self._exe_config_panel     = None
+        self._exe_filter_panel     = None
+        self._conflicts_panel      = None
+        self._deploy_paths_panel   = None
+        self._disable_plugins_panel = None
 
         def _on_filemap_rebuilt():
             # 1. Sync plugins.txt from the updated filemap
@@ -687,7 +714,7 @@ class App(ctk.CTk):
             self.hide_game_picker()
 
         self._game_picker_panel = GamePickerPanel(
-            self._main_frame,
+            self._mod_panel_container,
             game_names,
             games=_GAMES,
             on_game_selected=_on_selected,
@@ -706,6 +733,212 @@ class App(ctk.CTk):
                 panel.destroy()
             except Exception:
                 pass
+
+    # -- Reconfigure game panel (inline overlay) ---------------------------
+
+    def show_reconfigure_panel(self, game, on_done):
+        """Show the reconfigure-game panel, overlaying the main content area."""
+        self.hide_game_picker()
+        self.hide_reconfigure_panel()
+
+        from gui.add_game_dialog import ReconfigureGamePanel
+
+        def _on_panel_done(panel):
+            self.hide_reconfigure_panel()
+            on_done(panel)
+
+        self._reconfigure_panel = ReconfigureGamePanel(
+            self._mod_panel_container, game, on_done=_on_panel_done
+        )
+        self._reconfigure_panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._reconfigure_panel.lift()
+
+    def hide_reconfigure_panel(self):
+        """Remove the reconfigure panel and restore the normal content area."""
+        panel = getattr(self, "_reconfigure_panel", None)
+        if panel is not None:
+            self._reconfigure_panel = None
+            try:
+                panel.place_forget()
+                panel.destroy()
+            except Exception:
+                pass
+
+    # -- Plugin-side overlay helpers ----------------------------------------
+
+    def _show_plugin_overlay(self, attr: str, factory):
+        """Generic: hide any existing plugin overlay, build new one, place it."""
+        self._hide_plugin_overlay(attr)
+        panel = factory()
+        setattr(self, attr, panel)
+        panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+        panel.lift()
+
+    def _hide_plugin_overlay(self, attr: str):
+        panel = getattr(self, attr, None)
+        if panel is not None:
+            setattr(self, attr, None)
+            try:
+                panel.place_forget()
+                panel.destroy()
+            except Exception:
+                pass
+
+    # -- Proton Tools panel --------------------------------------------------
+
+    def show_proton_panel(self, game, log_fn):
+        from gui.dialogs import ProtonToolsPanel
+        self._show_plugin_overlay(
+            "_proton_panel",
+            lambda: ProtonToolsPanel(
+                self._plugin_panel_container, game, log_fn,
+                on_done=lambda p: self._hide_plugin_overlay("_proton_panel"),
+            ),
+        )
+
+    def hide_proton_panel(self):
+        self._hide_plugin_overlay("_proton_panel")
+
+    # -- Wizard panel --------------------------------------------------------
+
+    def show_wizard_panel(self, game, log_fn):
+        from gui.wizard_dialog import WizardPanel
+        self._show_plugin_overlay(
+            "_wizard_panel",
+            lambda: WizardPanel(
+                self._plugin_panel_container, game, log_fn,
+                on_done=lambda p: self._hide_plugin_overlay("_wizard_panel"),
+            ),
+        )
+
+    def hide_wizard_panel(self):
+        self._hide_plugin_overlay("_wizard_panel")
+
+    # -- Nexus Settings panel ------------------------------------------------
+
+    def show_nexus_panel(self, on_key_changed, log_fn):
+        from gui.nexus_settings_dialog import NexusSettingsPanel
+        self._show_plugin_overlay(
+            "_nexus_panel",
+            lambda: NexusSettingsPanel(
+                self._plugin_panel_container,
+                on_key_changed=on_key_changed,
+                log_fn=log_fn,
+                nexus_api_getter=lambda: self._nexus_api,
+                on_done=lambda p: self._hide_plugin_overlay("_nexus_panel"),
+            ),
+        )
+
+    def hide_nexus_panel(self):
+        self._hide_plugin_overlay("_nexus_panel")
+
+    # -- Backup Restore panel ------------------------------------------------
+
+    def show_backup_restore_panel(self, profile_dir, profile_name, on_restored):
+        from gui.backup_restore_dialog import BackupRestorePanel
+        self._show_plugin_overlay(
+            "_backup_restore_panel",
+            lambda: BackupRestorePanel(
+                self._plugin_panel_container,
+                profile_dir,
+                profile_name,
+                on_restored=on_restored,
+                on_done=lambda p: self._hide_plugin_overlay("_backup_restore_panel"),
+            ),
+        )
+
+    def hide_backup_restore_panel(self):
+        self._hide_plugin_overlay("_backup_restore_panel")
+
+    # -- EXE Config panel ----------------------------------------------------
+
+    def show_exe_config_panel(self, exe_path, game, saved_args, custom_exes,
+                              launch_mode, deploy_before_launch, is_hidden, on_done):
+        from gui.dialogs import ExeConfigPanel
+        def _factory():
+            def _done(panel):
+                self._hide_plugin_overlay("_exe_config_panel")
+                on_done(panel)
+            return ExeConfigPanel(
+                self._plugin_panel_container,
+                exe_path=exe_path, game=game, saved_args=saved_args,
+                custom_exes=custom_exes, launch_mode=launch_mode,
+                deploy_before_launch=deploy_before_launch, is_hidden=is_hidden,
+                on_done=_done,
+            )
+        self._show_plugin_overlay("_exe_config_panel", _factory)
+
+    def hide_exe_config_panel(self):
+        self._hide_plugin_overlay("_exe_config_panel")
+
+    # -- EXE Filter panel ----------------------------------------------------
+
+    def show_exe_filter_panel(self, load_fn, save_fn, refresh_fn):
+        from gui.dialogs import ExeFilterPanel
+        self._show_plugin_overlay(
+            "_exe_filter_panel",
+            lambda: ExeFilterPanel(
+                self._plugin_panel_container,
+                load_fn=load_fn, save_fn=save_fn, refresh_fn=refresh_fn,
+                on_done=lambda p: self._hide_plugin_overlay("_exe_filter_panel"),
+            ),
+        )
+
+    def hide_exe_filter_panel(self):
+        self._hide_plugin_overlay("_exe_filter_panel")
+
+    # -- Conflicts panel (overlays mod list) --------------------------------
+
+    def show_conflicts_panel(self, mod_name, files_win, files_lose):
+        from gui.dialogs import OverwritesPanel
+        self._show_plugin_overlay(
+            "_conflicts_panel",
+            lambda: OverwritesPanel(
+                self._mod_panel_container,
+                mod_name=mod_name, files_win=files_win, files_lose=files_lose,
+                on_done=lambda p: self._hide_plugin_overlay("_conflicts_panel"),
+            ),
+        )
+
+    def hide_conflicts_panel(self):
+        self._hide_plugin_overlay("_conflicts_panel")
+
+    # -- Deploy paths panel (overlays mod list) -----------------------------
+
+    def show_deploy_paths_panel(self, mod_name, mod_folder,
+                                current_prefixes, use_path_format, on_save):
+        from gui.dialogs import DeploymentPathsPanel
+        def _factory():
+            def _done(panel):
+                self._hide_plugin_overlay("_deploy_paths_panel")
+            return DeploymentPathsPanel(
+                self._mod_panel_container,
+                mod_name=mod_name, mod_folder=mod_folder,
+                current_prefixes=current_prefixes, use_path_format=use_path_format,
+                on_save=on_save, on_done=_done,
+            )
+        self._show_plugin_overlay("_deploy_paths_panel", _factory)
+
+    def hide_deploy_paths_panel(self):
+        self._hide_plugin_overlay("_deploy_paths_panel")
+
+    # -- Disable plugins panel (overlays plugin panel) ----------------------
+
+    def show_disable_plugins_panel(self, mod_name, plugin_names, disabled, on_done):
+        from gui.dialogs import DisablePluginsPanel
+        def _factory():
+            def _done(panel):
+                self._hide_plugin_overlay("_disable_plugins_panel")
+                on_done(panel)
+            return DisablePluginsPanel(
+                self._plugin_panel_container,
+                mod_name=mod_name, plugin_names=plugin_names, disabled=disabled,
+                on_done=_done,
+            )
+        self._show_plugin_overlay("_disable_plugins_panel", _factory)
+
+    def hide_disable_plugins_panel(self):
+        self._hide_plugin_overlay("_disable_plugins_panel")
 
     def _startup_log(self):
         configured = sum(1 for g in _GAMES.values() if g.is_configured())

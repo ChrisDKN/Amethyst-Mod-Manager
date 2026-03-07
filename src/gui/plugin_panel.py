@@ -653,13 +653,22 @@ class PluginPanel(ctk.CTkFrame):
     ]
 
     def _on_exe_filter(self) -> None:
-        """Open the EXE filter list dialog."""
-        _ExeFilterDialog(
-            self.winfo_toplevel(),
-            load_fn=self._load_exe_filter,
-            save_fn=self._save_exe_filter,
-            refresh_fn=self.refresh_exe_list,
-        )
+        """Open the EXE filter list panel/dialog."""
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_exe_filter_panel", None)
+        if show_fn:
+            show_fn(
+                load_fn=self._load_exe_filter,
+                save_fn=self._save_exe_filter,
+                refresh_fn=self.refresh_exe_list,
+            )
+        else:
+            _ExeFilterDialog(
+                self.winfo_toplevel(),
+                load_fn=self._load_exe_filter,
+                save_fn=self._save_exe_filter,
+                refresh_fn=self.refresh_exe_list,
+            )
 
     def _add_custom_exe(self) -> None:
         """Open native file browser (XDG portal / zenity), save chosen exe, refresh list."""
@@ -760,38 +769,70 @@ class PluginPanel(ctk.CTkFrame):
         # are always hidden and can't be toggled, so we only look at the user list).
         user_filter = {n.lower() for n in self._load_exe_filter()}
         is_hidden = exe_path.name.lower() in user_filter
-        dialog = _ExeConfigDialog(
-            self.winfo_toplevel(),
-            exe_path=exe_path,
-            game=game,
-            saved_args=saved_args,
-            custom_exes=custom_exes,
-            launch_mode=saved_launch_mode,
-            deploy_before_launch=deploy_before_launch,
-            is_hidden=is_hidden,
-        )
-        self.winfo_toplevel().wait_window(dialog)
-        if dialog.result is not None:
-            self._exe_args_var.set(dialog.result)
-        if dialog.launch_mode is not None:
-            self._save_launch_mode(exe_path.name, dialog.launch_mode)
-        if dialog.deploy_before_launch is not None:
-            self._save_deploy_before_launch(dialog.deploy_before_launch)
-        if dialog.removed:
-            remaining = [p for p in custom_exes if p != exe_path]
-            self._save_custom_exes(remaining)
-            self.refresh_exe_list()
-        if dialog.hide is not None:
-            name = exe_path.name.lower()
-            current = list(self._load_exe_filter())
-            if dialog.hide and name not in current:
-                current.append(name)
-                self._save_exe_filter(current)
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_exe_config_panel", None)
+        if show_fn:
+            def _on_config_done(panel):
+                if panel.result is not None:
+                    self._exe_args_var.set(panel.result)
+                if panel.launch_mode is not None:
+                    self._save_launch_mode(exe_path.name, panel.launch_mode)
+                if panel.deploy_before_launch is not None:
+                    self._save_deploy_before_launch(panel.deploy_before_launch)
+                if panel.removed:
+                    remaining = [p for p in custom_exes if p != exe_path]
+                    self._save_custom_exes(remaining)
+                    self.refresh_exe_list()
+                if panel.hide is not None:
+                    name = exe_path.name.lower()
+                    current = list(self._load_exe_filter())
+                    if panel.hide and name not in current:
+                        current.append(name)
+                        self._save_exe_filter(current)
+                        self.refresh_exe_list()
+                    elif not panel.hide and name in current:
+                        current.remove(name)
+                        self._save_exe_filter(current)
+                        self.refresh_exe_list()
+            show_fn(
+                exe_path=exe_path, game=game, saved_args=saved_args,
+                custom_exes=custom_exes, launch_mode=saved_launch_mode,
+                deploy_before_launch=deploy_before_launch, is_hidden=is_hidden,
+                on_done=_on_config_done,
+            )
+        else:
+            dialog = _ExeConfigDialog(
+                self.winfo_toplevel(),
+                exe_path=exe_path,
+                game=game,
+                saved_args=saved_args,
+                custom_exes=custom_exes,
+                launch_mode=saved_launch_mode,
+                deploy_before_launch=deploy_before_launch,
+                is_hidden=is_hidden,
+            )
+            self.winfo_toplevel().wait_window(dialog)
+            if dialog.result is not None:
+                self._exe_args_var.set(dialog.result)
+            if dialog.launch_mode is not None:
+                self._save_launch_mode(exe_path.name, dialog.launch_mode)
+            if dialog.deploy_before_launch is not None:
+                self._save_deploy_before_launch(dialog.deploy_before_launch)
+            if dialog.removed:
+                remaining = [p for p in custom_exes if p != exe_path]
+                self._save_custom_exes(remaining)
                 self.refresh_exe_list()
-            elif not dialog.hide and name in current:
-                current.remove(name)
-                self._save_exe_filter(current)
-                self.refresh_exe_list()
+            if dialog.hide is not None:
+                name = exe_path.name.lower()
+                current = list(self._load_exe_filter())
+                if dialog.hide and name not in current:
+                    current.append(name)
+                    self._save_exe_filter(current)
+                    self.refresh_exe_list()
+                elif not dialog.hide and name in current:
+                    current.remove(name)
+                    self._save_exe_filter(current)
+                    self.refresh_exe_list()
 
     def _exe_var_index(self) -> int:
         """Return the index of the currently selected exe in _exe_paths."""

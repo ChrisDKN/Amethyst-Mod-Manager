@@ -36,7 +36,6 @@ from gui.game_helpers import (
 )
 from gui.dialogs import (
     _GamePickerDialog,
-    _ProfileNameDialog,
     _ProtonToolsDialog,
     _MewgenicsDeployChoiceDialog,
     _MewgenicsLaunchCommandDialog,
@@ -58,11 +57,17 @@ from Utils.profile_backup import create_backup
 # TopBar
 # ---------------------------------------------------------------------------
 class TopBar(ctk.CTkFrame):
-    def __init__(self, parent, log_fn=None, show_add_game_panel_fn=None):
+    def __init__(self, parent, log_fn=None, show_add_game_panel_fn=None,
+                 show_reconfigure_panel_fn=None, show_proton_panel_fn=None,
+                 show_wizard_panel_fn=None, show_nexus_panel_fn=None):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0, height=46)
         self.grid_propagate(False)
         self._log = log_fn or (lambda msg: None)
         self._show_add_game_panel_fn = show_add_game_panel_fn
+        self._show_reconfigure_panel_fn = show_reconfigure_panel_fn
+        self._show_proton_panel_fn = show_proton_panel_fn
+        self._show_wizard_panel_fn = show_wizard_panel_fn
+        self._show_nexus_panel_fn = show_nexus_panel_fn
 
         # Bottom separator line
         ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(
@@ -202,21 +207,27 @@ class TopBar(ctk.CTkFrame):
         self._update_wizard_visibility()
 
     def _on_nexus_settings(self):
-        """Open the Nexus Mods settings dialog."""
+        """Open the Nexus Mods settings panel (or dialog fallback)."""
         app = self.winfo_toplevel()
         def _key_changed():
             app._init_nexus_api()
             self._log("Nexus API key updated.")
-        dialog = NexusSettingsDialog(app, on_key_changed=_key_changed, log_fn=self._log)
-        app.wait_window(dialog)
+        if self._show_nexus_panel_fn:
+            self._show_nexus_panel_fn(_key_changed, self._log)
+        else:
+            dialog = NexusSettingsDialog(app, on_key_changed=_key_changed, log_fn=self._log)
+            app.wait_window(dialog)
 
     def _on_proton_tools(self):
         game = _gh._GAMES.get(self._game_var.get())
         if game is None or not game.is_configured():
             self._log("Proton Tools: no configured game selected.")
             return
-        dlg = _ProtonToolsDialog(self.winfo_toplevel(), game, self._log)
-        self.winfo_toplevel().wait_window(dlg)
+        if self._show_proton_panel_fn:
+            self._show_proton_panel_fn(game, self._log)
+        else:
+            dlg = _ProtonToolsDialog(self.winfo_toplevel(), game, self._log)
+            self.winfo_toplevel().wait_window(dlg)
 
     def _on_profile_change(self, value: str):
         self._log(f"Profile: {value}")
@@ -226,7 +237,7 @@ class TopBar(ctk.CTkFrame):
         self._reload_mod_panel()
 
     def _on_wizard(self):
-        """Open the Wizard tool-selection dialog for the current game."""
+        """Open the Wizard tool-selection panel (or dialog fallback) for the current game."""
         game = _gh._GAMES.get(self._game_var.get())
         if game is None or not game.is_configured():
             self._log("Wizard: no configured game selected.")
@@ -234,8 +245,11 @@ class TopBar(ctk.CTkFrame):
         if not game.wizard_tools:
             self._log("Wizard: no tools available for this game.")
             return
-        dlg = WizardDialog(self.winfo_toplevel(), game, self._log)
-        self.winfo_toplevel().wait_window(dlg)
+        if self._show_wizard_panel_fn:
+            self._show_wizard_panel_fn(game, self._log)
+        else:
+            dlg = WizardDialog(self.winfo_toplevel(), game, self._log)
+            self.winfo_toplevel().wait_window(dlg)
 
     def _update_wizard_visibility(self):
         """Show or hide the Wizard button based on the current game."""
@@ -317,22 +331,24 @@ class TopBar(ctk.CTkFrame):
         if game_name not in _gh._GAMES:
             self._log("No game selected.")
             return
-        dialog = _ProfileNameDialog(self.winfo_toplevel())
-        self.winfo_toplevel().wait_window(dialog)
-        if dialog.result is None:
+        app = self.winfo_toplevel()
+        if not hasattr(app, "_mod_panel"):
             return
-        name, use_specific_mods = dialog.result
-        # Reject names that clash with 'default' or already exist
-        existing = _profiles_for_game(game_name)
-        if name in existing:
-            self._log(f"Profile '{name}' already exists.")
-            return
-        _create_profile(game_name, name, profile_specific_mods=use_specific_mods)
-        self._log(f"Profile '{name}' created.")
-        profiles = _profiles_for_game(game_name)
-        self._profile_menu.configure(values=profiles)
-        self._profile_var.set(name)
-        self._reload_mod_panel()
+
+        def _on_create(name: str, use_specific_mods: bool):
+            # Reject names that clash with 'default' or already exist
+            existing = _profiles_for_game(game_name)
+            if name in existing:
+                self._log(f"Profile '{name}' already exists.")
+                return
+            _create_profile(game_name, name, profile_specific_mods=use_specific_mods)
+            self._log(f"Profile '{name}' created.")
+            profiles = _profiles_for_game(game_name)
+            self._profile_menu.configure(values=profiles)
+            self._profile_var.set(name)
+            self._reload_mod_panel()
+
+        app._mod_panel.show_new_profile_bar(_on_create)
 
     def _on_remove_profile(self):
         game_name = self._game_var.get()
@@ -439,24 +455,30 @@ class TopBar(ctk.CTkFrame):
             self._reload_mod_panel()
             return
 
-        dialog = AddGameDialog(self.winfo_toplevel(), game)
-        self.winfo_toplevel().wait_window(dialog)
-        if dialog.result is not None:
-            self._log(f"Game path set: {dialog.result}")
-            configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
-            self._game_menu.configure(values=configured or ["No games configured"])
-            if result in configured:
-                self._game_var.set(result)
-                _save_last_game(result)
-                self._update_wizard_visibility()
-                # Reset profile dropdown for the newly added game BEFORE reloading
-                # so the old game's profiles are not inherited.
-                new_profiles = _profiles_for_game(result)
-                self._profile_menu.configure(values=new_profiles)
-                game_obj = _gh._GAMES.get(result)
-                last_profile = game_obj.get_last_active_profile() if game_obj else "default"
-                self._profile_var.set(last_profile if last_profile in new_profiles else new_profiles[0])
-                self._reload_mod_panel()
+        def _on_add_done(panel):
+            if panel.result is not None:
+                self._log(f"Game path set: {panel.result}")
+                configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                self._game_menu.configure(values=configured or ["No games configured"])
+                if result in configured:
+                    self._game_var.set(result)
+                    _save_last_game(result)
+                    self._update_wizard_visibility()
+                    # Reset profile dropdown for the newly added game BEFORE reloading
+                    # so the old game's profiles are not inherited.
+                    new_profiles = _profiles_for_game(result)
+                    self._profile_menu.configure(values=new_profiles)
+                    game_obj = _gh._GAMES.get(result)
+                    last_profile = game_obj.get_last_active_profile() if game_obj else "default"
+                    self._profile_var.set(last_profile if last_profile in new_profiles else new_profiles[0])
+                    self._reload_mod_panel()
+
+        if self._show_reconfigure_panel_fn:
+            self._show_reconfigure_panel_fn(game, _on_add_done)
+        else:
+            dialog = AddGameDialog(self.winfo_toplevel(), game)
+            self.winfo_toplevel().wait_window(dialog)
+            _on_add_done(dialog)
 
     def _on_settings(self):
         game_name = self._game_var.get()
@@ -489,23 +511,40 @@ class TopBar(ctk.CTkFrame):
                 _load_games()
                 game = _gh._GAMES.get(defn_dlg.saved_game.name) or game
 
-        dialog = AddGameDialog(self.winfo_toplevel(), game)
-        self.winfo_toplevel().wait_window(dialog)
-        if getattr(dialog, "removed", False):
-            self._log(f"Removed instance: {game_name}")
-            # Re-load the game handler so it picks up the missing config
-            game.load_paths()
-            configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
-            self._game_menu.configure(values=configured or ["No games configured"])
-            if configured:
-                self._game_var.set(configured[0])
-                self._on_game_change(configured[0])
-            else:
-                self._game_var.set("No games configured")
-                self._on_game_change("No games configured")
-        elif dialog.result is not None:
-            self._log(f"Game path updated: {dialog.result}")
-            self._reload_mod_panel()
+        if self._show_reconfigure_panel_fn:
+            def _on_reconfigure_done(panel):
+                if getattr(panel, "removed", False):
+                    self._log(f"Removed instance: {game_name}")
+                    game.load_paths()
+                    configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                    self._game_menu.configure(values=configured or ["No games configured"])
+                    if configured:
+                        self._game_var.set(configured[0])
+                        self._on_game_change(configured[0])
+                    else:
+                        self._game_var.set("No games configured")
+                        self._on_game_change("No games configured")
+                elif panel.result is not None:
+                    self._log(f"Game path updated: {panel.result}")
+                    self._reload_mod_panel()
+            self._show_reconfigure_panel_fn(game, _on_reconfigure_done)
+        else:
+            dialog = AddGameDialog(self.winfo_toplevel(), game)
+            self.winfo_toplevel().wait_window(dialog)
+            if getattr(dialog, "removed", False):
+                self._log(f"Removed instance: {game_name}")
+                game.load_paths()
+                configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                self._game_menu.configure(values=configured or ["No games configured"])
+                if configured:
+                    self._game_var.set(configured[0])
+                    self._on_game_change(configured[0])
+                else:
+                    self._game_var.set("No games configured")
+                    self._on_game_change("No games configured")
+            elif dialog.result is not None:
+                self._log(f"Game path updated: {dialog.result}")
+                self._reload_mod_panel()
 
     def _set_deploy_buttons_enabled(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
