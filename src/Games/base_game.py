@@ -691,6 +691,19 @@ class BaseGame(ABC):
             errors.append(f"Mod data directory does not exist: {data_path}")
         return errors
 
+    def post_build_filemap(self, filemap_path: "Path", staging_path: "Path") -> None:
+        """Called after build_filemap() writes filemap.txt.
+
+        Override in game handlers that need to rewrite the filemap paths to
+        reflect the actual deployed layout rather than the staging layout.
+        For example, Witcher 3 transforms staging paths such as
+        ``TrueFires_v1.01/modTrueFires/content/x.xml`` into the routed path
+        ``mods/modTrueFires/content/x.xml`` so the treeview and filemap both
+        match the real game-root structure.
+
+        The default implementation is a no-op.
+        """
+
     def post_clean_game_folder(self, log_fn=None) -> None:
         """Called after Clean Game Folder removes deployed files.
         Override in game handlers that need extra cleanup (e.g. resetting

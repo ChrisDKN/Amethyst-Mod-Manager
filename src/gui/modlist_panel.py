@@ -4312,6 +4312,9 @@ class ModListPanel(ctk.CTkFrame):
                     disabled_plugins=disabled_plugins or None,
                     conflict_ignore_filenames=self._conflict_ignore_filenames or None,
                 )
+                _game = getattr(self, "_game", None)
+                if _game is not None:
+                    _game.post_build_filemap(output, staging)
                 self.after(0, lambda: _done(count, conflict_map, overrides, overridden_by, None))
             except Exception as exc:
                 self.after(0, lambda: _done(0, {}, {}, {}, exc))
