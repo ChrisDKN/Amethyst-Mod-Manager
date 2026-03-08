@@ -339,7 +339,7 @@ def _zenity_file(title: str) -> Path | None:
     result = _run_zenity([
         "--file-selection",
         f"--title={title}",
-        "--file-filter=Mod Archives (*.zip, *.7z, *.tar.gz, *.tar) | *.zip *.7z *.tar.gz *.tar",
+        "--file-filter=Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar) | *.zip *.7z *.rar *.tar.gz *.tar",
         "--file-filter=All files | *",
     ])
     if result is not None and result.returncode == 0:
@@ -374,7 +374,7 @@ def _kdialog_file(title: str) -> Path | None:
         result = subprocess.run(
             [
                 "kdialog", "--getopenfilename", str(Path.home()),
-                "*.zip *.7z *.tar.gz *.tar|Mod Archives (*.zip, *.7z, *.tar.gz, *.tar)",
+                "*.zip *.7z *.rar *.tar.gz *.tar|Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar)",
                 "--title", title,
             ],
             capture_output=True, text=True,
@@ -418,7 +418,7 @@ def _tkinter_file(title: str) -> Path | None:
         chosen = fd.askopenfilename(
             title=title,
             filetypes=[
-                ("Mod Archives", "*.zip *.7z *.tar.gz *.tar"),
+                ("Mod Archives", "*.zip *.7z *.rar *.tar.gz *.tar"),
                 ("All files", "*"),
             ],
             parent=root,
@@ -461,7 +461,7 @@ def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
 
 
 _MOD_ARCHIVE_FILTERS = [
-    ("Mod Archives (*.zip, *.7z, *.tar.gz, *.tar)", ["*.zip", "*.7z", "*.tar.gz", "*.tar"]),
+    ("Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar)", ["*.zip", "*.7z", "*.rar", "*.tar.gz", "*.tar"]),
     ("All files", ["*"]),
 ]
 
