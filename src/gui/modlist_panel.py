@@ -491,9 +491,10 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas.bind("<Button-5>",       self._on_scroll_down)
         self._vsb.bind("<B1-Motion>",         lambda e: self._schedule_redraw())
         self._canvas.bind("<MouseWheel>",     self._on_mousewheel)
-        self._canvas.bind("<ButtonPress-1>",  self._on_mouse_press)
-        self._canvas.bind("<B1-Motion>",      self._on_mouse_drag)
-        self._canvas.bind("<ButtonRelease-1>",self._on_mouse_release)
+        self._canvas.bind("<ButtonPress-1>",         self._on_mouse_press)
+        self._canvas.bind("<Control-ButtonPress-1>", self._on_mouse_press)
+        self._canvas.bind("<B1-Motion>",             self._on_mouse_drag)
+        self._canvas.bind("<ButtonRelease-1>",       self._on_mouse_release)
         self._canvas.bind("<ButtonRelease-3>", self._on_right_click)
         self._canvas.bind("<Motion>",         self._on_mouse_motion)
         self._canvas.bind("<Leave>",          self._on_mouse_leave)
@@ -2108,6 +2109,7 @@ class ModListPanel(ctk.CTkFrame):
         cy = self._event_canvas_y(event)
         idx = self._canvas_y_to_index(cy)
         shift = bool(event.state & 0x1)
+        ctrl  = bool(event.state & 0x4)
 
         if self._entries[idx].is_separator:
             if self._entries[idx].name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
@@ -2126,6 +2128,17 @@ class ModListPanel(ctk.CTkFrame):
                 # Click on collapse triangle zone (left 22px) — toggle collapse
                 if event.x < 22:
                     self._toggle_collapse(self._entries[idx].name)
+                    return
+                # Ctrl+click on separator: toggle item in/out of selection
+                if ctrl:
+                    if idx in self._sel_set:
+                        self._sel_set.discard(idx)
+                        if self._sel_idx == idx:
+                            self._sel_idx = next(iter(self._sel_set)) if self._sel_set else -1
+                    else:
+                        self._sel_set.add(idx)
+                        self._sel_idx = idx
+                    self._redraw()
                     return
                 # Shift+click on separator: extend selection range
                 if shift and self._sel_idx >= 0:
@@ -2154,6 +2167,19 @@ class ModListPanel(ctk.CTkFrame):
                     lambda: self._activate_drag(idx, cy, is_block, pending_block),
                 )
                 self._redraw()
+            return
+
+        # Ctrl+click: toggle individual item in/out of selection
+        if ctrl:
+            if idx in self._sel_set:
+                self._sel_set.discard(idx)
+                if self._sel_idx == idx:
+                    self._sel_idx = next(iter(self._sel_set)) if self._sel_set else -1
+            else:
+                self._sel_set.add(idx)
+                self._sel_idx = idx
+            self._redraw()
+            self._update_info()
             return
 
         # Shift+click: extend selection from anchor to clicked row
