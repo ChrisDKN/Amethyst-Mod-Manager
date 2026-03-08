@@ -22,7 +22,8 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, move_to_core, restore_data_core
+from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_data_core
+from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 
@@ -221,9 +222,13 @@ class Example(BaseGame):
         # Returns the set of relative paths it placed (used in step 3).
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
+        _sep_deploy = load_separator_deploy_paths(profile_dir)
+        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
+        per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
         _, placed = deploy_filemap(filemap, mods_dir, staging,
                                    mode=mode,
                                    per_mod_strip_prefixes=per_mod_strip,
+                                   per_mod_deploy_dirs=per_mod_deploy,
                                    log_fn=_log,
                                    progress_fn=progress_fn)
 
@@ -243,5 +248,9 @@ class Example(BaseGame):
 
         # Clears mods_dir/ and moves core_dir/ back in its place,
         # returning the game to its pre-deploy vanilla state.
+        _profile_dir = self._active_profile_dir
+        _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
         if core_dir.is_dir():
             restore_data_core(mods_dir, core_dir=core_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)

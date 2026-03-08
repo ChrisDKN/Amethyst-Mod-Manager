@@ -56,6 +56,211 @@ def load_per_mod_strip_prefixes(profile_dir: Path) -> dict[str, list[str]]:
         return {}
 
 
+def load_separator_deploy_paths(profile_dir: Path) -> dict[str, dict]:
+    """Load separator_deploy_paths.json → {sep_name: {"path": str, "raw": bool}}.
+
+    Values may be plain strings (legacy) or dicts with "path" and "raw" keys.
+    Missing or invalid file returns {}.
+    """
+    path = profile_dir / "separator_deploy_paths.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {}
+        result = {}
+        for k, v in data.items():
+            if not isinstance(k, str):
+                continue
+            if isinstance(v, str):
+                # Legacy format: plain path string
+                result[k] = {"path": v, "raw": False}
+            elif isinstance(v, dict):
+                result[k] = {
+                    "path": v.get("path", "") if isinstance(v.get("path"), str) else "",
+                    "raw": bool(v.get("raw", False)),
+                }
+        return result
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def expand_separator_deploy_paths(
+    sep_paths: dict[str, dict],
+    entries,
+) -> dict[str, Path]:
+    """Convert sep_paths → {mod_name: Path} using modlist order.
+
+    Only mods whose separator has a non-empty path override are included.
+    entries — list[ModEntry] from read_modlist()
+    """
+    result: dict[str, Path] = {}
+    current_override: Path | None = None
+    for entry in entries:
+        if entry.is_separator:
+            raw_path = sep_paths.get(entry.name, {}).get("path", "")
+            current_override = Path(raw_path) if raw_path else None
+        else:
+            if current_override is not None:
+                result[entry.name] = current_override
+    return result
+
+
+def expand_separator_raw_deploy(
+    sep_paths: dict[str, dict],
+    entries,
+) -> set[str]:
+    """Return the set of mod names whose separator has 'raw deploy' enabled.
+
+    When raw deploy is on, deployment rules (routing, strip) are ignored and
+    files are placed as-is relative to the custom deploy directory.
+    entries — list[ModEntry] from read_modlist()
+    """
+    result: set[str] = set()
+    current_raw = False
+    for entry in entries:
+        if entry.is_separator:
+            info = sep_paths.get(entry.name, {})
+            current_raw = bool(info.get("raw", False))
+        else:
+            if current_raw:
+                result.add(entry.name)
+    return result
+
+
+def cleanup_custom_deploy_dirs(
+    profile_dir: "Path | None",
+    entries,
+    log_fn=None,
+    filemap_path: "Path | None" = None,
+) -> int:
+    """Remove files that were deployed to custom separator locations.
+
+    Reads custom_deploy_manifest.json written by deploy_filemap() and deletes
+    every file listed there.  This is snapshot-based so it works correctly even
+    when the user moves mods out of a separator between deploy and restore.
+
+    Falls back to the old filemap + sep-paths derivation when no manifest exists
+    (e.g. deployments made before the manifest feature was added).
+
+    Returns the number of files removed.
+    """
+    _log = log_fn or (lambda _: None)
+
+    if profile_dir is None:
+        return 0
+
+    # Locate manifest: search profile_dir and two levels up (profile root)
+    manifest_path: Path | None = None
+    for candidate_dir in (profile_dir, profile_dir.parent.parent):
+        c = candidate_dir / "custom_deploy_manifest.json"
+        if c.is_file():
+            manifest_path = c
+            break
+
+    if manifest_path is not None:
+        # Fast path: manifest records exactly what was placed in custom dirs
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError
+            file_list = data.get("files", [])
+            stop_dirs = {Path(r) for r in data.get("roots", [])}
+        except (OSError, json.JSONDecodeError, ValueError):
+            file_list = []
+            stop_dirs = set()
+
+        removed = 0
+        dirs_to_prune: set[Path] = set()
+
+        for abs_str in file_list:
+            target = Path(abs_str)
+            if target.is_file() or target.is_symlink():
+                try:
+                    target.unlink()
+                    removed += 1
+                    dirs_to_prune.add(target.parent)
+                except OSError as exc:
+                    _log(f"  WARN: could not remove custom-deployed {target}: {exc}")
+
+        _prune_empty_dirs(dirs_to_prune, stop_dirs)
+
+        # Remove the manifest itself
+        try:
+            manifest_path.unlink()
+        except OSError:
+            pass
+
+        if removed:
+            _log(f"  Removed {removed} file(s) from custom deployment location(s).")
+        return removed
+
+    # Fallback: no manifest — derive from current sep paths + filemap
+    sep_paths = load_separator_deploy_paths(profile_dir)
+    if not sep_paths:
+        return 0
+
+    per_mod_deploy = expand_separator_deploy_paths(sep_paths, entries)
+    if not per_mod_deploy:
+        return 0
+
+    if filemap_path is None:
+        candidates = [
+            profile_dir / "filemap.txt",
+            profile_dir.parent.parent / "filemap.txt",
+        ]
+        for c in candidates:
+            if c.is_file():
+                filemap_path = c
+                break
+    if filemap_path is None or not filemap_path.is_file():
+        return 0
+
+    removed = 0
+    dirs_to_prune = set()
+
+    with filemap_path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if "\t" not in line:
+                continue
+            rel_str, mod_name = line.split("\t", 1)
+            custom_dir = per_mod_deploy.get(mod_name)
+            if custom_dir is None:
+                continue
+            target = custom_dir / rel_str
+            if target.is_file() or target.is_symlink():
+                try:
+                    target.unlink()
+                    removed += 1
+                    dirs_to_prune.add(target.parent)
+                except OSError as exc:
+                    _log(f"  WARN: could not remove custom-deployed {target}: {exc}")
+
+    _prune_empty_dirs(dirs_to_prune, set(per_mod_deploy.values()))
+
+    if removed:
+        _log(f"  Removed {removed} file(s) from custom deployment location(s).")
+    return removed
+
+
+def _prune_empty_dirs(dirs: "set[Path]", stop_dirs: "set[Path] | None" = None) -> None:
+    """Remove empty directories bottom-up, stopping at (and never removing) stop_dirs."""
+    _stop = stop_dirs or set()
+    for d in sorted(dirs, key=lambda p: len(p.parts), reverse=True):
+        current = d
+        while current not in _stop:
+            try:
+                if current.is_dir() and not any(current.iterdir()):
+                    current.rmdir()
+                    current = current.parent
+                else:
+                    break
+            except OSError:
+                break
+
+
 class LinkMode(Enum):
     HARDLINK = auto()
     SYMLINK  = auto()
@@ -151,6 +356,7 @@ def deploy_filemap(
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: set[str] | None = None,
     per_mod_strip_prefixes: dict[str, list[str]] | None = None,
+    per_mod_deploy_dirs: dict[str, Path] | None = None,
     log_fn=None,
     progress_fn=None,
 ) -> tuple[int, set[str]]:
@@ -178,6 +384,7 @@ def deploy_filemap(
     _log = log_fn or (lambda _: None)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
     _per_mod = per_mod_strip_prefixes or {}
+    _per_deploy = per_mod_deploy_dirs or {}
     overwrite_dir = staging_root.parent / "overwrite"
 
     already_seen: set[str] = set()
@@ -255,8 +462,9 @@ def deploy_filemap(
             _log(f"  WARN: source not found — {rel_str} ({mod_name})")
             continue
 
-        dst = deploy_dir / rel_str
-        tasks.append((src, dst, rel_lower))
+        effective_dir = _per_deploy.get(mod_name, deploy_dir)
+        dst = effective_dir / rel_str
+        tasks.append((src, dst, rel_lower, effective_dir is not deploy_dir))
 
         if progress_fn is not None and line_idx % 500 == 0:
             progress_fn(line_idx, total_lines)
@@ -267,7 +475,7 @@ def deploy_filemap(
 
     # Pre-create all destination directories up front (single-threaded) to
     # avoid mkdir races inside the thread pool.
-    needed_dirs: set[Path] = {dst.parent for _, dst, _ in tasks}
+    needed_dirs: set[Path] = {dst.parent for _, dst, _, _is_custom in tasks}
     for d in needed_dirs:
         d.mkdir(parents=True, exist_ok=True)
 
@@ -276,8 +484,8 @@ def deploy_filemap(
     done_count = 0
     lock = threading.Lock()
 
-    def _do_transfer(item: tuple[Path, Path, str]) -> tuple[str | None, tuple[Path, OSError] | None]:
-        src, dst, rel_lower = item
+    def _do_transfer(item: tuple[Path, Path, str, bool]) -> tuple[str | None, tuple[Path, OSError] | None]:
+        src, dst, rel_lower, _is_custom = item
         try:
             if mode is LinkMode.HARDLINK:
                 os.link(src, dst)
@@ -299,9 +507,32 @@ def deploy_filemap(
                 linked += 1
             elif err is not None:
                 dst_err, exc = err
-                _log(f"  WARN: could not transfer {dst_err.relative_to(deploy_dir)}: {exc}")
+                _log(f"  WARN: could not transfer {dst_err}: {exc}")
             if progress_fn is not None and (_done % 200 == 0 or _done == total):
                 progress_fn(_done, total)
+
+    # Write a manifest of files placed in custom locations so restore can clean
+    # them up even if separator settings have changed since deploy.
+    _manifest_path = filemap_path.parent / "custom_deploy_manifest.json"
+    custom_deployed = [
+        str(dst)
+        for src, dst, rel_lower, is_custom in tasks
+        if is_custom and rel_lower in placed_lower
+    ]
+    if custom_deployed:
+        custom_roots = [str(p) for p in _per_deploy.values()]
+        try:
+            _manifest_path.write_text(
+                json.dumps({"files": custom_deployed, "roots": custom_roots}, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+    elif _manifest_path.exists():
+        try:
+            _manifest_path.unlink()
+        except OSError:
+            pass
 
     return linked, placed_lower
 
@@ -629,7 +860,7 @@ def restore_data_core(
         modindex_lower: set[str] = set()
         try:
             from Utils.filemap import read_mod_index
-            _index = read_mod_index(overwrite_dir.parent / "modindex.txt")
+            _index = read_mod_index(overwrite_dir.parent / "modindex.bin")
             if _index:
                 for _mod_name, (_normal, _root) in _index.items():
                     modindex_lower.update(_normal.keys())
@@ -657,11 +888,11 @@ def restore_data_core(
             rescued += 1
         if rescued:
             _log(f"  Rescued {rescued} runtime-created file(s) → overwrite/.")
-            # Update modindex.txt so the next build_filemap call immediately
+            # Update modindex.bin so the next build_filemap call immediately
             # sees the rescued files under [Overwrite] without a full rescan.
             try:
                 from Utils.filemap import update_mod_index, read_mod_index, OVERWRITE_NAME
-                index_path = overwrite_dir.parent / "modindex.txt"
+                index_path = overwrite_dir.parent / "modindex.bin"
                 existing = read_mod_index(index_path) or {}
                 existing_normal, existing_root = existing.get(OVERWRITE_NAME, ({}, {}))
                 # Walk overwrite_dir to build the complete current file list.
@@ -704,7 +935,7 @@ def undeploy_mod_files(
     log_fn=None,
 ) -> int:
     """Remove any files belonging to the given mods from the game's deploy
-    directory and/or game root, using the modindex.txt to find them.
+    directory and/or game root, using the modindex.bin to find them.
 
     Call this *before* deleting the staging folders so that hardlinks/copies
     that are still sitting in the game directory are cleaned up.  Without this
@@ -716,7 +947,7 @@ def undeploy_mod_files(
                  May be None if the game has no separate data dir.
     game_root  — the game's install root (used for root-deployed files).
                  May be None if unknown / game not configured.
-    index_path — path to modindex.txt (typically <profile_root>/modindex.txt)
+    index_path — path to modindex.bin (typically <profile_root>/modindex.bin)
     log_fn     — optional logging callable
 
     Returns the total number of files removed.

@@ -13,7 +13,9 @@ import threading
 import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk as ttk
+import webbrowser
 from pathlib import Path
+from types import SimpleNamespace
 
 from PIL import Image as _PilImage, ImageDraw as _PilDraw, ImageTk as _PilTk
 
@@ -38,9 +40,12 @@ from gui.theme import (
     TEXT_SEP,
     BG_SELECT,
     BG_SEP,
+    BG_ROW_ALT,
 )
+import gui.theme as _theme
 from gui.path_utils import _to_wine_path
 from Utils.config_paths import get_exe_args_path, get_custom_game_images_dir
+from Utils.exe_args_builder import EXE_PROFILES
 from Utils.xdg import xdg_open
 
 
@@ -397,6 +402,7 @@ class GamePickerPanel(tk.Frame):
         games: dict | None = None,
         on_game_selected=None,
         on_cancel=None,
+        show_custom_game_panel_fn=None,
     ):
         super().__init__(parent, bg=BG_DEEP)
         self._game_names = game_names
@@ -404,6 +410,7 @@ class GamePickerPanel(tk.Frame):
         self._icons_dir = Path(__file__).resolve().parent.parent / "icons" / "games"
         self._on_game_selected = on_game_selected or (lambda n, c: None)
         self._on_cancel = on_cancel or (lambda: None)
+        self._show_custom_game_panel_fn = show_custom_game_panel_fn
 
         self._img_refs: list = []
         self._img_labels: dict = {}           # game_id → (img_lbl, img_frame)
@@ -674,11 +681,17 @@ class GamePickerPanel(tk.Frame):
     # ------------------------------------------------------------------
 
     def _on_define_custom_game(self):
-        from gui.custom_game_dialog import CustomGameDialog
-        dlg = CustomGameDialog(self.winfo_toplevel())
-        self.winfo_toplevel().wait_window(dlg)
-        if dlg.saved_game is not None:
-            self._on_game_selected(dlg.saved_game.name, False)
+        if self._show_custom_game_panel_fn:
+            def _on_done(panel):
+                if panel.saved_game is not None:
+                    self._on_game_selected(panel.saved_game.name, False)
+            self._show_custom_game_panel_fn(None, _on_done)
+        else:
+            from gui.custom_game_dialog import CustomGameDialog
+            dlg = CustomGameDialog(self.winfo_toplevel())
+            self.winfo_toplevel().wait_window(dlg)
+            if dlg.saved_game is not None:
+                self._on_game_selected(dlg.saved_game.name, False)
 
 
 # ---------------------------------------------------------------------------
@@ -2734,7 +2747,10 @@ class _ExeConfigDialog(ctk.CTkToplevel):
 
         game_flag = self._game_flag_var.get().strip()
         if game_flag and self._game_path:
-            wine = _to_wine_path(self._game_path)
+            profile = EXE_PROFILES.get(self._exe_path.name)
+            suffix = profile.game_path_suffix if profile else ""
+            target = self._game_path / suffix if suffix else self._game_path
+            wine = _to_wine_path(target)
             parts.append(f'{game_flag}"{wine}"')
 
         out_flag = self._output_flag_var.get().strip()
@@ -3169,7 +3185,10 @@ class ExeConfigPanel(ctk.CTkFrame):
 
         game_flag = self._game_flag_var.get().strip()
         if game_flag and self._game_path:
-            wine = _to_wine_path(self._game_path)
+            profile = EXE_PROFILES.get(self._exe_path.name)
+            suffix = profile.game_path_suffix if profile else ""
+            target = self._game_path / suffix if suffix else self._game_path
+            wine = _to_wine_path(target)
             parts.append(f'{game_flag}"{wine}"')
 
         out_flag = self._output_flag_var.get().strip()
@@ -4631,4 +4650,337 @@ class DeploymentPathsPanel(ctk.CTkFrame):
                 self._tree.set(self._iid_fn(rel), "check", "\u2610")
             except tk.TclError:
                 pass
+
+
+# ---------------------------------------------------------------------------
+# SepSettingsPanel — inline overlay for separator-level settings
+# ---------------------------------------------------------------------------
+
+class SepSettingsPanel(ctk.CTkFrame):
+    """Inline panel that overlays _plugin_panel_container for per-separator settings."""
+
+    def __init__(self, parent, sep_name: str, current_path: str,
+                 current_raw: bool = False, on_save=None, on_done=None):
+        super().__init__(parent, fg_color=BG_PANEL, corner_radius=0)
+        self._sep_name = sep_name
+        self._on_save = on_save or (lambda path, raw: None)
+        self._on_done = on_done or (lambda p: None)
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Separator Settings \u2014 {sep_name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        # Content
+        content = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0)
+        content.pack(fill="both", expand=True, padx=16, pady=16)
+
+        ctk.CTkLabel(
+            content, text="Deployment Location",
+            font=FONT_SMALL, text_color=TEXT_SEP, anchor="w",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+
+        self._path_var = tk.StringVar(value=current_path)
+        self._entry = ctk.CTkEntry(
+            content, textvariable=self._path_var,
+            font=FONT_SMALL, fg_color=BG_DEEP, text_color=TEXT_MAIN,
+            border_color=BORDER, corner_radius=4,
+        )
+        self._entry.grid(row=1, column=0, sticky="ew", padx=(0, 6))
+
+        ctk.CTkButton(
+            content, text="Browse", width=80, font=FONT_SMALL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._browse,
+        ).grid(row=1, column=1, padx=(0, 4))
+        ctk.CTkButton(
+            content, text="Clear", width=60, font=FONT_SMALL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=lambda: self._path_var.set(""),
+        ).grid(row=1, column=2)
+        content.columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            content,
+            text="All mods within this separator are deployed to the chosen location\n"
+                 "instead of the game\u2019s default directory. Leave blank to use the default.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(6, 0))
+
+        # Divider
+        ctk.CTkFrame(content, fg_color=BORDER, height=1, corner_radius=0).grid(
+            row=3, column=0, columnspan=3, sticky="ew", pady=(16, 0))
+
+        # Ignore deployment rules toggle
+        self._raw_var = tk.BooleanVar(value=current_raw)
+        ctk.CTkCheckBox(
+            content, text="Ignore deployment rules",
+            variable=self._raw_var,
+            font=FONT_SMALL, text_color=TEXT_MAIN,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            border_color=BORDER, checkmark_color=TEXT_MAIN,
+        ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        ctk.CTkLabel(
+            content,
+            text="Mods in this separator bypass routing rules and are deployed\n"
+                 "as-is to the target location.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        # Save / Cancel buttons
+        btn_row = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0)
+        btn_row.pack(side="bottom", fill="x", padx=16, pady=12)
+
+        ctk.CTkButton(
+            btn_row, text="Save", width=90, font=FONT_SMALL,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_MAIN,
+            command=self._on_save_click,
+        ).pack(side="right", padx=(6, 0))
+        ctk.CTkButton(
+            btn_row, text="Cancel", width=90, font=FONT_SMALL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right")
+
+        self._entry.focus_set()
+
+    def _browse(self):
+        from Utils.portal_filechooser import pick_folder
+        def _cb(chosen):
+            if chosen is not None:
+                self._path_var.set(str(chosen))
+        pick_folder("Select deployment directory", _cb)
+
+    def _on_save_click(self):
+        self._on_save(self._path_var.get().strip(), self._raw_var.get())
+        self._on_done(self)
+
+    def _on_cancel(self):
+        self._on_done(self)
+
+
+# ---------------------------------------------------------------------------
+# MissingReqsPanel — inline overlay for missing Nexus requirements
+# ---------------------------------------------------------------------------
+
+class MissingReqsPanel(ctk.CTkFrame):
+    """
+    Inline panel version of the missing-requirements window.
+    Overlays _plugin_panel_container (same as other overlay panels).
+    """
+
+    def __init__(self, parent, mod_name: str, domain: str, mod_id: int,
+                 missing_ids: set, api,
+                 install_from_browse,
+                 ignored_set: set, save_ignored_fn,
+                 on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._mod_name = mod_name
+        self._domain = domain
+        self._mod_id = mod_id
+        self._missing_ids = missing_ids
+        self._api = api
+        self._install_from_browse = install_from_browse
+        self._ignored_set = ignored_set
+        self._save_ignored_fn = save_ignored_fn
+        self._on_done = on_done or (lambda p: None)
+
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Missing requirements \u2014 {mod_name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._close,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        # Status label
+        self._status_var = tk.StringVar(value="Loading\u2026")
+        self._status_lbl = ctk.CTkLabel(
+            self, textvariable=self._status_var,
+            font=FONT_SMALL, text_color=TEXT_DIM,
+        )
+        self._status_lbl.pack(pady=20)
+
+        # Scrollable list area
+        list_frame = tk.Frame(self, bg=BG_DEEP)
+        list_frame.pack(fill="both", expand=True, padx=4, pady=4)
+        list_frame.grid_rowconfigure(0, weight=1)
+        list_frame.grid_columnconfigure(0, weight=1)
+        self._canvas = tk.Canvas(
+            list_frame, bg=BG_DEEP, bd=0, highlightthickness=0,
+            yscrollincrement=1, takefocus=0,
+        )
+        vsb = tk.Scrollbar(list_frame, orient="vertical", command=self._canvas.yview,
+                           bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
+                           highlightthickness=0, bd=0)
+        self._canvas.configure(yscrollcommand=vsb.set)
+        self._canvas.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        self._list_frame = list_frame
+
+        def _on_wheel(e):
+            if getattr(e, "delta", 0):
+                self._canvas.yview_scroll(-1 if e.delta > 0 else 1, "units")
+            return "break"
+        self._canvas.bind("<MouseWheel>", _on_wheel)
+
+        # Footer
+        footer = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=44)
+        footer.pack(fill="x", side="bottom")
+        footer.pack_propagate(False)
+        ctk.CTkFrame(footer, fg_color=BORDER, height=1, corner_radius=0).pack(side="top", fill="x")
+        self._ignore_var = tk.BooleanVar(value=mod_name in ignored_set)
+        ctk.CTkCheckBox(
+            footer, text="Ignore requirements",
+            variable=self._ignore_var,
+            font=FONT_SMALL, text_color=TEXT_MAIN,
+            checkbox_width=18, checkbox_height=18,
+        ).pack(side="left", padx=12, pady=10)
+        ctk.CTkButton(
+            footer, text="Close", width=80, height=28,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            command=self._close,
+        ).pack(side="right", padx=12, pady=8)
+
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def _worker(self):
+        err = None
+        missing_list = []
+        try:
+            all_reqs = self._api.get_mod_requirements(self._domain, self._mod_id)
+            for r in all_reqs:
+                if r.mod_id in self._missing_ids:
+                    missing_list.append(r)
+        except Exception as e:
+            err = f"Could not load requirements: {e}"
+        self.after(0, lambda: self._fetch_done(missing_list, err))
+
+    def _fetch_done(self, missing_list, err):
+        if not self.winfo_exists():
+            return
+        if err:
+            self._status_var.set(err)
+            return
+        if not missing_list:
+            self._status_var.set("No missing requirements (list is empty).")
+            return
+        self._populate(missing_list)
+
+    def _populate(self, missing_list):
+        self._status_lbl.pack_forget()
+        ROW_H = 56
+        BTN_W = 70
+        VIEW_W = 56
+        NAME_PAD = 10
+        canvas = self._canvas
+        canvas_w = [600]
+
+        def _on_resize(ev):
+            canvas_w[0] = max(ev.width, 200)
+            _repaint()
+
+        self._list_frame.bind("<Configure>", _on_resize)
+        row_bounds = []
+        view_btns = []
+        install_btns = []
+
+        def _repaint():
+            canvas.delete("all")
+            row_bounds.clear()
+            cw = canvas_w[0]
+            btn_left = cw - 2 * BTN_W - 16
+            name_max_px = max(btn_left - NAME_PAD - 8, 20)
+            y = 0
+            for i, req in enumerate(missing_list):
+                y_top = y
+                notes = (req.notes or "").strip() or "No notes"
+                title = req.mod_name + (" (External)" if req.is_external else "")
+                desc_h = min(16 * 2, 32)
+                row_h = max(ROW_H, 24 + desc_h + 12)
+                y_bot = y_top + row_h
+                row_bounds.append((y_top, y_bot))
+                bg = BG_ROW_ALT if i % 2 else BG_ROW
+                canvas.create_rectangle(0, y_top, cw, y_bot, fill=bg, outline="")
+                canvas.create_text(
+                    NAME_PAD, y_top + 12,
+                    text=title[:80] + ("\u2026" if len(title) > 80 else ""),
+                    anchor="w", font=("Segoe UI", _theme.FS11), fill=TEXT_MAIN,
+                )
+                canvas.create_text(
+                    NAME_PAD, y_top + 30,
+                    text=notes[:120] + ("\u2026" if len(notes) > 120 else ""),
+                    anchor="nw", width=name_max_px,
+                    font=("Segoe UI", _theme.FS10), fill=TEXT_DIM,
+                )
+                y = y_bot
+            total_h = max(y, 1)
+            canvas.configure(scrollregion=(0, 0, cw, total_h))
+
+            while len(view_btns) < len(missing_list):
+                idx = len(view_btns)
+                req = missing_list[idx]
+                url = req.url or f"https://www.nexusmods.com/{self._domain or req.game_domain}/mods/{req.mod_id}"
+                vb = tk.Button(
+                    canvas, text="View",
+                    bg=ACCENT, fg="#ffffff", activebackground=ACCENT_HOV,
+                    relief="flat", font=("Segoe UI", _theme.FS10), bd=0,
+                    highlightthickness=0, cursor="hand2",
+                    command=lambda u=url: webbrowser.open(u),
+                )
+                ib = tk.Button(
+                    canvas, text="Install",
+                    bg="#2d7a2d", fg="#ffffff", activebackground="#3a9e3a",
+                    relief="flat", font=("Segoe UI", _theme.FS10), bd=0,
+                    highlightthickness=0, cursor="hand2",
+                    command=lambda r=req: self._on_install(r),
+                )
+                view_btns.append(vb)
+                install_btns.append(ib)
+            for idx in range(len(missing_list)):
+                y_top, y_bot = row_bounds[idx]
+                cy = y_top + (y_bot - y_top) // 2
+                vx = cw - BTN_W - 4 - BTN_W - 4
+                ix = cw - BTN_W - 4
+                canvas.create_window(vx, cy, window=view_btns[idx], width=VIEW_W, height=28, tags="btns")
+                canvas.create_window(ix, cy, window=install_btns[idx], width=BTN_W, height=28, tags="btns")
+
+        _repaint()
+
+    def _on_install(self, req):
+        if self._install_from_browse is not None:
+            entry = SimpleNamespace(
+                mod_id=req.mod_id,
+                domain_name=self._domain or req.game_domain or "",
+                name=req.mod_name or f"Mod {req.mod_id}",
+            )
+            self._install_from_browse(entry)
+        else:
+            url = req.url or f"https://www.nexusmods.com/{self._domain or req.game_domain or ''}/mods/{req.mod_id}"
+            webbrowser.open(url)
+
+    def _close(self):
+        if self._ignore_var.get():
+            self._ignored_set.add(self._mod_name)
+        else:
+            self._ignored_set.discard(self._mod_name)
+        self._save_ignored_fn()
+        self._on_done(self)
 

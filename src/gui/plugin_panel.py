@@ -1920,8 +1920,10 @@ class PluginPanel(ctk.CTkFrame):
         def _cleanup():
             self._downloads_panel.refresh()
 
+        disable_extract = getattr(topbar, "_disable_extract", False)
         install_mod_from_archive(archive_path, app, self._log, game, mod_panel,
-                                 on_installed=_cleanup)
+                                 on_installed=_cleanup,
+                                 disable_extract=disable_extract)
 
     def _build_plugins_tab(self):
         tab = self._tabs.tab("Plugins")

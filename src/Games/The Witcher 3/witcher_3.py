@@ -36,7 +36,8 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, _resolve_nocase
+from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase
+from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 from Utils.tw3_filelist import update_menu_filelists
@@ -321,6 +322,10 @@ class Witcher3(BaseGame):
 
         profile_dir        = self.get_profile_root() / "profiles" / profile
         per_mod_strip      = load_per_mod_strip_prefixes(profile_dir)
+        _sep_deploy = load_separator_deploy_paths(profile_dir)
+        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
+        per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries)
+        per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries)
         overwrite_dir      = staging.parent / "overwrite"
         vanilla_backup_dir = game_path / _VANILLA_BACKUP_DIR
 
@@ -361,10 +366,19 @@ class Witcher3(BaseGame):
 
         for i, line in enumerate(lines):
             staged_rel, mod_name = line.split("\t", 1)
-            dest_prefix, final_rel = _route_path(staged_rel)
 
-            dest_dir  = (game_path / dest_prefix) if dest_prefix else game_path
-            dest_file = dest_dir / final_rel
+            base_dir = per_mod_deploy.get(mod_name, game_path)
+            in_custom_dir = base_dir != game_path
+
+            if mod_name in per_mod_raw:
+                # Raw deploy: skip routing rules, place file as-is
+                final_rel = staged_rel.replace("\\", "/")
+                dest_dir  = base_dir
+                dest_file = dest_dir / final_rel
+            else:
+                dest_prefix, final_rel = _route_path(staged_rel)
+                dest_dir  = (base_dir / dest_prefix) if dest_prefix else base_dir
+                dest_file = dest_dir / final_rel
 
             src = self._find_staged_file(
                 staging, mod_name, staged_rel,
@@ -385,11 +399,14 @@ class Witcher3(BaseGame):
                 # (e.g. the mod stages "Content/" but "content/" already
                 # exists on disk) are matched at every path segment, not just
                 # at the filename level.
-                rel_from_game = dest_file.relative_to(game_path).as_posix()
-                actual_dest = (
-                    _resolve_nocase(game_path, rel_from_game, cache=nocase_cache)
-                    or dest_file
-                )
+                if in_custom_dir:
+                    actual_dest = dest_file
+                else:
+                    rel_from_game = dest_file.relative_to(game_path).as_posix()
+                    actual_dest = (
+                        _resolve_nocase(game_path, rel_from_game, cache=nocase_cache)
+                        or dest_file
+                    )
 
                 # If this logical destination was already placed in this deploy
                 # run, skip it entirely — a later same-dest entry (e.g. a
@@ -398,8 +415,12 @@ class Witcher3(BaseGame):
                 # must NOT overwrite the already-placed modded file.
                 # Do this BEFORE mkdir so the duplicate-cased directory is
                 # never created in the game folder.
-                game_rel       = actual_dest.relative_to(game_path)
-                game_rel_lower = game_rel.as_posix().lower()
+                # For custom-dir files use the absolute path as the dedup key.
+                if in_custom_dir:
+                    game_rel_lower = str(actual_dest).lower()
+                else:
+                    game_rel       = actual_dest.relative_to(game_path)
+                    game_rel_lower = game_rel.as_posix().lower()
                 if game_rel_lower in _placed_this_run:
                     skipped += 1
                     if progress_fn:
@@ -417,7 +438,7 @@ class Witcher3(BaseGame):
                 #    that wasn't restored — hardlinks look like regular files)
                 #  - its inode matches the source (hardlink from a previous
                 #    deploy not captured by the manifest)
-                if actual_dest.is_file() and not actual_dest.is_symlink():
+                if actual_dest.is_file() and not actual_dest.is_symlink() and not in_custom_dir:
                     if game_rel_lower not in _already_deployed:
                         try:
                             is_our_hardlink = (
@@ -445,10 +466,13 @@ class Witcher3(BaseGame):
                     except (OSError, NotImplementedError):
                         shutil.copy2(src, actual_dest)
 
-                # Record the game-root-relative path for the restore manifest
-                game_file_rel = actual_dest.relative_to(game_path).as_posix()
-                manifest.append(game_file_rel)
-                _placed_this_run.add(game_file_rel.lower())
+                # Record in manifest: absolute path for custom dirs, game-root-relative otherwise
+                if in_custom_dir:
+                    manifest.append(str(actual_dest))
+                else:
+                    game_file_rel = actual_dest.relative_to(game_path).as_posix()
+                    manifest.append(game_file_rel)
+                _placed_this_run.add(game_rel_lower)
                 linked += 1
             except OSError as exc:
                 _log(f"  ERROR placing {final_rel}: {exc}")
@@ -555,9 +579,23 @@ class Witcher3(BaseGame):
         become the routed paths  ``mods/modTrueFires/content/x``  by applying
         ``_route_path`` to each line.  This makes the treeview and conflict
         display match the actual layout of the game root.
+
+        Mods with "ignore deployment rules" set are left as-is since their
+        staged paths are already their final destinations.
         """
         if not filemap_path.is_file():
             return
+
+        # Determine which mods have raw deploy enabled so we skip routing them.
+        _raw_mods: set[str] = set()
+        if self._active_profile_dir is not None:
+            try:
+                _sd = load_separator_deploy_paths(self._active_profile_dir)
+                _se = read_modlist(self._active_profile_dir / "modlist.txt") if _sd else []
+                _raw_mods = expand_separator_raw_deploy(_sd, _se)
+            except Exception:
+                pass
+
         lines = filemap_path.read_text(encoding="utf-8").splitlines()
         out: list[str] = []
         for line in lines:
@@ -565,9 +603,12 @@ class Witcher3(BaseGame):
                 out.append(line)
                 continue
             staged_rel, mod_name = line.split("\t", 1)
-            dest_prefix, final_rel = _route_path(staged_rel)
-            routed_rel = (dest_prefix + "/" + final_rel) if dest_prefix else final_rel
-            out.append(routed_rel + "\t" + mod_name)
+            if mod_name in _raw_mods:
+                out.append(staged_rel + "\t" + mod_name)
+            else:
+                dest_prefix, final_rel = _route_path(staged_rel)
+                routed_rel = (dest_prefix + "/" + final_rel) if dest_prefix else final_rel
+                out.append(routed_rel + "\t" + mod_name)
         filemap_path.write_text("\n".join(out), encoding="utf-8")
 
     # -----------------------------------------------------------------------
@@ -598,15 +639,20 @@ class Witcher3(BaseGame):
             dirs_to_check: set[Path] = set()
 
             for rel in lines:
-                target = game_path / rel
+                # Absolute paths are custom-dir files; relative paths are game-root-relative
+                is_abs = Path(rel).is_absolute()
+                target = Path(rel) if is_abs else game_path / rel
                 if target.is_file() or target.is_symlink():
                     try:
                         target.unlink()
                         removed += 1
-                        p = target.parent
-                        while p != game_path:
-                            dirs_to_check.add(p)
-                            p = p.parent
+                        if is_abs:
+                            dirs_to_check.add(target.parent)
+                        else:
+                            p = target.parent
+                            while p != game_path:
+                                dirs_to_check.add(p)
+                                p = p.parent
                     except OSError as exc:
                         _log(f"  WARN: could not remove {rel}: {exc}")
 

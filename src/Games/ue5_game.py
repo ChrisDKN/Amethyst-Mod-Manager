@@ -54,7 +54,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, apply_wine_dll_overrides, load_per_mod_strip_prefixes, _resolve_nocase
+from Utils.deploy import LinkMode, apply_wine_dll_overrides, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase
+from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
 
@@ -289,6 +290,10 @@ class UE5Game(BaseGame):
         staging = self.get_effective_mod_staging_path()
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
+        _sep_deploy = load_separator_deploy_paths(profile_dir)
+        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
+        per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries)
+        per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries)
         overwrite_dir = staging.parent / "overwrite"
 
         manifest: list[str] = []
@@ -306,10 +311,19 @@ class UE5Game(BaseGame):
 
         for i, line in enumerate(lines):
             staged_rel, mod_name = line.split("\t", 1)
-            dest_rel, final_rel = self._resolve_entry(staged_rel)
 
-            dest_dir = (game_path / dest_rel) if dest_rel else game_path
-            dest_file = dest_dir / final_rel
+            base_dir = per_mod_deploy.get(mod_name, game_path)
+            in_custom_dir = base_dir != game_path
+
+            if mod_name in per_mod_raw:
+                # Raw deploy: ignore routing rules, place file as-is
+                final_rel = staged_rel.replace("\\", "/")
+                dest_dir = base_dir
+                dest_file = dest_dir / final_rel
+            else:
+                dest_rel, final_rel = self._resolve_entry(staged_rel)
+                dest_dir = (base_dir / dest_rel) if dest_rel else base_dir
+                dest_file = dest_dir / final_rel
 
             src = self._find_staged_file(
                 staging, mod_name, staged_rel,
@@ -328,7 +342,8 @@ class UE5Game(BaseGame):
             try:
                 # Back up any real vanilla file before overwriting it.
                 # Symlinks are our own previous deploys — don't back those up.
-                if dest_file.is_file() and not dest_file.is_symlink():
+                # Skip backup for custom-dir files (not vanilla game files).
+                if dest_file.is_file() and not dest_file.is_symlink() and not in_custom_dir:
                     game_rel = dest_file.relative_to(game_path)
                     backup_target = vanilla_backup_dir / game_rel
                     if not backup_target.exists():
@@ -347,10 +362,13 @@ class UE5Game(BaseGame):
                         dest_file.hardlink_to(src)
                     except (OSError, NotImplementedError):
                         shutil.copy2(src, dest_file)
-                # Record relative-to-game-root path in the manifest
-                manifest.append(
-                    ((dest_rel + "/" + final_rel) if dest_rel else final_rel)
-                )
+                # Record in manifest: absolute path for custom dirs, game-root-relative otherwise
+                if in_custom_dir:
+                    manifest.append(str(dest_file))
+                else:
+                    manifest.append(
+                        ((dest_rel + "/" + final_rel) if dest_rel else final_rel)
+                    )
                 linked += 1
             except OSError as exc:
                 _log(f"  ERROR placing {final_rel}: {exc}")
@@ -443,16 +461,20 @@ class UE5Game(BaseGame):
         dirs_to_check: set[Path] = set()
 
         for rel in lines:
-            target = game_path / rel
+            # Absolute paths are custom-dir files; relative paths are game-root-relative
+            is_abs = Path(rel).is_absolute()
+            target = Path(rel) if is_abs else game_path / rel
             if target.is_file() or target.is_symlink():
                 try:
                     target.unlink()
                     removed += 1
-                    # Collect all ancestor dirs between file and game root
-                    p = target.parent
-                    while p != game_path:
-                        dirs_to_check.add(p)
-                        p = p.parent
+                    if is_abs:
+                        dirs_to_check.add(target.parent)
+                    else:
+                        p = target.parent
+                        while p != game_path:
+                            dirs_to_check.add(p)
+                            p = p.parent
                 except OSError as exc:
                     _log(f"  WARN: could not remove {rel}: {exc}")
 

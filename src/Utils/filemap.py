@@ -14,14 +14,13 @@ so that Windows-style case-insensitive conflicts are handled correctly.
 
 Mod Index
 ---------
-modindex.txt lives next to filemap.txt and caches the file list of every
+modindex.bin lives next to filemap.txt and caches the file list of every
 mod so that build_filemap() can skip the expensive disk scan on every
 enable/disable/reorder.  The index is only updated when mods are installed
 or removed (or when the user hits the Refresh button).
 
-Index format — one header line then one data line per file:
-    #modindex v2
-    <mod_name>\\t<rel_key_lower>\\t<rel_str_normalized>\\t<kind>
+Index format — msgpack binary, v3:
+    {"v": 3, "mods": [[mod_name, [[rel_key, rel_str, kind], ...]], ...]}
 where <kind> is "n" (normal) or "r" (root-deploy).
 Paths stored in the index are already folder-case-normalized across all mods
 so build_filemap() can skip the normalize step entirely.
@@ -33,6 +32,8 @@ import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+import msgpack
 
 from Utils.modlist import read_modlist
 
@@ -55,7 +56,7 @@ _EXCLUDE_NAMES = frozenset({"meta.ini"})
 # Reuse a modest thread pool across calls rather than creating one per call
 _POOL = ThreadPoolExecutor(max_workers=20)
 
-_INDEX_HEADER = "#modindex v2\n"
+_INDEX_VERSION = 3
 
 # In-memory cache: (path_str, mtime) → parsed index
 # Avoids re-parsing the ~5 MB index file on every filemap rebuild.
@@ -266,9 +267,9 @@ def _normalize_folder_cases(all_files: dict[str, dict[str, str]]) -> None:
 def read_mod_index(
     index_path: Path,
 ) -> dict[str, tuple[dict[str, str], dict[str, str]]] | None:
-    """Read modindex.txt and return {mod_name: (normal_files, root_files)}.
+    """Read modindex.bin and return {mod_name: (normal_files, root_files)}.
 
-    Returns None if the index does not exist or has an unrecognised header
+    Returns None if the index does not exist or has an unrecognised version
     (caller should fall back to a full disk scan).
     Paths in the returned dicts are already folder-case-normalized.
     Results are cached in memory by (path, mtime) so repeated calls within
@@ -283,25 +284,18 @@ def read_mod_index(
     if _index_cache is not None and _index_cache[0] == path_str and _index_cache[1] == mtime:
         return _index_cache[2]
     try:
-        with index_path.open("r", encoding="utf-8") as f:
-            if f.readline() != _INDEX_HEADER:
-                return None
-            index: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
-            for line in f:
-                line = line.rstrip("\n")
-                if not line:
-                    continue
-                parts = line.split("\t", 3)
-                if len(parts) != 4:
-                    continue
-                mod_name, rel_key, rel_str, kind = parts
-                if mod_name not in index:
-                    index[mod_name] = ({}, {})
-                if kind == "r":
-                    index[mod_name][1][rel_key] = rel_str
-                else:
-                    index[mod_name][0][rel_key] = rel_str
-    except OSError:
+        with index_path.open("rb") as f:
+            data = msgpack.unpack(f, raw=False)
+        if not isinstance(data, dict) or data.get("v") != _INDEX_VERSION:
+            return None
+        index: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+        for mod_name, files in data["mods"]:
+            normal: dict[str, str] = {}
+            root:   dict[str, str] = {}
+            for rel_key, rel_str, kind in files:
+                (root if kind == "r" else normal)[rel_key] = rel_str
+            index[mod_name] = (normal, root)
+    except Exception:
         return None
     _index_cache = (path_str, mtime, index)
     return index
@@ -318,15 +312,16 @@ def _write_mod_index(
     _normalize_folder_cases({name: normal for name, (normal, _) in index.items()})
     _normalize_folder_cases({name: root   for name, (_, root)   in index.items() if root})
     index_path.parent.mkdir(parents=True, exist_ok=True)
+    mods = []
+    for mod_name, (normal, root) in index.items():
+        files = [[k, v, "n"] for k, v in normal.items()]
+        files += [[k, v, "r"] for k, v in root.items()]
+        mods.append([mod_name, files])
+    payload = {"v": _INDEX_VERSION, "mods": mods}
     tmp = index_path.with_suffix(".tmp")
     try:
-        with tmp.open("w", encoding="utf-8") as f:
-            f.write(_INDEX_HEADER)
-            for mod_name, (normal, root) in index.items():
-                for rel_key, rel_str in normal.items():
-                    f.write(f"{mod_name}\t{rel_key}\t{rel_str}\tn\n")
-                for rel_key, rel_str in root.items():
-                    f.write(f"{mod_name}\t{rel_key}\t{rel_str}\tr\n")
+        with tmp.open("wb") as f:
+            msgpack.pack(payload, f, use_bin_type=True)
         tmp.replace(index_path)
     except OSError:
         try:
@@ -459,7 +454,7 @@ def build_filemap(
     """
     Build filemap.txt from the current modlist.
 
-    Reads file lists from modindex.txt (fast path) when available.
+    Reads file lists from modindex.bin (fast path) when available.
     Falls back to a full disk scan if the index is missing or corrupt,
     and writes a fresh index as a side-effect of that scan.
 
@@ -494,7 +489,7 @@ def build_filemap(
 
     priority_order = [e.name for e in enabled_low_to_high if e.name != ROOT_FOLDER_NAME] + [OVERWRITE_NAME]
 
-    index_path = output_path.parent / "modindex.txt"
+    index_path = output_path.parent / "modindex.bin"
     index = read_mod_index(index_path)
 
     if index is None:

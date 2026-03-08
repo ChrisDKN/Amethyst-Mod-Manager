@@ -11,3 +11,4 @@ websocket-client
 keyring
 importlib_metadata
 backports.tarfile
+msgpack

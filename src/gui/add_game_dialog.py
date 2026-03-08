@@ -837,12 +837,18 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         ).pack(side="left", padx=12, pady=8)
 
         # Body
-        body = ctk.CTkScrollableFrame(
+        _scroll = ctk.CTkScrollableFrame(
             self, fg_color=BG_PANEL, corner_radius=0,
             scrollbar_button_color=BG_HEADER,
             scrollbar_button_hover_color=ACCENT,
         )
-        body.grid(row=1, column=0, sticky="nsew")
+        _scroll.grid(row=1, column=0, sticky="nsew")
+        _scroll.grid_columnconfigure(0, weight=1)
+        _scroll.grid_columnconfigure(1, weight=0, minsize=620)
+        _scroll.grid_columnconfigure(2, weight=1)
+
+        body = ctk.CTkFrame(_scroll, fg_color="transparent")
+        body.grid(row=0, column=1, sticky="nsew", pady=12)
         body.grid_columnconfigure(0, weight=1)
 
         # --- Game path section ---

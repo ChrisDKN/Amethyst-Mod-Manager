@@ -59,7 +59,8 @@ from Utils.profile_backup import create_backup
 class TopBar(ctk.CTkFrame):
     def __init__(self, parent, log_fn=None, show_add_game_panel_fn=None,
                  show_reconfigure_panel_fn=None, show_proton_panel_fn=None,
-                 show_wizard_panel_fn=None, show_nexus_panel_fn=None):
+                 show_wizard_panel_fn=None, show_nexus_panel_fn=None,
+                 show_custom_game_panel_fn=None):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0, height=46)
         self.grid_propagate(False)
         self._log = log_fn or (lambda msg: None)
@@ -68,6 +69,7 @@ class TopBar(ctk.CTkFrame):
         self._show_proton_panel_fn = show_proton_panel_fn
         self._show_wizard_panel_fn = show_wizard_panel_fn
         self._show_nexus_panel_fn = show_nexus_panel_fn
+        self._show_custom_game_panel_fn = show_custom_game_panel_fn
 
         # Bottom separator line
         ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(
@@ -146,13 +148,16 @@ class TopBar(ctk.CTkFrame):
         self._profile_menu.pack(side="left", padx=(0, 4))
 
         # Install Mod button
+        self._disable_extract = False
         _install_mod_icon = load_icon("install.png", size=(30, 30))
-        ctk.CTkButton(
+        self._install_mod_btn = ctk.CTkButton(
             self, text="Install Mod", width=100, height=32, font=FONT_BOLD,
             image=_install_mod_icon, compound="left",
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_install_mod
-        ).pack(side="left", padx=(0, 8))
+        )
+        self._install_mod_btn.pack(side="left", padx=(0, 8))
+        self._install_mod_btn.bind("<Button-3>", self._on_install_mod_right_click)
 
         # Deploy button
         _deploy_icon = load_icon("deploy.png", size=(30, 30))
@@ -396,7 +401,21 @@ class TopBar(ctk.CTkFrame):
             game.set_active_profile_dir(None)
 
         if profile_dir.is_dir():
-            shutil.rmtree(profile_dir)
+            from gui.game_helpers import profile_uses_specific_mods
+            if profile_uses_specific_mods(profile_dir):
+                # Preserve the profile-specific mods folder and modlist so the
+                # user's installed mods are not lost.
+                preserve = {profile_dir / "mods", profile_dir / "modlist.txt"}
+                for child in list(profile_dir.iterdir()):
+                    if child not in preserve:
+                        if child.is_dir():
+                            shutil.rmtree(child)
+                        else:
+                            child.unlink()
+                # Leave the (now-empty) profile dir itself in place since it
+                # still contains the preserved mods/modlist.
+            else:
+                shutil.rmtree(profile_dir)
         self._log(f"Profile '{profile}' removed.")
         profiles = _profiles_for_game(game_name)
         self._profile_menu.configure(values=profiles)
@@ -489,27 +508,63 @@ class TopBar(ctk.CTkFrame):
 
         # For user-defined custom games, open the definition editor first
         if getattr(game, "is_custom", False):
-            from gui.custom_game_dialog import CustomGameDialog
-            defn_dlg = CustomGameDialog(self.winfo_toplevel(), existing=getattr(game, "_defn", None))
-            self.winfo_toplevel().wait_window(defn_dlg)
-            if defn_dlg.deleted:
-                self._log(f"Deleted custom game: {game_name}")
-                # Remove from registry and clear configured path
-                _gh._GAMES.pop(game_name, None)
-                game.load_paths()  # wipes in-memory paths
-                configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
-                self._game_menu.configure(values=configured or ["No games configured"])
-                if configured:
-                    self._game_var.set(configured[0])
-                    self._on_game_change(configured[0])
-                else:
-                    self._game_var.set("No games configured")
-                    self._on_game_change("No games configured")
+            existing_defn = getattr(game, "_defn", None)
+            if self._show_custom_game_panel_fn:
+                def _on_custom_game_done(panel):
+                    if panel.deleted:
+                        self._log(f"Deleted custom game: {game_name}")
+                        _gh._GAMES.pop(game_name, None)
+                        game.load_paths()
+                        configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                        self._game_menu.configure(values=configured or ["No games configured"])
+                        if configured:
+                            self._game_var.set(configured[0])
+                            self._on_game_change(configured[0])
+                        else:
+                            self._game_var.set("No games configured")
+                            self._on_game_change("No games configured")
+                    elif panel.saved_game is not None:
+                        _load_games()
+                        updated_game = _gh._GAMES.get(panel.saved_game.name) or game
+                        if self._show_reconfigure_panel_fn:
+                            def _on_reconfigure_done(p):
+                                if getattr(p, "removed", False):
+                                    self._log(f"Removed instance: {panel.saved_game.name}")
+                                    updated_game.load_paths()
+                                    configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                                    self._game_menu.configure(values=configured or ["No games configured"])
+                                    if configured:
+                                        self._game_var.set(configured[0])
+                                        self._on_game_change(configured[0])
+                                    else:
+                                        self._game_var.set("No games configured")
+                                        self._on_game_change("No games configured")
+                                elif p.result is not None:
+                                    self._log(f"Game path updated: {p.result}")
+                                    self._reload_mod_panel()
+                            self._show_reconfigure_panel_fn(updated_game, _on_reconfigure_done)
+                self._show_custom_game_panel_fn(existing_defn, _on_custom_game_done)
                 return
-            if defn_dlg.saved_game is not None:
-                # Reload registry to pick up definition changes
-                _load_games()
-                game = _gh._GAMES.get(defn_dlg.saved_game.name) or game
+            else:
+                from gui.custom_game_dialog import CustomGameDialog
+                defn_dlg = CustomGameDialog(self.winfo_toplevel(), existing=existing_defn)
+                self.winfo_toplevel().wait_window(defn_dlg)
+                if defn_dlg.deleted:
+                    self._log(f"Deleted custom game: {game_name}")
+                    _gh._GAMES.pop(game_name, None)
+                    game.load_paths()
+                    configured = sorted(n for n, g in _gh._GAMES.items() if g.is_configured())
+                    self._game_menu.configure(values=configured or ["No games configured"])
+                    if configured:
+                        self._game_var.set(configured[0])
+                        self._on_game_change(configured[0])
+                    else:
+                        self._game_var.set("No games configured")
+                        self._on_game_change("No games configured")
+                    return
+                if defn_dlg.saved_game is not None:
+                    _load_games()
+                    game = _gh._GAMES.get(defn_dlg.saved_game.name) or game
 
         if self._show_reconfigure_panel_fn:
             def _on_reconfigure_done(panel):
@@ -723,6 +778,33 @@ class TopBar(ctk.CTkFrame):
         self._set_deploy_buttons_enabled(False)
         threading.Thread(target=_worker, daemon=True).start()
 
+    def _on_install_mod_right_click(self, event):
+        menu = tk.Menu(self, tearoff=0, bg="#2b2b2b", fg="white",
+                       activebackground=ACCENT, activeforeground="white",
+                       relief="flat", bd=1)
+        label = ("✓ Disable Extract (active)" if self._disable_extract
+                 else "Disable Extract")
+        menu.add_command(label=label, command=self._toggle_disable_extract)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _toggle_disable_extract(self):
+        self._disable_extract = not self._disable_extract
+        if self._disable_extract:
+            self._install_mod_btn.configure(
+                text="Install Mod [no extract]",
+                fg_color="#7a5a00", hover_color="#a07800",
+            )
+            self._log("Install Mod: extraction disabled — archives will be moved as-is.")
+        else:
+            self._install_mod_btn.configure(
+                text="Install Mod",
+                fg_color=ACCENT, hover_color=ACCENT_HOV,
+            )
+            self._log("Install Mod: extraction re-enabled.")
+
     def _on_install_mod(self):
         def _on_file_picked(path: str) -> None:
             if not path:
@@ -734,7 +816,8 @@ class TopBar(ctk.CTkFrame):
             self._log(f"Installing: {os.path.basename(path)}")
             app = self.winfo_toplevel()
             mod_panel = getattr(app, "_mod_panel", None)
-            install_mod_from_archive(path, app, self._log, game, mod_panel)
+            install_mod_from_archive(path, app, self._log, game, mod_panel,
+                                     disable_extract=self._disable_extract)
 
         pick_file_mod_archive("Select Mod Archive", lambda p: self.after(0, lambda: _on_file_picked(p)))
 

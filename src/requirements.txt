@@ -10,4 +10,5 @@ keyring
 importlib_metadata
 backports.tarfile
 importlib_metadata
+msgpack
 # PyGObject is a system package (python-gobject); accessed via --system-site-packages

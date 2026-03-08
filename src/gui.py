@@ -566,6 +566,7 @@ class App(ctk.CTk):
             show_proton_panel_fn=self.show_proton_panel,
             show_wizard_panel_fn=self.show_wizard_panel,
             show_nexus_panel_fn=self.show_nexus_panel,
+            show_custom_game_panel_fn=self.show_custom_game_panel,
         )
         self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))
 
@@ -578,6 +579,7 @@ class App(ctk.CTk):
         self._main_frame = main
         self._game_picker_panel = None
         self._reconfigure_panel = None
+        self._custom_game_panel = None
 
         self._mod_panel_container = ctk.CTkFrame(main, fg_color="transparent", corner_radius=0)
         self._mod_panel_container.grid(row=0, column=0, sticky="nsew")
@@ -753,6 +755,7 @@ class App(ctk.CTk):
             games=_GAMES,
             on_game_selected=_on_selected,
             on_cancel=_on_cancel,
+            show_custom_game_panel_fn=self.show_custom_game_panel,
         )
         self._game_picker_panel.place(relx=0, rely=0, relwidth=1, relheight=1)
         self._game_picker_panel.lift()
@@ -792,6 +795,35 @@ class App(ctk.CTk):
         panel = getattr(self, "_reconfigure_panel", None)
         if panel is not None:
             self._reconfigure_panel = None
+            try:
+                panel.place_forget()
+                panel.destroy()
+            except Exception:
+                pass
+
+    # -- Custom game definition panel (inline overlay) ---------------------
+
+    def show_custom_game_panel(self, existing, on_done):
+        """Show the custom game definition panel, overlaying the main content area."""
+        self.hide_custom_game_panel()
+
+        from gui.custom_game_dialog import CustomGamePanel
+
+        def _on_panel_done(panel):
+            self.hide_custom_game_panel()
+            on_done(panel)
+
+        self._custom_game_panel = CustomGamePanel(
+            self._mod_panel_container, existing=existing, on_done=_on_panel_done
+        )
+        self._custom_game_panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._custom_game_panel.lift()
+
+    def hide_custom_game_panel(self):
+        """Remove the custom game panel."""
+        panel = getattr(self, "_custom_game_panel", None)
+        if panel is not None:
+            self._custom_game_panel = None
             try:
                 panel.place_forget()
                 panel.destroy()
@@ -852,6 +884,7 @@ class App(ctk.CTk):
 
     def show_nexus_panel(self, on_key_changed, log_fn):
         from gui.nexus_settings_dialog import NexusSettingsPanel
+        _game = _GAMES.get(self._topbar._game_var.get())
         self._show_plugin_overlay(
             "_nexus_panel",
             lambda: NexusSettingsPanel(
@@ -859,6 +892,7 @@ class App(ctk.CTk):
                 on_key_changed=on_key_changed,
                 log_fn=log_fn,
                 nexus_api_getter=lambda: self._nexus_api,
+                game_domain_getter=lambda: (getattr(_game, "nexus_game_domain", None) or None),
                 on_done=lambda p: self._hide_plugin_overlay("_nexus_panel"),
             ),
         )
@@ -956,6 +990,23 @@ class App(ctk.CTk):
     def hide_deploy_paths_panel(self):
         self._hide_plugin_overlay("_deploy_paths_panel")
 
+    # -- Separator settings panel (overlays plugin panel) -------------------
+
+    def show_sep_settings_panel(self, sep_name, current_path, on_save, current_raw=False):
+        from gui.dialogs import SepSettingsPanel
+        def _factory():
+            def _done(panel):
+                self._hide_plugin_overlay("_sep_settings_panel")
+            return SepSettingsPanel(
+                self._plugin_panel_container,
+                sep_name=sep_name, current_path=current_path,
+                current_raw=current_raw, on_save=on_save, on_done=_done,
+            )
+        self._show_plugin_overlay("_sep_settings_panel", _factory)
+
+    def hide_sep_settings_panel(self):
+        self._hide_plugin_overlay("_sep_settings_panel")
+
     # -- Disable plugins panel (overlays plugin panel) ----------------------
 
     def show_disable_plugins_panel(self, mod_name, plugin_names, disabled, on_done):
@@ -973,6 +1024,29 @@ class App(ctk.CTk):
 
     def hide_disable_plugins_panel(self):
         self._hide_plugin_overlay("_disable_plugins_panel")
+
+    # -- Missing requirements panel (overlays plugin panel) -----------------
+
+    def show_missing_reqs_panel(self, mod_name, domain, mod_id, missing_ids,
+                                api, install_from_browse,
+                                ignored_set, save_ignored_fn, redraw_fn):
+        from gui.dialogs import MissingReqsPanel
+        def _factory():
+            def _done(panel):
+                self._hide_plugin_overlay("_missing_reqs_panel")
+                redraw_fn()
+            return MissingReqsPanel(
+                self._plugin_panel_container,
+                mod_name=mod_name, domain=domain, mod_id=mod_id,
+                missing_ids=missing_ids, api=api,
+                install_from_browse=install_from_browse,
+                ignored_set=ignored_set, save_ignored_fn=save_ignored_fn,
+                on_done=_done,
+            )
+        self._show_plugin_overlay("_missing_reqs_panel", _factory)
+
+    def hide_missing_reqs_panel(self):
+        self._hide_plugin_overlay("_missing_reqs_panel")
 
     def _startup_log(self):
         configured = sum(1 for g in _GAMES.values() if g.is_configured())

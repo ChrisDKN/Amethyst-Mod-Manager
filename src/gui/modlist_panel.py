@@ -234,7 +234,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filemap_pending: bool = False   # True while a background rebuild is running
         self._filemap_dirty:   bool = False   # True if another rebuild was requested while one was running
         self._filemap_after_id: str | None = None  # after() handle for debounce timer
-        self._filemap_rescan_index: bool = False  # True if next rebuild should regenerate modindex.txt first
+        self._filemap_rescan_index: bool = False  # True if next rebuild should regenerate modindex.bin first
         self._redraw_after_id: str | None = None  # after_idle handle for scroll-debounce
         self._canvas_resize_after_id: str | None = None  # after() handle for resize-debounce
 
@@ -256,6 +256,12 @@ class ModListPanel(ctk.CTkFrame):
 
         # Separator custom background colors: sep_name → hex color string
         self._sep_colors: dict[str, str] = {}
+
+        # Separator custom deployment directories: sep_name → path string (empty = default)
+        self._sep_deploy_paths: dict[str, dict] = {}  # {sep_name: {"path": str, "raw": bool}}
+
+        # Separator settings overlay widget (in-panel frame placed over the list)
+        self._sep_settings_overlay: tk.Frame | None = None
 
         # Collapsed separators: set of sep names whose mods are hidden
         self._collapsed_seps: set[str] = set()
@@ -306,6 +312,7 @@ class ModListPanel(ctk.CTkFrame):
         self._pool_sep_icon: list[int] = []          # image canvas item ids (collapse arrow)
         self._pool_sep_line_l: list[int] = []        # line canvas item ids (separator left line)
         self._pool_sep_line_r: list[int] = []        # line canvas item ids (separator right line)
+        self._pool_sep_badge: list[int] = []         # text canvas item ids (custom deploy badge)
         self._pool_check_vars: list[tk.BooleanVar] = []
         self._pool_cb_rect: list[int] = []   # canvas rectangle ids for checkbox outline
         self._pool_cb_mark: list[int] = []   # canvas text ids for checkmark
@@ -491,10 +498,12 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas.bind("<Button-5>",       self._on_scroll_down)
         self._vsb.bind("<B1-Motion>",         lambda e: self._schedule_redraw())
         self._canvas.bind("<MouseWheel>",     self._on_mousewheel)
-        self._canvas.bind("<ButtonPress-1>",  self._on_mouse_press)
-        self._canvas.bind("<B1-Motion>",      self._on_mouse_drag)
-        self._canvas.bind("<ButtonRelease-1>",self._on_mouse_release)
+        self._canvas.bind("<ButtonPress-1>",         self._on_mouse_press)
+        self._canvas.bind("<Control-ButtonPress-1>", self._on_mouse_press)
+        self._canvas.bind("<B1-Motion>",             self._on_mouse_drag)
+        self._canvas.bind("<ButtonRelease-1>",       self._on_mouse_release)
         self._canvas.bind("<ButtonRelease-3>", self._on_right_click)
+        self._canvas.bind("<Shift-ButtonRelease-2>", self._on_shift_middle_click)
         self._canvas.bind("<Motion>",         self._on_mouse_motion)
         self._canvas.bind("<Leave>",          self._on_mouse_leave)
 
@@ -902,6 +911,40 @@ class ModListPanel(ctk.CTkFrame):
             return
         path.write_text(json.dumps(self._sep_colors, indent=2), encoding="utf-8")
 
+    def _sep_deploy_paths_path(self) -> Path | None:
+        if self._modlist_path is None:
+            return None
+        return self._modlist_path.parent / "separator_deploy_paths.json"
+
+    def _load_sep_deploy_paths(self) -> None:
+        path = self._sep_deploy_paths_path()
+        if path and path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    result = {}
+                    for k, v in data.items():
+                        if not isinstance(k, str):
+                            continue
+                        if isinstance(v, str):
+                            result[k] = {"path": v, "raw": False}
+                        elif isinstance(v, dict):
+                            result[k] = {
+                                "path": v.get("path", "") if isinstance(v.get("path"), str) else "",
+                                "raw": bool(v.get("raw", False)),
+                            }
+                    self._sep_deploy_paths = result
+                    return
+            except Exception:
+                pass
+        self._sep_deploy_paths = {}
+
+    def _save_sep_deploy_paths(self) -> None:
+        path = self._sep_deploy_paths_path()
+        if path is None:
+            return
+        path.write_text(json.dumps(self._sep_deploy_paths, indent=2), encoding="utf-8")
+
     def _root_folder_state_path(self) -> Path | None:
         if self._modlist_path is None:
             return None
@@ -1001,6 +1044,7 @@ class ModListPanel(ctk.CTkFrame):
             sync_modlist_with_mods_folder(self._modlist_path, mods_dir)
             self._load_root_folder_state()
             self._load_mod_strip_prefixes()
+            self._load_sep_deploy_paths()
             self._entries = read_modlist(self._modlist_path)
             # Prepend synthetic Overwrite row — always first (highest priority),
             # never saved to modlist.txt.
@@ -1201,6 +1245,9 @@ class ModListPanel(ctk.CTkFrame):
             # Separator decorative lines (left and right of label)
             sep_line_l = c.create_line(0, -200, 0, -200, fill="", width=1, state="hidden")
             sep_line_r = c.create_line(0, -200, 0, -200, fill="", width=1, state="hidden")
+            # Custom deploy path badge (shown right of label on separators with override)
+            sep_badge_id = c.create_text(0, -200, text="", anchor="w", fill="",
+                                         font=("Segoe UI", _theme.FS9), state="hidden")
 
             self._pool_bg.append(bg_id)
             self._pool_name.append(name_id)
@@ -1212,6 +1259,7 @@ class ModListPanel(ctk.CTkFrame):
             self._pool_sep_icon.append(sep_icon_id)
             self._pool_sep_line_l.append(sep_line_l)
             self._pool_sep_line_r.append(sep_line_r)
+            self._pool_sep_badge.append(sep_badge_id)
 
             # Canvas-drawn checkbox (no tk.Checkbutton) — avoids opaque widget background
             # on Linux. Rect + checkmark text, click handled via tag_bind.
@@ -1358,6 +1406,7 @@ class ModListPanel(ctk.CTkFrame):
                     is_synthetic   = is_overwrite or is_root_folder
                     is_sel_row = (i in self._sel_set)
 
+                    custom_color = None
                     if is_overwrite:
                         base_bg = "#1e2a1e"
                         txt_col = "#6dbf6d"
@@ -1390,24 +1439,58 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         label = entry.display_name
 
-                    mid_x = cw // 2
-                    c.coords(self._pool_name[s], mid_x, y_mid)
-                    c.itemconfigure(self._pool_name[s], text=label, anchor="center",
-                                    fill=txt_col, font=("Segoe UI", _theme.FS10, "bold"), state="normal")
+                    mid_x     = cw // 2
+                    lock_w    = 28 if not is_synthetic else 0
+                    _badge_info = self._sep_deploy_paths.get(entry.name, {}) if not is_synthetic else {}
+                    has_badge = bool(_badge_info and (
+                        (_badge_info.get("path") if isinstance(_badge_info, dict) else _badge_info)
+                        or (_badge_info.get("raw") if isinstance(_badge_info, dict) else False)
+                    ))
+                    left_edge = 32 if is_root_folder else (20 if not is_synthetic else 8)
 
-                    # Decorative lines flanking the label
-                    lock_w  = 28 if not is_synthetic else 0
-                    right_edge = cw - lock_w - 8
-                    left_edge  = 32 if is_root_folder else (20 if not is_synthetic else 8)
-                    text_pad   = 6
-                    label_hw   = len(label) * 4 + text_pad
-                    sep_line_col = txt_col if (custom_color if not is_synthetic else False) else BORDER
-                    c.coords(self._pool_sep_line_l[s],
-                             left_edge, y_mid, mid_x - label_hw, y_mid)
-                    c.itemconfigure(self._pool_sep_line_l[s], fill=sep_line_col, state="normal")
-                    c.coords(self._pool_sep_line_r[s],
-                             mid_x + label_hw, y_mid, right_edge, y_mid)
-                    c.itemconfigure(self._pool_sep_line_r[s], fill=sep_line_col, state="normal")
+                    if has_badge:
+                        # Left-aligned layout: label + path badge flowing from left edge
+                        label_x = left_edge + 4
+                        c.coords(self._pool_name[s], label_x, y_mid)
+                        c.itemconfigure(self._pool_name[s], text=label, anchor="w",
+                                        fill=txt_col, font=("Segoe UI", _theme.FS10, "bold"), state="normal")
+                        # Approximate bold label width at FS10 (~7px per char)
+                        badge_x = label_x + len(label) * 7 + 8
+                        _deploy_path = _badge_info.get("path", "") if isinstance(_badge_info, dict) else str(_badge_info)
+                        _is_raw_deploy = _badge_info.get("raw", False) if isinstance(_badge_info, dict) else False
+                        try:
+                            _home = Path.home()
+                            _dp = Path(_deploy_path)
+                            badge_path = "~/" + str(_dp.relative_to(_home)) if _dp.is_relative_to(_home) else _deploy_path
+                        except Exception:
+                            badge_path = _deploy_path
+                        if _deploy_path and _is_raw_deploy:
+                            badge_text = f"⇒ {badge_path}  [raw]"
+                        elif _deploy_path:
+                            badge_text = f"⇒ {badge_path}"
+                        else:
+                            badge_text = "[raw deploy]"
+                        c.coords(self._pool_sep_badge[s], badge_x, y_mid)
+                        c.itemconfigure(self._pool_sep_badge[s], text=badge_text,
+                                        fill="#7aa2f7", state="normal")
+                        c.itemconfigure(self._pool_sep_line_l[s], state="hidden")
+                        c.itemconfigure(self._pool_sep_line_r[s], state="hidden")
+                    else:
+                        # Centered label with flanking decorative lines (default)
+                        c.coords(self._pool_name[s], mid_x, y_mid)
+                        c.itemconfigure(self._pool_name[s], text=label, anchor="center",
+                                        fill=txt_col, font=("Segoe UI", _theme.FS10, "bold"), state="normal")
+                        c.itemconfigure(self._pool_sep_badge[s], state="hidden")
+                        text_pad     = 6
+                        label_hw     = len(label) * 4 + text_pad
+                        right_edge   = cw - lock_w - 8
+                        sep_line_col = txt_col if (custom_color if not is_synthetic else False) else BORDER
+                        c.coords(self._pool_sep_line_l[s],
+                                 left_edge, y_mid, mid_x - label_hw, y_mid)
+                        c.itemconfigure(self._pool_sep_line_l[s], fill=sep_line_col, state="normal")
+                        c.coords(self._pool_sep_line_r[s],
+                                 mid_x + label_hw, y_mid, right_edge, y_mid)
+                        c.itemconfigure(self._pool_sep_line_r[s], fill=sep_line_col, state="normal")
 
                     # Collapse icon (real separators only)
                     if not is_synthetic:
@@ -1579,6 +1662,7 @@ class ModListPanel(ctk.CTkFrame):
                     c.itemconfigure(self._pool_sep_icon[s], state="hidden")
                     c.itemconfigure(self._pool_sep_line_l[s], state="hidden")
                     c.itemconfigure(self._pool_sep_line_r[s], state="hidden")
+                    c.itemconfigure(self._pool_sep_badge[s], state="hidden")
 
                     # Flags icon
                     flag_x = self._COL_X[2] + 10
@@ -1712,6 +1796,7 @@ class ModListPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_sep_icon[s], state="hidden")
                 c.itemconfigure(self._pool_sep_line_l[s], state="hidden")
                 c.itemconfigure(self._pool_sep_line_r[s], state="hidden")
+                c.itemconfigure(self._pool_sep_badge[s], state="hidden")
                 c.itemconfigure(self._pool_cb_rect[s], state="hidden")
                 c.itemconfigure(self._pool_cb_mark[s], state="hidden")
                 self._pool_data_idx[s] = -1
@@ -2108,6 +2193,7 @@ class ModListPanel(ctk.CTkFrame):
         cy = self._event_canvas_y(event)
         idx = self._canvas_y_to_index(cy)
         shift = bool(event.state & 0x1)
+        ctrl  = bool(event.state & 0x4)
 
         if self._entries[idx].is_separator:
             if self._entries[idx].name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
@@ -2126,6 +2212,17 @@ class ModListPanel(ctk.CTkFrame):
                 # Click on collapse triangle zone (left 22px) — toggle collapse
                 if event.x < 22:
                     self._toggle_collapse(self._entries[idx].name)
+                    return
+                # Ctrl+click on separator: toggle item in/out of selection
+                if ctrl:
+                    if idx in self._sel_set:
+                        self._sel_set.discard(idx)
+                        if self._sel_idx == idx:
+                            self._sel_idx = next(iter(self._sel_set)) if self._sel_set else -1
+                    else:
+                        self._sel_set.add(idx)
+                        self._sel_idx = idx
+                    self._redraw()
                     return
                 # Shift+click on separator: extend selection range
                 if shift and self._sel_idx >= 0:
@@ -2154,6 +2251,19 @@ class ModListPanel(ctk.CTkFrame):
                     lambda: self._activate_drag(idx, cy, is_block, pending_block),
                 )
                 self._redraw()
+            return
+
+        # Ctrl+click: toggle individual item in/out of selection
+        if ctrl:
+            if idx in self._sel_set:
+                self._sel_set.discard(idx)
+                if self._sel_idx == idx:
+                    self._sel_idx = next(iter(self._sel_set)) if self._sel_set else -1
+            else:
+                self._sel_set.add(idx)
+                self._sel_idx = idx
+            self._redraw()
+            self._update_info()
             return
 
         # Shift+click: extend selection from anchor to clicked row
@@ -2482,10 +2592,14 @@ class ModListPanel(ctk.CTkFrame):
                     if hasattr(app, "_plugin_panel"):
                         plugin_ext = {e.lower() for e in app._plugin_panel._plugin_extensions}
                     if plugin_ext:
-                        plugin_files = sorted(
-                            p.name for p in mod_dir.rglob("*")
-                            if p.is_file() and p.suffix.lower() in plugin_ext
-                        )
+                        plugin_files = []
+                        for p in mod_dir.rglob("*"):
+                            try:
+                                if p.is_file() and p.suffix.lower() in plugin_ext:
+                                    plugin_files.append(p.name)
+                            except PermissionError:
+                                pass
+                        plugin_files.sort()
             elif entry.name == OVERWRITE_NAME:
                 mod_folder = staging_root.parent / "overwrite"
             elif entry.name == ROOT_FOLDER_NAME:
@@ -2517,6 +2631,7 @@ class ModListPanel(ctk.CTkFrame):
         if is_separator and not is_synthetic:
             menu.add_command("Rename separator", lambda: self._rename_separator(idx))
             menu.add_command("Change separator color", lambda: self._change_separator_color(idx))
+            menu.add_command("Separator settings…", lambda: self._show_sep_settings(idx))
             menu.add_command("Remove separator", lambda: self._remove_separator(idx))
         elif not is_separator and not self._entries[idx].locked:
             menu.add_command("Rename mod", lambda: self._rename_mod(idx))
@@ -2715,7 +2830,7 @@ class ModListPanel(ctk.CTkFrame):
         if self._modlist_path is not None:
             # Staging path is <profiles_root>/<game>/mods/<mod_name>
             staging = self._staging_root / entry.name
-            index_path = self._staging_root.parent / "modindex.txt"
+            index_path = self._staging_root.parent / "modindex.bin"
             # Remove deployed files from the game directory before deleting the
             # staging folder so restore_data_core() doesn't misidentify the
             # leftover hardlinks/copies as runtime-generated files.
@@ -2787,7 +2902,7 @@ class ModListPanel(ctk.CTkFrame):
         index_path = None
         if self._modlist_path is not None:
             staging_root = self._staging_root
-            index_path = self._staging_root.parent / "modindex.txt"
+            index_path = self._staging_root.parent / "modindex.bin"
         removed_names: list[str] = []
         # Remove from highest index first to avoid shifting
         for i in sorted(indices, reverse=True):
@@ -2918,6 +3033,103 @@ class ModListPanel(ctk.CTkFrame):
             self._sep_colors[entry.name] = dlg.result
             self._save_sep_colors()
             self._redraw()
+
+    def _show_sep_settings(self, idx: int) -> None:
+        """Open the separator settings panel (overlays the plugin panel)."""
+        if not (0 <= idx < len(self._entries)):
+            return
+        entry = self._entries[idx]
+        if not entry.is_separator:
+            return
+        sep_name = entry.name
+        _info = self._sep_deploy_paths.get(sep_name, {})
+        current_path = _info.get("path", "") if isinstance(_info, dict) else ""
+        current_raw = _info.get("raw", False) if isinstance(_info, dict) else False
+
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_sep_settings_panel", None)
+        if show_fn:
+            def _on_save(val: str, raw: bool):
+                if val or raw:
+                    self._sep_deploy_paths[sep_name] = {"path": val, "raw": raw}
+                else:
+                    self._sep_deploy_paths.pop(sep_name, None)
+                self._save_sep_deploy_paths()
+                self._redraw()
+            show_fn(sep_name, current_path, _on_save, current_raw=current_raw)
+            return
+
+        # Fallback: plain tk overlay on self (no portal_filechooser)
+        self._close_sep_settings()
+        overlay = tk.Frame(self, bg=BG_PANEL, bd=0, highlightthickness=0)
+        path_var = tk.StringVar(value=current_path)
+
+        title_bar = tk.Frame(overlay, bg=BG_HEADER, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        tk.Label(title_bar, text=f"Separator Settings \u2014 {sep_name}",
+                 bg=BG_HEADER, fg=TEXT_MAIN, font=_theme.FONT_BOLD, anchor="w",
+        ).pack(side="left", padx=12, pady=8)
+
+        content = tk.Frame(overlay, bg=BG_PANEL)
+        content.pack(fill="both", expand=True, padx=16, pady=16)
+        tk.Label(content, text="Deployment Location", bg=BG_PANEL, fg=TEXT_SEP,
+                 font=_theme.FONT_SMALL, anchor="w",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        entry_w = tk.Entry(content, textvariable=path_var, bg="#1e1e1e", fg=TEXT_MAIN,
+                           insertbackground=TEXT_MAIN, relief="flat", font=_theme.FONT_SMALL)
+        entry_w.grid(row=1, column=0, sticky="ew", padx=(0, 6))
+
+        def _browse():
+            from tkinter import filedialog
+            chosen = filedialog.askdirectory(title="Select deployment directory",
+                                             initialdir=path_var.get() or str(Path.home()))
+            if chosen:
+                path_var.set(chosen)
+
+        tk.Button(content, text="Browse", command=_browse, bg=BG_HEADER, fg=TEXT_MAIN,
+                  relief="flat", font=_theme.FONT_SMALL, cursor="hand2",
+        ).grid(row=1, column=1, padx=(0, 4))
+        tk.Button(content, text="Clear", command=lambda: path_var.set(""), bg=BG_HEADER,
+                  fg=TEXT_MAIN, relief="flat", font=_theme.FONT_SMALL, cursor="hand2",
+        ).grid(row=1, column=2)
+        content.columnconfigure(0, weight=1)
+        tk.Label(content, text="Leave blank to use the game\u2019s default deployment directory.",
+                 bg=BG_PANEL, fg=TEXT_SEP, font=_theme.FONT_SMALL, anchor="w",
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(6, 0))
+
+        btn_row = tk.Frame(overlay, bg=BG_PANEL)
+        btn_row.pack(side="bottom", fill="x", padx=16, pady=12)
+
+        def _save():
+            val = path_var.get().strip()
+            if val:
+                self._sep_deploy_paths[sep_name] = {"path": val, "raw": False}
+            else:
+                self._sep_deploy_paths.pop(sep_name, None)
+            self._save_sep_deploy_paths()
+            self._redraw()
+            self._close_sep_settings()
+
+        tk.Button(btn_row, text="Save", command=_save, bg="#4a4a8a", fg=TEXT_MAIN,
+                  relief="flat", font=_theme.FONT_SMALL, cursor="hand2", width=10,
+        ).pack(side="right", padx=(6, 0))
+        tk.Button(btn_row, text="Cancel", command=self._close_sep_settings, bg=BG_HEADER,
+                  fg=TEXT_MAIN, relief="flat", font=_theme.FONT_SMALL, cursor="hand2", width=10,
+        ).pack(side="right")
+
+        overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._sep_settings_overlay = overlay
+        entry_w.focus_set()
+
+    def _close_sep_settings(self) -> None:
+        panel = getattr(self, "_sep_settings_overlay", None)
+        if panel is not None:
+            try:
+                panel.destroy()
+            except Exception:
+                pass
+            self._sep_settings_overlay = None
 
     def _show_separator_picker(self, mod_idx: int, sep_names: list[str],
                                parent_dismiss=None,
@@ -3534,6 +3746,38 @@ class ModListPanel(ctk.CTkFrame):
         except Exception as e:
             self._log(f"Could not open folder: {e}")
 
+    def _on_shift_middle_click(self, event) -> None:
+        """Shift+middle-click: open the hovered mod's Nexus page in the background."""
+        if not self._entries or self._modlist_path is None:
+            return
+        cy = self._event_canvas_y(event)
+        idx = self._canvas_y_to_index(cy)
+        entry = self._entries[idx]
+        if entry.is_separator:
+            return
+        staging_root = self._staging_root
+        meta_path = staging_root / entry.name / "meta.ini"
+        if not meta_path.is_file():
+            return
+        try:
+            meta = read_meta(meta_path)
+        except Exception:
+            return
+        if meta.mod_id <= 0:
+            return
+        app = self.winfo_toplevel()
+        _cur_game = _GAMES.get(getattr(
+            getattr(app, "_topbar", None), "_game_var", tk.StringVar()).get(), None)
+        domain = (
+            _cur_game.nexus_game_domain
+            if _cur_game and _cur_game.nexus_game_domain
+            else meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
+            if "/mods/" in meta.nexus_page_url
+            else meta.game_domain
+        )
+        url = f"https://www.nexusmods.com/{domain}/mods/{meta.mod_id}"
+        self._open_nexus_page(url)
+
     def _open_nexus_page(self, url: str) -> None:
         """Open a Nexus Mods page in the default browser."""
         if url:
@@ -3541,7 +3785,7 @@ class ModListPanel(ctk.CTkFrame):
             self._log(f"Nexus: Opened {url}")
 
     def _show_missing_reqs(self, mod_name: str, dep_names: list[str]) -> None:
-        """Open a CTk window listing missing requirements in browse-tab style, with View/Install and Ignore checkbox."""
+        """Show missing requirements as an inline overlay over the plugin panel."""
         app = self.winfo_toplevel()
         api = getattr(app, "_nexus_api", None)
         if api is None:
@@ -3554,8 +3798,7 @@ class ModListPanel(ctk.CTkFrame):
         game = _GAMES.get(topbar._game_var.get()) if topbar else None
         domain = (game.nexus_game_domain if game and game.is_configured() else "") or ""
 
-        staging_root = self._staging_root
-        meta_path = staging_root / mod_name / "meta.ini"
+        meta_path = self._staging_root / mod_name / "meta.ini"
         if not meta_path.is_file():
             self._log(f"{mod_name}: No meta.ini found.")
             return
@@ -3573,7 +3816,6 @@ class ModListPanel(ctk.CTkFrame):
             self._log("Could not determine game domain.")
             return
 
-        # Parse missing mod IDs from meta.ini
         missing_ids: set[int] = set()
         for pair in (meta.missing_requirements or "").split(";"):
             part = pair.split(":", 1)[0].strip()
@@ -3583,83 +3825,7 @@ class ModListPanel(ctk.CTkFrame):
                 except ValueError:
                     pass
 
-        win = ctk.CTkToplevel(app)
-        win.title(f"Missing requirements — {mod_name}")
-        win.geometry("640x400")
-        win.minsize(400, 300)
-        win.configure(fg_color=BG_PANEL)
-
-        # Header
-        header = ctk.CTkFrame(win, fg_color=BG_HEADER, corner_radius=0, height=36)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        ctk.CTkLabel(
-            header, text=f"Missing requirements for: {mod_name}",
-            font=_theme.FONT_SMALL, text_color=TEXT_MAIN,
-        ).pack(side="left", padx=10, pady=6)
-
-        # Status (Loading… or error)
-        status_var = tk.StringVar(value="Loading…")
-        status_lbl = ctk.CTkLabel(
-            win, textvariable=status_var,
-            font=_theme.FONT_SMALL, text_color=TEXT_DIM,
-        )
-        status_lbl.pack(pady=20)
-
-        # Scrollable list area (canvas + scrollbar) — built after fetch
-        list_frame = tk.Frame(win, bg=BG_DEEP)
-        list_frame.pack(fill="both", expand=True, padx=4, pady=4)
-        list_frame.grid_rowconfigure(0, weight=1)
-        list_frame.grid_columnconfigure(0, weight=1)
-        canvas = tk.Canvas(
-            list_frame, bg=BG_DEEP, bd=0, highlightthickness=0,
-            yscrollincrement=1, takefocus=0,
-        )
-        vsb = tk.Scrollbar(list_frame, orient="vertical", command=canvas.yview,
-                           bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
-                           highlightthickness=0, bd=0)
-        canvas.configure(yscrollcommand=vsb.set)
-        canvas.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-
-        ROW_H = 56
-        BTN_W = 70
-        VIEW_W = 56
-        NAME_PAD = 10
-
-        def _on_wheel(e):
-            if getattr(e, "delta", 0):
-                canvas.yview_scroll(-1 if e.delta > 0 else 1, "units")
-            return "break"
-
-        canvas.bind("<MouseWheel>", _on_wheel)
-
-        # Footer: Ignore checkbox + Close
-        footer = ctk.CTkFrame(win, fg_color=BG_HEADER, corner_radius=0, height=44)
-        footer.pack(fill="x", side="bottom")
-        footer.pack_propagate(False)
-        ignore_var = tk.BooleanVar(value=mod_name in self._ignored_missing_reqs)
-        ctk.CTkCheckBox(
-            footer, text="Ignore requirements",
-            variable=ignore_var,
-            font=_theme.FONT_SMALL, text_color=TEXT_MAIN,
-            checkbox_width=18, checkbox_height=18,
-        ).pack(side="left", padx=12, pady=10)
-        def _on_close():
-            if ignore_var.get():
-                self._ignored_missing_reqs.add(mod_name)
-            else:
-                self._ignored_missing_reqs.discard(mod_name)
-            self._save_ignored_missing_reqs()
-            self._redraw()
-            win.destroy()
-        ctk.CTkButton(
-            footer, text="Close", width=80, height=28,
-            fg_color=ACCENT, hover_color=ACCENT_HOV,
-            command=_on_close,
-        ).pack(side="right", padx=12, pady=8)
-
-        # Resolve app that has _install_from_browse (may be parent of toplevel, not toplevel itself)
+        # Resolve install_from_browse callback
         _app = app
         for _ in range(5):
             if hasattr(_app, "_install_from_browse"):
@@ -3669,128 +3835,18 @@ class ModListPanel(ctk.CTkFrame):
                 break
         install_from_browse = getattr(_app, "_install_from_browse", None) if _app else None
 
-        def _mod_url(req: NexusModRequirement) -> str:
-            return req.url or f"https://www.nexusmods.com/{domain or req.game_domain or ''}/mods/{req.mod_id}"
-
-        def _on_install(req: NexusModRequirement):
-            if install_from_browse is not None:
-                entry = SimpleNamespace(
-                    mod_id=req.mod_id,
-                    domain_name=domain or req.game_domain or "",
-                    name=req.mod_name or f"Mod {req.mod_id}",
-                )
-                install_from_browse(entry)
-            else:
-                # No install callback (e.g. wrong widget hierarchy) or user not premium: open mod in browser
-                webbrowser.open(_mod_url(req))
-                self._log(f"Nexus: Opened {req.mod_name} in browser.")
-
-        def _populate(missing_list: list[NexusModRequirement]) -> None:
-            status_lbl.pack_forget()
-            canvas_w = [600]
-
-            def _on_resize(ev):
-                canvas_w[0] = max(ev.width, 200)
-                _repaint()
-
-            list_frame.bind("<Configure>", _on_resize)
-            row_bounds: list[tuple[int, int]] = []
-            view_btns: list[tk.Button] = []
-            install_btns: list[tk.Button] = []
-
-            def _repaint():
-                canvas.delete("all")
-                row_bounds.clear()
-                cw = canvas_w[0]
-                btn_left = cw - 2 * BTN_W - 16
-                name_max_px = max(btn_left - NAME_PAD - 8, 20)
-                y = 0
-                for i, req in enumerate(missing_list):
-                    y_top = y
-                    notes = (req.notes or "").strip() or "No notes"
-                    title = req.mod_name + (" (External)" if req.is_external else "")
-                    # Measure wrapped notes height
-                    line_h = 16
-                    lines = 1
-                    w = name_max_px
-                    for chunk in notes.replace("\n", " ").split():
-                        pass  # simplified: one line for notes
-                    desc_h = min(line_h * 2, 32)
-                    row_h = max(ROW_H, 24 + desc_h + 12)
-                    y_bot = y_top + row_h
-                    row_bounds.append((y_top, y_bot))
-                    bg = BG_ROW_ALT if i % 2 else BG_ROW
-                    canvas.create_rectangle(0, y_top, cw, y_bot, fill=bg, outline="")
-                    canvas.create_text(
-                        NAME_PAD, y_top + 12,
-                        text=title[:80] + ("…" if len(title) > 80 else ""),
-                        anchor="w", font=("Segoe UI", _theme.FS11), fill=TEXT_MAIN,
-                    )
-                    canvas.create_text(
-                        NAME_PAD, y_top + 30,
-                        text=notes[:120] + ("…" if len(notes) > 120 else ""),
-                        anchor="nw", width=name_max_px,
-                        font=("Segoe UI", _theme.FS10), fill=TEXT_DIM,
-                    )
-                    y = y_bot
-                total_h = max(y, 1)
-                canvas.configure(scrollregion=(0, 0, cw, total_h))
-
-                # Buttons: create or reuse
-                while len(view_btns) < len(missing_list):
-                    idx = len(view_btns)
-                    req = missing_list[idx]
-                    url = req.url or f"https://www.nexusmods.com/{domain or req.game_domain}/mods/{req.mod_id}"
-                    vb = tk.Button(
-                        canvas, text="View",
-                        bg=ACCENT, fg="#ffffff", activebackground=ACCENT_HOV,
-                        relief="flat", font=("Segoe UI", _theme.FS10), bd=0,
-                        highlightthickness=0, cursor="hand2",
-                        command=lambda u=url: webbrowser.open(u),
-                    )
-                    ib = tk.Button(
-                        canvas, text="Install",
-                        bg="#2d7a2d", fg="#ffffff", activebackground="#3a9e3a",
-                        relief="flat", font=("Segoe UI", _theme.FS10), bd=0,
-                        highlightthickness=0, cursor="hand2",
-                        command=lambda r=req: _on_install(r),
-                    )
-                    view_btns.append(vb)
-                    install_btns.append(ib)
-                for idx in range(len(missing_list)):
-                    y_top, y_bot = row_bounds[idx]
-                    cy = y_top + (y_bot - y_top) // 2
-                    vx = cw - BTN_W - 4 - BTN_W - 4
-                    ix = cw - BTN_W - 4
-                    canvas.create_window(vx, cy, window=view_btns[idx], width=VIEW_W, height=28, tags="btns")
-                    canvas.create_window(ix, cy, window=install_btns[idx], width=BTN_W, height=28, tags="btns")
-
-            _repaint()
-
-        def _fetch_done(missing_list: list[NexusModRequirement] | None, err: str | None) -> None:
-            def _run():
-                if err:
-                    status_var.set(err)
-                    return
-                if not missing_list:
-                    status_var.set("No missing requirements (list is empty).")
-                    return
-                _populate(missing_list)
-            app.after(0, _run)
-
-        def _worker():
-            err = None
-            missing_list: list[NexusModRequirement] = []
-            try:
-                all_reqs = api.get_mod_requirements(domain, meta.mod_id)
-                for r in all_reqs:
-                    if r.mod_id in missing_ids:
-                        missing_list.append(r)
-            except Exception as e:
-                err = f"Could not load requirements: {e}"
-            _fetch_done(missing_list, err)
-
-        threading.Thread(target=_worker, daemon=True).start()
+        if hasattr(app, "show_missing_reqs_panel"):
+            app.show_missing_reqs_panel(
+                mod_name=mod_name,
+                domain=domain,
+                mod_id=meta.mod_id,
+                missing_ids=missing_ids,
+                api=api,
+                install_from_browse=install_from_browse,
+                ignored_set=self._ignored_missing_reqs,
+                save_ignored_fn=self._save_ignored_missing_reqs,
+                redraw_fn=self._redraw,
+            )
 
     def _endorse_nexus_mod(self, mod_name: str, domain: str, meta) -> None:
         """Endorse a mod on Nexus Mods in a background thread."""
@@ -4520,7 +4576,7 @@ class ModListPanel(ctk.CTkFrame):
                         ))
                 if rescan_index:
                     rebuild_mod_index(
-                        output.parent / "modindex.txt",
+                        output.parent / "modindex.bin",
                         staging,
                         strip_prefixes=strip_prefixes,
                         per_mod_strip_prefixes=self._mod_strip_prefixes,

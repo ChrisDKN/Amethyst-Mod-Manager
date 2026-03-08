@@ -46,10 +46,14 @@ from Utils.deploy import (
     deploy_filemap,
     deploy_filemap_to_root,
     load_per_mod_strip_prefixes,
+    load_separator_deploy_paths,
+    expand_separator_deploy_paths,
+    cleanup_custom_deploy_dirs,
     move_to_core,
     restore_data_core,
     restore_filemap_from_root,
 )
+from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir, get_custom_games_dir, get_custom_game_images_dir
 
 _PROFILES_DIR = get_profiles_dir()
@@ -396,11 +400,15 @@ class StandardCustomGame(BaseGame):
         _log(f"Step 2: Transferring mod files into {data_dir.name}/ ({mode.name}) ...")
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
+        _sep_deploy = load_separator_deploy_paths(profile_dir)
+        _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
+        per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
         linked_mod, placed = deploy_filemap(
             filemap, data_dir, staging,
             mode=mode,
             strip_prefixes=self.mod_folder_strip_prefixes,
             per_mod_strip_prefixes=per_mod_strip,
+            per_mod_deploy_dirs=per_mod_deploy,
             log_fn=_log,
             progress_fn=progress_fn,
         )
@@ -418,6 +426,10 @@ class StandardCustomGame(BaseGame):
         data_dir = self.get_mod_data_path()
         if data_dir is None:
             raise RuntimeError("Mod data path could not be resolved.")
+        _profile_dir = self._active_profile_dir
+        _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
+        cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
         _log(f"Restore: clearing {data_dir.name}/ and moving {data_dir.name}_Core/ back ...")
         restored = restore_data_core(
             data_dir,

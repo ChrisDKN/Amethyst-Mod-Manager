@@ -11,6 +11,7 @@ Allows the user to:
 from __future__ import annotations
 
 import threading
+import webbrowser
 from typing import Callable, Optional
 
 import customtkinter as ctk
@@ -632,11 +633,12 @@ class NexusSettingsPanel(ctk.CTkFrame):
 
     def __init__(self, parent, on_key_changed=None,
                  log_fn: Optional[Callable[[str], None]] = None,
-                 nexus_api_getter=None, on_done=None):
+                 nexus_api_getter=None, game_domain_getter=None, on_done=None):
         super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
         self._on_key_changed = on_key_changed
         self._log = log_fn or (lambda _: None)
         self._nexus_api_getter = nexus_api_getter or (lambda: None)
+        self._game_domain_getter = game_domain_getter or (lambda: None)
         self._on_done = on_done or (lambda p: None)
         self.result: Optional[bool] = None
         self._key_changed = False
@@ -675,17 +677,17 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ctk.CTkLabel(
             body, text="Nexus Mods API Key",
             font=FONT_BOLD, text_color=TEXT_MAIN,
-        ).pack(**pad, anchor="w")
+        ).pack(**pad, anchor="center")
 
         ctk.CTkLabel(
             body,
             text="Log in via browser, or paste a personal API key manually.",
             font=FONT_SMALL, text_color=TEXT_DIM,
-        ).pack(padx=16, pady=(2, 8), anchor="w")
+        ).pack(padx=16, pady=(2, 8), anchor="center")
 
         # OAuth Login
         sso_frame = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
-        sso_frame.pack(padx=16, pady=(0, 6), fill="x")
+        sso_frame.pack(padx=16, pady=(0, 6))
 
         ctk.CTkLabel(
             sso_frame, text="Browser Login",
@@ -713,7 +715,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
             body,
             text="Or paste a personal API key (nexusmods.com → Settings → API Keys):",
             font=FONT_SMALL, text_color=TEXT_DIM,
-        ).pack(padx=16, pady=(4, 4), anchor="w")
+        ).pack(padx=16, pady=(4, 4), anchor="center")
 
         key_frame = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
         key_frame.pack(padx=16, pady=4, fill="x")
@@ -738,7 +740,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ).pack(side="right", padx=8, pady=8)
 
         btn_frame = ctk.CTkFrame(body, fg_color="transparent")
-        btn_frame.pack(padx=16, pady=8, fill="x")
+        btn_frame.pack(padx=16, pady=8)
 
         ctk.CTkButton(
             btn_frame, text="Validate Key", width=120, font=FONT_BOLD,
@@ -761,7 +763,21 @@ class NexusSettingsPanel(ctk.CTkFrame):
         self._status_label = ctk.CTkLabel(
             body, text="", font=FONT_SMALL, text_color=TEXT_DIM,
         )
-        self._status_label.pack(padx=16, pady=(4, 8), anchor="w")
+        self._status_label.pack(padx=16, pady=(4, 8), anchor="center")
+
+        ctk.CTkFrame(body, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)
+
+        # Open on Nexus
+        _domain = self._game_domain_getter()
+        self._open_nexus_frame = ctk.CTkFrame(body, fg_color="transparent")
+        self._open_nexus_frame.pack(padx=16, pady=(8, 4))
+        ctk.CTkButton(
+            self._open_nexus_frame, text="🌐  Open Game on Nexus Mods", width=220, font=FONT_BOLD,
+            fg_color="#d98f40", hover_color="#e5a04d", text_color="white",
+            command=self._on_open_nexus,
+        ).pack()
+        if not _domain:
+            self._open_nexus_frame.pack_forget()
 
         ctk.CTkFrame(body, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)
 
@@ -769,16 +785,16 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ctk.CTkLabel(
             body, text="API Rate Limit",
             font=FONT_BOLD, text_color=TEXT_MAIN,
-        ).pack(padx=16, pady=(8, 2), anchor="w")
+        ).pack(padx=16, pady=(8, 2), anchor="center")
 
         ctk.CTkLabel(
             body,
             text="Current Nexus API request quota (hourly and daily). Click Refresh to fetch latest.",
             font=FONT_SMALL, text_color=TEXT_DIM,
-        ).pack(padx=16, pady=(0, 6), anchor="w")
+        ).pack(padx=16, pady=(0, 6), anchor="center")
 
         rate_frame = ctk.CTkFrame(body, fg_color="transparent")
-        rate_frame.pack(padx=16, pady=4, fill="x")
+        rate_frame.pack(padx=16, pady=4)
 
         self._rate_limit_label = ctk.CTkLabel(
             rate_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
@@ -799,16 +815,16 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ctk.CTkLabel(
             body, text="NXM Protocol Handler",
             font=FONT_BOLD, text_color=TEXT_MAIN,
-        ).pack(padx=16, pady=(8, 2), anchor="w")
+        ).pack(padx=16, pady=(8, 2), anchor="center")
 
         ctk.CTkLabel(
             body,
             text="Handles nxm:// links from the \"Download with Manager\" button.",
             font=FONT_SMALL, text_color=TEXT_DIM,
-        ).pack(padx=16, pady=(0, 8), anchor="w")
+        ).pack(padx=16, pady=(0, 8), anchor="center")
 
         nxm_frame = ctk.CTkFrame(body, fg_color="transparent")
-        nxm_frame.pack(padx=16, pady=(4, 12), fill="x")
+        nxm_frame.pack(padx=16, pady=(4, 12))
 
         self._nxm_status = ctk.CTkLabel(
             nxm_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
@@ -828,6 +844,13 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ).pack(side="left")
 
         self._update_nxm_status()
+
+    # -- Open on Nexus -------------------------------------------------------
+
+    def _on_open_nexus(self):
+        domain = self._game_domain_getter()
+        if domain:
+            webbrowser.open(f"https://www.nexusmods.com/games/{domain}")
 
     # -- Show/hide key -------------------------------------------------------
 
