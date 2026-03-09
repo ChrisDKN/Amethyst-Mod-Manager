@@ -257,3 +257,27 @@ def write_disabled_plugins(path: Path, data: dict[str, list[str]]) -> None:
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     tmp.replace(path)
+
+
+def read_excluded_mod_files(path: Path) -> dict[str, list[str]]:
+    """Read excluded_mod_files.json.  Returns {} if absent or corrupt.
+
+    Format: {mod_name: [rel_key_lower, ...]}
+    """
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if isinstance(v, list)}
+    except Exception:
+        pass
+    return {}
+
+
+def write_excluded_mod_files(path: Path, data: dict[str, list[str]]) -> None:
+    """Write excluded_mod_files.json atomically."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)

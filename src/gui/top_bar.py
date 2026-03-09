@@ -310,10 +310,19 @@ class TopBar(ctk.CTkFrame):
                 app._plugin_panel._plugins_path = plugins_path
                 app._plugin_panel._plugin_extensions = game.plugin_extensions
                 app._plugin_panel._vanilla_plugins = _vanilla_plugins_for_game(game)
-                app._plugin_panel._staging_root = game.get_effective_mod_staging_path()
+                _staging = game.get_effective_mod_staging_path()
+                app._plugin_panel._staging_root = _staging
                 data_path = game.get_mod_data_path() if hasattr(game, 'get_mod_data_path') else None
                 app._plugin_panel._data_dir = data_path
                 app._plugin_panel._game = game
+                # Mod Files tab paths
+                from Utils.plugins import read_excluded_mod_files as _ref
+                app._plugin_panel._mod_files_index_path = _staging.parent / "modindex.bin"
+                app._plugin_panel._mod_files_excluded_path = profile_dir / "excluded_mod_files.json"
+                _exc_raw = _ref(app._plugin_panel._mod_files_excluded_path)
+                app._plugin_panel._mod_files_excluded = {k: set(v) for k, v in _exc_raw.items()}
+                app._plugin_panel._mod_files_on_change = app._mod_panel._rebuild_filemap
+                app._plugin_panel.show_mod_files(None)
             try:
                 app._mod_panel.load_game(game, self._profile_var.get())
             except (FileNotFoundError, OSError) as e:
@@ -679,12 +688,16 @@ class TopBar(ctk.CTkFrame):
                 filemap_out  = staging.parent / "filemap.txt"
                 if modlist_path.is_file():
                     try:
+                        from Utils.plugins import read_excluded_mod_files as _read_exc
+                        _exc_raw = _read_exc(modlist_path.parent / "excluded_mod_files.json")
+                        _exc = {k: set(v) for k, v in _exc_raw.items()} if _exc_raw else None
                         build_filemap(
                             modlist_path, staging, filemap_out,
                             strip_prefixes=game.mod_folder_strip_prefixes or None,
                             per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
                             allowed_extensions=game.mod_install_extensions or None,
                             root_deploy_folders=game.mod_root_deploy_folders or None,
+                            excluded_mod_files=_exc,
                         )
                     except Exception as fm_err:
                         _tlog(f"Filemap rebuild warning: {fm_err}")

@@ -1,5 +1,5 @@
 """
-Plugin panel: Plugins, Archives, Data, Downloads, Tracked, Endorsed tabs.
+Plugin panel: Plugins, Mod Files, Data, Downloads, Tracked, Endorsed tabs.
 Used by App. Imports theme, game_helpers, dialogs, install_mod, subpanels.
 """
 
@@ -59,6 +59,8 @@ from Utils.plugins import (
     write_loadorder,
     sync_plugins_from_filemap,
     prune_plugins_from_filemap,
+    read_excluded_mod_files,
+    write_excluded_mod_files,
 )
 from Utils.plugin_parser import check_missing_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
@@ -103,7 +105,7 @@ def _truncate_plugin_name(widget: tk.Widget, text: str, font: tuple, max_px: int
 # PluginPanel
 # ---------------------------------------------------------------------------
 class PluginPanel(ctk.CTkFrame):
-    """Right panel: tabview with Plugins, Archives, Data, Downloads, Tracked."""
+    """Right panel: tabview with Plugins, Mod Files, Data, Downloads, Tracked."""
 
     PLUGIN_HEADERS = ["", "Plugin Name", "Flags", "🔒", "Index"]
     ROW_H = 26
@@ -184,6 +186,13 @@ class PluginPanel(ctk.CTkFrame):
         # Canvas dimensions
         self._pcanvas_w: int = 400
 
+        # Mod Files tab state
+        self._mod_files_mod_name: str | None = None   # currently displayed mod
+        self._mod_files_index_path: Path | None = None  # modindex.bin path
+        self._mod_files_excluded_path: Path | None = None  # excluded_mod_files.json path
+        self._mod_files_excluded: dict[str, set[str]] = {}  # mod_name → set of excluded rel_keys
+        self._mod_files_on_change: callable | None = None  # called when exclusions change
+
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -252,24 +261,16 @@ class PluginPanel(ctk.CTkFrame):
         )
         self._tabs.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
 
-        for name in ("Plugins", "Archives", "Data", "Downloads", "Tracked", "Endorsed", "Browse"):
+        for name in ("Plugins", "Mod Files", "Data", "Downloads", "Tracked", "Endorsed", "Browse"):
             self._tabs.add(name)
 
         self._build_plugins_tab()
+        self._build_mod_files_tab()
         self._build_data_tab()
         self._build_downloads_tab()
         self._build_tracked_tab()
         self._build_endorsed_tab()
         self._build_browse_tab()
-
-        for name in ("Archives",):
-            tab = self._tabs.tab(name)
-            tab.grid_rowconfigure(0, weight=1)
-            tab.grid_columnconfigure(0, weight=1)
-            ctk.CTkLabel(
-                tab, text=f"[ {name} — Coming Soon ]",
-                font=_theme.FONT_NORMAL, text_color=TEXT_DIM
-            ).grid(row=0, column=0)
 
     # ------------------------------------------------------------------
     # Executable toolbar — scan / run
@@ -918,12 +919,15 @@ class PluginPanel(ctk.CTkFrame):
                 filemap_out = profile_root / "filemap.txt"
                 if modlist_path.is_file():
                     try:
+                        _exc_raw = read_excluded_mod_files(modlist_path.parent / "excluded_mod_files.json")
+                        _exc = {k: set(v) for k, v in _exc_raw.items()} if _exc_raw else None
                         build_filemap(
                             modlist_path, staging, filemap_out,
                             strip_prefixes=game.mod_folder_strip_prefixes or None,
                             per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
                             allowed_extensions=game.mod_install_extensions or None,
                             root_deploy_folders=game.mod_root_deploy_folders or None,
+                            excluded_mod_files=_exc,
                         )
                     except Exception as fm_err:
                         _tlog(f"Run EXE: filemap rebuild warning: {fm_err}")
@@ -1251,6 +1255,284 @@ class PluginPanel(ctk.CTkFrame):
             output_dir=output_dir,
             log_fn=self._log,
         )
+
+    # ------------------------------------------------------------------
+    # Mod Files tab
+    # ------------------------------------------------------------------
+
+    def _build_mod_files_tab(self):
+        tab = self._tabs.tab("Mod Files")
+        tab.grid_rowconfigure(1, weight=1)
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_columnconfigure(1, weight=0)
+
+        # Toolbar
+        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28, highlightthickness=0)
+        toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
+        toolbar.grid_propagate(False)
+
+        self._mod_files_label = tk.Label(
+            toolbar, text="(no mod selected)",
+            bg=BG_HEADER, fg=TEXT_DIM,
+            font=("Segoe UI", _theme.FS10),
+        )
+        self._mod_files_label.pack(side="left", padx=8, pady=4)
+
+        # Treeview — styled to match CTkTreeview / Data tab
+        from PIL import Image as _PIL_Image
+        from gui.ctk_components import ICON_PATH as _ICON_PATH, _load_icon_image as _load_iim
+        _im_open  = _load_iim(_ICON_PATH.get("arrow"))
+        _im_close = _im_open.rotate(90)
+        _im_empty = _PIL_Image.new("RGBA", (15, 15), "#00000000")
+
+        style = ttk.Style()
+        style.theme_use("default")
+        # Use unique names to avoid conflicting with CTkTreeview's global elements
+        _img_open_mf  = ImageTk.PhotoImage(_im_open,  name="img_open_mf",  size=(15, 15))
+        _img_close_mf = ImageTk.PhotoImage(_im_close, name="img_close_mf", size=(15, 15))
+        _img_empty_mf = ImageTk.PhotoImage(_im_empty, name="img_empty_mf", size=(15, 15))
+        self._mf_arrow_images = (_img_open_mf, _img_close_mf, _img_empty_mf)  # keep refs
+
+        try:
+            style.element_create("Treeitem.mfindicator", "image", "img_close_mf",
+                ("user1", "!user2", "img_open_mf"), ("user2", "img_empty_mf"),
+                sticky="w", width=15, height=15)
+            style.layout("ModFiles.Treeview.Item", [
+                ("Treeitem.padding", {"sticky": "nsew", "children": [
+                    ("Treeitem.mfindicator", {"side": "left", "sticky": "nsew"}),
+                    ("Treeitem.image",       {"side": "left", "sticky": "nsew"}),
+                    ("Treeitem.focus",       {"side": "left", "sticky": "nsew", "children": [
+                        ("Treeitem.text",    {"side": "left", "sticky": "nsew"}),
+                    ]}),
+                ]}),
+            ])
+        except Exception:
+            pass  # element may already exist on re-open
+
+        _bg = BG_DEEP
+        _fg = TEXT_MAIN
+        style.configure("ModFiles.Treeview",
+            background=_bg, foreground=_fg,
+            fieldbackground=_bg, borderwidth=0,
+            rowheight=22, font=("Segoe UI", _theme.FS10),
+            focuscolor=_bg,
+        )
+        style.map("ModFiles.Treeview",
+            background=[("selected", _bg), ("focus", _bg)],
+            foreground=[("selected", ACCENT)],
+        )
+        style.configure("ModFiles.Treeview.Heading",
+            background=_bg, foreground=_fg,
+            font=("Segoe UI", _theme.FS10, "bold"), relief="flat",
+        )
+
+        self._mf_tree = ttk.Treeview(
+            tab,
+            columns=("check",),
+            style="ModFiles.Treeview",
+            selectmode="browse",
+            show="tree headings",
+        )
+        self._mf_tree.heading("check", text="")
+        self._mf_tree.column("#0", stretch=True, minwidth=150)
+        self._mf_tree.column("check", width=30, minwidth=30, stretch=False, anchor="center")
+
+        _sb_bg     = "#383838"
+        _sb_trough = "#1a1a1a"
+        _sb_active = "#0078d4"
+        vsb = tk.Scrollbar(
+            tab, orient="vertical", command=self._mf_tree.yview,
+            bg=_sb_bg, troughcolor=_sb_trough, activebackground=_sb_active,
+            highlightthickness=0, bd=0,
+        )
+        self._mf_tree.configure(yscrollcommand=vsb.set)
+        self._mf_tree.grid(row=1, column=0, sticky="nsew")
+        vsb.grid(row=1, column=1, sticky="ns")
+
+        self._mf_tree.bind("<Button-4>", lambda e: self._mf_tree.yview_scroll(-3, "units"))
+        self._mf_tree.bind("<Button-5>", lambda e: self._mf_tree.yview_scroll(3, "units"))
+        self._mf_tree.bind("<Button-1>", self._on_mf_click)
+        self._mf_tree.bind("<space>", self._on_mf_space)
+
+        self._mf_checked: dict[str, bool] = {}   # iid → checked state
+        self._mf_iid_to_key: dict[str, str | None] = {}  # iid → rel_key (None for folders)
+        self._mf_folder_iids: set[str] = set()
+
+    # Checkbox rendering helpers
+    _MF_CHECK   = "☑"
+    _MF_UNCHECK = "☐"
+    _MF_PARTIAL = "☒"   # folder with some excluded children
+
+    def _mf_check_symbol(self, iid: str) -> str:
+        if iid in self._mf_folder_iids:
+            children = self._mf_all_leaf_iids(iid)
+            if not children:
+                return self._MF_CHECK
+            all_checked = all(self._mf_checked.get(c, True) for c in children)
+            none_checked = not any(self._mf_checked.get(c, True) for c in children)
+            if all_checked:
+                return self._MF_CHECK
+            if none_checked:
+                return self._MF_UNCHECK
+            return self._MF_PARTIAL
+        return self._MF_CHECK if self._mf_checked.get(iid, True) else self._MF_UNCHECK
+
+    def _mf_all_leaf_iids(self, iid: str) -> list[str]:
+        result = []
+        for child in self._mf_tree.get_children(iid):
+            if child in self._mf_folder_iids:
+                result.extend(self._mf_all_leaf_iids(child))
+            else:
+                result.append(child)
+        return result
+
+    def _mf_refresh_ancestors(self, iid: str):
+        parent = self._mf_tree.parent(iid)
+        while parent:
+            sym = self._mf_check_symbol(parent)
+            self._mf_tree.set(parent, "check", sym)
+            parent = self._mf_tree.parent(parent)
+
+    def _on_mf_click(self, event):
+        iid = self._mf_tree.identify_row(event.y)
+        if not iid:
+            return
+        # Only toggle when clicking the checkbox column (col #1), not the
+        # tree/name column (#0) which handles expand/collapse.
+        col = self._mf_tree.identify_column(event.x)
+        if col != "#1":
+            return
+        self._mf_toggle(iid)
+
+    def _on_mf_space(self, event):
+        sel = self._mf_tree.selection()
+        if sel:
+            self._mf_toggle(sel[0])
+
+    def _mf_set_subtree(self, iid: str, new_state: bool):
+        """Recursively set all leaves and sub-folder symbols under iid."""
+        for child in self._mf_tree.get_children(iid):
+            if child in self._mf_folder_iids:
+                self._mf_set_subtree(child, new_state)
+                self._mf_tree.set(child, "check", self._mf_check_symbol(child))
+            else:
+                self._mf_checked[child] = new_state
+                self._mf_tree.set(child, "check", self._MF_CHECK if new_state else self._MF_UNCHECK)
+
+    def _mf_toggle(self, iid: str):
+        if iid in self._mf_folder_iids:
+            leaves = self._mf_all_leaf_iids(iid)
+            all_checked = all(self._mf_checked.get(c, True) for c in leaves)
+            new_state = not all_checked
+            self._mf_set_subtree(iid, new_state)
+            self._mf_tree.set(iid, "check", self._mf_check_symbol(iid))
+            self._mf_refresh_ancestors(iid)
+        else:
+            current = self._mf_checked.get(iid, True)
+            self._mf_checked[iid] = not current
+            self._mf_tree.set(iid, "check", self._MF_CHECK if not current else self._MF_UNCHECK)
+            self._mf_refresh_ancestors(iid)
+        self._mf_save_and_rebuild()
+
+    def _mf_save_and_rebuild(self):
+        """Persist current exclusions for the displayed mod and trigger filemap rebuild."""
+        if self._mod_files_mod_name is None or self._mod_files_excluded_path is None:
+            return
+        mod_name = self._mod_files_mod_name
+        excluded_keys = [
+            self._mf_iid_to_key[iid]
+            for iid, checked in self._mf_checked.items()
+            if not checked and self._mf_iid_to_key.get(iid) is not None
+        ]
+        all_excluded = read_excluded_mod_files(self._mod_files_excluded_path)
+        if excluded_keys:
+            all_excluded[mod_name] = sorted(excluded_keys)
+        else:
+            all_excluded.pop(mod_name, None)
+        write_excluded_mod_files(self._mod_files_excluded_path, all_excluded)
+        self._mod_files_excluded = {k: set(v) for k, v in all_excluded.items()}
+        self._log(f"Mod Files: saved {len(excluded_keys)} exclusion(s) for '{mod_name}' → {self._mod_files_excluded_path}")
+        if self._mod_files_on_change is not None:
+            self._mod_files_on_change()
+
+    def show_mod_files(self, mod_name: str | None):
+        """Populate the Mod Files tab for the given mod name."""
+        self._mod_files_mod_name = mod_name
+        # Clear tree
+        self._mf_tree.delete(*self._mf_tree.get_children())
+        self._mf_checked.clear()
+        self._mf_iid_to_key.clear()
+        self._mf_folder_iids.clear()
+
+        if mod_name is None:
+            self._mod_files_label.configure(text="(no mod selected)")
+            return
+
+        self._mod_files_label.configure(text=mod_name)
+
+        # Load current exclusions for this mod
+        excluded_keys: set[str] = set()
+        if self._mod_files_excluded_path is not None:
+            excluded_keys = self._mod_files_excluded.get(mod_name, set())
+
+        # Load file list from mod index
+        files: dict[str, str] = {}   # rel_key → rel_str
+        if self._mod_files_index_path is not None:
+            from Utils.filemap import read_mod_index
+            index = read_mod_index(self._mod_files_index_path)
+            if index and mod_name in index:
+                normal, root = index[mod_name]
+                files.update(normal)
+                files.update(root)
+
+        if not files:
+            self._mf_tree.insert("", "end", text="  (no files found — try refreshing)", tags=("dim",))
+            self._mf_tree.tag_configure("dim", foreground=TEXT_DIM)
+            return
+
+        # Build tree structure
+        tree_dict: dict = {}
+        for rel_key, rel_str in sorted(files.items()):
+            parts = rel_str.replace("\\", "/").split("/")
+            node = tree_dict
+            for part in parts[:-1]:
+                node = node.setdefault(part, {})
+            node.setdefault("__files__", []).append((parts[-1], rel_key))
+
+        def insert_node(parent_id, name, subtree, depth=0):
+            iid = self._mf_tree.insert(
+                parent_id, "end",
+                text=name,
+                values=(self._MF_CHECK,),
+                open=(depth == 0),
+            )
+            self._mf_folder_iids.add(iid)
+            self._mf_iid_to_key[iid] = None
+            for child in sorted(k for k in subtree if k != "__files__"):
+                insert_node(iid, child, subtree[child], depth + 1)
+            for fname, rel_key in sorted(subtree.get("__files__", [])):
+                checked = rel_key not in excluded_keys
+                leaf_iid = self._mf_tree.insert(
+                    iid, "end",
+                    text=fname,
+                    values=(self._MF_CHECK if checked else self._MF_UNCHECK,),
+                )
+                self._mf_checked[leaf_iid] = checked
+                self._mf_iid_to_key[leaf_iid] = rel_key
+            # Set correct folder symbol now that all children exist
+            self._mf_tree.set(iid, "check", self._mf_check_symbol(iid))
+
+        for top in sorted(k for k in tree_dict if k != "__files__"):
+            insert_node("", top, tree_dict[top])
+        # Root-level files (unlikely but handle anyway)
+        for fname, rel_key in sorted(tree_dict.get("__files__", [])):
+            checked = rel_key not in excluded_keys
+            leaf_iid = self._mf_tree.insert(
+                "", "end", text=fname,
+                values=(self._MF_CHECK if checked else self._MF_UNCHECK,),
+            )
+            self._mf_checked[leaf_iid] = checked
+            self._mf_iid_to_key[leaf_iid] = rel_key
 
     def _build_data_tab(self):
         tab = self._tabs.tab("Data")

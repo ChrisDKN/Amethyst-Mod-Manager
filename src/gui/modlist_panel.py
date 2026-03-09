@@ -99,6 +99,7 @@ from Utils.plugins import (
     read_disabled_plugins, write_disabled_plugins,
     read_plugins, write_plugins, PluginEntry,
     read_loadorder, write_loadorder,
+    read_excluded_mod_files,
 )
 from Utils.profile_backup import create_backup
 from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModRequirement
@@ -4648,6 +4649,13 @@ class ModListPanel(ctk.CTkFrame):
         self._filemap_rescan_index = False
         disabled_plugins    = read_disabled_plugins(modlist_path.parent / "disabled_plugins.json")
         self._disabled_plugins_map = disabled_plugins
+        _exc_path           = modlist_path.parent / "excluded_mod_files.json"
+        _exc_raw            = read_excluded_mod_files(_exc_path)
+        excluded_mod_files  = {k: set(v) for k, v in _exc_raw.items()} if _exc_raw else None
+        if excluded_mod_files:
+            total_exc = sum(len(v) for v in excluded_mod_files.values())
+            self.after(0, lambda n=total_exc, p=_exc_path: self._log(
+                f"Filemap: excluding {n} file(s) from {p}"))
 
         def _worker():
             nonlocal rescan_index
@@ -4677,6 +4685,7 @@ class ModListPanel(ctk.CTkFrame):
                     root_deploy_folders=root_deploy_folders or None,
                     disabled_plugins=disabled_plugins or None,
                     conflict_ignore_filenames=self._conflict_ignore_filenames or None,
+                    excluded_mod_files=excluded_mod_files or None,
                 )
                 _game = getattr(self, "_game", None)
                 if _game is not None:

@@ -450,6 +450,7 @@ def build_filemap(
     root_deploy_folders: set[str] | None = None,
     disabled_plugins: dict[str, list[str]] | None = None,
     conflict_ignore_filenames: set[str] | None = None,
+    excluded_mod_files: dict[str, set[str]] | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -474,6 +475,11 @@ def build_filemap(
     conflict_ignore_filenames — lowercase filenames (not paths) excluded from
     conflict tracking.  Files still appear in the filemap but do not count
     toward a mod's conflict status.  Pass None or an empty set to disable.
+
+    excluded_mod_files — dict mapping mod name to a set of lowercase rel_key
+    paths that should be excluded from the filemap for that mod.  Excluded
+    files are treated as if the mod does not have them, so the next
+    lower-priority mod that has the same file wins instead.
 
     Returns:
         (count, conflict_map, overrides, overridden_by)
@@ -520,13 +526,18 @@ def build_filemap(
     filemap_winner: dict[str, str] = {}
     mod_files: dict[str, set[str]] = {}
 
+    # Build per-mod excluded-file sets for fast lookup (lowercase rel_keys)
+    _excluded: dict[str, set[str]] = excluded_mod_files or {}
+
     # Merge in priority order so higher-priority mods overwrite lower ones
     for name in priority_order:
         files = raw.get(name)
         if not files:
             continue
-        mod_files[name] = set(files.keys())
-        for rel_key in files:
+        exc = _excluded.get(name)
+        active_keys = set(files.keys()) if not exc else {k for k in files if k not in exc}
+        mod_files[name] = active_keys
+        for rel_key in active_keys:
             filemap_winner[rel_key] = name
 
     # Rebuild filemap using the normalised (canonical) rel_str for the destination

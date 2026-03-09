@@ -659,6 +659,7 @@ class App(ctk.CTk):
                 if not entry.is_separator:
                     mod_name = entry.name
             self._plugin_panel.set_highlighted_plugins(mod_name)
+            self._plugin_panel.show_mod_files(mod_name)
         self._mod_panel._on_mod_selected_cb = _on_mod_selected  # mod selected → clear plugin selection + highlight
 
         # Load initial game + profile — set plugin paths BEFORE load_game
@@ -679,10 +680,19 @@ class App(ctk.CTk):
                 self._plugin_panel._plugins_path = plugins_path
                 self._plugin_panel._plugin_extensions = initial_game.plugin_extensions
                 self._plugin_panel._vanilla_plugins = _vanilla_plugins_for_game(initial_game)
-                self._plugin_panel._staging_root = initial_game.get_effective_mod_staging_path()
+                _staging = initial_game.get_effective_mod_staging_path()
+                self._plugin_panel._staging_root = _staging
                 data_path = initial_game.get_mod_data_path() if hasattr(initial_game, 'get_mod_data_path') else None
                 self._plugin_panel._data_dir = data_path
                 self._plugin_panel._game = initial_game
+                # Mod Files tab paths
+                _profile_dir = initial_game.get_profile_root() / "profiles" / profile
+                self._plugin_panel._mod_files_index_path = _staging.parent / "modindex.bin"
+                self._plugin_panel._mod_files_excluded_path = _profile_dir / "excluded_mod_files.json"
+                from Utils.plugins import read_excluded_mod_files as _ref
+                _exc_raw = _ref(self._plugin_panel._mod_files_excluded_path)
+                self._plugin_panel._mod_files_excluded = {k: set(v) for k, v in _exc_raw.items()}
+                self._plugin_panel._mod_files_on_change = self._mod_panel._rebuild_filemap
                 self._mod_panel.load_game(initial_game, profile)
                 self._plugin_panel.refresh_exe_list()
             except (FileNotFoundError, OSError) as e:
