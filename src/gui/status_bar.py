@@ -3,6 +3,7 @@ Status bar: log area and collapse/expand. Used by App.
 """
 
 from datetime import datetime
+import subprocess
 import tkinter as tk
 import customtkinter as ctk
 
@@ -53,6 +54,13 @@ class StatusBar(ctk.CTkFrame):
         )
         self._toggle_btn.pack(side="right", padx=6, pady=2)
 
+        ctk.CTkButton(
+            label_bar, text="Open Logs", width=70, height=16,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_DIM, font=FONT_SMALL,
+            command=self._open_logs_folder,
+        ).pack(side="right", padx=(0, 0), pady=2)
+
         self._progress_popup: CTkProgressPopup | None = None
         self._progress_bind_id: str | None = None
 
@@ -66,6 +74,11 @@ class StatusBar(ctk.CTkFrame):
         # One log file per session, named with a timestamp
         _ts = datetime.now().strftime("%m-%d-%y-%H%M%S")
         self._log_file = get_logs_dir() / f"amethyst-{_ts}.log"
+
+    def _open_logs_folder(self):
+        logs_dir = get_logs_dir()
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        subprocess.Popen(["xdg-open", str(logs_dir)])
 
     def _toggle_log(self):
         self._visible = not self._visible
