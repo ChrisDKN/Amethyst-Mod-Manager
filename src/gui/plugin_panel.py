@@ -1300,6 +1300,7 @@ class PluginPanel(ctk.CTkFrame):
             lambda e: self._data_tree.treeview.yview_scroll(-3, "units"))
         self._data_tree.treeview.bind("<Button-5>",
             lambda e: self._data_tree.treeview.yview_scroll(3, "units"))
+        self._data_tree.treeview.bind("<<TreeviewSelect>>", self._on_data_file_selected)
 
     def _refresh_data_tab(self):
         """Reload the Data tab tree from filemap.txt."""
@@ -1389,6 +1390,24 @@ class PluginPanel(ctk.CTkFrame):
         for fname, mod in sorted(tree_dict.get("__files__", [])):
             self._data_tree.insert("", "end",
                 text=fname, values=(mod,), tags=("file",))
+
+    def _on_data_file_selected(self, _event=None):
+        """When a file row is selected in the Data tab, highlight its mod in the modlist."""
+        sel = self._data_tree.treeview.selection()
+        if not sel:
+            return
+        item = sel[0]
+        values = self._data_tree.treeview.item(item, "values")
+        mod_name = values[0] if values else ""
+        if not mod_name:
+            # Folder row — clear highlight
+            if self._on_plugin_selected_cb is not None:
+                self._on_plugin_selected_cb(None)
+            return
+        if self._on_mod_selected_cb is not None:
+            self._on_mod_selected_cb()
+        if self._on_plugin_selected_cb is not None:
+            self._on_plugin_selected_cb(mod_name)
 
     def _on_data_search_changed(self, *_):
         """Filter the Data tree based on the search query."""
