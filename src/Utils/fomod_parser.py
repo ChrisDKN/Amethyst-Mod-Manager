@@ -381,13 +381,37 @@ def detect_fomod(extracted_root: str) -> Optional[tuple[str, str]]:
     return None
 
 
+def _parse_xml_tolerant(xml_path: str) -> ET.Element:
+    """Parse an XML file, tolerating incorrect encoding declarations."""
+    import re as _re
+    with open(xml_path, "rb") as f:
+        raw = f.read()
+    # Detect actual encoding from BOM or default to UTF-8
+    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+        actual_enc = "utf-16"
+    elif raw.startswith(b"\xef\xbb\xbf"):
+        actual_enc = "utf-8-sig"
+    else:
+        actual_enc = "utf-8"
+    try:
+        text = raw.decode(actual_enc)
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    # Strip the XML encoding declaration so ElementTree won't reject it
+    text = _re.sub(r"<\?xml[^?]*\?>", "", text, count=1)
+    return ET.fromstring(text)
+
+
 def parse_module_config(xml_path: str) -> ModuleConfig:
     """
     Parse a ModuleConfig.xml file and return a ModuleConfig dataclass.
-    Uses ET.parse() which automatically handles UTF-16 BOM encoding.
+    Tolerates files whose encoding declaration doesn't match actual encoding.
     """
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+    except ET.ParseError:
+        root = _parse_xml_tolerant(xml_path)
 
     config = ModuleConfig()
 
