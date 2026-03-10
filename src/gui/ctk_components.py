@@ -779,6 +779,13 @@ class CTkPopupMenu(ctk.CTkToplevel):
             except Exception:
                 pass
             self._active_sub[0] = None
+            # Re-grab focus so that the FocusOut fired by destroying the
+            # submenu toplevel doesn't cause _on_focus_out to dismiss us.
+            try:
+                if self.winfo_exists():
+                    self.focus()
+            except Exception:
+                pass
         self._active_sub_trigger[0] = None
 
     def clear(self):
