@@ -568,6 +568,24 @@ class BaseGame(ABC):
         """
         return self.get_effective_mod_staging_path().parent / "filemap.txt"
 
+    def get_effective_root_folder_path(self) -> Path:
+        """Return the Root_Folder staging path for the active profile.
+
+        For profiles with the ``profile_specific_mods`` flag the Root_Folder
+        lives inside the profile directory itself (a sibling of the
+        profile-specific ``mods/`` folder).  For all other profiles it
+        falls back to ``<profile_root>/Root_Folder/``, the original shared
+        location that sits alongside the shared ``mods/`` folder.
+        """
+        if self._active_profile_dir is not None:
+            try:
+                from gui.game_helpers import profile_uses_specific_mods  # type: ignore
+                if profile_uses_specific_mods(self._active_profile_dir):
+                    return self._active_profile_dir / "Root_Folder"
+            except Exception:
+                pass
+        return self.get_profile_root() / "Root_Folder"
+
     # -----------------------------------------------------------------------
     # Configuration persistence
     # -----------------------------------------------------------------------

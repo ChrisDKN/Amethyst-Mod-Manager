@@ -109,10 +109,11 @@ def _create_profile(
             json.dumps({"profile_specific_mods": True}, indent=2),
             encoding="utf-8",
         )
-        # Create the profile-specific mods and overwrite directories up front
-        # so they exist as soon as the profile is selected.
+        # Create the profile-specific mods, overwrite, and Root_Folder directories
+        # up front so they exist as soon as the profile is selected.
         (profile_dir / "mods").mkdir(exist_ok=True)
         (profile_dir / "overwrite").mkdir(exist_ok=True)
+        (profile_dir / "Root_Folder").mkdir(exist_ok=True)
     return profile_dir
 
 

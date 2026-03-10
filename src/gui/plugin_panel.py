@@ -897,7 +897,6 @@ class PluginPanel(ctk.CTkFrame):
         except AttributeError:
             profile = "default"
 
-        root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
         game_root = game.get_game_path()
 
         def _worker():
@@ -910,8 +909,15 @@ class PluginPanel(ctk.CTkFrame):
                         game.restore(log_fn=_tlog)
                     except RuntimeError:
                         pass
-                if root_folder_dir.is_dir() and game_root:
-                    restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
+                # Restore Root_Folder using the last-deployed profile's Root_Folder.
+                restore_rf_dir = game.get_effective_root_folder_path()
+                if restore_rf_dir.is_dir() and game_root:
+                    restore_root_folder(restore_rf_dir, game_root, log_fn=_tlog)
+
+                # Switch to the target profile before deploy.
+                game.set_active_profile_dir(
+                    game.get_profile_root() / "profiles" / profile
+                )
 
                 profile_root = game.get_profile_root()
                 staging = game.get_effective_mod_staging_path()
@@ -935,9 +941,11 @@ class PluginPanel(ctk.CTkFrame):
                 deploy_mode = game.get_deploy_mode() if hasattr(game, "get_deploy_mode") else LinkMode.HARDLINK
                 game.deploy(log_fn=_tlog, profile=profile, mode=deploy_mode)
 
+                # Deploy Root_Folder using the target profile's Root_Folder.
+                target_rf_dir = game.get_effective_root_folder_path()
                 rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
-                if rf_allowed and root_folder_dir.is_dir() and game_root:
-                    deploy_root_folder(root_folder_dir, game_root, mode=deploy_mode, log_fn=_tlog)
+                if rf_allowed and target_rf_dir.is_dir() and game_root:
+                    deploy_root_folder(target_rf_dir, game_root, mode=deploy_mode, log_fn=_tlog)
 
                 _tlog("Run EXE: deploy complete, launching…")
                 self.after(0, lambda: self._launch_exe(exe_path, game))
@@ -2647,7 +2655,7 @@ class PluginPanel(ctk.CTkFrame):
 
         root_folder: "Path | None" = None
         try:
-            root_folder = self._game.get_profile_root() / "Root_Folder"
+            root_folder = self._game.get_effective_root_folder_path()
         except Exception:
             pass
 

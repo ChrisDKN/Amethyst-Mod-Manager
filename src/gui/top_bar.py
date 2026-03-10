@@ -399,7 +399,7 @@ class TopBar(ctk.CTkFrame):
                 pass
             try:
                 from Utils.deploy import restore_root_folder
-                root_folder_dir = game.get_profile_root() / "Root_Folder"
+                root_folder_dir = game.get_effective_root_folder_path()
                 game_root = game.get_game_path()
                 if root_folder_dir.is_dir() and game_root:
                     restore_root_folder(root_folder_dir, game_root)
@@ -645,7 +645,6 @@ class TopBar(ctk.CTkFrame):
             app._mod_panel._root_folder_enabled
             if hasattr(app, "_mod_panel") else True
         )
-        root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
         game_root = game.get_game_path()
 
         status_bar = self.winfo_toplevel()._status
@@ -672,8 +671,10 @@ class TopBar(ctk.CTkFrame):
                         game.restore(log_fn=_tlog, progress_fn=_progress)
                     except RuntimeError:
                         pass
-                if root_folder_dir.is_dir() and game_root:
-                    restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
+                # Restore Root_Folder using the last-deployed profile's Root_Folder.
+                last_root_folder_dir = game.get_effective_root_folder_path()
+                if last_root_folder_dir.is_dir() and game_root:
+                    restore_root_folder(last_root_folder_dir, game_root, log_fn=_tlog)
 
                 # Switch to the target profile before building the filemap and deploying.
                 game.set_active_profile_dir(
@@ -717,9 +718,12 @@ class TopBar(ctk.CTkFrame):
                 # a future restore knows which overwrite/ folder to use.
                 game.save_last_deployed_profile(profile)
 
+                # Deploy Root_Folder using the target profile's Root_Folder
+                # (active profile dir is already set to target profile above).
+                target_root_folder_dir = game.get_effective_root_folder_path()
                 rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
-                if rf_allowed and root_folder_enabled and root_folder_dir.is_dir() and game_root:
-                    count = deploy_root_folder(root_folder_dir, game_root,
+                if rf_allowed and root_folder_enabled and target_root_folder_dir.is_dir() and game_root:
+                    count = deploy_root_folder(target_root_folder_dir, game_root,
                                             mode=deploy_mode, log_fn=_tlog)
                     if count:
                         _tlog("Root Folder: transferred files to game root.")
@@ -743,7 +747,6 @@ class TopBar(ctk.CTkFrame):
             self._log("Restore: no configured game selected.")
             return
 
-        root_folder_dir = game.get_mod_staging_path().parent / "Root_Folder"
         game_root = game.get_game_path()
         status_bar = self.winfo_toplevel()._status
         game_name = game.name
@@ -772,6 +775,8 @@ class TopBar(ctk.CTkFrame):
                     game.restore(log_fn=_tlog, progress_fn=_progress)
                 else:
                     _tlog(f"Restore: '{game_name}' does not support restore.")
+                # Restore Root_Folder using the last-deployed profile's Root_Folder.
+                root_folder_dir = game.get_effective_root_folder_path()
                 if root_folder_dir.is_dir() and game_root:
                     restore_root_folder(root_folder_dir, game_root, log_fn=_tlog)
             except Exception as e:

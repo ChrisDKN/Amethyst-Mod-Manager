@@ -1060,7 +1060,11 @@ class ModListPanel(ctk.CTkFrame):
             ))
             # Append synthetic Root_Folder row at the bottom (lowest priority)
             # if the folder exists.
-            root_folder_dir = self._modlist_path.parent.parent.parent / "Root_Folder"
+            root_folder_dir = (
+                self._game.get_effective_root_folder_path()
+                if self._game is not None
+                else self._modlist_path.parent.parent.parent / "Root_Folder"
+            )
             if root_folder_dir.is_dir():
                 self._entries.append(ModEntry(
                     name=ROOT_FOLDER_NAME,
@@ -2680,7 +2684,11 @@ class ModListPanel(ctk.CTkFrame):
             elif entry.name == OVERWRITE_NAME:
                 mod_folder = staging_root.parent / "overwrite"
             elif entry.name == ROOT_FOLDER_NAME:
-                mod_folder = staging_root.parent / "Root_Folder"
+                mod_folder = (
+                    self._game.get_effective_root_folder_path()
+                    if self._game is not None
+                    else staging_root.parent / "Root_Folder"
+                )
 
         self._show_context_menu(event.x_root, event.y_root, idx, is_sep, ini_files,
                                 mod_folder=mod_folder, plugin_files=plugin_files)

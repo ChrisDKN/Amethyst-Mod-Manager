@@ -473,7 +473,7 @@ class Valheim(Subnautica):
         """Run after all deployment steps, including Root_Folder moves."""
         _log = log_fn or (lambda _: None)
         game_path = self.get_game_path()
-        root_folder = self.get_mod_staging_path().parent / "Root_Folder"
+        root_folder = self.get_effective_root_folder_path()
         candidates = []
         if game_path is not None:
             candidates.append(game_path / "start_game_bepinex.sh")
