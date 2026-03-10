@@ -56,10 +56,13 @@ from gui.status_bar import StatusBar
 from gui.install_mod import install_mod_from_archive
 from gui.mod_name_utils import _suggest_mod_names
 from gui.version_check import (
+    is_appimage,
     _fetch_latest_version,
+    _fetch_aur_version,
     _is_newer_version,
     _APP_UPDATE_RELEASES_URL,
     _APP_UPDATE_INSTALLER_URL,
+    _AUR_PACKAGE_URL,
 )
 
 from version import __version__
@@ -228,6 +231,79 @@ class _UpdateAvailableDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+class _UpdateAvailableAurDialog(ctk.CTkToplevel):
+    """Modal dialog when a new app version is available for AUR users.
+
+    The AUR package is maintained by a third party so we can't auto-install;
+    we just inform the user and link to the AUR page.
+    """
+
+    def __init__(self, parent, current_version: str, aur_version: str):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Update available")
+        self.geometry("480x230")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(100, self._make_modal)
+
+        self._parent = parent
+        self._current = current_version
+        self._aur = aur_version
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        msg = (
+            f"A new version of Amethyst Mod Manager is available on the AUR.\n\n"
+            f"Current: {self._current}\n"
+            f"AUR:     {self._aur}\n\n"
+            f"Update via your AUR helper, e.g.\n"
+            f"  yay -Syu amethyst-mod-manager"
+        )
+        ctk.CTkLabel(
+            self, text=msg, font=FONT_NORMAL, text_color=TEXT_MAIN,
+            justify="left", anchor="w"
+        ).grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 12))
+
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+
+        ctk.CTkButton(
+            btn_frame, text="Open AUR page",
+            width=140, height=32, font=FONT_NORMAL,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_aur
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame, text="Later",
+            width=80, height=32, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close
+        ).pack(side="left")
+
+    def _on_aur(self):
+        open_url(_AUR_PACKAGE_URL)
+        self.grab_release()
+        self.destroy()
+
+    def _on_close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
@@ -317,19 +393,32 @@ class App(ctk.CTk):
     # -- App update check ---------------------------------------------------
 
     def _check_for_app_update(self):
-        """Run in background: fetch latest version and prompt to download if newer."""
+        """Run in background: fetch latest version and prompt if newer.
+
+        AppImage installs compare against GitHub releases and offer the
+        auto-installer.  System installs (e.g. AUR) compare against the AUR
+        package version and show instructions to update via the AUR helper.
+        """
 
         def _do_check():
-            latest = _fetch_latest_version()
-            if latest is None:
-                return
-            if _is_newer_version(__version__, latest):
-
-                def _show():
-                    dlg = _UpdateAvailableDialog(self, __version__, latest)
-                    self.wait_window(dlg)
-
-                self.call_threadsafe(_show)
+            if is_appimage():
+                latest = _fetch_latest_version()
+                if latest is None:
+                    return
+                if _is_newer_version(__version__, latest):
+                    def _show():
+                        dlg = _UpdateAvailableDialog(self, __version__, latest)
+                        self.wait_window(dlg)
+                    self.call_threadsafe(_show)
+            else:
+                aur_ver = _fetch_aur_version()
+                if aur_ver is None:
+                    return
+                if _is_newer_version(__version__, aur_ver):
+                    def _show():
+                        dlg = _UpdateAvailableAurDialog(self, __version__, aur_ver)
+                        self.wait_window(dlg)
+                    self.call_threadsafe(_show)
 
         threading.Thread(target=_do_check, daemon=True).start()
 
