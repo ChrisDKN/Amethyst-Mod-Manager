@@ -174,6 +174,7 @@ class CustomGameDialog(ctk.CTkToplevel):
         self._install_as_is_var = tk.BooleanVar(value=False)  # mod_install_as_is_if_no_match
         self._heroic_var        = tk.StringVar()  # heroic_app_names
         self._restore_var       = tk.BooleanVar(value=True)   # restore_before_deploy
+        self._norm_case_var     = tk.BooleanVar(value=True)   # normalize_folder_case
         # wine_dll_overrides stored as a plain string (dll=mode lines), set in _build_ui via textbox
 
         if existing:
@@ -195,6 +196,7 @@ class CustomGameDialog(ctk.CTkToplevel):
             self._install_as_is_var.set(bool(existing.get("mod_install_as_is_if_no_match", False)))
             self._heroic_var.set(_list_to_str(existing.get("heroic_app_names", [])))
             self._restore_var.set(bool(existing.get("restore_before_deploy", True)))
+            self._norm_case_var.set(bool(existing.get("normalize_folder_case", True)))
             self._dll_initial = _dll_to_str(existing.get("wine_dll_overrides", {}))
         else:
             self._dll_initial = ""
@@ -525,6 +527,28 @@ class CustomGameDialog(ctk.CTkToplevel):
         ).grid(row=row, column=0, sticky="w", padx=16, pady=(0, 6))
         row += 1
 
+        # Normalize folder case toggle
+        ctk.CTkLabel(
+            body, text="Normalize Folder Case",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text="When enabled (default), folder names that differ only in case across mods are "
+                 "unified to a single casing. Disable for Linux-native games where folder casing "
+                 "is significant (e.g. Music/ and music/ are different directories).",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w",
+            wraplength=self.WIDTH - 60,
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 2))
+        row += 1
+        ctk.CTkSwitch(
+            body, text="Enable", variable=self._norm_case_var,
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+            fg_color=BG_ROW, progress_color=ACCENT,
+        ).grid(row=row, column=0, sticky="w", padx=16, pady=(0, 6))
+        row += 1
+
         # Wine DLL overrides (multiline)
         ctk.CTkLabel(
             body, text="Wine DLL Overrides",
@@ -743,6 +767,7 @@ class CustomGameDialog(ctk.CTkToplevel):
             "mod_install_as_is_if_no_match":  self._install_as_is_var.get(),
             "heroic_app_names":               _str_to_list(self._heroic_var.get()),
             "restore_before_deploy":          self._restore_var.get(),
+            "normalize_folder_case":          self._norm_case_var.get(),
             "wine_dll_overrides":             _parse_dll_text(
                 self._dll_textbox.get("0.0", "end")
             ),
@@ -823,6 +848,7 @@ class CustomGamePanel(ctk.CTkFrame):
         self._install_as_is_var = tk.BooleanVar(value=False)
         self._heroic_var        = tk.StringVar()
         self._restore_var       = tk.BooleanVar(value=True)
+        self._norm_case_var     = tk.BooleanVar(value=True)   # normalize_folder_case
 
         if existing:
             self._name_var.set(existing.get("name", ""))
@@ -842,6 +868,7 @@ class CustomGamePanel(ctk.CTkFrame):
             self._install_as_is_var.set(bool(existing.get("mod_install_as_is_if_no_match", False)))
             self._heroic_var.set(_list_to_str(existing.get("heroic_app_names", [])))
             self._restore_var.set(bool(existing.get("restore_before_deploy", True)))
+            self._norm_case_var.set(bool(existing.get("normalize_folder_case", True)))
             self._dll_initial = _dll_to_str(existing.get("wine_dll_overrides", {}))
         else:
             self._dll_initial = ""
@@ -1177,6 +1204,28 @@ class CustomGamePanel(ctk.CTkFrame):
         ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
         row += 1
 
+        # Normalize folder case toggle
+        ctk.CTkLabel(
+            body, text="Normalize Folder Case",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text="When enabled (default), folder names that differ only in case across mods are "
+                 "unified to a single casing. Disable for Linux-native games where folder casing "
+                 "is significant (e.g. Music/ and music/ are different directories).",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
+            wraplength=WRAP,
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 2))
+        row += 1
+        ctk.CTkSwitch(
+            body, text="Enable", variable=self._norm_case_var,
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+            fg_color=BG_ROW, progress_color=ACCENT,
+        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
+        row += 1
+
         # Wine DLL overrides (multiline)
         ctk.CTkLabel(
             body, text="Wine DLL Overrides",
@@ -1382,6 +1431,7 @@ class CustomGamePanel(ctk.CTkFrame):
             "mod_install_as_is_if_no_match":  self._install_as_is_var.get(),
             "heroic_app_names":               _str_to_list(self._heroic_var.get()),
             "restore_before_deploy":          self._restore_var.get(),
+            "normalize_folder_case":          self._norm_case_var.get(),
             "wine_dll_overrides":             _parse_dll_text(
                 self._dll_textbox.get("0.0", "end")
             ),

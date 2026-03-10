@@ -254,6 +254,10 @@ class StandardCustomGame(BaseGame):
         return _defn_to_set(self._defn, "conflict_ignore_filenames")
 
     @property
+    def normalize_folder_case(self) -> bool:
+        return bool(self._defn.get("normalize_folder_case", True))
+
+    @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:
         return _defn_to_set(self._defn, "mod_folder_strip_prefixes_post")
 
@@ -583,6 +587,10 @@ class Ue5CustomGame(UE5Game):
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return _defn_to_set(self._defn, "conflict_ignore_filenames")
+
+    @property
+    def normalize_folder_case(self) -> bool:
+        return bool(self._defn.get("normalize_folder_case", True))
 
     @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:
