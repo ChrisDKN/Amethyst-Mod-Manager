@@ -1146,6 +1146,8 @@ if __name__ == "__main__":
         # Otherwise no instance is running; continue and open the app.
 
     app = App()
+    from Utils.portal_filechooser import set_main_thread_dispatcher
+    set_main_thread_dispatcher(app.call_threadsafe)
     app._start_nxm_ipc()          # listen for NXM links from future instances
     app.protocol("WM_DELETE_WINDOW", lambda: (NxmIPC.shutdown(), app.destroy()))
     app.mainloop()
