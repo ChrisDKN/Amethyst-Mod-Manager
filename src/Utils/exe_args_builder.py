@@ -295,17 +295,29 @@ def build_default_exe_args(
         game.get_mod_staging_path() if hasattr(game, "get_mod_staging_path") else None
     )
 
+    # Determine whether we're writing to a profile-local or global exe_args.json
+    from Utils.config_paths import get_profile_exe_args_path
+    target_file = _EXE_ARGS_FILE
+    effective_staging_path = staging_path  # output path for the default args
+    try:
+        active_dir = getattr(game, "_active_profile_dir", None)
+        if active_dir is not None:
+            from gui.game_helpers import profile_uses_specific_mods  # type: ignore
+            if profile_uses_specific_mods(active_dir):
+                target_file = get_profile_exe_args_path(Path(active_dir))
+                effective_staging_path = game.get_effective_mod_staging_path()
+    except Exception:
+        pass
+
     # Load existing json (never overwrite existing entries)
     try:
         existing: dict[str, str] = json.loads(
-            _EXE_ARGS_FILE.read_text(encoding="utf-8")
+            target_file.read_text(encoding="utf-8")
         )
     except (OSError, ValueError):
         existing = {}
 
     changed = False
-
-
 
     for exe_path in detected_exes:
         name = exe_path.name
@@ -316,7 +328,7 @@ def build_default_exe_args(
                 existing[name] = ""
                 changed = True
             if name == "PGPatcher.exe":
-                _bootstrap_pgpatcher_settings(exe_path, game_path, staging_path, _log)
+                _bootstrap_pgpatcher_settings(exe_path, game_path, effective_staging_path, _log)
             if name == "WitcherScriptMerger.exe":
                 update_witcher3_script_merger_config(game_path, exe_path) # type: ignore
             continue
@@ -342,10 +354,13 @@ def build_default_exe_args(
             sep = _flag_sep(profile.game_flag)
             parts.append(f'{profile.game_flag}{sep}"{_to_wine_path(target)}"')
 
-        # Output argument — defaults to the overwrite folder
+        # Output argument — defaults to the effective overwrite folder
         if profile.output_flag:
             sep = _flag_sep(profile.output_flag)
-            overwrite_path = staging_path.parent / "overwrite" if staging_path else None
+            overwrite_path = (
+                effective_staging_path.parent / "overwrite"
+                if effective_staging_path else None
+            )
             if overwrite_path:
                 parts.append(f'{profile.output_flag}{sep}"{_to_wine_path(overwrite_path)}"')
             else:
@@ -358,8 +373,9 @@ def build_default_exe_args(
 
     if changed:
         try:
-            _EXE_ARGS_FILE.write_text(
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            target_file.write_text(
                 json.dumps(existing, indent=2), encoding="utf-8"
             )
         except OSError as exc:
-            _log(f"exe_args: could not write {_EXE_ARGS_FILE}: {exc}")
+            _log(f"exe_args: could not write {target_file}: {exc}")

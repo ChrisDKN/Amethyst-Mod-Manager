@@ -78,7 +78,7 @@ The manager supports many supporting applications used to mod games. Place the a
 |--------|-------------|-------|
 | Working | **Pandora Behaviour Engine** | `--tesv:` and `--output:` args applied at runtime|
 | Working | **SSEEdit** | `-d` and `-o` args applied at runtime|
-| Working | **pgpatcher** | Requires `d3dcompiler_47` installed to the game prefix via Protontricks. Config auto generated to include Data directory and output folder |
+| Working | **pgpatcher** | Requires `d3dcompiler_47` and `.net8 desktop runtime` installed to the game prefix via Protontricks. Config auto generated to include Data directory and output folder |
 | Working | **DynDOLOD** | `-d` and `-o` args applied at runtime|
 | Working | **TexGen** | `-d` and `-o` args applied at runtime|
 | Working | **xLodGen** | `-d` and `-o` args. Game argument appended at runtime |

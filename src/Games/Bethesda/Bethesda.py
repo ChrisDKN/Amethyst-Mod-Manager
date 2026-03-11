@@ -27,6 +27,7 @@ class Fallout_3(BaseGame):
         self._prefix_path: Path | None = None
         self._deploy_mode: LinkMode = LinkMode.HARDLINK
         self._staging_path: Path | None = None
+        self._symlink_plugins: bool = True
         self.load_paths()
 
     # -----------------------------------------------------------------------
@@ -184,6 +185,7 @@ class Fallout_3(BaseGame):
             raw_staging = data.get("staging_path", "")
             if raw_staging:
                 self._staging_path = Path(raw_staging)
+            self._symlink_plugins = data.get("symlink_plugins", True)
             self._validate_staging()
             # If prefix is missing or no longer valid, scan for it and persist
             if not self._prefix_path or not self._prefix_path.is_dir():
@@ -205,10 +207,11 @@ class Fallout_3(BaseGame):
             LinkMode.COPY:    "copy",
         }.get(self._deploy_mode, "hardlink")
         data = {
-            "game_path":    str(self._game_path)    if self._game_path    else "",
-            "prefix_path":  str(self._prefix_path)  if self._prefix_path  else "",
-            "deploy_mode":  mode_str,
-            "staging_path": str(self._staging_path) if self._staging_path else "",
+            "game_path":       str(self._game_path)    if self._game_path    else "",
+            "prefix_path":     str(self._prefix_path)  if self._prefix_path  else "",
+            "deploy_mode":     mode_str,
+            "staging_path":    str(self._staging_path) if self._staging_path else "",
+            "symlink_plugins": self._symlink_plugins,
         }
         self._paths_file.write_text(
             json.dumps(data, indent=2), encoding="utf-8"
@@ -230,6 +233,14 @@ class Fallout_3(BaseGame):
 
     def set_deploy_mode(self, mode: LinkMode) -> None:
         self._deploy_mode = mode
+        self.save_paths()
+
+    @property
+    def symlink_plugins(self) -> bool:
+        return self._symlink_plugins
+
+    def set_symlink_plugins(self, value: bool) -> None:
+        self._symlink_plugins = value
         self.save_paths()
 
     def set_prefix_path(self, path: Path | str | None) -> None:
@@ -358,13 +369,15 @@ class Fallout_3(BaseGame):
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
         per_mod_deploy = expand_separator_deploy_paths(_sep_deploy, _sep_entries) or None
+        _symlink_exts = set(self.plugin_extensions) if self._symlink_plugins else None
         linked_mod, placed = deploy_filemap(filemap, data_dir, staging,
                                             mode=mode,
                                             strip_prefixes=self.mod_folder_strip_prefixes,
                                             per_mod_strip_prefixes=per_mod_strip,
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
-                                            progress_fn=progress_fn)
+                                            progress_fn=progress_fn,
+                                            symlink_exts=_symlink_exts)
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log("Step 3: Filling gaps with vanilla files from Data_Core/ ...")

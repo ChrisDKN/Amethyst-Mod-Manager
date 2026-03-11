@@ -263,7 +263,7 @@ class TopBar(ctk.CTkFrame):
         self._row1.pack_forget()
         self._row2.pack_forget()
         if two_rows:
-            # Stacked: each row centred horizontally
+            # Stacked: both rows centred within the top bar width
             self._row1.pack(side="top", anchor="center", pady=(4, 0))
             self._row2.pack(side="top", anchor="center", pady=(4, 4))
         else:
@@ -328,6 +328,7 @@ class TopBar(ctk.CTkFrame):
                 self._wizard_btn.pack(side="left", padx=(0, 8))
         else:
             self._wizard_btn.pack_forget()
+        self.after_idle(self._init_threshold)
 
     def _on_game_change(self, value: str):
         _save_last_game(value)
@@ -882,6 +883,7 @@ class TopBar(ctk.CTkFrame):
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
             )
             self._log("Install Mod: extraction re-enabled.")
+        self.after_idle(self._init_threshold)
 
     def _on_install_mod(self):
         def _on_file_picked(path: str) -> None:

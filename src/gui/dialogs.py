@@ -44,9 +44,28 @@ from gui.theme import (
 )
 import gui.theme as _theme
 from gui.path_utils import _to_wine_path
-from Utils.config_paths import get_exe_args_path, get_custom_game_images_dir
+from Utils.config_paths import get_exe_args_path, get_profile_exe_args_path, get_custom_game_images_dir
 from Utils.exe_args_builder import EXE_PROFILES
 from Utils.xdg import xdg_open, open_url
+
+
+def _resolve_exe_args_file(game) -> "Path":
+    """Return the exe_args.json path to use for *game*'s active profile.
+
+    For profiles with the ``profile_specific_mods`` flag the args are stored
+    inside the profile directory so each profile can have independent tool
+    output paths.  All other profiles share the global exe_args.json.
+    """
+    from pathlib import Path as _Path
+    try:
+        active_dir = getattr(game, "_active_profile_dir", None)
+        if active_dir is not None:
+            from gui.game_helpers import profile_uses_specific_mods  # type: ignore
+            if profile_uses_specific_mods(active_dir):
+                return get_profile_exe_args_path(_Path(active_dir))
+    except Exception:
+        pass
+    return get_exe_args_path()
 
 
 # ---------------------------------------------------------------------------
@@ -625,7 +644,7 @@ class GamePickerPanel(tk.Frame):
         self._canvas.itemconfig(self._inner_id, width=event.width)
         if hasattr(self, '_regrid_after_id') and self._regrid_after_id:
             self.after_cancel(self._regrid_after_id)
-        self._regrid_after_id = self.after(150, self._regrid_cards)
+        self._regrid_after_id = self.after(250, self._regrid_cards)
 
     def _regrid_cards(self):
         canvas_w = self._canvas.winfo_width() or (
@@ -1385,28 +1404,12 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
 
         log = self._log
 
-        def _launch():
-            try:
-                result = subprocess.run(
-                    [
-                        "zenity", "--file-selection",
-                        "--title=Select EXE to run in this prefix",
-                        "--file-filter=Executables (*.exe) | *.exe",
-                        "--file-filter=All files | *",
-                    ],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0 or not result.stdout.strip():
-                    return
-                exe_path = Path(result.stdout.strip())
-            except FileNotFoundError:
-                log("Proton Tools: zenity not found — cannot open file picker.")
+        def _on_picked(exe_path):
+            if exe_path is None:
                 return
-
             if not exe_path.is_file():
                 log(f"Proton Tools: file not found: {exe_path}")
                 return
-
             log(f"Proton Tools: launching {exe_path.name} via {proton_script.parent.name} …")
             try:
                 subprocess.Popen(
@@ -1418,6 +1421,10 @@ class _ProtonToolsDialog(ctk.CTkToplevel):
                 )
             except Exception as e:
                 log(f"Proton Tools error: {e}")
+
+        def _launch():
+            from Utils.portal_filechooser import pick_exe_file
+            pick_exe_file("Select EXE to run in this prefix", _on_picked)
 
         self._close_and_run(_launch)
 
@@ -1612,20 +1619,9 @@ class ProtonToolsPanel(ctk.CTkFrame):
         if proton_script is None:
             return
         log = self._log
-        def _launch():
-            try:
-                result = subprocess.run(
-                    ["zenity", "--file-selection",
-                     "--title=Select EXE to run in this prefix",
-                     "--file-filter=Executables (*.exe) | *.exe",
-                     "--file-filter=All files | *"],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0 or not result.stdout.strip():
-                    return
-                exe_path = Path(result.stdout.strip())
-            except FileNotFoundError:
-                log("Proton Tools: zenity not found — cannot open file picker.")
+
+        def _on_picked(exe_path):
+            if exe_path is None:
                 return
             if not exe_path.is_file():
                 log(f"Proton Tools: file not found: {exe_path}")
@@ -1637,6 +1633,11 @@ class ProtonToolsPanel(ctk.CTkFrame):
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception as e:
                 log(f"Proton Tools error: {e}")
+
+        def _launch():
+            from Utils.portal_filechooser import pick_exe_file
+            pick_exe_file("Select EXE to run in this prefix", _on_picked)
+
         self._close_and_run(_launch)
 
     def _on_close(self):
@@ -2481,6 +2482,50 @@ class _ParallaxRRunDialog(ctk.CTkToplevel):
         threading.Thread(target=_worker, daemon=True).start()
 
 
+_PGPATCHER_DEFAULT_PROTON = ""  # empty string = "Game default"
+
+
+def _get_tool_prefix_env(exe_path: "Path", proton_name: str) -> "tuple[Path, Path, dict] | None":
+    """Resolve (proton_script, prefix_dir, env) for a tool's isolated prefix.
+
+    proton_name is the display name from the dropdown (e.g. "Proton 10.0").
+    Returns None if the Proton version can't be found.
+    The prefix directory is created if it doesn't exist.
+    Runs wineboot to initialise the prefix if it's brand new.
+    """
+    from Utils.steam_finder import find_any_installed_proton, find_steam_root_for_proton_script
+    proton_script = find_any_installed_proton(proton_name)
+    if proton_script is None:
+        return None
+
+    steam_root = find_steam_root_for_proton_script(proton_script)
+    if steam_root is None:
+        return None
+
+    prefix_dir = exe_path.parent / f"prefix_{proton_script.parent.name}"
+    is_new = not (prefix_dir / "pfx").is_dir()
+    prefix_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["STEAM_COMPAT_DATA_PATH"] = str(prefix_dir)
+    env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
+
+    if is_new:
+        # Initialise the prefix synchronously before returning
+        try:
+            subprocess.run(
+                ["python3", str(proton_script), "run", "wineboot", "--init"],
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60,
+            )
+        except Exception:
+            pass
+
+    return proton_script, prefix_dir, env
+
+
 class _ExeConfigDialog(ctk.CTkToplevel):
     """Modal dialog for configuring command-line arguments for a Windows exe."""
 
@@ -2489,10 +2534,12 @@ class _ExeConfigDialog(ctk.CTkToplevel):
     def __init__(self, parent, exe_path: "Path", game, saved_args: str = "",
                  custom_exes: "list | None" = None, launch_mode: "str | None" = None,
                  deploy_before_launch: "bool | None" = None,
-                 is_hidden: bool = False):
+                 is_hidden: bool = False, proton_override: "str | None" = None,
+                 log_fn=None):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title(f"Configure: {exe_path.name}")
-        self.geometry("480x180" if launch_mode is not None else "640x410")
+        self.geometry("480x180" if launch_mode is not None else "640x460")
+        self._log = log_fn or print
         self.resizable(True, True)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_cancel)
@@ -2513,6 +2560,31 @@ class _ExeConfigDialog(ctk.CTkToplevel):
         self.deploy_before_launch: "bool | None" = None  # set on Save when shown
         self.hide: "bool | None" = None  # set on Save for non-launcher exes
         self.removed: bool = False
+        self.proton_override: "str | None" = None  # set on Save for non-launcher exes
+
+        # Proton version dropdown (non-launcher exes only)
+        from Utils.steam_finder import list_installed_proton
+        self._proton_versions: list[str] = (
+            ["Game default"] + [p.parent.name for p in list_installed_proton()]
+        )
+        _default_override = _PGPATCHER_DEFAULT_PROTON if exe_path.name.lower() == "pgpatcher.exe" else ""
+        _saved = proton_override if proton_override is not None else _default_override
+        # Find best match: exact first, then prefix match (e.g. "Proton 10" matches "Proton 10.0")
+        def _best_match(name: str) -> str:
+            if not name:
+                return "Game default"
+            if name in self._proton_versions:
+                return name
+            name_lower = name.lower()
+            for v in self._proton_versions:
+                if v.lower().startswith(name_lower):
+                    return v
+            return "Game default"
+        _initial = _best_match(_saved)
+        self._proton_var = tk.StringVar(value=_initial)
+
+        # Per-profile exe_args.json when the profile uses profile-specific mods
+        self._EXE_ARGS_FILE = _resolve_exe_args_file(game)
 
         self._game_path: "Path | None" = (
             game.get_game_path() if hasattr(game, "get_game_path") else None
@@ -2640,11 +2712,50 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
 
             self._final_box = ctk.CTkTextbox(
-                sec3, height=56, font=FONT_NORMAL,
+                sec3, height=90, font=FONT_NORMAL,
                 fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
                 border_width=1, wrap="word",
             )
             self._final_box.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+
+        # Proton version — only shown for non-launcher exes
+        if not is_game_exe:
+            sec_proton = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
+            sec_proton.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
+            sec_proton.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(
+                sec_proton, text="Proton version", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+            ctk.CTkOptionMenu(
+                sec_proton, values=self._proton_versions,
+                variable=self._proton_var,
+                width=220, font=FONT_SMALL,
+                fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
+                dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
+                command=lambda _: None,
+            ).grid(row=0, column=1, sticky="w", padx=(0, 10), pady=(8, 4))
+            ctk.CTkLabel(
+                sec_proton,
+                text="Use a specific Proton version with an isolated prefix next to\n"
+                     "the exe, instead of the game's prefix. Useful for tools that\n"
+                     "don't work with the game's Proton version.",
+                font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+            ).grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 4))
+
+            btn_row = ctk.CTkFrame(sec_proton, fg_color="transparent")
+            btn_row.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
+            small_btn = dict(height=28, font=FONT_SMALL,
+                             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN)
+            ctk.CTkButton(
+                btn_row, text="Run EXE in prefix …", width=160,
+                command=self._run_exe_in_prefix, **small_btn,
+            ).pack(side="left", padx=(0, 6))
+            ctk.CTkButton(
+                btn_row, text="Run protontricks", width=140,
+                command=self._run_protontricks_in_prefix, **small_btn,
+            ).pack(side="left")
 
         # Launcher mode — only shown when this exe is the game's own launcher
         if is_game_exe:
@@ -2678,7 +2789,7 @@ class _ExeConfigDialog(ctk.CTkToplevel):
             ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
 
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=48)
-        bar.grid(row=1 if is_game_exe else 3, column=0, sticky="ew")
+        bar.grid(row=1 if is_game_exe else 4, column=0, sticky="ew")
         bar.grid_propagate(False)
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
             side="top", fill="x"
@@ -2889,7 +3000,15 @@ class _ExeConfigDialog(ctk.CTkToplevel):
     def _load_saved(self):
         if self._saved_args:
             self._parse_saved_args(self._saved_args)
-            self._set_final_text(self._saved_args)
+            # Re-assemble with current (profile-correct) paths if the output
+            # mod was resolved to an actual entry; otherwise keep the saved text
+            # so auto-configured args are never blanked out.
+            selected = self._mod_var.get()
+            path_found = any(n == selected for n, _ in self._mod_entries)
+            if path_found:
+                self._assemble()
+            else:
+                self._set_final_text(self._saved_args)
 
     def _on_save(self):
         if self._initial_launch_mode is not None:
@@ -2908,8 +3027,85 @@ class _ExeConfigDialog(ctk.CTkToplevel):
                 pass
             self.result = final
             self.hide = self._hide_var.get()
+            selected = self._proton_var.get()
+            self.proton_override = "" if selected == "Game default" else selected
         self.grab_release()
         self.destroy()
+
+    def _get_selected_tool_env(self):
+        """Return (proton_script, prefix_dir, env) for the currently selected Proton version, or None."""
+        selected = self._proton_var.get()
+        if selected == "Game default":
+            self._log("Prefix tools: select a specific Proton version first.")
+            return None
+        result = _get_tool_prefix_env(self._exe_path, selected)
+        if result is None:
+            self._log(f"Prefix tools: could not find Proton '{selected}'.")
+        return result
+
+    def _run_exe_in_prefix(self):
+        result = self._get_selected_tool_env()
+        if result is None:
+            return
+        proton_script, prefix_dir, env = result
+        self._log(f"Prefix tools: initialised prefix at {prefix_dir}, opening file picker …")
+
+        def _on_picked(exe):
+            if exe is None:
+                return
+            if not exe.is_file():
+                self._log(f"Prefix tools: file not found: {exe}")
+                return
+            self._log(f"Prefix tools: launching {exe.name} …")
+            try:
+                subprocess.Popen(
+                    ["python3", str(proton_script), "run", str(exe)],
+                    env=env, cwd=exe.parent,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                self._log(f"Prefix tools error: {e}")
+
+        from Utils.portal_filechooser import pick_exe_file
+        pick_exe_file("Select EXE to run in prefix", _on_picked)
+
+    def _run_protontricks_in_prefix(self):
+        result = self._get_selected_tool_env()
+        if result is None:
+            return
+        proton_script, prefix_dir, env = result
+
+        steam_id = str(getattr(self._game, "steam_id", "") or "")
+
+        if shutil.which("protontricks") is not None:
+            cmd = ["protontricks"]
+            if steam_id:
+                cmd += [steam_id, "--gui"]
+            else:
+                cmd += ["--gui"]
+        elif shutil.which("flatpak") is not None and subprocess.run(
+            ["flatpak", "info", "com.github.Matoking.protontricks"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ).returncode == 0:
+            cmd = ["flatpak", "run", "com.github.Matoking.protontricks"]
+            if steam_id:
+                cmd += [steam_id, "--gui"]
+            else:
+                cmd += ["--gui"]
+        else:
+            self._log("Prefix tools: protontricks not found.")
+            return
+
+        env["STEAM_COMPAT_DATA_PATH"] = str(prefix_dir)
+        env["PROTON_VERSION"] = proton_script.parent.name
+        self._log(f"Prefix tools: launching protontricks for prefix {prefix_dir.name} …")
+        try:
+            subprocess.Popen(
+                cmd, env=env,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            self._log(f"Prefix tools error: {e}")
 
     def _on_remove(self):
         self.removed = True
@@ -2935,8 +3131,10 @@ class ExeConfigPanel(ctk.CTkFrame):
     def __init__(self, parent, exe_path: "Path", game, saved_args: str = "",
                  custom_exes: "list | None" = None, launch_mode: "str | None" = None,
                  deploy_before_launch: "bool | None" = None,
-                 is_hidden: bool = False, on_done=None):
+                 is_hidden: bool = False, on_done=None, proton_override: "str | None" = None,
+                 log_fn=None):
         super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._log = log_fn or print
 
         self._exe_path = exe_path
         self._game = game
@@ -2954,6 +3152,29 @@ class ExeConfigPanel(ctk.CTkFrame):
         self.deploy_before_launch: "bool | None" = None
         self.hide: "bool | None" = None
         self.removed: bool = False
+        self.proton_override: "str | None" = None
+
+        # Proton version dropdown (non-launcher exes only)
+        from Utils.steam_finder import list_installed_proton
+        self._proton_versions: list[str] = (
+            ["Game default"] + [p.parent.name for p in list_installed_proton()]
+        )
+        _default_override = _PGPATCHER_DEFAULT_PROTON if exe_path.name.lower() == "pgpatcher.exe" else ""
+        _saved = proton_override if proton_override is not None else _default_override
+        def _best_match(name: str) -> str:
+            if not name:
+                return "Game default"
+            if name in self._proton_versions:
+                return name
+            name_lower = name.lower()
+            for v in self._proton_versions:
+                if v.lower().startswith(name_lower):
+                    return v
+            return "Game default"
+        self._proton_var = tk.StringVar(value=_best_match(_saved))
+
+        # Per-profile exe_args.json when the profile uses profile-specific mods
+        self._EXE_ARGS_FILE = _resolve_exe_args_file(game)
 
         self._game_path: "Path | None" = (
             game.get_game_path() if hasattr(game, "get_game_path") else None
@@ -3092,11 +3313,48 @@ class ExeConfigPanel(ctk.CTkFrame):
             ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
 
             self._final_box = ctk.CTkTextbox(
-                sec3, height=56, font=FONT_NORMAL,
+                sec3, height=90, font=FONT_NORMAL,
                 fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
                 border_width=1, wrap="word",
             )
             self._final_box.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+
+            # Proton version section
+            sec_proton = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+            sec_proton.grid(row=3, column=0, sticky="ew", padx=12, pady=4)
+            sec_proton.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(
+                sec_proton, text="Proton version", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
+            ctk.CTkOptionMenu(
+                sec_proton, values=self._proton_versions,
+                variable=self._proton_var,
+                width=220, font=FONT_SMALL,
+                fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
+                dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
+                command=lambda _: None,
+            ).grid(row=0, column=1, sticky="w", padx=(0, 10), pady=(8, 4))
+            ctk.CTkLabel(
+                sec_proton,
+                text="Use a specific Proton version with an isolated prefix next to\n"
+                     "the exe, instead of the game's prefix. Useful for tools that\n"
+                     "don't work with the game's Proton version.",
+                font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+            ).grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 4))
+
+            btn_row = ctk.CTkFrame(sec_proton, fg_color="transparent")
+            btn_row.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
+            small_btn = dict(height=28, font=FONT_SMALL,
+                             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN)
+            ctk.CTkButton(
+                btn_row, text="Run EXE in prefix …", width=160,
+                command=self._run_exe_in_prefix, **small_btn,
+            ).pack(side="left", padx=(0, 6))
+            ctk.CTkButton(
+                btn_row, text="Run protontricks", width=140,
+                command=self._run_protontricks_in_prefix, **small_btn,
+            ).pack(side="left")
 
         if is_game_exe:
             sec4 = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
@@ -3129,7 +3387,7 @@ class ExeConfigPanel(ctk.CTkFrame):
             ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
 
         bar = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=0, height=48)
-        bar.grid(row=1 if is_game_exe else 3, column=0, sticky="ew")
+        bar.grid(row=1 if is_game_exe else 4, column=0, sticky="ew")
         bar.grid_propagate(False)
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
             side="top", fill="x"
@@ -3327,7 +3585,89 @@ class ExeConfigPanel(ctk.CTkFrame):
     def _load_saved(self):
         if self._saved_args:
             self._parse_saved_args(self._saved_args)
-            self._set_final_text(self._saved_args)
+            # Re-assemble with current (profile-correct) paths if the output
+            # mod was resolved to an actual entry; otherwise keep the saved text
+            # so auto-configured args are never blanked out.
+            selected = self._mod_var.get()
+            path_found = any(n == selected for n, _ in self._mod_entries)
+            if path_found:
+                self._assemble()
+            else:
+                self._set_final_text(self._saved_args)
+
+    def _get_selected_tool_env(self):
+        selected = self._proton_var.get()
+        if selected == "Game default":
+            self._log("Prefix tools: select a specific Proton version first.")
+            return None
+        result = _get_tool_prefix_env(self._exe_path, selected)
+        if result is None:
+            self._log(f"Prefix tools: could not find Proton '{selected}'.")
+        return result
+
+    def _run_exe_in_prefix(self):
+        result = self._get_selected_tool_env()
+        if result is None:
+            return
+        proton_script, prefix_dir, env = result
+        self._log(f"Prefix tools: initialised prefix at {prefix_dir}, opening file picker …")
+
+        def _on_picked(exe):
+            if exe is None:
+                return
+            if not exe.is_file():
+                self._log(f"Prefix tools: file not found: {exe}")
+                return
+            self._log(f"Prefix tools: launching {exe.name} …")
+            try:
+                subprocess.Popen(
+                    ["python3", str(proton_script), "run", str(exe)],
+                    env=env, cwd=exe.parent,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                self._log(f"Prefix tools error: {e}")
+
+        from Utils.portal_filechooser import pick_exe_file
+        pick_exe_file("Select EXE to run in prefix", _on_picked)
+
+    def _run_protontricks_in_prefix(self):
+        result = self._get_selected_tool_env()
+        if result is None:
+            return
+        proton_script, prefix_dir, env = result
+
+        steam_id = str(getattr(self._game, "steam_id", "") or "")
+
+        if shutil.which("protontricks") is not None:
+            cmd = ["protontricks"]
+            if steam_id:
+                cmd += [steam_id, "--gui"]
+            else:
+                cmd += ["--gui"]
+        elif shutil.which("flatpak") is not None and subprocess.run(
+            ["flatpak", "info", "com.github.Matoking.protontricks"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        ).returncode == 0:
+            cmd = ["flatpak", "run", "com.github.Matoking.protontricks"]
+            if steam_id:
+                cmd += [steam_id, "--gui"]
+            else:
+                cmd += ["--gui"]
+        else:
+            self._log("Prefix tools: protontricks not found.")
+            return
+
+        env["STEAM_COMPAT_DATA_PATH"] = str(prefix_dir)
+        env["PROTON_VERSION"] = proton_script.parent.name
+        self._log(f"Prefix tools: launching protontricks for prefix {prefix_dir.name} …")
+        try:
+            subprocess.Popen(
+                cmd, env=env,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            self._log(f"Prefix tools error: {e}")
 
     def _on_save(self):
         if self._initial_launch_mode is not None:
@@ -3346,6 +3686,8 @@ class ExeConfigPanel(ctk.CTkFrame):
                 pass
             self.result = final
             self.hide = self._hide_var.get()
+            selected = self._proton_var.get()
+            self.proton_override = "" if selected == "Game default" else selected
         self._on_done(self)
 
     def _on_remove(self):

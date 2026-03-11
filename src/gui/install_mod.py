@@ -104,6 +104,7 @@ def _apply_strip_prefixes_to_file_list(
     strip_lower = {p.lower() for p in strip_prefixes}
     result: list[tuple[str, str, bool]] = []
     for src_rel, dst_rel, is_folder in file_list:
+        had_trailing = dst_rel.endswith("/") or dst_rel.endswith("\\")
         d = dst_rel.replace("\\", "/").strip("/")
         while "/" in d:
             first, remainder = d.split("/", 1)
@@ -111,6 +112,8 @@ def _apply_strip_prefixes_to_file_list(
                 d = remainder
             else:
                 break
+        if had_trailing and d:
+            d = d + "/"
         result.append((src_rel, d, is_folder))
     return result
 
@@ -333,9 +336,12 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
                 shutil.copytree(src, dst, dirs_exist_ok=True)
                 copied += 1
         else:
-            # Empty destination means place file at dest_root using source filename
+            # Empty destination means place file at dest_root using source filename.
+            # Trailing slash/backslash means destination is a directory — append src filename.
             if not dst_rel:
                 dst = dest_root / src.name
+            elif dst_rel.endswith("/") or dst_rel.endswith("\\"):
+                dst = dest_root / dst_rel.rstrip("/\\") / src.name
             if src.is_file():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 if dst.is_dir():

@@ -1782,7 +1782,7 @@ class CollectionsDialog(tk.Frame):
         self._canvas.itemconfig(self._inner_id, width=event.width)
         if hasattr(self, '_regrid_after_id') and self._regrid_after_id:
             self.after_cancel(self._regrid_after_id)
-        self._regrid_after_id = self.after(150, self._regrid_cards)
+        self._regrid_after_id = self.after(250, self._regrid_cards)
 
     def _scroll(self, units: int):
         self._canvas.yview_scroll(units, "units")

@@ -578,3 +578,20 @@ def pick_file(title: str, callback: Callable[[Path | None], None]) -> None:
         args=(title, filters, callback),
         daemon=True,
     ).start()
+
+
+_EXE_FILTERS = [
+    ("Executables (*.exe)", ["*.exe"]),
+    ("All files", ["*"]),
+]
+
+
+def pick_exe_file(title: str, callback: Callable[[Path | None], None]) -> None:
+    """Open a native file picker filtered to .exe files via XDG portal.
+    Runs in a background thread; callback is invoked with the selected Path or None.
+    """
+    threading.Thread(
+        target=_run_file_picker_worker,
+        args=(title, _EXE_FILTERS, callback),
+        daemon=True,
+    ).start()

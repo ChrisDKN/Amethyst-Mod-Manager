@@ -147,7 +147,7 @@ class TrackedModsPanel:
         self._canvas.itemconfig(self._inner_id, width=event.width)
         if self._regrid_after_id:
             self._canvas.after_cancel(self._regrid_after_id)
-        self._regrid_after_id = self._canvas.after(150, self._regrid_cards)
+        self._regrid_after_id = self._canvas.after(250, self._regrid_cards)
 
     def _scroll(self, units: int):
         self._canvas.yview_scroll(units, "units")

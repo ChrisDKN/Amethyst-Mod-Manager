@@ -83,6 +83,14 @@ def get_exe_args_path() -> Path:
     return get_config_dir() / "exe_args.json"
 
 
+def get_profile_exe_args_path(profile_dir: Path) -> Path:
+    """Return the per-profile exe_args.json path inside a profile directory.
+
+    Result: <profile_dir>/exe_args.json
+    """
+    return profile_dir / "exe_args.json"
+
+
 def get_fomod_selections_path(game_name: str, mod_name: str) -> Path:
     """Return the path to a saved FOMOD selection file for a given game and mod.
 

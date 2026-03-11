@@ -408,12 +408,17 @@ class PluginPanel(ctk.CTkFrame):
             # 2. Scan Profiles/<game>/Applications/ for .exe/.bat files (recursive),
             #    excluding custom_exes.json entries (added separately below)
             if staging is not None:
-                apps_dir = staging.parent / "Applications"
+                _shared_staging = (
+                    self._game.get_mod_staging_path()
+                    if hasattr(self._game, "get_mod_staging_path") else staging
+                )
+                apps_dir = _shared_staging.parent / "Applications"
                 if apps_dir.is_dir():
                     for ext in self._EXE_SCAN_EXTENSIONS:
                         for entry in apps_dir.rglob(f"*{ext}"):
                             if entry.is_file() and entry.name not in self._DATA_FOLDER_ONLY_EXES:
-                                exes.append(entry)
+                                if not any(part.startswith("prefix_") for part in entry.parts):
+                                    exes.append(entry)
 
             # 3. Custom exes saved via "Add custom EXE" (arbitrary paths on disk)
             for p in self._load_custom_exes():
@@ -423,8 +428,7 @@ class PluginPanel(ctk.CTkFrame):
         # Sort: game exe first, then Applications/, then custom/filemap entries, alpha within each
         apps_dir_root = None
         if self._game and hasattr(self._game, "get_mod_staging_path"):
-            staging = self._game.get_effective_mod_staging_path()
-            apps_dir_root = staging.parent / "Applications"
+            apps_dir_root = self._game.get_mod_staging_path().parent / "Applications"
 
         custom_set = set(self._load_custom_exes())
 
@@ -511,16 +515,10 @@ class PluginPanel(ctk.CTkFrame):
     _LAUNCH_MODE_FILE = "exe_launch_mode.json"
 
     def _get_launch_mode_path(self) -> "Path | None":
-        """Return path to <game>/Applications/exe_launch_mode.json, or None if no game."""
+        """Return path to ~/.config/AmethystModManager/games/<game>/exe_launch_mode.json."""
         if self._game is None:
             return None
-        staging = (
-            self._game.get_effective_mod_staging_path()
-            if hasattr(self._game, "get_mod_staging_path") else None
-        )
-        if staging is None:
-            return None
-        return staging.parent / "Applications" / self._LAUNCH_MODE_FILE
+        return get_game_config_dir(self._game.name) / self._LAUNCH_MODE_FILE
 
     def _load_launch_mode(self, exe_name: str) -> str:
         """Return saved launch mode for exe_name ('auto', 'steam', 'heroic', 'none')."""
@@ -554,6 +552,36 @@ class PluginPanel(ctk.CTkFrame):
         except (OSError, ValueError):
             return True
 
+    def _load_proton_override(self, exe_name: str) -> "str | None":
+        """Return saved Proton override name for exe_name, '' for game default, or None if never saved."""
+        p = self._get_launch_mode_path()
+        if p is None or not p.is_file():
+            return None
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            key = f"__proton_override_{exe_name}"
+            if key not in data:
+                return None
+            return data[key]
+        except (OSError, ValueError):
+            return None
+
+    def _save_proton_override(self, exe_name: str, proton_name: str) -> None:
+        p = self._get_launch_mode_path()
+        if p is None:
+            return
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            data = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        except (OSError, ValueError):
+            data = {}
+        key = f"__proton_override_{exe_name}"
+        if proton_name:
+            data[key] = proton_name
+        else:
+            data.pop(key, None)
+        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
     def _save_deploy_before_launch(self, enabled: bool) -> None:
         p = self._get_launch_mode_path()
         if p is None:
@@ -580,14 +608,10 @@ class PluginPanel(ctk.CTkFrame):
         if self._game is None:
             self._log("Open Applications folder: no game selected.")
             return
-        staging = (
-            self._game.get_effective_mod_staging_path()
-            if hasattr(self._game, "get_mod_staging_path") else None
-        )
-        if staging is None:
+        if not hasattr(self._game, "get_mod_staging_path"):
             self._log("Open Applications folder: could not determine staging path.")
             return
-        apps_dir = staging.parent / "Applications"
+        apps_dir = self._game.get_mod_staging_path().parent / "Applications"
         apps_dir.mkdir(parents=True, exist_ok=True)
         try:
             xdg_open(apps_dir)
@@ -619,15 +643,9 @@ class PluginPanel(ctk.CTkFrame):
 
     def _get_custom_exes_path(self) -> "Path | None":
         """Return path to <game>/Applications/custom_exes.json, or None if no game."""
-        if self._game is None:
+        if self._game is None or not hasattr(self._game, "get_mod_staging_path"):
             return None
-        staging = (
-            self._game.get_effective_mod_staging_path()
-            if hasattr(self._game, "get_mod_staging_path") else None
-        )
-        if staging is None:
-            return None
-        return staging.parent / "Applications" / self._CUSTOM_EXES_FILE
+        return self._game.get_mod_staging_path().parent / "Applications" / self._CUSTOM_EXES_FILE
 
     def _load_custom_exes(self) -> "list[Path]":
         """Return list of custom exe Paths saved in custom_exes.json."""
@@ -704,9 +722,24 @@ class PluginPanel(ctk.CTkFrame):
         ).start()
 
     def _load_exe_args(self, exe_name: str) -> str:
-        """Load saved args for an exe from Utils/exe_args.json."""
+        """Load saved args for an exe, checking the profile-local file first."""
+        import json as _json
+        from Utils.config_paths import get_profile_exe_args_path
+        # Check profile-local exe_args.json for profiles with specific mods
         try:
-            import json as _json
+            active_dir = getattr(self._game, "_active_profile_dir", None) if self._game else None
+            if active_dir is not None:
+                from gui.game_helpers import profile_uses_specific_mods
+                if profile_uses_specific_mods(active_dir):
+                    profile_file = get_profile_exe_args_path(active_dir)
+                    if profile_file.is_file():
+                        data = _json.loads(profile_file.read_text(encoding="utf-8"))
+                        if exe_name in data:
+                            return data[exe_name]
+        except Exception:
+            pass
+        # Fall back to global exe_args.json
+        try:
             data = _json.loads(self._EXE_ARGS_FILE.read_text(encoding="utf-8"))
             return data.get(exe_name, "")
         except (OSError, ValueError):
@@ -765,6 +798,7 @@ class PluginPanel(ctk.CTkFrame):
         is_game_exe = self._is_game_exe(exe_path)
         saved_launch_mode = self._load_launch_mode(exe_path.name) if is_game_exe else None
         deploy_before_launch = self._load_deploy_before_launch() if is_game_exe else None
+        saved_proton_override = self._load_proton_override(exe_path.name) if not is_game_exe else None
         # Determine current hidden state from user filter (builtin filter names
         # are always hidden and can't be toggled, so we only look at the user list).
         user_filter = {n.lower() for n in self._load_exe_filter()}
@@ -779,6 +813,8 @@ class PluginPanel(ctk.CTkFrame):
                     self._save_launch_mode(exe_path.name, panel.launch_mode)
                 if panel.deploy_before_launch is not None:
                     self._save_deploy_before_launch(panel.deploy_before_launch)
+                if panel.proton_override is not None:
+                    self._save_proton_override(exe_path.name, panel.proton_override)
                 if panel.removed:
                     remaining = [p for p in custom_exes if p != exe_path]
                     self._save_custom_exes(remaining)
@@ -798,6 +834,8 @@ class PluginPanel(ctk.CTkFrame):
                 exe_path=exe_path, game=game, saved_args=saved_args,
                 custom_exes=custom_exes, launch_mode=saved_launch_mode,
                 deploy_before_launch=deploy_before_launch, is_hidden=is_hidden,
+                proton_override=saved_proton_override,
+                log_fn=self._log,
                 on_done=_on_config_done,
             )
         else:
@@ -810,6 +848,8 @@ class PluginPanel(ctk.CTkFrame):
                 launch_mode=saved_launch_mode,
                 deploy_before_launch=deploy_before_launch,
                 is_hidden=is_hidden,
+                proton_override=saved_proton_override,
+                log_fn=self._log,
             )
             self.winfo_toplevel().wait_window(dialog)
             if dialog.result is not None:
@@ -818,6 +858,8 @@ class PluginPanel(ctk.CTkFrame):
                 self._save_launch_mode(exe_path.name, dialog.launch_mode)
             if dialog.deploy_before_launch is not None:
                 self._save_deploy_before_launch(dialog.deploy_before_launch)
+            if dialog.proton_override is not None:
+                self._save_proton_override(exe_path.name, dialog.proton_override)
             if dialog.removed:
                 remaining = [p for p in custom_exes if p != exe_path]
                 self._save_custom_exes(remaining)
@@ -995,36 +1037,56 @@ class PluginPanel(ctk.CTkFrame):
             find_steam_root_for_proton_script,
         )
 
-        prefix_path = (
-            game.get_prefix_path()
-            if hasattr(game, "get_prefix_path") else None
-        )
-        if prefix_path is None or not prefix_path.is_dir():
-            self._log("Run EXE: Proton prefix not configured for this game.")
-            return
-
-        compat_data = prefix_path.parent
-
-        steam_id = getattr(game, "steam_id", "")
-        proton_script = find_proton_for_game(steam_id) if steam_id else None
-        if proton_script is None:
-            # Read the runner name from the prefix's config_info so we use the
-            # same Proton version the prefix was built with (e.g. GE-Proton10-28).
-            preferred_runner = _read_prefix_runner(compat_data)
-            proton_script = find_any_installed_proton(preferred_runner)
+        # Check for a per-exe Proton override (user-selected version with own prefix)
+        proton_override_name = self._load_proton_override(exe_path.name)
+        if proton_override_name:
+            from Utils.steam_finder import list_installed_proton
+            # Try exact match first, then prefix match (e.g. "Proton 10" → "Proton 10.0")
+            proton_script = find_any_installed_proton(proton_override_name)
             if proton_script is None:
-                if steam_id:
-                    self._log(
-                        f"Run EXE: could not find Proton version for app {steam_id}, "
-                        "and no installed Proton tool was found."
-                    )
-                else:
-                    self._log("Run EXE: no Steam ID and no installed Proton tool was found.")
+                override_lower = proton_override_name.lower()
+                for candidate in list_installed_proton():
+                    if candidate.parent.name.lower().startswith(override_lower):
+                        proton_script = candidate
+                        break
+            if proton_script is None:
+                self._log(f"Run EXE: Proton override '{proton_override_name}' not found.")
                 return
-            self._log(
-                f"Run EXE: using fallback Proton tool {proton_script.parent.name} "
-                "(no per-game Steam mapping found)."
+            # Use a dedicated prefix next to the exe so it's isolated from the game prefix
+            compat_data = exe_path.parent / f"prefix_{proton_script.parent.name}"
+            compat_data.mkdir(parents=True, exist_ok=True)
+            self._log(f"Run EXE: using {proton_script.parent.name} with isolated prefix.")
+        else:
+            prefix_path = (
+                game.get_prefix_path()
+                if hasattr(game, "get_prefix_path") else None
             )
+            if prefix_path is None or not prefix_path.is_dir():
+                self._log("Run EXE: Proton prefix not configured for this game.")
+                return
+
+            compat_data = prefix_path.parent
+
+            steam_id = getattr(game, "steam_id", "")
+            proton_script = find_proton_for_game(steam_id) if steam_id else None
+            if proton_script is None:
+                # Read the runner name from the prefix's config_info so we use the
+                # same Proton version the prefix was built with (e.g. GE-Proton10-28).
+                preferred_runner = _read_prefix_runner(compat_data)
+                proton_script = find_any_installed_proton(preferred_runner)
+                if proton_script is None:
+                    if steam_id:
+                        self._log(
+                            f"Run EXE: could not find Proton version for app {steam_id}, "
+                            "and no installed Proton tool was found."
+                        )
+                    else:
+                        self._log("Run EXE: no Steam ID and no installed Proton tool was found.")
+                    return
+                self._log(
+                    f"Run EXE: using fallback Proton tool {proton_script.parent.name} "
+                    "(no per-game Steam mapping found)."
+                )
 
         steam_root = find_steam_root_for_proton_script(proton_script)
         if steam_root is None:
@@ -1037,11 +1099,13 @@ class PluginPanel(ctk.CTkFrame):
         # Proton expects these to locate the game install and per-game shader/compat caches.
         # Without them GE-Proton (and others) fall back to app ID 0 / skip library detection.
         game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
-        if game_path:
+        if game_path and not proton_override_name:
             env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
-        if steam_id:
-            env.setdefault("SteamAppId", steam_id)
-            env.setdefault("SteamGameId", steam_id)
+        if not proton_override_name:
+            steam_id = getattr(game, "steam_id", "")
+            if steam_id:
+                env.setdefault("SteamAppId", steam_id)
+                env.setdefault("SteamGameId", steam_id)
 
         import shlex
         # Re-apply profile-specific output substitution at launch time so the
@@ -3048,7 +3112,7 @@ class PluginPanel(ctk.CTkFrame):
         self._pcanvas_w = event.width
         if hasattr(self, '_pcanvas_resize_after_id') and self._pcanvas_resize_after_id:
             self.after_cancel(self._pcanvas_resize_after_id)
-        self._pcanvas_resize_after_id = self.after(150, lambda w=event.width: self._apply_pcanvas_resize(w))
+        self._pcanvas_resize_after_id = self.after(250, lambda w=event.width: self._apply_pcanvas_resize(w))
 
     def _apply_pcanvas_resize(self, width: int):
         self._layout_plugin_cols(width)

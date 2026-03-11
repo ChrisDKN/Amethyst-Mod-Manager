@@ -403,6 +403,7 @@ def deploy_filemap(
     per_mod_deploy_dirs: dict[str, Path] | None = None,
     log_fn=None,
     progress_fn=None,
+    symlink_exts: set[str] | None = None,
 ) -> tuple[int, set[str]]:
     """Read filemap.txt and transfer every listed file into deploy_dir.
 
@@ -511,7 +512,8 @@ def deploy_filemap(
 
             effective_dir = _per_deploy.get(mod_name, deploy_dir)
             dst = effective_dir / rel_str
-            tasks.append((src, dst, rel_lower, effective_dir is not deploy_dir))
+            use_symlink = symlink_exts is not None and src.suffix.lower() in symlink_exts
+            tasks.append((src, dst, rel_lower, effective_dir is not deploy_dir, use_symlink))
 
             if progress_fn is not None and line_idx % 500 == 0:
                 progress_fn(line_idx, total_lines)
@@ -531,7 +533,7 @@ def deploy_filemap(
 
     # Pre-create all destination directories up front (single-threaded) to
     # avoid mkdir races inside the thread pool.
-    needed_dirs: set[Path] = {dst.parent for _, dst, _, _is_custom in tasks}
+    needed_dirs: set[Path] = {dst.parent for _, dst, _, _is_custom, _ in tasks}
     for d in needed_dirs:
         d.mkdir(parents=True, exist_ok=True)
 
@@ -539,7 +541,7 @@ def deploy_filemap(
     # put the originals back.  Mirror each dst's absolute path as a relative
     # path inside _custom_backup_dir (strip leading slash) so structure is
     # preserved and files with the same name in different dirs never collide.
-    for src, dst, rel_lower, is_custom in tasks:
+    for src, dst, rel_lower, is_custom, _use_sym in tasks:
         if not is_custom:
             continue
         if dst.is_symlink():
@@ -553,12 +555,13 @@ def deploy_filemap(
     linked = 0
     done_count = 0
 
-    def _do_transfer(item: tuple[Path, Path, str, bool]) -> tuple[str | None, tuple[Path, OSError] | None]:
-        src, dst, rel_lower, _is_custom = item
+    def _do_transfer(item: tuple[Path, Path, str, bool, bool]) -> tuple[str | None, tuple[Path, OSError] | None]:
+        src, dst, rel_lower, _is_custom, use_symlink = item
         try:
-            if mode is LinkMode.HARDLINK:
+            effective_mode = LinkMode.SYMLINK if use_symlink else mode
+            if effective_mode is LinkMode.HARDLINK:
                 os.link(src, dst)
-            elif mode is LinkMode.SYMLINK:
+            elif effective_mode is LinkMode.SYMLINK:
                 os.symlink(src, dst)
             else:
                 shutil.copy2(src, dst)
@@ -582,7 +585,7 @@ def deploy_filemap(
     # remove.  Each line is the absolute path of a deployed file.
     custom_deployed = [
         str(dst)
-        for src, dst, rel_lower, is_custom in tasks
+        for src, dst, rel_lower, is_custom, _use_sym in tasks
         if is_custom and rel_lower in placed_lower
     ]
     try:

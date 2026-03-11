@@ -238,6 +238,7 @@ class ModListPanel(ctk.CTkFrame):
         self._filemap_rescan_index: bool = False  # True if next rebuild should regenerate modindex.bin first
         self._redraw_after_id: str | None = None  # after_idle handle for scroll-debounce
         self._canvas_resize_after_id: str | None = None  # after() handle for resize-debounce
+        self._marker_strip_after_id: str | None = None   # after() handle for marker-strip debounce
 
         # Drag state
         self._drag_idx:      int = -1      # entry index being dragged (stays fixed during drag)
@@ -496,7 +497,7 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._marker_strip.grid(row=0, column=1, sticky="ns")
         self._vsb.grid(row=0, column=2, sticky="ns")
-        self._marker_strip.bind("<Configure>", lambda e: self._draw_marker_strip())
+        self._marker_strip.bind("<Configure>", self._on_marker_strip_resize)
 
         self._canvas_w = 600   # updated on first <Configure>
         self._canvas.bind("<Configure>",      self._on_canvas_resize)
@@ -2168,7 +2169,7 @@ class ModListPanel(ctk.CTkFrame):
     def _on_canvas_resize(self, event):
         if self._canvas_resize_after_id is not None:
             self.after_cancel(self._canvas_resize_after_id)
-        self._canvas_resize_after_id = self.after(150, lambda w=event.width: self._apply_canvas_resize(w))
+        self._canvas_resize_after_id = self.after(250, lambda w=event.width: self._apply_canvas_resize(w))
 
     def _apply_canvas_resize(self, width: int):
         self._canvas_resize_after_id = None
@@ -5095,6 +5096,11 @@ class ModListPanel(ctk.CTkFrame):
         if mod_name != self._highlighted_mod:
             self._highlighted_mod = mod_name
             self._redraw()  # _redraw calls _draw_marker_strip internally
+
+    def _on_marker_strip_resize(self, _event):
+        if self._marker_strip_after_id is not None:
+            self.after_cancel(self._marker_strip_after_id)
+        self._marker_strip_after_id = self.after(250, self._draw_marker_strip)
 
     def _draw_marker_strip(self):
         """Draw colour-coded tick marks on the narrow strip beside the scrollbar.

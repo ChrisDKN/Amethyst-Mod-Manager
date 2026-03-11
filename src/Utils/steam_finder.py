@@ -44,6 +44,39 @@ def _proton_sort_key(name: str) -> tuple[int, tuple[int, ...], str]:
     return (0 if is_ge else 1, tuple(-n for n in nums), lower)
 
 
+def list_installed_proton() -> list[Path]:
+    """Return all installed Proton launcher scripts, sorted by _proton_sort_key.
+
+    Deduplicates by resolved path so symlinked Steam roots (e.g. ~/.steam/steam)
+    don't produce duplicate entries.
+    """
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+    for steam_root in _STEAM_CANDIDATES:
+        for search_dir in (
+            steam_root / "compatibilitytools.d",
+            steam_root / "steamapps" / "common",
+        ):
+            if not search_dir.is_dir():
+                continue
+            try:
+                for entry in search_dir.iterdir():
+                    if not entry.is_dir():
+                        continue
+                    proton_script = entry / "proton"
+                    if not proton_script.is_file():
+                        continue
+                    resolved = proton_script.resolve()
+                    if resolved in seen:
+                        continue
+                    seen.add(resolved)
+                    candidates.append(proton_script)
+            except OSError:
+                continue
+    candidates.sort(key=lambda p: _proton_sort_key(p.parent.name))
+    return candidates
+
+
 def find_any_installed_proton(preferred_name: str = "") -> Path | None:
     """
     Find an installed Proton launcher script without requiring a Steam app mapping.

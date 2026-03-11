@@ -81,6 +81,7 @@ class AddGameDialog(ctk.CTkToplevel):
         self.result: Optional[Path] = None
         self.removed: bool = False
         self._deploy_mode_var = tk.StringVar(value="hardlink")
+        self._symlink_plugins_var = tk.BooleanVar(value=True)
 
         self._build_ui()
 
@@ -103,6 +104,8 @@ class AddGameDialog(ctk.CTkToplevel):
                     LinkMode.SYMLINK: "symlink",
                     LinkMode.COPY:    "copy",
                 }.get(mode, "hardlink"))
+            if hasattr(game, "symlink_plugins"):
+                self._symlink_plugins_var.set(game.symlink_plugins)
             # Pre-populate staging path if a custom one is saved
             if hasattr(game, "_staging_path") and game._staging_path is not None:
                 self._custom_staging = game._staging_path
@@ -303,6 +306,14 @@ class AddGameDialog(ctk.CTkToplevel):
                 font=FONT_NORMAL, text_color=TEXT_MAIN,
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
             ).pack(side="left", padx=(0, 20))
+
+        if hasattr(self._game, "symlink_plugins"):
+            ctk.CTkCheckBox(
+                body, text="Symlink plugin files (.esp / .esm / .esl)",
+                variable=self._symlink_plugins_var,
+                font=FONT_NORMAL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV,
+            ).grid(row=17, column=0, sticky="w", padx=16, pady=(0, 8))
 
         # Button bar
         btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
@@ -749,6 +760,8 @@ class AddGameDialog(ctk.CTkToplevel):
                 "copy":    LinkMode.COPY,
             }.get(self._deploy_mode_var.get(), LinkMode.HARDLINK)
             self._game.set_deploy_mode(mode)
+        if hasattr(self._game, "set_symlink_plugins"):
+            self._game.set_symlink_plugins(self._symlink_plugins_var.get())
         if hasattr(self._game, "set_staging_path"):
             self._game.set_staging_path(self._custom_staging)
         _create_profile_structure(self._game)
@@ -791,6 +804,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self.result: Optional[Path] = None
         self.removed: bool = False
         self._deploy_mode_var = tk.StringVar(value="hardlink")
+        self._symlink_plugins_var = tk.BooleanVar(value=True)
 
         self._build_ui()
 
@@ -810,6 +824,8 @@ class ReconfigureGamePanel(ctk.CTkFrame):
                     LinkMode.SYMLINK: "symlink",
                     LinkMode.COPY:    "copy",
                 }.get(mode, "hardlink"))
+            if hasattr(game, "symlink_plugins"):
+                self._symlink_plugins_var.set(game.symlink_plugins)
             if hasattr(game, "_staging_path") and game._staging_path is not None:
                 self._custom_staging = game._staging_path
                 self._set_staging(game._staging_path, status="configured")
@@ -1007,6 +1023,14 @@ class ReconfigureGamePanel(ctk.CTkFrame):
                 font=FONT_NORMAL, text_color=TEXT_MAIN,
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
             ).pack(side="left", padx=(0, 20))
+
+        if hasattr(self._game, "symlink_plugins"):
+            ctk.CTkCheckBox(
+                body, text="Symlink plugin files (.esp / .esm / .esl)",
+                variable=self._symlink_plugins_var,
+                font=FONT_NORMAL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV,
+            ).grid(row=17, column=0, sticky="w", padx=16, pady=(0, 8))
 
         # Button bar
         btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
@@ -1390,6 +1414,8 @@ class ReconfigureGamePanel(ctk.CTkFrame):
                 "copy":    LinkMode.COPY,
             }.get(self._deploy_mode_var.get(), LinkMode.HARDLINK)
             self._game.set_deploy_mode(mode)
+        if hasattr(self._game, "set_symlink_plugins"):
+            self._game.set_symlink_plugins(self._symlink_plugins_var.get())
         if hasattr(self._game, "set_staging_path"):
             self._game.set_staging_path(self._custom_staging)
         _create_profile_structure(self._game)
