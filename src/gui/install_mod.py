@@ -403,7 +403,14 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             try:
                 log_fn("Extracting with zipfile…")
                 with zipfile.ZipFile(archive_path, "r") as z:
-                    z.extractall(extract_dir)
+                    for member in z.infolist():
+                        # Normalise Windows backslash paths so Linux extractors
+                        # create the correct folder hierarchy instead of treating
+                        # the whole path as a single filename.
+                        fixed_name = member.filename.replace("\\", "/")
+                        if fixed_name != member.filename:
+                            member.filename = fixed_name
+                        z.extract(member, extract_dir)
                 _zip_done = True
             except Exception as e_zip:
                 log_fn(f"zipfile failed ({e_zip}), retrying with 7z…")
