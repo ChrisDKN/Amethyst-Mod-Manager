@@ -1003,7 +1003,8 @@ class App(ctk.CTk):
     # -- EXE Config panel ----------------------------------------------------
 
     def show_exe_config_panel(self, exe_path, game, saved_args, custom_exes,
-                              launch_mode, deploy_before_launch, is_hidden, on_done):
+                              launch_mode, deploy_before_launch, is_hidden, on_done,
+                              proton_override=None, log_fn=None):
         from gui.dialogs import ExeConfigPanel
         def _factory():
             def _done(panel):
@@ -1014,7 +1015,7 @@ class App(ctk.CTk):
                 exe_path=exe_path, game=game, saved_args=saved_args,
                 custom_exes=custom_exes, launch_mode=launch_mode,
                 deploy_before_launch=deploy_before_launch, is_hidden=is_hidden,
-                on_done=_done,
+                on_done=_done, proton_override=proton_override, log_fn=log_fn,
             )
         self._show_plugin_overlay("_exe_config_panel", _factory)
 
