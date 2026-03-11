@@ -328,6 +328,7 @@ class TopBar(ctk.CTkFrame):
                 self._wizard_btn.pack(side="left", padx=(0, 8))
         else:
             self._wizard_btn.pack_forget()
+        self.after_idle(self._init_threshold)
 
     def _on_game_change(self, value: str):
         _save_last_game(value)
@@ -882,6 +883,7 @@ class TopBar(ctk.CTkFrame):
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
             )
             self._log("Install Mod: extraction re-enabled.")
+        self.after_idle(self._init_threshold)
 
     def _on_install_mod(self):
         def _on_file_picked(path: str) -> None:
