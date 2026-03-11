@@ -512,16 +512,10 @@ class PluginPanel(ctk.CTkFrame):
     _LAUNCH_MODE_FILE = "exe_launch_mode.json"
 
     def _get_launch_mode_path(self) -> "Path | None":
-        """Return path to <game>/Applications/exe_launch_mode.json, or None if no game."""
+        """Return path to ~/.config/AmethystModManager/games/<game>/exe_launch_mode.json."""
         if self._game is None:
             return None
-        staging = (
-            self._game.get_effective_mod_staging_path()
-            if hasattr(self._game, "get_mod_staging_path") else None
-        )
-        if staging is None:
-            return None
-        return staging.parent / "Applications" / self._LAUNCH_MODE_FILE
+        return get_game_config_dir(self._game.name) / self._LAUNCH_MODE_FILE
 
     def _load_launch_mode(self, exe_name: str) -> str:
         """Return saved launch mode for exe_name ('auto', 'steam', 'heroic', 'none')."""
