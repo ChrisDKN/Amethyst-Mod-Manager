@@ -312,7 +312,7 @@ class App(ctk.CTk):
         super().__init__(fg_color=BG_DEEP)
         init_fonts(self)
         self.geometry("1280x800")
-        self.minsize(900, 600)
+        self.minsize(1280, 800)
         # Thread-safe callback queue — background threads must never call
         # widget.after() directly (Python 3.13 Tkinter enforces this).
         # Use  app.call_threadsafe(fn)  instead.
