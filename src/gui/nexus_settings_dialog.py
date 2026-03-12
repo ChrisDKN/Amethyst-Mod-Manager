@@ -19,13 +19,11 @@ import tkinter as tk
 
 from Nexus.nexus_api import (
     NexusAPI,
-    NexusAPIError,
     NexusRateLimits,
-    load_api_key,
-    save_api_key,
     clear_api_key,
 )
 from Nexus.nexus_oauth import NexusOAuthClient, OAuthTokens, clear_oauth_tokens, CLIENT_ID
+from Utils.app_log import app_log
 from Nexus.nxm_handler import NxmHandler
 
 from gui.theme import (
@@ -128,57 +126,12 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         )
         # hidden by default; shown only while OAuth is in progress
 
-        # -- Separator --
-        ctk.CTkFrame(self, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=2)
-
-        ctk.CTkLabel(
-            self,
-            text="Or paste a personal API key (nexusmods.com → Settings → API Keys):",
-            font=FONT_SMALL, text_color=TEXT_DIM,
-        ).pack(padx=16, pady=(4, 4), anchor="w")
-
-        # -- Key entry --
-        key_frame = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=6)
-        key_frame.pack(padx=16, pady=4, fill="x")
-
-        self._key_var = tk.StringVar(value=load_api_key())
-        self._key_entry = ctk.CTkEntry(
-            key_frame, textvariable=self._key_var,
-            placeholder_text="Paste your API key here...",
-            font=FONT_MONO, text_color=TEXT_MAIN,
-            fg_color=BG_ROW, border_color=BORDER,
-            show="•",
-            width=380,
-        )
-        self._key_entry.pack(side="left", padx=(8, 4), pady=8, fill="x", expand=True)
-
-        self._show_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
-            key_frame, text="Show",
-            variable=self._show_var,
-            font=FONT_SMALL, text_color=TEXT_DIM,
-            fg_color=BG_HEADER, hover_color=BG_HOVER,
-            command=self._toggle_show,
-        ).pack(side="right", padx=8, pady=8)
-
         # -- Buttons --
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
         btn_frame.pack(padx=16, pady=8, fill="x")
 
         ctk.CTkButton(
-            btn_frame, text="Validate Key", width=120, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
-            command=self._on_validate,
-        ).pack(side="left", padx=(0, 8))
-
-        ctk.CTkButton(
-            btn_frame, text="Save Key", width=100, font=FONT_BOLD,
-            fg_color="#2d7a2d", hover_color="#3a9e3a", text_color="white",
-            command=self._on_save,
-        ).pack(side="left", padx=(0, 8))
-
-        ctk.CTkButton(
-            btn_frame, text="Clear Key", width=100, font=FONT_BOLD,
+            btn_frame, text="Clear Credentials", width=140, font=FONT_BOLD,
             fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
             command=self._on_clear,
         ).pack(side="left")
@@ -257,52 +210,7 @@ class NexusSettingsDialog(ctk.CTkToplevel):
 
         self._update_nxm_status()
 
-    # -- Show/hide key ------------------------------------------------------
-
-    def _toggle_show(self):
-        self._key_entry.configure(show="" if self._show_var.get() else "•")
-
-    # -- Validate -----------------------------------------------------------
-
-    def _on_validate(self):
-        key = self._key_var.get().strip()
-        if not key:
-            self._set_status("Enter an API key first.", TEXT_WARN)
-            return
-
-        self._set_status("Validating...", TEXT_DIM)
-
-        def _worker():
-            try:
-                api = NexusAPI(api_key=key)
-                user = api.validate()
-                premium = " (Premium)" if user.is_premium else ""
-                self.after(0, lambda: self._set_status(
-                    f"✓ Valid — {user.name}{premium}", TEXT_OK))
-            except NexusAPIError as exc:
-                self.after(0, lambda: self._set_status(
-                    f"✗ {exc}", TEXT_ERR))
-            except Exception as exc:
-                self.after(0, lambda: self._set_status(
-                    f"✗ Error: {exc}", TEXT_ERR))
-
-        threading.Thread(target=_worker, daemon=True).start()
-
-    # -- Save / clear -------------------------------------------------------
-
-    def _on_save(self):
-        key = self._key_var.get().strip()
-        if not key:
-            self._set_status("Nothing to save — key is empty.", TEXT_WARN)
-            return
-        try:
-            save_api_key(key)
-        except RuntimeError:
-            self._show_keyring_error_popup()
-            self._set_status("Save failed — no keyring available.", TEXT_ERR)
-            return
-        self._key_changed = True
-        self._set_status("Key saved.", TEXT_OK)
+    # -- Clear -------------------------------------------------------
 
     def _show_keyring_error_popup(self):
         """Show a themed popup explaining that no keyring backend is available."""
@@ -450,9 +358,9 @@ class NexusSettingsDialog(ctk.CTkToplevel):
 
     def _on_clear(self):
         clear_api_key()
-        self._key_var.set("")
+        clear_oauth_tokens()
         self._key_changed = True
-        self._set_status("Key cleared.", TEXT_WARN)
+        self._set_status("Credentials cleared.", TEXT_WARN)
 
     # -- NXM handler --------------------------------------------------------
 
@@ -589,12 +497,19 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         """Validate the OAuth token and display the user's name."""
         def _worker():
             try:
-                from Nexus.nexus_api import NexusAPI
-                api = NexusAPI.from_oauth(tokens)
-                user = api.validate()
-                premium = " (Premium)" if user.is_premium else ""
+                import requests as _req
+                resp = _req.get(
+                    "https://users.nexusmods.com/oauth/userinfo",
+                    headers={"Authorization": f"Bearer {tokens.access_token}"},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                name = (data.get("name") or data.get("preferred_username")
+                        or data.get("username") or data.get("sub", ""))
+                app_log(f"OAuth userinfo fields: {list(data.keys())}")
                 self.after(0, lambda: self._set_status(
-                    f"✓ Logged in as {user.name}{premium}", TEXT_OK))
+                    f"✓ Logged in as {name}", TEXT_OK))
             except Exception as exc:
                 self.after(0, lambda: self._set_status(
                     f"✓ Logged in (could not fetch user info: {exc})", TEXT_OK))
@@ -709,53 +624,11 @@ class NexusSettingsPanel(ctk.CTkFrame):
             command=self._on_sso_cancel,
         )
 
-        ctk.CTkFrame(body, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=2)
-
-        ctk.CTkLabel(
-            body,
-            text="Or paste a personal API key (nexusmods.com → Settings → API Keys):",
-            font=FONT_SMALL, text_color=TEXT_DIM,
-        ).pack(padx=16, pady=(4, 4), anchor="center")
-
-        key_frame = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
-        key_frame.pack(padx=16, pady=4, fill="x")
-
-        self._key_var = tk.StringVar(value=load_api_key())
-        self._key_entry = ctk.CTkEntry(
-            key_frame, textvariable=self._key_var,
-            placeholder_text="Paste your API key here...",
-            font=FONT_MONO, text_color=TEXT_MAIN,
-            fg_color=BG_ROW, border_color=BORDER,
-            show="•", width=300,
-        )
-        self._key_entry.pack(side="left", padx=(8, 4), pady=8, fill="x", expand=True)
-
-        self._show_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
-            key_frame, text="Show",
-            variable=self._show_var,
-            font=FONT_SMALL, text_color=TEXT_DIM,
-            fg_color=BG_HEADER, hover_color=BG_HOVER,
-            command=self._toggle_show,
-        ).pack(side="right", padx=8, pady=8)
-
         btn_frame = ctk.CTkFrame(body, fg_color="transparent")
         btn_frame.pack(padx=16, pady=8)
 
         ctk.CTkButton(
-            btn_frame, text="Validate Key", width=120, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
-            command=self._on_validate,
-        ).pack(side="left", padx=(0, 8))
-
-        ctk.CTkButton(
-            btn_frame, text="Save Key", width=100, font=FONT_BOLD,
-            fg_color="#2d7a2d", hover_color="#3a9e3a", text_color="white",
-            command=self._on_save,
-        ).pack(side="left", padx=(0, 8))
-
-        ctk.CTkButton(
-            btn_frame, text="Clear Key", width=100, font=FONT_BOLD,
+            btn_frame, text="Clear Credentials", width=140, font=FONT_BOLD,
             fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
             command=self._on_clear,
         ).pack(side="left")
@@ -852,48 +725,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
         if domain:
             open_url(f"https://www.nexusmods.com/games/{domain}")
 
-    # -- Show/hide key -------------------------------------------------------
-
-    def _toggle_show(self):
-        self._key_entry.configure(show="" if self._show_var.get() else "•")
-
-    # -- Validate ------------------------------------------------------------
-
-    def _on_validate(self):
-        key = self._key_var.get().strip()
-        if not key:
-            self._set_status("Enter an API key first.", TEXT_WARN)
-            return
-        self._set_status("Validating...", TEXT_DIM)
-
-        def _worker():
-            try:
-                api = NexusAPI(api_key=key)
-                user = api.validate()
-                premium = " (Premium)" if user.is_premium else ""
-                self.after(0, lambda: self._set_status(f"✓ Valid — {user.name}{premium}", TEXT_OK))
-            except NexusAPIError as exc:
-                self.after(0, lambda: self._set_status(f"✗ {exc}", TEXT_ERR))
-            except Exception as exc:
-                self.after(0, lambda: self._set_status(f"✗ Error: {exc}", TEXT_ERR))
-
-        threading.Thread(target=_worker, daemon=True).start()
-
-    # -- Save / clear --------------------------------------------------------
-
-    def _on_save(self):
-        key = self._key_var.get().strip()
-        if not key:
-            self._set_status("Nothing to save — key is empty.", TEXT_WARN)
-            return
-        try:
-            save_api_key(key)
-        except RuntimeError:
-            self._show_keyring_error_popup()
-            self._set_status("Save failed — no keyring available.", TEXT_ERR)
-            return
-        self._key_changed = True
-        self._set_status("Key saved.", TEXT_OK)
+    # -- Clear -------------------------------------------------------
 
     def _show_keyring_error_popup(self):
         """Show a themed popup explaining that no keyring backend is available."""
@@ -1018,9 +850,9 @@ class NexusSettingsPanel(ctk.CTkFrame):
 
     def _on_clear(self):
         clear_api_key()
-        self._key_var.set("")
+        clear_oauth_tokens()
         self._key_changed = True
-        self._set_status("Key cleared.", TEXT_WARN)
+        self._set_status("Credentials cleared.", TEXT_WARN)
 
     # -- NXM handler ---------------------------------------------------------
 
@@ -1133,10 +965,18 @@ class NexusSettingsPanel(ctk.CTkFrame):
     def _validate_oauth(self, tokens: OAuthTokens):
         def _worker():
             try:
-                api = NexusAPI.from_oauth(tokens)
-                user = api.validate()
-                premium = " (Premium)" if user.is_premium else ""
-                self.after(0, lambda: self._set_status(f"✓ Logged in as {user.name}{premium}", TEXT_OK))
+                import requests as _req
+                resp = _req.get(
+                    "https://users.nexusmods.com/oauth/userinfo",
+                    headers={"Authorization": f"Bearer {tokens.access_token}"},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                name = (data.get("name") or data.get("preferred_username")
+                        or data.get("username") or data.get("sub", ""))
+                app_log(f"OAuth userinfo fields: {list(data.keys())}")
+                self.after(0, lambda: self._set_status(f"✓ Logged in as {name}", TEXT_OK))
             except Exception as exc:
                 self.after(0, lambda: self._set_status(
                     f"✓ Logged in (could not fetch user info: {exc})", TEXT_OK))

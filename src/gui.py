@@ -75,7 +75,8 @@ from Utils.plugins import (
     read_plugins,
     write_plugins,
 )
-from Nexus.nexus_api import NexusAPI, load_api_key
+from Nexus.nexus_api import NexusAPI, load_api_key, clear_api_key
+from Nexus.nexus_oauth import load_oauth_tokens
 from Nexus.nexus_download import NexusDownloader
 from Nexus.nxm_handler import NxmLink, NxmHandler, NxmIPC
 from Nexus.nexus_meta import build_meta_from_download, write_meta
@@ -370,7 +371,9 @@ class App(ctk.CTk):
             self.title(base)
 
     def _init_nexus_api(self):
-        """Load saved API key and initialise the Nexus client (if key exists)."""
+        """Load saved API key (or OAuth tokens) and initialise the Nexus client."""
+        # Legacy personal API keys are no longer used — clear any stored key on startup
+        clear_api_key()
         key = load_api_key()
         if key:
             self._nexus_api = NexusAPI(api_key=key)
@@ -385,11 +388,33 @@ class App(ctk.CTk):
                 self.call_threadsafe(self._update_window_title)
             threading.Thread(target=_fetch_user, daemon=True).start()
         else:
-            self._nexus_api = None
-            self._nexus_downloader = None
-            self._nexus_username = None
-            # Update title synchronously when key is absent / cleared
-            self.after(0, self._update_window_title)
+            tokens = load_oauth_tokens()
+            if tokens:
+                self._nexus_api = NexusAPI.from_oauth(tokens)
+                self._nexus_downloader = NexusDownloader(self._nexus_api)
+                def _fetch_user_oauth():
+                    try:
+                        import requests as _req
+                        resp = _req.get(
+                            "https://users.nexusmods.com/oauth/userinfo",
+                            headers={"Authorization": f"Bearer {tokens.access_token}"},
+                            timeout=15,
+                        )
+                        resp.raise_for_status()
+                        data = resp.json()
+                        self._nexus_username = (
+                            data.get("name") or data.get("preferred_username") or data.get("sub")
+                        )
+                    except Exception:
+                        self._nexus_username = None
+                    self.call_threadsafe(self._update_window_title)
+                threading.Thread(target=_fetch_user_oauth, daemon=True).start()
+            else:
+                self._nexus_api = None
+                self._nexus_downloader = None
+                self._nexus_username = None
+                # Update title synchronously when key is absent / cleared
+                self.after(0, self._update_window_title)
 
     # -- App update check ---------------------------------------------------
 

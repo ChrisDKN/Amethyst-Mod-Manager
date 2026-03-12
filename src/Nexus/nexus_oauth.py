@@ -63,11 +63,11 @@ _CALLBACK_PORT = 7890
 _CALLBACK_PATH = "/callback"
 _REDIRECT_URI  = f"http://localhost:{_CALLBACK_PORT}{_CALLBACK_PATH}"
 
-# Filled in once Nexus Mods issues credentials.  Leave empty until then;
-# the login button is disabled when CLIENT_ID is empty.
-CLIENT_ID: str = ""
+# OAuth credentials issued by Nexus Mods.
+CLIENT_ID:     str = "amethyst"
+CLIENT_SECRET: str = "d6bc16f2c28a5c5bc19261d458b70117"
 
-_SCOPES = "openid public"
+_SCOPES = "openid profile public"
 
 _KEYRING_SERVICE      = "AmethystModManager"
 _KEYRING_ACCESS_KEY   = "nexus_oauth_access_token"
@@ -139,7 +139,7 @@ def clear_oauth_tokens() -> None:
 # Token refresh
 # ---------------------------------------------------------------------------
 
-def refresh_if_needed(tokens: OAuthTokens, client_id: str = CLIENT_ID) -> OAuthTokens:
+def refresh_if_needed(tokens: OAuthTokens, client_id: str = CLIENT_ID, client_secret: str = CLIENT_SECRET) -> OAuthTokens:
     """
     Return tokens unchanged if still valid, or perform a refresh token exchange.
 
@@ -156,6 +156,7 @@ def refresh_if_needed(tokens: OAuthTokens, client_id: str = CLIENT_ID) -> OAuthT
                 "grant_type":    "refresh_token",
                 "refresh_token": tokens.refresh_token,
                 "client_id":     client_id,
+                "client_secret": client_secret,
                 "redirect_uri":  _REDIRECT_URI,
             },
             timeout=20,
@@ -382,6 +383,7 @@ class NexusOAuthClient:
                 data={
                     "grant_type":    "authorization_code",
                     "client_id":     self._client_id,
+                    "client_secret": CLIENT_SECRET,
                     "redirect_uri":  _REDIRECT_URI,
                     "code":          code,
                     "code_verifier": verifier,

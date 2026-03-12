@@ -42,7 +42,7 @@ from version import __version__
 
 API_BASE = "https://api.nexusmods.com/v1"
 GRAPHQL_BASE = "https://api.nexusmods.com/v2/graphql"
-APP_NAME = "AmethystModManager"
+APP_NAME = "amethyst"
 APP_VERSION = __version__
 
 # How long to wait after a 429 before retrying (seconds)
@@ -521,7 +521,7 @@ class NexusAPI:
     _VALIDATE_CACHE_TTL = 300.0  # seconds
 
     def validate(self, bypass_cache: bool = False) -> "NexusUser":
-        """Validate the current API key and return user info.
+        """Validate the current API key (or OAuth token) and return user info.
 
         Result is cached for 5 minutes so repeated calls (e.g. one per mod
         install) consume only a single rate-limited request per session.
@@ -530,18 +530,49 @@ class NexusAPI:
         if not bypass_cache and self._cached_user is not None:
             if time.monotonic() - self._cached_user_ts < self._VALIDATE_CACHE_TTL:
                 return self._cached_user
-        data = self._get("/users/validate")
-        user = NexusUser(
-            user_id=data["user_id"],
-            name=data["name"],
-            email=data.get("email", ""),
-            is_premium=data.get("is_premium", False),
-            is_supporter=data.get("is_supporter", False),
-            profile_url=data.get("profile_url", ""),
-        )
+
+        # OAuth mode: v1 /users/validate doesn't accept Bearer tokens — use userinfo instead
+        if not self._key and "Authorization" in self._session.headers:
+            user = self._validate_via_oauth_userinfo()
+        else:
+            data = self._get("/users/validate")
+            user = NexusUser(
+                user_id=data["user_id"],
+                name=data["name"],
+                email=data.get("email", ""),
+                is_premium=data.get("is_premium", False),
+                is_supporter=data.get("is_supporter", False),
+                profile_url=data.get("profile_url", ""),
+            )
+
         self._cached_user = user
         self._cached_user_ts = time.monotonic()
         return user
+
+    def _validate_via_oauth_userinfo(self) -> "NexusUser":
+        """Fetch user info via OpenID userinfo endpoint (OAuth Bearer auth)."""
+        resp = self._session.get(
+            "https://users.nexusmods.com/oauth/userinfo",
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Determine premium/supporter from userinfo membership_roles / premium_expiry
+        membership_roles = data.get("membership_roles") or []
+        premium_expiry = data.get("premium_expiry")
+        is_premium = (
+            "premium" in [str(r).lower() for r in membership_roles]
+            or (premium_expiry is not None and premium_expiry != 0)
+        )
+        is_supporter = "supporter" in [str(r).lower() for r in membership_roles]
+        return NexusUser(
+            user_id=int(data.get("sub", 0) or 0),
+            name=data.get("name", "") or data.get("preferred_username", "") or data.get("sub", ""),
+            email=data.get("email", ""),
+            is_premium=is_premium,
+            is_supporter=is_supporter,
+            profile_url=data.get("picture", "") or data.get("avatar", ""),
+        )
 
     # -- Games --------------------------------------------------------------
 
