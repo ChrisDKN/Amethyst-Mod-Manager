@@ -732,6 +732,7 @@ class App(ctk.CTk):
         self._deploy_paths_panel   = None
         self._disable_plugins_panel = None
         self._optional_mods_panel = None
+        self._vramr_panel = None
 
         def _on_filemap_rebuilt():
             # 1. Sync plugins.txt from the updated filemap
@@ -1189,6 +1190,26 @@ class App(ctk.CTk):
 
     def hide_optional_mods_panel(self):
         self._hide_plugin_overlay("_optional_mods_panel")
+
+    # -- VRAMr preset panel (overlays plugin panel) ------------------------
+
+    def show_vramr_panel(self, bat_dir, game_data_dir, output_dir, log_fn):
+        """Show VRAMr preset picker as overlay on the plugin panel."""
+        from gui.dialogs import VRAMrPresetPanel
+        self._show_plugin_overlay(
+            "_vramr_panel",
+            lambda: VRAMrPresetPanel(
+                self._plugin_panel_container,
+                bat_dir=bat_dir,
+                game_data_dir=game_data_dir,
+                output_dir=output_dir,
+                log_fn=log_fn,
+                on_done=lambda p: self._hide_plugin_overlay("_vramr_panel"),
+            ),
+        )
+
+    def hide_vramr_panel(self):
+        self._hide_plugin_overlay("_vramr_panel")
 
     # -- Missing requirements panel (overlays plugin panel) -----------------
 

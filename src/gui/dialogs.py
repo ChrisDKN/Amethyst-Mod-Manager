@@ -2305,11 +2305,11 @@ class OverwritesPanel(ctk.CTkFrame):
         self._on_done(self)
 
 
-# VRAMr preset picker
+# VRAMr preset panel — overlay on plugin panel
 # ---------------------------------------------------------------------------
-class _VRAMrPresetDialog(ctk.CTkToplevel):
-    """Modal dialog that lets the user pick a VRAMr preset, then runs the
-    optimisation pipeline in a background thread."""
+class VRAMrPresetPanel(ctk.CTkFrame):
+    """Inline panel overlaying the plugin panel. User picks a preset, clicks Run,
+    then the panel hides and VRAMr runs in a background thread."""
 
     _PRESETS = [
         ("hq",          "High Quality",  "2K / 2K / 1K / 1K  — 4K modlist downscaled to 2K"),
@@ -2320,87 +2320,90 @@ class _VRAMrPresetDialog(ctk.CTkToplevel):
     ]
 
     def __init__(self, parent, *, bat_dir: Path, game_data_dir: Path,
-                 output_dir: Path, log_fn):
-        super().__init__(parent, fg_color="#1a1a1a")
-        self.title("VRAMr — Choose Preset")
-        self.geometry("520x380")
-        self.resizable(False, False)
-        self.transient(parent)
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
-        self.after(100, self._make_modal)
-
+                 output_dir: Path, log_fn, on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
         self._bat_dir = bat_dir
         self._game_data_dir = game_data_dir
         self._output_dir = output_dir
         self._log = log_fn
+        self._on_done = on_done or (lambda p: None)
         self._preset_var = tk.StringVar(value="optimum")
         self._build()
 
-    def _make_modal(self):
-        try:
-            self.grab_set()
-            self.focus_set()
-        except Exception:
-            pass
-
-    def _on_close(self):
-        try:
-            self.grab_release()
-        except Exception:
-            pass
-        self.destroy()
-
     def _build(self):
-        ctk.CTkLabel(
-            self, text="VRAMr Texture Optimiser",
-            font=("Segoe UI", 16, "bold"), text_color="#d4d4d4",
-        ).pack(pady=(16, 4))
-        ctk.CTkLabel(
-            self, text="Select an optimisation preset, then click Run.",
-            font=("Segoe UI", 12), text_color="#858585",
-        ).pack(pady=(0, 12))
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        frame = ctk.CTkFrame(self, fg_color="#252526", corner_radius=6)
-        frame.pack(padx=20, pady=4, fill="x")
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
+        title_bar.grid(row=0, column=0, sticky="ew")
+        title_bar.grid_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text="VRAMr — Choose Preset",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12, pady=8)
+        ctk.CTkButton(
+            title_bar, text="✕", width=32, height=32, font=FONT_BOLD,
+            fg_color="transparent", hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_close,
+        ).pack(side="right", padx=4, pady=4)
 
+        # Body
+        body = ctk.CTkFrame(self, fg_color=BG_DEEP, corner_radius=0)
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            body, text="VRAMr Texture Optimiser",
+            font=FONT_BOLD, text_color=TEXT_MAIN,
+        ).pack(anchor="w", padx=20, pady=(20, 4))
+        ctk.CTkLabel(
+            body, text="Select an optimisation preset, then click Run.",
+            font=FONT_SMALL, text_color=TEXT_DIM,
+        ).pack(anchor="w", padx=20, pady=(0, 12))
+
+        frame = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+        frame.pack(fill="x", padx=20, pady=4)
         for key, label, desc in self._PRESETS:
             row = ctk.CTkFrame(frame, fg_color="transparent")
             row.pack(fill="x", padx=12, pady=3)
             ctk.CTkRadioButton(
                 row, text=label, variable=self._preset_var, value=key,
-                font=("Segoe UI", 13), text_color="#d4d4d4",
-                fg_color="#0078d4", hover_color="#1084d8",
-                border_color="#444444",
+                font=FONT_NORMAL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
             ).pack(side="left")
             ctk.CTkLabel(
                 row, text=desc,
-                font=("Segoe UI", 11), text_color="#858585",
+                font=FONT_SMALL, text_color=TEXT_DIM,
             ).pack(side="left", padx=(12, 0))
 
         ctk.CTkLabel(
-            self, text=f"Output: {self._output_dir}",
-            font=("Segoe UI", 11), text_color="#858585", wraplength=480,
-        ).pack(pady=(12, 4))
+            body, text=f"Output: {self._output_dir}",
+            font=FONT_SMALL, text_color=TEXT_DIM, wraplength=480,
+        ).pack(anchor="w", padx=20, pady=(12, 4))
 
         ctk.CTkButton(
-            self, text="▶  Run VRAMr", width=160, height=36,
-            font=("Segoe UI", 13, "bold"),
-            fg_color="#0078d4", hover_color="#1084d8", text_color="white",
+            body, text="▶  Run VRAMr", width=160, height=36,
+            font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_run,
-        ).pack(pady=(8, 16))
+        ).pack(pady=(8, 20))
+
+    def _on_close(self):
+        self._on_done(self)
 
     def _on_run(self):
         preset = self._preset_var.get()
         self._log(f"VRAMr: starting with '{preset}' preset...")
-
         bat_dir = self._bat_dir
         game_data_dir = self._game_data_dir
         output_dir = self._output_dir
         log_fn = self._log
-        app = self.winfo_toplevel().master
+        app = self.winfo_toplevel()
         if hasattr(app, "_status"):
             app._status.show_log()
-        self._on_close()
+        self._on_done(self)
 
         def _log_safe(msg: str):
             try:

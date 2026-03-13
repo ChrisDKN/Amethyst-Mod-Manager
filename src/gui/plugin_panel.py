@@ -37,7 +37,7 @@ from gui.theme import (
 )
 import gui.theme as _theme
 from gui.game_helpers import _GAMES, _vanilla_plugins_for_game
-from gui.dialogs import _PriorityDialog, _ExeConfigDialog, _VRAMrPresetDialog, _ExeFilterDialog
+from gui.dialogs import _PriorityDialog, _ExeConfigDialog, _ExeFilterDialog
 from gui.install_mod import install_mod_from_archive
 from gui.mod_name_utils import _suggest_mod_names as suggest_mod_names
 from gui.downloads_panel import DownloadsPanel
@@ -884,12 +884,14 @@ class PluginPanel(ctk.CTkFrame):
                 return i
         return -1
 
-    # ── .bat wrapper registry ──────────────────────────────────────────
-    # Maps lowercase .bat filenames to wrapper launcher methods.
-    # When the user tries to "Run" a .bat that has an entry here, the
-    # wrapper is invoked instead of launching the .bat through Proton.
+    # ── .bat/.exe wrapper registry ──────────────────────────────────────
+    # Maps lowercase .bat/.exe filenames to wrapper launcher methods.
+    # When the user tries to "Run" an entry listed here, the wrapper is
+    # invoked instead of launching through Proton.
+    # (v15 has VRAMr.bat; v16+ uses VRAMr.exe as the main entry.)
     _BAT_WRAPPERS: dict[str, str] = {
         "vramr.bat": "_run_vramr_wrapper",
+        "vramr.exe": "_run_vramr_wrapper",
         "bendr.bat": "_run_bendr_wrapper",
         "parallaxr.bat": "_run_parallaxr_wrapper",
     }
@@ -1258,13 +1260,17 @@ class PluginPanel(ctk.CTkFrame):
 
         output_dir = staging / "VRAMr"
 
-        _VRAMrPresetDialog(
-            self.winfo_toplevel(),
-            bat_dir=bat_path.parent,
-            game_data_dir=data_dir,
-            output_dir=output_dir,
-            log_fn=self._log,
-        )
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_vramr_panel", None)
+        if show_fn:
+            show_fn(
+                bat_dir=bat_path.parent,
+                game_data_dir=data_dir,
+                output_dir=output_dir,
+                log_fn=self._log,
+            )
+        else:
+            self._log("VRAMr: could not open preset panel.")
 
     # ── BENDr wrapper ─────────────────────────────────────────────────
 

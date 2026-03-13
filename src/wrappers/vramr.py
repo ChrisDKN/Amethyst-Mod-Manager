@@ -400,7 +400,7 @@ def run_vramr(
     Parameters
     ----------
     bat_dir : Path
-        Directory containing VRAMr.bat and tools/ subfolder.
+        Directory containing VRAMr.bat/VRAMr.exe and tools/ subfolder.
     game_data_dir : Path
         The game's Data directory (where .bsa files and textures/ live).
     output_dir : Path
