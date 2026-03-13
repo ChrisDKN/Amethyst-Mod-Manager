@@ -1,0 +1,28 @@
+{
+  "name": "No Man's Sky",
+  "game_id": "No_Man_s_Sky",
+  "exe_name": "Binaries\\NMS.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "GAMEDATA/MODS",
+  "steam_id": "275850",
+  "nexus_game_domain": "nomanssky",
+  "image_url": "https://cdn2.steamgriddb.com/icon_thumb/179e48cecceef8d753185783917e5bd8.png",
+  "mod_folder_strip_prefixes": [
+    "GAMEDATA",
+    "MODS"
+  ],
+  "conflict_ignore_filenames": [
+    "*.txt"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "heroic_app_names": [],
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {},
+  "custom_routing_rules": []
+}
