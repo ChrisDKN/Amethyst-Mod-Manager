@@ -121,7 +121,7 @@ The other xedit applications for the other games also work as well as the quicka
 
 The following applications were tested and run in Ge-proton 10, It is recommended to have ge-proton 10 installed for these to work. These are very experimental and may not work as expected.
 
-VRAMr (Version 15.0723) works by using an experimental python wrapper. The optimisation step is also changed to use compressonator which is faster with native Linux support vs running texconv through Wine/Proton
+VRAMr (v15.0723 and v16+) works by using an experimental python wrapper. Run VRAMr.bat (v15) or VRAMr.exe (v16+) from the dropdown. The optimisation step uses Compressonator for native Linux support, which is faster than running texconv through Wine/Proton.
 
 BENDr (Version 2.21) Uses a similar process
 
@@ -132,7 +132,7 @@ ParallaxR (Version 2.0) Uses a similar process, Requires a patched ucrtbase.dll 
 **Any issues with this should be reported here and not to the VRAMr devs, This is experimental and not an offical Linux release**
 
 - Place the Vramr/Bendr/ParallaxR folder in Skyrim Special Edition/Applications/ in the games staging folder
-- In Amethyst mod manager, run VRAMr.bat/BENDr.bat/ParallaxR.bat **Make sure your modlist is deployed first**
+- In Amethyst mod manager, run VRAMr.bat or VRAMr.exe (depending on version) / BENDr.bat / ParallaxR.bat **Make sure your modlist is deployed first**
 - It will run the wrapper script, Progress will be added to the log, A temporary wine prefix will be created in the home directory
 - Output will be placed as a mod in a VRAMr/BENDr/ParallaxR folder. Refresh the modlist and enable it. Delete it if you want to do another run but remember to deploy before you do so.
 
