@@ -46,7 +46,7 @@ from gui.download_locations_overlay import DownloadLocationsOverlay
 from gui.ctk_components import CTkTreeview
 
 from Utils.config_paths import get_exe_args_path, get_game_config_dir, get_game_config_path
-from Utils.filemap import build_filemap
+from Utils.filemap import OVERWRITE_NAME as _OVERWRITE_NAME, build_filemap
 from Utils.xdg import xdg_open, open_url
 from Utils.plugins import (
     PluginEntry,
@@ -2868,7 +2868,8 @@ class PluginPanel(ctk.CTkFrame):
         exts_lower = {ext.lower() for ext in self._plugin_extensions}
         plugin_paths: dict[str, Path] = {}
 
-        # 1. Map plugins from filemap.txt → staging mods
+        # 1. Map plugins from filemap.txt → staging mods (and overwrite)
+        overwrite_dir = self._staging_root.parent / "overwrite" if self._staging_root else None
         filemap_path_str = self._get_filemap_path()
         if filemap_path_str and self._staging_root:
             filemap_path = Path(filemap_path_str)
@@ -2883,13 +2884,33 @@ class PluginPanel(ctk.CTkFrame):
                         if "/" in rel_path:
                             continue
                         if Path(rel_path).suffix.lower() in exts_lower:
-                            plugin_paths[rel_path.lower()] = (
-                                self._staging_root / mod_name / rel_path
-                            )
+                            if mod_name == _OVERWRITE_NAME and overwrite_dir:
+                                plugin_paths[rel_path.lower()] = overwrite_dir / rel_path
+                            else:
+                                plugin_paths[rel_path.lower()] = (
+                                    self._staging_root / mod_name / rel_path
+                                )
                             # Map plugin filename → mod folder name
                             self._plugin_mod_map[rel_path] = mod_name
 
-        # 2. Also map vanilla plugins from the game Data dir
+        # 2. Plugins in overwrite that may not be in filemap yet (added by sync, index stale)
+        if overwrite_dir and overwrite_dir.is_dir():
+            for entry in overwrite_dir.iterdir():
+                if entry.is_file() and entry.suffix.lower() in exts_lower:
+                    low = entry.name.lower()
+                    if low not in plugin_paths:
+                        plugin_paths[low] = entry
+                        self._plugin_mod_map[entry.name] = _OVERWRITE_NAME
+            data_sub = overwrite_dir / "Data"
+            if data_sub.is_dir():
+                for entry in data_sub.iterdir():
+                    if entry.is_file() and entry.suffix.lower() in exts_lower:
+                        low = entry.name.lower()
+                        if low not in plugin_paths:
+                            plugin_paths[low] = entry
+                            self._plugin_mod_map[entry.name] = _OVERWRITE_NAME
+
+        # 3. Also map vanilla plugins from the game Data dir
         if self._data_dir and self._data_dir.is_dir():
             vanilla_dir = self._data_dir.parent / (self._data_dir.name + "_Core")
             scan_dir = vanilla_dir if vanilla_dir.is_dir() else self._data_dir

@@ -71,6 +71,7 @@ from Utils.app_log import set_app_log
 from Utils.plugins import (
     prune_plugins_from_filemap,
     sync_plugins_from_filemap,
+    sync_plugins_from_overwrite_dir,
     read_disabled_plugins,
     read_plugins,
     write_plugins,
@@ -793,6 +794,17 @@ class App(ctk.CTk):
                     self._plugin_panel._plugin_extensions,
                     disabled_plugins=disabled_map,
                 )
+                # Also sync from overwrite folder directly — filemap uses modindex.bin
+                # which only updates overwrite on Refresh; tools (xEdit, Bodyslide, etc.)
+                # may write plugins to overwrite without triggering a refresh.
+                if game and hasattr(game, "get_effective_overwrite_path"):
+                    overwrite_dir = game.get_effective_overwrite_path()
+                    added_overwrite = sync_plugins_from_overwrite_dir(
+                        overwrite_dir,
+                        self._plugin_panel._plugins_path,
+                        self._plugin_panel._plugin_extensions,
+                    )
+                    added += added_overwrite
                 if added:
                     self._status.log(f"plugins.txt: added {added} new plugin(s).")
             # 2. Refresh Data tab and Ini Files tab

@@ -905,17 +905,26 @@ def restore_data_core(
     deploy_dir: Path,
     core_dir: Path | None = None,
     overwrite_dir: Path | None = None,
+    staging_root: Path | None = None,
+    strip_prefixes: set[str] | None = None,
     log_fn=None,
 ) -> int:
     """Undo a deploy: clear deploy_dir and move core_dir contents back.
 
-    deploy_dir    — directory to restore (e.g. <game_path>/Data)
-    core_dir      — vanilla backup to restore from; defaults to Data_Core/ sibling
-    overwrite_dir — if given, any file in deploy_dir that is not a deployed mod
-                    file and not present in core_dir (i.e. created at runtime by
-                    the game or a mod) is moved here before clearing, preserving
-                    its relative path.  Existing files in overwrite_dir are
-                    overwritten.  Pass Profiles/<game>/overwrite/.
+    deploy_dir     — directory to restore (e.g. <game_path>/Data)
+    core_dir       — vanilla backup to restore from; defaults to Data_Core/ sibling
+    overwrite_dir  — if given, any file in deploy_dir that is not a deployed mod
+                     file and not present in core_dir (i.e. created at runtime by
+                     the game or a mod) is moved here before clearing, preserving
+                     its relative path.  Existing files in overwrite_dir are
+                     overwritten.  Pass Profiles/<game>/overwrite/.
+    staging_root   — if given with strip_prefixes, files listed in filemap/modindex
+                     whose staging source no longer exists (e.g. xEdit deleted the
+                     original after saving an edited plugin) are rescued to
+                     overwrite/ instead of being removed.  Pass the mod staging
+                     root (e.g. Profiles/<game>/mods/).
+    strip_prefixes — top-level folder names to try when resolving staging paths
+                     (e.g. {"Data"} for Bethesda games).
     Returns the number of files restored.
 
     If core_dir does not exist (e.g. the deploy dir was empty at deploy time
@@ -938,32 +947,51 @@ def restore_data_core(
     #     staging copy was replaced after deploy, breaking the hardlink)
     #   - is not listed in modindex.txt (catches cross-profile mod files not in
     #     the current filemap.txt — e.g. when switching profiles)
+    #
+    # Exception: If staging_root and strip_prefixes are provided, files that ARE
+    # in filemap/modindex are still rescued when their staging source is missing.
+    # This handles the xEdit flow: user edits plugin → xEdit saves → xEdit closes
+    # and deletes the original from both Data and staging → the edited copy in
+    # Data is the only remaining version and must be rescued to overwrite.
     if overwrite_dir is not None and deploy_dir.is_dir():
         core_lower: set[str] = {
             f.relative_to(core_dir).as_posix().lower()
             for f in core_dir.rglob("*") if f.is_file()
         }
-        filemap_lower: set[str] = set()
         filemap_path = overwrite_dir.parent / "filemap.txt"
+        filemap_lower: set[str] = set()
+        filemap_rel_to_mod: dict[str, str] = {}
         if filemap_path.is_file():
             with filemap_path.open(encoding="utf-8") as _fm:
                 for _line in _fm:
                     _line = _line.rstrip("\n")
                     if "\t" in _line:
-                        filemap_lower.add(_line.split("\t", 1)[0].lower())
+                        rel_str, mod_name = _line.split("\t", 1)
+                        rel_lower = rel_str.lower()
+                        filemap_lower.add(rel_lower)
+                        filemap_rel_to_mod[rel_lower] = mod_name
         # Build a set of every file known to any mod in the index (all profiles,
         # all mods, enabled or disabled).  Runtime-created files won't appear here,
         # so any hit means "this is a mod file, don't rescue it".
         modindex_lower: set[str] = set()
+        modindex_rel_to_mods: dict[str, list[str]] = {}
         try:
             from Utils.filemap import read_mod_index
             _index = read_mod_index(overwrite_dir.parent / "modindex.bin")
             if _index:
                 for _mod_name, (_normal, _root) in _index.items():
-                    modindex_lower.update(_normal.keys())
+                    if _mod_name == _OVERWRITE_NAME:
+                        continue
+                    for rel_key in _normal.keys():
+                        modindex_lower.add(rel_key)
+                        modindex_rel_to_mods.setdefault(rel_key, []).append(_mod_name)
         except Exception:
             pass
+        _strip = {p.lower() for p in (strip_prefixes or set())}
+        _staging = staging_root
         rescued = 0
+        rescued_to_mod = 0
+        rescued_to_overwrite = 0
         for src in deploy_dir.rglob("*"):
             if not src.is_file():
                 continue
@@ -975,33 +1003,90 @@ def restore_data_core(
             rel_lower = rel.as_posix().lower()
             if rel_lower in core_lower:
                 continue  # vanilla file — will be restored from core
-            if rel_lower in filemap_lower:
-                continue  # known mod file whose hardlink was broken by a staging update
-            if rel_lower in modindex_lower:
-                continue  # known mod file (any mod/profile) — not runtime-created
+            # Check if we would skip as a known mod file
+            in_filemap = rel_lower in filemap_lower
+            in_modindex = rel_lower in modindex_lower
+            if in_filemap or in_modindex:
+                # xEdit orphan check: if staging source is missing, rescue the
+                # edited file (e.g. xEdit deleted original from staging on close)
+                if _staging and _strip:
+                    mods_to_check: list[str] = []
+                    if in_filemap:
+                        m = filemap_rel_to_mod.get(rel_lower)
+                        if m:
+                            mods_to_check.append(m)
+                    if in_modindex:
+                        for m in modindex_rel_to_mods.get(rel_lower, []):
+                            if m and m not in mods_to_check:
+                                mods_to_check.append(m)
+                    staging_path: Path | None = None
+                    target_mod: str | None = None
+                    for mod_name in mods_to_check:
+                        if mod_name == _OVERWRITE_NAME:
+                            mod_root = overwrite_dir
+                        else:
+                            mod_root = _staging / mod_name
+                        found = _get_staging_source_path(mod_root, rel.as_posix(), _strip)
+                        if found is not None:
+                            staging_path = found
+                            target_mod = mod_name
+                            break
+                    if staging_path is not None and target_mod is not None:
+                        # Staging exists. With hardlinks, xEdit may write a new file to
+                        # Data (nlink==1) without touching staging — staging has old
+                        # content. Overwrite staging with the edited Data file.
+                        staging_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(src), str(staging_path))
+                        rescued += 1
+                        rescued_to_mod += 1
+                        continue
+                    # xEdit orphan: staging missing — put file back in original mod or overwrite
+                    target_mod = (
+                        filemap_rel_to_mod.get(rel_lower)
+                        or (modindex_rel_to_mods.get(rel_lower) or [None])[0]
+                    )
+                    if target_mod:
+                        if target_mod == _OVERWRITE_NAME:
+                            dst = overwrite_dir / rel
+                            rescued_to_overwrite += 1
+                        else:
+                            dst = _staging / target_mod / rel
+                            rescued_to_mod += 1
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(src), str(dst))
+                        rescued += 1
+                        continue
+                else:
+                    continue  # no staging check — skip as before
+            # Genuine runtime-generated file (never in a mod) — goes to overwrite
             dst = overwrite_dir / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
             rescued += 1
+            rescued_to_overwrite += 1
         if rescued:
-            _log(f"  Rescued {rescued} runtime-created file(s) → overwrite/.")
+            if rescued_to_mod:
+                _log(f"  Rescued {rescued_to_mod} file(s) back to mod folder(s).")
+            if rescued_to_overwrite:
+                _log(f"  Rescued {rescued_to_overwrite} runtime-created file(s) → overwrite/.")
             # Update modindex.bin so the next build_filemap call immediately
             # sees the rescued files under [Overwrite] without a full rescan.
-            try:
-                from Utils.filemap import update_mod_index, read_mod_index, OVERWRITE_NAME
-                index_path = overwrite_dir.parent / "modindex.bin"
-                existing = read_mod_index(index_path) or {}
-                existing_normal, existing_root = existing.get(OVERWRITE_NAME, ({}, {}))
-                # Walk overwrite_dir to build the complete current file list.
-                new_normal: dict[str, str] = dict(existing_normal)
-                for f in overwrite_dir.rglob("*"):
-                    if f.is_file() and not f.is_symlink():
-                        rel = f.relative_to(overwrite_dir)
-                        rel_str = rel.as_posix()
-                        new_normal[rel_str.lower()] = rel_str
-                update_mod_index(index_path, OVERWRITE_NAME, new_normal, existing_root)
-            except Exception:
-                pass
+            if rescued_to_overwrite:
+                try:
+                    from Utils.filemap import update_mod_index, read_mod_index
+                    index_path = overwrite_dir.parent / "modindex.bin"
+                    existing = read_mod_index(index_path) or {}
+                    existing_normal, existing_root = existing.get(_OVERWRITE_NAME, ({}, {}))
+                    # Walk overwrite_dir to build the complete current file list.
+                    new_normal: dict[str, str] = dict(existing_normal)
+                    for f in overwrite_dir.rglob("*"):
+                        if f.is_file() and not f.is_symlink():
+                            rel = f.relative_to(overwrite_dir)
+                            rel_str = rel.as_posix()
+                            new_normal[rel_str.lower()] = rel_str
+                    update_mod_index(index_path, _OVERWRITE_NAME, new_normal, existing_root)
+                except Exception:
+                    pass
 
     removed = _clear_dir(deploy_dir) if deploy_dir.is_dir() else 0
     _log(f"  Removed {removed} file(s) from {deploy_dir.name}/.")
@@ -1620,6 +1705,36 @@ def _path_under_root(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _get_staging_source_path(mod_root: Path, rel_str: str, strip_prefixes: set[str]) -> Path | None:
+    """Return the path of the given file in the mod staging folder, or None if absent.
+
+    Tries rel_str directly, then strip_prefix/rel_str for each prefix (e.g.
+    mods/ModName/Data/Plugin.esp when rel_str is Plugin.esp and strip has "data").
+    """
+    if not mod_root.is_dir():
+        return None
+    rel_lower = rel_str.lower()
+    idx = _build_mod_index(mod_root)
+    if rel_lower in idx:
+        return idx[rel_lower]
+    for prefix in sorted(strip_prefixes):
+        candidate = (prefix + "/" + rel_str).lower()
+        if candidate in idx:
+            return idx[candidate]
+        for prefix2 in strip_prefixes:
+            if prefix2 == prefix:
+                continue
+            candidate2 = (prefix + "/" + prefix2 + "/" + rel_str).lower()
+            if candidate2 in idx:
+                return idx[candidate2]
+    return None
+
+
+def _staging_source_exists(mod_root: Path, rel_str: str, strip_prefixes: set[str]) -> bool:
+    """Return True if the given file exists in the mod staging folder."""
+    return _get_staging_source_path(mod_root, rel_str, strip_prefixes) is not None
 
 
 def _build_mod_index(mod_root: Path) -> dict[str, Path]:

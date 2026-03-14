@@ -186,6 +186,64 @@ def sync_plugins_from_data_dir(
     return len(new_entries)
 
 
+def sync_plugins_from_overwrite_dir(
+    overwrite_dir: Path,
+    plugins_path: Path,
+    plugin_extensions: list[str],
+) -> int:
+    """
+    Scan the overwrite folder for root-level plugin files and append any
+    not already in plugins.txt. Also updates loadorder.txt so new plugins
+    appear in the plugins panel.
+
+    Scans both overwrite root and overwrite/Data/ (Bethesda games mirror
+    the Data folder structure when rescuing runtime-created files).
+
+    The filemap is built from modindex.bin, which only updates overwrite on
+    Refresh. Tools like xEdit or Bodyslide may write plugins directly to
+    overwrite without triggering a refresh. This direct scan ensures those
+    plugins still get added to plugins.txt and loadorder.txt.
+
+    Returns the count of newly added plugins.
+    """
+    if not plugin_extensions or not overwrite_dir.is_dir():
+        return 0
+
+    exts_lower = {ext.lower() for ext in plugin_extensions}
+    existing = read_plugins(plugins_path)
+    existing_lower = {e.name.lower() for e in existing}
+
+    def scan_directory(directory: Path) -> list[PluginEntry]:
+        entries: list[PluginEntry] = []
+        if not directory.is_dir():
+            return entries
+        for entry in directory.iterdir():
+            if entry.is_file() and entry.suffix.lower() in exts_lower:
+                if entry.name.lower() not in existing_lower:
+                    entries.append(PluginEntry(name=entry.name, enabled=True))
+                    existing_lower.add(entry.name.lower())
+        return entries
+
+    new_entries: list[PluginEntry] = []
+    new_entries.extend(scan_directory(overwrite_dir))
+    new_entries.extend(scan_directory(overwrite_dir / "Data"))
+
+    if new_entries:
+        write_plugins(plugins_path, existing + new_entries)
+        # Update loadorder.txt so the plugins panel shows them
+        loadorder_path = plugins_path.parent / "loadorder.txt"
+        saved_order = read_loadorder(loadorder_path)
+        lo_lower = {n.lower() for n in saved_order}
+        appended = [e.name for e in new_entries if e.name.lower() not in lo_lower]
+        if appended:
+            write_loadorder(
+                loadorder_path,
+                [PluginEntry(name=n, enabled=True) for n in saved_order + appended],
+            )
+
+    return len(new_entries)
+
+
 def sync_plugins_from_filemap(
     filemap_path: Path,
     plugins_path: Path,

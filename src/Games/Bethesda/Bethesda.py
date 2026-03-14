@@ -410,7 +410,13 @@ class Fallout_3(BaseGame):
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
 
         _log("Restore: clearing Data/ and moving Data_Core/ back ...")
-        restored = restore_data_core(data_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)
+        restored = restore_data_core(
+            data_dir,
+            overwrite_dir=self.get_effective_overwrite_path(),
+            staging_root=self.get_effective_mod_staging_path(),
+            strip_prefixes=self.mod_folder_strip_prefixes,
+            log_fn=_log,
+        )
         _log(f"  Restored {restored} file(s). Data_Core/ removed.")
 
         self._remove_plugins_txt_symlink(_log)

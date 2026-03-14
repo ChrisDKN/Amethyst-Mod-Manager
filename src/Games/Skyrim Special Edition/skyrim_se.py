@@ -448,7 +448,13 @@ class SkyrimSE(BaseGame):
 
         _log("Restore: clearing Data/ and moving Data_Core/ back ...")
         try:
-            restored = restore_data_core(data_dir, overwrite_dir=overwrite_dir, log_fn=_log)
+            restored = restore_data_core(
+                data_dir,
+                overwrite_dir=overwrite_dir,
+                staging_root=staging,
+                strip_prefixes=self.mod_folder_strip_prefixes,
+                log_fn=_log,
+            )
             _log(f"  Restored {restored} file(s). Data_Core/ removed.")
         except RuntimeError as e:
             _log(f"  Skipping data restore: {e}")
