@@ -8,6 +8,8 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image as PilImage
 
+from Utils.ui_config import get_ui_scale
+
 # ---------------------------------------------------------------------------
 # Color palette
 # ---------------------------------------------------------------------------
@@ -61,25 +63,43 @@ conflict_lower = "#9a0e0e"
 # Fonts
 # ---------------------------------------------------------------------------
 # Base sizes are tuned for Windows/SteamOS at 96 DPI (tk scaling ~1.33).
-# Call init_fonts(tk_widget) once after the root window is created to
-# rescale everything if the system reports a different DPI.
-FONT_NORMAL = ("Segoe UI", 14)
-FONT_BOLD   = ("Segoe UI", 14, "bold")
-FONT_SMALL  = ("Segoe UI", 12)
-FONT_MONO   = ("Courier New", 14)
-FONT_SEP    = ("Segoe UI", 12, "bold")
-FONT_HEADER = ("Segoe UI", 12, "bold")
+# Point sizes are scaled by ui_scale so fonts scale on HiDPI; CustomTkinter
+# does not scale user-provided font tuples.
+def _font_pt(base: int) -> int:
+    """Return scaled point size for font tuples."""
+    return max(9, round(base * get_ui_scale()))
+
+
+def font_sized(name: str, base_pt: int, *styles: str) -> tuple:
+    """Return a font tuple (name, size, *styles) with size scaled by ui_scale.
+    Use for one-off fonts instead of hardcoding e.g. font=(\"Segoe UI\", 11)."""
+    return (name, _font_pt(base_pt), *styles)
+
+
+def font_sized_px(name: str, base_pt: int, *styles: str) -> tuple:
+    """Return a font tuple with pixel size (negative) for tk widgets.
+    Use for tk.Label/tk.Button where point sizes may not scale on Linux HiDPI."""
+    return (name, _pt_to_px(base_pt), *styles)
+
+
+FONT_NORMAL = ("Segoe UI", _font_pt(14))
+FONT_BOLD   = ("Segoe UI", _font_pt(14), "bold")
+FONT_SMALL  = ("Segoe UI", _font_pt(12))
+FONT_MONO   = ("Courier New", _font_pt(14))
+FONT_SEP    = ("Segoe UI", _font_pt(12), "bold")
+FONT_HEADER = ("Segoe UI", _font_pt(12), "bold")
 
 # Pixel sizes for tk.Label / canvas create_text / ttk.Style font= args.
 # Negative values tell Tk to treat them as pixels rather than points,
 # bypassing Tk's own DPI scaling (which would double-scale on HiDPI).
 # The pixel count is fixed at what the design looks like at 96 DPI
 # (tk scaling 1.3333): e.g. 11pt * 1.3333 ≈ 15px.
+# Multiplied by get_ui_scale() for HiDPI support.
 _BASELINE = 1.3333  # 96 DPI / 72 pt
 
 def _pt_to_px(pt: int) -> int:
     """Convert a design point size to a negative-pixel size (96 DPI baseline)."""
-    return -max(8, round(pt * _BASELINE))
+    return -max(8, round(pt * _BASELINE * get_ui_scale()))
 
 FS9  = _pt_to_px(9)
 FS10 = _pt_to_px(10)
@@ -90,16 +110,9 @@ FS16 = _pt_to_px(16)
 
 
 def init_fonts(widget) -> None:
-    """Lock the app to its design DPI so global OS scaling doesn't resize it.
-
-    Tk honours the system's global UI scaling factor via `tk scaling`, which
-    inflates every point size and widget dimension at >100% scale.  We want
-    the app to look identical regardless of what the user's OS scale is set
-    to, so we reset `tk scaling` back to _BASELINE (96 DPI / 72 pt = 1.3333)
-    immediately after the window is created.
-
-    The FS* negative-pixel sizes bypass Tk scaling entirely and need no
-    adjustment here.
+    """Set Tk scaling to design baseline. Font scaling is done via explicit
+    point sizes in FONT_* and FS* (not via tk scaling) so it works on Linux
+    where CustomTkinter doesn't scale user-provided fonts.
     """
     try:
         widget.tk.call("tk", "scaling", _BASELINE)
@@ -113,9 +126,34 @@ _ICONS_DIR = Path(__file__).resolve().parent.parent / "icons"
 
 
 def load_icon(name: str, size: tuple[int, int] = (16, 16)) -> ctk.CTkImage | None:
-    """Load a CTkImage from the icons directory. Returns None if file not found."""
+    """Load a CTkImage from the icons directory. Returns None if file not found.
+
+    Icon size is scaled by ui_scale for HiDPI displays.
+    """
     path = _ICONS_DIR / name
     if not path.is_file():
         return None
+    scale = get_ui_scale()
+    scaled_size = (max(1, round(size[0] * scale)), max(1, round(size[1] * scale)))
     img = PilImage.open(path).convert("RGBA")
-    return ctk.CTkImage(light_image=img, dark_image=img, size=size)
+    return ctk.CTkImage(light_image=img, dark_image=img, size=scaled_size)
+
+
+def scaled(px: int | float) -> int:
+    """Scale a pixel value by the current UI scale. Use for layout constants
+    (row heights, paddings, icon sizes) that CustomTkinter does not scale."""
+    return max(1, round(float(px) * get_ui_scale()))
+
+
+def scaled_layout_minsize(base: int | float) -> int:
+    """Scale a layout minsize so it preserves weight ratios at low scales.
+
+    At 1x scale returns *base* unchanged. Below 1x uses scale² so minsize
+    shrinks more aggressively and doesn't force ~50/50 when weights expect 5:4.
+    Use for grid minsize in weighted layouts (e.g. plugin panel).
+    """
+    s = get_ui_scale()
+    if s >= 1.0:
+        return max(1, round(float(base) * s))
+    # Below 1x: use scale² so 0.5x → base*0.25, 0.75x → base*0.56
+    return max(1, round(float(base) * s * s))

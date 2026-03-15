@@ -166,7 +166,7 @@ class TopBar(ctk.CTkFrame):
         # ── Collections button (row 1, right of profile dropdown) ────────────
         _collections_icon = load_icon("collection.png", size=(30, 30))
         self._collections_btn = ctk.CTkButton(
-            self._row1, text="Collections", width=100, height=32, font=FONT_BOLD,
+            self._row1, text="Collections", width=125, height=32, font=FONT_BOLD,
             image=_collections_icon, compound="left",
             fg_color="#c07320", hover_color="#d4832a", text_color="white",
             command=self._on_collections
@@ -179,7 +179,7 @@ class TopBar(ctk.CTkFrame):
         self._disable_extract = False
         _install_mod_icon = load_icon("install.png", size=(30, 30))
         self._install_mod_btn = ctk.CTkButton(
-            self._row2, text="Install Mod", width=100, height=32, font=FONT_BOLD,
+            self._row2, text="Install Mod", width=125, height=32, font=FONT_BOLD,
             image=_install_mod_icon, compound="left",
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_install_mod
@@ -190,7 +190,7 @@ class TopBar(ctk.CTkFrame):
         # Deploy button
         _deploy_icon = load_icon("deploy.png", size=(30, 30))
         self._deploy_btn = ctk.CTkButton(
-            self._row2, text="Deploy", width=100, height=32, font=FONT_BOLD,
+            self._row2, text="Deploy", width=110, height=32, font=FONT_BOLD,
             image=_deploy_icon, compound="left",
             fg_color="#2d7a2d", hover_color="#3a9e3a", text_color="white",
             command=self._on_deploy
@@ -200,7 +200,7 @@ class TopBar(ctk.CTkFrame):
         # Restore button
         _restore_icon = load_icon("restore.png", size=(30, 30))
         self._restore_btn = ctk.CTkButton(
-            self._row2, text="Restore", width=100, height=32, font=FONT_BOLD,
+            self._row2, text="Restore", width=115, height=32, font=FONT_BOLD,
             image=_restore_icon, compound="left",
             fg_color="#8b1a1a", hover_color="#b22222", text_color="white",
             command=self._on_restore
@@ -210,7 +210,7 @@ class TopBar(ctk.CTkFrame):
         # Proton tools button
         _proton_icon = load_icon("proton.png", size=(30, 30))
         self._proton_btn = ctk.CTkButton(
-            self._row2, text="Proton", width=100, height=32, font=FONT_BOLD,
+            self._row2, text="Proton", width=110, height=32, font=FONT_BOLD,
             image=_proton_icon, compound="left",
             fg_color="#7b2d8b", hover_color="#9a3aae", text_color="white",
             command=self._on_proton_tools
@@ -220,7 +220,7 @@ class TopBar(ctk.CTkFrame):
         # Wizard button (shown only when the game has wizard tools)
         _wizard_icon = load_icon("wizard.png", size=(30, 30))
         self._wizard_btn = ctk.CTkButton(
-            self._row2, text="Wizard", width=100, height=32, font=FONT_BOLD,
+            self._row2, text="Wizard", width=110, height=32, font=FONT_BOLD,
             image=_wizard_icon, compound="left",
             fg_color="#4a1272", hover_color="#6318a0", text_color="white",
             command=self._on_wizard
@@ -230,7 +230,7 @@ class TopBar(ctk.CTkFrame):
         # Nexus Mods settings button
         _nexus_icon = load_icon("nexus.png", size=(30, 30))
         self._nexus_btn = ctk.CTkButton(
-            self._row2, text="Nexus", width=100, height=32, font=FONT_BOLD,
+            self._row2, text="Nexus", width=115, height=32, font=FONT_BOLD,
             image=_nexus_icon, compound="left",
             fg_color="#da8e35", hover_color="#e5a04a", text_color="white",
             command=self._on_nexus_settings
@@ -258,8 +258,8 @@ class TopBar(ctk.CTkFrame):
         self.update_idletasks()
         row1_w = self._row1.winfo_reqwidth()
         row2_w = self._row2.winfo_reqwidth()
-        # Add a small buffer (32px) so the profile dropdown never gets clipped
-        self._WRAP_THRESHOLD = row1_w + row2_w + 32
+        # Use 5% buffer so the threshold accounts for measurement rounding at any scale
+        self._WRAP_THRESHOLD = round((row1_w + row2_w) * 1.05)
         # Now unpack and apply the correct layout for the current window width
         self._row1.pack_forget()
         self._row2.pack_forget()

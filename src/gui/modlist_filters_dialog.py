@@ -54,7 +54,8 @@ class ModlistFiltersDialog(ctk.CTkToplevel):
     Calls on_apply(state) whenever any checkbox changes.
     """
 
-    WIDTH  = 380
+    # Base dimensions; 380 was too narrow at 1.25x–1.5x scale (labels got truncated)
+    WIDTH  = 420
     HEIGHT = 440
 
     def __init__(
@@ -66,7 +67,7 @@ class ModlistFiltersDialog(ctk.CTkToplevel):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title("Modlist Filters")
         self.geometry(f"{self.WIDTH}x{self.HEIGHT}")
-        self.resizable(False, False)
+        self.resizable(True, False)  # allow horizontal resize so text isn't cut off at high scale
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
@@ -123,7 +124,7 @@ class ModlistFiltersDialog(ctk.CTkToplevel):
                 fg_color=BG_HEADER,
                 hover_color="#094771",
                 command=lambda k=key: self._sync_and_apply(k),
-            ).pack(anchor="w", pady=4)
+            ).pack(anchor="w", fill="x", pady=4)
 
     def _sync_and_apply(self, key: str):
         if key in self._vars:

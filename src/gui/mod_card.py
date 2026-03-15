@@ -20,14 +20,20 @@ from gui.theme import (
     ACCENT,
     ACCENT_HOV,
     TEXT_DIM,
+    font_sized,
+    scaled,
 )
 
 # Card dimensions (shared with browse)
+# CARD_W / CARD_H are passed to CTkFrame (which applies its own widget scaling),
+# so keep them as design-pixel values — do NOT wrap in scaled().
+# For tk-level layout math (slot widths, canvas offsets) use scaled(CARD_W).
 CARD_W = 280
-CARD_H = 380
-CARD_IMG_W = CARD_W - 10
-CARD_IMG_H = 160
-CARD_PAD = 10
+CARD_H = 450
+# Image and padding values are used in plain-tk / PIL contexts, so scale them.
+CARD_IMG_W = scaled(CARD_W - 10)
+CARD_IMG_H = scaled(160)
+CARD_PAD = scaled(10)
 CARD_COLS = 2
 
 PLACEHOLDER_COLOR = "#3a3a3a"
@@ -85,7 +91,7 @@ class ModCard:
 
         title_label = ctk.CTkLabel(
             self.card, text=title_text,
-            font=("Segoe UI", 13, "bold"),
+            font=font_sized("Segoe UI", 13, "bold"),
             anchor="w", wraplength=CARD_W - 20, justify="left",
         )
         title_label.grid(row=1, column=0, padx=10, pady=(6, 0), sticky="ew", columnspan=2)
@@ -93,7 +99,7 @@ class ModCard:
         if stats_str:
             stats_label = ctk.CTkLabel(
                 self.card, text=stats_str,
-                font=("Segoe UI", 11),
+                font=font_sized("Segoe UI", 11),
                 text_color=TEXT_DIM,
                 anchor="w",
             )
@@ -104,7 +110,7 @@ class ModCard:
         if author:
             author_label = ctk.CTkLabel(
                 self.card, text=f"by {author}",
-                font=("Segoe UI", 11),
+                font=font_sized("Segoe UI", 11),
                 text_color=TEXT_DIM,
                 anchor="w",
             )
@@ -117,7 +123,7 @@ class ModCard:
         if summary:
             summary_label = ctk.CTkLabel(
                 self.card, text=summary,
-                font=("Segoe UI", 11),
+                font=font_sized("Segoe UI", 11),
                 text_color=TEXT_DIM,
                 wraplength=CARD_W - 20,
                 justify="left", anchor="nw",
@@ -135,7 +141,7 @@ class ModCard:
         view_btn = ctk.CTkButton(
             btn_frame, text="View",
             height=30, fg_color=ACCENT, hover_color=ACCENT_HOV,
-            font=("Segoe UI", 12), command=on_view,
+            font=font_sized("Segoe UI", 12), command=on_view,
         )
         view_btn.grid(row=0, column=0, padx=(0, 4), sticky="ew")
 
@@ -144,7 +150,7 @@ class ModCard:
             height=30,
             fg_color="#c37800" if is_installed else "#2d7a2d",
             hover_color="#e28b00" if is_installed else "#3a9e3a",
-            font=("Segoe UI", 12), command=on_install,
+            font=font_sized("Segoe UI", 12), command=on_install,
         )
         install_btn.grid(row=0, column=1, padx=(4, 0), sticky="ew")
 

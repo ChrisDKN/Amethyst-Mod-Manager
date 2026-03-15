@@ -34,13 +34,14 @@ from gui.theme import (
     FONT_NORMAL,
     FONT_SMALL,
     FONT_HEADER,
+    scaled,
 )
 
-ROW_H     = 40
-BTN_COL_W = 90   # px reserved on the right for the Install button
-SIZE_COL_W = 70  # px reserved for the file-size text (left of button col)
-NAME_PAD_L = 8   # left padding for the filename text
-NAME_PAD_R = 8   # gap between filename text and size column
+ROW_H     = scaled(40)
+BTN_COL_W = scaled(90)   # px reserved on the right for the Install button
+SIZE_COL_W = scaled(70)  # px reserved for the file-size text (left of button col)
+NAME_PAD_L = scaled(8)   # left padding for the filename text
+NAME_PAD_R = scaled(8)   # gap between filename text and size column
 
 # Archive extensions we care about (lowercase, with dot)
 _ARCHIVE_EXTS = {".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"}
@@ -112,7 +113,7 @@ class DownloadsPanel:
         tab.grid_rowconfigure(1, weight=1)
         tab.grid_columnconfigure(0, weight=1)
 
-        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28)
+        toolbar = tk.Frame(tab, bg=BG_HEADER, height=scaled(28))
         toolbar.grid(row=0, column=0, sticky="ew")
         toolbar.grid_propagate(False)
         ctk.CTkButton(

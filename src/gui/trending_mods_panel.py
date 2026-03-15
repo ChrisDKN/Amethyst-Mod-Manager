@@ -34,6 +34,7 @@ from gui.theme import (
     FONT_HEADER,
     FONT_NORMAL,
     FONT_SMALL,
+    scaled,
 )
 
 # Mods per page when browsing trending
@@ -168,6 +169,7 @@ class TrendingModsPanel:
 
         self._inner.bind("<Configure>", self._on_inner_configure)
         self._canvas.bind("<Configure>", self._on_canvas_configure)
+        self._canvas.bind("<Map>", self._on_canvas_map)
         self._canvas.bind("<Button-4>",   lambda e: self._scroll(-100))
         self._canvas.bind("<Button-5>",   lambda e: self._scroll(100))
         self._canvas.bind("<MouseWheel>", self._on_mousewheel)
@@ -176,13 +178,24 @@ class TrendingModsPanel:
         self._inner.bind("<MouseWheel>", self._on_mousewheel)
 
     def _on_inner_configure(self, _event=None):
-        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+        self._canvas.configure(scrollregion=(
+            0, 0, self._inner.winfo_reqwidth(), self._inner.winfo_reqheight(),
+        ))
 
     def _on_canvas_configure(self, event):
-        self._canvas.itemconfig(self._inner_id, width=event.width)
         if self._regrid_after_id:
             self._canvas.after_cancel(self._regrid_after_id)
-        self._regrid_after_id = self._canvas.after(250, self._regrid_cards)
+        self._regrid_after_id = self._canvas.after(50, self._schedule_regrid)
+
+    def _on_canvas_map(self, _event=None):
+        if self._regrid_after_id:
+            self._canvas.after_cancel(self._regrid_after_id)
+        self._regrid_after_id = self._canvas.after(150, self._schedule_regrid)
+
+    def _schedule_regrid(self):
+        self._regrid_after_id = None
+        self._canvas.update_idletasks()
+        self._regrid_cards()
 
     def _scroll(self, units: int):
         self._canvas.yview_scroll(units, "units")
@@ -466,24 +479,28 @@ class TrendingModsPanel:
         self._load_images()
 
     def _regrid_cards(self):
-        canvas_w = self._canvas.winfo_width() or (self._cols * (CARD_W + CARD_PAD * 2))
-        self._cols = max(1, canvas_w // (CARD_W + CARD_PAD * 2))
+        col_gap = 6
+        slot_w = scaled(CARD_W) + col_gap * 2
+        canvas_w = self._canvas.winfo_width() or (self._cols * slot_w)
+        self._cols = max(1, canvas_w // slot_w)
 
-        total_card_w = self._cols * CARD_W + (self._cols - 1) * CARD_PAD
-        x_pad = max(CARD_PAD, (canvas_w - total_card_w) // 2)
+        content_w = self._cols * slot_w
+        self._canvas.itemconfig(self._inner_id, width=content_w)
+        x_off = max(0, (canvas_w - content_w) // 2)
+        self._canvas.coords(self._inner_id, x_off, 0)
 
+        _pad = col_gap // 2
         for idx, mc in enumerate(self._cards):
             col = idx % self._cols
             row = idx // self._cols
             mc.card.grid(
                 row=row, column=col,
-                padx=(x_pad if col == 0 else CARD_PAD // 2,
-                       x_pad if col == self._cols - 1 else CARD_PAD // 2),
+                padx=(_pad, _pad),
                 pady=CARD_PAD,
                 sticky="n",
             )
         for c in range(self._cols):
-            self._inner.grid_columnconfigure(c, weight=1)
+            self._inner.grid_columnconfigure(c, weight=0, minsize=slot_w)
 
     def _load_images(self):
         for mc in self._cards:

@@ -191,17 +191,18 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         rate_frame = ctk.CTkFrame(self, fg_color="transparent")
         rate_frame.pack(padx=16, pady=4, fill="x")
 
-        self._rate_limit_label = ctk.CTkLabel(
-            rate_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
-        )
-        self._rate_limit_label.pack(side="left", padx=(0, 12))
-
         self._rate_refresh_btn = ctk.CTkButton(
             rate_frame, text="Refresh", width=80, font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_refresh_rate_limits,
         )
-        self._rate_refresh_btn.pack(side="left")
+        self._rate_refresh_btn.pack(side="right")
+
+        self._rate_limit_label = ctk.CTkLabel(
+            rate_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
+            anchor="w", justify="left",
+        )
+        self._rate_limit_label.pack(side="left", fill="x", expand=True)
         self._update_rate_limit_display()
 
         # -- Separator --
@@ -752,19 +753,20 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ).pack(padx=16, pady=(0, 6), anchor="center")
 
         rate_frame = ctk.CTkFrame(body, fg_color="transparent")
-        rate_frame.pack(padx=16, pady=4)
-
-        self._rate_limit_label = ctk.CTkLabel(
-            rate_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
-        )
-        self._rate_limit_label.pack(side="left", padx=(0, 12))
+        rate_frame.pack(padx=16, pady=4, fill="x")
 
         self._rate_refresh_btn = ctk.CTkButton(
             rate_frame, text="Refresh", width=80, font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_refresh_rate_limits,
         )
-        self._rate_refresh_btn.pack(side="left")
+        self._rate_refresh_btn.pack(side="right")
+
+        self._rate_limit_label = ctk.CTkLabel(
+            rate_frame, text="", font=FONT_SMALL, text_color=TEXT_DIM,
+            anchor="w", justify="left",
+        )
+        self._rate_limit_label.pack(side="left", fill="x", expand=True)
         self._update_rate_limit_display()
 
         ctk.CTkFrame(body, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)

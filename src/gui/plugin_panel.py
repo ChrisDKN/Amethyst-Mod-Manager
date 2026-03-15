@@ -33,6 +33,7 @@ from gui.theme import (
     TEXT_MAIN,
     TEXT_SEP,
     plugin_mod,
+    scaled,
     _ICONS_DIR,
     load_icon as _load_icon,
 )
@@ -106,7 +107,7 @@ class PluginPanel(ctk.CTkFrame):
     """Right panel: tabview with Plugins, Mod Files, Data, Downloads, Tracked."""
 
     PLUGIN_HEADERS = ["", "Plugin Name", "Flags", "🔒", "Index"]
-    ROW_H = 26
+    ROW_H = scaled(26)
 
     def __init__(self, parent, log_fn=None, get_filemap_path=None):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0)
@@ -151,7 +152,7 @@ class PluginPanel(ctk.CTkFrame):
         self._tooltip_win: tk.Toplevel | None = None
 
         # Canvas column x-positions (patched in _layout_plugin_cols)
-        self._pcol_x = [4, 32, 0, 0, 0]  # checkbox, name, flags, lock, index
+        self._pcol_x = [scaled(4), scaled(32), 0, 0, 0]  # checkbox, name, flags, lock, index
 
         # Drag state
         self._drag_idx: int = -1
@@ -196,10 +197,9 @@ class PluginPanel(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # Executable toolbar
-        exe_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=42)
-        exe_bar.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 0))
-        exe_bar.grid_propagate(False)
+        # Executable toolbar — use design sizes; CTk scales widgets, scaled() would double-scale
+        exe_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0)
+        exe_bar.grid(row=0, column=0, sticky="ew", padx=scaled(4), pady=(scaled(4), 0))
 
         self._exe_var = tk.StringVar(value="")
         # Stores full Path objects in display-name order, parallel to dropdown values
@@ -212,42 +212,44 @@ class PluginPanel(ctk.CTkFrame):
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_exe_selected,
         )
-        self._exe_menu.pack(side="left", padx=(8, 4), pady=6)
-
-        self._run_exe_btn = ctk.CTkButton(
-            exe_bar, text="▶ Run EXE", width=90, height=28, font=_theme.FONT_SMALL,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
-            command=self._on_run_exe,
-        )
-        self._run_exe_btn.pack(side="left", padx=4, pady=6)
-
+        # Pack fixed-width buttons on the right first so they're never squeezed out
         self._exe_args_var = tk.StringVar(value="")
 
         ctk.CTkButton(
-            exe_bar, text="⚙", width=30, height=30, font=_theme.FONT_SMALL,
+            exe_bar, text="⊘", width=30, height=30, font=_theme.FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
-            command=self._on_configure_exe,
-        ).pack(side="left", padx=4, pady=6)
-                
+            command=self._on_exe_filter,
+        ).pack(side="right", padx=(0, scaled(4)), pady=scaled(6))
+
+        ctk.CTkButton(
+            exe_bar, text="📂", width=30, height=30, font=_theme.FONT_SMALL,
+            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._open_applications_folder,
+        ).pack(side="right", padx=(0, scaled(4)), pady=scaled(6))
+
         refresh_icon = _load_icon("refresh.png", size=(16, 16))
         ctk.CTkButton(
             exe_bar, text="" if refresh_icon else "↺", image=refresh_icon,
             width=30, height=30, font=_theme.FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self.refresh_exe_list,
-        ).pack(side="left", padx=4, pady=6)
+        ).pack(side="right", padx=(0, scaled(4)), pady=scaled(6))
 
         ctk.CTkButton(
-            exe_bar, text="📂", width=30, height=30, font=_theme.FONT_SMALL,
+            exe_bar, text="⚙", width=30, height=30, font=_theme.FONT_SMALL,
             fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
-            command=self._open_applications_folder,
-        ).pack(side="left", padx=(0, 4), pady=6)
+            command=self._on_configure_exe,
+        ).pack(side="right", padx=(0, scaled(4)), pady=scaled(6))
 
-        ctk.CTkButton(
-            exe_bar, text="⊘", width=30, height=30, font=_theme.FONT_SMALL,
-            fg_color=BG_PANEL, hover_color=BG_HOVER, text_color=TEXT_MAIN,
-            command=self._on_exe_filter,
-        ).pack(side="left", padx=(0, 4), pady=6)
+        self._run_exe_btn = ctk.CTkButton(
+            exe_bar, text="▶ Run EXE", width=90, height=28, font=_theme.FONT_SMALL,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_run_exe,
+        )
+        self._run_exe_btn.pack(side="right", padx=(0, scaled(4)), pady=scaled(6))
+
+        # Dropdown fills remaining space on the left
+        self._exe_menu.pack(side="left", padx=(scaled(8), scaled(4)), pady=scaled(6), expand=True, fill="x")
 
         self._tabs = ctk.CTkTabview(
             self, fg_color=BG_PANEL, corner_radius=4,
@@ -1369,7 +1371,7 @@ class PluginPanel(ctk.CTkFrame):
         tab.grid_columnconfigure(1, weight=0)
 
         # Toolbar
-        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28, highlightthickness=0)
+        toolbar = tk.Frame(tab, bg=BG_HEADER, height=scaled(28), highlightthickness=0)
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
         toolbar.grid_propagate(False)
 
@@ -1421,7 +1423,7 @@ class PluginPanel(ctk.CTkFrame):
         style.configure("ModFiles.Treeview",
             background=_bg, foreground=_fg,
             fieldbackground=_bg, borderwidth=0,
-            rowheight=22, font=("Segoe UI", _theme.FS10),
+            rowheight=scaled(22), font=("Segoe UI", _theme.FS10),
             focuscolor=_bg,
         )
         style.map("ModFiles.Treeview",
@@ -1478,7 +1480,7 @@ class PluginPanel(ctk.CTkFrame):
         tab.grid_columnconfigure(0, weight=1)
 
         # Toolbar with Refresh and Search
-        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28, highlightthickness=0)
+        toolbar = tk.Frame(tab, bg=BG_HEADER, height=scaled(28), highlightthickness=0)
         toolbar.grid(row=0, column=0, sticky="ew")
         toolbar.grid_propagate(False)
 
@@ -1523,7 +1525,7 @@ class PluginPanel(ctk.CTkFrame):
         style.configure(_style_name,
             background=_bg, foreground=_fg,
             fieldbackground=_bg, borderwidth=0,
-            rowheight=22, font=("Segoe UI", _theme.FS10),
+            rowheight=scaled(22), font=("Segoe UI", _theme.FS10),
             focuscolor=_bg,
         )
         style.map(_style_name,
@@ -1918,7 +1920,7 @@ class PluginPanel(ctk.CTkFrame):
         tab.grid_rowconfigure(1, weight=1)
         tab.grid_columnconfigure(0, weight=1)
 
-        toolbar = tk.Frame(tab, bg=BG_HEADER, height=28, highlightthickness=0)
+        toolbar = tk.Frame(tab, bg=BG_HEADER, height=scaled(28), highlightthickness=0)
         toolbar.grid(row=0, column=0, sticky="ew")
         toolbar.grid_propagate(False)
         tk.Button(
@@ -1949,8 +1951,8 @@ class PluginPanel(ctk.CTkFrame):
             columns=("mod",),
             headings={"#0": "Path", "mod": "Winning Mod"},
             column_config={
-                "#0": {"minwidth": 200, "stretch": True},
-                "mod": {"minwidth": 160, "width": 200, "stretch": False},
+                "#0": {"minwidth": scaled(200), "stretch": True},
+                "mod": {"minwidth": scaled(160), "width": scaled(200), "stretch": False},
             },
             selectmode="browse",
             show_label=False,
@@ -2148,6 +2150,7 @@ class PluginPanel(ctk.CTkFrame):
         tab.grid_rowconfigure(2, weight=1)
         tab.grid_columnconfigure(0, weight=1)
 
+        # Use design size 28: CTk applies its own widget scaling, so scaled() would double-scale
         self._pheader = ctk.CTkFrame(tab, fg_color=BG_HEADER, corner_radius=0, height=28)
         self._pheader.grid(row=0, column=0, sticky="ew")
         self._pheader.grid_propagate(False)
@@ -2197,11 +2200,11 @@ class PluginPanel(ctk.CTkFrame):
         toolbar.grid_propagate(False)
 
         ctk.CTkButton(
-            toolbar, text="Sort Plugins", width=110, height=26,
+            toolbar, text="Sort Plugins", width=110, height=30,
             fg_color="#2e6b30", hover_color="#3a8a3d",
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
             command=self._sort_plugins_loot,
-        ).pack(side="left", padx=8, pady=5)
+        ).pack(side="left", padx=8, pady=8)
 
         self._create_pool()
 
@@ -2430,26 +2433,24 @@ class PluginPanel(ctk.CTkFrame):
         """Compute column x positions given the canvas width."""
         # col 0: checkbox   28px
         # col 1: name       fills
-        # col 2: flags      40px
+        # col 2: flags      50px
         # col 3: lock       28px
         # col 4: index      50px + 14px scrollbar gap
-        idx_w = 50 + 14
-        lock_w = 28
-        flags_w = 50
-        flags_x = max(80, w - idx_w - lock_w - flags_w)
-        self._pcol_x = [4, 32, flags_x, flags_x + flags_w, flags_x + flags_w + lock_w]
+        idx_w = scaled(50) + scaled(14)
+        lock_w = scaled(28)
+        flags_w = scaled(50)
+        flags_x = max(scaled(80), w - idx_w - lock_w - flags_w)
+        cb_col_w = scaled(28)
+        self._pcol_x = [scaled(4), scaled(4) + cb_col_w, flags_x, flags_x + flags_w, flags_x + flags_w + lock_w]
 
     def _update_plugin_header(self, w: int):
-        """Rebuild header labels to match current column positions."""
-        # Guard against callbacks firing after the widget has been destroyed.
+        """Update header labels to match current column positions; reuse existing labels to avoid flicker."""
         try:
             if not self._pheader.winfo_exists():
                 return
         except Exception:
             return
-        for lbl in self._pheader_labels:
-            lbl.destroy()
-        self._pheader_labels.clear()
+        self._pheader.configure(width=w)
 
         col_x = self._pcol_x
         titles = self.PLUGIN_HEADERS
@@ -2461,12 +2462,17 @@ class PluginPanel(ctk.CTkFrame):
 
         for i, (title, cw) in enumerate(zip(titles, widths)):
             anchor = "w" if i == 1 else "center"
-            lbl = tk.Label(
-                self._pheader, text=title, anchor=anchor,
-                font=("Segoe UI", _theme.FS11, "bold"), fg=TEXT_SEP, bg=BG_HEADER,
-            )
-            lbl.place(x=col_x[i], y=0, width=cw, height=28)
-            self._pheader_labels.append(lbl)
+            if i < len(self._pheader_labels):
+                lbl = self._pheader_labels[i]
+                lbl.configure(text=title)
+                lbl.place(x=col_x[i], y=0, width=cw, height=scaled(28))
+            else:
+                lbl = tk.Label(
+                    self._pheader, text=title, anchor=anchor,
+                    font=("Segoe UI", _theme.FS11, "bold"), fg=TEXT_SEP, bg=BG_HEADER,
+                )
+                lbl.place(x=col_x[i], y=0, width=cw, height=scaled(28))
+                self._pheader_labels.append(lbl)
 
     # ------------------------------------------------------------------
     # Plugin lock persistence
@@ -2749,14 +2755,14 @@ class PluginPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_bg[s], fill=bg, state="normal")
 
                 name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
-                name_max_px = self._pcol_x[2] - self._pcol_x[1] - 4
-                name_font = ("Segoe UI", 11)
+                name_max_px = self._pcol_x[2] - self._pcol_x[1] - scaled(4)
+                name_font = ("Segoe UI", _theme.FS11)
                 display_name = _truncate_plugin_name(c, entry.name, name_font, name_max_px)
                 c.coords(self._pool_name[s], self._pcol_x[1], y_mid)
                 c.itemconfigure(self._pool_name[s], text=display_name,
                                 fill=name_color, state="normal")
 
-                c.coords(self._pool_idx_text[s], self._pcol_x[4] + 25, y_mid)
+                c.coords(self._pool_idx_text[s], self._pcol_x[4] + scaled(25), y_mid)
                 c.itemconfigure(self._pool_idx_text[s], text=f"{row:03d}",
                                 fill=TEXT_DIM, state="normal")
 
@@ -2773,8 +2779,8 @@ class PluginPanel(ctk.CTkFrame):
 
                 if not dragging:
                     is_vanilla = entry.name.lower() in self._vanilla_plugins
-                    cb_cx = self._pcol_x[0] + 12
-                    cb_size = 14
+                    cb_cx = self._pcol_x[0] + scaled(12)
+                    cb_size = scaled(14)
                     cx1, cy1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                     cx2, cy2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                     c.coords(self._pool_check_rects[s], cx1, cy1, cx2, cy2)
@@ -2787,7 +2793,7 @@ class PluginPanel(ctk.CTkFrame):
                                     state="normal" if entry.enabled else "hidden")
 
                     is_locked = bool(self._plugin_locks.get(entry.name, False))
-                    lk_cx = self._pcol_x[3] + 12
+                    lk_cx = self._pcol_x[3] + scaled(12)
                     c.coords(self._pool_lock_rects[s], lk_cx - cb_size // 2, cy1,
                              lk_cx + cb_size // 2, cy2)
                     c.itemconfigure(self._pool_lock_rects[s],
@@ -3015,7 +3021,7 @@ class PluginPanel(ctk.CTkFrame):
         self._pcanvas_w = event.width
         if hasattr(self, '_pcanvas_resize_after_id') and self._pcanvas_resize_after_id:
             self.after_cancel(self._pcanvas_resize_after_id)
-        self._pcanvas_resize_after_id = self.after(250, lambda w=event.width: self._apply_pcanvas_resize(w))
+        self._pcanvas_resize_after_id = self.after(50, lambda w=event.width: self._apply_pcanvas_resize(w))
 
     def _apply_pcanvas_resize(self, width: int):
         self._layout_plugin_cols(width)

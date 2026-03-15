@@ -45,6 +45,7 @@ from gui.theme import (
     load_icon as _load_icon,
 )
 import gui.theme as _theme
+from gui.theme import scaled
 from gui.ctk_components import CTkAlert, CTkPopupMenu, CTkProgressPopup
 from gui.game_helpers import (
     _GAMES,
@@ -214,7 +215,7 @@ class ModListPanel(ctk.CTkFrame):
     This gives smooth scrolling and instant load for large mod lists.
     """
 
-    ROW_H   = 26
+    ROW_H   = scaled(26)
     HEADERS = ["", "Mod Name", "Flags", "Conflicts", "Installed", "Priority"]
     # x-start of each logical column (checkbox, name, flags, conflicts, installed, priority)
     # Computed dynamically in _layout_columns(); defaults here.
@@ -250,36 +251,37 @@ class ModListPanel(ctk.CTkFrame):
         _plus_path = _ICONS_DIR / "plus.png"
         _minus_path = _ICONS_DIR / "minus.png"
         _cross_path = _ICONS_DIR / "cross.png"
+        _icon_sz = scaled(14)
         if _plus_path.is_file():
             self._icon_plus = ImageTk.PhotoImage(
-                PilImage.open(_plus_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_plus_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
         if _minus_path.is_file():
             self._icon_minus = ImageTk.PhotoImage(
-                PilImage.open(_minus_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_minus_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
         if _cross_path.is_file():
             self._icon_cross = ImageTk.PhotoImage(
-                PilImage.open(_cross_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_cross_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
         # Update-available icon
         self._icon_update: ImageTk.PhotoImage | None = None
         _update_path = _ICONS_DIR / "update.png"
         if _update_path.is_file():
             self._icon_update = ImageTk.PhotoImage(
-                PilImage.open(_update_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_update_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
         # Missing-requirements warning icon
         self._icon_warning: ImageTk.PhotoImage | None = None
         _warning_path = _ICONS_DIR / "warning.png"
         if _warning_path.is_file():
             self._icon_warning = ImageTk.PhotoImage(
-                PilImage.open(_warning_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_warning_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
         # Endorsed mod tick icon
         self._icon_endorsed: ImageTk.PhotoImage | None = None
         _tick_path = _ICONS_DIR / "tick.png"
         if _tick_path.is_file():
             self._icon_endorsed = ImageTk.PhotoImage(
-                PilImage.open(_tick_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_tick_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
         # Separator collapse/expand arrows (right = collapsed, arrow = expanded)
         self._icon_sep_right: ImageTk.PhotoImage | None = None
@@ -288,17 +290,17 @@ class ModListPanel(ctk.CTkFrame):
         _arrow_path = _ICONS_DIR / "arrow.png"
         if _right_path.is_file():
             self._icon_sep_right = ImageTk.PhotoImage(
-                PilImage.open(_right_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_right_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
         if _arrow_path.is_file():
             self._icon_sep_arrow = ImageTk.PhotoImage(
-                PilImage.open(_arrow_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_arrow_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
         # Separator lock icon
         self._icon_lock: ImageTk.PhotoImage | None = None
         _lock_path = _ICONS_DIR / "lock.png"
         if _lock_path.is_file():
             self._icon_lock = ImageTk.PhotoImage(
-                PilImage.open(_lock_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_lock_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
         # Set of mod names that have a Nexus update available
         self._update_mods: set[str] = set()
@@ -491,7 +493,7 @@ class ModListPanel(ctk.CTkFrame):
 
     def _build_new_profile_bar(self):
         """Inline bar (row 0) shown when the user clicks '+' to create a profile."""
-        bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
+        bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=scaled(40))
         bar.grid(row=0, column=1, sticky="ew")
         bar.grid_propagate(False)
         bar.grid_remove()  # hidden by default
@@ -569,6 +571,7 @@ class ModListPanel(ctk.CTkFrame):
             fn(name, self._new_profile_specific_mods_var.get())
 
     def _build_header(self):
+        # Use design size 28: CTk applies its own widget scaling, so scaled() would double-scale
         self._header = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=28)
         self._header.grid(row=1, column=1, sticky="ew")
         self._header.grid_propagate(False)
@@ -615,7 +618,7 @@ class ModListPanel(ctk.CTkFrame):
         self._create_pool()
 
     def _build_toolbar(self):
-        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=36)
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=scaled(36))
         bar.grid(row=3, column=1, sticky="ew")
         bar.grid_propagate(False)
 
@@ -666,7 +669,7 @@ class ModListPanel(ctk.CTkFrame):
         ).pack(side="left", padx=4, pady=5)
 
         # Fixed-width clip frame prevents the label from resizing the toolbar
-        info_clip = tk.Frame(bar, bg=BG_PANEL, width=300, height=26)
+        info_clip = tk.Frame(bar, bg=BG_PANEL, width=scaled(300), height=scaled(26))
         info_clip.pack(side="left", padx=8)
         info_clip.pack_propagate(False)
         self._info_label = ctk.CTkLabel(
@@ -675,7 +678,7 @@ class ModListPanel(ctk.CTkFrame):
         self._info_label.pack(fill="both", expand=True)
 
     def _build_search_bar(self):
-        bar = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0, height=32)
+        bar = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0, height=scaled(32))
         bar.grid(row=4, column=1, sticky="ew")
         bar.grid_propagate(False)
 
@@ -708,7 +711,7 @@ class ModListPanel(ctk.CTkFrame):
 
     class _DlSlot:
         __slots__ = ("popup", "cancel", "bind_id")
-        def __init__(self, popup: "CTkProgressPopup", cancel: threading.Event, bind_id: str):
+        def __init__(self, popup: "CTkProgressPopup", cancel: threading.Event, bind_id: str | None):
             self.popup = popup
             self.cancel = cancel
             self.bind_id = bind_id
@@ -722,15 +725,17 @@ class ModListPanel(ctk.CTkFrame):
         """Build the inline filter side panel (column 0, initially hidden)."""
         self._filter_panel_open = False
 
+        # 300 was too narrow at 1.25x–1.5x scale (labels got truncated)
+        # CTk scales frame width; use unscaled design value
         panel = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0,
-                             width=300)
+                             width=380)
         panel.grid(row=0, column=0, rowspan=5, sticky="nsew")
         panel.grid_propagate(False)
         panel.grid_remove()  # hidden by default
         self._filter_side_panel = panel
 
         # ── Header row ──────────────────────────────────────────────
-        header = tk.Frame(panel, bg=BG_HEADER, height=36)
+        header = tk.Frame(panel, bg=BG_HEADER, height=scaled(36))
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
 
@@ -788,7 +793,7 @@ class ModListPanel(ctk.CTkFrame):
                 border_color=BORDER,
                 checkmark_color="white",
                 command=self._on_filter_panel_change,
-            ).pack(anchor="w", pady=3)
+            ).pack(anchor="w", fill="x", pady=3)
 
         # Category filter section
         ctk.CTkLabel(
@@ -865,18 +870,23 @@ class ModListPanel(ctk.CTkFrame):
         self._apply_modlist_filters(state)
 
     def _reposition_all_dl_popups(self, *_) -> None:
-        """Stack all live download popups upward from the bottom-right corner."""
+        """Stack all live download popups (CTkToplevel) upward from the bottom-right."""
         root = self.winfo_toplevel()
-        gap = 8
-        rw = root.winfo_width()
-        rh = root.winfo_height()
-        y = rh - 20
+        root.update_idletasks()
+        rx, ry = root.winfo_rootx(), root.winfo_rooty()
+        rw, rh = root.winfo_width(), root.winfo_height()
+        gap = scaled(8)
+        margin = scaled(20)
+        y = ry + rh - margin
         for slot in self._dl_slots:
             p = slot.popup
             if not p.winfo_exists():
                 continue
-            y -= p.height
-            p.place(x=rw - p.width - 20, y=y)
+            p.update_idletasks()
+            pw, ph = p.winfo_width(), p.winfo_height()
+            y -= ph
+            x = rx + rw - pw - margin
+            p.geometry(f"+{x}+{y}")
             y -= gap
 
     def get_download_cancel_event(self) -> threading.Event:
@@ -888,12 +898,13 @@ class ModListPanel(ctk.CTkFrame):
         # CTkProgressPopup binds its own update_position to <Configure>, which calls
         # update_idletasks() twice on every event — expensive during scroll. Silence it.
         popup.update_position = lambda *_: None
-        bind_id = root.bind("<Configure>", self._reposition_all_dl_popups, add="+")
-        slot = self._DlSlot(popup, cancel, bind_id)
+        popup._configure_bid = root.bind("<Configure>", self._reposition_all_dl_popups, add="+")
+        slot = self._DlSlot(popup, cancel, None)
         self._dl_slots.append(slot)
         # Wire this popup's X button to cancel just this slot
         popup.cancel_btn.configure(command=lambda s=slot: self._cancel_dl_slot(s))
         self._reposition_all_dl_popups()
+        self.after(100, self._reposition_all_dl_popups)
         return cancel
 
     def _cancel_dl_slot(self, slot: "_DlSlot") -> None:
@@ -903,10 +914,12 @@ class ModListPanel(ctk.CTkFrame):
         self._close_dl_slot(slot, user_cancel=True)
 
     def _close_dl_slot(self, slot: "_DlSlot", user_cancel: bool = False) -> None:
-        try:
-            self.winfo_toplevel().unbind("<Configure>", slot.bind_id)
-        except Exception:
-            pass
+        bid = getattr(slot.popup, "_configure_bid", None)
+        if bid is not None:
+            try:
+                self.winfo_toplevel().unbind("<Configure>", bid)
+            except Exception:
+                pass
         if slot.popup.winfo_exists():
             slot.popup.destroy()
         try:
@@ -919,7 +932,7 @@ class ModListPanel(ctk.CTkFrame):
             # button is released before any popup appears under the cursor.
             for s in self._dl_slots:
                 if s.popup.winfo_exists():
-                    s.popup.place_forget()
+                    s.popup.withdraw()
             self._dl_cancel_locked = True
             self.after(300, self._deferred_reshow)
         else:
@@ -927,6 +940,9 @@ class ModListPanel(ctk.CTkFrame):
 
     def _deferred_reshow(self) -> None:
         self._dl_cancel_locked = False
+        for s in self._dl_slots:
+            if s.popup.winfo_exists():
+                s.popup.deiconify()
         self._reposition_all_dl_popups()
 
     def _slot_for_cancel(self, cancel: threading.Event) -> "_DlSlot | None":
@@ -982,39 +998,37 @@ class ModListPanel(ctk.CTkFrame):
     def _layout_columns(self, canvas_w: int):
         """Compute column x positions given the current canvas width.
 
-        Right-side columns scale with window size (1.0x at 700px, up to 1.4x) and
-        have gaps between them to prevent overlap.
+        Right-side columns scale with window size (0.5x at narrow widths up to 1.4x)
+        and have gaps between them to prevent overlap.
         """
-        # Base widths at 700px; scale up for larger windows
-        scale = min(1.4, max(1.0, canvas_w / 700))
-        gap = 10
-        cat_w = int(130 * scale)    # category (fits "Visuals and Graphics", "Modding Tools")
-        flags_w = int(56 * scale)
-        conflicts_w = int(95 * scale)
-        installed_w = int(100 * scale)
-        priority_w = int(72 * scale)
-        scroll_gap = 14
+        # Base widths at 700px; scale down when narrow, up for larger windows
+        scale = min(1.4, max(0.5, canvas_w / scaled(700)))
+        gap = scaled(10)
+        cat_w = scaled(int(130 * scale))    # category (fits "Visuals and Graphics", "Modding Tools")
+        flags_w = scaled(int(56 * scale))
+        conflicts_w = scaled(int(95 * scale))
+        installed_w = scaled(int(100 * scale))
+        priority_w = scaled(int(72 * scale))
+        scroll_gap = scaled(14)
         right_cols = gap * 5 + cat_w + flags_w + conflicts_w + installed_w + priority_w + scroll_gap
-        name_w = max(80, canvas_w - 28 - right_cols)
+        name_w = max(scaled(80), canvas_w - scaled(28) - right_cols)
         # Column left edges (x positions)
-        x0, x1 = 4, 32
+        x0, x1 = scaled(4), scaled(32)
         x2 = x1 + name_w + gap
         x3 = x2 + cat_w + gap
         x4 = x3 + flags_w + gap
         x5 = x4 + conflicts_w + gap
         x6 = x5 + installed_w + gap
         self._COL_X = [x0, x1, x2, x3, x4, x5, x6]
-        self._COL_W = [28, name_w, cat_w, flags_w, conflicts_w, installed_w, priority_w]
+        self._COL_W = [scaled(28), name_w, cat_w, flags_w, conflicts_w, installed_w, priority_w]
         self._canvas_w = canvas_w
-        self._name_col_right = x1 + name_w - 4
+        self._name_col_right = x1 + name_w - scaled(4)
 
     # Map header index → sort key name (index 0 is checkbox, not sortable)
     _HEADER_SORT_KEYS = {1: "name", 2: "category", 3: "flags", 4: "conflicts", 5: "installed", 6: "priority"}
 
     def _update_header(self, canvas_w: int):
-        for lbl in self._header_labels:
-            lbl.destroy()
-        self._header_labels.clear()
+        self._header.configure(width=canvas_w)
 
         titles  = ["", "Mod Name", "Category", "Flags", "Conflicts", "Installed", "Priority"]
         x_pos   = self._COL_X
@@ -1022,22 +1036,26 @@ class ModListPanel(ctk.CTkFrame):
         widths  = self._COL_W
         for i, (title, x, anc, w) in enumerate(zip(titles, x_pos, anchors, widths)):
             sort_key = self._HEADER_SORT_KEYS.get(i)
-            # Show sort arrow on the active column
             display = title
             if sort_key and sort_key == self._sort_column:
                 arrow = " ▲" if self._sort_ascending else " ▼"
                 display = title + arrow
-            lbl = tk.Label(
-                self._header, text=display, anchor=anc,
-                font=("Segoe UI", _theme.FS11, "bold"),
-                fg=ACCENT if sort_key == self._sort_column else TEXT_SEP,
-                bg=BG_HEADER, bd=0,
-                cursor="hand2" if sort_key else "",
-            )
-            if sort_key:
-                lbl.bind("<Button-1>", lambda e, k=sort_key: self._on_header_click(k))
-            lbl.place(x=x, y=0, height=28, width=w)
-            self._header_labels.append(lbl)
+            if i < len(self._header_labels):
+                lbl = self._header_labels[i]
+                lbl.configure(text=display, fg=ACCENT if sort_key == self._sort_column else TEXT_SEP)
+                lbl.place(x=x, y=0, height=scaled(28), width=w)
+            else:
+                lbl = tk.Label(
+                    self._header, text=display, anchor=anc,
+                    font=("Segoe UI", _theme.FS11, "bold"),
+                    fg=ACCENT if sort_key == self._sort_column else TEXT_SEP,
+                    bg=BG_HEADER, bd=0,
+                    cursor="hand2" if sort_key else "",
+                )
+                if sort_key:
+                    lbl.bind("<Button-1>", lambda e, k=sort_key: self._on_header_click(k))
+                lbl.place(x=x, y=0, height=scaled(28), width=w)
+                self._header_labels.append(lbl)
 
     # ------------------------------------------------------------------
     # Load / reload
@@ -1609,22 +1627,22 @@ class ModListPanel(ctk.CTkFrame):
                         label = entry.display_name
 
                     mid_x     = cw // 2
-                    lock_w    = 28 if not is_synthetic else 0
+                    lock_w    = scaled(28) if not is_synthetic else 0
                     _badge_info = self._sep_deploy_paths.get(entry.name, {}) if not is_synthetic else {}
                     has_badge = bool(_badge_info and (
                         (_badge_info.get("path") if isinstance(_badge_info, dict) else _badge_info)
                         or (_badge_info.get("raw") if isinstance(_badge_info, dict) else False)
                     ))
-                    left_edge = 32 if is_root_folder else (20 if not is_synthetic else 8)
+                    left_edge = scaled(32) if is_root_folder else (scaled(20) if not is_synthetic else scaled(8))
 
                     if has_badge:
                         # Left-aligned layout: label + path badge flowing from left edge
-                        label_x = left_edge + 4
+                        label_x = left_edge + scaled(4)
                         c.coords(self._pool_name[s], label_x, y_mid)
                         c.itemconfigure(self._pool_name[s], text=label, anchor="w",
                                         fill=txt_col, font=("Segoe UI", _theme.FS10, "bold"), state="normal")
                         # Approximate bold label width at FS10 (~7px per char)
-                        badge_x = label_x + len(label) * 7 + 8
+                        badge_x = label_x + len(label) * scaled(7) + scaled(8)
                         _deploy_path = _badge_info.get("path", "") if isinstance(_badge_info, dict) else str(_badge_info)
                         _is_raw_deploy = _badge_info.get("raw", False) if isinstance(_badge_info, dict) else False
                         try:
@@ -1650,9 +1668,9 @@ class ModListPanel(ctk.CTkFrame):
                         c.itemconfigure(self._pool_name[s], text=label, anchor="center",
                                         fill=txt_col, font=("Segoe UI", _theme.FS10, "bold"), state="normal")
                         c.itemconfigure(self._pool_sep_badge[s], state="hidden")
-                        text_pad     = 6
-                        label_hw     = len(label) * 4 + text_pad
-                        right_edge   = cw - lock_w - 8
+                        text_pad     = scaled(6)
+                        label_hw     = len(label) * scaled(4) + text_pad
+                        right_edge   = cw - lock_w - scaled(8)
                         sep_line_col = txt_col if (custom_color if not is_synthetic else False) else BORDER
                         c.coords(self._pool_sep_line_l[s],
                                  left_edge, y_mid, mid_x - label_hw, y_mid)
@@ -1670,7 +1688,7 @@ class ModListPanel(ctk.CTkFrame):
                             icon = self._icon_sep_arrow
                             fallback = "▼"
                         if icon:
-                            c.coords(self._pool_sep_icon[s], 10, y_mid)
+                            c.coords(self._pool_sep_icon[s], scaled(10), y_mid)
                             c.itemconfigure(self._pool_sep_icon[s],
                                             image=icon, state="normal")
                         else:
@@ -1684,13 +1702,13 @@ class ModListPanel(ctk.CTkFrame):
                     if is_overwrite and self._overrides.get(OVERWRITE_NAME):
                         cx = self._COL_X[4] + self._COL_W[4] // 2
                         if self._icon_minus:
-                            c.coords(self._pool_conflict_icon1[s], cx - 8, y_mid)
+                            c.coords(self._pool_conflict_icon1[s], cx - scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_minus, state="normal")
                         else:
                             c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                         if self._icon_plus:
-                            c.coords(self._pool_conflict_icon2[s], cx + 8, y_mid)
+                            c.coords(self._pool_conflict_icon2[s], cx + scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon2[s],
                                             image=self._icon_plus, state="normal")
                         else:
@@ -1715,8 +1733,8 @@ class ModListPanel(ctk.CTkFrame):
                         rf_key = ROOT_FOLDER_NAME
                         _visited_lock_keys.add(rf_key)
                         checked_rf = entry.enabled
-                        cb_cx = self._COL_X[0] + 12
-                        cb_size = 14
+                        cb_cx = self._COL_X[0] + scaled(12)
+                        cb_size = scaled(14)
                         x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                         x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                         if rf_key not in self._lock_cb_rects:
@@ -1753,8 +1771,8 @@ class ModListPanel(ctk.CTkFrame):
                         sname = entry.name
                         _visited_lock_keys.add(sname)
                         locked_state = self._sep_locks.get(sname, False)
-                        lk_x = cw - lock_w - 8 + lock_w // 2
-                        cb_size2 = 14
+                        lk_x = cw - lock_w - scaled(8) + lock_w // 2
+                        cb_size2 = scaled(14)
                         x1, y1 = lk_x - cb_size2 // 2, y_mid - cb_size2 // 2
                         x2, y2 = lk_x + cb_size2 // 2, y_mid + cb_size2 // 2
                         if sname not in self._lock_cb_rects:
@@ -1825,7 +1843,7 @@ class ModListPanel(ctk.CTkFrame):
                     # Name text (truncate if it would overlap the category column)
                     name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
                     name_font = ("Segoe UI", _theme.FS11)
-                    name_width = self._COL_W[1] - 4  # leave 4px padding
+                    name_width = self._COL_W[1] - scaled(4)  # leave padding
                     display_name = _truncate_text_for_width(c, entry.name, name_font, name_width)
                     c.coords(self._pool_name[s], self._COL_X[1], y_mid)
                     c.itemconfigure(self._pool_name[s], text=display_name, anchor="w",
@@ -1841,7 +1859,7 @@ class ModListPanel(ctk.CTkFrame):
                     cat_text = self._category_names.get(entry.name, "")
                     if cat_text:
                         cat_font = ("Segoe UI", _theme.FS10)
-                        cat_width = self._COL_W[2] - 4
+                        cat_width = self._COL_W[2] - scaled(4)
                         display_cat = _truncate_text_for_width(c, cat_text, cat_font, cat_width)
                         cat_cx = self._COL_X[2] + self._COL_W[2] // 2
                         c.coords(self._pool_category_text[s], cat_cx, y_mid)
@@ -1909,10 +1927,10 @@ class ModListPanel(ctk.CTkFrame):
                                             image=self._icon_minus, state="normal")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                         elif conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
-                            c.coords(self._pool_conflict_icon1[s], cx - 8, y_mid)
+                            c.coords(self._pool_conflict_icon1[s], cx - scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_minus, state="normal")
-                            c.coords(self._pool_conflict_icon2[s], cx + 8, y_mid)
+                            c.coords(self._pool_conflict_icon2[s], cx + scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon2[s],
                                             image=self._icon_plus, state="normal")
                         elif conflict == CONFLICT_FULL and self._icon_cross:
@@ -1960,8 +1978,8 @@ class ModListPanel(ctk.CTkFrame):
                     if not dragging and i < len(self._check_vars) and self._check_vars[i] is not None:
                         self._pool_check_vars[s].set(self._check_vars[i].get())
                         checked = self._pool_check_vars[s].get()
-                        cb_cx = self._COL_X[0] + 12
-                        cb_size = 14
+                        cb_cx = self._COL_X[0] + scaled(12)
+                        cb_size = scaled(14)
                         x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                         x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                         c.coords(self._pool_cb_rect[s], x1, y1, x2, y2)
@@ -2358,7 +2376,7 @@ class ModListPanel(ctk.CTkFrame):
     def _on_canvas_resize(self, event):
         if self._canvas_resize_after_id is not None:
             self.after_cancel(self._canvas_resize_after_id)
-        self._canvas_resize_after_id = self.after(250, lambda w=event.width: self._apply_canvas_resize(w))
+        self._canvas_resize_after_id = self.after(50, lambda w=event.width: self._apply_canvas_resize(w))
 
     def _apply_canvas_resize(self, width: int):
         self._canvas_resize_after_id = None
@@ -3469,7 +3487,7 @@ class ModListPanel(ctk.CTkFrame):
         overlay = tk.Frame(self, bg=BG_PANEL, bd=0, highlightthickness=0)
         path_var = tk.StringVar(value=current_path)
 
-        title_bar = tk.Frame(overlay, bg=BG_HEADER, height=36)
+        title_bar = tk.Frame(overlay, bg=BG_HEADER, height=scaled(36))
         title_bar.pack(fill="x")
         title_bar.pack_propagate(False)
         tk.Label(title_bar, text=f"Separator Settings \u2014 {sep_name}",
@@ -3570,10 +3588,10 @@ class ModListPanel(ctk.CTkFrame):
             for name in sep_names
         ]
 
-        ROW_H      = 30   # px per item
+        ROW_H      = scaled(30)   # px per item
         MAX_ROWS   = 20   # cap before scrollbar kicks in
         FONT       = ("Segoe UI", 11)
-        PAD_X      = 24   # left+right padding around text
+        PAD_X      = scaled(24)   # left+right padding around text
 
         # Measure width needed for the longest name
         tmp = tk.Label(popup, font=FONT, text="")
@@ -3911,10 +3929,10 @@ class ModListPanel(ctk.CTkFrame):
 
         displays = [f"Open {p.name}" for p in ini_files]
 
-        ROW_H    = 30
+        ROW_H    = scaled(30)
         MAX_ROWS = 20
         FONT     = ("Segoe UI", 11)
-        PAD_X    = 24
+        PAD_X    = scaled(24)
 
         tmp = tk.Label(popup, font=FONT, text="")
         tmp.update_idletasks()
@@ -5056,7 +5074,8 @@ class ModListPanel(ctk.CTkFrame):
     def _open_filter_side_panel(self):
         """Show the filter side panel and sync checkboxes to current state."""
         self._filter_panel_open = True
-        self.grid_columnconfigure(0, minsize=300)
+        # Use scaled minsize so panel isn't squeezed at higher UI scale
+        self.grid_columnconfigure(0, minsize=scaled(380))
         self._filter_side_panel.grid()
         # Sync checkbox vars to current live filter state
         self._fsp_vars["filter_show_disabled"].set(self._filter_show_disabled)

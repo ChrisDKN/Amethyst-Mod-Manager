@@ -34,6 +34,8 @@ from tkinter import ttk
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageTk
 
+from gui.theme import font_sized_px, scaled
+
 try:
     from src.util.CTkGif import CTkGif
     from src.util.py_win_style import set_opacity
@@ -186,18 +188,22 @@ class CTkAlert(ctk.CTkToplevel):
         self.bind("<Escape>", lambda e: self.button_event())
 
     def _center_and_show(self):
-        """Position the alert centered on the parent window, then reveal it."""
+        """Position the alert centered on the parent window using actual dimensions."""
         parent = self._parent_ref
         if parent is not None:
             try:
+                self.geometry(f"{self.width}x{self.height}")  # Set size; CTk applies window scaling
                 parent.update_idletasks()
+                self.update_idletasks()
                 px = parent.winfo_rootx()
                 py = parent.winfo_rooty()
                 pw = parent.winfo_width()
                 ph = parent.winfo_height()
-                cx = px + (pw - self.width) // 2
-                cy = py + (ph - self.height) // 2
-                self.geometry(f"{self.width}x{self.height}+{cx}+{cy}")
+                aw = self.winfo_width() or scaled(self.width)
+                ah = self.winfo_height() or scaled(self.height)
+                cx = px + (pw - aw) // 2
+                cy = py + (ph - ah) // 2
+                self.geometry(f"+{cx}+{cy}")
             except Exception:
                 pass
         elif center_window:
@@ -284,15 +290,19 @@ class CTkBanner(ctk.CTkFrame):
         self.event = event
 
 
-class CTkNotification(ctk.CTkFrame):
+class CTkNotification(ctk.CTkToplevel):
+    """Toast-style notification at bottom-right; hides when app loses focus."""
+
     def __init__(self, master, state: str = "info", message: str = "message", side: str = "right_bottom"):
+        from gui.theme import BG_PANEL
+        super().__init__(master, fg_color=BG_PANEL)
         self.root = master
         self.width = 400
-        super().__init__(self.root, width=self.width, corner_radius=5, border_width=1)
-
+        self.resizable(False, False)
+        self.transient(master)
+        self.overrideredirect(True)
+        self.geometry(f"{self.width}x80")  # Design size; CTk applies window scaling
         self.grid_columnconfigure(0, weight=1)
-
-        self.horizontal, self.vertical = side.split("_")
 
         if state not in ICON_PATH or ICON_PATH[state] is None:
             self.icon = ctk.CTkImage(Image.open(ICON_PATH["info"]), Image.open(ICON_PATH["info"]), (24, 24))
@@ -301,29 +311,78 @@ class CTkNotification(ctk.CTkFrame):
 
         self.close_icon = ctk.CTkImage(Image.open(ICON_PATH["close"][0]), Image.open(ICON_PATH["close"][1]), (20, 20))
 
-        # Reserve space for icon (24px) + padx (15+5) + close btn (20+10+10) = ~84px
         _wrap = self.width - 84
         self.message_label = ctk.CTkLabel(self, text=f"  {message}", font=("", 13), image=self.icon,
-                                          compound="left", wraplength=_wrap, justify="left",
-                                          anchor="w")
+                                         compound="left", wraplength=_wrap, justify="left",
+                                         anchor="w")
         self.message_label.grid(row=0, column=0, sticky="nsw", padx=15, pady=10)
 
         self.close_btn = ctk.CTkButton(self, text="", image=self.close_icon, width=20, height=20, hover=False,
-                                       fg_color="transparent", command=self.close_notification)
+                                      fg_color="transparent", command=self.close_notification)
         self.close_btn.grid(row=0, column=1, sticky="ne", padx=10, pady=10)
 
-        if place_frame:
-            place_frame(self.root, self, self.horizontal, self.vertical)
-        self.root.bind("<Configure>", self.update_position, add="+")
+        self._configure_bid = master.bind("<Configure>", self._update_geometry, add="+")
+        self._focus_out_bid = master.bind("<FocusOut>", self._on_focus_out, add="+")
+        self._focus_in_bid = master.bind("<FocusIn>", self._on_focus_in, add="+")
+        self._update_geometry()
 
-    def update_position(self, event):
-        if place_frame:
-            place_frame(self.root, self, self.horizontal, self.vertical)
-        self.update_idletasks()
-        self.root.update_idletasks()
+    def _focus_still_in_app(self):
+        try:
+            w = self.root.focus_get()
+        except Exception:
+            return False
+        if w is None:
+            return False
+        top = w.winfo_toplevel()
+        return top is self or top is self.root
+
+    def _on_focus_out(self, event=None):
+        self.after(50, self._maybe_hide)
+
+    def _maybe_hide(self):
+        if self.winfo_exists() and not self._focus_still_in_app():
+            self.withdraw()
+
+    def _on_focus_in(self, event=None):
+        if self.winfo_exists():
+            self.deiconify()
+            self._update_geometry()
+
+    def _update_geometry(self, event=None):
+        try:
+            self.root.update_idletasks()
+            self.update_idletasks()
+            px, py = self.root.winfo_rootx(), self.root.winfo_rooty()
+            pw, ph = self.root.winfo_width(), self.root.winfo_height()
+            nw, nh = self.winfo_width(), self.winfo_height()
+            x_margin = scaled(25)
+            y_margin = scaled(20)
+            x = px + pw - nw - x_margin
+            y = py + ph - nh - y_margin
+            self.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+
+    def _unbind_all(self):
+        root = getattr(self, "root", None)
+        if root is None or not root.winfo_exists():
+            return
+        for attr, seq in [("_configure_bid", "<Configure>"), ("_focus_out_bid", "<FocusOut>"), ("_focus_in_bid", "<FocusIn>")]:
+            bid = getattr(self, attr, None)
+            if bid is not None:
+                try:
+                    root.unbind(seq, bid)
+                except Exception:
+                    pass
+
+    def destroy(self):
+        try:
+            self._unbind_all()
+        except Exception:
+            pass
+        super().destroy()
 
     def close_notification(self):
-        self.root.unbind("<Configure>")
         self.destroy()
 
 
@@ -943,20 +1002,29 @@ def do_popup(event, frame):
     frame.popup(event.x_root, event.y_root)
 
 
-class CTkProgressPopup(ctk.CTkFrame):
+class CTkProgressPopup(ctk.CTkToplevel):
+    """Floating progress window positioned at bottom-right of parent. Uses CTkToplevel
+    so it reliably appears above the main window (CTkFrame overlays can render black)."""
+
     def __init__(self, master, title: str = "Background Tasks", label: str = "Label...",
                  message: str = "Do something...", side: str = "right_bottom"):
+        from gui.theme import BG_PANEL
+        super().__init__(master, fg_color=BG_PANEL)
         self.root = master
         self.width = 420
         self.height = 120
-        super().__init__(self.root, width=self.width, height=self.height, corner_radius=5, border_width=1)
-        self.grid_propagate(False)
+        self.title(title)
+        self.resizable(False, False)
+        self.transient(master)
+        self.overrideredirect(True)  # Borderless so it looks like an in-app overlay, not a window
+        # Use design dimensions; CTk applies set_window_scaling, scaled() would double-scale
+        self.geometry(f"{self.width}x{self.height}")
         self.grid_columnconfigure(0, weight=1)
 
         self.cancelled = False
 
-        self.title = ctk.CTkLabel(self, text=title, font=("", 16))
-        self.title.grid(row=0, column=0, sticky="ew", padx=20, pady=10, columnspan=2)
+        self.title_lbl = ctk.CTkLabel(self, text=title, font=("", 16))
+        self.title_lbl.grid(row=0, column=0, sticky="ew", padx=20, pady=10, columnspan=2)
 
         self.label = ctk.CTkLabel(self, text=label, height=0)
         self.label.grid(row=1, column=0, sticky="sw", padx=20, pady=0)
@@ -977,15 +1045,62 @@ class CTkProgressPopup(ctk.CTkFrame):
         self.message.grid(row=3, column=0, sticky="nw", padx=20, pady=(0, 10))
 
         self.horizontal, self.vertical = side.split("_")
-        if place_frame:
-            place_frame(self.root, self, self.horizontal, self.vertical)
-        self.root.bind("<Configure>", self.update_position, add="+")
+        self.withdraw()
+        self._update_geometry()
+        self.deiconify()
+        self._focus_out_bid = master.bind("<FocusOut>", self._on_master_focus_out, add="+")
+        self._focus_in_bid = master.bind("<FocusIn>", self._on_master_focus_in, add="+")
 
-    def update_position(self, event):
-        if place_frame:
-            place_frame(self.root, self, self.horizontal, self.vertical)
+    def _focus_still_in_app(self):
+        """True if keyboard focus is on this popup or the main window (not another app)."""
+        try:
+            w = self.root.focus_get()
+        except Exception:
+            return False
+        if w is None:
+            return False
+        top = w.winfo_toplevel()
+        return top is self or top is self.root
+
+    def _on_master_focus_out(self, event=None):
+        """When main window loses focus, hide popup if focus left the app entirely."""
+        self.after(50, self._maybe_hide_on_focus_loss)
+
+    def _maybe_hide_on_focus_loss(self):
+        if not self.winfo_exists():
+            return
+        if self._focus_still_in_app():
+            return
+        self.withdraw()
+
+    def _on_master_focus_in(self, event=None):
+        """When main window gains focus, show popup again if it was hidden."""
+        if self.winfo_exists():
+            self.deiconify()
+            self._update_geometry()
+
+    def _update_geometry(self):
+        """Position window at bottom-right of parent using actual pixel dimensions."""
+        try:
+            self.root.update_idletasks()
+            self.update_idletasks()
+            px = self.root.winfo_rootx()
+            py = self.root.winfo_rooty()
+            pw = self.root.winfo_width()
+            ph = self.root.winfo_height()
+            popup_w = self.winfo_width()
+            popup_h = self.winfo_height()
+            x_margin = scaled(25)
+            y_margin = scaled(20)
+            x = px + pw - popup_w - x_margin
+            y = py + ph - popup_h - y_margin
+            self.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+
+    def update_position(self, event=None):
+        self._update_geometry()
         self.update_idletasks()
-        self.root.update_idletasks()
 
     def update_progress(self, progress):
         if self.cancelled:
@@ -1002,9 +1117,28 @@ class CTkProgressPopup(ctk.CTkFrame):
         self.cancelled = True
         self.close_progress_popup()
 
+    def _unbind_all(self):
+        """Unbind our event handlers from the root (called before destroy)."""
+        root = getattr(self, "root", None)
+        if root is None or not root.winfo_exists():
+            return
+        for attr, seq in [("_configure_bid", "<Configure>"), ("_focus_out_bid", "<FocusOut>"), ("_focus_in_bid", "<FocusIn>")]:
+            bid = getattr(self, attr, None)
+            if bid is not None:
+                try:
+                    root.unbind(seq, bid)
+                except Exception:
+                    pass
+
     def close_progress_popup(self):
-        self.root.unbind("<Configure>")
         self.destroy()
+
+    def destroy(self):
+        try:
+            self._unbind_all()
+        except Exception:
+            pass
+        super().destroy()
 
 
 class CTkTreeview(ctk.CTkFrame):
@@ -1076,15 +1210,20 @@ class CTkTreeview(ctk.CTkFrame):
                                                      ('Treeitem.text', {'side': 'left', 'sticky': 'nsew'})]})]})]
                                )
 
+        # Use pixel fonts so ttk.Treeview scales on Linux HiDPI (point sizes don't)
+        _tree_font = font_sized_px("Segoe UI", 10)
+        _tree_font_bold = font_sized_px("Segoe UI", 10, "bold")
+        # rowheight scaled with extra headroom so descenders don't overlap at 1.25x, 1.4x, etc.
+        _row_h = scaled(26)
         self.tree_style.configure(self._style_name, background=self.bg_color, foreground=self.text_color,
                                   fieldbackground=self.bg_color,
-                                  borderwidth=0, font=("", 10), rowheight=22,
+                                  borderwidth=0, font=_tree_font, rowheight=_row_h,
                                   focuscolor=self.bg_color)
         self.tree_style.map(self._style_name, background=[('selected', self.bg_color), ('focus', self.bg_color)],
                            foreground=[('selected', self.selected_color)])
         heading_style = f"{self._style_name}.Heading"
         self.tree_style.configure(heading_style, background=self.bg_color, foreground=self.text_color,
-                                 font=("", 10, "bold"), relief="flat")
+                                 font=_tree_font_bold, relief="flat")
         self.root.bind("<<TreeviewSelect>>", lambda event: self.root.focus_set())
 
         if columns is not None:

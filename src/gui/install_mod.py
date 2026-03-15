@@ -71,32 +71,11 @@ def _show_fomod_dialog_on_main(parent_window, config, mod_root,
 
 
 def _show_mod_notification(parent_window, message: str, state: str = "success") -> None:
-    """Show a notification on the root window, auto-dismiss after 4 s."""
+    """Show a notification at bottom-right, auto-dismiss after 4 s."""
     try:
         root = parent_window.winfo_toplevel()
         notif = CTkNotification(root, state=state, message=message)
-
-        def _reposition(*_):
-            try:
-                rw = root.winfo_width()
-                rh = root.winfo_height()
-                notif.place(x=rw - notif.width - 20,
-                            y=rh - notif.winfo_reqheight() - 20)
-            except Exception:
-                pass
-
-        notif.update_idletasks()
-        _reposition()
-        _bind_id = root.bind("<Configure>", _reposition, add="+")
-
-        def _dismiss():
-            try:
-                root.unbind("<Configure>", _bind_id)
-                notif.destroy()
-            except Exception:
-                pass
-
-        root.after(4000, _dismiss)
+        root.after(4000, notif.destroy)
     except Exception:
         pass
 

@@ -43,7 +43,14 @@ except Exception:
 
 import customtkinter as ctk
 
-from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_MAIN, init_fonts
+# Load UI scale from config and apply before any widgets are created.
+# Stored in ~/.config/AmethystModManager/amethyst.ini [ui] scale=...
+from Utils.ui_config import load_ui_scale, get_ui_scale
+_UI_SCALE = load_ui_scale()
+ctk.set_widget_scaling(_UI_SCALE)
+ctk.set_window_scaling(_UI_SCALE)
+
+from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize
 from gui.game_helpers import (
     _GAMES,
     _vanilla_plugins_for_game,
@@ -321,7 +328,11 @@ class App(ctk.CTk):
         super().__init__(fg_color=BG_DEEP)
         init_fonts(self)
         self.geometry("1280x800")
-        self.minsize(1280, 800)
+        # Scale minsize at higher UI scales; 16:9 minimum (1280x720)
+        _s = get_ui_scale()
+        _min_w = max(1080, int(1080 * _s))
+        _min_h = max(720, int(720 * _s))
+        self.minsize(_min_w, _min_h)
         # Thread-safe callback queue — background threads must never call
         # widget.after() directly (Python 3.13 Tkinter enforces this).
         # Use  app.call_threadsafe(fn)  instead.
@@ -733,7 +744,8 @@ class App(ctk.CTk):
         self.grid_rowconfigure(2, weight=0)
         self.grid_columnconfigure(0, weight=5)
         self.grid_columnconfigure(1, weight=0)
-        self.grid_columnconfigure(2, weight=4, minsize=480)
+        # Plugin panel: minsize in screen px so column fits scaled container
+        self.grid_columnconfigure(2, weight=4, minsize=scaled(480))
 
         # Build status bar first so log_fn is available immediately
         self._status = StatusBar(self)
@@ -783,6 +795,16 @@ class App(ctk.CTk):
         self._plugin_panel_container.grid(row=0, column=2, rowspan=2, sticky="nsew")
         self._plugin_panel_container.grid_rowconfigure(0, weight=1)
         self._plugin_panel_container.grid_columnconfigure(0, weight=1)
+        self._plugin_panel_container.grid_propagate(False)
+
+        # Design size 480: CTk scales it; scaled() would double-scale.
+        # Set once at startup only — no Configure binding (avoids resize lag).
+        def _set_plugin_width():
+            try:
+                self._plugin_panel_container.configure(width=480)
+            except Exception:
+                pass
+        self.after(50, _set_plugin_width)
 
         self._plugin_panel = PluginPanel(
             self._plugin_panel_container, log_fn=log,
@@ -1373,7 +1395,27 @@ class App(ctk.CTk):
     def hide_download_custom_handler_panel(self):
         self._hide_plugin_overlay("_download_custom_handler_panel")
 
+    # -- Settings panel ------------------------------------------------------
+
+    def show_settings_panel(self):
+        from gui.status_bar import SettingsPanel
+        self._show_plugin_overlay(
+            "_settings_panel",
+            lambda: SettingsPanel(
+                self._plugin_panel_container,
+                on_done=lambda p: self._hide_plugin_overlay("_settings_panel"),
+            ),
+        )
+
+    def hide_settings_panel(self):
+        self._hide_plugin_overlay("_settings_panel")
+
     def _startup_log(self):
+        from Utils.ui_config import get_ui_scale, get_screen_info
+        w, h, detected = get_screen_info()
+        self._status.log(
+            f"Display: {w}x{h}, HiDPI detected={detected}, scale={get_ui_scale()}"
+        )
         configured = sum(1 for g in _GAMES.values() if g.is_configured())
         total = len(_GAMES)
         self._status.log(f"Mod Manager ready. {configured}/{total} games configured.")
