@@ -1,0 +1,27 @@
+{
+  "name": "Green Hell",
+  "game_id": "Green_Hell",
+  "exe_name": "GH.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "BepInEx/plugins",
+  "steam_id": "815370",
+  "nexus_game_domain": "greenhell",
+  "image_url": "https://cdn2.steamgriddb.com/icon/44ed1c3ad932e297c528b1ed9d849eb2/32/256x256.png",
+  "mod_folder_strip_prefixes": [
+    "BepInEx",
+    "plugins"
+  ],
+  "conflict_ignore_filenames": [],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {
+    "winhttp": "native,builtin"
+  },
+  "custom_routing_rules": []
+}
