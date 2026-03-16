@@ -80,6 +80,11 @@ class StatusBar(ctk.CTkFrame):
             label_bar, text="Log", font=FONT_SMALL, text_color=TEXT_DIM
         ).pack(side="left", padx=8)
 
+        self._count_label = ctk.CTkLabel(
+            label_bar, text="", font=FONT_SMALL, text_color=TEXT_DIM
+        )
+        self._count_label.pack(side="left", padx=(4, 0))
+
         self._toggle_btn = ctk.CTkButton(
             label_bar, text="▲ Show", width=70, height=16,
             fg_color=BG_HEADER, hover_color=BG_HOVER,
@@ -136,6 +141,10 @@ class StatusBar(ctk.CTkFrame):
             self._textbox.pack_forget()
             self.configure(height=self._COLLAPSED_H)
             self._toggle_btn.configure(text="▲ Show")
+
+    def set_mod_count(self, text: str) -> None:
+        """Update the x/y mods active label in the log bar."""
+        self._count_label.configure(text=text)
 
     def show_log(self):
         """Ensure the log panel is expanded (no-op if already visible)."""

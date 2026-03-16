@@ -668,14 +668,14 @@ class ModListPanel(ctk.CTkFrame):
             command=self._reload
         ).pack(side="left", padx=4, pady=5)
 
-        # Fixed-width clip frame prevents the label from resizing the toolbar
-        info_clip = tk.Frame(bar, bg=BG_PANEL, width=scaled(300), height=scaled(26))
-        info_clip.pack(side="left", padx=8)
-        info_clip.pack_propagate(False)
-        self._info_label = ctk.CTkLabel(
-            info_clip, text="", font=_theme.FONT_SMALL, text_color=TEXT_DIM, anchor="w"
-        )
-        self._info_label.pack(fill="both", expand=True)
+        ctk.CTkButton(
+            bar, text="Generate Separators", width=140, height=26,
+            fg_color=BG_HEADER, hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
+            command=self._generate_separators
+        ).pack(side="left", padx=4, pady=5)
+
+        self._status_bar = None  # set via set_status_bar() after construction
 
     def _build_search_bar(self):
         bar = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0, height=scaled(32))
@@ -4825,6 +4825,114 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
 
+    def _generate_separators(self) -> None:
+        """Create a separator for each category and move loose mods (not already inside a separator) into it.
+
+        Rules:
+        - Mods already inside a separator block are untouched.
+        - Loose mods with conflicts stay at the bottom in their original relative order.
+        - Loose mods without conflicts are grouped by category, each group placed under
+          a new (or existing) separator named after the category.
+        - Mods with no category get a separator named "Uncategorized".
+        - New separators are inserted just above the conflict/bottom section.
+        """
+        OVERWRITE = OVERWRITE_NAME  # synthetic first entry
+        ROOT = ROOT_FOLDER_NAME     # synthetic last entry
+
+        # --- Step 1: Identify which mods are already inside a separator block ---
+        # A mod is "in a separator" if a real (non-synthetic) separator appears above it.
+        # Synthetic separators (Overwrite, Root_Folder) don't count as real separators.
+        SYNTHETIC = {OVERWRITE, ROOT}
+        in_separator: set[str] = set()
+        under_real_sep = False
+        for entry in self._entries:
+            if entry.is_separator:
+                if entry.name not in SYNTHETIC:
+                    under_real_sep = True
+            elif under_real_sep:
+                in_separator.add(entry.name)
+
+        # --- Step 2: Collect loose mods (not in a separator, not synthetic) ---
+        # Preserve original relative order.
+        loose: list[ModEntry] = [
+            e for e in self._entries
+            if not e.is_separator
+            and e.name not in in_separator
+            and e.name not in (OVERWRITE, ROOT)
+        ]
+
+        if not loose:
+            return  # nothing to do
+
+        # --- Step 3: Split loose mods into conflict vs non-conflict groups ---
+        conflict_mods: list[ModEntry] = []
+        no_conflict_mods: list[ModEntry] = []
+        for entry in loose:
+            c = self._conflict_map.get(entry.name, CONFLICT_NONE)
+            if c != CONFLICT_NONE:
+                conflict_mods.append(entry)
+            else:
+                no_conflict_mods.append(entry)
+
+        # --- Step 4: Group non-conflict mods by category (preserve order within group) ---
+        cat_groups: dict[str, list[ModEntry]] = {}
+        for entry in no_conflict_mods:
+            cat = self._category_names.get(entry.name, "") or "Uncategorized"
+            if cat not in cat_groups:
+                cat_groups[cat] = []
+            cat_groups[cat].append(entry)
+
+        # --- Step 5: Build the new entries list ---
+        # Keep: synthetic Overwrite + all existing separator blocks (untouched)
+        # Then append: new category separators + their mods
+        # Then append: "Conflicts" separator + conflict mods at bottom
+
+        # Remove all loose mods from _entries (they will be re-inserted).
+        loose_names = {e.name for e in loose}
+        new_entries: list[ModEntry] = [e for e in self._entries if e.name not in loose_names]
+
+        # Find insertion point: just before ROOT_FOLDER (if present), otherwise end.
+        insert_base = len(new_entries)
+        for i, e in enumerate(new_entries):
+            if e.name == ROOT:
+                insert_base = i
+                break
+
+        # Build the block to insert: category separators + mods, then conflict mods.
+        to_insert: list[ModEntry] = []
+        existing_sep_names = {e.name for e in self._entries if e.is_separator}
+        for cat, mods in sorted(cat_groups.items()):
+            sep_name = cat + "_separator"
+            if sep_name not in existing_sep_names:
+                sep_entry = ModEntry(name=sep_name, enabled=True, locked=True, is_separator=True)
+                to_insert.append(sep_entry)
+                existing_sep_names.add(sep_name)
+            else:
+                # Separator already exists in new_entries — find it and append mods after its block.
+                # Skip adding the separator again; mods will go at end of the list before conflicts.
+                pass
+            to_insert.extend(mods)
+
+        if conflict_mods:
+            conflicts_sep_name = "Conflicts_separator"
+            if conflicts_sep_name not in existing_sep_names:
+                to_insert.append(ModEntry(name=conflicts_sep_name, enabled=True, locked=True, is_separator=True))
+            to_insert.extend(conflict_mods)
+
+        # Insert the block at the correct position.
+        for offset, entry in enumerate(to_insert):
+            new_entries.insert(insert_base + offset, entry)
+
+        self._entries = new_entries
+
+        # --- Step 6: Rebuild check vars to stay aligned ---
+        self._rebuild_check_widgets()
+        self._invalidate_derived_caches()
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._redraw()
+        self._update_info()
+
     def _create_empty_mod(self, ref_idx: int):
         """Prompt for a mod name, create an empty staging folder, and insert a new mod entry below ref_idx."""
         if self._modlist_path is None:
@@ -5385,7 +5493,12 @@ class ModListPanel(ctk.CTkFrame):
         sel_entry = self._entries[self._sel_idx] if 0 <= self._sel_idx < len(self._entries) else None
         sel = (f" | Selected: {sel_entry.name}"
                if sel_entry and not sel_entry.is_separator else "")
-        self._info_label.configure(text=f"{enabled}/{total} mods active{sel}")
+        if self._status_bar is not None:
+            self._status_bar.set_mod_count(f"{enabled}/{total} mods active{sel}")
+
+    def set_status_bar(self, status_bar) -> None:
+        """Wire up the StatusBar so _update_info can push the mod count into it."""
+        self._status_bar = status_bar
 
     def set_highlighted_mod(self, mod_name: str | None):
         """Highlight the given mod (by name) in the modlist, e.g. when a plugin is selected."""

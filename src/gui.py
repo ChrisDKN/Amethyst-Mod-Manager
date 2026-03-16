@@ -790,6 +790,7 @@ class App(ctk.CTk):
             call_threadsafe_fn=self.call_threadsafe,
         )
         self._mod_panel.grid(row=0, column=0, sticky="nsew")
+        self._mod_panel.set_status_bar(self._status)
 
         self._plugin_panel_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         self._plugin_panel_container.grid(row=0, column=2, rowspan=2, sticky="nsew")
