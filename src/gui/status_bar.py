@@ -9,9 +9,11 @@ import sys
 import tkinter as tk
 import customtkinter as ctk
 
-from Utils.config_paths import get_logs_dir
+from pathlib import Path
+
+from Utils.config_paths import get_logs_dir, get_download_cache_dir
 from Utils.ui_config import load_ui_scale, save_ui_scale, detect_hidpi_scale
-from gui.ctk_components import CTkProgressPopup
+from gui.ctk_components import CTkProgressPopup, CTkAlert
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
@@ -25,9 +27,33 @@ from gui.theme import (
     FONT_NORMAL,
     scaled,
     TEXT_DIM,
+    TEXT_ERR,
     TEXT_MAIN,
+    TEXT_OK,
     TEXT_WARN,
 )
+
+
+def _fmt_size(n_bytes: int) -> str:
+    if n_bytes <= 0:
+        return "—"
+    for unit, threshold in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
+        if n_bytes >= threshold:
+            return f"{n_bytes / threshold:.1f} {unit}"
+    return f"{n_bytes} B"
+
+
+def _get_dir_size(path: Path) -> int:
+    if not path.is_dir():
+        return 0
+    total = 0
+    try:
+        for p in path.rglob("*"):
+            if p.is_file():
+                total += p.stat().st_size
+    except OSError:
+        pass
+    return total
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +261,30 @@ class SettingsPanel(ctk.CTkFrame):
 
         self._update_slider_state()
 
+        # ---- download cache ----
+        ctk.CTkFrame(body, fg_color=BORDER, height=1).grid(
+            row=3, column=0, columnspan=3, sticky="ew", pady=(20, 0))
+
+        ctk.CTkLabel(body, text="Download Cache", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     anchor="w").grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 4))
+
+        cache_row = ctk.CTkFrame(body, fg_color="transparent")
+        cache_row.grid(row=5, column=0, columnspan=3, sticky="w")
+
+        self._clear_cache_btn = ctk.CTkButton(
+            cache_row, text="Clear Cache (—)",
+            height=scaled(28), font=FONT_NORMAL,
+            fg_color="#5a3a00", hover_color="#7a5200", text_color="#ffffff",
+            command=self._on_clear_cache,
+        )
+        self._clear_cache_btn.pack(side="left")
+
+        self._cache_status_lbl = ctk.CTkLabel(
+            cache_row, text="", font=FONT_SMALL, text_color=TEXT_DIM, anchor="w")
+        self._cache_status_lbl.pack(side="left", padx=(10, 0))
+
+        self.after(100, self._refresh_cache_size)
+
         # ---- footer ----
         foot = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=scaled(44))
         foot.grid(row=2, column=0, sticky="ew")
@@ -277,6 +327,77 @@ class SettingsPanel(ctk.CTkFrame):
 
     def _update_slider_state(self):
         self._slider.configure(state="disabled" if self._auto_var.get() else "normal")
+
+    def _refresh_cache_size(self):
+        cache_dir = get_download_cache_dir()
+
+        def _worker():
+            size = _get_dir_size(cache_dir)
+            try:
+                self.after(0, lambda: self._update_clear_cache_btn(size))
+            except Exception:
+                pass
+
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _update_clear_cache_btn(self, size_bytes: int):
+        try:
+            if hasattr(self, "_clear_cache_btn") and self._clear_cache_btn.winfo_exists():
+                self._clear_cache_btn.configure(text=f"Clear Cache ({_fmt_size(size_bytes)})")
+        except Exception:
+            pass
+
+    def _on_clear_cache(self):
+        import shutil, threading
+        cache_dir = get_download_cache_dir()
+        size = _get_dir_size(cache_dir)
+        if size <= 0:
+            self._cache_status_lbl.configure(text="Cache is empty.", text_color=TEXT_DIM)
+            return
+
+        alert = CTkAlert(
+            state="warning",
+            title="Clear Download Cache",
+            body_text=(
+                f"Clear {_fmt_size(size)} of cached downloads?\n\n"
+                f"Location: {cache_dir}\n\n"
+                "This removes archives downloaded for collection installs. "
+                "They will be re-downloaded if you install collections again."
+            ),
+            btn1="Clear",
+            btn2="Cancel",
+            parent=self.winfo_toplevel(),
+            height=280,
+        )
+        if alert.get() != "Clear":
+            return
+
+        def _worker():
+            cleared = 0
+            try:
+                for p in cache_dir.iterdir():
+                    try:
+                        if p.is_file():
+                            p.unlink(missing_ok=True)
+                            cleared += 1
+                        elif p.is_dir():
+                            shutil.rmtree(p, ignore_errors=True)
+                            cleared += 1
+                    except OSError:
+                        pass
+                self.after(0, lambda: _done(cleared))
+            except Exception as exc:
+                self.after(0, lambda: self._cache_status_lbl.configure(
+                    text=f"Failed: {exc}", text_color=TEXT_ERR))
+
+        def _done(n):
+            self._cache_status_lbl.configure(
+                text=f"Cleared ({n} items).", text_color=TEXT_OK)
+            self._refresh_cache_size()
+
+        self._cache_status_lbl.configure(text="Clearing…", text_color=TEXT_DIM)
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _on_close(self):
         self._on_done(self)

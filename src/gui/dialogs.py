@@ -5990,3 +5990,144 @@ class MissingReqsPanel(ctk.CTkFrame):
         self._save_ignored_fn()
         self._on_done(self)
 
+
+class CollectionInstallModeDialog(tk.Frame):
+    """Overlay panel that asks how to install a collection.
+
+    Placed over the plugin panel with place(relx=0, rely=0, relwidth=1, relheight=1).
+    Calls on_done(result) when finished, where result is one of:
+      ("new", None, False)                          — create a new profile
+      ("append", profile_name, overwrite_existing)  — append into existing profile
+      None                                          — cancelled
+    """
+
+    def __init__(self, parent, existing_profiles: list[str], on_done):
+        super().__init__(parent, bg=BG_DEEP)
+        self._on_done = on_done
+        self._existing_profiles = existing_profiles
+
+        self._mode_var = tk.StringVar(value="new")
+        self._overwrite_var = tk.BooleanVar(value=False)
+        self._profile_var = tk.StringVar(
+            value=existing_profiles[0] if existing_profiles else ""
+        )
+
+        self._build()
+
+    def _build(self):
+        # Full-size container so we can centre the card
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Centred card
+        card = tk.Frame(self, bg=BG_PANEL, bd=0, highlightthickness=1,
+                        highlightbackground=BORDER)
+        card.grid(row=0, column=0)
+        card.grid_columnconfigure(0, weight=1)
+
+        row = 0
+
+        # Header bar
+        header = tk.Frame(card, bg=BG_HEADER, height=42)
+        header.grid(row=row, column=0, sticky="ew")
+        header.grid_propagate(False)
+        tk.Label(
+            header, text="Install Collection",
+            font=FONT_BOLD, fg=TEXT_MAIN, bg=BG_HEADER,
+        ).pack(side="left", padx=12, pady=8)
+        row += 1
+
+        # Separator
+        tk.Frame(card, bg=BORDER, height=1).grid(row=row, column=0, sticky="ew")
+        row += 1
+
+        # Body
+        body = tk.Frame(card, bg=BG_PANEL)
+        body.grid(row=row, column=0, sticky="ew", padx=24, pady=(16, 8))
+        body.grid_columnconfigure(0, weight=1)
+        row += 1
+
+        tk.Label(
+            body, text="How would you like to install this collection?",
+            font=FONT_BOLD, fg=TEXT_MAIN, bg=BG_PANEL, anchor="center", justify="center",
+        ).grid(row=0, column=0, sticky="ew", pady=(0, 14))
+
+        ctk.CTkRadioButton(
+            body, text="Create a new profile",
+            variable=self._mode_var, value="new",
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
+            command=self._on_mode_change,
+        ).grid(row=1, column=0, sticky="w", pady=(0, 6))
+
+        ctk.CTkRadioButton(
+            body, text="Append to existing profile",
+            variable=self._mode_var, value="append",
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
+            command=self._on_mode_change,
+        ).grid(row=2, column=0, sticky="w", pady=(0, 8))
+
+        self._profile_menu = ctk.CTkOptionMenu(
+            body, values=self._existing_profiles or ["(no profiles)"],
+            variable=self._profile_var,
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+            fg_color=BG_DEEP, button_color=BG_HEADER, button_hover_color=BG_HOVER,
+            dropdown_fg_color=BG_PANEL, dropdown_text_color=TEXT_MAIN,
+            dropdown_hover_color=BG_HOVER,
+            state="disabled", width=280,
+        )
+        self._profile_menu.grid(row=3, column=0, sticky="w", padx=(16, 0), pady=(0, 6))
+
+        self._overwrite_cb = ctk.CTkCheckBox(
+            body, text="Overwrite existing mods",
+            variable=self._overwrite_var,
+            font=FONT_NORMAL, text_color=TEXT_DIM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, border_color=BORDER,
+            checkmark_color="white",
+            state="disabled",
+        )
+        self._overwrite_cb.grid(row=4, column=0, sticky="w", padx=(16, 0), pady=(0, 4))
+
+        # Separator before buttons
+        tk.Frame(card, bg=BORDER, height=1).grid(row=row, column=0, sticky="ew")
+        row += 1
+
+        # Button bar
+        bar = tk.Frame(card, bg=BG_HEADER, height=44)
+        bar.grid(row=row, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkButton(
+            bar, text="Cancel", width=80, height=28, font=FONT_NORMAL,
+            fg_color=BG_DEEP, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=8)
+        ctk.CTkButton(
+            bar, text="Install", width=80, height=28, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_ok,
+        ).pack(side="right", padx=4, pady=8)
+
+    def _on_mode_change(self):
+        is_append = self._mode_var.get() == "append"
+        state = "normal" if is_append else "disabled"
+        self._profile_menu.configure(state=state)
+        self._overwrite_cb.configure(
+            state=state,
+            text_color=TEXT_MAIN if is_append else TEXT_DIM,
+        )
+
+    def _on_ok(self):
+        mode = self._mode_var.get()
+        if mode == "new":
+            result = ("new", None, False)
+        else:
+            profile = self._profile_var.get()
+            if not profile or profile == "(no profiles)":
+                return
+            result = ("append", profile, self._overwrite_var.get())
+        self._on_done(result)
+
+    def _on_cancel(self):
+        self._on_done(None)
+

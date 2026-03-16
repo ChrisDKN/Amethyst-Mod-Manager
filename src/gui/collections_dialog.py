@@ -22,6 +22,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from gui.ctk_components import CTkAlert
+from gui.dialogs import CollectionInstallModeDialog
 from gui.game_helpers import (
     _create_profile,
     _profiles_for_game,
@@ -66,7 +67,6 @@ from gui.theme import (
 )
 
 PAGE_SIZE    = 20
-_SUMMARY_MAX = 200
 
 
 def _topo_sort_collection(schema_mods: list[dict], mod_rules: list[dict]) -> dict[int, int]:
@@ -234,11 +234,9 @@ class CollectionCard:
         self._coll_w = scaled(_COLL_W)
         self._coll_img_w = scaled(_COLL_IMG_W)
         self._coll_img_h = scaled(_COLL_IMG_H)
-        # Text area: shrink more at low scale (scale²); at s≥1 use s^1.3 so text area
-        # grows faster than linear — font line height scales linearly but label
-        # padding/spacing and wrapped lines need extra headroom at 1.25x, 1.4x, 1.5x
+        # Text area: name + stats + author only (summary moved to hover tooltip).
         s = get_ui_scale()
-        text_h = max(65, int(250 * (s * s if s < 1 else s ** 1.3)))
+        text_h = max(50, int(90 * s))
         # Include image pady so card height matches actual layout (image + pady + btn + text)
         _img_pady = scaled(6) + scaled(3)
         _btn_row_h = scaled(60)  # taller at high scale so View button is fully visible
@@ -260,11 +258,11 @@ class CollectionCard:
     def _build(self, on_view: Callable):
         col = self._collection
 
-        # Tile image placeholder
-        placeholder = make_placeholder_image(self._coll_img_w, self._coll_img_h)
+        # Tile image placeholder — use unscaled dims for CTkImage/CTkLabel since
+        # CTk applies set_widget_scaling internally (scaled() would double-scale).
+        placeholder = make_placeholder_image(_COLL_IMG_W, _COLL_IMG_H)
         ph_ctk = ctk.CTkImage(light_image=placeholder, dark_image=placeholder,
-                               size=(self._coll_img_w, self._coll_img_h))
-        # CTk scales dimensions; use unscaled so image fits the card (no double-scaling)
+                               size=(_COLL_IMG_W, _COLL_IMG_H))
         self._img_label = ctk.CTkLabel(
             self.card, image=ph_ctk, text="",
             width=_COLL_IMG_W, height=_COLL_IMG_H,
@@ -329,17 +327,10 @@ class CollectionCard:
                 anchor="w", wraplength=_wrap,
             ).pack(padx=scaled(8), fill="x")
 
-        # Summary
+        # Summary shown as a hover tooltip on the card instead of inline text.
         summary = (col.summary or "").strip()
-        if len(summary) > _SUMMARY_MAX:
-            summary = summary[:_SUMMARY_MAX].rstrip() + "…"
         if summary:
-            tk.Label(
-                text_frame, text=summary,
-                bg=BG_PANEL, fg=TEXT_DIM,
-                font=FONT_SMALL,
-                wraplength=_wrap, justify="left", anchor="w",
-            ).pack(padx=scaled(8), pady=(scaled(2), 0), fill="x")
+            self._attach_tooltip(self.card, summary)
 
     def load_image_async(self, url: str, cache: dict, loading: set, root: tk.Widget):
         """Start async tile image load (same pattern as mod_card.py)."""
@@ -359,9 +350,10 @@ class CollectionCard:
                 r.raise_for_status()
                 from io import BytesIO
                 raw = Image.open(BytesIO(r.content)).convert("RGBA")
-                # Scale to cover the slot (zoom), then center-crop
+                # Scale to cover the slot (zoom), then center-crop.
+                # Use unscaled design dims — CTk applies set_widget_scaling internally.
                 src_w, src_h = raw.size
-                iw, ih = self._coll_img_w, self._coll_img_h
+                iw, ih = _COLL_IMG_W, _COLL_IMG_H
                 scale = max(iw / src_w, ih / src_h)
                 new_w = int(src_w * scale)
                 new_h = int(src_h * scale)
@@ -386,6 +378,56 @@ class CollectionCard:
                 self._img_label.configure(image=photo)
         except Exception:
             pass
+
+    # ------------------------------------------------------------------
+    # Hover tooltip for collection summary
+    # ------------------------------------------------------------------
+
+    def _attach_tooltip(self, widget: tk.Widget, text: str) -> None:
+        """Attach a hover tooltip showing *text* to *widget* and all its children."""
+        self._tooltip_win: tk.Toplevel | None = None
+        self._tooltip_text = text
+
+        def _enter(event):
+            if self._tooltip_win is not None:
+                return
+            tw = tk.Toplevel(widget)
+            tw.overrideredirect(True)
+            tw.attributes("-alpha", 0.95)
+            tw.configure(bg=BG_DEEP)
+            wrap = min(scaled(340), scaled(int(self._coll_w * 1.4)))
+            tk.Label(
+                tw, text=self._tooltip_text,
+                bg=BG_DEEP, fg=TEXT_MAIN,
+                font=FONT_SMALL,
+                wraplength=wrap, justify="left",
+                padx=scaled(8), pady=scaled(6),
+            ).pack()
+            # Position near cursor, keep on-screen
+            x = event.x_root + scaled(12)
+            y = event.y_root + scaled(12)
+            tw.update_idletasks()
+            sw = tw.winfo_screenwidth()
+            sh = tw.winfo_screenheight()
+            if x + tw.winfo_reqwidth() > sw:
+                x = event.x_root - tw.winfo_reqwidth() - scaled(4)
+            if y + tw.winfo_reqheight() > sh:
+                y = event.y_root - tw.winfo_reqheight() - scaled(4)
+            tw.geometry(f"+{x}+{y}")
+            self._tooltip_win = tw
+
+        def _leave(event):
+            if self._tooltip_win:
+                self._tooltip_win.destroy()
+                self._tooltip_win = None
+
+        def _bind_recursive(w: tk.Widget) -> None:
+            w.bind("<Enter>", _enter, add="+")
+            w.bind("<Leave>", _leave, add="+")
+            for child in w.winfo_children():
+                _bind_recursive(child)
+
+        _bind_recursive(widget)
 
 
 # ---------------------------------------------------------------------------
@@ -666,15 +708,6 @@ class CollectionDetailDialog(tk.Frame):
             command=self._on_install_collection,
         ).pack(side="right", padx=(10, 0), pady=6)
 
-        self._clear_cache_btn = ctk.CTkButton(
-            ftr, text="Clear Cache (—)",
-            height=scaled(30), fg_color="#5a3a00", hover_color="#7a5200",
-            text_color="#ffffff", font=font_sized("Segoe UI", 10),
-            border_width=0,
-            command=self._on_clear_cache,
-        )
-        self._clear_cache_btn.pack(side="right", padx=(10, 0), pady=6)
-
         self._open_missing_btn = ctk.CTkButton(
             ftr, text="Open Missing on Nexus",
             height=scaled(30), fg_color="#5a3a00", hover_color="#7a5200",
@@ -683,8 +716,6 @@ class CollectionDetailDialog(tk.Frame):
             command=self._on_open_missing_on_nexus,
         )
         # Shown only when collection is installed and has missing mods; see _update_open_missing_btn_visibility()
-
-        self.after(100, self._refresh_cache_size)
 
         self._reset_btn = ctk.CTkButton(
             ftr, text="Reset Load Order",
@@ -753,6 +784,11 @@ class CollectionDetailDialog(tk.Frame):
                 pass
 
     def _populate(self, collection_name: str, total_size: int, mod_count: int, mods, dl_path: str = "", schema_order=None):
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
         schema_order = schema_order or {}
         self._name_var.set(collection_name)
         self._size_var.set(f"Total size: {_fmt_size(total_size)}  |  {mod_count:,} mods")
@@ -884,26 +920,62 @@ class CollectionDetailDialog(tk.Frame):
         if not self._game:
             return
 
-        # Sanitise collection name → profile name
-        raw = self._collection.name or self._collection.slug or "Collection"
-        profile_name = re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_")[:64] or "Collection"
+        existing_profiles = _profiles_for_game(self._game.name)
+        plugin_panel = getattr(app, "_plugin_panel", None)
+        overlay_parent = plugin_panel if plugin_panel is not None else self
 
-        self._status_var.set(f"Creating profile '{profile_name}'…")
-        try:
-            profile_dir = _create_profile(
-                self._game.name, profile_name, profile_specific_mods=True
-            )
-        except Exception as exc:
-            self._status_var.set(f"Profile creation failed: {exc}")
+        def _on_mode_chosen(result):
+            try:
+                overlay.destroy()
+            except Exception:
+                pass
+            if result is None:
+                self._status_var.set("Install cancelled.")
+                return
+            self._finish_install_collection(app, mods, downloader, result)
+
+        overlay = CollectionInstallModeDialog(overlay_parent, existing_profiles, _on_mode_chosen)
+        overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        overlay.lift()
+
+    def _finish_install_collection(self, app, mods, downloader, mode_result):
+        """Called after the install-mode overlay is dismissed."""
+        if not self._game:
             return
 
-        self._log(f"Collection install: created profile '{profile_name}' at {profile_dir}")
-        # Store collection URL in profile_settings.json for "Open Current" button
-        game_domain = getattr(self._game, "nexus_game_domain", None) or self._game_domain
-        collection_url = f"https://www.nexusmods.com/{game_domain}/collections/{self._collection.slug}"
-        save_collection_url_to_profile(profile_dir, collection_url)
-        # Refresh the profile dropdown immediately so the new profile is visible
-        self._refresh_profile_menu()
+        mode, append_profile_name, overwrite_existing = mode_result
+
+        if mode == "new":
+            # Sanitise collection name → profile name
+            raw = self._collection.name or self._collection.slug or "Collection"
+            profile_name = re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_")[:64] or "Collection"
+
+            self._status_var.set(f"Creating profile '{profile_name}'…")
+            try:
+                profile_dir = _create_profile(
+                    self._game.name, profile_name, profile_specific_mods=True
+                )
+            except Exception as exc:
+                self._status_var.set(f"Profile creation failed: {exc}")
+                return
+
+            self._log(f"Collection install: created profile '{profile_name}' at {profile_dir}")
+            # Store collection URL in profile_settings.json for "Open Current" button
+            game_domain = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+            collection_url = f"https://www.nexusmods.com/{game_domain}/collections/{self._collection.slug}"
+            save_collection_url_to_profile(profile_dir, collection_url)
+            # Refresh the profile dropdown immediately so the new profile is visible
+            self._refresh_profile_menu()
+        else:
+            # Append into an existing profile
+            profile_name = append_profile_name
+            profile_root = self._game.get_profile_root()
+            profile_dir = profile_root / "profiles" / profile_name
+            if not profile_dir.is_dir():
+                self._status_var.set(f"Profile '{profile_name}' not found.")
+                return
+            self._log(f"Collection install: appending into existing profile '{profile_name}' at {profile_dir}")
+
         self._status_var.set(f"Starting install of {len(mods)} mods into '{profile_name}'…")
 
         # Save the old profile dir so we can restore it after install
@@ -919,11 +991,12 @@ class CollectionDetailDialog(tk.Frame):
                 downloader,
                 app,
                 len(mods),
+                None if mode == "new" else overwrite_existing,
             ),
             daemon=True,
         ).start()
 
-    def _run_install(self, mods, download_link_path, profile_dir, old_profile, downloader, app, total):
+    def _run_install(self, mods, download_link_path, profile_dir, old_profile, downloader, app, total, overwrite_existing: "bool | None" = None):
         """Background thread: download then install each mod in collection-defined order.
 
         Load order is driven by ``collection.json`` from the collection archive:
@@ -1296,6 +1369,7 @@ class CollectionDetailDialog(tk.Frame):
                     headless=True,
                     preferred_name=_preferred,
                     skip_index_update=True,
+                    overwrite_existing=overwrite_existing,
                 )
             finally:
                 if _large_sem is not None:
@@ -1384,25 +1458,29 @@ class CollectionDetailDialog(tk.Frame):
 
         # ------------------------------------------------------------------
         # Step 3: Write modlist.txt in collection-defined order
-        # Position 0 = highest priority (topo sort) → first in modlist.txt
+        # Skipped when appending into an existing profile — the user's
+        # existing load order is preserved; new mods are added by
+        # install_mod_from_archive via ensure_mod_preserving_position.
         # ------------------------------------------------------------------
-        install_order.sort(key=lambda x: x[0])
-        modlist_entries = [
-            ModEntry(name=folder, enabled=True, locked=False)
-            for _, folder in install_order
-        ]
-        if modlist_entries:
-            try:
-                write_modlist(modlist_path, modlist_entries)
-                self._log(f"Collection install: wrote modlist.txt with {len(modlist_entries)} entries")
-            except Exception as exc:
-                self._log(f"Collection install: failed to write modlist.txt: {exc}")
+        if overwrite_existing is None:
+            install_order.sort(key=lambda x: x[0])
+            modlist_entries = [
+                ModEntry(name=folder, enabled=True, locked=False)
+                for _, folder in install_order
+            ]
+            if modlist_entries:
+                try:
+                    write_modlist(modlist_path, modlist_entries)
+                    self._log(f"Collection install: wrote modlist.txt with {len(modlist_entries)} entries")
+                except Exception as exc:
+                    self._log(f"Collection install: failed to write modlist.txt: {exc}")
 
         # ------------------------------------------------------------------
         # Step 4: Write plugins.txt from collection.json if available
+        # Also skipped when appending — existing plugin order is preserved.
         # ------------------------------------------------------------------
         schema_plugins: list[dict] = collection_schema.get("plugins", [])
-        if schema_plugins:
+        if schema_plugins and overwrite_existing is None:
             try:
                 lines = []
                 for plugin in schema_plugins:
@@ -1567,84 +1645,6 @@ class CollectionDetailDialog(tk.Frame):
         for mod_id in sorted(missing):
             url = f"https://www.nexusmods.com/{self._game_domain}/mods/{mod_id}"
             open_url(url)
-
-    def _refresh_cache_size(self):
-        """Update the Clear Cache button text with the current cache folder size."""
-        cache_dir = get_download_cache_dir()
-
-        def _worker():
-            size = _get_dir_size(cache_dir)
-            try:
-                self.after(0, lambda: self._update_clear_cache_btn(size))
-            except Exception:
-                pass
-
-        threading.Thread(target=_worker, daemon=True).start()
-
-    def _update_clear_cache_btn(self, size_bytes: int):
-        """Update the Clear Cache button label (call from main thread)."""
-        try:
-            if hasattr(self, "_clear_cache_btn") and self._clear_cache_btn.winfo_exists():
-                self._clear_cache_btn.configure(text=f"Clear Cache ({_fmt_size(size_bytes)})")
-        except Exception:
-            pass
-
-    def _on_clear_cache(self):
-        """Clear the download cache after user confirmation."""
-        cache_dir = get_download_cache_dir()
-        if not cache_dir.is_dir():
-            self._status_var.set("Download cache is empty.")
-            self._refresh_cache_size()
-            return
-
-        size = _get_dir_size(cache_dir)
-        if size <= 0:
-            self._status_var.set("Download cache is empty.")
-            self._refresh_cache_size()
-            return
-
-        alert = CTkAlert(
-            state="warning",
-            title="Clear Download Cache",
-            body_text=(
-                f"Clear {_fmt_size(size)} of cached downloads?\n\n"
-                f"Location: {cache_dir}\n\n"
-                "This removes archives downloaded for collection installs. "
-                "They will be re-downloaded if you install collections again."
-            ),
-            btn1="Clear",
-            btn2="Cancel",
-            parent=self.winfo_toplevel(),
-            height=280,
-        )
-        if alert.get() != "Clear":
-            return
-
-        def _worker():
-            cleared = 0
-            try:
-                for p in cache_dir.iterdir():
-                    try:
-                        if p.is_file():
-                            p.unlink(missing_ok=True)
-                            cleared += 1
-                        elif p.is_dir():
-                            import shutil
-                            shutil.rmtree(p, ignore_errors=True)
-                            cleared += 1
-                    except OSError:
-                        pass
-                self.after(0, lambda: self._on_clear_cache_done(cleared))
-            except Exception as exc:
-                self.after(0, lambda: self._status_var.set(f"Clear cache failed: {exc}"))
-
-        self._status_var.set("Clearing cache…")
-        threading.Thread(target=_worker, daemon=True).start()
-
-    def _on_clear_cache_done(self, items_cleared: int):
-        """Called after cache clear completes."""
-        self._status_var.set(f"Cache cleared ({items_cleared} items removed).")
-        self._refresh_cache_size()
 
     def _on_reset_load_order(self):
         """Show confirmation then launch background reset thread."""

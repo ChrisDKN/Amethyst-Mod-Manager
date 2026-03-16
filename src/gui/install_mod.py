@@ -328,7 +328,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                              profile_dir=None,
                              headless: bool = False,
                              preferred_name: str = "",
-                             skip_index_update: bool = False) -> None:
+                             skip_index_update: bool = False,
+                             overwrite_existing: "bool | None" = None) -> None:
     """
     Extract archive to a temp directory, detect FOMOD, run the wizard if
     present, then copy the resolved files into the game's mod staging area.
@@ -685,25 +686,32 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         replace_selected_only = False
         replace_all = False
         if dest_root.exists():
-            if headless:
-                # In headless (collection) installs, a pre-existing folder means
-                # the mod was already installed (e.g. two collection entries share
+            if headless and overwrite_existing:
+                # Append-with-overwrite: delete the existing folder and reinstall cleanly.
+                def _force_remove(func, path, _exc):
+                    func(path)
+                shutil.rmtree(dest_root, onexc=_force_remove)
+                log_fn(f"Collection install: removed existing '{mod_name}' for overwrite reinstall.")
+            elif headless and overwrite_existing is None:
+                # In headless (collection new-profile) installs, a pre-existing folder
+                # means the mod was already installed (e.g. two collection entries share
                 # the same archive, or a previous partial run installed it).
                 # Just return the folder name — no dialog, no re-extraction.
                 log_fn(f"Collection install: '{mod_name}' folder already exists — skipping re-install.")
                 return mod_name
-            replace_dialog = _ReplaceModDialog(parent_window, mod_name)
-            parent_window.wait_window(replace_dialog)
-            if replace_dialog.result == "cancel":
-                log_fn(f"Install cancelled — '{mod_name}' already exists.")
-                return
-            if replace_dialog.result == "rename":
-                mod_name = replace_dialog.new_name
-                dest_root = game.get_effective_mod_staging_path() / mod_name
-            elif replace_dialog.result == "selected":
-                replace_selected_only = True
-            elif replace_dialog.result == "all":
-                replace_all = True
+            else:
+                replace_dialog = _ReplaceModDialog(parent_window, mod_name)
+                parent_window.wait_window(replace_dialog)
+                if replace_dialog.result == "cancel":
+                    log_fn(f"Install cancelled — '{mod_name}' already exists.")
+                    return
+                if replace_dialog.result == "rename":
+                    mod_name = replace_dialog.new_name
+                    dest_root = game.get_effective_mod_staging_path() / mod_name
+                elif replace_dialog.result == "selected":
+                    replace_selected_only = True
+                elif replace_dialog.result == "all":
+                    replace_all = True
 
         if replace_selected_only:
             expanded = _expand_folders_for_dialog(file_list, mod_root)

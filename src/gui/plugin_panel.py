@@ -2206,6 +2206,11 @@ class PluginPanel(ctk.CTkFrame):
             command=self._sort_plugins_loot,
         ).pack(side="left", padx=8, pady=8)
 
+        self._plugin_counter_label = ctk.CTkLabel(
+            toolbar, text="", font=_theme.FONT_SMALL, text_color=TEXT_DIM,
+        )
+        self._plugin_counter_label.pack(side="left", padx=(0, 8))
+
         self._create_pool()
 
     # ------------------------------------------------------------------
@@ -2726,6 +2731,9 @@ class PluginPanel(ctk.CTkFrame):
         dragging = self._drag_idx >= 0 and self._drag_moved
         n = len(entries)
         total_h = n * self.ROW_H
+
+        active = sum(1 for e in entries if e.enabled)
+        self._plugin_counter_label.configure(text=f"{active}/{n} active")
 
         canvas_top = int(c.canvasy(0))
         canvas_h = c.winfo_height()

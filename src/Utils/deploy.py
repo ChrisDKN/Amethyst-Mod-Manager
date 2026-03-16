@@ -498,7 +498,7 @@ def deploy_filemap(
         else:
             candidate_str = _staging_str + "/" + mod_name + "/" + rel_str
         if _isfile(candidate_str):
-            src = Path(candidate_str)
+            src_str = candidate_str
         else:
             # Slow path: use per-mod index for O(1) lookup when available
             mod_root = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
@@ -534,15 +534,15 @@ def deploy_filemap(
                             src = _resolve_nocase(mod_root, prefix_path + rel_str, cache=nocase_cache)
                             if src is not None:
                                 break
-
-        if src is None:
-            _log(f"  WARN: source not found — {rel_str} ({mod_name})")
-            continue
+            if src is None:
+                _log(f"  WARN: source not found — {rel_str} ({mod_name})")
+                continue
+            src_str = str(src)
 
         effective_dir = _per_deploy.get(mod_name, deploy_dir)
-        dst = effective_dir / rel_str
-        use_symlink = symlink_exts is not None and src.suffix.lower() in symlink_exts
-        tasks.append((src, dst, rel_lower, effective_dir is not deploy_dir, use_symlink))
+        dst_str = str(effective_dir) + "/" + rel_str
+        use_symlink = symlink_exts is not None and os.path.splitext(src_str)[1].lower() in symlink_exts
+        tasks.append((src_str, dst_str, rel_lower, effective_dir is not deploy_dir, use_symlink))
 
         if progress_fn is not None and line_idx % 500 == 0:
             progress_fn(line_idx, total_lines)
@@ -562,29 +562,31 @@ def deploy_filemap(
 
     # Pre-create all destination directories up front (single-threaded) to
     # avoid mkdir races inside the thread pool.
-    needed_dirs: set[Path] = {dst.parent for _, dst, _, _is_custom, _ in tasks}
+    needed_dirs: set[str] = {os.path.dirname(dst) for _, dst, _, _is_custom, _ in tasks}
     for d in needed_dirs:
-        d.mkdir(parents=True, exist_ok=True)
+        os.makedirs(d, exist_ok=True)
 
     # Back up any pre-existing files at custom deploy locations so restore can
     # put the originals back.  Mirror each dst's absolute path as a relative
     # path inside _custom_backup_dir (strip leading slash) so structure is
     # preserved and files with the same name in different dirs never collide.
-    for src, dst, rel_lower, is_custom, _use_sym in tasks:
+    _custom_backup_str = str(_custom_backup_dir)
+    for _src_s, dst_s, _rel_lower, is_custom, _use_sym in tasks:
         if not is_custom:
             continue
-        if dst.is_symlink():
-            dst.unlink()
-        elif dst.is_file():
-            bak = _custom_backup_dir / dst.relative_to(dst.anchor)
+        if os.path.islink(dst_s):
+            os.unlink(dst_s)
+        elif os.path.isfile(dst_s):
+            dst_p = Path(dst_s)
+            bak = _custom_backup_dir / dst_p.relative_to(dst_p.anchor)
             bak.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(dst), str(bak))
-            _log(f"  Backed up existing {dst.name} → custom_deploy_backup/")
+            shutil.move(dst_s, str(bak))
+            _log(f"  Backed up existing {os.path.basename(dst_s)} → custom_deploy_backup/")
 
     linked = 0
     done_count = 0
 
-    def _do_transfer(item: tuple[Path, Path, str, bool, bool]) -> tuple[str | None, tuple[Path, OSError] | None]:
+    def _do_transfer(item: tuple[str, str, str, bool, bool]) -> tuple[str | None, tuple[str, OSError] | None]:
         src, dst, rel_lower, _is_custom, use_symlink = item
         try:
             effective_mode = LinkMode.SYMLINK if use_symlink else mode
@@ -613,8 +615,8 @@ def deploy_filemap(
     # Write a log of files placed in custom locations so cleanup knows what to
     # remove.  Each line is the absolute path of a deployed file.
     custom_deployed = [
-        str(dst)
-        for src, dst, rel_lower, is_custom, _use_sym in tasks
+        dst
+        for _src, dst, rel_lower, is_custom, _use_sym in tasks
         if is_custom and rel_lower in placed_lower
     ]
     try:
@@ -655,22 +657,22 @@ def deploy_core(
     if not core_dir.is_dir():
         return 0
 
-    # Use os.path strings for the filter — avoids Path.relative_to() per file.
+    # Use os.walk to collect files — avoids per-file stat() that rglob+is_file does.
     _core_str = str(core_dir)
     _core_prefix_len = len(_core_str) + 1  # +1 for the trailing separator
 
-    all_files = [s for s in core_dir.rglob("*") if s.is_file()]
-    total = len(all_files)
-
-    # Filter using string slicing instead of Path.relative_to()
-    tasks_core: list[tuple[Path, str]] = []  # (src, rel_str)
-    for s in all_files:
-        rel_str = str(s)[_core_prefix_len:]
-        if rel_str.replace("\\", "/").lower() not in already_placed:
-            tasks_core.append((s, rel_str))
+    tasks_core: list[tuple[str, str]] = []  # (src_str, rel_str)
+    for dirpath, _dirnames, filenames in os.walk(_core_str):
+        for fname in filenames:
+            src_str = dirpath + "/" + fname
+            rel_str = src_str[_core_prefix_len:]
+            if rel_str.replace("\\", "/").lower() not in already_placed:
+                tasks_core.append((src_str, rel_str))
 
     if not tasks_core:
         return 0
+
+    total = len(tasks_core)
 
     # Deduplicate destination directories with a set before creating them.
     _deploy_str = str(deploy_dir)
@@ -684,7 +686,7 @@ def deploy_core(
     linked = 0
     done_count = 0
 
-    def _do_core(item: tuple[Path, str]) -> tuple[bool, str, OSError | None]:
+    def _do_core(item: tuple[str, str]) -> tuple[bool, str, OSError | None]:
         src, rel_str = item
         dst_str = _deploy_str + "/" + rel_str
         try:
@@ -954,10 +956,13 @@ def restore_data_core(
     # and deletes the original from both Data and staging → the edited copy in
     # Data is the only remaining version and must be rescued to overwrite.
     if overwrite_dir is not None and deploy_dir.is_dir():
-        core_lower: set[str] = {
-            f.relative_to(core_dir).as_posix().lower()
-            for f in core_dir.rglob("*") if f.is_file()
-        }
+        # Build core_lower using os.walk — avoids per-file stat() from rglob+is_file.
+        _core_str = str(core_dir)
+        _core_plen = len(_core_str) + 1
+        core_lower: set[str] = set()
+        for _dp, _dns, _fns in os.walk(_core_str):
+            for _fn in _fns:
+                core_lower.add((_dp + "/" + _fn)[_core_plen:].lower())
         filemap_path = overwrite_dir.parent / "filemap.txt"
         filemap_lower: set[str] = set()
         filemap_rel_to_mod: dict[str, str] = {}
@@ -992,78 +997,87 @@ def restore_data_core(
         rescued = 0
         rescued_to_mod = 0
         rescued_to_overwrite = 0
-        for src in deploy_dir.rglob("*"):
-            if not src.is_file():
-                continue
-            if src.is_symlink():
-                continue  # deployed mod symlink
-            if src.stat().st_nlink > 1:
-                continue  # deployed mod hardlink
-            rel = src.relative_to(deploy_dir)
-            rel_lower = rel.as_posix().lower()
-            if rel_lower in core_lower:
-                continue  # vanilla file — will be restored from core
-            # Check if we would skip as a known mod file
-            in_filemap = rel_lower in filemap_lower
-            in_modindex = rel_lower in modindex_lower
-            if in_filemap or in_modindex:
-                # xEdit orphan check: if staging source is missing, rescue the
-                # edited file (e.g. xEdit deleted original from staging on close)
-                if _staging and _strip:
-                    mods_to_check: list[str] = []
-                    if in_filemap:
-                        m = filemap_rel_to_mod.get(rel_lower)
-                        if m:
-                            mods_to_check.append(m)
-                    if in_modindex:
-                        for m in modindex_rel_to_mods.get(rel_lower, []):
-                            if m and m not in mods_to_check:
+        _deploy_str = str(deploy_dir)
+        _deploy_plen = len(_deploy_str) + 1
+        _overwrite_str = str(overwrite_dir)
+        _staging_str = str(_staging) if _staging else ""
+        _lstat = os.lstat
+        import stat as _stat_mod
+        for dirpath, _dirnames, filenames in os.walk(_deploy_str, followlinks=False):
+            for fname in filenames:
+                src_str = dirpath + "/" + fname
+                try:
+                    st = _lstat(src_str)
+                except OSError:
+                    continue
+                if _stat_mod.S_ISLNK(st.st_mode):
+                    continue  # deployed mod symlink
+                if not _stat_mod.S_ISREG(st.st_mode):
+                    continue
+                if st.st_nlink > 1:
+                    continue  # deployed mod hardlink
+                rel_str = src_str[_deploy_plen:]
+                rel_lower = rel_str.lower()
+                if rel_lower in core_lower:
+                    continue  # vanilla file — will be restored from core
+                # Check if we would skip as a known mod file
+                in_filemap = rel_lower in filemap_lower
+                in_modindex = rel_lower in modindex_lower
+                if in_filemap or in_modindex:
+                    # xEdit orphan check: if staging source is missing, rescue the
+                    # edited file (e.g. xEdit deleted original from staging on close)
+                    if _staging and _strip:
+                        mods_to_check: list[str] = []
+                        if in_filemap:
+                            m = filemap_rel_to_mod.get(rel_lower)
+                            if m:
                                 mods_to_check.append(m)
-                    staging_path: Path | None = None
-                    target_mod: str | None = None
-                    for mod_name in mods_to_check:
-                        if mod_name == _OVERWRITE_NAME:
-                            mod_root = overwrite_dir
-                        else:
-                            mod_root = _staging / mod_name
-                        found = _get_staging_source_path(mod_root, rel.as_posix(), _strip)
-                        if found is not None:
-                            staging_path = found
-                            target_mod = mod_name
-                            break
-                    if staging_path is not None and target_mod is not None:
-                        # Staging exists. With hardlinks, xEdit may write a new file to
-                        # Data (nlink==1) without touching staging — staging has old
-                        # content. Overwrite staging with the edited Data file.
-                        staging_path.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.move(str(src), str(staging_path))
-                        rescued += 1
-                        rescued_to_mod += 1
-                        continue
-                    # xEdit orphan: staging missing — put file back in original mod or overwrite
-                    target_mod = (
-                        filemap_rel_to_mod.get(rel_lower)
-                        or (modindex_rel_to_mods.get(rel_lower) or [None])[0]
-                    )
-                    if target_mod:
-                        if target_mod == _OVERWRITE_NAME:
-                            dst = overwrite_dir / rel
-                            rescued_to_overwrite += 1
-                        else:
-                            dst = _staging / target_mod / rel
+                        if in_modindex:
+                            for m in modindex_rel_to_mods.get(rel_lower, []):
+                                if m and m not in mods_to_check:
+                                    mods_to_check.append(m)
+                        staging_path: Path | None = None
+                        target_mod: str | None = None
+                        for mod_name in mods_to_check:
+                            if mod_name == _OVERWRITE_NAME:
+                                mod_root = overwrite_dir
+                            else:
+                                mod_root = _staging / mod_name
+                            found = _get_staging_source_path(mod_root, rel_str, _strip)
+                            if found is not None:
+                                staging_path = found
+                                target_mod = mod_name
+                                break
+                        if staging_path is not None and target_mod is not None:
+                            staging_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(src_str, str(staging_path))
+                            rescued += 1
                             rescued_to_mod += 1
-                        dst.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.move(str(src), str(dst))
-                        rescued += 1
-                        continue
-                else:
-                    continue  # no staging check — skip as before
-            # Genuine runtime-generated file (never in a mod) — goes to overwrite
-            dst = overwrite_dir / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(src), str(dst))
-            rescued += 1
-            rescued_to_overwrite += 1
+                            continue
+                        # xEdit orphan: staging missing — put file back in original mod or overwrite
+                        target_mod = (
+                            filemap_rel_to_mod.get(rel_lower)
+                            or (modindex_rel_to_mods.get(rel_lower) or [None])[0]
+                        )
+                        if target_mod:
+                            if target_mod == _OVERWRITE_NAME:
+                                dst_str = _overwrite_str + "/" + rel_str
+                                rescued_to_overwrite += 1
+                            else:
+                                dst_str = _staging_str + "/" + target_mod + "/" + rel_str
+                                rescued_to_mod += 1
+                            os.makedirs(os.path.dirname(dst_str), exist_ok=True)
+                            shutil.move(src_str, dst_str)
+                            rescued += 1
+                            continue
+                    else:
+                        continue  # no staging check — skip as before
+                # Genuine runtime-generated file (never in a mod) — goes to overwrite
+                dst_str = _overwrite_str + "/" + rel_str
+                os.makedirs(os.path.dirname(dst_str), exist_ok=True)
+                shutil.move(src_str, dst_str)
+                rescued += 1
+                rescued_to_overwrite += 1
         if rescued:
             if rescued_to_mod:
                 _log(f"  Rescued {rescued_to_mod} file(s) back to mod folder(s).")
@@ -1091,17 +1105,15 @@ def restore_data_core(
     removed = _clear_dir(deploy_dir) if deploy_dir.is_dir() else 0
     _log(f"  Removed {removed} file(s) from {deploy_dir.name}/.")
 
-    restored = 0
-    for src in core_dir.rglob("*"):
-        if not src.is_file():
-            continue
-        rel = src.relative_to(core_dir)
-        dst = deploy_dir / rel
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dst))
-        restored += 1
+    # Count files before moving so we can report the number restored.
+    restored = sum(1 for _ in core_dir.rglob("*") if _.is_file())
 
-    shutil.rmtree(core_dir)
+    # After _clear_dir, deploy_dir is empty — remove it and rename core_dir
+    # in its place.  This is O(1) on the same filesystem vs O(n) per-file moves.
+    if deploy_dir.is_dir():
+        shutil.rmtree(deploy_dir)
+    shutil.move(str(core_dir), str(deploy_dir))
+
     return restored
 
 
@@ -1260,107 +1272,128 @@ def deploy_filemap_to_root(
     already_seen: set[str] = set()
     placed_lower: set[str] = set()
     placed_log:   list[str] = []
-    tasks: list[tuple[Path, Path, str]] = []
+    tasks: list[tuple[str, str, str, str]] = []  # (src_str, dst_str, rel_lower, rel_str)
 
     # Pre-compute string roots so the hot loop avoids Path construction.
     _overwrite_str = str(overwrite_dir)
     _staging_str   = str(staging_root)
+    _game_root_str = str(game_root)
     _isfile        = os.path.isfile
     sorted_strip   = sorted(_strip) if _strip else []
     nocase_cache: dict[Path, dict[str, list[Path]]] = {}
 
-    # Count lines first for progress reporting.
-    total_lines = 0
+    # Single-pass read: slurp all tab-containing lines at once.
     with filemap_path.open(encoding="utf-8") as f:
-        for line in f:
-            if "\t" in line:
-                total_lines += 1
-
+        _tab_lines = [ln.rstrip("\n") for ln in f if "\t" in ln]
+    total_lines = len(_tab_lines)
     line_idx = 0
-    with filemap_path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if "\t" not in line:
-                continue
-            rel_str, mod_name = line.split("\t", 1)
-            rel_lower = rel_str.lower()
-            if rel_lower in already_seen:
-                continue
-            already_seen.add(rel_lower)
-            if exclude and rel_lower in exclude:
-                continue
-            line_idx += 1
 
-            # Fast path: direct string join + stat via os.path.isfile
-            if mod_name == _OVERWRITE_NAME:
-                candidate_str = _overwrite_str + "/" + rel_str
-            else:
-                candidate_str = _staging_str + "/" + mod_name + "/" + rel_str
-            if _isfile(candidate_str):
-                src = Path(candidate_str)
-            else:
-                mod_root = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
-                src = _resolve_nocase(mod_root, rel_str, cache=nocase_cache)
-                if src is None and sorted_strip:
-                    for p1 in sorted_strip:
-                        src = _resolve_nocase(mod_root, p1 + "/" + rel_str, cache=nocase_cache)
+    for line in _tab_lines:
+        rel_str, mod_name = line.split("\t", 1)
+        rel_lower = rel_str.lower()
+        if rel_lower in already_seen:
+            continue
+        already_seen.add(rel_lower)
+        if exclude and rel_lower in exclude:
+            continue
+        line_idx += 1
+
+        # Fast path: direct string join + stat via os.path.isfile
+        if mod_name == _OVERWRITE_NAME:
+            candidate_str = _overwrite_str + "/" + rel_str
+        else:
+            candidate_str = _staging_str + "/" + mod_name + "/" + rel_str
+        if _isfile(candidate_str):
+            src_str = candidate_str
+        else:
+            mod_root = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
+            src = _resolve_nocase(mod_root, rel_str, cache=nocase_cache)
+            if src is None and sorted_strip:
+                for p1 in sorted_strip:
+                    src = _resolve_nocase(mod_root, p1 + "/" + rel_str, cache=nocase_cache)
+                    if src is not None:
+                        break
+                    for p2 in sorted_strip:
+                        src = _resolve_nocase(mod_root, p1 + "/" + p2 + "/" + rel_str, cache=nocase_cache)
                         if src is not None:
                             break
-                        for p2 in sorted_strip:
-                            src = _resolve_nocase(mod_root, p1 + "/" + p2 + "/" + rel_str, cache=nocase_cache)
-                            if src is not None:
-                                break
+                    if src is not None:
+                        break
+            if src is None and mod_name != _OVERWRITE_NAME:
+                mod_strip = _per_mod.get(mod_name)
+                if mod_strip:
+                    path_prefixes = [p for p in mod_strip if "/" in p]
+                    for p in path_prefixes:
+                        src = _resolve_nocase(mod_root, p + "/" + rel_str, cache=nocase_cache)
                         if src is not None:
                             break
-                if src is None and mod_name != _OVERWRITE_NAME:
-                    mod_strip = _per_mod.get(mod_name)
-                    if mod_strip:
-                        path_prefixes = [p for p in mod_strip if "/" in p]
-                        for p in path_prefixes:
-                            src = _resolve_nocase(mod_root, p + "/" + rel_str, cache=nocase_cache)
+                    if src is None:
+                        segment_list = [p for p in mod_strip if "/" not in p]
+                        prefix_path = ""
+                        for seg in segment_list:
+                            prefix_path = prefix_path + seg + "/" if prefix_path else seg + "/"
+                            src = _resolve_nocase(mod_root, prefix_path + rel_str, cache=nocase_cache)
                             if src is not None:
                                 break
-                        if src is None:
-                            segment_list = [p for p in mod_strip if "/" not in p]
-                            prefix_path = ""
-                            for seg in segment_list:
-                                prefix_path = prefix_path + seg + "/" if prefix_path else seg + "/"
-                                src = _resolve_nocase(mod_root, prefix_path + rel_str, cache=nocase_cache)
-                                if src is not None:
-                                    break
-
             if src is None:
                 _log(f"  WARN: source not found — {rel_str} ({mod_name})")
                 continue
+            src_str = str(src)
 
-            dst = game_root / rel_str
-            tasks.append((src, dst, rel_lower, rel_str))
+        dst_str = _game_root_str + "/" + rel_str
+        tasks.append((src_str, dst_str, rel_lower, rel_str))
 
-            if progress_fn is not None and line_idx % 500 == 0:
-                progress_fn(line_idx, total_lines)
+        if progress_fn is not None and line_idx % 500 == 0:
+            progress_fn(line_idx, total_lines)
 
     total = len(tasks)
+    if total == 0:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("", encoding="utf-8")
+        return 0, placed_lower
+
+    # Pre-create all destination directories up front (single-threaded).
+    needed_dirs: set[str] = {os.path.dirname(dst) for _, dst, _, _ in tasks}
+    for d in needed_dirs:
+        os.makedirs(d, exist_ok=True)
+
+    # Back up any vanilla files we are about to overwrite (must be serial).
+    _backup_str = str(backup_dir)
+    for _src_s, dst_s, _rel_lower, rel_str in tasks:
+        if os.path.islink(dst_s):
+            os.unlink(dst_s)
+        elif os.path.isfile(dst_s):
+            bak_str = _backup_str + "/" + rel_str
+            os.makedirs(os.path.dirname(bak_str), exist_ok=True)
+            shutil.move(dst_s, bak_str)
+
     linked = 0
+    done_count = 0
 
-    for done_count, (src, dst, rel_lower, rel_str) in enumerate(tasks, 1):
-        # Back up any vanilla file we are about to overwrite.
-        if dst.exists() and not dst.is_symlink():
-            bak = backup_dir / rel_str
-            bak.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(dst), str(bak))
-        elif dst.is_symlink():
-            dst.unlink()
-
+    def _do_transfer(item: tuple[str, str, str, str]) -> tuple[str, str, OSError | None]:
+        src, dst, rel_lower, rel_str = item
         try:
-            _transfer(src, dst, mode)
-            linked += 1
-            placed_lower.add(rel_lower)
-            placed_log.append(rel_str.replace("\\", "/"))
+            if mode is LinkMode.HARDLINK:
+                os.link(src, dst)
+            elif mode is LinkMode.SYMLINK:
+                os.symlink(src, dst)
+            else:
+                shutil.copy2(src, dst)
+            return rel_lower, rel_str, None
         except OSError as e:
-            _log(f"  WARN: could not transfer {rel_str}: {e}")
+            return rel_lower, rel_str, e
 
-        if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
-            progress_fn(done_count, total)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        for rel_lower, rel_str, exc in pool.map(_do_transfer, tasks):
+            done_count += 1
+            if exc is None:
+                linked += 1
+                placed_lower.add(rel_lower)
+                placed_log.append(rel_str.replace("\\", "/"))
+            else:
+                _log(f"  WARN: could not transfer {rel_str}: {exc}")
+            if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
+                progress_fn(done_count, total)
 
     # Write the deployment log so restore knows what to remove.
     log_path.parent.mkdir(parents=True, exist_ok=True)

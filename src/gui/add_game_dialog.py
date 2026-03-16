@@ -436,7 +436,11 @@ class AddGameDialog(ctk.CTkToplevel):
                 found = find_game_in_libraries(libraries, self._game.exe_name)
 
         # Marshal result back to the main thread
-        self.after(0, lambda: self._on_scan_complete(found, source, discovered_app_name, found_prefix))
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self._on_scan_complete(found, source, discovered_app_name, found_prefix))
+        except Exception:
+            pass
 
     def _on_scan_complete(self, found: Optional[Path], source: str = "steam", discovered_app_name: Optional[str] = None, found_prefix: Optional[Path] = None):
         if discovered_app_name and hasattr(self._game, "set_heroic_app_name"):
@@ -482,7 +486,11 @@ class AddGameDialog(ctk.CTkToplevel):
 
     def _prefix_scan_worker(self):
         found = find_prefix(self._game.steam_id)
-        self.after(0, lambda: self._on_prefix_scan_complete(found))
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self._on_prefix_scan_complete(found))
+        except Exception:
+            pass
 
     def _on_prefix_scan_complete(self, found: Optional[Path]):
         if found:
@@ -507,7 +515,11 @@ class AddGameDialog(ctk.CTkToplevel):
 
     def _heroic_prefix_scan_worker(self):
         found = find_heroic_prefix(_get_heroic_app_names(self._game))
-        self.after(0, lambda: self._on_heroic_prefix_scan_complete(found))
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self._on_heroic_prefix_scan_complete(found))
+        except Exception:
+            pass
 
     def _on_heroic_prefix_scan_complete(self, found: Optional[Path]):
         if found:
@@ -1193,7 +1205,11 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             if not found:
                 found = find_game_in_libraries(libraries, self._game.exe_name)
 
-        self.after(0, lambda: self._on_scan_complete(found, source, discovered_app_name, found_prefix))
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self._on_scan_complete(found, source, discovered_app_name, found_prefix))
+        except Exception:
+            pass
 
     def _on_scan_complete(self, found: Optional[Path], source: str = "steam", discovered_app_name: Optional[str] = None, found_prefix: Optional[Path] = None):
         if discovered_app_name and hasattr(self._game, "set_heroic_app_name"):
@@ -1232,7 +1248,11 @@ class ReconfigureGamePanel(ctk.CTkFrame):
 
     def _prefix_scan_worker(self):
         found = find_prefix(self._game.steam_id)
-        self.after(0, lambda: self._on_prefix_scan_complete(found))
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self._on_prefix_scan_complete(found))
+        except Exception:
+            pass
 
     def _on_prefix_scan_complete(self, found: Optional[Path]):
         if found:
@@ -1252,7 +1272,11 @@ class ReconfigureGamePanel(ctk.CTkFrame):
 
     def _heroic_prefix_scan_worker(self):
         found = find_heroic_prefix(_get_heroic_app_names(self._game))
-        self.after(0, lambda: self._on_heroic_prefix_scan_complete(found))
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self._on_heroic_prefix_scan_complete(found))
+        except Exception:
+            pass
 
     def _on_heroic_prefix_scan_complete(self, found: Optional[Path]):
         if found:

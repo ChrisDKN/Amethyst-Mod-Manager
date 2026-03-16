@@ -293,6 +293,8 @@ class CTkBanner(ctk.CTkFrame):
 class CTkNotification(ctk.CTkToplevel):
     """Toast-style notification at bottom-right; hides when app loses focus."""
 
+    _active: "list[CTkNotification]" = []
+
     def __init__(self, master, state: str = "info", message: str = "message", side: str = "right_bottom"):
         from gui.theme import BG_PANEL
         super().__init__(master, fg_color=BG_PANEL)
@@ -304,6 +306,7 @@ class CTkNotification(ctk.CTkToplevel):
         self.overrideredirect(True)
         self.geometry(f"{self.width}x80")  # Design size; CTk applies window scaling
         self.grid_columnconfigure(0, weight=1)
+        CTkNotification._active.append(self)
 
         if state not in ICON_PATH or ICON_PATH[state] is None:
             self.icon = ctk.CTkImage(Image.open(ICON_PATH["info"]), Image.open(ICON_PATH["info"]), (24, 24))
@@ -325,6 +328,12 @@ class CTkNotification(ctk.CTkToplevel):
         self._configure_bid = master.bind("<Configure>", self._update_geometry, add="+")
         self._focus_out_bid = master.bind("<FocusOut>", self._on_focus_out, add="+")
         self._focus_in_bid = master.bind("<FocusIn>", self._on_focus_in, add="+")
+        self.after(1, self._show_positioned)
+
+    def _show_positioned(self):
+        if not self.winfo_exists():
+            return
+        self.update_idletasks()
         self._update_geometry()
         self.deiconify()
 
@@ -350,17 +359,36 @@ class CTkNotification(ctk.CTkToplevel):
             self.deiconify()
             self._update_geometry()
 
+    def _get_nh(self):
+        nh = self.winfo_height()
+        if nh <= 1:
+            nh = int(80 * self._get_window_scaling())
+        return nh
+
     def _update_geometry(self, event=None):
         try:
             self.root.update_idletasks()
             self.update_idletasks()
             px, py = self.root.winfo_rootx(), self.root.winfo_rooty()
             pw, ph = self.root.winfo_width(), self.root.winfo_height()
-            nw, nh = self.winfo_width(), self.winfo_height()
+            nw = self.winfo_width()
+            # winfo_width/height return 1 while the window hasn't been mapped yet;
+            # fall back to the design dimensions so initial placement is correct.
+            if nw <= 1:
+                nw = int(self.width * self._get_window_scaling())
+            nh = self._get_nh()
             x_margin = scaled(25)
             y_margin = scaled(20)
+            gap = scaled(8)
             x = px + pw - nw - x_margin
-            y = py + ph - nh - y_margin
+            # Stack upward: sum heights of all lower notifications in the active list
+            stack_offset = 0
+            for other in CTkNotification._active:
+                if other is self:
+                    break
+                if other.winfo_exists():
+                    stack_offset += other._get_nh() + gap
+            y = py + ph - nh - y_margin - stack_offset
             self.geometry(f"+{x}+{y}")
         except Exception:
             pass
@@ -382,7 +410,18 @@ class CTkNotification(ctk.CTkToplevel):
             self._unbind_all()
         except Exception:
             pass
+        try:
+            CTkNotification._active.remove(self)
+        except ValueError:
+            pass
         super().destroy()
+        # Reposition remaining notifications to close the gap
+        for other in CTkNotification._active:
+            try:
+                if other.winfo_exists():
+                    other._update_geometry()
+            except Exception:
+                pass
 
     def close_notification(self):
         self.destroy()
