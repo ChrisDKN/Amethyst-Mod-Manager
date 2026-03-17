@@ -396,3 +396,27 @@ class ResidentEvil2(ResidentEvilVillage):
     @property
     def nexus_game_domain(self) -> str:
         return "residentevil22019"
+
+
+class ResidentEvil7(ResidentEvilVillage):
+    """Resident Evil 7: Biohazard — identical workflow to RE Village."""
+
+    @property
+    def name(self) -> str:
+        return "Resident Evil 7"
+
+    @property
+    def game_id(self) -> str:
+        return "resident_evil_7"
+
+    @property
+    def exe_name(self) -> str:
+        return "re7.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "418370"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "residentevil7"
