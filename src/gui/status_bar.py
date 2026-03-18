@@ -6,6 +6,8 @@ from datetime import datetime
 import os
 import subprocess
 import sys
+import threading
+import webbrowser
 import tkinter as tk
 import customtkinter as ctk
 
@@ -13,7 +15,7 @@ from pathlib import Path
 
 from Utils.config_paths import get_logs_dir, get_download_cache_dir
 from Utils.ui_config import load_ui_scale, save_ui_scale, detect_hidpi_scale
-from gui.ctk_components import CTkProgressPopup, CTkAlert
+from gui.ctk_components import CTkProgressPopup, CTkAlert, CTkNotification
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
@@ -107,6 +109,27 @@ class StatusBar(ctk.CTkFrame):
             command=self._open_settings,
         ).pack(side="right", padx=(0, 4), pady=2)
 
+        ctk.CTkButton(
+            label_bar, text="♥ Endorse AMM", width=105, height=16,
+            fg_color="#7a2a2a", hover_color="#9a3535",
+            text_color="#ffffff", font=FONT_SMALL,
+            command=self._endorse_amm,
+        ).pack(side="right", padx=(0, 2), pady=2)
+
+        ctk.CTkButton(
+            label_bar, text="Github", width=60, height=16,
+            fg_color="#24292e", hover_color="#3a3f44",
+            text_color="#ffffff", font=FONT_SMALL,
+            command=lambda: webbrowser.open("https://github.com/ChrisDKN/Amethyst-Mod-Manager"),
+        ).pack(side="right", padx=(0, 2), pady=2)
+
+        ctk.CTkButton(
+            label_bar, text="Changelog", width=75, height=16,
+            fg_color="#24292e", hover_color="#3a3f44",
+            text_color="#ffffff", font=FONT_SMALL,
+            command=self._open_changelog,
+        ).pack(side="right", padx=(0, 2), pady=2)
+
         self._progress_popup: CTkProgressPopup | None = None
         self._progress_bind_id: str | None = None
 
@@ -121,10 +144,53 @@ class StatusBar(ctk.CTkFrame):
         _ts = datetime.now().strftime("%m-%d-%y-%H%M%S")
         self._log_file = get_logs_dir() / f"amethyst-{_ts}.log"
 
+    def _open_changelog(self):
+        app = self.winfo_toplevel()
+        mod_panel = getattr(app, "_mod_panel", None)
+        if mod_panel is not None:
+            mod_panel._on_changelog()
+
     def _open_settings(self):
         root = self.winfo_toplevel()
         if hasattr(root, "show_settings_panel"):
             root.show_settings_panel()
+
+    def _endorse_amm(self):
+        _AMM_URL = "https://www.nexusmods.com/site/mods/1714"
+        app = self.winfo_toplevel()
+        api = getattr(app, "_nexus_api", None)
+        if api is None:
+            webbrowser.open(_AMM_URL)
+            return
+
+        def _notify(state, message):
+            self.log(f"Nexus: {message}")
+            CTkNotification(app, state=state, message=message)
+
+        def _worker():
+            import requests
+            try:
+                result = api.endorse_mod("site", 1714)
+            except requests.HTTPError as exc:
+                try:
+                    result = exc.response.json()
+                except Exception:
+                    self.after(0, lambda e=exc: _notify("error", f"Endorse AMM failed — {e}"))
+                    return
+            except Exception as exc:
+                self.after(0, lambda e=exc: _notify("error", f"Endorse AMM failed — {e}"))
+                return
+
+            status = result.get("status", "")
+            message = result.get("message", "")
+            if status == "Endorsed" or message == "IS_OWN_MOD":
+                self.after(0, lambda: _notify("info", "Thank you for endorsing"))
+            elif message == "ALREADY_ENDORSED":
+                self.after(0, lambda: _notify("info", "You've already endorsed, Thank you"))
+            else:
+                self.after(0, lambda s=status, m=message: _notify("warning", f"Endorse AMM: {m or s}"))
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _open_logs_folder(self):
         logs_dir = get_logs_dir()

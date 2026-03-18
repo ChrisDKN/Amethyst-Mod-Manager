@@ -74,6 +74,8 @@ class CTkToolTip(Toplevel):
         # visibility status of the ToolTip inside|outside|visible
         self.status = "outside"
         self.last_moved = 0
+        self._last_x = 0
+        self._last_y = 0
         self.attributes('-alpha', self.alpha)
 
         if sys.platform.startswith("win"):
@@ -148,8 +150,12 @@ class CTkToolTip(Toplevel):
         if space_on_right < text_width + 20:  # Adjust the threshold as needed
             offset_x = -text_width - 20  # Negative offset when space is limited on the right side
 
+        # Store last position for use in _show()
+        self._last_x = event.x_root + offset_x
+        self._last_y = event.y_root + self.y_offset
+
         # Offsets the ToolTip using the coordinates od an event as an origin
-        self.geometry(f"+{event.x_root + offset_x}+{event.y_root + self.y_offset}")
+        self.geometry(f"+{self._last_x}+{self._last_y}")
 
         # Time is in integer: milliseconds
         self.after(int(self.delay * 1000), self._show)
@@ -174,6 +180,7 @@ class CTkToolTip(Toplevel):
 
         if self.status == "inside" and time.time() - self.last_moved >= self.delay:
             self.status = "visible"
+            self.geometry(f"+{self._last_x}+{self._last_y}")
             self.deiconify()
 
     def hide(self) -> None:

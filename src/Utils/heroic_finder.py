@@ -171,6 +171,8 @@ def _find_heroic_prefix_for_app(heroic_root: Path, app_name: str) -> Path | None
             )
             if wine_prefix:
                 p = Path(wine_prefix)
+                if (p / "pfx").is_dir():
+                    return p / "pfx"
                 if p.is_dir():
                     return p
         except (OSError, json.JSONDecodeError):
@@ -186,6 +188,8 @@ def _find_heroic_prefix_for_app(heroic_root: Path, app_name: str) -> Path | None
             default_prefix_folder = settings.get("defaultWinePrefix", "")
             if default_prefix_folder:
                 p = Path(default_prefix_folder) / app_name
+                if (p / "pfx").is_dir():
+                    return p / "pfx"
                 if p.is_dir():
                     return p
         except (OSError, json.JSONDecodeError):
@@ -193,6 +197,8 @@ def _find_heroic_prefix_for_app(heroic_root: Path, app_name: str) -> Path | None
 
     # 3. Hard-coded conventional fallback
     fallback = _HOME / "Games" / "Heroic" / "Prefixes" / app_name
+    if (fallback / "pfx").is_dir():
+        return fallback / "pfx"
     if fallback.is_dir():
         return fallback
 

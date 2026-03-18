@@ -61,7 +61,7 @@ from Utils.plugins import (
     read_excluded_mod_files,
     write_excluded_mod_files,
 )
-from Utils.plugin_parser import check_missing_masters
+from Utils.plugin_parser import check_missing_masters, check_late_masters
 from LOOT.loot_sorter import sort_plugins as loot_sort, is_available as loot_available
 from Nexus.nexus_meta import write_meta, read_meta
 
@@ -131,6 +131,7 @@ class PluginPanel(ctk.CTkFrame):
 
         # Missing masters detection
         self._missing_masters: dict[str, list[str]] = {}
+        self._late_masters: dict[str, list[str]] = {}
         self._staging_root: Path | None = None
         self._data_dir: Path | None = None
 
@@ -140,6 +141,13 @@ class PluginPanel(ctk.CTkFrame):
         if _warn_path.is_file():
             _img = PilImage.open(_warn_path).convert("RGBA").resize((16, 16), PilImage.LANCZOS)
             self._warning_icon = ImageTk.PhotoImage(_img)
+
+        # Warning icon for late-loaded masters
+        self._late_warn_icon: ImageTk.PhotoImage | None = None
+        _late_warn_path = _ICONS_DIR / "warning.png"
+        if _late_warn_path.is_file():
+            _img2 = PilImage.open(_late_warn_path).convert("RGBA").resize((16, 16), PilImage.LANCZOS)
+            self._late_warn_icon = ImageTk.PhotoImage(_img2)
 
         # Lock icon
         self._icon_lock: ImageTk.PhotoImage | None = None
@@ -176,6 +184,7 @@ class PluginPanel(ctk.CTkFrame):
         self._pool_name: list[int] = []
         self._pool_idx_text: list[int] = []
         self._pool_warn: list[int | None] = []
+        self._pool_late_warn: list[int | None] = []
         self._pool_check_rects: list[int] = []
         self._pool_check_marks: list[int] = []
         self._pool_lock_rects: list[int] = []
@@ -2320,10 +2329,16 @@ class PluginPanel(ctk.CTkFrame):
                 warn_id = c.create_image(0, -200, image=self._warning_icon,
                                          anchor="center", state="hidden")
 
+            late_warn_id: int | None = None
+            if self._late_warn_icon:
+                late_warn_id = c.create_image(0, -200, image=self._late_warn_icon,
+                                              anchor="center", state="hidden")
+
             self._pool_bg.append(bg_id)
             self._pool_name.append(name_id)
             self._pool_idx_text.append(idx_id)
             self._pool_warn.append(warn_id)
+            self._pool_late_warn.append(late_warn_id)
 
             cb_tag = f"pcb_{s}"
             cb_rect = c.create_rectangle(
@@ -2861,14 +2876,29 @@ class PluginPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_idx_text[s], text=f"{row:03d}",
                                 fill=TEXT_DIM, state="normal")
 
+                has_missing = entry.name in self._missing_masters
+                has_late = entry.name in self._late_masters
+                flags_x0 = self._pcol_x[2]
+                flags_x1 = self._pcol_x[3]
+                flags_third = (flags_x1 - flags_x0) // 3
+
                 warn_id = self._pool_warn[s]
                 if warn_id is not None:
-                    if entry.name in self._missing_masters:
-                        flags_mid_x = (self._pcol_x[2] + self._pcol_x[3]) // 2
-                        c.coords(warn_id, flags_mid_x, y_mid)
+                    if has_missing:
+                        wx = flags_x0 + flags_third if has_late else (flags_x0 + flags_x1) // 2
+                        c.coords(warn_id, wx, y_mid)
                         c.itemconfigure(warn_id, state="normal")
                     else:
                         c.itemconfigure(warn_id, state="hidden")
+
+                late_warn_id = self._pool_late_warn[s]
+                if late_warn_id is not None:
+                    if has_late:
+                        lx = flags_x1 - flags_third if has_missing else (flags_x0 + flags_x1) // 2
+                        c.coords(late_warn_id, lx, y_mid)
+                        c.itemconfigure(late_warn_id, state="normal")
+                    else:
+                        c.itemconfigure(late_warn_id, state="hidden")
 
                 self._pool_data_idx[s] = row
 
@@ -2908,6 +2938,8 @@ class PluginPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_idx_text[s], state="hidden")
                 if self._pool_warn[s] is not None:
                     c.itemconfigure(self._pool_warn[s], state="hidden")
+                if self._pool_late_warn[s] is not None:
+                    c.itemconfigure(self._pool_late_warn[s], state="hidden")
                 c.itemconfigure(self._pool_check_rects[s], state="hidden")
                 c.itemconfigure(self._pool_check_marks[s], state="hidden")
                 c.itemconfigure(self._pool_lock_rects[s], state="hidden")
@@ -2960,8 +2992,9 @@ class PluginPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def _check_all_masters(self) -> None:
-        """Build plugin_paths dict and check all plugins for missing masters."""
+        """Build plugin_paths dict and check all plugins for missing/late masters."""
         self._missing_masters = {}
+        self._late_masters = {}
         self._plugin_mod_map = {}
         if not self._plugin_entries or not self._plugin_extensions:
             return
@@ -3021,6 +3054,7 @@ class PluginPanel(ctk.CTkFrame):
 
         plugin_names = [e.name for e in self._plugin_entries if e.enabled]
         self._missing_masters = check_missing_masters(plugin_names, plugin_paths)
+        self._late_masters = check_late_masters(plugin_names, plugin_paths)
 
     # ------------------------------------------------------------------
     # Tooltip for missing masters
@@ -3091,10 +3125,16 @@ class PluginPanel(ctk.CTkFrame):
         if len(self._pcol_x) >= 5 and self._pcol_x[2] <= x < self._pcol_x[3]:
             entry = self._plugin_entries[row]
             missing = self._missing_masters.get(entry.name)
+            late = self._late_masters.get(entry.name)
+            parts: list[str] = []
             if missing:
+                parts.append("Missing masters:\n" + "\n".join(f"  - {m}" for m in missing))
+            if late:
+                parts.append("Masters loaded after this plugin:\n" + "\n".join(f"  - {m}" for m in late))
+            if parts:
                 screen_x = event.x_root
                 screen_y = event.y_root
-                text = "Missing masters:\n" + "\n".join(f"  - {m}" for m in missing)
+                text = "\n\n".join(parts)
                 if self._tooltip_win is None:
                     self._show_tooltip(screen_x, screen_y, text)
                 return
@@ -3369,6 +3409,7 @@ class PluginPanel(ctk.CTkFrame):
     def _on_pmouse_release(self, event):
         if self._drag_idx >= 0 and self._drag_moved:
             self._save_plugins()
+            self._check_all_masters()
         elif self._drag_idx >= 0 and not self._drag_moved and len(self._psel_set) > 1:
             # Click (no drag) inside multi-selection — collapse to the clicked item
             cy = self._pevent_canvas_y(event)

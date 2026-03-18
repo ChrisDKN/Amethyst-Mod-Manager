@@ -111,7 +111,7 @@ class AddGameDialog(ctk.CTkToplevel):
         self.result: Optional[Path] = None
         self.removed: bool = False
         self._deploy_mode_var = tk.StringVar(value="hardlink")
-        self._symlink_plugins_var = tk.BooleanVar(value=True)
+        self._symlink_plugins_var = tk.BooleanVar(value=False)
 
         self._build_ui()
 
@@ -415,12 +415,15 @@ class AddGameDialog(ctk.CTkToplevel):
 
         # Heroic first: exe -> installed.json -> appname + path -> GamesConfig/<appname>.json -> prefix
         # Ensures we get both path and prefix when the game is installed via Heroic.
-        exe_name = getattr(self._game, "exe_name", None)
-        if exe_name:
+        exe_names = [getattr(self._game, "exe_name", None)]
+        exe_names += getattr(self._game, "exe_name_alts", [])
+        exe_names = [e for e in exe_names if e]
+        for exe_name in exe_names:
             info = find_heroic_game_info_by_exe(exe_name)
             if info:
                 found, found_prefix, discovered_app_name = info
                 source = "heroic"
+                break
 
         if not found and _get_heroic_app_names(self._game):
             found = find_heroic_game(_get_heroic_app_names(self._game))
@@ -433,7 +436,10 @@ class AddGameDialog(ctk.CTkToplevel):
             if steam_id:
                 found = find_game_by_steam_id(libraries, steam_id, self._game.exe_name)
             if not found:
-                found = find_game_in_libraries(libraries, self._game.exe_name)
+                for exe_name in exe_names:
+                    found = find_game_in_libraries(libraries, exe_name)
+                    if found:
+                        break
 
         # Marshal result back to the main thread
         try:
@@ -902,7 +908,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self.result: Optional[Path] = None
         self.removed: bool = False
         self._deploy_mode_var = tk.StringVar(value="hardlink")
-        self._symlink_plugins_var = tk.BooleanVar(value=True)
+        self._symlink_plugins_var = tk.BooleanVar(value=False)
 
         self._build_ui()
 
@@ -1183,12 +1189,15 @@ class ReconfigureGamePanel(ctk.CTkFrame):
 
         # Heroic first: exe -> installed.json -> appname + path -> GamesConfig/<appname>.json -> prefix
         # Ensures we get both path and prefix when the game is installed via Heroic.
-        exe_name = getattr(self._game, "exe_name", None)
-        if exe_name:
+        exe_names = [getattr(self._game, "exe_name", None)]
+        exe_names += getattr(self._game, "exe_name_alts", [])
+        exe_names = [e for e in exe_names if e]
+        for exe_name in exe_names:
             info = find_heroic_game_info_by_exe(exe_name)
             if info:
                 found, found_prefix, discovered_app_name = info
                 source = "heroic"
+                break
 
         if not found and _get_heroic_app_names(self._game):
             found = find_heroic_game(_get_heroic_app_names(self._game))
@@ -1201,7 +1210,10 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             if steam_id:
                 found = find_game_by_steam_id(libraries, steam_id, self._game.exe_name)
             if not found:
-                found = find_game_in_libraries(libraries, self._game.exe_name)
+                for exe_name in exe_names:
+                    found = find_game_in_libraries(libraries, exe_name)
+                    if found:
+                        break
 
         try:
             if self.winfo_exists():

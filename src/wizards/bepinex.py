@@ -188,6 +188,7 @@ class BepInExWizard(ctk.CTkFrame):
         self._chmod_files = chmod_files or []
         self._archive_path: Path | None = None
         self._game_root: Path | None = game.get_game_path()
+        self._install_to_root_folder = ctk.BooleanVar(value=False)
 
         title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
         title_bar.pack(fill="x")
@@ -251,6 +252,15 @@ class BepInExWizard(ctk.CTkFrame):
                 text="(Download URL not configured yet.)",
                 font=FONT_SMALL, text_color="#e06c6c",
             ).pack(pady=(0, 8))
+
+        ctk.CTkCheckBox(
+            self._body,
+            text="Install to Root_Folder (staging) instead of game folder",
+            variable=self._install_to_root_folder,
+            font=FONT_SMALL, text_color=TEXT_DIM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            checkmark_color="white",
+        ).pack(pady=(0, 12))
 
         ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
@@ -371,7 +381,11 @@ class BepInExWizard(ctk.CTkFrame):
 
     def _do_extract(self):
         try:
-            game_root = self._game_root
+            if self._install_to_root_folder.get():
+                game_root = self._game.get_effective_root_folder_path()
+                game_root.mkdir(parents=True, exist_ok=True)
+            else:
+                game_root = self._game_root
             if game_root is None:
                 raise RuntimeError("Game path is not configured.")
 
@@ -414,9 +428,10 @@ class BepInExWizard(ctk.CTkFrame):
                     "  ./start_game_bepinex.sh %command%"
                 )
 
+            dest_label = "Root_Folder (staging)" if self._install_to_root_folder.get() else "game folder"
             self._set_status(
                 f"BepInEx installed successfully!\n"
-                f"{file_count} file(s) extracted to the game folder."
+                f"{file_count} file(s) extracted to the {dest_label}."
                 f"{steam_hint}\n\n"
                 "Click Done to close.",
                 color="#6bc76b",

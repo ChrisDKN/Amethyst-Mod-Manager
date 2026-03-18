@@ -60,6 +60,10 @@ class KingdomComeDeliverance2(BaseGame):
         return "bin/Win64MasterMasterSteamPGO/KingdomCome.exe"
 
     @property
+    def exe_name_alts(self) -> list[str]:
+        return ["bin/Win64/KingdomCome.exe"]
+
+    @property
     def steam_id(self) -> str:
         return "1771300"
 
@@ -270,6 +274,10 @@ class KingdomComeDeliverance(KingdomComeDeliverance2):
     @property
     def exe_name(self) -> str:
         return "bin/win64/KingdomCome.exe"
+
+    @property
+    def exe_name_alts(self) -> list[str]:
+        return ["bin/Win64MasterMasterEpicPGO/KingdomCome.exe"]
 
     @property
     def steam_id(self) -> str:

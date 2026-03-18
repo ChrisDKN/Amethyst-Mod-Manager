@@ -545,6 +545,8 @@ class NexusSettingsDialog(ctk.CTkToplevel):
         def _update():
             # Validate via API and show username, using Bearer token
             self._key_changed = True
+            if self._on_key_changed:
+                self._on_key_changed()
             self._sso_btn.configure(state="normal" if CLIENT_ID else "disabled",
                                     text="Log in via Nexus Mods")
             self._sso_cancel_btn.pack_forget()
@@ -1070,6 +1072,8 @@ class NexusSettingsPanel(ctk.CTkFrame):
     def _oauth_on_token(self, tokens: OAuthTokens):
         def _update():
             self._key_changed = True
+            if self._on_key_changed:
+                self._on_key_changed()
             self._sso_btn.configure(state="normal" if CLIENT_ID else "disabled",
                                     text="Log in via Nexus Mods")
             self._sso_cancel_btn.pack_forget()

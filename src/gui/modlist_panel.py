@@ -106,6 +106,7 @@ from Utils.profile_backup import create_backup
 from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModRequirement
 from gui.collections_dialog import CollectionsDialog
 from gui.nexus_browser_overlay import NexusBrowserOverlay
+from gui.changelog_overlay import ChangelogOverlay
 from Nexus.nexus_meta import build_meta_from_download, ensure_installed_stamp, read_meta, write_meta
 from Nexus.nexus_download import delete_archive_and_sidecar
 from Utils.config_paths import get_download_cache_dir
@@ -1628,6 +1629,14 @@ class ModListPanel(ctk.CTkFrame):
                         row_bg = conflict_lower
                     elif not is_synthetic and i == highlighted_sep_idx:
                         row_bg = plugin_separator
+                    elif i == self._hover_idx:
+                        if custom_color:
+                            # Lighten the custom colour slightly on hover
+                            r, g, b = int(base_bg[1:3], 16), int(base_bg[3:5], 16), int(base_bg[5:7], 16)
+                            r, g, b = min(255, r + 20), min(255, g + 20), min(255, b + 20)
+                            row_bg = f"#{r:02x}{g:02x}{b:02x}"
+                        else:
+                            row_bg = BG_HOVER_ROW
                     else:
                         row_bg = base_bg
 
@@ -5195,6 +5204,23 @@ class ModListPanel(ctk.CTkFrame):
             except Exception:
                 pass
             self._nexus_browser_panel = None
+
+    def _on_changelog(self):
+        """Show the Changelog overlay over the modlist panel."""
+        self._close_changelog()
+        panel = ChangelogOverlay(self, on_close=self._close_changelog)
+        panel.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._changelog_panel = panel
+
+    def _close_changelog(self):
+        """Destroy the changelog overlay and restore the modlist."""
+        panel = getattr(self, "_changelog_panel", None)
+        if panel is not None:
+            try:
+                panel.destroy()
+            except Exception:
+                pass
+            self._changelog_panel = None
 
     def _on_check_updates(self):
         """Check for mod updates and missing requirements in one background pass."""

@@ -107,3 +107,41 @@ def check_missing_masters(
             missing_map[plugin_name] = missing
 
     return missing_map
+
+
+def check_late_masters(
+    plugin_names: list[str],
+    plugin_paths: dict[str, Path],
+) -> dict[str, list[str]]:
+    """
+    Check for masters that are present in the load order but loaded *after*
+    the plugin that requires them (master loaded after dependent).
+
+    Parameters
+    ----------
+    plugin_names : list[str]
+        Enabled plugin filenames in load order (index = position).
+    plugin_paths : dict[str, Path]
+        Mapping of lowercase plugin name → absolute path on disk.
+
+    Returns
+    -------
+    dict[str, list[str]]
+        Mapping of plugin name → list of master filenames that appear later
+        in the load order than the plugin itself.
+        Only plugins with at least one late master are included.
+    """
+    index_map = {name.lower(): i for i, name in enumerate(plugin_names)}
+    late_map: dict[str, list[str]] = {}
+
+    for i, plugin_name in enumerate(plugin_names):
+        path = plugin_paths.get(plugin_name.lower())
+        if path is None or not path.is_file():
+            continue
+
+        masters = read_masters(path)
+        late = [m for m in masters if index_map.get(m.lower(), -1) > i]
+        if late:
+            late_map[plugin_name] = late
+
+    return late_map

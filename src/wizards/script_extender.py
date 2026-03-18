@@ -212,6 +212,7 @@ class ScriptExtenderWizard(ctk.CTkFrame):
         self._archive_path: Path | None = None
         self._resolved_download_url: str | None = None
         self._game_root: Path | None = game.get_game_path()
+        self._install_to_root_folder = ctk.BooleanVar(value=False)
 
         title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
         title_bar.pack(fill="x")
@@ -268,6 +269,15 @@ class ScriptExtenderWizard(ctk.CTkFrame):
         self._dl_progress = ctk.CTkProgressBar(self._body, width=400, mode="indeterminate")
         self._dl_progress.pack(pady=(0, 16))
         self._dl_progress.start()
+
+        ctk.CTkCheckBox(
+            self._body,
+            text="Install to Root_Folder (staging) instead of game folder",
+            variable=self._install_to_root_folder,
+            font=FONT_SMALL, text_color=TEXT_DIM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            checkmark_color="white",
+        ).pack(pady=(0, 8))
 
         btn_frame = ctk.CTkFrame(self._body, fg_color="transparent")
         btn_frame.pack(side="bottom", pady=(8, 0))
@@ -382,6 +392,15 @@ class ScriptExtenderWizard(ctk.CTkFrame):
                 font=FONT_SMALL, text_color="#e06c6c",
             ).pack(pady=(0, 8))
 
+        ctk.CTkCheckBox(
+            self._body,
+            text="Install to Root_Folder (staging) instead of game folder",
+            variable=self._install_to_root_folder,
+            font=FONT_SMALL, text_color=TEXT_DIM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            checkmark_color="white",
+        ).pack(pady=(0, 12))
+
         ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
             font=FONT_BOLD,
@@ -489,7 +508,11 @@ class ScriptExtenderWizard(ctk.CTkFrame):
 
     def _do_extract(self):
         try:
-            game_root = self._game_root
+            if self._install_to_root_folder.get():
+                game_root = self._game.get_effective_root_folder_path()
+                game_root.mkdir(parents=True, exist_ok=True)
+            else:
+                game_root = self._game_root
             if game_root is None:
                 raise RuntimeError("Game path is not configured.")
 
@@ -516,9 +539,10 @@ class ScriptExtenderWizard(ctk.CTkFrame):
             except OSError as exc:
                 self._log(f"Wizard: could not delete archive: {exc}")
 
+            dest_label = "Root_Folder (staging)" if self._install_to_root_folder.get() else "game folder"
             self._set_status(
                 f"Script extender installed successfully!\n"
-                f"{file_count} file(s) extracted to the game folder.\n\n"
+                f"{file_count} file(s) extracted to the {dest_label}.\n\n"
                 "Click Done to close.",
                 color="#6bc76b",
             )

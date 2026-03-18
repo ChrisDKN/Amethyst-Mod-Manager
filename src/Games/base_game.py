@@ -81,6 +81,15 @@ class BaseGame(ABC):
         """
 
     @property
+    def exe_name_alts(self) -> list[str]:
+        """
+        Additional executable paths to try when auto-detecting the game install.
+        Used for games that ship different exe paths depending on the store
+        (e.g. Steam vs Epic/Heroic).  Checked after ``exe_name``.
+        """
+        return []
+
+    @property
     def root_folder_deploy_enabled(self) -> bool:
         """
         Whether Root_Folder deployment is supported for this game.

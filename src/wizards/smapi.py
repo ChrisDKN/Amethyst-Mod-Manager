@@ -132,6 +132,7 @@ class SmapiWizard(ctk.CTkFrame):
         self._log = log_fn or (lambda msg: None)
         self._archive_path: Path | None = None
         self._download_url: str | None = None
+        self._install_to_root_folder = ctk.BooleanVar(value=False)
 
         title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
         title_bar.pack(fill="x")
@@ -180,6 +181,22 @@ class SmapiWizard(ctk.CTkFrame):
         self._dl_progress = ctk.CTkProgressBar(self._body, width=400, mode="indeterminate")
         self._dl_progress.pack(pady=(0, 16))
         self._dl_progress.start()
+
+        ctk.CTkCheckBox(
+            self._body,
+            text="Install to Root_Folder (staging) instead of game folder",
+            variable=self._install_to_root_folder,
+            font=FONT_SMALL, text_color=TEXT_DIM,
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            checkmark_color="white",
+        ).pack(pady=(0, 4))
+
+        ctk.CTkLabel(
+            self._body,
+            text="Note: SMAPI uses an external installer — this option\n"
+                 "has no effect on where the installer places files.",
+            font=FONT_SMALL, text_color=TEXT_DIM, justify="center",
+        ).pack(pady=(0, 8))
 
         btn_frame = ctk.CTkFrame(self._body, fg_color="transparent")
         btn_frame.pack(side="bottom", pady=(8, 0))

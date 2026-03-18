@@ -27,7 +27,7 @@ class SkyrimSE(BaseGame):
         self._prefix_path: Path | None = None
         self._deploy_mode: LinkMode = LinkMode.HARDLINK
         self._staging_path: Path | None = None
-        self._symlink_plugins: bool = True
+        self._symlink_plugins: bool = False
         self.load_paths()
 
     # -----------------------------------------------------------------------
@@ -177,7 +177,7 @@ class SkyrimSE(BaseGame):
             raw_staging = data.get("staging_path", "")
             if raw_staging:
                 self._staging_path = Path(raw_staging)
-            self._symlink_plugins = data.get("symlink_plugins", True)
+            self._symlink_plugins = data.get("symlink_plugins", False)
             self._validate_staging()
             # If prefix is missing or no longer valid, scan for it and persist
             if not self._prefix_path or not self._prefix_path.is_dir():

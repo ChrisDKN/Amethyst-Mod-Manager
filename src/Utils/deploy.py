@@ -2005,6 +2005,9 @@ def apply_wine_dll_overrides(
     if not overrides:
         return
 
+    # Accept either the pfx/ directory directly or its parent (compatdata/<id>/)
+    if not (prefix_path / "user.reg").is_file() and (prefix_path / "pfx" / "user.reg").is_file():
+        prefix_path = prefix_path / "pfx"
     user_reg = prefix_path / "user.reg"
     if not user_reg.is_file():
         _log(f"Warning: user.reg not found at {user_reg}; skipping DLL overrides.")

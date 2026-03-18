@@ -1,0 +1,301 @@
+
+- v1.0.6
+- Logging into nexus now updates the api key on successful login instead of having to close the nexus settings window first
+- Plugins where the master is loaded after will now be flagged.
+- The separator under the cursor is now highlighted
+- the pfx folder for prefixes used by heroic is now correctly appended in the game settings menu.
+- Frameworks from the wizards can now optionally be installed to the root_folder in the profiles staging folder instead of the games root folder.
+- Added a property for games that use alternative exe locations when not installed on steam
+- Added buttons to quickly access the managers github page, endorse the manager on nexus and view changelogs
+
+
+- v1.0.5
+- Added Resident Evil 2 , 3 , 4 (Remakes) , 7 and Village. These handlers modify the games .pak files to allow the game to load modded files from the natives folder
+- A note about RE 2,3 and 7: Any mods listed as pre RTX may not work. The folder structure for these mods is usually natives/x64. These mods require texture conversion to work with the RTX updates which the manager is not capable of. Mods listed as RTX with the folder structure natives/stm should work
+- Mewgenics now generates a .sh file with a shorter launch command instead of listing every mod in 1 command. This prevents the command being too long for steam.
+- The generate separators button now ignores disabled mods
+
+- v1.0.4
+- Fixed a issue with fomod where the author included 2 or more case sensitive folders within their mod. This could cause the wrong files to be deployed and the mod in game would not reflect the choices made in the Fomod.
+- Fixed some broken elements not scaling correctly with the previous UI scaling feature
+- Fixed the scrollwheel being overly sensitive in some places.
+
+- v1.0.3
+- Added UI scaling. Scaling by default is set to automatic but can be changed via the settings button at the bottom right of the application. All UI elements will scale with the chosen value.
+- Added a Generate separators button. This will take any mod that is not already in a separator and create a separator based on that mods category. To get categories for all mods use check updates to generate them while logged into nexus. Mods with conflicts will be moved to a conflicts separator to preserve their order.
+- Cleaned up the mod cards slightly in the nexus window and collections window, The descriptions are now tooltips to allow long descriptions to fit better.
+- Collections can now be appended onto an existing profile, This download any not currently installed mod and install it to the chosen profile.
+
+- v1.0.2
+- Added an Ini files tab, This tab can show all of the ini and json files being used in the modlist. You can search by mod name or file name. When clicking one a text editor window will appear where you can edit them.
+- xEdit's behaviour meant any plugins it edited were being deleted completely. When you make a change to a plugin with xEdit. It deletes the original plugin and creates a new one with the changes. This meant the changes were not being reflected in the plugins within the staging folder or were being outright deleted. When running restore on a bethesda game, the manager now detects what plugins have been edited and moves the edited plugin back to the staging folder
+- You can now install collections by clicking add collection on the Nexus site, This will switch to the game the collection belongs to and show the mod list. The add collection button on the nexus site will say it requires Vortex but this just sends an Nxm link our manager can use.
+- When downloading a collection, the url to that collection is saved. A button called Open current has been added to the collections panel to quickly go to that collections page.
+- A button has been added to the collections install window that opens any not installed mods on nexus as some may need to be installed manually
+- Added a mod categories column, Categories are added when installing a mod or can added to mods without categories by pressing check updates.
+- Added a flatpak version for testing, Some UI elements and other things may not work with this but it is there as an option
+
+- v1.0.1
+- Added Enderal and Enderal SE
+- Added Slay the Spire 2
+- Reworked the Browse,Endorsed and Tracked tabs. They have been moved to overlay the modlist panel and show up when you press the nexus button. The Nexus sso menu is now in a settings button in this new menu
+- Added a trending tab, Shows mods published in the last 7 days sorted by endorsements
+- Various optimisations to filemap and deploy speed
+- Updated Vramr wrapper to work with v16
+- You can now set multiple paths in the downloads tab. By default the downloads folder is scanned for archives but you can add additonal paths to be scanned.
+- Multiple fomod menus should no longer show up when installing collections, they are queued until the current one is complete
+- There is now a download custom handler button the in the add game window, This can download custom game .json files from the repo and serve as an easy way for myself or anyone else to add custom games handlers to the manager without having to release an update.
+
+- v1.0.0
+- You can now login into Nexus mods via SSO, Any personal api key will be cleared and you can now log into Nexus mods via the Nexus button.
+- Overhauled the Resident Evil requiem game handler to support the Natives folder for loose file loading and the Pak_mods folder
+- Adjusted the Cyberpunk and Bethesda game handlers slightly to work with the new collections feature
+- Added a Vcredist and d3dcompiler_47 installer button to proton tools, These are often required for some mods and often not installed by default
+- Collections: Only available for Nexus premium members. When logging in via sso, if you are premium a button will show up on the top bar called collections. Here you can browse collections or manually enter the url to one you want to install. The manager will automatically download and install the mods in a collection, Using the collection author's intended load order. Installed collections will be added as a separate profile, Switch to this profile and deploy it to use it.
+
+- v0.8.3
+- When a mod already exists, there is now an option to add the mod with a different name
+- Using a profile with the "Profile specfic mods" will use it's own root folder builder instead of the default one
+- Fixed the scrollwheel not working when hovering over certain elements in the add game menu
+- Added Jeepney as a dependency to allow xdg-portal to work in the appimage build
+- The wizard tool window now overlays the plugins panel
+- Optimised the deploy function slightly, Shaved 2-3 seconds off deploy time with ~100k files to deploy
+- Fixed a rare instance of some fomod folders being added as files with no extension
+- Changed the minimum window size to 1280x800, The UI is designed around this size and there is no reason to go under this.
+- The overwrite folder can now be viewed in the mod files tab
+- Plugins for bethesda games now always symlink instead of being hard linked. This prevents any issues when running xedit programs as hard linked plugins cannot be edited by xedit.
+- The top bar now adjusts into a second row when the window is reduced in size instead of the buttons getting squashed
+- Changed the layout of the top bar slightly, the plugins panel now extends all the way to the top and the top bar sits above the modlist panel only
+- External applications can now be launched with a user selected proton version instead of always using the game's prefix and version. If doing this a prefix is made alongside the exe of the application.
+- Potential fix for the right click menu being destroyed incorrectly for Wayland users.
+
+- v0.8.2
+- Fix for Fomod options not detecting already installed plugins and auto selecting relevant options
+- Added a reset selections to the fomod menu that deletes saved selections and resets them to default
+- Fixed multiple file chooser windows opening when installing a mod
+- Added a panel to the show conflicts window to show files within that mod with no conflicts
+- Various modlist panel optimisations
+
+- v0.8.1
+- Files sent to custom deployment locations via the separator settings will first backup any files they overwrite in the target location to the profiles staging folder
+- LOOT masterlists now auto update when sorting plugins to make sure the latest masterlist and prelude is being used
+- When manually selecting a proton prefix, "pfx" will be appended to the filepath if you do not select the pfx folder and select the folder above it instead.
+- Fixed an issue with most stardew valley mods not working due to the folder names in the mod folders being normalized. Most games require this to work but it was breaking Stardew valley due it being Linux native. The folder names for Stardew Valley are no longer normalized and use the exact mod authors intended folder structure.
+- This new property has been added to the custom game handler too as it could affect other linux native games.
+
+- v0.8.0
+- Potential fix for web browser not opening
+- Fix for wyrebash not working properly in proton
+- Better detection of nexus meta data in downloaded/installed mods names. The mod name added to the modlist should be more accurate.
+- Changing page on a fomod dialogue resets the scroll position to the top. This was causing some pages to appear blank.
+- The update checker/installer now fetches the latest version from the release page. The aur package points to the aur page
+
+- v0.7.8
+- Fixed Various fomod issues including:
+- Scrollwheel not working when certain elements are under the cursor
+- Fomod not reading the game's base plugins meaning mods that require dlc couldn't be selected
+- Some fomod's not opening due to the wrong encoding set in their xml files
+- Added an open logs button that opens the logs folder
+- When clicking a mod with a conflict, the separators change color to the conflict color, This was already a thing but was just displaying grey for every color. They now display red/green
+- Clicking a file in the data tab now highlights the mod it belongs to in the mod list
+- Reduced the rate limit from 4 to 2 when downloading a mod via nxm
+- Added a Mod files tab, When selecting a mod in the modlist panel, the mods folders and files will show up in this tab. From here they can be quickly disabled. Any disabled folders and/or files will not be moved when deploying or considered for conflicts.
+- Added Mount & Blade II: Bannerlord
+- Added Marvel Rivals
+
+- v0.7.7
+- Most of the window popup modals are now overlays. This keeps everything within the application self contained making it easier to use the application in steam deck gaming mode
+- Added a right click option to separators called Separator settings,
+- Added a separator setting that allows you to choose where you want the mods in a separator to end up, Once defined the mods in the chosen separator will not be sent to the usual target location and instead will be sent to the user defined location.
+- Added a right click option to the install mod button that allows you to disable extract. Once enabled mods will be added to a folder in the staging area but not extracted.
+- You can now ctrl + click mods in the modlist panel to select multiple at the same time
+- Added .rar as an option is the file chooser
+- modindex is now stored with msgpack instead of in plain text.
+
+- v0.7.6
+- Overhauled the Witcher 3 handler, This game now uses custom routing rules much like the ue5 games as our standard properties were not enough to handle witcher 3's folder structure and the way mod authors ship their mods
+- Added Witcher 3's Goty appid to the handler so the goty version's prefix shows up when adding a game
+- Resizing the application window is now smoother/faster.
+- When removing a mod via the right click option, It will now check if that mod is currently deployed and remove it there too. This prevents the restore function from mistaking it as a runtime generated file.
+- The output mod folder for configured exe's now point to the right profile if using a custom profile
+- When changing a separator Color the font now changes dynamically to be more readable.
+- Added the two new properties from the previous update to the custom game handler
+
+- v0.7.5
+- Fixed bethesda related mods installing incorrectly - I stupidly assumed all mod authors did not ship their mods with any redundant top level folders. Turns out they do which means any of these mods would not install correctly. The manager now strips these top level folders. This was a fairly serious issue hence the small update. If anyone has already installed any mods for bethesda games (oblivion remastered excluded) its worth checking in the data tab if they are correct.
+- The add game window is now an overlay
+
+- v0.7.4
+- Fixed several major issues with fomod, Images not appearing, pages being skipped and pages showing up that shouldn't
+- Added kdialog as a fallback if zenity is not available, if kdialog tkinter's file browser will be used instead
+
+- v0.7.3
+- Potential fix for some issues with Fomod
+- Removing a profile now runs the restore function first so mods don't stay deployed once the profile is removed.
+- If "Data" is a top level folder in a bethesda related mod, it is removed to match what the manager expects
+- If a mod contains multiple folders of the same name, eg. 1 upper and 1 lower case, both are merged when deploying
+- When pressing deploy/restore or setting deployment paths the UI refreshes when complete, This makes sure the framework detection and data tree is up to date when these functions are called.
+- Decreased rate limit calls across the board, Installing mods directly, checking endorsed/tracked mods should no longer use so many rate limit calls.
+
+- v0.7.2
+- Added a potential fix for users whose "Open mod" and other related buttons not working
+- Added filters to the exe dropdown list for applications that never need to be run in this section.
+- Added game framework detection, Things like Script extenders are detected and shown if they are installed or not at the top of the plugins panel
+- Optimised the deploy function slightly
+- Added additional checks when checking for updates, It now also uses the Mo2 timestamp when checking for updates meaning Mo2's meta.ini is used correctly when checking for updates, this makes it backwards compatible with any transfered Mo2 installs. Some other checks are also applied to make sure the check for updates flag is accurate
+- Switched to graphql for checking for updates, Checking for updates before on a large modlist would blow through the rate limit. It now doesn't do this. On top of this, it is much faster. A modlist with 600 mods before would take 1-2 minutes to check every one for updates and missing requirements. It now takes around 10 seconds
+
+- v0.7.1
+- Added custom game support, A define custom game button has been added to the add game menu, This will allow any game to be added with the same properties the current game handlers use. The settings used for custom games are saved to a .json file in the .config folder and can be shared with anyone. Note that this will not work on games that need specfic deploy logic to function, It also does not currently work on games that require mods to be deployed somewhere in the games wine prefix
+- Added profile specfic mod lists, Added a new option when adding a new profile called Use profile specfic mods. When a profile has this flag, it will create a new empty profile and the mods/overwrite folder for this profile will be separate from other profiles. This can be used to create a fresh modlist within that profile meaning you can have multiple modlists per instance of a game and switch between them.
+- Added zstandard library for some Baldurs gate 3 mods not being parsed correctly
+- Logs are now separated by session and put in a logs folder within the .config folder
+- The Nexus meta data on downloaded files should now be removed correctly when installing a mod
+- You can now filter by mods that have the require update flag (after checking for updates).
+- When in the add game menu if a game has already been added the manager, the add button now becomes a select button that switches to that game
+- A confirmation box now appears when trying to remove a profile
+- When a nexus api key fails to save due to a missing keyring service a popup appears with instructions on how to fix it.
+- You can now reinstall a mod via a right click option if it's file still exists in the downloads folder
+- Fixed FOMOD not merging some selected folders when installing
+- Added a popup notification for when the restore function starts and completes
+- Added new icons for install,deploy and restore.
+- Fixed an issue where a game instance was being deleted when switching profiles.
+
+- v0.6.2
+- Added Resident Evil Requiem
+- Witcher 3's game path is automatically added to Witcher 3 Script merger: fresh and automated edition's config on runtime.
+- Added an option to the reconfigure game window to remove all hardlinks/symlinks from a games directory, This is used to cleanup a game folder in the event that restore wont work due to missing mods in the staging folder.
+- Added a button near the run exe button to quickly open the staging folders' applications folder.
+
+- v0.6.1
+- Added Hogwarts Legacy
+- winhttp dll override is auto added to the prefix for bepinex games, Required for bepinex to function
+- Added a fallback for 7z files failing to install
+- For future updates, the application will now re-open after the update has finished installing via the auto updater
+- Set the plugin panel to a fixed width to fix text clipping issues
+- Added Bepinex wizards for each game to install bepinex for them
+
+- v0.6.0
+- Added Oblivion Remastered
+- Added a handler for Ue5's folder structure and any future ue5 game support
+- Added a Menu Filelist updater to The Witcher 3's deploy function. xml files for the next gen update should be sorted on deploy
+- Replaced the deploy and downloads progress bars with more detailed ctk popups. Multiple Nxm downloads can now be displayed at a time and downloads can be cancelled via the popup.
+
+- v0.5.9
+- Fixed font scaling for users who set their global scaling over 100%
+- The mods and overwrite folder no longer get deleted when removing an instance
+- Added additional proton prefix detection
+- When importing manually installed mods from stardew valley, the application adds an extra top level folder to each mod so that they deploy correctly
+
+- v0.5.8
+- Added a new add game window
+- Added a fallback for rar files failing to install
+- Installing a mod manually no longer deletes the zip file from downloads after installing
+- Plugins can now be disabled for individual mods and will not be added to plugins.txt
+- Added a filter option to show mods with any disabled plugins
+- Decreasing a mods priorty via set priority now puts it in the correct position
+- The overwrite and root folder separators are now not hidden by the hide separators filter option
+
+- v0.5.7
+- Bodyslide and Outfit studio should now be configured correctly, It first needs to be added as a mod and enabled, when deployed it will show up in the Run Exe dropdown menu upon refreshing. When running this will cause it to launch from the Data folder which should launch it properly with all the options in the UI
+- Changed the output selection menu in the configure exe window to a dropdown menu instead of a scrollable list. The separators are also now filtered out of this list.
+
+- v0.5.6
+- Added a wizard to stardew valley to aid in installing SMAPI
+- Changed Stardew valley's "exe" name to the actual script steam launches with so that the game can be launched from within the application.
+
+- v0.5.5
+- Some mod files were still being moved incorrectly to the overwrite folder when restoring. This should no longer happen. Only runtime created files should appear in overwrite
+- Fixed direct installs in the browse panel (Hopefully, im not a premium member so i cant actually test this)
+- The "Show conflicts" window was blank for some games and displaying incorrect info, This should be fixed.
+- Added "Open" buttons in the games config window to easily open the game install,prefix and staging folders
+- Added a wrapper for ParallaxR, Requires a patched ucrtbase.dll that includes functions not present in wines version. More info at the bottom of the Readme
+
+- v0.5.4
+- The games launch exe now shows up in the run exe section, By default it will deploy the current modlist then try to launch via steam. This behaviour can be changed in the config menu next to the run exe button.
+- If the game is on heroic and not steam, it will try to lauch via heroic, Not every game will work however since I need the AppName identifier that heroic uses. Since these are not easy to lookup, theres only a few games configured this way.
+- You can change the launch option to None in the config to stop it trying to launch through Steam or Heroic
+
+- v0.5.3
+- Fixed an issue with Fomod reinstalls not working
+- Added a notification when installing or removing a mod
+- Changed some tkinter popup dialogues to customtkinter to match the gui theme
+
+- v0.5.2
+- Fixed mod files going into overwrite folder instead of mod created runtime files upon restore
+- Fixed Vramr wrapper logging silently
+- Fixed auto update not working due to the application being open
+
+- v0.5.1
+- Fixed a missing import causing the run exe feature to not work
+- Tested and added support for the following
+- xlodgen
+- wyrebash - The -o: argument is generated at runtime
+- Synthesis - Needs .net10 SDK and .net5 runtime to work these need to be installed manually via the proton window
+- Bendr - Added a python wrapper similar to Vramr, The application worked on my modlist but YMMV
+- Fixed Auto updater not working due to the appimage needing to be closed first
+
+- v0.5.0
+- Added a right click option to separators to change their color
+- Replaced the mod display in the tracked/endorsed/browse section with a cleaner layout using ctkcards
+- Improved the responsivness of right click menus and sub menus.
+- Conflicts in the show conflicts window no longer display files with no conflicts
+- Added instructions for if the system keyring is not available (To store nexus api key)
+- The update available popup now gives the option to automatically download and install the latest update if any
+
+- v0.4.3
+- Files such as settings or configs that are created by Mods during gameplay/runtime are no longer removed when restoring or redeploying. They are moved to the overwrite folder
+- Fixed the installed date column sorting mods into the wrong date order
+- Check updates now only applies to enabled mods.
+- Added a tooltip for the missing requirement flag that shows missing requirements
+
+- v0.4.2
+- Several Performance improvements,
+- Improved speed of filemap creation by 5-10x. The contents of all the mod files are now cached upon refreshing or installing a new mod instead of every mod being read from every time we enabled/disabled a mod
+- The modlist panel is now smoother when scrolling.
+- Changed the checkboxes of the modlist and plugins panel so they don't detach from the panel while scrolling
+- Selecting a mod that contains a plugin now highlights the plugin on the plugins panel.
+- Resized config and refresh buttons next to run exe to better fit the steam deck screen
+- The Install time column can now get the mod install time from the creation time of the meta.ini if a timestamp does not exist within it.
+- Added path traversal checks in a few places to avoid issues
+- When Installing a mod via mod manager on the nexus site, the downloaded mod is now removed from downloads after install
+- Added markers next to the scrollbar that show the position of plugins/conflicts when highlighted
+- Added Kingdom Come Deliverance 1, Uses same deploy method as KCD2
+
+- v0.4.1
+- Fixed a missing threading import in Endorse/tracked/browse tabs
+- Added flatpak manifest for potential flatpak release
+- added XDG portal browser for flatpak support. Does not work on the appimage but is needed for the flatpak
+
+- v0.4.0
+- Refactored the gui code
+- Added app version number to the title bar
+- The nexus window now displays rate limits/usage
+- Pressing check updates now lists mods with missing dependencies.
+- A filter has been added that will auto download from the repo that filters redundant mods or mods with a mod id but do not belong in the modlist.txt file (eg. script extender)
+- You can right click a mod with missing dependencies and view what dependencies are missing, Since most of these are usually optional dependencies, you can choose to ignore dependencies and the flag will be removed
+
+- v0.3.4
+- Improved logging, Logs now go to a file in the .config folder
+- Fixed some scrollbars still showing the wrong colour
+- Added modlist filters
+- Added expand/contract all separators
+- Fixed a mod changing position when reinstalling
+- Added profile backups and restore functionality
+
+- v0.3.0
+- Added support for Mewgenics, the manager can unpack/repack the games gpak file as well as provide launch arguments to launch the game modded
+- Added KCD2 Support
+- Added starfields loot master list
+- Deploy creates a core folder even if it's not needed so restore doesn't complain about it.
+- Removed ugly white outlines in the 2 treeview panels and switched to ctk style treeview
+- Added / changed icons
+- Made some buttons slightly larger
+
+- v0.2.0
+- Added a Set deployment paths to the mods right click menus, Can be used to remove one or more extra top level paths to mods when mod authors ship mods with top level paths not in the filters
+- Removed some ugly white borders in the data tab
+
+- v0.1.2
+- Fixed wrong LOOT types and masterlist urls
+- Fixed Fallout 3 downgrader wizard deleting the entire game folder
