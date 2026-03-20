@@ -138,10 +138,6 @@ ParallaxR (Version 2.0) Uses a similar process, Requires a patched ucrtbase.dll 
 - It will run the wrapper script, Progress will be added to the log, A temporary wine prefix will be created in the home directory
 - Output will be placed as a mod in a VRAMr/BENDr/ParallaxR folder. Refresh the modlist and enable it. Delete it if you want to do another run but remember to deploy before you do so.
 
-## Planned Features
-
-- Adding/Installing collections directly into the manager as a new profile, This is currently working, See the wiki for screenshots of what this will look like. This Will be added once the application is registered with Nexus and some more polish is added.
-
 ## Supporting the project
 
 - This is where I'd put a ko-fi link or something. Give your money to a more worthwhile cause. Your feedback is enough
