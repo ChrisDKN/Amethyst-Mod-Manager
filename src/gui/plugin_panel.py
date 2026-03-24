@@ -2184,6 +2184,23 @@ class PluginPanel(ctk.CTkFrame):
                 text="(filemap.txt not found)", values=("",))
             return
         raw_entries = self._parse_filemap(filemap_path)
+        # Filter out mods that belong to a separator with a custom deploy location —
+        # those files are deployed elsewhere and should not appear in the Data tab.
+        custom_deploy_mods: set[str] = set()
+        profile_dir = (
+            getattr(self._game, "_active_profile_dir", None)
+            or filemap_path.parent
+        )
+        modlist_path = profile_dir / "modlist.txt"
+        if modlist_path.is_file():
+            from Utils.modlist import read_modlist
+            from Utils.deploy import load_separator_deploy_paths, expand_separator_deploy_paths
+            _sep_paths = load_separator_deploy_paths(profile_dir)
+            if _sep_paths:
+                _entries = read_modlist(modlist_path)
+                custom_deploy_mods = set(expand_separator_deploy_paths(_sep_paths, _entries).keys())
+        if custom_deploy_mods:
+            raw_entries = [(p, m) for p, m in raw_entries if m not in custom_deploy_mods]
         self._data_filemap_entries = self._resolve_data_entries(raw_entries)
         self._build_data_tree_from_entries(self._data_filemap_entries)
 

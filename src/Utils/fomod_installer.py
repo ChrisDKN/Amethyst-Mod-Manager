@@ -59,6 +59,9 @@ def evaluate_dependency(dep: Dependency, flag_state: dict[str, str],
         # "Missing": file must not be installed at all
         return not present
 
+    if dep.dep_type == "unsatisfiable":
+        return False
+
     # Unknown type — pass through
     return True
 
@@ -85,6 +88,12 @@ def resolve_plugin_type(plugin: Plugin, flag_state: dict[str, str],
     for dep, type_name in td.patterns:
         if evaluate_dependency(dep, flag_state, installed_files, active_files):
             return type_name
+
+    # No pattern matched. If the default is NotUsable but the pattern set
+    # includes a Required outcome, it means this is a version-detection group
+    # where we couldn't auto-detect the game version. Let the user choose freely.
+    if td.default_type == "NotUsable" and any(t == "Required" for _, t in td.patterns):
+        return "Optional"
 
     return td.default_type
 

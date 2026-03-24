@@ -890,6 +890,11 @@ class ModListPanel(ctk.CTkFrame):
     def _reposition_all_dl_popups(self, *_) -> None:
         """Stack all live download popups (CTkToplevel) upward from the bottom-right."""
         root = self.winfo_toplevel()
+        try:
+            if root.state() != "normal":
+                return
+        except Exception:
+            pass
         rx, ry = root.winfo_rootx(), root.winfo_rooty()
         rw, rh = root.winfo_width(), root.winfo_height()
         gap = scaled(8)
@@ -910,7 +915,8 @@ class ModListPanel(ctk.CTkFrame):
         Returns the cancel event; pass it to the downloader."""
         root = self.winfo_toplevel()
         cancel = threading.Event()
-        popup = CTkProgressPopup(root, title="Downloading", label="Starting...", message="0%")
+        popup = CTkProgressPopup(root, title="Downloading", label="Starting...", message="0%",
+                                 on_show=self._reposition_all_dl_popups)
         # CTkProgressPopup binds its own update_position to <Configure>, which calls
         # update_idletasks() twice on every event — expensive during scroll. Silence it.
         popup.update_position = lambda *_: None
@@ -990,11 +996,18 @@ class ModListPanel(ctk.CTkFrame):
         if total > 0:
             frac = min(current / total, 1.0)
             pct = int(frac * 100)
-            cur_mb = current / (1024 * 1024)
-            tot_mb = total / (1024 * 1024)
+            _GB = 1024 * 1024 * 1024
+            if total >= _GB:
+                cur_u = current / _GB
+                tot_u = total / _GB
+                unit = "GB"
+            else:
+                cur_u = current / (1024 * 1024)
+                tot_u = total / (1024 * 1024)
+                unit = "MB"
             slot.popup.update_progress(frac)
             slot.popup.update_message(
-                label if label else f"{cur_mb:.1f} / {tot_mb:.1f} MB  ({pct}%)"
+                label if label else f"{cur_u:.2f} / {tot_u:.2f} {unit}  ({pct}%)"
             )
 
     def hide_download_progress(self, cancel: threading.Event | None = None):
@@ -4951,7 +4964,7 @@ class ModListPanel(ctk.CTkFrame):
     # Toolbar button handlers
     # ------------------------------------------------------------------
 
-    def _on_collections(self, initial_slug: str | None = None, initial_game_domain: str | None = None):
+    def _on_collections(self, initial_slug: str | None = None, initial_game_domain: str | None = None, initial_revision: int | None = None):
         """Slide the Collections browser over the modlist panel.
 
         If initial_slug is provided (e.g. from an nxm:// collection link), the
@@ -4973,6 +4986,7 @@ class ModListPanel(ctk.CTkFrame):
             on_close=self._close_collections,
             initial_slug=initial_slug,
             initial_game_domain=initial_game_domain,
+            initial_revision=initial_revision,
         )
         panel.place(relx=0, rely=0, relwidth=1, relheight=1)
         self._collections_panel = panel

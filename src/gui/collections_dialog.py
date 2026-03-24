@@ -68,6 +68,17 @@ from gui.theme import (
 
 PAGE_SIZE    = 20
 
+# ---------------------------------------------------------------------------
+# Active-install registry — survives panel close/reopen
+# ---------------------------------------------------------------------------
+# Key: collection slug (str)
+# Value: {
+#   "status":           str,          # latest status text
+#   "installed_fids":   set[int],     # file_ids successfully installed so far
+#   "done":             bool,         # True once _run_install returns
+# }
+_ACTIVE_INSTALLS: dict[str, dict] = {}
+
 
 def _topo_sort_collection(schema_mods: list[dict], mod_rules: list[dict]) -> dict[int, int]:
     """Return file_id → priority-position dict respecting modRules before/after constraints.
@@ -332,7 +343,7 @@ class CollectionCard:
         if summary:
             self._attach_tooltip(self.card, summary)
 
-    def load_image_async(self, url: str, cache: dict, loading: set, root: tk.Widget):
+    def load_image_async(self, url: str, cache: dict, loading: set, root: tk.Widget, on_done=None):
         """Start async tile image load (same pattern as mod_card.py)."""
         if not url:
             return
@@ -364,9 +375,16 @@ class CollectionCard:
                 photo = ctk.CTkImage(light_image=bg, dark_image=bg,
                                      size=(iw, ih))
                 cache[url] = photo
-                root.after(0, lambda: self._apply_image(photo))
+
+                def _done():
+                    self._apply_image(photo)
+                    if on_done is not None:
+                        on_done()
+
+                root.after(0, _done)
             except Exception:
-                pass
+                if on_done is not None:
+                    root.after(0, on_done)
             finally:
                 loading.discard(url)
 
@@ -553,7 +571,7 @@ class CollectionDetailDialog(tk.Frame):
     _TV_COLS = ("Order", "Mod Name", "Author", "File", "Size", "Opt")
     _TV_WIDTHS_BASE = (50, 250, 120, 200, 80, 40)
 
-    def __init__(self, parent, collection, game_domain: str, api, game=None, app_root=None, log_fn=None, on_close=None, profile_dir=None):
+    def __init__(self, parent, collection, game_domain: str, api, game=None, app_root=None, log_fn=None, on_close=None, profile_dir=None, revision_number=None):
         super().__init__(parent, bg=BG_DEEP)
         self._collection = collection
         self._game_domain = game_domain
@@ -570,13 +588,23 @@ class CollectionDetailDialog(tk.Frame):
         self._loaded_mods: list = []
         self._download_link_path: str = ""
         self._schema_order: dict = {}
+        self._revision_number: int | None = revision_number  # None = latest
+        self._revisions_list: list[dict] = []  # [{revisionNumber, revisionStatus}, ...]
 
         self._reset_btn = None  # created in _build_ui; shown only when profile exists
+        self._offsite_mods: list[tuple[str, str]] = []  # (name, url) from collection.json
+        self._offsite_frame: tk.Frame | None = None  # created in _build_ui
+        self._revision_btn: ctk.CTkButton | None = None  # created in _build_ui
+        self._revision_var = tk.StringVar(value="Loading\u2026")
+        self._revision_popup: tk.Toplevel | None = None
         self._file_id_to_tree_iid: dict[int, str] = {}  # populated by _populate; used to green rows live
+        self._install_poll_id: str | None = None  # after() id for install-progress polling
 
         self._build_ui()
         self._fetch()
         self.after(100, lambda: (self._update_reset_btn_visibility(), self._update_open_missing_btn_visibility()))
+        # Reconnect to any install that started before this panel was (re)opened
+        self.after(200, self._maybe_reconnect_install)
 
     # ------------------------------------------------------------------
     def _build_ui(self):
@@ -600,11 +628,37 @@ class CollectionDetailDialog(tk.Frame):
             anchor="e",
         ).pack(side="right", padx=14)
 
+        # --- Revision picker ---
+        rev_frame = tk.Frame(hdr, bg=BG_HEADER)
+        rev_frame.pack(side="right", padx=(0, 8))
+        tk.Label(
+            rev_frame, text="Revision:",
+            bg=BG_HEADER, fg=TEXT_DIM,
+            font=font_sized_px("Segoe UI", 10),
+        ).pack(side="left", padx=(0, 4))
+        self._revision_btn = ctk.CTkButton(
+            rev_frame,
+            textvariable=self._revision_var,
+            state="disabled",
+            width=scaled(130),
+            height=scaled(26),
+            fg_color=BG_PANEL,
+            hover_color=BG_HOVER,
+            border_color=BG_SEP,
+            border_width=1,
+            text_color=TEXT_MAIN,
+            text_color_disabled=TEXT_DIM,
+            font=font_sized("Segoe UI", 10),
+            anchor="w",
+            command=self._open_revision_popup,
+        )
+        self._revision_btn.pack(side="left")
+
         # --- Status bar ---
         self._status_lbl = tk.Label(
             self, textvariable=self._status_var,
             bg=BG_DEEP, fg=TEXT_DIM,
-            font=font_sized_px("Segoe UI", 9),
+            font=font_sized_px("Segoe UI", 12),
             anchor="w", bd=0, highlightthickness=0,
         )
         self._status_lbl.pack(fill="x", side="top", padx=10, pady=(4, 0))
@@ -682,13 +736,14 @@ class CollectionDetailDialog(tk.Frame):
         self._tree.tag_configure("even", background=BG_PANEL)
         self._tree.tag_configure("unordered", foreground="#888888")
         self._tree.tag_configure("installed", background="#1e4d1e")
+        self._tree.tag_configure("bundled", background="#1a2a3a", foreground="#7ab8e8")
 
         # --- Priority note ---
-        note = tk.Label(
+        self._priority_note = tk.Label(
             self, text="Order = author's install order  (↓ installed last = highest priority)",
             bg=BG_DEEP, fg=TEXT_DIM, font=font_sized_px("Segoe UI", 8), anchor="w",
         )
-        note.pack(fill="x", side="top", padx=10, pady=(0, 2))
+        self._priority_note.pack(fill="x", side="top", padx=10, pady=(0, 2))
 
         # --- Footer ---
         ftr = tk.Frame(self, bg=BG_HEADER, pady=8, bd=0, highlightthickness=0)
@@ -710,6 +765,14 @@ class CollectionDetailDialog(tk.Frame):
             command=self._on_install_collection,
         ).pack(side="right", padx=(10, 0), pady=6)
 
+        ctk.CTkButton(
+            ftr, text="Open on Nexus",
+            height=scaled(30), fg_color="#3a5a8a", hover_color="#4a70aa",
+            text_color="#ffffff", font=font_sized("Segoe UI", 10),
+            border_width=0,
+            command=self._on_open_on_nexus,
+        ).pack(side="right", padx=(10, 0), pady=6)
+
         self._open_missing_btn = ctk.CTkButton(
             ftr, text="Open Missing on Nexus",
             height=scaled(30), fg_color="#5a3a00", hover_color="#7a5200",
@@ -729,16 +792,138 @@ class CollectionDetailDialog(tk.Frame):
         # Packed (shown) only when the collection profile already exists;
         # see _update_reset_btn_visibility()
 
+        # Off-site mods panel — inserted between priority note and footer at pack time
+        self._offsite_frame = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0)
+        # Not packed yet — shown by _update_offsite_panel() when browse/direct mods exist
+
     # ------------------------------------------------------------------
     # Mod-list fetch
     # ------------------------------------------------------------------
     def _fetch(self):
         threading.Thread(target=self._worker, daemon=True).start()
 
+    def _open_revision_popup(self):
+        """Open a scrollable popup listing all known revisions."""
+        if not self._revisions_list or self._revision_btn is None:
+            return
+        # Close any existing popup first
+        if self._revision_popup is not None:
+            try:
+                self._revision_popup.destroy()
+            except Exception:
+                pass
+            self._revision_popup = None
+
+        labels = self._revision_labels()
+        btn = self._revision_btn
+        x = btn.winfo_rootx()
+        y = btn.winfo_rooty() + btn.winfo_height()
+        w = btn.winfo_width()
+
+        ROW_H = scaled(22)
+        MAX_VISIBLE = 10
+        visible = min(len(labels), MAX_VISIBLE)
+
+        popup = tk.Toplevel(self)
+        popup.overrideredirect(True)
+        popup.configure(bg=BORDER)
+        popup.geometry(f"{w}x{visible * ROW_H + 2}+{x}+{y}")
+        popup.lift()
+        self._revision_popup = popup
+
+        inner = tk.Frame(popup, bg=BG_PANEL, bd=0, highlightthickness=0)
+        inner.pack(fill="both", expand=True, padx=1, pady=1)
+
+        sb = tk.Scrollbar(inner, orient="vertical", bg=BG_SEP, troughcolor=BG_DEEP,
+                          activebackground=ACCENT, highlightthickness=0, bd=0, width=scaled(10))
+        lb = tk.Listbox(
+            inner,
+            yscrollcommand=sb.set,
+            bg=BG_PANEL, fg=TEXT_MAIN,
+            selectbackground=ACCENT, selectforeground="#ffffff",
+            activestyle="none",
+            relief="flat", bd=0, highlightthickness=0,
+            font=font_sized_px("Segoe UI", 10),
+        )
+        for lbl in labels:
+            lb.insert("end", lbl)
+
+        # Pre-select current
+        current = self._revision_var.get()
+        if current in labels:
+            idx = labels.index(current)
+            lb.selection_set(idx)
+            lb.see(idx)
+
+        sb.config(command=lb.yview)
+        if len(labels) > MAX_VISIBLE:
+            sb.pack(side="right", fill="y")
+        lb.pack(side="left", fill="both", expand=True)
+
+        def _pick(event=None):
+            sel = lb.curselection()
+            if not sel:
+                return
+            self._on_revision_selected(labels[sel[0]])
+            popup.destroy()
+            self._revision_popup = None
+
+        def _dismiss(event=None):
+            popup.destroy()
+            self._revision_popup = None
+
+        lb.bind("<ButtonRelease-1>", _pick)
+        lb.bind("<Return>", _pick)
+        popup.bind("<Escape>", _dismiss)
+        popup.bind("<FocusOut>", lambda e: self.after(50, _maybe_dismiss))
+
+        def _maybe_dismiss():
+            try:
+                if self._revision_popup is popup and not popup.focus_displayof():
+                    popup.destroy()
+                    self._revision_popup = None
+            except Exception:
+                pass
+
+        lb.focus_set()
+
+    def _revision_labels(self) -> list[str]:
+        """Build the sorted label list from self._revisions_list."""
+        sorted_revs = sorted(self._revisions_list,
+                             key=lambda r: int(r.get("revisionNumber") or 0), reverse=True)
+        labels = []
+        for r in sorted_revs:
+            num = r.get("revisionNumber", "?")
+            status = r.get("revisionStatus", "")
+            label = f"Rev {num}"
+            if status and status.lower() != "published":
+                label += f" ({status.lower()})"
+            labels.append(label)
+        return labels
+
+    def _on_revision_selected(self, sel: str):
+        # Values are like "Rev 3" or "Rev 3 (draft)" — extract leading integer
+        try:
+            rev_num = int(sel.split()[1])
+        except (IndexError, ValueError):
+            return
+        if rev_num == self._revision_number:
+            return
+        self._revision_number = rev_num
+        self._revision_var.set(sel)
+        self._offsite_mods = []
+        self._update_offsite_panel()
+        self._status_var.set(f"Fetching revision {rev_num}\u2026")
+        self._size_var.set("Loading\u2026")
+        for iid in self._tree.get_children():
+            self._tree.delete(iid)
+        self._fetch()
+
     def _worker(self):
         try:
-            name, total_size, mod_count, mods, dl_path = self._api.get_collection_detail(
-                self._collection.slug, self._game_domain
+            name, total_size, mod_count, mods, dl_path, revisions = self._api.get_collection_detail(
+                self._collection.slug, self._game_domain,
+                revision_number=self._revision_number,
             )
             if not name and not mods:
                 try:
@@ -769,13 +954,40 @@ class CollectionDetailDialog(tk.Frame):
             # downloading the archive a second time.
             self._collection_schema_cache = cj
 
+            # Extract off-site (browse/direct) and bundled mod entries from schema
+            from Nexus.nexus_api import NexusCollectionMod as _NCM
+            offsite: list[tuple[str, str]] = []
+            bundled_mods: list[_NCM] = []
+            for m in cj.get("mods", []):
+                src = m.get("source") or {}
+                src_type = (src.get("type") or "").lower()
+                mod_name = m.get("name") or ""
+                if src_type in ("browse", "direct"):
+                    url = src.get("url") or src.get("fileUrl") or ""
+                    if url:
+                        offsite.append((mod_name, url))
+                elif src_type == "bundle":
+                    bundled_mods.append(_NCM(
+                        mod_name=mod_name,
+                        file_name=src.get("fileExpression") or mod_name,
+                        source_type="bundle",
+                    ))
+            self._offsite_mods = offsite
+            # Append bundled mods to the main list so they show in the treeview
+            mods_with_bundled = list(mods) + bundled_mods
+            try:
+                self.after(0, self._update_offsite_panel)
+            except Exception:
+                pass
+
             # Update collection name from API (fixes slug-only placeholder when opened via URL/nxm)
             if name:
                 self._collection.name = name
             try:
+                display_name = name or self._collection.name or self._collection.slug or "Collection"
                 self.after(0, lambda: self._populate(
-                    name or self._collection.slug or "Collection",
-                    total_size, mod_count, mods, dl_path, schema_order))
+                    display_name,
+                    total_size, mod_count, mods_with_bundled, dl_path, schema_order, revisions))
             except Exception:
                 pass
         except Exception as exc:
@@ -785,7 +997,7 @@ class CollectionDetailDialog(tk.Frame):
             except Exception:
                 pass
 
-    def _populate(self, collection_name: str, total_size: int, mod_count: int, mods, dl_path: str = "", schema_order=None):
+    def _populate(self, collection_name: str, total_size: int, mod_count: int, mods, dl_path: str = "", schema_order=None, revisions=None):
         try:
             if not self.winfo_exists():
                 return
@@ -797,6 +1009,27 @@ class CollectionDetailDialog(tk.Frame):
         self._loaded_mods = mods
         self._download_link_path = dl_path
         self._schema_order = schema_order
+
+        # Populate revision picker (only update list when we have a fresh revisions list)
+        if revisions and self._revision_btn is not None:
+            self._revisions_list = revisions
+            sorted_revs = sorted(revisions, key=lambda r: int(r.get("revisionNumber") or 0), reverse=True)
+            labels = self._revision_labels()
+            # Determine which revision is currently shown
+            current_num = self._revision_number
+            if current_num is None:
+                published = [r for r in sorted_revs if (r.get("revisionStatus") or "").lower() == "published"]
+                src = published if published else sorted_revs
+                current_num = int(src[0].get("revisionNumber") or 0) if src else None
+            target_label = ""
+            if current_num is not None:
+                target_label = next(
+                    (lbl for lbl, r in zip(labels, sorted_revs)
+                     if int(r.get("revisionNumber") or 0) == current_num),
+                    labels[0] if labels else "",
+                )
+            self._revision_var.set(target_label or (labels[0] if labels else ""))
+            self._revision_btn.configure(state="normal")
 
         _NO_POS = len(schema_order) + 1
         sorted_mods = sorted(mods, key=lambda m: schema_order.get(m.file_id, _NO_POS))
@@ -841,15 +1074,22 @@ class CollectionDetailDialog(tk.Frame):
                         if is_installed:
                             break
 
-            if is_installed:
+            is_bundled = getattr(mod, "source_type", "nexus") == "bundle"
+
+            if is_bundled:
+                row_tags = ("bundled",)
+                file_label = "Bundled"
+            elif is_installed:
                 row_tags = ("installed", "unordered") if tag == "unordered" else ("installed",)
+                file_label = mod.file_name
             else:
                 row_tags = (tag,)
+                file_label = mod.file_name
 
             iid = self._tree.insert(
                 "", "end",
-                values=(order_label, mod.mod_name, mod.mod_author, mod.file_name,
-                        _fmt_size(mod.size_bytes), opt_mark),
+                values=(order_label, mod.mod_name, mod.mod_author, file_label,
+                        _fmt_size(mod.size_bytes) if mod.size_bytes else "—", opt_mark),
                 tags=row_tags,
             )
             if mod.file_id:
@@ -923,8 +1163,8 @@ class CollectionDetailDialog(tk.Frame):
             return
 
         existing_profiles = _profiles_for_game(self._game.name)
-        plugin_panel = getattr(app, "_plugin_panel", None)
-        overlay_parent = plugin_panel if plugin_panel is not None else self
+        mod_panel = getattr(app, "_mod_panel", None)
+        overlay_parent = mod_panel if mod_panel is not None else self
 
         def _on_mode_chosen(result):
             try:
@@ -948,9 +1188,20 @@ class CollectionDetailDialog(tk.Frame):
         mode, append_profile_name, overwrite_existing = mode_result
 
         if mode == "new":
-            # Sanitise collection name → profile name
+            # Sanitise collection name → profile name, append revision number
             raw = self._collection.name or self._collection.slug or "Collection"
-            profile_name = re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_")[:64] or "Collection"
+            base = re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_") or "Collection"
+            rev_num = self._revision_number
+            if rev_num is None:
+                # Parse from the revision button label (e.g. "Rev 13" or "Rev 13 (draft)")
+                try:
+                    rev_num = int(self._revision_var.get().split()[1])
+                except (IndexError, ValueError):
+                    rev_num = None
+            if rev_num is not None:
+                profile_name = f"{base}_Rev{rev_num}"[:64]
+            else:
+                profile_name = base[:64]
 
             self._status_var.set(f"Creating profile '{profile_name}'…")
             try:
@@ -965,6 +1216,8 @@ class CollectionDetailDialog(tk.Frame):
             # Store collection URL in profile_state (profile_settings) for "Open Current" button
             game_domain = getattr(self._game, "nexus_game_domain", None) or self._game_domain
             collection_url = f"https://www.nexusmods.com/{game_domain}/collections/{self._collection.slug}"
+            if self._revision_number is not None:
+                collection_url += f"/revisions/{self._revision_number}"
             save_collection_url_to_profile(profile_dir, collection_url)
             # Refresh the profile dropdown immediately so the new profile is visible
             self._refresh_profile_menu()
@@ -1007,6 +1260,24 @@ class CollectionDetailDialog(tk.Frame):
         - ``plugins`` array defines the exact ``plugins.txt`` order.
         Both are written after all mods are installed.
         """
+        # Register this install so any panel reopened mid-install can reconnect.
+        _slug = self._collection.slug or ""
+        _install_state: dict = {"status": "", "installed_fids": set(), "done": False}
+        if _slug:
+            _ACTIVE_INSTALLS[_slug] = _install_state
+
+        def _set_status(msg: str) -> None:
+            """Update status on both the registry and (if still alive) the panel."""
+            _install_state["status"] = msg
+            try:
+                color = "#4caf50" if msg.startswith("Downloading") else TEXT_DIM
+                self.after(0, lambda m=msg, c=color: (
+                    self._status_var.set(m),
+                    self._status_lbl.configure(fg=c),
+                ))
+            except Exception:
+                pass
+
         self._game.set_active_profile_dir(profile_dir)
         modlist_path = profile_dir / "modlist.txt"
         plugins_path = profile_dir / "plugins.txt"
@@ -1026,10 +1297,7 @@ class CollectionDetailDialog(tk.Frame):
                 collection_schema = cached
                 self._log("Collection install: reusing cached collection.json")
             else:
-                try:
-                    self.after(0, lambda: self._status_var.set("Downloading collection manifest…"))
-                except Exception:
-                    pass
+                _set_status("Downloading collection manifest…")
                 try:
                     collection_schema = self._api.get_collection_archive_json(download_link_path)
                     self._log(f"Collection install: parsed collection.json "
@@ -1161,8 +1429,10 @@ class CollectionDetailDialog(tk.Frame):
         # Step 2a: Download up to 3 mods in parallel
         # ------------------------------------------------------------------
         import concurrent.futures as _cf
+        from Utils.ui_config import load_collection_settings as _load_col_cfg
+        _col_cfg = _load_col_cfg()
 
-        _DL_WORKERS = 3
+        _DL_WORKERS = _col_cfg["max_concurrent"]
         # file_id → (DownloadResult, effective_game_domain) — domain is the one we actually used
         _dl_results: dict[int, tuple] = {}
         _dl_lock = threading.Lock()
@@ -1170,45 +1440,29 @@ class CollectionDetailDialog(tk.Frame):
         _dl_total = len(to_download)
         mod_panel = getattr(app, "_mod_panel", None)
 
+        # --- Single collection-wide progress bar ---
+        # Include all mods (skipped + to_download) so the bar reflects the full collection size.
+        _to_download_fids = {getattr(m, "file_id", None) for m in to_download}
+        _total_bytes = sum(getattr(m, "size_bytes", 0) or 0 for m in ordered_mods)
+        _dl_bytes_done = sum(
+            getattr(m, "size_bytes", 0) or 0
+            for m in ordered_mods
+            if getattr(m, "file_id", None) not in _to_download_fids
+        )  # pre-credit already-installed/skipped mods
+        _per_mod_prev: dict[int, int] = {}  # file_id → last reported bytes (for delta tracking)
+        _col_cancel: threading.Event | None = None
+        _dl_finished = threading.Event()  # set when executor completes
+
         def _download_one(mod):
-            nonlocal _dl_done
+            nonlocal _dl_done, _dl_bytes_done
 
-            # --- Create a stacked progress popup only for files >= 10 MB ---
-            _POPUP_MIN_BYTES = 10 * 1024 * 1024
-            dl_cancel = None
-            if mod_panel is not None and getattr(mod, "size_bytes", 0) >= _POPUP_MIN_BYTES:
-                _ce_holder: list = [None]
-                _ce_ready = threading.Event()
-
-                def _make_popup(mn=mod.mod_name):
-                    try:
-                        ce = mod_panel.get_download_cancel_event()
-                        mod_panel.show_download_progress(mn, cancel=ce)
-                        _ce_holder[0] = ce
-                    except Exception:
-                        pass
-                    finally:
-                        _ce_ready.set()
-
-                try:
-                    self.after(0, _make_popup)
-                except Exception:
-                    _ce_ready.set()
-                _ce_ready.wait(timeout=5)
-                dl_cancel = _ce_holder[0]
-
-            def _progress_cb(cur: int, tot: int, _ce=dl_cancel):
-                if mod_panel is None or _ce is None:
-                    return
-                try:
-                    mod_panel.after(
-                        0,
-                        lambda c=cur, t=tot: mod_panel.update_download_progress(
-                            c, t, cancel=_ce
-                        ),
-                    )
-                except Exception:
-                    pass
+            def _progress_cb(cur: int, tot: int, _fid=mod.file_id):
+                nonlocal _dl_bytes_done
+                with _dl_lock:
+                    prev = _per_mod_prev.get(_fid, 0)
+                    delta = max(cur - prev, 0)
+                    _per_mod_prev[_fid] = cur
+                    _dl_bytes_done += delta
 
             # --- Download ---
             # Enderal can use Skyrim mods; Enderal SE can use Skyrim SE mods.
@@ -1222,7 +1476,7 @@ class CollectionDetailDialog(tk.Frame):
                     mod_id=mod.mod_id,
                     file_id=mod.file_id,
                     progress_cb=_progress_cb,
-                    cancel=dl_cancel,
+                    cancel=_col_cancel,
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=getattr(mod, "size_bytes", 0) or 0,
                     dest_dir=get_download_cache_dir(),
@@ -1241,7 +1495,7 @@ class CollectionDetailDialog(tk.Frame):
                             mod_id=mod.mod_id,
                             file_id=mod.file_id,
                             progress_cb=_progress_cb,
-                            cancel=dl_cancel,
+                            cancel=_col_cancel,
                             known_file_name=mod.file_name or "",
                             expected_size_bytes=getattr(mod, "size_bytes", 0) or 0,
                             dest_dir=get_download_cache_dir(),
@@ -1251,40 +1505,81 @@ class CollectionDetailDialog(tk.Frame):
             except Exception as exc:
                 self._log(f"Collection install: download failed for '{mod.mod_name}': {exc}")
 
-            # --- Hide popup ---
-            if dl_cancel is not None and mod_panel is not None:
-                try:
-                    mod_panel.after(0, lambda ce=dl_cancel: mod_panel.hide_download_progress(cancel=ce))
-                except Exception:
-                    pass
+            # If progress_cb was never called (cached archive skip), advance by full mod size
+            mod_size = getattr(mod, "size_bytes", 0) or 0
+            if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
+                _progress_cb(mod_size, mod_size)
 
             with _dl_lock:
                 _dl_done += 1
                 _dl_results[mod.file_id] = (result, effective_domain)
                 done = _dl_done
-            try:
-                self.after(0, lambda d=done, t=_dl_total: self._status_var.set(
-                    f"Downloading: {d}/{t} complete\u2026"
-                ))
-            except Exception:
-                pass
+            _set_status(f"Downloading: {done}/{_dl_total} complete\u2026")
 
         if to_download:
-            try:
-                self.after(0, lambda n=_dl_total, w=_DL_WORKERS: self._status_var.set(
-                    f"Downloading {n} mod(s) — up to {w} at a time\u2026"
-                ))
-            except Exception:
-                pass
-            # Sort largest archives first so big downloads start immediately
-            # and bandwidth is never idle waiting for a large mod at the end.
+            _set_status(f"Downloading {_dl_total} mod(s) — up to {_DL_WORKERS} at a time\u2026")
             _to_download_sorted = sorted(
                 to_download,
                 key=lambda m: getattr(m, "size_bytes", 0) or 0,
-                reverse=True,
+                reverse=(_col_cfg["download_order"] == "largest"),
             )
+
+            # --- Show single collection-wide progress popup ---
+            # Create popup on the main thread, then poll _dl_bytes_done from a
+            # main-thread timer (avoids any cross-thread Tk after() issues).
+            if mod_panel is not None and _total_bytes > 0:
+                _ce_holder: list = [None]
+                _ce_ready = threading.Event()
+                tot_gb = _total_bytes / (1024 ** 3)
+                lbl = f"Downloading {_dl_total} mod(s)  ({tot_gb:.1f} GB)"
+
+                def _make_col_popup():
+                    try:
+                        ce = mod_panel.get_download_cancel_event()
+                        mod_panel.show_download_progress(lbl, cancel=ce)
+                        # Show pre-credited progress from already-installed mods
+                        if _dl_bytes_done > 0:
+                            mod_panel.update_download_progress(
+                                _dl_bytes_done, _total_bytes, cancel=ce
+                            )
+                        _ce_holder[0] = ce
+
+                        # Start a polling timer that reads _dl_bytes_done every 200ms
+                        def _poll_progress():
+                            if _dl_finished.is_set():
+                                # Final update to 100%, then hide after brief pause
+                                mod_panel.update_download_progress(
+                                    _total_bytes, _total_bytes, cancel=ce
+                                )
+                                mod_panel.after(
+                                    500,
+                                    lambda: mod_panel.hide_download_progress(cancel=ce),
+                                )
+                                return
+                            with _dl_lock:
+                                agg = _dl_bytes_done
+                            mod_panel.update_download_progress(
+                                agg, _total_bytes, cancel=ce
+                            )
+                            mod_panel.after(200, _poll_progress)
+
+                        mod_panel.after(200, _poll_progress)
+                    except Exception:
+                        pass
+                    finally:
+                        _ce_ready.set()
+
+                try:
+                    self.after(0, _make_col_popup)
+                except Exception:
+                    _ce_ready.set()
+                _ce_ready.wait(timeout=5)
+                _col_cancel = _ce_holder[0]
+
             with _cf.ThreadPoolExecutor(max_workers=_DL_WORKERS) as _pool:
                 list(_pool.map(_download_one, _to_download_sorted))
+
+            _dl_finished.set()
 
         # ------------------------------------------------------------------
         # Step 2b: Install downloaded archives in parallel worker threads.
@@ -1398,32 +1693,24 @@ class CollectionDetailDialog(tk.Frame):
                                 f"'{archive_path}': {_del_exc}"
                             )
 
-            # Update progress bar and mark row green on the main thread.
-            try:
-                self.after(0, lambda d=done_so_far, t=_dl_total: self._status_var.set(
-                    f"Installing: {d}/{t} complete\u2026"
-                ))
-            except Exception:
-                pass
+            # Update progress and mark row green — also write to registry for reconnect.
+            _set_status(f"Installing: {done_so_far}/{_dl_total} complete\u2026")
             if mod.file_id and folder_name:
+                _install_state["installed_fids"].add(mod.file_id)
                 try:
                     self.after(0, lambda fid=mod.file_id: self._mark_row_installed(fid))
                 except Exception:
                     pass
 
         if to_download:
-            try:
-                self.after(0, lambda n=_dl_total, w=_INSTALL_WORKERS: self._status_var.set(
-                    f"Installing {n} mod(s) — up to {w} at a time\u2026"
-                ))
-            except Exception:
-                pass
+            _set_status(f"Installing {_dl_total} mod(s) — up to {_INSTALL_WORKERS} at a time\u2026")
             # Sort smallest archives first so workers stay busy and large mods
             # don't block the queue.  Any mod that needs a manual FOMOD dialog
             # will still serialize correctly via the _interactive_dialog_lock — running
             # small non-interactive mods first means the FOMOD prompts typically
             # appear after the bulk of parallel work is already done.
-            _to_install = sorted(to_download, key=lambda m: getattr(m, "size_bytes", 0) or 0)
+            _to_install = sorted(to_download, key=lambda m: getattr(m, "size_bytes", 0) or 0,
+                                 reverse=(_col_cfg["install_order"] == "largest"))
             with _cf.ThreadPoolExecutor(max_workers=_INSTALL_WORKERS) as _install_pool:
                 list(_install_pool.map(_install_one, _to_install))
 
@@ -1457,6 +1744,79 @@ class CollectionDetailDialog(tk.Frame):
             )
             if mod.file_id in _install_results:
                 install_order.append((sort_key, folder))
+
+        # ------------------------------------------------------------------
+        # Step 2c: Install bundled assets from the collection archive
+        # ------------------------------------------------------------------
+        bundle_schema_mods = [
+            m for m in schema_mods
+            if (m.get("source") or {}).get("type", "").lower() == "bundle"
+        ]
+        if bundle_schema_mods and download_link_path:
+            import tempfile as _tf
+            _set_status(f"Downloading collection archive for {len(bundle_schema_mods)} bundled mod(s)…")
+            bundle_extract_dir = _tf.mkdtemp(prefix="amethyst_bundle_")
+            try:
+                cj_full = self._api.get_collection_archive_full(
+                    download_link_path, bundle_extract_dir
+                )
+                if cj_full:
+                    import os as _os
+                    from pathlib import Path as _Path
+                    for bm in bundle_schema_mods:
+                        bm_name = bm.get("name") or ""
+                        src = bm.get("source") or {}
+                        file_expr = src.get("fileExpression") or bm_name
+                        # Bundled files live at bundled/<fileExpression>/ or bundled/<name>/
+                        bundle_subdir = _Path(bundle_extract_dir) / "bundled" / file_expr
+                        if not bundle_subdir.is_dir():
+                            bundle_subdir = _Path(bundle_extract_dir) / "bundled" / bm_name
+                        if not bundle_subdir.is_dir():
+                            self._log(f"Collection install: bundled asset '{bm_name}' not found in archive")
+                            skipped += 1
+                            continue
+
+                        mod_name_clean = re.sub(r"[^\w\s\-]", "", bm_name).strip().replace(" ", "_") or file_expr
+                        if mod_name_clean.lower() in {k.lower() for k in staging_lower_map}:
+                            self._log(f"Collection install: bundled '{bm_name}' already installed — skipping")
+                            existing = staging_lower_map.get(mod_name_clean.lower(), mod_name_clean)
+                            install_order.append((-1, existing))
+                            installed += 1
+                            continue
+
+                        _set_status(f"Installing bundled asset: {bm_name}…")
+                        try:
+                            import shutil as _shutil2
+                            import configparser as _cpi
+                            dest = staging_path / mod_name_clean
+                            if dest.exists():
+                                _shutil2.rmtree(dest)
+                            _shutil2.copytree(str(bundle_subdir), str(dest))
+                            # Write meta.ini so it's recognised as an installed mod
+                            meta = dest / "meta.ini"
+                            cp = _cpi.ConfigParser()
+                            cp["General"] = {
+                                "modname": bm_name,
+                                "installationfile": file_expr,
+                            }
+                            with open(meta, "w", encoding="utf-8") as mf:
+                                cp.write(mf)
+                            # Bundled assets are patches — place at highest priority
+                            # (index 0 in modlist = highest priority in this app).
+                            install_order.append((-1, mod_name_clean))
+                            installed += 1
+                            self._log(f"Collection install: installed bundled asset '{bm_name}' → '{mod_name_clean}'")
+                        except Exception as exc:
+                            self._log(f"Collection install: failed to install bundled asset '{bm_name}': {exc}")
+                            skipped += 1
+            except Exception as exc:
+                self._log(f"Collection install: error processing bundled assets: {exc}")
+            finally:
+                import shutil as _shutil
+                try:
+                    _shutil.rmtree(bundle_extract_dir, ignore_errors=True)
+                except Exception:
+                    pass
 
         # ------------------------------------------------------------------
         # Step 3: Write modlist.txt in collection-defined order
@@ -1497,6 +1857,21 @@ class CollectionDetailDialog(tk.Frame):
         # Restore the original profile dir
         self._game.set_active_profile_dir(old_profile)
 
+        # Mark registry entry as done so the polling loop stops.
+        final_msg = (
+            f"Done — {installed}/{total} mods installed into profile '{profile_dir.name}'."
+            + (f" ({skipped} skipped)" if skipped else "")
+        )
+        _install_state["status"] = final_msg
+        _install_state["done"] = True
+        # Clean up registry after a short delay so a reconnecting panel can still read the final state.
+        def _cleanup():
+            _ACTIVE_INSTALLS.pop(_slug, None)
+        try:
+            self.after(5000, _cleanup)
+        except Exception:
+            _ACTIVE_INSTALLS.pop(_slug, None)
+
         try:
             self.after(0, lambda: self._on_install_done(installed, skipped, total, str(profile_dir.name)))
         except Exception:
@@ -1525,6 +1900,54 @@ class CollectionDetailDialog(tk.Frame):
         self._refresh_profile_menu()
         self._update_reset_btn_visibility()
         self._update_open_missing_btn_visibility()
+
+    # ------------------------------------------------------------------
+    # Install-progress reconnect (survives panel close/reopen)
+    # ------------------------------------------------------------------
+    def _maybe_reconnect_install(self) -> None:
+        """If an install is already running for this collection, start polling it."""
+        slug = self._collection.slug or ""
+        if slug and slug in _ACTIVE_INSTALLS:
+            self._poll_install_progress()
+
+    def _poll_install_progress(self) -> None:
+        """Poll _ACTIVE_INSTALLS for this collection and sync status + row colours."""
+        slug = self._collection.slug or ""
+        state = _ACTIVE_INSTALLS.get(slug)
+        if state is None:
+            self._install_poll_id = None
+            return
+
+        # Sync status label
+        status = state.get("status", "")
+        if status:
+            try:
+                self._status_var.set(status)
+            except Exception:
+                pass
+
+        # Green any rows installed since panel was last open
+        for fid in list(state.get("installed_fids", set())):
+            try:
+                self._mark_row_installed(fid)
+            except Exception:
+                pass
+
+        if state.get("done"):
+            # Final refresh so buttons update
+            try:
+                self._update_reset_btn_visibility()
+                self._update_open_missing_btn_visibility()
+            except Exception:
+                pass
+            self._install_poll_id = None
+            return
+
+        # Schedule next poll in 500 ms
+        try:
+            self._install_poll_id = self.after(500, self._poll_install_progress)
+        except Exception:
+            self._install_poll_id = None
 
     # ------------------------------------------------------------------
     # Reset load order
@@ -1598,6 +2021,80 @@ class CollectionDetailDialog(tk.Frame):
         except Exception:
             pass
 
+    def _update_offsite_panel(self):
+        """Rebuild the off-site mods panel below the treeview."""
+        if self._offsite_frame is None:
+            return
+        # Clear existing children
+        for w in self._offsite_frame.winfo_children():
+            w.destroy()
+
+        if not self._offsite_mods:
+            self._offsite_frame.pack_forget()
+            return
+
+        # Header row
+        hdr = tk.Frame(self._offsite_frame, bg=BG_HEADER, pady=4)
+        hdr.pack(fill="x")
+        tk.Label(
+            hdr,
+            text=f"Off-site mods ({len(self._offsite_mods)}) — must be downloaded manually:",
+            bg=BG_HEADER, fg=TEXT_DIM, font=font_sized_px("Segoe UI", 9), anchor="w",
+        ).pack(side="left", padx=10)
+
+        # Scrollable rows
+        ROW_H = scaled(28)
+        MAX_VISIBLE = 4
+        visible = min(len(self._offsite_mods), MAX_VISIBLE)
+        rows_frame = tk.Frame(self._offsite_frame, bg=BG_PANEL, height=visible * ROW_H)
+        rows_frame.pack(fill="x")
+        rows_frame.pack_propagate(False)
+
+        canvas = tk.Canvas(rows_frame, bg=BG_PANEL, highlightthickness=0, bd=0)
+        sb = tk.Scrollbar(rows_frame, orient="vertical", bg=BG_SEP, troughcolor=BG_DEEP,
+                          activebackground=ACCENT, highlightthickness=0, bd=0, width=scaled(10))
+        canvas.configure(yscrollcommand=sb.set)
+        sb.config(command=canvas.yview)
+
+        if len(self._offsite_mods) > MAX_VISIBLE:
+            sb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        inner = tk.Frame(canvas, bg=BG_PANEL)
+        canvas_window = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_configure(_e=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(e):
+            canvas.itemconfig(canvas_window, width=e.width)
+
+        inner.bind("<Configure>", _on_inner_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        for i, (name, url) in enumerate(self._offsite_mods):
+            row_bg = BG_ROW if i % 2 else BG_PANEL
+            row = tk.Frame(inner, bg=row_bg, height=ROW_H)
+            row.pack(fill="x")
+            row.pack_propagate(False)
+
+            tk.Label(
+                row, text=name or url, bg=row_bg, fg=TEXT_MAIN,
+                font=font_sized_px("Segoe UI", 9), anchor="w",
+            ).pack(side="left", padx=(10, 4), fill="x", expand=True)
+
+            _url = url  # capture for lambda
+            ctk.CTkButton(
+                row, text="Open", width=scaled(55), height=scaled(22),
+                fg_color=ACCENT, hover_color=ACCENT_HOV,
+                text_color="#ffffff", font=font_sized("Segoe UI", 9),
+                border_width=0,
+                command=lambda u=_url: open_url(u),
+            ).pack(side="right", padx=6, pady=3)
+
+        # Pack the offsite frame below the priority note
+        self._offsite_frame.pack(fill="x", side="top", after=self._priority_note)
+
     def _update_open_missing_btn_visibility(self):
         """Show 'Open Missing on Nexus' only when collection is installed and has missing mods."""
         if not hasattr(self, "_open_missing_btn") or self._open_missing_btn is None:
@@ -1639,12 +2136,23 @@ class CollectionDetailDialog(tk.Frame):
                 missing.add(mod.mod_id)
         return missing
 
+    def _on_open_on_nexus(self):
+        """Open this collection's Nexus page in the browser."""
+        slug = self._collection.slug or ""
+        if not slug:
+            return
+        url = f"https://www.nexusmods.com/games/{self._game_domain}/collections/{slug}"
+        if self._revision_number:
+            url += f"/revisions/{self._revision_number}"
+        webbrowser.open(url)
+
     def _on_open_missing_on_nexus(self):
         """Open Nexus pages for all mods in the collection that are not installed."""
         missing = self._get_missing_mod_ids()
         if not missing:
             return
-        for mod_id in sorted(missing):
+        _OPEN_LIMIT = 10
+        for mod_id in sorted(missing)[:_OPEN_LIMIT]:
             url = f"https://www.nexusmods.com/{self._game_domain}/mods/{mod_id}"
             open_url(url)
 
@@ -1720,12 +2228,13 @@ class CollectionDetailDialog(tk.Frame):
 
             ordered.sort(key=lambda x: x[0])
             # Position 0 = highest priority → first in modlist.txt
+            # Unmatched mods go at the top (highest priority)
             modlist_entries = [
                 ModEntry(name=name, enabled=True, locked=False)
-                for _, name in ordered
+                for name in unordered
             ] + [
                 ModEntry(name=name, enabled=True, locked=False)
-                for name in unordered
+                for _, name in ordered
             ]
 
             modlist_path = profile_dir / "modlist.txt"
@@ -1736,24 +2245,38 @@ class CollectionDetailDialog(tk.Frame):
                 except Exception as exc:
                     self._log(f"Reset load order: failed to write modlist.txt: {exc}")
 
-            # Re-write plugins.txt from collection.json
+            # Re-write plugins.txt and loadorder.txt from collection.json
             schema_plugins: list = cj.get("plugins", [])
             if schema_plugins:
                 try:
                     lines = []
+                    loadorder_lines = []
                     for plugin in schema_plugins:
                         name = plugin.get("name", "")
                         enabled = plugin.get("enabled", True)
                         lines.append(("*" if enabled else "") + name)
+                        loadorder_lines.append(name)
                     plugins_path = profile_dir / "plugins.txt"
                     plugins_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
                     self._log(f"Reset load order: wrote plugins.txt with {len(lines)} plugins")
+                    # Preserve vanilla plugins already in loadorder.txt (they must stay at top)
+                    loadorder_path = profile_dir / "loadorder.txt"
+                    collection_lower = {n.lower() for n in loadorder_lines}
+                    vanilla_prefix: list[str] = []
+                    if loadorder_path.exists():
+                        for lo_line in loadorder_path.read_text(encoding="utf-8").splitlines():
+                            lo_line = lo_line.strip()
+                            if lo_line and lo_line.lower() not in collection_lower:
+                                vanilla_prefix.append(lo_line)
+                    final_loadorder = vanilla_prefix + loadorder_lines
+                    loadorder_path.write_text("\n".join(final_loadorder) + "\n", encoding="utf-8")
+                    self._log(f"Reset load order: wrote loadorder.txt with {len(final_loadorder)} plugins ({len(vanilla_prefix)} vanilla)")
                 except Exception as exc:
                     self._log(f"Reset load order: failed to write plugins.txt: {exc}")
 
             msg = (
                 f"Load order reset — {len(ordered)} mods ordered"
-                + (f", {len(unordered)} unmatched (kept at bottom)." if unordered else ".")
+                + (f", {len(unordered)} unmatched (placed at top)." if unordered else ".")
             )
             self.after(0, lambda: self._status_var.set(msg))
             self.after(0, self._refresh_panels_after_reset)
@@ -1802,6 +2325,7 @@ class CollectionsDialog(tk.Frame):
         on_close: Optional[Callable] = None,
         initial_slug: Optional[str] = None,
         initial_game_domain: Optional[str] = None,
+        initial_revision: Optional[int] = None,
     ):
         super().__init__(parent, bg=BG_DEEP)
         self._game_domain = game_domain
@@ -1812,6 +2336,7 @@ class CollectionsDialog(tk.Frame):
         self._on_close = on_close
         self._initial_slug = initial_slug
         self._initial_game_domain = (initial_game_domain or game_domain).lower()
+        self._initial_revision = initial_revision
 
         self._collections: list = []
         self._cards: list[CollectionCard] = []
@@ -1845,26 +2370,29 @@ class CollectionsDialog(tk.Frame):
         from Nexus.nexus_api import NexusCollection
         domain = self._initial_game_domain or self._game_domain
         col = NexusCollection(slug=slug, name=slug, game_domain=domain)
-        self._open_detail(col)
+        self._open_detail(col, revision_number=self._initial_revision)
 
     @staticmethod
-    def _parse_collection_url(url: str) -> tuple[str, str]:
+    def _parse_collection_url(url: str) -> tuple[str, str, int | None]:
         """
-        Extract (slug, game_domain) from a Nexus Mods collection URL.
+        Extract (slug, game_domain, revision_number) from a Nexus Mods collection URL.
 
         Handles patterns like:
           https://www.nexusmods.com/skyrimspecialedition/collections/x2ezso
           https://www.nexusmods.com/games/skyrimspecialedition/collections/x2ezso
           https://next.nexusmods.com/skyrimspecialedition/collections/x2ezso
-        Returns ('', '') if parsing fails.
+          https://www.nexusmods.com/games/stardewvalley/collections/tckf0m/revisions/97
+        Returns ('', '', None) if parsing fails.
         """
         m = re.search(
-            r'nexusmods\.com/(?:games/)?([^/?#]+)/collections/([A-Za-z0-9_\-]+)',
+            r'nexusmods\.com/(?:games/)?([^/?#]+)/collections/([A-Za-z0-9_\-]+)'
+            r'(?:/revisions/(\d+))?',
             url,
         )
         if m:
-            return m.group(2), m.group(1)
-        return '', ''
+            rev = int(m.group(3)) if m.group(3) else None
+            return m.group(2), m.group(1), rev
+        return '', '', None
 
     def _build(self):
         self.grid_rowconfigure(2, weight=1)  # canvas row
@@ -2058,7 +2586,7 @@ class CollectionsDialog(tk.Frame):
         """Open the collection in the manager (detail view) for the currently selected profile."""
         if not self._open_current_url:
             return
-        slug, url_domain = self._parse_collection_url(self._open_current_url)
+        slug, url_domain, revision_number = self._parse_collection_url(self._open_current_url)
         if not slug:
             return
         game_domain = url_domain or self._game_domain
@@ -2066,7 +2594,7 @@ class CollectionsDialog(tk.Frame):
         col = NexusCollection(slug=slug, name=slug, game_domain=game_domain)
         # Pass current profile dir so Reset Load Order button appears (profile name may differ from slug)
         profile_dir = getattr(self._game, "_active_profile_dir", None) if self._game else None
-        self._open_detail(col, profile_dir=profile_dir)
+        self._open_detail(col, profile_dir=profile_dir, revision_number=revision_number)
 
     def _toggle_url_bar(self):
         """Show/hide the URL input bar."""
@@ -2085,7 +2613,7 @@ class CollectionsDialog(tk.Frame):
             self._status_label.configure(text="Please enter a collection URL.")
             return
 
-        slug, url_domain = self._parse_collection_url(url)
+        slug, url_domain, revision_number = self._parse_collection_url(url)
         if not slug:
             self._status_label.configure(
                 text="Could not parse URL — expected …nexusmods.com/…/collections/<slug>"
@@ -2104,7 +2632,7 @@ class CollectionsDialog(tk.Frame):
         # Use the slug as a placeholder name — the dialog header will show it
         # until CollectionDetailDialog populates the real name from the API.
         col = NexusCollection(slug=slug, name=slug, game_domain=game_domain)
-        self._open_detail(col)
+        self._open_detail(col, revision_number=revision_number)
 
     # ------------------------------------------------------------------
     # Canvas / scroll helpers
@@ -2164,10 +2692,9 @@ class CollectionsDialog(tk.Frame):
             self._bind_scroll(card.card)
             self._cards.append(card)
         self._regrid_cards()
-        self._load_images()
-        self._hide_loader()
+        self._load_images_then_hide_loader()
 
-    def _open_detail(self, collection, profile_dir=None):
+    def _open_detail(self, collection, profile_dir=None, revision_number=None):
         self._close_detail()
         panel = CollectionDetailDialog(
             self, collection=collection,
@@ -2175,6 +2702,7 @@ class CollectionsDialog(tk.Frame):
             game=self._game, app_root=self._app_root, log_fn=self._log,
             on_close=self._close_detail,
             profile_dir=profile_dir,
+            revision_number=revision_number,
         )
         panel.place(relx=0, rely=0, relwidth=1, relheight=1)
         self._detail_panel = panel
@@ -2224,6 +2752,46 @@ class CollectionsDialog(tk.Frame):
                 self._img_loading,
                 self,
             )
+
+    def _load_images_then_hide_loader(self):
+        """Kick off async image loads; hide the loader once all images are done."""
+        cards = list(self._cards)
+        if not cards:
+            self._hide_loader()
+            return
+
+        pending_urls: set[str] = set()
+        pending_count = 0
+        for card in cards:
+            url = card._collection.tile_image_url or ""
+            if url and url not in self._img_cache and url not in pending_urls:
+                pending_urls.add(url)
+                pending_count += 1
+
+        if pending_count == 0:
+            self._load_images()
+            self._hide_loader()
+            return
+
+        remaining = [pending_count]
+
+        def _on_image_done():
+            remaining[0] -= 1
+            if remaining[0] <= 0:
+                self._hide_loader()
+
+        for card in cards:
+            url = card._collection.tile_image_url or ""
+            needs_fetch = url and url not in self._img_cache and url in pending_urls
+            card.load_image_async(
+                url,
+                self._img_cache,
+                self._img_loading,
+                self,
+                on_done=_on_image_done if needs_fetch else None,
+            )
+            if needs_fetch:
+                pending_urls.discard(url)
 
     # ------------------------------------------------------------------
     # Loader overlay

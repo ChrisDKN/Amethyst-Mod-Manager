@@ -1,3 +1,14 @@
+- v1.0.11
+- Fixed files in custom deployment locations not getting backed up
+- Mods under custom deployment separators no longer show up in the data tab
+- Different collection revisions can now be selected, Previously only the latest revision could be installed
+- Collections that have off site downloads now show up in the collection install window, These must be installed manually if any exist
+- Bundled assets provided by collections are now downloaded with the collection
+- Fixed a rare case where a Fomod mod with 0 options would not be installed.
+- Installing a collection now shows total download progress instead of showing download progress per mod.
+- Fix for game dependency flag in Fomod causing options to be unselectable.
+- If a mod provides a shadercache folder (Skyrim SE), it will be moved to the overwrite folder on deploy to allow new shaders to be created within it.
+
 - v1.0.10
 - Fix for users whose prefix does not create a pfx folder and uses drive_c at the prefixes root
 - Using set deployment paths now updates the mod files tab to reflect the change

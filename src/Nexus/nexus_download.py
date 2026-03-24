@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import threading
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -93,6 +94,24 @@ def _write_sidecar_file_id(archive: Path, file_id: int) -> None:
         pass
 
 
+def _zip_is_intact(path: Path) -> bool:
+    """Return True if *path* is a valid, complete ZIP archive.
+
+    Reads only the end-of-central-directory record (last ~22 bytes) so this
+    is effectively instant regardless of archive size.  Returns False for
+    non-ZIP files so callers can skip the check for .7z/.rar/.tar.*
+    """
+    if not path.name.lower().endswith('.zip'):
+        return True  # can't cheaply verify; assume OK
+    try:
+        if not zipfile.is_zipfile(path):
+            return False
+        with zipfile.ZipFile(path, 'r') as z:
+            return len(z.infolist()) > 0
+    except Exception:
+        return False
+
+
 def _find_cached_archive(
     dl_dir: Path,
     display_name: str,
@@ -148,10 +167,11 @@ def _find_cached_archive(
                 if expected_size_bytes > 0:
                     ratio = actual / expected_size_bytes
                     if ratio >= _PARTIAL_CUTOFF:
-                        return f, ratio >= (1.0 - _SIZE_TOLERANCE)
+                        is_complete = ratio >= (1.0 - _SIZE_TOLERANCE) and _zip_is_intact(f)
+                        return f, is_complete
                     # Sidecar matched but file is clearly truncated — treat as partial
                     return f, False
-                return f, True
+                return f, _zip_is_intact(f)
 
     best_partial: "Path | None" = None
 
@@ -182,7 +202,7 @@ def _find_cached_archive(
                     if clean and norm_name not in clean and clean not in norm_name:
                         continue
                 # Size (and optional name hint) match — this is the right file.
-                return f, True
+                return f, _zip_is_intact(f)
             if ratio < _PARTIAL_CUTOFF:
                 # Might be a partial download of this file.
                 if not mod_id_str or mod_id_str in f.name:
@@ -198,10 +218,10 @@ def _find_cached_archive(
                         if norm_name in norm_stem or norm_stem in norm_name:
                             best_partial = f
         else:
-            # No expected size: match by name stem only, assume complete
+            # No expected size: match by name stem only, verify integrity
             norm_stem = re.sub(r'[^\w]', '', f.stem.lower())
             if norm_name and (norm_name in norm_stem or norm_stem in norm_name):
-                return f, True
+                return f, _zip_is_intact(f)
 
     if best_partial is not None:
         return best_partial, False

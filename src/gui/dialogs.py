@@ -5364,7 +5364,7 @@ class MissingReqsPanel(ctk.CTkFrame):
 class CollectionInstallModeDialog(tk.Frame):
     """Overlay panel that asks how to install a collection.
 
-    Placed over the plugin panel with place(relx=0, rely=0, relwidth=1, relheight=1).
+    Placed over the mod list panel with place(relx=0, rely=0, relwidth=1, relheight=1).
     Calls on_done(result) when finished, where result is one of:
       ("new", None, False)                          — create a new profile
       ("append", profile_name, overwrite_existing)  — append into existing profile

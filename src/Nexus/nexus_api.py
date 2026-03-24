@@ -230,6 +230,7 @@ class NexusCollectionMod:
     version: str = ""
     size_bytes: int = 0
     optional: bool = False
+    source_type: str = "nexus"  # "nexus", "bundle", "browse", "direct"
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +436,7 @@ class NexusAPI:
         self._rate = NexusRateLimits()
         self._cached_user: "NexusUser | None" = None
         self._cached_user_ts: float = 0.0
+        self._oauth_tokens = None
         self._session = requests.Session()
         self._session.headers.update({
             "APIKEY": self._key,
@@ -467,6 +469,7 @@ class NexusAPI:
         instance._rate = NexusRateLimits()
         instance._cached_user = None
         instance._cached_user_ts = 0.0
+        instance._oauth_tokens = tokens
         instance._session = requests.Session()
         instance._session.headers.update({
             "Authorization": f"Bearer {tokens.access_token}",
@@ -476,6 +479,17 @@ class NexusAPI:
             "Accept": "application/json",
         })
         return instance
+
+    def _refresh_oauth_if_needed(self) -> None:
+        """If this instance uses OAuth, refresh the access token if it is expiring soon and update the session header."""
+        tokens = getattr(self, "_oauth_tokens", None)
+        if tokens is None:
+            return
+        from Nexus.nexus_oauth import refresh_if_needed
+        new_tokens = refresh_if_needed(tokens)
+        if new_tokens.access_token != tokens.access_token:
+            self._oauth_tokens = new_tokens
+            self._session.headers["Authorization"] = f"Bearer {new_tokens.access_token}"
 
     # -- low-level ----------------------------------------------------------
 
@@ -510,6 +524,7 @@ class NexusAPI:
     def _get(self, path: str, params: dict | None = None,
              retries: int = _MAX_RETRIES) -> Any:
         """Issue a GET request against the v1 API, with retry on 429."""
+        self._refresh_oauth_if_needed()
         url = API_BASE + path
         for attempt in range(retries):
             try:
@@ -1418,6 +1433,7 @@ class NexusAPI:
             "offset": offset,
         }
         try:
+            self._refresh_oauth_if_needed()
             resp = self._session.post(
                 GRAPHQL_BASE,
                 json={"query": query, "variables": variables},
@@ -1683,7 +1699,12 @@ class NexusAPI:
     query CollectionDetail($slug: String!, $domain: String!) {
         collection(slug: $slug, domainName: $domain) {
             name slug totalDownloads
+            revisions {
+                revisionNumber
+                revisionStatus
+            }
             latestPublishedRevision {
+                revisionNumber
                 modCount totalSize assetsSizeBytes
                 downloadLink
                 modFiles {
@@ -1699,23 +1720,48 @@ class NexusAPI:
     }
     """
 
+    _COLLECTION_REVISION_QUERY = """
+    query CollectionRevision($slug: String!, $domain: String!, $revision: Int!) {
+        collectionRevision(slug: $slug, domainName: $domain, revision: $revision) {
+            revisionNumber
+            modCount totalSize assetsSizeBytes
+            downloadLink
+            modFiles {
+                optional
+                fileId
+                file {
+                    name version sizeInBytes
+                    mod { modId name author }
+                }
+            }
+        }
+    }
+    """
+
     def get_collection_detail(
-        self, slug: str, game_domain: str
-    ) -> tuple[str, int, int, list[NexusCollectionMod], str]:
+        self, slug: str, game_domain: str, revision_number: "int | None" = None
+    ) -> "tuple[str, int, int, list[NexusCollectionMod], str, list[dict]]":
         """
         Fetch the full mod list for a collection revision.
 
         Uses a fresh session so this method is safe to call from a background
         thread without interfering with the shared session used elsewhere.
 
+        Parameters
+        ----------
+        revision_number:
+            If given, fetch that specific revision instead of the latest published.
+
         Returns
         -------
-        (collection_name, total_size_bytes, mod_count, mods, download_link_path)
+        (collection_name, total_size_bytes, mod_count, mods, download_link_path, revisions)
+        where ``revisions`` is a list of dicts with ``revisionNumber`` and ``revisionStatus``
+        (only populated on the initial/latest fetch, not on specific-revision fetches).
         """
-        variables = {"slug": slug, "domain": game_domain}
-        # Build headers the same way as the shared session
         headers = dict(self._session.headers)
         try:
+            # Always fetch the main collection query to get name + full revisions list
+            variables = {"slug": slug, "domain": game_domain}
             resp = requests.post(
                 GRAPHQL_BASE,
                 json={"query": self._COLLECTION_DETAIL_QUERY, "variables": variables},
@@ -1725,14 +1771,38 @@ class NexusAPI:
             self._log_response("POST", "GraphQL get_collection_detail", resp)
             if not resp.ok:
                 app_log(f"GraphQL get_collection_detail failed: {resp.status_code}")
-                return ("", 0, 0, [])
+                return ("", 0, 0, [], "", [])
             data = resp.json()
             if "errors" in data:
                 app_log(f"GraphQL get_collection_detail errors: {data['errors']}")
-                return ("", 0, 0, [])
+                return ("", 0, 0, [], "", [])
             col = data.get("data", {}).get("collection") or {}
             col_name = col.get("name", "") or ""
-            rev = col.get("latestPublishedRevision") or {}
+            revisions: list[dict] = col.get("revisions") or []
+            latest_rev = col.get("latestPublishedRevision") or {}
+            latest_rev_num = int(latest_rev.get("revisionNumber") or 0)
+
+            if revision_number is not None and revision_number != latest_rev_num:
+                # Fetch the specific revision's mod files separately
+                rev_variables = {"slug": slug, "domain": game_domain, "revision": revision_number}
+                rev_resp = requests.post(
+                    GRAPHQL_BASE,
+                    json={"query": self._COLLECTION_REVISION_QUERY, "variables": rev_variables},
+                    headers=headers,
+                    timeout=max(self._timeout, 90),
+                )
+                self._log_response("POST", "GraphQL get_collection_detail (specific revision)", rev_resp)
+                if not rev_resp.ok:
+                    app_log(f"GraphQL get_collection_detail (revision) failed: {rev_resp.status_code}")
+                    return ("", 0, 0, [], "", [])
+                rev_data = rev_resp.json()
+                if "errors" in rev_data:
+                    app_log(f"GraphQL get_collection_detail (revision) errors: {rev_data['errors']}")
+                    return ("", 0, 0, [], "", [])
+                rev = rev_data.get("data", {}).get("collectionRevision") or {}
+            else:
+                rev = latest_rev
+
             total_size = int(rev.get("totalSize") or 0) + int(rev.get("assetsSizeBytes") or 0)
             mod_count = int(rev.get("modCount") or 0)
             download_link_path = rev.get("downloadLink") or ""
@@ -1750,10 +1820,10 @@ class NexusAPI:
                     size_bytes=int(f.get("sizeInBytes") or 0),
                     optional=bool(entry.get("optional", False)),
                 ))
-            return (col_name, total_size, mod_count, mods, download_link_path)
+            return (col_name, total_size, mod_count, mods, download_link_path, revisions)
         except Exception as exc:
             app_log(f"GraphQL get_collection_detail error: {exc}")
-            return ("", 0, 0, [], "")
+            return ("", 0, 0, [], "", [])
 
     def get_collection_archive_json(self, download_link_path: str) -> dict:
         """
@@ -1830,6 +1900,77 @@ class NexusAPI:
                     pass
         except Exception as exc:
             app_log(f"get_collection_archive_json error: {exc}")
+            return {}
+
+    def get_collection_archive_full(
+        self, download_link_path: str, extract_dir: str
+    ) -> dict:
+        """
+        Resolve a collection ``downloadLink`` path to a CDN URL, download the
+        ``.7z`` archive, extract **all** contents to ``extract_dir``, and
+        return the parsed ``collection.json`` dict.
+
+        Unlike ``get_collection_archive_json`` this keeps the full archive
+        contents on disk so the caller can install bundled assets from it.
+
+        Parameters
+        ----------
+        download_link_path:
+            The path returned by GraphQL, e.g.
+            ``/v2/collections/49623/revisions/649988/download_link``.
+        extract_dir:
+            Directory to extract the archive into (must already exist).
+
+        Returns
+        -------
+        Parsed ``collection.json`` dict, or empty dict on any failure.
+        """
+        import json as _json
+        import os as _os
+        import tempfile
+
+        import py7zr
+        import requests as _requests
+
+        headers = dict(self._session.headers)
+        try:
+            link_resp = _requests.get(
+                f"https://api.nexusmods.com{download_link_path}",
+                headers=headers,
+                timeout=30,
+            )
+            link_resp.raise_for_status()
+            cdn_url = (link_resp.json().get("download_links") or [{}])[0].get("URI", "")
+            if not cdn_url:
+                app_log("get_collection_archive_full: no CDN URI returned")
+                return {}
+
+            with tempfile.NamedTemporaryFile(suffix=".7z", delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                dl_resp = _requests.get(cdn_url, headers=headers, stream=True, timeout=300)
+                dl_resp.raise_for_status()
+                with open(tmp_path, "wb") as fh:
+                    for chunk in dl_resp.iter_content(chunk_size=65536):
+                        if chunk:
+                            fh.write(chunk)
+
+                with py7zr.SevenZipFile(tmp_path, mode="r") as arc:
+                    arc.extractall(path=extract_dir)
+
+                cj_path = _os.path.join(extract_dir, "collection.json")
+                if not _os.path.isfile(cj_path):
+                    app_log("get_collection_archive_full: collection.json not found after extract")
+                    return {}
+                with open(cj_path, "r", encoding="utf-8") as fh:
+                    return _json.load(fh)
+            finally:
+                try:
+                    _os.unlink(tmp_path)
+                except Exception:
+                    pass
+        except Exception as exc:
+            app_log(f"get_collection_archive_full error: {exc}")
             return {}
 
     # -- Helpers ------------------------------------------------------------

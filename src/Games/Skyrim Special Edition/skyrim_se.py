@@ -163,6 +163,40 @@ class SkyrimSE(Fallout_3):
         shutil.rmtree(src)
         log_fn(f"  Saved ShaderCache → overwrite/{self._SHADER_CACHE}/")
 
+    def _consolidate_mod_shadercaches(self, staging: Path, overwrite_dir: Path,
+                                      log_fn) -> None:
+        """Move ShaderCache folders from mod staging dirs into overwrite/.
+
+        For each enabled mod that contains a ShaderCache folder:
+          - Files not already present in overwrite/ShaderCache/ are copied there.
+          - Files already present in overwrite/ShaderCache/ are left as-is
+            (overwrite wins).
+          - The mod's ShaderCache folder is then deleted.
+        """
+        if not staging.is_dir():
+            return
+        dst_root = overwrite_dir / self._SHADER_CACHE
+        moved_any = False
+        for mod_dir in staging.iterdir():
+            if not mod_dir.is_dir():
+                continue
+            src = mod_dir / self._SHADER_CACHE
+            if not src.is_dir():
+                continue
+            dst_root.mkdir(parents=True, exist_ok=True)
+            for f in src.rglob("*"):
+                if f.is_file():
+                    rel = f.relative_to(src)
+                    target = dst_root / rel
+                    if not target.exists():
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(f, target)
+            shutil.rmtree(src)
+            log_fn(f"  Moved {mod_dir.name}/ShaderCache → overwrite/{self._SHADER_CACHE}/")
+            moved_any = True
+        if not moved_any:
+            log_fn("  No mod ShaderCache folders found.")
+
     def _deploy_shadercache_from_overwrite(self, data_dir: Path,
                                            overwrite_dir: Path, log_fn) -> None:
         """Full-copy ShaderCache from overwrite/ into Data/ (never hard-linked)."""
@@ -208,6 +242,9 @@ class SkyrimSE(Fallout_3):
 
         _log("Step 1: Saving ShaderCache to overwrite/ ...")
         self._shadercache_to_overwrite(data_dir, overwrite_dir, _log)
+
+        _log("Step 1b: Consolidating mod ShaderCache folders into overwrite/ ...")
+        self._consolidate_mod_shadercaches(staging, overwrite_dir, _log)
 
         _log("Step 2: Moving Data/ → Data_Core/ ...")
         moved = move_to_core(data_dir, log_fn=_log)

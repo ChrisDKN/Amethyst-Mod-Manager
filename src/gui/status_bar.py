@@ -13,9 +13,12 @@ import customtkinter as ctk
 
 from pathlib import Path
 
-from Utils.config_paths import get_logs_dir, get_download_cache_dir
+from Utils.config_paths import get_logs_dir, get_download_cache_dir, get_profiles_dir, get_config_dir
 from Utils.xdg import xdg_open
-from Utils.ui_config import load_ui_scale, save_ui_scale, detect_hidpi_scale
+from Utils.ui_config import (
+    load_ui_scale, save_ui_scale, detect_hidpi_scale,
+    load_collection_settings, save_collection_settings,
+)
 from gui.ctk_components import CTkProgressPopup, CTkAlert, CTkNotification
 from gui.theme import (
     ACCENT,
@@ -57,6 +60,46 @@ def _get_dir_size(path: Path) -> int:
     except OSError:
         pass
     return total
+
+
+def _get_orphaned_tmp_dirs() -> list:
+    """Return a list of orphaned modmgr_* temp dirs across all known staging paths."""
+    import json
+    found = []
+    search_roots: list[Path] = []
+
+    # Collect staging paths from all games' paths.json
+    try:
+        games_dir = get_config_dir() / "games"
+        for paths_json in games_dir.rglob("paths.json"):
+            try:
+                data = json.loads(paths_json.read_text())
+                sp = data.get("staging_path", "")
+                if sp:
+                    search_roots.append(Path(sp))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Also include the env-var profiles dir as a fallback
+    try:
+        search_roots.append(get_profiles_dir())
+    except Exception:
+        pass
+
+    seen: set[Path] = set()
+    for root in search_roots:
+        if root in seen or not root.is_dir():
+            continue
+        seen.add(root)
+        try:
+            for tmp_dir in root.rglob("modmgr_*"):
+                if tmp_dir.is_dir():
+                    found.append(tmp_dir)
+        except Exception:
+            pass
+    return found
 
 
 # ---------------------------------------------------------------------------
@@ -379,6 +422,73 @@ class SettingsPanel(ctk.CTkFrame):
 
         self.after(100, self._refresh_cache_size)
 
+        # ---- collections ----
+        ctk.CTkFrame(body, fg_color=BORDER, height=1).grid(
+            row=6, column=0, columnspan=3, sticky="ew", pady=(20, 0))
+
+        ctk.CTkLabel(body, text="Collections", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     anchor="w").grid(row=7, column=0, columnspan=3, sticky="w", pady=(12, 8))
+
+        _col_cfg = load_collection_settings()
+
+        # Downloads sub-label
+        ctk.CTkLabel(body, text="Downloads", font=FONT_SMALL, text_color=TEXT_DIM,
+                     anchor="w").grid(row=8, column=0, columnspan=3, sticky="w", pady=(0, 4))
+
+        dl_order_row = ctk.CTkFrame(body, fg_color="transparent")
+        dl_order_row.grid(row=9, column=0, columnspan=3, sticky="w", pady=(0, 6))
+
+        ctk.CTkLabel(dl_order_row, text="Order:", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     ).pack(side="left", padx=(0, 8))
+
+        self._dl_order_var = tk.StringVar(value=_col_cfg["download_order"])
+        ctk.CTkOptionMenu(
+            dl_order_row,
+            variable=self._dl_order_var,
+            values=["largest", "smallest"],
+            width=scaled(120),
+            font=FONT_NORMAL,
+        ).pack(side="left")
+
+        dl_concurrent_row = ctk.CTkFrame(body, fg_color="transparent")
+        dl_concurrent_row.grid(row=10, column=0, columnspan=3, sticky="w", pady=(0, 8))
+
+        ctk.CTkLabel(dl_concurrent_row, text="Max concurrent:", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     ).pack(side="left", padx=(0, 8))
+
+        self._max_concurrent_var = tk.DoubleVar(value=float(_col_cfg["max_concurrent"]))
+        ctk.CTkSlider(
+            dl_concurrent_row, from_=1, to=5, number_of_steps=4,
+            variable=self._max_concurrent_var,
+            width=scaled(200),
+            command=lambda _v: self._max_concurrent_lbl.configure(
+                text=str(int(round(self._max_concurrent_var.get())))),
+        ).pack(side="left")
+
+        self._max_concurrent_lbl = ctk.CTkLabel(
+            dl_concurrent_row, text=str(_col_cfg["max_concurrent"]),
+            font=FONT_NORMAL, text_color=TEXT_MAIN, width=scaled(20))
+        self._max_concurrent_lbl.pack(side="left", padx=(6, 0))
+
+        # Install sub-label
+        ctk.CTkLabel(body, text="Install", font=FONT_SMALL, text_color=TEXT_DIM,
+                     anchor="w").grid(row=11, column=0, columnspan=3, sticky="w", pady=(0, 4))
+
+        inst_row = ctk.CTkFrame(body, fg_color="transparent")
+        inst_row.grid(row=12, column=0, columnspan=3, sticky="w")
+
+        ctk.CTkLabel(inst_row, text="Order:", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     ).pack(side="left", padx=(0, 8))
+
+        self._inst_order_var = tk.StringVar(value=_col_cfg["install_order"])
+        ctk.CTkOptionMenu(
+            inst_row,
+            variable=self._inst_order_var,
+            values=["smallest", "largest"],
+            width=scaled(120),
+            font=FONT_NORMAL,
+        ).pack(side="left")
+
         # ---- footer ----
         foot = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=scaled(44))
         foot.grid(row=2, column=0, sticky="ew")
@@ -394,6 +504,11 @@ class SettingsPanel(ctk.CTkFrame):
                       fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="#ffffff",
                       font=FONT_NORMAL, command=self._apply,
                       ).pack(side="right", padx=(0, 0), pady=8)
+
+        ctk.CTkButton(foot, text="Save", width=scaled(80), height=scaled(28),
+                      fg_color="#3a5a3a", hover_color="#4a7a4a", text_color="#ffffff",
+                      font=FONT_NORMAL, command=self._save_no_restart,
+                      ).pack(side="right", padx=(0, 4), pady=8)
 
     def _read_raw_ini(self) -> str:
         import configparser
@@ -426,7 +541,8 @@ class SettingsPanel(ctk.CTkFrame):
         cache_dir = get_download_cache_dir()
 
         def _worker():
-            size = _get_dir_size(cache_dir)
+            orphans = _get_orphaned_tmp_dirs()
+            size = _get_dir_size(cache_dir) + sum(_get_dir_size(d) for d in orphans)
             try:
                 self.after(0, lambda: self._update_clear_cache_btn(size))
             except Exception:
@@ -448,17 +564,18 @@ class SettingsPanel(ctk.CTkFrame):
         self._cache_status_lbl.configure(text="Calculating…", text_color=TEXT_DIM)
 
         def _size_worker():
-            size = _get_dir_size(cache_dir)
-            self.after(0, lambda: _show_confirm(size))
+            orphans = _get_orphaned_tmp_dirs()
+            size = _get_dir_size(cache_dir) + sum(_get_dir_size(d) for d in orphans)
+            self.after(0, lambda: _show_confirm(size, orphans))
 
-        def _show_confirm(size):
+        def _show_confirm(size, orphans):
             try:
                 if not self._cache_status_lbl.winfo_exists():
                     return
             except Exception:
                 return
             self._cache_status_lbl.configure(text="", text_color=TEXT_DIM)
-            if size <= 0:
+            if size <= 0 and not orphans:
                 self._cache_status_lbl.configure(text="Cache is empty.", text_color=TEXT_DIM)
                 return
 
@@ -492,6 +609,13 @@ class SettingsPanel(ctk.CTkFrame):
                                 cleared += 1
                         except OSError:
                             pass
+                    # Remove orphaned modmgr_* temp dirs left in profile directories
+                    for tmp_dir in orphans:
+                        try:
+                            shutil.rmtree(tmp_dir, ignore_errors=True)
+                            cleared += 1
+                        except OSError:
+                            pass
                     self.after(0, lambda: _done(cleared))
                 except Exception as exc:
                     self.after(0, lambda: self._cache_status_lbl.configure(
@@ -507,6 +631,19 @@ class SettingsPanel(ctk.CTkFrame):
 
         threading.Thread(target=_size_worker, daemon=True).start()
 
+    def _save_no_restart(self):
+        """Save collection settings (and scale) without restarting."""
+        if self._auto_var.get():
+            save_ui_scale("auto")
+        else:
+            save_ui_scale(round(self._scale_var.get() * 20) / 20)
+        save_collection_settings(
+            download_order=self._dl_order_var.get(),
+            max_concurrent=int(round(self._max_concurrent_var.get())),
+            install_order=self._inst_order_var.get(),
+        )
+        self._on_done(self)
+
     def _on_close(self):
         self._on_done(self)
 
@@ -515,6 +652,11 @@ class SettingsPanel(ctk.CTkFrame):
             save_ui_scale("auto")
         else:
             save_ui_scale(round(self._scale_var.get() * 20) / 20)
+        save_collection_settings(
+            download_order=self._dl_order_var.get(),
+            max_concurrent=int(round(self._max_concurrent_var.get())),
+            install_order=self._inst_order_var.get(),
+        )
         self._on_done(self)
         python = sys.executable
         os.execv(python, [python] + sys.argv)

@@ -105,6 +105,10 @@ class Fallout_3(BaseGame):
         return True
 
     @property
+    def conflict_ignore_filenames(self) -> set[str]:
+        return {"info.xml","readme.txt","*.jpg"}
+    
+    @property
     def loot_sort_enabled(self) -> bool:
         return True
 

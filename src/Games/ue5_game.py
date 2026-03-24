@@ -67,6 +67,10 @@ _DEPLOYED_MANIFEST = "ue5_deployed.txt"
 # Vanilla files displaced by mod files are backed up here (inside the game root)
 _VANILLA_BACKUP_DIR = "Amethyst_vanilla_files"
 
+# Custom-dir vanilla files displaced by mod files are backed up here (inside profile root).
+# Files are stored with their full absolute path mirrored so restore can reconstruct them.
+_CUSTOM_VANILLA_BACKUP_DIR = "ue5_custom_vanilla_backup"
+
 
 # ---------------------------------------------------------------------------
 # Routing rule dataclass
@@ -318,6 +322,7 @@ class UE5Game(BaseGame):
 
         manifest: list[str] = []
         vanilla_backup_dir = (self._game_path or game_path) / _VANILLA_BACKUP_DIR
+        custom_vanilla_backup_dir = self.get_profile_root() / _CUSTOM_VANILLA_BACKUP_DIR
         linked = 0
         skipped = 0
         backed_up = 0
@@ -362,10 +367,14 @@ class UE5Game(BaseGame):
             try:
                 # Back up any real vanilla file before overwriting it.
                 # Symlinks are our own previous deploys — don't back those up.
-                # Skip backup for custom-dir files (not vanilla game files).
-                if dest_file.is_file() and not dest_file.is_symlink() and not in_custom_dir:
-                    game_rel = dest_file.relative_to(game_path)
-                    backup_target = vanilla_backup_dir / game_rel
+                if dest_file.is_file() and not dest_file.is_symlink():
+                    if in_custom_dir:
+                        # Mirror full absolute path so restore can reconstruct it.
+                        rel_abs = dest_file.relative_to(dest_file.anchor)
+                        backup_target = custom_vanilla_backup_dir / rel_abs
+                    else:
+                        game_rel = dest_file.relative_to(game_path)
+                        backup_target = vanilla_backup_dir / game_rel
                     if not backup_target.exists():
                         backup_target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(dest_file, backup_target)
@@ -518,6 +527,28 @@ class UE5Game(BaseGame):
                 shutil.rmtree(vanilla_backup_dir)
             except OSError as exc:
                 _log(f"  WARN: could not remove vanilla backup dir: {exc}")
+
+        # Restore custom-dir vanilla files (e.g. engine.ini deployed to a
+        # custom separator location outside the game root).
+        custom_vanilla_backup_dir = self.get_profile_root() / _CUSTOM_VANILLA_BACKUP_DIR
+        if custom_vanilla_backup_dir.is_dir():
+            for backup_file in custom_vanilla_backup_dir.rglob("*"):
+                if not backup_file.is_file():
+                    continue
+                # Reconstruct original absolute path from mirrored relative path.
+                rel = backup_file.relative_to(custom_vanilla_backup_dir)
+                dest = Path("/") / rel
+                try:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(backup_file), dest)
+                    restored_vanilla += 1
+                    _log(f"  Restored {dest.name} to custom location")
+                except OSError as exc:
+                    _log(f"  WARN: could not restore custom vanilla {dest}: {exc}")
+            try:
+                shutil.rmtree(custom_vanilla_backup_dir)
+            except OSError as exc:
+                _log(f"  WARN: could not remove custom vanilla backup dir: {exc}")
 
         # Remove directories that became empty, deepest first
         for d in sorted(dirs_to_check, key=lambda p: len(p.parts), reverse=True):

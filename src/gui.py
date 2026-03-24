@@ -648,6 +648,7 @@ class App(ctk.CTk):
                 mod_panel._on_collections(
                     initial_slug=coll_link.slug,
                     initial_game_domain=coll_link.game_domain,
+                    initial_revision=coll_link.revision_id or None,
                 )
 
         self.after(200, _open)

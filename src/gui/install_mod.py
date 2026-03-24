@@ -16,6 +16,11 @@ import zipfile
 # Any worker that needs user input acquires this lock, marshals the dialog to
 # the main thread, waits for the result, then releases.
 _interactive_dialog_lock = threading.Lock()
+
+# Guards /tmp space accounting so parallel workers don't all race to claim the
+# same free space before any of them has started writing.
+_tmp_space_lock = threading.Lock()
+_tmp_space_reserved: int = 0  # bytes currently claimed by in-flight extractions
 from pathlib import Path
 from datetime import datetime
 
@@ -43,7 +48,11 @@ def _run_dialog_on_main(parent_window, factory, result_holder: list,
     """Run on main thread via after(0, ...). Creates dialog via factory(parent), waits, stores result."""
     try:
         dlg = factory(parent_window)
-        parent_window.wait_window(dlg)
+        try:
+            if dlg.winfo_exists():
+                parent_window.wait_window(dlg)
+        except Exception:
+            pass
         result_holder[0] = getattr(dlg, result_attr) if result_attr else dlg
     except Exception:
         result_holder[0] = None
@@ -441,35 +450,58 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
                     src_root: str, dest_root: Path, log_fn) -> None:
     """
     Copy each (source, destination, is_folder) entry from src_root into dest_root.
+    Folder entries use the recursive case-insensitive copytree (serial).
+    File-only entries are copied in parallel for speed on large mods.
     """
-    copied = 0
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading as _threading
+
+    folder_copied = 0
+    file_entries: list[tuple[Path, Path]] = []  # (src, dst) pairs ready to copy
+
     for src_rel, dst_rel, is_folder in file_list:
         src = Path(src_root) / src_rel
         dst = _resolve_dst_case(dest_root, dst_rel) if dst_rel else dest_root / dst_rel
 
         if is_folder:
-            # Empty destination means merge folder contents into dest_root
             if not dst_rel:
                 dst = dest_root
             if src.is_dir():
-                copied += _copytree_case_insensitive(src, dst)
+                folder_copied += _copytree_case_insensitive(src, dst)
         else:
-            # Empty destination means place file at dest_root using source filename.
-            # Trailing slash/backslash means destination is a directory — append src filename.
             if not dst_rel:
                 dst = dest_root / src.name
             elif dst_rel.endswith("/") or dst_rel.endswith("\\"):
                 dst = _resolve_dst_case(dest_root, dst_rel.rstrip("/\\")) / src.name
             if src.is_file():
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                if dst.is_dir():
-                    shutil.rmtree(dst)
-                elif dst.exists():
-                    dst.chmod(0o644)
-                    dst.unlink()
-                shutil.copy2(src, dst)
-                copied += 1
+                file_entries.append((src, dst))
 
+    # Pre-create all destination directories (serial — avoids mkdir races).
+    dirs_seen: set[Path] = set()
+    for _, dst in file_entries:
+        d = dst.parent
+        if d not in dirs_seen:
+            d.mkdir(parents=True, exist_ok=True)
+            dirs_seen.add(d)
+
+    _copy_count = _threading.local()
+
+    def _copy_one(src_dst: tuple[Path, Path]) -> None:
+        src, dst = src_dst
+        if dst.is_dir():
+            shutil.rmtree(dst)
+        elif dst.exists():
+            dst.chmod(0o644)
+            dst.unlink()
+        shutil.copy2(src, dst)
+
+    _COPY_WORKERS = 8
+    with ThreadPoolExecutor(max_workers=_COPY_WORKERS) as pool:
+        futs = [pool.submit(_copy_one, pair) for pair in file_entries]
+        for f in as_completed(futs):
+            f.result()  # re-raise any exception
+
+    copied = folder_copied + len(file_entries)
     log_fn(f"Copied {copied} item(s) to staging area.")
 
 
@@ -585,19 +617,32 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             log_fn(traceback.format_exc())
         return
 
-    # Small archives (< 1 GB) extract to /tmp for speed (tmpfs).
-    # Large archives extract alongside the staging area so they don't exhaust
-    # RAM or the /tmp partition.
-    _1GB = 1 * 1024 ** 3
+    # Use /tmp (tmpfs) only when it has enough headroom for this archive plus a
+    # 512 MB safety margin.  A module-level lock + reservation counter prevents
+    # parallel workers from all racing to claim the same free space before any
+    # of them has started writing.
+    global _tmp_space_reserved
     try:
         _archive_size = os.path.getsize(archive_path)
     except OSError:
         _archive_size = 0
     _staging = game.get_effective_mod_staging_path()
-    if _archive_size >= _1GB:
-        _tmp_parent = _staging.parent if _staging else None
-    else:
+    _tmp_claimed = False
+    with _tmp_space_lock:
+        try:
+            _tmp_stat = os.statvfs("/tmp")
+            _tmp_free = _tmp_stat.f_frsize * _tmp_stat.f_bavail
+            _tmp_headroom = 512 * 1024 * 1024  # keep 512 MB free in /tmp
+            _use_tmp = _archive_size + _tmp_headroom + _tmp_space_reserved < _tmp_free
+        except OSError:
+            _use_tmp = False
+        if _use_tmp:
+            _tmp_space_reserved += _archive_size
+            _tmp_claimed = True
+    if _use_tmp:
         _tmp_parent = None  # let mkdtemp use the default /tmp
+    else:
+        _tmp_parent = _staging.parent if _staging else None
     try:
         if _tmp_parent:
             _tmp_parent.mkdir(parents=True, exist_ok=True)
@@ -615,34 +660,38 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         if ext.endswith(".zip"):
             import subprocess
             _zip_done = False
-            try:
-                log_fn("Extracting with zipfile…")
-                with zipfile.ZipFile(archive_path, "r") as z:
-                    members = z.infolist()
-                    _total = len(members)
-                    for _i, member in enumerate(members):
+            # For large ZIPs, skip the Python extractor and go straight to the
+            # 7z binary which is significantly faster for large archives.
+            _archive_mb = os.path.getsize(archive_path) / (1024 * 1024)
+            _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+            _use_python_zip = _archive_mb < 200 or not _7z_bin
+            if _use_python_zip:
+                try:
+                    log_fn("Extracting with zipfile…")
+                    with zipfile.ZipFile(archive_path, "r") as z:
+                        members = z.infolist()
                         # Normalise Windows backslash paths so Linux extractors
                         # create the correct folder hierarchy instead of treating
                         # the whole path as a single filename.
-                        fixed_name = member.filename.replace("\\", "/")
-                        if fixed_name != member.filename:
-                            member.filename = fixed_name
-                        z.extract(member, extract_dir)
+                        _has_backslash = any("\\" in m.filename for m in members)
+                        if _has_backslash:
+                            for m in members:
+                                m.filename = m.filename.replace("\\", "/")
                         if progress_fn is not None:
-                            progress_fn(_i + 1, _total, "Extracting…")
-                _zip_done = True
-            except Exception as e_zip:
-                log_fn(f"zipfile failed ({e_zip}), retrying with 7z…")
+                            progress_fn(0, 0, "Extracting…")
+                        z.extractall(extract_dir, members)
+                    _zip_done = True
+                except Exception as e_zip:
+                    log_fn(f"zipfile failed ({e_zip}), retrying with 7z…")
             if not _zip_done:
-                _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
                 if _7z_bin:
                     shutil.rmtree(extract_dir, ignore_errors=True)
                     os.makedirs(extract_dir, exist_ok=True)
                     if progress_fn is not None:
                         progress_fn(0, 0, "Extracting…")
                     result = subprocess.run(
-                        [_7z_bin, "x", archive_path, f"-o{extract_dir}", "-y"],
-                        capture_output=True, text=True,
+                        [_7z_bin, "x", archive_path, f"-o{extract_dir}", "-y", "-mmt=on"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                     )
                     if result.returncode == 0:
                         _zip_done = True
@@ -658,7 +707,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     progress_fn(0, 0, "Extracting…")
                 result = subprocess.run(
                     ["bsdtar", "-xf", archive_path, "-C", extract_dir],
-                    capture_output=True, text=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 )
                 if result.returncode != 0:
                     raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
@@ -702,8 +751,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     if progress_fn is not None:
                         progress_fn(0, 0, "Extracting…")
                     result = subprocess.run(
-                        [_7z_bin, "x", archive_path, f"-o{extract_dir}", "-y"],
-                        capture_output=True, text=True,
+                        [_7z_bin, "x", archive_path, f"-o{extract_dir}", "-y", "-mmt=on"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                     )
                     if result.returncode == 0:
                         _7z_done = True
@@ -719,33 +768,27 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     progress_fn(0, 0, "Extracting…")
                 result = subprocess.run(
                     ["bsdtar", "-xf", archive_path, "-C", extract_dir],
-                    capture_output=True, text=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 )
                 if result.returncode != 0:
                     raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
                 log_fn("Extracted with bsdtar.")
         elif any(ext.endswith(s) for s in (".tar.gz", ".tar.bz2", ".tar.xz", ".tar")):
             log_fn("Extracting with tarfile…")
+            if progress_fn is not None:
+                progress_fn(0, 0, "Extracting…")
             with tarfile.open(archive_path, "r:*") as t:
-                members = t.getmembers()
-                _total = len(members)
-                for _i, member in enumerate(members):
-                    t.extract(member, extract_dir, filter="fully_trusted")
-                    if progress_fn is not None:
-                        progress_fn(_i + 1, _total, "Extracting…")
+                t.extractall(extract_dir, filter="fully_trusted")
         elif ext.endswith(".rar"):
             import subprocess
             _rar_done = False
             try:
                 import rarfile
                 log_fn("Extracting with rarfile…")
+                if progress_fn is not None:
+                    progress_fn(0, 0, "Extracting…")
                 with rarfile.RarFile(archive_path, "r") as r:
-                    members = r.infolist()
-                    _total = len(members)
-                    for _i, member in enumerate(members):
-                        r.extract(member, extract_dir)
-                        if progress_fn is not None:
-                            progress_fn(_i + 1, _total, "Extracting…")
+                    r.extractall(extract_dir)
                 _rar_done = True
             except ImportError:
                 pass
@@ -757,7 +800,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     progress_fn(0, 0, "Extracting…")
                 result = subprocess.run(
                     ["unrar", "x", "-y", archive_path, extract_dir + os.sep],
-                    capture_output=True, text=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 )
                 if result.returncode != 0:
                     log_fn(f"unrar failed ({result.stderr.strip()}), trying bsdtar…")
@@ -769,7 +812,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     progress_fn(0, 0, "Extracting…")
                 result = subprocess.run(
                     ["bsdtar", "-xf", archive_path, "-C", extract_dir],
-                    capture_output=True, text=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 )
                 if result.returncode != 0:
                     raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
@@ -846,7 +889,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                                          active_files=active_files,
                                          saved_selections=saved_selections,
                                          selections_path=sel_path)
-                    parent_window.wait_window(dialog)
+                    if dialog.winfo_exists():
+                        parent_window.wait_window(dialog)
                     dialog_result = dialog.result
                 else:
                     with _interactive_dialog_lock:
@@ -1390,3 +1434,6 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         return None
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
+        if _tmp_claimed:
+            with _tmp_space_lock:
+                _tmp_space_reserved = max(0, _tmp_space_reserved - _archive_size)

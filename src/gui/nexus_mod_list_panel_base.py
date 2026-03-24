@@ -232,8 +232,7 @@ class _NexusModListPanel:
         for entry in self._entries:
             self._cards.append(self._make_card(entry, installed_ids))
         self._regrid_cards()
-        self._load_images()
-        self._hide_loader()
+        self._load_images_then_hide_loader()
 
     def _regrid_cards(self):
         """Place cards in a grid, recomputing column count from canvas width."""
@@ -270,6 +269,49 @@ class _NexusModListPanel:
                 self._img_loading,
                 self._parent,
             )
+
+    def _load_images_then_hide_loader(self):
+        """Kick off async image loads; hide the loader once all images are done."""
+        cards = list(self._cards)
+        if not cards:
+            self._hide_loader()
+            return
+
+        # Count cards that need an async fetch (not cached, has a URL).
+        # Cards with no URL or already cached will apply synchronously and don't need counting.
+        pending_urls = set()
+        pending_count = 0
+        for mc in cards:
+            url = getattr(mc._entry, "picture_url", "") or ""
+            if url and url not in self._img_cache and url not in pending_urls:
+                pending_urls.add(url)
+                pending_count += 1
+
+        if pending_count == 0:
+            self._load_images()
+            self._hide_loader()
+            return
+
+        remaining = [pending_count]
+
+        def _on_image_done():
+            remaining[0] -= 1
+            if remaining[0] <= 0:
+                self._hide_loader()
+
+        for mc in cards:
+            url = getattr(mc._entry, "picture_url", "") or ""
+            needs_fetch = url and url not in self._img_cache and url in pending_urls
+            mc.load_image_async(
+                url,
+                self._img_cache,
+                self._img_loading,
+                self._parent,
+                on_done=_on_image_done if needs_fetch else None,
+            )
+            # Each unique pending URL only counts once — remove after first assignment.
+            if needs_fetch:
+                pending_urls.discard(url)
 
     # ------------------------------------------------------------------
     # Loader overlay

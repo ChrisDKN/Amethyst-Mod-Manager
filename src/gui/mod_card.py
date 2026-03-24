@@ -153,8 +153,8 @@ class ModCard:
         for widget in (self.card, self._img_label, title_label, btn_frame):
             widget.bind("<ButtonRelease-3>", on_right_click)
 
-    def load_image_async(self, url: str, cache: dict, loading: set, parent):
-        """Start async image load; update label when done."""
+    def load_image_async(self, url: str, cache: dict, loading: set, parent, on_done: Callable | None = None):
+        """Start async image load; update label when done. Calls on_done() (on main thread) when finished."""
         if not url or self._image_loaded:
             return
         if url in cache:
@@ -191,6 +191,8 @@ class ModCard:
                 if photo is not None:
                     cache[url] = photo
                     self._apply_image(photo)
+                if on_done is not None:
+                    on_done()
 
             parent.after(0, _done)
 

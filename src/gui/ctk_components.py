@@ -1048,7 +1048,8 @@ class CTkProgressPopup(ctk.CTkToplevel):
     so it reliably appears above the main window (CTkFrame overlays can render black)."""
 
     def __init__(self, master, title: str = "Background Tasks", label: str = "Label...",
-                 message: str = "Do something...", side: str = "right_bottom"):
+                 message: str = "Do something...", side: str = "right_bottom",
+                 on_show: "callable | None" = None):
         from gui.theme import BG_PANEL
         super().__init__(master, fg_color=BG_PANEL)
         self.root = master
@@ -1086,39 +1087,47 @@ class CTkProgressPopup(ctk.CTkToplevel):
         self.message.grid(row=3, column=0, sticky="nw", padx=20, pady=(0, 10))
 
         self.horizontal, self.vertical = side.split("_")
+        self._on_show = on_show  # called whenever the popup becomes visible (e.g. to restack siblings)
         self.withdraw()
         self._update_geometry()
-        self.deiconify()
-        self._focus_out_bid = master.bind("<FocusOut>", self._on_master_focus_out, add="+")
-        self._focus_in_bid = master.bind("<FocusIn>", self._on_master_focus_in, add="+")
+        self._was_shown = False  # tracks last known shown state
+        # Poll the root window state every 200 ms to show/hide the popup.
+        # Event bindings (<FocusOut>, <Map>/<Unmap>) are unreliable with
+        # overrideredirect windows on Linux — polling is simple and robust.
+        self._poll_visibility()
 
-    def _focus_still_in_app(self):
-        """True if keyboard focus is on this popup or the main window (not another app)."""
+    def _root_is_active(self) -> bool:
+        """Return True if the root toplevel is visible and has focus."""
         try:
-            w = self.root.focus_get()
+            root_top = self.root.winfo_toplevel()
+            if root_top.state() in ("iconic", "withdrawn"):
+                return False
+            if not root_top.winfo_viewable():
+                return False
+            # Check whether the app has focus (focus_displayof returns non-None
+            # when any window in this Tk instance has the X input focus).
+            return root_top.focus_displayof() is not None
         except Exception:
-            return False
-        if w is None:
-            return False
-        top = w.winfo_toplevel()
-        return top is self or top is self.root
+            return True
 
-    def _on_master_focus_out(self, event=None):
-        """When main window loses focus, hide popup if focus left the app entirely."""
-        self.after(50, self._maybe_hide_on_focus_loss)
-
-    def _maybe_hide_on_focus_loss(self):
+    def _poll_visibility(self) -> None:
+        """Periodically sync popup visibility with the root window's active state."""
         if not self.winfo_exists():
             return
-        if self._focus_still_in_app():
-            return
-        self.withdraw()
-
-    def _on_master_focus_in(self, event=None):
-        """When main window gains focus, show popup again if it was hidden."""
-        if self.winfo_exists():
-            self.deiconify()
+        should_show = self._root_is_active()
+        if should_show and not self._was_shown:
             self._update_geometry()
+            self.deiconify()
+            self._was_shown = True
+            if self._on_show:
+                try:
+                    self._on_show()
+                except Exception:
+                    pass
+        elif not should_show and self._was_shown:
+            self.withdraw()
+            self._was_shown = False
+        self.after(200, self._poll_visibility)
 
     def _update_geometry(self):
         """Position window at bottom-right of parent using actual pixel dimensions."""
@@ -1163,11 +1172,13 @@ class CTkProgressPopup(ctk.CTkToplevel):
         root = getattr(self, "root", None)
         if root is None or not root.winfo_exists():
             return
-        for attr, seq in [("_configure_bid", "<Configure>"), ("_focus_out_bid", "<FocusOut>"), ("_focus_in_bid", "<FocusIn>")]:
+        for attr, seq, target in [
+            ("_configure_bid", "<Configure>", root),
+        ]:
             bid = getattr(self, attr, None)
             if bid is not None:
                 try:
-                    root.unbind(seq, bid)
+                    target.unbind(seq, bid)
                 except Exception:
                     pass
 

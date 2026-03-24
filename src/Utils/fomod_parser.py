@@ -160,8 +160,10 @@ def _parse_dependency(el: ET.Element) -> Dependency:
             file_state=el.get("state", "Active"),
         )
     else:
-        # Unknown dependency type — treat as a no-op composite (always true)
-        return Dependency(dep_type="composite", operator="And", sub_deps=[])
+        # Unknown dependency type (e.g. gameDependency) — unsatisfiable; we
+        # cannot evaluate it, so treat it as a failing condition so that
+        # patterns which depend solely on it do not accidentally match.
+        return Dependency(dep_type="unsatisfiable")
 
 
 def _parse_files(files_el: ET.Element) -> list[FileInstall]:

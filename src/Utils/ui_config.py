@@ -120,3 +120,62 @@ def get_ui_scale() -> float:
 
 def _clamp(value: float) -> float:
     return max(_MIN_SCALE, min(_MAX_SCALE, value))
+
+
+# ---------------------------------------------------------------------------
+# Collection settings
+# ---------------------------------------------------------------------------
+_COLLECTIONS_SECTION = "collections"
+
+_DEFAULT_DOWNLOAD_ORDER = "largest"   # "largest" | "smallest"
+_DEFAULT_MAX_CONCURRENT = 3
+_DEFAULT_INSTALL_ORDER = "smallest"   # "smallest" | "largest"
+
+
+def load_collection_settings() -> dict:
+    """Return collection settings dict with keys: download_order, max_concurrent, install_order."""
+    path = get_ui_config_path()
+    defaults = {
+        "download_order": _DEFAULT_DOWNLOAD_ORDER,
+        "max_concurrent": _DEFAULT_MAX_CONCURRENT,
+        "install_order": _DEFAULT_INSTALL_ORDER,
+    }
+    if not path.is_file():
+        return defaults
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(path)
+        if not parser.has_section(_COLLECTIONS_SECTION):
+            return defaults
+        s = parser[_COLLECTIONS_SECTION]
+        download_order = s.get("download_order", _DEFAULT_DOWNLOAD_ORDER).strip().lower()
+        if download_order not in ("largest", "smallest"):
+            download_order = _DEFAULT_DOWNLOAD_ORDER
+        max_concurrent = int(s.get("max_concurrent", str(_DEFAULT_MAX_CONCURRENT)))
+        max_concurrent = max(1, min(5, max_concurrent))
+        install_order = s.get("install_order", _DEFAULT_INSTALL_ORDER).strip().lower()
+        if install_order not in ("smallest", "largest"):
+            install_order = _DEFAULT_INSTALL_ORDER
+        return {
+            "download_order": download_order,
+            "max_concurrent": max_concurrent,
+            "install_order": install_order,
+        }
+    except Exception:
+        return defaults
+
+
+def save_collection_settings(download_order: str, max_concurrent: int, install_order: str) -> None:
+    """Persist collection settings to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = configparser.ConfigParser()
+    if path.is_file():
+        parser.read(path)
+    if _COLLECTIONS_SECTION not in parser:
+        parser[_COLLECTIONS_SECTION] = {}
+    parser[_COLLECTIONS_SECTION]["download_order"] = download_order
+    parser[_COLLECTIONS_SECTION]["max_concurrent"] = str(max(1, min(5, max_concurrent)))
+    parser[_COLLECTIONS_SECTION]["install_order"] = install_order
+    with path.open("w") as f:
+        parser.write(f)
