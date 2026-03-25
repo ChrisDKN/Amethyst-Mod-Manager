@@ -115,10 +115,22 @@ class StatusBar(ctk.CTkFrame):
         self.grid_propagate(False)
 
         self._visible = False  # hidden by default
+        self._current_h = self._COLLAPSED_H
 
-        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(
-            side="top", fill="x"
+        self._drag_y: int | None = None
+        self._drag_h: int | None = None
+        self._drag_target_h: int = self._COLLAPSED_H
+        self._drag_pending: bool = False
+        self._ghost_line: tk.Toplevel | None = None
+
+        # Drag-resize handle — a thin canvas strip (no layout recalc on redraw)
+        self._drag_handle = tk.Canvas(
+            self, bg=BORDER, height=4, highlightthickness=0, cursor="sb_v_double_arrow"
         )
+        self._drag_handle.pack(side="top", fill="x")
+        self._drag_handle.bind("<ButtonPress-1>", self._on_drag_start)
+        self._drag_handle.bind("<B1-Motion>", self._on_drag_motion)
+        self._drag_handle.bind("<ButtonRelease-1>", self._on_drag_end)
 
         label_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=scaled(20))
         label_bar.pack(side="top", fill="x")
@@ -245,12 +257,93 @@ class StatusBar(ctk.CTkFrame):
         self._visible = not self._visible
         if self._visible:
             self._textbox.pack(fill="both", expand=True)
-            self.configure(height=self._EXPANDED_H)
+            self._current_h = self._EXPANDED_H
+            self._set_height(self._current_h)
             self._toggle_btn.configure(text="▼ Hide")
         else:
             self._textbox.pack_forget()
-            self.configure(height=self._COLLAPSED_H)
+            self._current_h = self._COLLAPSED_H
+            self._set_height(self._current_h)
             self._toggle_btn.configure(text="▲ Show")
+
+    def _on_drag_start(self, event: tk.Event) -> None:
+        # Use actual rendered height as the drag baseline, not _current_h,
+        # so Show-then-drag starts from the real panel size.
+        actual_h = self.winfo_height()
+        self._current_h = actual_h
+        self._drag_y = event.y_root
+        self._drag_h = actual_h
+        self._drag_target_h = actual_h
+        win = self.winfo_toplevel()
+        self._panel_bottom_y = win.winfo_rooty() + win.winfo_height()
+        self._ghost_offset = event.y_root - (self._panel_bottom_y - actual_h)
+        self._show_ghost(event.y_root)
+
+    def _on_drag_motion(self, event: tk.Event) -> None:
+        if self._drag_y is None:
+            return
+        delta = self._drag_y - event.y_root
+        win = self.winfo_toplevel()
+        max_h = int(win.winfo_height() * 0.85)
+        new_h = max(self._COLLAPSED_H, min(self._drag_h + delta, max_h))
+        self._drag_target_h = new_h
+        ghost_y = self._panel_bottom_y - new_h + self._ghost_offset
+        self._move_ghost(ghost_y)
+
+    def _on_drag_end(self, event: tk.Event) -> None:
+        self._drag_y = None
+        self._destroy_ghost()
+        new_h = self._drag_target_h
+        if new_h > self._COLLAPSED_H and not self._visible:
+            self._visible = True
+            self._textbox.pack(fill="both", expand=True)
+            self._toggle_btn.configure(text="▼ Hide")
+        elif new_h <= self._COLLAPSED_H and self._visible:
+            self._visible = False
+            self._textbox.pack_forget()
+            self._toggle_btn.configure(text="▲ Show")
+        self._current_h = new_h
+        self._set_height(new_h)
+
+    # --- ghost line helpers ---------------------------------------------------
+
+    def _show_ghost(self, y_root: int) -> None:
+        win = self.winfo_toplevel()
+        self._ghost_line = tk.Toplevel(win)
+        self._ghost_line.overrideredirect(True)
+        self._ghost_line.attributes("-alpha", 0.6)
+        self._ghost_line.configure(bg=ACCENT)
+        self._ghost_line.attributes("-topmost", True)
+        self._move_ghost(y_root)
+
+    def _move_ghost(self, y_root: int) -> None:
+        if self._ghost_line is None:
+            return
+        win_x = self.winfo_rootx()
+        win_w = self.winfo_toplevel().winfo_width()
+        self._ghost_line.geometry(f"{win_w}x2+{win_x}+{y_root}")
+
+    def _destroy_ghost(self) -> None:
+        if self._ghost_line is not None:
+            self._ghost_line.destroy()
+            self._ghost_line = None
+
+    def set_resize_callback(self, fn) -> None:
+        """Register a callback(height) that the app uses to resize the status bar row."""
+        self._resize_callback = fn
+
+    def _set_height(self, h: int) -> None:
+        fn = getattr(self, "_resize_callback", None)
+        if fn:
+            fn(h)
+        else:
+            # Fallback: try to drive it ourselves
+            info = self.grid_info()
+            if info:
+                row = int(info["row"])
+                self.master.grid_rowconfigure(row, minsize=h, weight=0)
+            self._desired_height = h
+            super(ctk.CTkFrame, self).configure(height=h)
 
     def set_mod_count(self, text: str) -> None:
         """Update the x/y mods active label in the log bar."""

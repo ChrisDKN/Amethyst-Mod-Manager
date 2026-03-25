@@ -129,6 +129,7 @@ from gui.mod_files_overlay import ModFilesOverlay
 from Nexus.nexus_meta import build_meta_from_download, ensure_installed_stamp, read_meta, write_meta
 from Nexus.nexus_download import delete_archive_and_sidecar
 from Utils.config_paths import get_download_cache_dir
+from Utils.ui_config import load_column_widths, save_column_widths
 from Nexus.nexus_update_checker import check_for_updates
 
 
@@ -420,6 +421,13 @@ class ModListPanel(ctk.CTkFrame):
         self._sort_column: str | None = None
         self._sort_ascending: bool = True
 
+        # Column resize overrides: col index (1–6) → width in px
+        # When set, _layout_columns uses this instead of auto-calculated width.
+        self._col_w_override: dict[int, int] = load_column_widths()
+        self._col_drag_col: int | None = None   # which col boundary is being dragged
+        self._col_drag_start_x: int = 0
+        self._col_drag_start_w: int = 0
+
         # Per-entry logical state (parallel to _entries, aligned by index)
         self._check_vars:    list[tk.BooleanVar | None] = []
 
@@ -595,6 +603,8 @@ class ModListPanel(ctk.CTkFrame):
         self._header.grid_propagate(False)
         # Header labels placed after canvas is built (we need its width)
         self._header_labels: list[ctk.CTkLabel] = []
+        # Grey divider lines between columns — drag events bound directly to these
+        self._header_dividers: list[tk.Frame] = []
 
     def _build_canvas(self):
         frame = tk.Frame(self, bg=BG_DEEP, bd=0, highlightthickness=0)
@@ -639,6 +649,7 @@ class ModListPanel(ctk.CTkFrame):
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=scaled(36))
         bar.grid(row=3, column=1, sticky="ew")
         bar.grid_propagate(False)
+        self._toolbar_bar = bar
 
         # Expand/Collapse all separators toggle
         self._expand_collapse_all_btn = ctk.CTkButton(
@@ -1037,37 +1048,73 @@ class ModListPanel(ctk.CTkFrame):
     def _layout_columns(self, canvas_w: int):
         """Compute column x positions given the current canvas width.
 
-        Right-side columns scale with window size (0.5x at narrow widths up to 1.4x)
-        and have gaps between them to prevent overlap.
+        All columns fill the available space. Dragging a boundary grows one
+        column while shrinking its neighbour — total width stays constant.
         """
-        # Base widths at 700px; scale down when narrow, up for larger windows
         scale = min(1.4, max(0.5, canvas_w / scaled(700)))
         gap = scaled(10)
-        cat_w = scaled(int(130 * scale))    # category (fits "Visuals and Graphics", "Modding Tools")
-        flags_w = scaled(int(56 * scale))
-        conflicts_w = scaled(int(95 * scale))
-        installed_w = scaled(int(100 * scale))
-        priority_w = scaled(int(72 * scale))
         scroll_gap = scaled(14)
-        right_cols = gap * 5 + cat_w + flags_w + conflicts_w + installed_w + priority_w + scroll_gap
-        name_w = max(scaled(80), canvas_w - scaled(28) - right_cols)
-        # Column left edges (x positions)
         x0, x1 = scaled(4), scaled(32)
-        x2 = x1 + name_w + gap
-        x3 = x2 + cat_w + gap
-        x4 = x3 + flags_w + gap
-        x5 = x4 + conflicts_w + gap
-        x6 = x5 + installed_w + gap
-        self._COL_X = [x0, x1, x2, x3, x4, x5, x6]
-        self._COL_W = [scaled(28), name_w, cat_w, flags_w, conflicts_w, installed_w, priority_w]
+        avail = canvas_w - x1 - gap * 6 - scroll_gap  # total for cols 1–6
+
+        # Default proportional widths (used on first layout / window resize)
+        defaults = [
+            max(scaled(80), avail - scaled(int((130 + 56 + 95 + 100 + 72) * scale))),  # name
+            scaled(int(130 * scale)),   # category
+            scaled(int(56 * scale)),    # flags
+            scaled(int(95 * scale)),    # conflicts
+            scaled(int(100 * scale)),   # installed
+            scaled(int(72 * scale)),    # priority
+        ]
+
+        ov = self._col_w_override
+        widths = [ov.get(i + 1, defaults[i]) for i in range(6)]
+
+        # Enforce minimums
+        mins = [scaled(120), scaled(95), scaled(70), scaled(95), scaled(95), scaled(80)]
+        for i in range(6):
+            widths[i] = max(mins[i], widths[i])
+
+        # Scale all widths proportionally to fit available space exactly
+        total = sum(widths)
+        if total != avail and avail > 0:
+            factor = avail / total
+            widths = [max(mins[i], int(widths[i] * factor)) for i in range(6)]
+            # Distribute rounding remainder to name column
+            remainder = avail - sum(widths)
+            widths[0] += remainder
+
+        # Build x positions
+        x = x1
+        positions = [x0, x1]
+        for i in range(6):
+            if i > 0:
+                x = positions[-1]
+            x_next = x + widths[i] + gap
+            if i < 5:
+                positions.append(x_next)
+            else:
+                positions.append(x + gap)  # placeholder — priority x comes from prev
+
+        # Rebuild positions cleanly
+        xs = [x0, x1]
+        for i in range(5):
+            xs.append(xs[-1] + widths[i] + gap)
+        # xs now: [x0, x1, x2, x3, x4, x5, x6]
+
+        self._COL_X = xs
+        self._COL_W = [scaled(28)] + widths
         self._canvas_w = canvas_w
-        self._name_col_right = x1 + name_w - scaled(4)
+        self._name_col_right = x1 + widths[0] - scaled(4)
 
     # Map header index → sort key name (index 0 is checkbox, not sortable)
     _HEADER_SORT_KEYS = {1: "name", 2: "category", 3: "flags", 4: "conflicts", 5: "installed", 6: "priority"}
 
     def _update_header(self, canvas_w: int):
-        self._header.configure(width=canvas_w)
+        try:
+            self._header.configure(width=canvas_w)
+        except RecursionError:
+            return
 
         titles  = ["", "Mod Name", "Category", "Flags", "Conflicts", "Installed", "Priority"]
         x_pos   = self._COL_X
@@ -1095,6 +1142,76 @@ class ModListPanel(ctk.CTkFrame):
                     lbl.bind("<Button-1>", lambda e, k=sort_key: self._on_header_click(k))
                 lbl.place(x=x, y=0, height=scaled(28), width=w)
                 self._header_labels.append(lbl)
+
+        # Place divider grab handles at each resizable boundary (x2..x6).
+        # Wider hit area (8px) with a visible 2px line centered inside.
+        # Events are bound directly to dividers so header labels can't intercept.
+        boundaries = self._COL_X[2:]  # skip x0 (checkbox) and x1 (name start)
+        for i, bx in enumerate(boundaries):
+            col_idx = i + 1  # _COL_W index of the left column at this boundary
+            if i < len(self._header_dividers):
+                div = self._header_dividers[i]
+            else:
+                div = tk.Frame(self._header, bg=BG_HEADER, cursor="sb_h_double_arrow",
+                               highlightthickness=0, bd=0)
+                line = tk.Frame(div, bg="#666666", width=2)
+                line.place(relx=0.5, y=4, anchor="n", width=2, height=scaled(20))
+                # Bind drag events directly to the divider
+                div.bind("<ButtonPress-1>", lambda e, c=col_idx: self._on_divider_drag_start(e, c))
+                div.bind("<B1-Motion>", self._on_header_col_drag_motion)
+                div.bind("<ButtonRelease-1>", self._on_header_col_drag_end)
+                div.bind("<Double-Button-1>", lambda e, c=col_idx: self._on_divider_drag_reset(e, c))
+                # Also bind to the inner line so clicks on the visible part work
+                line.bind("<ButtonPress-1>", lambda e, c=col_idx: self._on_divider_drag_start(e, c))
+                line.bind("<B1-Motion>", self._on_header_col_drag_motion)
+                line.bind("<ButtonRelease-1>", self._on_header_col_drag_end)
+                line.bind("<Double-Button-1>", lambda e, c=col_idx: self._on_divider_drag_reset(e, c))
+                line.configure(cursor="sb_h_double_arrow")
+                self._header_dividers.append(div)
+            div.place(x=bx - 4, y=0, width=8, height=scaled(28))
+            div.lift()  # raise above labels
+
+    # ------------------------------------------------------------------
+    # Column resize drag (bound directly to divider widgets)
+    # ------------------------------------------------------------------
+
+    # Minimum widths per _COL_W index: 0=checkbox, 1=name, 2=cat, 3=flags, 4=conflicts, 5=installed, 6=priority
+    _COL_MIN_W = {1: 120, 2: 95, 3: 70, 4: 95, 5: 95, 6: 80}
+
+    def _on_divider_drag_start(self, event: tk.Event, col: int) -> None:
+        """Start a column resize drag. col = _COL_W index of the left column."""
+        self._col_drag_col = col
+        self._col_drag_start_x = event.x_root  # use x_root for cross-widget accuracy
+        self._col_drag_left_w = self._COL_W[col]
+        self._col_drag_right_w = self._COL_W[col + 1]
+
+    def _on_header_col_drag_motion(self, event: tk.Event) -> None:
+        if self._col_drag_col is None:
+            return
+        col = self._col_drag_col
+        delta = event.x_root - self._col_drag_start_x
+        left_min = scaled(self._COL_MIN_W.get(col, 30))
+        right_min = scaled(self._COL_MIN_W.get(col + 1, 30))
+        delta = max(-self._col_drag_left_w + left_min,
+                    min(delta, self._col_drag_right_w - right_min))
+        self._col_w_override[col] = self._col_drag_left_w + delta
+        self._col_w_override[col + 1] = self._col_drag_right_w - delta
+        self._layout_columns(self._canvas_w)
+        self._update_header(self._canvas_w)
+        self._redraw()
+
+    def _on_header_col_drag_end(self, event: tk.Event) -> None:
+        self._col_drag_col = None
+        save_column_widths(self._col_w_override)
+
+    def _on_divider_drag_reset(self, event: tk.Event, col: int) -> None:
+        """Double-click a divider to reset both adjacent columns to auto width."""
+        self._col_w_override.pop(col, None)
+        self._col_w_override.pop(col + 1, None)
+        save_column_widths(self._col_w_override)
+        self._layout_columns(self._canvas_w)
+        self._update_header(self._canvas_w)
+        self._redraw()
 
     # ------------------------------------------------------------------
     # Load / reload
@@ -2389,13 +2506,22 @@ class ModListPanel(ctk.CTkFrame):
             return lambda i: i
 
     def _on_canvas_resize(self, event):
+        w = event.width
         if self._canvas_resize_after_id is not None:
             self.after_cancel(self._canvas_resize_after_id)
-        self._canvas_resize_after_id = self.after(50, lambda w=event.width: self._apply_canvas_resize(w))
+        # Use a short after() delay so rapid resize events are coalesced into
+        # one redraw rather than firing on every pixel change.
+        self._canvas_resize_after_id = self.after(16, lambda: self._apply_canvas_resize(w))
 
     def _apply_canvas_resize(self, width: int):
         self._canvas_resize_after_id = None
         self._layout_columns(width)
+        # Sync overrides with the actual post-resize widths so future drags
+        # start from the correct baseline (avoids adjacent columns jumping).
+        if self._col_w_override:
+            for i in range(1, 7):
+                if i in self._col_w_override:
+                    self._col_w_override[i] = self._COL_W[i]
         self._update_header(width)
         _truncate_cache.clear()
         self._redraw()

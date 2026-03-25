@@ -2169,7 +2169,7 @@ class PluginPanel(ctk.CTkFrame):
             headings={"#0": "Path", "mod": "Winning Mod"},
             column_config={
                 "#0": {"minwidth": scaled(200), "stretch": True},
-                "mod": {"minwidth": scaled(160), "width": scaled(200), "stretch": False},
+                "mod": {"minwidth": scaled(160), "stretch": True},
             },
             selectmode="browse",
             show_label=False,
@@ -3419,7 +3419,7 @@ class PluginPanel(ctk.CTkFrame):
         self._pcanvas_w = event.width
         if hasattr(self, '_pcanvas_resize_after_id') and self._pcanvas_resize_after_id:
             self.after_cancel(self._pcanvas_resize_after_id)
-        self._pcanvas_resize_after_id = self.after(50, lambda w=event.width: self._apply_pcanvas_resize(w))
+        self._pcanvas_resize_after_id = self.after_idle(lambda w=event.width: self._apply_pcanvas_resize(w))
 
     def _apply_pcanvas_resize(self, width: int):
         self._layout_plugin_cols(width)

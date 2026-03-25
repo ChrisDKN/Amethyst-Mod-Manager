@@ -45,7 +45,7 @@ import customtkinter as ctk
 
 # Load UI scale from config and apply before any widgets are created.
 # Stored in ~/.config/AmethystModManager/amethyst.ini [ui] scale=...
-from Utils.ui_config import load_ui_scale, get_ui_scale
+from Utils.ui_config import load_ui_scale, get_ui_scale, load_window_geometry, save_window_geometry
 _UI_SCALE = load_ui_scale()
 ctk.set_widget_scaling(_UI_SCALE)
 ctk.set_window_scaling(_UI_SCALE)
@@ -164,13 +164,118 @@ def _run_installer():
 class App(ctk.CTk):
     def __init__(self):
         super().__init__(fg_color=BG_DEEP)
+        self.withdraw()  # hide until fully built; splash covers during load
+
+        # --- Splash screen (child of this root so images share the same Tk) --
+        _SPLASH_BG = "#1a1a2e"
+        self._splash: tk.Toplevel | None = tk.Toplevel(self)
+        self._splash.withdraw()  # hide until geometry is set to prevent flash at 0,0
+        self._splash.overrideredirect(True)
+        self._splash.configure(bg=_SPLASH_BG)
+        _logo_path = Path(__file__).parent / "icons" / "Logo.png"
+        self._splash_logo_img = None
+        if _logo_path.is_file():
+            try:
+                from PIL import Image as _PILImage, ImageTk as _PILImageTk
+                _pil = _PILImage.open(str(_logo_path)).convert("RGBA")
+                # Composite logo onto the dark bg so alpha edges blend correctly
+                _bg = _PILImage.new("RGBA", _pil.size, _SPLASH_BG)
+                _bg.paste(_pil, mask=_pil.split()[3])
+                self._splash_logo_img = _PILImageTk.PhotoImage(_bg.convert("RGB"))
+            except Exception:
+                self._splash_logo_img = tk.PhotoImage(file=str(_logo_path))
+            tk.Label(self._splash, image=self._splash_logo_img,
+                     bg=_SPLASH_BG, bd=0).pack()
+        else:
+            tk.Label(self._splash, text="Loading…", bg=_SPLASH_BG, fg="white",
+                     font=("sans-serif", 18)).pack(padx=40, pady=40)
+        self._splash.update_idletasks()
+        _sw = self._splash.winfo_reqwidth()
+        _sh = self._splash.winfo_reqheight()
+        # Centre on the monitor containing the mouse pointer.
+        # On multi-monitor setups winfo_screenwidth returns the combined virtual
+        # desktop width; we use the pointer position + monitor list to find the
+        # right monitor.  Several query paths are tried in order.
+        def _monitor_rect_for_pointer():
+            """Return (mon_x, mon_y, mon_w, mon_h) for the monitor under the pointer."""
+            try:
+                import re as _re, subprocess as _sp
+                _px = self._splash.winfo_pointerx()
+                _py = self._splash.winfo_pointery()
+
+                # --- Try xrandr (XWayland / X11) ---
+                try:
+                    out = _sp.check_output(["xrandr", "--query"], text=True, timeout=2)
+                    for _m in _re.finditer(r"(\d+)x(\d+)\+(\d+)\+(\d+)", out):
+                        _mw, _mh, _mx, _my = (int(g) for g in _m.groups())
+                        if _mx <= _px < _mx + _mw and _my <= _py < _my + _mh:
+                            return _mx, _my, _mw, _mh
+                except Exception:
+                    pass
+
+                # --- Try wlr-randr (wlroots/Sway) ---
+                try:
+                    out = _sp.check_output(["wlr-randr"], text=True, timeout=2)
+                    # Lines: "  1920x1080 px, ..." preceded by position line "  ...at 1920,0"
+                    _blocks = _re.findall(
+                        r"(\d+)x(\d+) px.*?at (\d+),(\d+)", out, _re.DOTALL)
+                    for _mw, _mh, _mx, _my in (
+                            (int(a), int(b), int(c), int(d)) for a, b, c, d in _blocks):
+                        if _mx <= _px < _mx + _mw and _my <= _py < _my + _mh:
+                            return _mx, _my, _mw, _mh
+                except Exception:
+                    pass
+
+                # --- Heuristic: if screen is wider than tall, assume side-by-side monitors ---
+                _sw_total = self.winfo_screenwidth()
+                _sh_total = self.winfo_screenheight()
+                if _sw_total > _sh_total * 1.5:
+                    # Guess monitor width as half the virtual width
+                    _mw = _sw_total // 2
+                    _mx = (_px // _mw) * _mw
+                    return _mx, 0, _mw, _sh_total
+
+            except Exception:
+                pass
+            return 0, 0, self.winfo_screenwidth(), self.winfo_screenheight()
+
+        _mrx, _mry, _mrw, _mrh = _monitor_rect_for_pointer()
+        _sx = _mrx + (_mrw - _sw) // 2
+        _sy = _mry + (_mrh - _sh) // 2
+        self._splash.geometry(f"{_sw}x{_sh}+{_sx}+{_sy}")
+        self._splash.deiconify()  # show only after geometry is set — no flash at 0,0
+        self._splash.update()
+        # ---------------------------------------------------------------------
+
         init_fonts(self)
-        self.geometry("1280x720")
+        # Restore saved window size/position, or use default
+        saved_geom = load_window_geometry()
+        if saved_geom:
+            try:
+                # Parse WxH or WxH+X+Y
+                import re
+                m = re.match(r"(\d+)x(\d+)", saved_geom)
+                if m:
+                    sw = self.winfo_screenwidth()
+                    sh = self.winfo_screenheight()
+                    w, h = int(m.group(1)), int(m.group(2))
+                    if w <= sw and h <= sh:
+                        self.geometry(saved_geom)
+                    else:
+                        self.geometry("1280x720")
+                else:
+                    self.geometry("1280x720")
+            except Exception:
+                self.geometry("1280x720")
+        else:
+            self.geometry("1280x720")
         # Scale minsize with UI scale so window can't be shrunk below the toolbar
         _s = get_ui_scale()
         _min_w = int(1280 * _s)
         _min_h = int(720 * _s)
         self.minsize(_min_w, _min_h)
+        self.bind("<Configure>", self._on_window_configure)
+        self._geom_save_id: str | None = None
         # Thread-safe callback queue — background threads must never call
         # widget.after() directly (Python 3.13 Tkinter enforces this).
         # Use  app.call_threadsafe(fn)  instead.
@@ -191,6 +296,8 @@ class App(ctk.CTk):
         configured = sum(1 for g in _GAMES.values() if g.is_configured())
         if configured == 0:
             self.after(200, self._show_onboarding)
+            # No game configured → no filemap rebuild will fire; dismiss splash after layout.
+            self.after(500, self._finish_splash)
         # Process --nxm argument if the app was launched via protocol handler
         self._handle_nxm_argv()
         # Check for app update after a short delay (non-blocking)
@@ -199,6 +306,18 @@ class App(ctk.CTk):
         if icon_path.is_file():
             icon_img = tk.PhotoImage(file=str(icon_path))
             self.iconphoto(False, icon_img)
+
+    # -- Splash screen ------------------------------------------------------
+
+    def _finish_splash(self):
+        if self._splash is not None:
+            try:
+                self._splash.destroy()
+            except Exception:
+                pass
+            self._splash = None
+        self.update_idletasks()
+        self.deiconify()
 
     # -- Thread-safe callback scheduling ------------------------------------
 
@@ -665,6 +784,83 @@ class App(ctk.CTk):
                 if dl_panel:
                     dl_panel.refresh()
 
+    def _on_window_configure(self, event: tk.Event) -> None:
+        # Only react to top-level window events, not child widgets
+        if event.widget is not self:
+            return
+        # Debounce — save 500ms after the last resize/move event
+        if self._geom_save_id is not None:
+            self.after_cancel(self._geom_save_id)
+        self._geom_save_id = self.after(500, self._save_geometry)
+
+    def _save_geometry(self) -> None:
+        self._geom_save_id = None
+        try:
+            save_window_geometry(self.geometry())
+        except Exception:
+            pass
+
+    def _resize_status_bar(self, h: int) -> None:
+        # Cap to 85% of window height so the top bar stays visible
+        max_h = int(self.winfo_height() * 0.85)
+        h = min(h, max_h)
+        self.grid_rowconfigure(2, minsize=h, weight=0)
+        self._status.configure(height=h)
+
+    # --- plugin panel column drag-resize -------------------------------------
+
+    def _on_col_drag_start(self, event: tk.Event) -> None:
+        self._col_drag_x = event.x_root
+        self._col_drag_w = self._plugin_panel_container.winfo_width()
+        self._col_drag_target_w = self._col_drag_w
+        self._col_show_ghost(event.x_root)
+
+    def _on_col_drag_motion(self, event: tk.Event) -> None:
+        if self._col_drag_x is None:
+            return
+        delta = self._col_drag_x - event.x_root  # drag left = wider plugin panel
+        min_w = scaled(480)
+        max_w = self._col_max_plugin_width()
+        new_w = max(min_w, min(self._col_drag_w + delta, max_w))
+        self._col_drag_target_w = new_w
+        # Ghost line follows cursor directly
+        self._col_move_ghost(event.x_root)
+
+    def _on_col_drag_end(self, event: tk.Event) -> None:
+        self._col_drag_x = None
+        self._col_destroy_ghost()
+        new_w = max(scaled(480), min(self._col_drag_target_w, self._col_max_plugin_width()))
+        self.grid_columnconfigure(2, minsize=new_w, weight=4)
+        self._plugin_panel_container.configure(width=new_w)
+
+    def _col_max_plugin_width(self) -> int:
+        toolbar = getattr(self._mod_panel, "_toolbar_bar", None)
+        if toolbar is not None:
+            mod_col_min = toolbar.winfo_reqwidth() + scaled(20)
+        else:
+            mod_col_min = scaled(720)
+        return self.winfo_width() - mod_col_min - self._col_drag_handle.winfo_width()
+
+    def _col_show_ghost(self, x_root: int) -> None:
+        self._col_ghost = tk.Toplevel(self)
+        self._col_ghost.overrideredirect(True)
+        self._col_ghost.attributes("-alpha", 0.6)
+        self._col_ghost.configure(bg=ACCENT)
+        self._col_ghost.attributes("-topmost", True)
+        self._col_move_ghost(x_root)
+
+    def _col_move_ghost(self, x_root: int) -> None:
+        if self._col_ghost is None:
+            return
+        win_y = self.winfo_rooty()
+        win_h = self.winfo_height()
+        self._col_ghost.geometry(f"2x{win_h}+{x_root}+{win_y}")
+
+    def _col_destroy_ghost(self) -> None:
+        if self._col_ghost is not None:
+            self._col_ghost.destroy()
+            self._col_ghost = None
+
     def _build_layout(self):
         # Root grid: 3 columns (mod side | separator | plugin side), 3 rows
         # Row 0: top bar (mod side only) + plugin panel top
@@ -673,14 +869,15 @@ class App(ctk.CTk):
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
-        self.grid_columnconfigure(0, weight=5)
+        self.grid_columnconfigure(0, weight=5, minsize=scaled(380))
         self.grid_columnconfigure(1, weight=0)
         # Plugin panel: minsize in screen px so column fits scaled container
         self.grid_columnconfigure(2, weight=4, minsize=scaled(480))
 
         # Build status bar first so log_fn is available immediately
         self._status = StatusBar(self)
-        self._status.grid(row=2, column=0, columnspan=3, sticky="ew")
+        self._status.grid(row=2, column=0, columnspan=3, sticky="nsew")
+        self._status.set_resize_callback(self._resize_status_bar)
 
         log = self._status.log
         set_app_log(log, self.after)
@@ -698,10 +895,18 @@ class App(ctk.CTk):
         )
         self._topbar.grid(row=0, column=0, sticky="ew", pady=(4, 0))
 
-        # Vertical separator spans rows 0+1
-        ctk.CTkFrame(self, fg_color=BORDER, width=1, corner_radius=0).grid(
-            row=0, column=1, rowspan=2, sticky="ns"
+        # Vertical separator / drag handle spans rows 0+1
+        self._col_drag_handle = tk.Canvas(
+            self, bg=BORDER, width=4, highlightthickness=0, cursor="sb_h_double_arrow"
         )
+        self._col_drag_handle.grid(row=0, column=1, rowspan=2, sticky="ns")
+        self._col_drag_x: int | None = None
+        self._col_drag_w: int | None = None
+        self._col_ghost: tk.Toplevel | None = None
+        self._col_drag_target_w: int = scaled(480)
+        self._col_drag_handle.bind("<ButtonPress-1>", self._on_col_drag_start)
+        self._col_drag_handle.bind("<B1-Motion>", self._on_col_drag_motion)
+        self._col_drag_handle.bind("<ButtonRelease-1>", self._on_col_drag_end)
 
         main = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         main.grid(row=1, column=0, sticky="nsew")
@@ -864,7 +1069,14 @@ class App(ctk.CTk):
                 self._topbar._auto_deploy_in_progress = True
                 self._topbar._run_deploy(_auto_game, self._topbar._profile_var.get())
 
-        self._mod_panel._on_filemap_rebuilt = _on_filemap_rebuilt
+        # Wrap so the splash is dismissed after the very first filemap rebuild,
+        # then restore the original callback for all subsequent calls.
+        _orig_on_filemap_rebuilt = _on_filemap_rebuilt
+        def _on_filemap_rebuilt_with_splash():
+            self._mod_panel._on_filemap_rebuilt = _orig_on_filemap_rebuilt
+            _orig_on_filemap_rebuilt()
+            self._finish_splash()
+        self._mod_panel._on_filemap_rebuilt = _on_filemap_rebuilt_with_splash
 
         # Wire plugin selection → mod highlight cross-panel (and mutual deselection)
         self._plugin_panel._on_plugin_selected_cb = self._mod_panel.set_highlighted_mod

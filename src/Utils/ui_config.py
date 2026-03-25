@@ -200,6 +200,70 @@ def load_nexus_show_adult() -> bool:
         return False
 
 
+_COLUMNS_SECTION = "columns"
+_WINDOW_SECTION = "window"
+
+
+def load_column_widths() -> dict[int, int]:
+    """Load saved column width overrides from amethyst.ini. Returns {col_index: width}."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return {}
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(path)
+        if _COLUMNS_SECTION not in parser:
+            return {}
+        result = {}
+        for key, val in parser[_COLUMNS_SECTION].items():
+            try:
+                result[int(key)] = int(val)
+            except (ValueError, TypeError):
+                pass
+        return result
+    except Exception:
+        return {}
+
+
+def save_column_widths(widths: dict[int, int]) -> None:
+    """Persist column width overrides to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = configparser.ConfigParser()
+    if path.is_file():
+        parser.read(path)
+    parser[_COLUMNS_SECTION] = {str(k): str(v) for k, v in widths.items()}
+    with path.open("w") as f:
+        parser.write(f)
+
+
+def load_window_geometry() -> str | None:
+    """Load saved window geometry string (WxH+X+Y) from amethyst.ini."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return None
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(path)
+        return parser.get(_WINDOW_SECTION, "geometry", fallback=None)
+    except Exception:
+        return None
+
+
+def save_window_geometry(geometry: str) -> None:
+    """Persist window geometry string to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = configparser.ConfigParser()
+    if path.is_file():
+        parser.read(path)
+    if _WINDOW_SECTION not in parser:
+        parser[_WINDOW_SECTION] = {}
+    parser[_WINDOW_SECTION]["geometry"] = geometry
+    with path.open("w") as f:
+        parser.write(f)
+
+
 def save_nexus_show_adult(value: bool) -> None:
     """Persist the show_adult setting to amethyst.ini."""
     path = get_ui_config_path()
