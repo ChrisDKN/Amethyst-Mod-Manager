@@ -277,7 +277,8 @@ class BaldursGate3(BaseGame):
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
                                             progress_fn=progress_fn,
-                                            exclude=custom_exclude or None)
+                                            exclude=custom_exclude or None,
+                                            core_dir=mods_dir.parent / (mods_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log("Step 3: Filling gaps with vanilla files from Mods_Core/ ...")

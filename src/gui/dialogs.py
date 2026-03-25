@@ -1749,21 +1749,43 @@ class ProtonToolsPanel(ctk.CTkFrame):
         self._close_and_run(_launch)
 
     def _run_protontricks(self):
-        steam_id = getattr(self._game, "steam_id", "")
-        if not steam_id:
-            self._log("Proton Tools: game has no Steam ID — cannot run protontricks.")
-            return
-        if shutil.which("protontricks") is not None:
+        from Utils.protontricks import winetricks_installed, install_winetricks, _bundled_winetricks, _get_proton_bin
+        steam_id = getattr(self._game, "steam_id", "") or ""
+        prefix_path = getattr(self._game, "_prefix_path", None)
+        log = self._log
+
+        if shutil.which("protontricks") is not None and steam_id:
             cmd = ["protontricks", steam_id, "--gui"]
-        elif shutil.which("flatpak") is not None and subprocess.run(
+        elif shutil.which("flatpak") is not None and steam_id and subprocess.run(
             ["flatpak", "info", "com.github.Matoking.protontricks"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         ).returncode == 0:
             cmd = ["flatpak", "run", "com.github.Matoking.protontricks", steam_id, "--gui"]
-        else:
-            self._log("Proton Tools: 'protontricks' is not installed or not in PATH.")
+        elif prefix_path and prefix_path.is_dir():
+            # Fall back to winetricks GUI against the known prefix
+            def _launch_winetricks():
+                if not winetricks_installed():
+                    log("Proton Tools: winetricks not found — downloading …")
+                    if not install_winetricks(log_fn=lambda m: log(f"Proton Tools: {m}")):
+                        return
+                import os
+                env = os.environ.copy()
+                env["WINEPREFIX"] = str(prefix_path)
+                proton_bin = _get_proton_bin()
+                if proton_bin:
+                    env["PATH"] = proton_bin + os.pathsep + env.get("PATH", "")
+                log("Proton Tools: launching winetricks GUI …")
+                try:
+                    subprocess.Popen([str(_bundled_winetricks()), "--gui"],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+                except Exception as e:
+                    log(f"Proton Tools error: {e}")
+            self._close_and_run(_launch_winetricks)
             return
-        log = self._log
+        else:
+            self._log("Proton Tools: protontricks is not installed and no prefix path is available.")
+            return
+
         def _launch():
             log(f"Proton Tools: launching protontricks for app {steam_id}: It may take a while to open")
             try:
@@ -1828,34 +1850,17 @@ class ProtonToolsPanel(ctk.CTkFrame):
         self._close_and_run(_launch)
 
     def _run_install_d3dcompiler_47(self):
-        steam_id = getattr(self._game, "steam_id", "")
-        if not steam_id:
-            self._log("Proton Tools: game has no Steam ID — cannot install d3dcompiler_47. Use 'Run protontricks' to install it manually.")
-            return
-        if shutil.which("protontricks") is not None:
-            cmd = ["protontricks", steam_id, "d3dcompiler_47"]
-        elif shutil.which("flatpak") is not None and subprocess.run(
-            ["flatpak", "info", "com.github.Matoking.protontricks"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        ).returncode == 0:
-            cmd = ["flatpak", "run", "com.github.Matoking.protontricks", steam_id, "d3dcompiler_47"]
-        else:
-            self._log("Proton Tools: 'protontricks' is not installed. Install it to use one-click d3dcompiler_47.")
-            return
+        from Utils.protontricks import install_d3dcompiler_47
+        steam_id = getattr(self._game, "steam_id", "") or ""
+        prefix_path = getattr(self._game, "_prefix_path", None)
         log = self._log
 
         def _launch():
-            log("Proton Tools: installing d3dcompiler_47 into game prefix (this may take a minute) …")
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-                if result.returncode == 0:
-                    log("Proton Tools: d3dcompiler_47 installed successfully.")
-                else:
-                    log(f"Proton Tools: d3dcompiler_47 install failed: {result.stderr or result.stdout or 'unknown error'}")
-            except subprocess.TimeoutExpired:
-                log("Proton Tools: d3dcompiler_47 install timed out after 5 minutes.")
-            except Exception as e:
-                log(f"Proton Tools error (d3dcompiler_47): {e}")
+            install_d3dcompiler_47(
+                steam_id,
+                log_fn=lambda msg: log(f"Proton Tools: {msg}"),
+                prefix_path=prefix_path,
+            )
 
         self._close_and_run(lambda: threading.Thread(target=_launch, daemon=True).start())
 

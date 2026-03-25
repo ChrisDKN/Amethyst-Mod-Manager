@@ -218,6 +218,7 @@ class MountAndBlade2Bannerlord(BaseGame):
             per_mod_deploy_dirs=per_mod_deploy,
             log_fn=_log,
             progress_fn=progress_fn,
+            core_dir=modules_dir.parent / (modules_dir.name + "_Core"),
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
 

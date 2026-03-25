@@ -1339,6 +1339,8 @@ class ModListPanel(ctk.CTkFrame):
                     enabled=self._root_folder_enabled,
                     locked=True, is_separator=True
                 ))
+        if self._modlist_path is not None:
+            self.__profile_state = read_profile_state(self._modlist_path.parent)
         self._load_sep_locks()
         self._load_sep_colors()
         self._load_collapsed()

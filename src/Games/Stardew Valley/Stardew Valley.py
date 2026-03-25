@@ -83,7 +83,7 @@ class StardewValley(BaseGame):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_smapi",
                 label="Install SMAPI",
@@ -243,7 +243,8 @@ class StardewValley(BaseGame):
                                             per_mod_strip_prefixes=per_mod_strip,
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
-                                            progress_fn=progress_fn)
+                                            progress_fn=progress_fn,
+                                            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")

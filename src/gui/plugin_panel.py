@@ -210,6 +210,10 @@ class PluginPanel(ctk.CTkFrame):
         # Framework status banners (one CTkFrame per framework entry)
         self._framework_banner_widgets: list[ctk.CTkFrame] = []
 
+        # Plugin search filter
+        self._plugin_search_var: tk.StringVar | None = None  # initialised in _build_plugins_tab
+        self._plugin_filtered_indices: list[int] | None = None  # None = no filter active
+
         # Virtual-list pool (fixed-size widget + canvas item pool for visible rows)
         self._pool_size: int = 60
         self._pool_data_idx: list[int] = []
@@ -1170,6 +1174,11 @@ class PluginPanel(ctk.CTkFrame):
                 rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
                 if rf_allowed and target_rf_dir.is_dir() and game_root:
                     deploy_root_folder(target_rf_dir, game_root, mode=deploy_mode, log_fn=_tlog)
+
+                # Launcher swap runs after root-folder deploy so that script
+                # extender executables are present first.
+                if hasattr(game, "swap_launcher"):
+                    game.swap_launcher(_tlog)
 
                 _tlog("Run EXE: deploy complete, launching…")
                 self.after(0, lambda: self._launch_exe(exe_path, game))
@@ -2516,6 +2525,29 @@ class PluginPanel(ctk.CTkFrame):
         )
         self._plugin_counter_label.pack(side="left", padx=(0, 8))
 
+        # Search bar
+        search_bar = tk.Frame(tab, bg=BG_HEADER, highlightthickness=0)
+        search_bar.grid(row=4, column=0, sticky="ew")
+        tk.Label(
+            search_bar, text="Search:", bg=BG_HEADER, fg=TEXT_DIM,
+            font=("Segoe UI", _theme.FS10),
+        ).pack(side="left", padx=(8, 4), pady=3)
+        self._plugin_search_var = tk.StringVar()
+        self._plugin_search_var.trace_add("write", self._on_plugin_search_changed)
+        _psearch_entry = tk.Entry(
+            search_bar, textvariable=self._plugin_search_var,
+            bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            relief="flat", font=("Segoe UI", _theme.FS10),
+            highlightthickness=0, highlightbackground=BG_DEEP,
+        )
+        _psearch_entry.pack(side="left", padx=(0, 8), pady=3, fill="x", expand=True)
+        _psearch_entry.bind("<Escape>", lambda e: self._plugin_search_var.set(""))
+        def _psearch_select_all(evt):
+            evt.widget.select_range(0, tk.END)
+            evt.widget.icursor(tk.END)
+            return "break"
+        _psearch_entry.bind("<Control-a>", _psearch_select_all)
+
         self._create_pool()
 
     # ------------------------------------------------------------------
@@ -2629,6 +2661,29 @@ class PluginPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
     # LOOT sorting
     # ------------------------------------------------------------------
+
+    def _on_plugin_search_changed(self, *_) -> None:
+        self._apply_plugin_search_filter()
+        self._pcanvas.yview_moveto(0)
+        self._predraw()
+
+    def _apply_plugin_search_filter(self) -> None:
+        if self._plugin_search_var is None:
+            self._plugin_filtered_indices = None
+            return
+        query = self._plugin_search_var.get().strip().casefold()
+        if not query:
+            self._plugin_filtered_indices = None
+            return
+        result = []
+        for i, entry in enumerate(self._plugin_entries):
+            if query in entry.name.casefold():
+                result.append(i)
+                continue
+            mod_name = self._plugin_mod_map.get(entry.name, "")
+            if mod_name and query in mod_name.casefold():
+                result.append(i)
+        self._plugin_filtered_indices = result
 
     def _sort_plugins_loot(self):
         """Sort current plugin list using libloot's masterlist rules."""
@@ -2966,6 +3021,7 @@ class PluginPanel(ctk.CTkFrame):
 
         if self._plugins_path is None or not self._plugin_extensions:
             self._plugin_entries = []
+            self._apply_plugin_search_filter()
             self._predraw()
             return
 
@@ -3062,6 +3118,7 @@ class PluginPanel(ctk.CTkFrame):
         if self._plugins_include_vanilla:
             self._save_plugins()
 
+        self._apply_plugin_search_filter()
         self._predraw()
 
     def _save_plugins(self) -> None:
@@ -3090,13 +3147,21 @@ class PluginPanel(ctk.CTkFrame):
         self._predraw_after_id = None
         c = self._pcanvas
         cw = self._pcanvas_w
-        entries = self._plugin_entries
-        dragging = self._drag_idx >= 0 and self._drag_moved
+        all_entries = self._plugin_entries
+        filtered = self._plugin_filtered_indices
+        # When a search filter is active use the filtered index list; disable drag-drop
+        if filtered is not None:
+            view_entries = [all_entries[i] for i in filtered]
+            dragging = False
+        else:
+            view_entries = all_entries
+            dragging = self._drag_idx >= 0 and self._drag_moved
+        entries = view_entries
         n = len(entries)
         total_h = n * self.ROW_H
 
-        active = sum(1 for e in entries if e.enabled)
-        self._plugin_counter_label.configure(text=f"{active}/{n} active")
+        active = sum(1 for e in all_entries if e.enabled)
+        self._plugin_counter_label.configure(text=f"{active}/{len(all_entries)} active")
 
         canvas_top = int(c.canvasy(0))
         canvas_h = c.winfo_height()
@@ -3111,13 +3176,15 @@ class PluginPanel(ctk.CTkFrame):
                 y_top = row * self.ROW_H
                 y_bot = y_top + self.ROW_H
                 y_mid = y_top + self.ROW_H // 2
+                # actual_idx is the index into _plugin_entries (differs from row when filtered)
+                actual_idx = filtered[row] if filtered is not None else row
 
-                is_sel = (row in self._psel_set) or (row == self._drag_idx and self._drag_moved)
+                is_sel = (actual_idx in self._psel_set) or (actual_idx == self._drag_idx and self._drag_moved)
                 if is_sel:
                     bg = BG_SELECT
                 elif entry.name in self._highlighted_plugins:
                     bg = plugin_mod
-                elif row == self._phover_idx:
+                elif actual_idx == self._phover_idx:
                     bg = BG_HOVER_ROW
                 else:
                     bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
@@ -3134,7 +3201,7 @@ class PluginPanel(ctk.CTkFrame):
                                 fill=name_color, state="normal")
 
                 c.coords(self._pool_idx_text[s], self._pcol_x[4] + scaled(25), y_mid)
-                c.itemconfigure(self._pool_idx_text[s], text=f"{row:03d}",
+                c.itemconfigure(self._pool_idx_text[s], text=f"{actual_idx:03d}",
                                 fill=TEXT_DIM, state="normal")
 
                 has_missing = entry.name in self._missing_masters
@@ -3161,7 +3228,7 @@ class PluginPanel(ctk.CTkFrame):
                     else:
                         c.itemconfigure(late_warn_id, state="hidden")
 
-                self._pool_data_idx[s] = row
+                self._pool_data_idx[s] = actual_idx
 
                 if not dragging:
                     is_vanilla = entry.name.lower() in self._vanilla_plugins
@@ -3350,6 +3417,15 @@ class PluginPanel(ctk.CTkFrame):
 
     def _update_row_bg(self, data_row: int) -> None:
         """Update just the background colour of a single data row's pool slot."""
+        fi = self._plugin_filtered_indices
+        # Determine visual (view) row for alternating colour
+        if fi is not None:
+            try:
+                view_row = fi.index(data_row)
+            except ValueError:
+                view_row = data_row
+        else:
+            view_row = data_row
         for s in range(self._pool_size):
             if self._pool_data_idx[s] == data_row:
                 entry = self._plugin_entries[data_row] if data_row < len(self._plugin_entries) else None
@@ -3361,7 +3437,7 @@ class PluginPanel(ctk.CTkFrame):
                 elif data_row == self._phover_idx:
                     bg = BG_HOVER_ROW
                 else:
-                    bg = BG_ROW if data_row % 2 == 0 else BG_ROW_ALT
+                    bg = BG_ROW if view_row % 2 == 0 else BG_ROW_ALT
                 self._pcanvas.itemconfigure(self._pool_bg[s], fill=bg)
                 break
 
@@ -3369,7 +3445,9 @@ class PluginPanel(ctk.CTkFrame):
         """Show tooltip when hovering over a warning icon in the Flags column, and update hover highlight."""
         canvas_y = int(self._pcanvas.canvasy(event.y))
         row = canvas_y // self.ROW_H
-        if row < 0 or row >= len(self._plugin_entries):
+        fi = self._plugin_filtered_indices
+        view_len = len(fi) if fi is not None else len(self._plugin_entries)
+        if row < 0 or row >= view_len:
             self._hide_tooltip()
             if self._phover_idx != -1:
                 old = self._phover_idx
@@ -3377,16 +3455,17 @@ class PluginPanel(ctk.CTkFrame):
                 self._update_row_bg(old)
             return
 
-        if row != self._phover_idx:
+        actual_idx = fi[row] if fi is not None else row
+        if actual_idx != self._phover_idx:
             old = self._phover_idx
-            self._phover_idx = row
+            self._phover_idx = actual_idx
             if old >= 0:
                 self._update_row_bg(old)
-            self._update_row_bg(row)
+            self._update_row_bg(actual_idx)
 
         x = event.x
         if len(self._pcol_x) >= 5 and self._pcol_x[2] <= x < self._pcol_x[3]:
-            entry = self._plugin_entries[row]
+            entry = self._plugin_entries[actual_idx]
             missing = self._missing_masters.get(entry.name)
             late = self._late_masters.get(entry.name)
             parts: list[str] = []
@@ -3447,9 +3526,14 @@ class PluginPanel(ctk.CTkFrame):
         return int(self._pcanvas.canvasy(event.y))
 
     def _pcanvas_y_to_index(self, canvas_y: int) -> int:
+        """Return the _plugin_entries index for the given canvas y position."""
         if not self._plugin_entries:
             return 0
         row = int(canvas_y // self.ROW_H)
+        if self._plugin_filtered_indices is not None:
+            fi = self._plugin_filtered_indices
+            row = max(0, min(row, len(fi) - 1))
+            return fi[row] if fi else 0
         return max(0, min(row, len(self._plugin_entries) - 1))
 
     def _is_plugin_locked(self, idx: int) -> bool:
@@ -3488,8 +3572,8 @@ class PluginPanel(ctk.CTkFrame):
 
         self._sel_idx = idx
         self._psel_set = {idx}
-        # Only allow drag start if not locked
-        if not self._is_plugin_locked(idx):
+        # Only allow drag start if not locked and no search filter active
+        if not self._is_plugin_locked(idx) and self._plugin_filtered_indices is None:
             self._drag_idx = idx
             self._drag_start_y = cy
         else:

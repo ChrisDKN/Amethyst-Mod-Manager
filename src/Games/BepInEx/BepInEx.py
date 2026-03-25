@@ -91,10 +91,14 @@ class Subnautica(BaseGame):
     @property
     def loot_masterlist_url(self) -> str:
         return ""
+    
+    @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_bepinex_subnautica",
                 label="Install BepInEx",
@@ -254,7 +258,8 @@ class Subnautica(BaseGame):
                                             per_mod_strip_prefixes=per_mod_strip,
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
-                                            progress_fn=progress_fn)
+                                            progress_fn=progress_fn,
+                                            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")
@@ -317,7 +322,7 @@ class Subnautica_Below_Zero(Subnautica):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_bepinex_subnautica_below_zero",
                 label="Install BepInEx",
@@ -357,7 +362,7 @@ class TCG_Card_Shop_Simulator(Subnautica):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_bepinex_tcg",
                 label="Install BepInEx",
@@ -396,7 +401,7 @@ class Lethal_Company(Subnautica):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_bepinex_lethal_company",
                 label="Install BepInEx",
@@ -434,7 +439,7 @@ class Valheim(Subnautica):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_bepinex_valheim",
                 label="Install BepInEx",

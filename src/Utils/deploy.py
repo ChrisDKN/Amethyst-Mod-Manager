@@ -392,6 +392,7 @@ def deploy_filemap(
     progress_fn=None,
     symlink_exts: set[str] | None = None,
     exclude: set[str] | None = None,
+    core_dir: "Path | None" = None,
 ) -> tuple[int, set[str]]:
     """Read filemap.txt and transfer every listed file into deploy_dir.
 
@@ -500,7 +501,8 @@ def deploy_filemap(
             src_str = str(src)
 
         effective_dir = _per_deploy.get(mod_name, deploy_dir)
-        dst_path = _resolve_root_path(effective_dir, Path(rel_str), dir_cache=dst_dir_cache)
+        _core = core_dir if effective_dir is deploy_dir else None
+        dst_path = _resolve_root_path(effective_dir, Path(rel_str), dir_cache=dst_dir_cache, core_base=_core)
         dst_str = str(dst_path)
         use_symlink = symlink_exts is not None and os.path.splitext(src_str)[1].lower() in symlink_exts
         tasks.append((src_str, dst_str, rel_lower, effective_dir is not deploy_dir, use_symlink))
@@ -635,12 +637,20 @@ def deploy_core(
 
     total = len(tasks_core)
 
+    # Resolve destination paths using case-insensitive directory matching so
+    # that core files (e.g. Data_Core/Scripts/) merge into any same-name
+    # directory already created by mods (e.g. Data/scripts/) rather than
+    # producing a duplicate folder with different casing.
+    dst_dir_cache: dict[Path, dict[str, str]] = {}
+    resolved_tasks: list[tuple[str, str]] = []  # (src_str, dst_str)
+    for src_str, rel_str in tasks_core:
+        dst_path = _resolve_root_path(deploy_dir, Path(rel_str), dir_cache=dst_dir_cache)
+        resolved_tasks.append((src_str, str(dst_path)))
+
     # Deduplicate destination directories with a set before creating them.
-    _deploy_str = str(deploy_dir)
     needed_dirs: set[str] = set()
-    for _, rel_str in tasks_core:
-        parent = os.path.dirname(_deploy_str + "/" + rel_str)
-        needed_dirs.add(parent)
+    for _, dst_str in resolved_tasks:
+        needed_dirs.add(os.path.dirname(dst_str))
     for d in needed_dirs:
         os.makedirs(d, exist_ok=True)
 
@@ -648,8 +658,7 @@ def deploy_core(
     done_count = 0
 
     def _do_core(item: tuple[str, str]) -> tuple[bool, str, OSError | None]:
-        src, rel_str = item
-        dst_str = _deploy_str + "/" + rel_str
+        src, dst_str = item
         try:
             if mode is LinkMode.HARDLINK:
                 os.link(src, dst_str)
@@ -657,12 +666,12 @@ def deploy_core(
                 os.symlink(src, dst_str)
             else:
                 shutil.copy2(src, dst_str)
-            return True, rel_str, None
+            return True, dst_str, None
         except OSError as e:
-            return False, rel_str, e
+            return False, dst_str, e
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        for ok, rel_str, exc in pool.map(_do_core, tasks_core):
+        for ok, rel_str, exc in pool.map(_do_core, resolved_tasks):
             done_count += 1
             if ok:
                 linked += 1
@@ -685,17 +694,23 @@ _ROOT_LOG_NAME    = "root_folder_deployed.txt"
 
 
 def _resolve_root_path(base: Path, rel: Path,
-                       dir_cache: "dict[Path, dict[str, str]] | None" = None) -> Path:
+                       dir_cache: "dict[Path, dict[str, str]] | None" = None,
+                       core_base: "Path | None" = None) -> Path:
     """Resolve *rel* under *base*, matching existing directory names
     case-insensitively so that mod folders (e.g. ``R6/``) merge into whatever
     casing the game already has on disk (e.g. ``r6/``).  Segments that don't
-    yet exist are lowercased to follow the game's convention.
+    yet exist use the casing from the filemap.
 
     Only directory segments are normalised; the final filename is kept as-is.
     dir_cache maps parent Path → {lower_name: actual_name} to avoid repeated
     iterdir() calls across many files with the same directory structure.
+
+    core_base — optional sibling backup dir (e.g. Data_Core/) consulted when
+    a segment isn't found in *base*.  This preserves vanilla folder casing
+    (e.g. ``Scripts/``) even when *base* is empty at deploy time.
     """
     current = base
+    core_current = core_base
     parts = rel.parts
     for part in parts[:-1]:   # directory segments only
         part_lower = part.lower()
@@ -721,7 +736,31 @@ def _resolve_root_path(base: Path, rel: Path,
                             break
                 except OSError:
                     pass
-        current = current / (matched if matched is not None else part_lower)
+        # Fall back to core_base to preserve vanilla folder casing
+        # (e.g. Data_Core/Scripts → use "Scripts" not "scripts").
+        if matched is None and core_current is not None:
+            if dir_cache is not None:
+                if core_current not in dir_cache:
+                    try:
+                        dir_cache[core_current] = {
+                            e.name.lower(): e.name
+                            for e in core_current.iterdir()
+                            if e.is_dir()
+                        }
+                    except OSError:
+                        dir_cache[core_current] = {}
+                matched = dir_cache[core_current].get(part_lower)
+            else:
+                try:
+                    for entry in core_current.iterdir():
+                        if entry.is_dir() and entry.name.lower() == part_lower:
+                            matched = entry.name
+                            break
+                except OSError:
+                    pass
+        chosen = matched if matched is not None else part
+        current = current / chosen
+        core_current = (core_current / chosen) if core_current is not None else None
     return current / parts[-1]
 
 

@@ -215,7 +215,8 @@ class SlayTheSpire2(BaseGame):
                                             per_mod_strip_prefixes=per_mod_strip,
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
-                                            progress_fn=progress_fn)
+                                            progress_fn=progress_fn,
+                                            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")

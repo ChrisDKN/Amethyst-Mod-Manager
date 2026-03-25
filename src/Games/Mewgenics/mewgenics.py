@@ -184,7 +184,7 @@ class Mewgenics(BaseGame):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="mewgenics_gpak",
                 label="GPAK unpack / repack",

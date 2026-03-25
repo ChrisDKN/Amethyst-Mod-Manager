@@ -72,6 +72,10 @@ class KingdomComeDeliverance2(BaseGame):
         return "kingdomcomedeliverance2"
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
     def mods_dir(self) -> str:
         return "mods"
 
@@ -224,6 +228,7 @@ class KingdomComeDeliverance2(BaseGame):
             per_mod_deploy_dirs=per_mod_deploy,
             log_fn=_log,
             progress_fn=progress_fn,
+            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"),
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
 

@@ -460,6 +460,7 @@ class StandardCustomGame(BaseGame):
             log_fn=_log,
             progress_fn=progress_fn,
             exclude=custom_exclude or None,
+            core_dir=data_dir.parent / (data_dir.name + "_Core"),
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
 

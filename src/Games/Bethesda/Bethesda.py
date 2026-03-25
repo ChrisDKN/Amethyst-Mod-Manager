@@ -121,8 +121,16 @@ class Fallout_3(BaseGame):
         return "https://raw.githubusercontent.com/loot/fallout3/v0.26/masterlist.yaml"
 
     @property
+    def reshade_dll(self) -> str:
+        return "d3d9.dll"
+
+    @property
+    def reshade_arch(self) -> int:
+        return 32
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="downgrade_fo3",
                 label="Downgrade Fallout 3",
@@ -381,7 +389,8 @@ class Fallout_3(BaseGame):
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
                                             progress_fn=progress_fn,
-                                            symlink_exts=_symlink_exts)
+                                            symlink_exts=_symlink_exts,
+                                            core_dir=data_dir.parent / (data_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log("Step 3: Filling gaps with vanilla files from Data_Core/ ...")
@@ -448,7 +457,7 @@ class Fallout3_GOTY(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="downgrade_fo3goty",
                 label="Downgrade Fallout 3 GOTY",
@@ -475,7 +484,7 @@ class Fallout_NV(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_fonv",
                 label="Install Script Extender (xNVSE)",
@@ -526,8 +535,16 @@ class Fallout_NV(Fallout_3):
 class Fallout_4(Fallout_3):
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
+    def reshade_arch(self) -> int:
+        return 64
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_fo4",
                 label="Install Script Extender (F4SE)",
@@ -578,8 +595,16 @@ class Fallout_4(Fallout_3):
 class Fallout_4VR(Fallout_3):
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
+    def reshade_arch(self) -> int:
+        return 64
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_fo4vr",
                 label="Install Script Extender (F4SEVR)",
@@ -631,7 +656,7 @@ class Oblivion(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_oblivion",
                 label="Install Script Extender (OBSE)",
@@ -693,7 +718,7 @@ class Skyrim(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_skyrim",
                 label="Install Script Extender (SKSE)",
@@ -744,8 +769,16 @@ class Skyrim(Fallout_3):
 class SkyrimVR(Fallout_3):
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
+    def reshade_arch(self) -> int:
+        return 64
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_skyrimvr",
                 label="Install Script Extender (SKSEVR)",
@@ -796,8 +829,16 @@ class SkyrimVR(Fallout_3):
 class Starfield(Fallout_3):
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
+    def reshade_arch(self) -> int:
+        return 64
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_starfield",
                 label="Install Script Extender (SFSE)",

@@ -579,6 +579,37 @@ class BaseGame(ABC):
         return True
 
     @property
+    def reshade_dll(self) -> str | None:
+        """
+        DLL name that ReShade should be installed as in the game folder.
+
+        The correct value depends on the graphics API the game uses:
+          - DirectX 9          → ``"d3d9.dll"``
+          - DirectX 10/11/12   → ``"dxgi.dll"``
+          - OpenGL             → ``"opengl32.dll"``
+
+        When set, a *Install ReShade* entry is automatically added to
+        :attr:`wizard_tools` so the wizard appears in the Wizard menu
+        without any further changes to the game handler.
+
+        Return ``None`` (the default) to disable ReShade support for this
+        game.
+        """
+        return None
+
+    @property
+    def reshade_arch(self) -> int:
+        """
+        Executable architecture for ReShade DLL selection: ``32`` or ``64``.
+
+        Controls whether ``ReShade32.dll`` or ``ReShade64.dll`` is extracted
+        from the installer.  Defaults to ``64``; override to ``32`` for
+        legacy 32-bit games (e.g. Fallout 3, Fallout New Vegas, Oblivion,
+        Skyrim classic).
+        """
+        return 64
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
         """
         Per-game helper tools shown in the Wizard dialog.
@@ -589,10 +620,39 @@ class BaseGame(ABC):
         ``dialog_class_path`` points to the CTkToplevel that implements the
         multi-step wizard.
 
+        Subclasses that add their own tools should extend via::
+
+            @property
+            def wizard_tools(self):
+                return self._base_wizard_tools() + [WizardTool(...)]
+
         Return an empty list (the default) to hide the Wizard button for
         this game.
         """
-        return []
+        return self._base_wizard_tools()
+
+    def _base_wizard_tools(self) -> list[WizardTool]:
+        """Return the framework-level wizard tools (e.g. ReShade).
+
+        Subclasses that override :attr:`wizard_tools` and need to include
+        the auto-generated base tools (such as Install ReShade) should call
+        this method rather than ``super().wizard_tools``, to avoid
+        accidentally inheriting intermediate class tools::
+
+            @property
+            def wizard_tools(self):
+                return self._base_wizard_tools() + [WizardTool(...)]
+        """
+        tools: list[WizardTool] = []
+        if self.reshade_dll:
+            tools.append(WizardTool(
+                id="install_reshade",
+                label="Install ReShade",
+                description=f"Download and install ReShade ({self.reshade_dll}) into the game folder.",
+                dialog_class_path="wizards.reshade.ReShadeWizard",
+                extra={"reshade_dll": self.reshade_dll, "reshade_arch": self.reshade_arch},
+            ))
+        return tools
 
     # -----------------------------------------------------------------------
     # Paths

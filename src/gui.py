@@ -75,7 +75,7 @@ from gui.version_check import (
 )
 
 from version import __version__
-from Utils.app_log import set_app_log
+from Utils.app_log import app_log, set_app_log
 from Utils.plugins import (
     prune_plugins_from_filemap,
     sync_plugins_from_filemap,

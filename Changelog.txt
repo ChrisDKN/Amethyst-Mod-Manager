@@ -1,3 +1,13 @@
+- v1.0.13
+- The plugins panel can now be resized, The minimum size remains the same but the max size can be changed. Note that this can't be done on the steam deck screen as it is already at it's max and minimum size.
+- The log panel can be made taller.
+- The size of the columns in the modlist panel can be resized.
+- The window size now saves so that opening the application sets the window size back to the previously set size
+- Added a splashscreen that appears on application start while it loads.
+- Added a search bar to the plugins list, Plugins can be searched for by plugin name or by mod name
+- Added a reshade installer to some games via wizard tools, This will download reshade, extract the correct dll for the game, install d3dcompiler and add the winedll overrides automatically.
+- Fixed a bug introduced in the last update where folders are not normalised correctly causing some mods to not load correctly
+
 - v1.0.12
 - The priority column can now be sorted/reversed. Previously this was disabled due to it breaking the entire drag and drop system
 - For root deployed games, if a mod contains a folder that already exists in the game files, the mod folder casing gets adjusted to match the target directory.
@@ -8,8 +18,6 @@
 - Added an onboarding menu for first time installs
 - Moved the update available window to overlay the modlist panel instead
 - Pressing generate separators now moves unsorted mods to the correct separator
-
-
 - v1.0.11
 - Fixed files in custom deployment locations not getting backed up
 - Mods under custom deployment separators no longer show up in the data tab

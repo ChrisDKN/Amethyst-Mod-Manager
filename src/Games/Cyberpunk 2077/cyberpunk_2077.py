@@ -42,7 +42,7 @@ class Cyberpunk2077(BaseGame):
 
     @property
     def exe_name(self) -> str:
-        return "REDprelauncher.exe"
+        return "bin/x64/Cyberpunk2077.exe"
 
     @property
     def steam_id(self) -> str:
@@ -51,6 +51,10 @@ class Cyberpunk2077(BaseGame):
     @property
     def nexus_game_domain(self) -> str:
         return "cyberpunk2077"
+
+    @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
 
     @property
     def mod_required_top_level_folders(self) -> set[str]:

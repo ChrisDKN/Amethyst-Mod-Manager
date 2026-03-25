@@ -105,6 +105,10 @@ class ResidentEvilVillage(BaseGame):
         return {"dinput8": "native,builtin"}
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
     def frameworks(self) -> dict[str, str]:
         return {"ReFramework": "dinput8.dll"}
 

@@ -85,8 +85,16 @@ class SkyrimSE(Fallout_3):
         return {"Script Extender": "skse64_loader.exe"}
 
     @property
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
+
+    @property
+    def reshade_arch(self) -> int:
+        return 64
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
-        return [
+        return self._base_wizard_tools() + [
             WizardTool(
                 id="install_se_skyrimse",
                 label="Install Script Extender (SKSE64)",
@@ -264,7 +272,8 @@ class SkyrimSE(Fallout_3):
                                             per_mod_deploy_dirs=per_mod_deploy,
                                             log_fn=_log,
                                             progress_fn=progress_fn,
-                                            symlink_exts=_symlink_exts)
+                                            symlink_exts=_symlink_exts,
+                                            core_dir=data_dir.parent / (data_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
         _log("Step 4: Filling gaps with vanilla files from Data_Core/ ...")

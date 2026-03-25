@@ -170,20 +170,8 @@ class Witcher3(BaseGame):
         return True
 
     @property
-    def plugin_extensions(self) -> list[str]:
-        return []
-
-    @property
-    def loot_sort_enabled(self) -> bool:
-        return False
-
-    @property
-    def loot_game_type(self) -> str:
-        return ""
-
-    @property
-    def loot_masterlist_url(self) -> str:
-        return ""
+    def reshade_dll(self) -> str:
+        return "dxgi.dll"
 
     # -----------------------------------------------------------------------
     # Paths

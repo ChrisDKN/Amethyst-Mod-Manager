@@ -621,11 +621,16 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
     # 512 MB safety margin.  A module-level lock + reservation counter prevents
     # parallel workers from all racing to claim the same free space before any
     # of them has started writing.
+    # We compare the *estimated extracted* size (compressed × 6) rather than
+    # the raw archive size, because extraction can expand a file many times over.
+    # Using the compressed size alone was causing EDQUOT (errno 122) on tmpfs
+    # mounts (e.g. Arch Linux /tmp) when installing large mods.
     global _tmp_space_reserved
     try:
         _archive_size = os.path.getsize(archive_path)
     except OSError:
         _archive_size = 0
+    _extract_size_estimate = _archive_size * 6  # conservative expansion factor
     _staging = game.get_effective_mod_staging_path()
     _tmp_claimed = False
     with _tmp_space_lock:
@@ -633,11 +638,11 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             _tmp_stat = os.statvfs("/tmp")
             _tmp_free = _tmp_stat.f_frsize * _tmp_stat.f_bavail
             _tmp_headroom = 512 * 1024 * 1024  # keep 512 MB free in /tmp
-            _use_tmp = _archive_size + _tmp_headroom + _tmp_space_reserved < _tmp_free
+            _use_tmp = _extract_size_estimate + _tmp_headroom + _tmp_space_reserved < _tmp_free
         except OSError:
             _use_tmp = False
         if _use_tmp:
-            _tmp_space_reserved += _archive_size
+            _tmp_space_reserved += _extract_size_estimate
             _tmp_claimed = True
     if _use_tmp:
         _tmp_parent = None  # let mkdtemp use the default /tmp
@@ -1438,4 +1443,4 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         shutil.rmtree(extract_dir, ignore_errors=True)
         if _tmp_claimed:
             with _tmp_space_lock:
-                _tmp_space_reserved = max(0, _tmp_space_reserved - _archive_size)
+                _tmp_space_reserved = max(0, _tmp_space_reserved - _extract_size_estimate)

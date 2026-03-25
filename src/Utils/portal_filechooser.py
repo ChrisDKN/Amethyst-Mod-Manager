@@ -346,7 +346,12 @@ def _zenity_folder(title: str) -> Path | object | None:
         p = Path(result.stdout.strip())
         if p.is_dir():
             return p
-    return _CANCELLED  # zenity ran but user cancelled (or bad path)
+    # Exit code 1 = user pressed Cancel; anything else is an error (e.g. D-Bus
+    # failure on bare X11/DWM) — fall through so the next picker is tried.
+    if result.returncode == 1:
+        return _CANCELLED
+    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
+    return None
 
 
 def _zenity_file(title: str) -> Path | object | None:
@@ -362,7 +367,12 @@ def _zenity_file(title: str) -> Path | object | None:
         p = Path(result.stdout.strip())
         if p.is_file():
             return p
-    return _CANCELLED  # zenity ran but user cancelled (or bad path)
+    # Exit code 1 = user pressed Cancel; anything else is an error (e.g. D-Bus
+    # failure on bare X11/DWM) — fall through so the next picker is tried.
+    if result.returncode == 1:
+        return _CANCELLED
+    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
+    return None
 
 
 def _kdialog_folder(title: str) -> Path | object | None:
