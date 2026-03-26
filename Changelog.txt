@@ -1,3 +1,13 @@
+- v1.0.14
+- Fixed witcher 3 folder name normalising broken by previous update
+- Added a check that stops a user being able to add a game with the game and staging directory on different drives if hard link is selected
+- Removed copy as an option when deploying a game, This can cause issues with the deploy/restore functions and has never been a viable method for deploying.
+- When manually selecting a staging directory, the game id is appended to the filepath to prevent 2 games having the same staging directory
+- When manually adding a game folder, A warning is shown if the exe can't be found (usually meaning the wrong folder was selected)
+- Columns can now be reordered and swapped around in the modlist panel. (Only the modname column cant be moved)
+- Improved modlist column resizing.
+- Swapped Hardlink and symlink in the add game menu. Symlinking is now the recommended deploy method. After benchmarking the only tradeoff is slightly slower load times but symlinks are much easier to remove if something goes wrong.
+
 - v1.0.13
 - The plugins panel can now be resized, The minimum size remains the same but the max size can be changed. Note that this can't be done on the steam deck screen as it is already at it's max and minimum size.
 - The log panel can be made taller.
@@ -18,6 +28,7 @@
 - Added an onboarding menu for first time installs
 - Moved the update available window to overlay the modlist panel instead
 - Pressing generate separators now moves unsorted mods to the correct separator
+
 - v1.0.11
 - Fixed files in custom deployment locations not getting backed up
 - Mods under custom deployment separators no longer show up in the data tab

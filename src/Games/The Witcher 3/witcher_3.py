@@ -36,7 +36,7 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame
-from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase
+from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase, _resolve_root_path
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -211,7 +211,7 @@ class Witcher3(BaseGame):
             raw_mode = data.get("deploy_mode", "hardlink")
             self._deploy_mode = {
                 "symlink": LinkMode.SYMLINK,
-                "copy":    LinkMode.COPY,
+                "copy":    LinkMode.SYMLINK,
             }.get(raw_mode, LinkMode.HARDLINK)
             raw_staging = data.get("staging_path", "")
             if raw_staging:
@@ -334,6 +334,7 @@ class Witcher3(BaseGame):
         skipped   = 0
         backed_up = 0
         nocase_cache: dict[Path, dict[str, list[Path]]] = {}
+        _dst_dir_cache: dict[Path, dict[str, str]] = {}
         # Track files placed in THIS deploy run so that duplicate filemap
         # entries routing to the same destination don't back each other up.
         # (e.g. Full/mods/modBrutalBlood/… and Lite/mods/modBrutalBlood/…
@@ -386,10 +387,9 @@ class Witcher3(BaseGame):
                 if in_custom_dir:
                     actual_dest = dest_file
                 else:
-                    rel_from_game = dest_file.relative_to(game_path).as_posix()
-                    actual_dest = (
-                        _resolve_nocase(game_path, rel_from_game, cache=nocase_cache)
-                        or dest_file
+                    rel_from_game = dest_file.relative_to(game_path)
+                    actual_dest = _resolve_root_path(
+                        game_path, rel_from_game, dir_cache=_dst_dir_cache
                     )
 
                 # If this logical destination was already placed in this deploy

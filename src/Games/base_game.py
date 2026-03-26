@@ -693,6 +693,16 @@ class BaseGame(ABC):
         e.g. Profiles/Skyrim Special Edition/mods/
         """
 
+    def get_hardlink_deploy_targets(self) -> list[tuple[str, "Path | None"]]:
+        """
+        Return a list of (label, path) pairs for directories that must be on
+        the same filesystem as the staging folder when using hardlinks.
+
+        The default returns just the game directory.  Games that also deploy
+        into the Proton prefix (e.g. The Sims 4, BG3) should override this.
+        """
+        return [("Game directory", self.get_game_path())]
+
     def get_profile_root(self) -> Path:
         """
         Return the root directory that contains the profiles/ folder.

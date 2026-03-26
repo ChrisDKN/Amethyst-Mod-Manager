@@ -9,6 +9,7 @@ with a manual folder-picker fallback via XDG portal or zenity.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import threading
@@ -106,7 +107,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._custom_staging: Optional[Path] = None
         self.result: Optional[Path] = None
         self.removed: bool = False
-        self._deploy_mode_var = tk.StringVar(value="hardlink")
+        self._deploy_mode_var = tk.StringVar(value="symlink")
         self._symlink_plugins_var = tk.BooleanVar(value=False)
         self._auto_deploy_var = tk.BooleanVar(value=False)
 
@@ -128,10 +129,10 @@ class ReconfigureGamePanel(ctk.CTkFrame):
                 self._start_heroic_prefix_scan()
             if hasattr(game, "get_deploy_mode"):
                 mode = game.get_deploy_mode()
+                mode_mapped = LinkMode.SYMLINK if mode == LinkMode.COPY else mode
                 self._deploy_mode_var.set({
                     LinkMode.SYMLINK: "symlink",
-                    LinkMode.COPY:    "copy",
-                }.get(mode, "hardlink"))
+                }.get(mode_mapped, "hardlink"))
             if hasattr(game, "symlink_plugins"):
                 self._symlink_plugins_var.set(game.symlink_plugins)
             if hasattr(game, "_staging_path") and game._staging_path is not None:
@@ -323,9 +324,8 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         _deploy_row.grid(row=16, column=0, sticky="w", padx=16, pady=(0, 10))
 
         _mode_options = [
-            ("Hardlink (Recommended)", "hardlink"),
-            ("Symlink",                "symlink"),
-            ("Direct Copy",            "copy"),
+            ("Symlink (Recommended)", "symlink"),
+            ("Hardlink",              "hardlink"),
         ]
         for label, value in _mode_options:
             ctk.CTkRadioButton(
@@ -392,9 +392,9 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         if widget is None:
             widget = self._scroll_frame
         try:
-            widget.bind("<Button-4>", lambda e: self._scroll_frame._parent_canvas.yview_scroll(-3, "units"), add="+")
-            widget.bind("<Button-5>", lambda e: self._scroll_frame._parent_canvas.yview_scroll( 3, "units"), add="+")
-            widget.bind("<MouseWheel>", lambda e: self._scroll_frame._parent_canvas.yview_scroll(
+            widget.bind("<Button-4>", lambda e=None: self._scroll_frame._parent_canvas.yview_scroll(-3, "units"), add="+")
+            widget.bind("<Button-5>", lambda e=None: self._scroll_frame._parent_canvas.yview_scroll( 3, "units"), add="+")
+            widget.bind("<MouseWheel>", lambda e=None: self._scroll_frame._parent_canvas.yview_scroll(
                 -3 if (getattr(e, "delta", 0) or 0) > 0 else 3, "units"), add="+")
         except Exception:
             pass
@@ -686,6 +686,20 @@ class ReconfigureGamePanel(ctk.CTkFrame):
     def _on_browse(self):
         def _apply(chosen: Optional[Path]):
             if chosen:
+                # Verify the game exe is present in the chosen folder
+                all_exes = [self._game.exe_name] + list(self._game.exe_name_alts)
+                found_exe = any(
+                    (chosen / exe).is_file()
+                    for exe in all_exes
+                    if exe
+                )
+                if not found_exe:
+                    exe_list = ", ".join(e for e in all_exes if e)
+                    self._status_label.configure(
+                        text=f"Game executable not found in that folder ({exe_list}).",
+                        text_color=TEXT_ERR
+                    )
+                    return
                 self._set_path(chosen, status="found")
                 self._status_label.configure(
                     text="Folder selected manually.", text_color=TEXT_OK
@@ -720,6 +734,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
     def _on_browse_staging(self):
         def _apply(chosen: Optional[Path]):
             if chosen:
+                chosen = chosen / self._game.game_id
                 self._set_staging(chosen, status="found")
             else:
                 self._staging_status_label.configure(
@@ -854,14 +869,57 @@ class ReconfigureGamePanel(ctk.CTkFrame):
     def _on_add(self):
         if self._found_path is None:
             return
+
+        # -- Hard-link cross-device validation --------------------------------
+        mode_str = self._deploy_mode_var.get()
+        if mode_str == "hardlink":
+            # Temporarily set paths so the game object can resolve targets
+            self._game.set_game_path(self._found_path)
+            if self._found_prefix is not None:
+                self._game.set_prefix_path(self._found_prefix)
+            if hasattr(self._game, "set_staging_path"):
+                self._game.set_staging_path(self._custom_staging)
+
+            staging = self._game.get_mod_staging_path()
+            staging_anchor = staging if staging.exists() else staging.parent
+            try:
+                staging_dev = os.stat(staging_anchor).st_dev
+            except OSError:
+                staging_dev = None
+
+            if staging_dev is not None:
+                targets = self._game.get_hardlink_deploy_targets()
+                mismatched: list[str] = []
+                for label, path in targets:
+                    if path is None:
+                        continue
+                    try:
+                        if os.stat(path).st_dev != staging_dev:
+                            mismatched.append(label)
+                    except OSError:
+                        continue
+
+                if mismatched:
+                    names = " and ".join(mismatched)
+                    self._status_label.configure(
+                        text=(
+                            f"Cannot use hardlinks: the staging folder and "
+                            f"{names} are on different drives. "
+                            f"Switch to Symlink instead."
+                        ),
+                        text_color=TEXT_ERR,
+                    )
+                    return
+        # ---------------------------------------------------------------------
+
         self._game.set_game_path(self._found_path)
         if self._found_prefix is not None:
             self._game.set_prefix_path(self._found_prefix)
         if hasattr(self._game, "set_deploy_mode"):
             mode = {
                 "symlink": LinkMode.SYMLINK,
-                "copy":    LinkMode.COPY,
-            }.get(self._deploy_mode_var.get(), LinkMode.HARDLINK)
+                "copy":    LinkMode.SYMLINK,
+            }.get(mode_str, LinkMode.HARDLINK)
             self._game.set_deploy_mode(mode)
         if hasattr(self._game, "set_symlink_plugins"):
             self._game.set_symlink_plugins(self._symlink_plugins_var.get())

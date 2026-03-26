@@ -232,7 +232,47 @@ def save_column_widths(widths: dict[int, int]) -> None:
     parser = configparser.ConfigParser()
     if path.is_file():
         parser.read(path)
+    # Preserve column order key across the section overwrite
+    existing_order = parser.get(_COLUMNS_SECTION, "order", fallback=None)
     parser[_COLUMNS_SECTION] = {str(k): str(v) for k, v in widths.items()}
+    if existing_order:
+        parser[_COLUMNS_SECTION]["order"] = existing_order
+    with path.open("w") as f:
+        parser.write(f)
+
+
+_DEFAULT_COL_ORDER = [2, 3, 4, 5, 6]  # category, flags, conflicts, installed, priority
+
+
+def load_column_order() -> list[int]:
+    """Load saved column display order from amethyst.ini. Returns list of data col indices [2..6]."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return list(_DEFAULT_COL_ORDER)
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(path)
+        raw = parser.get(_COLUMNS_SECTION, "order", fallback=None)
+        if raw is None:
+            return list(_DEFAULT_COL_ORDER)
+        order = [int(x) for x in raw.split(",")]
+        if sorted(order) == sorted(_DEFAULT_COL_ORDER):
+            return order
+        return list(_DEFAULT_COL_ORDER)
+    except Exception:
+        return list(_DEFAULT_COL_ORDER)
+
+
+def save_column_order(order: list[int]) -> None:
+    """Persist column display order to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = configparser.ConfigParser()
+    if path.is_file():
+        parser.read(path)
+    if _COLUMNS_SECTION not in parser:
+        parser[_COLUMNS_SECTION] = {}
+    parser[_COLUMNS_SECTION]["order"] = ",".join(str(x) for x in order)
     with path.open("w") as f:
         parser.write(f)
 

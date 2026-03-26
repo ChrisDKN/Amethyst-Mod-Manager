@@ -135,6 +135,12 @@ class BaldursGate3(BaseGame):
             return self._staging_path / "mods"
         return _PROFILES_DIR / self.name / "mods"
 
+    def get_hardlink_deploy_targets(self) -> list[tuple[str, "Path | None"]]:
+        return [
+            ("Game directory", self._game_path),
+            ("Proton prefix", self._prefix_path),
+        ]
+
     # -----------------------------------------------------------------------
     # Configuration persistence
     # -----------------------------------------------------------------------
@@ -157,7 +163,7 @@ class BaldursGate3(BaseGame):
             raw_mode = data.get("deploy_mode", "hardlink")
             self._deploy_mode = {
                 "symlink": LinkMode.SYMLINK,
-                "copy":    LinkMode.COPY,
+                "copy":    LinkMode.SYMLINK,
             }.get(raw_mode, LinkMode.HARDLINK)
             raw_staging = data.get("staging_path", "")
             if raw_staging:

@@ -129,7 +129,7 @@ from gui.mod_files_overlay import ModFilesOverlay
 from Nexus.nexus_meta import build_meta_from_download, ensure_installed_stamp, read_meta, write_meta
 from Nexus.nexus_download import delete_archive_and_sidecar
 from Utils.config_paths import get_download_cache_dir
-from Utils.ui_config import load_column_widths, save_column_widths
+from Utils.ui_config import load_column_widths, save_column_widths, load_column_order, save_column_order
 from Nexus.nexus_update_checker import check_for_updates
 
 
@@ -427,6 +427,16 @@ class ModListPanel(ctk.CTkFrame):
         self._col_drag_col: int | None = None   # which col boundary is being dragged
         self._col_drag_start_x: int = 0
         self._col_drag_start_w: int = 0
+
+        # Column reorder: list of data col indices (2-5) in left→right display order
+        self._col_order: list[int] = load_column_order()
+        # _col_pos: data col index → _COL_X/W slot index (computed in _layout_columns)
+        self._col_pos: dict[int, int] = {2: 2, 3: 3, 4: 4, 5: 5, 6: 6}
+        # Header label drag-to-reorder state
+        self._hdr_drag_col: int | None = None   # data col index being dragged
+        self._hdr_drag_start_x: int = 0
+        self._hdr_drag_moved: bool = False
+        self._hdr_drag_ghost: tk.Label | None = None  # floating ghost label
 
         # Per-entry logical state (parallel to _entries, aligned by index)
         self._check_vars:    list[tk.BooleanVar | None] = []
@@ -1057,46 +1067,41 @@ class ModListPanel(ctk.CTkFrame):
         x0, x1 = scaled(4), scaled(32)
         avail = canvas_w - x1 - gap * 6 - scroll_gap  # total for cols 1–6
 
-        # Default proportional widths (used on first layout / window resize)
-        defaults = [
-            max(scaled(80), avail - scaled(int((130 + 56 + 95 + 100 + 72) * scale))),  # name
-            scaled(int(130 * scale)),   # category
-            scaled(int(56 * scale)),    # flags
-            scaled(int(95 * scale)),    # conflicts
-            scaled(int(100 * scale)),   # installed
-            scaled(int(72 * scale)),    # priority
-        ]
+        # Default proportional widths keyed by data-col index (1=name, 2=cat, 3=flags, 4=conf, 5=inst, 6=prio)
+        data_defaults = {
+            1: max(scaled(80), avail - scaled(int((130 + 56 + 95 + 100 + 72) * scale))),
+            2: scaled(int(130 * scale)),
+            3: scaled(int(56 * scale)),
+            4: scaled(int(95 * scale)),
+            5: scaled(int(100 * scale)),
+            6: scaled(int(72 * scale)),
+        }
+        data_mins = {1: scaled(120), 2: scaled(95), 3: scaled(70), 4: scaled(95), 5: scaled(95), 6: scaled(80)}
 
         ov = self._col_w_override
-        widths = [ov.get(i + 1, defaults[i]) for i in range(6)]
-
-        # Enforce minimums
-        mins = [scaled(120), scaled(95), scaled(70), scaled(95), scaled(95), scaled(80)]
-        for i in range(6):
-            widths[i] = max(mins[i], widths[i])
+        # Width per data col
+        data_widths = {dc: max(data_mins[dc], ov.get(dc, data_defaults[dc])) for dc in range(1, 7)}
 
         # Scale all widths proportionally to fit available space exactly
-        total = sum(widths)
+        total = sum(data_widths[dc] for dc in range(1, 7))
         if total != avail and avail > 0:
             factor = avail / total
-            widths = [max(mins[i], int(widths[i] * factor)) for i in range(6)]
-            # Distribute rounding remainder to name column
-            remainder = avail - sum(widths)
-            widths[0] += remainder
+            data_widths = {dc: max(data_mins[dc], int(data_widths[dc] * factor)) for dc in range(1, 7)}
+            remainder = avail - sum(data_widths.values())
+            data_widths[1] += remainder
 
-        # Build x positions
-        x = x1
-        positions = [x0, x1]
-        for i in range(6):
-            if i > 0:
-                x = positions[-1]
-            x_next = x + widths[i] + gap
-            if i < 5:
-                positions.append(x_next)
-            else:
-                positions.append(x + gap)  # placeholder — priority x comes from prev
+        # Build slot-ordered widths: slot 0=checkbox, 1=name, 2..6 follow _col_order
+        # _col_order holds data cols 2-6 in display order
+        slot_data = [0, 1] + self._col_order  # slot → data col (slot 0 unused by widths)
+        widths = [data_widths.get(slot_data[i + 1], 0) for i in range(6)]
+        # widths[0]=name, widths[1..5]=reordered cols
 
-        # Rebuild positions cleanly
+        # Build _col_pos: data col → slot index in _COL_X/_COL_W
+        self._col_pos = {1: 1}
+        for k, dc in enumerate(self._col_order):
+            self._col_pos[dc] = k + 2  # slots 2..6
+
+        # Build x positions cleanly
         xs = [x0, x1]
         for i in range(5):
             xs.append(xs[-1] + widths[i] + gap)
@@ -1107,8 +1112,10 @@ class ModListPanel(ctk.CTkFrame):
         self._canvas_w = canvas_w
         self._name_col_right = x1 + widths[0] - scaled(4)
 
-    # Map header index → sort key name (index 0 is checkbox, not sortable)
-    _HEADER_SORT_KEYS = {1: "name", 2: "category", 3: "flags", 4: "conflicts", 5: "installed", 6: "priority"}
+    # Static sort key names by data-col index
+    _DATA_COL_SORT_KEYS = {1: "name", 2: "category", 3: "flags", 4: "conflicts", 5: "installed", 6: "priority"}
+    # Static titles by data-col index
+    _DATA_COL_TITLES = {0: "", 1: "Mod Name", 2: "Category", 3: "Flags", 4: "Conflicts", 5: "Installed", 6: "Priority"}
 
     def _update_header(self, canvas_w: int):
         try:
@@ -1116,12 +1123,16 @@ class ModListPanel(ctk.CTkFrame):
         except RecursionError:
             return
 
-        titles  = ["", "Mod Name", "Category", "Flags", "Conflicts", "Installed", "Priority"]
+        # Build slot-ordered metadata: slot 0=checkbox, 1=name, 2..6=reordered
+        slot_data_cols = [0, 1] + self._col_order
+        titles  = [self._DATA_COL_TITLES.get(slot_data_cols[i], "") for i in range(7)]
         x_pos   = self._COL_X
         anchors = ["center", "w", "center", "center", "center", "center", "center"]
         widths  = self._COL_W
         for i, (title, x, anc, w) in enumerate(zip(titles, x_pos, anchors, widths)):
-            sort_key = self._HEADER_SORT_KEYS.get(i)
+            dc = slot_data_cols[i]
+            sort_key = self._DATA_COL_SORT_KEYS.get(dc)
+            is_movable = dc in (2, 3, 4, 5, 6)
             display = title
             if sort_key and sort_key == self._sort_column:
                 arrow = " ▲" if self._sort_ascending else " ▼"
@@ -1129,6 +1140,8 @@ class ModListPanel(ctk.CTkFrame):
             if i < len(self._header_labels):
                 lbl = self._header_labels[i]
                 lbl.configure(text=display, fg=ACCENT if sort_key == self._sort_column else TEXT_SEP)
+                if is_movable:
+                    lbl.configure(cursor="fleur")
                 lbl.place(x=x, y=0, height=scaled(28), width=w)
             else:
                 lbl = tk.Label(
@@ -1136,10 +1149,14 @@ class ModListPanel(ctk.CTkFrame):
                     font=("Segoe UI", _theme.FS11, "bold"),
                     fg=ACCENT if sort_key == self._sort_column else TEXT_SEP,
                     bg=BG_HEADER, bd=0,
-                    cursor="hand2" if sort_key else "",
+                    cursor="fleur" if is_movable else ("hand2" if sort_key else ""),
                 )
-                if sort_key:
+                if sort_key and not is_movable:
                     lbl.bind("<Button-1>", lambda e, k=sort_key: self._on_header_click(k))
+                if is_movable:
+                    lbl.bind("<ButtonPress-1>",  lambda e, d=dc, k=sort_key: self._on_hdr_drag_start(e, d, k))
+                    lbl.bind("<B1-Motion>",       self._on_hdr_drag_motion)
+                    lbl.bind("<ButtonRelease-1>", self._on_hdr_drag_end)
                 lbl.place(x=x, y=0, height=scaled(28), width=w)
                 self._header_labels.append(lbl)
 
@@ -1178,24 +1195,72 @@ class ModListPanel(ctk.CTkFrame):
     # Minimum widths per _COL_W index: 0=checkbox, 1=name, 2=cat, 3=flags, 4=conflicts, 5=installed, 6=priority
     _COL_MIN_W = {1: 120, 2: 95, 3: 70, 4: 95, 5: 95, 6: 80}
 
+    def _slot_to_data_col(self, slot: int) -> int:
+        """Convert a _COL_W/X slot index to the data-col index it currently holds."""
+        if slot == 1:
+            return 1
+        if 2 <= slot <= 6:
+            return self._col_order[slot - 2]
+        return slot
+
     def _on_divider_drag_start(self, event: tk.Event, col: int) -> None:
-        """Start a column resize drag. col = _COL_W index of the left column."""
+        """Start a column resize drag. col = _COL_W slot index of the left column."""
         self._col_drag_col = col
-        self._col_drag_start_x = event.x_root  # use x_root for cross-widget accuracy
-        self._col_drag_left_w = self._COL_W[col]
-        self._col_drag_right_w = self._COL_W[col + 1]
+        self._col_drag_start_x = event.x_root
+        # Snapshot widths and data-col keys for all resizable slots (1..6)
+        self._col_drag_snap = {
+            slot: (self._slot_to_data_col(slot), self._COL_W[slot])
+            for slot in range(1, 7)
+        }
 
     def _on_header_col_drag_motion(self, event: tk.Event) -> None:
         if self._col_drag_col is None:
             return
-        col = self._col_drag_col
+        col = self._col_drag_col          # divider between slot col and col+1
         delta = event.x_root - self._col_drag_start_x
-        left_min = scaled(self._COL_MIN_W.get(col, 30))
-        right_min = scaled(self._COL_MIN_W.get(col + 1, 30))
-        delta = max(-self._col_drag_left_w + left_min,
-                    min(delta, self._col_drag_right_w - right_min))
-        self._col_w_override[col] = self._col_drag_left_w + delta
-        self._col_w_override[col + 1] = self._col_drag_right_w - delta
+        snap = self._col_drag_snap
+
+        # Slots to the left of divider and to the right
+        left_slots  = list(range(col, 0, -1))   # [col, col-1, ..., 1] — immediate-left first
+        right_slots = list(range(col + 1, 7))   # [col+1, ..., 6]
+        def distribute(slots: list[int], budget: int) -> dict[int, int]:
+            """Shrink/grow slots greedily. budget>0 grows first slot; budget<0 shrinks in order."""
+            new_w: dict[int, int] = {}
+            remaining = budget
+            for s in slots:
+                dc, orig = snap[s]
+                mn = scaled(self._COL_MIN_W.get(dc, 30))
+                if remaining >= 0:
+                    new_w[s] = orig + remaining  # first slot absorbs all growth
+                    remaining = 0
+                else:
+                    can_shrink = orig - mn
+                    take = max(remaining, -can_shrink)  # take is <= 0
+                    new_w[s] = orig + take
+                    remaining -= take
+                    if remaining == 0:
+                        break
+            # slots not touched keep their original width
+            for s in slots:
+                if s not in new_w:
+                    new_w[s] = snap[s][1]
+            return new_w
+
+        if delta < 0:
+            # Moving left: shrink left cols immediate-left first, grow right col
+            left_new  = distribute(left_slots, delta)           # delta < 0 → shrink from immediate-left
+            actual    = sum(left_new[s] - snap[s][1] for s in left_slots)
+            right_new = distribute(right_slots, -actual)        # grow by what was freed
+        else:
+            # Moving right: shrink right cols, grow immediate-left col
+            right_new = distribute(right_slots, -delta)         # negative → shrink
+            actual    = sum(snap[s][1] - right_new[s] for s in right_slots)
+            left_new  = distribute(left_slots,  actual)         # grow immediate-left first
+
+        for s, (dc, _) in snap.items():
+            w = left_new.get(s, right_new.get(s, snap[s][1]))
+            self._col_w_override[dc] = w
+
         self._layout_columns(self._canvas_w)
         self._update_header(self._canvas_w)
         self._redraw()
@@ -1206,9 +1271,113 @@ class ModListPanel(ctk.CTkFrame):
 
     def _on_divider_drag_reset(self, event: tk.Event, col: int) -> None:
         """Double-click a divider to reset both adjacent columns to auto width."""
-        self._col_w_override.pop(col, None)
-        self._col_w_override.pop(col + 1, None)
+        left_dc = self._slot_to_data_col(col)
+        right_dc = self._slot_to_data_col(col + 1)
+        self._col_w_override.pop(left_dc, None)
+        self._col_w_override.pop(right_dc, None)
         save_column_widths(self._col_w_override)
+        self._layout_columns(self._canvas_w)
+        self._update_header(self._canvas_w)
+        self._redraw()
+
+    # ------------------------------------------------------------------
+    # Column reorder drag (header label drag-to-move)
+    # ------------------------------------------------------------------
+
+    def _on_hdr_drag_start(self, event: tk.Event, data_col: int, sort_key: str | None) -> None:
+        self._hdr_drag_col = data_col
+        self._hdr_drag_sort_key = sort_key
+        self._hdr_drag_start_x = event.x_root
+        self._hdr_drag_moved = False
+
+    def _on_hdr_drag_motion(self, event: tk.Event) -> None:
+        if self._hdr_drag_col is None:
+            return
+        dx = abs(event.x_root - self._hdr_drag_start_x)
+        if dx > 5:
+            self._hdr_drag_moved = True
+        if not self._hdr_drag_moved:
+            return
+        # Show a ghost label following the cursor
+        x_root, y_root = event.x_root, event.y_root
+        if self._hdr_drag_ghost is None:
+            dc = self._hdr_drag_col
+            title = self._DATA_COL_TITLES.get(dc, "")
+            self._hdr_drag_ghost = tk.Label(
+                self._header, text=title,
+                font=("Segoe UI", _theme.FS11, "bold"),
+                fg=ACCENT, bg="#3a3a5a", relief="solid", bd=1,
+                padx=4,
+            )
+        # Position relative to header widget
+        hdr_x = self._header.winfo_rootx()
+        hdr_y = self._header.winfo_rooty()
+        ghost_x = x_root - hdr_x - 20
+        self._hdr_drag_ghost.place(x=ghost_x, y=2, height=scaled(24))
+        self._hdr_drag_ghost.lift()
+        # Highlight the drop target column
+        self._hdr_drag_highlight(event.x_root)
+
+    def _hdr_drag_highlight(self, x_root: int) -> None:
+        """Update header label backgrounds to show drop target."""
+        hdr_x = self._header.winfo_rootx()
+        local_x = x_root - hdr_x
+        target_slot = self._hdr_slot_at(local_x)
+        for k, lbl in enumerate(self._header_labels):
+            slot = k  # label index = slot
+            dc = ([0, 1] + self._col_order)[slot] if slot < 7 else 0
+            is_movable = dc in (2, 3, 4, 5, 6)
+            if is_movable and slot == target_slot:
+                lbl.configure(bg="#3a3a5a")
+            else:
+                lbl.configure(bg=BG_HEADER)
+
+    def _hdr_slot_at(self, local_x: int) -> int:
+        """Return the slot index (2-6) at header local x, clamped to movable range."""
+        for slot in range(6, 1, -1):
+            if local_x >= self._COL_X[slot]:
+                return slot
+        return 2
+
+    def _on_hdr_drag_end(self, event: tk.Event) -> None:
+        if self._hdr_drag_col is None:
+            return
+        dc = self._hdr_drag_col
+        moved = self._hdr_drag_moved
+        sort_key = getattr(self, "_hdr_drag_sort_key", None)
+        # Clean up ghost
+        if self._hdr_drag_ghost is not None:
+            self._hdr_drag_ghost.destroy()
+            self._hdr_drag_ghost = None
+        # Reset label backgrounds
+        for lbl in self._header_labels:
+            lbl.configure(bg=BG_HEADER)
+        self._hdr_drag_col = None
+        self._hdr_drag_moved = False
+        if not moved:
+            # Treat as a click — sort if sortable
+            if sort_key:
+                self._on_header_click(sort_key)
+            return
+        # Determine drop target slot
+        hdr_x = self._header.winfo_rootx()
+        local_x = event.x_root - hdr_x
+        target_slot = self._hdr_slot_at(local_x)
+        # Find source slot
+        src_slot = self._col_pos.get(dc, -1)
+        if src_slot == target_slot or target_slot < 2 or target_slot > 6:
+            return
+        # Swap in _col_order
+        src_k = src_slot - 2
+        tgt_k = target_slot - 2
+        order = list(self._col_order)
+        order[src_k], order[tgt_k] = order[tgt_k], order[src_k]
+        self._col_order = order
+        save_column_order(order)
+        # Rebuild header labels so bindings use the new order
+        for lbl in self._header_labels:
+            lbl.destroy()
+        self._header_labels.clear()
         self._layout_columns(self._canvas_w)
         self._update_header(self._canvas_w)
         self._redraw()
@@ -1575,6 +1744,14 @@ class ModListPanel(ctk.CTkFrame):
         cw = self._canvas_w
         dragging = self._drag_idx >= 0 and self._drag_moved
 
+        # Pre-compute column x/w for each data col (respects reorder)
+        _col_pos = self._col_pos
+        _CAT_X  = self._COL_X[_col_pos.get(2, 2)]; _CAT_W  = self._COL_W[_col_pos.get(2, 2)]
+        _FLAG_X = self._COL_X[_col_pos.get(3, 3)]; _FLAG_W = self._COL_W[_col_pos.get(3, 3)]
+        _CONF_X = self._COL_X[_col_pos.get(4, 4)]; _CONF_W = self._COL_W[_col_pos.get(4, 4)]
+        _INST_X = self._COL_X[_col_pos.get(5, 5)]; _INST_W = self._COL_W[_col_pos.get(5, 5)]
+        _PRIO_X = self._COL_X[_col_pos.get(6, 6)]; _PRIO_W = self._COL_W[_col_pos.get(6, 6)]
+
         # Pre-compute font tuples (avoid re-creating inside the inner loop)
         _FONT_NAME = ("Segoe UI", _theme.FS11)
         _FONT_SEP_BOLD = ("Segoe UI", _theme.FS10, "bold")
@@ -1797,7 +1974,7 @@ class ModListPanel(ctk.CTkFrame):
 
                     # Overwrite row conflict icons in conflict column
                     if is_overwrite and self._overrides.get(OVERWRITE_NAME):
-                        cx = self._COL_X[4] + self._COL_W[4] // 2
+                        cx = _CONF_X + _CONF_W // 2
                         if self._icon_minus:
                             c.coords(self._pool_conflict_icon1[s], cx - scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
@@ -1959,9 +2136,9 @@ class ModListPanel(ctk.CTkFrame):
                     cat_text = self._category_names.get(entry.name, "")
                     if cat_text:
                         cat_font = _FONT_SMALL
-                        cat_width = self._COL_W[2] - scaled(4)
+                        cat_width = _CAT_W - scaled(4)
                         display_cat = _truncate_text_for_width(c, cat_text, cat_font, cat_width)
-                        cat_cx = self._COL_X[2] + self._COL_W[2] // 2
+                        cat_cx = _CAT_X + _CAT_W // 2
                         c.coords(self._pool_category_text[s], cat_cx, y_mid)
                         c.itemconfigure(self._pool_category_text[s],
                                         text=display_cat, anchor="center",
@@ -1970,7 +2147,7 @@ class ModListPanel(ctk.CTkFrame):
                         c.itemconfigure(self._pool_category_text[s], state="hidden")
 
                     # Flags icon
-                    flag_x = self._COL_X[3] + self._COL_W[3] // 2
+                    flag_x = _FLAG_X + _FLAG_W // 2
                     if (entry.name in self._missing_reqs
                             and entry.name not in self._ignored_missing_reqs
                             and self._icon_warning):
@@ -2015,7 +2192,7 @@ class ModListPanel(ctk.CTkFrame):
                     # Conflict icons (non-locked rows; locked rows' icons already set above)
                     if not entry.locked:
                         conflict = self._conflict_map.get(entry.name, CONFLICT_NONE)
-                        cx = self._COL_X[4] + self._COL_W[4] // 2
+                        cx = _CONF_X + _CONF_W // 2
                         if conflict == CONFLICT_WINS and self._icon_plus:
                             c.coords(self._pool_conflict_icon1[s], cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
@@ -2045,7 +2222,7 @@ class ModListPanel(ctk.CTkFrame):
                         # Install date text
                         install_text = self._install_dates.get(entry.name, "")
                         if install_text:
-                            inst_cx = self._COL_X[5] + self._COL_W[5] // 2
+                            inst_cx = _INST_X + _INST_W // 2
                             c.coords(self._pool_install_text[s], inst_cx, y_mid)
                             c.itemconfigure(self._pool_install_text[s],
                                             text=install_text, anchor="center",
@@ -2054,7 +2231,7 @@ class ModListPanel(ctk.CTkFrame):
                             c.itemconfigure(self._pool_install_text[s], state="hidden")
 
                         # Priority text
-                        prio_cx = self._COL_X[6] + self._COL_W[6] // 2
+                        prio_cx = _PRIO_X + _PRIO_W // 2
                         c.coords(self._pool_priority_text[s], prio_cx, y_mid)
                         c.itemconfigure(self._pool_priority_text[s],
                                         text=str(priorities.get(i, "")), anchor="center",
@@ -2063,13 +2240,11 @@ class ModListPanel(ctk.CTkFrame):
                         # locked row — install date / priority still shown
                         install_text = self._install_dates.get(entry.name, "")
                         if install_text:
-                            c.coords(self._pool_install_text[s],
-                                      self._COL_X[5] + self._COL_W[5] // 2, y_mid)
+                            c.coords(self._pool_install_text[s], _INST_X + _INST_W // 2, y_mid)
                         c.itemconfigure(self._pool_install_text[s],
                                         text=install_text, anchor="center",
                                         fill=TEXT_DIM, font=_FONT_SMALL, state="normal")
-                        c.coords(self._pool_priority_text[s],
-                                 self._COL_X[6] + self._COL_W[6] // 2, y_mid)
+                        c.coords(self._pool_priority_text[s], _PRIO_X + _PRIO_W // 2, y_mid)
                         c.itemconfigure(self._pool_priority_text[s],
                                         text=str(priorities.get(i, "")), anchor="center",
                                         fill=TEXT_DIM, font=_FONT_SMALL, state="normal")
@@ -2521,9 +2696,10 @@ class ModListPanel(ctk.CTkFrame):
         # Sync overrides with the actual post-resize widths so future drags
         # start from the correct baseline (avoids adjacent columns jumping).
         if self._col_w_override:
-            for i in range(1, 7):
-                if i in self._col_w_override:
-                    self._col_w_override[i] = self._COL_W[i]
+            for slot in range(1, 7):
+                dc = self._slot_to_data_col(slot)
+                if dc in self._col_w_override:
+                    self._col_w_override[dc] = self._COL_W[slot]
         self._update_header(width)
         _truncate_cache.clear()
         self._redraw()
@@ -3091,8 +3267,9 @@ class ModListPanel(ctk.CTkFrame):
 
         # Show tooltip when hovering over the flags column icons
         x = event.x
-        flags_col_start = self._COL_X[3]
-        flags_col_end = self._COL_X[4] if len(self._COL_X) > 4 else flags_col_start + 56
+        flag_slot = self._col_pos.get(3, 3)
+        flags_col_start = self._COL_X[flag_slot]
+        flags_col_end = flags_col_start + self._COL_W[flag_slot]
         if flags_col_start <= x < flags_col_end and 0 <= row < len(vis):
             entry = self._entries[vis[row]]
             if not entry.is_separator:

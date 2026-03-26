@@ -230,9 +230,10 @@ class BepInExWizard(ctk.CTkFrame):
         ctk.CTkLabel(
             self._body,
             text=(
-                f"Click the button below to download BepInEx\n"
+                f"You need to manually download BepInEx\n"
                 f"for {self._game.name}.\n\n"
-                "Once the download finishes, click Next."
+                "Click the button below to open the download page,\n"
+                "then click Next once the download is complete."
             ),
             font=FONT_NORMAL, text_color=TEXT_DIM, justify="center",
         ).pack(pady=(0, 16))

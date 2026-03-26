@@ -172,7 +172,7 @@ class UE5Game(BaseGame):
             raw_mode = data.get("deploy_mode", "hardlink")
             self._deploy_mode = {
                 "symlink": LinkMode.SYMLINK,
-                "copy":    LinkMode.COPY,
+                "copy":    LinkMode.SYMLINK,
             }.get(raw_mode, LinkMode.HARDLINK)
             raw_staging = data.get("staging_path", "")
             if raw_staging:

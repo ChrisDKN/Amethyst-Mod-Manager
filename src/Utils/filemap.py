@@ -246,19 +246,29 @@ def _normalize_folder_cases(*all_files_list: dict[str, dict[str, str]]) -> None:
     Accepts one or more dicts (e.g. normal and root) and builds canonical
     casing from all in one pass, then rewrites each in turn.
     """
-    # Collect every unique folder-segment casing seen across all dicts in one pass.
-    canonical: dict[str, str] = {}
+    # Collect canonical casing per folder segment, keyed by its full ancestor
+    # path so that identically-named segments at different tree locations are
+    # independent.  e.g. "textures/effects" vs "interface/photomode/overlays/effects"
+    # produce different keys, so Photo Mode's uppercase EFFECTS can never
+    # influence Particle Patch's lowercase effects.
+    # Key: (lowercase_parent_path, lowercase_segment) -> canonical segment str
+    canonical: dict[tuple[str, str], str] = {}
     for all_files in all_files_list:
         if not all_files:
             continue
         for files in all_files.values():
             for rel_str in files.values():
-                for seg in rel_str.split("/")[:-1]:
-                    key = seg.lower()
-                    if key not in canonical:
-                        canonical[key] = seg
+                parts = rel_str.split("/")
+                if len(parts) < 2:
+                    continue
+                parent = ""
+                for seg in parts[:-1]:
+                    ctx_key = (parent, seg.lower())
+                    if ctx_key not in canonical:
+                        canonical[ctx_key] = seg
                     else:
-                        canonical[key] = _pick_canonical_segment(canonical[key], seg)
+                        canonical[ctx_key] = _pick_canonical_segment(canonical[ctx_key], seg)
+                    parent = parent + seg.lower() + "/"
 
     if not canonical:
         return
@@ -273,19 +283,20 @@ def _normalize_folder_cases(*all_files_list: dict[str, dict[str, str]]) -> None:
                 if "/" not in rel_str:
                     continue
                 parts = rel_str.split("/")
-                # Fast path: skip if all folder segments already canonical
                 changed = False
+                parent = ""
+                new_parts = []
                 for seg in parts[:-1]:
-                    c = canonical.get(seg.lower(), seg)
+                    ctx_key = (parent, seg.lower())
+                    c = canonical.get(ctx_key, seg)
                     if c != seg:
                         changed = True
-                        break
+                    new_parts.append(c)
+                    parent = parent + seg.lower() + "/"
                 if not changed:
                     continue
-                new_rel = "/".join(
-                    canonical.get(seg.lower(), seg) for seg in parts[:-1]
-                ) + "/" + parts[-1]
-                files[rel_key] = new_rel
+                new_parts.append(parts[-1])
+                files[rel_key] = "/".join(new_parts)
 
 
 # ---------------------------------------------------------------------------
