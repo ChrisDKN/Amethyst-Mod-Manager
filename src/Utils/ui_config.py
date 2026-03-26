@@ -304,6 +304,25 @@ def save_window_geometry(geometry: str) -> None:
         parser.write(f)
 
 
+# ---------------------------------------------------------------------------
+# Dev mode
+# ---------------------------------------------------------------------------
+_DEV_SECTION = "dev"
+
+
+def load_dev_mode() -> bool:
+    """Return True if [dev] devmode = true is set in amethyst.ini."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(path)
+        return parser.get(_DEV_SECTION, "devmode", fallback="false").strip().lower() == "true"
+    except Exception:
+        return False
+
+
 def save_nexus_show_adult(value: bool) -> None:
     """Persist the show_adult setting to amethyst.ini."""
     path = get_ui_config_path()

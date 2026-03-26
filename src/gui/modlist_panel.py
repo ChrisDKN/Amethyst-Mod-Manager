@@ -4946,7 +4946,8 @@ class ModListPanel(ctk.CTkFrame):
                         install_mod_from_archive(
                             str(result.file_path), app, log_fn, game, mod_panel,
                             on_installed=_cleanup,
-                            progress_fn=_extract_progress)
+                            progress_fn=_extract_progress,
+                            clear_progress_fn=lambda: app.after(0, status_bar.clear_progress) if status_bar is not None else None)
                     finally:
                         if status_bar is not None:
                             app.after(0, status_bar.clear_progress)
@@ -5009,6 +5010,7 @@ class ModListPanel(ctk.CTkFrame):
                 install_mod_from_archive(
                     str(archive_path), app, self._log, game, mod_panel=self,
                     progress_fn=_extract_progress,
+                    clear_progress_fn=lambda: app.after(0, status_bar.clear_progress) if status_bar is not None else None,
                 )
             finally:
                 if status_bar is not None:

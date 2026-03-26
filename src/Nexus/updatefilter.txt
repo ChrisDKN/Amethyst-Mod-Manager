@@ -15,6 +15,7 @@ skyrimspecialedition:60033#133232
 
 fallout4:2737
 fallout4:42147
+fallout4:42159
 oblivion:37952
 newvegas:67883
 starfield:106

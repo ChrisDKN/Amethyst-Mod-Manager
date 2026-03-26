@@ -1,3 +1,8 @@
+- v1.0.15
+- Fixed some fomod folders not installing correctly due to case mismatch between the extraced file and what is in the xml file.
+- Manually installing a mod while not logged into nexus now creates the meta.ini correctly
+- The extraction progress bar now disspears before a fomod window opens
+
 - v1.0.14
 - Fixed witcher 3 folder name normalising broken by previous update
 - Added a check that stops a user being able to add a game with the game and staging directory on different drives if hard link is selected

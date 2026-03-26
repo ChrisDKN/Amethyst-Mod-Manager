@@ -35,6 +35,7 @@ from gui.fomod_dialog import FomodDialog
 from gui.mod_name_utils import _strip_title_metadata, _suggest_mod_names
 from Utils.fomod_parser import detect_fomod, parse_module_config
 from Utils.fomod_installer import resolve_files
+from Utils.ui_config import load_dev_mode
 from Utils.config_paths import get_fomod_selections_path
 from Utils.plugins import read_plugins, append_plugin, read_loadorder, write_loadorder, PluginEntry
 from Utils.modlist import prepend_mod, ensure_mod_preserving_position
@@ -393,6 +394,27 @@ def _resolve_direct_files(extract_dir: str) -> list[tuple[str, str, bool]]:
     return result
 
 
+def _resolve_src_case(src_root: Path, src_rel: str) -> Path:
+    """
+    Build src_root / src_rel while resolving each path component case-insensitively
+    against what actually exists on disk.  FOMOD XML is written on Windows (case-
+    insensitive) so source paths like "00 SOS\\FULL\\" may not match the real
+    capitalisation on a Linux filesystem (e.g. "00 SOS/Full/").
+    """
+    parts = src_rel.replace("\\", "/").strip("/").split("/")
+    current = src_root
+    for part in parts:
+        if not part:
+            continue
+        try:
+            existing = {p.name.lower(): p.name for p in current.iterdir() if current.is_dir()}
+        except OSError:
+            existing = {}
+        resolved = existing.get(part.lower(), part)
+        current = current / resolved
+    return current
+
+
 def _resolve_dst_case(dest_root: Path, dst_rel: str) -> Path:
     """
     Build dest_root / dst_rel while resolving each path component case-insensitively
@@ -460,7 +482,7 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
     file_entries: list[tuple[Path, Path]] = []  # (src, dst) pairs ready to copy
 
     for src_rel, dst_rel, is_folder in file_list:
-        src = Path(src_root) / src_rel
+        src = _resolve_src_case(Path(src_root), src_rel) if src_rel else Path(src_root)
         dst = _resolve_dst_case(dest_root, dst_rel) if dst_rel else dest_root / dst_rel
 
         if is_folder:
@@ -516,7 +538,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                              preferred_name: str = "",
                              skip_index_update: bool = False,
                              overwrite_existing: "bool | None" = None,
-                             progress_fn=None) -> None:
+                             progress_fn=None,
+                             clear_progress_fn=None) -> None:
     """
     Extract archive to a temp directory, detect FOMOD, run the wizard if
     present, then copy the resolved files into the game's mod staging area.
@@ -889,6 +912,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                         except (OSError, ValueError):
                             saved_selections = None
 
+                if clear_progress_fn is not None:
+                    clear_progress_fn()
                 if threading.current_thread() is threading.main_thread():
                     dialog = FomodDialog(parent_window, config, mod_root,
                                          installed_files=installed_files,
@@ -931,6 +956,22 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             file_list = resolve_files(config, final_selections, installed_files)
             is_fomod_install = True
             log_fn(f"FOMOD complete — {len(file_list)} file(s) to install.")
+
+            if load_dev_mode():
+                log_fn("[FOMOD DEV] === Selections ===")
+                for step_key, group_map in final_selections.items():
+                    # step_key may be a str(int) index or a step name
+                    try:
+                        step_idx = int(step_key)
+                        step_label = config.steps[step_idx].name if step_idx < len(config.steps) else step_key
+                    except (ValueError, IndexError):
+                        step_label = step_key
+                    for group_name, chosen in group_map.items():
+                        log_fn(f"[FOMOD DEV]   Step '{step_label}' / Group '{group_name}': {chosen}")
+                log_fn("[FOMOD DEV] === Files to install ===")
+                for src, dst, is_folder in file_list:
+                    kind = "[dir]" if is_folder else "[file]"
+                    log_fn(f"[FOMOD DEV]   {kind} {src!r} → {dst!r}")
         elif getattr(game, "mod_supports_bundles", False) and detect_bundle(extract_dir):
             # --- Bundle install ---
             bundle_name, variants = detect_bundle(extract_dir)
@@ -1310,6 +1351,31 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
         _copy_file_list(file_list, mod_root, dest_root, log_fn)
         log_fn(f"Installed '{mod_name}' → {dest_root}")
 
+        if is_fomod_install and load_dev_mode():
+            log_fn("[FOMOD DEV] === Post-install verification ===")
+            missing: list[str] = []
+            for src, dst, is_folder in file_list:
+                dst_norm = dst.replace("\\", "/").rstrip("/")
+                if not dst_norm:
+                    continue
+                expected = dest_root / Path(dst_norm)
+                if is_folder:
+                    if not expected.is_dir():
+                        missing.append(f"[dir]  {dst_norm!r}")
+                else:
+                    if not expected.is_file():
+                        # Destination may have been a trailing-slash folder install
+                        src_name = Path(src.replace("\\", "/")).name
+                        alt = dest_root / Path(dst_norm) / src_name
+                        if not alt.is_file():
+                            missing.append(f"[file] {dst_norm!r}")
+            if missing:
+                log_fn(f"[FOMOD DEV] WARNING — {len(missing)} expected file(s) not found after install:")
+                for m in missing:
+                    log_fn(f"[FOMOD DEV]   MISSING {m}")
+            else:
+                log_fn(f"[FOMOD DEV] All {len(file_list)} FOMOD file(s) verified present.")
+
         _stamp_meta_install_date(dest_root / "meta.ini",
                                   installation_file=os.path.basename(archive_path))
 
@@ -1363,6 +1429,11 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             if dest_root.is_dir():
                 for entry in dest_root.iterdir():
                     if entry.is_file() and entry.suffix.lower() in exts_lower:
+                        # Normalise extension to lowercase (e.g. plugin.ESP → plugin.esp)
+                        if entry.suffix != entry.suffix.lower():
+                            normalised = entry.with_suffix(entry.suffix.lower())
+                            entry.rename(normalised)
+                            entry = normalised
                         append_plugin(plugins_path, entry.name, enabled=True, star_prefix=_sp)
                         new_plugins.append(entry.name)
             if new_plugins:

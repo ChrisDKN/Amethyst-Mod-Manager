@@ -1024,7 +1024,8 @@ class TopBar(ctk.CTkFrame):
                 try:
                     install_mod_from_archive(path, app, self._log, game, mod_panel,
                                              disable_extract=self._disable_extract,
-                                             progress_fn=_extract_progress)
+                                             progress_fn=_extract_progress,
+                                             clear_progress_fn=lambda: app.after(0, status_bar.clear_progress) if status_bar is not None else None)
                 finally:
                     if status_bar is not None:
                         app.after(0, status_bar.clear_progress)

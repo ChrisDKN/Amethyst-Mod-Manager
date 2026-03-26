@@ -174,7 +174,8 @@ def install_nexus_mod_from_entry(app, api, game, mod_panel, log_fn, entry,
                             str(_archive_path), app, log_fn, game, mod_panel,
                             prebuilt_meta=_prebuilt,
                             on_installed=_cleanup,
-                            progress_fn=_extract_progress)
+                            progress_fn=_extract_progress,
+                            clear_progress_fn=lambda: app.after(0, status_bar.clear_progress) if status_bar is not None else None)
                     finally:
                         if status_bar is not None:
                             app.after(0, status_bar.clear_progress)

@@ -369,9 +369,6 @@ def resolve_nexus_meta_for_archive(
     """
     _log = log_fn or (lambda m: None)
 
-    if api is None:
-        return None
-
     archive_name = archive_path.name
     stem = archive_path.stem
     # Handle double extensions like .tar.gz
@@ -384,6 +381,20 @@ def resolve_nexus_meta_for_archive(
     fn_info = parse_nexus_filename(stem)
     if fn_info and fn_info.mod_id > 0:
         _log(f"Nexus: Detected mod ID {fn_info.mod_id} from filename.")
+
+        if api is None:
+            # Offline — save what we can from the filename alone.
+            _log("Nexus: Not connected — saving mod ID and install date from filename.")
+            now = datetime.now(timezone.utc)
+            date_version = now.strftime("d%Y.%-m.%-d.0")
+            return NexusModMeta(
+                game_domain=game_domain,
+                mod_id=fn_info.mod_id,
+                installation_file=archive_name,
+                installed=now.strftime("%Y-%m-%dT%H:%M:%S"),
+                version=date_version,
+            )
+
         try:
             # Use GraphQL for mod info (avoids 2 REST calls: get_mod + get_game_categories)
             mod_info, _ = api.get_mod_and_file_info_graphql(
@@ -424,6 +435,9 @@ def resolve_nexus_meta_for_archive(
         except Exception as exc:
             _log(f"Nexus: Filename had mod ID {fn_info.mod_id} but API lookup "
                  f"failed ({exc}). Trying MD5...")
+
+    if api is None:
+        return None
 
     # --- Strategy 2: MD5 hash lookup ---
     _log(f"Nexus: Computing MD5 hash of {archive_name}...")

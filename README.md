@@ -32,31 +32,33 @@ curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/s
 
 ## Games Supported
 
-- Skyrim (Normal, SE and VR)
-- Fallout 3 (Normal and Goty)
-- Fallout 4 (Normal and VR)
-- Fallout New Vegas
-- Enderal (Normal and SE)
-- Starfield
-- Oblivion
-- Oblivion Remastered
-- Baldur's Gate 3
-- Witcher 3
-- Cyberpunk 2077
-- Mewgenics
-- Stardew Valley
-- Kingdom Come Deliverance (1 and 2)
-- Hogwarts Legacy
-- Marvel Rivals
-- Subnautica
-- Subnautica Below Zero
-- Resident Evil (2,3,4,7,Village,Requiem)
-- The Sims 4
-- Tcg Card Shop Simulator
-- Valheim
-- Lethal Company
-- Mount & Blade II: Bannerlord
-- Slay The Spire 2
+| Game | Notes |
+|------|-------|
+| Skyrim | Normal, SE and VR |
+| Fallout 3 | Normal and Goty |
+| Fallout 4 | Normal and VR |
+| Fallout New Vegas | |
+| Enderal | Normal and SE |
+| Starfield | |
+| Oblivion | |
+| Oblivion Remastered | |
+| Baldur's Gate 3 | |
+| Witcher 3 | |
+| Cyberpunk 2077 | |
+| Mewgenics | |
+| Stardew Valley | |
+| Kingdom Come Deliverance | 1 and 2 |
+| Hogwarts Legacy | |
+| Marvel Rivals | |
+| Subnautica | |
+| Subnautica Below Zero | |
+| Resident Evil | 2, 3, 4, 7, Village, Requiem |
+| The Sims 4 | |
+| TCG Card Shop Simulator | |
+| Valheim | |
+| Lethal Company | |
+| Mount & Blade II: Bannerlord | |
+| Slay The Spire 2 | |
 - The manager now has the ability to define custom games. See the Wiki for the guide
 
 ## Usage
