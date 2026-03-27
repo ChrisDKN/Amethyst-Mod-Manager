@@ -1,0 +1,27 @@
+{
+  "name": "Blade and Sorcery",
+  "game_id": "Blade_and_Sorcery",
+  "exe_name": "BladeAndSorcery.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "BladeAndSorcery_Data/StreamingAssets/Mods",
+  "steam_id": "629730",
+  "nexus_game_domain": "bladeandsorcery",
+  "editable": false,
+  "image_url": "https://cdn2.steamgriddb.com/icon_thumb/49476c78425305054196eb23ef674d46.png",
+  "mod_folder_strip_prefixes": [
+    "BladeAndSorcery_Data",
+    "StreamingAssets",
+    "Mods"
+  ],
+  "conflict_ignore_filenames": [],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {},
+  "custom_routing_rules": []
+}

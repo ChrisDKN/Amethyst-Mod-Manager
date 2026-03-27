@@ -32,36 +32,32 @@ curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/s
 
 ## Games Supported
 
-| Game | Notes |
-|------|-------|
-| Skyrim | Normal, SE and VR |
-| Fallout 3 | Normal and Goty |
-| Fallout 4 | Normal and VR |
-| Fallout New Vegas | |
-| Enderal | Normal and SE |
-| Starfield | |
-| Oblivion | |
-| Oblivion Remastered | |
-| Morrowind | |
-| Baldur's Gate 3 | |
-| Witcher 3 | |
-| Cyberpunk 2077 | |
-| Mewgenics | |
-| Stardew Valley | |
-| Kingdom Come Deliverance | 1 and 2 |
-| Hogwarts Legacy | |
-| Marvel Rivals | |
-| Expedition 33 | |
-| Subnautica | |
-| Subnautica Below Zero | |
-| No Mans Sky | |
-| Resident Evil | 2, 3, 4, 7, Village, Requiem |
-| The Sims 4 | |
-| TCG Card Shop Simulator | |
-| Valheim | |
-| Lethal Company | |
-| Mount & Blade II: Bannerlord | |
-| Slay The Spire 2 | |
+<table>
+<tr>
+  <th>Game</th><th>Notes</th>
+  <th>Game</th><th>Notes</th>
+</tr>
+<tr><td>Skyrim</td><td>Normal, SE and VR</td><td>No Mans Sky</td><td></td></tr>
+<tr><td>Fallout 3</td><td>Normal and Goty</td><td>Resident Evil</td><td>2, 3, 4, 7, Village, Requiem</td></tr>
+<tr><td>Fallout 4</td><td>Normal and VR</td><td>The Sims 4</td><td></td></tr>
+<tr><td>Fallout New Vegas</td><td></td><td>TCG Card Shop Simulator</td><td></td></tr>
+<tr><td>Enderal</td><td>Normal and SE</td><td>Supermarket Simulator</td><td></td></tr>
+<tr><td>Starfield</td><td></td><td>Valheim</td><td></td></tr>
+<tr><td>Oblivion</td><td></td><td>Lethal Company</td><td></td></tr>
+<tr><td>Oblivion Remastered</td><td></td><td>Mount &amp; Blade II: Bannerlord</td><td></td></tr>
+<tr><td>Morrowind</td><td></td><td>Slay The Spire 2</td><td></td></tr>
+<tr><td>Baldur's Gate 3</td><td></td><td>Blade &amp; Sorcery</td><td></td></tr>
+<tr><td>Witcher 3</td><td></td><td>Rimworld</td><td></td></tr>
+<tr><td>Cyberpunk 2077</td><td></td><td>Green Hell</td><td></td></tr>
+<tr><td>Mewgenics</td><td></td><td>Schedule 1</td><td></td></tr>
+<tr><td>Stardew Valley</td><td></td><td></td><td></td></tr>
+<tr><td>Kingdom Come Deliverance</td><td>1 and 2</td><td></td><td></td></tr>
+<tr><td>Hogwarts Legacy</td><td></td><td></td><td></td></tr>
+<tr><td>Marvel Rivals</td><td></td><td></td><td></td></tr>
+<tr><td>Expedition 33</td><td></td><td></td><td></td></tr>
+<tr><td>Subnautica</td><td></td><td></td><td></td></tr>
+<tr><td>Subnautica Below Zero</td><td></td><td></td><td></td></tr>
+</table>
 - The manager now has the ability to define custom games. See the Wiki for the guide
 
 ## Usage
