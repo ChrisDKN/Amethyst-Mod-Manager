@@ -661,10 +661,19 @@ class CustomGamePanel(ctk.CTkFrame):
         # Populate existing rules
         for rule_data in self._routing_rules_initial:
             if isinstance(rule_data, dict):
+                if rule_data.get("filenames"):
+                    mt = "filenames"
+                    mv = ", ".join(rule_data["filenames"])
+                elif rule_data.get("extensions"):
+                    mt = "extensions"
+                    mv = ", ".join(rule_data["extensions"])
+                else:
+                    mt = "folders"
+                    mv = ", ".join(rule_data.get("folders") or [])
                 self._add_routing_rule_row(
                     dest=rule_data.get("dest", ""),
-                    match_type="extensions" if rule_data.get("extensions") else "folders",
-                    match_value=", ".join(rule_data.get("extensions") or rule_data.get("folders") or []),
+                    match_type=mt,
+                    match_value=mv,
                 )
 
         # ---- Validation label ----
@@ -776,7 +785,7 @@ class CustomGamePanel(ctk.CTkFrame):
         ).grid(row=0, column=0, sticky="ew", padx=(6, 4), pady=4)
 
         ctk.CTkOptionMenu(
-            row_frame, variable=type_var, values=["extensions", "folders"],
+            row_frame, variable=type_var, values=["extensions", "folders", "filenames"],
             font=FONT_SMALL, fg_color=BG_DEEP, text_color=TEXT_MAIN,
             button_color=BG_HEADER, button_hover_color=BG_HOVER, width=100,
         ).grid(row=0, column=1, padx=2, pady=4)
@@ -817,6 +826,8 @@ class CustomGamePanel(ctk.CTkFrame):
             rule: dict = {"dest": dest}
             if match_type == "extensions":
                 rule["extensions"] = values
+            elif match_type == "filenames":
+                rule["filenames"] = values
             else:
                 rule["folders"] = values
             rules.append(rule)

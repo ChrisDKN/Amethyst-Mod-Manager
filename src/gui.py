@@ -50,7 +50,7 @@ _UI_SCALE = load_ui_scale()
 ctk.set_widget_scaling(_UI_SCALE)
 ctk.set_window_scaling(_UI_SCALE)
 
-from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize
+from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_DIM, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize
 from gui.game_helpers import (
     _GAMES,
     _vanilla_plugins_for_game,
@@ -809,29 +809,80 @@ class App(ctk.CTk):
 
     # --- plugin panel column drag-resize -------------------------------------
 
+    def _on_col_sep_press(self, event: tk.Event) -> None:
+        self._col_sep_press_x = event.x_root
+        self._col_sep_press_y = event.y_root
+        self._on_col_drag_start(event)
+
+    def _on_col_sep_release(self, event: tk.Event) -> None:
+        dx = abs(event.x_root - self._col_sep_press_x)
+        dy = abs(event.y_root - self._col_sep_press_y)
+        if dx < 4 and dy < 4:  # treat as click, not drag
+            self._col_drag_x = None  # cancel any pending drag state
+            self._col_destroy_ghost()
+            self._toggle_plugin_panel()
+        else:
+            self._on_col_drag_end(event)
+
     def _on_col_drag_start(self, event: tk.Event) -> None:
         self._col_drag_x = event.x_root
-        self._col_drag_w = self._plugin_panel_container.winfo_width()
-        self._col_drag_target_w = self._col_drag_w
+        self._col_drag_w = self._plugin_panel_saved_w if not self._plugin_panel_visible else self._plugin_panel_container.winfo_width()
+        self._col_drag_target_w = 0 if not self._plugin_panel_visible else self._col_drag_w
         self._col_show_ghost(event.x_root)
 
     def _on_col_drag_motion(self, event: tk.Event) -> None:
         if self._col_drag_x is None:
             return
         delta = self._col_drag_x - event.x_root  # drag left = wider plugin panel
-        min_w = scaled(480)
         max_w = self._col_max_plugin_width()
-        new_w = max(min_w, min(self._col_drag_w + delta, max_w))
-        self._col_drag_target_w = new_w
+        # Allow dragging past min width — collapse threshold is half of min width
+        raw_w = self._col_drag_w + delta
+        self._col_drag_target_w = min(raw_w, max_w)
         # Ghost line follows cursor directly
         self._col_move_ghost(event.x_root)
 
     def _on_col_drag_end(self, event: tk.Event) -> None:
         self._col_drag_x = None
         self._col_destroy_ghost()
-        new_w = max(scaled(480), min(self._col_drag_target_w, self._col_max_plugin_width()))
-        self.grid_columnconfigure(2, minsize=new_w, weight=4)
-        self._plugin_panel_container.configure(width=new_w)
+        min_w = scaled(480)
+        if not self._plugin_panel_visible:
+            # Dragging from collapsed — expand if dragged far enough left
+            if self._col_drag_target_w >= min_w // 2:
+                new_w = max(min_w, min(self._col_drag_target_w, self._col_max_plugin_width()))
+                self._plugin_panel_saved_w = new_w
+                self._plugin_panel_visible = False  # _toggle_plugin_panel will flip it
+                self._toggle_plugin_panel()
+            return
+        if self._col_drag_target_w < min_w // 2:
+            # Dragged far enough right — collapse
+            self._plugin_panel_visible = True  # _toggle_plugin_panel will flip it
+            saved = self._plugin_panel_saved_w
+            self._toggle_plugin_panel()
+            self._plugin_panel_saved_w = saved
+        else:
+            new_w = max(min_w, min(self._col_drag_target_w, self._col_max_plugin_width()))
+            self.grid_columnconfigure(2, minsize=new_w, weight=4)
+            self._plugin_panel_container.configure(width=new_w)
+            self._plugin_panel_saved_w = new_w
+
+    def _ensure_plugin_panel_visible(self) -> None:
+        if not self._plugin_panel_visible:
+            self._toggle_plugin_panel()
+
+    def _toggle_plugin_panel(self) -> None:
+        self._plugin_panel_visible = not self._plugin_panel_visible
+        if self._plugin_panel_visible:
+            self._plugin_panel_container.grid()
+            self.grid_columnconfigure(2, weight=4, minsize=self._plugin_panel_saved_w)
+            self._plugin_panel_container.configure(width=self._plugin_panel_saved_w)
+            self._col_drag_handle.configure(cursor="sb_h_double_arrow")
+            self._col_drag_handle.itemconfigure("arrow", text="▶")
+        else:
+            self._plugin_panel_saved_w = self._plugin_panel_container.winfo_width() or self._plugin_panel_saved_w
+            self._plugin_panel_container.grid_remove()
+            self.grid_columnconfigure(2, weight=0, minsize=0)
+            self._col_drag_handle.configure(cursor="hand2")
+            self._col_drag_handle.itemconfigure("arrow", text="◀")
 
     def _col_max_plugin_width(self) -> int:
         toolbar = getattr(self._mod_panel, "_toolbar_bar", None)
@@ -897,16 +948,26 @@ class App(ctk.CTk):
 
         # Vertical separator / drag handle spans rows 0+1
         self._col_drag_handle = tk.Canvas(
-            self, bg=BORDER, width=4, highlightthickness=0, cursor="sb_h_double_arrow"
+            self, bg=BORDER, width=14, highlightthickness=0, cursor="sb_h_double_arrow"
         )
         self._col_drag_handle.grid(row=0, column=1, rowspan=2, sticky="ns")
         self._col_drag_x: int | None = None
         self._col_drag_w: int | None = None
         self._col_ghost: tk.Toplevel | None = None
         self._col_drag_target_w: int = scaled(480)
-        self._col_drag_handle.bind("<ButtonPress-1>", self._on_col_drag_start)
+        self._plugin_panel_visible: bool = True
+        self._plugin_panel_saved_w: int = scaled(480)
+        self._col_sep_press_x: int = 0
+        self._col_sep_press_y: int = 0
+        # Arrow toggle indicator (centered in the separator)
+        self._col_drag_handle.create_text(
+            7, 0, anchor="n", text="▶", fill=TEXT_DIM,
+            font=("", 9), tags="arrow",
+        )
+        self._col_drag_handle.bind("<Configure>", lambda e: self._col_drag_handle.coords("arrow", 7, e.height // 2 - 8))
+        self._col_drag_handle.bind("<ButtonPress-1>", self._on_col_sep_press)
         self._col_drag_handle.bind("<B1-Motion>", self._on_col_drag_motion)
-        self._col_drag_handle.bind("<ButtonRelease-1>", self._on_col_drag_end)
+        self._col_drag_handle.bind("<ButtonRelease-1>", self._on_col_sep_release)
 
         main = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         main.grid(row=1, column=0, sticky="nsew")
@@ -1220,6 +1281,7 @@ class App(ctk.CTk):
 
     def show_reconfigure_panel(self, game, on_done):
         """Show the reconfigure-game panel, overlaying the main content area."""
+        self._ensure_plugin_panel_visible()
         self.hide_game_picker()
         self.hide_reconfigure_panel()
 
@@ -1349,6 +1411,7 @@ class App(ctk.CTk):
     # -- Proton Tools panel --------------------------------------------------
 
     def show_proton_panel(self, game, log_fn):
+        self._ensure_plugin_panel_visible()
         from gui.dialogs import ProtonToolsPanel
         self._show_plugin_overlay(
             "_proton_panel",
@@ -1364,6 +1427,7 @@ class App(ctk.CTk):
     # -- Wizard panel --------------------------------------------------------
 
     def show_wizard_panel(self, game, log_fn):
+        self._ensure_plugin_panel_visible()
         from gui.wizard_dialog import WizardPanel
         self._show_plugin_overlay(
             "_wizard_panel",
@@ -1400,6 +1464,7 @@ class App(ctk.CTk):
         return lambda: self.show_nexus_panel(_key_changed, self._topbar._log)
 
     def show_nexus_panel(self, on_key_changed, log_fn):
+        self._ensure_plugin_panel_visible()
         from gui.nexus_settings_dialog import NexusSettingsPanel
         _game = _GAMES.get(self._topbar._game_var.get())
         self._show_plugin_overlay(
@@ -1535,6 +1600,7 @@ class App(ctk.CTk):
     # -- Separator settings panel (overlays plugin panel) -------------------
 
     def show_sep_settings_panel(self, sep_name, current_path, on_save, current_raw=False):
+        self._ensure_plugin_panel_visible()
         from gui.dialogs import SepSettingsPanel
         def _factory():
             def _done(panel):
@@ -1549,9 +1615,25 @@ class App(ctk.CTk):
     def hide_sep_settings_panel(self):
         self._hide_plugin_overlay("_sep_settings_panel")
 
+    # -- Separator color panel (overlays plugin panel) ----------------------
+
+    def show_sep_color_panel(self, sep_name: str, initial_color: str | None, on_result):
+        self._ensure_plugin_panel_visible()
+        from gui.dialogs import SepColorPanel
+        def _factory():
+            def _done(panel):
+                self._hide_plugin_overlay("_sep_color_panel")
+            return SepColorPanel(
+                self._plugin_panel_container,
+                sep_name=sep_name, initial_color=initial_color,
+                on_result=on_result, on_done=_done,
+            )
+        self._show_plugin_overlay("_sep_color_panel", _factory)
+
     # -- Disable plugins panel (overlays plugin panel) ----------------------
 
     def show_disable_plugins_panel(self, mod_name, plugin_names, disabled, on_done):
+        self._ensure_plugin_panel_visible()
         from gui.dialogs import DisablePluginsPanel
         def _factory():
             def _done(panel):
@@ -1572,6 +1654,7 @@ class App(ctk.CTk):
     def show_optional_mods_panel(self, optional_mods: list, on_done):
         """Show OptionalModsPanel as overlay on plugin panel. on_done(panel) receives the
         panel; panel.result is None (cancelled) or set of file_ids to skip."""
+        self._ensure_plugin_panel_visible()
         from gui.collections_dialog import OptionalModsPanel
         def _factory():
             def _done(panel):
@@ -1612,6 +1695,7 @@ class App(ctk.CTk):
     def show_missing_reqs_panel(self, mod_name, domain, mod_id, missing_ids,
                                 api, install_from_browse,
                                 ignored_set, save_ignored_fn, redraw_fn):
+        self._ensure_plugin_panel_visible()
         from gui.dialogs import MissingReqsPanel
         def _factory():
             def _done(panel):
@@ -1661,6 +1745,7 @@ class App(ctk.CTk):
     # -- Settings panel ------------------------------------------------------
 
     def show_settings_panel(self):
+        self._ensure_plugin_panel_visible()
         from gui.status_bar import SettingsPanel
         self._show_plugin_overlay(
             "_settings_panel",

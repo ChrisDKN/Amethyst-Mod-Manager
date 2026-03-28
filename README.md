@@ -74,6 +74,12 @@ curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/s
 
 You can also add multiple profiles with different configurations — simply create/swap to that profile and deploy it.
 
+## Additonal tips for Steam Deck
+
+- You can add the manager to gaming mode by looking for it in the application menu, right click and add to steam. It will show up in gaming mode
+- when deploying in either desktop mode or gaming mode, you launch the game via gaming mode without needing to press play through the manager. You only need to use the manager to manage your mods.
+- In gaming mode, some windows may open in the background. To see these press the steam button and switch to it. There shouldn't be many of these that can show up
+
 ## Collections
 
 The manager has the ability to add Nexus collections straight into the manager. Here's how it works:

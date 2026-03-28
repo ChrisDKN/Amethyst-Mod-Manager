@@ -233,6 +233,7 @@ class PluginPanel(ctk.CTkFrame):
         self._pool_warn: list[int | None] = []
         self._pool_late_warn: list[int | None] = []
         self._pool_vmm_warn: list[int | None] = []
+        self._pool_missing_strip: list[int] = []
         self._pool_check_rects: list[int] = []
         self._pool_check_marks: list[int] = []
         self._pool_lock_rects: list[int] = []
@@ -2166,7 +2167,17 @@ class PluginPanel(ctk.CTkFrame):
             relief="flat", font=("Segoe UI", _theme.FS10),
             bd=0, cursor="hand2", highlightthickness=0,
             command=self._refresh_data_tab,
-        ).pack(side="left", padx=8, pady=2)
+        ).pack(side="left", padx=(8, 2), pady=2)
+
+        self._data_tree_expanded: bool = False
+        self._data_expand_btn = tk.Button(
+            toolbar, text="⊞ Expand All",
+            bg=BG_PANEL, fg=TEXT_MAIN, activebackground=BG_HOVER,
+            relief="flat", font=("Segoe UI", _theme.FS10),
+            bd=0, cursor="hand2", highlightthickness=0,
+            command=self._toggle_data_tree_expand,
+        )
+        self._data_expand_btn.pack(side="left", padx=(0, 8), pady=2)
 
         self._data_search_var = tk.StringVar()
         self._data_search_var.trace_add("write", self._on_data_search_changed)
@@ -2327,6 +2338,8 @@ class PluginPanel(ctk.CTkFrame):
 
     def _build_data_tree_from_entries(self, entries):
         """Build the tree hierarchy from a list of (rel_path, mod_name) entries."""
+        self._data_tree_expanded = False
+        self._data_expand_btn.configure(text="⊞ Expand All")
         self._data_tree.delete(*self._data_tree.get_children())
 
         tree_dict: dict = {}
@@ -2359,6 +2372,25 @@ class PluginPanel(ctk.CTkFrame):
         for fname, mod in sorted(tree_dict.get("__files__", [])):
             self._data_tree.insert("", "end",
                 text=fname, values=(mod,), tags=("file",))
+
+    def _toggle_data_tree_expand(self):
+        """Expand all folders in the Data tree, or collapse them if already expanded."""
+        self._data_tree_expanded = not self._data_tree_expanded
+        open_state = self._data_tree_expanded
+
+        def _set_all(item):
+            children = self._data_tree.treeview.get_children(item)
+            if children:
+                self._data_tree.treeview.item(item, open=open_state)
+                for child in children:
+                    _set_all(child)
+
+        for top in self._data_tree.treeview.get_children(""):
+            _set_all(top)
+
+        self._data_expand_btn.configure(
+            text="⊟ Collapse All" if self._data_tree_expanded else "⊞ Expand All"
+        )
 
     def _on_data_file_selected(self, _event=None):
         """When a file row is selected in the Data tab, highlight its mod in the modlist."""
@@ -2593,6 +2625,8 @@ class PluginPanel(ctk.CTkFrame):
             self._pool_data_idx.append(-1)
 
             bg_id = c.create_rectangle(0, -200, 0, -200, fill="", outline="", state="hidden")
+            missing_strip_id = c.create_rectangle(0, -200, 3, -200,
+                                                   fill="#c0392b", outline="", state="hidden")
             name_id = c.create_text(0, -200, text="", anchor="w", fill="",
                                     font=("Segoe UI", _theme.FS11), state="hidden")
             idx_id = c.create_text(0, -200, text="", anchor="center", fill="",
@@ -2608,6 +2642,7 @@ class PluginPanel(ctk.CTkFrame):
                                               anchor="center", state="hidden")
 
             self._pool_bg.append(bg_id)
+            self._pool_missing_strip.append(missing_strip_id)
             self._pool_name.append(name_id)
             self._pool_idx_text.append(idx_id)
             vmm_warn_id: int | None = None
@@ -3237,7 +3272,19 @@ class PluginPanel(ctk.CTkFrame):
                 c.coords(self._pool_bg[s], 0, y_top, cw, y_bot)
                 c.itemconfigure(self._pool_bg[s], fill=bg, state="normal")
 
-                name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
+                has_missing_now = entry.name in self._missing_masters
+                if has_missing_now:
+                    c.coords(self._pool_missing_strip[s], 0, y_top, scaled(3), y_bot)
+                    c.itemconfigure(self._pool_missing_strip[s], state="normal")
+                else:
+                    c.itemconfigure(self._pool_missing_strip[s], state="hidden")
+
+                if not entry.enabled:
+                    name_color = TEXT_DIM
+                elif entry.name in self._missing_masters:
+                    name_color = "#e74c3c"
+                else:
+                    name_color = TEXT_MAIN
                 name_max_px = self._pcol_x[2] - self._pcol_x[1] - scaled(4)
                 name_font = ("Segoe UI", _theme.FS11)
                 display_name = _truncate_plugin_name(c, entry.name, name_font, name_max_px)
@@ -3319,6 +3366,7 @@ class PluginPanel(ctk.CTkFrame):
                     c.itemconfigure(self._pool_lock_marks[s], state="hidden")
             else:
                 c.itemconfigure(self._pool_bg[s], state="hidden")
+                c.itemconfigure(self._pool_missing_strip[s], state="hidden")
                 c.itemconfigure(self._pool_name[s], state="hidden")
                 c.itemconfigure(self._pool_idx_text[s], state="hidden")
                 if self._pool_warn[s] is not None:
@@ -3350,7 +3398,9 @@ class PluginPanel(ctk.CTkFrame):
         c.delete("marker")
         entries = self._plugin_entries
         n = len(entries)
-        if not n or (not self._highlighted_plugins and not self._master_highlights):
+        has_any = (self._highlighted_plugins or self._master_highlights
+                   or self._missing_masters)
+        if not n or not has_any:
             return
         strip_h = c.winfo_height()
         if strip_h <= 1:
@@ -3364,7 +3414,9 @@ class PluginPanel(ctk.CTkFrame):
             c.create_rectangle(0, y, 4, y + 3, fill=color, outline="", tags="marker")
 
         for i, e in enumerate(entries):
-            if e.name.lower() in self._highlighted_plugins:
+            if e.name in self._missing_masters:
+                _tick(i, "#c0392b")
+            elif e.name.lower() in self._highlighted_plugins:
                 _tick(i, plugin_mod)
             elif e.name.lower() in master_names_lower:
                 _tick(i, "#2a8c2a")

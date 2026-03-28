@@ -1,3 +1,14 @@
+- v1.1.1
+- The plugin panel can now be collapsed/hidden
+- The overwrite folder now displays conflicts correctly
+- When selecting a mod with a conflict, the separator the conflicting mod belongs to is only highlighted if it is collapsed
+- The separator color picker now overlays with the plugins panel and is no longer a window
+- Plugins with missing masters are highlighted in red and their position is displayed on the scrollbar
+- Added an expand all button to the data tab
+- Changed the drag and drop ordering of the modlist panel to behave the same as the plugins panel. It should feel nicer now.
+- Selecting a separator now highlights all conflicts within that separator.
+- Folder case normalising can be disabled in the settings window, For users who have a case-insensitive filesystem
+
 - v1.1
 - Added Morrowind
 - Added Blade and Sorcery (Custom game handler)

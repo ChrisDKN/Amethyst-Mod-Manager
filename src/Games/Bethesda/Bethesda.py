@@ -922,7 +922,11 @@ class Enderal(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "skse_loader.exe"
-    
+
+    @property
+    def wizard_tools(self) -> list:
+        return []
+
 class EnderalSE(Fallout_3):
 
     @property
@@ -958,3 +962,7 @@ class EnderalSE(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "skse64_loader.exe"
+
+    @property
+    def wizard_tools(self) -> list:
+        return []

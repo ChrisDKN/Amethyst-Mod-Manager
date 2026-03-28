@@ -64,7 +64,6 @@ from gui.dialogs import (
     _ModNameDialog,
     _OverwritesDialog,
     _PriorityDialog,
-    _SepColorPickerDialog,
     _DisablePluginsDialog,
     ask_yes_no,
     show_error,
@@ -130,7 +129,7 @@ from gui.mod_files_overlay import ModFilesOverlay
 from Nexus.nexus_meta import build_meta_from_download, ensure_installed_stamp, read_meta, write_meta
 from Nexus.nexus_download import delete_archive_and_sidecar
 from Utils.config_paths import get_download_cache_dir
-from Utils.ui_config import load_column_widths, save_column_widths, load_column_order, save_column_order
+from Utils.ui_config import load_column_widths, save_column_widths, load_column_order, save_column_order, load_normalize_folder_case
 from Nexus.nexus_update_checker import check_for_updates
 
 
@@ -375,17 +374,15 @@ class ModListPanel(ctk.CTkFrame):
         self._marker_strip_after_id: str | None = None   # after() handle for marker-strip debounce
 
         # Drag state
-        self._drag_idx:      int = -1      # entry index being dragged (stays fixed during drag)
-        self._drag_origin_idx: int = -1    # original index when drag began (same as _drag_idx for now)
+        self._drag_idx:      int = -1      # entry index being dragged (updated in real-time)
+        self._drag_origin_idx: int = -1    # original index when drag began
         self._drag_start_y:  int = 0
         self._drag_moved:    bool = False
         self._drag_is_block: bool = False   # True when dragging a separator+its mods
         self._drag_block:    list  = []     # snapshot of (entry, var) at mousedown
         self._drag_sel_indices: list[int] = []  # actual entry indices for sparse multi-select drag
-        self._drag_cursor_y: int  = 0      # raw widget-space Y during drag (for ghost)
         self._drag_slot:     int  = -1     # last computed insertion slot (in vis-without-drag space)
-        self._drag_target_slot: int = -1   # same as _drag_slot, kept for clarity in release handler
-        self._drag_pending:  bool = False  # waiting for hold delay before drag activates
+        self._drag_pending:  bool = False  # waiting for click-vs-drag disambiguation
         self._drag_after_id: str | None = None  # after() id for drag-start timer
 
         # Separator lock state: sep_name → bool (True = locked, block drag disabled)
@@ -523,7 +520,7 @@ class ModListPanel(ctk.CTkFrame):
         self._install_extensions = getattr(game, "mod_install_extensions", set())
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
         self._staging_requires_subdir = getattr(game, "mod_staging_requires_subdir", False)
-        self._normalize_folder_case = getattr(game, "normalize_folder_case", True)
+        self._normalize_folder_case = getattr(game, "normalize_folder_case", True) and load_normalize_folder_case()
         self._conflict_ignore_filenames = getattr(game, "conflict_ignore_filenames", set())
         # Load profile_state.json once; individual loaders pull from it
         self.__profile_state = read_profile_state(profile_dir)
@@ -706,7 +703,7 @@ class ModListPanel(ctk.CTkFrame):
         self._update_btn.pack(side="left", padx=4, pady=5)
 
         self._filter_btn = ctk.CTkButton(
-            bar, text="Filters", width=80, height=26,
+            bar, text="Filters", width=64, height=26,
             fg_color=BG_HEADER, hover_color=BG_HOVER,
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
             command=self._on_open_filters
@@ -756,7 +753,16 @@ class ModListPanel(ctk.CTkFrame):
             bd=0, highlightthickness=1,
             highlightbackground=BORDER, highlightcolor=ACCENT,
         )
-        self._search_entry.pack(side="left", fill="x", expand=True, padx=(2, 8), pady=4)
+        self._search_entry.pack(side="left", fill="x", expand=True, padx=(2, 2), pady=4)
+
+        self._search_clear_btn = ctk.CTkButton(
+            bar, text="✕", width=scaled(32), height=scaled(24),
+            fg_color="#b33a3a", hover_color="#c94848", text_color="white",
+            font=_theme.FONT_HEADER, cursor="hand2",
+            command=self._on_search_clear,
+        )
+        self._search_clear_btn.pack(side="left", padx=(0, 8), pady=4)
+        self._search_clear_btn.pack_forget()  # hidden until there is text
 
         # KeyRelease fires after the character is committed to the widget
         self._search_entry.bind("<KeyRelease>", self._on_search_change)
@@ -1779,10 +1785,7 @@ class ModListPanel(ctk.CTkFrame):
         """
         self._redraw_after_id = None
         c = self._canvas
-        # Clear any previously drawn drag overlay so it doesn't persist between frames.
-        c.delete("drag_overlay")
         cw = self._canvas_w
-        dragging = self._drag_idx >= 0 and self._drag_moved
 
         # Pre-compute column x/w for each data col (respects reorder)
         _col_pos = self._col_pos
@@ -1821,25 +1824,7 @@ class ModListPanel(ctk.CTkFrame):
 
         priorities = self._priorities
 
-        # Pre-compute which entry indices are part of the active drag
-        drag_indices: set[int] = set()
-        if dragging:
-            if self._drag_is_block and self._drag_block:
-                if self._drag_sel_indices:
-                    # Sparse multi-select drag — use actual recorded indices
-                    drag_indices = set(self._drag_sel_indices)
-                else:
-                    # Contiguous block (separator drag)
-                    drag_indices = set(range(self._drag_idx,
-                                             self._drag_idx + len(self._drag_block)))
-            else:
-                drag_indices = {self._drag_idx}
-
-        # During drag, exclude the dragged entries from the rendered list.
-        if dragging and drag_indices:
-            vis = [i for i in self._visible_indices if i not in drag_indices]
-        else:
-            vis = self._visible_indices
+        vis = self._visible_indices
 
         n = len(vis)
         total_h = n * self.ROW_H
@@ -1856,21 +1841,61 @@ class ModListPanel(ctk.CTkFrame):
         # Pre-compute separator highlight sets
         conflict_sep_higher: set[int] = set()  # green — wins over selected
         conflict_sep_lower:  set[int] = set()  # red   — loses to selected
+        # Mod-level highlight sets (used when a separator is selected and some mods are expanded)
+        conflict_mod_higher: set[str] = set()  # mod names that selected-separator mods override
+        conflict_mod_lower:  set[str] = set()  # mod names that override selected-separator mods
         if sel_entry and not sel_entry.is_separator:
             sel_name = sel_entry.name
             for cm in self._overrides.get(sel_name, set()):
                 si = self._sep_idx_for_mod(cm)
-                if si >= 0:
+                if si >= 0 and self._entries[si].name in self._collapsed_seps:
                     conflict_sep_higher.add(si)
             for cm in self._overridden_by.get(sel_name, set()):
                 si = self._sep_idx_for_mod(cm)
-                if si >= 0:
+                if si >= 0 and self._entries[si].name in self._collapsed_seps:
                     conflict_sep_lower.add(si)
+        elif sel_entry and sel_entry.is_separator and sel_entry.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
+            # Selected entry is a normal separator — highlight all separators/mods
+            # that conflict with any mod inside this separator.
+            sel_sep_idx = self._sel_idx
+            # Collect mods under this separator
+            i = sel_sep_idx + 1
+            while i < len(self._entries) and not self._entries[i].is_separator:
+                mod_name = self._entries[i].name
+                for cm in self._overrides.get(mod_name, set()):
+                    si = self._sep_idx_for_mod(cm)
+                    if si >= 0:
+                        if self._entries[si].name in self._collapsed_seps:
+                            conflict_sep_higher.add(si)
+                        else:
+                            conflict_mod_higher.add(cm)
+                    elif cm == OVERWRITE_NAME:
+                        ow_idx = next((j for j, e in enumerate(self._entries) if e.name == OVERWRITE_NAME), -1)
+                        if ow_idx >= 0:
+                            conflict_sep_higher.add(ow_idx)
+                for cm in self._overridden_by.get(mod_name, set()):
+                    si = self._sep_idx_for_mod(cm)
+                    if si >= 0:
+                        if self._entries[si].name in self._collapsed_seps:
+                            conflict_sep_lower.add(si)
+                        else:
+                            conflict_mod_lower.add(cm)
+                    elif cm == OVERWRITE_NAME:
+                        ow_idx = next((j for j, e in enumerate(self._entries) if e.name == OVERWRITE_NAME), -1)
+                        if ow_idx >= 0:
+                            conflict_sep_lower.add(ow_idx)
+                i += 1
         elif sel_entry and sel_entry.name == OVERWRITE_NAME:
             for cm in self._overrides.get(OVERWRITE_NAME, set()):
                 si = self._sep_idx_for_mod(cm)
-                if si >= 0:
-                    conflict_sep_lower.add(si)
+                if si >= 0 and self._entries[si].name in self._collapsed_seps:
+                    conflict_sep_higher.add(si)
+
+        # Special case: if Overwrite overrides the selected mod, highlight the Overwrite row green.
+        if sel_entry and not sel_entry.is_separator and OVERWRITE_NAME in self._overridden_by.get(sel_entry.name, set()):
+            ow_idx = next((i for i, e in enumerate(self._entries) if e.name == OVERWRITE_NAME), -1)
+            if ow_idx >= 0:
+                conflict_sep_higher.add(ow_idx)
 
         highlighted_sep_idx: int = -1
         if self._highlighted_mod:
@@ -1911,13 +1936,13 @@ class ModListPanel(ctk.CTkFrame):
 
                     if is_sel_row:
                         row_bg = BG_SELECT
-                    elif not is_synthetic and i in conflict_sep_higher:
+                    elif (not is_synthetic or is_overwrite) and i in conflict_sep_higher:
                         row_bg = conflict_higher
-                    elif not is_synthetic and i in conflict_sep_lower:
+                    elif (not is_synthetic or is_overwrite) and i in conflict_sep_lower:
                         row_bg = conflict_lower
                     elif not is_synthetic and i == highlighted_sep_idx:
                         row_bg = plugin_separator
-                    elif i == self._hover_idx:
+                    elif i == self._hover_idx and self._drag_idx < 0:
                         if custom_color:
                             # Lighten the custom colour slightly on hover
                             r, g, b = int(base_bg[1:3], 16), int(base_bg[3:5], 16), int(base_bg[5:7], 16)
@@ -2012,17 +2037,12 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         c.itemconfigure(self._pool_sep_icon[s], state="hidden")
 
-                    # Overwrite row conflict icons in conflict column
+                    # Overwrite row conflict icons in conflict column — always wins only
                     if is_overwrite and self._overrides.get(OVERWRITE_NAME):
                         cx = _CONF_X + _CONF_W // 2
-                        if self._icon_minus:
-                            c.coords(self._pool_conflict_icon1[s], cx - scaled(8), y_mid)
-                            c.itemconfigure(self._pool_conflict_icon1[s],
-                                            image=self._icon_minus, state="normal")
-                        else:
-                            c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                        c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                         if self._icon_plus:
-                            c.coords(self._pool_conflict_icon2[s], cx + scaled(8), y_mid)
+                            c.coords(self._pool_conflict_icon2[s], cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon2[s],
                                             image=self._icon_plus, state="normal")
                         else:
@@ -2139,7 +2159,7 @@ class ModListPanel(ctk.CTkFrame):
                         bg = BG_SELECT
                     elif entry.name == self._highlighted_mod:
                         bg = plugin_mod
-                    elif i == self._hover_idx:
+                    elif i == self._hover_idx and self._drag_idx < 0:
                         bg = BG_HOVER_ROW
                     elif sel_entry and (not sel_entry.is_separator
                                         or sel_entry.name == OVERWRITE_NAME):
@@ -2150,6 +2170,10 @@ class ModListPanel(ctk.CTkFrame):
                             bg = conflict_lower
                         else:
                             bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
+                    elif entry.name in conflict_mod_higher:
+                        bg = conflict_higher
+                    elif entry.name in conflict_mod_lower:
+                        bg = conflict_lower
                     else:
                         bg = BG_ROW if row % 2 == 0 else BG_ROW_ALT
 
@@ -2293,7 +2317,7 @@ class ModListPanel(ctk.CTkFrame):
 
                     # Enable/disable control (canvas-drawn)
                     # Bundle variants → radio circle (● / ○); normal mods → checkbox
-                    if not dragging and i < len(self._check_vars) and self._check_vars[i] is not None:
+                    if i < len(self._check_vars) and self._check_vars[i] is not None:
                         self._pool_check_vars[s].set(self._check_vars[i].get())
                         checked = self._pool_check_vars[s].get()
                         cb_cx = self._COL_X[0] + scaled(12)
@@ -2427,13 +2451,21 @@ class ModListPanel(ctk.CTkFrame):
         if self.focus_get() is not self._search_entry:
             return
         self._filter_text = self._search_entry.get().lower()
+        if self._filter_text:
+            self._search_clear_btn.pack(side="left", padx=(0, 8), pady=4)
+        else:
+            self._search_clear_btn.pack_forget()
         self._sel_idx = -1
         self._invalidate_derived_caches()
         self._redraw()
 
     def _on_search_clear(self, _event=None):
         self._search_entry.delete(0, "end")
-        self._on_search_change()
+        self._search_clear_btn.pack_forget()
+        self._filter_text = ""
+        self._sel_idx = -1
+        self._invalidate_derived_caches()
+        self._redraw()
 
     def _compute_visible_indices(self) -> list[int]:
         """Return entry indices that match the current filter, collapsed state, and column sort."""
@@ -2858,7 +2890,7 @@ class ModListPanel(ctk.CTkFrame):
                 self._sel_set = {idx}
                 if self._on_mod_selected_cb is not None:
                     self._on_mod_selected_cb()
-                # Regular separators — schedule drag activation after hold delay
+                # Regular separators — activate drag immediately
                 if self._sep_locks.get(self._entries[idx].name, False):
                     blk = self._sep_block_range(idx)
                     pending_block = [
@@ -2869,11 +2901,7 @@ class ModListPanel(ctk.CTkFrame):
                 else:
                     pending_block = []
                     is_block = False
-                self._drag_pending = True
-                self._drag_after_id = self._canvas.after(
-                    self._DRAG_DELAY_MS,
-                    lambda: self._activate_drag(idx, cy, is_block, pending_block),
-                )
+                self._activate_drag(idx, cy, is_block, pending_block)
                 self._redraw()
             return
 
@@ -2907,14 +2935,10 @@ class ModListPanel(ctk.CTkFrame):
             return
 
         # If clicking inside an existing multi-selection, preserve it so the
-        # user can hold to drag the whole group — only collapse to single on release.
+        # user can drag the whole group — only collapse to single on release.
         if idx in self._sel_set and len(self._sel_set) > 1:
             if not self._entries[idx].locked:
-                self._drag_pending = True
-                self._drag_after_id = self._canvas.after(
-                    self._DRAG_DELAY_MS,
-                    lambda: self._activate_drag(idx, cy, False, []),
-                )
+                self._activate_drag(idx, cy, False, [])
             return
 
         self._sel_idx = idx
@@ -2929,12 +2953,8 @@ class ModListPanel(ctk.CTkFrame):
             self._drag_moved = False
             self._drag_slot  = -1
             return
-        # Schedule drag activation after hold delay
-        self._drag_pending = True
-        self._drag_after_id = self._canvas.after(
-            self._DRAG_DELAY_MS,
-            lambda: self._activate_drag(idx, cy, False, []),
-        )
+        # Activate drag immediately
+        self._activate_drag(idx, cy, False, [])
 
     def _activate_drag(self, idx: int, start_y: int, is_block: bool, block: list):
         """Called after the hold delay — officially begin the drag."""
@@ -2967,7 +2987,6 @@ class ModListPanel(ctk.CTkFrame):
         self._drag_start_y = start_y
         self._drag_moved = False
         self._drag_slot  = -1
-        self._drag_target_slot = -1
         self._drag_is_block = is_block
         self._drag_block = block
         self._drag_sel_indices = sel_indices  # empty list = contiguous block (separator drag)
@@ -3072,9 +3091,6 @@ class ModListPanel(ctk.CTkFrame):
         if self._drag_idx < 0 or not self._entries:
             return
 
-        # Track cursor position for ghost rendering
-        self._drag_cursor_y = event.y
-
         # Auto-scroll near edges
         h = self._canvas.winfo_height()
         if event.y < 40:
@@ -3085,9 +3101,6 @@ class ModListPanel(ctk.CTkFrame):
         cy = self._event_canvas_y(event)
         blk_size = len(self._drag_block) if self._drag_is_block else 1
 
-        # Use cached visible indices; for a collapsed separator drag the hidden
-        # mods are already excluded from this list so we only subtract the
-        # *visible* portion of the dragged block (usually just 1 — the separator).
         if self._vis_dirty:
             self._visible_indices = self._compute_visible_indices()
             self._vis_dirty = False
@@ -3096,157 +3109,125 @@ class ModListPanel(ctk.CTkFrame):
             drag_set = set(self._drag_sel_indices)
         else:
             drag_set = set(range(self._drag_idx, self._drag_idx + blk_size))
-        vis_set = set(vis)
-        drag_vis_count = sum(1 for i in drag_set if i in vis_set)
-        n_rendered = len(vis) - drag_vis_count
 
-        # Which slot in the rendered list (without dragged items) is the cursor over?
-        slot = max(0, min(int(cy // self.ROW_H), n_rendered))
+        # vis_without_drag is the list of non-dragged visible entries in display order.
+        # slot is an index into this list (0 = before first, len = after last).
+        vis_without_drag = [i for i in vis if i not in drag_set]
+
+        # Map cursor Y to a slot in vis_without_drag.
+        # cy // ROW_H gives a visual row index in the full vis list.
+        # We convert it to vis_without_drag space by counting how many non-drag
+        # rows appear above the cursor row.
+        full_row = int(cy // self.ROW_H)
+        slot = sum(1 for idx_in_vis, ei in enumerate(vis)
+                   if idx_in_vis < full_row and ei not in drag_set)
+        slot = max(0, min(slot, len(vis_without_drag)))
+
+        if slot == self._drag_slot:
+            return
+
+        self._drag_slot = slot
+
+        # --- Real-time reorder ---
+
+        _inverted = False
+        _non_sep = [i for i in vis_without_drag if not self._entries[i].is_separator]
+        if len(_non_sep) >= 2:
+            _inverted = _non_sep[0] > _non_sep[1]
+
+        def _entry_name(ei):
+            return self._entries[ei].name
+
+        _ow_ei = next((i for i in vis_without_drag if _entry_name(i) == OVERWRITE_NAME), None)
+        _rf_ei = next((i for i in vis_without_drag if _entry_name(i) == ROOT_FOLDER_NAME), None)
+
+        if slot == 0 and len(vis_without_drag) > 0:
+            if _inverted:
+                _pre_removal_insert = _rf_ei if _rf_ei is not None else len(self._entries)
+            else:
+                _pre_removal_insert = vis_without_drag[0]
+        elif slot >= len(vis_without_drag):
+            if _inverted:
+                _pre_removal_insert = (_ow_ei + 1) if _ow_ei is not None else 0
+            else:
+                _pre_removal_insert = len(self._entries)
+        else:
+            above_ei = vis_without_drag[slot - 1]
+            below_ei = vis_without_drag[slot]
+            above_is_sep = self._entries[above_ei].is_separator
+            above_is_synthetic = _entry_name(above_ei) in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+            below_is_sep = self._entries[below_ei].is_separator
+            if _inverted:
+                if above_is_synthetic and _entry_name(above_ei) == ROOT_FOLDER_NAME:
+                    _pre_removal_insert = above_ei
+                elif above_is_sep and not above_is_synthetic:
+                    _pre_removal_insert = self._sep_block_range(above_ei).stop
+                elif below_is_sep and not above_is_synthetic:
+                    _pre_removal_insert = above_ei
+                else:
+                    _pre_removal_insert = above_ei
+            else:
+                if below_is_sep:
+                    below_name = _entry_name(below_ei)
+                    if below_name == OVERWRITE_NAME:
+                        _pre_removal_insert = below_ei + 1
+                    else:
+                        _pre_removal_insert = below_ei
+                else:
+                    _pre_removal_insert = below_ei
+
+        _drop_insert_at = _pre_removal_insert - sum(1 for d in drag_set if d < _pre_removal_insert)
+
+        if self._drag_is_block:
+            if self._drag_sel_indices:
+                for i in sorted(self._drag_sel_indices, reverse=True):
+                    self._entries.pop(i)
+                    self._check_vars.pop(i)
+            else:
+                del self._entries[self._drag_idx:self._drag_idx + blk_size]
+                del self._check_vars[self._drag_idx:self._drag_idx + blk_size]
+
+            insert_at = max(1, min(_drop_insert_at, len(self._entries)))
+            if (self._entries and self._entries[-1].name == ROOT_FOLDER_NAME
+                    and insert_at > len(self._entries) - 1):
+                insert_at = len(self._entries) - 1
+
+            for j, (entry, var) in enumerate(self._drag_block):
+                self._entries.insert(insert_at + j, entry)
+                self._check_vars.insert(insert_at + j, var)
+            self._drag_idx = insert_at
+            if self._drag_sel_indices:
+                self._drag_sel_indices = list(range(insert_at, insert_at + len(self._drag_block)))
+                self._sel_set = set(self._drag_sel_indices)
+                self._sel_idx = insert_at
+        else:
+            entry = self._entries.pop(self._drag_idx)
+            var   = self._check_vars.pop(self._drag_idx)
+
+            insert_at = max(0, min(_drop_insert_at, len(self._entries)))
+            if (self._entries and self._entries[-1].name == ROOT_FOLDER_NAME
+                    and insert_at > len(self._entries) - 1):
+                insert_at = len(self._entries) - 1
+
+            self._entries.insert(insert_at, entry)
+            self._check_vars.insert(insert_at, var)
+            self._drag_idx = insert_at
+            self._sel_idx  = insert_at
+            self._sel_set  = {insert_at}
 
         self._drag_moved = True
-        self._drag_slot = slot
-        self._drag_target_slot = slot
-
-        # Redraw with ghost at cursor and insertion line at target slot
+        self._invalidate_derived_caches()
+        self._vis_dirty = True
         self._redraw()
-        self._draw_drag_overlay()
 
     def _on_mouse_release(self, event):
-        # Cancel pending drag timer if the user released before the hold delay
-        was_pending = self._drag_pending
         self._cancel_drag_timer()
+        had_multi = len(self._sel_set) > 1
         if self._drag_idx >= 0 and self._drag_moved:
-            # Commit the deferred move now that the user released the mouse.
-            slot = self._drag_target_slot
-            blk_size = len(self._drag_block) if self._drag_is_block else 1
-            vis = self._visible_indices
-            if self._drag_sel_indices:
-                drag_set = set(self._drag_sel_indices)
-            else:
-                drag_set = set(range(self._drag_idx, self._drag_idx + blk_size))
-            vis_without_drag = [i for i in vis if i not in drag_set]
-
-            # Resolve the drop target entry object before modifying _entries,
-            # so we can find its new index via list.index() after removal.
-            # When the active sort displays entries in reverse _entries order
-            # (e.g. priority ascending reverses the list), inserting "before" the
-            # visual target means inserting *after* it in _entries — so we use the
-            # entry one slot higher in vis_without_drag as the anchor instead.
-            # Detect inversion by checking if the neighbour above the drop slot has
-            # a higher _entries index than the neighbour below (within the same group).
-            # Compute the insertion index directly from the visual neighbours,
-            # so it is correct regardless of sort direction.
-            # After the drag entries are removed, the desired position is between
-            # the two _entries indices that bound the drop slot visually.
-            # Detect if the list is visually inverted (reversed sort) by checking
-            # whether the first two non-separator visible entries are in descending
-            # _entries order.
-            _inverted = False
-            _non_sep = [i for i in vis_without_drag if not self._entries[i].is_separator]
-            if len(_non_sep) >= 2:
-                _inverted = _non_sep[0] > _non_sep[1]
-
-            def _entry_name(ei):
-                return self._entries[ei].name
-
-            # Boundary helpers: OW is always _entries[0], RF is always _entries[-1]
-            # (when present). Use their actual indices from vis_without_drag so the
-            # adjustment for removed drag entries works correctly.
-            _ow_ei = next((i for i in vis_without_drag if _entry_name(i) == OVERWRITE_NAME), None)
-            _rf_ei = next((i for i in vis_without_drag if _entry_name(i) == ROOT_FOLDER_NAME), None)
-
-            if slot == 0 and len(vis_without_drag) > 0:
-                if _inverted:
-                    # Reversed: visual top = lowest priority = just before RF in _entries.
-                    _pre_removal_insert = _rf_ei if _rf_ei is not None else len(self._entries)
-                else:
-                    _pre_removal_insert = vis_without_drag[0]
-            elif slot >= len(vis_without_drag):
-                if _inverted:
-                    # Reversed: visual bottom = highest priority = just after OW in _entries.
-                    _pre_removal_insert = (_ow_ei + 1) if _ow_ei is not None else 0
-                else:
-                    _pre_removal_insert = len(self._entries)
-            else:
-                above_ei = vis_without_drag[slot - 1]
-                below_ei = vis_without_drag[slot]
-                above_is_sep = self._entries[above_ei].is_separator
-                above_is_synthetic = _entry_name(above_ei) in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
-                below_is_sep = self._entries[below_ei].is_separator
-                if _inverted:
-                    # Reversed sort: higher _entries index = lower priority number =
-                    # appears higher visually. To land just below above_ei visually,
-                    # insert before above_ei (giving a lower index = higher priority
-                    # number = appears lower visually).
-                    if above_is_synthetic and _entry_name(above_ei) == ROOT_FOLDER_NAME:
-                        # Just below RF = lowest priority = before RF in _entries.
-                        _pre_removal_insert = above_ei
-                    elif above_is_sep and not above_is_synthetic:
-                        # Separator is upper visual neighbour — insert at end of its block.
-                        _pre_removal_insert = self._sep_block_range(above_ei).stop
-                    elif below_is_sep and not above_is_synthetic:
-                        # Separator is lower visual neighbour — insert before above_ei
-                        # (stays in above_ei's group, just below it visually).
-                        _pre_removal_insert = above_ei
-                    else:
-                        # Both neighbours are mods — insert before above_ei.
-                        _pre_removal_insert = above_ei
-                else:
-                    if below_is_sep:
-                        below_name = _entry_name(below_ei)
-                        if below_name == OVERWRITE_NAME:
-                            _pre_removal_insert = below_ei + 1
-                        else:
-                            _pre_removal_insert = below_ei
-                    else:
-                        # General case: insert before below_ei.
-                        _pre_removal_insert = below_ei
-            # Adjust for entries removed from _entries (they shift indices down).
-            _drop_insert_at = _pre_removal_insert - sum(1 for d in drag_set if d < _pre_removal_insert)
-
-            if self._drag_is_block:
-                if self._drag_sel_indices:
-                    # Sparse multi-select: remove entries at their actual indices
-                    # (highest index first to preserve lower indices during removal)
-                    for i in sorted(self._drag_sel_indices, reverse=True):
-                        self._entries.pop(i)
-                        self._check_vars.pop(i)
-                else:
-                    # Contiguous block (separator drag)
-                    del self._entries[self._drag_idx:self._drag_idx + blk_size]
-                    del self._check_vars[self._drag_idx:self._drag_idx + blk_size]
-
-                insert_at = max(1, min(_drop_insert_at, len(self._entries)))
-                if (self._entries and self._entries[-1].name == ROOT_FOLDER_NAME
-                        and insert_at > len(self._entries) - 1):
-                    insert_at = len(self._entries) - 1
-
-                for j, (entry, var) in enumerate(self._drag_block):
-                    self._entries.insert(insert_at + j, entry)
-                    self._check_vars.insert(insert_at + j, var)
-                self._drag_idx = insert_at
-                # Update selection to the moved block's new positions
-                if self._drag_sel_indices:
-                    self._sel_set = set(range(insert_at, insert_at + len(self._drag_block)))
-                    self._sel_idx = insert_at
-            else:
-                entry = self._entries.pop(self._drag_idx)
-                var   = self._check_vars.pop(self._drag_idx)
-
-                insert_at = max(0, min(_drop_insert_at, len(self._entries)))
-                if (self._entries and self._entries[-1].name == ROOT_FOLDER_NAME
-                        and insert_at > len(self._entries) - 1):
-                    insert_at = len(self._entries) - 1
-
-                self._entries.insert(insert_at, entry)
-                self._check_vars.insert(insert_at, var)
-                self._drag_idx = insert_at
-                self._sel_idx  = insert_at
-
-            self._invalidate_derived_caches()
+            # Real-time reorder already happened during drag — just persist.
             self._save_modlist()
             self._rebuild_filemap()
-        elif was_pending and self._drag_idx < 0:
+        elif self._drag_idx >= 0 and not self._drag_moved and had_multi:
             # Click (no drag) inside a multi-selection — collapse to the clicked item
             cy = self._event_canvas_y(event)
             clicked = self._canvas_y_to_index(cy)
@@ -3258,7 +3239,6 @@ class ModListPanel(ctk.CTkFrame):
         self._drag_origin_idx = -1
         self._drag_moved = False
         self._drag_slot  = -1
-        self._drag_target_slot = -1
         self._drag_is_block = False
         self._drag_sel_indices = []
         self._redraw()
@@ -3478,8 +3458,12 @@ class ModListPanel(ctk.CTkFrame):
         if mod_folder is not None:
             menu.add_command("Open folder", lambda: self._open_folder(mod_folder))
 
-        if not is_separator:
-            conflict_status = self._conflict_map.get(self._entries[idx].name, CONFLICT_NONE)
+        if not is_separator or is_overwrite:
+            conflict_status = (
+                self._conflict_map.get(self._entries[idx].name, CONFLICT_NONE)
+                if not is_overwrite
+                else (CONFLICT_WINS if self._overrides.get(OVERWRITE_NAME) else CONFLICT_NONE)
+            )
             if conflict_status != CONFLICT_NONE:
                 name_capture = self._entries[idx].name
                 menu.add_command("Show Conflicts",
@@ -4001,16 +3985,19 @@ class ModListPanel(ctk.CTkFrame):
         if not entry.is_separator:
             return
         current = self._sep_colors.get(entry.name) or None
-        dlg = _SepColorPickerDialog(self.winfo_toplevel(), initial_color=current)
-        self.winfo_toplevel().wait_window(dlg)
-        if dlg.reset:
-            self._sep_colors.pop(entry.name, None)
-            self._save_sep_colors()
-            self._redraw()
-        elif dlg.result is not None:
-            self._sep_colors[entry.name] = dlg.result
-            self._save_sep_colors()
-            self._redraw()
+        app = self.winfo_toplevel()
+        show_fn = getattr(app, "show_sep_color_panel", None)
+        if show_fn:
+            def _on_result(hex_color, reset):
+                if reset:
+                    self._sep_colors.pop(entry.name, None)
+                    self._save_sep_colors()
+                    self._redraw()
+                elif hex_color is not None:
+                    self._sep_colors[entry.name] = hex_color
+                    self._save_sep_colors()
+                    self._redraw()
+            show_fn(entry.name, current, _on_result)
 
     def _show_sep_settings(self, idx: int) -> None:
         """Open the separator settings panel (overlays the plugin panel)."""
@@ -5155,7 +5142,8 @@ class ModListPanel(ctk.CTkFrame):
                         winning_map[key] = (rel_path, winner)
 
             # Walk this mod's staging folder
-            my_staging = staging_root / mod_name
+            my_staging = (staging_root.parent / "overwrite"
+                          if mod_name == OVERWRITE_NAME else staging_root / mod_name)
             # my_files: deploy_key → display_path
             my_files: dict[str, str] = {}
             if my_staging.is_dir():
@@ -6085,6 +6073,11 @@ class ModListPanel(ctk.CTkFrame):
                 row = _row_for_mod(mod_name)
                 if row is not None:
                     _tick(row, conflict_lower)
+        elif sel_entry and sel_entry.name == OVERWRITE_NAME:
+            for mod_name in self._overrides.get(OVERWRITE_NAME, set()):
+                row = _row_for_mod(mod_name)
+                if row is not None:
+                    _tick(row, conflict_higher)
 
     def clear_selection(self):
         """Clear the mod list selection, e.g. when a plugin is selected."""

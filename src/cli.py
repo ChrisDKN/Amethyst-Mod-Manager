@@ -101,6 +101,7 @@ def cmd_deploy(games: dict, key: str, profile: str):
     from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode, load_per_mod_strip_prefixes
     from Utils.filemap import build_filemap
     from Utils.profile_backup import create_backup
+    from Utils.ui_config import load_normalize_folder_case as _load_norm_case
 
     profile_root = game.get_profile_root()
     profile_dir = profile_root / "profiles" / profile
@@ -144,7 +145,7 @@ def cmd_deploy(games: dict, key: str, profile: str):
                 root_deploy_folders=game.mod_root_deploy_folders or None,
                 excluded_mod_files=_exc,
                 conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
-                normalize_folder_case=getattr(game, "normalize_folder_case", True),
+                normalize_folder_case=getattr(game, "normalize_folder_case", True) and _load_norm_case(),
                 conflict_key_fn=getattr(game, "filemap_conflict_key_fn", None),
             )
         except Exception as fm_err:

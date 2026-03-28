@@ -18,6 +18,7 @@ from Utils.xdg import xdg_open
 from Utils.ui_config import (
     load_ui_scale, save_ui_scale, detect_hidpi_scale,
     load_collection_settings, save_collection_settings,
+    load_normalize_folder_case, save_normalize_folder_case,
 )
 from gui.ctk_components import CTkProgressPopup, CTkAlert, CTkNotification
 from gui.theme import (
@@ -515,21 +516,41 @@ class SettingsPanel(ctk.CTkFrame):
 
         self.after(100, self._refresh_cache_size)
 
-        # ---- collections ----
+        # ---- filemap ----
         ctk.CTkFrame(body, fg_color=BORDER, height=1).grid(
             row=6, column=0, columnspan=3, sticky="ew", pady=(20, 0))
 
+        ctk.CTkLabel(body, text="Filemap", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     anchor="w").grid(row=7, column=0, columnspan=3, sticky="w", pady=(12, 4))
+
+        self._norm_case_var = tk.BooleanVar(value=load_normalize_folder_case())
+        ctk.CTkCheckBox(
+            body, text="Normalise folder casing", variable=self._norm_case_var,
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+        ).grid(row=8, column=0, columnspan=3, sticky="w")
+
+        ctk.CTkLabel(
+            body,
+            text="When enabled, folder names are unified to a single casing across all mods.\n"
+                 "Disable this on case-insensitive (casefold) filesystems to avoid path conflicts.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).grid(row=9, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
+        # ---- collections ----
+        ctk.CTkFrame(body, fg_color=BORDER, height=1).grid(
+            row=10, column=0, columnspan=3, sticky="ew", pady=(20, 0))
+
         ctk.CTkLabel(body, text="Collections", font=FONT_NORMAL, text_color=TEXT_MAIN,
-                     anchor="w").grid(row=7, column=0, columnspan=3, sticky="w", pady=(12, 8))
+                     anchor="w").grid(row=11, column=0, columnspan=3, sticky="w", pady=(12, 8))
 
         _col_cfg = load_collection_settings()
 
         # Downloads sub-label
         ctk.CTkLabel(body, text="Downloads", font=FONT_SMALL, text_color=TEXT_DIM,
-                     anchor="w").grid(row=8, column=0, columnspan=3, sticky="w", pady=(0, 4))
+                     anchor="w").grid(row=12, column=0, columnspan=3, sticky="w", pady=(0, 4))
 
         dl_order_row = ctk.CTkFrame(body, fg_color="transparent")
-        dl_order_row.grid(row=9, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        dl_order_row.grid(row=13, column=0, columnspan=3, sticky="w", pady=(0, 6))
 
         ctk.CTkLabel(dl_order_row, text="Order:", font=FONT_NORMAL, text_color=TEXT_MAIN,
                      ).pack(side="left", padx=(0, 8))
@@ -544,7 +565,7 @@ class SettingsPanel(ctk.CTkFrame):
         ).pack(side="left")
 
         dl_concurrent_row = ctk.CTkFrame(body, fg_color="transparent")
-        dl_concurrent_row.grid(row=10, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        dl_concurrent_row.grid(row=14, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
         ctk.CTkLabel(dl_concurrent_row, text="Max concurrent:", font=FONT_NORMAL, text_color=TEXT_MAIN,
                      ).pack(side="left", padx=(0, 8))
@@ -565,10 +586,10 @@ class SettingsPanel(ctk.CTkFrame):
 
         # Install sub-label
         ctk.CTkLabel(body, text="Install", font=FONT_SMALL, text_color=TEXT_DIM,
-                     anchor="w").grid(row=11, column=0, columnspan=3, sticky="w", pady=(0, 4))
+                     anchor="w").grid(row=15, column=0, columnspan=3, sticky="w", pady=(0, 4))
 
         inst_row = ctk.CTkFrame(body, fg_color="transparent")
-        inst_row.grid(row=12, column=0, columnspan=3, sticky="w")
+        inst_row.grid(row=16, column=0, columnspan=3, sticky="w")
 
         ctk.CTkLabel(inst_row, text="Order:", font=FONT_NORMAL, text_color=TEXT_MAIN,
                      ).pack(side="left", padx=(0, 8))
@@ -730,6 +751,7 @@ class SettingsPanel(ctk.CTkFrame):
             save_ui_scale("auto")
         else:
             save_ui_scale(round(self._scale_var.get() * 20) / 20)
+        save_normalize_folder_case(self._norm_case_var.get())
         save_collection_settings(
             download_order=self._dl_order_var.get(),
             max_concurrent=int(round(self._max_concurrent_var.get())),
@@ -745,6 +767,7 @@ class SettingsPanel(ctk.CTkFrame):
             save_ui_scale("auto")
         else:
             save_ui_scale(round(self._scale_var.get() * 20) / 20)
+        save_normalize_folder_case(self._norm_case_var.get())
         save_collection_settings(
             download_order=self._dl_order_var.get(),
             max_concurrent=int(round(self._max_concurrent_var.get())),

@@ -109,8 +109,8 @@ def _defn_to_dll_overrides(defn: dict) -> dict[str, str]:
 def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
     """Return a list[CustomRule] from the JSON ``custom_routing_rules`` field.
 
-    Each entry is a dict with keys ``dest``, and optionally ``extensions``
-    and/or ``folders``.
+    Each entry is a dict with keys ``dest``, and optionally ``extensions``,
+    ``folders``, and/or ``filenames``.
     """
     raw = defn.get("custom_routing_rules", [])
     if not isinstance(raw, list):
@@ -122,8 +122,9 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
         dest = entry.get("dest", "")
         extensions = [s.strip().lower() for s in entry.get("extensions", []) if s.strip()]
         folders = [s.strip().lower() for s in entry.get("folders", []) if s.strip()]
-        if dest or extensions or folders:
-            rules.append(CustomRule(dest=dest, extensions=extensions, folders=folders))
+        filenames = [s.strip().lower() for s in entry.get("filenames", []) if s.strip()]
+        if dest or extensions or folders or filenames:
+            rules.append(CustomRule(dest=dest, extensions=extensions, folders=folders, filenames=filenames))
     return rules
 
 
@@ -791,7 +792,14 @@ class Ue5CustomGame(UE5Game):
                         dest=cr.dest,
                         extensions=list(cr.extensions),
                         folder=folder,
+                        filenames=list(cr.filenames),
                     ))
+            elif cr.filenames:
+                rules.append(UE5Rule(
+                    dest=cr.dest,
+                    extensions=list(cr.extensions),
+                    filenames=list(cr.filenames),
+                ))
             else:
                 rules.append(UE5Rule(
                     dest=cr.dest,

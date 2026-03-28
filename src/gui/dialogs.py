@@ -4306,30 +4306,28 @@ class DownloadCustomHandlerPanel(ctk.CTkFrame):
 
 
 # ---------------------------------------------------------------------------
-# Separator color picker dialog
+# SepColorPanel — inline overlay for separator color picker
 # ---------------------------------------------------------------------------
-class _SepColorPickerDialog(ctk.CTkToplevel):
+class SepColorPanel(ctk.CTkFrame):
     """
-    Custom color picker styled to match the app theme.
+    Inline panel that overlays _plugin_panel_container for picking a separator colour.
     Shows a HSV colour wheel, a brightness slider, a live hex entry,
     and a live colour-preview swatch.
 
-    result: str | None  — hex colour like "#rrggbb", or None if cancelled.
-    reset:  bool        — True if the user clicked "Reset to default".
+    on_result(hex_color: str | None, reset: bool) is called when the user
+    confirms, resets, or cancels.  hex_color is "#rrggbb" or None (cancel/reset).
+    on_done(panel) is called afterwards so the host can hide the overlay.
     """
 
     _WHEEL_SIZE = 200
     _SLIDER_H   = 20
 
-    def __init__(self, parent, initial_color: str | None = None):
-        super().__init__(parent, fg_color=BG_DEEP)
-        self.title("Choose Separator Color")
-        self.resizable(False, False)
-        self.transient(parent)
-        self.protocol("WM_DELETE_WINDOW", self._on_cancel_color)
-
-        self.result: str | None = None
-        self.reset: bool = False
+    def __init__(self, parent, sep_name: str, initial_color: str | None = None,
+                 on_result=None, on_done=None):
+        super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
+        self._sep_name  = sep_name
+        self._on_result = on_result or (lambda hex_color, reset: None)
+        self._on_done   = on_done   or (lambda p: None)
 
         self._hue: float = 0.0
         self._sat: float = 0.8
@@ -4351,33 +4349,35 @@ class _SepColorPickerDialog(ctk.CTkToplevel):
         self._draw_slider()
         self._update_all()
 
-        self.after(80, self._make_modal)
-
-        self.update_idletasks()
-        w = self._WHEEL_SIZE + 32
-        h = self.winfo_reqheight()
-        owner = parent
-        x = owner.winfo_rootx() + (owner.winfo_width()  - w) // 2
-        y = owner.winfo_rooty() + (owner.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
-
-    def _make_modal(self):
-        try:
-            self.grab_set()
-            self.focus_set()
-        except Exception:
-            pass
-
     # ------------------------------------------------------------------
     # Layout
     # ------------------------------------------------------------------
     def _build(self):
+        # Title bar
+        title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=36)
+        title_bar.pack(fill="x")
+        title_bar.pack_propagate(False)
+        ctk.CTkLabel(
+            title_bar, text=f"Separator Color \u2014 {self._sep_name}",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
+        ).pack(side="left", padx=12)
+        ctk.CTkButton(
+            title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel_color,
+        ).pack(side="right", padx=4)
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+
+        # Inner content centred
+        inner = ctk.CTkFrame(self, fg_color=BG_DEEP, corner_radius=0)
+        inner.pack(fill="both", expand=True)
+        inner.grid_columnconfigure(0, weight=1)
+
         PAD = 16
         ws  = self._WHEEL_SIZE
-        self.grid_columnconfigure(0, weight=1)
 
         # Colour wheel
-        wheel_frame = tk.Frame(self, bg=BG_DEEP)
+        wheel_frame = tk.Frame(inner, bg=BG_DEEP)
         wheel_frame.grid(row=0, column=0, pady=(PAD, 4))
         self._wheel_canvas = tk.Canvas(
             wheel_frame, width=ws, height=ws,
@@ -4391,7 +4391,7 @@ class _SepColorPickerDialog(ctk.CTkToplevel):
 
         # Brightness slider
         self._slider_canvas = tk.Canvas(
-            self, width=ws, height=self._SLIDER_H,
+            inner, width=ws, height=self._SLIDER_H,
             bg=BG_DEEP, highlightthickness=0, cursor="sb_h_double_arrow",
         )
         self._slider_canvas.grid(row=1, column=0, padx=PAD, pady=(0, 10), sticky="ew")
@@ -4402,11 +4402,11 @@ class _SepColorPickerDialog(ctk.CTkToplevel):
         )
 
         # Preview swatch
-        self._swatch = tk.Frame(self, height=28, bg=BG_DEEP, relief="flat", bd=0)
+        self._swatch = tk.Frame(inner, height=28, bg=BG_DEEP, relief="flat", bd=0)
         self._swatch.grid(row=2, column=0, padx=PAD, pady=(0, 6), sticky="ew")
 
         # Hex entry row
-        hex_row = tk.Frame(self, bg=BG_DEEP)
+        hex_row = tk.Frame(inner, bg=BG_DEEP)
         hex_row.grid(row=3, column=0, padx=PAD, pady=(0, 10), sticky="ew")
         hex_row.grid_columnconfigure(1, weight=1)
         tk.Label(
@@ -4423,27 +4423,26 @@ class _SepColorPickerDialog(ctk.CTkToplevel):
         self._hex_var.trace_add("write", self._on_hex_typed)
 
         # Button bar
-        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
-        bar.grid(row=4, column=0, sticky="ew")
-        bar.grid_propagate(False)
-        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
-            side="top", fill="x"
-        )
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0)
+        bar.pack(side="bottom", fill="x")
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
+        btn_inner = ctk.CTkFrame(bar, fg_color=BG_PANEL, corner_radius=0)
+        btn_inner.pack(fill="x", padx=12, pady=10)
         ctk.CTkButton(
-            bar, text="Cancel", width=80, height=30, font=FONT_NORMAL,
+            btn_inner, text="Cancel", width=80, height=30, font=FONT_NORMAL,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_cancel_color,
-        ).pack(side="right", padx=(4, 12), pady=10)
+        ).pack(side="right", padx=(4, 0))
         ctk.CTkButton(
-            bar, text="OK", width=80, height=30, font=FONT_BOLD,
+            btn_inner, text="OK", width=80, height=30, font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._on_ok,
-        ).pack(side="right", padx=4, pady=10)
+        ).pack(side="right", padx=4)
         ctk.CTkButton(
-            bar, text="Reset to default", width=120, height=30, font=FONT_NORMAL,
+            btn_inner, text="Reset to default", width=120, height=30, font=FONT_NORMAL,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_reset,
-        ).pack(side="left", padx=12, pady=10)
+        ).pack(side="left")
 
     # ------------------------------------------------------------------
     # Drawing
@@ -4574,18 +4573,16 @@ class _SepColorPickerDialog(ctk.CTkToplevel):
                 pass
 
     def _on_ok(self):
-        self.result = self._current_hex()
-        self.grab_release()
-        self.destroy()
+        self._on_result(self._current_hex(), False)
+        self._on_done(self)
 
     def _on_reset(self):
-        self.reset = True
-        self.grab_release()
-        self.destroy()
+        self._on_result(None, True)
+        self._on_done(self)
 
     def _on_cancel_color(self):
-        self.grab_release()
-        self.destroy()
+        self._on_result(None, False)
+        self._on_done(self)
 
 
 # ---------------------------------------------------------------------------
