@@ -1505,6 +1505,30 @@ class ModListPanel(ctk.CTkFrame):
                 groups.setdefault(bname, []).append(i)
         self._bundle_groups = groups
 
+    def _is_bundle_separator(self, idx: int) -> bool:
+        """True if the entry at *idx* is a separator that owns a bundle block."""
+        e = self._entries[idx]
+        if not e.is_separator:
+            return False
+        display = e.display_name  # strips _separator suffix
+        return display in self._bundle_groups
+
+    def _clamp_outside_bundle_blocks(self, insert_at: int) -> int:
+        """If *insert_at* falls strictly inside a bundle separator block,
+        push it just before that block so non-bundle mods can never land
+        inside a bundle group."""
+        # Walk backwards to find the separator that owns this position.
+        for si in range(insert_at - 1, -1, -1):
+            e = self._entries[si]
+            if e.is_separator:
+                if self._is_bundle_separator(si):
+                    blk = self._sep_block_range(si)
+                    if insert_at < blk.stop:
+                        # insert_at is inside the bundle block — move before it
+                        return si
+                break  # inside a normal separator block — fine
+        return insert_at
+
     def _reload(self):
         self._sel_idx = -1
         self._sel_set = set()
@@ -1761,10 +1785,16 @@ class ModListPanel(ctk.CTkFrame):
 
     def _on_pool_check_toggle(self, slot: int) -> None:
         """A pooled enable-checkbox was clicked — map back to the entry and toggle."""
+        # _on_mouse_press already handled this click via the checkbox hit-test — skip.
+        if getattr(self, "_checkbox_click_handled", False):
+            self._checkbox_click_handled = False
+            return
         entry_idx = self._pool_data_idx[slot] if slot < len(self._pool_data_idx) else -1
         if entry_idx < 0:
             return
-        if entry_idx < len(self._entries) and self._entries[entry_idx].locked:
+        # Bundle variants are toggleable even when locked=True (locked only prevents drag/rename).
+        _entry = self._entries[entry_idx] if entry_idx < len(self._entries) else None
+        if _entry and _entry.locked and _entry.bundle_name is None:
             return
         # Toggle: flip current value, sync to logical var, persist
         checked = not self._pool_check_vars[slot].get()
@@ -2322,8 +2352,14 @@ class ModListPanel(ctk.CTkFrame):
                         checked = self._pool_check_vars[s].get()
                         cb_cx = self._COL_X[0] + scaled(12)
                         if is_bundle_variant:
-                            # Hide the rect outline; repurpose the mark text as a radio dot
-                            c.itemconfigure(self._pool_cb_rect[s], state="hidden")
+                            # Invisible hit-area rect filled with the row bg colour so it
+                            # still receives mouse events (fill="" / outline="" rects do not).
+                            cb_size = scaled(14)
+                            x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
+                            x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
+                            c.coords(self._pool_cb_rect[s], x1, y1, x2, y2)
+                            c.itemconfigure(self._pool_cb_rect[s],
+                                            fill=bg, outline="", state="normal")
                             c.coords(self._pool_cb_mark[s], cb_cx, y_mid)
                             c.itemconfigure(self._pool_cb_mark[s],
                                             text="●" if checked else "○",
@@ -2353,6 +2389,9 @@ class ModListPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_bg[s], state="hidden")
                 c.itemconfigure(self._pool_name[s], state="hidden")
                 c.itemconfigure(self._pool_flag_icon[s], state="hidden")
+                c.itemconfigure(self._pool_flag_icon2[s], state="hidden")
+                c.itemconfigure(self._pool_flag_icon3[s], state="hidden")
+                c.itemconfigure(self._pool_flag_star[s], state="hidden")
                 c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                 c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                 c.itemconfigure(self._pool_category_text[s], state="hidden")
@@ -2478,13 +2517,22 @@ class ModListPanel(ctk.CTkFrame):
         else:
             base = []
             skip = False
+            _skip_bundle: str | None = None  # bundle_name to skip when collapsing a bundle sep
             for i, entry in enumerate(self._entries):
                 if entry.is_separator:
                     skip = False
+                    _skip_bundle = None
                     base.append(i)
                     if entry.name in self._collapsed_seps:
-                        skip = True
-                elif not skip:
+                        if self._is_bundle_separator(i):
+                            _skip_bundle = entry.display_name
+                        else:
+                            skip = True
+                elif skip:
+                    pass  # normal collapsed separator — hide all children
+                elif _skip_bundle is not None and entry.bundle_name == _skip_bundle:
+                    pass  # collapsed bundle separator — hide only its variants
+                else:
                     base.append(i)
 
         # Step 2: hide separators filter (keep synthetic Overwrite/Root Folder rows)
@@ -2843,6 +2891,27 @@ class ModListPanel(ctk.CTkFrame):
         shift = bool(event.state & 0x1)
         ctrl  = bool(event.state & 0x4)
 
+        # Checkbox hit-test: if the click is in the enable/disable column and the
+        # entry is toggleable, handle it immediately and return.  This avoids
+        # relying on tag bindings (which don't reliably block the widget-level binding).
+        # Bundle variants are toggleable even when locked=True (locked only prevents drag).
+        _cb_x_max = self._COL_X[1] - 4  # right edge of checkbox column
+        _is_bundle_var = self._entries[idx].bundle_name is not None
+        if (event.x <= _cb_x_max
+                and not self._entries[idx].is_separator
+                and (not self._entries[idx].locked or _is_bundle_var)
+                and idx < len(self._check_vars)
+                and self._check_vars[idx] is not None):
+            var = self._check_vars[idx]
+            var.set(not var.get())
+            for s, di in enumerate(self._pool_data_idx):
+                if di == idx and s < len(self._pool_check_vars):
+                    self._pool_check_vars[s].set(var.get())
+                    break
+            self._checkbox_click_handled = True
+            self._on_toggle(idx)
+            return
+
         if self._entries[idx].is_separator:
             if self._entries[idx].name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
                 # Synthetic rows are selectable (shows conflict highlights) but not draggable
@@ -2936,8 +3005,9 @@ class ModListPanel(ctk.CTkFrame):
 
         # If clicking inside an existing multi-selection, preserve it so the
         # user can drag the whole group — only collapse to single on release.
+        _is_immovable = self._entries[idx].locked or self._entries[idx].bundle_name is not None
         if idx in self._sel_set and len(self._sel_set) > 1:
-            if not self._entries[idx].locked:
+            if not _is_immovable:
                 self._activate_drag(idx, cy, False, [])
             return
 
@@ -2947,8 +3017,8 @@ class ModListPanel(ctk.CTkFrame):
             self._on_mod_selected_cb()
         self._redraw()
         self._update_info()
-        if self._entries[idx].locked:
-            # * entries are selectable but not draggable
+        if _is_immovable:
+            # locked / bundle-variant entries are selectable but not draggable
             self._drag_idx = -1
             self._drag_moved = False
             self._drag_slot  = -1
@@ -2965,10 +3035,10 @@ class ModListPanel(ctk.CTkFrame):
         # If multiple items are selected and the dragged item is in the selection,
         # treat the whole selection as the drag block (sorted by entry index).
         if len(self._sel_set) > 1 and idx in self._sel_set and not is_block:
-            # Filter out locked entries — they should not be draggable
+            # Filter out locked / bundle-variant entries — they should not be draggable
             sorted_sel = sorted(
                 i for i in self._sel_set
-                if not self._entries[i].locked
+                if not self._entries[i].locked and self._entries[i].bundle_name is None
             )
             if not sorted_sel:
                 return
@@ -2994,15 +3064,26 @@ class ModListPanel(ctk.CTkFrame):
     def _sep_block_range(self, sep_idx: int) -> range:
         """Return the range of indices [sep_idx, end) belonging to this separator block.
         The block is the separator plus every non-separator entry below it
-        until the next separator (or end of list). Results are cached."""
+        until the next separator (or end of list).  For bundle separators the
+        block ends as soon as a non-bundle-variant entry is encountered so that
+        unrelated mods sitting below the bundle are not absorbed.
+        Results are cached."""
         cache = getattr(self, "_sep_block_cache", None)
         if cache is not None:
             cached = cache.get(sep_idx)
             if cached is not None:
                 return cached
         end = sep_idx + 1
-        while end < len(self._entries) and not self._entries[end].is_separator:
-            end += 1
+        is_bsep = self._is_bundle_separator(sep_idx)
+        if is_bsep:
+            bname = self._entries[sep_idx].display_name
+            while end < len(self._entries) and not self._entries[end].is_separator:
+                if self._entries[end].bundle_name != bname:
+                    break
+                end += 1
+        else:
+            while end < len(self._entries) and not self._entries[end].is_separator:
+                end += 1
         result = range(sep_idx, end)
         if cache is not None:
             cache[sep_idx] = result
@@ -3175,6 +3256,9 @@ class ModListPanel(ctk.CTkFrame):
                         _pre_removal_insert = below_ei
                 else:
                     _pre_removal_insert = below_ei
+
+        # Prevent non-bundle mods from being dropped inside a bundle block.
+        _pre_removal_insert = self._clamp_outside_bundle_blocks(_pre_removal_insert)
 
         _drop_insert_at = _pre_removal_insert - sum(1 for d in drag_set if d < _pre_removal_insert)
 
@@ -3426,22 +3510,29 @@ class ModListPanel(ctk.CTkFrame):
         menu.add_command("Add separator below", lambda: self._add_separator(idx, above=False))
         if self._modlist_path is not None and not is_synthetic:
             menu.add_command("Create empty mod below", lambda: self._create_empty_mod(idx))
+        _is_bundle_sep = is_separator and self._is_bundle_separator(idx)
         if is_separator and not is_synthetic:
-            menu.add_command("Rename separator", lambda: self._rename_separator(idx))
+            if not _is_bundle_sep:
+                menu.add_command("Rename separator", lambda: self._rename_separator(idx))
             menu.add_command("Change separator color", lambda: self._change_separator_color(idx))
-            menu.add_command("Separator settings…", lambda: self._show_sep_settings(idx))
+            if not _is_bundle_sep:
+                menu.add_command("Separator settings…", lambda: self._show_sep_settings(idx))
             menu.add_command("Remove separator", lambda: self._remove_separator(idx))
         elif not is_separator and not self._entries[idx].locked:
-            menu.add_command("Rename mod", lambda: self._rename_mod(idx))
-            menu.add_command("Set priority…", lambda: self._set_priority(idx))
+            _is_bundle_var = self._entries[idx].bundle_name is not None
+            if not _is_bundle_var:
+                menu.add_command("Rename mod", lambda: self._rename_mod(idx))
+                menu.add_command("Set priority…", lambda: self._set_priority(idx))
             menu.add_command("Remove mod", lambda: self._remove_mod(idx))
-            sep_names = [e.name for e in self._entries
-                         if e.is_separator and e.name != OVERWRITE_NAME
-                         and e.name != ROOT_FOLDER_NAME]
-            if sep_names:
-                menu.add_submenu("Move to separator",
-                    lambda: self._show_separator_picker(idx, sep_names,
-                        parent_dismiss=menu._withdraw, parent_popup=menu))
+            if not _is_bundle_var:
+                sep_names = [e.name for e in self._entries
+                             if e.is_separator and e.name != OVERWRITE_NAME
+                             and e.name != ROOT_FOLDER_NAME
+                             and e.display_name not in self._bundle_groups]
+                if sep_names:
+                    menu.add_submenu("Move to separator",
+                        lambda: self._show_separator_picker(idx, sep_names,
+                            parent_dismiss=menu._withdraw, parent_popup=menu))
             if ini_files:
                 menu.add_submenu("INI files",
                     lambda: self._show_ini_picker(ini_files,
@@ -5415,17 +5506,6 @@ class ModListPanel(ctk.CTkFrame):
             entry.enabled = now_enabled
             self._sync_plugins_for_toggle(entry.name, now_enabled)
 
-            # Bundle radio behaviour: enabling one variant disables all siblings.
-            if now_enabled and entry.bundle_name:
-                for sibling_idx in self._bundle_groups.get(entry.bundle_name, []):
-                    if sibling_idx == idx:
-                        continue
-                    sib_entry = self._entries[sibling_idx]
-                    sib_entry.enabled = False
-                    if sibling_idx < len(self._check_vars) and self._check_vars[sibling_idx] is not None:
-                        self._check_vars[sibling_idx].set(False)
-                    self._sync_plugins_for_toggle(sib_entry.name, False)
-
             self._vis_dirty = True  # enabled state affects show-disabled/enabled filters
             self._save_modlist()
             self._rebuild_filemap()
@@ -5988,9 +6068,16 @@ class ModListPanel(ctk.CTkFrame):
     def _save_modlist(self):
         if self._modlist_path is None:
             return
-        # Exclude synthetic rows — they are never persisted
-        entries = [e for e in self._entries
-                   if e.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)]
+        from dataclasses import replace as _dc_replace
+        entries = []
+        for e in self._entries:
+            if e.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
+                continue
+            # Bundle variants should never be written as locked (*) — locked only
+            # prevents dragging in the panel, not toggling.  Write as +/- instead.
+            if e.bundle_name is not None and e.locked:
+                e = _dc_replace(e, locked=False)
+            entries.append(e)
         write_modlist(self._modlist_path, entries)
 
     def _update_info(self):

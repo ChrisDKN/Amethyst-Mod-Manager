@@ -110,6 +110,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._deploy_mode_var = tk.StringVar(value="symlink")
         self._symlink_plugins_var = tk.BooleanVar(value=False)
         self._auto_deploy_var = tk.BooleanVar(value=False)
+        self._archive_invalidation_var = tk.BooleanVar(value=True)
 
         # Optional: when embedded in a modal CTkToplevel, set this to that
         # window so _run_folder_picker can release/re-acquire the grab.
@@ -141,6 +142,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             else:
                 self._set_staging_text(str(game.get_mod_staging_path()))
             self._auto_deploy_var.set(game.auto_deploy)
+            self._archive_invalidation_var.set(game.archive_invalidation)
         else:
             self._start_scan()
             self._set_staging_text(str(game.get_mod_staging_path()))
@@ -349,6 +351,14 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             font=FONT_NORMAL, text_color=TEXT_MAIN,
             fg_color=ACCENT, hover_color=ACCENT_HOV,
         ).grid(row=18, column=0, sticky="w", padx=16, pady=(0, 8))
+
+        if hasattr(self._game, "archive_invalidation_enabled"):
+            ctk.CTkCheckBox(
+                body, text="Automatic archive invalidation (allow the game to prefer loose files over BSA archives)",
+                variable=self._archive_invalidation_var,
+                font=FONT_NORMAL, text_color=TEXT_MAIN,
+                fg_color=ACCENT, hover_color=ACCENT_HOV,
+            ).grid(row=19, column=0, sticky="w", padx=16, pady=(0, 8))
 
         # Button bar
         btn_bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=52)
@@ -932,6 +942,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         if hasattr(self._game, "set_staging_path"):
             self._game.set_staging_path(self._custom_staging)
         self._game.auto_deploy = self._auto_deploy_var.get()
+        self._game.archive_invalidation = self._archive_invalidation_var.get()
         _create_profile_structure(self._game)
         self.result = self._found_path
         self._on_done(self)

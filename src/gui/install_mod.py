@@ -42,7 +42,8 @@ from Utils.fomod_installer import resolve_files
 from Utils.ui_config import load_dev_mode
 from Utils.config_paths import get_fomod_selections_path
 from Utils.plugins import read_plugins, append_plugin, read_loadorder, write_loadorder, PluginEntry
-from Utils.modlist import prepend_mod, ensure_mod_preserving_position
+from Utils.modlist import prepend_mod, ensure_mod_preserving_position, read_modlist, write_modlist, ModEntry
+from Utils.profile_state import read_separator_locks, write_separator_locks
 from Utils.filemap import _scan_dir, update_mod_index
 from Nexus.nexus_meta import write_meta, resolve_nexus_meta_for_archive
 from gui.ctk_components import CTkNotification
@@ -306,6 +307,18 @@ def _expand_folders_for_dialog(
                 file_dst_rel = str(Path(dst_rel) / rel_to_src) if dst_rel else str(rel_to_src)
                 result.append((file_src_rel, file_dst_rel, False))
     return result
+
+
+def _unwrap_single_folder(extract_dir: str) -> str:
+    """If extract_dir contains exactly one subdirectory and no files, return
+    that subdirectory's path.  Archives like 'ModName.zip' that contain a
+    single top-level folder 'ModName/' would otherwise hide their contents
+    from bundle/multi-mod detection."""
+    root = Path(extract_dir)
+    entries = list(root.iterdir())
+    if len(entries) == 1 and entries[0].is_dir():
+        return str(entries[0])
+    return extract_dir
 
 
 def detect_bundle(
@@ -1024,8 +1037,9 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 for src, dst, is_folder in file_list:
                     kind = "[dir]" if is_folder else "[file]"
                     log_fn(f"[FOMOD DEV]   {kind} {src!r} → {dst!r}")
-        elif getattr(game, "mod_supports_bundles", False) and detect_bundle(extract_dir):
+        elif getattr(game, "mod_supports_bundles", False) and detect_bundle(_unwrap_single_folder(extract_dir)):
             # --- Bundle install ---
+            extract_dir = _unwrap_single_folder(extract_dir)
             bundle_name, variants = detect_bundle(extract_dir)
             log_fn(f"Bundle detected: '{bundle_name}' with {len(variants)} variant(s).")
 
@@ -1105,10 +1119,34 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     except Exception:
                         pass
 
-                # First variant enabled, rest disabled
-                prepend_mod(modlist_path, v_mod_name, enabled=(v_idx == 0))
                 log_fn(f"  Variant '{v_name}' → {v_dest}")
                 installed_variant_names.append(v_mod_name)
+
+            # Insert a locked separator + all locked variants as a block at the
+            # top of modlist.txt.  All variants are enabled by default — users
+            # can disable whichever ones they don't want.
+            sep_name = f"{bundle_name}_separator"
+            existing = read_modlist(modlist_path)
+            # Remove any pre-existing entries for this bundle's separator/variants
+            remove_names = {sep_name} | set(installed_variant_names)
+            existing = [e for e in existing if e.name not in remove_names]
+            # Build the bundle block: separator + variants (not locked — users
+            # can still toggle them; drag prevention is handled by the panel).
+            bundle_block: list[ModEntry] = [
+                ModEntry(name=sep_name, enabled=True, locked=True, is_separator=True),
+            ]
+            for vn in installed_variant_names:
+                bundle_block.append(
+                    ModEntry(name=vn, enabled=True, locked=False, is_separator=False)
+                )
+            # Prepend the bundle block at the top
+            existing = bundle_block + existing
+            write_modlist(modlist_path, existing)
+
+            # Auto-lock the separator so it drags as a block
+            locks = read_separator_locks(_profile_dir)
+            locks[sep_name] = True
+            write_separator_locks(_profile_dir, locks)
 
             log_fn(f"Installed bundle '{bundle_name}' ({len(variants)} variant(s)).")
             if not headless:
@@ -1121,8 +1159,9 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             if mod_panel is not None and not headless:
                 mod_panel.reload_after_install()
             return installed_variant_names[0] if installed_variant_names else mod_name
-        elif getattr(game, "mod_supports_bundles", False) and detect_multi_mod(extract_dir):
+        elif getattr(game, "mod_supports_bundles", False) and detect_multi_mod(_unwrap_single_folder(extract_dir)):
             # --- Multi-mod archive: each subdir is a separate independent mod ---
+            extract_dir = _unwrap_single_folder(extract_dir)
             multi_mods = detect_multi_mod(extract_dir)
             log_fn(f"Multi-mod archive detected: {len(multi_mods)} mod(s).")
 

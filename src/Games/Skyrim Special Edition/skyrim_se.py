@@ -12,7 +12,7 @@ from pathlib import Path
 
 from Games.Bethesda.Bethesda import Fallout_3
 from Games.base_game import WizardTool
-from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, restore_data_core, move_to_core
+from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, restore_custom_rules, restore_data_core, move_to_core
 from Utils.modlist import read_modlist
 
 
@@ -89,6 +89,15 @@ class SkyrimSE(Fallout_3):
         return "dxgi.dll"
 
     @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["d3dx9_42.dll"]),
+            CustomRule(dest="", filenames=["skse64_1_6_1170.dll"]),
+            CustomRule(dest="", filenames=["skse64_loader.exe"]),
+                ]
+
+    @property
     def reshade_arch(self) -> int:
         return 64
 
@@ -114,6 +123,8 @@ class SkyrimSE(Fallout_3):
     # The Skyrim SE AppData folder inside the Proton prefix where the game
     # reads plugins.txt from.
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim Special Edition")
+    _MYGAMES_SUBPATH = Path("Skyrim Special Edition")
+    _ARCHIVE_INI_FILENAME = "Skyrim.ini"
 
     # ShaderCache must be a real copy in Data/ — hard links prevent the game
     # from writing to it.  We round-trip it through the overwrite folder.
@@ -258,6 +269,19 @@ class SkyrimSE(Fallout_3):
         moved = move_to_core(data_dir, log_fn=_log)
         _log(f"  Moved {moved} file(s) to Data_Core/.")
 
+        custom_rules = self.custom_routing_rules
+        custom_exclude: set[str] = set()
+        if custom_rules:
+            _log("Step 2b: Routing files via custom rules ...")
+            custom_exclude = deploy_custom_rules(
+                filemap, self._game_path, staging,
+                rules=custom_rules,
+                mode=mode,
+                strip_prefixes=self.mod_folder_strip_prefixes,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         _log(f"Step 3: Transferring mod files into Data/ ({mode.name}) ...")
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
@@ -273,6 +297,7 @@ class SkyrimSE(Fallout_3):
                                             log_fn=_log,
                                             progress_fn=progress_fn,
                                             symlink_exts=_symlink_exts,
+                                            exclude=custom_exclude or None,
                                             core_dir=data_dir.parent / (data_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
@@ -285,6 +310,9 @@ class SkyrimSE(Fallout_3):
 
         _log("Step 6: Symlinking plugins.txt into Proton prefix ...")
         self._symlink_plugins_txt(profile, _log)
+
+        _log("Step 7: Applying archive invalidation ...")
+        self.apply_archive_invalidation(_log)
 
         _log(
             f"Deploy complete. "
@@ -310,12 +338,25 @@ class SkyrimSE(Fallout_3):
         _log("Restore: removing plugins.txt symlink ...")
         self._remove_plugins_txt_symlink(_log)
 
+        _log("Restore: reverting archive invalidation ...")
+        self.revert_archive_invalidation(_log)
+
         _log("Restore: restoring launcher ...")
         self._restore_launcher(_log)
 
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
+        custom_rules = self.custom_routing_rules
+        if custom_rules and self._game_path:
+            _log("Restore: removing custom-routed files ...")
+            restore_custom_rules(
+                self.get_effective_filemap_path(),
+                self._game_path,
+                rules=custom_rules,
+                log_fn=_log,
+            )
 
         _log("Restore: clearing Data/ and moving Data_Core/ back ...")
         try:

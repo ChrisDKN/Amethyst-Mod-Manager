@@ -287,6 +287,17 @@ class BaseGame(ABC):
         return False
 
     @property
+    def collections_disabled(self) -> bool:
+        """
+        When True, the Collections button is hidden for this game and incoming
+        nxm:// collection links are silently ignored.
+
+        Defaults to False.  Set to True in game handlers that do not support
+        Nexus Collections (e.g. games without a Nexus Collections catalogue).
+        """
+        return False
+
+    @property
     def mod_supports_bundles(self) -> bool:
         """
         When True, the installer detects bundle mods — archives whose top-level
@@ -930,6 +941,17 @@ class BaseGame(ABC):
     def auto_deploy(self, value: bool) -> None:
         data = self._load_settings()
         data["auto_deploy"] = bool(value)
+        self._save_settings(data)
+
+    @property
+    def archive_invalidation(self) -> bool:
+        """If True, archive invalidation is applied on deploy (Bethesda games)."""
+        return self._load_settings().get("archive_invalidation", True)
+
+    @archive_invalidation.setter
+    def archive_invalidation(self, value: bool) -> None:
+        data = self._load_settings()
+        data["archive_invalidation"] = bool(value)
         self._save_settings(data)
 
     def _migrate_old_config(self) -> None:

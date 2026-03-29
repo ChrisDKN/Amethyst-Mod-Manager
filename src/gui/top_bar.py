@@ -291,9 +291,18 @@ class TopBar(ctk.CTkFrame):
             self._row1.pack(side="left", fill="y", pady=2)
 
     def _check_collections_visibility(self):
-        """Show the Collections button only for Nexus premium members."""
+        """Show the Collections button only for Nexus premium members whose
+        current game has collections enabled."""
         app = self.winfo_toplevel()
         api = getattr(app, "_nexus_api", None)
+
+        # Hide immediately if the active game disables collections.
+        game = _gh._GAMES.get(self._game_var.get())
+        if game is not None and getattr(game, "collections_disabled", False):
+            self._collections_btn.pack_forget()
+            self.after_idle(self._init_threshold)
+            return
+
         if api is None:
             self._collections_btn.pack_forget()
             self.after_idle(self._init_threshold)
@@ -309,7 +318,10 @@ class TopBar(ctk.CTkFrame):
                 premium = False
 
             def _apply():
-                if premium:
+                # Re-check game flag in case it changed while the thread ran.
+                _game = _gh._GAMES.get(self._game_var.get())
+                _disabled = _game is not None and getattr(_game, "collections_disabled", False)
+                if premium and not _disabled:
                     self._collections_btn.pack(side="left", padx=(0, 4))
                 else:
                     self._collections_btn.pack_forget()
@@ -392,6 +404,7 @@ class TopBar(ctk.CTkFrame):
         last = game_obj.get_last_active_profile() if game_obj else "default"
         self._profile_var.set(last if last in profiles else profiles[0])
         self._update_wizard_visibility()
+        self._check_collections_visibility()
         self._reload_mod_panel()
 
     def _reload_mod_panel(self):

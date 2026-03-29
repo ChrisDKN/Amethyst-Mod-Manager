@@ -88,6 +88,10 @@ class ResidentEvilRequiem(BaseGame):
         return True
 
     @property
+    def mod_supports_bundles(self) -> bool:
+        return True
+
+    @property
     def conflict_ignore_filenames(self) -> set[str]:
         return {"modinfo.ini","readme.txt","*.png","*.jpg"}
 

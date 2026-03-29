@@ -674,6 +674,10 @@ class App(ctk.CTk):
             )
             return
 
+        if getattr(matched_game[1], "collections_disabled", False):
+            log(f"Nexus: Collections are not supported for '{matched_game[0]}' — link ignored.")
+            return
+
         # Switch to the matching game if different
         current = self._topbar._game_var.get()
         if current != matched_game[0]:

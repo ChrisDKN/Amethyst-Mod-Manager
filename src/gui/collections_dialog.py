@@ -978,6 +978,38 @@ class CollectionDetailDialog(tk.Frame):
             # downloading the archive a second time.
             self._collection_schema_cache = cj
 
+            # Override the optional flag and mod name on each mod using
+            # collection.json as the authoritative source — the GraphQL API
+            # sometimes marks non-optional mods as optional and always uses the
+            # mod *page* name which is shared across all files on that page,
+            # making it impossible to distinguish e.g. a main file from an
+            # optional patch when both come from the same page.
+            if cj:
+                _cj_info: dict[int, tuple[bool, str]] = {}  # file_id → (optional, name)
+                for _cm in cj.get("mods", []):
+                    _src = _cm.get("source") or {}
+                    _fid = _src.get("fileId")
+                    if _fid is not None:
+                        _cj_info[int(_fid)] = (
+                            bool(_cm.get("optional", False)),
+                            _cm.get("name") or "",
+                        )
+                # Detect mod pages that contribute more than one file — for
+                # those, the GraphQL mod_name is ambiguous and we should prefer
+                # the collection.json name.
+                _mod_id_counts: dict[int, int] = {}
+                for _mod in mods:
+                    if _mod.mod_id:
+                        _mod_id_counts[_mod.mod_id] = _mod_id_counts.get(_mod.mod_id, 0) + 1
+                for _mod in mods:
+                    if _mod.file_id and _mod.file_id in _cj_info:
+                        _opt, _cj_name = _cj_info[_mod.file_id]
+                        _mod.optional = _opt
+                        # Replace the generic page name with the specific
+                        # collection.json name when the page has multiple files.
+                        if _cj_name and _mod_id_counts.get(_mod.mod_id, 1) > 1:
+                            _mod.mod_name = _cj_name
+
             # Extract off-site (browse/direct) and bundled mod entries from schema
             from Nexus.nexus_api import NexusCollectionMod as _NCM
             offsite: list[tuple[str, str]] = []
@@ -1207,6 +1239,44 @@ class CollectionDetailDialog(tk.Frame):
         if not self._game:
             return
 
+        # Ensure the optional flag is correct using collection.json as the
+        # authoritative source.  The in-memory cache is preferred; if it is
+        # absent (e.g. the archive download failed during _worker) we fall back
+        # to the profile's saved copy so reinstalls still get the right flags.
+        _cj_auth: dict = getattr(self, "_collection_schema_cache", None) or {}
+        if not _cj_auth:
+            # Try the profile's saved collection.json as a fallback.
+            _mode, _pname, _ = mode_result
+            if _pname and self._game:
+                try:
+                    import json as _json
+                    _proot = self._game.get_profile_root()
+                    _saved = _proot / "profiles" / _pname / "collection.json"
+                    if _saved.is_file():
+                        _cj_auth = _json.loads(_saved.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+        if _cj_auth:
+            _cj_info2: dict[int, tuple[bool, str]] = {}
+            for _cm in _cj_auth.get("mods", []):
+                _src = _cm.get("source") or {}
+                _fid = _src.get("fileId")
+                if _fid is not None:
+                    _cj_info2[int(_fid)] = (
+                        bool(_cm.get("optional", False)),
+                        _cm.get("name") or "",
+                    )
+            _mod_id_counts2: dict[int, int] = {}
+            for _mod in all_mods:
+                if _mod.mod_id:
+                    _mod_id_counts2[_mod.mod_id] = _mod_id_counts2.get(_mod.mod_id, 0) + 1
+            for _mod in all_mods:
+                if _mod.file_id and _mod.file_id in _cj_info2:
+                    _opt, _cj_name = _cj_info2[_mod.file_id]
+                    _mod.optional = _opt
+                    if _cj_name and _mod_id_counts2.get(_mod.mod_id, 1) > 1:
+                        _mod.mod_name = _cj_name
+
         optional_mods = [m for m in all_mods if m.optional]
         if optional_mods:
             # Load previously saved skipped fids for existing profiles so the user
@@ -1225,21 +1295,25 @@ class CollectionDetailDialog(tk.Frame):
                     if panel.result is None:
                         return
                     skipped_fids = panel.result or set()
+                    skipped_mods = [
+                        m for m in all_mods
+                        if m.optional and m.file_id in skipped_fids
+                    ]
                     mods_to_use = [
                         m for m in all_mods
                         if not m.optional or m.file_id not in skipped_fids
                     ]
                     self._finish_install_collection(
-                        app, mods_to_use, downloader, mode_result, skipped_fids
+                        app, mods_to_use, downloader, mode_result, skipped_fids, skipped_mods
                     )
                 show_fn(optional_mods, _on_optional_done, pre_skipped_fids=pre_skipped_fids)
                 return
             # Fallback: no app overlay support — install all optional mods
             # (they are not skipped in headless/fallback mode)
 
-        self._finish_install_collection(app, list(all_mods), downloader, mode_result, set())
+        self._finish_install_collection(app, list(all_mods), downloader, mode_result, set(), [])
 
-    def _finish_install_collection(self, app, mods, downloader, mode_result, skipped_fids: "set[int] | None" = None):
+    def _finish_install_collection(self, app, mods, downloader, mode_result, skipped_fids: "set[int] | None" = None, skipped_mods: "list | None" = None):
         """Called after the install-mode overlay is dismissed."""
         if not self._game:
             return
@@ -1335,11 +1409,12 @@ class CollectionDetailDialog(tk.Frame):
                 len(mods),
                 None if mode in ("new", "continue") else overwrite_existing,
                 skipped_fids,
+                skipped_mods or [],
             ),
             daemon=True,
         ).start()
 
-    def _run_install(self, mods, download_link_path, profile_dir, old_profile, downloader, app, total, overwrite_existing: "bool | None" = None, skipped_fids: "set[int] | None" = None):
+    def _run_install(self, mods, download_link_path, profile_dir, old_profile, downloader, app, total, overwrite_existing: "bool | None" = None, skipped_fids: "set[int] | None" = None, skipped_mods: "list | None" = None):
         """Background thread: download then install each mod in collection-defined order.
 
         Load order is driven by ``collection.json`` from the collection archive:
@@ -1536,26 +1611,53 @@ class CollectionDetailDialog(tk.Frame):
         # ------------------------------------------------------------------
         # Remove staging folders for unticked optional mods
         # ------------------------------------------------------------------
-        if skipped_fids:
+        if skipped_fids and skipped_mods:
             import shutil as _shutil_skip
-            for skip_fid in skipped_fids:
-                folder_name = already_installed_by_fid.get(skip_fid)
+            _removed_folders: list[str] = []
+            for mod in skipped_mods:
+                if not mod.file_id or mod.file_id not in skipped_fids:
+                    continue
+
+                # Match by file_id first (same as classify step)
+                folder_name = already_installed_by_fid.get(mod.file_id, "")
+
+                # Fallback: match by predicted folder name (same logic as classify)
+                if not folder_name:
+                    logical = schema_file_id_to_logical.get(mod.file_id, "") or ""
+                    schema_name = schema_pos_to_name.get(
+                        schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
+                    candidates: list[str] = []
+                    name_sources = (logical, schema_name) if (logical or schema_name) else (mod.mod_name or "",)
+                    for raw in name_sources:
+                        if raw:
+                            for s in _suggest_mod_names(raw):
+                                if s and s not in candidates:
+                                    candidates.append(s)
+                    for candidate in candidates:
+                        key = candidate.lower()
+                        if key in staging_lower_map:
+                            folder_name = staging_lower_map[key]
+                            break
+
                 if folder_name:
                     skip_dir = staging_path / folder_name
                     if skip_dir.is_dir():
-                        self._log(f"Collection install: removing unticked optional mod '{folder_name}' (file_id={skip_fid})")
+                        self._log(f"Collection install: removing unticked optional mod '{folder_name}' (file_id={mod.file_id})")
                         try:
                             _shutil_skip.rmtree(skip_dir)
+                            _removed_folders.append(folder_name)
                         except Exception as exc:
                             self._log(f"Collection install: failed to remove '{folder_name}': {exc}")
-                    # Remove from modlist.txt as well
-                    if modlist_path.is_file():
-                        try:
-                            entries = read_modlist(modlist_path)
-                            entries = [e for e in entries if e.name != folder_name]
-                            write_modlist(modlist_path, entries)
-                        except Exception:
-                            pass
+
+            # Batch-remove all deleted folders from modlist.txt
+            if _removed_folders and modlist_path.is_file():
+                try:
+                    _removed_set = set(_removed_folders)
+                    entries = read_modlist(modlist_path)
+                    entries = [e for e in entries if e.name not in _removed_set]
+                    write_modlist(modlist_path, entries)
+                except Exception:
+                    pass
 
         # Maps collection.json position (or fallback index) → installed folder name
         install_order: list[tuple[int, str]] = []  # (sort_key, folder_name)
@@ -2061,8 +2163,35 @@ class CollectionDetailDialog(tk.Frame):
             ]
             if modlist_entries:
                 try:
-                    write_modlist(modlist_path, modlist_entries)
-                    self._log(f"Collection install: wrote modlist.txt with {len(modlist_entries)} entries")
+                    # Group bundle variants under locked separators.
+                    # Bundle variants use the <bundle>__<variant> naming convention.
+                    _bundle_map: dict[str, list[ModEntry]] = {}
+                    _non_bundle: list[ModEntry] = []
+                    for me in modlist_entries:
+                        if "__" in me.name:
+                            bname = me.name.split("__", 1)[0]
+                            _bundle_map.setdefault(bname, []).append(me)
+                        else:
+                            _non_bundle.append(me)
+                    # Rebuild: non-bundle entries first, then bundle blocks
+                    final_entries: list[ModEntry] = list(_non_bundle)
+                    for bname, variants in _bundle_map.items():
+                        sep_name = f"{bname}_separator"
+                        final_entries.append(
+                            ModEntry(name=sep_name, enabled=True, locked=True, is_separator=True))
+                        for v in variants:
+                            v.locked = False
+                            v.enabled = True
+                            final_entries.append(v)
+                    write_modlist(modlist_path, final_entries)
+                    # Lock bundle separators
+                    if _bundle_map:
+                        from Utils.profile_state import read_separator_locks, write_separator_locks
+                        _locks = read_separator_locks(profile_dir)
+                        for bname in _bundle_map:
+                            _locks[f"{bname}_separator"] = True
+                        write_separator_locks(profile_dir, _locks)
+                    self._log(f"Collection install: wrote modlist.txt with {len(final_entries)} entries")
                 except Exception as exc:
                     self._log(f"Collection install: failed to write modlist.txt: {exc}")
 

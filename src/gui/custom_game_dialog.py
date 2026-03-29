@@ -237,6 +237,8 @@ class CustomGamePanel(ctk.CTkFrame):
         self._norm_case_var     = tk.BooleanVar(value=True)
         self._routing_rules_rows: list[dict] = []
         self._routing_rules_container = None
+        self._framework_rows: list[dict] = []
+        self._framework_container = None
 
         if existing:
             self._name_var.set(existing.get("name", ""))
@@ -258,9 +260,11 @@ class CustomGamePanel(ctk.CTkFrame):
             self._norm_case_var.set(bool(existing.get("normalize_folder_case", True)))
             self._dll_initial = _dll_to_str(existing.get("wine_dll_overrides", {}))
             self._routing_rules_initial = existing.get("custom_routing_rules", [])
+            self._frameworks_initial = existing.get("custom_frameworks", {})
         else:
             self._dll_initial = ""
             self._routing_rules_initial = []
+            self._frameworks_initial = {}
 
         self._build_ui()
         self._update_data_path_visibility()
@@ -646,16 +650,17 @@ class CustomGamePanel(ctk.CTkFrame):
         ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 4))
         row += 1
 
-        self._routing_rules_container = ctk.CTkFrame(body, fg_color="transparent")
-        self._routing_rules_container.grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 4))
-        self._routing_rules_container.grid_columnconfigure(0, weight=1)
-        row += 1
-
         ctk.CTkButton(
             body, text="+ Add Rule", width=100, height=26, font=FONT_SMALL,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._add_routing_rule_row,
-        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 10))
+        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 4))
+        row += 1
+
+        self._routing_rules_container = ctk.CTkFrame(body, fg_color="transparent")
+        self._routing_rules_container.grid_columnconfigure(0, weight=1)
+        self._routing_rules_container_row = row
+        self._routing_rules_container_body = body
         row += 1
 
         # Populate existing rules
@@ -675,6 +680,40 @@ class CustomGamePanel(ctk.CTkFrame):
                     match_type=mt,
                     match_value=mv,
                 )
+
+        # ---- Framework Detection ----
+        row = self._divider(body, row)
+        ctk.CTkLabel(
+            body, text="Framework Detection",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text="Display a status banner in the Plugins tab when a framework is installed. "
+                 "Enter the framework name on the left and its file path relative to the game root on the right.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
+            wraplength=WRAP,
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 4))
+        row += 1
+
+        ctk.CTkButton(
+            body, text="+ Add Framework", width=130, height=26, font=FONT_SMALL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._add_framework_row,
+        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 4))
+        row += 1
+
+        self._framework_container = ctk.CTkFrame(body, fg_color="transparent")
+        self._framework_container.grid_columnconfigure(0, weight=1)
+        self._framework_container_row = row
+        self._framework_container_body = body
+        row += 1
+
+        # Populate existing frameworks
+        if isinstance(self._frameworks_initial, dict):
+            for fw_name, fw_path in self._frameworks_initial.items():
+                self._add_framework_row(name=fw_name, path=fw_path)
 
         # ---- Validation label ----
         self._validation_label = ctk.CTkLabel(
@@ -765,6 +804,9 @@ class CustomGamePanel(ctk.CTkFrame):
                               match_value: str = "") -> None:
         """Add a routing rule row to the container."""
         container = self._routing_rules_container
+        if not self._routing_rules_rows:
+            container.grid(row=self._routing_rules_container_row, column=0,
+                           sticky="ew", padx=16, pady=(0, 4))
         row_idx = len(self._routing_rules_rows)
 
         row_frame = ctk.CTkFrame(container, fg_color=BG_ROW, corner_radius=4, height=36)
@@ -810,8 +852,11 @@ class CustomGamePanel(ctk.CTkFrame):
         if row_data in self._routing_rules_rows:
             self._routing_rules_rows.remove(row_data)
             row_data["frame"].destroy()
-            for i, rd in enumerate(self._routing_rules_rows):
-                rd["frame"].grid(row=i, column=0, sticky="ew", pady=2)
+            if not self._routing_rules_rows:
+                self._routing_rules_container.grid_remove()
+            else:
+                for i, rd in enumerate(self._routing_rules_rows):
+                    rd["frame"].grid(row=i, column=0, sticky="ew", pady=2)
 
     def _collect_routing_rules(self) -> list[dict]:
         """Collect routing rules from the UI rows into JSON-serializable dicts."""
@@ -832,6 +877,65 @@ class CustomGamePanel(ctk.CTkFrame):
                 rule["folders"] = values
             rules.append(rule)
         return rules
+
+    def _add_framework_row(self, name: str = "", path: str = "") -> None:
+        """Add a framework detection row to the container."""
+        container = self._framework_container
+        if not self._framework_rows:
+            container.grid(row=self._framework_container_row, column=0,
+                           sticky="ew", padx=16, pady=(0, 4))
+        row_idx = len(self._framework_rows)
+
+        row_frame = ctk.CTkFrame(container, fg_color=BG_ROW, corner_radius=4, height=36)
+        row_frame.grid(row=row_idx, column=0, sticky="ew", pady=2)
+        row_frame.grid_columnconfigure(0, weight=1)
+        row_frame.grid_columnconfigure(1, weight=2)
+        row_frame.grid_columnconfigure(2, weight=0)
+
+        name_var = tk.StringVar(value=name)
+        path_var = tk.StringVar(value=path)
+
+        ctk.CTkEntry(
+            row_frame, textvariable=name_var, font=FONT_MONO,
+            fg_color=BG_DEEP, text_color=TEXT_MAIN, border_color=BORDER,
+            placeholder_text="e.g. Script Extender", width=160,
+        ).grid(row=0, column=0, sticky="ew", padx=(6, 4), pady=4)
+
+        ctk.CTkEntry(
+            row_frame, textvariable=path_var, font=FONT_MONO,
+            fg_color=BG_DEEP, text_color=TEXT_MAIN, border_color=BORDER,
+            placeholder_text="e.g. skse64_loader.exe", width=200,
+        ).grid(row=0, column=1, sticky="ew", padx=(4, 4), pady=4)
+
+        row_data = {"frame": row_frame, "name": name_var, "path": path_var}
+        self._framework_rows.append(row_data)
+
+        ctk.CTkButton(
+            row_frame, text="X", width=28, height=28, font=FONT_SMALL,
+            fg_color=RED_BTN, hover_color=RED_HOV, text_color="white",
+            command=lambda rd=row_data: self._remove_framework_row(rd),
+        ).grid(row=0, column=2, padx=(2, 6), pady=4)
+
+    def _remove_framework_row(self, row_data: dict) -> None:
+        """Remove a framework detection row."""
+        if row_data in self._framework_rows:
+            self._framework_rows.remove(row_data)
+            row_data["frame"].destroy()
+            if not self._framework_rows:
+                self._framework_container.grid_remove()
+            else:
+                for i, rd in enumerate(self._framework_rows):
+                    rd["frame"].grid(row=i, column=0, sticky="ew", pady=2)
+
+    def _collect_frameworks(self) -> dict[str, str]:
+        """Collect framework rows into a JSON-serializable dict."""
+        result: dict[str, str] = {}
+        for rd in self._framework_rows:
+            name = rd["name"].get().strip()
+            path = rd["path"].get().strip()
+            if name and path:
+                result[name] = path
+        return result
 
     def _scroll_body(self, direction: int):
         """Scroll the body canvas by *direction* units."""
@@ -944,6 +1048,7 @@ class CustomGamePanel(ctk.CTkFrame):
                 self._dll_textbox.get("0.0", "end")
             ),
             "custom_routing_rules":           self._collect_routing_rules(),
+            "custom_frameworks":              self._collect_frameworks(),
         }
 
         save_custom_game_definition(defn)

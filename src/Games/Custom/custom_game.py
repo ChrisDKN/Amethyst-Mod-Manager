@@ -323,6 +323,13 @@ class StandardCustomGame(BaseGame):
     def custom_routing_rules(self) -> list[CustomRule]:
         return _defn_to_custom_rules(self._defn)
 
+    @property
+    def frameworks(self) -> dict[str, str]:
+        raw = self._defn.get("custom_frameworks", {})
+        if isinstance(raw, dict):
+            return {k: v for k, v in raw.items() if k and v}
+        return {}
+
     # ------------------------------------------------------------------
     # Paths
     # ------------------------------------------------------------------
@@ -710,6 +717,13 @@ class Ue5CustomGame(UE5Game):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return _defn_to_custom_rules(self._defn)
+
+    @property
+    def frameworks(self) -> dict[str, str]:
+        raw = self._defn.get("custom_frameworks", {})
+        if isinstance(raw, dict):
+            return {k: v for k, v in raw.items() if k and v}
+        return {}
 
     # ------------------------------------------------------------------
     # UE5 routing — generic UE5 rules (pak → Content/Paks/~mods,

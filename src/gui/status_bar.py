@@ -484,23 +484,23 @@ class SettingsPanel(ctk.CTkFrame):
             body, text="Auto", variable=self._auto_var,
             font=FONT_NORMAL, text_color=TEXT_MAIN,
             command=self._on_auto_toggle,
-        ).grid(row=1, column=2, sticky="w", padx=(8, 0))
+        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(6, 0))
 
         ctk.CTkLabel(body, text="Changes take effect after restart.",
                      font=FONT_SMALL, text_color=TEXT_WARN, anchor="w",
-                     ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 0))
+                     ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
         self._update_slider_state()
 
         # ---- download cache ----
         ctk.CTkFrame(body, fg_color=BORDER, height=1).grid(
-            row=3, column=0, columnspan=3, sticky="ew", pady=(20, 0))
+            row=4, column=0, columnspan=3, sticky="ew", pady=(20, 0))
 
         ctk.CTkLabel(body, text="Download Cache", font=FONT_NORMAL, text_color=TEXT_MAIN,
-                     anchor="w").grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 4))
+                     anchor="w").grid(row=5, column=0, columnspan=3, sticky="w", pady=(12, 4))
 
         cache_row = ctk.CTkFrame(body, fg_color="transparent")
-        cache_row.grid(row=5, column=0, columnspan=3, sticky="w")
+        cache_row.grid(row=6, column=0, columnspan=3, sticky="w")
 
         self._clear_cache_btn = ctk.CTkButton(
             cache_row, text="Clear Cache (—)",

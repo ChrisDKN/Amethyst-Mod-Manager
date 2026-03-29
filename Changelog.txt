@@ -1,3 +1,11 @@
+- v1.1.3
+- Added automatic archive invalidation to Bethesda games, Can be disabled in the games configure menu.
+- Added MH world,Rise and Wilds
+- Custom games can now define Frameworks
+- Fixed some optional mods in collections displaying the wrong name.
+- Script extenders for bethesda games (Oblivion remastered excluded) can now be installed as mods, Their files are routed to the correct place.
+- SSE engine fixes preloader can also be added as a mod and its dll will be routed to the root folder
+
 - v1.1.2
 - Fixed several instances of auto fomod not working during collections install
 - Reworked collection install logic, Mods now begin installing as soon as they are downloaded

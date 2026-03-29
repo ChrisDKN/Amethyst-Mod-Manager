@@ -898,6 +898,11 @@ class GamePickerPanel(tk.Frame):
         self._remote_handlers = handlers
         for h in handlers:
             self._build_remote_card(h)
+        # Re-sort all cards alphabetically so remote/custom handlers
+        # appear in the correct position rather than always at the end.
+        paired = sorted(zip(self._card_names, self._card_widgets), key=lambda x: x[0].lower())
+        self._card_names[:] = [n for n, _ in paired]
+        self._card_widgets[:] = [w for _, w in paired]
         self._regrid_cards()
         # If the installed filter is already active and scan is done, re-run regrid
         # (scan may have finished before remote cards arrived)

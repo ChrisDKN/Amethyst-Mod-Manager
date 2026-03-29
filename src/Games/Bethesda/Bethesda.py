@@ -7,12 +7,13 @@ Mod structure:
   Staged mods live in Profiles/Fallout 3/mods/
 """
 
+import configparser
 import json
 import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool
-from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_data_core
+from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -127,6 +128,23 @@ class Fallout_3(BaseGame):
     @property
     def reshade_arch(self) -> int:
         return 32
+    
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["fose_loader.exe"]),
+            CustomRule(dest="", filenames=["fose_1_0.dll"]),
+            CustomRule(dest="", filenames=["fose_1_1.dll"]),
+            CustomRule(dest="", filenames=["fose_1_4.dll"]),
+            CustomRule(dest="", filenames=["fose_1_4b.dll"]),
+            CustomRule(dest="", filenames=["fose_1_5.dll"]),
+            CustomRule(dest="", filenames=["fose_1_6.dll"]),
+            CustomRule(dest="", filenames=["fose_1_7.dll"]),
+            CustomRule(dest="", filenames=["fose_1_7ng.dll"]),
+            CustomRule(dest="", filenames=["fose_editor_1_1.dll"]),
+            CustomRule(dest="", filenames=["fose_editor_1_5.dll"]),
+                ]
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
@@ -264,6 +282,9 @@ class Fallout_3(BaseGame):
     # -----------------------------------------------------------------------
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout3")
+    _MYGAMES_SUBPATH = Path("Fallout3")
+    _ARCHIVE_INI_FILENAME = "FALLOUT.ini"
+    archive_invalidation_enabled = True
 
     @property
     def _script_extender_exe(self) -> str:
@@ -309,6 +330,69 @@ class Fallout_3(BaseGame):
         if target.is_symlink():
             target.unlink()
             _log("  Removed plugins.txt symlink from prefix.")
+
+    # -----------------------------------------------------------------------
+    # Archive invalidation
+    # -----------------------------------------------------------------------
+
+    _MYGAMES_DOCS = Path("drive_c/users/steamuser/Documents/My Games")
+
+    def _get_archive_ini_path(self) -> "Path | None":
+        """Return the full path to the game INI used for archive invalidation."""
+        if self._prefix_path is None:
+            return None
+        return (
+            self._prefix_path
+            / self._MYGAMES_DOCS
+            / self._MYGAMES_SUBPATH
+            / self._ARCHIVE_INI_FILENAME
+        )
+
+    def apply_archive_invalidation(self, log_fn) -> None:
+        """Set bInvalidateOlderFiles=1 in the game INI so loose files win."""
+        _log = log_fn
+        if not self.archive_invalidation_enabled or not self.archive_invalidation:
+            return
+        ini_path = self._get_archive_ini_path()
+        if ini_path is None:
+            _log("  WARN: Prefix path not set — skipping archive invalidation.")
+            return
+
+        parser = configparser.RawConfigParser(strict=False)
+        parser.optionxform = str  # preserve key casing
+        if ini_path.is_file():
+            parser.read(str(ini_path), encoding="utf-8")
+
+        if not parser.has_section("Archive"):
+            parser.add_section("Archive")
+        parser.set("Archive", "bInvalidateOlderFiles", "1")
+
+        ini_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(ini_path, "w", encoding="utf-8") as fh:
+            parser.write(fh, space_around_delimiters=False)
+        _log(f"  Archive invalidation enabled in {ini_path.name}.")
+
+    def revert_archive_invalidation(self, log_fn) -> None:
+        """Remove bInvalidateOlderFiles from the game INI."""
+        _log = log_fn
+        if not self.archive_invalidation_enabled or not self.archive_invalidation:
+            return
+        ini_path = self._get_archive_ini_path()
+        if ini_path is None or not ini_path.is_file():
+            return
+
+        parser = configparser.RawConfigParser(strict=False)
+        parser.optionxform = str
+        parser.read(str(ini_path), encoding="utf-8")
+
+        if parser.has_section("Archive"):
+            parser.remove_option("Archive", "bInvalidateOlderFiles")
+            if not parser.options("Archive"):
+                parser.remove_section("Archive")
+
+        with open(ini_path, "w", encoding="utf-8") as fh:
+            parser.write(fh, space_around_delimiters=False)
+        _log(f"  Archive invalidation reverted in {ini_path.name}.")
 
     def swap_launcher(self, log_fn) -> None:
         """Replace the game launcher with the script extender if present."""
@@ -371,6 +455,19 @@ class Fallout_3(BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        custom_rules = self.custom_routing_rules
+        custom_exclude: set[str] = set()
+        if custom_rules:
+            _log("Step 0: Routing files via custom rules ...")
+            custom_exclude = deploy_custom_rules(
+                filemap, self._game_path, staging,
+                rules=custom_rules,
+                mode=mode,
+                strip_prefixes=self.mod_folder_strip_prefixes,
+                log_fn=_log,
+                progress_fn=progress_fn,
+            )
+
         _log("Step 1: Moving Data/ → Data_Core/ ...")
         moved = move_to_core(data_dir, log_fn=_log)
         _log(f"  Moved {moved} file(s) to Data_Core/.")
@@ -390,6 +487,7 @@ class Fallout_3(BaseGame):
                                             log_fn=_log,
                                             progress_fn=progress_fn,
                                             symlink_exts=_symlink_exts,
+                                            exclude=custom_exclude or None,
                                             core_dir=data_dir.parent / (data_dir.name + "_Core"))
         _log(f"  Transferred {linked_mod} mod file(s).")
 
@@ -399,6 +497,9 @@ class Fallout_3(BaseGame):
 
         _log("Step 4: Symlinking plugins.txt into Proton prefix ...")
         self._symlink_plugins_txt(profile, _log)
+
+        _log("Step 5: Applying archive invalidation ...")
+        self.apply_archive_invalidation(_log)
 
         _log(
             f"Deploy complete. "
@@ -415,9 +516,22 @@ class Fallout_3(BaseGame):
 
         data_dir = self._game_path / "Data"
 
+        _log("Restore: reverting archive invalidation ...")
+        self.revert_archive_invalidation(_log)
+
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log)
+
+        custom_rules = self.custom_routing_rules
+        if custom_rules and self._game_path:
+            _log("Restore: removing custom-routed files ...")
+            restore_custom_rules(
+                self.get_effective_filemap_path(),
+                self._game_path,
+                rules=custom_rules,
+                log_fn=_log,
+            )
 
         _log("Restore: clearing Data/ and moving Data_Core/ back ...")
         restored = restore_data_core(
@@ -520,12 +634,28 @@ class Fallout_NV(Fallout_3):
     @property
     def loot_game_type(self) -> str:
         return "FalloutNV"
+    
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["nvse_1_4.dll"]),
+            CustomRule(dest="", filenames=["nvse_1_4.pdb"]),
+            CustomRule(dest="", filenames=["nvse_editor_1_4.dll"]),
+            CustomRule(dest="", filenames=["nvse_editor_1_4.pdb"]),
+            CustomRule(dest="", filenames=["nvse_loader.exe"]),
+            CustomRule(dest="", filenames=["nvse_loader.pdb"]),
+            CustomRule(dest="", filenames=["nvse_steam_loader.dll"]),
+            CustomRule(dest="", filenames=["nvse_steam_loader.pdb"]),
+                ]
 
     @property
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/falloutnv/v0.26/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/FalloutNV")
+    _MYGAMES_SUBPATH = Path("FalloutNV")
+    _ARCHIVE_INI_FILENAME = "FALLOUT.ini"
 
     @property
     def _script_extender_exe(self) -> str:
@@ -580,12 +710,23 @@ class Fallout_4(Fallout_3):
     @property
     def loot_game_type(self) -> str:
         return "Fallout4"
+    
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["f4se_loader.exe"]),
+            CustomRule(dest="", filenames=["f4se_1_11_191.dll"]),
+            CustomRule(dest="", filenames=["CustomControlMap.txt"]),
+                ]
 
     @property
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/fallout4/v0.21/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout4")
+    _MYGAMES_SUBPATH = Path("Fallout4")
+    _ARCHIVE_INI_FILENAME = "Fallout4.ini"
 
     @property
     def _script_extender_exe(self) -> str:
@@ -636,6 +777,15 @@ class Fallout_4VR(Fallout_3):
     @property
     def nexus_game_domain(self) -> str:
         return "fallout4vr"
+    
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["f4sevr_steam_loader.dll"]),
+            CustomRule(dest="", filenames=["f4sevr_loader.exe"]),
+            CustomRule(dest="", filenames=["f4sevr_1_2_72.dll"]),
+                ]
 
     @property
     def loot_game_type(self) -> str:
@@ -646,6 +796,8 @@ class Fallout_4VR(Fallout_3):
         return "https://raw.githubusercontent.com/loot/fallout4vr/v0.21/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Fallout4VR")
+    _MYGAMES_SUBPATH = Path("Fallout4VR")
+    _ARCHIVE_INI_FILENAME = "Fallout4.ini"
 
     @property
     def _script_extender_exe(self) -> str:
@@ -701,7 +853,18 @@ class Oblivion(Fallout_3):
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/oblivion/refs/heads/v0.26/masterlist.yaml"
 
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["obse_loader.exe"]),
+            CustomRule(dest="", filenames=["obse_1_2_416.dll"]),
+            CustomRule(dest="", filenames=["obse_editor_1_2.dll"]),
+            CustomRule(dest="", filenames=["obse_steam_loader.dll"]),
+        ]
+
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Oblivion")
+    archive_invalidation_enabled = False
 
     @property
     def _script_extender_exe(self) -> str:
@@ -712,6 +875,42 @@ class Oblivion(Fallout_3):
         if self._prefix_path is None:
             return None
         return self._prefix_path / self._APPDATA_SUBPATH / "Plugins.txt"
+
+    def apply_archive_invalidation(self, log_fn) -> None:
+        """Generate ArchiveInvalidation.txt listing all deployed .dds paths."""
+        _log = log_fn
+        if not self.archive_invalidation:
+            return
+        if self._game_path is None:
+            _log("  WARN: Game path not set — skipping archive invalidation.")
+            return
+        filemap = self.get_effective_filemap_path()
+        if not filemap.is_file():
+            _log("  WARN: filemap.txt not found — skipping archive invalidation.")
+            return
+
+        dds_paths: list[str] = []
+        for line in filemap.read_text(encoding="utf-8").splitlines():
+            if not line or line.startswith("#"):
+                continue
+            rel_path = line.split("\t", 1)[0]
+            if rel_path.lower().endswith(".dds"):
+                dds_paths.append(rel_path.replace("\\", "/"))
+
+        out = self._game_path / "ArchiveInvalidation.txt"
+        out.write_text("\n".join(dds_paths) + "\n", encoding="utf-8")
+        _log(f"  Wrote {len(dds_paths)} .dds path(s) to ArchiveInvalidation.txt.")
+
+    def revert_archive_invalidation(self, log_fn) -> None:
+        """Delete ArchiveInvalidation.txt."""
+        if not self.archive_invalidation:
+            return
+        if self._game_path is None:
+            return
+        out = self._game_path / "ArchiveInvalidation.txt"
+        if out.is_file():
+            out.unlink()
+            log_fn("  Removed ArchiveInvalidation.txt.")
 
 
 class Skyrim(Fallout_3):
@@ -759,7 +958,18 @@ class Skyrim(Fallout_3):
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/skyrim/master/masterlist.yaml"
 
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["skse_loader.exe"]),
+            CustomRule(dest="", filenames=["skse_1_9_32.dll"]),
+            CustomRule(dest="", filenames=["skse_steam_loader.dll"]),
+        ]
+
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim")
+    _MYGAMES_SUBPATH = Path("Skyrim")
+    _ARCHIVE_INI_FILENAME = "Skyrim.ini"
 
     @property
     def _script_extender_exe(self) -> str:
@@ -819,7 +1029,18 @@ class SkyrimVR(Fallout_3):
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/skyrimvr/v0.21/masterlist.yaml"
 
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["sksevr_loader.exe"]),
+            CustomRule(dest="", filenames=["sksevr_1_4_15.dll"]),
+            CustomRule(dest="", filenames=["sksevr_steam_loader.dll"]),
+        ]
+
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim VR")
+    _MYGAMES_SUBPATH = Path("Skyrim VR")
+    _ARCHIVE_INI_FILENAME = "Skyrim.ini"
 
     @property
     def _script_extender_exe(self) -> str:
@@ -880,8 +1101,18 @@ class Starfield(Fallout_3):
     def loot_masterlist_url(self) -> str:
         return "https://raw.githubusercontent.com/loot/starfield/v0.26/masterlist.yaml"
 
+    @property
+    def custom_routing_rules(self) -> list:
+        from Utils.deploy import CustomRule
+        return [
+            CustomRule(dest="", filenames=["sfse_loader.exe"]),
+            CustomRule(dest="", filenames=["sfse_1_15_222.dll"]),
+        ]
+
     # plugins.txt lives at AppData/Local/Starfield/plugins.txt — same pattern as other Bethesda titles.
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Starfield")
+    _MYGAMES_SUBPATH = Path("Starfield")
+    _ARCHIVE_INI_FILENAME = "Starfield.ini"
 
     @property
     def _script_extender_exe(self) -> str:
@@ -918,7 +1149,9 @@ class Enderal(Fallout_3):
         return "https://raw.githubusercontent.com/loot/enderal/v0.26/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/enderal")
-    
+    _MYGAMES_SUBPATH = Path("Enderal")
+    _ARCHIVE_INI_FILENAME = "Skyrim.ini"
+
     @property
     def _script_extender_exe(self) -> str:
         return "skse_loader.exe"
@@ -958,7 +1191,9 @@ class EnderalSE(Fallout_3):
         return "https://raw.githubusercontent.com/loot/enderal/v0.26/masterlist.yaml"
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Enderal Special Edition")
-    
+    _MYGAMES_SUBPATH = Path("Enderal Special Edition")
+    _ARCHIVE_INI_FILENAME = "Skyrim.ini"
+
     @property
     def _script_extender_exe(self) -> str:
         return "skse64_loader.exe"

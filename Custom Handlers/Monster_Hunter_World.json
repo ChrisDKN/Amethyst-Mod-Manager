@@ -1,0 +1,55 @@
+{
+  "name": "Monster Hunter World",
+  "game_id": "Monster_Hunter_World",
+  "exe_name": "MonsterHunterWorld.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "nativePC",
+  "steam_id": "582010",
+  "editable": false,
+  "nexus_game_domain": "monsterhunterworld",
+  "image_url": "https://cdn2.steamgriddb.com/icon_thumb/051cb3d526be4660268a1560995ad5fd.png",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.txt",
+    "*.jpg",
+    "*.png"
+  ],
+  "mod_folder_strip_prefixes_post": [
+    "nativePC"
+  ],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "nativePC"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {
+    "dinput8": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "",
+      "filenames": [
+        "dinput8.dll"
+      ]
+    },
+    {
+      "dest": "",
+      "filenames": [
+        "loader-config.json"
+      ]
+    },
+    {
+      "dest": "",
+      "filenames": [
+        "loader.dll"
+      ]
+    }
+  ],
+  "custom_frameworks": {
+    "Stracker's Loader": "dinput8.dll"
+  }
+}
