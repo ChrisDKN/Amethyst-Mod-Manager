@@ -316,6 +316,13 @@ class ModListPanel(ctk.CTkFrame):
             self._icon_endorsed = ImageTk.PhotoImage(
                 PilImage.open(_tick_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
+        # Disabled files icon
+        self._icon_disabled_files: ImageTk.PhotoImage | None = None
+        _eye2_path = _ICONS_DIR / "eye2_white.png"
+        if _eye2_path.is_file():
+            self._icon_disabled_files = ImageTk.PhotoImage(
+                PilImage.open(_eye2_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
+
         # Separator collapse/expand arrows (right = collapsed, arrow = expanded)
         self._icon_sep_right: ImageTk.PhotoImage | None = None
         self._icon_sep_arrow: ImageTk.PhotoImage | None = None
@@ -1577,6 +1584,9 @@ class ModListPanel(ctk.CTkFrame):
                 ))
         if self._modlist_path is not None:
             self.__profile_state = read_profile_state(self._modlist_path.parent)
+            self._disabled_plugins_map = read_disabled_plugins(self._modlist_path.parent, self.__profile_state)
+            _exc = read_excluded_mod_files(self._modlist_path.parent, self.__profile_state)
+            self._excluded_mod_files_map = _exc or {}
         self._load_sep_locks()
         self._load_sep_colors()
         self._load_collapsed()
@@ -2262,6 +2272,8 @@ class ModListPanel(ctk.CTkFrame):
                         _flags.append(("img", self._icon_endorsed))
                     if entry.name in self._prertx_mods and self._icon_info:
                         _flags.append(("img", self._icon_info))
+                    if entry.name in self._excluded_mod_files_map and self._icon_disabled_files:
+                        _flags.append(("img", self._icon_disabled_files))
 
                     # Lay out flags left-aligned inside the flags column (icon spacing = 18px)
                     _FLAG_ICON_SPACING = 18
@@ -3479,6 +3491,8 @@ class ModListPanel(ctk.CTkFrame):
                     _items.append("endorsed")
                 if entry.name in self._prertx_mods:
                     _items.append("prertx")
+                if entry.name in self._excluded_mod_files_map:
+                    _items.append("disabled_files")
                 _n = len(_items)
                 if _n > 0:
                     _group_w = (_n - 1) * _FLAG_ICON_SPACING
@@ -3493,6 +3507,8 @@ class ModListPanel(ctk.CTkFrame):
                             tip = "Update available on Nexus Mods"
                         elif _kind == "prertx":
                             tip = "Pre-RTX mod"
+                        elif _kind == "disabled_files":
+                            tip = "Has disabled files"
                         else:
                             tip = ""
                         if tip:
