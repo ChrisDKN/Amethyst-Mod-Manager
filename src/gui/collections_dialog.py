@@ -2684,6 +2684,19 @@ class CollectionDetailDialog(tk.Frame):
         self._manual_skip_btn.pack(side="left", padx=(0, 8))
         self._manual_skip_btn.pack_forget()  # hidden by default
 
+        # --- Auto-open checkbox ---
+        self._manual_auto_open_var = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            inner, text="Auto open next mod",
+            variable=self._manual_auto_open_var,
+            font=font_sized("Segoe UI", 10),
+            text_color="#cccccc",
+            fg_color=ACCENT, hover_color=ACCENT_HOV,
+            border_color="#666666",
+            checkmark_color="#ffffff",
+            width=20, height=20,
+        ).pack(anchor="w", padx=22, pady=(2, 4))
+
         # --- Bottom row: progress + cancel ---
         bottom = tk.Frame(inner, bg="#2b2b2b")
         bottom.pack(fill="x", padx=20, pady=(6, 16))
@@ -3130,6 +3143,16 @@ class CollectionDetailDialog(tk.Frame):
                     self._log(f"Manual install: deleted archive '{archive_path.name}'")
                 except Exception as _del_exc:
                     self._log(f"Manual install: could not delete archive '{archive_path.name}': {_del_exc}")
+                # Auto-open next mod's download page if checkbox is ticked
+                _next_mods = to_download[idx_0 + 1:]
+                if _next_mods and getattr(self, "_manual_auto_open_var", None) and self._manual_auto_open_var.get():
+                    _next_mod = _next_mods[0]
+                    _gd = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+                    _auto_url = f"https://www.nexusmods.com/{_gd}/mods/{_next_mod.mod_id}?tab=files&file_id={_next_mod.file_id}"
+                    try:
+                        open_url(_auto_url, log_fn=self._log)
+                    except Exception:
+                        pass
             else:
                 skipped += 1
 
