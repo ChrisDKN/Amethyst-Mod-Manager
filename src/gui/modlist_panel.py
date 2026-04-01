@@ -5783,7 +5783,7 @@ class ModListPanel(ctk.CTkFrame):
             return
 
         staging = game.get_effective_mod_staging_path()
-        enabled_names = {e.name for e in self._entries if e.enabled and not e.is_separator}
+        enabled_names = {e.name for e in self._entries if not e.is_separator}
         self._update_btn.configure(text="Checking...", state="disabled")
         log_fn = self._log
 
