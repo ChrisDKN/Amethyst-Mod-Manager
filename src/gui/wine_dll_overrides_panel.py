@@ -228,8 +228,12 @@ class WineDllOverridesPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def _on_add(self) -> None:
+        import re
         raw = self._dll_entry.get().strip().lower()
         if not raw:
+            return
+        if not re.fullmatch(r'[a-z0-9_.-]+', raw):
+            self._log("Wine DLL Overrides: invalid DLL name — only letters, digits, underscores, dots and hyphens are allowed.")
             return
         if raw in self._overrides:
             self._log(f"Wine DLL Overrides: '{raw}' is already in the list.")

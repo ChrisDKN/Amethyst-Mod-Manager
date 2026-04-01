@@ -316,12 +316,7 @@ class Morrowind(BaseGame):
                         _renamed += 1
         _log(f"  Renamed {_renamed} file(s).")
 
-        if self._prefix_path and self._prefix_path.is_dir():
-            _log("Step 5: Applying Wine DLL overrides ...")
-            from Utils.wine_dll_config import deploy_game_wine_dll_overrides
-            deploy_game_wine_dll_overrides(self.name, self._prefix_path, self.wine_dll_overrides, log_fn=_log)
-
-        _log("Step 6: Updating Morrowind.ini [Game Files] and setting plugin mtimes ...")
+        _log("Step 5: Updating Morrowind.ini [Game Files] and setting plugin mtimes ...")
         from Games.Morrowind.morrowind_ini import update_morrowind_ini
         plugins_txt = profile_dir / "plugins.txt"
         update_morrowind_ini(

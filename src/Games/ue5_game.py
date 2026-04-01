@@ -55,7 +55,6 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, _resolve_nocase
-from Utils.wine_dll_config import deploy_game_wine_dll_overrides
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -413,10 +412,6 @@ class UE5Game(BaseGame):
 
         backed_msg = f", {backed_up} vanilla file(s) backed up" if backed_up else ""
         _log(f"Deploy complete. {linked} file(s) placed{backed_msg}, {skipped} skipped.")
-
-        if self._prefix_path and self._prefix_path.is_dir():
-            _log("Applying Wine DLL overrides to Proton prefix ...")
-            deploy_game_wine_dll_overrides(self.name, self._prefix_path, self.wine_dll_overrides, log_fn=_log)
 
     def _find_staged_file(
         self,

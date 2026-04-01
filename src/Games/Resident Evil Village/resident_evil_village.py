@@ -346,11 +346,6 @@ class ResidentEvilVillage(BaseGame):
                 else:
                     _log(f"  PAK patching complete — {total_patched} total entr{'y' if total_patched == 1 else 'ies'} invalidated.")
 
-        if self._prefix_path and self._prefix_path.is_dir():
-            _log("Step 3: Applying DLL overrides to Proton prefix ...")
-            from Utils.wine_dll_config import deploy_game_wine_dll_overrides
-            deploy_game_wine_dll_overrides(self.name, self._prefix_path, self.wine_dll_overrides, log_fn=_log)
-
         _log(f"Deploy complete. {linked_mod} mod file(s) deployed.")
 
     def restore(self, log_fn=None, progress_fn=None) -> None:

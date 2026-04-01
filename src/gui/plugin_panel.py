@@ -1112,6 +1112,12 @@ class PluginPanel(ctk.CTkFrame):
                 deploy_mode = game.get_deploy_mode() if hasattr(game, "get_deploy_mode") else LinkMode.HARDLINK
                 game.deploy(log_fn=_tlog, profile=profile, mode=deploy_mode)
 
+                # Apply Wine DLL overrides (user-added + handler-defined)
+                from Utils.wine_dll_config import deploy_game_wine_dll_overrides
+                _pfx = game.get_prefix_path()
+                if _pfx and _pfx.is_dir():
+                    deploy_game_wine_dll_overrides(game.name, _pfx, game.wine_dll_overrides, log_fn=_tlog)
+
                 # Deploy Root_Folder using the target profile's Root_Folder.
                 target_rf_dir = game.get_effective_root_folder_path()
                 rf_allowed = getattr(game, "root_folder_deploy_enabled", True)

@@ -15,7 +15,6 @@ import stat
 
 from Games.base_game import BaseGame, WizardTool
 from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
-from Utils.wine_dll_config import deploy_game_wine_dll_overrides
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 from Utils.steam_finder import find_prefix
@@ -288,9 +287,6 @@ class Subnautica(BaseGame):
             f"{linked_mod} mod + {linked_core} vanilla "
             f"= {linked_mod + linked_core} total file(s) in {plugins_dir.name}/."
         )
-
-        if self._prefix_path and self._prefix_path.is_dir():
-            deploy_game_wine_dll_overrides(self.name, self._prefix_path, self.wine_dll_overrides, log_fn=_log)
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore BepInEx/Plugins/ to its vanilla state."""

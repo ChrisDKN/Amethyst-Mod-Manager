@@ -905,6 +905,12 @@ class TopBar(ctk.CTkFrame):
                 game.deploy(log_fn=_tlog, profile=profile, progress_fn=_progress,
                             mode=deploy_mode)
 
+                # Apply Wine DLL overrides (user-added + handler-defined)
+                from Utils.wine_dll_config import deploy_game_wine_dll_overrides
+                _pfx = game.get_prefix_path()
+                if _pfx and _pfx.is_dir():
+                    deploy_game_wine_dll_overrides(game.name, _pfx, game.wine_dll_overrides, log_fn=_tlog)
+
                 # Record this profile as the last successfully deployed so that
                 # a future restore knows which overwrite/ folder to use.
                 game.save_last_deployed_profile(profile)
