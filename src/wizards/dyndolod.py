@@ -1,13 +1,17 @@
 """
-sseedit.py
-Wizard for running SSEEdit with Skyrim Special Edition.
+dyndolod.py
+Wizards for running TexGen and DynDOLOD with Skyrim Special Edition.
+
+Both tools come in the same DynDOLOD archive and use the same flags:
+  -d:<game>/Data   (input data path)
+  -o:<staging>/TexGen_Output  or  -o:<staging>/DynDOLOD_Output
 
 Workflow
 --------
-1. Prompt the user to download SSEEdit from Nexus Mods (manual download only).
-2. Auto-detect and extract the archive to Profiles/<game>/Applications/SSEEdit/.
-3. Deploy the modlist.
-4. Run SSEEdit64.exe via Proton with -d:<game>/Data.
+1. Prompt the user to download DynDOLOD from Nexus Mods (manual download only).
+2. Auto-detect and extract the archive to Profiles/<game>/Applications/DynDOLOD/.
+3. Prompt the user to delete any previous output, then deploy the modlist.
+4. Run TexGenx64.exe or DynDOLODx64.exe via Proton with -d: and -o: flags.
 """
 
 from __future__ import annotations
@@ -41,29 +45,35 @@ TEXT_DIM   = "#858585"
 FONT_NORMAL = ("Segoe UI", 14)
 FONT_BOLD   = ("Segoe UI", 14, "bold")
 
-_NEXUS_URL   = "https://www.nexusmods.com/skyrimspecialedition/mods/164?tab=files&file_id=495506"
-_EXE_NAME         = "SSEEdit.exe"
-_EXE_NAME_QAC     = "SSEEditQuickAutoClean.exe"
-_APP_DIR          = "SSEEdit"
+_NEXUS_URL          = "https://www.nexusmods.com/skyrimspecialedition/mods/68518?tab=files"
+_XLODGEN_GITHUB_API = "https://api.github.com/repos/sheson/xLODGen/releases/latest"
+_APP_DIR          = "DynDOLOD"
+_XLODGEN_APP_DIR  = "xLODGen"
+_TEXGEN_EXE       = "TexGenx64.exe"
+_DYNDOLOD_EXE     = "DynDOLODx64.exe"
+_XLODGEN_EXE      = "xLODGenx64.exe"
+_TEXGEN_OUT_DIR   = "TexGen_Output"
+_DYNDOLOD_OUT_DIR = "DynDOLOD_Output"
+_XLODGEN_OUT_DIR  = "xLODGen_Output"
 
 
-def _get_applications_dir(game: "BaseGame") -> Path:
-    return game.get_mod_staging_path().parent / "Applications" / _APP_DIR
+def _get_applications_dir(game: "BaseGame", app_dir: str = _APP_DIR) -> Path:
+    return game.get_mod_staging_path().parent / "Applications" / app_dir
 
 
-def _sseedit_exe_path(game: "BaseGame", exe_name: str = _EXE_NAME) -> Path | None:
-    p = _get_applications_dir(game) / exe_name
+def _tool_exe_path(game: "BaseGame", exe_name: str, app_dir: str = _APP_DIR) -> Path | None:
+    p = _get_applications_dir(game, app_dir) / exe_name
     return p if p.is_file() else None
 
 
-def _find_archive(downloads_dir: Path) -> Path | None:
+def _find_archive(downloads_dir: Path, keyword: str) -> Path | None:
     if not downloads_dir.is_dir():
         return None
     candidates = [
         p for p in downloads_dir.iterdir()
         if p.is_file()
         and p.suffix.lower() in {".zip", ".7z", ".rar"}
-        and "sseedit" in p.name.lower()
+        and keyword in p.name.lower()
     ]
     if not candidates:
         return None
@@ -90,11 +100,19 @@ def _to_wine_path(p: Path) -> str:
     return "Z:" + str(p).replace("/", "\\")
 
 
-class SSEEditWizard(ctk.CTkFrame):
-    """Step-by-step wizard to set up and run SSEEdit for Skyrim SE."""
+# ---------------------------------------------------------------------------
+# Base wizard — shared download/extract/deploy/run logic
+# ---------------------------------------------------------------------------
 
-    _wizard_title = "Run SSEEdit"
-    _exe_name     = _EXE_NAME
+class _DynDOLODBaseWizard(ctk.CTkFrame):
+
+    _wizard_title  = ""          # overridden by subclasses
+    _exe_name      = ""          # overridden by subclasses
+    _output_dir    = ""          # overridden by subclasses
+    _delete_prompt = ""          # overridden by subclasses
+    _app_dir       = _APP_DIR    # overridden by subclasses
+    _download_url  = _NEXUS_URL  # overridden by subclasses (unused by xLODGen)
+    _archive_kw    = "dyndolod"  # keyword to find the archive in Downloads
 
     def __init__(
         self,
@@ -106,9 +124,9 @@ class SSEEditWizard(ctk.CTkFrame):
         **_kwargs,
     ):
         super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
-        self._on_close_cb = on_close or (lambda: None)
-        self._game        = game
-        self._log         = log_fn or (lambda msg: None)
+        self._on_close_cb  = on_close or (lambda: None)
+        self._game         = game
+        self._log          = log_fn or (lambda msg: None)
         self._archive_path: Path | None = None
 
         title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=40)
@@ -199,25 +217,25 @@ class SSEEditWizard(ctk.CTkFrame):
                 pass
 
     # ------------------------------------------------------------------
-    # Step 1 — Download SSEEdit (skipped if already extracted)
+    # Step 1 — Download (skipped if already extracted)
     # ------------------------------------------------------------------
 
     def _show_step_download(self):
-        if _sseedit_exe_path(self._game, self._exe_name) is not None:
+        if _tool_exe_path(self._game, self._exe_name, self._app_dir) is not None:
             self._show_step_deploy()
             return
 
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 1: Download SSEEdit",
+            self._body, text="Step 1: Download DynDOLOD",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
         ctk.CTkLabel(
             self._body,
             text=(
-                "Click the button below to open the SSEEdit page on Nexus Mods.\n\n"
+                "Click the button below to open the DynDOLOD page on Nexus Mods.\n\n"
                 "Download the archive manually (do NOT use the Mod Manager\n"
                 "download button), then click Next."
             ),
@@ -228,7 +246,7 @@ class SSEEditWizard(ctk.CTkFrame):
             self._body, text="Open Download Page", width=220, height=36,
             font=FONT_BOLD,
             fg_color="#da8e35", hover_color="#e5a04a", text_color="white",
-            command=lambda: open_url(_NEXUS_URL),
+            command=lambda: open_url(self._download_url),
         ).pack(pady=(0, 20))
 
         ctk.CTkButton(
@@ -276,7 +294,7 @@ class SSEEditWizard(ctk.CTkFrame):
         self._scan_downloads()
 
     def _scan_downloads(self):
-        found = _find_archive(Path.home() / "Downloads")
+        found = _find_archive(Path.home() / "Downloads", self._archive_kw)
         if found:
             self._archive_path = found
             self._locate_status.configure(text=f"Found: {found.name}", text_color="#6bc76b")
@@ -285,7 +303,7 @@ class SSEEditWizard(ctk.CTkFrame):
             self._archive_path = None
             self._locate_status.configure(
                 text=(
-                    "SSEEdit archive not found in Downloads.\n"
+                    "DynDOLOD archive not found in Downloads.\n"
                     "Make sure you downloaded it, then press Try Again,\n"
                     "or use Browse to select it manually."
                 ),
@@ -299,7 +317,7 @@ class SSEEditWizard(ctk.CTkFrame):
                 self._locate_status.configure(text=f"Selected: {path.name}", text_color="#6bc76b")
                 self.after(300, self._show_step_extract)
 
-        pick_file("Select the SSEEdit archive", lambda p: self.after(0, lambda: _on_picked(p)))
+        pick_file("Select the DynDOLOD archive", lambda p: self.after(0, lambda: _on_picked(p)))
 
     # ------------------------------------------------------------------
     # Step 3 — Extract archive
@@ -309,7 +327,7 @@ class SSEEditWizard(ctk.CTkFrame):
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 3: Extract SSEEdit",
+            self._body, text="Step 3: Extract DynDOLOD",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
@@ -329,15 +347,15 @@ class SSEEditWizard(ctk.CTkFrame):
             if archive is None or not archive.is_file():
                 raise RuntimeError("Archive not found.")
 
-            dest = _get_applications_dir(self._game)
+            dest = _get_applications_dir(self._game, self._app_dir)
             dest.mkdir(parents=True, exist_ok=True)
 
             self._set_label("_extract_status", f"Extracting {archive.name}\u2026")
-            self._log(f"SSEEdit Wizard: extracting {archive.name} \u2192 {dest}")
+            self._log(f"DynDOLOD Wizard: extracting {archive.name} \u2192 {dest}")
 
             paths = _extract_archive(archive, dest)
             file_count = len([p for p in paths if p.is_file()])
-            self._log(f"SSEEdit Wizard: extracted {file_count} file(s).")
+            self._log(f"DynDOLOD Wizard: extracted {file_count} file(s).")
 
             _flatten_subdirs(dest, self._exe_name)
 
@@ -353,10 +371,10 @@ class SSEEditWizard(ctk.CTkFrame):
 
         except Exception as exc:
             self._set_label("_extract_status", f"Error: {exc}", color="#e06c6c")
-            self._log(f"SSEEdit Wizard: extract error: {exc}")
+            self._log(f"DynDOLOD Wizard: extract error: {exc}")
 
     # ------------------------------------------------------------------
-    # Step 4 — Deploy modlist
+    # Step 4 — Delete previous output, then deploy
     # ------------------------------------------------------------------
 
     def _show_step_deploy(self):
@@ -367,19 +385,40 @@ class SSEEditWizard(ctk.CTkFrame):
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
+        ctk.CTkLabel(
+            self._body,
+            text=self._delete_prompt,
+            font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
+        ).pack(pady=(0, 20))
+
         self._deploy_status = ctk.CTkLabel(
-            self._body, text="Deploying\u2026",
+            self._body, text="",
             font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
         )
-        self._deploy_status.pack(pady=(0, 12))
+        self._deploy_status.pack(pady=(0, 8))
+
+        btn_frame = ctk.CTkFrame(self._body, fg_color="transparent")
+        btn_frame.pack(side="bottom", pady=(8, 0))
 
         ctk.CTkButton(
-            self._body, text="Skip", width=100, height=32,
-            font=FONT_NORMAL,
+            btn_frame, text="Skip", width=100, height=36,
+            font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color="#3d3d3d", text_color=TEXT_DIM,
             command=self._show_step_run,
-        ).pack(side="bottom")
+        ).pack(side="left", padx=(0, 8))
 
+        ctk.CTkButton(
+            btn_frame, text="Deploy", width=160, height=36,
+            font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._start_deploy,
+        ).pack(side="left")
+
+    def _start_deploy(self):
+        for w in self._body.winfo_children():
+            if isinstance(w, ctk.CTkButton):
+                w.configure(state="disabled")
+        self._set_label("_deploy_status", "Deploying\u2026")
         threading.Thread(target=self._do_deploy, daemon=True).start()
 
     def _do_deploy(self):
@@ -456,27 +495,27 @@ class SSEEditWizard(ctk.CTkFrame):
 
         except Exception as exc:
             self._set_label("_deploy_status", f"Deploy error: {exc}", color="#e06c6c")
-            self._log(f"SSEEdit Wizard: deploy error: {exc}")
+            self._log(f"DynDOLOD Wizard: deploy error: {exc}")
 
     # ------------------------------------------------------------------
-    # Step 5 — Run SSEEdit
+    # Step 5 — Run tool
     # ------------------------------------------------------------------
 
     def _show_step_run(self):
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 5: Run SSEEdit",
+            self._body, text=f"Step 5: Run {self._wizard_title}",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
-        exe = _sseedit_exe_path(self._game, self._exe_name)
+        exe = _tool_exe_path(self._game, self._exe_name, self._app_dir)
         if exe is None:
             ctk.CTkLabel(
                 self._body,
                 text=(
                     f"{self._exe_name} was not found.\n"
-                    "Please restart the wizard and install SSEEdit first."
+                    "Please restart the wizard and install DynDOLOD first."
                 ),
                 font=FONT_NORMAL, text_color="#e06c6c", justify="center",
             ).pack(pady=(0, 16))
@@ -489,7 +528,7 @@ class SSEEditWizard(ctk.CTkFrame):
             return
 
         self._run_status = ctk.CTkLabel(
-            self._body, text="Launching SSEEdit\u2026",
+            self._body, text=f"Launching {self._wizard_title}\u2026",
             font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
         )
         self._run_status.pack(pady=(0, 12))
@@ -519,12 +558,18 @@ class SSEEditWizard(ctk.CTkFrame):
             self._set_label("_run_status", "Game path not configured.", color="#e06c6c")
             return
 
-        data_arg = f'-d:{_to_wine_path(game_path / "Data")}'
+        staging   = self._game.get_effective_mod_staging_path()
+        output    = staging / self._output_dir
+        output.mkdir(parents=True, exist_ok=True)
 
-        self._log(f"SSEEdit Wizard: launching {exe} via Proton with {data_arg}")
+        data_arg   = f'-d:{_to_wine_path(game_path / "Data")}'
+        output_arg = f'-o:{_to_wine_path(output)}'
+
+        self._log(f"DynDOLOD Wizard: launching {exe} via Proton")
+        self._log(f"  args: {data_arg}  {output_arg}  -sse")
         try:
             proc = subprocess.Popen(
-                ["python3", str(proton_script), "run", str(exe), data_arg],
+                ["python3", str(proton_script), "run", str(exe), data_arg, output_arg, "-sse"],
                 env=env,
                 cwd=str(exe.parent),
                 stdout=subprocess.DEVNULL,
@@ -532,21 +577,115 @@ class SSEEditWizard(ctk.CTkFrame):
             )
             self._set_label(
                 "_run_status",
-                "SSEEdit is running.\nClose it when you are done, then click Done.",
+                f"{self._wizard_title} is running.\nClose it when you are done, then click Done.",
                 color="#6bc76b",
             )
             self.after(0, lambda: self._done_btn.configure(state="normal"))
             proc.wait()
-            self._log("SSEEdit Wizard: SSEEdit closed.")
-            self._set_label("_run_status", "SSEEdit finished.", color="#6bc76b")
+            self._log(f"DynDOLOD Wizard: {self._exe_name} closed.")
+            self._set_label("_run_status", f"{self._wizard_title} finished.", color="#6bc76b")
             self.after(0, self._on_done)
         except Exception as exc:
             self._set_label("_run_status", f"Launch error: {exc}", color="#e06c6c")
-            self._log(f"SSEEdit Wizard: launch error: {exc}")
+            self._log(f"DynDOLOD Wizard: launch error: {exc}")
 
 
-class SSEEditQACWizard(SSEEditWizard):
-    """Variant of SSEEditWizard that runs SSEEditQuickAutoClean.exe."""
+# ---------------------------------------------------------------------------
+# Concrete wizards
+# ---------------------------------------------------------------------------
 
-    _wizard_title = "Run SSEEdit QAC"
-    _exe_name     = _EXE_NAME_QAC
+class TexGenWizard(_DynDOLODBaseWizard):
+    _wizard_title  = "Run TexGen"
+    _exe_name      = _TEXGEN_EXE
+    _output_dir    = _TEXGEN_OUT_DIR
+    _delete_prompt = (
+        "Before deploying, please delete any output from a previous\n"
+        "TexGen run (the 'TexGen_Output' mod in your mod list).\n\n"
+        "Once you have done this, click Deploy."
+    )
+
+
+class DynDOLODWizard(_DynDOLODBaseWizard):
+    _wizard_title  = "Run DynDOLOD"
+    _exe_name      = _DYNDOLOD_EXE
+    _output_dir    = _DYNDOLOD_OUT_DIR
+    _delete_prompt = (
+        "Before deploying, please delete any output from a previous\n"
+        "DynDOLOD run (the 'DynDOLOD_Output' mod in your mod list).\n\n"
+        "Once you have done this, click Deploy."
+    )
+
+
+class xLODGenWizard(_DynDOLODBaseWizard):
+    _wizard_title  = "Run xLODGen"
+    _exe_name      = _XLODGEN_EXE
+    _output_dir    = _XLODGEN_OUT_DIR
+    _app_dir       = _XLODGEN_APP_DIR
+    _archive_kw    = "xlodgen"
+    _delete_prompt = (
+        "Before deploying, please delete any output from a previous\n"
+        "xLODGen run (the 'xLODGen_Output' mod in your mod list).\n\n"
+        "Once you have done this, click Deploy."
+    )
+
+    # Override the manual download/locate/extract steps with auto-download from GitHub.
+
+    def _show_step_download(self):
+        if _tool_exe_path(self._game, self._exe_name, self._app_dir) is not None:
+            self._show_step_deploy()
+            return
+
+        self._clear_body()
+
+        ctk.CTkLabel(
+            self._body, text="Step 1: Download xLODGen",
+            font=FONT_BOLD, text_color=TEXT_MAIN,
+        ).pack(pady=(0, 12))
+
+        self._dl_status = ctk.CTkLabel(
+            self._body, text="Fetching latest release from GitHub\u2026",
+            font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
+        )
+        self._dl_status.pack(pady=(0, 12))
+
+        threading.Thread(target=self._do_auto_download, daemon=True).start()
+
+    def _do_auto_download(self):
+        import urllib.request as _urlreq
+        import tempfile
+        from wizards.script_extender import _fetch_latest_github_asset, _extract_archive
+
+        try:
+            self._set_label("_dl_status", "Fetching latest release from GitHub\u2026")
+            tag, dl_url = _fetch_latest_github_asset(
+                _XLODGEN_GITHUB_API, ["xlodgen"]
+            )
+            self._set_label("_dl_status", f"Downloading {tag}\u2026")
+            self._log(f"xLODGen Wizard: downloading {tag} from {dl_url}")
+
+            suffix = Path(dl_url).suffix or ".7z"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+
+            _urlreq.urlretrieve(dl_url, tmp_path)
+            self._log(f"xLODGen Wizard: download complete, extracting\u2026")
+            self._set_label("_dl_status", "Extracting\u2026")
+
+            dest = _get_applications_dir(self._game, self._app_dir)
+            dest.mkdir(parents=True, exist_ok=True)
+            paths = _extract_archive(tmp_path, dest)
+            tmp_path.unlink(missing_ok=True)
+
+            file_count = len([p for p in paths if p.is_file()])
+            _flatten_subdirs(dest, self._exe_name)
+
+            if not (dest / self._exe_name).is_file():
+                raise RuntimeError(f"{self._exe_name} not found after extraction.")
+
+            self._log(f"xLODGen Wizard: extracted {file_count} file(s).")
+            self._set_label("_dl_status", f"Downloaded and extracted {tag}.", color="#6bc76b")
+            self.after(500, self._show_step_deploy)
+
+        except Exception as exc:
+            self._set_label("_dl_status", f"Error: {exc}", color="#e06c6c")
+            self._log(f"xLODGen Wizard: download error: {exc}")

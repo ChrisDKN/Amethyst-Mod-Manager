@@ -157,6 +157,30 @@ class SkyrimSE(Fallout_3):
                 description="Deploy mods and run SSEEditQuickAutoClean.exe.",
                 dialog_class_path="wizards.sseedit.SSEEditQACWizard",
             ),
+            WizardTool(
+                id="run_texgen_skyrimse",
+                label="Run TexGen",
+                description="Install DynDOLOD tools, deploy mods, and run TexGenx64.exe.",
+                dialog_class_path="wizards.dyndolod.TexGenWizard",
+            ),
+            WizardTool(
+                id="run_dyndolod_skyrimse",
+                label="Run DynDOLOD",
+                description="Install DynDOLOD tools, deploy mods, and run DynDOLODx64.exe.",
+                dialog_class_path="wizards.dyndolod.DynDOLODWizard",
+            ),
+            WizardTool(
+                id="run_xlodgen_skyrimse",
+                label="Run xLODGen",
+                description="Install xLODGen, deploy mods, and run xLODGenx64.exe.",
+                dialog_class_path="wizards.dyndolod.xLODGenWizard",
+            ),
+            WizardTool(
+                id="run_bethini_skyrimse",
+                label="Run BethINI Pie",
+                description="Install BethINI Pie and configure Skyrim SE INI settings.",
+                dialog_class_path="wizards.bethini.BethINIWizard",
+            ),
         ]
 
     # -----------------------------------------------------------------------

@@ -609,6 +609,12 @@ class Fallout_NV(Fallout_3):
                     "archive_keywords": ["nvse"],
                 },
             ),
+            WizardTool(
+                id="run_bethini_fonv",
+                label="Run BethINI Pie",
+                description="Install BethINI Pie and configure Fallout New Vegas INI settings.",
+                dialog_class_path="wizards.bethini.BethINIWizard",
+            ),
         ]
 
     @property
@@ -684,6 +690,12 @@ class Fallout_4(Fallout_3):
                     "download_url": "https://www.nexusmods.com/fallout4/mods/42147",
                     "archive_keywords": ["Fallout 4 Script Extender"],
                 },
+            ),
+            WizardTool(
+                id="run_bethini_fo4",
+                label="Run BethINI Pie",
+                description="Install BethINI Pie and configure Fallout 4 INI settings.",
+                dialog_class_path="wizards.bethini.BethINIWizard",
             ),
         ]
 
@@ -1069,6 +1081,12 @@ class Starfield(Fallout_3):
                     "download_url": "https://www.nexusmods.com/starfield/mods/106",
                     "archive_keywords": ["sfse"],
                 },
+            ),
+            WizardTool(
+                id="run_bethini_starfield",
+                label="Run BethINI Pie",
+                description="Install BethINI Pie and configure Starfield INI settings.",
+                dialog_class_path="wizards.bethini.BethINIWizard",
             ),
         ]
 

@@ -1,13 +1,14 @@
 """
-sseedit.py
-Wizard for running SSEEdit with Skyrim Special Edition.
+bethini.py
+Wizard for running BethINI Pie.
+
+Supported games: Fallout 4, Fallout New Vegas, Skyrim Special Edition, Starfield.
 
 Workflow
 --------
-1. Prompt the user to download SSEEdit from Nexus Mods (manual download only).
-2. Auto-detect and extract the archive to Profiles/<game>/Applications/SSEEdit/.
-3. Deploy the modlist.
-4. Run SSEEdit64.exe via Proton with -d:<game>/Data.
+1. Prompt the user to download BethINI Pie from Nexus Mods (manual download only).
+2. Auto-detect and extract the archive to Profiles/<game>/Applications/BethINI Pie/.
+3. Run BethINI Pie.exe via Proton.
 """
 
 from __future__ import annotations
@@ -41,18 +42,17 @@ TEXT_DIM   = "#858585"
 FONT_NORMAL = ("Segoe UI", 14)
 FONT_BOLD   = ("Segoe UI", 14, "bold")
 
-_NEXUS_URL   = "https://www.nexusmods.com/skyrimspecialedition/mods/164?tab=files&file_id=495506"
-_EXE_NAME         = "SSEEdit.exe"
-_EXE_NAME_QAC     = "SSEEditQuickAutoClean.exe"
-_APP_DIR          = "SSEEdit"
+_NEXUS_URL = "https://www.nexusmods.com/site/mods/631?tab=files"
+_EXE_NAME  = "Bethini.exe"
+_APP_DIR   = "BethINI Pie"
 
 
 def _get_applications_dir(game: "BaseGame") -> Path:
     return game.get_mod_staging_path().parent / "Applications" / _APP_DIR
 
 
-def _sseedit_exe_path(game: "BaseGame", exe_name: str = _EXE_NAME) -> Path | None:
-    p = _get_applications_dir(game) / exe_name
+def _bethini_exe_path(game: "BaseGame") -> Path | None:
+    p = _get_applications_dir(game) / _EXE_NAME
     return p if p.is_file() else None
 
 
@@ -63,7 +63,7 @@ def _find_archive(downloads_dir: Path) -> Path | None:
         p for p in downloads_dir.iterdir()
         if p.is_file()
         and p.suffix.lower() in {".zip", ".7z", ".rar"}
-        and "sseedit" in p.name.lower()
+        and "bethini" in p.name.lower()
     ]
     if not candidates:
         return None
@@ -71,7 +71,6 @@ def _find_archive(downloads_dir: Path) -> Path | None:
 
 
 def _flatten_subdirs(dest: Path, exe_name: str) -> None:
-    """Collapse single-subdir wrappers until exe_name is at the top level."""
     while True:
         all_entries = [e for e in dest.iterdir() if e.name != "__MACOSX"]
         subdirs = [e for e in all_entries if e.is_dir()]
@@ -86,15 +85,8 @@ def _flatten_subdirs(dest: Path, exe_name: str) -> None:
             break
 
 
-def _to_wine_path(p: Path) -> str:
-    return "Z:" + str(p).replace("/", "\\")
-
-
-class SSEEditWizard(ctk.CTkFrame):
-    """Step-by-step wizard to set up and run SSEEdit for Skyrim SE."""
-
-    _wizard_title = "Run SSEEdit"
-    _exe_name     = _EXE_NAME
+class BethINIWizard(ctk.CTkFrame):
+    """Step-by-step wizard to set up and run BethINI Pie."""
 
     def __init__(
         self,
@@ -116,7 +108,7 @@ class SSEEditWizard(ctk.CTkFrame):
         title_bar.pack_propagate(False)
         ctk.CTkLabel(
             title_bar,
-            text=f"{self._wizard_title} \u2014 {game.name}",
+            text=f"Run BethINI Pie \u2014 {game.name}",
             font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
         ).pack(side="left", padx=12, pady=8)
         ctk.CTkButton(
@@ -199,25 +191,25 @@ class SSEEditWizard(ctk.CTkFrame):
                 pass
 
     # ------------------------------------------------------------------
-    # Step 1 — Download SSEEdit (skipped if already extracted)
+    # Step 1 — Download (skipped if already extracted)
     # ------------------------------------------------------------------
 
     def _show_step_download(self):
-        if _sseedit_exe_path(self._game, self._exe_name) is not None:
-            self._show_step_deploy()
+        if _bethini_exe_path(self._game) is not None:
+            self._show_step_run()
             return
 
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 1: Download SSEEdit",
+            self._body, text="Step 1: Download BethINI Pie",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
         ctk.CTkLabel(
             self._body,
             text=(
-                "Click the button below to open the SSEEdit page on Nexus Mods.\n\n"
+                "Click the button below to open the BethINI Pie page on Nexus Mods.\n\n"
                 "Download the archive manually (do NOT use the Mod Manager\n"
                 "download button), then click Next."
             ),
@@ -285,7 +277,7 @@ class SSEEditWizard(ctk.CTkFrame):
             self._archive_path = None
             self._locate_status.configure(
                 text=(
-                    "SSEEdit archive not found in Downloads.\n"
+                    "BethINI Pie archive not found in Downloads.\n"
                     "Make sure you downloaded it, then press Try Again,\n"
                     "or use Browse to select it manually."
                 ),
@@ -299,17 +291,17 @@ class SSEEditWizard(ctk.CTkFrame):
                 self._locate_status.configure(text=f"Selected: {path.name}", text_color="#6bc76b")
                 self.after(300, self._show_step_extract)
 
-        pick_file("Select the SSEEdit archive", lambda p: self.after(0, lambda: _on_picked(p)))
+        pick_file("Select the BethINI Pie archive", lambda p: self.after(0, lambda: _on_picked(p)))
 
     # ------------------------------------------------------------------
-    # Step 3 — Extract archive
+    # Step 3 — Extract
     # ------------------------------------------------------------------
 
     def _show_step_extract(self):
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 3: Extract SSEEdit",
+            self._body, text="Step 3: Extract BethINI Pie",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
@@ -333,150 +325,46 @@ class SSEEditWizard(ctk.CTkFrame):
             dest.mkdir(parents=True, exist_ok=True)
 
             self._set_label("_extract_status", f"Extracting {archive.name}\u2026")
-            self._log(f"SSEEdit Wizard: extracting {archive.name} \u2192 {dest}")
+            self._log(f"BethINI Wizard: extracting {archive.name} \u2192 {dest}")
 
             paths = _extract_archive(archive, dest)
             file_count = len([p for p in paths if p.is_file()])
-            self._log(f"SSEEdit Wizard: extracted {file_count} file(s).")
+            self._log(f"BethINI Wizard: extracted {file_count} file(s).")
 
-            _flatten_subdirs(dest, self._exe_name)
+            _flatten_subdirs(dest, _EXE_NAME)
 
-            exe = dest / self._exe_name
-            if not exe.is_file():
+            if not (dest / _EXE_NAME).is_file():
                 raise RuntimeError(
-                    f"{self._exe_name} not found after extraction.\n"
-                    f"Check that the archive contains {self._exe_name}."
+                    f"{_EXE_NAME!r} not found after extraction.\n"
+                    f"Check that the archive contains {_EXE_NAME!r}."
                 )
 
             self._set_label("_extract_status", f"Extracted {file_count} file(s).", color="#6bc76b")
-            self.after(0, self._show_step_deploy)
-
-        except Exception as exc:
-            self._set_label("_extract_status", f"Error: {exc}", color="#e06c6c")
-            self._log(f"SSEEdit Wizard: extract error: {exc}")
-
-    # ------------------------------------------------------------------
-    # Step 4 — Deploy modlist
-    # ------------------------------------------------------------------
-
-    def _show_step_deploy(self):
-        self._clear_body()
-
-        ctk.CTkLabel(
-            self._body, text="Step 4: Deploy Modlist",
-            font=FONT_BOLD, text_color=TEXT_MAIN,
-        ).pack(pady=(0, 12))
-
-        self._deploy_status = ctk.CTkLabel(
-            self._body, text="Deploying\u2026",
-            font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
-        )
-        self._deploy_status.pack(pady=(0, 12))
-
-        ctk.CTkButton(
-            self._body, text="Skip", width=100, height=32,
-            font=FONT_NORMAL,
-            fg_color=BG_HEADER, hover_color="#3d3d3d", text_color=TEXT_DIM,
-            command=self._show_step_run,
-        ).pack(side="bottom")
-
-        threading.Thread(target=self._do_deploy, daemon=True).start()
-
-    def _do_deploy(self):
-        try:
-            from Utils.filemap import build_filemap
-            from Utils.deploy import (
-                LinkMode,
-                deploy_root_folder,
-                restore_root_folder,
-                load_per_mod_strip_prefixes,
-            )
-            from Utils.profile_state import read_excluded_mod_files
-
-            game      = self._game
-            game_root = game.get_game_path()
-
-            try:
-                root_win = self.winfo_toplevel()
-                profile  = root_win._topbar._profile_var.get()
-            except Exception:
-                profile = "default"
-
-            def _tlog(msg):
-                self.after(0, lambda m=msg: self._log(m))
-
-            if getattr(game, "restore_before_deploy", True) and hasattr(game, "restore"):
-                try:
-                    game.restore(log_fn=_tlog)
-                except RuntimeError:
-                    pass
-            restore_rf = game.get_effective_root_folder_path()
-            if restore_rf.is_dir() and game_root:
-                restore_root_folder(restore_rf, game_root, log_fn=_tlog)
-
-            game.set_active_profile_dir(
-                game.get_profile_root() / "profiles" / profile
-            )
-
-            profile_root = game.get_profile_root()
-            staging      = game.get_effective_mod_staging_path()
-            modlist_path = profile_root / "profiles" / profile / "modlist.txt"
-            filemap_out  = staging.parent / "filemap.txt"
-
-            if modlist_path.is_file():
-                exc_raw = read_excluded_mod_files(modlist_path.parent, None)
-                exc = {k: set(v) for k, v in exc_raw.items()} if exc_raw else None
-                build_filemap(
-                    modlist_path, staging, filemap_out,
-                    strip_prefixes=game.mod_folder_strip_prefixes or None,
-                    per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
-                    allowed_extensions=game.mod_install_extensions or None,
-                    root_deploy_folders=game.mod_root_deploy_folders or None,
-                    excluded_mod_files=exc,
-                    conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
-                )
-
-            deploy_mode = game.get_deploy_mode() if hasattr(game, "get_deploy_mode") else LinkMode.HARDLINK
-            game.deploy(log_fn=_tlog, profile=profile, mode=deploy_mode)
-
-            from Utils.wine_dll_config import deploy_game_wine_dll_overrides
-            pfx = game.get_prefix_path()
-            if pfx and pfx.is_dir():
-                deploy_game_wine_dll_overrides(game.name, pfx, game.wine_dll_overrides, log_fn=_tlog)
-
-            game.save_last_deployed_profile(profile)
-
-            target_rf  = game.get_effective_root_folder_path()
-            rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
-            if rf_allowed and target_rf.is_dir() and game_root:
-                deploy_root_folder(target_rf, game_root, mode=deploy_mode, log_fn=_tlog)
-
-            self._set_label("_deploy_status", "Deploy complete.", color="#6bc76b")
             self.after(0, self._show_step_run)
 
         except Exception as exc:
-            self._set_label("_deploy_status", f"Deploy error: {exc}", color="#e06c6c")
-            self._log(f"SSEEdit Wizard: deploy error: {exc}")
+            self._set_label("_extract_status", f"Error: {exc}", color="#e06c6c")
+            self._log(f"BethINI Wizard: extract error: {exc}")
 
     # ------------------------------------------------------------------
-    # Step 5 — Run SSEEdit
+    # Step 4 — Run BethINI Pie
     # ------------------------------------------------------------------
 
     def _show_step_run(self):
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 5: Run SSEEdit",
+            self._body, text="Step 4: Run BethINI Pie",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
-        exe = _sseedit_exe_path(self._game, self._exe_name)
+        exe = _bethini_exe_path(self._game)
         if exe is None:
             ctk.CTkLabel(
                 self._body,
                 text=(
-                    f"{self._exe_name} was not found.\n"
-                    "Please restart the wizard and install SSEEdit first."
+                    f"{_EXE_NAME!r} was not found.\n"
+                    "Please restart the wizard and install BethINI Pie first."
                 ),
                 font=FONT_NORMAL, text_color="#e06c6c", justify="center",
             ).pack(pady=(0, 16))
@@ -489,7 +377,7 @@ class SSEEditWizard(ctk.CTkFrame):
             return
 
         self._run_status = ctk.CTkLabel(
-            self._body, text="Launching SSEEdit\u2026",
+            self._body, text="Launching BethINI Pie\u2026",
             font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
         )
         self._run_status.pack(pady=(0, 12))
@@ -514,17 +402,10 @@ class SSEEditWizard(ctk.CTkFrame):
             )
             return
 
-        game_path = self._game.get_game_path()
-        if game_path is None:
-            self._set_label("_run_status", "Game path not configured.", color="#e06c6c")
-            return
-
-        data_arg = f'-d:{_to_wine_path(game_path / "Data")}'
-
-        self._log(f"SSEEdit Wizard: launching {exe} via Proton with {data_arg}")
+        self._log(f"BethINI Wizard: launching {exe} via Proton")
         try:
             proc = subprocess.Popen(
-                ["python3", str(proton_script), "run", str(exe), data_arg],
+                ["python3", str(proton_script), "run", str(exe)],
                 env=env,
                 cwd=str(exe.parent),
                 stdout=subprocess.DEVNULL,
@@ -532,21 +413,14 @@ class SSEEditWizard(ctk.CTkFrame):
             )
             self._set_label(
                 "_run_status",
-                "SSEEdit is running.\nClose it when you are done, then click Done.",
+                "BethINI Pie is running.\nConfigure your INI settings, then close it and click Done.",
                 color="#6bc76b",
             )
             self.after(0, lambda: self._done_btn.configure(state="normal"))
             proc.wait()
-            self._log("SSEEdit Wizard: SSEEdit closed.")
-            self._set_label("_run_status", "SSEEdit finished.", color="#6bc76b")
+            self._log("BethINI Wizard: BethINI Pie closed.")
+            self._set_label("_run_status", "BethINI Pie finished.", color="#6bc76b")
             self.after(0, self._on_done)
         except Exception as exc:
             self._set_label("_run_status", f"Launch error: {exc}", color="#e06c6c")
-            self._log(f"SSEEdit Wizard: launch error: {exc}")
-
-
-class SSEEditQACWizard(SSEEditWizard):
-    """Variant of SSEEditWizard that runs SSEEditQuickAutoClean.exe."""
-
-    _wizard_title = "Run SSEEdit QAC"
-    _exe_name     = _EXE_NAME_QAC
+            self._log(f"BethINI Wizard: launch error: {exc}")

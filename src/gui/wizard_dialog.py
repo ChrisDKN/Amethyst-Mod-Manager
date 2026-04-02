@@ -78,8 +78,8 @@ class WizardDialog(ctk.CTkToplevel):
     def __init__(self, parent, game: "BaseGame", log_fn=None):
         super().__init__(parent, fg_color=BG_DEEP)
         self.title(f"Wizard — {game.name}")
-        self.geometry("440x320")
-        self.resizable(False, False)
+        self.geometry("440x480")
+        self.resizable(False, True)
         self.transient(parent)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(100, self._make_modal)
@@ -112,35 +112,52 @@ class WizardDialog(ctk.CTkToplevel):
     # ------------------------------------------------------------------
 
     def _build(self):
-        body = ctk.CTkFrame(self, fg_color=BG_DEEP)
-        body.pack(fill="both", expand=True, padx=16, pady=16)
+        header = ctk.CTkFrame(self, fg_color=BG_DEEP)
+        header.pack(fill="x", padx=16, pady=(16, 0))
 
         ctk.CTkLabel(
-            body,
+            header,
             text=f"Wizard — {self._game.name}",
             font=FONT_BOLD,
             text_color=TEXT_MAIN,
         ).pack(pady=(0, 4))
 
         ctk.CTkLabel(
-            body,
+            header,
             text="Select a helper tool:",
             font=FONT_SMALL,
             text_color=TEXT_DIM,
-        ).pack(pady=(0, 12))
+        ).pack(pady=(0, 8))
 
         tools = self._game.wizard_tools
         if not tools:
             ctk.CTkLabel(
-                body,
+                header,
                 text="No tools available for this game.",
                 font=FONT_NORMAL,
                 text_color=TEXT_DIM,
             ).pack(pady=20)
             return
 
+        body = ctk.CTkScrollableFrame(
+            self, fg_color=BG_DEEP, corner_radius=0,
+            scrollbar_button_color=BG_HEADER,
+            scrollbar_button_hover_color=ACCENT,
+        )
+        body.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+
         for tool in tools:
             _add_tool_row(body, tool, self._open_tool)
+
+        self._bind_scroll(body)
+
+    def _bind_scroll(self, scrollable: ctk.CTkScrollableFrame) -> None:
+        """Bind mousewheel to the dialog so scrolling works anywhere in the window."""
+        canvas = scrollable._parent_canvas
+
+        self.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"), add="+")
+        self.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"), add="+")
+        self.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"), add="+")
 
     # ------------------------------------------------------------------
     # Actions
@@ -227,6 +244,20 @@ class WizardPanel(ctk.CTkFrame):
 
         for tool in tools:
             _add_tool_row(body, tool, self._open_tool, padx=16)
+
+        canvas = body._parent_canvas
+
+        def _scroll_up(e):   canvas.yview_scroll(-3, "units")
+        def _scroll_down(e): canvas.yview_scroll(3, "units")
+
+        def _bind_tree(widget):
+            widget.bind("<Button-4>", _scroll_up, add="+")
+            widget.bind("<Button-5>", _scroll_down, add="+")
+            for child in widget.winfo_children():
+                _bind_tree(child)
+
+        _bind_tree(body)
+        _bind_tree(canvas)
 
     def _open_tool(self, tool: "WizardTool"):
         """Close the panel and open the tool's dedicated wizard."""

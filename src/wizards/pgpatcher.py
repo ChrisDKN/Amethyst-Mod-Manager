@@ -230,20 +230,23 @@ class PGPatcherWizard(ctk.CTkFrame):
         if prefix_path is None or not prefix_path.is_dir():
             return None, None, None
 
-        steam_id = getattr(self._game, "steam_id", "")
+        steam_id    = getattr(self._game, "steam_id", "")
+        compat_data = prefix_path.parent if prefix_path.name == "pfx" else prefix_path
         proton_script = find_proton_for_game(steam_id) if steam_id else None
+
         if proton_script is None:
-            proton_script = find_any_installed_proton()
+            from gui.plugin_panel import _read_prefix_runner
+            preferred_runner = _read_prefix_runner(compat_data)
+            proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
                 return None, None, prefix_path
 
-        compat_data = prefix_path.parent
-        steam_root  = find_steam_root_for_proton_script(proton_script)
+        steam_root = find_steam_root_for_proton_script(proton_script)
         if steam_root is None:
             return None, None, prefix_path
 
         env = os.environ.copy()
-        env["STEAM_COMPAT_DATA_PATH"]          = str(compat_data)
+        env["STEAM_COMPAT_DATA_PATH"]           = str(compat_data)
         env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
         game_path = self._game.get_game_path()
         if game_path:
@@ -608,12 +611,22 @@ class PGPatcherWizard(ctk.CTkFrame):
         )
         self._deploy_status.pack(pady=(0, 8))
 
+        btn_frame = ctk.CTkFrame(self._body, fg_color="transparent")
+        btn_frame.pack(side="bottom", pady=(8, 0))
+
         ctk.CTkButton(
-            self._body, text="Deploy", width=160, height=36,
+            btn_frame, text="Skip", width=100, height=36,
+            font=FONT_BOLD,
+            fg_color=BG_HEADER, hover_color="#3d3d3d", text_color=TEXT_DIM,
+            command=self._show_step_run,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame, text="Deploy", width=160, height=36,
             font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
             command=self._start_deploy,
-        ).pack(side="bottom")
+        ).pack(side="left")
 
     def _start_deploy(self):
         for w in self._body.winfo_children():
@@ -760,8 +773,8 @@ class PGPatcherWizard(ctk.CTkFrame):
                 ["python3", str(proton_script), "run", str(exe)],
                 env=env,
                 cwd=str(exe.parent),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
             self._set_label(
                 "_run_status",
