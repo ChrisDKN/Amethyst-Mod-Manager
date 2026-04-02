@@ -3706,6 +3706,11 @@ class CollectionDetailDialog(tk.Frame):
         """Rebuild the off-site mods panel below the treeview."""
         if self._offsite_frame is None:
             return
+        try:
+            if not self._offsite_frame.winfo_exists():
+                return
+        except Exception:
+            return
         # Clear existing children
         for w in self._offsite_frame.winfo_children():
             w.destroy()
