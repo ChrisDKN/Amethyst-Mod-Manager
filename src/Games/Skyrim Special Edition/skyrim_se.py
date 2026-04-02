@@ -139,6 +139,24 @@ class SkyrimSE(Fallout_3):
                     "archive_keywords": ["skse64"],
                 },
             ),
+            WizardTool(
+                id="run_pgpatcher_skyrimse",
+                label="Run PGPatcher",
+                description="Install PGPatcher, deploy mods, and run PGPatcher.exe.",
+                dialog_class_path="wizards.pgpatcher.PGPatcherWizard",
+            ),
+            WizardTool(
+                id="run_sseedit_skyrimse",
+                label="Run SSEEdit",
+                description="Install SSEEdit, deploy mods, and run SSEEdit.exe.",
+                dialog_class_path="wizards.sseedit.SSEEditWizard",
+            ),
+            WizardTool(
+                id="run_sseedit_qac_skyrimse",
+                label="Run SSEEdit QAC",
+                description="Deploy mods and run SSEEditQuickAutoClean.exe.",
+                dialog_class_path="wizards.sseedit.SSEEditQACWizard",
+            ),
         ]
 
     # -----------------------------------------------------------------------
