@@ -566,7 +566,7 @@ class PGPatcherWizard(ctk.CTkFrame):
             return
 
         game_path   = self._game.get_game_path()
-        staging     = self._game.get_mod_staging_path()
+        staging     = self._game.get_effective_mod_staging_path()
 
         try:
             from Utils.exe_args_builder import _bootstrap_pgpatcher_settings

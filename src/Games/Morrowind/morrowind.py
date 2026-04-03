@@ -148,6 +148,12 @@ class Morrowind(BaseGame):
                 ),
                 dialog_class_path="Games.Morrowind.mcp_wizard.MCPWizard",
             ),
+            WizardTool(
+                id="run_wrye_bash_morrowind",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
         ]
 
     # -----------------------------------------------------------------------

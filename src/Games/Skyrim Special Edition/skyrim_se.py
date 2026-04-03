@@ -128,7 +128,31 @@ class SkyrimSE(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return self._base_wizard_tools() + [
+        from wizards.pandora import find_pandora_exe
+        from wizards.bodyslide import find_mod_exe
+        pandora_tools = []
+        if find_pandora_exe(self) is not None:
+            pandora_tools.append(WizardTool(
+                id="run_pandora_skyrimse",
+                label="Run Pandora",
+                description="Deploy mods and run Pandora Behaviour Engine+.",
+                dialog_class_path="wizards.pandora.PandoraWizard",
+            ))
+        if find_mod_exe(self, "BodySlide x64.exe") is not None:
+            pandora_tools.append(WizardTool(
+                id="run_bodyslide_skyrimse",
+                label="Run BodySlide",
+                description="Deploy mods and run BodySlide x64.exe from the Data folder.",
+                dialog_class_path="wizards.bodyslide.BodySlideWizard",
+            ))
+        if find_mod_exe(self, "OutfitStudio x64.exe") is not None:
+            pandora_tools.append(WizardTool(
+                id="run_outfitstudio_skyrimse",
+                label="Run Outfit Studio",
+                description="Deploy mods and run OutfitStudio x64.exe from the Data folder.",
+                dialog_class_path="wizards.bodyslide.OutfitStudioWizard",
+            ))
+        return self._base_wizard_tools() + pandora_tools + [
             WizardTool(
                 id="install_se_skyrimse",
                 label="Install Script Extender (SKSE64)",
@@ -180,6 +204,30 @@ class SkyrimSE(Fallout_3):
                 label="Run BethINI Pie",
                 description="Install BethINI Pie and configure Skyrim SE INI settings.",
                 dialog_class_path="wizards.bethini.BethINIWizard",
+            ),
+            WizardTool(
+                id="run_wrye_bash_skyrimse",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
+            WizardTool(
+                id="run_vramr_skyrimse",
+                label="Run VRAMr",
+                description="Download VRAMr from Nexus, deploy mods, and run texture optimisation.",
+                dialog_class_path="wizards.vramr.VRAMrWizard",
+            ),
+            WizardTool(
+                id="run_bendr_skyrimse",
+                label="Run BENDr",
+                description="Download BENDr from Nexus, deploy mods, and process normal maps.",
+                dialog_class_path="wizards.bendr_parallaxr.BENDrWizard",
+            ),
+            WizardTool(
+                id="run_parallaxr_skyrimse",
+                label="Run ParallaxR",
+                description="Download ParallaxR from Nexus, deploy mods, and process parallax textures.",
+                dialog_class_path="wizards.bendr_parallaxr.ParallaxRWizard",
             ),
         ]
 

@@ -168,6 +168,12 @@ class Fallout_3(BaseGame):
                     "archive_keywords": ["fose"],
                 },
             ),
+            WizardTool(
+                id="run_wrye_bash_fo3",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
         ]
 
     # -----------------------------------------------------------------------
@@ -591,6 +597,12 @@ class Fallout3_GOTY(Fallout_3):
                     "archive_keywords": ["fose"],
                 },
             ),
+            WizardTool(
+                id="run_wrye_bash_fo3goty",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
         ]
 
 
@@ -614,6 +626,12 @@ class Fallout_NV(Fallout_3):
                 label="Run BethINI Pie",
                 description="Install BethINI Pie and configure Fallout New Vegas INI settings.",
                 dialog_class_path="wizards.bethini.BethINIWizard",
+            ),
+            WizardTool(
+                id="run_wrye_bash_fonv",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
         ]
 
@@ -697,6 +715,12 @@ class Fallout_4(Fallout_3):
                 description="Install BethINI Pie and configure Fallout 4 INI settings.",
                 dialog_class_path="wizards.bethini.BethINIWizard",
             ),
+            WizardTool(
+                id="run_wrye_bash_fo4",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
         ]
 
     @property
@@ -768,6 +792,12 @@ class Fallout_4VR(Fallout_3):
                     "archive_keywords": ["Fallout 4 Script Extender VR"],
                 },
             ),
+            WizardTool(
+                id="run_wrye_bash_fo4vr",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
         ]
 
     @property
@@ -830,6 +860,12 @@ class Oblivion(Fallout_3):
                     "download_url": "https://www.nexusmods.com/oblivion/mods/37952",
                     "archive_keywords": ["xobse"],
                 },
+            ),
+            WizardTool(
+                id="run_wrye_bash_oblivion",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
         ]
 
@@ -940,6 +976,12 @@ class Skyrim(Fallout_3):
                     "archive_keywords": ["skse"],
                 },
             ),
+            WizardTool(
+                id="run_wrye_bash_skyrim",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
         ]
 
     @property
@@ -1010,6 +1052,12 @@ class SkyrimVR(Fallout_3):
                     "download_url": "https://skse.silverlock.org/beta/sksevr_2_00_12.7z",
                     "archive_keywords": ["sksevr"],
                 },
+            ),
+            WizardTool(
+                id="run_wrye_bash_skyrimvr",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
         ]
 
@@ -1087,6 +1135,12 @@ class Starfield(Fallout_3):
                 label="Run BethINI Pie",
                 description="Install BethINI Pie and configure Starfield INI settings.",
                 dialog_class_path="wizards.bethini.BethINIWizard",
+            ),
+            WizardTool(
+                id="run_wrye_bash_starfield",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
         ]
 
@@ -1175,8 +1229,15 @@ class Enderal(Fallout_3):
         return "skse_loader.exe"
 
     @property
-    def wizard_tools(self) -> list:
-        return []
+    def wizard_tools(self) -> list[WizardTool]:
+        return self._base_wizard_tools() + [
+            WizardTool(
+                id="run_wrye_bash_enderal",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
+        ]
 
 class EnderalSE(Fallout_3):
 
@@ -1217,5 +1278,12 @@ class EnderalSE(Fallout_3):
         return "skse64_loader.exe"
 
     @property
-    def wizard_tools(self) -> list:
-        return []
+    def wizard_tools(self) -> list[WizardTool]:
+        return self._base_wizard_tools() + [
+            WizardTool(
+                id="run_wrye_bash_enderalse",
+                label="Run Wrye Bash",
+                description="Download and run Wrye Bash.",
+                dialog_class_path="wizards.wrye_bash.WryeBashWizard",
+            ),
+        ]
