@@ -90,6 +90,93 @@ def _to_wine_path(p: Path) -> str:
     return "Z:" + str(p).replace("/", "\\")
 
 
+def _set_winxp_compat(prefix_path: Path, exe: Path, log_fn=None) -> None:
+    """Set the Wine per-app Windows version for *exe* to Windows XP.
+
+    This writes the same entry that winecfg writes when you select an
+    application and change its Windows Version to "Windows XP":
+        HKCU\\Software\\Wine\\AppDefaults\\<exe.name>  "Version"="winxp"
+    in user.reg.
+    """
+    import time as _time
+
+    _log = log_fn or (lambda _: None)
+
+    # Accept either pfx/ directly or its compatdata parent
+    if not (prefix_path / "user.reg").is_file() and (prefix_path / "pfx" / "user.reg").is_file():
+        prefix_path = prefix_path / "pfx"
+    user_reg = prefix_path / "user.reg"
+    if not user_reg.is_file():
+        _log(f"Warning: user.reg not found at {user_reg}; skipping WinXP version flag.")
+        return
+
+    try:
+        text = user_reg.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        _log(f"Warning: could not read user.reg: {exc}")
+        return
+
+    section_header = f"[Software\\\\Wine\\\\AppDefaults\\\\{exe.name}]"
+    lines = text.splitlines(keepends=True)
+
+    section_start: int | None = None
+    section_end: int | None = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.lower().startswith(section_header.lower()):
+            section_start = i
+        elif section_start is not None and stripped.startswith("["):
+            section_end = i
+            break
+
+    _filetime_hex = format(int((_time.time() + 11644473600) * 1e7), "x")
+    entry_line = '"Version"="winxp"\n'
+
+    if section_start is None:
+        if lines and not lines[-1].endswith("\n"):
+            lines.append("\n")
+        lines.append("\n")
+        lines.append(f"{section_header} {_filetime_hex}\n")
+        lines.append(f"#time={_filetime_hex}\n")
+        lines.append(entry_line)
+        _log(f"SSEEdit: set Windows version to WinXP for {exe.name}.")
+    else:
+        body_start = section_start + 1
+        body_end = section_end if section_end is not None else len(lines)
+        key_lines = lines[body_start:body_end]
+
+        lines[section_start] = f"{section_header} {_filetime_hex}\n"
+        for j, kline in enumerate(key_lines):
+            if kline.lower().startswith("#time="):
+                key_lines[j] = f"#time={_filetime_hex}\n"
+                break
+
+        found = False
+        for j, kline in enumerate(key_lines):
+            if kline.lower().startswith('"version"='):
+                if kline.strip() != entry_line.strip():
+                    key_lines[j] = entry_line
+                    _log(f"SSEEdit: updated Windows version to WinXP for {exe.name}.")
+                found = True
+                break
+        if not found:
+            key_lines.append(entry_line)
+            _log(f"SSEEdit: set Windows version to WinXP for {exe.name}.")
+
+        lines[body_start:body_end] = key_lines
+
+    tmp = user_reg.with_suffix(".reg.tmp")
+    try:
+        tmp.write_text("".join(lines), encoding="utf-8")
+        tmp.replace(user_reg)
+    except OSError as exc:
+        _log(f"Warning: could not write user.reg: {exc}")
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 class SSEEditWizard(ctk.CTkFrame):
     """Step-by-step wizard to set up and run SSEEdit for Skyrim SE."""
 
@@ -520,6 +607,10 @@ class SSEEditWizard(ctk.CTkFrame):
             return
 
         data_arg = f'-d:{_to_wine_path(game_path / "Data")}'
+
+        prefix_path = self._game.get_prefix_path()
+        if prefix_path is not None:
+            _set_winxp_compat(prefix_path, exe, log_fn=self._log)
 
         self._log(f"SSEEdit Wizard: launching {exe} via Proton with {data_arg}")
         try:
