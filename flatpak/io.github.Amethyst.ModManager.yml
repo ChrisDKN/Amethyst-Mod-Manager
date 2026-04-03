@@ -44,7 +44,7 @@ modules:
     buildsystem: simple
     build-commands:
       - install -d /app/share/amethyst-mod-manager
-      - cp -a src/gui.py src/version.py src/gui src/Utils src/Games src/LOOT src/Nexus src/icons src/wizards src/wrappers src/gpak /app/share/amethyst-mod-manager/
+      - cp -a src/gui.py src/version.py src/splash_gtk.py src/gui src/Utils src/Games src/LOOT src/Nexus src/icons src/wizards src/wrappers src/gpak /app/share/amethyst-mod-manager/
       - cp Changelog.txt /app/share/amethyst-mod-manager/
 
       - install -d /app/bin
