@@ -99,6 +99,7 @@ class SkyrimSE(Fallout_3):
             CustomRule(dest="", filenames=["d3dx9_42.dll"]),
             CustomRule(dest="", filenames=["skse64_1_6_1170.dll"]),
             CustomRule(dest="", filenames=["skse64_loader.exe"]),
+            CustomRule(dest="", filenames=["d3dcompiler_47.dll"]),
             # ENB Series files → game root
             CustomRule(dest="", filenames=[
                 "d3d11.dll",
