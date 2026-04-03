@@ -2586,8 +2586,8 @@ class CollectionDetailDialog(tk.Frame):
         overlay.bind("<Button-1>", lambda e: "break")
         overlay.bind("<ButtonRelease-1>", lambda e: "break")
 
-        inner = tk.Frame(overlay, bg="#2b2b2b", width=540, bd=0, highlightthickness=0)
-        inner.place(relx=0.5, rely=0.5, anchor="center", width=540)
+        inner = tk.Frame(overlay, bg="#2b2b2b", bd=0, highlightthickness=0)
+        inner.place(relx=0.5, rely=0.5, anchor="center", width=scaled(540))
 
         tk.Label(
             inner, text="Manual Download Required",
@@ -2609,7 +2609,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_mod_name_lbl = tk.Label(
             card, text="", font=("Segoe UI", 13, "bold"), fg="#ffffff", bg="#333333",
-            anchor="w", wraplength=480,
+            anchor="w", wraplength=scaled(480),
         )
         self._manual_mod_name_lbl.pack(fill="x", padx=12, pady=(10, 2))
 
@@ -2627,7 +2627,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_mod_file_hint_lbl = tk.Label(
             card, text="", font=("Consolas", 9), fg="#777777", bg="#333333",
-            anchor="w", wraplength=480,
+            anchor="w", wraplength=scaled(480),
         )
         self._manual_mod_file_hint_lbl.pack(fill="x", padx=12, pady=(0, 10))
 
@@ -2644,7 +2644,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_open_url_btn = ctk.CTkButton(
             btn_row, text="Open Download Page",
-            height=scaled(32), width=scaled(200),
+            height=32, width=200,  # unscaled — CTk applies set_widget_scaling internally
             fg_color=ACCENT, hover_color=ACCENT_HOV,
             text_color="#ffffff", font=font_sized("Segoe UI", 11),
             border_width=0,
@@ -2654,7 +2654,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_open_next_btn = ctk.CTkButton(
             btn_row, text="Open next 5",
-            height=scaled(32), width=scaled(110),
+            height=32, width=110,  # unscaled — CTk applies set_widget_scaling internally
             fg_color="#1a5a8a", hover_color="#2070a8",
             text_color="#ffffff", font=font_sized("Segoe UI", 10),
             border_width=0,
@@ -2665,7 +2665,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_select_btn = ctk.CTkButton(
             btn_row, text="Select File\u2026",
-            height=scaled(32), width=scaled(120),
+            height=32, width=120,  # unscaled — CTk applies set_widget_scaling internally
             fg_color="#444444", hover_color="#555555",
             text_color="#ffffff", font=font_sized("Segoe UI", 10),
             border_width=0,
@@ -2675,7 +2675,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_skip_btn = ctk.CTkButton(
             btn_row, text="Skip",
-            height=scaled(32), width=scaled(80),
+            height=32, width=80,  # unscaled — CTk applies set_widget_scaling internally
             fg_color="#7a5a00", hover_color="#a07800",
             text_color="#ffffff", font=font_sized("Segoe UI", 10),
             border_width=0,
@@ -2709,7 +2709,7 @@ class CollectionDetailDialog(tk.Frame):
 
         cancel_btn = ctk.CTkButton(
             bottom, text="Cancel",
-            height=scaled(28), width=scaled(100),
+            height=28, width=100,  # unscaled — CTk applies set_widget_scaling internally
             fg_color="#7a1a1a", hover_color="#a02020",
             text_color="#ffffff", font=font_sized("Segoe UI", 10),
             border_width=0,

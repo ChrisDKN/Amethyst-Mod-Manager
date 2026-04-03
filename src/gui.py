@@ -270,9 +270,10 @@ class App(ctk.CTk):
         else:
             self.geometry("1280x720")
         # Scale minsize with UI scale so window can't be shrunk below the toolbar
+        # Cap to screen dimensions so the window is always resizable on smaller monitors
         _s = get_ui_scale()
-        _min_w = int(1280 * _s)
-        _min_h = int(720 * _s)
+        _min_w = min(int(1280 * _s), self.winfo_screenwidth() - 50)
+        _min_h = min(int(720 * _s), self.winfo_screenheight() - 100)
         self.minsize(_min_w, _min_h)
         self.bind("<Configure>", self._on_window_configure)
         self._geom_save_id: str | None = None

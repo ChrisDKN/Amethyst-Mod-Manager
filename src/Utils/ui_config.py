@@ -34,16 +34,28 @@ def get_screen_info() -> tuple[int, int, float]:
         root.update_idletasks()
         w = root.winfo_screenwidth()
         h = root.winfo_screenheight()
+        # Detect if the DE/compositor is applying its own scaling.
+        # Tk reports 96 DPI as default; higher values mean the DE is scaling.
+        # winfo_fpixels('1i') returns pixels-per-inch as seen by Tk.
+        try:
+            dpi = root.winfo_fpixels('1i')
+            de_scale = dpi / 96.0 if dpi > 96 else 1.0
+        except Exception:
+            de_scale = 1.0
         root.destroy()
     except Exception:
         return 0, 0, _DEFAULT_SCALE
     if w <= 0 or h <= 0:
         return w, h, _DEFAULT_SCALE
+    # On scaled desktops, winfo_screenheight may report the virtual (scaled)
+    # resolution rather than physical pixels. Divide out the DE scale to get
+    # the true physical height for our scaling heuristic.
+    physical_h = h / de_scale if de_scale > 1.0 else h
     # UI designed for Steam Deck (1280x800). Use height only; 800–1080 = 1.0.
-    if h <= 800:
-        scale = max(_MIN_SCALE, h / 800)
-    elif h >= 1080:
-        scale = min(1.5, h / 1080)
+    if physical_h <= 800:
+        scale = max(_MIN_SCALE, physical_h / 800)
+    elif physical_h >= 1080:
+        scale = min(1.5, physical_h / 1080)
     else:
         scale = 1.0  # plateau: 800–1080 all use 1.0
     scale = round(scale * 20) / 20  # Snap to nearest 0.05

@@ -160,6 +160,7 @@ class TopBar(ctk.CTkFrame):
         self._profile_menu = ctk.CTkOptionMenu(
             self._row1, values=profile_names, variable=self._profile_var,
             width=160, height=32, font=FONT_NORMAL,
+            dynamic_resizing=False,
             fg_color=BG_HEADER, button_color=ACCENT, button_hover_color=ACCENT_HOV,
             dropdown_fg_color=BG_PANEL, text_color=TEXT_MAIN,
             command=self._on_profile_change
@@ -358,12 +359,13 @@ class TopBar(ctk.CTkFrame):
     def _update_profile_menu_color(self):
         """Color the profile dropdown green when the selected profile is deployed."""
         game_obj = _gh._GAMES.get(self._game_var.get())
-        deployed = (
-            game_obj is not None
-            and game_obj.get_deploy_active()
-            and game_obj.get_last_deployed_profile() == self._profile_var.get()
+        deployed_profile = (
+            game_obj.get_last_deployed_profile()
+            if game_obj is not None and game_obj.get_deploy_active()
+            else None
         )
-        if deployed:
+        selected_is_deployed = deployed_profile == self._profile_var.get()
+        if selected_is_deployed:
             self._profile_menu.configure(
                 fg_color="#1e3a1e",
                 button_color="#2d7a2d",
@@ -377,6 +379,16 @@ class TopBar(ctk.CTkFrame):
                 button_hover_color=ACCENT_HOV,
                 text_color=TEXT_MAIN,
             )
+
+        # Colour the deployed profile entry green in the dropdown list
+        try:
+            dropdown = self._profile_menu._dropdown_menu
+            values = self._profile_menu._values
+            for i, value in enumerate(values):
+                color = "#4caf50" if value == deployed_profile else ""
+                dropdown.entryconfigure(i, foreground=color)
+        except Exception:
+            pass
 
     def _on_profile_change(self, value: str):
         self._log(f"Profile: {value}")

@@ -201,8 +201,9 @@ class PluginPanel(ctk.CTkFrame):
         self._icon_lock: ImageTk.PhotoImage | None = None
         _lock_path = _ICONS_DIR / "lock.png"
         if _lock_path.is_file():
+            _lk_sz = scaled(14)
             self._icon_lock = ImageTk.PhotoImage(
-                PilImage.open(_lock_path).convert("RGBA").resize((14, 14), PilImage.LANCZOS))
+                PilImage.open(_lock_path).convert("RGBA").resize((_lk_sz, _lk_sz), PilImage.LANCZOS))
 
         # Tooltip state
         self._tooltip_win: tk.Toplevel | None = None
@@ -3104,14 +3105,20 @@ class PluginPanel(ctk.CTkFrame):
 
         for i, (title, cw) in enumerate(zip(titles, widths)):
             anchor = "w" if i == 1 else "center"
+            # Column 3 is the lock column — prefer the PNG over the emoji fallback
+            use_img = (i == 3 and self._icon_lock is not None)
             if i < len(self._pheader_labels):
                 lbl = self._pheader_labels[i]
-                lbl.configure(text=title)
+                if use_img:
+                    lbl.configure(text="", image=self._icon_lock)
+                else:
+                    lbl.configure(text=title)
                 lbl.place(x=col_x[i], y=0, width=cw, height=scaled(28))
             else:
                 lbl = tk.Label(
-                    self._pheader, text=title, anchor=anchor,
+                    self._pheader, anchor=anchor,
                     font=("Segoe UI", _theme.FS11, "bold"), fg=TEXT_SEP, bg=BG_HEADER,
+                    **({"image": self._icon_lock, "text": ""} if use_img else {"text": title}),
                 )
                 lbl.place(x=col_x[i], y=0, width=cw, height=scaled(28))
                 self._pheader_labels.append(lbl)

@@ -218,10 +218,14 @@ class CTkAlert(ctk.CTkToplevel):
         return self.event
 
     def old_xy_set(self, event):
-        self.old_x = event.x
-        self.old_y = event.y
+        self.old_x = event.x_root
+        self.old_y = event.y_root
 
     def move_window(self, event):
+        if not hasattr(self, 'old_y') or not hasattr(self, 'old_x'):
+            return
+        if self.old_x is None or self.old_y is None:
+            return
         self.y = event.y_root - self.old_y
         self.x = event.x_root - self.old_x
         self.geometry(f'+{self.x}+{self.y}')
