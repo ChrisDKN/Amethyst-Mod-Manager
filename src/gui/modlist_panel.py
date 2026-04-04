@@ -391,6 +391,13 @@ class ModListPanel(ctk.CTkFrame):
         self._drag_slot:     int  = -1     # last computed insertion slot (in vis-without-drag space)
         self._drag_start_slot: int = 0     # slot when drag began (for delta-based movement)
 
+        self._drag_entries_snapshot: list | None = None  # snapshot for column-sort drag
+        self._drag_vars_snapshot: list | None = None
+        self._drag_reordered_snapshot: list | None = None  # reordered state for inverted drag
+        self._drag_reordered_vars: list | None = None
+        self._drag_saved_sort_column: str | None = None
+        self._drag_saved_sort_ascending: bool | None = None
+
         self._drag_pending:  bool = False  # waiting for click-vs-drag disambiguation
         self._drag_after_id: str | None = None  # after() id for drag-start timer
         self._drag_scroll_after: str | None = None  # after() id for auto-scroll repeat
@@ -1539,6 +1546,50 @@ class ModListPanel(ctk.CTkFrame):
                 break  # inside a normal separator block — fine
         return insert_at
 
+    def _clamp_insert_at(self, insert_at: int, is_block: bool) -> int:
+        """Clamp insert_at so items never cross OW or Root Folder boundaries.
+
+        Works regardless of whether _entries is in natural or inverted order.
+        After removing the dragged items, OW and Root are at fixed positions.
+        Nothing should be inserted before whichever is first or after whichever
+        is last.
+        """
+        n = len(self._entries)
+        # Find OW and Root positions in the current (post-removal) _entries.
+        # If the dragged item IS a pinned separator it won't be in _entries,
+        # so we also check the drag block for pinned names.
+        ow_idx = -1
+        rf_idx = -1
+        for i, e in enumerate(self._entries):
+            if e.name == OVERWRITE_NAME:
+                ow_idx = i
+            elif e.name == ROOT_FOLDER_NAME:
+                rf_idx = i
+
+        # If neither pinned separator is found, no clamping needed.
+        if ow_idx < 0 and rf_idx < 0:
+            return max(0, min(insert_at, n))
+
+        # When only one pinned separator exists, clamp relative to it.
+        if ow_idx < 0 or rf_idx < 0:
+            pinned = ow_idx if ow_idx >= 0 else rf_idx
+            # Items go after OW or before Root
+            if self._entries[pinned].name == OVERWRITE_NAME:
+                lo = pinned + 1
+                return max(lo, min(insert_at, n))
+            else:
+                hi = pinned
+                return max(0, min(insert_at, hi))
+
+        # Both pinned separators present.
+        first_pinned = min(ow_idx, rf_idx)
+        last_pinned = max(ow_idx, rf_idx)
+
+        lo = first_pinned + 1
+        hi = last_pinned
+
+        return max(lo, min(insert_at, hi))
+
     def _reload(self):
         self._sel_idx = -1
         self._sel_set = set()
@@ -2482,7 +2533,7 @@ class ModListPanel(ctk.CTkFrame):
 
         # Blue insertion line showing where the item will land when released.
         # _drag_slot is an index into the vis-without-drag list.
-        slot = self._drag_target_slot
+        slot = self._drag_slot
         blk_size = len(self._drag_block) if self._drag_is_block else 1
         vis = self._visible_indices
         if self._drag_sel_indices:
@@ -2784,6 +2835,68 @@ class ModListPanel(ctk.CTkFrame):
             sorted_mods = sorted(mod_indices, key=key_fn, reverse=not self._sort_ascending)
             result.extend(sorted_mods)
         return result
+
+    def _uninvert_entries_order(self):
+        """Convert _entries from inverted-visual order back to natural order.
+
+        Inverted visual order (priority ascending) is:
+            [Root, lowest-pri-group, ..., highest-pri-group, OW]
+        Natural order (what modlist.txt expects) is:
+            [OW, highest-pri-group, ..., lowest-pri-group, Root]
+
+        This reverses the group order (excluding pinned OW/Root) and reverses
+        mod order within each group (ascending→descending priority).
+        """
+        # Split current _entries into groups by separator
+        groups: list[tuple[int | None, list[int]]] = []
+        current_sep: int | None = None
+        current_mods: list[int] = []
+        for idx in range(len(self._entries)):
+            if self._entries[idx].is_separator:
+                if current_sep is not None or current_mods:
+                    groups.append((current_sep, current_mods))
+                current_sep = idx
+                current_mods = []
+            else:
+                current_mods.append(idx)
+        if current_sep is not None or current_mods:
+            groups.append((current_sep, current_mods))
+
+        # Identify Root Folder and Overwrite groups
+        ow_group = None
+        rf_group = None
+        middle = []
+        for g in groups:
+            sep_idx, mods = g
+            if sep_idx is not None and self._entries[sep_idx].name == OVERWRITE_NAME:
+                ow_group = g
+            elif sep_idx is not None and self._entries[sep_idx].name == ROOT_FOLDER_NAME:
+                rf_group = g
+            else:
+                middle.append(g)
+
+        # Reverse middle groups and rebuild in natural order:
+        # [OW, highest-pri-group, ..., lowest-pri-group, Root]
+        new_groups = (([ow_group] if ow_group else [])
+                      + list(reversed(middle))
+                      + ([rf_group] if rf_group else []))
+
+        # Rebuild _entries and _check_vars in natural order.
+        # Within each group, reverse mod order (ascending → descending priority).
+        old_entries = list(self._entries)
+        old_vars = list(self._check_vars)
+        new_entries = []
+        new_vars = []
+        for sep_idx, mod_indices in new_groups:
+            if sep_idx is not None:
+                new_entries.append(old_entries[sep_idx])
+                new_vars.append(old_vars[sep_idx])
+            for mi in reversed(mod_indices):
+                new_entries.append(old_entries[mi])
+                new_vars.append(old_vars[mi])
+
+        self._entries[:] = new_entries
+        self._check_vars[:] = new_vars
 
     def _sort_key_fn(self):
         """Return a key function for sorting entry indices by the active column."""
@@ -3124,13 +3237,113 @@ class ModListPanel(ctk.CTkFrame):
             idx = sorted_sel[0]
             is_block = True
 
-        self._drag_idx = idx
-        self._drag_origin_idx = idx
         self._drag_start_y = start_y
         self._drag_moved = False
         self._drag_is_block = is_block
         self._drag_block = block
         self._drag_sel_indices = sel_indices  # empty list = contiguous block (separator drag)
+
+        # When a column sort is active, real-time reordering mutates _entries
+        # which causes the sort to recompute and produce unpredictable results.
+        # Save a snapshot so each drag event can restore from the original state.
+        if self._sort_column is not None:
+            self._drag_entries_snapshot = list(self._entries)
+            self._drag_vars_snapshot = list(self._check_vars)
+            self._drag_saved_sort_column = self._sort_column
+            self._drag_saved_sort_ascending = self._sort_ascending
+        else:
+            self._drag_entries_snapshot = None
+            self._drag_vars_snapshot = None
+            self._drag_saved_sort_column = None
+            self._drag_saved_sort_ascending = None
+
+        # When priority-ascending (inverted) sort is active, physically reorder
+        # _entries to match the visual display order.  This lets the standard
+        # non-inverted drag logic work unchanged — visual position == _entries
+        # position.  The snapshot above preserves the original order for restore.
+        _inverted = (self._sort_column == "priority" and self._sort_ascending)
+        if _inverted:
+            # Compute visual order from the current (snapshot) state
+            if self._vis_dirty:
+                self._visible_indices = self._compute_visible_indices()
+                self._vis_dirty = False
+            vis_order = self._visible_indices  # display order indices
+
+            # Build the full reordered index list.  vis_order only includes
+            # visible entries.  Non-visible entries (collapsed/filtered mods)
+            # must stay with their owning separator so _sep_block_range still
+            # works.  For each separator in vis_order, append its hidden mods
+            # right after it.
+            vis_set = set(vis_order)
+
+            # Map each non-visible entry to its owning separator (in original
+            # _entries order, scan backwards to find the nearest separator).
+            sep_hidden: dict[int, list[int]] = {}  # sep_idx → [hidden entry indices]
+            orphaned: list[int] = []
+            for i in range(len(self._entries)):
+                if i in vis_set:
+                    continue
+                # Find owning separator by scanning backwards
+                owner = -1
+                for j in range(i - 1, -1, -1):
+                    if self._entries[j].is_separator:
+                        owner = j
+                        break
+                if owner >= 0:
+                    sep_hidden.setdefault(owner, []).append(i)
+                else:
+                    orphaned.append(i)
+
+            new_order: list[int] = []
+            for vi in vis_order:
+                new_order.append(vi)
+                if self._entries[vi].is_separator and vi in sep_hidden:
+                    # Append hidden mods in reversed order to match inverted
+                    # display (ascending priority = descending _entries index)
+                    new_order.extend(reversed(sep_hidden[vi]))
+            new_order.extend(orphaned)
+
+            new_entries = [self._entries[i] for i in new_order]
+            new_vars = [self._check_vars[i] for i in new_order]
+            self._entries[:] = new_entries
+            self._check_vars[:] = new_vars
+
+            # Remap idx, sel_indices, and block references to new positions
+            old_to_new = {old: new for new, old in enumerate(new_order)}
+            idx = old_to_new[idx]
+            if sel_indices:
+                sel_indices = sorted(old_to_new[i] for i in sel_indices)
+                self._drag_sel_indices = sel_indices
+                # Rebuild block with new entries/vars
+                block = [(self._entries[i], self._check_vars[i]) for i in sel_indices]
+                self._drag_block = block
+                idx = sel_indices[0]
+            elif is_block and block:
+                # Separator block drag — rebuild block in reordered position order
+                new_blk_start = idx
+                new_blk_size = len(block)
+                block = [
+                    (self._entries[i], self._check_vars[i])
+                    for i in range(new_blk_start, new_blk_start + new_blk_size)
+                ]
+                self._drag_block = block
+
+            # Clear column sort so _apply_column_sort is a no-op during drag.
+            # The physical order now matches the display.
+            self._sort_column = None
+            self._sort_ascending = True
+            self._invalidate_derived_caches()
+            self._vis_dirty = True
+
+            # Save a second snapshot of the reordered state.  _on_mouse_drag
+            # restores from this on each event so mutations don't cascade.
+            # (_drag_entries_snapshot holds the ORIGINAL pre-reorder state for
+            # full restore on cancel.)
+            self._drag_reordered_snapshot = list(self._entries)
+            self._drag_reordered_vars = list(self._check_vars)
+
+        self._drag_idx = idx
+        self._drag_origin_idx = idx
 
         # Compute the starting slot — position of the group's top among non-drag
         # items.  _on_mouse_drag uses delta-based movement from this baseline.
@@ -3273,6 +3486,29 @@ class ModListPanel(ctk.CTkFrame):
         cy = self._event_canvas_y(event)
         blk_size = len(self._drag_block) if self._drag_is_block else 1
 
+        # Restore _entries to a clean state before computing the new insertion.
+        # For inverted drag, use the reordered snapshot (physical = visual order).
+        # For other column sorts, use the original snapshot.
+        _reordered = self._drag_reordered_snapshot
+        _snap = _reordered if _reordered is not None else self._drag_entries_snapshot
+        _snap_vars = (self._drag_reordered_vars
+                      if _reordered is not None
+                      else self._drag_vars_snapshot)
+        _using_snapshot = _snap is not None
+        if _using_snapshot:
+            self._entries[:] = list(_snap)
+            self._check_vars[:] = list(_snap_vars)
+            self._drag_idx = self._drag_origin_idx
+            if self._drag_sel_indices:
+                # Restore original sparse indices
+                _block_ids = {id(e) for e, _ in self._drag_block}
+                self._drag_sel_indices = sorted(
+                    i for i in range(len(self._entries))
+                    if id(self._entries[i]) in _block_ids
+                )
+            self._invalidate_derived_caches()
+            self._vis_dirty = True
+
         if self._vis_dirty:
             self._visible_indices = self._compute_visible_indices()
             self._vis_dirty = False
@@ -3296,57 +3532,39 @@ class ModListPanel(ctk.CTkFrame):
         slot = max(0, min(slot, len(vis_without_drag)))
 
         if slot == self._drag_slot:
-            return
+            if _using_snapshot:
+                # Snapshot was restored but slot unchanged — still need to
+                # re-apply the insertion so _entries reflects the current slot.
+                pass
+            else:
+                return
 
         self._drag_slot = slot
 
         # --- Real-time reorder ---
-
-        _inverted = False
-        _non_sep = [i for i in vis_without_drag if not self._entries[i].is_separator]
-        if len(_non_sep) >= 2:
-            _inverted = _non_sep[0] > _non_sep[1]
+        # Note: inverted priority sort is handled by physically reordering
+        # _entries at drag start (_activate_drag), so by this point
+        # _sort_column is None and the standard logic works.
 
         def _entry_name(ei):
             return self._entries[ei].name
 
-        _ow_ei = next((i for i in vis_without_drag if _entry_name(i) == OVERWRITE_NAME), None)
-        _rf_ei = next((i for i in vis_without_drag if _entry_name(i) == ROOT_FOLDER_NAME), None)
-
         if slot == 0 and len(vis_without_drag) > 0:
-            if _inverted:
-                _pre_removal_insert = _rf_ei if _rf_ei is not None else len(self._entries)
-            else:
-                _pre_removal_insert = vis_without_drag[0]
+            _pre_removal_insert = vis_without_drag[0]
         elif slot >= len(vis_without_drag):
-            if _inverted:
-                _pre_removal_insert = (_ow_ei + 1) if _ow_ei is not None else 0
-            else:
-                _pre_removal_insert = len(self._entries)
+            _pre_removal_insert = len(self._entries)
         else:
             above_ei = vis_without_drag[slot - 1]
             below_ei = vis_without_drag[slot]
-            above_is_sep = self._entries[above_ei].is_separator
-            above_is_synthetic = _entry_name(above_ei) in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
             below_is_sep = self._entries[below_ei].is_separator
-            if _inverted:
-                if above_is_synthetic and _entry_name(above_ei) == ROOT_FOLDER_NAME:
-                    _pre_removal_insert = above_ei
-                elif above_is_sep and not above_is_synthetic:
-                    _pre_removal_insert = self._sep_block_range(above_ei).stop
-                elif below_is_sep and not above_is_synthetic:
-                    _pre_removal_insert = above_ei
-                else:
-                    _pre_removal_insert = above_ei
-            else:
-                if below_is_sep:
-                    below_name = _entry_name(below_ei)
-                    if below_name == OVERWRITE_NAME:
-                        _pre_removal_insert = below_ei + 1
-                    else:
-                        _pre_removal_insert = below_ei
+            if below_is_sep:
+                below_name = _entry_name(below_ei)
+                if below_name == OVERWRITE_NAME:
+                    _pre_removal_insert = below_ei + 1
                 else:
                     _pre_removal_insert = below_ei
+            else:
+                _pre_removal_insert = below_ei
 
         # Prevent non-bundle mods from being dropped inside a bundle block.
         _pre_removal_insert = self._clamp_outside_bundle_blocks(_pre_removal_insert)
@@ -3362,10 +3580,7 @@ class ModListPanel(ctk.CTkFrame):
                 del self._entries[self._drag_idx:self._drag_idx + blk_size]
                 del self._check_vars[self._drag_idx:self._drag_idx + blk_size]
 
-            insert_at = max(1, min(_drop_insert_at, len(self._entries)))
-            if (self._entries and self._entries[-1].name == ROOT_FOLDER_NAME
-                    and insert_at > len(self._entries) - 1):
-                insert_at = len(self._entries) - 1
+            insert_at = self._clamp_insert_at(_drop_insert_at, is_block=True)
 
             for j, (entry, var) in enumerate(self._drag_block):
                 self._entries.insert(insert_at + j, entry)
@@ -3381,10 +3596,7 @@ class ModListPanel(ctk.CTkFrame):
             entry = self._entries.pop(self._drag_idx)
             var   = self._check_vars.pop(self._drag_idx)
 
-            insert_at = max(0, min(_drop_insert_at, len(self._entries)))
-            if (self._entries and self._entries[-1].name == ROOT_FOLDER_NAME
-                    and insert_at > len(self._entries) - 1):
-                insert_at = len(self._entries) - 1
+            insert_at = self._clamp_insert_at(_drop_insert_at, is_block=False)
 
             self._entries.insert(insert_at, entry)
             self._check_vars.insert(insert_at, var)
@@ -3401,24 +3613,86 @@ class ModListPanel(ctk.CTkFrame):
         self._cancel_drag_timer()
         self._cancel_drag_autoscroll()
         had_multi = len(self._sel_set) > 1
+
+        # Restore sort state if it was cleared for inverted drag
+        _saved_col = self._drag_saved_sort_column
+        _saved_asc = self._drag_saved_sort_ascending
+
         if self._drag_idx >= 0 and self._drag_moved:
-            # Real-time reorder already happened during drag — just persist.
-            self._save_modlist()
+            # Real-time reorder already happened during drag.
+            # If the drag was inverted, _entries is in visual (inverted) order
+            # and must be converted back to natural order before saving.
+            if _saved_col == "priority" and _saved_asc:
+                # Remember the dragged entry object(s) before uninverting so we
+                # can find their new positions and update the selection.
+                _dragged_entry = self._entries[self._drag_idx] if not self._drag_is_block else None
+                _dragged_block_entries = (
+                    [e for e, _ in self._drag_block] if self._drag_is_block else []
+                )
+                self._uninvert_entries_order()
+                # Update sel_idx/sel_set to the new positions after uninvert
+                if _dragged_entry is not None:
+                    new_idx = next(
+                        (i for i, e in enumerate(self._entries) if e is _dragged_entry), self._sel_idx
+                    )
+                    self._sel_idx = new_idx
+                    self._sel_set = {new_idx}
+                    self._drag_idx = new_idx
+                elif _dragged_block_entries:
+                    _block_set = {id(e) for e in _dragged_block_entries}
+                    new_indices = [
+                        i for i, e in enumerate(self._entries) if id(e) in _block_set
+                    ]
+                    if new_indices:
+                        self._sel_idx = new_indices[0]
+                        # Collapse to single selection so subsequent clicks don't
+                        # re-trigger the multi-drag path with stale indices.
+                        self._sel_set = {new_indices[0]}
+            self._save_modlist()  # always save, regardless of which branch above ran
+            if _saved_col is not None:
+                self._sort_column = _saved_col
+                self._sort_ascending = _saved_asc
+            self._invalidate_derived_caches()
+            self._vis_dirty = True
             self._rebuild_filemap()
-        elif self._drag_idx >= 0 and not self._drag_moved and had_multi:
-            # Click (no drag) inside a multi-selection — collapse to the clicked item
-            cy = self._event_canvas_y(event)
-            clicked = self._canvas_y_to_index(cy)
-            if clicked in self._sel_set:
-                self._sel_idx = clicked
-                self._sel_set = {clicked}
-                self._update_info()
+        elif self._drag_idx >= 0 and not self._drag_moved:
+            # No movement — restore original _entries if we reordered for inverted drag
+            _snap = self._drag_entries_snapshot
+            if _snap is not None:
+                self._entries[:] = _snap
+                self._check_vars[:] = list(self._drag_vars_snapshot)
+            if _saved_col is not None:
+                self._sort_column = _saved_col
+                self._sort_ascending = _saved_asc
+            self._invalidate_derived_caches()
+            self._vis_dirty = True
+            if had_multi:
+                # Click (no drag) inside a multi-selection — collapse to the clicked item.
+                # Recompute visible indices first so _canvas_y_to_index is accurate.
+                self._visible_indices = self._compute_visible_indices()
+                self._vis_dirty = False
+                cy = self._event_canvas_y(event)
+                clicked = self._canvas_y_to_index(cy)
+                # When inverted drag was active, _sel_set may have stale indices
+                # from the previous drag — collapse unconditionally.
+                if clicked in self._sel_set or _saved_col is not None:
+                    self._sel_idx = clicked
+                    self._sel_set = {clicked}
+                    self._update_info()
         self._drag_idx = -1
         self._drag_origin_idx = -1
         self._drag_moved = False
         self._drag_slot  = -1
         self._drag_is_block = False
         self._drag_sel_indices = []
+        self._drag_entries_snapshot = None
+        self._drag_vars_snapshot = None
+        self._drag_reordered_snapshot = None
+        self._drag_reordered_vars = None
+        self._drag_saved_sort_column = None
+        self._drag_saved_sort_ascending = None
+        if _saved_col is not None:
+            self._update_header(self._canvas_w)
         self._redraw()
         self._update_info()
 
