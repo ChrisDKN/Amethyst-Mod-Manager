@@ -482,9 +482,11 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             steam_id = getattr(self._game, "steam_id", None)
             if steam_id:
                 app_log(f"[Add Game] Checking Steam manifest (app ID: {steam_id}, exe: {self._game.exe_name})")
-                found = find_game_by_steam_id(libraries, steam_id, self._game.exe_name)
-                if found:
-                    app_log(f"[Add Game] Found via Steam app manifest: {found}")
+                for _exe in exe_names:
+                    found = find_game_by_steam_id(libraries, steam_id, _exe)
+                    if found:
+                        app_log(f"[Add Game] Found via Steam app manifest ({_exe}): {found}")
+                        break
                 else:
                     app_log(
                         f"[Add Game] Not found via Steam app manifest — "

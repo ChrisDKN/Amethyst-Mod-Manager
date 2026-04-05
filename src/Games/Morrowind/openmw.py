@@ -81,6 +81,10 @@ class OpenMW(BaseGame):
         return "openmw-launcher"
 
     @property
+    def exe_name_alts(self) -> list[str]:
+        return ["Morrowind Launcher.exe", "Morrowind.exe"]
+
+    @property
     def plugin_extensions(self) -> list[str]:
         return [".esp", ".esm", ".omwscripts", ".omwaddon"]
 
@@ -360,10 +364,30 @@ class OpenMW(BaseGame):
         from Games.Morrowind.openmw_cfg import update_openmw_cfg
         plugins_txt = profile_dir / "plugins.txt"
         cfg_path    = self.get_openmw_cfg_path()
+
+        # Collect mod .bsa files from the filemap (in priority order, top wins).
+        # These are BSAs that were deployed from mods and need fallback-archive= entries.
+        bsa_archives: list[str] = []
+        _seen_bsa: set[str] = set()
+        if filemap.is_file():
+            for _line in filemap.read_text(encoding="utf-8", errors="replace").splitlines():
+                _line = _line.strip()
+                if not _line or _line.startswith("#"):
+                    continue
+                parts = _line.split("\t", 1)
+                rel_path = parts[0]
+                if rel_path.lower().endswith(".bsa"):
+                    _bsa_name = Path(rel_path).name
+                    _key = _bsa_name.lower()
+                    if _key not in _seen_bsa:
+                        _seen_bsa.add(_key)
+                        bsa_archives.append(_bsa_name)
+
         update_openmw_cfg(
             cfg_path=cfg_path,
             data_dirs=[data_dir],
             plugins_txt=plugins_txt,
+            fallback_archives=bsa_archives,
             log_fn=_log,
         )
 

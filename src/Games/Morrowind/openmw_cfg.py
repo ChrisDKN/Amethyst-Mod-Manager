@@ -24,12 +24,20 @@ from pathlib import Path
 # Vanilla masters are always present and always load first.
 _VANILLA_MASTERS = [
     "Morrowind.esm",
+    "builtin.omwscripts",
     "Tribunal.esm",
     "Bloodmoon.esm",
 ]
 
+# Vanilla BSAs — always included as fallback-archive entries before mod BSAs.
+_VANILLA_BSAS = [
+    "Morrowind.bsa",
+    "Tribunal.bsa",
+    "Bloodmoon.bsa",
+]
+
 # Exact key names we own (lowercase).
-_MANAGED_KEYS = {"data", "content", "groundcover"}
+_MANAGED_KEYS = {"data", "content", "groundcover", "fallback-archive"}
 
 
 def _is_managed_line(line: str) -> bool:
@@ -70,9 +78,10 @@ def update_openmw_cfg(
     data_dirs: list[Path],
     plugins_txt: Path,
     groundcover_plugins: list[str] | None = None,
+    fallback_archives: list[str] | None = None,
     log_fn=None,
 ) -> None:
-    """Rewrite the managed data= / content= / groundcover= entries in openmw.cfg.
+    """Rewrite the managed data= / content= / groundcover= / fallback-archive= entries in openmw.cfg.
 
     Args:
         cfg_path:            Path to openmw.cfg.
@@ -82,6 +91,9 @@ def update_openmw_cfg(
         groundcover_plugins: Explicit list of groundcover plugin names to write.  When
                              None, any existing groundcover= lines from the cfg are
                              preserved unchanged.
+        fallback_archives:   Ordered list of .bsa archive names to write as
+                             fallback-archive= entries.  When None, existing
+                             fallback-archive= lines from the cfg are preserved unchanged.
         log_fn:              Optional logging callable.
     """
     _log = log_fn or (lambda _: None)
@@ -93,6 +105,7 @@ def update_openmw_cfg(
     # ------------------------------------------------------------------
     preserved: list[str] = []
     existing_groundcover: list[str] = []
+    existing_fallback_archives: list[str] = []
 
     if cfg_path.is_file():
         for raw in cfg_path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -103,6 +116,10 @@ def update_openmw_cfg(
                 if key == "groundcover" and groundcover_plugins is None:
                     # Preserve existing groundcover= lines when caller did not supply overrides.
                     existing_groundcover.append(stripped.split("=", 1)[1].strip().strip('"'))
+                    continue
+                if key == "fallback-archive" and fallback_archives is None:
+                    # Preserve existing fallback-archive= lines when caller did not supply overrides.
+                    existing_fallback_archives.append(stripped.split("=", 1)[1].strip().strip('"'))
                     continue
                 if key in _MANAGED_KEYS:
                     continue
@@ -131,12 +148,21 @@ def update_openmw_cfg(
     gc_list = groundcover_plugins if groundcover_plugins is not None else existing_groundcover
     for gc in gc_list:
         managed.append(f"groundcover={gc}")
+    if fallback_archives is not None:
+        # Always include vanilla BSAs first, then mod BSAs (deduped).
+        vanilla_bsa_lower = {b.lower() for b in _VANILLA_BSAS}
+        mod_bsas = [b for b in fallback_archives if b.lower() not in vanilla_bsa_lower]
+        fa_list = _VANILLA_BSAS + mod_bsas
+    else:
+        fa_list = existing_fallback_archives
+    for fa in fa_list:
+        managed.append(f"fallback-archive={fa}")
 
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text("\n".join(preserved + managed) + "\n", encoding="utf-8")
     _log(
-        f"  Wrote {len(data_dirs)} data dir(s) and {len(ordered)} plugin(s) "
-        f"to {cfg_path.name}."
+        f"  Wrote {len(data_dirs)} data dir(s), {len(ordered)} plugin(s), "
+        f"and {len(fa_list)} fallback-archive(s) to {cfg_path}."
     )
 
 
@@ -173,6 +199,8 @@ def restore_openmw_cfg(
         managed.append(f'data="{d}"')
     for plugin in _VANILLA_MASTERS:
         managed.append(f"content={plugin}")
+    for bsa in _VANILLA_BSAS:
+        managed.append(f"fallback-archive={bsa}")
 
     cfg_path.write_text("\n".join(preserved + managed) + "\n", encoding="utf-8")
     _log(
