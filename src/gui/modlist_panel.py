@@ -2784,7 +2784,15 @@ class ModListPanel(ctk.CTkFrame):
 
     def _on_header_click(self, sort_key: str):
         """Handle a click on a sortable column header."""
-        if self._sort_column == sort_key:
+        if sort_key == "priority":
+            # Priority has 2 modes: reversed (ascending = 0 at top) and default (no sort)
+            if self._sort_column == "priority":
+                self._sort_column = None
+                self._sort_ascending = True
+            else:
+                self._sort_column = "priority"
+                self._sort_ascending = True
+        elif self._sort_column == sort_key:
             # Same column clicked again — toggle direction, or clear on third click
             if not self._sort_ascending:
                 # Already descending → clear sort

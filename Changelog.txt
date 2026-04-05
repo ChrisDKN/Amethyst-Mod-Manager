@@ -1,3 +1,12 @@
+- v1.1.8
+- Added OpenMW
+- Fixed separators not being movable when priority column is reversed
+- Added a Steam command button in profile settings, Adding this command to a non-steam game will deploy the profile and launch the game.
+- Fixed fomod mods that used lower case moduleconfig.xml causing the fomod to skipped
+- Multiple archives can now be selected when installing a mod via the install mod button
+- The fomod window now overlays with the modlist panels
+
+
 - v1.1.7
 - Added Darktide
 - Witcher 3's script merger can now be setup and run via the Wizard tool window.
