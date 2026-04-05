@@ -203,7 +203,7 @@ def _check_mod_top_level(file_list: list[tuple[str, str, bool]],
 def _try_auto_strip_top_level(
     file_list: list[tuple[str, str, bool]],
     required: set[str],
-    max_strip_depth: int = 5,
+    max_strip_depth: int = 20,
 ) -> tuple[list[tuple[str, str, bool]], bool]:
     """
     Try stripping leading path segments until at least one file has a top-level
@@ -250,7 +250,7 @@ def _check_mod_top_level_file_types(
 def _try_auto_strip_for_file_types(
     file_list: list[tuple[str, str, bool]],
     required_exts: set[str],
-    max_strip_depth: int = 5,
+    max_strip_depth: int = 20,
 ) -> tuple[list[tuple[str, str, bool]], bool]:
     """
     Try stripping leading path segments until at least one top-level file has a
@@ -695,7 +695,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     pass
 
             if mod_panel is not None:
-                mod_panel.reload_after_install()
+                mod_panel.after(0, mod_panel.reload_after_install)
         except Exception as e:
             import traceback
             log_fn(f"Install error: {e}")
@@ -1229,7 +1229,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 except Exception:
                     pass
             if mod_panel is not None and not headless:
-                mod_panel.reload_after_install()
+                mod_panel.after(0, mod_panel.reload_after_install)
             return installed_variant_names[0] if installed_variant_names else mod_name
         elif getattr(game, "mod_supports_bundles", False) and detect_multi_mod(_unwrap_single_folder(extract_dir)):
             # --- Multi-mod archive: each subdir is a separate independent mod ---
@@ -1320,7 +1320,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 except Exception:
                     pass
             if mod_panel is not None and not headless:
-                mod_panel.reload_after_install()
+                mod_panel.after(0, mod_panel.reload_after_install)
             return installed_names[0] if installed_names else mod_name
         else:
             mod_root = extract_dir
@@ -1664,7 +1664,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 pass
 
         if mod_panel is not None and not headless:
-            mod_panel.reload_after_install()
+            mod_panel.after(0, mod_panel.reload_after_install)
 
         return mod_name
 
