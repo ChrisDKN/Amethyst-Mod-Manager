@@ -267,6 +267,7 @@ class ModListPanel(ctk.CTkFrame):
         self._root_deploy_folders: set[str] = set()
         self._staging_requires_subdir: bool = False
         self._normalize_folder_case: bool = True
+        self._filemap_exclude_dirs: frozenset[str] = frozenset({"fomod"})
         self._root_folder_enabled: bool = True
         self._conflict_map:  dict[str, int]      = {}  # mod_name → CONFLICT_* constant
 
@@ -539,6 +540,7 @@ class ModListPanel(ctk.CTkFrame):
         self._staging_requires_subdir = getattr(game, "mod_staging_requires_subdir", False)
         self._normalize_folder_case = getattr(game, "normalize_folder_case", True) and load_normalize_folder_case()
         self._conflict_ignore_filenames = getattr(game, "conflict_ignore_filenames", set())
+        self._filemap_exclude_dirs = getattr(game, "filemap_exclude_dirs", frozenset({"fomod"}))
         # Load profile_state.json once; individual loaders pull from it
         self.__profile_state = read_profile_state(profile_dir)
         self._ignored_missing_reqs = read_ignored_missing_requirements(profile_dir, self.__profile_state)
@@ -2761,6 +2763,25 @@ class ModListPanel(ctk.CTkFrame):
     # Column sorting helpers (visual only — never touches modlist.txt)
     # ------------------------------------------------------------------
 
+    def _clear_sort(self) -> tuple[str | None, bool]:
+        """Clear any active non-priority column sort. Returns (col, asc) from before clearing."""
+        col, asc = self._sort_column, self._sort_ascending
+        if self._sort_column is None or self._sort_column == "priority":
+            return col, asc
+        self._sort_column = None
+        self._sort_ascending = True
+        self._update_header(self._canvas_w)
+        return col, asc
+
+    def _restore_sort(self, col: str | None, asc: bool) -> None:
+        """Restore a previously saved sort state and persist it."""
+        if col is None:
+            return
+        self._sort_column = col
+        self._sort_ascending = asc
+        save_sort_state(col, asc)
+        self._update_header(self._canvas_w)
+
     def _on_header_click(self, sort_key: str):
         """Handle a click on a sortable column header."""
         if self._sort_column == sort_key:
@@ -3251,6 +3272,18 @@ class ModListPanel(ctk.CTkFrame):
             self._drag_vars_snapshot = list(self._check_vars)
             self._drag_saved_sort_column = self._sort_column
             self._drag_saved_sort_ascending = self._sort_ascending
+            # For non-priority sorts, clear immediately so the list shows natural
+            # order during the drag.  _entries is already in natural order for
+            # these sorts (only _visible_indices was reordered), so no physical
+            # reorder is needed.  The snapshot is still used by _on_mouse_drag
+            # to reset _entries on each event.
+            _is_inverted = (self._sort_column == "priority" and self._sort_ascending)
+            if not _is_inverted:
+                self._sort_column = None
+                self._sort_ascending = True
+                self._update_header(self._canvas_w)
+                self._invalidate_derived_caches()
+                self._vis_dirty = True
         else:
             self._drag_entries_snapshot = None
             self._drag_vars_snapshot = None
@@ -3650,6 +3683,7 @@ class ModListPanel(ctk.CTkFrame):
                         self._sel_set = {new_indices[0]}
             self._save_modlist()  # always save, regardless of which branch above ran
             if _saved_col is not None:
+                # Restore the sort that was active before the drag
                 self._sort_column = _saved_col
                 self._sort_ascending = _saved_asc
             self._invalidate_derived_caches()
@@ -5059,6 +5093,7 @@ class ModListPanel(ctk.CTkFrame):
         )
         if sep_idx is None:
             return
+        saved_col, saved_asc = self._clear_sort()
 
         # Pull the mod out
         entry = self._entries.pop(mod_idx)
@@ -5074,6 +5109,7 @@ class ModListPanel(ctk.CTkFrame):
         self._check_vars.insert(dest, var)
 
         self._sel_idx = dest
+        self._restore_sort(saved_col, saved_asc)
         self._invalidate_derived_caches()
         self._save_modlist()
         self._rebuild_filemap()
@@ -5094,6 +5130,7 @@ class ModListPanel(ctk.CTkFrame):
                 to_move.append((self._entries[i], self._check_vars[i]))
         if not to_move:
             return
+        saved_col, saved_asc = self._clear_sort()
 
         # Remove them from the list (highest index first to preserve lower indices)
         for i in sorted(indices, reverse=True):
@@ -5112,6 +5149,7 @@ class ModListPanel(ctk.CTkFrame):
             for entry, var in to_move:
                 self._entries.append(entry)
                 self._check_vars.append(var)
+            self._restore_sort(saved_col, saved_asc)
             self._invalidate_derived_caches()
             self._save_modlist()
             self._rebuild_filemap()
@@ -5128,6 +5166,7 @@ class ModListPanel(ctk.CTkFrame):
         # Update selection to the moved block
         self._sel_set = set(range(dest, dest + len(to_move)))
         self._sel_idx = dest
+        self._restore_sort(saved_col, saved_asc)
         self._invalidate_derived_caches()
         self._save_modlist()
         self._rebuild_filemap()
@@ -6209,11 +6248,13 @@ class ModListPanel(ctk.CTkFrame):
             return
         if any(self._entries[i].locked for i in indices):
             return
+        saved_col, saved_asc = self._clear_sort()
         for i in indices:
             self._entries[i], self._entries[i - 1] = self._entries[i - 1], self._entries[i]
             self._check_vars[i], self._check_vars[i - 1] = self._check_vars[i - 1], self._check_vars[i]
         self._sel_set = {i - 1 for i in indices}
         self._sel_idx = self._sel_idx - 1 if self._sel_idx >= 0 else -1
+        self._restore_sort(saved_col, saved_asc)
         self._invalidate_derived_caches()
         self._redraw()
         self._update_info()
@@ -6230,11 +6271,13 @@ class ModListPanel(ctk.CTkFrame):
             return
         if any(self._entries[i].locked for i in indices):
             return
+        saved_col, saved_asc = self._clear_sort()
         for i in indices:
             self._entries[i], self._entries[i + 1] = self._entries[i + 1], self._entries[i]
             self._check_vars[i], self._check_vars[i + 1] = self._check_vars[i + 1], self._check_vars[i]
         self._sel_set = {i + 1 for i in indices}
         self._sel_idx = self._sel_idx + 1 if self._sel_idx >= 0 else -1
+        self._restore_sort(saved_col, saved_asc)
         self._invalidate_derived_caches()
         self._redraw()
         self._update_info()
@@ -6394,6 +6437,7 @@ class ModListPanel(ctk.CTkFrame):
                         allowed_extensions=install_extensions or None,
                         root_deploy_folders=root_deploy_folders or None,
                         normalize_folder_case=normalize_folder_case,
+                        exclude_dirs=self._filemap_exclude_dirs or None,
                     )
                 count, conflict_map, overrides, overridden_by = build_filemap(
                     modlist_path, staging, output,
@@ -6406,6 +6450,7 @@ class ModListPanel(ctk.CTkFrame):
                     excluded_mod_files=excluded_mod_files or None,
                     normalize_folder_case=normalize_folder_case,
                     conflict_key_fn=_conflict_key_fn,
+                    exclude_dirs=self._filemap_exclude_dirs or None,
                 )
                 _game = getattr(self, "_game", None)
                 if _game is not None:

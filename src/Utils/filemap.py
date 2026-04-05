@@ -82,6 +82,7 @@ def _scan_dir(
     allowed_extensions: frozenset[str] = frozenset(),
     _unused_root_deploy_folders: frozenset[str] = frozenset(),
     strip_path_prefixes: list[str] | None = None,
+    exclude_dirs: frozenset[str] = frozenset(),
 ) -> tuple[str, dict[str, str], dict[str, str]]:
     """Walk source_dir with os.scandir (fast, no Pathlib overhead).
 
@@ -102,6 +103,12 @@ def _scan_dir(
     (including the leading dot) appears in this set are included.  e.g.
     allowed_extensions={".pak"} drops all non-.pak files from the result.
 
+    exclude_dirs — lowercase directory names to skip entirely during the walk.
+    Any directory whose name (case-insensitive) matches an entry here is never
+    pushed onto the scan stack, so none of its files reach the filemap.
+    e.g. exclude_dirs={"fomod"} prevents FOMOD installer metadata from being
+    deployed to the game's data directory.
+
     _unused_root_deploy_folders — retained for call-site compatibility only;
     the root-deploy routing has been removed in favour of custom_routing_rules.
     """
@@ -121,6 +128,8 @@ def _scan_dir(
             with os.scandir(current) as it:
                 for entry in it:
                     if entry.is_dir(follow_symlinks=False):
+                        if exclude_dirs and entry.name.lower() in exclude_dirs:
+                            continue
                         stack.append((
                             prefix + entry.name + "/",
                             entry.path,
@@ -447,6 +456,7 @@ def rebuild_mod_index(
     allowed_extensions: set[str] | None = None,
     root_deploy_folders: set[str] | None = None,  # unused, kept for call-site compat
     normalize_folder_case: bool = True,
+    exclude_dirs: frozenset[str] | None = None,
 ) -> None:
     """Scan every mod folder under staging_root and rewrite the full index.
 
@@ -459,6 +469,7 @@ def rebuild_mod_index(
     _per_mod = per_mod_strip_prefixes or {}
     _exts  = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
     _root  = frozenset()  # root_deploy_folders routing removed; param kept for compat
+    _excl_dirs = exclude_dirs if exclude_dirs is not None else frozenset()
 
     staging_str   = str(staging_root)
     overwrite_str = str(staging_root.parent / "overwrite")
@@ -491,6 +502,7 @@ def rebuild_mod_index(
         _POOL.submit(
             _scan_dir, name, d, _strip_for_mod(name), _exts, _root,
             strip_path_prefixes=_path_prefixes_for_mod(name),
+            exclude_dirs=_excl_dirs,
         ): name
         for name, d in scan_targets
     }
@@ -520,6 +532,7 @@ def build_filemap(
     excluded_mod_files: dict[str, set[str]] | None = None,
     normalize_folder_case: bool = True,
     conflict_key_fn: "Callable[[str], str] | None" = None,
+    exclude_dirs: frozenset[str] | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -574,6 +587,7 @@ def build_filemap(
             per_mod_strip_prefixes=per_mod_strip_prefixes,
             allowed_extensions=allowed_extensions,
             normalize_folder_case=normalize_folder_case,
+            exclude_dirs=exclude_dirs,
         )
         index = read_mod_index(index_path) or {}
 

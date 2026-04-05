@@ -934,6 +934,7 @@ class TopBar(ctk.CTkFrame):
                             root_deploy_folders=game.mod_root_deploy_folders or None,
                             excluded_mod_files=_exc,
                             conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
+                            exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
                         )
                     except Exception as fm_err:
                         _tlog(f"Filemap rebuild warning: {fm_err}")

@@ -147,6 +147,22 @@ class BaseGame(ABC):
         return set()
 
     @property
+    def filemap_exclude_dirs(self) -> frozenset[str]:
+        """
+        Lowercase top-level directory names inside a mod folder that are
+        completely excluded from filemap scanning.  Files inside these
+        directories are never indexed, never appear in the filemap, and are
+        never deployed to the game's data directory.
+
+        The default includes ``"fomod"`` so that FOMOD installer metadata
+        (ModuleConfig.xml, screenshots, etc.) stored in every FOMOD-capable
+        mod's staging folder is never surfaced as a deployable game file.
+
+        Override and extend to suppress additional per-game metadata dirs.
+        """
+        return frozenset({"fomod"})
+
+    @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:
         """
         Like mod_folder_strip_prefixes, but applied AFTER mod_required_top_level_folders
