@@ -136,6 +136,9 @@ def cleanup_custom_deploy_dirs(
     stop_dirs: set[Path] = set()
 
     for abs_str in file_list:
+        if ".." in abs_str.replace("\\", "/").split("/"):
+            _log(f"  WARN: skipping suspicious path in custom_deploy_log: {abs_str!r}")
+            continue
         target = Path(abs_str)
         if target.is_file() or target.is_symlink():
             try:
@@ -617,6 +620,8 @@ def deploy_filemap(
             _mod_names_in_filemap.add(_ln[_tab_pos + 1:])
 
     for _mn in _mod_names_in_filemap:
+        if ".." in _mn.replace("\\", "/").split("/") or _mn.startswith(("/", "\\")):
+            continue
         _mr = overwrite_dir if _mn == _OVERWRITE_NAME else staging_root / _mn
         if _mr not in mod_index_cache:
             mod_index_cache[_mr] = _build_mod_index(_mr)
@@ -637,6 +642,13 @@ def deploy_filemap(
     _resolved_dir_cache: dict[str, str] = {}
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
+        # Guard against path traversal in filemap entries.
+        # Check segments, not substrings, so "file..name.ext" is allowed but "foo/../bar" is not.
+        _rel_segs = rel_str.replace("\\", "/").split("/")
+        _mod_segs = mod_name.replace("\\", "/").split("/")
+        if ".." in _rel_segs or ".." in _mod_segs or mod_name.startswith(("/", "\\")):
+            _log(f"  WARN: skipping suspicious filemap entry — rel={rel_str!r} mod={mod_name!r}")
+            continue
         rel_lower = rel_str.lower()
         if rel_lower in already_seen:
             continue

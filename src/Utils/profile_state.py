@@ -28,9 +28,15 @@ to profile_state.json only.
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 _FILENAME = "profile_state.json"
+
+# Guards read-modify-write cycles in _update_key against concurrent threads.
+# Keyed by resolved profile_dir to allow independent profiles to update in parallel.
+_profile_locks: dict[Path, threading.Lock] = {}
+_profile_locks_guard = threading.Lock()
 
 # Legacy filenames used for migration fallback
 _LEGACY = {
@@ -327,10 +333,21 @@ def read_ignored_missing_requirements(profile_dir: Path, state: dict | None = No
 # Per-key writers — load current state, update one key, write back
 # ---------------------------------------------------------------------------
 
+def _lock_for(profile_dir: Path) -> threading.Lock:
+    resolved = profile_dir.resolve()
+    with _profile_locks_guard:
+        lock = _profile_locks.get(resolved)
+        if lock is None:
+            lock = threading.Lock()
+            _profile_locks[resolved] = lock
+        return lock
+
+
 def _update_key(profile_dir: Path, key: str, value) -> None:
-    state = read_profile_state(profile_dir)
-    state[key] = value
-    write_profile_state(profile_dir, state)
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        state[key] = value
+        write_profile_state(profile_dir, state)
 
 
 def write_collapsed_seps(profile_dir: Path, value: set[str]) -> None:

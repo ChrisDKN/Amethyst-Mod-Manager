@@ -6408,6 +6408,9 @@ class ModListPanel(ctk.CTkFrame):
         install_extensions  = self._install_extensions
         root_deploy_folders = self._root_deploy_folders
         rescan_index        = self._filemap_rescan_index
+        per_mod_strip       = dict(self._mod_strip_prefixes) if self._mod_strip_prefixes else {}
+        conflict_ignore_fn  = set(self._conflict_ignore_filenames) if self._conflict_ignore_filenames else None
+        exclude_dirs        = set(self._filemap_exclude_dirs) if self._filemap_exclude_dirs else None
         from Games.ue5_game import UE5Game as _UE5Game
         _captured_game = getattr(self, "_game", None)
         _conflict_key_fn = None
@@ -6452,24 +6455,24 @@ class ModListPanel(ctk.CTkFrame):
                         output.parent / "modindex.bin",
                         staging,
                         strip_prefixes=strip_prefixes,
-                        per_mod_strip_prefixes=self._mod_strip_prefixes,
+                        per_mod_strip_prefixes=per_mod_strip,
                         allowed_extensions=install_extensions or None,
                         root_deploy_folders=root_deploy_folders or None,
                         normalize_folder_case=normalize_folder_case,
-                        exclude_dirs=self._filemap_exclude_dirs or None,
+                        exclude_dirs=exclude_dirs,
                     )
                 count, conflict_map, overrides, overridden_by = build_filemap(
                     modlist_path, staging, output,
                     strip_prefixes=strip_prefixes,
-                    per_mod_strip_prefixes=self._mod_strip_prefixes,
+                    per_mod_strip_prefixes=per_mod_strip,
                     allowed_extensions=install_extensions or None,
                     root_deploy_folders=root_deploy_folders or None,
                     disabled_plugins=disabled_plugins or None,
-                    conflict_ignore_filenames=self._conflict_ignore_filenames or None,
+                    conflict_ignore_filenames=conflict_ignore_fn,
                     excluded_mod_files=excluded_mod_files or None,
                     normalize_folder_case=normalize_folder_case,
                     conflict_key_fn=_conflict_key_fn,
-                    exclude_dirs=self._filemap_exclude_dirs or None,
+                    exclude_dirs=exclude_dirs,
                 )
                 _game = getattr(self, "_game", None)
                 if _game is not None:
