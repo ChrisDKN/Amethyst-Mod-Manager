@@ -1578,12 +1578,23 @@ class PluginPanel(ctk.CTkFrame):
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
         toolbar.grid_propagate(False)
 
+        self._mf_tree_expanded: bool = False
+        self._mf_expand_btn = tk.Button(
+            toolbar, text="⊞ Expand All",
+            bg=BG_PANEL, fg=TEXT_MAIN, activebackground=BG_HOVER,
+            relief="flat", font=("Segoe UI", _theme.FS10),
+            bd=0, cursor="hand2", highlightthickness=0,
+            command=self._toggle_mf_tree_expand,
+        )
+        self._mf_expand_btn.pack(side="right", padx=(0, 8), pady=2)
+
         self._mod_files_label = tk.Label(
             toolbar, text="(no mod selected)",
             bg=BG_HEADER, fg=TEXT_DIM,
             font=("Segoe UI", _theme.FS10),
+            anchor="w",
         )
-        self._mod_files_label.pack(side="left", padx=8, pady=4)
+        self._mod_files_label.pack(side="left", padx=8, pady=4, fill="x", expand=True)
 
         # Treeview — styled to match CTkTreeview / Data tab.
         # Flatpak: use default Treeitem.indicator (custom has broken state handling).
@@ -2122,6 +2133,8 @@ class PluginPanel(ctk.CTkFrame):
             return
 
         self._mod_files_label.configure(text=mod_name)
+        self._mf_tree_expanded = False
+        self._mf_expand_btn.configure(text="⊞ Expand All")
 
         # Load current exclusions for this mod
         excluded_keys: set[str] = set()
@@ -2466,6 +2479,25 @@ class PluginPanel(ctk.CTkFrame):
 
         self._data_expand_btn.configure(
             text="⊟ Collapse All" if self._data_tree_expanded else "⊞ Expand All"
+        )
+
+    def _toggle_mf_tree_expand(self):
+        """Expand all folders in the Mod Files tree, or collapse them if already expanded."""
+        self._mf_tree_expanded = not self._mf_tree_expanded
+        open_state = self._mf_tree_expanded
+
+        def _set_all(item):
+            children = self._mf_tree.get_children(item)
+            if children:
+                self._mf_tree.item(item, open=open_state)
+                for child in children:
+                    _set_all(child)
+
+        for top in self._mf_tree.get_children(""):
+            _set_all(top)
+
+        self._mf_expand_btn.configure(
+            text="⊟ Collapse All" if self._mf_tree_expanded else "⊞ Expand All"
         )
 
     def _on_data_file_selected(self, _event=None):
