@@ -1050,9 +1050,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 for name in read_loadorder(loadorder_path):
                     installed_files.add(name.lower())
             # Add vanilla/DLC plugins from the game's Data directory. These are
-            # loaded implicitly by the engine and never appear in plugins.txt, so
-            # without this a fomod that checks e.g. "DLCCoast.esm Active" would
-            # see those files as Missing and mark DLC options as NotUsable.
+            # loaded implicitly by the engine and never appear in plugins.txt
             _vanilla_path = None
             if game is not None:
                 try:

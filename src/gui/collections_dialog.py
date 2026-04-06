@@ -2190,10 +2190,8 @@ class CollectionDetailDialog(tk.Frame):
             for t in _consumer_threads:
                 t.join()
 
-            # Before processing deferred FOMADs, write a preliminary plugins.txt
+            # Before processing deferred FOMODs, write a preliminary plugins.txt
             # so that fomod conditions can see plugins from already-installed mods.
-            # Without this, a deferred fomod that checks e.g. "AWKCR.esm Active"
-            # would find it missing and disable options that depend on it.
             if _fomod_deferred:
                 try:
                     _plugin_exts = {".esm", ".esl", ".esp"}
