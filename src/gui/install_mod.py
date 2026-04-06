@@ -589,6 +589,9 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
     log_fn(f"Copied {copied} item(s) to staging area.")
 
 
+FOMOD_DEFERRED = "__FOMOD_DEFERRED__"
+
+
 def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                              game, mod_panel=None,
                              on_installed=None,
@@ -601,7 +604,8 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                              skip_index_update: bool = False,
                              overwrite_existing: "bool | None" = None,
                              progress_fn=None,
-                             clear_progress_fn=None) -> None:
+                             clear_progress_fn=None,
+                             defer_interactive_fomod: bool = False) -> None:
     """
     Extract archive to a temp directory, detect FOMOD, run the wizard if
     present, then copy the resolved files into the game's mod staging area.
@@ -1045,6 +1049,13 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 # Also add anything in loadorder.txt not already captured
                 for name in read_loadorder(loadorder_path):
                     installed_files.add(name.lower())
+
+            if fomod_auto_selections is None and defer_interactive_fomod:
+                # Collection install: no auto-selections available — defer this
+                # mod until all non-FOMOD mods have installed so its dependencies
+                # are present before the user is prompted.
+                log_fn("FOMOD installer detected — deferring until dependencies are installed.")
+                return FOMOD_DEFERRED
 
             if fomod_auto_selections is not None:
                 # Collection install: use the author's pre-chosen options,

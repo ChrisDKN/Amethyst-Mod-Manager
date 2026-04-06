@@ -37,7 +37,7 @@ from Utils.profile_state import (
     read_collection_optional_skipped,
     write_collection_optional_skipped,
 )
-from gui.install_mod import install_mod_from_archive
+from gui.install_mod import install_mod_from_archive, FOMOD_DEFERRED
 from gui.mod_card import CARD_PAD, make_placeholder_image
 from Utils.ui_config import get_ui_scale
 from gui.mod_name_utils import _suggest_mod_names
@@ -1889,6 +1889,7 @@ class CollectionDetailDialog(tk.Frame):
         _install_lock = threading.Lock()
         _install_counters = {"installed": 0, "skipped": 0, "done": 0}
         _install_results: dict[int, str] = {}  # file_id → installed folder name
+        _fomod_deferred: list = []  # (mod, result, effective_domain) tuples deferred for post-install
 
         # Bounded queue: download producers → install consumers.
         # Items are (mod, DownloadResult, effective_domain) or _DONE_SENTINEL.
@@ -2043,10 +2044,18 @@ class CollectionDetailDialog(tk.Frame):
                     preferred_name=_preferred,
                     skip_index_update=True,
                     overwrite_existing=overwrite_existing,
+                    defer_interactive_fomod=(auto_fomod is None),
                 )
             finally:
                 if _large_sem is not None:
                     _large_sem.release()
+
+            if folder_name == FOMOD_DEFERRED:
+                # FOMOD with no auto-selections — queue for after all other mods install.
+                with _install_lock:
+                    _fomod_deferred.append((mod, result, effective_domain))
+                    _install_counters["done"] += 1
+                return
 
             with _install_lock:
                 if folder_name:
@@ -2180,6 +2189,67 @@ class CollectionDetailDialog(tk.Frame):
             # Wait for all install consumers to finish.
             for t in _consumer_threads:
                 t.join()
+
+            # Process deferred FOMOD mods (those without auto-selections) now that
+            # all other mods are installed so their dependencies are available.
+            if _fomod_deferred:
+                self._log(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s)…")
+                _set_status(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s)…")
+                for _def_mod, _def_result, _def_domain in _fomod_deferred:
+                    _def_archive = str(_def_result.file_path)
+                    _def_auto_fomod = fomod_by_file_id.get(_def_mod.file_id)
+                    try:
+                        _def_mod_id = schema_file_id_to_mod_id.get(_def_mod.file_id, 0) or _def_mod.mod_id
+                        _def_pmeta = build_meta_from_download(
+                            game_domain=_def_domain,
+                            mod_id=_def_mod_id,
+                            file_id=_def_mod.file_id,
+                            archive_name=_def_mod.file_name or "",
+                        )
+                        _def_pmeta.nexus_name = _def_mod.mod_name or ""
+                        _def_pmeta.author = _def_mod.mod_author or ""
+                        _def_pmeta.version = _def_mod.version or ""
+                    except Exception:
+                        _def_pmeta = None
+                    _def_logical = schema_file_id_to_logical.get(_def_mod.file_id, "") or ""
+                    _def_schema_name = schema_pos_to_name.get(
+                        schema_file_id_to_pos.get(_def_mod.file_id, -1), "") or ""
+                    _def_preferred = _def_logical or _def_schema_name or _def_mod.mod_name or ""
+                    try:
+                        _def_folder = install_mod_from_archive(
+                            _def_archive, self, self._log, self._game,
+                            fomod_auto_selections=_def_auto_fomod,
+                            prebuilt_meta=_def_pmeta,
+                            profile_dir=profile_dir,
+                            headless=True,
+                            preferred_name=_def_preferred,
+                            skip_index_update=True,
+                            overwrite_existing=overwrite_existing,
+                        )
+                    except Exception as _def_exc:
+                        self._log(f"Collection install: failed to install deferred FOMOD '{_def_mod.mod_name}': {_def_exc}")
+                        _def_folder = None
+                    with _install_lock:
+                        if _def_folder:
+                            _install_results[_def_mod.file_id] = _def_folder
+                            _install_counters["installed"] += 1
+                        else:
+                            _install_counters["skipped"] += 1
+                    if _def_folder and _def_mod.file_id:
+                        _install_state["installed_fids"].add(_def_mod.file_id)
+                        try:
+                            self.after(0, lambda fid=_def_mod.file_id: self._mark_row_installed(fid))
+                        except Exception:
+                            pass
+                    # Clean up archive (decrement use count, delete when it hits zero)
+                    with _install_lock:
+                        if _def_archive in _archive_use_count:
+                            _archive_use_count[_def_archive] -= 1
+                            if _archive_use_count[_def_archive] == 0:
+                                try:
+                                    delete_archive_and_sidecar(Path(_def_archive))
+                                except Exception:
+                                    pass
 
             _pipeline_finished.set()
 
