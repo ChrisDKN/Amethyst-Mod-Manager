@@ -1049,6 +1049,26 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                 # Also add anything in loadorder.txt not already captured
                 for name in read_loadorder(loadorder_path):
                     installed_files.add(name.lower())
+            # Add vanilla/DLC plugins from the game's Data directory. These are
+            # loaded implicitly by the engine and never appear in plugins.txt, so
+            # without this a fomod that checks e.g. "DLCCoast.esm Active" would
+            # see those files as Missing and mark DLC options as NotUsable.
+            _vanilla_path = None
+            if game is not None:
+                try:
+                    _vanilla_path = game.get_vanilla_plugins_path()
+                except Exception:
+                    pass
+            if _vanilla_path is not None:
+                try:
+                    _plugin_exts = {".esm", ".esl", ".esp"}
+                    for _vf in _vanilla_path.iterdir():
+                        if _vf.suffix.lower() in _plugin_exts:
+                            _vname = _vf.name.lower()
+                            installed_files.add(_vname)
+                            active_files.add(_vname)
+                except Exception:
+                    pass
 
             if fomod_auto_selections is None and defer_interactive_fomod:
                 # Collection install: no auto-selections available — defer this

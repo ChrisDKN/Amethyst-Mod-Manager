@@ -2190,6 +2190,40 @@ class CollectionDetailDialog(tk.Frame):
             for t in _consumer_threads:
                 t.join()
 
+            # Before processing deferred FOMADs, write a preliminary plugins.txt
+            # so that fomod conditions can see plugins from already-installed mods.
+            # Without this, a deferred fomod that checks e.g. "AWKCR.esm Active"
+            # would find it missing and disable options that depend on it.
+            if _fomod_deferred:
+                try:
+                    _plugin_exts = {".esm", ".esl", ".esp"}
+                    _pre_plugins: list = []
+                    _seen_plugins: set = set()
+                    _pre_staging = self._game.get_effective_mod_staging_path()
+                    for _fid, _fname in _install_results.items():
+                        _mod_dir = _pre_staging / _fname
+                        if not _mod_dir.is_dir():
+                            continue
+                        for _pf in _mod_dir.rglob("*"):
+                            if _pf.suffix.lower() in _plugin_exts:
+                                _pname_low = _pf.name.lower()
+                                if _pname_low not in _seen_plugins:
+                                    _seen_plugins.add(_pname_low)
+                                    _pre_plugins.append(
+                                        PluginEntry(name=_pf.name, enabled=True)
+                                    )
+                    if _pre_plugins:
+                        _star_pre = getattr(self._game, "plugins_use_star_prefix", True)
+                        write_plugins(profile_dir / "plugins.txt", _pre_plugins,
+                                      star_prefix=_star_pre)
+                        write_loadorder(profile_dir / "loadorder.txt", _pre_plugins)
+                        self._log(
+                            f"Collection install: wrote preliminary plugins.txt "
+                            f"({len(_pre_plugins)} plugin(s)) for deferred FOMOD installs."
+                        )
+                except Exception as _pre_exc:
+                    self._log(f"Collection install: preliminary plugins.txt skipped — {_pre_exc}")
+
             # Process deferred FOMOD mods (those without auto-selections) now that
             # all other mods are installed so their dependencies are available.
             if _fomod_deferred:
