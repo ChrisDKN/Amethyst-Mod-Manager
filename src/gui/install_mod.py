@@ -1029,9 +1029,15 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
             installed_files: set[str] = set()
             active_files: set[str] = set()
-            if mod_panel is not None and mod_panel._modlist_path is not None:
-                plugins_path = mod_panel._modlist_path.parent / "plugins.txt"
-                loadorder_path = mod_panel._modlist_path.parent / "loadorder.txt"
+            _plugins_dir = None
+            if mod_panel is not None and getattr(mod_panel, "_modlist_path", None) is not None:
+                _plugins_dir = mod_panel._modlist_path.parent
+            elif profile_dir is not None:
+                from pathlib import Path as _Path
+                _plugins_dir = _Path(profile_dir)
+            if _plugins_dir is not None:
+                plugins_path = _plugins_dir / "plugins.txt"
+                loadorder_path = _plugins_dir / "loadorder.txt"
                 for entry in read_plugins(plugins_path):
                     installed_files.add(entry.name.lower())
                     if entry.enabled:

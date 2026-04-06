@@ -592,7 +592,7 @@ class CollectionDetailDialog(tk.Frame):
     _TV_COLS = ("Order", "Mod Name", "Author", "File", "Size", "Opt")
     _TV_WIDTHS_BASE = (50, 250, 120, 200, 80, 40)
 
-    def __init__(self, parent, collection, game_domain: str, api, game=None, app_root=None, log_fn=None, on_close=None, profile_dir=None, revision_number=None):
+    def __init__(self, parent, collection, game_domain: str, api, game=None, app_root=None, log_fn=None, on_close=None, profile_dir=None, revision_number=None, local_manifest_path=None):
         super().__init__(parent, bg=BG_DEEP)
         self._collection = collection
         self._game_domain = game_domain
@@ -602,6 +602,7 @@ class CollectionDetailDialog(tk.Frame):
         self._log = log_fn or (lambda *a: None)
         self._on_close = on_close or self.destroy
         self._profile_dir_override = profile_dir  # when set, use instead of deriving from collection name
+        self._local_manifest_path = local_manifest_path  # when set, skip API fetch and load from file
 
         self._name_var = tk.StringVar(value=collection.name or collection.slug or "Collection")
         self._size_var = tk.StringVar(value="Loading\u2026")
@@ -638,7 +639,10 @@ class CollectionDetailDialog(tk.Frame):
                     pass
 
         self._build_ui()
-        self._fetch()
+        if self._local_manifest_path:
+            self.after(50, self._fetch_from_local_manifest)
+        else:
+            self._fetch()
         self.after(100, lambda: (self._update_reset_btn_visibility(), self._update_open_missing_btn_visibility(), self._update_install_btn_state()))
         # Reconnect to any install that started before this panel was (re)opened
         self.after(200, self._maybe_reconnect_install)
@@ -850,6 +854,78 @@ class CollectionDetailDialog(tk.Frame):
     # ------------------------------------------------------------------
     def _fetch(self):
         threading.Thread(target=self._worker, daemon=True).start()
+
+    def _fetch_from_local_manifest(self):
+        """Populate the detail panel from a local manifest.json file (no API needed)."""
+        import json as _json
+        from Nexus.nexus_api import NexusCollectionMod as _NCM
+        try:
+            manifest_path = self._local_manifest_path
+            cj = _json.loads(open(manifest_path, encoding="utf-8").read())
+        except Exception as exc:
+            self._status_var.set(f"Failed to load manifest: {exc}")
+            return
+
+        self._collection_schema_cache = cj
+
+        schema_mods: list[dict] = cj.get("mods", [])
+        mods: list = []
+        total_size = 0
+        schema_order: dict[int, int] = {}
+        offsite: list[tuple[str, str]] = []
+
+        for pos, m in enumerate(schema_mods):
+            src = m.get("source") or {}
+            src_type = (src.get("type") or "nexus").lower()
+            mod_name = m.get("name") or ""
+            fid_raw = src.get("fileId")
+            fid = int(fid_raw) if fid_raw is not None else 0
+            mid_raw = src.get("modId")
+            mid = int(mid_raw) if mid_raw is not None else 0
+            file_size = int(src.get("fileSize") or 0)
+            total_size += file_size
+            if fid:
+                schema_order[fid] = pos
+
+            if src_type in ("browse", "direct"):
+                url = src.get("url") or src.get("fileUrl") or ""
+                if url:
+                    offsite.append((mod_name, url))
+                continue
+            if src_type == "bundle":
+                mods.append(_NCM(
+                    mod_name=mod_name,
+                    file_name=src.get("fileExpression") or mod_name,
+                    source_type="bundle",
+                ))
+                continue
+
+            mods.append(_NCM(
+                mod_id=mid,
+                file_id=fid,
+                mod_name=mod_name,
+                file_name=src.get("logicalFilename") or src.get("fileExpression") or mod_name,
+                size_bytes=file_size,
+                optional=bool(m.get("optional", False)),
+                source_type="nexus",
+            ))
+
+        self._offsite_mods = offsite
+        try:
+            self.after(0, self._update_offsite_panel)
+        except Exception:
+            pass
+
+        try:
+            _user = self._api.validate()
+            self._nexus_is_premium = bool(_user.is_premium)
+        except Exception:
+            self._nexus_is_premium = False
+
+        col_name = cj.get("info", {}).get("name") or self._collection.name or "Local Manifest"
+        self._collection.name = col_name
+        self.after(0, lambda: self._populate(
+            col_name, total_size, len(mods), mods, "", schema_order, None))
 
     def _open_revision_popup(self):
         """Open a scrollable popup listing all known revisions."""
@@ -1523,23 +1599,22 @@ class CollectionDetailDialog(tk.Frame):
         # Step 1: Download and parse collection.json for authoritative order
         # ------------------------------------------------------------------
         collection_schema: dict = {}
-        if download_link_path:
-            # Reuse the schema already fetched when the detail panel opened,
-            # if available — avoids downloading the archive twice.
-            cached = getattr(self, "_collection_schema_cache", None)
-            if cached:
-                collection_schema = cached
-                self._log("Collection install: reusing cached collection.json")
-            else:
-                _set_status("Downloading collection manifest…")
-                try:
-                    collection_schema = self._api.get_collection_archive_json(download_link_path)
-                    self._log(f"Collection install: parsed collection.json "
-                              f"({len(collection_schema.get('mods', []))} mod entries, "
-                              f"{len(collection_schema.get('plugins', []))} plugins)")
-                except Exception as exc:
-                    self._log(f"Collection install: could not download collection.json: {exc} — "
-                              "continuing with GraphQL order")
+        # Always check the cache first — covers both Nexus collections (pre-fetched)
+        # and local manifest installs (set by _fetch_from_local_manifest).
+        cached = getattr(self, "_collection_schema_cache", None)
+        if cached:
+            collection_schema = cached
+            self._log("Collection install: reusing cached collection.json")
+        if download_link_path and not collection_schema:
+            _set_status("Downloading collection manifest…")
+            try:
+                collection_schema = self._api.get_collection_archive_json(download_link_path)
+                self._log(f"Collection install: parsed collection.json "
+                          f"({len(collection_schema.get('mods', []))} mod entries, "
+                          f"{len(collection_schema.get('plugins', []))} plugins)")
+            except Exception as exc:
+                self._log(f"Collection install: could not download collection.json: {exc} — "
+                          "continuing with GraphQL order")
 
         # Save a copy of the manifest to the profile folder for inspection / future use
         if collection_schema:
@@ -1599,6 +1674,8 @@ class CollectionDetailDialog(tk.Frame):
                 choices = schema_mod.get("choices") or {}
                 if choices.get("type") == "fomod":
                     fomod_by_file_id[fid] = _fomod_choices_from_collection(choices)
+                elif choices.get("type") == "fomod_selections":
+                    fomod_by_file_id[fid] = choices["selections"]
 
         # Sort the mods list by topo position (0 = highest priority);
         # mods without a position come last (preserving their original order).
@@ -2902,6 +2979,8 @@ class CollectionDetailDialog(tk.Frame):
                 choices = sm.get("choices") or {}
                 if choices.get("type") == "fomod":
                     fomod_by_file_id[fid] = _fomod_choices_from_collection(choices)
+                elif choices.get("type") == "fomod_selections":
+                    fomod_by_file_id[fid] = choices["selections"]
 
         def _sort_key(m):
             return schema_file_id_to_pos.get(m.file_id, len(schema_mods))
@@ -4169,6 +4248,13 @@ class CollectionsDialog(tk.Frame):
         )
         self._workshop_btn.pack(side="left", padx=4, pady=2)
 
+        self._import_manifest_btn = ctk.CTkButton(
+            toolbar, text="Import Manifest", width=scaled(115), height=scaled(26),
+            fg_color="#2a6e3f", hover_color="#369150", text_color="white",
+            font=FONT_HEADER, command=self._import_manifest,
+        )
+        self._import_manifest_btn.pack(side="left", padx=4, pady=2)
+
         self._status_label = ctk.CTkLabel(
             toolbar, text="Loading collections…", anchor="w",
             font=FONT_SMALL, text_color=TEXT_DIM, fg_color=BG_HEADER,
@@ -4440,7 +4526,7 @@ class CollectionsDialog(tk.Frame):
         self._regrid_cards()
         self._load_images_then_hide_loader()
 
-    def _open_detail(self, collection, profile_dir=None, revision_number=None):
+    def _open_detail(self, collection, profile_dir=None, revision_number=None, local_manifest_path=None):
         self._close_detail()
         panel = CollectionDetailDialog(
             self, collection=collection,
@@ -4449,9 +4535,34 @@ class CollectionsDialog(tk.Frame):
             on_close=self._close_detail,
             profile_dir=profile_dir,
             revision_number=revision_number,
+            local_manifest_path=local_manifest_path,
         )
         panel.place(relx=0, rely=0, relwidth=1, relheight=1)
         self._detail_panel = panel
+
+    def _import_manifest(self):
+        from Utils.portal_filechooser import _run_file_picker_worker
+        filters = [("JSON manifest", ["*.json"]), ("All files", ["*"])]
+        threading.Thread(
+            target=_run_file_picker_worker,
+            args=("Import Manifest", filters, lambda p: self.after(0, lambda: self._on_manifest_picked(p))),
+            daemon=True,
+        ).start()
+
+    def _on_manifest_picked(self, path):
+        if not path:
+            return
+        import json as _json
+        try:
+            cj = _json.loads(Path(path).read_text(encoding="utf-8"))
+        except Exception as exc:
+            tk.messagebox.showerror("Import Manifest", f"Could not read manifest:\n{exc}", parent=self)
+            return
+        from Nexus.nexus_api import NexusCollection as _NC
+        col_name = (cj.get("info") or {}).get("name") or Path(path).stem
+        game_domain = (cj.get("info") or {}).get("domainName") or self._game_domain
+        col = _NC(name=col_name, slug="", game_domain=game_domain)
+        self._open_detail(col, local_manifest_path=str(path))
 
     def _close_detail(self):
         panel = getattr(self, "_detail_panel", None)

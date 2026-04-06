@@ -418,9 +418,57 @@ class WorkshopDialog(tk.Frame):
 
         pick_save_file(
             "Export Amethyst Manifest",
-            lambda p: self.after(0, lambda: self._write_manifest(p)),
+            lambda p: self.after(0, lambda: self._prefetch_sizes_then_export(p)),
             current_name="manifest.json",
         )
+
+    def _prefetch_sizes_then_export(self, out_path):
+        """
+        Fetch file sizes for rows that don't have one yet using a single batched
+        GraphQL request, then write the manifest.
+        """
+        if not out_path:
+            return
+
+        # Collect rows that have mod_id + file_id but no size yet
+        needs_size = [
+            row for row in self._rows
+            if row["mod_id"] and row["file_id"] and not row["size_bytes"]
+        ]
+
+        if not needs_size:
+            self._write_manifest(out_path)
+            return
+
+        # Show status while the single batch request is in-flight
+        self._export_status_var = tk.StringVar(value="Fetching file sizes…")
+        status_lbl = tk.Label(
+            self, textvariable=self._export_status_var,
+            bg=BG_DEEP, fg=TEXT_DIM, font=FONT_SMALL,
+        )
+        status_lbl.place(relx=0.0, rely=1.0, anchor="sw", x=8, y=-4)
+
+        pairs = [(row["mod_id"], row["file_id"]) for row in needs_size]
+
+        def run():
+            try:
+                size_map = self._api.graphql_file_sizes_batch(self._game_domain, pairs)
+            except Exception:
+                size_map = {}
+            self.after(0, lambda: _apply(size_map))
+
+        def _apply(size_map):
+            for row in needs_size:
+                sz = size_map.get((row["mod_id"], row["file_id"]), 0)
+                if sz:
+                    row["size_bytes"] = sz
+            try:
+                status_lbl.destroy()
+            except Exception:
+                pass
+            self._write_manifest(out_path)
+
+        Thread(target=run, daemon=True).start()
 
     def _write_manifest(self, out_path: "Path | None"):
         if not out_path:
@@ -440,12 +488,16 @@ class WorkshopDialog(tk.Frame):
                 except ValueError:
                     pass
 
+            source: dict = {
+                "modId":  row["mod_id"],
+                "fileId": file_id,
+            }
+            if row.get("size_bytes"):
+                source["fileSize"] = row["size_bytes"]
+
             mod_entry: dict = {
                 "name":     row["name"],
-                "source": {
-                    "modId":  row["mod_id"],
-                    "fileId": file_id,
-                },
+                "source":   source,
                 "optional": row["optional"],
             }
 
@@ -456,8 +508,8 @@ class WorkshopDialog(tk.Frame):
                         with fomod_path.open("r", encoding="utf-8") as fh:
                             fomod_data = json.load(fh)
                         mod_entry["choices"] = {
-                            "type":    "fomod",
-                            "options": fomod_data,
+                            "type":        "fomod_selections",
+                            "selections":  fomod_data,
                         }
                     except Exception:
                         pass
@@ -564,10 +616,11 @@ class WorkshopDialog(tk.Frame):
                 "mod_id":           mod_id,
                 "file_id":          file_id,
                 "ver_label":        ver_label,
-                "ver_options":      [{"label": ver_label, "name": ""}],
+                "ver_options":      [{"label": ver_label, "name": "", "size_bytes": 0}],
                 "optional":         False,
                 "has_fomod":        has_fomod,
                 "versions_fetched": False,
+                "size_bytes":       0,
             })
 
         n = len(self._rows)
@@ -766,7 +819,12 @@ class WorkshopDialog(tk.Frame):
             self._version_overlay = None
 
     def _set_version(self, data_idx: int, label: str):
-        self._rows[data_idx]["ver_label"] = label
+        row = self._rows[data_idx]
+        row["ver_label"] = label
+        # Sync size from the chosen option
+        opt = next((o for o in row["ver_options"] if o["label"] == label), None)
+        if opt:
+            row["size_bytes"] = opt.get("size_bytes", 0)
         for s in range(self._POOL):
             if self._pool_slot[s] == data_idx:
                 self._canvas.itemconfigure(self._pool_ver[s], text=label)
@@ -790,21 +848,30 @@ class WorkshopDialog(tk.Frame):
         # Sort latest first by upload timestamp
         sorted_files = sorted(files, key=lambda f: f.uploaded_timestamp, reverse=True)
         options = [
-            {"label": f"{f.file_id} — {f.version}", "name": f.name}
+            {
+                "label":      f"{f.file_id} — {f.version}",
+                "name":       f.name,
+                "size_bytes": f.size_in_bytes if f.size_in_bytes is not None else (f.size_kb * 1024),
+            }
             for f in sorted_files if f.file_id
         ]
         if not options:
             return
-        preferred = str(row["file_id"])
-        matched   = next((o for o in options if o["label"].startswith(preferred + " —")), None)
-        selected  = (matched or options[0])["label"]
         row["ver_options"] = options
-        row["ver_label"]   = selected
-        # Update version button text if visible
-        for s in range(self._POOL):
-            if self._pool_slot[s] == data_idx:
-                self._canvas.itemconfigure(self._pool_ver[s], text=selected)
-                break
+        # Only auto-select if the current label is still the placeholder (user hasn't picked yet).
+        # This ensures opening the picker doesn't silently change the file_id.
+        cur_label = row["ver_label"]
+        is_placeholder = not cur_label or cur_label == "—" or " — " not in cur_label
+        if is_placeholder:
+            preferred = str(row["file_id"])
+            matched   = next((o for o in options if o["label"].startswith(preferred + " —")), None)
+            selected  = matched or options[0]
+            row["ver_label"]  = selected["label"]
+            row["size_bytes"] = selected["size_bytes"]
+            for s in range(self._POOL):
+                if self._pool_slot[s] == data_idx:
+                    self._canvas.itemconfigure(self._pool_ver[s], text=selected["label"])
+                    break
         # Refresh the overlay if it's open for this row
         if (self._version_overlay is not None
                 and self._version_overlay.winfo_exists()):

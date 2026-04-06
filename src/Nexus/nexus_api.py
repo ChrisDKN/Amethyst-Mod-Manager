@@ -1393,6 +1393,90 @@ class NexusAPI:
                 app_log(f"GraphQL modInfoBatch error: {exc}")
         return results
 
+    # -- Batch file-size lookup (GraphQL v2) ---------------------------------
+
+    _GRAPHQL_FILE_BATCH = 20  # alias limit per request (keep requests manageable)
+
+    def graphql_file_sizes_batch(
+        self,
+        game_domain: str,
+        mod_file_pairs: list[tuple[int, int]],
+    ) -> dict[tuple[int, int], int]:
+        """
+        Fetch file sizes for a list of (mod_id, file_id) pairs using a single
+        GraphQL request per batch of up to _GRAPHQL_FILE_BATCH mod IDs.
+
+        Uses aliased ``modFiles`` queries — one alias per unique mod_id — so
+        N mods cost ceil(N/_GRAPHQL_FILE_BATCH) rate-limit-free GraphQL calls
+        instead of N REST calls.
+
+        Parameters
+        ----------
+        game_domain : e.g. "skyrimspecialedition"
+        mod_file_pairs : list of (mod_id, file_id)
+
+        Returns
+        -------
+        dict mapping (mod_id, file_id) → size_in_bytes (0 if not found)
+        """
+        # Resolve domain name → numeric game ID (modFiles requires the integer ID)
+        try:
+            gid_resp = self._session.post(
+                GRAPHQL_BASE,
+                json={"query": f'{{ game(domainName: "{game_domain}") {{ id }} }}'},
+                timeout=self._timeout,
+            )
+            game_id = int(
+                ((gid_resp.json().get("data") or {}).get("game") or {}).get("id") or 0
+            )
+        except Exception:
+            game_id = 0
+        if not game_id:
+            app_log(f"GraphQL fileSizesBatch: could not resolve game ID for {game_domain!r}")
+            return {}
+
+        # Group by mod_id so each mod appears only once per batch
+        from collections import defaultdict
+        mod_to_file_ids: dict[int, list[int]] = defaultdict(list)
+        for mod_id, file_id in mod_file_pairs:
+            mod_to_file_ids[mod_id].append(file_id)
+
+        unique_mods = list(mod_to_file_ids.keys())
+        results: dict[tuple[int, int], int] = {}
+
+        batch_size = self._GRAPHQL_FILE_BATCH
+        for i in range(0, len(unique_mods), batch_size):
+            batch = unique_mods[i: i + batch_size]
+            # One alias per mod: m<mod_id>: modFiles(gameId: <int>, modId: <int>)
+            aliases = "\n".join(
+                f"    m{mid}: modFiles(gameId: {game_id}, modId: {mid}) {{\n"
+                f"        fileId\n        sizeInBytes\n    }}"
+                for mid in batch
+            )
+            query = f"query FileSizesBatch {{\n{aliases}\n}}"
+            try:
+                resp = self._session.post(
+                    GRAPHQL_BASE,
+                    json={"query": query},
+                    timeout=self._timeout,
+                )
+                self._log_response("POST", "GraphQL fileSizesBatch", resp)
+                if not resp.ok:
+                    app_log(f"GraphQL fileSizesBatch failed: {resp.status_code}")
+                    continue
+                data = (resp.json().get("data") or {})
+                for mid in batch:
+                    entries = data.get(f"m{mid}") or []
+                    for entry in entries:
+                        fid = int(entry.get("fileId") or 0)
+                        sz  = int(entry.get("sizeInBytes") or 0)
+                        if fid and (mid, fid) not in results:
+                            results[(mid, fid)] = sz
+            except Exception as exc:
+                app_log(f"GraphQL fileSizesBatch error: {exc}")
+
+        return results
+
     # -- Top mods (GraphQL v2) -----------------------------------------------
 
     def get_top_mods(
