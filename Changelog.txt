@@ -1,5 +1,5 @@
 - v1.1.9
-- Fixed meta.ini getting overwritten if a another mod with the same name is installed.
+- Fixed meta.ini getting overwritten if another mod with the same name is installed.
 - The files in the mod files and data tab are now highlighted if they are winning/losing conflicts
 - Added an expand all button in the mod files tab
 - Fomod mods are now deferred to the end of a collection install instead of appearing immediately
