@@ -1395,14 +1395,28 @@ class PluginPanel(ctk.CTkFrame):
         self._log(f"Run EXE: launching via Steam (app {steam_id}) ...")
 
         def _worker():
-            try:
-                subprocess.Popen(
-                    ["steam", f"steam://rungameid/{steam_id}"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-            except Exception as e:
-                self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
+            url = f"steam://rungameid/{steam_id}"
+            candidates = (
+                ["steam", url],
+                ["xdg-open", url],
+                ["flatpak-spawn", "--host", "steam", url],
+            )
+            last_err = None
+            for cmd in candidates:
+                try:
+                    subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    return
+                except FileNotFoundError as e:
+                    last_err = e
+                    continue
+                except Exception as e:
+                    last_err = e
+                    break
+            self.after(0, lambda err=last_err: self._log(f"Run EXE error: {err}"))
 
         threading.Thread(target=_worker, daemon=True).start()
 
