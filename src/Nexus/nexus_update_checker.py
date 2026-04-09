@@ -511,6 +511,18 @@ def _apply_update_result(
     version_backfilled: bool = False,
 ) -> None:
     """Record an update (or clear the flag) and persist to meta.ini."""
+    # If the user has ignored updates for this mod, check whether a genuinely
+    # newer version has appeared since they set the ignore flag.
+    if has_update and meta.ignore_update:
+        if meta.ignored_version and _version_is_newer(latest_version, meta.ignored_version):
+            # A real new version has landed beyond the one they chose to ignore —
+            # lift the ignore flag so the update badge re-appears.
+            meta.ignore_update = False
+            meta.ignored_version = ""
+        else:
+            # Still at (or before) the ignored version — suppress the update.
+            has_update = False
+
     if has_update:
         info = UpdateInfo(
             mod_name=meta.mod_name,
@@ -543,8 +555,20 @@ def _apply_update_result(
             if latest_file_id and meta.latest_file_id != latest_file_id:
                 meta.latest_file_id = latest_file_id
                 changed = True
-            if latest_version and meta.latest_version != latest_version:
-                meta.latest_version = latest_version
+            # Never write a latest_version that is older than what is installed.
+            # The Nexus mod-page "current version" field can lag behind the
+            # actual latest uploaded file (author forgets to update it), so
+            # the API may return e.g. "0.2.6" even though the user already
+            # has "0.2.8" installed.
+            effective_latest = latest_version
+            if (
+                effective_latest
+                and meta.version
+                and _version_is_newer(meta.version, effective_latest)
+            ):
+                effective_latest = meta.version
+            if effective_latest and meta.latest_version != effective_latest:
+                meta.latest_version = effective_latest
                 changed = True
             if category_id > 0 and meta.category_id != category_id:
                 meta.category_id = category_id

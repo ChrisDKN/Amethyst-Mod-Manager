@@ -58,6 +58,7 @@ class NexusModMeta:
     latest_version: str = ""           # newest known version (for update checking)
     has_update: bool = False           # set by the update checker
     ignore_update: bool = False        # user asked to ignore this update
+    ignored_version: str = ""          # latest_version at the time ignore was set
     missing_requirements: str = ""     # semicolon-separated "modId:name" pairs
     is_fomod: bool = False             # True if installed via FOMOD installer
 
@@ -130,6 +131,7 @@ _KEY_MAP: dict[str, str] = {
     "latestVersion":     "latest_version",
     "hasUpdate":         "has_update",
     "ignoreUpdate":      "ignore_update",
+    "ignoredVersion":    "ignored_version",
     "missingRequirements": "missing_requirements",
     "FOMOD":             "is_fomod",
 }
