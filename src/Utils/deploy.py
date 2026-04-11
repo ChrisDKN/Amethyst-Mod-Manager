@@ -2465,8 +2465,11 @@ def apply_wine_dll_overrides(
             section_end = i
             break
 
-    # Windows FILETIME: 100ns ticks since 1601-01-01; epoch offset = 11644473600s
-    _filetime_hex = format(int((_time.time() + 11644473600) * 1e7), "x")
+    # Timestamps used when creating a new section or adding new entries only.
+    # Section headers in Wine's .reg format use a decimal Unix timestamp;
+    # #time= lines use a hex Windows FILETIME (100ns ticks since 1601-01-01).
+    _unix_ts   = int(_time.time())
+    _filetime_hex = format(int((_unix_ts + 11644473600) * 1e7), "x")
 
     if section_start is None:
         # Section doesn't exist — append it at the end
@@ -2474,9 +2477,9 @@ def apply_wine_dll_overrides(
         if lines and not lines[-1].endswith("\n"):
             lines.append("\n")
         lines.append("\n")
-        lines.append(f"{section_header} {_filetime_hex}\n")
+        lines.append(f"{section_header} {_unix_ts}\n")
         lines.append(f"#time={_filetime_hex}\n")
-        for dll, value in overrides.items():
+        for dll, value in sorted(overrides.items()):
             lines.append(f'"{dll}"="{value}"\n')
             _log(f"  DLL override set: {dll} = {value}")
     else:
@@ -2485,25 +2488,67 @@ def apply_wine_dll_overrides(
         body_end = section_end if section_end is not None else len(lines)
         key_lines = lines[body_start:body_end]
 
-        # Update the section header line's timestamp and the #time= line
-        lines[section_start] = f"{section_header} {_filetime_hex}\n"
+        # Separate trailing blank lines (section terminators in Wine's .reg
+        # format) from the actual key/value body.  New entries must go into
+        # the body, never after the trailing blanks.
+        trailing: list[str] = []
+        while key_lines and not key_lines[-1].strip():
+            trailing.insert(0, key_lines.pop())
+
+        def _sorted_insert_pos(entry_line: str) -> int:
+            """Return the index where *entry_line* should be inserted to keep
+            the section body in alphabetical order (matching winecfg behaviour).
+            Skips non-key lines (#time=, blank, etc.)."""
+            entry_key = entry_line.split("=", 1)[0].strip().lower()
+            for idx, kl in enumerate(key_lines):
+                kl_stripped = kl.strip()
+                if not kl_stripped or kl_stripped.startswith("#"):
+                    continue
+                existing_key = kl_stripped.split("=", 1)[0].strip().lower()
+                if existing_key > entry_key:
+                    return idx
+            return len(key_lines)
+
+        changed = False
+        for dll, value in overrides.items():
+            key_lower = f'"{dll.lower()}"'
+            expected_line = f'"{dll}"="{value}"\n'
+            found_at: int | None = None
+            for j, kline in enumerate(key_lines):
+                if kline.lower().startswith(key_lower + "="):
+                    found_at = j
+                    break
+            if found_at is not None:
+                if key_lines[found_at] == expected_line:
+                    pass  # correct value, correct position — nothing to do
+                else:
+                    # Value is wrong — update in place (position is already sorted)
+                    key_lines[found_at] = expected_line
+                    changed = True
+                    _log(f"  DLL override updated: {dll} = {value}")
+            else:
+                # New entry — insert in sorted position (matching winecfg)
+                pos = _sorted_insert_pos(expected_line)
+                key_lines.insert(pos, expected_line)
+                changed = True
+                _log(f"  DLL override set: {dll} = {value}")
+
+        if not changed:
+            # All overrides already present with the correct values — leave
+            # user.reg completely untouched so Wine's own state is preserved.
+            _log("  DLL overrides already set correctly; skipping write.")
+            return
+
+        # Re-append trailing blank lines to preserve section terminator.
+        key_lines.extend(trailing)
+
+        # Only update the section header / #time= timestamps when we actually
+        # make a change, and use the formats Wine expects.
+        lines[section_start] = f"{section_header} {_unix_ts}\n"
         for j, kline in enumerate(key_lines):
             if kline.lower().startswith("#time="):
                 key_lines[j] = f"#time={_filetime_hex}\n"
                 break
-
-        for dll, value in overrides.items():
-            key_lower = f'"{dll.lower()}"'
-            found = False
-            for j, kline in enumerate(key_lines):
-                if kline.lower().startswith(key_lower + "="):
-                    key_lines[j] = f'"{dll}"="{value}"\n'
-                    found = True
-                    _log(f"  DLL override updated: {dll} = {value}")
-                    break
-            if not found:
-                key_lines.append(f'"{dll}"="{value}"\n')
-                _log(f"  DLL override set: {dll} = {value}")
 
         lines[body_start:body_end] = key_lines
 
@@ -2572,6 +2617,7 @@ def remove_wine_dll_overrides(
     body_end = section_end if section_end is not None else len(lines)
     key_lines = lines[body_start:body_end]
 
+    removed_count = 0
     new_key_lines = []
     for kline in key_lines:
         stripped = kline.strip()
@@ -2582,8 +2628,23 @@ def remove_wine_dll_overrides(
                 key_name = stripped[1:end_quote].lower()
                 if key_name in dlls_lower:
                     _log(f"  DLL override removed: {stripped[1:end_quote]}")
+                    removed_count += 1
                     continue  # drop this line
         new_key_lines.append(kline)
+
+    if removed_count == 0:
+        return  # nothing actually changed — leave user.reg untouched
+
+    # Fix up the section header and #time= timestamps to use the formats
+    # Wine expects: decimal Unix seconds for the header, hex Windows FILETIME
+    # for the #time= line.
+    _unix_ts = int(_time.time())
+    _filetime_hex = format(int((_unix_ts + 11644473600) * 1e7), "x")
+    lines[section_start] = f"{section_header} {_unix_ts}\n"
+    for j, kline in enumerate(new_key_lines):
+        if kline.lower().startswith("#time="):
+            new_key_lines[j] = f"#time={_filetime_hex}\n"
+            break
 
     lines[body_start:body_end] = new_key_lines
 
