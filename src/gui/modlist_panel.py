@@ -6698,6 +6698,10 @@ class ModListPanel(ctk.CTkFrame):
 
     def _open_filter_side_panel(self):
         """Show the filter side panel and sync checkboxes to current state."""
+        # Close plugin filter if open (they share the same column)
+        plugin_panel = getattr(self.winfo_toplevel(), "_plugin_panel", None)
+        if plugin_panel is not None and getattr(plugin_panel, "_plugin_filter_panel_open", False):
+            plugin_panel._close_plugin_filter_panel()
         self._filter_panel_open = True
         # Use scaled minsize so panel isn't squeezed at higher UI scale
         self.grid_columnconfigure(0, minsize=scaled(380))

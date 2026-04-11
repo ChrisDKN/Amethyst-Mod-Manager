@@ -247,7 +247,12 @@ class PluginPanel(ctk.CTkFrame):
         self._pool_ul_dot: list[int] = []
         self._pool_esl_badge: list[int] = []
         self._esl_flagged_plugins: set[str] = set()  # lowercase plugin names with ESL flag set
+        self._esl_safe_plugins: set[str] = set()    # lowercase plugin names eligible for ESL flag
+        self._esl_unsafe_plugins: set[str] = set()  # lowercase plugin names ineligible for ESL flag
         self._userlist_plugins: set[str] = set()
+        # Plugin filter panel state
+        self._plugin_filter_state: dict = {}
+        self._plugin_filter_panel_open: bool = False
         self._plugin_group_map: dict[str, str] = {}  # plugin name lower → group name
         self._predraw_after_id: str | None = None
         self._marker_strip_after_id: str | None = None
@@ -2725,6 +2730,42 @@ class PluginPanel(ctk.CTkFrame):
         self._loot_plugin_rules_overlay = None
         self._on_plugin_row_selected_cb = None
 
+    # ------------------------------------------------------------------
+    # Plugin filter side panel — open / close
+    # ------------------------------------------------------------------
+
+    def _toggle_plugin_filter_panel(self):
+        """Toggle the plugin filter side panel open/closed."""
+        if self._plugin_filter_panel_open:
+            self._close_plugin_filter_panel()
+        else:
+            self._open_plugin_filter_panel()
+
+    def _open_plugin_filter_panel(self):
+        mod_panel = getattr(self.winfo_toplevel(), "_mod_panel", None)
+        if mod_panel is None:
+            return
+        # Close modlist filter if open (they share the same column)
+        if getattr(mod_panel, "_filter_panel_open", False):
+            mod_panel._close_filter_side_panel()
+        self._plugin_filter_panel_open = True
+        mod_panel.grid_columnconfigure(0, minsize=scaled(380))
+        self._plugin_filter_side_panel.grid()
+        # Sync checkbox vars to current live filter state
+        for key, var in self._pfsp_vars.items():
+            var.set(self._plugin_filter_state.get(key, False))
+        self._bind_plugin_filter_panel_scroll()
+        self._plugin_filter_btn.configure(fg_color=ACCENT)
+
+    def _close_plugin_filter_panel(self):
+        mod_panel = getattr(self.winfo_toplevel(), "_mod_panel", None)
+        self._plugin_filter_panel_open = False
+        if mod_panel is not None:
+            mod_panel.grid_columnconfigure(0, minsize=0)
+        self._plugin_filter_side_panel.grid_remove()
+        any_active = any(self._plugin_filter_state.values()) if self._plugin_filter_state else False
+        self._plugin_filter_btn.configure(fg_color=ACCENT if any_active else "#1e4d7a")
+
     def _close_download_locations_overlay(self):
         """Destroy the download locations overlay."""
         panel = getattr(self, "_download_locations_overlay", None)
@@ -2820,36 +2861,62 @@ class PluginPanel(ctk.CTkFrame):
         self._pcanvas.bind("<Leave>",           self._on_pmouse_leave)
         self._pcanvas.bind("<ButtonRelease-3>", self._on_plugin_right_click)
 
-        toolbar = ctk.CTkFrame(tab, fg_color=BG_PANEL, corner_radius=0, height=36)
+        toolbar = ctk.CTkFrame(tab, fg_color=BG_PANEL, corner_radius=0, height=58)
         toolbar.grid(row=3, column=0, sticky="ew")
         toolbar.grid_propagate(False)
         self._loot_toolbar = toolbar
 
+        # Row 1: action buttons
+        btn_row = tk.Frame(toolbar, bg=BG_PANEL)
+        btn_row.pack(side="top", fill="x", padx=0, pady=(4, 0))
+
         ctk.CTkButton(
-            toolbar, text="Sort Plugins", width=110, height=30,
+            btn_row, text="Sort Plugins", width=110, height=30,
             fg_color="#2e6b30", hover_color="#3a8a3d",
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
             command=self._sort_plugins_loot,
-        ).pack(side="left", padx=8, pady=8)
+        ).pack(side="left", padx=8)
 
         ctk.CTkButton(
-            toolbar, text="Groups", width=80, height=30,
+            btn_row, text="Groups", width=80, height=30,
             fg_color="#1e4d7a", hover_color="#2a6aab",
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
             command=self._open_loot_groups_overlay,
-        ).pack(side="left", padx=(0, 8), pady=8)
+        ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
-            toolbar, text="Plugin Rules", width=100, height=30,
+            btn_row, text="Plugin Rules", width=100, height=30,
             fg_color="#1e4d7a", hover_color="#2a6aab",
             text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
             command=self._open_loot_plugin_rules_overlay,
-        ).pack(side="left", padx=(0, 8), pady=8)
+        ).pack(side="left", padx=(0, 8))
+
+        self._plugin_filter_btn = ctk.CTkButton(
+            btn_row, text="Filters", width=80, height=30,
+            fg_color="#1e4d7a", hover_color="#2a6aab",
+            text_color=TEXT_MAIN, font=_theme.FONT_SMALL,
+            command=self._toggle_plugin_filter_panel,
+        )
+        self._plugin_filter_btn.pack(side="left", padx=(0, 8))
+
+        # Row 2: active plugin counter
+        counter_row = tk.Frame(toolbar, bg=BG_PANEL)
+        counter_row.pack(side="top", fill="x", padx=0, pady=(2, 0))
 
         self._plugin_counter_label = ctk.CTkLabel(
-            toolbar, text="", font=_theme.FONT_SMALL, text_color=TEXT_DIM,
+            counter_row, text="", font=_theme.FONT_SMALL, text_color=TEXT_MAIN,
         )
-        self._plugin_counter_label.pack(side="left", padx=(0, 8))
+        self._plugin_counter_label.pack(side="left", padx=8)
+
+        self._plugin_esl_counter_label = ctk.CTkLabel(
+            counter_row, text="", font=_theme.FONT_SMALL, text_color=TEXT_MAIN,
+        )
+        self._plugin_esl_counter_label.pack(side="left", padx=(0, 8))
+
+        self._plugin_non_esl_counter_label = ctk.CTkLabel(
+            counter_row, text="", font=_theme.FONT_SMALL, text_color=TEXT_MAIN,
+        )
+        self._plugin_non_esl_counter_label.pack(side="left", padx=(0, 8))
 
         # Search bar
         search_bar = tk.Frame(tab, bg=BG_HEADER, highlightthickness=0)
@@ -2974,7 +3041,126 @@ class PluginPanel(ctk.CTkFrame):
             command=self._grp_save,
         ).pack(side="right")
 
+        self._build_plugin_filter_side_panel()
         self._create_pool()
+
+    # ------------------------------------------------------------------
+    # Plugin filter side panel
+    # ------------------------------------------------------------------
+
+    def _build_plugin_filter_side_panel(self) -> None:
+        """Build the inline filter side panel as a child of ModListPanel at column 0."""
+        mod_panel = getattr(self.winfo_toplevel(), "_mod_panel", None)
+        parent = mod_panel if mod_panel is not None else self
+        panel = ctk.CTkFrame(parent, fg_color=BG_PANEL, corner_radius=0, width=380)
+        panel.grid(row=0, column=0, rowspan=5, sticky="nsew")
+        panel.grid_propagate(False)
+        panel.grid_remove()  # hidden by default
+        self._plugin_filter_side_panel = panel
+
+        # Header row
+        header = tk.Frame(panel, bg=BG_HEADER, height=scaled(36))
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
+
+        tk.Label(
+            header, text="Plugin Filters", bg=BG_HEADER, fg=TEXT_MAIN,
+            font=_theme.FONT_BOLD, anchor="w",
+        ).pack(side="left", padx=10, pady=6)
+
+        close_btn = tk.Label(
+            header, text="\u00d7", bg=BG_HEADER, fg=TEXT_DIM,
+            font=(_theme.FONT_FAMILY, 16, "bold"), cursor="hand2",
+        )
+        close_btn.pack(side="right", padx=8)
+        close_btn.bind("<Button-1>", lambda _e: self._close_plugin_filter_panel())
+        close_btn.bind("<Enter>",    lambda _e: close_btn.configure(fg=TEXT_MAIN))
+        close_btn.bind("<Leave>",    lambda _e: close_btn.configure(fg=TEXT_DIM))
+
+        clear_btn = tk.Label(
+            header, text="Clear all", bg=BG_HEADER, fg=TEXT_DIM,
+            font=_theme.FONT_SMALL, cursor="hand2",
+        )
+        clear_btn.pack(side="right", padx=(0, 4))
+        clear_btn.bind("<Button-1>", lambda _e: self._clear_all_plugin_filters())
+        clear_btn.bind("<Enter>",    lambda _e: clear_btn.configure(fg=TEXT_MAIN))
+        clear_btn.bind("<Leave>",    lambda _e: clear_btn.configure(fg=TEXT_DIM))
+
+        tk.Frame(panel, bg=BORDER, height=1).pack(fill="x")
+
+        scroll_frame = ctk.CTkScrollableFrame(
+            panel, fg_color="transparent", corner_radius=0,
+        )
+        scroll_frame.pack(fill="both", expand=True, padx=8, pady=6)
+
+        opts = [
+            ("filter_enabled",         "Show only enabled plugins"),
+            ("filter_disabled",        "Show only disabled plugins"),
+            ("filter_missing_masters", "Show only plugins with missing masters"),
+            ("filter_esl_ext",         "Show only ESL plugins (.esl extension)"),
+            ("filter_esm_ext",         "Show only ESM plugins (.esm extension)"),
+            ("filter_esp_ext",         "Show only ESP plugins (.esp extension)"),
+            ("filter_esl_flagged",     "Show only ESL-flagged (light) plugins"),
+            ("filter_esl_not_flagged",  "Show only plugins not flagged as ESL"),
+            ("filter_esl_safe",        "Show only ESL-safe plugins"),
+            ("filter_esl_unsafe",      "Show only ESL-unsafe plugins"),
+            ("filter_userlist",        "Show only plugins managed by userlist.yaml"),
+        ]
+
+        self._pfsp_vars: dict[str, tk.BooleanVar] = {}
+        for key, label in opts:
+            var = tk.BooleanVar(value=False)
+            self._pfsp_vars[key] = var
+            ctk.CTkCheckBox(
+                scroll_frame,
+                text=label,
+                variable=var,
+                font=_theme.FONT_SMALL,
+                text_color=TEXT_MAIN,
+                fg_color=ACCENT,
+                hover_color=ACCENT_HOV,
+                border_color=BORDER,
+                checkmark_color="white",
+                command=self._on_plugin_filter_panel_change,
+            ).pack(anchor="w", fill="x", pady=3)
+
+        self._plugin_filter_scroll_frame = scroll_frame
+        self._bind_plugin_filter_panel_scroll()
+
+    def _bind_plugin_filter_panel_scroll(self) -> None:
+        scroll_frame = getattr(self, "_plugin_filter_scroll_frame", None)
+        if not scroll_frame or not hasattr(scroll_frame, "_parent_canvas"):
+            return
+        def _on_wheel(evt):
+            num = getattr(evt, "num", None)
+            delta = getattr(evt, "delta", 0) or 0
+            if num == 4 or delta > 0:
+                scroll_frame._parent_canvas.yview_scroll(-3, "units")
+            elif num == 5 or delta < 0:
+                scroll_frame._parent_canvas.yview_scroll(3, "units")
+        def _bind_recursive(w):
+            w.bind("<MouseWheel>", _on_wheel)
+            w.bind("<Button-4>", _on_wheel)
+            w.bind("<Button-5>", _on_wheel)
+            for child in w.winfo_children():
+                _bind_recursive(child)
+        _bind_recursive(scroll_frame)
+
+    def _clear_all_plugin_filters(self) -> None:
+        for v in self._pfsp_vars.values():
+            v.set(False)
+        self._on_plugin_filter_panel_change()
+
+    def _on_plugin_filter_panel_change(self) -> None:
+        state = {k: v.get() for k, v in self._pfsp_vars.items()}
+        self._plugin_filter_state = state
+        any_active = any(state.values())
+        btn = getattr(self, "_plugin_filter_btn", None)
+        if btn is not None:
+            btn.configure(fg_color=ACCENT if any_active else "#1e4d7a")
+        self._apply_plugin_search_filter()
+        self._pcanvas.yview_moveto(0)
+        self._predraw()
 
     # ------------------------------------------------------------------
     # Virtual-list pool
@@ -3114,21 +3300,58 @@ class PluginPanel(ctk.CTkFrame):
         self._predraw()
 
     def _apply_plugin_search_filter(self) -> None:
-        if self._plugin_search_var is None:
+        query = ""
+        if self._plugin_search_var is not None:
+            query = self._plugin_search_var.get().strip().casefold()
+
+        fs = self._plugin_filter_state
+        any_filter = query or (fs and any(fs.values()))
+
+        if not any_filter:
             self._plugin_filtered_indices = None
             return
-        query = self._plugin_search_var.get().strip().casefold()
-        if not query:
-            self._plugin_filtered_indices = None
-            return
+
+        # Gather sets needed by active filters
+        missing_lower = {k.lower() for k in self._missing_masters.keys()} if fs.get("filter_missing_masters") else set()
+
         result = []
         for i, entry in enumerate(self._plugin_entries):
-            if query in entry.name.casefold():
-                result.append(i)
-                continue
-            mod_name = self._plugin_mod_map.get(entry.name.lower(), "")
-            if mod_name and query in mod_name.casefold():
-                result.append(i)
+            name_lower = entry.name.lower()
+
+            # --- search query ---
+            if query:
+                name_match = query in name_lower
+                mod_name = self._plugin_mod_map.get(name_lower, "")
+                if not name_match and not (mod_name and query in mod_name.casefold()):
+                    continue
+
+            # --- filter state ---
+            if fs:
+                if fs.get("filter_enabled") and not entry.enabled:
+                    continue
+                if fs.get("filter_disabled") and entry.enabled:
+                    continue
+                if fs.get("filter_missing_masters") and name_lower not in missing_lower:
+                    continue
+                if fs.get("filter_esl_ext") and not name_lower.endswith(".esl"):
+                    continue
+                if fs.get("filter_esm_ext") and not name_lower.endswith(".esm"):
+                    continue
+                if fs.get("filter_esp_ext") and not name_lower.endswith(".esp"):
+                    continue
+                if fs.get("filter_esl_flagged") and name_lower not in self._esl_flagged_plugins:
+                    continue
+                if fs.get("filter_esl_not_flagged") and name_lower in self._esl_flagged_plugins:
+                    continue
+                if fs.get("filter_esl_safe") and name_lower not in self._esl_safe_plugins:
+                    continue
+                if fs.get("filter_esl_unsafe") and name_lower not in self._esl_unsafe_plugins:
+                    continue
+                if fs.get("filter_userlist") and name_lower not in self._userlist_plugins:
+                    continue
+
+            result.append(i)
+
         self._plugin_filtered_indices = result
 
     def _sort_plugins_loot(self):
@@ -3640,6 +3863,12 @@ class PluginPanel(ctk.CTkFrame):
 
         active = sum(1 for e in all_entries if e.enabled)
         self._plugin_counter_label.configure(text=f"{active}/{len(all_entries)} active")
+        esl_count = sum(
+            1 for e in all_entries
+            if e.name.lower() in self._esl_flagged_plugins
+        )
+        self._plugin_esl_counter_label.configure(text=f"{esl_count} ESL")
+        self._plugin_non_esl_counter_label.configure(text=f"{len(all_entries) - esl_count} non-ESL")
 
         canvas_top = int(c.canvasy(0))
         canvas_h = c.winfo_height()
@@ -3963,12 +4192,16 @@ class PluginPanel(ctk.CTkFrame):
     # ------------------------------------------------------------------
 
     def _load_esl_flags(self, plugin_paths: "dict[str, Path]") -> None:
-        """Populate _esl_flagged_plugins from the plugin files on disk.
+        """Populate _esl_flagged_plugins / _esl_safe_plugins / _esl_unsafe_plugins
+        from the plugin files on disk.
 
-        Only .esp and .esm files are checked — .esl files are always light
-        by extension and handled separately by the engine.
+        Only .esp and .esm files are checked for the ESL flag — .esl files are
+        always light by extension and handled separately by the engine.
+        ESL eligibility (safe/unsafe) is only checked for .esp/.esm files.
         """
         flagged: set[str] = set()
+        safe: set[str] = set()
+        unsafe: set[str] = set()
         for entry in self._plugin_entries:
             name_lower = entry.name.lower()
             # .esl files are always treated as light by the game engine
@@ -3982,7 +4215,19 @@ class PluginPanel(ctk.CTkFrame):
                         flagged.add(name_lower)
                 except Exception:
                     pass
+                # Only check ESL eligibility for ESP/ESM files (not already ESL)
+                if name_lower.endswith((".esp", ".esm")):
+                    try:
+                        eligible, _ = check_esl_eligible(path)
+                        if eligible:
+                            safe.add(name_lower)
+                        else:
+                            unsafe.add(name_lower)
+                    except Exception:
+                        pass
         self._esl_flagged_plugins = flagged
+        self._esl_safe_plugins = safe
+        self._esl_unsafe_plugins = unsafe
 
     # ------------------------------------------------------------------
     # Tooltip for missing masters
@@ -4084,18 +4329,25 @@ class PluginPanel(ctk.CTkFrame):
                 if grp:
                     ul_msg += f"\nGroup: {grp}"
                 parts.append(ul_msg)
+            if entry.name.lower() in self._esl_flagged_plugins:
+                parts.append("This plugin is marked as Light (ESL)")
             if parts:
                 screen_x = event.x_root
                 screen_y = event.y_root
                 text = "\n\n".join(parts)
-                if self._tooltip_win is None:
+                # Always refresh: show_tooltip hides the old one first, so moving
+                # between rows/flags updates immediately instead of staying stale.
+                if self._tooltip_win is None or getattr(self, "_tooltip_text", None) != text:
+                    self._tooltip_text = text
                     self._show_tooltip(screen_x, screen_y, text)
                 return
 
         self._hide_tooltip()
+        self._tooltip_text = None
 
     def _on_pmouse_leave(self, event) -> None:
         self._hide_tooltip()
+        self._tooltip_text = None
         if self._phover_idx != -1:
             old = self._phover_idx
             self._phover_idx = -1
@@ -4166,7 +4418,10 @@ class PluginPanel(ctk.CTkFrame):
         # Shift+click: extend selection from anchor
         if shift and self._sel_idx >= 0:
             lo, hi = sorted((self._sel_idx, idx))
-            self._psel_set = set(range(lo, hi + 1))
+            if self._plugin_filtered_indices is not None:
+                self._psel_set = {i for i in self._plugin_filtered_indices if lo <= i <= hi}
+            else:
+                self._psel_set = set(range(lo, hi + 1))
             self._predraw()
             return
 
