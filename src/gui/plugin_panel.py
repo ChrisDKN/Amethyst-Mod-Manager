@@ -2202,6 +2202,7 @@ class PluginPanel(ctk.CTkFrame):
         self._mf_tree.delete(*self._mf_tree.get_children())
         self._mf_checked.clear()
         self._mf_iid_to_key.clear()
+        self._mf_iid_to_relstr.clear()
         self._mf_folder_iids.clear()
 
         if mod_name is None:
@@ -2248,7 +2249,7 @@ class PluginPanel(ctk.CTkFrame):
             node = tree_dict
             for part in parts[:-1]:
                 node = node.setdefault(part, {})
-            node.setdefault("__files__", []).append((parts[-1], rel_key))
+            node.setdefault("__files__", []).append((parts[-1], rel_key, rel_str))
 
         def _conflict_tag(rel_key: str) -> str | None:
             if rel_key not in contested_keys:
@@ -2269,7 +2270,7 @@ class PluginPanel(ctk.CTkFrame):
             self._mf_iid_to_key[iid] = None
             for child in sorted(k for k in subtree if k != "__files__"):
                 insert_node(iid, child, subtree[child], depth + 1)
-            for fname, rel_key in sorted(subtree.get("__files__", [])):
+            for fname, rel_key, rel_str in sorted(subtree.get("__files__", [])):
                 checked = rel_key not in excluded_keys
                 tag = _conflict_tag(rel_key)
                 leaf_iid = self._mf_tree.insert(
@@ -2280,13 +2281,14 @@ class PluginPanel(ctk.CTkFrame):
                 )
                 self._mf_checked[leaf_iid] = checked
                 self._mf_iid_to_key[leaf_iid] = rel_key
+                self._mf_iid_to_relstr[leaf_iid] = rel_str
             # Set correct folder symbol now that all children exist
             self._mf_tree.set(iid, "check", self._mf_check_symbol(iid))
 
         for top in sorted(k for k in tree_dict if k != "__files__"):
             insert_node("", top, tree_dict[top])
         # Root-level files (unlikely but handle anyway)
-        for fname, rel_key in sorted(tree_dict.get("__files__", [])):
+        for fname, rel_key, rel_str in sorted(tree_dict.get("__files__", [])):
             checked = rel_key not in excluded_keys
             tag = _conflict_tag(rel_key)
             leaf_iid = self._mf_tree.insert(
@@ -2296,6 +2298,7 @@ class PluginPanel(ctk.CTkFrame):
             )
             self._mf_checked[leaf_iid] = checked
             self._mf_iid_to_key[leaf_iid] = rel_key
+            self._mf_iid_to_relstr[leaf_iid] = rel_str
 
     def _build_data_tab(self):
         tab = self._tabs.tab("Data")
@@ -2356,6 +2359,7 @@ class PluginPanel(ctk.CTkFrame):
         self._data_tree.treeview.bind("<Button-5>",
             lambda e: self._data_tree.treeview.yview_scroll(3, "units"))
         self._data_tree.treeview.bind("<<TreeviewSelect>>", self._on_data_file_selected)
+        self._data_tree.treeview.bind("<Button-3>", self._on_data_right_click)
 
     def _refresh_data_tab(self):
         """Reload the Data tab tree from filemap.txt.
@@ -2572,6 +2576,158 @@ class PluginPanel(ctk.CTkFrame):
         self._mf_expand_btn.configure(
             text="⊟ Collapse All" if self._mf_tree_expanded else "⊞ Expand All"
         )
+
+    # ------------------------------------------------------------------
+    # Right-click / open-in-browser helpers
+    # ------------------------------------------------------------------
+
+    def _show_simple_context_menu(self, anchor_widget, x: int, y: int, items: list):
+        """Show a minimal context menu using a Toplevel (avoids tk.Menu dismiss bug on Linux).
+
+        *items* is a list of (label, command) tuples.
+        """
+        popup = tk.Toplevel(anchor_widget)
+        popup.wm_overrideredirect(True)
+        popup.wm_geometry(f"+{x}+{y}")
+        popup.configure(bg=BORDER)
+
+        _alive = [True]
+
+        def _dismiss(_event=None):
+            if _alive[0]:
+                _alive[0] = False
+                popup.destroy()
+
+        def _pick(cmd):
+            if _alive[0]:
+                _alive[0] = False
+                popup.destroy()
+                cmd()
+
+        inner = tk.Frame(popup, bg=BG_PANEL, bd=0)
+        inner.pack(padx=1, pady=1)
+
+        for label, cmd in items:
+            btn = tk.Label(
+                inner, text=label, anchor="w",
+                bg=BG_PANEL, fg=TEXT_MAIN,
+                font=(_theme.FONT_FAMILY, _theme.FS11),
+                padx=12, pady=5, cursor="hand2",
+            )
+            btn.pack(fill="x")
+            btn.bind("<ButtonRelease-1>", lambda _e, c=cmd: _pick(c))
+            btn.bind("<Enter>", lambda _e, b=btn: b.configure(bg=BG_SELECT))
+            btn.bind("<Leave>", lambda _e, b=btn: b.configure(bg=BG_PANEL))
+
+        popup.update_idletasks()
+        popup.bind("<Escape>", _dismiss)
+
+        def _on_press(event):
+            if not _alive[0]:
+                return
+            wx, wy = popup.winfo_rootx(), popup.winfo_rooty()
+            ww, wh = popup.winfo_width(), popup.winfo_height()
+            if not (wx <= event.x_root <= wx + ww and wy <= event.y_root <= wy + wh):
+                _dismiss()
+        popup.bind_all("<ButtonPress-1>", _on_press)
+        popup.bind_all("<ButtonPress-3>", _on_press)
+
+    def _get_staging_path(self) -> "Path | None":
+        """Return the mod staging directory, or None if not available."""
+        if self._game is not None and hasattr(self._game, "get_effective_mod_staging_path"):
+            try:
+                p = self._game.get_effective_mod_staging_path()
+                return Path(p) if p else None
+            except Exception:
+                pass
+        if self._mod_files_index_path is not None:
+            return self._mod_files_index_path.parent
+        return None
+
+    def _on_mf_right_click(self, event):
+        """Show context menu for Mod Files tree rows."""
+        iid = self._mf_tree.identify_row(event.y)
+        if not iid:
+            return
+        staging = self._get_staging_path()
+        mod_name = self._mod_files_mod_name
+        if staging is None or mod_name is None:
+            return
+
+        rel_str = self._mf_iid_to_relstr.get(iid)
+        is_folder = iid in self._mf_folder_iids
+
+        if rel_str:
+            target = Path(staging) / mod_name / rel_str.replace("\\", "/")
+            open_path = target.parent
+        elif is_folder:
+            # Reconstruct folder path from tree labels
+            parts = []
+            cur = iid
+            while cur:
+                parts.append(self._mf_tree.item(cur, "text"))
+                cur = self._mf_tree.parent(cur)
+            parts.reverse()
+            open_path = Path(staging) / mod_name / Path(*parts)
+        else:
+            return
+
+        self._show_simple_context_menu(self._mf_tree, event.x_root, event.y_root, [
+            ("Open in File Browser", lambda p=open_path: self._open_folder_in_browser(p)),
+        ])
+
+    def _on_data_right_click(self, event):
+        """Show context menu for Data tab tree rows."""
+        tv = self._data_tree.treeview
+        iid = tv.identify_row(event.y)
+        if not iid:
+            return
+        staging = self._get_staging_path()
+
+        values = tv.item(iid, "values")
+        mod_name = values[0] if values else ""
+        is_file = bool(mod_name)
+
+        if is_file and staging:
+            # Reconstruct the relative path by walking up the tree hierarchy
+            parts = [tv.item(iid, "text").strip()]
+            cur = tv.parent(iid)
+            while cur:
+                parts.append(tv.item(cur, "text").strip())
+                cur = tv.parent(cur)
+            parts.reverse()
+            rel_path = "/".join(parts)
+            open_path = Path(staging) / mod_name / rel_path
+            open_path = open_path.parent
+        elif not is_file:
+            # Folder row — walk up for full folder path; no mod_name known
+            parts = [tv.item(iid, "text").strip()]
+            cur = tv.parent(iid)
+            while cur:
+                parts.append(tv.item(cur, "text").strip())
+                cur = tv.parent(cur)
+            parts.reverse()
+            # Can't resolve to a specific mod folder without mod_name; open staging root
+            open_path = staging if staging else None
+        else:
+            open_path = None
+
+        if open_path is None:
+            return
+
+        self._show_simple_context_menu(tv, event.x_root, event.y_root, [
+            ("Open in File Browser", lambda p=open_path: self._open_folder_in_browser(p)),
+        ])
+
+    def _open_folder_in_browser(self, path: "Path"):
+        """Open *path* (a directory) in the system file browser, creating it if needed."""
+        try:
+            path = Path(path)
+            if not path.exists():
+                path.mkdir(parents=True, exist_ok=True)
+            xdg_open(path)
+        except Exception as e:
+            self._log(f"Could not open folder: {e}")
 
     def _on_data_file_selected(self, _event=None):
         """When a file row is selected in the Data tab, highlight its mod in the modlist."""
