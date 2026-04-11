@@ -1257,9 +1257,22 @@ class ModListPanel(ctk.CTkFrame):
                 display = title + arrow
             if i < len(self._header_labels):
                 lbl = self._header_labels[i]
-                lbl.configure(text=display, fg=ACCENT if sort_key == self._sort_column else TEXT_SEP)
+                lbl.configure(
+                    text=display,
+                    fg=ACCENT if sort_key == self._sort_column else TEXT_SEP,
+                    cursor="fleur" if is_movable else ("hand2" if sort_key else ""),
+                )
+                # Rebind events so they reflect the current dc/sort_key for this slot
+                lbl.unbind("<Button-1>")
+                lbl.unbind("<ButtonPress-1>")
+                lbl.unbind("<B1-Motion>")
+                lbl.unbind("<ButtonRelease-1>")
+                if sort_key and not is_movable:
+                    lbl.bind("<Button-1>", lambda e, k=sort_key: self._on_header_click(k))
                 if is_movable:
-                    lbl.configure(cursor="fleur")
+                    lbl.bind("<ButtonPress-1>",  lambda e, d=dc, k=sort_key: self._on_hdr_drag_start(e, d, k))
+                    lbl.bind("<B1-Motion>",       self._on_hdr_drag_motion)
+                    lbl.bind("<ButtonRelease-1>", self._on_hdr_drag_end)
                 lbl.place(x=x, y=0, height=scaled(28), width=w)
             else:
                 lbl = tk.Label(
