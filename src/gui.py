@@ -1109,14 +1109,11 @@ class App(ctk.CTk):
             self._plugin_panel._refresh_data_tab()
             self._plugin_panel._refresh_ini_files_tab()
             # 3. Reload Plugins tab from updated plugins.txt
-            if (self._plugin_panel._plugins_path is not None
-                    and self._plugin_panel._plugin_extensions):
-                self._plugin_panel._refresh_plugins_tab()
-            else:
-                # No plugin extensions (e.g. BepInEx, Stardew Valley) — still
-                # refresh framework banners so the status reflects any changes
-                # made to the game root since the last reload.
-                self._plugin_panel._refresh_framework_banners()
+            # Always call _refresh_plugins_tab() so toolbar visibility (loot
+            # toolbar, search bar) is updated correctly on app launch as well
+            # as on game switch.  For games without plugin_extensions it
+            # early-returns after hiding the toolbar and refreshing banners.
+            self._plugin_panel._refresh_plugins_tab()
             # Auto deploy: if the game has auto_deploy enabled, trigger deploy
             # after every successful filemap rebuild — but not if deploy itself
             # triggered this rebuild (which would cause an infinite loop).
