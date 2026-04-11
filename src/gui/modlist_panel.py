@@ -4854,6 +4854,51 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
 
+    def rename_mod_by_name(self, old_name: str, new_name: str) -> bool:
+        """Rename a mod by name (on disk + in-memory entry + persisted modlist).
+        Returns True on success. Used by the post-install rename prompt so it
+        doesn't need to know the mod's index in the list.
+        """
+        if not old_name or not new_name or old_name == new_name:
+            return False
+        # Locate the entry by name.
+        idx = -1
+        for i, e in enumerate(self._entries):
+            if not e.is_separator and e.name == old_name:
+                idx = i
+                break
+        if idx < 0:
+            return False
+        if self._modlist_path is None:
+            return False
+        staging_root = self._staging_root
+        old_folder = staging_root / old_name
+        new_folder = staging_root / new_name
+        if new_folder.exists():
+            return False
+        if old_folder.is_dir():
+            try:
+                old_folder.rename(new_folder)
+            except OSError:
+                return False
+        entry = self._entries[idx]
+        entry.name = new_name
+        for s in (self._update_mods, self._missing_reqs, self._ignored_missing_reqs,
+                  self._endorsed_mods, self._prertx_mods, self._fomod_mods):
+            if old_name in s:
+                s.discard(old_name)
+                s.add(new_name)
+        for d in (self._missing_reqs_detail, self._install_dates,
+                  self._install_datetimes, self._category_names, self._mod_versions):
+            if old_name in d:
+                d[new_name] = d.pop(old_name)
+        self._vis_dirty = True
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._redraw()
+        self._update_info()
+        return True
+
     def _rename_separator(self, idx: int):
         if not (0 <= idx < len(self._entries)):
             return

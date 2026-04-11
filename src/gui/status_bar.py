@@ -21,6 +21,7 @@ from Utils.ui_config import (
     load_normalize_folder_case, save_normalize_folder_case,
     load_clear_archive_after_install, save_clear_archive_after_install,
     load_keep_fomod_archives, save_keep_fomod_archives,
+    load_rename_mod_after_install, save_rename_mod_after_install,
     load_heroic_config_path, save_heroic_config_path,
     load_steam_libraries_vdf_path, save_steam_libraries_vdf_path,
     load_font_family, save_font_family, get_font_family,
@@ -687,6 +688,21 @@ class SettingsPanel(ctk.CTkFrame):
             font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
         ).pack(anchor="w", pady=(4, 0))
 
+        self._rename_after_install_var = tk.BooleanVar(value=load_rename_mod_after_install())
+        ctk.CTkCheckBox(
+            gen_sec, text="Rename mod after install",
+            variable=self._rename_after_install_var,
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+        ).pack(anchor="w", pady=(10, 0))
+
+        ctk.CTkLabel(
+            gen_sec,
+            text="After installing a mod, show a prompt to rename it. A dropdown of\n"
+                 "suggestions is built by stripping Nexus/metadata from the archive name.\n"
+                 "Collection installs are never prompted.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).pack(anchor="w", pady=(2, 0))
+
         # ==== Paths ====
         paths_sec = _begin_section("Paths")
 
@@ -953,6 +969,7 @@ class SettingsPanel(ctk.CTkFrame):
         save_normalize_folder_case(self._norm_case_var.get())
         save_clear_archive_after_install(self._clear_archive_var.get())
         save_keep_fomod_archives(self._keep_fomod_archives_var.get())
+        save_rename_mod_after_install(self._rename_after_install_var.get())
         save_collection_settings(
             download_order=self._dl_order_from_label.get(self._dl_order_var.get(), "largest"),
             max_concurrent=int(round(self._max_concurrent_var.get())),
@@ -974,6 +991,7 @@ class SettingsPanel(ctk.CTkFrame):
         save_normalize_folder_case(self._norm_case_var.get())
         save_clear_archive_after_install(self._clear_archive_var.get())
         save_keep_fomod_archives(self._keep_fomod_archives_var.get())
+        save_rename_mod_after_install(self._rename_after_install_var.get())
         save_collection_settings(
             download_order=self._dl_order_from_label.get(self._dl_order_var.get(), "largest"),
             max_concurrent=int(round(self._max_concurrent_var.get())),

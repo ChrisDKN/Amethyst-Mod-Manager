@@ -1350,6 +1350,171 @@ class _RenameDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+# ---------------------------------------------------------------------------
+# Post-install rename prompt
+# ---------------------------------------------------------------------------
+class _RenameAfterInstallDialog(ctk.CTkToplevel):
+    """Dialog shown after a mod install (when the option is enabled) letting the
+    user pick a cleaner name for the installed mod. A dropdown of suggestions
+    is pre-populated by stripping metadata from the original archive stem."""
+
+    def __init__(self, parent, current_name: str, suggestions: list[str]):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title("Rename Mod")
+        self.geometry("420x190")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.after(100, self._make_modal)
+
+        self.result: str | None = None
+        self._current = current_name
+        # De-duplicate while preserving order, always including the current name.
+        seen: set[str] = set()
+        self._suggestions: list[str] = []
+        for s in ([current_name] + list(suggestions or [])):
+            if s and s not in seen:
+                seen.add(s)
+                self._suggestions.append(s)
+        self._build()
+
+    def _make_modal(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+            self._entry.focus_set()
+            self._entry.select_range(0, "end")
+        except Exception:
+            pass
+
+    def _build(self):
+        self.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self, text=f"Rename '{self._current}':", font=FONT_NORMAL,
+            text_color=TEXT_MAIN, anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 4))
+
+        self._var = tk.StringVar(value=self._suggestions[0] if self._suggestions else self._current)
+        self._entry = ctk.CTkEntry(
+            self, textvariable=self._var, font=FONT_NORMAL,
+            fg_color=BG_PANEL, text_color=TEXT_MAIN, border_color=BORDER,
+        )
+        self._entry.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+        self._entry.bind("<Return>", lambda _e: self._on_ok())
+
+        ctk.CTkLabel(
+            self, text="Suggestions:", font=FONT_SMALL,
+            text_color=TEXT_DIM, anchor="w",
+        ).grid(row=2, column=0, sticky="ew", padx=16, pady=(2, 2))
+
+        self._menu = ctk.CTkOptionMenu(
+            self, values=self._suggestions or [self._current],
+            command=self._on_pick,
+            fg_color=BG_PANEL, button_color=BG_HEADER, button_hover_color=BG_HOVER,
+            text_color=TEXT_MAIN, font=FONT_NORMAL,
+        )
+        self._menu.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
+        self._menu.set(self._suggestions[0] if self._suggestions else self._current)
+
+        bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=44)
+        bar.grid(row=4, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
+            side="top", fill="x"
+        )
+        ctk.CTkButton(
+            bar, text="Skip", width=80, height=28, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel,
+        ).pack(side="right", padx=(4, 12), pady=8)
+        ctk.CTkButton(
+            bar, text="Rename", width=80, height=28, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_ok,
+        ).pack(side="right", padx=4, pady=8)
+
+    def _on_pick(self, value: str):
+        self._var.set(value)
+        try:
+            self._entry.focus_set()
+            self._entry.select_range(0, "end")
+        except Exception:
+            pass
+
+    def _on_ok(self):
+        name = self._var.get().strip()
+        if name and name != self._current:
+            self.result = name
+        self.grab_release()
+        self.destroy()
+
+    def _on_cancel(self):
+        self.grab_release()
+        self.destroy()
+
+
+# Module-level queue so multiple post-install rename prompts do not stack
+# on top of each other. If an install completes while the dialog is open,
+# the rename request is queued and processed once the current dialog closes.
+_rename_after_install_queue: list[tuple] = []
+_rename_after_install_active: bool = False
+_rename_after_install_lock = threading.Lock()
+
+
+def queue_rename_after_install(parent_window, mod_panel, mod_name: str,
+                               suggestions: list[str]) -> None:
+    """Enqueue a post-install rename prompt. Safe to call from any thread.
+
+    Ensures only one rename dialog is visible at a time — further installs
+    that complete while a dialog is open are queued and processed in order.
+    """
+    global _rename_after_install_active
+    if parent_window is None or mod_panel is None or not mod_name:
+        return
+    with _rename_after_install_lock:
+        _rename_after_install_queue.append((parent_window, mod_panel, mod_name, list(suggestions or [])))
+        if _rename_after_install_active:
+            return
+        _rename_after_install_active = True
+    try:
+        parent_window.after(0, _process_next_rename_after_install)
+    except Exception:
+        with _rename_after_install_lock:
+            _rename_after_install_active = False
+
+
+def _process_next_rename_after_install() -> None:
+    global _rename_after_install_active
+    with _rename_after_install_lock:
+        if not _rename_after_install_queue:
+            _rename_after_install_active = False
+            return
+        parent_window, mod_panel, mod_name, suggestions = _rename_after_install_queue.pop(0)
+
+    def _schedule_next():
+        try:
+            parent_window.after(0, _process_next_rename_after_install)
+        except Exception:
+            with _rename_after_install_lock:
+                globals()["_rename_after_install_active"] = False
+
+    try:
+        # Verify the mod is still present before prompting (user may have
+        # removed it in the meantime).
+        rename_fn = getattr(mod_panel, "rename_mod_by_name", None)
+        dlg = _RenameAfterInstallDialog(parent_window, mod_name, suggestions)
+        parent_window.wait_window(dlg)
+        new_name = dlg.result
+        if new_name and rename_fn is not None:
+            try:
+                rename_fn(mod_name, new_name)
+            except Exception:
+                pass
+    finally:
+        _schedule_next()
+
+
 class _PriorityDialog(ctk.CTkToplevel):
     """Modal dialog to set a mod's position in the modlist."""
 

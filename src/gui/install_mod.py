@@ -40,12 +40,13 @@ from gui.dialogs import (
     _ReplaceModDialog,
     _SelectFilesDialog,
     _SetPrefixDialog,
+    queue_rename_after_install,
 )
 from gui.fomod_dialog import FomodDialog
 from gui.mod_name_utils import _strip_title_metadata, _suggest_mod_names
 from Utils.fomod_parser import detect_fomod, parse_module_config, parse_mod_info
 from Utils.fomod_installer import resolve_files
-from Utils.ui_config import load_dev_mode
+from Utils.ui_config import load_dev_mode, load_rename_mod_after_install
 from Utils.config_paths import get_fomod_selections_path
 from Utils.plugins import read_plugins, append_plugin, read_loadorder, write_loadorder, PluginEntry
 from Utils.modlist import prepend_mod, ensure_mod_preserving_position, read_modlist, write_modlist, ModEntry
@@ -631,6 +632,27 @@ def _fire_on_installed(cb, is_fomod: bool = False) -> None:
         pass
 
 
+def _maybe_queue_rename_after_install(parent_window, mod_panel, headless: bool,
+                                      mod_name: str, suggestions: list[str]) -> None:
+    """Schedule a post-install rename prompt if the option is enabled.
+
+    Collection installs pass ``headless=True`` and are deliberately skipped.
+    The queue helper ensures only one dialog is visible at a time even when
+    parallel workers finish close together.
+    """
+    if headless or mod_panel is None or parent_window is None or not mod_name:
+        return
+    try:
+        if not load_rename_mod_after_install():
+            return
+    except Exception:
+        return
+    try:
+        queue_rename_after_install(parent_window, mod_panel, mod_name, suggestions)
+    except Exception:
+        pass
+
+
 def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                              game, mod_panel=None,
                              on_installed=None,
@@ -774,6 +796,10 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
             if mod_panel is not None:
                 mod_panel.after(0, mod_panel.reload_after_install)
+            _maybe_queue_rename_after_install(
+                parent_window, mod_panel, headless=False,
+                mod_name=mod_name, suggestions=suggestions,
+            )
             return mod_name
         except Exception as e:
             import traceback
@@ -1396,6 +1422,9 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             _fire_on_installed(on_installed, is_fomod=False)
             if mod_panel is not None and not headless:
                 mod_panel.after(0, mod_panel.reload_after_install)
+            # Bundles install one separator + N variants — renaming the
+            # separator or individual variants doesn't fit the single-name
+            # prompt cleanly, so skip the post-install rename here.
             return installed_variant_names[0] if installed_variant_names else mod_name
         elif getattr(game, "mod_supports_bundles", False) and detect_multi_mod(_unwrap_single_folder(extract_dir)):
             # --- Multi-mod archive: each subdir is a separate independent mod ---
@@ -1825,6 +1854,11 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
         if mod_panel is not None and not headless:
             mod_panel.after(0, mod_panel.reload_after_install)
+
+        _maybe_queue_rename_after_install(
+            parent_window, mod_panel, headless=headless,
+            mod_name=mod_name, suggestions=suggestions,
+        )
 
         return mod_name
 
