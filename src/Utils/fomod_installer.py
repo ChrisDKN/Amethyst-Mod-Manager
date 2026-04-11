@@ -237,6 +237,14 @@ def resolve_files(config: ModuleConfig,
     # Build final flag state by replaying all steps in order
     flag_state: dict[str, str] = {}
     for i, step in enumerate(config.steps):
+        # Skip steps whose visibility condition is not satisfied by the flags
+        # accumulated so far.  This mirrors the UI behaviour: if a step was
+        # invisible the user never saw it, so its SelectAll/selected plugins
+        # must not contribute files or flags to the install.
+        if step.visible_condition is not None:
+            if not evaluate_dependency(step.visible_condition, flag_state,
+                                       inst_files, active_files):
+                continue
         # Accept both new index-keyed format (str(i)) and old name-keyed format
         # (step.name) for backward compatibility with previously saved JSON files.
         step_selections = all_selections.get(str(i)) or all_selections.get(step.name, {})

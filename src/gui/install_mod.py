@@ -562,6 +562,9 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
                 dst = dest_root
             if src.is_dir():
                 folder_copied += _copytree_case_insensitive(src, dst)
+                # Invalidate the cache for dst's parent so that subsequent
+                # path resolutions pick up directories just created above.
+                _dst_cache.pop(dst.parent, None)
         else:
             if not dst_rel:
                 dst = dest_root / src.name
