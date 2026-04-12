@@ -933,6 +933,7 @@ class WorkshopDialog(tk.Frame):
                 source = {
                     "modId":  row["mod_id"],
                     "fileId": file_id,
+                    "logicalFilename": row["name"],
                 }
                 if row.get("size_bytes"):
                     source["fileSize"] = row["size_bytes"]
