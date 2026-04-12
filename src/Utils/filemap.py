@@ -465,6 +465,27 @@ def remove_from_mod_index(
         _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
 
+def rename_in_mod_index(
+    index_path: Path,
+    old_name: str,
+    new_name: str,
+    normalize_folder_case: bool = True,
+) -> None:
+    """Rename a mod's entry in the index from *old_name* to *new_name*.
+
+    Call this after renaming a mod's staging folder so build_filemap() can
+    still find its files (build_filemap keys the index by the modlist name).
+    No-op if the index does not exist or the old name is not in it.
+    """
+    if not index_path.is_file() or old_name == new_name:
+        return
+    index = read_mod_index(index_path)
+    if not index or old_name not in index:
+        return
+    index[new_name] = index.pop(old_name)
+    _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
+
+
 def rebuild_mod_index(
     index_path: Path,
     staging_root: Path,

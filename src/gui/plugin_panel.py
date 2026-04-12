@@ -249,6 +249,10 @@ class PluginPanel(ctk.CTkFrame):
         self._esl_flagged_plugins: set[str] = set()  # lowercase plugin names with ESL flag set
         self._esl_safe_plugins: set[str] = set()    # lowercase plugin names eligible for ESL flag
         self._esl_unsafe_plugins: set[str] = set()  # lowercase plugin names ineligible for ESL flag
+        # Cache for ESL eligibility results keyed by (path_str, mtime_ns, size).
+        # check_esl_eligible() does a full record scan of the plugin file —
+        # expensive enough that we must not re-run it on every toggle/reorder.
+        self._esl_eligible_cache: dict[tuple[str, int, int], bool] = {}
         self._userlist_plugins: set[str] = set()
         # Plugin filter panel state
         self._plugin_filter_state: dict = {}
@@ -4016,8 +4020,9 @@ class PluginPanel(ctk.CTkFrame):
             self._plugin_entries[i], self._plugin_entries[i - 1] = (
                 self._plugin_entries[i - 1], self._plugin_entries[i],
             )
+        moved = set(indices)
         self._psel_set = {i - 1 for i in indices}
-        if self._sel_idx >= 0:
+        if self._sel_idx in moved:
             self._sel_idx -= 1
         self._save_plugins()
         self._check_all_masters()
@@ -4038,8 +4043,9 @@ class PluginPanel(ctk.CTkFrame):
             self._plugin_entries[i], self._plugin_entries[i + 1] = (
                 self._plugin_entries[i + 1], self._plugin_entries[i],
             )
+        moved = set(indices)
         self._psel_set = {i + 1 for i in indices}
-        if self._sel_idx >= 0:
+        if self._sel_idx in moved:
             self._sel_idx += 1
         self._save_plugins()
         self._check_all_masters()
@@ -4404,10 +4410,28 @@ class PluginPanel(ctk.CTkFrame):
         Only .esp and .esm files are checked for the ESL flag — .esl files are
         always light by extension and handled separately by the engine.
         ESL eligibility (safe/unsafe) is only checked for .esp/.esm files.
+
+        This runs on every _check_all_masters call (plugin toggle, reorder,
+        etc.), so two optimisations matter:
+
+        * Skip entirely for games that don't support the ESL flag.
+        * Cache eligibility results by (path, mtime_ns, size).  The flag-bit
+          check is cheap (12-byte read); the full-file record scan for
+          eligibility is not, and its result only changes when the plugin
+          file itself is rewritten.
         """
+        # Gate on the game capability — no point scanning Fallout 3 /
+        # Oblivion / Morrowind plugins for an ESL flag that doesn't exist.
+        if not getattr(self._game, "supports_esl_flag", False):
+            self._esl_flagged_plugins = set()
+            self._esl_safe_plugins = set()
+            self._esl_unsafe_plugins = set()
+            return
+
         flagged: set[str] = set()
         safe: set[str] = set()
         unsafe: set[str] = set()
+        cache = self._esl_eligible_cache
         for entry in self._plugin_entries:
             name_lower = entry.name.lower()
             # .esl files are always treated as light by the game engine
@@ -4415,22 +4439,34 @@ class PluginPanel(ctk.CTkFrame):
                 flagged.add(name_lower)
                 continue
             path = plugin_paths.get(name_lower)
-            if path and path.is_file():
+            if not (path and path.is_file()):
+                continue
+            try:
+                if is_esl_flagged(path):
+                    flagged.add(name_lower)
+            except Exception:
+                pass
+            # Only check ESL eligibility for ESP/ESM files (not already ESL).
+            # Cache by (path, mtime, size) so the record scan only runs once
+            # per plugin until the file is modified.
+            if not name_lower.endswith((".esp", ".esm")):
+                continue
+            try:
+                st = path.stat()
+                cache_key = (str(path), st.st_mtime_ns, st.st_size)
+            except OSError:
+                continue
+            cached = cache.get(cache_key)
+            if cached is None:
                 try:
-                    if is_esl_flagged(path):
-                        flagged.add(name_lower)
+                    cached, _ = check_esl_eligible(path)
                 except Exception:
-                    pass
-                # Only check ESL eligibility for ESP/ESM files (not already ESL)
-                if name_lower.endswith((".esp", ".esm")):
-                    try:
-                        eligible, _ = check_esl_eligible(path)
-                        if eligible:
-                            safe.add(name_lower)
-                        else:
-                            unsafe.add(name_lower)
-                    except Exception:
-                        pass
+                    cached = False
+                cache[cache_key] = cached
+            if cached:
+                safe.add(name_lower)
+            else:
+                unsafe.add(name_lower)
         self._esl_flagged_plugins = flagged
         self._esl_safe_plugins = safe
         self._esl_unsafe_plugins = unsafe

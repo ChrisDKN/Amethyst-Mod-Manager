@@ -889,11 +889,11 @@ class Fallout_4VR(Fallout_3):
 
     @property
     def game_id(self) -> str:
-        return "Fallout4VR.exe"
+        return "Fallout4VR"
 
-    @property 
+    @property
     def exe_name(self) -> str:
-        return "Fallout4VRLauncher.exe"
+        return "Fallout4VR.exe"
 
     @property
     def steam_id(self) -> str:

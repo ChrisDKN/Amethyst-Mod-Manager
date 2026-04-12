@@ -1,3 +1,15 @@
+- v1.2.2
+- Collection installs can now check the downloads folder or any added locations set in the downloads tab for any aleady downloaded mods
+- Plugins in the plugins panel can now be marked as light (ESL)
+- Added a filter button for the plugins panel
+- Fixed hidden columns making others unsortable
+- Fixed plugin related buttons not being hidden for game that don't need them
+- Fixed renaming a mod clearing column contents
+- Re-fixed an issue where some fomods could install with mutiple case conflicting folders and files.
+- Text boxes are now unfocused when clicking outside of them
+- Added an option to keep fomod archives regardless of if Clear archives after isntall is on
+- Several nxm handler related bug fixes
+
 - v1.2.1
 - Fixed the right click context menu in the modlist panel instantly closing after installing a mod
 - Mods in the workshop are now displayed in alphabetical order

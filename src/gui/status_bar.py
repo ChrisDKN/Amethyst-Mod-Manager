@@ -180,6 +180,13 @@ class StatusBar(ctk.CTkFrame):
         ).pack(side="right", padx=(0, 2), pady=2)
 
         ctk.CTkButton(
+            label_bar, text="Ko-Fi", width=55, height=16,
+            fg_color="#7b2d8b", hover_color="#9a3aae",
+            text_color="#ffffff", font=FONT_SMALL,
+            command=lambda: webbrowser.open("https://ko-fi.com/chrisdkn"),
+        ).pack(side="right", padx=(0, 2), pady=2)
+
+        ctk.CTkButton(
             label_bar, text="Github", width=60, height=16,
             fg_color="#24292e", hover_color="#3a3f44",
             text_color="#ffffff", font=FONT_SMALL,
@@ -672,6 +679,19 @@ class SettingsPanel(ctk.CTkFrame):
             font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
         ).pack(anchor="w", pady=(2, 0))
 
+        self._col_clear_archive_var = tk.BooleanVar(value=_col_cfg["clear_archive_after_install"])
+        ctk.CTkCheckBox(
+            col_sec, text="Clear archive after install", variable=self._col_clear_archive_var,
+            font=FONT_NORMAL, text_color=TEXT_MAIN,
+        ).pack(anchor="w", pady=(10, 0))
+        ctk.CTkLabel(
+            col_sec,
+            text="When enabled, collection-downloaded archives in the download cache\n"
+                 "are always removed after install, overriding the Downloads settings.\n"
+                 "Archives found in your downloads locations are never deleted.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).pack(anchor="w", pady=(2, 0))
+
         # ==== General Settings ====
         gen_sec = _begin_section("General Settings")
 
@@ -974,6 +994,7 @@ class SettingsPanel(ctk.CTkFrame):
             download_order=self._dl_order_from_label.get(self._dl_order_var.get(), "largest"),
             max_concurrent=int(round(self._max_concurrent_var.get())),
             check_download_locations=self._check_dl_locations_var.get(),
+            clear_archive_after_install=self._col_clear_archive_var.get(),
         )
         save_heroic_config_path(self._heroic_path_var.get())
         save_steam_libraries_vdf_path(self._steam_vdf_var.get())
@@ -996,6 +1017,7 @@ class SettingsPanel(ctk.CTkFrame):
             download_order=self._dl_order_from_label.get(self._dl_order_var.get(), "largest"),
             max_concurrent=int(round(self._max_concurrent_var.get())),
             check_download_locations=self._check_dl_locations_var.get(),
+            clear_archive_after_install=self._col_clear_archive_var.get(),
         )
         save_heroic_config_path(self._heroic_path_var.get())
         save_steam_libraries_vdf_path(self._steam_vdf_var.get())

@@ -313,11 +313,9 @@ class App(ctk.CTk):
 
         # Global click handler: defocus text entry widgets when clicking
         # outside of them, so search bars etc. don't stay focused.
-        # Bind on both Press and Release — Press is needed so focus moves
-        # before the click is processed; Release is a fallback in case a
-        # widget returns "break" from its ButtonPress binding.
+        # Runs after widget/class bindings (bindtag "all" order) so widgets
+        # that return "break" from their own ButtonPress still work.
         self.bind_all("<ButtonPress-1>", self._defocus_on_outside_click, add="+")
-        self.bind_all("<ButtonRelease-1>", self._defocus_on_outside_click, add="+")
 
         # Global keyboard shortcuts (F2 rename, Ctrl+D deploy, Ctrl+R restore,
         # Up/Down reorder selection).

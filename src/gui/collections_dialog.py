@@ -46,7 +46,7 @@ from Utils.filemap import rebuild_mod_index
 from Utils.config_paths import get_download_cache_dir
 from Nexus.nexus_download import delete_archive_and_sidecar, DownloadResult, _find_cached_archive, _get_downloads_dir
 from gui.download_locations_overlay import load_extra_download_locations
-from Utils.ui_config import load_clear_archive_after_install, load_keep_fomod_archives
+from Utils.ui_config import load_clear_archive_after_install, load_keep_fomod_archives, load_collection_settings
 from Nexus.nexus_meta import build_meta_from_download
 from Utils.xdg import open_url
 from Utils.plugins import PluginEntry, write_plugins, write_loadorder
@@ -2398,12 +2398,24 @@ class CollectionDetailDialog(tk.Frame):
                 # a custom scan location — those belong to the user, not the cache.
                 if archive_path in _archive_use_count:
                     _archive_use_count[archive_path] -= 1
-                    _keep_for_fomod = _installed_was_fomod and load_keep_fomod_archives()
+                    # Collection-specific "Clear archive after install" overrides
+                    # both Downloads settings (clear_archive_after_install +
+                    # keep_fomod_archives). External archives are never touched.
+                    _col_force_clear = load_collection_settings().get(
+                        "clear_archive_after_install", False)
+                    _keep_for_fomod = (
+                        not _col_force_clear
+                        and _installed_was_fomod
+                        and load_keep_fomod_archives()
+                    )
+                    _should_clear = (
+                        _col_force_clear
+                        or (load_clear_archive_after_install() and not _keep_for_fomod)
+                    )
                     if (
                         _archive_use_count[archive_path] == 0
-                        and load_clear_archive_after_install()
+                        and _should_clear
                         and archive_path not in _external_archive_paths
-                        and not _keep_for_fomod
                     ):
                         try:
                             delete_archive_and_sidecar(Path(archive_path))
@@ -2623,11 +2635,16 @@ class CollectionDetailDialog(tk.Frame):
                     with _install_lock:
                         if _def_archive in _archive_use_count:
                             _archive_use_count[_def_archive] -= 1
+                            _col_force_clear = load_collection_settings().get(
+                                "clear_archive_after_install", False)
+                            _should_clear = _col_force_clear or (
+                                load_clear_archive_after_install()
+                                and not load_keep_fomod_archives()
+                            )
                             if (
                                 _archive_use_count[_def_archive] == 0
-                                and load_clear_archive_after_install()
+                                and _should_clear
                                 and _def_archive not in _external_archive_paths
-                                and not load_keep_fomod_archives()
                             ):
                                 try:
                                     delete_archive_and_sidecar(Path(_def_archive))

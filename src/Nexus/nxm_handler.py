@@ -236,6 +236,78 @@ class NxmHandler:
             / "applications" / _DESKTOP_FILE_NAME
         )
 
+    @classmethod
+    def _all_desktop_paths(cls) -> list[Path]:
+        """
+        Every location an NXM .desktop file could live in, across flatpak
+        and non-flatpak installs. Used to scrub stale registrations from
+        *other* instances before re-registering this one.
+        """
+        paths: list[Path] = []
+
+        # Host ~/.local/share/applications (non-flatpak + flatpak host write)
+        paths.append(Path.home() / ".local" / "share" / "applications" / _DESKTOP_FILE_NAME)
+
+        # XDG_DATA_HOME override (only meaningful outside flatpak — inside
+        # flatpak this is redirected into the sandbox)
+        xdg = os.environ.get("XDG_DATA_HOME")
+        if xdg:
+            paths.append(Path(xdg) / "applications" / _DESKTOP_FILE_NAME)
+
+        # Flatpak exports dir (visible to flatpak-sandboxed browsers)
+        paths.append(cls._flatpak_desktop_path())
+
+        # Deduplicate while preserving order
+        seen: set[Path] = set()
+        unique: list[Path] = []
+        for p in paths:
+            if p not in seen:
+                seen.add(p)
+                unique.append(p)
+        return unique
+
+    @classmethod
+    def _scrub_all(cls) -> None:
+        """
+        Remove every NXM .desktop file we might have written previously,
+        from both flatpak and non-flatpak locations, and clear the xdg-mime
+        default association. Safe to call before register() so a freshly
+        launched instance always takes over the handler cleanly — otherwise
+        a stale .desktop from another install can hijack nxm:// links into
+        a different (possibly not-running) instance of the manager.
+        """
+        for path in cls._all_desktop_paths():
+            try:
+                if path.exists():
+                    path.unlink()
+                    app_log(f"Scrubbed stale NXM .desktop file: {path}")
+            except OSError as exc:
+                app_log(f"Could not scrub NXM .desktop {path}: {exc}")
+
+        # Best-effort: tell xdg-mime to forget the old default. We try both
+        # host and in-sandbox invocations so this works whichever variant
+        # we're running as.
+        cmds: list[list[str]] = []
+        in_flatpak = Path("/.flatpak-info").exists()
+        if in_flatpak and shutil.which("flatpak-spawn"):
+            cmds.append(["flatpak-spawn", "--host", "--directory=/", "xdg-mime"])
+        if shutil.which("xdg-mime"):
+            cmds.append(["xdg-mime"])
+
+        for base in cmds:
+            try:
+                subprocess.run(
+                    [*base, "default", "", "x-scheme-handler/nxm"],
+                    check=False,
+                    capture_output=True,
+                )
+            except OSError as exc:
+                app_log(f"xdg-mime default clear failed: {exc}")
+
+        # Also strip the association from any mimeapps.list files — this is
+        # the canonical source-of-truth used by xdg-open on minimal setups.
+        cls._remove_mimeapps_association()
+
     @staticmethod
     def _get_exec_command() -> str:
         """
@@ -258,6 +330,163 @@ class NxmHandler:
         return f'"{sys.executable}" "{script}" --nxm %u'
 
     @classmethod
+    def _mimeapps_paths(cls) -> list[Path]:
+        """
+        Candidate mimeapps.list locations per the XDG MIME Applications spec.
+        We write to ~/.config/mimeapps.list (the user's canonical one) and,
+        if already present, also update the legacy ~/.local/share/applications
+        one so both are in sync.
+        """
+        paths: list[Path] = []
+        xdg_cfg = os.environ.get("XDG_CONFIG_HOME")
+        cfg_base = Path(xdg_cfg) if xdg_cfg else Path.home() / ".config"
+        paths.append(cfg_base / "mimeapps.list")
+        paths.append(Path.home() / ".local" / "share" / "applications" / "mimeapps.list")
+        return paths
+
+    @classmethod
+    def _write_mimeapps_association(cls) -> None:
+        """
+        Ensure ``x-scheme-handler/nxm=amethystmodmanager-nxm.desktop`` is set
+        under ``[Default Applications]`` and ``[Added Associations]`` in
+        mimeapps.list, so xdg-open / gio / portals resolve nxm:// correctly
+        even on systems where xdg-mime isn't consulted.
+
+        We edit the file line-by-line to preserve every other association.
+        """
+        for path in cls._mimeapps_paths():
+            try:
+                if not path.parent.exists():
+                    # Only touch mimeapps.list in dirs that already exist —
+                    # we don't want to create ~/.local/share/applications
+                    # just to drop a mimeapps.list into it.
+                    if path == cls._mimeapps_paths()[0]:
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                    else:
+                        continue
+
+                existing = path.read_text() if path.exists() else ""
+                updated = cls._patch_mimeapps_content(existing)
+                if updated != existing:
+                    path.write_text(updated)
+                    app_log(f"Updated nxm:// association in {path}")
+            except OSError as exc:
+                app_log(f"Could not update {path}: {exc}")
+
+    @staticmethod
+    def _patch_mimeapps_content(content: str) -> str:
+        """
+        Set ``x-scheme-handler/nxm=amethystmodmanager-nxm.desktop`` under both
+        ``[Default Applications]`` and ``[Added Associations]`` sections of a
+        mimeapps.list-style file. Creates the sections if missing, replaces
+        the key if already present, and leaves every other line intact.
+        """
+        key = "x-scheme-handler/nxm"
+        value = _DESKTOP_FILE_NAME
+        target_sections = ("[Default Applications]", "[Added Associations]")
+
+        lines = content.splitlines() if content else []
+
+        # Track which sections exist, and whether the key is already set in each
+        section_present: dict[str, bool] = {s: False for s in target_sections}
+        key_set: dict[str, bool] = {s: False for s in target_sections}
+
+        current_section: Optional[str] = None
+        new_lines: list[str] = []
+        for raw in lines:
+            stripped = raw.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                current_section = stripped
+                if current_section in section_present:
+                    section_present[current_section] = True
+                new_lines.append(raw)
+                continue
+
+            if (
+                current_section in target_sections
+                and "=" in stripped
+                and stripped.split("=", 1)[0].strip() == key
+            ):
+                # Replace existing assignment
+                new_lines.append(f"{key}={value}")
+                key_set[current_section] = True  # type: ignore[index]
+                continue
+
+            new_lines.append(raw)
+
+        # Append missing sections / keys
+        for section in target_sections:
+            if not section_present[section]:
+                if new_lines and new_lines[-1] != "":
+                    new_lines.append("")
+                new_lines.append(section)
+                new_lines.append(f"{key}={value}")
+            elif not key_set[section]:
+                # Section exists but key missing — insert the key at the end
+                # of that section.
+                insert_at = len(new_lines)
+                in_section = False
+                for i, line in enumerate(new_lines):
+                    s = line.strip()
+                    if s == section:
+                        in_section = True
+                        continue
+                    if in_section and s.startswith("[") and s.endswith("]"):
+                        insert_at = i
+                        break
+                else:
+                    insert_at = len(new_lines)
+                new_lines.insert(insert_at, f"{key}={value}")
+
+        return "\n".join(new_lines) + ("\n" if new_lines else "")
+
+    @classmethod
+    def _gio_register(cls, in_flatpak: bool) -> None:
+        """
+        Register the handler via ``gio mime`` as well. Many GTK/GNOME tools
+        and some browsers (incl. Brave on certain Arch setups) consult gio
+        rather than xdg-mime directly. Best-effort — silent on failure.
+        """
+        if in_flatpak and shutil.which("flatpak-spawn"):
+            base = ["flatpak-spawn", "--host", "--directory=/", "gio"]
+        elif shutil.which("gio"):
+            base = ["gio"]
+        else:
+            return
+        try:
+            subprocess.run(
+                [*base, "mime", "x-scheme-handler/nxm", _DESKTOP_FILE_NAME],
+                check=False,
+                capture_output=True,
+            )
+            app_log("Registered nxm:// handler via gio mime")
+        except OSError as exc:
+            app_log(f"gio mime registration failed: {exc}")
+
+    @classmethod
+    def _remove_mimeapps_association(cls) -> None:
+        """Remove our nxm:// key from every mimeapps.list we can find."""
+        key = "x-scheme-handler/nxm"
+        for path in cls._mimeapps_paths():
+            try:
+                if not path.exists():
+                    continue
+                lines = path.read_text().splitlines()
+                filtered = [
+                    l for l in lines
+                    if not (
+                        "=" in l
+                        and l.split("=", 1)[0].strip() == key
+                        and _DESKTOP_FILE_NAME in l
+                    )
+                ]
+                if filtered != lines:
+                    path.write_text("\n".join(filtered) + "\n")
+                    app_log(f"Removed nxm:// association from {path}")
+            except OSError as exc:
+                app_log(f"Could not clean {path}: {exc}")
+
+    @classmethod
     def register(cls) -> bool:
         """
         Register AmethystModManager as the handler for nxm:// links.
@@ -265,6 +494,11 @@ class NxmHandler:
         Returns True on success, False if it could not be registered
         (e.g. xdg-mime not available).
         """
+        # Always scrub first. This removes any leftover .desktop from a
+        # different install variant (e.g. flatpak vs native) so the handler
+        # doesn't get routed to an old/other instance of the manager.
+        cls._scrub_all()
+
         desktop_path = cls._desktop_path()
         desktop_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -320,6 +554,17 @@ class NxmHandler:
             app_log(f"xdg-mime default failed: {exc.stderr}")
             return False
 
+        # On some distros (e.g. CachyOS / minimal Arch setups without a full
+        # desktop environment) xdg-open runs in "generic" mode and ignores
+        # xdg-mime, cycling through a hardcoded browser list instead — which
+        # produces "xdg-open: no method available for opening 'nxm://...'"
+        # when the user's browser (Brave, etc.) isn't in that list. To cover
+        # that case we *also* write the association directly to
+        # ~/.config/mimeapps.list (the canonical source of truth per the
+        # XDG spec) and register via `gio mime`, which many modern tools use.
+        cls._write_mimeapps_association()
+        cls._gio_register(in_flatpak)
+
         # Refresh the desktop database so Flatpak apps pick up the new entry.
         if in_flatpak and shutil.which("flatpak-spawn"):
             udd_cmd = ["flatpak-spawn", "--host", "--directory=/", "update-desktop-database"]
@@ -344,13 +589,11 @@ class NxmHandler:
 
     @classmethod
     def unregister(cls) -> None:
-        """Remove the .desktop file(s) (best-effort)."""
-        for path in (cls._desktop_path(), cls._flatpak_desktop_path()):
-            try:
-                path.unlink(missing_ok=True)
-                app_log(f"Removed NXM .desktop file: {path}")
-            except OSError as exc:
-                app_log(f"Could not remove NXM .desktop {path}: {exc}")
+        """
+        Remove the .desktop file(s) from *every* install variant
+        (flatpak + non-flatpak) and clear the xdg-mime default, best-effort.
+        """
+        cls._scrub_all()
 
     @classmethod
     def is_registered(cls) -> bool:

@@ -79,6 +79,7 @@ from Utils.filemap import (
     read_mod_index,
     rebuild_mod_index,
     remove_from_mod_index,
+    rename_in_mod_index,
     fix_flat_staging_folders,
     CONFLICT_NONE,
     CONFLICT_WINS,
@@ -120,6 +121,7 @@ from Utils.profile_state import (
     write_root_folder_state,
     write_mod_strip_prefixes,
     write_disabled_plugins,
+    write_excluded_mod_files,
     write_ignored_missing_requirements,
 )
 from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModRequirement
@@ -4842,7 +4844,38 @@ class ModListPanel(ctk.CTkFrame):
         # Update entry in memory
         old_name = entry.name
         entry.name = new_name
-        # Migrate all name-keyed metadata dicts/sets to the new name
+        self._migrate_mod_name_state(old_name, new_name)
+        self._vis_dirty = True  # name change affects text filter
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._redraw()
+        self._update_info()
+
+    def _migrate_mod_name_state(self, old_name: str, new_name: str) -> None:
+        """Move all name-keyed state from *old_name* to *new_name*.
+
+        Called by the two rename paths (_rename_mod / rename_mod_by_name).
+        Covers:
+          * modindex.bin            — so build_filemap finds the mod's files
+          * transient in-memory sets/dicts used by the renderer
+          * disk-backed per-mod state (strip prefixes, disabled plugins,
+            excluded mod files) — each must be re-persisted because the
+            on-disk keys are still the old name.
+
+        Conflict tracking dicts (_conflict_map / _overrides / _overridden_by)
+        are intentionally skipped; _rebuild_filemap() rewrites them from
+        scratch on its next run.
+        """
+        # 1. modindex.bin — keyed by modlist name, not folder name
+        if self._staging_root is not None:
+            rename_in_mod_index(
+                self._staging_root.parent / "modindex.bin",
+                old_name, new_name,
+                normalize_folder_case=self._normalize_folder_case,
+            )
+
+        # 2. Transient in-memory flags (no disk representation of their own;
+        # rebuilt on reload, so just migrate the current snapshot).
         for s in (self._update_mods, self._missing_reqs, self._ignored_missing_reqs,
                   self._endorsed_mods, self._prertx_mods, self._fomod_mods):
             if old_name in s:
@@ -4852,11 +4885,33 @@ class ModListPanel(ctk.CTkFrame):
                   self._install_datetimes, self._category_names, self._mod_versions):
             if old_name in d:
                 d[new_name] = d.pop(old_name)
-        self._vis_dirty = True  # name change affects text filter
-        self._save_modlist()
-        self._rebuild_filemap()
-        self._redraw()
-        self._update_info()
+
+        # 3. Disk-backed per-mod state — migrate and re-persist.
+        profile_dir = self._modlist_path.parent if self._modlist_path is not None else None
+
+        if old_name in self._mod_strip_prefixes:
+            self._mod_strip_prefixes[new_name] = self._mod_strip_prefixes.pop(old_name)
+            if profile_dir is not None:
+                try:
+                    write_mod_strip_prefixes(profile_dir, self._mod_strip_prefixes)
+                except Exception as e:
+                    self._log(f"Rename: failed to persist strip prefixes: {e}")
+
+        if old_name in self._disabled_plugins_map:
+            self._disabled_plugins_map[new_name] = self._disabled_plugins_map.pop(old_name)
+            if profile_dir is not None:
+                try:
+                    write_disabled_plugins(profile_dir, self._disabled_plugins_map)
+                except Exception as e:
+                    self._log(f"Rename: failed to persist disabled plugins: {e}")
+
+        if old_name in self._excluded_mod_files_map:
+            self._excluded_mod_files_map[new_name] = self._excluded_mod_files_map.pop(old_name)
+            if profile_dir is not None:
+                try:
+                    write_excluded_mod_files(profile_dir, self._excluded_mod_files_map)
+                except Exception as e:
+                    self._log(f"Rename: failed to persist excluded mod files: {e}")
 
     def rename_mod_by_name(self, old_name: str, new_name: str) -> bool:
         """Rename a mod by name (on disk + in-memory entry + persisted modlist).
@@ -4887,15 +4942,7 @@ class ModListPanel(ctk.CTkFrame):
                 return False
         entry = self._entries[idx]
         entry.name = new_name
-        for s in (self._update_mods, self._missing_reqs, self._ignored_missing_reqs,
-                  self._endorsed_mods, self._prertx_mods, self._fomod_mods):
-            if old_name in s:
-                s.discard(old_name)
-                s.add(new_name)
-        for d in (self._missing_reqs_detail, self._install_dates,
-                  self._install_datetimes, self._category_names, self._mod_versions):
-            if old_name in d:
-                d[new_name] = d.pop(old_name)
+        self._migrate_mod_name_state(old_name, new_name)
         self._vis_dirty = True
         self._save_modlist()
         self._rebuild_filemap()

@@ -5,12 +5,17 @@ Bindings:
     F2              Rename the selected mod (modlist panel)
     Ctrl+D          Deploy
     Ctrl+R          Restore
-    Up              Move selected mods/plugins/separators up
-    Down            Move selected mods/plugins/separators down
+    Alt+Up          Move selected mods/plugins/separators up
+    Alt+Down        Move selected mods/plugins/separators down
 
-Up/Down and F2 dispatch to whichever panel (modlist or plugin) was most
-recently interacted with via mouse. Shortcuts are suppressed while a text
-input widget (Entry/Text/etc.) has focus so typing isn't hijacked.
+Reorder shortcuts require the Alt modifier so plain Up/Down can still be
+used for normal navigation/scrolling without accidentally shuffling the
+selection. Alt+arrow matches the "move line" convention from VS Code /
+JetBrains.
+
+Alt+Up/Down and F2 dispatch to whichever panel (modlist or plugin) was
+most recently interacted with via mouse. Shortcuts are suppressed while a
+text input widget (Entry/Text/etc.) has focus so typing isn't hijacked.
 """
 
 import tkinter as tk
@@ -114,5 +119,5 @@ def register_shortcuts(app) -> None:
     app.bind_all("<Control-D>",    _guard(_deploy),          add="+")
     app.bind_all("<Control-r>",    _guard(_restore),         add="+")
     app.bind_all("<Control-R>",    _guard(_restore),         add="+")
-    app.bind_all("<Up>",           _guard(_move_up),         add="+")
-    app.bind_all("<Down>",         _guard(_move_down),       add="+")
+    app.bind_all("<Alt-Up>",       _guard(_move_up),         add="+")
+    app.bind_all("<Alt-Down>",     _guard(_move_down),       add="+")
