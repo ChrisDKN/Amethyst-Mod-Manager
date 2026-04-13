@@ -1,3 +1,26 @@
+- v1.2.3
+- Updated Libloot to 0.29.3
+- F2 Keybind can now rename separators
+- Added a check updates right click option for mods in the modlist panel.
+- Slightly optimised extraction logic
+- When the missing requirements window is open, selecting another mod with missing requirements will now redraw this window
+- Clicking the missing requirements flag and update available flag on a mod now opens the relevant window
+- Workshop export/import now keeps the name of any renamed mods
+- Added a keep option to the restore backups menu, Backups marked as kept won't be auto removed
+- Marker strips now work correctly when selecting multiple mods with conflicts.
+- Several UI scaling tweaks including missing text not being scaled
+- Installing a mod via the nexus panel will now display all versions in the main category to choose from.
+- Added several keybinds, Some added in the last update.
+    * F2 - Rename selected mod
+    * CTRL + D - Deploy
+    * Middle mouse button - Open mod on nexus
+    * Alt + Up/Down Arrow - Move mod/plugin up/down
+    * Delete - remove mod
+    * Home/End - Move to top/bottom of modlist/plugins panel
+    * Shift + F - Open modlist/plugins filters menu
+    * Shift + Mousewheel - Speeds up scrolling speed
+    * Shift + E - Expand Collapse separators
+    
 - v1.2.2
 - Collection installs can now check the downloads folder or any added locations set in the downloads tab for any aleady downloaded mods
 - Plugins in the plugins panel can now be marked as light (ESL)

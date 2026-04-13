@@ -498,6 +498,25 @@ def _resolve_dst_case(dest_root: Path, dst_rel: str,
     return current
 
 
+def _link_or_copy(src: str | os.PathLike, dst: str | os.PathLike) -> None:
+    """
+    Place src at dst using a hardlink when the two are on the same filesystem,
+    otherwise fall back to a byte-for-byte copy.  Hardlinks are near-instant
+    and cost zero additional disk space, which roughly halves install time
+    (and peak disk usage) for large archives that get extracted next to the
+    staging folder.  Cross-device (EXDEV) and filesystems that don't support
+    hardlinks (ENOSYS/EPERM) transparently fall through to shutil.copy2, so
+    the small-archive tmpfs path behaves exactly as before.
+    """
+    try:
+        os.link(src, dst)
+        return
+    except OSError:
+        # EXDEV (cross-device), ENOSYS / EPERM (fs doesn't support hardlinks),
+        # or any other link-time failure — fall back to a real copy.
+        shutil.copy2(src, dst)
+
+
 def _copytree_case_insensitive(src: Path, dst: Path) -> int:
     """
     Recursively copy src into dst, resolving every destination directory
@@ -524,7 +543,7 @@ def _copytree_case_insensitive(src: Path, dst: Path) -> int:
             elif child_dst.exists():
                 child_dst.chmod(0o644)
                 child_dst.unlink()
-            shutil.copy2(entry.path, child_dst)
+            _link_or_copy(entry.path, child_dst)
             copied += 1
     return copied
 
@@ -596,7 +615,7 @@ def _copy_file_list(file_list: list[tuple[str, str, bool]],
             except PermissionError:
                 dst.chmod(0o644)
                 dst.unlink()
-        shutil.copy2(src, dst)
+        _link_or_copy(src, dst)
 
     _COPY_WORKERS = 8
     with ThreadPoolExecutor(max_workers=_COPY_WORKERS) as pool:
@@ -898,7 +917,10 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
             _bsdtar_bin = shutil.which("bsdtar")
             _has_native = _7z_bin or _bsdtar_bin
-            _use_python_zip = _archive_mb < 50 or not _has_native
+            # Python's zipfile is pure-Python and single-threaded, so use it
+            # only for very small archives (where native-tool subprocess
+            # overhead dominates) or when no native tool is available.
+            _use_python_zip = _archive_mb < 10 or not _has_native
             if _use_python_zip:
                 try:
                     log_fn("Extracting with zipfile…")
@@ -1028,11 +1050,87 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             if not _7z_done:
                 raise RuntimeError(f"All extraction methods failed for 7z archive.")
         elif any(ext.endswith(s) for s in (".tar.gz", ".tar.bz2", ".tar.xz", ".tar")):
-            log_fn("Extracting with tarfile…")
-            if progress_fn is not None:
-                progress_fn(0, 0, "Extracting…")
-            with tarfile.open(archive_path, "r:*") as t:
-                t.extractall(extract_dir, filter="fully_trusted")
+            import subprocess
+            _tar_done = False
+            # Prefer native multi-threaded tools over Python's single-threaded
+            # tarfile module — especially important for .tar.xz which is slow
+            # to decompress in pure Python.
+            _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+            _bsdtar_bin = shutil.which("bsdtar")
+            if _bsdtar_bin:
+                # bsdtar handles every tar variant natively and is the fastest
+                # option for streaming tar decompression.
+                log_fn("Extracting with bsdtar…")
+                if progress_fn is not None:
+                    progress_fn(0, 0, "Extracting…")
+                result = subprocess.run(
+                    [_bsdtar_bin, "-xf", archive_path, "-C", extract_dir],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                )
+                if result.returncode == 0:
+                    _tar_done = True
+                    log_fn("Extracted with bsdtar.")
+                else:
+                    log_fn(f"bsdtar failed ({result.stderr.strip()}), trying 7z…")
+            if not _tar_done and _7z_bin:
+                # 7z needs two passes for .tar.gz/.tar.xz/.tar.bz2 (decompress,
+                # then untar).  For a plain .tar a single pass suffices.
+                if ext.endswith(".tar"):
+                    shutil.rmtree(extract_dir, ignore_errors=True)
+                    os.makedirs(extract_dir, exist_ok=True)
+                    if progress_fn is not None:
+                        progress_fn(0, 0, "Extracting…")
+                    result = subprocess.run(
+                        [_7z_bin, "x", archive_path, f"-o{extract_dir}", "-y", "-mmt=on"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                    )
+                    if result.returncode == 0:
+                        _tar_done = True
+                        log_fn("Extracted with 7z.")
+                    else:
+                        log_fn(f"7z failed ({result.stderr.strip()}), trying tarfile…")
+                else:
+                    # Decompress to an intermediate .tar inside extract_dir,
+                    # then untar that into extract_dir and remove the .tar.
+                    shutil.rmtree(extract_dir, ignore_errors=True)
+                    os.makedirs(extract_dir, exist_ok=True)
+                    if progress_fn is not None:
+                        progress_fn(0, 0, "Extracting…")
+                    _stage_dir = tempfile.mkdtemp(prefix="modmgr_tar_",
+                                                  dir=os.path.dirname(extract_dir) or None)
+                    try:
+                        r1 = subprocess.run(
+                            [_7z_bin, "x", archive_path, f"-o{_stage_dir}", "-y", "-mmt=on"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                        )
+                        if r1.returncode != 0:
+                            log_fn(f"7z decompress failed ({r1.stderr.strip()}), trying tarfile…")
+                        else:
+                            _inner_tar = None
+                            for _n in os.listdir(_stage_dir):
+                                if _n.lower().endswith(".tar"):
+                                    _inner_tar = os.path.join(_stage_dir, _n)
+                                    break
+                            if _inner_tar:
+                                r2 = subprocess.run(
+                                    [_7z_bin, "x", _inner_tar, f"-o{extract_dir}", "-y", "-mmt=on"],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                                )
+                                if r2.returncode == 0:
+                                    _tar_done = True
+                                    log_fn("Extracted with 7z.")
+                                else:
+                                    log_fn(f"7z untar failed ({r2.stderr.strip()}), trying tarfile…")
+                    finally:
+                        shutil.rmtree(_stage_dir, ignore_errors=True)
+            if not _tar_done:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                os.makedirs(extract_dir, exist_ok=True)
+                log_fn("Extracting with tarfile (fallback)…")
+                if progress_fn is not None:
+                    progress_fn(0, 0, "Extracting…")
+                with tarfile.open(archive_path, "r:*") as t:
+                    t.extractall(extract_dir, filter="fully_trusted")
         elif ext.endswith(".rar"):
             import subprocess
             _rar_done = False

@@ -47,11 +47,29 @@ def _parse_timestamp_from_dirname(name: str) -> datetime | None:
         return None
 
 
+_KEEP_MARKER = ".keep"
+
+
+def is_backup_kept(backup_dir: Path) -> bool:
+    """Return True if this backup is marked to be kept permanently."""
+    return (backup_dir / _KEEP_MARKER).is_file()
+
+
+def set_backup_kept(backup_dir: Path, keep: bool) -> None:
+    """Mark or unmark a backup to be kept permanently (skip pruning)."""
+    marker = backup_dir / _KEEP_MARKER
+    if keep:
+        marker.touch(exist_ok=True)
+    elif marker.is_file():
+        marker.unlink()
+
+
 def create_backup(profile_dir: Path, log_fn=None) -> None:
     """
     Create a new backup in profile_dir/backups/<timestamp>/ containing
     modlist.txt, plugins.txt, and (if present) profile_state.json.
     Keep at most _MAX_BACKUPS backup folders; delete oldest when over limit.
+    Backups marked with .keep are never pruned.
     """
     _log = log_fn or (lambda _: None)
     backups_dir = profile_dir / _BACKUPS_SUBDIR
@@ -68,9 +86,11 @@ def create_backup(profile_dir: Path, log_fn=None) -> None:
             _log(f"Backup: {name}")
 
     # Prune to _MAX_BACKUPS: list subdirs by name (chronological order), remove oldest
+    # Kept backups are excluded from pruning (and from the count).
     subdirs = [
         p for p in backups_dir.iterdir()
         if p.is_dir() and _parse_timestamp_from_dirname(p.name) is not None
+           and not is_backup_kept(p)
     ]
     subdirs.sort(key=lambda p: p.name)
     while len(subdirs) > _MAX_BACKUPS:
@@ -83,6 +103,7 @@ def create_backup(profile_dir: Path, log_fn=None) -> None:
         subdirs = [
             p for p in backups_dir.iterdir()
             if p.is_dir() and _parse_timestamp_from_dirname(p.name) is not None
+               and not is_backup_kept(p)
         ]
         subdirs.sort(key=lambda p: p.name)
 

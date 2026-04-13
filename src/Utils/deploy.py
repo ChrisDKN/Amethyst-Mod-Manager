@@ -373,8 +373,10 @@ def move_to_core(
         return 0
 
     # Count files before the move so we can report the number moved.
+    # os.walk gets file/dir classification from readdir d_type on Linux —
+    # no extra stat() per entry unlike rglob + is_file().
     with _timer("move_to_core — count files"):
-        count = sum(1 for _ in deploy_dir.rglob("*") if _.is_file())
+        count = sum(len(fns) for _, _, fns in os.walk(str(deploy_dir)))
     if not count:
         core_dir.mkdir(parents=True, exist_ok=True)
         return 0
@@ -631,8 +633,6 @@ def deploy_filemap(
     _t_resolve_loop = _time.perf_counter()
     _index_hits = 0
     _slow_hits = 0
-    _t_src_acc = 0.0
-    _t_dst_acc = 0.0
     # Cache mod_root Path objects — avoids 92k Path / operations for ~520 mods
     _mod_root_cache: dict[str, Path] = {}
     # String-based caches for _resolve_root_path_str
@@ -658,7 +658,6 @@ def deploy_filemap(
         line_idx += 1
 
         # --- Fast path: O(1) mod-index lookup (no syscall) ---
-        _t0 = _time.perf_counter()
         _mr = _mod_root_cache.get(mod_name)
         if _mr is None:
             _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
@@ -679,12 +678,10 @@ def deploy_filemap(
             )
             if src_str is not None:
                 _slow_hits += 1
-        _t_src_acc += _time.perf_counter() - _t0
         if src_str is None:
             _log(f"  WARN: source not found — {rel_str} ({mod_name})")
             continue
 
-        _t0 = _time.perf_counter()
         effective_dir = _per_deploy.get(mod_name, deploy_dir)
         _core_s = _core_base_str if effective_dir is deploy_dir else None
         _eff_s = _deploy_dir_str if effective_dir is deploy_dir else str(effective_dir)
@@ -693,14 +690,12 @@ def deploy_filemap(
                                          resolved_dir_cache=_resolved_dir_cache)
         use_symlink = symlink_exts is not None and os.path.splitext(src_str)[1].lower() in symlink_exts
         tasks.append((src_str, dst_str, rel_lower, effective_dir is not deploy_dir, use_symlink))
-        _t_dst_acc += _time.perf_counter() - _t0
 
         if progress_fn is not None and line_idx % 500 == 0:
             progress_fn(line_idx, total_lines)
 
     print(f"  [TIMER] deploy_filemap — resolve loop: {_time.perf_counter() - _t_resolve_loop:.3f}s "
           f"(index={_index_hits}, slow={_slow_hits})")
-    print(f"  [TIMER]   src resolve: {_t_src_acc:.3f}s, dst resolve: {_t_dst_acc:.3f}s")
     total = len(tasks)
     if total == 0:
         return 0, placed_lower
@@ -831,11 +826,15 @@ def deploy_core(
     # that core files (e.g. Data_Core/Scripts/) merge into any same-name
     # directory already created by mods (e.g. Data/scripts/) rather than
     # producing a duplicate folder with different casing.
-    dst_dir_cache: dict[Path, dict[str, str]] = {}
+    _deploy_dir_str = str(deploy_dir)
+    _dir_listing_cache: dict[str, dict[str, str]] = {}
+    _resolved_dir_cache: dict[str, str] = {}
     resolved_tasks: list[tuple[str, str]] = []  # (src_str, dst_str)
     for src_str, rel_str in tasks_core:
-        dst_path = _resolve_root_path(deploy_dir, Path(rel_str), dir_cache=dst_dir_cache)
-        resolved_tasks.append((src_str, str(dst_path)))
+        dst_str = _resolve_root_path_str(_deploy_dir_str, rel_str,
+                                         _dir_listing_cache,
+                                         resolved_dir_cache=_resolved_dir_cache)
+        resolved_tasks.append((src_str, dst_str))
 
     # Deduplicate destination directories with a set before creating them.
     needed_dirs: set[str] = set()
@@ -1754,12 +1753,33 @@ def deploy_filemap_to_root(
     _staging_str   = str(staging_root)
     sorted_strip   = sorted(_strip) if _strip else []
     nocase_cache: dict[Path, dict[str, list[Path]]] = {}
-    dst_dir_cache: dict[Path, dict[str, str]] = {}
+    mod_index_cache: dict[Path, dict[str, str]] = {}
+    _mod_root_cache: dict[str, Path] = {}
+    # String-based caches for _resolve_root_path_str
+    _game_root_str = str(game_root)
+    _game_root_str_len = len(_game_root_str) + 1  # +1 for trailing "/"
+    _dir_listing_cache: dict[str, dict[str, str]] = {}
+    _resolved_dir_cache: dict[str, str] = {}
 
     with filemap_path.open(encoding="utf-8") as f:
         _tab_lines = [ln.rstrip("\n") for ln in f if "\t" in ln]
     total_lines = len(_tab_lines)
     line_idx = 0
+
+    # Pre-build per-mod file indexes for all mods referenced in the filemap.
+    # This replaces thousands of stat() calls with one os.walk per mod folder.
+    _mod_names_in_filemap: set[str] = set()
+    for _ln in _tab_lines:
+        _tab_pos = _ln.find("\t")
+        if _tab_pos > 0:
+            _mod_names_in_filemap.add(_ln[_tab_pos + 1:])
+
+    for _mn in _mod_names_in_filemap:
+        if ".." in _mn.replace("\\", "/").split("/") or _mn.startswith(("/", "\\")):
+            continue
+        _mr = overwrite_dir if _mn == _OVERWRITE_NAME else staging_root / _mn
+        if _mr not in mod_index_cache:
+            mod_index_cache[_mr] = _build_mod_index(_mr)
 
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
@@ -1795,11 +1815,24 @@ def deploy_filemap_to_root(
             continue
         already_seen_dst.add(_dst_rel_lower)
 
-        src_str = _resolve_source(
-            mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
-            _overwrite_str, _staging_str, sorted_strip, _per_mod,
-            nocase_cache,
-        )
+        # --- Fast path: O(1) mod-index lookup (no syscall) ---
+        _mr = _mod_root_cache.get(mod_name)
+        if _mr is None:
+            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
+            _mod_root_cache[mod_name] = _mr
+        _idx = mod_index_cache.get(_mr)
+        src_str: str | None = None
+        if _idx is not None:
+            _hit = _idx.get(rel_lower)
+            if _hit is not None:
+                src_str = _hit if isinstance(_hit, str) else str(_hit)
+        if src_str is None:
+            # Fall back to full resolve (stat-based)
+            src_str = _resolve_source(
+                mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
+                _overwrite_str, _staging_str, sorted_strip, _per_mod,
+                nocase_cache, mod_index_cache,
+            )
         if src_str is None:
             _log(f"  WARN: source not found — {rel_str} ({mod_name})")
             continue
@@ -1811,9 +1844,12 @@ def deploy_filemap_to_root(
             if transformed is not None:
                 src_str = transformed
 
-        dst_path = _resolve_root_path(game_root, Path(dst_rel), dir_cache=dst_dir_cache)
-        dst_str = str(dst_path)
-        tasks.append((src_str, dst_str, dst_rel.lower(), str(dst_path.relative_to(game_root))))
+        dst_str = _resolve_root_path_str(_game_root_str, dst_rel,
+                                         _dir_listing_cache,
+                                         resolved_dir_cache=_resolved_dir_cache)
+        # Compute rel_str for the log: strip game_root prefix
+        dst_rel_for_log = dst_str[_game_root_str_len:]
+        tasks.append((src_str, dst_str, dst_rel.lower(), dst_rel_for_log))
 
         if progress_fn is not None and line_idx % 500 == 0:
             progress_fn(line_idx, total_lines)
@@ -2047,12 +2083,10 @@ def deploy_custom_rules(
 
     placed_abs: list[str] = []
     total = len(tasks)
-    done_count = 0
     _game_root = game_root
 
+    # Back up any vanilla files we are about to overwrite (must be serial).
     for src, dst in tasks:
-        done_count += 1
-        # Back up any vanilla file we are about to overwrite
         if dst.exists() and not dst.is_symlink():
             try:
                 rel = dst.relative_to(_game_root)
@@ -2064,14 +2098,27 @@ def deploy_custom_rules(
         elif dst.is_symlink():
             dst.unlink()
 
-        err = _do_link(str(src), str(dst), mode)
-        if err is None:
-            placed_abs.append(str(dst))
-        else:
-            _log(f"  WARN: could not transfer {dst}: {err}")
+    # Transfer files in parallel.
+    transfer_tasks: list[tuple[str, str]] = [(str(s), str(d)) for s, d in tasks]
 
-        if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
-            progress_fn(done_count, total)
+    def _do_custom(item: tuple[str, str]) -> tuple[str | None, tuple[str, OSError] | None]:
+        src_s, dst_s = item
+        err = _do_link(src_s, dst_s, mode)
+        if err is None:
+            return dst_s, None
+        return None, (dst_s, err)
+
+    done_count = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        for result, err in pool.map(_do_custom, transfer_tasks):
+            done_count += 1
+            if result is not None:
+                placed_abs.append(result)
+            elif err is not None:
+                dst_err, exc = err
+                _log(f"  WARN: could not transfer {dst_err}: {exc}")
+            if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
+                progress_fn(done_count, total)
 
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     try:

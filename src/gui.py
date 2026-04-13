@@ -50,7 +50,7 @@ _UI_SCALE = load_ui_scale()
 ctk.set_widget_scaling(_UI_SCALE)
 ctk.set_window_scaling(_UI_SCALE)
 
-from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, TEXT_DIM, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize
+from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, FS9, TEXT_DIM, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize
 from gui.game_helpers import (
     _GAMES,
     _vanilla_plugins_for_game,
@@ -1030,7 +1030,7 @@ class App(ctk.CTk):
         # Arrow toggle indicator (centered in the separator)
         self._col_drag_handle.create_text(
             7, 0, anchor="n", text="▶", fill=TEXT_DIM,
-            font=("", 9), tags="arrow",
+            font=("", FS9), tags="arrow",
         )
         self._col_drag_handle.bind("<Configure>", lambda e: self._col_drag_handle.coords("arrow", 7, e.height // 2 - 8))
         self._col_drag_handle.bind("<ButtonPress-1>", self._on_col_sep_press)
@@ -1208,7 +1208,7 @@ class App(ctk.CTk):
         def _on_mod_selected():
             self._plugin_panel.clear_plugin_selection()
             self._mod_panel.set_highlighted_mod(None)
-            # Highlight plugins belonging to the selected mod
+            # Highlight plugins belonging to the selected mod(s)
             mod_name = None
             if self._mod_panel._sel_idx >= 0 and self._mod_panel._sel_idx < len(self._mod_panel._entries):
                 entry = self._mod_panel._entries[self._mod_panel._sel_idx]
@@ -1216,8 +1216,25 @@ class App(ctk.CTk):
                     mod_name = entry.name
                 elif entry.name == _OVERWRITE_NAME:
                     mod_name = _OVERWRITE_NAME
-            self._plugin_panel.set_highlighted_plugins(mod_name if mod_name != _OVERWRITE_NAME else None)
+            # Collect all selected mod names for multi-select plugin highlighting
+            all_mod_names: set[str] = set()
+            for si in self._mod_panel._sel_set:
+                if 0 <= si < len(self._mod_panel._entries):
+                    e = self._mod_panel._entries[si]
+                    if not e.is_separator:
+                        all_mod_names.add(e.name)
+            self._plugin_panel.set_highlighted_plugins(
+                mod_name if mod_name and mod_name != _OVERWRITE_NAME else None,
+                mod_names=all_mod_names if all_mod_names else None,
+            )
             self._plugin_panel.show_mod_files(mod_name)
+            # If the missing-requirements panel is currently open and the newly
+            # selected mod also has missing requirements, switch the panel to it.
+            if (getattr(self, "_missing_reqs_panel", None) is not None
+                    and mod_name and mod_name != _OVERWRITE_NAME
+                    and mod_name in self._mod_panel._missing_reqs):
+                dep_names = self._mod_panel._missing_reqs_detail.get(mod_name, [])
+                self._mod_panel._show_missing_reqs(mod_name, dep_names)
         self._mod_panel._on_mod_selected_cb = _on_mod_selected  # mod selected → clear plugin selection + highlight
 
         # Load initial game + profile — set plugin paths BEFORE load_game

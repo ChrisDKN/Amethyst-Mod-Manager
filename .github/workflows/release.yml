@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-libloot:
+    name: Build libloot
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build libloot .so
+        run: bash src/LOOT/rebuild_libloot.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libloot-so
+          path: src/LOOT/loot.cpython-313-x86_64-linux-gnu.so
+
+  build-appimage:
+    name: Build AppImage
+    needs: build-libloot
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: libloot-so
+          path: src/LOOT/
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libarchive-dev libarchive-tools wget libfuse2 \
+            python3-gi gir1.2-gtk-3.0 python3-cairo
+
+      - name: Build AppImage
+        run: bash src/appimage/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: src/appimage/build/AmethystModManager-*-x86_64.AppImage
+
+  build-flatpak:
+    name: Build Flatpak bundle
+    needs: build-libloot
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: libloot-so
+          path: src/LOOT/
+
+      - name: Install Flatpak and flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.gnome.Platform//49 org.gnome.Sdk//49
+
+      - name: Build Flatpak bundle
+        run: |
+          rm -rf flatpak/build flatpak/repo
+          bash flatpak/build.sh --bundle
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: AmethystModManager.flatpak
+
+  release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-appimage, build-flatpak]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: appimage
+          path: artifacts/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: flatpak
+          path: artifacts/
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Extract the section for this tag from Changelog.txt
+          # Each version starts with "- vX.Y.Z", grab everything until the next version header
+          awk -v tag="$TAG" '
+            BEGIN { found=0 }
+            /^- v[0-9]/ {
+              if (found) exit
+              if ($0 ~ "- " tag) { found=1; next }
+            }
+            found { print }
+          ' Changelog.txt > /tmp/notes.txt
+          # If we got nothing, use a fallback
+          if [ ! -s /tmp/notes.txt ]; then
+            echo "Release ${TAG}" > /tmp/notes.txt
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/notes.txt \
+            artifacts/*

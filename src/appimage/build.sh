@@ -131,7 +131,7 @@ if [ -n "$GI_SYSTEM_PATH" ] && [ -d "$GI_SYSTEM_PATH" ]; then
                libpango-1.0 libpangocairo-1.0 libpangoft2-1.0 \
                libcairo libcairo-gobject libcairo-script-interpreter \
                libffi libpcre2-8 libgthread-2.0 libharfbuzz libepoxy; do
-        so="$(ldconfig -p 2>/dev/null | grep "^\s*${lib}\.so\." | head -1 | awk '{print $NF}')"
+        so="$(ldconfig -p 2>/dev/null | grep "^\s*${lib}\.so\." | head -1 | awk '{print $NF}' || true)"
         if [ -n "$so" ] && [ -f "$so" ]; then
             if cp -n "$so" "${APPDIR}/usr/lib/" 2>/dev/null; then
                 echo "  Bundled: $(basename "$so")"

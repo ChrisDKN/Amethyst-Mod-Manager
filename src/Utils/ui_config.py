@@ -59,7 +59,7 @@ def get_screen_info() -> tuple[int, int, float]:
     if physical_h <= 800:
         scale = max(_MIN_SCALE, physical_h / 800)
     elif physical_h >= 1080:
-        scale = min(1.5, physical_h / 1080)
+        scale = min(2.0, physical_h / 1080)
     else:
         scale = 1.0  # plateau: 800–1080 all use 1.0
     scale = round(scale * 20) / 20  # Snap to nearest 0.05

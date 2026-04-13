@@ -199,7 +199,6 @@ class _NexusModListPanel:
 
     def _schedule_regrid(self):
         self._regrid_after_id = None
-        self._canvas.update_idletasks()
         self._regrid_cards()
 
     def _scroll(self, units: int):
@@ -215,13 +214,14 @@ class _NexusModListPanel:
             direction = 1
         self._scroll(direction * 50)
 
-    def _bind_scroll(self, widget):
-        """Recursively bind scroll events on a widget and all its children."""
+    def _bind_scroll(self, widget, _depth=0):
+        """Bind scroll events on a widget and descendants (max 3 levels deep)."""
         widget.bind("<Button-4>",   lambda e: self._scroll(-50), add="+")
         widget.bind("<Button-5>",   lambda e: self._scroll(50),  add="+")
         widget.bind("<MouseWheel>", self._on_mousewheel,          add="+")
-        for child in widget.winfo_children():
-            self._bind_scroll(child)
+        if _depth < 3:
+            for child in widget.winfo_children():
+                self._bind_scroll(child, _depth + 1)
 
     # ------------------------------------------------------------------
     # Card rendering
@@ -455,11 +455,11 @@ class _NexusModListPanel:
         self._categories_cache: dict[str, list] = {}
         self._active_game_domain: str = ""
         self._cat_panel_open: bool = False
+        self._cat_cb_pool: list[ctk.CTkCheckBox] = []
+        self._cat_cb_pool_used: int = 0
 
     def _populate_cat_sidebar(self, categories: list):
-        """Clear and repopulate the category checkboxes."""
-        for w in self._cat_scroll.winfo_children():
-            w.destroy()
+        """Reconfigure pooled checkboxes for the category list."""
         self._cat_check_vars.clear()
 
         parents = sorted(
@@ -473,17 +473,23 @@ class _NexusModListPanel:
         for kids in children_map.values():
             kids.sort(key=lambda c: c.name)
 
+        # Build flat ordered list of (name, is_child) tuples
+        flat: list[tuple[str, bool]] = []
+        for p in parents:
+            flat.append((p.name, False))
+            for ch in children_map.get(p.category_id, []):
+                flat.append((ch.name, True))
+
         def _on_change(*_):
             self._update_cat_panel_status()
             self._apply_cat_filters()
 
-        for p in parents:
-            var = tk.BooleanVar(value=p.name in self._selected_cat_names)
-            self._cat_check_vars[p.name] = var
+        # Grow pool if needed
+        while len(self._cat_cb_pool) < len(flat):
             cb = ctk.CTkCheckBox(
                 self._cat_scroll,
-                text=p.name,
-                variable=var,
+                text="",
+                variable=tk.BooleanVar(),
                 font=FONT_NORMAL,
                 text_color=TEXT_MAIN,
                 fg_color=ACCENT,
@@ -492,29 +498,32 @@ class _NexusModListPanel:
                 checkmark_color="white",
                 command=_on_change,
             )
-            cb.pack(anchor="w", pady=2)
-            for ch in children_map.get(p.category_id, []):
-                cvar = tk.BooleanVar(value=ch.name in self._selected_cat_names)
-                self._cat_check_vars[ch.name] = cvar
-                ccb = ctk.CTkCheckBox(
-                    self._cat_scroll,
-                    text=ch.name,
-                    variable=cvar,
-                    font=FONT_SMALL,
-                    text_color=TEXT_DIM,
-                    fg_color=ACCENT,
-                    hover_color=ACCENT_HOV,
-                    border_color=BORDER,
-                    checkmark_color="white",
-                    command=_on_change,
-                )
-                ccb.pack(anchor="w", padx=16, pady=2)
+            self._bind_cat_wheel_single(cb)
+            self._cat_cb_pool.append(cb)
 
+        # Hide previously used slots beyond new count
+        for i in range(len(flat), self._cat_cb_pool_used):
+            self._cat_cb_pool[i].pack_forget()
+
+        # Reconfigure visible slots
+        for i, (name, is_child) in enumerate(flat):
+            var = tk.BooleanVar(value=name in self._selected_cat_names)
+            self._cat_check_vars[name] = var
+            cb = self._cat_cb_pool[i]
+            cb.configure(
+                text=name,
+                variable=var,
+                font=FONT_SMALL if is_child else FONT_NORMAL,
+                text_color=TEXT_DIM if is_child else TEXT_MAIN,
+                command=_on_change,
+            )
+            cb.pack(anchor="w", padx=16 if is_child else 0, pady=2)
+
+        self._cat_cb_pool_used = len(flat)
         self._update_cat_panel_status()
-        self._bind_cat_wheel_recursive(self._cat_scroll)
 
-    def _bind_cat_wheel_recursive(self, widget):
-        """Bind scroll wheel to widget and all descendants."""
+    def _bind_cat_wheel_single(self, widget):
+        """Bind scroll wheel to a single widget and its direct children."""
         def _scroll(e):
             try:
                 canv = self._cat_scroll._parent_canvas
@@ -529,7 +538,9 @@ class _NexusModListPanel:
         widget.bind("<Button-4>", _scroll, add="+")
         widget.bind("<Button-5>", _scroll, add="+")
         for child in widget.winfo_children():
-            self._bind_cat_wheel_recursive(child)
+            child.bind("<MouseWheel>", _scroll, add="+")
+            child.bind("<Button-4>", _scroll, add="+")
+            child.bind("<Button-5>", _scroll, add="+")
 
     def _update_cat_panel_status(self):
         n = len([v for v in self._cat_check_vars.values() if v.get()])

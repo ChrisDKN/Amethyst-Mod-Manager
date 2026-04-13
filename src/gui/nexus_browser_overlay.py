@@ -28,13 +28,148 @@ from gui.theme import (
     BG_DEEP,
     BG_HEADER,
     BG_PANEL,
+    BG_ROW,
+    BG_ROW_ALT,
+    BG_HOVER_ROW,
     ACCENT,
     ACCENT_HOV,
+    BORDER,
     TEXT_MAIN,
     TEXT_DIM,
     FONT_BOLD,
     FONT_NORMAL,
+    FONT_SMALL,
+    scaled,
 )
+
+
+def _fmt_size(size_bytes: int) -> str:
+    """Human-readable file size."""
+    if size_bytes <= 0:
+        return ""
+    for unit in ("B", "KB", "MB", "GB"):
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}" if isinstance(size_bytes, float) else f"{size_bytes} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
+class _FileChooserDialog(ctk.CTkToplevel):
+    """Modal dialog that lets the user pick which file to install
+    when a Nexus mod has multiple files in the MAIN category."""
+
+    _WIDTH = 550
+
+    def __init__(self, parent, mod_name: str, files: list):
+        super().__init__(parent, fg_color=BG_DEEP)
+        self.title(f"Choose File — {mod_name}")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+
+        self.result = None  # will hold the chosen NexusModFile or None
+
+        pad = 14
+
+        # Header
+        tk.Label(
+            self, text=f"'{mod_name}' has multiple main files.",
+            font=FONT_BOLD, fg=TEXT_MAIN, bg=BG_DEEP, anchor="w",
+        ).pack(fill="x", padx=pad, pady=(pad, 2))
+        tk.Label(
+            self, text="Select which file to install:",
+            font=FONT_SMALL, fg=TEXT_DIM, bg=BG_DEEP, anchor="w",
+        ).pack(fill="x", padx=pad, pady=(0, 8))
+
+        # File list
+        list_frame = tk.Frame(self, bg=BORDER)
+        list_frame.pack(fill="both", padx=pad, pady=(0, 8))
+
+        # Sort newest first
+        files = sorted(files, key=lambda f: -(f.uploaded_timestamp or 0))
+
+        self._rows: list[tk.Frame] = []
+        for idx, f in enumerate(files):
+            bg = BG_ROW if idx % 2 == 0 else BG_ROW_ALT
+            row = tk.Frame(list_frame, bg=bg, cursor="hand2")
+            row.pack(fill="x", ipady=6)
+
+            name_text = f.name or f.file_name
+            tk.Label(
+                row, text=name_text,
+                font=FONT_BOLD, fg=TEXT_MAIN, bg=bg, anchor="w",
+            ).pack(side="left", padx=(12, 6), pady=(4, 0), anchor="nw")
+
+            size_bytes = f.size_in_bytes or (f.size_kb * 1024 if f.size_kb else 0)
+            detail_parts = []
+            if f.version:
+                detail_parts.append(f"v{f.version}")
+            if size_bytes > 0:
+                detail_parts.append(_fmt_size(size_bytes))
+            if detail_parts:
+                tk.Label(
+                    row, text="  —  ".join(detail_parts),
+                    font=FONT_SMALL, fg=TEXT_DIM, bg=bg, anchor="e",
+                ).pack(side="right", padx=(6, 12), pady=(4, 0))
+
+            # Hover effect + click binding
+            def _enter(e, r=row):
+                for w in (r, *r.winfo_children()):
+                    w.configure(bg=BG_HOVER_ROW)
+
+            def _leave(e, r=row, b=bg):
+                for w in (r, *r.winfo_children()):
+                    w.configure(bg=b)
+
+            def _click(e, fi=f):
+                self.result = fi
+                self._on_cancel()
+
+            for widget in (row, *row.winfo_children()):
+                widget.bind("<Enter>", _enter)
+                widget.bind("<Leave>", _leave)
+                widget.bind("<Button-1>", _click)
+
+            self._rows.append(row)
+
+        # Cancel button
+        ctk.CTkButton(
+            self, text="Cancel", width=100, height=30,
+            fg_color="#555", hover_color="#666",
+            text_color="white", font=FONT_BOLD,
+            command=self._on_cancel,
+        ).pack(pady=(0, pad))
+
+        # Center and show
+        self.after(10, self._center_and_grab)
+
+    def _center_and_grab(self):
+        self.update_idletasks()
+        parent = self.master
+        try:
+            top = parent.winfo_toplevel()
+            top.update_idletasks()
+            px = top.winfo_rootx()
+            py = top.winfo_rooty()
+            pw = top.winfo_width()
+            ph = top.winfo_height()
+            w = self.winfo_reqwidth()
+            h = self.winfo_reqheight()
+            self.geometry(f"{max(w, self._WIDTH)}x{h}+{px + (pw - max(w, self._WIDTH)) // 2}+{py + (ph - h) // 2}")
+        except Exception:
+            pass
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _on_cancel(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
 
 
 def install_nexus_mod_from_entry(app, api, game, mod_panel, log_fn, entry,
@@ -89,11 +224,31 @@ def install_nexus_mod_from_entry(app, api, game, mod_panel, log_fn, entry,
             return
 
         file_info = None
+        user_picked = False
         try:
             files_resp = api.get_mod_files(domain, mod_id)
             main_files = [f for f in files_resp.files if f.category_name == "MAIN"]
-            if main_files:
-                file_info = max(main_files, key=lambda f: f.uploaded_timestamp)
+            if len(main_files) > 1:
+                # Multiple main files — ask the user which one to install.
+                # The dialog runs on the main thread; block this worker until
+                # the user picks one (or cancels).
+                chosen = [None]
+                pick_event = threading.Event()
+
+                def _show_chooser():
+                    if mod_panel:
+                        mod_panel.hide_download_progress(cancel=cancel_ev)
+                    dlg = _FileChooserDialog(app, mod_name, main_files)
+                    dlg.wait_window()
+                    chosen[0] = dlg.result
+                    pick_event.set()
+
+                app.after(0, _show_chooser)
+                pick_event.wait()
+                file_info = chosen[0]
+                user_picked = True
+            elif main_files:
+                file_info = main_files[0]
             elif files_resp.files:
                 file_info = max(files_resp.files, key=lambda f: f.uploaded_timestamp)
         except Exception as exc:
@@ -104,11 +259,17 @@ def install_nexus_mod_from_entry(app, api, game, mod_panel, log_fn, entry,
             return
 
         if file_info is None:
-            app.after(0, lambda: (
-                mod_panel.hide_download_progress(cancel=cancel_ev) if mod_panel else None,
-                log_fn(f"{label}: No files found for '{mod_name}'."),
-            ))
+            if not user_picked:
+                app.after(0, lambda: (
+                    mod_panel.hide_download_progress(cancel=cancel_ev) if mod_panel else None,
+                    log_fn(f"{label}: No files found for '{mod_name}'."),
+                ))
             return
+
+        # Re-show download progress after the chooser dialog was dismissed
+        if user_picked and mod_panel:
+            app.after(0, lambda: mod_panel.show_download_progress(
+                f"Installing: {mod_name}", cancel=cancel_ev))
 
         mod_info_for_meta = None
         try:
@@ -252,12 +413,18 @@ class NexusBrowserOverlay(tk.Frame):
         self._trending_btn = _btn("Trending", lambda: self._show_panel("Trending"), 100)
         self._trending_btn.pack(side="left", padx=4, pady=5)
 
+        ctk.CTkButton(
+            toolbar, text="🌐 Open on Nexus", width=120, height=30,
+            fg_color="#d98f40", hover_color="#e5a04d", text_color="white",
+            font=FONT_BOLD, command=self._on_open_nexus,
+        ).pack(side="left", padx=(12, 6), pady=5)
+
         if self._on_open_settings:
             ctk.CTkButton(
                 toolbar, text="⚙ Settings", width=100, height=30,
                 fg_color="#da8e35", hover_color="#e5a04a", text_color="white",
                 font=FONT_BOLD, command=self._on_open_settings,
-            ).pack(side="left", padx=(12, 6), pady=5)
+            ).pack(side="left", padx=(0, 6), pady=5)
 
 
         ctk.CTkButton(
@@ -391,6 +558,11 @@ class NexusBrowserOverlay(tk.Frame):
         panel = panel_map.get(name)
         if panel is not None and hasattr(panel, "refresh"):
             panel.refresh()
+
+    def _on_open_nexus(self):
+        domain = self._game_domain
+        if domain:
+            open_url(f"https://www.nexusmods.com/games/{domain}")
 
     def _do_close(self):
         if self._on_close:

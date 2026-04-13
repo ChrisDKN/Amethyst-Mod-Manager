@@ -11,7 +11,6 @@ Allows the user to:
 from __future__ import annotations
 
 import threading
-from Utils.xdg import open_url
 from typing import Callable, Optional
 
 import customtkinter as ctk
@@ -177,20 +176,6 @@ class NexusSettingsPanel(ctk.CTkFrame):
 
         ctk.CTkFrame(body, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)
 
-        # Open on Nexus
-        _domain = self._game_domain_getter()
-        self._open_nexus_frame = ctk.CTkFrame(body, fg_color="transparent")
-        self._open_nexus_frame.pack(padx=16, pady=(8, 4))
-        ctk.CTkButton(
-            self._open_nexus_frame, text="🌐  Open Game on Nexus Mods", width=220, font=FONT_BOLD,
-            fg_color="#d98f40", hover_color="#e5a04d", text_color="white",
-            command=self._on_open_nexus,
-        ).pack()
-        if not _domain:
-            self._open_nexus_frame.pack_forget()
-
-        ctk.CTkFrame(body, fg_color=BORDER, height=1).pack(fill="x", padx=16, pady=4)
-
         # Rate limit
         ctk.CTkLabel(
             body, text="API Rate Limit",
@@ -252,13 +237,6 @@ class NexusSettingsPanel(ctk.CTkFrame):
         ).pack(side="left")
 
         self._update_nxm_status()
-
-    # -- Open on Nexus -------------------------------------------------------
-
-    def _on_open_nexus(self):
-        domain = self._game_domain_getter()
-        if domain:
-            open_url(f"https://www.nexusmods.com/games/{domain}")
 
     # -- Clear -------------------------------------------------------
 

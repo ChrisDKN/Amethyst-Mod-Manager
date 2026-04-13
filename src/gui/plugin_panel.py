@@ -3727,18 +3727,25 @@ class PluginPanel(ctk.CTkFrame):
             self._master_highlights = set()
             self._predraw()
 
-    def set_highlighted_plugins(self, mod_name: str | None):
-        """Highlight plugins belonging to the given mod (orange), e.g. when a mod is selected."""
-        if mod_name is None:
+    def set_highlighted_plugins(self, mod_name: str | None, mod_names: set[str] | None = None):
+        """Highlight plugins belonging to the given mod(s) (orange), e.g. when a mod is selected.
+
+        *mod_names* — when provided, highlight plugins belonging to **any** of
+        the given mods (used for multi-selection).  Falls back to *mod_name*
+        for single-selection compatibility.
+        """
+        names = mod_names if mod_names else ({mod_name} if mod_name else set())
+        if not names:
             new_highlighted = set()
         else:
-            new_highlighted = {p for p, m in self._plugin_mod_map.items() if m == mod_name}
+            new_highlighted = {p for p, m in self._plugin_mod_map.items() if m in names}
         changed = new_highlighted != self._highlighted_plugins or self._master_highlights
         self._highlighted_plugins = new_highlighted
         self._master_highlights = set()
         if changed:
             self._predraw()
         # Also update Ini Files tab: marker strip and row highlight
+        # For multi-select, use the primary mod_name for the ini tab
         if getattr(self, "_highlighted_ini_mod", None) != mod_name:
             self._highlighted_ini_mod = mod_name
             self._apply_ini_row_highlight()

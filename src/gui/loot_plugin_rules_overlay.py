@@ -29,6 +29,7 @@ from gui.theme import (
     FONT_BOLD,
     FONT_FAMILY,
     FONT_SMALL,
+    font_sized_px,
     TEXT_DIM,
     TEXT_MAIN,
 )
@@ -133,7 +134,7 @@ class LootPluginRulesOverlay(tk.Frame):
             bg=BG_PANEL, fg=TEXT_MAIN, selectbackground=ACCENT,
             selectforeground="white", activestyle="none",
             relief="flat", bd=0, highlightthickness=0,
-            font=(FONT_FAMILY, 11),
+            font=font_sized_px(FONT_FAMILY, 11),
             exportselection=False,
         )
         vsb = tk.Scrollbar(list_frame, orient="vertical",
@@ -162,7 +163,7 @@ class LootPluginRulesOverlay(tk.Frame):
         tk.Entry(
             search_frame, textvariable=self._search_var,
             bg=BG_PANEL, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
-            relief="flat", font=(FONT_FAMILY, 11),
+            relief="flat", font=font_sized_px(FONT_FAMILY, 11),
             highlightthickness=1, highlightbackground=BORDER,
         ).grid(row=0, column=0, sticky="ew")
         tk.Label(search_frame, text="Filter", font=FONT_SMALL,
@@ -266,7 +267,7 @@ class LootPluginRulesOverlay(tk.Frame):
             self._drag_ghost.configure(bg=ACCENT)
             tk.Label(
                 self._drag_ghost, text=self._drag_name,
-                font=(FONT_FAMILY, 10), fg="white", bg=ACCENT,
+                font=font_sized_px(FONT_FAMILY, 10), fg="white", bg=ACCENT,
                 padx=8, pady=3,
             ).pack()
         self._drag_ghost.geometry(f"+{rx + 12}+{ry + 4}")

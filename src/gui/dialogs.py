@@ -2841,7 +2841,7 @@ class _BENDrRunDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             self, text=f"Output: {self._output_dir}",
-            font=(_theme.FONT_FAMILY, 11), text_color="#858585", wraplength=440,
+            font=(_theme.FONT_FAMILY, 11), text_color="#858585", wraplength=scaled(440),
         ).pack(pady=(4, 12))
 
         ctk.CTkButton(
@@ -2938,7 +2938,7 @@ class _ParallaxRRunDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             self, text=f"Output: {self._output_dir}",
-            font=(_theme.FONT_FAMILY, 11), text_color="#858585", wraplength=440,
+            font=(_theme.FONT_FAMILY, 11), text_color="#858585", wraplength=scaled(440),
         ).pack(pady=(4, 12))
 
         ctk.CTkButton(
@@ -4676,13 +4676,13 @@ class SepColorPanel(ctk.CTkFrame):
         hex_row.grid_columnconfigure(1, weight=1)
         tk.Label(
             hex_row, text="#", bg=BG_DEEP, fg=TEXT_SEP,
-            font=(_theme.FONT_FAMILY, 13),
+            font=font_sized_px(_theme.FONT_FAMILY, 13),
         ).grid(row=0, column=0, padx=(0, 2))
         self._hex_var = tk.StringVar()
         self._hex_entry = tk.Entry(
             hex_row, textvariable=self._hex_var,
             bg=BG_PANEL, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
-            relief="flat", font=(_theme.FONT_FAMILY, 13), bd=4, width=7,
+            relief="flat", font=font_sized_px(_theme.FONT_FAMILY, 13), bd=4, width=7,
         )
         self._hex_entry.grid(row=0, column=1, sticky="ew")
         self._hex_var.trace_add("write", self._on_hex_typed)
@@ -5496,6 +5496,7 @@ class MissingReqsPanel(ctk.CTkFrame):
             variable=self._ignore_var,
             font=FONT_SMALL, text_color=TEXT_MAIN,
             checkbox_width=18, checkbox_height=18,
+            command=self._on_ignore_toggle,
         ).pack(side="left", padx=scaled(12), pady=scaled(10))
         ctk.CTkButton(
             footer, text="Close", width=80, height=28,
@@ -5619,12 +5620,15 @@ class MissingReqsPanel(ctk.CTkFrame):
             url = req.url or f"https://www.nexusmods.com/{self._domain or req.game_domain or ''}/mods/{req.mod_id}"
             open_url(url)
 
-    def _close(self):
+    def _on_ignore_toggle(self):
         if self._ignore_var.get():
             self._ignored_set.add(self._mod_name)
         else:
             self._ignored_set.discard(self._mod_name)
         self._save_ignored_fn()
+
+    def _close(self):
+        self._on_ignore_toggle()
         self._on_done(self)
 
 

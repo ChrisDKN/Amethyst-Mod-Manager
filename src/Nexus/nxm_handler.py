@@ -284,32 +284,24 @@ class NxmHandler:
             except OSError as exc:
                 app_log(f"Could not scrub NXM .desktop {path}: {exc}")
 
-        # Best-effort: tell xdg-mime to forget the old default. We try both
-        # host and in-sandbox invocations so this works whichever variant
-        # we're running as.
-        cmds: list[list[str]] = []
-        in_flatpak = Path("/.flatpak-info").exists()
-        if in_flatpak and shutil.which("flatpak-spawn"):
-            cmds.append(["flatpak-spawn", "--host", "--directory=/", "xdg-mime"])
-        if shutil.which("xdg-mime"):
-            cmds.append(["xdg-mime"])
-
-        for base in cmds:
-            try:
-                subprocess.run(
-                    [*base, "default", "", "x-scheme-handler/nxm"],
-                    check=False,
-                    capture_output=True,
-                )
-            except OSError as exc:
-                app_log(f"xdg-mime default clear failed: {exc}")
-
-        # Also strip the association from any mimeapps.list files — this is
-        # the canonical source-of-truth used by xdg-open on minimal setups.
-        cls._remove_mimeapps_association()
+        # Strip the association from all mimeapps.list files (including
+        # DE-specific ones like kde-mimeapps.list).  We remove *any* handler
+        # for nxm://, not just ours — this clears entries set by Firefox, the
+        # desktop environment, etc. that would otherwise shadow our registration.
+        cls._remove_mimeapps_association(ours_only=False)
 
     @staticmethod
-    def _get_exec_command() -> str:
+    def _quote_if_needed(path: str) -> str:
+        """Quote a path for a .desktop Exec line only if it contains spaces.
+
+        Some xdg-open implementations (notably the 'generic' fallback on
+        minimal Arch/CachyOS setups without a full DE) mishandle quoted
+        arguments in Exec lines, so we only quote when strictly necessary.
+        """
+        return f'"{path}"' if " " in path else path
+
+    @classmethod
+    def _get_exec_command(cls) -> str:
         """
         Build the Exec= line for the .desktop file.
 
@@ -323,11 +315,12 @@ class NxmHandler:
 
         appimage = os.environ.get("APPIMAGE")
         if appimage:
-            return f'"{appimage}" --nxm %u'
+            return f'{cls._quote_if_needed(appimage)} --nxm %u'
 
         # Running from source — use python + gui.py
-        script = Path(sys.argv[0]).resolve()
-        return f'"{sys.executable}" "{script}" --nxm %u'
+        script = str(Path(sys.argv[0]).resolve())
+        exe = sys.executable
+        return f'{cls._quote_if_needed(exe)} {cls._quote_if_needed(script)} --nxm %u'
 
     @classmethod
     def _mimeapps_paths(cls) -> list[Path]:
@@ -335,12 +328,24 @@ class NxmHandler:
         Candidate mimeapps.list locations per the XDG MIME Applications spec.
         We write to ~/.config/mimeapps.list (the user's canonical one) and,
         if already present, also update the legacy ~/.local/share/applications
-        one so both are in sync.
+        one so both are in sync.  We also include DE-specific variants
+        (e.g. kde-mimeapps.list) since xdg-open on KDE/GNOME checks those
+        first — a handler registered there by Firefox/the DE will shadow ours.
         """
         paths: list[Path] = []
         xdg_cfg = os.environ.get("XDG_CONFIG_HOME")
         cfg_base = Path(xdg_cfg) if xdg_cfg else Path.home() / ".config"
         paths.append(cfg_base / "mimeapps.list")
+
+        # DE-specific mimeapps.list — xdg-open checks $XDG_CURRENT_DESKTOP
+        # variants before the generic one, so Firefox/KDE/GNOME can register
+        # handlers there that shadow ~/.config/mimeapps.list.
+        desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
+        for de_name in desktop.split(":"):
+            de_name = de_name.strip().lower()
+            if de_name:
+                paths.append(cfg_base / f"{de_name}-mimeapps.list")
+
         paths.append(Path.home() / ".local" / "share" / "applications" / "mimeapps.list")
         return paths
 
@@ -464,8 +469,39 @@ class NxmHandler:
             app_log(f"gio mime registration failed: {exc}")
 
     @classmethod
-    def _remove_mimeapps_association(cls) -> None:
-        """Remove our nxm:// key from every mimeapps.list we can find."""
+    def _xdg_settings_register(cls, in_flatpak: bool) -> None:
+        """
+        Register via ``xdg-settings set default-url-scheme-handler nxm``.
+        This is the XDG-recommended way to register URL scheme handlers and
+        is more reliable than xdg-mime on some desktop environments (e.g. KDE
+        on Arch/CachyOS) where xdg-open checks xdg-settings first.
+        """
+        if in_flatpak and shutil.which("flatpak-spawn"):
+            base = ["flatpak-spawn", "--host", "--directory=/", "xdg-settings"]
+        elif shutil.which("xdg-settings"):
+            base = ["xdg-settings"]
+        else:
+            return
+        try:
+            subprocess.run(
+                [*base, "set", "default-url-scheme-handler", "nxm",
+                 _DESKTOP_FILE_NAME],
+                check=False,
+                capture_output=True,
+            )
+            app_log("Registered nxm:// handler via xdg-settings")
+        except OSError as exc:
+            app_log(f"xdg-settings registration failed: {exc}")
+
+    @classmethod
+    def _remove_mimeapps_association(cls, ours_only: bool = False) -> None:
+        """Remove nxm:// handler entries from every mimeapps.list we can find.
+
+        If *ours_only* is True, only remove lines pointing to our .desktop file.
+        If False (the default, used by _scrub_all), remove **any** handler for
+        x-scheme-handler/nxm — including entries set by Firefox, the DE, etc. —
+        so that the subsequent register() has a clean slate.
+        """
         key = "x-scheme-handler/nxm"
         for path in cls._mimeapps_paths():
             try:
@@ -477,7 +513,7 @@ class NxmHandler:
                     if not (
                         "=" in l
                         and l.split("=", 1)[0].strip() == key
-                        and _DESKTOP_FILE_NAME in l
+                        and (not ours_only or _DESKTOP_FILE_NAME in l)
                     )
                 ]
                 if filtered != lines:
@@ -564,6 +600,7 @@ class NxmHandler:
         # XDG spec) and register via `gio mime`, which many modern tools use.
         cls._write_mimeapps_association()
         cls._gio_register(in_flatpak)
+        cls._xdg_settings_register(in_flatpak)
 
         # Refresh the desktop database so Flatpak apps pick up the new entry.
         if in_flatpak and shutil.which("flatpak-spawn"):

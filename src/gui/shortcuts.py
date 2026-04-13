@@ -3,10 +3,16 @@ Global keyboard shortcuts for the Mod Manager main window.
 
 Bindings:
     F2              Rename the selected mod or separator (modlist panel)
+    Delete          Remove selected mod(s) (modlist panel)
+    Home            Scroll active list panel to the top
+    End             Scroll active list panel to the bottom
     Ctrl+D          Deploy
     Ctrl+R          Restore
     Alt+Up          Move selected mods/plugins/separators up
     Alt+Down        Move selected mods/plugins/separators down
+    Shift+E         Expand/collapse all separators
+    Shift+F         Toggle filter panel for the active list panel
+    Shift+Scroll    4x scroll speed
 
 Reorder shortcuts require the Alt modifier so plain Up/Down can still be
 used for normal navigation/scrolling without accidentally shuffling the
@@ -107,6 +113,76 @@ def _move_down(app):
         panel._move_plugins_down()
 
 
+def _delete_selected(app):
+    kind, panel = _active_list_panel(app)
+    if kind != "mod" or panel is None:
+        return
+    if getattr(panel, "_modlist_path", None) is None:
+        return
+    sel = sorted(panel._sel_set) if panel._sel_set else (
+        [panel._sel_idx] if panel._sel_idx >= 0 else []
+    )
+    # Filter out separators and locked mods
+    removable = []
+    for idx in sel:
+        if not (0 <= idx < len(panel._entries)):
+            continue
+        entry = panel._entries[idx]
+        if entry.is_separator:
+            continue
+        if getattr(entry, "locked", False):
+            continue
+        removable.append(idx)
+    if not removable:
+        return
+    if len(removable) == 1:
+        panel._remove_mod(removable[0])
+    else:
+        panel._remove_selected_mods(removable)
+
+
+def _scroll_list(app, fraction: float):
+    kind, panel = _active_list_panel(app)
+    if panel is None:
+        return
+    if kind == "mod":
+        canvas = getattr(panel, "_canvas", None)
+        redraw = getattr(panel, "_schedule_redraw", None) or getattr(panel, "_redraw", None)
+    else:
+        canvas = getattr(panel, "_pcanvas", None)
+        redraw = getattr(panel, "_schedule_predraw", None)
+    if canvas is None:
+        return
+    canvas.yview_moveto(fraction)
+    if redraw is not None:
+        redraw()
+
+
+def _scroll_to_top(app):
+    _scroll_list(app, 0.0)
+
+
+def _scroll_to_bottom(app):
+    _scroll_list(app, 1.0)
+
+
+def _toggle_all_seps(app):
+    kind, panel = _active_list_panel(app)
+    if kind != "mod" or panel is None:
+        return
+    panel._toggle_all_separators()
+
+
+def _toggle_filters(app):
+    kind, panel = _active_list_panel(app)
+    if panel is None:
+        return
+    if kind == "mod":
+        panel._on_open_filters()
+    else:
+        panel._toggle_plugin_filter_panel()
+
+
 def register_shortcuts(app) -> None:
     """Install the global keyboard shortcuts on the main App window."""
     app._last_list_panel = "mod"
@@ -126,3 +202,20 @@ def register_shortcuts(app) -> None:
     app.bind_all("<Control-R>",    _guard(_restore),         add="+")
     app.bind_all("<Alt-Up>",       _guard(_move_up),         add="+")
     app.bind_all("<Alt-Down>",     _guard(_move_down),       add="+")
+    app.bind_all("<Delete>",       _guard(_delete_selected), add="+")
+    app.bind_all("<Home>",         _guard(_scroll_to_top),    add="+")
+    app.bind_all("<End>",          _guard(_scroll_to_bottom), add="+")
+    app.bind_all("<Shift-E>",      _guard(_toggle_all_seps),  add="+")
+    app.bind_all("<Shift-F>",      _guard(_toggle_filters),   add="+")
+
+    # Shift+mousewheel = 4x scroll speed
+    # Generate 3 extra scroll events so total = 4x normal speed.
+    def _fast_scroll(event):
+        w = event.widget
+        # Determine the base event type (Button-4 = up, Button-5 = down)
+        btn = 4 if event.num == 4 else 5
+        for _ in range(3):
+            w.event_generate(f"<Button-{btn}>")
+
+    app.bind_all("<Shift-Button-4>", _fast_scroll, add="+")
+    app.bind_all("<Shift-Button-5>", _fast_scroll, add="+")

@@ -657,11 +657,12 @@ class CollectionCard:
                 self._tooltip_win.destroy()
                 self._tooltip_win = None
 
-        def _bind_recursive(w: tk.Widget) -> None:
+        def _bind_recursive(w: tk.Widget, depth=0) -> None:
             w.bind("<Enter>", _enter, add="+")
             w.bind("<Leave>", _leave, add="+")
-            for child in w.winfo_children():
-                _bind_recursive(child)
+            if depth < 3:
+                for child in w.winfo_children():
+                    _bind_recursive(child, depth + 1)
 
         _bind_recursive(widget)
 
@@ -3034,13 +3035,13 @@ class CollectionDetailDialog(tk.Frame):
 
         tk.Label(
             inner, text=f"Installing {mod_count} mods…" if mod_count else "Installing…",
-            font=(FONT_FAMILY, 16, "bold"), fg="#ffffff", bg="#2b2b2b",
+            font=font_sized_px(FONT_FAMILY, 16, "bold"), fg="#ffffff", bg="#2b2b2b",
             bd=0, highlightthickness=0,
         ).pack(pady=(20, 4))
         if profile_name:
             tk.Label(
                 inner, text=f"Profile: {profile_name}",
-                font=(FONT_FAMILY, 12), fg="#aaaaaa", bg="#2b2b2b",
+                font=font_sized_px(FONT_FAMILY, 12), fg="#aaaaaa", bg="#2b2b2b",
                 bd=0, highlightthickness=0,
             ).pack(pady=(0, 4))
 
@@ -3048,7 +3049,7 @@ class CollectionDetailDialog(tk.Frame):
         tk.Label(
             inner, textvariable=self._status_var,
             bg="#2b2b2b", fg="#aaaaaa",
-            font=(FONT_FAMILY, 11), anchor="w", bd=0, highlightthickness=0,
+            font=font_sized_px(FONT_FAMILY, 11), anchor="w", bd=0, highlightthickness=0,
         ).pack(fill="x", padx=16, pady=(6, 2))
 
         # Dedicated overlay progress bar (install progress)
@@ -3062,7 +3063,7 @@ class CollectionDetailDialog(tk.Frame):
         # Download progress section (hidden until downloads start)
         dl_msg_lbl = tk.Label(
             inner, text="", bg="#2b2b2b", fg="#aaaaaa",
-            font=(FONT_FAMILY, 10), anchor="w", bd=0, highlightthickness=0,
+            font=font_sized_px(FONT_FAMILY, 10), anchor="w", bd=0, highlightthickness=0,
         )
         dl_bar = ctk.CTkProgressBar(
             inner, height=6, progress_color=ACCENT,
@@ -3176,16 +3177,16 @@ class CollectionDetailDialog(tk.Frame):
 
         tk.Label(
             inner, text="Manual Download Required",
-            font=(FONT_FAMILY, 16, "bold"), fg="#ffffff", bg="#2b2b2b",
+            font=font_sized_px(FONT_FAMILY, 16, "bold"), fg="#ffffff", bg="#2b2b2b",
         ).pack(pady=(20, 2))
         tk.Label(
             inner, text=f"Non-premium users must download each mod manually.",
-            font=(FONT_FAMILY, 10), fg="#aaaaaa", bg="#2b2b2b",
+            font=font_sized_px(FONT_FAMILY, 10), fg="#aaaaaa", bg="#2b2b2b",
         ).pack(pady=(0, 2))
         if profile_name:
             tk.Label(
                 inner, text=f"Profile: {profile_name}",
-                font=(FONT_FAMILY, 11), fg="#aaaaaa", bg="#2b2b2b",
+                font=font_sized_px(FONT_FAMILY, 11), fg="#aaaaaa", bg="#2b2b2b",
             ).pack(pady=(0, 6))
 
         # --- Mod info card ---
@@ -3193,7 +3194,7 @@ class CollectionDetailDialog(tk.Frame):
         card.pack(fill="x", padx=20, pady=(6, 4))
 
         self._manual_mod_name_lbl = tk.Label(
-            card, text="", font=(FONT_FAMILY, 13, "bold"), fg="#ffffff", bg="#333333",
+            card, text="", font=font_sized_px(FONT_FAMILY, 13, "bold"), fg="#ffffff", bg="#333333",
             anchor="w", wraplength=scaled(480),
         )
         self._manual_mod_name_lbl.pack(fill="x", padx=12, pady=(10, 2))
@@ -3201,17 +3202,17 @@ class CollectionDetailDialog(tk.Frame):
         info_row = tk.Frame(card, bg="#333333")
         info_row.pack(fill="x", padx=12, pady=(0, 2))
         self._manual_mod_size_lbl = tk.Label(
-            info_row, text="", font=(FONT_FAMILY, 10), fg="#aaaaaa", bg="#333333", anchor="w",
+            info_row, text="", font=font_sized_px(FONT_FAMILY, 10), fg="#aaaaaa", bg="#333333", anchor="w",
         )
         self._manual_mod_size_lbl.pack(side="left")
         self._manual_mod_badge_lbl = tk.Label(
-            info_row, text="", font=(FONT_FAMILY, 9, "bold"), fg="#ffffff", bg="#2d7a2d",
+            info_row, text="", font=font_sized_px(FONT_FAMILY, 9, "bold"), fg="#ffffff", bg="#2d7a2d",
             padx=6, pady=1,
         )
         self._manual_mod_badge_lbl.pack(side="left", padx=(8, 0))
 
         self._manual_mod_file_hint_lbl = tk.Label(
-            card, text="", font=("Consolas", 9), fg="#777777", bg="#333333",
+            card, text="", font=font_sized_px("Consolas", 9), fg="#777777", bg="#333333",
             anchor="w", wraplength=scaled(480),
         )
         self._manual_mod_file_hint_lbl.pack(fill="x", padx=12, pady=(0, 10))
@@ -3220,7 +3221,7 @@ class CollectionDetailDialog(tk.Frame):
         self._manual_status_var = tk.StringVar(value="Preparing\u2026")
         tk.Label(
             inner, textvariable=self._manual_status_var,
-            bg="#2b2b2b", fg="#aaaaaa", font=(FONT_FAMILY, 10), anchor="w",
+            bg="#2b2b2b", fg="#aaaaaa", font=font_sized_px(FONT_FAMILY, 10), anchor="w",
         ).pack(fill="x", padx=20, pady=(6, 2))
 
         # --- Buttons ---
@@ -3288,7 +3289,7 @@ class CollectionDetailDialog(tk.Frame):
 
         self._manual_progress_lbl = tk.Label(
             bottom, text=f"0 of {mod_count} mods installed",
-            font=(FONT_FAMILY, 10), fg="#aaaaaa", bg="#2b2b2b", anchor="w",
+            font=font_sized_px(FONT_FAMILY, 10), fg="#aaaaaa", bg="#2b2b2b", anchor="w",
         )
         self._manual_progress_lbl.pack(side="left")
 
@@ -5049,7 +5050,6 @@ class CollectionsDialog(tk.Frame):
 
     def _schedule_regrid(self):
         self._regrid_after_id = None
-        self._canvas.update_idletasks()
         self._regrid_cards()
 
     def _scroll(self, units: int):
@@ -5059,12 +5059,13 @@ class CollectionsDialog(tk.Frame):
         direction = -1 if event.delta > 0 else 1
         self._scroll(direction * 10)
 
-    def _bind_scroll(self, widget: tk.Widget):
+    def _bind_scroll(self, widget: tk.Widget, _depth=0):
         widget.bind("<Button-4>",   lambda e: self._scroll(-80), add="+")
         widget.bind("<Button-5>",   lambda e: self._scroll(80),  add="+")
         widget.bind("<MouseWheel>", self._on_mousewheel,          add="+")
-        for child in widget.winfo_children():
-            self._bind_scroll(child)
+        if _depth < 3:
+            for child in widget.winfo_children():
+                self._bind_scroll(child, _depth + 1)
 
     # ------------------------------------------------------------------
     # Card rendering

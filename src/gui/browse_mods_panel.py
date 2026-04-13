@@ -91,6 +91,7 @@ class BrowseModsPanel(_NexusModListPanel):
         self._cat_idx: int = 0
         self._page: int = 0
         self._search_active: bool = False
+        self._search_query: str = ""
         self._show_adult_var: tk.BooleanVar | None = None
         super().__init__(
             parent_tab,
@@ -269,15 +270,21 @@ class BrowseModsPanel(_NexusModListPanel):
         self._load_page()
 
     def _go_prev_page(self):
-        if self._page > 0 and not self._loading and not self._search_active:
+        if self._page > 0 and not self._loading:
             self._page -= 1
-            self._load_page()
+            if self._search_active:
+                self._do_search_page()
+            else:
+                self._load_page()
 
     def _go_next_page(self):
-        if not self._loading and not self._search_active:
+        if not self._loading:
             if len(self._entries) >= PAGE_SIZE:
                 self._page += 1
-                self._load_page()
+                if self._search_active:
+                    self._do_search_page()
+                else:
+                    self._load_page()
 
     def _on_show_adult_toggle(self):
         save_nexus_show_adult(self._show_adult_var.get())
@@ -386,6 +393,12 @@ class BrowseModsPanel(_NexusModListPanel):
         query_text = self._search_var.get().strip()
         if not query_text:
             return
+        self._search_query = query_text
+        self._search_active = True
+        self._page = 0
+        self._do_search_page()
+
+    def _do_search_page(self):
         api = self._get_api()
         if api is None:
             self._log("Browse: Login to Nexus first")
@@ -398,18 +411,23 @@ class BrowseModsPanel(_NexusModListPanel):
         if self._loading:
             return
 
-        self._search_active = True
+        query_text = self._search_query
+        page = self._page
         self._loading = True
         self._prev_btn.configure(state="disabled")
         self._next_btn.configure(state="disabled")
         self._search_btn.configure(state="disabled")
-        self._status_label.configure(text=f"Searching '{query_text}'…")
+        self._status_label.configure(text=f"Searching '{query_text}' (page {page + 1})…")
         self._show_loader()
 
         def _worker():
             try:
                 cat_names = self._selected_cat_names or None
-                mod_infos = api.search_mods(domain, query_text, category_names=cat_names)
+                mod_infos = api.search_mods(
+                    domain, query_text,
+                    count=PAGE_SIZE, offset=page * PAGE_SIZE,
+                    category_names=cat_names,
+                )
                 entries: list[BrowseModEntry] = []
                 for info in mod_infos:
                     get = info.get if isinstance(info, dict) else lambda k, d=None: getattr(info, k, d)
@@ -431,14 +449,16 @@ class BrowseModsPanel(_NexusModListPanel):
                     self._entries = entries
                     self._loading = False
                     self._search_btn.configure(state="normal")
-                    self._prev_btn.configure(state="disabled")
-                    self._next_btn.configure(state="disabled")
+                    self._prev_btn.configure(state="normal" if page > 0 else "disabled")
+                    self._next_btn.configure(
+                        state="normal" if len(entries) >= PAGE_SIZE else "disabled"
+                    )
                     self._status_label.configure(
-                        text=f"{len(entries)} result(s) for '{query_text}'"
+                        text=f"'{query_text}': page {page + 1} ({len(entries)} result(s))"
                     )
                     self._build_cards()
                     self._canvas.yview_moveto(0)
-                    self._log(f"Browse: {len(entries)} search result(s) for '{query_text}' in {domain}.")
+                    self._log(f"Browse: {len(entries)} search result(s) for '{query_text}' page {page + 1} in {domain}.")
 
                 self._parent.after(0, _done)
 
@@ -447,6 +467,8 @@ class BrowseModsPanel(_NexusModListPanel):
                     self._hide_loader()
                     self._loading = False
                     self._search_btn.configure(state="normal")
+                    self._prev_btn.configure(state="normal" if page > 0 else "disabled")
+                    self._next_btn.configure(state="normal")
                     self._status_label.configure(text="Search error")
                     self._log(f"Browse: Search failed — {exc}")
                 self._parent.after(0, _err)
@@ -456,6 +478,7 @@ class BrowseModsPanel(_NexusModListPanel):
     def _clear_search(self):
         self._search_var.set("")
         self._search_active = False
+        self._search_query = ""
         self._entries = []
         self._clear_cards()
         self._prev_btn.configure(state="disabled")

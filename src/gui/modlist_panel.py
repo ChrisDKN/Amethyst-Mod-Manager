@@ -2741,7 +2741,7 @@ class ModListPanel(ctk.CTkFrame):
                 self._COL_X[1], gy_mid,
                 text=entry.display_name, anchor="w",
                 fill=TEXT_SEP if is_sep else TEXT_MAIN,
-                font=(_theme.FONT_FAMILY, _theme.FS10, "bold") if is_sep else (_theme.FONT_FAMILY, 11),
+                font=(_theme.FONT_FAMILY, _theme.FS10, "bold") if is_sep else (_theme.FONT_FAMILY, _theme.FS11),
                 tags="drag_overlay",
             )
 
@@ -3361,6 +3361,47 @@ class ModListPanel(ctk.CTkFrame):
             self._on_toggle(idx)
             return
 
+        # Flag icon hit-test: clicking on missing-reqs or update flag opens the
+        # corresponding dialog directly.
+        entry = self._entries[idx]
+        if not entry.is_separator:
+            flag_slot = self._col_pos.get(3, 3)
+            _FLAG_X = self._COL_X[flag_slot]
+            _FLAG_W = self._COL_W[flag_slot]
+            if _FLAG_X <= event.x < _FLAG_X + _FLAG_W:
+                _FLAG_ICON_SPACING = 18
+                _HIT_RADIUS = _FLAG_ICON_SPACING // 2
+                has_missing = (entry.name in self._missing_reqs
+                               and entry.name not in self._ignored_missing_reqs)
+                _items: list[str] = []
+                if has_missing:
+                    _items.append("missing")
+                if entry.locked:
+                    _items.append("star")
+                if entry.name in self._update_mods:
+                    _items.append("update")
+                if entry.name in self._endorsed_mods:
+                    _items.append("endorsed")
+                if entry.name in self._prertx_mods:
+                    _items.append("prertx")
+                if entry.name in self._excluded_mod_files_map:
+                    _items.append("disabled_files")
+                _n = len(_items)
+                if _n > 0:
+                    _group_w = (_n - 1) * _FLAG_ICON_SPACING
+                    _fx_start = _FLAG_X + _FLAG_W // 2 - _group_w // 2
+                    for _fi, _kind in enumerate(_items):
+                        _fx = _fx_start + _fi * _FLAG_ICON_SPACING
+                        if abs(event.x - _fx) <= _HIT_RADIUS:
+                            if _kind == "missing":
+                                dep_names = self._missing_reqs_detail.get(entry.name, [])
+                                self._show_missing_reqs(entry.name, dep_names)
+                                return
+                            elif _kind == "update":
+                                self._update_nexus_mod(entry.name)
+                                return
+                            break
+
         if self._entries[idx].is_separator:
             if self._entries[idx].name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
                 # Synthetic rows are selectable (shows conflict highlights) but not draggable
@@ -3388,6 +3429,8 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         self._sel_set.add(idx)
                         self._sel_idx = idx
+                    if self._on_mod_selected_cb is not None:
+                        self._on_mod_selected_cb()
                     self._redraw()
                     return
                 # Shift+click on separator: extend selection range (in display order)
@@ -3402,6 +3445,8 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         lo_row, hi_row = min(lo_row, hi_row), max(lo_row, hi_row)
                         self._sel_set = set(vis[lo_row : hi_row + 1])
+                    if self._on_mod_selected_cb is not None:
+                        self._on_mod_selected_cb()
                     self._redraw()
                     return
                 # If this separator is part of an existing multi-selection, preserve
@@ -3439,6 +3484,8 @@ class ModListPanel(ctk.CTkFrame):
             else:
                 self._sel_set.add(idx)
                 self._sel_idx = idx
+            if self._on_mod_selected_cb is not None:
+                self._on_mod_selected_cb()
             self._redraw()
             self._update_info()
             return
@@ -3455,6 +3502,8 @@ class ModListPanel(ctk.CTkFrame):
             else:
                 lo_row, hi_row = min(lo_row, hi_row), max(lo_row, hi_row)
                 self._sel_set = set(vis[lo_row : hi_row + 1])
+            if self._on_mod_selected_cb is not None:
+                self._on_mod_selected_cb()
             self._redraw()
             self._update_info()
             return
@@ -5746,11 +5795,6 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
 
-        # Scroll the destination row into view
-        self._canvas.yview_moveto(dest * self.ROW_H /
-                                   max(len(self._entries) * self.ROW_H,
-                                       self._canvas.winfo_height()))
-
     def _move_selected_to_separator(self, indices: list[int], sep_name: str):
         """Move all mods at the given indices to directly below the named separator, grouped together."""
         # Snapshot the entries to move (in list order)
@@ -5802,11 +5846,6 @@ class ModListPanel(ctk.CTkFrame):
         self._rebuild_filemap()
         self._redraw()
         self._update_info()
-
-        # Scroll the destination into view
-        self._canvas.yview_moveto(dest * self.ROW_H /
-                                   max(len(self._entries) * self.ROW_H,
-                                       self._canvas.winfo_height()))
 
     def _open_ini(self, path: Path):
         """Open an .ini file in the user's default text editor via xdg-open."""
@@ -7316,23 +7355,28 @@ class ModListPanel(ctk.CTkFrame):
             if row is not None:
                 _tick(row, plugin_mod)
 
-        # Green/red ticks for conflict highlights when a mod is selected.
-        sel_entry = (self._entries[self._sel_idx]
-                     if 0 <= self._sel_idx < len(self._entries) else None)
-        if sel_entry and not sel_entry.is_separator:
-            for mod_name in self._overrides.get(sel_entry.name, set()):
-                row = _row_for_mod(mod_name)
-                if row is not None:
-                    _tick(row, conflict_higher)
-            for mod_name in self._overridden_by.get(sel_entry.name, set()):
-                row = _row_for_mod(mod_name)
-                if row is not None:
-                    _tick(row, conflict_lower)
-        elif sel_entry and sel_entry.name == OVERWRITE_NAME:
-            for mod_name in self._overrides.get(OVERWRITE_NAME, set()):
-                row = _row_for_mod(mod_name)
-                if row is not None:
-                    _tick(row, conflict_higher)
+        # Green/red ticks for conflict highlights when mod(s) are selected.
+        sel_indices = sorted(self._sel_set) if self._sel_set else (
+            [self._sel_idx] if 0 <= self._sel_idx < len(self._entries) else []
+        )
+        all_higher: set[str] = set()
+        all_lower: set[str] = set()
+        for si in sel_indices:
+            if si < 0 or si >= len(self._entries):
+                continue
+            e = self._entries[si]
+            if e.is_separator and e.name != OVERWRITE_NAME:
+                continue
+            all_higher.update(self._overrides.get(e.name, set()))
+            all_lower.update(self._overridden_by.get(e.name, set()))
+        for mod_name in all_higher:
+            row = _row_for_mod(mod_name)
+            if row is not None:
+                _tick(row, conflict_higher)
+        for mod_name in all_lower:
+            row = _row_for_mod(mod_name)
+            if row is not None:
+                _tick(row, conflict_lower)
 
     def clear_selection(self):
         """Clear the mod list selection, e.g. when a plugin is selected."""

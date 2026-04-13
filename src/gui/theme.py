@@ -72,7 +72,7 @@ FONT_MONO_FAMILY = "Liberation Mono"
 # does not scale user-provided font tuples.
 def _font_pt(base: int) -> int:
     """Return scaled point size for font tuples."""
-    return max(9, round(base * get_ui_scale()))
+    return max(8, round(base * get_ui_scale()))
 
 
 def font_sized(name: str, base_pt: int, *styles: str) -> tuple:

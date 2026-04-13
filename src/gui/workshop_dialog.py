@@ -356,6 +356,8 @@ def _source_btn_style(source: str) -> tuple[str, str]:
         return "#5a7a5a", "Direct"
     if source == "bundle":
         return "#7a5a7a", "Bundle"
+    if source == "ignore":
+        return "#555555", "Ignore"
     return "#c77a3a", "Nexus"
 
 
@@ -410,6 +412,7 @@ class SourcePickerOverlay(tk.Frame):
             ("nexus",  "Nexus Mods",  "Download mod from Nexus"),
             ("direct", "Direct URL",  "For off-site mods"),
             ("bundle", "Bundle",      "Include mod in the output (e.g. DynDOLOD output)"),
+            ("ignore", "Ignore",      "Exclude this mod from the export entirely"),
         ):
             row = tk.Frame(body, bg=BG_DEEP)
             row.pack(fill="x", pady=(0, scaled(6)))
@@ -828,7 +831,8 @@ class WorkshopDialog(tk.Frame):
 
         missing = [
             row["name"] for row in self._all_rows
-            if row.get("source", "nexus") == "nexus" and not row.get("file_id")
+            if row.get("source", "nexus") == "nexus"
+            and not row.get("file_id")
         ]
         if missing:
             count = len(missing)
@@ -912,6 +916,8 @@ class WorkshopDialog(tk.Frame):
 
         mods = []
         for row in self._all_rows:
+            if row.get("source") == "ignore":
+                continue
             # Parse fileid from ver_label (format "fileid — version" or just "—")
             ver_label = row["ver_label"]
             file_id   = row["file_id"]

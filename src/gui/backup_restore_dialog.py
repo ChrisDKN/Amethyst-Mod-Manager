@@ -17,9 +17,11 @@ from gui.theme import (
     TEXT_DIM, TEXT_MAIN,
     scaled,
 )
-from Utils.profile_backup import list_backups, restore_backup
+from Utils.profile_backup import list_backups, restore_backup, is_backup_kept, set_backup_kept
 
 _BG_HOVER_BTN = "#3e3e40"  # subtle grey hover for buttons (not the blue selection hover)
+_KEEP_BG      = "#1a3a1a"  # dark green background for kept backups
+_KEEP_FG      = "#6ecf6e"  # green text for kept backups
 
 def _font_normal(): return (_theme.FONT_FAMILY, _theme.FS12)
 def _font_bold():   return (_theme.FONT_FAMILY, _theme.FS12, "bold")
@@ -106,8 +108,12 @@ class BackupRestorePanel(ctk.CTkFrame):
             self._listbox.pack(side="left", fill="both", expand=True)
             scrollbar.config(command=self._listbox.yview)
 
-            for dt, _ in self._backups:
-                self._listbox.insert("end", dt.strftime("%Y-%m-%d %H:%M:%S"))
+            for i, (dt, bdir) in enumerate(self._backups):
+                label = dt.strftime("%Y-%m-%d %H:%M:%S")
+                if is_backup_kept(bdir):
+                    label += "  [kept]"
+                self._listbox.insert("end", label)
+            self._apply_keep_colors()
 
             self._listbox.bind("<<ListboxSelect>>", self._on_selection)
             self._listbox.selection_clear(0, "end")
@@ -122,6 +128,13 @@ class BackupRestorePanel(ctk.CTkFrame):
         )
         self._restore_btn.pack(side="right", padx=(8, 0))
 
+        self._keep_btn = ctk.CTkButton(
+            btn_frame, text="Keep", width=80, height=32,
+            font=_font_normal(), fg_color=BG_HEADER, hover_color=BORDER,
+            text_color=TEXT_MAIN, command=self._on_keep, state="disabled",
+        )
+        self._keep_btn.pack(side="right", padx=(8, 0))
+
         ctk.CTkButton(
             btn_frame, text="Cancel", width=100, height=32,
             font=_font_normal(), fg_color=BG_HEADER, hover_color=BORDER,
@@ -131,7 +144,43 @@ class BackupRestorePanel(ctk.CTkFrame):
     def _on_selection(self, *_):
         if self._restore_btn is not None and self._backups:
             sel = self._listbox.curselection()
-            self._restore_btn.configure(state="normal" if sel else "disabled")
+            has_sel = bool(sel)
+            self._restore_btn.configure(state="normal" if has_sel else "disabled")
+            if hasattr(self, "_keep_btn"):
+                self._keep_btn.configure(state="normal" if has_sel else "disabled")
+                if has_sel:
+                    _, bdir = self._backups[int(sel[0])]
+                    self._keep_btn.configure(
+                        text="Unkeep" if is_backup_kept(bdir) else "Keep"
+                    )
+
+    def _apply_keep_colors(self):
+        """Colour kept backups green in the listbox."""
+        for i, (_dt, bdir) in enumerate(self._backups):
+            if is_backup_kept(bdir):
+                self._listbox.itemconfig(i, bg=_KEEP_BG, fg=_KEEP_FG)
+            else:
+                self._listbox.itemconfig(i, bg=BG_PANEL, fg=TEXT_MAIN)
+
+    def _on_keep(self):
+        if not self._backups or not hasattr(self, "_listbox"):
+            return
+        sel = self._listbox.curselection()
+        if not sel:
+            return
+        idx = int(sel[0])
+        dt, bdir = self._backups[idx]
+        kept = is_backup_kept(bdir)
+        set_backup_kept(bdir, not kept)
+        # Update listbox text
+        label = dt.strftime("%Y-%m-%d %H:%M:%S")
+        if not kept:
+            label += "  [kept]"
+        self._listbox.delete(idx)
+        self._listbox.insert(idx, label)
+        self._listbox.selection_set(idx)
+        self._apply_keep_colors()
+        self._keep_btn.configure(text="Unkeep" if not kept else "Keep")
 
     def _on_restore(self):
         if not self._backups or not hasattr(self, "_listbox"):

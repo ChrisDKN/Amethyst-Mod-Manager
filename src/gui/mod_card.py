@@ -44,6 +44,19 @@ CARD_COLS = 2
 
 PLACEHOLDER_COLOR = "#3a3a3a"
 
+# Shared placeholder — created once, reused by all ModCards
+_PLACEHOLDER_PIL: PilImage.Image | None = None
+_PLACEHOLDER_CTK: ctk.CTkImage | None = None
+
+
+def _get_placeholder() -> ctk.CTkImage:
+    """Return a shared CTkImage placeholder (created on first call)."""
+    global _PLACEHOLDER_PIL, _PLACEHOLDER_CTK
+    if _PLACEHOLDER_CTK is None:
+        _PLACEHOLDER_PIL = PilImage.new("RGB", (CARD_IMG_W, CARD_IMG_H), PLACEHOLDER_COLOR)
+        _PLACEHOLDER_CTK = ctk.CTkImage(_PLACEHOLDER_PIL, _PLACEHOLDER_PIL, (CARD_IMG_W, CARD_IMG_H))
+    return _PLACEHOLDER_CTK
+
 
 def make_placeholder_image(w: int, h: int) -> PilImage.Image:
     """Create a solid-colour placeholder PIL image."""
@@ -78,9 +91,8 @@ class ModCard:
         self.card.grid_propagate(False)
         self.card.grid_columnconfigure(0, weight=1)
 
-        # Image placeholder
-        placeholder = make_placeholder_image(CARD_IMG_W, CARD_IMG_H)
-        self._placeholder_ctk = ctk.CTkImage(placeholder, placeholder, (CARD_IMG_W, CARD_IMG_H))
+        # Image placeholder (shared across all cards)
+        self._placeholder_ctk = _get_placeholder()
         self._img_label = ctk.CTkLabel(self.card, text="", image=self._placeholder_ctk)
         self._img_label.grid(row=0, column=0, padx=5, pady=(5, 0), sticky="ew", columnspan=2)
 
@@ -236,11 +248,12 @@ class ModCard:
                 self._tooltip_win.destroy()
                 self._tooltip_win = None
 
-        def _bind_recursive(w) -> None:
+        def _bind_recursive(w, depth=0) -> None:
             w.bind("<Enter>", _enter, add="+")
             w.bind("<Leave>", _leave, add="+")
-            for child in w.winfo_children():
-                _bind_recursive(child)
+            if depth < 3:
+                for child in w.winfo_children():
+                    _bind_recursive(child, depth + 1)
 
         _bind_recursive(self.card)
 
