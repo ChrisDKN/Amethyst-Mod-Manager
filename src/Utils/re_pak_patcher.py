@@ -35,6 +35,8 @@ import json
 import struct
 from pathlib import Path
 
+from Utils.app_log import safe_log as _safe_log
+
 # ---------------------------------------------------------------------------
 # Murmur3-32 (matches Ekey/REE.PAK.Tool Murmur3.HashCore32, seed 0xFFFFFFFF)
 # ---------------------------------------------------------------------------
@@ -163,7 +165,7 @@ def patch_pak_file(
 
     Returns the number of entries newly invalidated.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     # Load existing backup so we are idempotent
     existing: dict[int, str] = {}
@@ -230,7 +232,7 @@ def restore_pak_file(pak_path: Path, backup_path: Path, log_fn=None) -> int:
 
     Returns the number of entries restored.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if not backup_path.exists():
         return 0

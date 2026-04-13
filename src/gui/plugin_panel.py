@@ -107,34 +107,7 @@ def _read_prefix_runner(compat_data: Path) -> str:
         return ""
 
 
-_truncate_cache: dict[tuple, str] = {}
-_TRUNCATE_CACHE_MAX = 2000
-
-def _truncate_plugin_name(widget: tk.Widget, text: str, font: tuple, max_px: int) -> str:
-    """Return *text* truncated with '…' so it fits within *max_px* pixels.
-    Results are cached by (text, font, max_px) to avoid repeated Tcl font measure calls."""
-    key = (text, font, max_px)
-    cached = _truncate_cache.get(key)
-    if cached is not None:
-        return cached
-    if max_px <= 0:
-        result = ""
-    else:
-        measure = widget.tk.call("font", "measure", font, text)
-        if measure <= max_px:
-            result = text
-        else:
-            ellipsis = "…"
-            ellipsis_w = widget.tk.call("font", "measure", font, ellipsis)
-            while text and widget.tk.call("font", "measure", font, text) + ellipsis_w > max_px:
-                text = text[:-1]
-            result = text + ellipsis
-    if len(_truncate_cache) >= _TRUNCATE_CACHE_MAX:
-        keep = _TRUNCATE_CACHE_MAX // 2
-        for k in list(_truncate_cache)[:keep]:
-            del _truncate_cache[k]
-    _truncate_cache[key] = result
-    return result
+from gui.text_utils import truncate_text as _truncate_plugin_name, clear_truncate_cache as _clear_truncate_cache
 
 
 # ---------------------------------------------------------------------------
@@ -1740,26 +1713,6 @@ class PluginPanel(ctk.CTkFrame):
             command=self._refresh_ini_files_tab,
         ).pack(side="left", padx=8, pady=2)
 
-        self._ini_search_var = tk.StringVar()
-        self._ini_search_var.trace_add("write", self._on_ini_search_changed)
-        self._ini_search_entry = tk.Entry(
-            toolbar, textvariable=self._ini_search_var,
-            bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
-            relief="flat", font=(_theme.FONT_FAMILY, _theme.FS10), width=30,
-            highlightthickness=0, highlightbackground=BG_DEEP,
-        )
-        self._ini_search_entry.pack(side="right", padx=8, pady=3)
-        self._ini_search_entry.bind("<Escape>", lambda e: self._ini_search_var.set(""))
-        def _ini_select_all(evt):
-            evt.widget.select_range(0, tk.END)
-            evt.widget.icursor(tk.END)
-            return "break"
-        self._ini_search_entry.bind("<Control-a>", _ini_select_all)
-        tk.Label(
-            toolbar, text="Search:", bg=BG_HEADER, fg=TEXT_DIM,
-            font=(_theme.FONT_FAMILY, _theme.FS10),
-        ).pack(side="right")
-
         # List frame: tree | marker_strip | scrollbar
         list_frame = tk.Frame(tab, bg=BG_DEEP)
         list_frame.grid(row=1, column=0, sticky="nsew")
@@ -1832,6 +1785,29 @@ class PluginPanel(ctk.CTkFrame):
         self._ini_files_tree.grid(row=0, column=0, sticky="nsew")
         self._ini_marker_strip.grid(row=0, column=1, sticky="ns")
         self._ini_vsb.grid(row=0, column=2, sticky="ns")
+
+        # Search bar (bottom)
+        ini_search_bar = tk.Frame(tab, bg=BG_HEADER, highlightthickness=0)
+        ini_search_bar.grid(row=2, column=0, sticky="ew")
+        tk.Label(
+            ini_search_bar, text="Search:", bg=BG_HEADER, fg=TEXT_DIM,
+            font=(_theme.FONT_FAMILY, _theme.FS10),
+        ).pack(side="left", padx=(8, 4), pady=3)
+        self._ini_search_var = tk.StringVar()
+        self._ini_search_var.trace_add("write", self._on_ini_search_changed)
+        self._ini_search_entry = tk.Entry(
+            ini_search_bar, textvariable=self._ini_search_var,
+            bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            relief="flat", font=(_theme.FONT_FAMILY, _theme.FS10),
+            highlightthickness=0, highlightbackground=BG_DEEP,
+        )
+        self._ini_search_entry.pack(side="left", padx=(0, 8), pady=3, fill="x", expand=True)
+        self._ini_search_entry.bind("<Escape>", lambda e: self._ini_search_var.set(""))
+        def _ini_select_all(evt):
+            evt.widget.select_range(0, tk.END)
+            evt.widget.icursor(tk.END)
+            return "break"
+        self._ini_search_entry.bind("<Control-a>", _ini_select_all)
 
         self._ini_files_tree.bind("<<TreeviewSelect>>", self._on_ini_file_select)
         self._ini_files_tree.bind("<Button-4>", lambda e: self._ini_files_tree.yview_scroll(-3, "units"))
@@ -2330,21 +2306,6 @@ class PluginPanel(ctk.CTkFrame):
         )
         self._data_expand_btn.pack(side="left", padx=(0, 8), pady=2)
 
-        self._data_search_var = tk.StringVar()
-        self._data_search_var.trace_add("write", self._on_data_search_changed)
-        search_entry = tk.Entry(
-            toolbar, textvariable=self._data_search_var,
-            bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
-            relief="flat", font=(_theme.FONT_FAMILY, _theme.FS10), width=30,
-            highlightthickness=0, highlightbackground=BG_DEEP,
-        )
-        search_entry.pack(side="right", padx=8, pady=3)
-        search_entry.bind("<Escape>", lambda e: self._data_search_var.set(""))
-        tk.Label(
-            toolbar, text="Search:", bg=BG_HEADER, fg=TEXT_DIM,
-            font=(_theme.FONT_FAMILY, _theme.FS10),
-        ).pack(side="right")
-
         self._data_tree = CTkTreeview(
             tab,
             columns=("mod",),
@@ -2357,6 +2318,29 @@ class PluginPanel(ctk.CTkFrame):
             show_label=False,
         )
         self._data_tree.grid(row=1, column=0, sticky="nsew")
+
+        # Search bar (bottom)
+        data_search_bar = tk.Frame(tab, bg=BG_HEADER, highlightthickness=0)
+        data_search_bar.grid(row=2, column=0, sticky="ew")
+        tk.Label(
+            data_search_bar, text="Search:", bg=BG_HEADER, fg=TEXT_DIM,
+            font=(_theme.FONT_FAMILY, _theme.FS10),
+        ).pack(side="left", padx=(8, 4), pady=3)
+        self._data_search_var = tk.StringVar()
+        self._data_search_var.trace_add("write", self._on_data_search_changed)
+        _data_search_entry = tk.Entry(
+            data_search_bar, textvariable=self._data_search_var,
+            bg=BG_DEEP, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
+            relief="flat", font=(_theme.FONT_FAMILY, _theme.FS10),
+            highlightthickness=0, highlightbackground=BG_DEEP,
+        )
+        _data_search_entry.pack(side="left", padx=(0, 8), pady=3, fill="x", expand=True)
+        _data_search_entry.bind("<Escape>", lambda e: self._data_search_var.set(""))
+        def _data_select_all(evt):
+            evt.widget.select_range(0, tk.END)
+            evt.widget.icursor(tk.END)
+            return "break"
+        _data_search_entry.bind("<Control-a>", _data_select_all)
 
         self._data_tree.treeview.bind("<Button-4>",
             lambda e: self._data_tree.treeview.yview_scroll(-3, "units"))
@@ -2449,27 +2433,57 @@ class PluginPanel(ctk.CTkFrame):
         ]
 
         def _match(rel_lower: str):
-            first_seg = rel_lower.split("/")[0]
+            """Return (rule, strip_len) or (None, -1).
+
+            Mirrors deploy_custom_rules._match_rule: folders are matched
+            as any path segment (not just the first), and strip_len is the
+            number of leading characters to remove so the folder itself is
+            preserved under dest.
+            """
+            parts = rel_lower.split("/")
             ext = os.path.splitext(rel_lower)[1]
-            filename = rel_lower.split("/")[-1]
+            filename = parts[-1]
             for rule, folders, exts, filenames in _rules:
-                if folders and first_seg in folders and (not exts or ext in exts):
-                    return rule, True
-                if exts and ext in exts and not folders and not filenames:
-                    return rule, False
+                strip_len = -1
+                folder_hit = False
+                if folders:
+                    for f in folders:
+                        if "/" in f:
+                            idx = rel_lower.find(f + "/")
+                            if idx < 0 and rel_lower.endswith(f):
+                                idx = len(rel_lower) - len(f)
+                            if idx >= 0 and (idx == 0 or rel_lower[idx - 1] == "/"):
+                                strip_len = idx
+                                folder_hit = True
+                                break
+                        else:
+                            for pi, seg in enumerate(parts[:-1]):
+                                if seg == f:
+                                    strip_len = sum(len(parts[j]) + 1 for j in range(pi))
+                                    folder_hit = True
+                                    break
+                            if folder_hit:
+                                break
+                ext_match = bool(exts and ext in exts)
+                if folder_hit and (not exts or ext_match):
+                    return rule, strip_len
+                if ext_match and not folders and not filenames:
+                    return rule, -1
                 if filenames and filename in filenames:
-                    return rule, False
-            return None, False
+                    return rule, -1
+            return None, -1
 
         resolved = []
         for rel_path, mod_name in entries:
             rel_norm = rel_path.replace("\\", "/")
-            rule, folder_match = _match(rel_norm.lower())
+            rule, strip_len = _match(rel_norm.lower())
             if rule is not None:
                 dest = rule.dest
-                if folder_match:
-                    # full path preserved under dest
-                    full_path = dest + "/" + rel_norm if dest else rel_norm
+                if strip_len >= 0:
+                    # Folder match — strip prefix above the folder,
+                    # keep the folder and its contents under dest.
+                    kept = rel_norm[strip_len:].lstrip("/")
+                    full_path = dest + "/" + kept if dest else kept
                 else:
                     # flat placement — just filename under dest
                     basename = rel_norm.split("/")[-1]
@@ -4615,7 +4629,7 @@ class PluginPanel(ctk.CTkFrame):
     def _apply_pcanvas_resize(self, width: int):
         self._layout_plugin_cols(width)
         self._update_plugin_header(width)
-        _truncate_cache.clear()
+        _clear_truncate_cache()
         self._schedule_predraw()
 
     def _on_pscroll_up(self, _event):

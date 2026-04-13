@@ -12,6 +12,8 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from Utils.app_log import safe_log as _safe_log
+
 _TIMESTAMP_FMT = "%Y%m%d_%H%M%S"
 _MAX_BACKUPS = 10
 _BACKUPS_SUBDIR = "backups"
@@ -71,7 +73,7 @@ def create_backup(profile_dir: Path, log_fn=None) -> None:
     Keep at most _MAX_BACKUPS backup folders; delete oldest when over limit.
     Backups marked with .keep are never pruned.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     backups_dir = profile_dir / _BACKUPS_SUBDIR
     backups_dir.mkdir(parents=True, exist_ok=True)
     ts = _timestamp_str()
@@ -85,14 +87,18 @@ def create_backup(profile_dir: Path, log_fn=None) -> None:
             shutil.copy2(src, dst)
             _log(f"Backup: {name}")
 
-    # Prune to _MAX_BACKUPS: list subdirs by name (chronological order), remove oldest
+    # Prune to _MAX_BACKUPS: list subdirs by name (chronological order), remove oldest.
     # Kept backups are excluded from pruning (and from the count).
-    subdirs = [
-        p for p in backups_dir.iterdir()
-        if p.is_dir() and _parse_timestamp_from_dirname(p.name) is not None
-           and not is_backup_kept(p)
-    ]
-    subdirs.sort(key=lambda p: p.name)
+    def _prunable_backups():
+        dirs = [
+            p for p in backups_dir.iterdir()
+            if p.is_dir() and _parse_timestamp_from_dirname(p.name) is not None
+               and not is_backup_kept(p)
+        ]
+        dirs.sort(key=lambda p: p.name)
+        return dirs
+
+    subdirs = _prunable_backups()
     while len(subdirs) > _MAX_BACKUPS:
         oldest = subdirs.pop(0)
         try:
@@ -100,12 +106,7 @@ def create_backup(profile_dir: Path, log_fn=None) -> None:
             _log(f"Backup: removed oldest {oldest.name}")
         except OSError:
             pass
-        subdirs = [
-            p for p in backups_dir.iterdir()
-            if p.is_dir() and _parse_timestamp_from_dirname(p.name) is not None
-               and not is_backup_kept(p)
-        ]
-        subdirs.sort(key=lambda p: p.name)
+        subdirs = _prunable_backups()
 
 
 def list_backups(profile_dir: Path) -> list[tuple[datetime, Path]]:

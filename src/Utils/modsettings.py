@@ -19,7 +19,7 @@ from pathlib import Path
 
 from Utils.modlist import ModEntry, read_modlist
 from Utils.pak_reader import extract_meta_lsx
-from Utils.app_log import app_log
+from Utils.app_log import app_log, safe_log as _safe_log
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -331,7 +331,7 @@ def write_modsettings(
 
     Returns the number of mod entries written (excluding GustavX).
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     entries = read_modlist(modlist_path)
     enabled = [e for e in entries if e.enabled and not e.is_separator]
@@ -380,7 +380,7 @@ def write_modsettings(
 
 def write_vanilla_modsettings(modsettings_path: Path, log_fn=None) -> None:
     """Write a clean modsettings.lsx with only the GustavX entry."""
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     xml = build_modsettings_xml([])
     modsettings_path.parent.mkdir(parents=True, exist_ok=True)
     modsettings_path.write_text(xml, encoding="utf-8")

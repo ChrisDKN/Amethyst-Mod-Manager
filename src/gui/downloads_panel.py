@@ -48,9 +48,7 @@ _POOL_SIZE = 40  # pre-allocated canvas slots (covers ~40 visible rows)
 # Archive extensions we care about (lowercase, with dot)
 _ARCHIVE_EXTS = {".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"}
 
-# Module-level text truncation cache  {(text, font_str, max_px): truncated}
-_truncate_cache: dict[tuple, str] = {}
-_TRUNCATE_CACHE_MAX = 2048
+from gui.text_utils import truncate_text_tk_call as _truncate_text_cached
 
 
 def _is_archive(name: str) -> bool:
@@ -78,36 +76,6 @@ def _fmt_size(n: int) -> str:
     return f"{n:.1f} TB"
 
 
-def _truncate_text_cached(tk_call, text: str, font, max_px: int) -> str:
-    """Return *text* truncated with ellipsis, using a module-level cache."""
-    key = (text, str(font), max_px)
-    cached = _truncate_cache.get(key)
-    if cached is not None:
-        return cached
-
-    if tk_call("font", "measure", font, text) <= max_px:
-        _truncate_cache[key] = text
-        return text
-
-    ellipsis = "\u2026"
-    ellipsis_w = tk_call("font", "measure", font, ellipsis)
-    # Binary search for the cut point instead of linear char-by-char
-    lo, hi = 0, len(text)
-    while lo < hi:
-        mid = (lo + hi + 1) // 2
-        if tk_call("font", "measure", font, text[:mid]) + ellipsis_w <= max_px:
-            lo = mid
-        else:
-            hi = mid - 1
-    result = text[:lo] + ellipsis
-
-    if len(_truncate_cache) >= _TRUNCATE_CACHE_MAX:
-        # Evict oldest half
-        keys = list(_truncate_cache.keys())
-        for k in keys[:len(keys) // 2]:
-            del _truncate_cache[k]
-    _truncate_cache[key] = result
-    return result
 
 
 class DownloadsPanel:

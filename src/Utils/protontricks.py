@@ -14,6 +14,8 @@ import urllib.request
 from pathlib import Path
 from typing import Callable
 
+from Utils.app_log import safe_log as _safe_log
+
 _WINETRICKS_URL = "https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks"
 
 
@@ -38,7 +40,7 @@ def install_winetricks(log_fn: Callable[[str], None] | None = None) -> bool:
 
     Returns True on success, False on failure.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     dest = _bundled_winetricks()
     _log("Downloading winetricks …")
     try:
@@ -136,7 +138,7 @@ def install_d3dcompiler_47(
 
     Returns True on success, False on failure.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if prefix_path and Path(prefix_path).is_dir():
         return _install_via_winetricks(Path(prefix_path), "d3dcompiler_47", _log)

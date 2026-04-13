@@ -19,6 +19,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from Utils.app_log import safe_log as _safe_log
 from Utils.config_paths import get_config_dir
 
 try:
@@ -152,7 +153,7 @@ def ensure_dtkit_binary(log_fn=None) -> Path:
 
     Raises RuntimeError if the binary cannot be obtained.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     existing = get_installed_dtkit_path()
     if existing is not None:
@@ -183,7 +184,7 @@ def run_dtkit_patch(game_path: Path, flag: str, log_fn=None) -> bool:
 
     Returns True on success, False on failure (errors are logged, not raised).
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     try:
         binary = ensure_dtkit_binary(log_fn=_log)

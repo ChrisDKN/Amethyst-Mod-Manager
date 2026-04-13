@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from Utils.app_log import safe_log as _safe_log
 from Utils.config_paths import get_game_config_dir
 
 
@@ -73,7 +74,7 @@ def deploy_game_wine_dll_overrides(
          reflects the current state.
       3. Applies the full merged set to the Proton prefix.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     stored = load_wine_dll_overrides(game_name)
     # Handler overrides are always present; user overrides sit on top

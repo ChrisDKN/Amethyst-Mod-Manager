@@ -463,7 +463,7 @@ class CollectionCard:
         self._coll_img_h = scaled(_COLL_IMG_H)
         # Text area: name + stats + author only (summary moved to hover tooltip).
         s = get_ui_scale()
-        text_h = max(50, int(90 * s))
+        text_h = max(60, int(110 * s))
         # Include image pady so card height matches actual layout (image + pady + btn + text)
         _img_pady = scaled(6) + scaled(3)
         _btn_row_h = scaled(60)  # taller at high scale so View button is fully visible
@@ -537,7 +537,7 @@ class CollectionCard:
         ).pack(padx=scaled(8), fill="x")
 
         # Stats: downloads, endorsements, mod count
-        stats = f"↓{col.total_downloads:,}  ♥{col.endorsements:,}  {col.mod_count} mods"
+        stats = f"↓{col.total_downloads:,}  {col.mod_count} mods"
         tk.Label(
             text_frame, text=stats,
             bg=BG_PANEL, fg=TEXT_DIM,

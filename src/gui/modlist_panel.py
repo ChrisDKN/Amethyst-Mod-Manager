@@ -137,41 +137,7 @@ from Utils.ui_config import load_column_widths, save_column_widths, load_column_
 from Nexus.nexus_update_checker import check_for_updates
 
 
-_truncate_cache: dict[tuple, str] = {}
-_TRUNCATE_CACHE_MAX = 2000
-
-
-def _truncate_text_for_width(widget: tk.Widget, text: str, font: tuple, max_px: int) -> str:
-    """Return *text* truncated with '…' so it fits within *max_px* pixels.
-    Results are cached by (text, font, max_px) to avoid repeated Tcl font measure
-    calls (same pattern as plugin_panel — prevents lag during scroll/redraw)."""
-    key = (text, font, max_px)
-    cached = _truncate_cache.get(key)
-    if cached is not None:
-        return cached
-    if max_px <= 0 or not text:
-        _truncate_cache[key] = text
-        return text
-    try:
-        if widget.tk.call("font", "measure", font, text) <= max_px:
-            result = text
-        else:
-            ellipsis = "…"
-            ellipsis_w = widget.tk.call("font", "measure", font, ellipsis)
-            out = text
-            while out and widget.tk.call("font", "measure", font, out) + ellipsis_w > max_px:
-                out = out[:-1]
-            result = out + ellipsis
-    except Exception:
-        max_chars = max(1, (max_px - 12) // 7)
-        result = (text[: max_chars - 1] + "…") if len(text) > max_chars else text
-    if len(_truncate_cache) >= _TRUNCATE_CACHE_MAX:
-        # Evict oldest half to keep memory bounded
-        evict = len(_truncate_cache) - _TRUNCATE_CACHE_MAX // 2
-        for k in list(_truncate_cache)[:evict]:
-            del _truncate_cache[k]
-    _truncate_cache[key] = result
-    return result
+from gui.text_utils import truncate_text as _truncate_text_for_width, clear_truncate_cache as _clear_truncate_cache
 
 
 def _scan_meta_flags_impl(entries: list, mods_dir: Path) -> dict:
@@ -3235,7 +3201,7 @@ class ModListPanel(ctk.CTkFrame):
                 if dc in self._col_w_override:
                     self._col_w_override[dc] = self._COL_W[slot]
         self._update_header(width)
-        _truncate_cache.clear()
+        _clear_truncate_cache()
         self._redraw()
 
     def _schedule_redraw(self) -> None:
@@ -4239,6 +4205,7 @@ class ModListPanel(ctk.CTkFrame):
         is_overwrite = self._entries[idx].name == OVERWRITE_NAME
         is_root_folder = self._entries[idx].name == ROOT_FOLDER_NAME
         is_synthetic = is_overwrite or is_root_folder
+        _is_real_mod = not is_separator and not is_synthetic
         _is_multi = len(self._sel_set) > 1 and idx in self._sel_set
         _is_bundle_sep = is_separator and self._is_bundle_separator(idx)
         _is_bundle_var = (not is_separator) and (self._entries[idx].bundle_name is not None)
@@ -4280,7 +4247,7 @@ class ModListPanel(ctk.CTkFrame):
         _other_profiles: list[str] = []
         _copy_mod_name: str | None = None
         _copy_mod_names: list[str] = []
-        if not is_separator and not is_synthetic and self._modlist_path is not None and self._game is not None:
+        if _is_real_mod and self._modlist_path is not None and self._game is not None:
             _app = self.winfo_toplevel()
             _topbar = getattr(_app, "_topbar", None)
             _game_name = _topbar._game_var.get() if _topbar else ""
@@ -4313,7 +4280,7 @@ class ModListPanel(ctk.CTkFrame):
         nexus_url: str | None = None
         _domain: str | None = None
         _archive_path: Path | None = None
-        if not is_separator and not is_synthetic and self._modlist_path is not None:
+        if _is_real_mod and self._modlist_path is not None:
             _meta_path = self._staging_root / _mod_name / "meta.ini"
             if _meta_path.is_file():
                 try:
@@ -4381,7 +4348,7 @@ class ModListPanel(ctk.CTkFrame):
         # --- Menu items in alphabetical order ---
 
         # Abstain from Endorsement
-        if (not is_separator and not is_synthetic and not _is_multi
+        if (_is_real_mod and not _is_multi
                 and _ctx_meta is not None and _ctx_meta.mod_id > 0 and _ctx_meta.endorsed):
             menu.add_command("Abstain from Endorsement",
                 lambda: self._abstain_nexus_mod(_mod_name, _domain, _ctx_meta))
@@ -4396,13 +4363,13 @@ class ModListPanel(ctk.CTkFrame):
             menu.add_command("Change separator color", lambda: self._change_separator_color(idx))
 
         # Change Version
-        if (not is_separator and not is_synthetic and not _is_multi
+        if (_is_real_mod and not _is_multi
                 and _ctx_meta is not None and _ctx_meta.mod_id > 0):
             menu.add_command("Change Version",
                 lambda mn=_mod_name: self._update_nexus_mod(mn))
 
         # Check Updates (single)
-        if (not is_separator and not is_synthetic and not _is_multi
+        if (_is_real_mod and not _is_multi
                 and _ctx_meta is not None and _ctx_meta.mod_id > 0):
             menu.add_command("Check Updates",
                 lambda mn=_mod_name: self._on_check_updates_for_mods([mn]))
@@ -4448,7 +4415,7 @@ class ModListPanel(ctk.CTkFrame):
                 lambda: self._enable_selected_mods(toggleable))
 
         # Endorse Mod
-        if (not is_separator and not is_synthetic and not _is_multi
+        if (_is_real_mod and not _is_multi
                 and _ctx_meta is not None and _ctx_meta.mod_id > 0 and not _ctx_meta.endorsed):
             menu.add_command("Endorse Mod",
                 lambda: self._endorse_nexus_mod(_mod_name, _domain, _ctx_meta))
@@ -4460,7 +4427,7 @@ class ModListPanel(ctk.CTkFrame):
                     parent_dismiss=menu._withdraw, parent_popup=menu))
 
         # Missing Requirements
-        if not is_separator and not is_synthetic and not _is_multi and _mod_name in self._missing_reqs:
+        if _is_real_mod and not _is_multi and _mod_name in self._missing_reqs:
             dep_names = self._missing_reqs_detail.get(_mod_name, [])
             menu.add_command("Missing Requirements",
                 lambda: self._show_missing_reqs(_mod_name, dep_names))
@@ -4481,7 +4448,7 @@ class ModListPanel(ctk.CTkFrame):
             menu.add_command("Open folder", lambda: self._open_folder(mod_folder))
 
         # Open on Nexus (single)
-        if (not is_separator and not is_synthetic and not _is_multi
+        if (_is_real_mod and not _is_multi
                 and _ctx_meta is not None and nexus_url):
             menu.add_command("Open on Nexus",
                 lambda u=nexus_url: self._open_nexus_page(u))
@@ -4493,7 +4460,7 @@ class ModListPanel(ctk.CTkFrame):
                 lambda u=_urls_cap: self._open_nexus_pages(u))
 
         # Reinstall Mod
-        if (not is_separator and not is_synthetic and not _is_multi
+        if (_is_real_mod and not _is_multi
                 and _ctx_meta is not None and _archive_path is not None):
             menu.add_command("Reinstall Mod",
                 lambda nc=_mod_name, ap=_archive_path: self._reinstall_mod(nc, ap))

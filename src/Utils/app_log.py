@@ -47,6 +47,18 @@ def set_app_log(log_fn: callable[[str], None], after_fn: callable) -> None:
     after_fn(0, _drain_log_queue)
 
 
+_NOOP_LOG: callable = lambda _: None
+
+
+def safe_log(log_fn: callable | None) -> callable:
+    """Return *log_fn* if truthy, otherwise a no-op callable.
+
+    Replaces the common pattern ``_log = log_fn or (lambda _: None)``
+    with a single reusable sentinel to avoid creating a new lambda each time.
+    """
+    return log_fn if log_fn is not None else _NOOP_LOG
+
+
 def app_log(message: str) -> None:
     """Write a message to the application log panel (thread-safe). No-op if not set."""
     if _log_fn is None:

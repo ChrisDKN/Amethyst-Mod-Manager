@@ -36,6 +36,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from Utils.app_log import safe_log as _safe_log
+
 _MENU_DIR_REL   = Path("bin/config/r4game/user_config_matrix/pc")
 _DX11_FILE      = "dx11filelist.txt"
 _DX12_FILE      = "dx12filelist.txt"
@@ -57,7 +59,7 @@ def update_menu_filelists(game_root: Path, log_fn=None) -> None:
     log_fn:
         Optional callable(str) for status messages.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     menu_dir = game_root / _MENU_DIR_REL
 
     if not menu_dir.is_dir():

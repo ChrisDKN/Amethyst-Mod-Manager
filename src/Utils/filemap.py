@@ -561,6 +561,56 @@ def rebuild_mod_index(
     _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
 
+def _compute_conflict_status(
+    priority_order: list[str],
+    overrides: dict[str, set[str]],
+    overridden_by: dict[str, set[str]],
+    win_count: dict[str, int],
+    mods_with_files: set[str],
+) -> dict[str, int]:
+    """Classify each mod's conflict status based on override relationships."""
+    conflict_map: dict[str, int] = {}
+    for name in priority_order:
+        has_wins  = bool(overrides[name])
+        has_loses = bool(overridden_by[name])
+        if name not in mods_with_files or (not has_wins and not has_loses):
+            conflict_map[name] = CONFLICT_NONE
+        elif has_loses and win_count.get(name, 0) <= 0:
+            conflict_map[name] = CONFLICT_FULL
+        elif has_wins and not has_loses:
+            conflict_map[name] = CONFLICT_WINS
+        elif has_loses and not has_wins:
+            conflict_map[name] = CONFLICT_LOSES
+        else:
+            conflict_map[name] = CONFLICT_PARTIAL
+    return conflict_map
+
+
+def _write_filemap(
+    output_path: Path,
+    filemap: dict[str, tuple[str, str]],
+    disabled_lower: dict[str, set[str]],
+) -> int:
+    """Sort and write filemap.txt, returning the number of lines written."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sorted_keys = sorted(filemap)
+    parts: list[str] = []
+    for rel_key in sorted_keys:
+        rel_str, mod_name = filemap[rel_key]
+        # Skip root-level files that the user has disabled for this mod
+        if disabled_lower and "/" not in rel_key and mod_name in disabled_lower:
+            if rel_key in disabled_lower[mod_name]:
+                continue
+        parts.append(rel_str)
+        parts.append("\t")
+        parts.append(mod_name)
+        parts.append("\n")
+    output = "".join(parts)
+    with output_path.open("w", encoding="utf-8") as f:
+        f.write(output)
+    return output.count("\n")
+
+
 # ---------------------------------------------------------------------------
 # Main filemap builder
 # ---------------------------------------------------------------------------
@@ -726,21 +776,9 @@ def build_filemap(
         if had_file:
             mods_with_files.add(name)
 
-    # Compute per-source conflict status
-    conflict_map: dict[str, int] = {}
-    for name in priority_order:
-        has_wins  = bool(overrides[name])
-        has_loses = bool(overridden_by[name])
-        if name not in mods_with_files or (not has_wins and not has_loses):
-            conflict_map[name] = CONFLICT_NONE
-        elif has_loses and win_count.get(name, 0) <= 0:
-            conflict_map[name] = CONFLICT_FULL
-        elif has_wins and not has_loses:
-            conflict_map[name] = CONFLICT_WINS
-        elif has_loses and not has_wins:
-            conflict_map[name] = CONFLICT_LOSES
-        else:
-            conflict_map[name] = CONFLICT_PARTIAL
+    conflict_map = _compute_conflict_status(
+        priority_order, overrides, overridden_by, win_count, mods_with_files,
+    )
 
     # Build per-mod disabled-plugin sets for fast lookup (lowercase filenames, root-level only)
     _disabled_lower: dict[str, set[str]] = {}
@@ -765,24 +803,7 @@ def build_filemap(
         count = sum(1 for _ in filemap_winner)  # approx — disabled_plugins may trim a few
         return count, conflict_map, overrides, overridden_by
 
-    # Write sorted output — sort keys once, build one big string, write in a single call.
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    sorted_keys = sorted(filemap)
-    parts: list[str] = []
-    for rel_key in sorted_keys:
-        rel_str, mod_name = filemap[rel_key]
-        # Skip root-level files that the user has disabled for this mod
-        if _disabled_lower and "/" not in rel_key and mod_name in _disabled_lower:
-            if rel_key in _disabled_lower[mod_name]:
-                continue
-        parts.append(rel_str)
-        parts.append("\t")
-        parts.append(mod_name)
-        parts.append("\n")
-    output = "".join(parts)
-    with output_path.open("w", encoding="utf-8") as f:
-        f.write(output)
-    count = output.count("\n")
+    count = _write_filemap(output_path, filemap, _disabled_lower)
 
     with _filemap_winner_cache_lock:
         _filemap_winner_cache[_output_key] = _winner_snapshot

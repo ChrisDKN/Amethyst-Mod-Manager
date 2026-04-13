@@ -34,6 +34,9 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
+from Utils.app_log import safe_log as _safe_log
+from Utils.path_utils import has_path_traversal as _has_traversal
+
 
 @_contextmanager
 def _timer(label: str):
@@ -112,7 +115,7 @@ def cleanup_custom_deploy_dirs(
 
     Returns the number of files removed.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if profile_dir is None:
         return 0
@@ -136,7 +139,7 @@ def cleanup_custom_deploy_dirs(
     stop_dirs: set[Path] = set()
 
     for abs_str in file_list:
-        if ".." in abs_str.replace("\\", "/").split("/"):
+        if _has_traversal(abs_str):
             _log(f"  WARN: skipping suspicious path in custom_deploy_log: {abs_str!r}")
             continue
         target = Path(abs_str)
@@ -198,7 +201,7 @@ def restore_custom_deploy_backup_for_path(
 
     Returns the number of files restored.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if filemap_path is None:
         return 0
@@ -361,7 +364,7 @@ def move_to_core(
     If deploy_dir is empty, core_dir is still created (empty) so restore always
     finds a core folder and does not report "nothing to restore".
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     core_dir = core_dir or _default_core(deploy_dir)
 
     if core_dir.exists():
@@ -503,7 +506,7 @@ def _restore_from_log(
 
     Returns the number of files removed from target_root.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if not log_path.is_file():
         return 0
@@ -554,6 +557,29 @@ def _restore_from_log(
     return removed
 
 
+def _prebuild_mod_indexes(
+    tab_lines: list[str],
+    overwrite_dir: Path,
+    staging_root: Path,
+    mod_index_cache: dict,
+) -> None:
+    """Pre-build per-mod file indexes for all mods referenced in the filemap.
+
+    Replaces thousands of individual stat() calls with one os.walk per mod folder.
+    """
+    mod_names: set[str] = set()
+    for ln in tab_lines:
+        tab_pos = ln.find("\t")
+        if tab_pos > 0:
+            mod_names.add(ln[tab_pos + 1:])
+    for mn in mod_names:
+        if _has_traversal(mn):
+            continue
+        mr = overwrite_dir if mn == _OVERWRITE_NAME else staging_root / mn
+        if mr not in mod_index_cache:
+            mod_index_cache[mr] = _build_mod_index(mr)
+
+
 def deploy_filemap(
     filemap_path: Path,
     deploy_dir: Path,
@@ -589,7 +615,7 @@ def deploy_filemap(
         placed_lower is the set of lowercased rel paths successfully placed —
         pass it to deploy_core() so it can skip files already provided by mods.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
     _per_mod = per_mod_strip_prefixes or {}
     _per_deploy = per_mod_deploy_dirs or {}
@@ -613,21 +639,10 @@ def deploy_filemap(
     total_lines = len(_tab_lines)
     line_idx = 0
 
-    # Pre-build per-mod file indexes for all mods referenced in the filemap.
-    # This replaces thousands of stat() calls with one os.walk per mod folder.
-    _mod_names_in_filemap: set[str] = set()
-    for _ln in _tab_lines:
-        _tab_pos = _ln.find("\t")
-        if _tab_pos > 0:
-            _mod_names_in_filemap.add(_ln[_tab_pos + 1:])
-
-    for _mn in _mod_names_in_filemap:
-        if ".." in _mn.replace("\\", "/").split("/") or _mn.startswith(("/", "\\")):
-            continue
-        _mr = overwrite_dir if _mn == _OVERWRITE_NAME else staging_root / _mn
-        if _mr not in mod_index_cache:
-            mod_index_cache[_mr] = _build_mod_index(_mr)
-    print(f"  [TIMER] deploy_filemap — pre-build mod indexes ({len(_mod_names_in_filemap)} mods): "
+    _prebuild_mod_indexes(
+        _tab_lines, overwrite_dir, staging_root, mod_index_cache,
+    )
+    print(f"  [TIMER] deploy_filemap — pre-build mod indexes: "
           f"{_time.perf_counter() - _t_resolve_start:.3f}s")
 
     _t_resolve_loop = _time.perf_counter()
@@ -643,10 +658,7 @@ def deploy_filemap(
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
         # Guard against path traversal in filemap entries.
-        # Check segments, not substrings, so "file..name.ext" is allowed but "foo/../bar" is not.
-        _rel_segs = rel_str.replace("\\", "/").split("/")
-        _mod_segs = mod_name.replace("\\", "/").split("/")
-        if ".." in _rel_segs or ".." in _mod_segs or mod_name.startswith(("/", "\\")):
+        if _has_traversal(rel_str) or _has_traversal(mod_name):
             _log(f"  WARN: skipping suspicious filemap entry — rel={rel_str!r} mod={mod_name!r}")
             continue
         rel_lower = rel_str.lower()
@@ -797,7 +809,7 @@ def deploy_core(
     progress_fn    — optional callable(done: int, total: int)
     Returns the number of files transferred.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     core_dir = core_dir or _default_core(deploy_dir)
 
     if not core_dir.is_dir():
@@ -1057,7 +1069,7 @@ def deploy_root_folder(
 
     Returns the number of files transferred.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if not root_folder_dir.is_dir():
         return 0
@@ -1133,7 +1145,7 @@ def restore_root_folder(
     Returns the number of files removed from game_root.
     Silently does nothing if the log file is absent (no prior deploy).
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     _t_root_restore = _time.perf_counter()
 
     log_path   = root_folder_dir.parent / _ROOT_LOG_NAME
@@ -1248,7 +1260,7 @@ def restore_data_core(
     so move_to_core skipped creating it), the deploy dir is simply cleared and
     0 is returned — no error is raised.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     core_dir = core_dir or _default_core(deploy_dir)
 
     if not core_dir.is_dir():
@@ -1481,7 +1493,7 @@ def undeploy_mod_files(
 
     Returns the total number of files removed.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     # Load the index; nothing to do if it is absent.
     try:
@@ -1573,7 +1585,7 @@ def _write_deploy_snapshot(
     Written atomically via a .tmp sibling then renamed.  Returns the number
     of files recorded, or 0 on error (the deploy is never aborted).
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     tmp_path = snapshot_path.with_suffix(".tmp")
     count = 0
     game_root_str = str(game_root)
@@ -1642,7 +1654,7 @@ def _move_runtime_files(
 
     Returns the number of files moved.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     known = _load_deploy_snapshot(snapshot_path)
     if not known:
         _log("  WARN: deploy snapshot empty or unreadable — skipping runtime file detection.")
@@ -1724,7 +1736,7 @@ def deploy_filemap_to_root(
     Returns (count, placed_lower) — same shape as deploy_filemap().
     placed_lower contains the *remapped* paths (as deployed on disk).
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
     _per_mod = per_mod_strip_prefixes or {}
     _remap: list[tuple[str, str]] = []
@@ -1766,20 +1778,7 @@ def deploy_filemap_to_root(
     total_lines = len(_tab_lines)
     line_idx = 0
 
-    # Pre-build per-mod file indexes for all mods referenced in the filemap.
-    # This replaces thousands of stat() calls with one os.walk per mod folder.
-    _mod_names_in_filemap: set[str] = set()
-    for _ln in _tab_lines:
-        _tab_pos = _ln.find("\t")
-        if _tab_pos > 0:
-            _mod_names_in_filemap.add(_ln[_tab_pos + 1:])
-
-    for _mn in _mod_names_in_filemap:
-        if ".." in _mn.replace("\\", "/").split("/") or _mn.startswith(("/", "\\")):
-            continue
-        _mr = overwrite_dir if _mn == _OVERWRITE_NAME else staging_root / _mn
-        if _mr not in mod_index_cache:
-            mod_index_cache[_mr] = _build_mod_index(_mr)
+    _prebuild_mod_indexes(_tab_lines, overwrite_dir, staging_root, mod_index_cache)
 
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
@@ -1936,7 +1935,7 @@ def restore_filemap_from_root(
     game_root    — the game's install directory
     Returns the number of mod files removed.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     log_path   = filemap_path.parent / _FILEMAP_LOG_NAME
     backup_dir = filemap_path.parent / _FILEMAP_BACKUP_DIR
 
@@ -1994,7 +1993,7 @@ def deploy_custom_rules(
     if not rules:
         return set()
 
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     _strip = {p.lower() for p in strip_prefixes} if strip_prefixes else set()
     overwrite_dir = staging_root.parent / "overwrite"
     _overwrite_str = str(overwrite_dir)
@@ -2012,20 +2011,54 @@ def deploy_custom_rules(
             {n.lower() for n in rule.filenames},
         ))
 
-    def _match_rule(rel_lower: str) -> tuple[CustomRule, bool] | None:
-        """Return (rule, folder_match) for the first matching rule, or None."""
-        first_seg = rel_lower.split("/")[0]
+    def _match_rule(rel_lower: str) -> tuple[CustomRule, int] | None:
+        """Return (rule, strip_len) for the first match, or None.
+
+        strip_len is the number of leading characters to strip from rel_str
+        so the folder itself (and its contents) are preserved under dest.
+        For extension/filename matches strip_len is -1 (sentinel for flat
+        placement).
+
+        Example with folder "logicmods":
+          "logicmods/file.pak"              → strip_len=0 (keep as-is)
+          "paks/logicmods/file.pak"         → strip_len=5 (strip "paks/")
+          "content/paks/logicmods/file.pak" → strip_len=13 (strip "content/paks/")
+        """
+        parts = rel_lower.split("/")
         ext = os.path.splitext(rel_lower)[1]
-        filename = rel_lower.split("/")[-1]
+        filename = parts[-1]
         for rule, folders, exts, filenames in _rules:
-            folder_match = bool(folders and first_seg in folders)
-            ext_match    = bool(exts and ext in exts)
-            if folder_match and (not exts or ext_match):
-                return rule, True
+            strip_len = -1
+            folder_hit = False
+            if folders:
+                for f in folders:
+                    if "/" in f:
+                        # Multi-segment folder: find it anywhere as a
+                        # contiguous segment sequence.
+                        idx = rel_lower.find(f + "/")
+                        if idx < 0 and rel_lower.endswith(f):
+                            idx = len(rel_lower) - len(f)
+                        if idx >= 0 and (idx == 0 or rel_lower[idx - 1] == "/"):
+                            strip_len = idx
+                            folder_hit = True
+                            break
+                    else:
+                        # Single-segment: find it as any directory segment.
+                        for pi, seg in enumerate(parts[:-1]):
+                            if seg == f:
+                                # Strip everything before this segment.
+                                strip_len = sum(len(parts[j]) + 1 for j in range(pi))
+                                folder_hit = True
+                                break
+                        if folder_hit:
+                            break
+            ext_match = bool(exts and ext in exts)
+            if folder_hit and (not exts or ext_match):
+                return rule, strip_len
             if ext_match and not folders and not filenames:
-                return rule, False
+                return rule, -1
             if filenames and filename in filenames:
-                return rule, False
+                return rule, -1
         return None
 
     already_seen: set[str] = set()
@@ -2046,7 +2079,7 @@ def deploy_custom_rules(
             match = _match_rule(rel_lower)
             if match is None:
                 continue
-            rule, is_folder_match = match
+            rule, strip_len = match
 
             src_str = _resolve_source(
                 mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
@@ -2059,11 +2092,15 @@ def deploy_custom_rules(
             src = Path(src_str)
 
             dest_base = game_root / rule.dest if rule.dest else game_root
-            if is_folder_match:
-                # Preserve full relative path under dest
-                dst = dest_base / rel_str
+            if strip_len >= 0:
+                # Folder match — strip the prefix above the matched
+                # folder and place the folder + contents under dest.
+                #   strip_len=0: LogicMods/f → dest/LogicMods/f
+                #   strip_len=5: Paks/LogicMods/f → dest/LogicMods/f
+                kept = rel_str[strip_len:].lstrip("/")
+                dst = dest_base / kept if kept else dest_base
             else:
-                # Extension-only: place flat (filename only)
+                # Extension/filename-only: place flat (filename only)
                 dst = dest_base / src.name
             tasks.append((src, dst))
             handled_lower.add(rel_lower)
@@ -2145,7 +2182,7 @@ def restore_custom_rules(
     listed absolute path, then tries to rmdir each rule's destination directory
     (silently ignored if non-empty).  Returns the number of files removed.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     backup_dir = filemap_path.parent / _CUSTOM_RULES_BACKUP_DIR
 
@@ -2479,7 +2516,7 @@ def apply_wine_dll_overrides(
     If *prefix_path* does not exist or ``user.reg`` cannot be read the
     call is a silent no-op (logged as a warning).
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if not overrides:
         return
@@ -2623,7 +2660,7 @@ def remove_wine_dll_overrides(
     entries should be deleted.  Entries not present in the file are silently
     skipped.  The file is written atomically.
     """
-    _log = log_fn or (lambda _: None)
+    _log = _safe_log(log_fn)
 
     if not dlls:
         return

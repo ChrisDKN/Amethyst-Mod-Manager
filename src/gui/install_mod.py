@@ -147,29 +147,6 @@ def _show_mod_notification(parent_window, message: str, state: str = "success") 
         pass
 
 
-def _build_tree_str(paths: list[str]) -> str:
-    """Convert a flat list of slash-separated paths into an ASCII folder tree."""
-    root: dict = {}
-    for path in sorted(paths):
-        node = root
-        for part in path.split("/"):
-            node = node.setdefault(part, {})
-
-    lines: list[str] = []
-
-    def _walk(node: dict, prefix: str):
-        items = sorted(node.keys())
-        for i, name in enumerate(items):
-            is_last = (i == len(items) - 1)
-            lines.append(f"{prefix}{'└── ' if is_last else '├── '}{name}")
-            child = node[name]
-            if child:
-                _walk(child, prefix + ("    " if is_last else "│   "))
-
-    _walk(root, "")
-    return "\n".join(lines) if lines else "(no files)"
-
-
 def _apply_strip_prefixes_to_file_list(
     file_list: list[tuple[str, str, bool]],
     strip_prefixes: set[str],

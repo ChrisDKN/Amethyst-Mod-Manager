@@ -76,20 +76,7 @@ _CB_PAD  = (_ROW_H - _CB_SIZE) // 2
 
 _tk_font_cache: tkfont.Font | None = None
 
-def _truncate(text: str, max_px: int, font: tkfont.Font) -> str:
-    """Return text truncated with '…' so it fits within max_px pixels."""
-    if font.measure(text) <= max_px:
-        return text
-    ellipsis = "…"
-    ellipsis_w = font.measure(ellipsis)
-    lo, hi = 0, len(text)
-    while lo < hi:
-        mid = (lo + hi + 1) // 2
-        if font.measure(text[:mid]) + ellipsis_w <= max_px:
-            lo = mid
-        else:
-            hi = mid - 1
-    return text[:lo] + ellipsis
+from gui.text_utils import truncate_text_font as _truncate
 
 
 def _norm_ver_name(s: str) -> str:
