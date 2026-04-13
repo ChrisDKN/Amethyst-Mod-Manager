@@ -13,9 +13,9 @@ jobs:
     name: Build libloot
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -24,7 +24,7 @@ jobs:
       - name: Build libloot .so
         run: bash src/LOOT/rebuild_libloot.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: libloot-so
           path: src/LOOT/loot.cpython-313-x86_64-linux-gnu.so
@@ -34,9 +34,9 @@ jobs:
     needs: build-libloot
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: libloot-so
           path: src/LOOT/
@@ -45,13 +45,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libarchive-dev libarchive-tools wget libfuse2 \
-            python3-gi gir1.2-gtk-3.0 python3-cairo
+            libarchive-dev libarchive-tools wget libfuse2
 
       - name: Build AppImage
         run: bash src/appimage/build.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: appimage
           path: src/appimage/build/AmethystModManager-*-x86_64.AppImage
@@ -61,9 +60,9 @@ jobs:
     needs: build-libloot
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: libloot-so
           path: src/LOOT/
@@ -80,7 +79,7 @@ jobs:
           rm -rf flatpak/build flatpak/repo
           bash flatpak/build.sh --bundle
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: flatpak
           path: AmethystModManager.flatpak
@@ -91,14 +90,14 @@ jobs:
     needs: [build-appimage, build-flatpak]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: appimage
           path: artifacts/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: flatpak
           path: artifacts/
