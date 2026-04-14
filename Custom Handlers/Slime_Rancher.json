@@ -1,0 +1,59 @@
+{
+  "name": "Slime Rancher",
+  "game_id": "Slime_Rancher",
+  "exe_name": "SlimeRancher.exe",
+  "deploy_type": "root",
+  "mod_data_path": "",
+  "steam_id": "433340",
+  "editable": false,
+  "nexus_game_domain": "slimerancher",
+  "image_url": "https://cdn2.steamgriddb.com/icon/09fb05dd477d4ae6479985ca56c5a12d/32/256x256.png",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.gif",
+    "*.tar.gz",
+    "*.json",
+    "*.zip",
+    "*.md",
+    "LICENSE",
+    "copying",
+    "*.txt",
+    "*.exe"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {},
+  "custom_routing_rules": [
+    {
+      "dest": "SRML/Mods",
+      "extensions": [
+        ".dll"
+      ]
+    },
+    {
+      "dest": "SRML/Mods",
+      "extensions": [
+        ".xml"
+      ]
+    },
+    {
+      "dest": "SRML/Mods",
+      "extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "SlimeRancher_Data",
+      "extensions": [
+        ".assets"
+      ]
+    }
+  ],
+  "custom_frameworks": {}
+}
