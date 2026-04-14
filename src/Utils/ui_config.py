@@ -182,14 +182,16 @@ _COLLECTIONS_SECTION = "collections"
 
 _DEFAULT_DOWNLOAD_ORDER = "largest"   # "largest" | "smallest"
 _DEFAULT_MAX_CONCURRENT = 3
+_DEFAULT_MAX_EXTRACT_WORKERS = 4
 
 
 def load_collection_settings() -> dict:
-    """Return collection settings dict with keys: download_order, max_concurrent, check_download_locations, clear_archive_after_install."""
+    """Return collection settings dict with keys: download_order, max_concurrent, max_extract_workers, check_download_locations, clear_archive_after_install."""
     path = get_ui_config_path()
     defaults = {
         "download_order": _DEFAULT_DOWNLOAD_ORDER,
         "max_concurrent": _DEFAULT_MAX_CONCURRENT,
+        "max_extract_workers": _DEFAULT_MAX_EXTRACT_WORKERS,
         "check_download_locations": True,
         "clear_archive_after_install": False,
     }
@@ -205,12 +207,15 @@ def load_collection_settings() -> dict:
         if download_order not in ("largest", "smallest"):
             download_order = _DEFAULT_DOWNLOAD_ORDER
         max_concurrent = int(s.get("max_concurrent", str(_DEFAULT_MAX_CONCURRENT)))
-        max_concurrent = max(1, min(5, max_concurrent))
+        max_concurrent = max(1, min(8, max_concurrent))
+        max_extract_workers = int(s.get("max_extract_workers", str(_DEFAULT_MAX_EXTRACT_WORKERS)))
+        max_extract_workers = max(1, min(8, max_extract_workers))
         check_download_locations = s.getboolean("check_download_locations", True)
         clear_archive_after_install = s.getboolean("clear_archive_after_install", False)
         return {
             "download_order": download_order,
             "max_concurrent": max_concurrent,
+            "max_extract_workers": max_extract_workers,
             "check_download_locations": check_download_locations,
             "clear_archive_after_install": clear_archive_after_install,
         }
@@ -220,7 +225,8 @@ def load_collection_settings() -> dict:
 
 def save_collection_settings(download_order: str, max_concurrent: int,
                               check_download_locations: bool = True,
-                              clear_archive_after_install: bool = False) -> None:
+                              clear_archive_after_install: bool = False,
+                              max_extract_workers: int = _DEFAULT_MAX_EXTRACT_WORKERS) -> None:
     """Persist collection settings to amethyst.ini."""
     path = get_ui_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -230,7 +236,8 @@ def save_collection_settings(download_order: str, max_concurrent: int,
     if _COLLECTIONS_SECTION not in parser:
         parser[_COLLECTIONS_SECTION] = {}
     parser[_COLLECTIONS_SECTION]["download_order"] = download_order
-    parser[_COLLECTIONS_SECTION]["max_concurrent"] = str(max(1, min(5, max_concurrent)))
+    parser[_COLLECTIONS_SECTION]["max_concurrent"] = str(max(1, min(8, max_concurrent)))
+    parser[_COLLECTIONS_SECTION]["max_extract_workers"] = str(max(1, min(8, max_extract_workers)))
     parser[_COLLECTIONS_SECTION]["check_download_locations"] = "true" if check_download_locations else "false"
     parser[_COLLECTIONS_SECTION]["clear_archive_after_install"] = "true" if clear_archive_after_install else "false"
     with path.open("w") as f:

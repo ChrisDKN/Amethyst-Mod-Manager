@@ -123,8 +123,10 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
         extensions = [s.strip().lower() for s in entry.get("extensions", []) if s.strip()]
         folders = [s.strip().lower() for s in entry.get("folders", []) if s.strip()]
         filenames = [s.strip().lower() for s in entry.get("filenames", []) if s.strip()]
+        loose_only = bool(entry.get("loose_only", False))
         if dest or extensions or folders or filenames:
-            rules.append(CustomRule(dest=dest, extensions=extensions, folders=folders, filenames=filenames))
+            rules.append(CustomRule(dest=dest, extensions=extensions, folders=folders,
+                                    filenames=filenames, loose_only=loose_only))
     return rules
 
 
@@ -750,6 +752,7 @@ class Ue5CustomGame(UE5Game):
                             dest=cr.dest, extensions=exts,
                             prefix=norm_folder, filenames=fnames,
                             strip=[norm_folder],
+                            loose_only=cr.loose_only,
                         ))
                     else:
                         # Single-segment: match as first path segment.
@@ -758,6 +761,7 @@ class Ue5CustomGame(UE5Game):
                         rules.append(UE5Rule(
                             dest=cr.dest, extensions=exts,
                             folder=norm_folder, filenames=fnames,
+                            loose_only=cr.loose_only,
                         ))
                     # Generate extra prefix rules for common UE5 packaging
                     # prefixes above the target folder.
@@ -770,17 +774,20 @@ class Ue5CustomGame(UE5Game):
                             dest=cr.dest, extensions=exts,
                             prefix=full, filenames=fnames,
                             strip=[ue_pfx],
+                            loose_only=cr.loose_only,
                         ))
             elif cr.filenames:
                 rules.append(UE5Rule(
                     dest=cr.dest,
                     extensions=list(cr.extensions),
                     filenames=list(cr.filenames),
+                    loose_only=cr.loose_only,
                 ))
             else:
                 rules.append(UE5Rule(
                     dest=cr.dest,
                     extensions=list(cr.extensions),
+                    loose_only=cr.loose_only,
                 ))
 
         # Built-in UE5 defaults follow — they act as fallbacks when no

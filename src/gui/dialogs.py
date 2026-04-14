@@ -4191,13 +4191,13 @@ class DeploymentPathsPanel(ctk.CTkFrame):
             f"{_uid}.Treeview",
             background=_tree_bg, foreground=TEXT_MAIN,
             fieldbackground=_tree_bg, rowheight=scaled(22),
-            font=(_theme.FONT_FAMILY, _theme.FS10),
+            font=("Cantarell", _theme.FS10),
             bordercolor=BG_ROW, borderwidth=1, focuscolor=_tree_bg,
         )
         style.configure(
             f"{_uid}.Treeview.Heading",
             background=BG_HEADER, foreground=TEXT_SEP,
-            font=(_theme.FONT_FAMILY, _theme.FS10), borderwidth=0,
+            font=("Cantarell", _theme.FS10), borderwidth=0,
         )
         style.map(
             f"{_uid}.Treeview",

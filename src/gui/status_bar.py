@@ -124,6 +124,10 @@ class StatusBar(ctk.CTkFrame):
         self._visible = False  # hidden by default
         self._current_h = self._COLLAPSED_H
 
+        self._log_buffer: list[tuple[str, str]] = []   # (line, tag)
+        self._log_entries: list[tuple[str, str]] = []  # full history for filtering
+        self._log_flush_id: str | None = None
+
         self._drag_y: int | None = None
         self._drag_h: int | None = None
         self._drag_target_h: int = self._COLLAPSED_H
@@ -149,6 +153,27 @@ class StatusBar(ctk.CTkFrame):
             label_bar, text="", font=FONT_SMALL, text_color=TEXT_DIM
         )
         self._count_label.pack(side="left", padx=(4, 0))
+
+        # Filter checkboxes — when checked, only matching levels are shown
+        # Created but not packed; shown/hidden with the log panel.
+        self._filter_err_var = tk.BooleanVar(value=False)
+        self._filter_warn_var = tk.BooleanVar(value=False)
+        self._filter_err_cb = ctk.CTkCheckBox(
+            label_bar, text="Errors", variable=self._filter_err_var,
+            font=FONT_SMALL, text_color=TEXT_ERR,
+            width=24, height=16, checkbox_width=14, checkbox_height=14,
+            fg_color=TEXT_ERR, hover_color=TEXT_ERR,
+            border_color=TEXT_ERR,
+            command=self._apply_filter,
+        )
+        self._filter_warn_cb = ctk.CTkCheckBox(
+            label_bar, text="Warnings", variable=self._filter_warn_var,
+            font=FONT_SMALL, text_color=TEXT_WARN,
+            width=24, height=16, checkbox_width=14, checkbox_height=14,
+            fg_color=TEXT_WARN, hover_color=TEXT_WARN,
+            border_color=TEXT_WARN,
+            command=self._apply_filter,
+        )
 
         self._toggle_btn = ctk.CTkButton(
             label_bar, text="▲ Show", width=70, height=16,
@@ -208,6 +233,10 @@ class StatusBar(ctk.CTkFrame):
             text_color=TEXT_MAIN, state="disabled",
             wrap="none", corner_radius=0
         )
+        # Coloured tags for error / warning lines
+        inner = self._textbox._textbox  # underlying tk.Text
+        inner.tag_configure("error", foreground=TEXT_ERR)
+        inner.tag_configure("warning", foreground=TEXT_WARN)
         # Start hidden — don't pack the textbox yet
 
         # One log file per session, named with a timestamp
@@ -270,11 +299,15 @@ class StatusBar(ctk.CTkFrame):
     def _toggle_log(self):
         self._visible = not self._visible
         if self._visible:
+            self._filter_err_cb.pack(side="left", padx=(12, 0))
+            self._filter_warn_cb.pack(side="left", padx=(8, 0))
             self._textbox.pack(fill="both", expand=True)
             self._current_h = self._EXPANDED_H
             self._set_height(self._current_h)
             self._toggle_btn.configure(text="▼ Hide")
         else:
+            self._filter_err_cb.pack_forget()
+            self._filter_warn_cb.pack_forget()
             self._textbox.pack_forget()
             self._current_h = self._COLLAPSED_H
             self._set_height(self._current_h)
@@ -310,10 +343,14 @@ class StatusBar(ctk.CTkFrame):
         new_h = self._drag_target_h
         if new_h > self._COLLAPSED_H and not self._visible:
             self._visible = True
+            self._filter_err_cb.pack(side="left", padx=(12, 0))
+            self._filter_warn_cb.pack(side="left", padx=(8, 0))
             self._textbox.pack(fill="both", expand=True)
             self._toggle_btn.configure(text="▼ Hide")
         elif new_h <= self._COLLAPSED_H and self._visible:
             self._visible = False
+            self._filter_err_cb.pack_forget()
+            self._filter_warn_cb.pack_forget()
             self._textbox.pack_forget()
             self._toggle_btn.configure(text="▲ Show")
         self._current_h = new_h
@@ -425,19 +462,85 @@ class StatusBar(ctk.CTkFrame):
             p.destroy()
         self._progress_popup = None
 
+    _ERR_WORDS = ("error", "failed", "could not", "exception", "traceback",
+                   "unexpected", "not found")
+    _WARN_WORDS = ("warning", "warn", "skipping", "skipped", "falling back",
+                   "fallback", "not supported", "ignored")
+
+    @staticmethod
+    def _classify(msg: str) -> str:
+        low = msg.lower()
+        for w in StatusBar._ERR_WORDS:
+            if w in low:
+                return "error"
+        for w in StatusBar._WARN_WORDS:
+            if w in low:
+                return "warning"
+        return ""
+
     def log(self, message: str):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self._textbox.configure(state="normal")
-        self._textbox.insert("end", f"[{timestamp}]  {message}\n")
-        self._textbox.see("end")
-        self._textbox.configure(state="disabled")
-        # Append to log file with full timestamp
+        tag = self._classify(message)
+        self._log_buffer.append((f"[{timestamp}]  {message}\n", tag))
+        # Append to log file immediately (cheap I/O, keeps file in sync)
         try:
             with open(self._log_file, "a", encoding="utf-8") as f:
                 full_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"[{full_ts}]  {message}\n")
         except OSError:
             pass
+        # Coalesce rapid messages into one widget update
+        if self._log_flush_id is None:
+            self._log_flush_id = self.after(16, self._flush_log)
+
+    def _active_filters(self) -> set[str]:
+        """Return the set of tags currently selected for filtering (empty = show all)."""
+        f: set[str] = set()
+        if self._filter_err_var.get():
+            f.add("error")
+        if self._filter_warn_var.get():
+            f.add("warning")
+        return f
+
+    def _flush_log(self):
+        self._log_flush_id = None
+        entries = self._log_buffer
+        if not entries:
+            return
+        self._log_buffer = []
+        self._log_entries.extend(entries)
+        filters = self._active_filters()
+        if filters:
+            entries = [(l, t) for l, t in entries if t in filters]
+            if not entries:
+                return
+        inner = self._textbox._textbox
+        self._textbox.configure(state="normal")
+        for line, tag in entries:
+            if tag:
+                inner.insert("end", line, tag)
+            else:
+                inner.insert("end", line)
+        self._textbox.see("end")
+        self._textbox.configure(state="disabled")
+
+    def _apply_filter(self):
+        """Re-render the textbox based on the current filter checkboxes."""
+        filters = self._active_filters()
+        inner = self._textbox._textbox
+        self._textbox.configure(state="normal")
+        inner.delete("1.0", "end")
+        if filters:
+            visible = [(l, t) for l, t in self._log_entries if t in filters]
+        else:
+            visible = self._log_entries
+        for line, tag in visible:
+            if tag:
+                inner.insert("end", line, tag)
+            else:
+                inner.insert("end", line)
+        self._textbox.see("end")
+        self._textbox.configure(state="disabled")
 
 
 # ---------------------------------------------------------------------------
@@ -655,7 +758,7 @@ class SettingsPanel(ctk.CTkFrame):
 
         self._max_concurrent_var = tk.DoubleVar(value=float(_col_cfg["max_concurrent"]))
         ctk.CTkSlider(
-            dl_concurrent_row, from_=1, to=5, number_of_steps=4,
+            dl_concurrent_row, from_=1, to=8, number_of_steps=7,
             variable=self._max_concurrent_var,
             width=scaled(200),
             command=lambda _v: self._max_concurrent_lbl.configure(
@@ -666,6 +769,33 @@ class SettingsPanel(ctk.CTkFrame):
             dl_concurrent_row, text=str(_col_cfg["max_concurrent"]),
             font=FONT_NORMAL, text_color=TEXT_MAIN, width=scaled(20))
         self._max_concurrent_lbl.pack(side="left", padx=(6, 0))
+
+        ext_concurrent_row = ctk.CTkFrame(col_sec, fg_color="transparent")
+        ext_concurrent_row.pack(anchor="w", pady=(0, 0))
+
+        ctk.CTkLabel(ext_concurrent_row, text="Max extractions:", font=FONT_NORMAL, text_color=TEXT_MAIN,
+                     ).pack(side="left", padx=(0, 8))
+
+        self._max_extract_var = tk.DoubleVar(value=float(_col_cfg["max_extract_workers"]))
+        ctk.CTkSlider(
+            ext_concurrent_row, from_=1, to=8, number_of_steps=7,
+            variable=self._max_extract_var,
+            width=scaled(200),
+            command=lambda _v: self._max_extract_lbl.configure(
+                text=str(int(round(self._max_extract_var.get())))),
+        ).pack(side="left")
+
+        self._max_extract_lbl = ctk.CTkLabel(
+            ext_concurrent_row, text=str(_col_cfg["max_extract_workers"]),
+            font=FONT_NORMAL, text_color=TEXT_MAIN, width=scaled(20))
+        self._max_extract_lbl.pack(side="left", padx=(6, 0))
+
+        ctk.CTkLabel(
+            col_sec,
+            text="Extractions are gated by available memory — large archives\n"
+                 "will wait for RAM headroom even if worker slots are free.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",
+        ).pack(anchor="w", pady=(2, 0))
 
         self._check_dl_locations_var = tk.BooleanVar(value=_col_cfg["check_download_locations"])
         ctk.CTkCheckBox(
@@ -995,6 +1125,7 @@ class SettingsPanel(ctk.CTkFrame):
             max_concurrent=int(round(self._max_concurrent_var.get())),
             check_download_locations=self._check_dl_locations_var.get(),
             clear_archive_after_install=self._col_clear_archive_var.get(),
+            max_extract_workers=int(round(self._max_extract_var.get())),
         )
         save_heroic_config_path(self._heroic_path_var.get())
         save_steam_libraries_vdf_path(self._steam_vdf_var.get())
@@ -1018,6 +1149,7 @@ class SettingsPanel(ctk.CTkFrame):
             max_concurrent=int(round(self._max_concurrent_var.get())),
             check_download_locations=self._check_dl_locations_var.get(),
             clear_archive_after_install=self._col_clear_archive_var.get(),
+            max_extract_workers=int(round(self._max_extract_var.get())),
         )
         save_heroic_config_path(self._heroic_path_var.get())
         save_steam_libraries_vdf_path(self._steam_vdf_var.get())

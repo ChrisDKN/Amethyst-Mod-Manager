@@ -2443,7 +2443,10 @@ class PluginPanel(ctk.CTkFrame):
             parts = rel_lower.split("/")
             ext = os.path.splitext(rel_lower)[1]
             filename = parts[-1]
+            is_loose = len(parts) == 1
             for rule, folders, exts, filenames in _rules:
+                if rule.loose_only and not is_loose:
+                    continue
                 strip_len = -1
                 folder_hit = False
                 if folders:

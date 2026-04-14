@@ -294,6 +294,9 @@ class CustomRule:
                  Empty list means no extension filter.
     folders    — lowercase first-path-segment names to match (e.g. ["natives"]).
                  Empty list means no folder filter.
+    loose_only — when True, the rule only matches files that are not inside
+                 any folder (i.e. files at the mod root with no directory
+                 components in their relative path).  Default False.
 
     Placement behaviour:
     - extension-only match: file placed as game_root/dest/<filename> (flat)
@@ -305,6 +308,7 @@ class CustomRule:
     extensions: list[str] = field(default_factory=list)
     folders: list[str] = field(default_factory=list)
     filenames: list[str] = field(default_factory=list)
+    loose_only: bool = False
 
 
 _CUSTOM_RULES_LOG_NAME = "custom_rules_deployed.txt"
@@ -2027,7 +2031,10 @@ def deploy_custom_rules(
         parts = rel_lower.split("/")
         ext = os.path.splitext(rel_lower)[1]
         filename = parts[-1]
+        is_loose = len(parts) == 1
         for rule, folders, exts, filenames in _rules:
+            if rule.loose_only and not is_loose:
+                continue
             strip_len = -1
             folder_hit = False
             if folders:

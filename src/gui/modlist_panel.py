@@ -89,6 +89,11 @@ from Utils.filemap import (
     OVERWRITE_NAME,
     ROOT_FOLDER_NAME,
 )
+from Utils.bsa_filemap import (
+    build_bsa_conflicts,
+    rebuild_bsa_index,
+    remove_from_bsa_index,
+)
 from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode, load_per_mod_strip_prefixes, undeploy_mod_files, restore_custom_deploy_backup_for_path
 from Utils.modlist import (
     ModEntry,
@@ -351,6 +356,10 @@ class ModListPanel(ctk.CTkFrame):
 
         self._overrides:     dict[str, set[str]] = {}  # mod beats these mods
         self._overridden_by: dict[str, set[str]] = {}  # these mods beat this mod
+        # BSA-vs-BSA conflicts (separate pipeline, Bethesda games only)
+        self._bsa_conflict_map:  dict[str, int]      = {}
+        self._bsa_overrides:     dict[str, set[str]] = {}
+        self._bsa_overridden_by: dict[str, set[str]] = {}
         self._on_filemap_rebuilt: callable | None = None  # called after each filemap rebuild
         self._on_mod_selected_cb: callable | None = None  # called when a mod is selected
         self._filemap_pending: bool = False   # True while a background rebuild is running
@@ -468,6 +477,9 @@ class ModListPanel(ctk.CTkFrame):
         self._pool_flag_star: list[int] = []         # text canvas item ids (lock star in flags column)
         self._pool_conflict_icon1: list[int] = []    # image canvas item ids (conflict col left)
         self._pool_conflict_icon2: list[int] = []    # image canvas item ids (conflict col right)
+        self._pool_bsa_dot1: list[int] = []          # oval canvas item ids (BSA conflict dot, primary)
+        self._pool_bsa_dot2: list[int] = []          # oval canvas item ids (BSA conflict dot, secondary for PARTIAL)
+        self._pool_bsa_sep:  list[int] = []          # line canvas item ids (small separator between loose icons and BSA dots)
         self._pool_category_text: list[int] = []     # text canvas item ids (category)
         self._pool_install_text: list[int] = []      # text canvas item ids (install date)
         self._pool_priority_text: list[int] = []     # text canvas item ids (priority)
@@ -1923,6 +1935,11 @@ class ModListPanel(ctk.CTkFrame):
             # Conflict icons (left slot and right slot)
             conf1_id = c.create_image(0, -200, anchor="center", state="hidden")
             conf2_id = c.create_image(0, -200, anchor="center", state="hidden")
+            # BSA conflict dots (colored ovals — placeholder icons for archive-level conflicts)
+            bsa_dot1_id = c.create_oval(0, -200, 0, -200, fill="", outline="", state="hidden")
+            bsa_dot2_id = c.create_oval(0, -200, 0, -200, fill="", outline="", state="hidden")
+            # Small vertical separator between loose-file icons and BSA dots
+            bsa_sep_id = c.create_line(0, -200, 0, -200, fill=BORDER, width=1, state="hidden")
             # Category text
             cat_id = c.create_text(0, -200, text="", anchor="center", fill="",
                                   font=(_theme.FONT_FAMILY, _theme.FS10), state="hidden")
@@ -1952,6 +1969,9 @@ class ModListPanel(ctk.CTkFrame):
             self._pool_flag_star.append(flag_star_id)
             self._pool_conflict_icon1.append(conf1_id)
             self._pool_conflict_icon2.append(conf2_id)
+            self._pool_bsa_dot1.append(bsa_dot1_id)
+            self._pool_bsa_dot2.append(bsa_dot2_id)
+            self._pool_bsa_sep.append(bsa_sep_id)
             self._pool_category_text.append(cat_id)
             self._pool_install_text.append(inst_id)
             self._pool_priority_text.append(prio_id)
@@ -2100,13 +2120,17 @@ class ModListPanel(ctk.CTkFrame):
                 if e.is_separator:
                     continue
                 sel_name = e.name
-                for cm in self._overrides.get(sel_name, set()):
+                _higher_set = (self._overrides.get(sel_name, set())
+                               | self._bsa_overrides.get(sel_name, set()))
+                _lower_set  = (self._overridden_by.get(sel_name, set())
+                               | self._bsa_overridden_by.get(sel_name, set()))
+                for cm in _higher_set:
                     si = self._sep_idx_for_mod(cm)
                     if si >= 0 and self._entries[si].name in self._collapsed_seps:
                         conflict_sep_higher.add(si)
                     else:
                         conflict_sel_higher.add(cm)
-                for cm in self._overridden_by.get(sel_name, set()):
+                for cm in _lower_set:
                     si = self._sep_idx_for_mod(cm)
                     if si >= 0 and self._entries[si].name in self._collapsed_seps:
                         conflict_sep_lower.add(si)
@@ -2120,7 +2144,11 @@ class ModListPanel(ctk.CTkFrame):
             i = sel_sep_idx + 1
             while i < len(self._entries) and not self._entries[i].is_separator:
                 mod_name = self._entries[i].name
-                for cm in self._overrides.get(mod_name, set()):
+                _higher_set = (self._overrides.get(mod_name, set())
+                               | self._bsa_overrides.get(mod_name, set()))
+                _lower_set  = (self._overridden_by.get(mod_name, set())
+                               | self._bsa_overridden_by.get(mod_name, set()))
+                for cm in _higher_set:
                     si = self._sep_idx_for_mod(cm)
                     if si >= 0:
                         if self._entries[si].name in self._collapsed_seps:
@@ -2131,7 +2159,7 @@ class ModListPanel(ctk.CTkFrame):
                         ow_idx = next((j for j, e in enumerate(self._entries) if e.name == OVERWRITE_NAME), -1)
                         if ow_idx >= 0:
                             conflict_sep_higher.add(ow_idx)
-                for cm in self._overridden_by.get(mod_name, set()):
+                for cm in _lower_set:
                     si = self._sep_idx_for_mod(cm)
                     if si >= 0:
                         if self._entries[si].name in self._collapsed_seps:
@@ -2144,7 +2172,9 @@ class ModListPanel(ctk.CTkFrame):
                             conflict_sep_lower.add(ow_idx)
                 i += 1
         elif sel_entry and sel_entry.name == OVERWRITE_NAME:
-            for cm in self._overrides.get(OVERWRITE_NAME, set()):
+            _ow_higher = (self._overrides.get(OVERWRITE_NAME, set())
+                          | self._bsa_overrides.get(OVERWRITE_NAME, set()))
+            for cm in _ow_higher:
                 si = self._sep_idx_for_mod(cm)
                 if si >= 0 and self._entries[si].name in self._collapsed_seps:
                     conflict_sep_higher.add(si)
@@ -2155,7 +2185,9 @@ class ModListPanel(ctk.CTkFrame):
                 if sel_i < 0 or sel_i >= len(self._entries):
                     continue
                 e = self._entries[sel_i]
-                if not e.is_separator and OVERWRITE_NAME in self._overridden_by.get(e.name, set()):
+                _ow_losers = (self._overridden_by.get(e.name, set())
+                              | self._bsa_overridden_by.get(e.name, set()))
+                if not e.is_separator and OVERWRITE_NAME in _ow_losers:
                     ow_idx = next((j for j, oe in enumerate(self._entries) if oe.name == OVERWRITE_NAME), -1)
                     if ow_idx >= 0:
                         conflict_sep_higher.add(ow_idx)
@@ -2314,6 +2346,10 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                         c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                    # BSA dots never shown on separator / overwrite rows
+                    c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                    c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                    c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
 
                     # Hide mod-only items
                     c.itemconfigure(self._pool_flag_icon[s], state="hidden")
@@ -2530,38 +2566,128 @@ class ModListPanel(ctk.CTkFrame):
                     if not _star_placed:
                         c.itemconfigure(_flag_star_slot, state="hidden")
 
-                    # Conflict icons
+                    # Conflict indicators: loose-file icons (left) + BSA dots (right of loose,
+                    # separated by a thin vertical line when both are present).
                     if entry.locked:
                         c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                         c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
                     else:
                         conflict = self._conflict_map.get(entry.name, CONFLICT_NONE)
-                        cx = _CONF_X + _CONF_W // 2
+                        bsa_conflict = self._bsa_conflict_map.get(entry.name, CONFLICT_NONE)
+                        cx_center = _CONF_X + _CONF_W // 2
+                        has_loose = conflict != CONFLICT_NONE
+                        has_bsa   = bsa_conflict != CONFLICT_NONE
+
+                        # Sub-column anchors: when both groups are present, split around sep_x.
+                        # The inner edge of each group must sit the same distance from sep_x
+                        # (GAP), regardless of which status variant is being drawn — so we
+                        # pick loose_cx/bsa_cx per-variant based on the group's half-width.
+                        if has_loose and has_bsa:
+                            sep_x = cx_center
+                            GAP = scaled(6)         # visible gap between icon/dot edge and separator
+                            _ICON_HALF = scaled(7)  # half-width of a conflict icon
+                            # Loose group half-width on the side facing the separator:
+                            if conflict == CONFLICT_PARTIAL:
+                                _loose_half = scaled(8) + _ICON_HALF  # rightmost icon at +8
+                            else:
+                                _loose_half = _ICON_HALF
+                            loose_cx = sep_x - GAP - _loose_half
+                            # BSA group half-width on the side facing the separator:
+                            _DOT_R = scaled(4)
+                            if bsa_conflict == CONFLICT_PARTIAL:
+                                _bsa_half = scaled(5) + _DOT_R  # leftmost dot at -5
+                            else:
+                                _bsa_half = _DOT_R
+                            bsa_cx = sep_x + GAP + _bsa_half
+                        else:
+                            loose_cx = cx_center
+                            bsa_cx   = cx_center
+
+                        # --- Loose-file icon(s) ---
                         if conflict == CONFLICT_WINS and self._icon_plus:
-                            c.coords(self._pool_conflict_icon1[s], cx, y_mid)
+                            c.coords(self._pool_conflict_icon1[s], loose_cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_plus, state="normal")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                         elif conflict == CONFLICT_LOSES and self._icon_minus:
-                            c.coords(self._pool_conflict_icon1[s], cx, y_mid)
+                            c.coords(self._pool_conflict_icon1[s], loose_cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_minus, state="normal")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                         elif conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
-                            c.coords(self._pool_conflict_icon1[s], cx - scaled(8), y_mid)
+                            c.coords(self._pool_conflict_icon1[s], loose_cx - scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_minus, state="normal")
-                            c.coords(self._pool_conflict_icon2[s], cx + scaled(8), y_mid)
+                            c.coords(self._pool_conflict_icon2[s], loose_cx + scaled(8), y_mid)
                             c.itemconfigure(self._pool_conflict_icon2[s],
                                             image=self._icon_plus, state="normal")
                         elif conflict == CONFLICT_FULL and self._icon_cross:
-                            c.coords(self._pool_conflict_icon1[s], cx, y_mid)
+                            c.coords(self._pool_conflict_icon1[s], loose_cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_cross, state="normal")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                         else:
                             c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+
+                        # --- BSA dots ---
+                        if has_bsa:
+                            _dr = scaled(4)  # dot radius
+                            if bsa_conflict == CONFLICT_WINS:
+                                _color = "#4caf50"  # green
+                                c.coords(self._pool_bsa_dot1[s],
+                                         bsa_cx - _dr, y_mid - _dr, bsa_cx + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill=_color, outline=_color, state="normal")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                            elif bsa_conflict == CONFLICT_LOSES:
+                                _color = "#f44336"  # red
+                                c.coords(self._pool_bsa_dot1[s],
+                                         bsa_cx - _dr, y_mid - _dr, bsa_cx + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill=_color, outline=_color, state="normal")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                            elif bsa_conflict == CONFLICT_PARTIAL:
+                                # Red + green side by side
+                                _off = scaled(5)
+                                c.coords(self._pool_bsa_dot1[s],
+                                         bsa_cx - _off - _dr, y_mid - _dr,
+                                         bsa_cx - _off + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill="#f44336", outline="#f44336", state="normal")
+                                c.coords(self._pool_bsa_dot2[s],
+                                         bsa_cx + _off - _dr, y_mid - _dr,
+                                         bsa_cx + _off + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot2[s],
+                                                fill="#4caf50", outline="#4caf50", state="normal")
+                            elif bsa_conflict == CONFLICT_FULL:
+                                _color = "#ffffff"  # white
+                                c.coords(self._pool_bsa_dot1[s],
+                                         bsa_cx - _dr, y_mid - _dr, bsa_cx + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill=_color, outline=_color, state="normal")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                            else:
+                                c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        else:
+                            c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                            c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+
+                        # --- Separator between loose icons and BSA dots ---
+                        if has_loose and has_bsa:
+                            _sh = scaled(7)  # half-height of the separator line
+                            c.coords(self._pool_bsa_sep[s],
+                                     sep_x, y_mid - _sh, sep_x, y_mid + _sh)
+                            c.itemconfigure(self._pool_bsa_sep[s],
+                                            fill=BORDER, state="normal")
+                            # Force separator above any icons that might overlap
+                            c.tag_raise(self._pool_bsa_sep[s])
+                        else:
+                            c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
 
                     # Install date text
                     install_text = self._install_dates.get(entry.name, "")
@@ -2644,6 +2770,9 @@ class ModListPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_flag_star[s], state="hidden")
                 c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                 c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
                 c.itemconfigure(self._pool_category_text[s], state="hidden")
                 c.itemconfigure(self._pool_install_text[s], state="hidden")
                 c.itemconfigure(self._pool_priority_text[s], state="hidden")
@@ -2848,7 +2977,8 @@ class ModListPanel(ctk.CTkFrame):
                 if entry.is_separator:
                     if self._sep_block_has_conflict_in(i, allowed):
                         result.append(i)
-                elif self._conflict_map.get(entry.name, CONFLICT_NONE) in allowed:
+                elif (self._conflict_map.get(entry.name, CONFLICT_NONE) in allowed
+                      or self._bsa_conflict_map.get(entry.name, CONFLICT_NONE) in allowed):
                     result.append(i)
             base = result
 
@@ -3733,7 +3863,9 @@ class ModListPanel(ctk.CTkFrame):
         """True if this separator's block contains at least one mod whose conflict status is in allowed."""
         for i in self._sep_block_range(sep_idx):
             if not self._entries[i].is_separator:
-                if self._conflict_map.get(self._entries[i].name, CONFLICT_NONE) in allowed:
+                name = self._entries[i].name
+                if (self._conflict_map.get(name, CONFLICT_NONE) in allowed
+                        or self._bsa_conflict_map.get(name, CONFLICT_NONE) in allowed):
                     return True
         return False
 
@@ -4130,6 +4262,39 @@ class ModListPanel(ctk.CTkFrame):
                     # Cursor is in the flags column but not over a specific icon —
                     # keep any existing tooltip rather than flashing it away
                     return
+
+        # Show tooltip when hovering over the conflicts column icons/dots.
+        conf_slot = self._col_pos.get(4, 4)
+        conf_col_start = self._COL_X[conf_slot]
+        conf_col_end = conf_col_start + self._COL_W[conf_slot]
+        if conf_col_start <= x < conf_col_end and 0 <= row < len(vis):
+            entry = self._entries[vis[row]]
+            if not entry.is_separator and not entry.locked:
+                loose = self._conflict_map.get(entry.name, CONFLICT_NONE)
+                bsa   = self._bsa_conflict_map.get(entry.name, CONFLICT_NONE)
+                has_loose = loose != CONFLICT_NONE
+                has_bsa   = bsa != CONFLICT_NONE
+                if has_loose or has_bsa:
+                    _conflict_label = {
+                        CONFLICT_WINS:    "Winning",
+                        CONFLICT_LOSES:   "Losing",
+                        CONFLICT_PARTIAL: "Partial",
+                        CONFLICT_FULL:    "Full",
+                    }
+                    cx_center = conf_col_start + self._COL_W[conf_slot] // 2
+                    if has_loose and has_bsa:
+                        # Left half → loose, right half → BSA
+                        if x < cx_center:
+                            tip = f"Loose file conflict - {_conflict_label[loose]}"
+                        else:
+                            tip = f"BSA conflict - {_conflict_label[bsa]}"
+                    elif has_loose:
+                        tip = f"Loose file conflict - {_conflict_label[loose]}"
+                    else:
+                        tip = f"BSA conflict - {_conflict_label[bsa]}"
+                    self._show_tooltip(event.x_root, event.y_root, tip)
+                    return
+
         self._hide_tooltip()
 
     def _on_mouse_leave(self, event):
@@ -4268,12 +4433,15 @@ class ModListPanel(ctk.CTkFrame):
 
         # Pre-compute conflict status
         conflict_status = CONFLICT_NONE
+        bsa_conflict_status = CONFLICT_NONE
         if not _is_multi and (not is_separator or is_overwrite):
             conflict_status = (
                 self._conflict_map.get(_mod_name, CONFLICT_NONE)
                 if not is_overwrite
                 else (CONFLICT_WINS if self._overrides.get(OVERWRITE_NAME) else CONFLICT_NONE)
             )
+            if not is_overwrite:
+                bsa_conflict_status = self._bsa_conflict_map.get(_mod_name, CONFLICT_NONE)
 
         # Pre-compute Nexus / meta info
         _ctx_meta = None
@@ -4499,7 +4667,7 @@ class ModListPanel(ctk.CTkFrame):
             menu.add_command("Set priority…", lambda: self._set_priority(idx))
 
         # Show Conflicts
-        if conflict_status != CONFLICT_NONE:
+        if conflict_status != CONFLICT_NONE or bsa_conflict_status != CONFLICT_NONE:
             menu.add_command("Show Conflicts",
                 lambda: self._show_overwrites_dialog(_mod_name))
 
@@ -4731,6 +4899,8 @@ class ModListPanel(ctk.CTkFrame):
                     shutil.rmtree(staging)
                 removed_names.append(rem_entry.name)
             remove_from_mod_index(index_path, all_names)
+            # Also drop from the BSA index if the game uses archive conflicts.
+            remove_from_bsa_index(index_path.parent / "bsa_index.bin", all_names)
         # Remove from lists (highest index first to keep lower indices stable)
         for rem_idx in bundle_indices:
             self._entries.pop(rem_idx)
@@ -4828,6 +4998,8 @@ class ModListPanel(ctk.CTkFrame):
                 if staging.is_dir():
                     shutil.rmtree(staging)
             remove_from_mod_index(index_path, removed_names)
+            # Also drop from the BSA index if the game uses archive conflicts.
+            remove_from_bsa_index(index_path.parent / "bsa_index.bin", removed_names)
         self._sel_idx = -1
         self._sel_set = set()
         self._invalidate_derived_caches()
@@ -6286,11 +6458,15 @@ class ModListPanel(ctk.CTkFrame):
         filemap_path = self._filemap_path
         staging_root = self._staging_root
         profile_dir = self._modlist_path.parent
+        modlist_path = self._modlist_path
         strip_prefixes = set(self._strip_prefixes)
         beaten_mods = set(self._overrides.get(mod_name, set()))
         call_threadsafe = self._call_threadsafe
         from Games.ue5_game import UE5Game as _UE5Game
         _captured_game = getattr(self, "_game", None)
+        _archive_exts: frozenset[str] = getattr(_captured_game, "archive_extensions", frozenset())
+        bsa_index_path = (filemap_path.parent / "bsa_index.bin") if filemap_path else None
+        mod_index_path = (staging_root.parent / "modindex.bin") if staging_root else None
         _ckfn = None
         if isinstance(_captured_game, _UE5Game):
             def _ckfn(rel: str, _g=_captured_game) -> str:
@@ -6335,22 +6511,39 @@ class ModListPanel(ctk.CTkFrame):
                         key = _ckfn(rel_path) if _ckfn else rel_path.lower()
                         winning_map[key] = (rel_path, winner)
 
-            # Walk this mod's staging folder
-            my_staging = (staging_root.parent / "overwrite"
-                          if mod_name == OVERWRITE_NAME else staging_root / mod_name)
-            # my_files: deploy_key → display_path
+            # Collect this mod's files. Prefer modindex.bin (already normalized
+            # with the same strip logic filemap.py uses, so keys match filemap.txt
+            # and other mods' index entries exactly); fall back to a staging walk.
             my_files: dict[str, str] = {}
-            if my_staging.is_dir():
-                for dirpath, _, fnames in os.walk(my_staging):
-                    for fname in fnames:
-                        if fname.lower() == "meta.ini":
-                            continue
-                        full = os.path.join(dirpath, fname)
-                        rel = os.path.relpath(full, my_staging).replace("\\", "/")
-                        rel = _strip_for(mod_name, rel)
-                        if rel:
-                            key = _ckfn(rel) if _ckfn else rel.lower()
-                            my_files[key] = rel
+            _my_index_entry = None
+            if mod_index_path is not None and mod_index_path.is_file():
+                try:
+                    from Utils.filemap import read_mod_index as _read_mi
+                    _mi = _read_mi(mod_index_path)
+                    if _mi is not None:
+                        _my_index_entry = _mi.get(mod_name)
+                except Exception:
+                    _my_index_entry = None
+            if _my_index_entry is not None:
+                _normal, _root = _my_index_entry
+                for _k, _rel_str in _normal.items():
+                    my_files[_k] = _rel_str
+                for _k, _rel_str in _root.items():
+                    my_files[_k] = _rel_str
+            else:
+                my_staging = (staging_root.parent / "overwrite"
+                              if mod_name == OVERWRITE_NAME else staging_root / mod_name)
+                if my_staging.is_dir():
+                    for dirpath, _, fnames in os.walk(my_staging):
+                        for fname in fnames:
+                            if fname.lower() == "meta.ini":
+                                continue
+                            full = os.path.join(dirpath, fname)
+                            rel = os.path.relpath(full, my_staging).replace("\\", "/")
+                            rel = _strip_for(mod_name, rel)
+                            if rel:
+                                key = _ckfn(rel) if _ckfn else rel.lower()
+                                my_files[key] = rel
 
             # Classify each file
             files_i_win: list[tuple[str, str]] = []
@@ -6365,33 +6558,121 @@ class ModListPanel(ctk.CTkFrame):
                 else:
                     files_i_lose.append((deploy_key, "(no winner — disabled?)"))
 
-            # Annotate wins: walk beaten mods to find which files they share
+            # Annotate wins: look up each beaten mod's files in modindex.bin.
+            # The index already has normalized lowercase keys that match
+            # filemap.txt, so no per-mod strip-prefix logic is needed here.
             rel_to_losers: dict[str, list[str]] = {}
-            for loser_mod in beaten_mods:
-                loser_staging = staging_root / loser_mod
-                if not loser_staging.is_dir():
-                    continue
-                for dirpath, _, fnames in os.walk(loser_staging):
-                    for fname in fnames:
-                        if fname.lower() == "meta.ini":
-                            continue
-                        full = os.path.join(dirpath, fname)
-                        rel = _strip_for(loser_mod, os.path.relpath(full, loser_staging).replace("\\", "/"))
-                        if rel:
-                            key = _ckfn(rel) if _ckfn else rel.lower()
-                            if key in my_files:
-                                rel_to_losers.setdefault(key, []).append(loser_mod)
+            mod_index = None
+            if mod_index_path is not None and mod_index_path.is_file():
+                try:
+                    from Utils.filemap import read_mod_index as _read_mi
+                    mod_index = _read_mi(mod_index_path)
+                except Exception:
+                    mod_index = None
+            if mod_index is not None:
+                for loser_mod in beaten_mods:
+                    entry = mod_index.get(loser_mod)
+                    if not entry:
+                        continue
+                    normal_files, root_files = entry
+                    for _key in normal_files:
+                        if _key in my_files:
+                            rel_to_losers.setdefault(_key, []).append(loser_mod)
+                    for _key in root_files:
+                        if _key in my_files:
+                            rel_to_losers.setdefault(_key, []).append(loser_mod)
+            else:
+                # Fallback: walk beaten mods' staging directly (older profiles
+                # without a mod index).
+                for loser_mod in beaten_mods:
+                    loser_staging = staging_root / loser_mod
+                    if not loser_staging.is_dir():
+                        continue
+                    for dirpath, _, fnames in os.walk(loser_staging):
+                        for fname in fnames:
+                            if fname.lower() == "meta.ini":
+                                continue
+                            full = os.path.join(dirpath, fname)
+                            rel = _strip_for(loser_mod, os.path.relpath(full, loser_staging).replace("\\", "/"))
+                            if rel:
+                                key = _ckfn(rel) if _ckfn else rel.lower()
+                                if key in my_files:
+                                    rel_to_losers.setdefault(key, []).append(loser_mod)
 
             files_i_win_final: list[tuple[str, str]] = [
                 (deploy_key, beaten_str)
                 for deploy_key, _ in files_i_win
                 if (beaten_str := ", ".join(rel_to_losers.get(deploy_key, [])))
             ]
+            # Also include files where this mod beats a lower-priority mod but
+            # ultimately loses to a higher-priority winner. The conflict engine
+            # reports these as wins (this mod sits above the loser in the load
+            # order for that path), so they belong in "Files overriding others"
+            # — annotated so the user knows a higher mod still takes the file.
+            _win_keys = {k for k, _ in files_i_win}
+            for _lose_key, _ in files_i_lose:
+                _losers_under = rel_to_losers.get(_lose_key)
+                if _losers_under and _lose_key not in _win_keys:
+                    files_i_win_final.append((_lose_key, ", ".join(_losers_under)))
             files_no_conflict: list[str] = [
                 deploy_key
                 for deploy_key, _ in files_i_win
                 if not rel_to_losers.get(deploy_key)
             ]
+
+            # BSA-vs-BSA conflicts — append rows from this mod's archives.
+            # Each row's path is prefixed with the BSA filename so the user
+            # can tell it comes from an archive, e.g. "SkyUI_SE.bsa : interface/foo.swf".
+            if _archive_exts and bsa_index_path is not None and bsa_index_path.is_file():
+                try:
+                    from Utils.bsa_filemap import read_bsa_index
+                    from Utils.modlist import read_modlist as _read_ml
+                    bsa_index = read_bsa_index(bsa_index_path) or {}
+                    entries_ml = _read_ml(modlist_path)
+                    enabled_ml = [e for e in entries_ml if not e.is_separator and e.enabled]
+                    priority_low_to_high = [e.name for e in reversed(enabled_ml)]
+
+                    # Replay the priority merge to compute per-path winners.
+                    bsa_winner: dict[str, str] = {}
+                    for _name in priority_low_to_high:
+                        _archives = bsa_index.get(_name)
+                        if not _archives:
+                            continue
+                        for _bsa, _mt, _paths in _archives:
+                            for _fp in _paths:
+                                bsa_winner[_fp] = _name
+
+                    # Also collect per-path losers so we can annotate our wins.
+                    bsa_losers: dict[str, list[str]] = {}
+                    for _name in priority_low_to_high:
+                        _archives = bsa_index.get(_name)
+                        if not _archives:
+                            continue
+                        for _bsa, _mt, _paths in _archives:
+                            for _fp in _paths:
+                                if bsa_winner.get(_fp) != _name:
+                                    bsa_losers.setdefault(_fp, []).append(_name)
+
+                    # Walk this mod's archives and classify each file.
+                    my_archives = bsa_index.get(mod_name, [])
+                    for _bsa_name, _mt, _paths in my_archives:
+                        for _fp in sorted(_paths):
+                            _display = f"{_bsa_name} : {_fp}"
+                            winner = bsa_winner.get(_fp)
+                            if winner is None:
+                                continue
+                            if winner == mod_name:
+                                _losers = [
+                                    l for l in bsa_losers.get(_fp, []) if l != mod_name
+                                ]
+                                if _losers:
+                                    files_i_win_final.append(
+                                        (_display, ", ".join(_losers))
+                                    )
+                            else:
+                                files_i_lose.append((_display, winner))
+                except Exception:
+                    pass
 
             # Dispatch results back to the main thread
             def _show():
@@ -7167,6 +7448,11 @@ class ModListPanel(ctk.CTkFrame):
         if _captured_game is not None:
             _path_remap = getattr(_captured_game, "mod_deploy_path_remap", {}) or {}
             _prertx_prefixes = [k.lower() for k in _path_remap]
+        # Archive extensions for BSA conflict detection (Bethesda games only).
+        # Empty frozenset disables the BSA pipeline entirely.
+        _archive_exts: frozenset[str] = frozenset()
+        if _captured_game is not None:
+            _archive_exts = frozenset(getattr(_captured_game, "archive_extensions", frozenset()) or frozenset())
         staging_requires_subdir = self._staging_requires_subdir
         normalize_folder_case   = self._normalize_folder_case
         self._filemap_rescan_index = False
@@ -7234,21 +7520,48 @@ class ModListPanel(ctk.CTkFrame):
                                 if any(rel_key.startswith(p) for p in _prertx_prefixes):
                                     prertx_mods.add(mod_name)
                                     break
-                self.after(0, lambda: _done(count, conflict_map, overrides, overridden_by, None, prertx_mods))
+                # BSA/BA2 archive conflict detection (Bethesda games only).
+                bsa_conflict_map: dict[str, int] = {}
+                bsa_overrides: dict[str, set[str]] = {}
+                bsa_overridden_by: dict[str, set[str]] = {}
+                if _archive_exts:
+                    bsa_index_path = output.parent / "bsa_index.bin"
+                    # Rebuild BSA index if the loose-file index is also being rescanned,
+                    # or if the BSA index does not exist yet.
+                    if rescan_index or not bsa_index_path.is_file():
+                        rebuild_bsa_index(
+                            bsa_index_path, staging, _archive_exts,
+                            log_fn=_log_thread_safe,
+                        )
+                    bsa_conflict_map, bsa_overrides, bsa_overridden_by = build_bsa_conflicts(
+                        modlist_path, bsa_index_path, _archive_exts,
+                        log_fn=_log_thread_safe,
+                    )
+                self.after(0, lambda: _done(count, conflict_map, overrides, overridden_by,
+                                             bsa_conflict_map, bsa_overrides, bsa_overridden_by,
+                                             None, prertx_mods))
             except Exception as exc:
-                self.after(0, lambda e=exc: _done(0, {}, {}, {}, e, set()))
+                self.after(0, lambda e=exc: _done(0, {}, {}, {}, {}, {}, {}, e, set()))
 
-        def _done(count, conflict_map, overrides, overridden_by, exc, prertx_mods=set()):
+        def _done(count, conflict_map, overrides, overridden_by,
+                  bsa_conflict_map, bsa_overrides, bsa_overridden_by,
+                  exc, prertx_mods=set()):
             self._filemap_pending = False
             if exc is not None:
                 self._conflict_map = {}
                 self._overrides = {}
                 self._overridden_by = {}
+                self._bsa_conflict_map = {}
+                self._bsa_overrides = {}
+                self._bsa_overridden_by = {}
                 self._log(f"Filemap error: {exc}")
             else:
                 self._conflict_map  = conflict_map
                 self._overrides     = overrides
                 self._overridden_by = overridden_by
+                self._bsa_conflict_map  = bsa_conflict_map
+                self._bsa_overrides     = bsa_overrides
+                self._bsa_overridden_by = bsa_overridden_by
                 self._prertx_mods   = prertx_mods
                 self._log(f"Filemap updated: {count} file(s).")
             self._vis_dirty = True  # conflict filters depend on conflict_map
@@ -7366,9 +7679,13 @@ class ModListPanel(ctk.CTkFrame):
                     if not child.is_separator:
                         all_higher.update(self._overrides.get(child.name, set()))
                         all_lower.update(self._overridden_by.get(child.name, set()))
+                        all_higher.update(self._bsa_overrides.get(child.name, set()))
+                        all_lower.update(self._bsa_overridden_by.get(child.name, set()))
                 continue
             all_higher.update(self._overrides.get(e.name, set()))
             all_lower.update(self._overridden_by.get(e.name, set()))
+            all_higher.update(self._bsa_overrides.get(e.name, set()))
+            all_lower.update(self._bsa_overridden_by.get(e.name, set()))
         for mod_name in all_higher:
             row = _row_for_mod(mod_name)
             if row is not None:

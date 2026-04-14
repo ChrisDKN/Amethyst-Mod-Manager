@@ -97,6 +97,9 @@ class UE5Rule:
                     discarding all directory components.  Useful for files
                     that must land flat in ``dest`` regardless of how they
                     are packaged inside the mod folder (e.g. .bk2 movies).
+    loose_only: When True, the rule only matches files that are not inside
+                    any folder (i.e. files with no directory components in
+                    their relative path).  Default False.
     """
     dest: str
     extensions: list[str] = field(default_factory=list)
@@ -105,6 +108,7 @@ class UE5Rule:
     filenames: list[str] = field(default_factory=list)
     strip: list[str] = field(default_factory=list)
     flatten: bool = False
+    loose_only: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +244,10 @@ class UE5Game(BaseGame):
         ext = Path(rel_str).suffix.lower()
 
         basename = parts[-1].lower() if parts else ""
+        is_loose = len(parts) == 1
         for rule in self.ue5_routing_rules:
+            if rule.loose_only and not is_loose:
+                continue
             if rule.prefix and norm.lower().startswith(rule.prefix.lower() + "/"):
                 # If the rule also has an extension filter, only match when
                 # the file's extension is in the list.

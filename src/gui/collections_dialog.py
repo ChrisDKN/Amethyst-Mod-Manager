@@ -37,7 +37,7 @@ from Utils.profile_state import (
     read_collection_optional_skipped,
     write_collection_optional_skipped,
 )
-from gui.install_mod import install_mod_from_archive, FOMOD_DEFERRED
+from gui.install_mod import install_mod_from_archive, FOMOD_DEFERRED, ExtractionMemoryBudget, get_uncompressed_size
 from gui.mod_card import CARD_PAD, make_placeholder_image
 from Utils.ui_config import get_ui_scale
 from gui.mod_name_utils import _suggest_mod_names
@@ -2094,7 +2094,7 @@ class CollectionDetailDialog(tk.Frame):
         _col_cfg = _load_col_cfg()
 
         _DL_WORKERS = _col_cfg["max_concurrent"]
-        _INSTALL_WORKERS = 4
+        _INSTALL_WORKERS = _col_cfg.get("max_extract_workers", 4)
         _PIPELINE_QUEUE_SIZE = max(_INSTALL_WORKERS + 1, 5)
         _DONE_SENTINEL = None  # pushed once per install consumer to signal shutdown
 
@@ -2116,6 +2116,7 @@ class CollectionDetailDialog(tk.Frame):
         _per_mod_prev: dict[int, int] = {}  # file_id → last reported bytes (for delta tracking)
         _col_cancel = threading.Event()
         _col_pause = threading.Event()   # set to pause after current items finish
+        _col_stop = threading.Event()    # set by both pause & cancel to abort in-flight ops immediately
         _dl_finished = threading.Event()   # set when all downloads are done
         _pipeline_finished = threading.Event()  # set when downloads AND installs are done
 
@@ -2123,12 +2124,16 @@ class CollectionDetailDialog(tk.Frame):
         if _slug:
             _ACTIVE_INSTALLS[_slug]["cancel"] = _col_cancel
             _ACTIVE_INSTALLS[_slug]["pause"] = _col_pause
+            _ACTIVE_INSTALLS[_slug]["stop"] = _col_stop
 
-        # Archives >= 1 GB are extracted with limited concurrency to avoid
-        # excessive memory/I/O pressure, but allow 2 at a time since native
-        # tools (7z/bsdtar) are more memory-efficient than py7zr.
-        _LARGE_ARCHIVE_BYTES = 1 * 1024**3
-        _large_archive_semaphore = threading.Semaphore(2)
+        # Memory-budget gated extraction: each worker reserves the estimated
+        # uncompressed size (×1.5 spike factor) before extracting.  The budget
+        # is based on available RAM at pipeline start minus a 1 GB safety
+        # margin.  If the estimate exceeds the total budget the archive is
+        # still allowed through once all other extractions have finished
+        # (prevents deadlock on single huge archives).  A live /proc/meminfo
+        # check adds a second safety net against actual OOM.
+        _mem_budget = ExtractionMemoryBudget(max_workers=_INSTALL_WORKERS)
 
         # Archive-use counting built incrementally as downloads complete.
         # Two mods can reference the same cached archive (same file_id, or
@@ -2157,7 +2162,7 @@ class CollectionDetailDialog(tk.Frame):
             nonlocal _dl_done, _dl_bytes_done
 
             # If paused or cancelled, skip this download (push None so install queue drains)
-            if _col_pause.is_set() or _col_cancel.is_set():
+            if _col_stop.is_set():
                 with _dl_lock:
                     _dl_done += 1
                 _install_queue.put((mod, None, self._game_domain))
@@ -2229,7 +2234,7 @@ class CollectionDetailDialog(tk.Frame):
                         mod_id=mod.mod_id,
                         file_id=mod.file_id,
                         progress_cb=_progress_cb,
-                        cancel=_col_cancel,
+                        cancel=_col_stop,
                         known_file_name=mod.file_name or "",
                         expected_size_bytes=getattr(mod, "size_bytes", 0) or 0,
                         dest_dir=get_download_cache_dir(),
@@ -2248,7 +2253,7 @@ class CollectionDetailDialog(tk.Frame):
                             mod_id=mod.mod_id,
                             file_id=mod.file_id,
                             progress_cb=_progress_cb,
-                            cancel=_col_cancel,
+                            cancel=_col_stop,
                             known_file_name=mod.file_name or "",
                             expected_size_bytes=getattr(mod, "size_bytes", 0) or 0,
                             dest_dir=get_download_cache_dir(),
@@ -2291,7 +2296,7 @@ class CollectionDetailDialog(tk.Frame):
         # ------------------------------------------------------------------
         def _install_one(mod, result, effective_domain):
             """Install a single downloaded mod archive."""
-            if _col_cancel.is_set() or _col_pause.is_set():
+            if _col_stop.is_set():
                 with _install_lock:
                     _install_counters["skipped"] += 1
                     _install_counters["done"] += 1
@@ -2348,15 +2353,10 @@ class CollectionDetailDialog(tk.Frame):
                 schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
             _preferred = _logical or _schema_name or mod.mod_name or ""
 
-            # Serialize extraction of large archives (>=1GB) to avoid system slowdown.
-            _archive_size = 0
-            try:
-                _archive_size = os.path.getsize(archive_path)
-            except OSError:
-                pass
-            _large_sem = _large_archive_semaphore if _archive_size >= _LARGE_ARCHIVE_BYTES else None
-            if _large_sem is not None:
-                _large_sem.acquire()
+            # Estimate uncompressed size and acquire memory budget before extracting.
+            # This gates concurrency by real memory pressure rather than a fixed limit.
+            _extract_est = get_uncompressed_size(archive_path)
+            _mem_budget.acquire(_extract_est)
             _fomod_flag = {"value": False}
             def _capture_fomod(is_fomod: bool = False):
                 _fomod_flag["value"] = is_fomod
@@ -2374,8 +2374,7 @@ class CollectionDetailDialog(tk.Frame):
                     on_installed=_capture_fomod,
                 )
             finally:
-                if _large_sem is not None:
-                    _large_sem.release()
+                _mem_budget.release(_extract_est)
             _installed_was_fomod = _fomod_flag["value"]
 
             if folder_name == FOMOD_DEFERRED:
@@ -2540,7 +2539,7 @@ class CollectionDetailDialog(tk.Frame):
 
             # Before processing deferred FOMODs, write a preliminary plugins.txt
             # so that fomod conditions can see plugins from already-installed mods.
-            if _fomod_deferred and not _col_cancel.is_set():
+            if _fomod_deferred and not _col_stop.is_set():
                 try:
                     import os as _os
                     _plugin_exts = (".esm", ".esl", ".esp")
@@ -2578,7 +2577,7 @@ class CollectionDetailDialog(tk.Frame):
 
             # Process deferred FOMOD mods (those without auto-selections) now that
             # all other mods are installed so their dependencies are available.
-            if _fomod_deferred and not _col_cancel.is_set():
+            if _fomod_deferred and not _col_stop.is_set():
                 self._log(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s)…")
                 _set_status(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s)…")
                 for _def_mod, _def_result, _def_domain in _fomod_deferred:
@@ -4035,7 +4034,10 @@ class CollectionDetailDialog(tk.Frame):
         pause_evt = state.get("pause")
         if pause_evt is not None:
             pause_evt.set()
-        self._status_var.set("Pausing… waiting for current downloads/installs to finish.")
+        stop_evt = state.get("stop")
+        if stop_evt is not None:
+            stop_evt.set()
+        self._status_var.set("Pausing…")
         # Disable the button so it can't be clicked twice
         btn = getattr(self, "_install_overlay_pause_btn", None)
         if btn is not None:
@@ -4081,8 +4083,11 @@ class CollectionDetailDialog(tk.Frame):
         pause_evt = state.get("pause")
         if pause_evt is not None:
             pause_evt.set()
+        stop_evt = state.get("stop")
+        if stop_evt is not None:
+            stop_evt.set()
 
-        self._status_var.set("Cancelling… waiting for current operations to finish.")
+        self._status_var.set("Cancelling…")
         btn_row = getattr(self, "_install_overlay_btn_row", None)
         if btn_row is not None:
             for child in btn_row.winfo_children():

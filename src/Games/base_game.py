@@ -147,6 +147,22 @@ class BaseGame(ABC):
         return set()
 
     @property
+    def archive_extensions(self) -> frozenset[str]:
+        """
+        File extensions of game-specific archive formats (e.g. ``.bsa``,
+        ``.ba2``) whose contents should be scanned for archive-level
+        conflict detection.
+
+        When non-empty, the filemap rebuild also parses the table-of-contents
+        of matching archive files inside each mod's staging folder and computes
+        which files inside archives overlap between mods.
+
+        Return an empty frozenset (the default) to disable archive conflict
+        detection entirely.  Only Bethesda-family games need this.
+        """
+        return frozenset()
+
+    @property
     def filemap_exclude_dirs(self) -> frozenset[str]:
         """
         Lowercase top-level directory names inside a mod folder that are

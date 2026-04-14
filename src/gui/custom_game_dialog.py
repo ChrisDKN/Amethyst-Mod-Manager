@@ -236,6 +236,7 @@ class CustomGamePanel(ctk.CTkFrame):
         self._restore_var       = tk.BooleanVar(value=True)
         self._norm_case_var     = tk.BooleanVar(value=True)
         self._routing_rules_rows: list[dict] = []
+        self._routing_rules_header: ctk.CTkFrame | None = None
         self._routing_rules_container = None
         self._framework_rows: list[dict] = []
         self._framework_container = None
@@ -679,6 +680,7 @@ class CustomGamePanel(ctk.CTkFrame):
                     dest=rule_data.get("dest", ""),
                     match_type=mt,
                     match_value=mv,
+                    loose_only=bool(rule_data.get("loose_only", False)),
                 )
 
         # ---- Framework Detection ----
@@ -801,13 +803,26 @@ class CustomGamePanel(ctk.CTkFrame):
             self._data_path_entry.configure(placeholder_text="e.g. Data   (leave empty for game root)")
 
     def _add_routing_rule_row(self, dest: str = "", match_type: str = "extensions",
-                              match_value: str = "") -> None:
+                              match_value: str = "", loose_only: bool = False) -> None:
         """Add a routing rule row to the container."""
         container = self._routing_rules_container
         if not self._routing_rules_rows:
             container.grid(row=self._routing_rules_container_row, column=0,
                            sticky="ew", padx=16, pady=(0, 4))
-        row_idx = len(self._routing_rules_rows)
+            # Column headers
+            hdr = ctk.CTkFrame(container, fg_color="transparent", height=20)
+            hdr.grid(row=0, column=0, sticky="ew")
+            hdr.grid_columnconfigure(0, weight=1)
+            hdr.grid_columnconfigure(1, weight=0, minsize=108)
+            hdr.grid_columnconfigure(2, weight=1)
+            hdr.grid_columnconfigure(3, weight=0)
+            hdr.grid_columnconfigure(4, weight=0)
+            ctk.CTkLabel(hdr, text="Path", font=FONT_SMALL, text_color=TEXT_DIM,
+                         anchor="w").grid(row=0, column=0, sticky="w", padx=(6, 0))
+            ctk.CTkLabel(hdr, text="Match Value", font=FONT_SMALL, text_color=TEXT_DIM,
+                         anchor="w").grid(row=0, column=2, sticky="w", padx=(4, 0))
+            self._routing_rules_header = hdr
+        row_idx = len(self._routing_rules_rows) + 1  # +1 for header row
 
         row_frame = ctk.CTkFrame(container, fg_color=BG_ROW, corner_radius=4, height=36)
         row_frame.grid(row=row_idx, column=0, sticky="ew", pady=2)
@@ -815,10 +830,12 @@ class CustomGamePanel(ctk.CTkFrame):
         row_frame.grid_columnconfigure(1, weight=0)
         row_frame.grid_columnconfigure(2, weight=1)
         row_frame.grid_columnconfigure(3, weight=0)
+        row_frame.grid_columnconfigure(4, weight=0)
 
         dest_var  = tk.StringVar(value=dest)
         type_var  = tk.StringVar(value=match_type)
         value_var = tk.StringVar(value=match_value)
+        loose_var = tk.BooleanVar(value=loose_only)
 
         ctk.CTkEntry(
             row_frame, textvariable=dest_var, font=FONT_MONO,
@@ -838,14 +855,21 @@ class CustomGamePanel(ctk.CTkFrame):
             placeholder_text="e.g. .pak, .utoc", width=140,
         ).grid(row=0, column=2, sticky="ew", padx=(4, 4), pady=4)
 
-        row_data = {"frame": row_frame, "dest": dest_var, "type": type_var, "value": value_var}
+        ctk.CTkSwitch(
+            row_frame, text="Loose only", variable=loose_var,
+            font=FONT_SMALL, text_color=TEXT_MAIN,
+            fg_color=BG_DEEP, progress_color=ACCENT, width=40,
+        ).grid(row=0, column=3, padx=(4, 2), pady=4)
+
+        row_data = {"frame": row_frame, "dest": dest_var, "type": type_var,
+                    "value": value_var, "loose_only": loose_var}
         self._routing_rules_rows.append(row_data)
 
         ctk.CTkButton(
             row_frame, text="X", width=28, height=28, font=FONT_SMALL,
             fg_color=RED_BTN, hover_color=RED_HOV, text_color="white",
             command=lambda rd=row_data: self._remove_routing_rule_row(rd),
-        ).grid(row=0, column=3, padx=(2, 6), pady=4)
+        ).grid(row=0, column=4, padx=(2, 6), pady=4)
 
     def _remove_routing_rule_row(self, row_data: dict) -> None:
         """Remove a routing rule row."""
@@ -853,10 +877,11 @@ class CustomGamePanel(ctk.CTkFrame):
             self._routing_rules_rows.remove(row_data)
             row_data["frame"].destroy()
             if not self._routing_rules_rows:
+                self._routing_rules_header.destroy()
                 self._routing_rules_container.grid_remove()
             else:
                 for i, rd in enumerate(self._routing_rules_rows):
-                    rd["frame"].grid(row=i, column=0, sticky="ew", pady=2)
+                    rd["frame"].grid(row=i + 1, column=0, sticky="ew", pady=2)
 
     def _collect_routing_rules(self) -> list[dict]:
         """Collect routing rules from the UI rows into JSON-serializable dicts."""
@@ -875,6 +900,8 @@ class CustomGamePanel(ctk.CTkFrame):
                 rule["filenames"] = values
             else:
                 rule["folders"] = values
+            if rd["loose_only"].get():
+                rule["loose_only"] = True
             rules.append(rule)
         return rules
 

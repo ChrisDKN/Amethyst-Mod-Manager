@@ -1,3 +1,11 @@
+- v1.2.4
+- Added 7 Days To Die
+- Added a parameter to custom routing rules to handle loose files (Required by 7DTD)
+- Raised the max concurrent downloads for collections from 5 to 8
+- Raised the max concurrent extractions for collection installs from 4 to 8, Reworked the oom checks
+- The log no longer dissapears when many entries appear at the same time.
+- Errors and warnings are now color coded in the log
+
 - v1.2.3
 - Updated Libloot to 0.29.3
 - Added Palworld
@@ -16,7 +24,6 @@
 - Added several keybinds, Some added in the last update. See Wiki for a list of keybinds.
 - Fixed custom routing rules for folders not working as intended when a multi level path was defined
 - Copying multiple mods to another profile now preserves load order of the copied mods
-
 
 - v1.2.2
 - Collection installs can now check the downloads folder or any added locations set in the downloads tab for any aleady downloaded mods

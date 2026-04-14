@@ -113,7 +113,13 @@ class Fallout_3(BaseGame):
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return {"info.xml","readme.txt","*.jpg"}
-    
+
+    @property
+    def archive_extensions(self) -> frozenset[str]:
+        # Bethesda games use BSA archives. Fallout 4 / Starfield / Fallout 76
+        # use BA2 and override this further.
+        return frozenset({".bsa"})
+
     @property
     def loot_sort_enabled(self) -> bool:
         return True
