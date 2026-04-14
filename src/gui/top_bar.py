@@ -48,7 +48,7 @@ from gui.add_game_dialog import AddGameDialog
 from gui.wizard_dialog import WizardDialog
 from Utils.plugin_loader import get_all_wizard_tools
 from Utils.config_paths import get_profiles_dir
-from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode, load_per_mod_strip_prefixes
+from Utils.deploy import deploy_root_folder, restore_root_folder, LinkMode, load_per_mod_strip_prefixes, deploy_root_flagged_mods
 from Utils.filemap import build_filemap
 from Utils.profile_backup import create_backup
 
@@ -927,8 +927,32 @@ class TopBar(ctk.CTkFrame):
                 if modlist_path.is_file():
                     try:
                         from Utils.profile_state import read_excluded_mod_files as _read_exc
+                        from Utils.modlist import read_modlist as _read_modlist
+                        from Nexus.nexus_meta import read_meta as _read_meta
                         _exc_raw = _read_exc(modlist_path.parent, None)
                         _exc = {k: set(v) for k, v in _exc_raw.items()} if _exc_raw else None
+                        # Collect root-flagged mods from meta.ini for this profile
+                        _rf_mods: set[str] = set()
+                        for _e in _read_modlist(modlist_path):
+                            if _e.is_separator or not _e.enabled:
+                                continue
+                            _mp = staging / _e.name / "meta.ini"
+                            if _mp.is_file():
+                                try:
+                                    if _read_meta(_mp).root_folder:
+                                        _rf_mods.add(_e.name)
+                                except Exception:
+                                    pass
+                        from Utils.ui_config import load_normalize_folder_case as _load_norm_case
+                        from Games.ue5_game import UE5Game as _UE5Game
+                        _norm_case = getattr(game, "normalize_folder_case", True) and _load_norm_case()
+                        _cfn = None
+                        if isinstance(game, _UE5Game):
+                            def _cfn(rk: str, _g=game) -> str:
+                                dest, final = _g._resolve_entry(rk)
+                                return (dest + "/" + final) if dest else final
+                        else:
+                            _cfn = getattr(game, "filemap_conflict_key_fn", None)
                         build_filemap(
                             modlist_path, staging, filemap_out,
                             strip_prefixes=game.mod_folder_strip_prefixes or None,
@@ -938,6 +962,9 @@ class TopBar(ctk.CTkFrame):
                             excluded_mod_files=_exc,
                             conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
                             exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
+                            normalize_folder_case=_norm_case,
+                            conflict_key_fn=_cfn,
+                            root_folder_mods=_rf_mods or None,
                         )
                     except Exception as fm_err:
                         _tlog(f"Filemap rebuild warning: {fm_err}")
@@ -967,11 +994,30 @@ class TopBar(ctk.CTkFrame):
                 # (active profile dir is already set to target profile above).
                 target_root_folder_dir = game.get_effective_root_folder_path()
                 rf_allowed = getattr(game, "root_folder_deploy_enabled", True)
+
+                # Step A: deploy shared Root_Folder first (its log must exist before Step B).
                 if rf_allowed and root_folder_enabled and target_root_folder_dir.is_dir() and game_root:
                     count = deploy_root_folder(target_root_folder_dir, game_root,
                                             mode=deploy_mode, log_fn=_tlog)
                     if count:
                         _tlog("Root Folder: transferred files to game root.")
+
+                # Step B: deploy root-flagged mods; merges into Step A log (Root_Folder wins conflicts).
+                if game_root:
+                    _filemap_root_path = game.get_effective_filemap_path().parent / "filemap_root.txt"
+                    _staging = game.get_effective_mod_staging_path()
+                    _strip   = getattr(game, "mod_folder_strip_prefixes", None)
+                    _per_mod_strip = load_per_mod_strip_prefixes(
+                        game.get_effective_filemap_path().parent
+                    )
+                    _rf_count = deploy_root_flagged_mods(
+                        _filemap_root_path, game_root, _staging,
+                        mode=deploy_mode, strip_prefixes=_strip,
+                        per_mod_strip_prefixes=_per_mod_strip or None,
+                        log_fn=_tlog,
+                    )
+                    if _rf_count:
+                        _tlog(f"Root-flagged mods: {_rf_count} file(s) deployed to game root.")
 
                 # Launcher swap runs after root-folder deploy so that script
                 # extender executables (e.g. nvse_loader.exe) are present first.
