@@ -1681,15 +1681,38 @@ class ModListPanel(ctk.CTkFrame):
     def _compute_bundle_groups(self) -> None:
         """Rebuild _bundle_groups from current _entries.
 
-        Maps bundle_name → [entry_idx, ...] in order.  Called after every
-        _reload() so the radio-toggle logic and renderer always have fresh data.
+        Maps bundle_name → [entry_idx, ...] in order.  A mod is only treated
+        as a bundle variant when a matching ``<bundle_name>_separator`` entry
+        exists — otherwise any mod whose folder name happens to contain ``__``
+        (e.g. from the uploader's archive filename) would be misclassified.
         """
+        sep_display_names = {
+            e.display_name for e in self._entries if e.is_separator
+        }
         groups: dict[str, list[int]] = {}
         for i, entry in enumerate(self._entries):
             bname = entry.bundle_name
-            if bname is not None:
+            if bname is not None and bname in sep_display_names:
                 groups.setdefault(bname, []).append(i)
         self._bundle_groups = groups
+
+    def _bundle_name_of(self, idx: int) -> "str | None":
+        """Return the bundle name for entry *idx* only if it's a validated
+        bundle variant (i.e. has a matching bundle separator).  Prevents
+        false positives from incidental ``__`` in mod folder names."""
+        if not (0 <= idx < len(self._entries)):
+            return None
+        bname = self._entries[idx].bundle_name
+        if bname is not None and bname in self._bundle_groups:
+            return bname
+        return None
+
+    def _variant_name_of(self, idx: int) -> "str | None":
+        """Return the variant name for entry *idx* only if it's a validated
+        bundle variant."""
+        if self._bundle_name_of(idx) is None:
+            return None
+        return self._entries[idx].variant_name
 
     def _is_bundle_separator(self, idx: int) -> bool:
         """True if the entry at *idx* is a separator that owns a bundle block."""
@@ -2054,7 +2077,7 @@ class ModListPanel(ctk.CTkFrame):
             return
         # Bundle variants are toggleable even when locked=True (locked only prevents drag/rename).
         _entry = self._entries[entry_idx] if entry_idx < len(self._entries) else None
-        if _entry and _entry.locked and _entry.bundle_name is None:
+        if _entry and _entry.locked and self._bundle_name_of(entry_idx) is None:
             return
         # Toggle: flip current value, sync to logical var, persist
         checked = not self._pool_check_vars[slot].get()
@@ -2526,10 +2549,11 @@ class ModListPanel(ctk.CTkFrame):
                     # Name text (truncate if it would overlap the category column)
                     name_color = TEXT_DIM if not entry.enabled else TEXT_MAIN
                     name_font = _FONT_NAME
-                    is_bundle_variant = entry.bundle_name is not None
+                    _bname_valid = self._bundle_name_of(i)
+                    is_bundle_variant = _bname_valid is not None
                     _name_indent = 0
                     name_width = self._COL_W[1] - scaled(4) - _name_indent
-                    _display_label = f"{entry.bundle_name} - {entry.variant_name}" if is_bundle_variant else entry.name
+                    _display_label = f"{_bname_valid} - {self._variant_name_of(i)}" if is_bundle_variant else entry.name
                     display_name = _truncate_text_for_width(c, _display_label, name_font, name_width)
                     c.coords(self._pool_name[s], self._COL_X[1] + _name_indent, y_mid)
                     c.itemconfigure(self._pool_name[s], text=display_name, anchor="w",
@@ -2968,7 +2992,7 @@ class ModListPanel(ctk.CTkFrame):
                     # Keep the dragged entry visible even inside a collapsed block
                     if self._drag_idx >= 0 and i == self._drag_idx:
                         base.append(i)
-                elif _skip_bundle is not None and entry.bundle_name == _skip_bundle:
+                elif _skip_bundle is not None and self._bundle_name_of(i) == _skip_bundle:
                     pass  # collapsed bundle separator — hide only its variants
                 else:
                     base.append(i)
@@ -3503,7 +3527,7 @@ class ModListPanel(ctk.CTkFrame):
         # relying on tag bindings (which don't reliably block the widget-level binding).
         # Bundle variants are toggleable even when locked=True (locked only prevents drag).
         _cb_x_max = self._COL_X[1] - 4  # right edge of checkbox column
-        _is_bundle_var = self._entries[idx].bundle_name is not None
+        _is_bundle_var = self._bundle_name_of(idx) is not None
         if (event.x <= _cb_x_max
                 and not self._entries[idx].is_separator
                 and (not self._entries[idx].locked or _is_bundle_var)
@@ -3668,7 +3692,7 @@ class ModListPanel(ctk.CTkFrame):
 
         # If clicking inside an existing multi-selection, preserve it so the
         # user can drag the whole group — only collapse to single on release.
-        _is_immovable = self._entries[idx].locked or self._entries[idx].bundle_name is not None
+        _is_immovable = self._entries[idx].locked or self._bundle_name_of(idx) is not None
         if idx in self._sel_set and len(self._sel_set) > 1:
             if not _is_immovable:
                 self._activate_drag(idx, cy, False, [])
@@ -3701,7 +3725,7 @@ class ModListPanel(ctk.CTkFrame):
             # Filter out locked / bundle-variant entries — they should not be draggable
             sorted_sel = sorted(
                 i for i in self._sel_set
-                if not self._entries[i].locked and self._entries[i].bundle_name is None
+                if not self._entries[i].locked and self._bundle_name_of(i) is None
             )
             if not sorted_sel:
                 return
@@ -3896,7 +3920,7 @@ class ModListPanel(ctk.CTkFrame):
         if is_bsep:
             bname = self._entries[sep_idx].display_name
             while end < len(self._entries) and not self._entries[end].is_separator:
-                if self._entries[end].bundle_name != bname:
+                if self._bundle_name_of(end) != bname:
                     break
                 end += 1
         else:
@@ -4460,7 +4484,7 @@ class ModListPanel(ctk.CTkFrame):
         _is_real_mod = not is_separator and not is_synthetic
         _is_multi = len(self._sel_set) > 1 and idx in self._sel_set
         _is_bundle_sep = is_separator and self._is_bundle_separator(idx)
-        _is_bundle_var = (not is_separator) and (self._entries[idx].bundle_name is not None)
+        _is_bundle_var = (not is_separator) and (self._bundle_name_of(idx) is not None)
         _is_locked = (not is_separator) and self._entries[idx].locked
         _mod_name = self._entries[idx].name
 
@@ -4479,7 +4503,7 @@ class ModListPanel(ctk.CTkFrame):
             and not self._entries[i].is_separator
             and not self._entries[i].locked
             and self._entries[i].name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
-            and self._entries[i].bundle_name is None
+            and self._bundle_name_of(i) is None
         ] if _is_multi else []
 
         sep_names = [e.name for e in self._entries
@@ -4962,13 +4986,14 @@ class ModListPanel(ctk.CTkFrame):
 
         # For bundle variants, remove all siblings together.
         bundle_indices: list[int] = []
-        if entry.bundle_name:
+        _entry_bundle = self._bundle_name_of(idx)
+        if _entry_bundle:
             bundle_indices = sorted(
-                self._bundle_groups.get(entry.bundle_name, [idx]), reverse=True
+                self._bundle_groups.get(_entry_bundle, [idx]), reverse=True
             )
-            bundle_name = entry.bundle_name
+            bundle_name = _entry_bundle
             variant_labels = ", ".join(
-                self._entries[i].variant_name or self._entries[i].name
+                self._variant_name_of(i) or self._entries[i].name
                 for i in sorted(bundle_indices)
             )
             alert = CTkAlert(
@@ -5033,7 +5058,7 @@ class ModListPanel(ctk.CTkFrame):
         self._scan_missing_reqs_flags()
         self._redraw()
         self._update_info()
-        label = entry.bundle_name or entry.name
+        label = _entry_bundle or entry.name
         _show_mod_notification(self.winfo_toplevel(), f"Removed: {label}", state="warning")
 
     def _enable_selected_mods(self, indices: list[int]):
@@ -7663,6 +7688,8 @@ class ModListPanel(ctk.CTkFrame):
                 bsa_conflict_map: dict[str, int] = {}
                 bsa_overrides: dict[str, set[str]] = {}
                 bsa_overridden_by: dict[str, set[str]] = {}
+                loose_over_bsa: dict[str, set[str]] = {}
+                bsa_over_loose: dict[str, set[str]] = {}
                 if _archive_exts:
                     bsa_index_path = output.parent / "bsa_index.bin"
                     # Rebuild BSA index if the loose-file index is also being rescanned,
@@ -7823,12 +7850,12 @@ class ModListPanel(ctk.CTkFrame):
             return
         from dataclasses import replace as _dc_replace
         entries = []
-        for e in self._entries:
+        for i, e in enumerate(self._entries):
             if e.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
                 continue
             # Bundle variants should never be written as locked (*) — locked only
             # prevents dragging in the panel, not toggling.  Write as +/- instead.
-            if e.bundle_name is not None and e.locked:
+            if self._bundle_name_of(i) is not None and e.locked:
                 e = _dc_replace(e, locked=False)
             entries.append(e)
         write_modlist(self._modlist_path, entries)
