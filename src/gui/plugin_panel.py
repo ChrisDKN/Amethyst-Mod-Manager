@@ -1450,10 +1450,8 @@ class PluginPanel(ctk.CTkFrame):
         base_cmd = ["python3", str(proton_script), "run", str(launch_path)] + extra_args
         launch_opts = self._load_launch_options(exe_path.name)
         if not launch_opts:
-            self._log("Run EXE: no launch options, using base command.")
             final_cmd = base_cmd
         else:
-            self._log(f"Run EXE: applying launch options: {launch_opts}")
             env_updates, final_cmd = _parse_launch_options(launch_opts, base_cmd)
             if env_updates:
                 env.update(env_updates)
