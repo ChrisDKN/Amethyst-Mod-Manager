@@ -1580,6 +1580,10 @@ class _OverwritesDialog(tk.Toplevel):
 # OverwritesPanel — inline overlay version of _OverwritesDialog
 # ---------------------------------------------------------------------------
 
+# Matches BSA-style row paths produced by modlist_panel: "<archive>.<ext> : <inner>".
+_BSA_ROW_RE = re.compile(r"^[^/\\:]+\.(?:bsa|ba2)\s+:\s", re.IGNORECASE)
+
+
 class OverwritesPanel(ctk.CTkFrame):
     """Full-width overlay (spans mod list + plugin panel) showing conflict
     details for a single mod across three side-by-side panes."""
@@ -1702,6 +1706,7 @@ class OverwritesPanel(ctk.CTkFrame):
         tv.heading("col1", text=col1_title, anchor="w")
         tv.column("#0",   minwidth=100, stretch=True)
         tv.column("col1", minwidth=100, stretch=True)
+        tv.tag_configure("bsa", foreground="#56d8e4")
 
         def _resize_cols(event, _tv=tv):
             half = event.width // 2
@@ -1719,7 +1724,8 @@ class OverwritesPanel(ctk.CTkFrame):
         tv.bind("<Button-5>", lambda e: tv.yview_scroll( 3, "units"))
 
         for path, mod_str in rows:
-            tv.insert("", "end", text=path, values=(mod_str,))
+            tags = ("bsa",) if _BSA_ROW_RE.match(path) else ()
+            tv.insert("", "end", text=path, values=(mod_str,), tags=tags)
         if not rows:
             tv.insert("", "end", text="(none)", values=("",))
 
@@ -1763,6 +1769,7 @@ class OverwritesPanel(ctk.CTkFrame):
         )
         tv.heading("#0", text=col0_title, anchor="w")
         tv.column("#0", minwidth=180, stretch=True)
+        tv.tag_configure("bsa", foreground="#56d8e4")
 
         vsb = tk.Scrollbar(tree_frame, orient="vertical", command=tv.yview,
                            bg=BG_SEP, troughcolor=BG_DEEP, activebackground=ACCENT,
@@ -1774,7 +1781,8 @@ class OverwritesPanel(ctk.CTkFrame):
         tv.bind("<Button-5>", lambda e: tv.yview_scroll( 3, "units"))
 
         for path in rows:
-            tv.insert("", "end", text=path)
+            tags = ("bsa",) if _BSA_ROW_RE.match(path) else ()
+            tv.insert("", "end", text=path, tags=tags)
         if not rows:
             tv.insert("", "end", text="(none)")
 
