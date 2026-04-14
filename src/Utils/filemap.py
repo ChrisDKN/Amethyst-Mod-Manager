@@ -630,6 +630,7 @@ def build_filemap(
     conflict_key_fn: "Callable[[str], str] | None" = None,
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
+    root_folder_mods: set[str] | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -707,6 +708,7 @@ def build_filemap(
     # Simultaneously builds filemap_winner, filemap, overrides/overridden_by, win_count.
     filemap_winner: dict[str, str] = {}
     filemap: dict[str, tuple[str, str]] = {}
+    filemap_root: dict[str, tuple[str, str]] = {}   # root-destined files (root_folder_mods)
     overrides:     dict[str, set[str]] = {s: set() for s in priority_order}
     overridden_by: dict[str, set[str]] = {s: set() for s in priority_order}
     win_count: dict[str, int] = {}
@@ -743,6 +745,12 @@ def build_filemap(
             if _is_ignored(rel_key):
                 continue
             had_file = True
+            # Root-flagged mods deploy to game root instead of Data/.
+            _is_root_mod = root_folder_mods and name in root_folder_mods
+            if _is_root_mod:
+                filemap_root[rel_key] = (rel_str, name)
+                win_count[name] = win_count.get(name, 0) + 1
+                continue
             prev = filemap_winner.get(rel_key)
             if prev is not None:
                 win_count[prev] = win_count.get(prev, 0) - 1
@@ -794,7 +802,7 @@ def build_filemap(
         frozenset((m, frozenset(ns)) for m, ns in _disabled_lower.items())
         if _disabled_lower else frozenset()
     )
-    _winner_snapshot = (frozenset(filemap_winner.items()), _disabled_frozen)
+    _winner_snapshot = (frozenset(filemap_winner.items()), _disabled_frozen, frozenset(filemap_root.items()))
     _output_key = str(output_path)
     with _filemap_winner_cache_lock:
         _unchanged = _filemap_winner_cache.get(_output_key) == _winner_snapshot
@@ -804,6 +812,13 @@ def build_filemap(
         return count, conflict_map, overrides, overridden_by
 
     count = _write_filemap(output_path, filemap, _disabled_lower)
+
+    # Write filemap_root.txt for root-flagged mods.
+    _root_filemap_path = output_path.parent / "filemap_root.txt"
+    if filemap_root:
+        _write_filemap(_root_filemap_path, filemap_root, {})
+    elif _root_filemap_path.is_file():
+        _root_filemap_path.unlink(missing_ok=True)
 
     with _filemap_winner_cache_lock:
         _filemap_winner_cache[_output_key] = _winner_snapshot

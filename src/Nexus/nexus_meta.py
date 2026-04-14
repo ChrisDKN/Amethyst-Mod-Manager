@@ -61,6 +61,7 @@ class NexusModMeta:
     ignored_version: str = ""          # latest_version at the time ignore was set
     missing_requirements: str = ""     # semicolon-separated "modId:name" pairs
     is_fomod: bool = False             # True if installed via FOMOD installer
+    root_folder: bool = False          # True if files should deploy to game root
 
     @property
     def nexus_page_url(self) -> str:
@@ -134,13 +135,14 @@ _KEY_MAP: dict[str, str] = {
     "ignoredVersion":    "ignored_version",
     "missingRequirements": "missing_requirements",
     "FOMOD":             "is_fomod",
+    "rootFolder":        "root_folder",
 }
 
 # Attributes that are ints
 _INT_FIELDS = {"mod_id", "file_id", "category_id", "latest_file_id"}
 
 # Attributes that are bools
-_BOOL_FIELDS = {"endorsed", "has_update", "ignore_update", "is_fomod"}
+_BOOL_FIELDS = {"endorsed", "has_update", "ignore_update", "is_fomod", "root_folder"}
 
 
 def read_meta(meta_ini_path: Path) -> NexusModMeta:

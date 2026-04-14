@@ -156,6 +156,7 @@ def _scan_meta_flags_impl(entries: list, mods_dir: Path) -> dict:
     category_names: dict[str, str] = {}
     mod_versions: dict[str, str] = {}
     fomod_mods: set[str] = set()
+    root_folder_mods: set[str] = set()
     today = datetime.now().date()
     for entry in entries:
         if entry.is_separator:
@@ -194,6 +195,8 @@ def _scan_meta_flags_impl(entries: list, mods_dir: Path) -> dict:
                 mod_versions[entry.name] = meta.version
             if meta.is_fomod:
                 fomod_mods.add(entry.name)
+            if meta.root_folder:
+                root_folder_mods.add(entry.name)
         except Exception:
             pass
     return {
@@ -206,6 +209,7 @@ def _scan_meta_flags_impl(entries: list, mods_dir: Path) -> dict:
         "category_names": category_names,
         "mod_versions": mod_versions,
         "fomod_mods": fomod_mods,
+        "root_folder_mods": root_folder_mods,
     }
 
 
@@ -307,6 +311,12 @@ class ModListPanel(ctk.CTkFrame):
             self._icon_disabled_files = ImageTk.PhotoImage(
                 PilImage.open(_eye2_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
 
+        self._icon_root_folder: ImageTk.PhotoImage | None = None
+        _root_path = _ICONS_DIR / "root.png"
+        if _root_path.is_file():
+            self._icon_root_folder = ImageTk.PhotoImage(
+                PilImage.open(_root_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
+
         # Separator collapse/expand arrows (right = collapsed, arrow = expanded)
         self._icon_sep_right: ImageTk.PhotoImage | None = None
         self._icon_sep_arrow: ImageTk.PhotoImage | None = None
@@ -351,6 +361,8 @@ class ModListPanel(ctk.CTkFrame):
         self._category_names: dict[str, str] = {}
         self._mod_versions: dict[str, str] = {}
         self._fomod_mods: set[str] = set()
+        # Set of mod names flagged for root-level (engine) deployment
+        self._root_folder_mods: set[str] = set()
         # Map mod name → install datetime for sorting (parallel to _install_dates)
         self._install_datetimes: dict[str, datetime] = {}
 
@@ -474,6 +486,7 @@ class ModListPanel(ctk.CTkFrame):
         self._pool_flag_icon: list[int] = []         # image canvas item ids (flags column, slot 1)
         self._pool_flag_icon2: list[int] = []        # image canvas item ids (flags column, slot 2)
         self._pool_flag_icon3: list[int] = []        # image canvas item ids (flags column, slot 3)
+        self._pool_flag_icon4: list[int] = []        # image canvas item ids (flags column, slot 4)
         self._pool_flag_star: list[int] = []         # text canvas item ids (lock star in flags column)
         self._pool_conflict_icon1: list[int] = []    # image canvas item ids (conflict col left)
         self._pool_conflict_icon2: list[int] = []    # image canvas item ids (conflict col right)
@@ -1853,6 +1866,7 @@ class ModListPanel(ctk.CTkFrame):
         self._category_names = results.get("category_names", {})
         self._mod_versions = results.get("mod_versions", {})
         self._fomod_mods = results.get("fomod_mods", set())
+        self._root_folder_mods = results.get("root_folder_mods", set())
         if self._filter_panel_open:
             self._refresh_filter_category_list()
         self._vis_dirty = True
@@ -1930,6 +1944,7 @@ class ModListPanel(ctk.CTkFrame):
             flag_id = c.create_image(0, -200, anchor="center", state="hidden")
             flag2_id = c.create_image(0, -200, anchor="center", state="hidden")
             flag3_id = c.create_image(0, -200, anchor="center", state="hidden")
+            flag4_id = c.create_image(0, -200, anchor="center", state="hidden")
             flag_star_id = c.create_text(0, -200, text="★", anchor="center", fill="#e5c07b",
                                          font=(_theme.FONT_FAMILY, _theme.FS11), state="hidden")
             # Conflict icons (left slot and right slot)
@@ -1966,6 +1981,7 @@ class ModListPanel(ctk.CTkFrame):
             self._pool_flag_icon.append(flag_id)
             self._pool_flag_icon2.append(flag2_id)
             self._pool_flag_icon3.append(flag3_id)
+            self._pool_flag_icon4.append(flag4_id)
             self._pool_flag_star.append(flag_star_id)
             self._pool_conflict_icon1.append(conf1_id)
             self._pool_conflict_icon2.append(conf2_id)
@@ -2355,6 +2371,7 @@ class ModListPanel(ctk.CTkFrame):
                     c.itemconfigure(self._pool_flag_icon[s], state="hidden")
                     c.itemconfigure(self._pool_flag_icon2[s], state="hidden")
                     c.itemconfigure(self._pool_flag_icon3[s], state="hidden")
+                    c.itemconfigure(self._pool_flag_icon4[s], state="hidden")
                     c.itemconfigure(self._pool_flag_star[s], state="hidden")
                     c.itemconfigure(self._pool_category_text[s], state="hidden")
                     c.itemconfigure(self._pool_install_text[s], state="hidden")
@@ -2530,6 +2547,8 @@ class ModListPanel(ctk.CTkFrame):
                         _flags.append(("img", self._icon_info))
                     if entry.name in self._excluded_mod_files_map and self._icon_disabled_files:
                         _flags.append(("img", self._icon_disabled_files))
+                    if entry.name in self._root_folder_mods and self._icon_root_folder:
+                        _flags.append(("img", self._icon_root_folder))
 
                     # Lay out flags left-aligned inside the flags column (icon spacing = 18px)
                     _FLAG_ICON_SPACING = 18
@@ -2537,6 +2556,7 @@ class ModListPanel(ctk.CTkFrame):
                         (self._pool_flag_icon[s], "img"),
                         (self._pool_flag_icon2[s], "img"),
                         (self._pool_flag_icon3[s], "img"),
+                        (self._pool_flag_icon4[s], "img"),
                     ]
                     _flag_star_slot = self._pool_flag_star[s]
                     # Centre the group within the column
@@ -2767,6 +2787,7 @@ class ModListPanel(ctk.CTkFrame):
                 c.itemconfigure(self._pool_flag_icon[s], state="hidden")
                 c.itemconfigure(self._pool_flag_icon2[s], state="hidden")
                 c.itemconfigure(self._pool_flag_icon3[s], state="hidden")
+                c.itemconfigure(self._pool_flag_icon4[s], state="hidden")
                 c.itemconfigure(self._pool_flag_star[s], state="hidden")
                 c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                 c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
@@ -4662,6 +4683,13 @@ class ModListPanel(ctk.CTkFrame):
             menu.add_command("Set deployment paths…",
                 lambda: self._show_mod_strip_dialog(_mod_name, mod_folder))
 
+        # Toggle Root Folder install (engine-level)
+        if not is_separator and not _is_locked and not _is_multi:
+            _is_rf = _mod_name in self._root_folder_mods
+            _rf_label = "Disable Root Folder install" if _is_rf else "Enable Root Folder install"
+            menu.add_command(_rf_label,
+                lambda mn=_mod_name: self._toggle_root_folder_flag(mn))
+
         # Set priority…
         if not is_separator and not _is_locked and not _is_bundle_var and not _is_multi:
             menu.add_command("Set priority…", lambda: self._set_priority(idx))
@@ -4682,6 +4710,29 @@ class ModListPanel(ctk.CTkFrame):
                 entry.enabled = self._root_folder_enabled
                 break
         self._redraw()
+
+    def _toggle_root_folder_flag(self, mod_name: str) -> None:
+        """Toggle rootFolder=true/false in a mod's meta.ini and refresh the UI."""
+        meta_path = self._staging_root / mod_name / "meta.ini"
+        meta_path.parent.mkdir(parents=True, exist_ok=True)
+        meta = read_meta(meta_path) if meta_path.is_file() else None
+        if meta is None:
+            from Nexus.nexus_meta import ModMeta as _ModMeta
+            meta = _ModMeta()
+        new_val = not meta.root_folder
+        meta.root_folder = new_val
+        write_meta(meta_path, meta)
+        # Update in-memory set immediately so the flag icon appears without a full reload
+        if new_val:
+            self._root_folder_mods.add(mod_name)
+            self._log(f"{mod_name}: Root Folder install ENABLED — files will deploy to game root.")
+        else:
+            self._root_folder_mods.discard(mod_name)
+            self._log(f"{mod_name}: Root Folder install DISABLED — files will deploy to Data/ as normal.")
+        self._vis_dirty = True
+        self._redraw()
+        # Rebuild filemap so filemap_root.txt reflects the updated root-folder assignment.
+        self._rebuild_filemap()
 
     def _on_sep_lock_toggle(self, sep_name: str) -> None:
         self._sep_locks[sep_name] = not self._sep_locks.get(sep_name, False)
@@ -7465,6 +7516,8 @@ class ModListPanel(ctk.CTkFrame):
             total_exc = sum(len(v) for v in excluded_mod_files.values())
             self.after(0, lambda n=total_exc: self._log(
                 f"Filemap: excluding {n} file(s) (profile_state excluded_mod_files)"))
+        # Snapshot of root-flagged mods at the time of this rebuild (thread-safe copy)
+        root_folder_mods_snap = set(self._root_folder_mods) if self._root_folder_mods else None
 
         def _log_thread_safe(msg: str) -> None:
             self.after(0, lambda m=msg: self._log(m))
@@ -7505,6 +7558,7 @@ class ModListPanel(ctk.CTkFrame):
                     conflict_key_fn=_conflict_key_fn,
                     exclude_dirs=exclude_dirs,
                     log_fn=_log_thread_safe,
+                    root_folder_mods=root_folder_mods_snap,
                 )
                 _game = getattr(self, "_game", None)
                 if _game is not None:
