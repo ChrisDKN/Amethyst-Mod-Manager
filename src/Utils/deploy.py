@@ -38,6 +38,46 @@ from Utils.app_log import safe_log as _safe_log
 from Utils.path_utils import has_path_traversal as _has_traversal
 
 
+def _mkdir_leaves(dirs: "set[str]") -> None:
+    """Create all directories in *dirs*, skipping any that are a prefix of
+    another (mkdir -p on a deep leaf also creates every ancestor).
+
+    Reduces os.makedirs() calls by dropping redundant parents before the
+    stat-heavy exist_ok=True check runs on each one.
+    """
+    if not dirs:
+        return
+    # A dir is redundant if any of its ancestor-or-self chain members
+    # (besides itself) is also in *dirs* as a deeper path — equivalently,
+    # any ancestor of a deeper dir is redundant. Build the set of all
+    # strict ancestors of every dir, then keep only dirs not in that set.
+    redundant: set[str] = set()
+    for d in dirs:
+        # Walk up: every parent of d is an ancestor and thus not a leaf
+        # (if that parent also appears in dirs).
+        p = d.rsplit("/", 1)[0]
+        while p and p != d:
+            if p in dirs:
+                redundant.add(p)
+            nxt = p.rsplit("/", 1)[0]
+            if nxt == p:
+                break
+            p = nxt
+    for d in dirs:
+        if d not in redundant:
+            os.makedirs(d, exist_ok=True)
+
+
+def _deploy_workers() -> int:
+    """Thread-pool size for parallel file transfers. Override with
+    MOD_MANAGER_DEPLOY_WORKERS for quick benchmarking."""
+    try:
+        n = int(os.environ.get("MOD_MANAGER_DEPLOY_WORKERS", "16"))
+        return max(1, n)
+    except ValueError:
+        return 16
+
+
 @_contextmanager
 def _timer(label: str):
     """Print elapsed wall-clock time for a labelled block to stderr."""
@@ -566,21 +606,63 @@ def _prebuild_mod_indexes(
     overwrite_dir: Path,
     staging_root: Path,
     mod_index_cache: dict,
+    *,
+    profile_dir: "Path | None" = None,
+    strip_prefixes: "set[str] | None" = None,
+    per_mod_strip_prefixes: "dict[str, list[str]] | None" = None,
 ) -> None:
     """Pre-build per-mod file indexes for all mods referenced in the filemap.
 
-    Replaces thousands of individual stat() calls with one os.walk per mod folder.
+    Fast path: load on-disk paths from Profiles/<game>/modindex.bin (already
+    built by filemap.py) for mods whose files aren't behind a strip prefix —
+    no filesystem walk needed.
+
+    Slow path: os.walk each mod folder (for mods with strip prefixes, or
+    when the index is missing/stale).
     """
     mod_names: set[str] = set()
     for ln in tab_lines:
         tab_pos = ln.find("\t")
         if tab_pos > 0:
             mod_names.add(ln[tab_pos + 1:])
+
+    # Try to reuse the on-disk mod index written by filemap.py. It stores
+    # stripped rel_str values — fine for mods with no strip prefixes, since
+    # the on-disk path is just mod_root/rel_str. For mods that do have strip
+    # prefixes, fall through to the os.walk path so _resolve_source can find
+    # files under their actual folders.
+    index_from_disk: dict | None = None
+    if profile_dir is not None:
+        try:
+            from Utils.filemap import read_mod_index
+            index_from_disk = read_mod_index(profile_dir / "modindex.bin")
+        except Exception:
+            index_from_disk = None
+
+    _global_strip = bool(strip_prefixes)
+    _per_mod = per_mod_strip_prefixes or {}
+
     for mn in mod_names:
         if _has_traversal(mn):
             continue
         mr = overwrite_dir if mn == _OVERWRITE_NAME else staging_root / mn
-        if mr not in mod_index_cache:
+        if mr in mod_index_cache:
+            continue
+
+        has_strip = _global_strip or bool(_per_mod.get(mn))
+        entry = index_from_disk.get(mn) if index_from_disk is not None else None
+
+        if entry is not None and not has_strip:
+            # Fast path: synthesize on-disk paths directly from the index.
+            normal, root = entry
+            mr_str = str(mr)
+            built: dict[str, str] = {}
+            for rel_lower, rel_str in normal.items():
+                built[rel_lower] = mr_str + "/" + rel_str
+            for rel_lower, rel_str in root.items():
+                built[rel_lower] = mr_str + "/" + rel_str
+            mod_index_cache[mr] = built
+        else:
             mod_index_cache[mr] = _build_mod_index(mr)
 
 
@@ -645,6 +727,9 @@ def deploy_filemap(
 
     _prebuild_mod_indexes(
         _tab_lines, overwrite_dir, staging_root, mod_index_cache,
+        profile_dir=filemap_path.parent,
+        strip_prefixes=strip_prefixes,
+        per_mod_strip_prefixes=per_mod_strip_prefixes,
     )
     print(f"  [TIMER] deploy_filemap — pre-build mod indexes: "
           f"{_time.perf_counter() - _t_resolve_start:.3f}s")
@@ -729,8 +814,7 @@ def deploy_filemap(
     # avoid mkdir races inside the thread pool.
     with _timer("deploy_filemap — mkdir"):
         needed_dirs: set[str] = {os.path.dirname(dst) for _, dst, _, _is_custom, _ in tasks}
-        for d in needed_dirs:
-            os.makedirs(d, exist_ok=True)
+        _mkdir_leaves(needed_dirs)
 
     # Back up any pre-existing files at custom deploy locations so restore can
     # put the originals back.  Mirror each dst's absolute path as a relative
@@ -761,7 +845,7 @@ def deploy_filemap(
         return None, (dst, err)
 
     _t_transfer = _time.perf_counter()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
         for result, err in pool.map(_do_transfer, tasks):
             done_count += 1
             if result is not None:
@@ -856,8 +940,7 @@ def deploy_core(
     needed_dirs: set[str] = set()
     for _, dst_str in resolved_tasks:
         needed_dirs.add(os.path.dirname(dst_str))
-    for d in needed_dirs:
-        os.makedirs(d, exist_ok=True)
+    _mkdir_leaves(needed_dirs)
 
     linked = 0
     done_count = 0
@@ -868,7 +951,7 @@ def deploy_core(
         return (True, dst_str, None) if err is None else (False, dst_str, err)
 
     _t_core_transfer = _time.perf_counter()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
         for ok, rel_str, exc in pool.map(_do_core, resolved_tasks):
             done_count += 1
             if ok:
@@ -1914,7 +1997,12 @@ def deploy_filemap_to_root(
     total_lines = len(_tab_lines)
     line_idx = 0
 
-    _prebuild_mod_indexes(_tab_lines, overwrite_dir, staging_root, mod_index_cache)
+    _prebuild_mod_indexes(
+        _tab_lines, overwrite_dir, staging_root, mod_index_cache,
+        profile_dir=filemap_path.parent,
+        strip_prefixes=strip_prefixes,
+        per_mod_strip_prefixes=per_mod_strip_prefixes,
+    )
 
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
@@ -2002,8 +2090,7 @@ def deploy_filemap_to_root(
 
     # Pre-create all destination directories up front (single-threaded).
     needed_dirs: set[str] = {os.path.dirname(dst) for _, dst, _, _ in tasks}
-    for d in needed_dirs:
-        os.makedirs(d, exist_ok=True)
+    _mkdir_leaves(needed_dirs)
 
     # Back up any vanilla files we are about to overwrite (must be serial).
     _backup_str = str(backup_dir)
@@ -2022,7 +2109,7 @@ def deploy_filemap_to_root(
         src, dst, rel_lower, rel_str = item
         return rel_lower, rel_str, _do_link(src, dst, mode)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
         for rel_lower, rel_str, exc in pool.map(_do_transfer, tasks):
             done_count += 1
             if exc is None:
@@ -2285,7 +2372,7 @@ def deploy_custom_rules(
         return None, (dst_s, err)
 
     done_count = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
         for result, err in pool.map(_do_custom, transfer_tasks):
             done_count += 1
             if result is not None:
