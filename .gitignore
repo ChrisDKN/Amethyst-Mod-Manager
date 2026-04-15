@@ -17,3 +17,4 @@ release/
 decky/
 .claude/settings.json
 .mcp.json
+**/__pycache__/

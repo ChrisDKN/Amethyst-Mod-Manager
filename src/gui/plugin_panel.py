@@ -111,6 +111,77 @@ from gui.text_utils import truncate_text as _truncate_plugin_name, clear_truncat
 
 
 # ---------------------------------------------------------------------------
+# Launch options parser
+# ---------------------------------------------------------------------------
+
+_ENV_VAR_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
+
+
+def _parse_launch_options(opts: str, command: list) -> "tuple[dict, list]":
+    """Parse Steam-style launch options into (env_vars, final_command).
+
+    Tokens matching KEY=VALUE are extracted as environment variables.
+    If ``%command%`` is present it is replaced by the actual *command* list
+    (wrappers before it are prepended; tokens after it are appended).
+    If ``%command%`` is absent the remaining tokens are appended as a suffix.
+    """
+    import shlex
+
+    opts = (opts or "").strip()
+    if not opts:
+        return {}, list(command)
+
+    env_vars: dict = {}
+
+    if "%command%" in opts:
+        idx = opts.index("%command%")
+        prefix_str = opts[:idx]
+        suffix_str = opts[idx + len("%command%"):]
+
+        try:
+            prefix_tokens = shlex.split(prefix_str)
+        except ValueError:
+            prefix_tokens = prefix_str.split()
+        try:
+            suffix_tokens = shlex.split(suffix_str)
+        except ValueError:
+            suffix_tokens = suffix_str.split()
+
+        wrappers: list = []
+        for token in prefix_tokens:
+            if _ENV_VAR_RE.match(token):
+                k, v = token.split("=", 1)
+                env_vars[k] = v
+            else:
+                wrappers.append(token)
+
+        suffix: list = []
+        for token in suffix_tokens:
+            if _ENV_VAR_RE.match(token):
+                k, v = token.split("=", 1)
+                env_vars[k] = v
+            else:
+                suffix.append(token)
+
+        return env_vars, wrappers + list(command) + suffix
+    else:
+        try:
+            tokens = shlex.split(opts)
+        except ValueError:
+            tokens = opts.split()
+
+        suffix = []
+        for token in tokens:
+            if _ENV_VAR_RE.match(token):
+                k, v = token.split("=", 1)
+                env_vars[k] = v
+            else:
+                suffix.append(token)
+
+        return env_vars, list(command) + suffix
+
+
+# ---------------------------------------------------------------------------
 # PluginPanel
 # ---------------------------------------------------------------------------
 class PluginPanel(ctk.CTkFrame):
@@ -696,6 +767,32 @@ class PluginPanel(ctk.CTkFrame):
             data.pop(key, None)
         p.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
+    def _load_launch_options(self, exe_name: str) -> str:
+        """Return saved launch options string for exe_name (empty string if none)."""
+        p = self._get_launch_mode_path()
+        if p is None or not p.is_file():
+            return ""
+        try:
+            return json.loads(p.read_text(encoding="utf-8")).get(f"__launch_options_{exe_name}", "")
+        except (OSError, ValueError):
+            return ""
+
+    def _save_launch_options(self, exe_name: str, options: str) -> None:
+        p = self._get_launch_mode_path()
+        if p is None:
+            return
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            data = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        except (OSError, ValueError):
+            data = {}
+        key = f"__launch_options_{exe_name}"
+        if options:
+            data[key] = options
+        else:
+            data.pop(key, None)
+        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
     def _is_apps_exe(self, exe_path: "Path") -> bool:
         """Return True if exe_path lives under the game's Applications folder."""
         if self._game is None or not hasattr(self._game, "get_mod_staging_path"):
@@ -936,6 +1033,7 @@ class PluginPanel(ctk.CTkFrame):
         saved_launch_mode = self._load_launch_mode(exe_path.name) if is_game_exe else None
         deploy_before_launch = self._load_deploy_before_launch() if is_game_exe else None
         saved_proton_override = self._load_proton_override(exe_path.name) if not is_game_exe else None
+        saved_launch_options = self._load_launch_options(exe_path.name)
         # Determine current hidden state from user filter (builtin filter names
         # are always hidden and can't be toggled, so we only look at the user list).
         user_filter = {n.lower() for n in self._load_exe_filter()}
@@ -958,6 +1056,8 @@ class PluginPanel(ctk.CTkFrame):
                 self._save_deploy_before_launch(r.deploy_before_launch)
             if r.proton_override is not None:
                 self._save_proton_override(exe_path.name, r.proton_override)
+            if r.launch_options is not None:
+                self._save_launch_options(exe_path.name, r.launch_options)
             if r.removed:
                 remaining = [p for p in custom_exes if p != exe_path]
                 self._save_custom_exes(remaining)
@@ -986,6 +1086,7 @@ class PluginPanel(ctk.CTkFrame):
                 deploy_before_launch=deploy_before_launch, is_hidden=is_hidden,
                 proton_override=saved_proton_override,
                 is_data_folder_exe=is_data_folder_exe, is_apps_exe=_is_apps,
+                saved_launch_options=saved_launch_options,
                 log_fn=self._log,
                 on_done=_handle_result,
             )
@@ -1002,6 +1103,7 @@ class PluginPanel(ctk.CTkFrame):
                 proton_override=saved_proton_override,
                 is_data_folder_exe=is_data_folder_exe,
                 is_apps_exe=_is_apps,
+                saved_launch_options=saved_launch_options,
                 log_fn=self._log,
             )
             self.winfo_toplevel().wait_window(dialog)
@@ -1345,10 +1447,19 @@ class PluginPanel(ctk.CTkFrame):
 
         self._log(f"Run EXE: launching {exe_path.name} via {proton_script.parent.name} ...")
 
+        base_cmd = ["python3", str(proton_script), "run", str(launch_path)] + extra_args
+        launch_opts = self._load_launch_options(exe_path.name)
+        if not launch_opts:
+            final_cmd = base_cmd
+        else:
+            env_updates, final_cmd = _parse_launch_options(launch_opts, base_cmd)
+            if env_updates:
+                env.update(env_updates)
+
         def _worker():
             try:
                 subprocess.Popen(
-                    ["python3", str(proton_script), "run", str(launch_path)] + extra_args,
+                    final_cmd,
                     env=env,
                     cwd=launch_path.parent,
                     stdout=subprocess.DEVNULL,
