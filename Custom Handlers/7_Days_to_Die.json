@@ -1,7 +1,7 @@
 {
   "name": "7 Days to Die",
   "game_id": "7_Days_to_Die",
-  "exe_name": "test.exe",
+  "exe_name": "7dLauncher.exe",
   "deploy_type": "standard",
   "mod_data_path": "Mods",
   "steam_id": "251570",
