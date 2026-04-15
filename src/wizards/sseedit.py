@@ -456,6 +456,10 @@ class SSEEditWizard(ctk.CTkFrame):
             command=self._show_step_run,
         ).pack(side="bottom")
 
+        from gui.dialogs import confirm_deploy_appdata
+        if not confirm_deploy_appdata(self.winfo_toplevel(), self._game):
+            self._set_label("_deploy_status", "Deploy cancelled — AppData folder missing.", color="#e06c6c")
+            return
         threading.Thread(target=self._do_deploy, daemon=True).start()
 
     def _do_deploy(self):

@@ -130,6 +130,47 @@ def show_error(title: str, message: str, parent=None) -> None:
     alert.get()
 
 
+def confirm_deploy_appdata(parent, game) -> bool:
+    """Warn the user if the game's in-prefix AppData folder is missing.
+
+    Used before deploys that symlink plugins.txt into the Proton prefix —
+    if the AppData subdir doesn't exist, the symlink target's parent will
+    be created blindly, which usually means the game has never been run
+    in the prefix and the symlink may not actually be picked up.
+
+    Returns True to proceed, False if the user cancels.  Returns True for
+    games without a configured _APPDATA_SUBPATH or prefix path.
+    """
+    appdata_sub = getattr(game, "_APPDATA_SUBPATH", None)
+    if appdata_sub is None:
+        return True
+    prefix = None
+    try:
+        prefix = game.get_prefix_path()
+    except Exception:
+        return True
+    if prefix is None:
+        return True
+    appdata_dir = Path(prefix) / appdata_sub
+    if appdata_dir.is_dir():
+        return True
+    alert = CTkAlert(
+        state="warning",
+        title="AppData folder missing",
+        body_text=(
+            f"The game's AppData folder was not found at:\n\n{appdata_dir}\n\n"
+            "This usually means the game has not been launched in the Proton "
+            "prefix yet, so the plugins.txt symlink may not be picked up.\n\n"
+            "Deploy anyway?"
+        ),
+        btn1="Deploy anyway",
+        btn2="Cancel",
+        parent=parent,
+        width=560,
+    )
+    return alert.get() == "Deploy anyway"
+
+
 from gui.text_utils import build_tree_str as _build_tree_str
 
 
@@ -2509,31 +2550,31 @@ class ExeConfigPanel(ctk.CTkFrame):
                 checkmark_color=BG_DEEP,
             ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
 
-        # Launch Options section (shown for all exe types)
-        sec_launch = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
-        sec_launch.grid(row=next(body_total_row), column=0, sticky="ew", padx=12, pady=4)
-        sec_launch.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(
-            sec_launch, text="Launch Options", font=FONT_BOLD,
-            text_color=TEXT_MAIN, anchor="w",
-        ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
-        ctk.CTkLabel(
-            sec_launch,
-            text="Steam-style options: env vars (KEY=VALUE), wrappers (e.g. gamemoderun), and"
-                 "%command% as placeholder for the full command. Without %command%, appended as suffix.",
-            font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",  wraplength=460,
-        ).grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 4))
-        _lo_entry = ctk.CTkEntry(
-            sec_launch, textvariable=self._launch_options_var, font=FONT_SMALL,
-            fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
-            placeholder_text="e.g. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%",
-        )
-        _lo_entry.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 8))
-        _lo_entry._entry.bind(
-            "<Control-a>",
-            lambda e: (_lo_entry._entry.select_range(0, "end"),
-                       _lo_entry._entry.icursor("end"), "break")[2],
-        )
+        if not is_game_exe:
+            sec_launch = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=6)
+            sec_launch.grid(row=next(body_total_row), column=0, sticky="ew", padx=12, pady=4)
+            sec_launch.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(
+                sec_launch, text="Launch Options", font=FONT_BOLD,
+                text_color=TEXT_MAIN, anchor="w",
+            ).grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
+            ctk.CTkLabel(
+                sec_launch,
+                text="Steam-style options: env vars (KEY=VALUE), wrappers (e.g. gamemoderun), "
+                     "and %command% as placeholder for the full command. Without %command%, appended as suffix.",
+                font=FONT_SMALL, text_color=TEXT_DIM, anchor="w", justify="left",  wraplength=460,
+            ).grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 4))
+            _lo_entry = ctk.CTkEntry(
+                sec_launch, textvariable=self._launch_options_var, font=FONT_SMALL,
+                fg_color=BG_HEADER, text_color=TEXT_MAIN, border_color=BORDER,
+                placeholder_text="e.g. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%",
+            )
+            _lo_entry.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 8))
+            _lo_entry._entry.bind(
+                "<Control-a>",
+                lambda e: (_lo_entry._entry.select_range(0, "end"),
+                           _lo_entry._entry.icursor("end"), "break")[2],
+            )
 
         bar = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=0, height=48)
         bar.grid(row=next(body_total_row), column=0, sticky="ew")
@@ -3743,9 +3784,10 @@ class SepColorPanel(ctk.CTkFrame):
     _SLIDER_H   = 20
 
     def __init__(self, parent, sep_name: str, initial_color: str | None = None,
-                 on_result=None, on_done=None):
+                 on_result=None, on_done=None, title: str | None = None):
         super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
         self._sep_name  = sep_name
+        self._title     = title  # overrides the default "Separator Color — …" header when set
         self._on_result = on_result or (lambda hex_color, reset: None)
         self._on_done   = on_done   or (lambda p: None)
 
@@ -3777,33 +3819,33 @@ class SepColorPanel(ctk.CTkFrame):
         title_bar = ctk.CTkFrame(self, fg_color=BG_HEADER, corner_radius=0, height=36)
         title_bar.pack(fill="x")
         title_bar.pack_propagate(False)
+        header_text = self._title if self._title else f"Separator Color \u2014 {self._sep_name}"
         ctk.CTkLabel(
-            title_bar, text=f"Separator Color \u2014 {self._sep_name}",
-            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="w",
-        ).pack(side="left", padx=12)
+            title_bar, text=header_text,
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
+        ).pack(expand=True, fill="both", padx=12)
         ctk.CTkButton(
             title_bar, text="\u2715", width=32, height=32, font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_cancel_color,
-        ).pack(side="right", padx=4)
+        ).place(relx=1.0, rely=0.5, anchor="e", x=-4)
         ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
 
-        # Inner content centred
-        inner = ctk.CTkFrame(self, fg_color=BG_DEEP, corner_radius=0)
-        inner.pack(fill="both", expand=True)
-        inner.grid_columnconfigure(0, weight=1)
+        # Inner content — fixed-width centred column
+        outer = ctk.CTkFrame(self, fg_color=BG_DEEP, corner_radius=0)
+        outer.pack(fill="both", expand=True)
 
         PAD = 16
         ws  = self._WHEEL_SIZE
+        col = ctk.CTkFrame(outer, fg_color=BG_DEEP, corner_radius=0)
+        col.pack(anchor="center", pady=(PAD, PAD))
 
-        # Colour wheel
-        wheel_frame = tk.Frame(inner, bg=BG_DEEP)
-        wheel_frame.grid(row=0, column=0, pady=(PAD, 4))
+        # Colour wheel (centred in the fixed-width column)
         self._wheel_canvas = tk.Canvas(
-            wheel_frame, width=ws, height=ws,
+            col, width=ws, height=ws,
             bg=BG_DEEP, highlightthickness=0, cursor="crosshair",
         )
-        self._wheel_canvas.pack()
+        self._wheel_canvas.pack(pady=(0, 8))
         self._wheel_canvas.bind("<ButtonPress-1>", self._on_wheel_press)
         self._wheel_canvas.bind("<B1-Motion>",      self._on_wheel_drag)
         self._cross_h = self._wheel_canvas.create_line(0,0,0,0, fill="white", width=1)
@@ -3811,10 +3853,10 @@ class SepColorPanel(ctk.CTkFrame):
 
         # Brightness slider
         self._slider_canvas = tk.Canvas(
-            inner, width=ws, height=self._SLIDER_H,
+            col, width=ws, height=self._SLIDER_H,
             bg=BG_DEEP, highlightthickness=0, cursor="sb_h_double_arrow",
         )
-        self._slider_canvas.grid(row=1, column=0, padx=PAD, pady=(0, 10), sticky="ew")
+        self._slider_canvas.pack(fill="x", pady=(0, 10))
         self._slider_canvas.bind("<ButtonPress-1>", self._on_slider_press)
         self._slider_canvas.bind("<B1-Motion>",      self._on_slider_drag)
         self._slider_thumb = self._slider_canvas.create_rectangle(
@@ -3822,47 +3864,74 @@ class SepColorPanel(ctk.CTkFrame):
         )
 
         # Preview swatch
-        self._swatch = tk.Frame(inner, height=28, bg=BG_DEEP, relief="flat", bd=0)
-        self._swatch.grid(row=2, column=0, padx=PAD, pady=(0, 6), sticky="ew")
+        self._swatch = tk.Frame(col, height=32, bg=BG_DEEP, relief="flat", bd=0,
+                                highlightthickness=1, highlightbackground=BORDER)
+        self._swatch.pack(fill="x", pady=(0, 10))
 
-        # Hex entry row
-        hex_row = tk.Frame(inner, bg=BG_DEEP)
-        hex_row.grid(row=3, column=0, padx=PAD, pady=(0, 10), sticky="ew")
-        hex_row.grid_columnconfigure(1, weight=1)
+        # Hex entry row (centred)
+        hex_row = ctk.CTkFrame(col, fg_color=BG_DEEP, corner_radius=0)
+        hex_row.pack(pady=(0, 12))
         tk.Label(
             hex_row, text="#", bg=BG_DEEP, fg=TEXT_SEP,
             font=font_sized_px(_theme.FONT_FAMILY, 13),
-        ).grid(row=0, column=0, padx=(0, 2))
+        ).pack(side="left", padx=(0, 4))
         self._hex_var = tk.StringVar()
         self._hex_entry = tk.Entry(
             hex_row, textvariable=self._hex_var,
             bg=BG_PANEL, fg=TEXT_MAIN, insertbackground=TEXT_MAIN,
-            relief="flat", font=font_sized_px(_theme.FONT_FAMILY, 13), bd=4, width=7,
+            relief="flat", font=font_sized_px(_theme.FONT_FAMILY, 13),
+            bd=4, width=8, justify="center",
         )
-        self._hex_entry.grid(row=0, column=1, sticky="ew")
+        self._hex_entry.pack(side="left")
         self._hex_var.trace_add("write", self._on_hex_typed)
+
+        # RGB sliders
+        self._rgb_vars: dict[str, tk.IntVar] = {}
+        self._rgb_labels: dict[str, tk.Label] = {}
+        self._suppress_rgb_trace = False
+        for channel in ("R", "G", "B"):
+            srow = ctk.CTkFrame(col, fg_color=BG_DEEP, corner_radius=0)
+            srow.pack(fill="x", pady=(0, 4))
+            tk.Label(
+                srow, text=channel, bg=BG_DEEP, fg=TEXT_SEP,
+                font=font_sized_px(_theme.FONT_FAMILY, 12), width=2,
+            ).pack(side="left", padx=(0, 6))
+            var = tk.IntVar(value=0)
+            self._rgb_vars[channel] = var
+            sl = ctk.CTkSlider(
+                srow, from_=0, to=255, number_of_steps=255,
+                variable=var, height=16,
+                command=lambda _v, ch=channel: self._on_rgb_slider(ch),
+            )
+            sl.pack(side="left", fill="x", expand=True)
+            val_label = tk.Label(
+                srow, text="0", bg=BG_DEEP, fg=TEXT_MAIN,
+                font=font_sized_px(_theme.FONT_FAMILY, 12), width=4, anchor="e",
+            )
+            val_label.pack(side="left", padx=(8, 0))
+            self._rgb_labels[channel] = val_label
 
         # Button bar
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0)
         bar.pack(side="bottom", fill="x")
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
         btn_inner = ctk.CTkFrame(bar, fg_color=BG_PANEL, corner_radius=0)
-        btn_inner.pack(fill="x", padx=12, pady=10)
+        btn_inner.pack(padx=12, pady=10)
         ctk.CTkButton(
-            btn_inner, text="Cancel", width=80, height=30, font=FONT_NORMAL,
-            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
-            command=self._on_cancel_color,
-        ).pack(side="right", padx=(4, 0))
-        ctk.CTkButton(
-            btn_inner, text="OK", width=80, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
-            command=self._on_ok,
-        ).pack(side="right", padx=4)
-        ctk.CTkButton(
-            btn_inner, text="Reset to default", width=120, height=30, font=FONT_NORMAL,
+            btn_inner, text="Reset to default", width=140, height=30, font=FONT_NORMAL,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_reset,
-        ).pack(side="left")
+        ).pack(side="left", padx=4)
+        ctk.CTkButton(
+            btn_inner, text="Cancel", width=90, height=30, font=FONT_NORMAL,
+            fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
+            command=self._on_cancel_color,
+        ).pack(side="left", padx=4)
+        ctk.CTkButton(
+            btn_inner, text="OK", width=90, height=30, font=FONT_BOLD,
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            command=self._on_ok,
+        ).pack(side="left", padx=4)
 
     # ------------------------------------------------------------------
     # Drawing
@@ -3940,12 +4009,23 @@ class SepColorPanel(ctk.CTkFrame):
             self._draw_slider()
         self._update_crosshair()
         self._update_slider_thumb()
-        self._swatch.configure(bg=self._current_hex())
-        new_hex = self._current_hex()[1:]
+        cur = self._current_hex()
+        self._swatch.configure(bg=cur)
+        new_hex = cur[1:]
         self._suppress_hex_trace = True
         if self._hex_var.get().lower() != new_hex:
             self._hex_var.set(new_hex)
         self._suppress_hex_trace = False
+        # Sync RGB sliders from current HSV (without retriggering _on_rgb_slider)
+        if getattr(self, "_rgb_vars", None):
+            rv, gv, bv = colorsys.hsv_to_rgb(self._hue, self._sat, self._val)
+            rgb = {"R": int(round(rv * 255)), "G": int(round(gv * 255)), "B": int(round(bv * 255))}
+            self._suppress_rgb_trace = True
+            for ch, v in rgb.items():
+                if self._rgb_vars[ch].get() != v:
+                    self._rgb_vars[ch].set(v)
+                self._rgb_labels[ch].configure(text=str(v))
+            self._suppress_rgb_trace = False
 
     # ------------------------------------------------------------------
     # Events
@@ -3991,6 +4071,16 @@ class SepColorPanel(ctk.CTkFrame):
                 self._update_all(redraw_wheel=True, redraw_slider=True)
             except ValueError:
                 pass
+
+    def _on_rgb_slider(self, _channel: str):
+        if self._suppress_rgb_trace:
+            return
+        r = max(0, min(255, int(self._rgb_vars["R"].get())))
+        g = max(0, min(255, int(self._rgb_vars["G"].get())))
+        b = max(0, min(255, int(self._rgb_vars["B"].get())))
+        h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+        self._hue, self._sat, self._val = h, s, v
+        self._update_all(redraw_wheel=True, redraw_slider=True)
 
     def _on_ok(self):
         self._on_result(self._current_hex(), False)

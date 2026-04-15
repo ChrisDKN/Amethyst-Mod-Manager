@@ -40,6 +40,7 @@ from gui.dialogs import (
     _MewgenicsDeployChoiceDialog,
     _MewgenicsLaunchCommandDialog,
     ask_yes_no,
+    confirm_deploy_appdata,
 )
 from gui.ctk_components import CTkAlert
 from gui.path_utils import pick_file_mod_archive, pick_files_mod_archive
@@ -883,6 +884,9 @@ class TopBar(ctk.CTkFrame):
 
     def _run_deploy(self, game, profile):
         """Execute the deploy worker thread for *game* / *profile*."""
+        if not confirm_deploy_appdata(self.winfo_toplevel(), game):
+            self._log("Deploy: cancelled — AppData folder missing.")
+            return
         app = self.winfo_toplevel()
         root_folder_enabled = (
             app._mod_panel._root_folder_enabled

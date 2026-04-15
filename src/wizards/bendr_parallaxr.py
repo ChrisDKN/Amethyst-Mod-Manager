@@ -355,6 +355,10 @@ class _TextureToolWizard(ctk.CTkFrame):
         ).pack(side="left")
 
     def _start_deploy(self):
+        from gui.dialogs import confirm_deploy_appdata
+        if not confirm_deploy_appdata(self.winfo_toplevel(), self._game):
+            self._set_label("_deploy_status", "Deploy cancelled — AppData folder missing.", color="#e06c6c")
+            return
         for w in self._body.winfo_children():
             if isinstance(w, ctk.CTkButton):
                 w.configure(state="disabled")
