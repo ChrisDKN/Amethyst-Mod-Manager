@@ -3,8 +3,18 @@
 - Added a parameter to custom routing rules to handle loose files (Required by 7DTD)
 - Raised the max concurrent downloads for collections from 5 to 8
 - Raised the max concurrent extractions for collection installs from 4 to 8, Reworked the oom checks
-- The log no longer dissapears when many entries appear at the same time.
+- The log no longer disappears when many entries appear at the same time.
 - Errors and warnings are now color coded in the log
+- Conflicts now show BSA conflicts for the relevant games
+    *BSA Conflicts account for plugin load order and any loose files that overwrite them
+- Added a root folder mod toggle right click option, Mods with this flag are sent to the games root folder.
+- Added an archive tab to view bsa contents
+- Fixed the modlist panel going blank after collapsing all separators
+- Added keybinds: Ctrl+F (focus search bar), Ctrl+A (select all mods in separator), F5 (refresh modlist), Enter (toggle selected mods)
+- Added SKSE GOG and SKSE 1.5.97 options to the script extender wizard menu
+- Added a setting to application config to add launch options for the selected application
+- Added a setting to change the default staging folder in the settings window and in the onboarding screen
+- Added settings to change highlight colors
 
 - v1.2.3
 - Updated Libloot to 0.29.3
