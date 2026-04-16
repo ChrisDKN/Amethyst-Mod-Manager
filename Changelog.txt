@@ -1,3 +1,7 @@
+- v1.2.5
+- Fixed Heroic detection for gog games
+- Refactored the deploy script, splitting it into each deploy method
+
 - v1.2.4
 - Added 7 Days To Die
 - Added a parameter to custom routing rules to handle loose files (Required by 7DTD)
