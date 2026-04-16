@@ -2059,7 +2059,9 @@ if __name__ == "__main__":
         """Synchronously restore every configured game that has an active deployment."""
         from Utils.deploy import restore_root_folder
 
-        games = [g for g in _GAMES.values() if g.is_configured() and g.get_deploy_active()]
+        games = [g for g in _GAMES.values()
+                 if g.is_configured() and g.get_deploy_active()
+                 and getattr(g, "restore_on_close_eligible", True)]
         if not games:
             return
 

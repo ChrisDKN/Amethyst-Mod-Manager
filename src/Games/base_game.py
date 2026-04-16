@@ -703,6 +703,15 @@ class BaseGame(ABC):
         return True
 
     @property
+    def restore_on_close_eligible(self) -> bool:
+        """When False, the 'restore on close' setting skips this game.
+
+        Override to False for games where restore is expensive (e.g. gpak
+        repack) and should only run when the user explicitly clicks Restore.
+        """
+        return True
+
+    @property
     def reshade_dll(self) -> str | None:
         """
         DLL name that ReShade should be installed as in the game folder.

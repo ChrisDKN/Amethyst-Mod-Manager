@@ -183,6 +183,10 @@ class Mewgenics(BaseGame):
         return False  # deploy() does unpack → remove modded → add mods → repack in one cycle
 
     @property
+    def restore_on_close_eligible(self) -> bool:
+        return False
+
+    @property
     def wizard_tools(self) -> list[WizardTool]:
         return self._base_wizard_tools() + [
             WizardTool(
