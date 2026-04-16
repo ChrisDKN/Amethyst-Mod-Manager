@@ -151,7 +151,20 @@ def confirm_deploy_appdata(parent, game) -> bool:
         return True
     if prefix is None:
         return True
-    appdata_dir = Path(prefix) / appdata_sub
+    # Let the game resolve its plugins.txt target (handles per-store variants
+    # like Skyrim SE GOG's separate AppData folder). Fall back to the bare
+    # _APPDATA_SUBPATH if the game doesn't expose a target resolver.
+    appdata_dir: Path | None = None
+    resolver = getattr(game, "_plugins_txt_target", None)
+    if callable(resolver):
+        try:
+            target = resolver()
+        except Exception:
+            target = None
+        if target is not None:
+            appdata_dir = Path(target).parent
+    if appdata_dir is None:
+        appdata_dir = Path(prefix) / appdata_sub
     if appdata_dir.is_dir():
         return True
     alert = CTkAlert(

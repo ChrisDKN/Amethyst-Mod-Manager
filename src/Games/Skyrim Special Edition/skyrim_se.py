@@ -261,8 +261,40 @@ class SkyrimSE(Fallout_3):
     # The Skyrim SE AppData folder inside the Proton prefix where the game
     # reads plugins.txt from.
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim Special Edition")
+    # GOG builds of Skyrim SE use a separate AppData folder. Used as a
+    # fallback when the Steam folder does not exist in the prefix.
+    _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/Skyrim Special Edition GOG")
     _MYGAMES_SUBPATH = Path("Skyrim Special Edition")
+    # GOG builds use a separate My Games folder.
+    _MYGAMES_SUBPATH_GOG = Path("Skyrim Special Edition GOG")
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
+
+    def _plugins_txt_target(self) -> "Path | None":
+        if self._prefix_path is None:
+            return None
+        steam_dir = self._prefix_path / self._APPDATA_SUBPATH
+        gog_dir   = self._prefix_path / self._APPDATA_SUBPATH_GOG
+        # Prefer whichever folder already exists. If only the GOG folder is
+        # present (GOG install), target it; otherwise fall back to the Steam
+        # folder (creating it if needed).
+        if not steam_dir.is_dir() and gog_dir.is_dir():
+            return gog_dir / "plugins.txt"
+        return steam_dir / "plugins.txt"
+
+    def _mygames_path(self) -> "Path | None":
+        if self._prefix_path is None:
+            return None
+        steam_dir = self._prefix_path / self._MYGAMES_DOCS / self._MYGAMES_SUBPATH
+        gog_dir   = self._prefix_path / self._MYGAMES_DOCS / self._MYGAMES_SUBPATH_GOG
+        if not steam_dir.is_dir() and gog_dir.is_dir():
+            return gog_dir
+        return steam_dir
+
+    def _get_archive_ini_path(self) -> "Path | None":
+        mygames = self._mygames_path()
+        if mygames is None:
+            return None
+        return mygames / self._ARCHIVE_INI_FILENAME
 
     # ShaderCache must be a real copy in Data/ — hard links prevent the game
     # from writing to it.  We round-trip it through the overwrite folder.
