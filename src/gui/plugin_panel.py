@@ -440,6 +440,20 @@ class PluginPanel(ctk.CTkFrame):
         # _update_archive_tab_visibility() when a BSA-using game loads.
 
     # ------------------------------------------------------------------
+    # Thread-safe after() — skips scheduling if the widget/Tk root is gone.
+    # Worker threads can race app shutdown; calling self.after() on a torn-down
+    # interpreter raises "main thread is not in main loop".
+    # ------------------------------------------------------------------
+
+    def _safe_after(self, delay, func):
+        try:
+            if not self.winfo_exists():
+                return
+            return self.after(delay, func)
+        except (RuntimeError, tk.TclError):
+            return None
+
+    # ------------------------------------------------------------------
     # Tab change handler — lazy refresh for expensive tabs
     # ------------------------------------------------------------------
 
@@ -653,7 +667,7 @@ class PluginPanel(ctk.CTkFrame):
                     exes.insert(0, _synthetic)
                     game_exe_path = _synthetic
 
-            self.after(0, lambda: self._apply_exe_list(exes, game_exe_path, _select_after))
+            self._safe_after(0, lambda: self._apply_exe_list(exes, game_exe_path, _select_after))
 
         import threading
         threading.Thread(target=_worker, daemon=True).start()
@@ -974,9 +988,9 @@ class PluginPanel(ctk.CTkFrame):
             if chosen is None:
                 # User cancelled — restore previous selection
                 if self._exe_paths:
-                    self.after(0, lambda: self._exe_var.set(self._exe_paths[0].name))
+                    self._safe_after(0, lambda: self._exe_var.set(self._exe_paths[0].name))
                 else:
-                    self.after(0, lambda: self._exe_var.set("(no executables)"))
+                    self._safe_after(0, lambda: self._exe_var.set("(no executables)"))
                 return
             existing = self._load_custom_exes()
             if chosen not in existing:
@@ -990,7 +1004,7 @@ class PluginPanel(ctk.CTkFrame):
                         self._on_exe_selected(p.name)
                         break
 
-            self.after(0, lambda: self.refresh_exe_list(_select_after=_after_refresh))
+            self._safe_after(0, lambda: self.refresh_exe_list(_select_after=_after_refresh))
 
         threading.Thread(
             target=_run_file_picker_worker,
@@ -1235,7 +1249,7 @@ class PluginPanel(ctk.CTkFrame):
 
         def _worker():
             def _tlog(msg):
-                self.after(0, lambda m=msg: self._log(m))
+                self._safe_after(0, lambda m=msg: self._log(m))
 
             try:
                 if getattr(game, "restore_before_deploy", True) and hasattr(game, "restore"):
@@ -1295,9 +1309,9 @@ class PluginPanel(ctk.CTkFrame):
                     game.swap_launcher(_tlog)
 
                 _tlog("Run EXE: deploy complete, launching…")
-                self.after(0, lambda: self._launch_exe(exe_path, game))
+                self._safe_after(0, lambda: self._launch_exe(exe_path, game))
             except Exception as e:
-                self.after(0, lambda err=e: self._log(f"Run EXE: deploy error: {err}"))
+                self._safe_after(0, lambda err=e: self._log(f"Run EXE: deploy error: {err}"))
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -1315,7 +1329,7 @@ class PluginPanel(ctk.CTkFrame):
                         stderr=subprocess.DEVNULL,
                     )
                 except Exception as e:
-                    self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
+                    self._safe_after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
             threading.Thread(target=_native_worker, daemon=True).start()
             return
 
@@ -1542,7 +1556,7 @@ class PluginPanel(ctk.CTkFrame):
                     stderr=subprocess.DEVNULL,
                 )
             except Exception as e:
-                self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
+                self._safe_after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -1587,7 +1601,7 @@ class PluginPanel(ctk.CTkFrame):
                 except Exception as e:
                     last_err = e
                     break
-            self.after(0, lambda err=last_err: self._log(f"Run EXE error: {err}"))
+            self._safe_after(0, lambda err=last_err: self._log(f"Run EXE error: {err}"))
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -1650,7 +1664,7 @@ class PluginPanel(ctk.CTkFrame):
             try:
                 xdg_open(url)
             except Exception as e:
-                self.after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
+                self._safe_after(0, lambda err=e: self._log(f"Run EXE error: {err}"))
 
         threading.Thread(target=_worker, daemon=True).start()
 
