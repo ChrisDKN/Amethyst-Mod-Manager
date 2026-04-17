@@ -4,7 +4,7 @@ Tooltip helper for plain tkinter widgets — compatible with X11 and Wayland.
 **Canvas / manual mode** — call :meth:`show` / :meth:`hide` directly::
 
     tip = TkTooltip(parent_widget, bg="#1a1a2e", fg="#ff6b6b")
-    tip.show(event.x_root, event.y_root, "Some text")   # debounced
+    tip.show(event.x_root, event.y_root, "Some text")
     tip.hide()
 
 **Widget-binding mode** — call :meth:`attach` once and let it manage
@@ -14,7 +14,14 @@ Tooltip helper for plain tkinter widgets — compatible with X11 and Wayland.
     tip.attach(some_widget, "Tooltip text")
 """
 
+from __future__ import annotations
+
 import tkinter as tk
+from typing import Callable, Union
+
+# A tk font spec: either a string ("TkDefaultFont"), a (family, size) tuple,
+# or (family, size, style) — matches what Tk.Label accepts.
+FontSpec = Union[str, tuple[str, int], tuple[str, int, str]]
 
 
 class TkTooltip:
@@ -44,7 +51,7 @@ class TkTooltip:
         *,
         bg: str = "#1a1a2e",
         fg: str = "#ff6b6b",
-        font: tuple = ("TkDefaultFont", 10),
+        font: FontSpec = ("TkDefaultFont", 10),
         wraplength: int = 350,
         padx: int = 8,
         pady: int = 4,
@@ -63,9 +70,9 @@ class TkTooltip:
         self._delay_ms = delay_ms
         self._jitter = jitter
 
-        self._win = None
+        self._win: tk.Toplevel | None = None
         self._text: str = ""
-        self._after_id = None
+        self._after_id: str | None = None
         self._trigger_x: int = 0
         self._trigger_y: int = 0
 
@@ -74,39 +81,32 @@ class TkTooltip:
     # ------------------------------------------------------------------
 
     def show(self, x: int, y: int, text: str) -> None:
-        """Schedule the tooltip to appear at screen coords (*x*, *y*).
+        """Show the tooltip at screen coords (*x*, *y*).
 
         Placement: to the left of the cursor (suits canvas column icons).
-        Mouse movement within *jitter* pixels of the trigger point with the
-        same text is ignored so the tooltip stays stable inside an element.
+        If the same text is already shown and the cursor has moved less than
+        *jitter* pixels, this is a no-op. If the text is already shown but the
+        cursor moved further, the window is repositioned in place (no flicker).
+        If the tooltip is already visible with different text, it swaps
+        instantly; otherwise the first appearance is debounced by *delay_ms*.
         """
-        if (self._text == text
+        if (self._win is not None
+                and self._text == text
                 and abs(x - self._trigger_x) <= self._jitter
                 and abs(y - self._trigger_y) <= self._jitter):
             return
 
-        if self._after_id is not None:
-            self._parent.after_cancel(self._after_id)
-            self._after_id = None
+        if self._win is not None and self._text == text:
+            self._trigger_x = x
+            self._trigger_y = y
+            tip_w = self._win.winfo_reqwidth()
+            self._win.wm_geometry(f"+{x - tip_w - 4}+{y + 8}")
+            return
 
-        if self._win is not None:
-            self._win.destroy()
-            self._win = None
-
-        self._text = text
+        self._schedule(text, lambda tw: self._place_left_of(tw, x, y),
+                       immediate=self._win is not None)
         self._trigger_x = x
         self._trigger_y = y
-
-        def _do_show() -> None:
-            self._after_id = None
-            tw = self._make_window(text)
-            tw.update_idletasks()
-            tip_w = tw.winfo_reqwidth()
-            tw.wm_geometry(f"+{x - tip_w - 4}+{y + 8}")
-            tw.deiconify()
-            self._win = tw
-
-        self._after_id = self._parent.after(self._delay_ms, _do_show)
 
     def attach(
         self,
@@ -136,35 +136,12 @@ class TkTooltip:
         def _enter(event: tk.Event) -> None:
             if self._win is not None and self._text == text:
                 return
-            if self._after_id is not None:
-                self._parent.after_cancel(self._after_id)
-                self._after_id = None
-            if self._win is not None:
-                self._win.destroy()
-                self._win = None
-                self._text = ""
             rx, ry = event.x_root, event.y_root
-
-            def _do_show() -> None:
-                self._after_id = None
-                tw = self._make_window(text)
-                tw.update_idletasks()
-                w = tw.winfo_reqwidth()
-                h = tw.winfo_reqheight()
-                sw = tw.winfo_screenwidth()
-                sh = tw.winfo_screenheight()
-                x = rx + offset_x
-                y = ry + offset_y
-                if x + w > sw:
-                    x = rx - w - offset_x
-                if y + h > sh:
-                    y = ry - h - offset_y
-                tw.wm_geometry(f"+{x}+{y}")
-                tw.deiconify()
-                self._win = tw
-                self._text = text
-
-            self._after_id = self._parent.after(self._delay_ms, _do_show)
+            self._schedule(
+                text,
+                lambda tw: self._place_clamped(tw, rx, ry, offset_x, offset_y),
+                immediate=False,
+            )
 
         def _leave(event: tk.Event) -> None:
             self.hide()
@@ -194,13 +171,71 @@ class TkTooltip:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _schedule(
+        self,
+        text: str,
+        place: Callable[[tk.Toplevel], None],
+        *,
+        immediate: bool,
+    ) -> None:
+        """Cancel any pending show and schedule a new one.
+
+        If *immediate* is True (tooltip is already visible — user is actively
+        hovering), swap now with no debounce. Otherwise wait *delay_ms* so a
+        fast fly-by doesn't flash a tooltip.
+        """
+        if self._after_id is not None:
+            self._parent.after_cancel(self._after_id)
+            self._after_id = None
+
+        self._text = text
+
+        def _do_show() -> None:
+            self._after_id = None
+            if self._win is not None:
+                self._win.destroy()
+            tw = self._make_window(text)
+            tw.update_idletasks()
+            place(tw)
+            tw.deiconify()
+            self._win = tw
+
+        if immediate:
+            _do_show()
+        else:
+            self._after_id = self._parent.after(self._delay_ms, _do_show)
+
+    def _place_left_of(self, tw: tk.Toplevel, x: int, y: int) -> None:
+        """Position *tw* to the left of (*x*, *y*) in screen coordinates."""
+        tip_w = tw.winfo_reqwidth()
+        tw.wm_geometry(f"+{x - tip_w - 4}+{y + 8}")
+
+    def _place_clamped(
+        self,
+        tw: tk.Toplevel,
+        rx: int,
+        ry: int,
+        offset_x: int,
+        offset_y: int,
+    ) -> None:
+        """Position *tw* near (*rx*, *ry*) with screen-edge clamping."""
+        w = tw.winfo_reqwidth()
+        h = tw.winfo_reqheight()
+        sw = tw.winfo_screenwidth()
+        sh = tw.winfo_screenheight()
+        x = rx + offset_x
+        y = ry + offset_y
+        if x + w > sw:
+            x = rx - w - offset_x
+        if y + h > sh:
+            y = ry - h - offset_y
+        tw.wm_geometry(f"+{x}+{y}")
+
     def _make_window(self, text: str) -> tk.Toplevel:
         """Create and return a withdrawn, decorated Toplevel (not yet placed)."""
         tw = tk.Toplevel(self._parent)
         tw.withdraw()
         tw.wm_overrideredirect(True)
-        # Tell Wayland/XWayland compositors this is a tooltip so it is
-        # never given input focus (prevents Leave-event flicker on Hyprland).
         try:
             tw.wm_attributes("-type", "tooltip")
         except tk.TclError:

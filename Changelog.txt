@@ -1,3 +1,12 @@
+- v1.2.8
+- Added new conflict icons, The modlist rows are slightly taller to make them more visible.
+- Toml files are now displayed in the ini files tab
+- Added a search bar to the archive tab
+- NXM download/collection links for Skyrim/Skyrim SE no longer kick you off Enderal/Enderal SE
+- Added loot messages,requirements and incompatibilities as a flag in the plugins panel.
+- Check Updates now also syncs endorsement status from nexus
+- Paths in the game configure menu can now be typed in
+
 - v1.2.7
 - Added aggregated flags to the separators, collapsed separators now show flags/conflicts of mods in them
 - Fixed infinite loading screen in add game menu on first run

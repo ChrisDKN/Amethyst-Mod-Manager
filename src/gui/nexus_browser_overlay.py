@@ -40,6 +40,7 @@ from gui.theme import (
     FONT_BOLD,
     FONT_NORMAL,
     FONT_SMALL,
+    load_icon,
     scaled,
 )
 
@@ -437,8 +438,11 @@ class NexusBrowserOverlay(tk.Frame):
         ).pack(side="left", padx=(12, 6), pady=5)
 
         if self._on_open_settings:
+            _settings_icon = load_icon("settings.png", size=(16, 16))
             ctk.CTkButton(
-                toolbar, text="⚙ Settings", width=100, height=30,
+                toolbar, text="Settings" if _settings_icon else "⚙ Settings",
+                image=_settings_icon, compound="left",
+                width=100, height=30,
                 fg_color="#da8e35", hover_color="#e5a04a", text_color="white",
                 font=FONT_BOLD, command=self._on_open_settings,
             ).pack(side="left", padx=(0, 6), pady=5)

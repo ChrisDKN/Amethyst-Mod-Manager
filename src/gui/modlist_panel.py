@@ -223,7 +223,7 @@ class ModListPanel(ctk.CTkFrame):
     This gives smooth scrolling and instant load for large mod lists.
     """
 
-    ROW_H   = scaled(26)
+    ROW_H   = scaled(30)
     HEADERS = ["", "Mod Name", "Flags", "Conflicts", "Installed", "Priority"]
     # x-start of each logical column (checkbox, name, flags, conflicts, installed, priority)
     # Computed dynamically in _layout_columns(); defaults here.
@@ -258,19 +258,30 @@ class ModListPanel(ctk.CTkFrame):
         self._icon_plus: ImageTk.PhotoImage | None = None
         self._icon_minus: ImageTk.PhotoImage | None = None
         self._icon_cross: ImageTk.PhotoImage | None = None
-        _plus_path = _ICONS_DIR / "plus.png"
-        _minus_path = _ICONS_DIR / "minus.png"
-        _cross_path = _ICONS_DIR / "cross.png"
-        _icon_sz = scaled(14)
-        if _plus_path.is_file():
-            self._icon_plus = ImageTk.PhotoImage(
-                PilImage.open(_plus_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
-        if _minus_path.is_file():
-            self._icon_minus = ImageTk.PhotoImage(
-                PilImage.open(_minus_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
-        if _cross_path.is_file():
-            self._icon_cross = ImageTk.PhotoImage(
-                PilImage.open(_cross_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
+        self._icon_conflict_mixed: ImageTk.PhotoImage | None = None
+        self._icon_bsa_winner: ImageTk.PhotoImage | None = None
+        self._icon_bsa_loser: ImageTk.PhotoImage | None = None
+        self._icon_bsa_mixed: ImageTk.PhotoImage | None = None
+        self._icon_bsa_redundant: ImageTk.PhotoImage | None = None
+        _icon_sz = scaled(18)
+        _lock_icon_sz = scaled(14)
+        _conflict_icon_sz = scaled(24)
+
+        def _load_conflict(filename: str) -> ImageTk.PhotoImage | None:
+            p = _ICONS_DIR / filename
+            if not p.is_file():
+                return None
+            return ImageTk.PhotoImage(
+                PilImage.open(p).convert("RGBA").resize((_conflict_icon_sz, _conflict_icon_sz), PilImage.LANCZOS))
+
+        self._icon_plus  = _load_conflict("conflict-winner.png") or _load_conflict("plus.png")
+        self._icon_minus = _load_conflict("conflict-loser.png")  or _load_conflict("minus.png")
+        self._icon_cross = _load_conflict("conflict-redundant.png") or _load_conflict("cross.png")
+        self._icon_conflict_mixed = _load_conflict("conflict-mixed.png")
+        self._icon_bsa_winner    = _load_conflict("archive-conflict-winner.png")
+        self._icon_bsa_loser     = _load_conflict("archive-conflict-loser.png")
+        self._icon_bsa_mixed     = _load_conflict("archive-conflict-mixed.png")
+        self._icon_bsa_redundant = _load_conflict("archive-conflict-redundant.png")
 
         # Update-available icon
         self._icon_update: ImageTk.PhotoImage | None = None
@@ -295,7 +306,7 @@ class ModListPanel(ctk.CTkFrame):
 
         # Endorsed mod tick icon
         self._icon_endorsed: ImageTk.PhotoImage | None = None
-        _tick_path = _ICONS_DIR / "tick.png"
+        _tick_path = _ICONS_DIR / "endorsed.png"
         if _tick_path.is_file():
             self._icon_endorsed = ImageTk.PhotoImage(
                 PilImage.open(_tick_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
@@ -330,7 +341,7 @@ class ModListPanel(ctk.CTkFrame):
         _lock_path = _ICONS_DIR / "lock.png"
         if _lock_path.is_file():
             self._icon_lock = ImageTk.PhotoImage(
-                PilImage.open(_lock_path).convert("RGBA").resize((_icon_sz, _icon_sz), PilImage.LANCZOS))
+                PilImage.open(_lock_path).convert("RGBA").resize((_lock_icon_sz, _lock_icon_sz), PilImage.LANCZOS))
 
         # Set of mod names that have a Nexus update available
         self._update_mods: set[str] = set()
@@ -497,8 +508,8 @@ class ModListPanel(ctk.CTkFrame):
         self._pool_flag_star: list[int] = []         # text canvas item ids (lock star in flags column)
         self._pool_conflict_icon1: list[int] = []    # image canvas item ids (conflict col left)
         self._pool_conflict_icon2: list[int] = []    # image canvas item ids (conflict col right)
-        self._pool_bsa_dot1: list[int] = []          # oval canvas item ids (BSA conflict dot, primary)
-        self._pool_bsa_dot2: list[int] = []          # oval canvas item ids (BSA conflict dot, secondary for PARTIAL)
+        self._pool_bsa_dot1: list[int] = []          # image canvas item ids (BSA conflict icon, primary)
+        self._pool_bsa_dot2: list[int] = []          # image canvas item ids (BSA conflict icon, secondary, unused)
         self._pool_bsa_sep:  list[int] = []          # line canvas item ids (small separator between loose icons and BSA dots)
         self._pool_category_text: list[int] = []     # text canvas item ids (category)
         self._pool_install_text: list[int] = []      # text canvas item ids (install date)
@@ -598,7 +609,7 @@ class ModListPanel(ctk.CTkFrame):
         self._new_profile_entry.bind("<Escape>", lambda _e: self.hide_new_profile_bar())
 
         self._new_profile_specific_mods_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
+        _specific_cb = ctk.CTkCheckBox(
             bar,
             text="Use Profile Specific Mods",
             variable=self._new_profile_specific_mods_var,
@@ -609,7 +620,13 @@ class ModListPanel(ctk.CTkFrame):
             border_color=BORDER,
             checkmark_color="white",
             width=22, height=22,
-        ).pack(side="left", padx=(0, 12), pady=6)
+        )
+        _specific_cb.pack(side="left", padx=(0, 12), pady=6)
+        self._tooltip.attach(
+            _specific_cb,
+            "Profiles with this setting use their own mods folders",
+            offset_x=scaled(12), offset_y=scaled(12),
+        )
 
         ctk.CTkButton(
             bar, text="Create", width=72, height=26, font=_theme.FONT_BOLD,
@@ -1989,9 +2006,9 @@ class ModListPanel(ctk.CTkFrame):
             # Conflict icons (left slot and right slot)
             conf1_id = c.create_image(0, -200, anchor="center", state="hidden")
             conf2_id = c.create_image(0, -200, anchor="center", state="hidden")
-            # BSA conflict dots (colored ovals — placeholder icons for archive-level conflicts)
-            bsa_dot1_id = c.create_oval(0, -200, 0, -200, fill="", outline="", state="hidden")
-            bsa_dot2_id = c.create_oval(0, -200, 0, -200, fill="", outline="", state="hidden")
+            # BSA conflict icons (images — archive-level conflict indicators)
+            bsa_dot1_id = c.create_image(0, -200, anchor="center", state="hidden")
+            bsa_dot2_id = c.create_image(0, -200, anchor="center", state="hidden")
             # Small vertical separator between loose-file icons and BSA dots
             bsa_sep_id = c.create_line(0, -200, 0, -200, fill=BORDER, width=1, state="hidden")
             # Category text
@@ -2118,8 +2135,8 @@ class ModListPanel(ctk.CTkFrame):
         _FONT_SEP_BOLD = (_theme.FONT_FAMILY, _theme.FS10, "bold")
         _FONT_SMALL = (_theme.FONT_FAMILY, _theme.FS10)
         _FONT_TINY = (_theme.FONT_FAMILY, _theme.FS9)
-        _FONT_CHECK = (_theme.FONT_FAMILY, _theme.FS12, "bold")
-        _FONT_RADIO = (_theme.FONT_FAMILY, _theme.FS13, "bold")
+        _FONT_CHECK = (_theme.FONT_FAMILY, int(_theme.FS13 * 1.25), "bold")
+        _FONT_RADIO = (_theme.FONT_FAMILY, int(_theme.FS13 * 1.25), "bold")
         _FONT_STAR = (_theme.FONT_FAMILY, _theme.FS11)
 
         # Indices currently being dragged — suppress _sel_set highlight for these
@@ -2466,18 +2483,9 @@ class ModListPanel(ctk.CTkFrame):
                         if _has_loose and _has_bsa:
                             _sep_x = cx_center
                             _GAP = scaled(6)
-                            _ICON_HALF = scaled(7)
-                            if _agg_conflict == CONFLICT_PARTIAL:
-                                _lh = scaled(8) + _ICON_HALF
-                            else:
-                                _lh = _ICON_HALF
-                            _loose_cx = _sep_x - _GAP - _lh
-                            _DOT_R = scaled(4)
-                            if _agg_bsa == CONFLICT_PARTIAL:
-                                _bh = scaled(5) + _DOT_R
-                            else:
-                                _bh = _DOT_R
-                            _bsa_cx = _sep_x + _GAP + _bh
+                            _ICON_HALF = scaled(12)
+                            _loose_cx = _sep_x - _GAP - _ICON_HALF
+                            _bsa_cx = _sep_x + _GAP + _ICON_HALF
                         else:
                             _loose_cx = cx_center
                             _bsa_cx = cx_center
@@ -2492,51 +2500,30 @@ class ModListPanel(ctk.CTkFrame):
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_minus, state="normal")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
-                        elif _agg_conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
-                            c.coords(self._pool_conflict_icon1[s], _loose_cx - scaled(8), y_mid)
+                        elif _agg_conflict == CONFLICT_PARTIAL and self._icon_conflict_mixed:
+                            c.coords(self._pool_conflict_icon1[s], _loose_cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
-                                            image=self._icon_minus, state="normal")
-                            c.coords(self._pool_conflict_icon2[s], _loose_cx + scaled(8), y_mid)
-                            c.itemconfigure(self._pool_conflict_icon2[s],
-                                            image=self._icon_plus, state="normal")
+                                            image=self._icon_conflict_mixed, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                         else:
                             c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
 
+                        _agg_bsa_icon = None
                         if _has_bsa:
-                            _dr = scaled(4)
                             if _agg_bsa == CONFLICT_WINS:
-                                _color = "#4caf50"
-                                c.coords(self._pool_bsa_dot1[s],
-                                         _bsa_cx - _dr, y_mid - _dr, _bsa_cx + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill=_color, outline=_color, state="normal")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                                _agg_bsa_icon = self._icon_bsa_winner
                             elif _agg_bsa == CONFLICT_LOSES:
-                                _color = "#f44336"
-                                c.coords(self._pool_bsa_dot1[s],
-                                         _bsa_cx - _dr, y_mid - _dr, _bsa_cx + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill=_color, outline=_color, state="normal")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                                _agg_bsa_icon = self._icon_bsa_loser
                             elif _agg_bsa == CONFLICT_PARTIAL:
-                                _off = scaled(5)
-                                c.coords(self._pool_bsa_dot1[s],
-                                         _bsa_cx - _off - _dr, y_mid - _dr,
-                                         _bsa_cx - _off + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill="#f44336", outline="#f44336", state="normal")
-                                c.coords(self._pool_bsa_dot2[s],
-                                         _bsa_cx + _off - _dr, y_mid - _dr,
-                                         _bsa_cx + _off + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot2[s],
-                                                fill="#4caf50", outline="#4caf50", state="normal")
-                            else:
-                                c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                                _agg_bsa_icon = self._icon_bsa_mixed
+                        if _agg_bsa_icon is not None:
+                            c.coords(self._pool_bsa_dot1[s], _bsa_cx, y_mid)
+                            c.itemconfigure(self._pool_bsa_dot1[s],
+                                            image=_agg_bsa_icon, state="normal")
                         else:
                             c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
-                            c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
 
                         if _has_loose and _has_bsa:
                             _sh = scaled(7)
@@ -2591,7 +2578,7 @@ class ModListPanel(ctk.CTkFrame):
                             _seen_flag.add("star")
 
                         # Render aggregated flags (same layout as mod rows)
-                        _FLAG_ICON_SPACING = 18
+                        _FLAG_ICON_SPACING = scaled(22)
                         _flag_slots = [
                             (self._pool_flag_icon[s], "img"),
                             (self._pool_flag_icon2[s], "img"),
@@ -2652,7 +2639,7 @@ class ModListPanel(ctk.CTkFrame):
                         _visited_lock_keys.add(rf_key)
                         checked_rf = entry.enabled
                         cb_cx = self._COL_X[0] + scaled(12)
-                        cb_size = scaled(14)
+                        cb_size = scaled(18)
                         x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                         x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                         if rf_key not in self._lock_cb_rects:
@@ -2822,7 +2809,7 @@ class ModListPanel(ctk.CTkFrame):
                         _flags.append(("img", self._icon_root_folder))
 
                     # Lay out flags left-aligned inside the flags column (icon spacing = 18px)
-                    _FLAG_ICON_SPACING = 18
+                    _FLAG_ICON_SPACING = scaled(22)
                     _flag_slots = [
                         (self._pool_flag_icon[s], "img"),
                         (self._pool_flag_icon2[s], "img"),
@@ -2878,21 +2865,10 @@ class ModListPanel(ctk.CTkFrame):
                         # pick loose_cx/bsa_cx per-variant based on the group's half-width.
                         if has_loose and has_bsa:
                             sep_x = cx_center
-                            GAP = scaled(6)         # visible gap between icon/dot edge and separator
-                            _ICON_HALF = scaled(7)  # half-width of a conflict icon
-                            # Loose group half-width on the side facing the separator:
-                            if conflict == CONFLICT_PARTIAL:
-                                _loose_half = scaled(8) + _ICON_HALF  # rightmost icon at +8
-                            else:
-                                _loose_half = _ICON_HALF
-                            loose_cx = sep_x - GAP - _loose_half
-                            # BSA group half-width on the side facing the separator:
-                            _DOT_R = scaled(4)
-                            if bsa_conflict == CONFLICT_PARTIAL:
-                                _bsa_half = scaled(5) + _DOT_R  # leftmost dot at -5
-                            else:
-                                _bsa_half = _DOT_R
-                            bsa_cx = sep_x + GAP + _bsa_half
+                            GAP = scaled(6)         # visible gap between icon edge and separator
+                            _ICON_HALF = scaled(12)  # half-width of a conflict icon
+                            loose_cx = sep_x - GAP - _ICON_HALF
+                            bsa_cx   = sep_x + GAP + _ICON_HALF
                         else:
                             loose_cx = cx_center
                             bsa_cx   = cx_center
@@ -2908,13 +2884,11 @@ class ModListPanel(ctk.CTkFrame):
                             c.itemconfigure(self._pool_conflict_icon1[s],
                                             image=self._icon_minus, state="normal")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
-                        elif conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
-                            c.coords(self._pool_conflict_icon1[s], loose_cx - scaled(8), y_mid)
+                        elif conflict == CONFLICT_PARTIAL and self._icon_conflict_mixed:
+                            c.coords(self._pool_conflict_icon1[s], loose_cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
-                                            image=self._icon_minus, state="normal")
-                            c.coords(self._pool_conflict_icon2[s], loose_cx + scaled(8), y_mid)
-                            c.itemconfigure(self._pool_conflict_icon2[s],
-                                            image=self._icon_plus, state="normal")
+                                            image=self._icon_conflict_mixed, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
                         elif conflict == CONFLICT_FULL and self._icon_cross:
                             c.coords(self._pool_conflict_icon1[s], loose_cx, y_mid)
                             c.itemconfigure(self._pool_conflict_icon1[s],
@@ -2924,49 +2898,24 @@ class ModListPanel(ctk.CTkFrame):
                             c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
 
-                        # --- BSA dots ---
+                        # --- BSA icons ---
+                        _bsa_icon = None
                         if has_bsa:
-                            _dr = scaled(4)  # dot radius
                             if bsa_conflict == CONFLICT_WINS:
-                                _color = "#4caf50"  # green
-                                c.coords(self._pool_bsa_dot1[s],
-                                         bsa_cx - _dr, y_mid - _dr, bsa_cx + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill=_color, outline=_color, state="normal")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                                _bsa_icon = self._icon_bsa_winner
                             elif bsa_conflict == CONFLICT_LOSES:
-                                _color = "#f44336"  # red
-                                c.coords(self._pool_bsa_dot1[s],
-                                         bsa_cx - _dr, y_mid - _dr, bsa_cx + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill=_color, outline=_color, state="normal")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                                _bsa_icon = self._icon_bsa_loser
                             elif bsa_conflict == CONFLICT_PARTIAL:
-                                # Red + green side by side
-                                _off = scaled(5)
-                                c.coords(self._pool_bsa_dot1[s],
-                                         bsa_cx - _off - _dr, y_mid - _dr,
-                                         bsa_cx - _off + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill="#f44336", outline="#f44336", state="normal")
-                                c.coords(self._pool_bsa_dot2[s],
-                                         bsa_cx + _off - _dr, y_mid - _dr,
-                                         bsa_cx + _off + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot2[s],
-                                                fill="#4caf50", outline="#4caf50", state="normal")
+                                _bsa_icon = self._icon_bsa_mixed
                             elif bsa_conflict == CONFLICT_FULL:
-                                _color = "#ffffff"  # white
-                                c.coords(self._pool_bsa_dot1[s],
-                                         bsa_cx - _dr, y_mid - _dr, bsa_cx + _dr, y_mid + _dr)
-                                c.itemconfigure(self._pool_bsa_dot1[s],
-                                                fill=_color, outline=_color, state="normal")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
-                            else:
-                                c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
-                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                                _bsa_icon = self._icon_bsa_redundant
+                        if _bsa_icon is not None:
+                            c.coords(self._pool_bsa_dot1[s], bsa_cx, y_mid)
+                            c.itemconfigure(self._pool_bsa_dot1[s],
+                                            image=_bsa_icon, state="normal")
                         else:
                             c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
-                            c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
 
                         # --- Separator between loose icons and BSA dots ---
                         if has_loose and has_bsa:
@@ -3021,7 +2970,7 @@ class ModListPanel(ctk.CTkFrame):
                         if is_bundle_variant:
                             # Invisible hit-area rect filled with the row bg colour so it
                             # still receives mouse events (fill="" / outline="" rects do not).
-                            cb_size = scaled(14)
+                            cb_size = scaled(18)
                             x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                             x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                             c.coords(self._pool_cb_rect[s], x1, y1, x2, y2)
@@ -3034,7 +2983,7 @@ class ModListPanel(ctk.CTkFrame):
                                             font=_FONT_RADIO,
                                             state="normal")
                         else:
-                            cb_size = scaled(14)
+                            cb_size = scaled(18)
                             x1, y1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                             x2, y2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                             c.coords(self._pool_cb_rect[s], x1, y1, x2, y2)
@@ -3793,7 +3742,7 @@ class ModListPanel(ctk.CTkFrame):
             _FLAG_X = self._COL_X[flag_slot]
             _FLAG_W = self._COL_W[flag_slot]
             if _FLAG_X <= event.x < _FLAG_X + _FLAG_W:
-                _FLAG_ICON_SPACING = 18
+                _FLAG_ICON_SPACING = scaled(22)
                 _HIT_RADIUS = _FLAG_ICON_SPACING // 2
                 has_missing = (entry.name in self._missing_reqs
                                and entry.name not in self._ignored_missing_reqs)
@@ -4534,7 +4483,7 @@ class ModListPanel(ctk.CTkFrame):
             entry = self._entries[vis[row]]
             if not entry.is_separator:
                 # Build the same ordered flag list as _redraw()
-                _FLAG_ICON_SPACING = 18
+                _FLAG_ICON_SPACING = scaled(22)
                 _HIT_RADIUS = _FLAG_ICON_SPACING // 2
                 _flag_tooltips: list[tuple[int, str]] = []  # (center_x, tooltip_text)
                 _flag_x_start: int = 0
@@ -4569,6 +4518,8 @@ class ModListPanel(ctk.CTkFrame):
                                    if missing else "Missing requirements")
                         elif _kind == "update":
                             tip = "Update available on Nexus Mods"
+                        elif _kind == "endorsed":
+                            tip = "Endorsed"
                         elif _kind == "prertx":
                             tip = "Pre-RTX mod"
                         elif _kind == "disabled_files":
@@ -4618,6 +4569,21 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         tip = f"BSA conflict - {_conflict_label[bsa]}"
                     self._tooltip.show(event.x_root, event.y_root, tip)
+                    return
+
+        # Show tooltip when hovering over the separator lock checkbox.
+        if 0 <= row < len(vis):
+            entry = self._entries[vis[row]]
+            if entry.is_separator and entry.name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
+                cw = self._canvas_w
+                lock_w = scaled(28)
+                lk_cx = cw - lock_w - scaled(8) + lock_w // 2
+                cb_size2 = scaled(14)
+                if abs(x - lk_cx) <= cb_size2 // 2 + scaled(2):
+                    self._tooltip.show(
+                        event.x_root, event.y_root,
+                        "Lock Separator - Mods in this separator are attached to it",
+                    )
                     return
 
         self._tooltip.hide()
@@ -8056,6 +8022,11 @@ class ModListPanel(ctk.CTkFrame):
             pp = getattr(self.winfo_toplevel(), "_plugin_panel", None)
             if pp is not None:
                 pp._bsa_conflict_cache = None
+                # Re-render (or mark dirty) so the Archive tab reflects the
+                # freshly built bsa_index — it may have gone from "no index"
+                # to "all archives" after this rebuild.
+                if hasattr(pp, "show_mod_archives"):
+                    pp.show_mod_archives(pp._archive_mod_name)
 
         threading.Thread(target=_worker, daemon=True).start()
 

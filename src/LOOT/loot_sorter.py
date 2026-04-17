@@ -19,11 +19,12 @@ Game support is driven by the game handler's properties:
 
 from __future__ import annotations
 
+import json
 import shutil
 import time
 import urllib.request
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:
     import LOOT.loot as loot
@@ -119,6 +120,195 @@ class SortResult:
     sorted_names: list[str]
     moved_count: int
     warnings: list[str]
+    # plugin name (original case) -> {
+    #   "messages":        list[{"type","text"}],
+    #   "requirements":    list[{"name","display_name","detail"}],
+    #   "incompatibilities": list[{"name","display_name","detail"}],
+    #   "locations":       list[{"name","url"}],
+    # }
+    # Populated from evaluated masterlist/userlist metadata (conditions applied).
+    plugin_info: dict[str, dict] = field(default_factory=dict)
+    # General (masterlist-wide) messages: list[{"type","text"}].
+    general_messages: list[dict] = field(default_factory=list)
+
+
+_MESSAGE_TYPE_NAMES = {
+    0: "say",
+    1: "warn",
+    2: "error",
+}
+
+
+def _msg_type_name(mt) -> str:
+    """Map a libloot MessageType enum to a lowercase string."""
+    try:
+        return _MESSAGE_TYPE_NAMES.get(int(mt), "say")
+    except (TypeError, ValueError):
+        name = getattr(mt, "name", str(mt)).lower()
+        if name in ("say", "warn", "error"):
+            return name
+        return "say"
+
+
+def _extract_message_text(message, language: str = "en") -> str:
+    """Pick the best-matching localised string out of a libloot Message."""
+    contents = list(message.content) if message.content else []
+    if not contents:
+        return ""
+    picked = None
+    try:
+        picked = loot.select_message_content(contents, language)
+    except Exception:
+        picked = None
+    if picked is None:
+        for c in contents:
+            if getattr(c, "language", "") in (language, "en", ""):
+                picked = c
+                break
+        if picked is None:
+            picked = contents[0]
+    return getattr(picked, "text", "") or ""
+
+
+def _render_messages(msgs, language: str = "en") -> list[dict]:
+    rendered: list[dict] = []
+    for m in msgs or []:
+        text = _extract_message_text(m, language)
+        if not text:
+            continue
+        rendered.append({
+            "type": _msg_type_name(m.message_type),
+            "text": text,
+        })
+    return rendered
+
+
+def _render_file_list(files) -> list[dict]:
+    """Render a libloot File list (requirements / incompatibilities)."""
+    out: list[dict] = []
+    for f in files or []:
+        # File.name is a Filename type; str() gives the plugin/file string.
+        name = str(getattr(f, "name", "") or "")
+        display = getattr(f, "display_name", "") or ""
+        detail_msgs = getattr(f, "detail", None)
+        # detail is a list[MessageContent] — pick best-match language.
+        detail_text = ""
+        if detail_msgs:
+            try:
+                picked = loot.select_message_content(list(detail_msgs), "en")
+            except Exception:
+                picked = None
+            if picked is None and detail_msgs:
+                picked = list(detail_msgs)[0]
+            if picked is not None:
+                detail_text = getattr(picked, "text", "") or ""
+        out.append({
+            "name": name,
+            "display_name": display or name,
+            "detail": detail_text,
+        })
+    return out
+
+
+def _render_locations(locs) -> list[dict]:
+    out: list[dict] = []
+    for l in locs or []:
+        name = getattr(l, "name", "") or ""
+        url = getattr(l, "url", "") or ""
+        if not url:
+            continue
+        out.append({"name": name or url, "url": url})
+    return out
+
+
+def _collect_plugin_info(
+    db,
+    plugin_names: list[str],
+    language: str = "en",
+) -> dict[str, dict]:
+    """Collect evaluated masterlist/userlist metadata for each plugin.
+
+    Returns a mapping of plugin name -> info dict (see SortResult.plugin_info).
+    Only plugins that have at least one non-empty field are included.
+    """
+    out: dict[str, dict] = {}
+    for name in plugin_names:
+        try:
+            meta = db.plugin_metadata(name, True, True)
+        except Exception:
+            continue
+        if meta is None:
+            continue
+
+        messages = _render_messages(meta.messages, language)
+        requirements = _render_file_list(meta.requirements)
+        incompatibilities = _render_file_list(meta.incompatibilities)
+        locations = _render_locations(meta.locations)
+
+        if not (messages or requirements or incompatibilities or locations):
+            continue
+
+        info: dict = {}
+        if messages:
+            info["messages"] = messages
+        if requirements:
+            info["requirements"] = requirements
+        if incompatibilities:
+            info["incompatibilities"] = incompatibilities
+        if locations:
+            info["locations"] = locations
+        out[name] = info
+    return out
+
+
+def _collect_general_messages(db, language: str = "en") -> list[dict]:
+    try:
+        gen = db.general_messages(True)
+    except Exception:
+        return []
+    out: list[dict] = []
+    for m in gen or []:
+        text = _extract_message_text(m, language)
+        if not text:
+            continue
+        out.append({"type": _msg_type_name(m.message_type), "text": text})
+    return out
+
+
+def write_loot_info(
+    profile_dir: Path,
+    plugin_info: dict[str, dict],
+    general_messages: list[dict],
+    game_id: str = "",
+) -> None:
+    """Persist evaluated LOOT metadata to <profile_dir>/loot.json (atomic).
+
+    Schema v2: plugin_info values are dicts {messages, dirty, requirements,
+    incompatibilities, locations}. Fields are omitted when empty.
+    """
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": 2,
+        "generated_at": int(time.time()),
+        "game_id": game_id,
+        "general_messages": general_messages,
+        "plugins": plugin_info,
+    }
+    dest = profile_dir / "loot.json"
+    tmp = dest.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(dest)
+
+
+def read_loot_info(profile_dir: Path) -> dict:
+    """Read loot.json from a profile dir. Returns empty dict on any failure."""
+    path = profile_dir / "loot.json"
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 
 def _find_plugin_paths(
@@ -369,10 +559,32 @@ def sort_plugins(
         )
 
         _log(f"Sort complete. {moved} plugin(s) changed position.")
+
+        # CRC-based filtering of dirty_info was tried but required a full
+        # plugin-body load (game.load_plugins) that scales with total plugin
+        # size — unacceptably slow for real profiles. We now skip CRC matching
+        # and render every masterlist dirty entry; tooltips get noisier for
+        # plugins with many known CRCs but sort stays fast.
+
+        # Collect evaluated metadata for every plugin. Conditions are evaluated
+        # against the plugin headers we just loaded, so this reflects the live
+        # state of the current profile.
+        try:
+            plugin_info = _collect_plugin_info(db, sortable)
+            general_msgs = _collect_general_messages(db)
+            if plugin_info:
+                _log(f"Collected LOOT metadata for {len(plugin_info)} plugin(s).")
+        except Exception as e:
+            plugin_info = {}
+            general_msgs = []
+            warnings.append(f"Could not collect LOOT metadata: {e}")
+
         return SortResult(
             sorted_names=sorted_names,
             moved_count=moved,
             warnings=warnings,
+            plugin_info=plugin_info,
+            general_messages=general_msgs,
         )
     finally:
         for _sym in _temp_data_symlinks:

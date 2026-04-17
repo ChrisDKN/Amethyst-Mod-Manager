@@ -666,12 +666,31 @@ class App(ctk.CTk):
         if mod_panel:
             mod_panel.show_download_progress("Downloading...", cancel=cancel_event)
 
+        # Enderal can install Skyrim mods; Enderal SE can install Skyrim SE mods.
+        # If the user is already on Enderal(SE) and the link is for the
+        # Skyrim(SE) counterpart, stay on Enderal instead of switching away.
+        _ENDERAL_ACCEPTS = {
+            "enderal": "skyrim",
+            "enderalspecialedition": "skyrimspecialedition",
+        }
+        current_name = self._topbar._game_var.get()
+        current_game = _GAMES.get(current_name)
+        current_domain = getattr(current_game, "nexus_game_domain", "") if current_game else ""
+        stay_on_current = (
+            current_game is not None
+            and current_game.is_configured()
+            and _ENDERAL_ACCEPTS.get(current_domain) == link.game_domain
+        )
+
         # Try to auto-select the matching game
         matched_game = None
-        for name, game in _GAMES.items():
-            if game.nexus_game_domain == link.game_domain and game.is_configured():
-                matched_game = (name, game)
-                break
+        if stay_on_current:
+            matched_game = (current_name, current_game)
+        else:
+            for name, game in _GAMES.items():
+                if game.nexus_game_domain == link.game_domain and game.is_configured():
+                    matched_game = (name, game)
+                    break
 
         if matched_game:
             current = self._topbar._game_var.get()
@@ -726,12 +745,30 @@ class App(ctk.CTk):
         log = self._status.log
         log(f"Nexus: Opening collection '{coll_link.slug}' from {coll_link.game_domain}")
 
+        # Enderal can use Skyrim collections; keep the user on Enderal(SE) if
+        # they're already there and the collection is for the Skyrim counterpart.
+        _ENDERAL_ACCEPTS = {
+            "enderal": "skyrim",
+            "enderalspecialedition": "skyrimspecialedition",
+        }
+        current_name = self._topbar._game_var.get()
+        current_game = _GAMES.get(current_name)
+        current_domain = getattr(current_game, "nexus_game_domain", "") if current_game else ""
+        stay_on_current = (
+            current_game is not None
+            and current_game.is_configured()
+            and _ENDERAL_ACCEPTS.get(current_domain) == coll_link.game_domain
+        )
+
         # Find the game matching the collection's domain
         matched_game = None
-        for name, game in _GAMES.items():
-            if game.nexus_game_domain == coll_link.game_domain and game.is_configured():
-                matched_game = (name, game)
-                break
+        if stay_on_current:
+            matched_game = (current_name, current_game)
+        else:
+            for name, game in _GAMES.items():
+                if game.nexus_game_domain == coll_link.game_domain and game.is_configured():
+                    matched_game = (name, game)
+                    break
 
         if not matched_game:
             log(f"Nexus: No configured game found for domain '{coll_link.game_domain}' — cannot open collection.")

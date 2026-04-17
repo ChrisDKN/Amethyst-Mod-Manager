@@ -207,9 +207,12 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._path_box = ctk.CTkTextbox(
             body, height=scaled(42), font=FONT_MONO,
             fg_color=BG_ROW, text_color=TEXT_MAIN,
-            state="disabled", wrap="none", corner_radius=4
+            wrap="none", corner_radius=4
         )
         self._path_box.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 2))
+        self._path_box.bind("<FocusOut>", lambda _e: self._on_path_typed())
+        self._path_box.bind("<Return>", self._on_path_return)
+        self._bind_select_all(self._path_box)
 
         _path_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
         _path_btn_frame.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 8))
@@ -259,9 +262,16 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._prefix_box = ctk.CTkTextbox(
             body, height=scaled(42), font=FONT_MONO,
             fg_color=BG_ROW, text_color=TEXT_MAIN,
-            state="disabled", wrap="none", corner_radius=4
+            wrap="none", corner_radius=4
         )
         self._prefix_box.grid(row=7, column=0, sticky="ew", padx=16, pady=(0, 2))
+        self._prefix_box_editable = _has_prefix_source
+        if _has_prefix_source:
+            self._prefix_box.bind("<FocusOut>", lambda _e: self._on_prefix_typed())
+            self._prefix_box.bind("<Return>", self._on_prefix_return)
+            self._bind_select_all(self._prefix_box)
+        else:
+            self._prefix_box.configure(state="disabled")
 
         _prefix_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
         _prefix_btn_frame.grid(row=8, column=0, sticky="w", padx=16, pady=(0, 6))
@@ -301,9 +311,12 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._staging_box = ctk.CTkTextbox(
             body, height=scaled(42), font=FONT_MONO,
             fg_color=BG_ROW, text_color=TEXT_MAIN,
-            state="disabled", wrap="none", corner_radius=4
+            wrap="none", corner_radius=4
         )
         self._staging_box.grid(row=12, column=0, sticky="ew", padx=16, pady=(0, 2))
+        self._staging_box.bind("<FocusOut>", lambda _e: self._on_staging_typed())
+        self._staging_box.bind("<Return>", self._on_staging_return)
+        self._bind_select_all(self._staging_box)
 
         _staging_btn_frame = ctk.CTkFrame(body, fg_color="transparent")
         _staging_btn_frame.grid(row=13, column=0, sticky="w", padx=16, pady=(0, 6))
@@ -640,11 +653,9 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._open_btn.configure(state="normal")
 
     def _set_path_text(self, text: str):
-        self._path_box.configure(state="normal")
         self._path_box.delete("1.0", "end")
         if text:
             self._path_box.insert("end", text)
-        self._path_box.configure(state="disabled")
 
     def _set_prefix(self, path: Path, status: str = "found"):
         self._found_prefix = path
@@ -662,11 +673,14 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         self._prefix_open_btn.configure(state="normal")
 
     def _set_prefix_text(self, text: str):
-        self._prefix_box.configure(state="normal")
+        _editable = getattr(self, "_prefix_box_editable", True)
+        if not _editable:
+            self._prefix_box.configure(state="normal")
         self._prefix_box.delete("1.0", "end")
         if text:
             self._prefix_box.insert("end", text)
-        self._prefix_box.configure(state="disabled")
+        if not _editable:
+            self._prefix_box.configure(state="disabled")
 
     def _set_staging(self, path: Path, status: str = "found"):
         self._custom_staging = path
@@ -683,11 +697,9 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             )
 
     def _set_staging_text(self, text: str):
-        self._staging_box.configure(state="normal")
         self._staging_box.delete("1.0", "end")
         if text:
             self._staging_box.insert("end", text)
-        self._staging_box.configure(state="disabled")
 
     # ------------------------------------------------------------------
     # Handlers
@@ -894,6 +906,128 @@ class ReconfigureGamePanel(ctk.CTkFrame):
                 )
         self._run_folder_picker(
             f"Select mod staging folder for {self._game.name}", _apply
+        )
+
+    def _read_box(self, box: ctk.CTkTextbox) -> str:
+        return box.get("1.0", "end").strip().replace("\n", "")
+
+    def _bind_select_all(self, box: ctk.CTkTextbox) -> None:
+        def _select_all(_event=None):
+            box.tag_add("sel", "1.0", "end-1c")
+            box.mark_set("insert", "end-1c")
+            return "break"
+        box.bind("<Control-a>", _select_all)
+        box.bind("<Control-A>", _select_all)
+
+    def _on_path_return(self, _event=None):
+        self._on_path_typed()
+        return "break"
+
+    def _on_path_typed(self):
+        if not self._status_label.winfo_exists():
+            return
+        raw = self._read_box(self._path_box)
+        if not raw:
+            self._found_path = None
+            self._status_label.configure(
+                text="No folder entered.", text_color=TEXT_WARN
+            )
+            self._add_btn.configure(state="disabled")
+            self._open_btn.configure(state="disabled")
+            return
+        if raw == str(self._found_path or ""):
+            return
+        chosen = Path(os.path.expanduser(raw))
+        if not chosen.is_dir():
+            self._status_label.configure(
+                text="That folder does not exist.", text_color=TEXT_ERR
+            )
+            self._add_btn.configure(state="disabled")
+            self._open_btn.configure(state="disabled")
+            return
+        all_exes = [self._game.exe_name] + list(self._game.exe_name_alts)
+        found_exe = any((chosen / exe).is_file() for exe in all_exes if exe)
+        if not found_exe:
+            exe_list = ", ".join(e for e in all_exes if e)
+            self._status_label.configure(
+                text=f"Game executable not found in that folder ({exe_list}).",
+                text_color=TEXT_ERR
+            )
+            self._add_btn.configure(state="disabled")
+            self._open_btn.configure(state="disabled")
+            return
+        self._set_path(chosen, status="found")
+        self._status_label.configure(
+            text="Folder entered manually.", text_color=TEXT_OK
+        )
+
+    def _on_prefix_return(self, _event=None):
+        self._on_prefix_typed()
+        return "break"
+
+    def _on_prefix_typed(self):
+        if not self._prefix_status_label.winfo_exists():
+            return
+        raw = self._read_box(self._prefix_box)
+        if not raw:
+            self._found_prefix = None
+            self._prefix_status_label.configure(
+                text="No prefix entered.", text_color=TEXT_WARN
+            )
+            self._prefix_open_btn.configure(state="disabled")
+            return
+        if raw == str(self._found_prefix or ""):
+            return
+        chosen = Path(os.path.expanduser(raw))
+        if not chosen.is_dir():
+            self._prefix_status_label.configure(
+                text="That folder does not exist.", text_color=TEXT_ERR
+            )
+            self._prefix_open_btn.configure(state="disabled")
+            return
+        if chosen.name.lower() != "pfx" and (chosen / "pfx").is_dir():
+            chosen = chosen / "pfx"
+            self._set_prefix_text(str(chosen))
+        if chosen.name.lower() != "pfx":
+            self._prefix_status_label.configure(
+                text="Selected folder must be a pfx folder or contain one.",
+                text_color=TEXT_ERR
+            )
+            self._prefix_open_btn.configure(state="disabled")
+            return
+        self._set_prefix(chosen, status="found")
+        self._prefix_status_label.configure(
+            text="Prefix folder entered manually.", text_color=TEXT_OK
+        )
+
+    def _on_staging_return(self, _event=None):
+        self._on_staging_typed()
+        return "break"
+
+    def _on_staging_typed(self):
+        if not self._staging_status_label.winfo_exists():
+            return
+        raw = self._read_box(self._staging_box)
+        if not raw:
+            self._custom_staging = None
+            self._staging_status_label.configure(
+                text="Default location will be used.", text_color=TEXT_DIM
+            )
+            return
+        chosen = Path(os.path.expanduser(raw))
+        if chosen.name == "mods":
+            chosen = chosen.parent
+        from Utils.config_paths import get_profiles_dir
+        default_root = get_profiles_dir() / self._game.name
+        if chosen == default_root:
+            self._custom_staging = None
+            self._staging_status_label.configure(
+                text="Default location will be used.", text_color=TEXT_DIM
+            )
+            return
+        self._custom_staging = chosen
+        self._staging_status_label.configure(
+            text="Custom staging folder entered manually.", text_color=TEXT_OK
         )
 
     def _on_open_path(self):

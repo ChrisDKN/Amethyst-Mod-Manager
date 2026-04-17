@@ -122,8 +122,10 @@ class TopBar(ctk.CTkFrame):
         )
         self._game_menu.pack(side="left", padx=(0, 4))
 
+        _game_settings_icon = load_icon("settings.png", size=(18, 18))
         ctk.CTkButton(
-            self._row1, text="⚙", width=32, height=32, font=FONT_BOLD,
+            self._row1, text="" if _game_settings_icon else "⚙",
+            image=_game_settings_icon, width=32, height=32, font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_settings
         ).pack(side="left", padx=(0, 16))
@@ -139,8 +141,10 @@ class TopBar(ctk.CTkFrame):
             command=self._on_add_profile
         ).pack(side="left", padx=(0, 2))
 
+        _profile_settings_icon = load_icon("settings.png", size=(18, 18))
         ctk.CTkButton(
-            self._row1, text="⚙", width=32, height=32, font=FONT_BOLD,
+            self._row1, text="" if _profile_settings_icon else "⚙",
+            image=_profile_settings_icon, width=32, height=32, font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color=BG_HOVER, text_color=TEXT_MAIN,
             command=self._on_profile_settings
         ).pack(side="left", padx=(0, 4))

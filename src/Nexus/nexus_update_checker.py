@@ -261,6 +261,33 @@ def check_for_updates(
     gql_ids = [(game_domain, mod_id) for mod_id in by_mod_id]
     gql_info: dict[int, NexusModUpdateInfo] = api.graphql_mod_update_info_batch(gql_ids)
 
+    # Sync endorsement state via a single REST call — get_endorsements()
+    # returns every endorsement the user has across all games in one request,
+    # so the cost is exactly 1 rate-limit call regardless of mod count.
+    # GraphQL's legacyMod type does not expose viewer endorsement status.
+    if save_results:
+        try:
+            all_endorsements = api.get_endorsements()
+            endorsed_ids: set[int] = {
+                int(e.get("mod_id", 0))
+                for e in all_endorsements
+                if e.get("domain_name", "") == game_domain
+                and (e.get("status", "") or "").lower() == "endorsed"
+                and int(e.get("mod_id", 0)) > 0
+            }
+            endorsed_changed = 0
+            for mod_id, metas in by_mod_id.items():
+                want_endorsed = mod_id in endorsed_ids
+                for meta in metas:
+                    if meta.endorsed != want_endorsed:
+                        meta.endorsed = want_endorsed
+                        write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                        endorsed_changed += 1
+            if endorsed_changed:
+                _log(f"  Endorsement status updated for {endorsed_changed} mod(s).")
+        except NexusAPIError as exc:
+            _log(f"  Endorsement sync skipped ({exc})")
+
     # -----------------------------------------------------------------------
     # 3. Classify each mod.  Priority order (matches user spec):
     #    A. viewerUpdateAvailable == True  → trusted update, no REST.

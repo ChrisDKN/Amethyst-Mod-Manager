@@ -51,6 +51,7 @@ from gui.path_utils import _to_wine_path
 from Utils.config_paths import get_exe_args_path, get_profile_exe_args_path, get_custom_game_images_dir, get_vcredist_cache_path, get_dotnet_cache_dir, get_custom_games_dir
 from Utils.exe_args_builder import EXE_PROFILES
 from gui.ctk_components import CTkAlert, CTkLoader, ICON_PATH
+from gui.tk_tooltip import TkTooltip
 from Utils.xdg import xdg_open, open_url
 
 
@@ -1305,7 +1306,7 @@ class _ProfileNameDialog(ctk.CTkToplevel):
         self._entry.bind("<Return>", lambda _e: self._on_ok())
 
         self._specific_mods_var = tk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
+        _specific_cb = ctk.CTkCheckBox(
             self,
             text="Use Profile Specific Mods",
             variable=self._specific_mods_var,
@@ -1315,7 +1316,19 @@ class _ProfileNameDialog(ctk.CTkToplevel):
             hover_color=ACCENT_HOV,
             border_color=BORDER,
             checkmark_color="white",
-        ).grid(row=2, column=0, sticky="w", padx=16, pady=(0, 8))
+        )
+        _specific_cb.grid(row=2, column=0, sticky="w", padx=16, pady=(0, 8))
+        self._specific_tooltip = TkTooltip(
+            self,
+            bg="#1a1a2e",
+            fg="#ff6b6b",
+            font=(_theme.FONT_FAMILY, _theme.FS10),
+        )
+        self._specific_tooltip.attach(
+            _specific_cb,
+            "Profiles with this setting use their own mods folders",
+            offset_x=scaled(12), offset_y=scaled(12),
+        )
 
         bar = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=44)
         bar.grid(row=3, column=0, sticky="ew")

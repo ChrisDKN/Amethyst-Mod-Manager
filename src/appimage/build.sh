@@ -156,6 +156,32 @@ else
     echo "  WARNING: python3-gi not found on build system — GTK splash will be skipped at runtime"
 fi
 
+# ── Step 4f: Bundle Cantarell font ───────────────────────────────────
+# Cantarell (OFL 1.1) is used for checkbox widgets — on hosts without it
+# Tk silently substitutes another font and the checkboxes render poorly.
+# We ship Regular + Bold which covers every `font=("Cantarell", …)` site.
+echo "=== Bundling Cantarell font ==="
+CANTARELL_URL="https://gitlab.gnome.org/GNOME/cantarell-fonts/-/archive/0.303.1/cantarell-fonts-0.303.1.tar.gz"
+CANTARELL_TAR="${BUILD_DIR}/cantarell.tar.gz"
+CANTARELL_TMP="${BUILD_DIR}/cantarell-tmp"
+FONT_DEST="${APPDIR}/usr/share/fonts/amethyst"
+mkdir -p "$FONT_DEST" "$CANTARELL_TMP"
+if wget -q -O "$CANTARELL_TAR" "$CANTARELL_URL"; then
+    tar -xf "$CANTARELL_TAR" -C "$CANTARELL_TMP"
+    # Upstream ships a variable OTF (Cantarell-VF.otf) that covers all weights.
+    VF_OTF="$(find "$CANTARELL_TMP" -name 'Cantarell-VF.otf' | head -1)"
+    if [ -n "$VF_OTF" ]; then
+        cp "$VF_OTF" "$FONT_DEST/"
+        echo "  Bundled: Cantarell-VF.otf"
+    else
+        echo "  WARNING: Cantarell-VF.otf not found in archive"
+    fi
+    rm -rf "$CANTARELL_TAR" "$CANTARELL_TMP"
+else
+    echo "  WARNING: Could not download Cantarell — checkboxes may look wrong on hosts without it"
+    rm -rf "$CANTARELL_TAR" "$CANTARELL_TMP"
+fi
+
 # ── Step 5: Copy application code ────────────────────────────────────
 echo "=== Copying application code ==="
 APP_DIR="${APPDIR}/usr/app"
