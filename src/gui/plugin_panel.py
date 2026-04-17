@@ -121,6 +121,7 @@ def _read_prefix_runner(compat_data: Path) -> str:
 
 
 from gui.text_utils import truncate_text as _truncate_plugin_name, clear_truncate_cache as _clear_truncate_cache
+from gui.tk_tooltip import TkTooltip
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +273,12 @@ class PluginPanel(ctk.CTkFrame):
                 PilImage.open(_lock_path).convert("RGBA").resize((_lk_sz, _lk_sz), PilImage.LANCZOS))
 
         # Tooltip state
-        self._tooltip_win: tk.Toplevel | None = None
+        self._tooltip = TkTooltip(
+            self,
+            bg="#1a1a2e",
+            fg="#ff6b6b",
+            font=(_theme.FONT_FAMILY, _theme.FS10),
+        )
 
         # Canvas column x-positions (patched in _layout_plugin_cols)
         self._pcol_x = [scaled(4), scaled(32), 0, 0, 0]  # checkbox, name, flags, lock, index
@@ -5282,37 +5288,6 @@ class PluginPanel(ctk.CTkFrame):
         self._esl_safe_plugins = safe
         self._esl_unsafe_plugins = unsafe
 
-    # ------------------------------------------------------------------
-    # Tooltip for missing masters
-    # ------------------------------------------------------------------
-
-    def _show_tooltip(self, x: int, y: int, text: str) -> None:
-        """Show a tooltip window near the given screen coordinates."""
-        self._hide_tooltip()
-        tw = tk.Toplevel(self)
-        tw.withdraw()
-        tw.wm_overrideredirect(True)
-        tw.configure(bg="#1a1a2e")
-        lbl = tk.Label(
-            tw, text=text, justify="left",
-            bg="#1a1a2e", fg="#ff6b6b",
-            font=(_theme.FONT_FAMILY, _theme.FS10), padx=8, pady=4,
-            wraplength=350,
-        )
-        lbl.pack()
-        tw.update_idletasks()
-        tip_w = tw.winfo_reqwidth()
-        # Always place to the left of the cursor (flags column is at the right edge)
-        tip_x = x - tip_w - 4
-        tw.wm_geometry(f"+{tip_x}+{y + 8}")
-        tw.deiconify()
-        self._tooltip_win = tw
-
-    def _hide_tooltip(self) -> None:
-        if self._tooltip_win:
-            self._tooltip_win.destroy()
-            self._tooltip_win = None
-
     def _update_row_bg(self, data_row: int) -> None:
         """Update just the background colour of a single data row's pool slot."""
         fi = self._plugin_filtered_indices
@@ -5364,7 +5339,7 @@ class PluginPanel(ctk.CTkFrame):
         fi = self._plugin_filtered_indices
         view_len = len(fi) if fi is not None else len(self._plugin_entries)
         if row < 0 or row >= view_len:
-            self._hide_tooltip()
+            self._tooltip.hide()
             if self._phover_idx != -1:
                 old = self._phover_idx
                 self._phover_idx = -1
@@ -5401,22 +5376,15 @@ class PluginPanel(ctk.CTkFrame):
             if entry.name.lower() in self._esl_flagged_plugins:
                 parts.append("This plugin is marked as Light (ESL)")
             if parts:
-                screen_x = event.x_root
-                screen_y = event.y_root
                 text = "\n\n".join(parts)
-                # Always refresh: show_tooltip hides the old one first, so moving
-                # between rows/flags updates immediately instead of staying stale.
-                if self._tooltip_win is None or getattr(self, "_tooltip_text", None) != text:
-                    self._tooltip_text = text
-                    self._show_tooltip(screen_x, screen_y, text)
+                # TkTooltip.show() is idempotent for the same text — no stale check needed.
+                self._tooltip.show(event.x_root, event.y_root, text)
                 return
 
-        self._hide_tooltip()
-        self._tooltip_text = None
+        self._tooltip.hide()
 
     def _on_pmouse_leave(self, event) -> None:
-        self._hide_tooltip()
-        self._tooltip_text = None
+        self._tooltip.hide()
         if self._phover_idx != -1:
             old = self._phover_idx
             self._phover_idx = -1

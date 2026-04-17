@@ -138,6 +138,7 @@ from Nexus.nexus_update_checker import check_for_updates
 
 
 from gui.text_utils import truncate_text as _truncate_text_for_width, clear_truncate_cache as _clear_truncate_cache
+from gui.tk_tooltip import TkTooltip
 
 
 def _scan_meta_flags_impl(entries: list, mods_dir: Path) -> dict:
@@ -342,8 +343,12 @@ class ModListPanel(ctk.CTkFrame):
         self._ignored_missing_reqs: set[str] = set()
 
         # Tooltip state (missing requirements hover)
-        self._tooltip_win: tk.Toplevel | None = None
-        self._tooltip_text: str = ""
+        self._tooltip = TkTooltip(
+            self,
+            bg="#1a1a2e",
+            fg="#ff6b6b",
+            font=(_theme.FONT_FAMILY, _theme.FS10),
+        )
 
         # Set of mod names the user has endorsed on Nexus
         self._endorsed_mods: set[str] = set()
@@ -4506,44 +4511,10 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
 
-    # ------------------------------------------------------------------
-    # Tooltip for missing requirements
-    # ------------------------------------------------------------------
-
-    def _show_tooltip(self, x: int, y: int, text: str) -> None:
-        """Show a tooltip window near the given screen coordinates."""
-        if self._tooltip_win is not None and self._tooltip_text == text:
-            return
-        self._hide_tooltip()
-        tw = tk.Toplevel(self)
-        tw.withdraw()
-        tw.wm_overrideredirect(True)
-        tw.configure(bg="#1a1a2e")
-        lbl = tk.Label(
-            tw, text=text, justify="left",
-            bg="#1a1a2e", fg="#ff6b6b",
-            font=(_theme.FONT_FAMILY, _theme.FS10), padx=8, pady=4,
-            wraplength=350,
-        )
-        lbl.pack()
-        tw.update_idletasks()
-        tip_w = tw.winfo_reqwidth()
-        tip_x = x - tip_w - 4
-        tw.wm_geometry(f"+{tip_x}+{y + 8}")
-        tw.deiconify()
-        self._tooltip_win = tw
-        self._tooltip_text = text
-
-    def _hide_tooltip(self) -> None:
-        if self._tooltip_win:
-            self._tooltip_win.destroy()
-            self._tooltip_win = None
-            self._tooltip_text = ""
-
     def _on_mouse_motion(self, event):
         """Update hover highlight as the mouse moves over the modlist."""
         if not self._entries or self._drag_idx >= 0:
-            self._hide_tooltip()
+            self._tooltip.hide()
             return
         cy = self._event_canvas_y(event)
         vis = self._visible_indices
@@ -4611,7 +4582,7 @@ class ModListPanel(ctk.CTkFrame):
                     # Find which icon the cursor is closest to (within hit radius)
                     for _fx, tip in _flag_tooltips:
                         if abs(x - _fx) <= _HIT_RADIUS:
-                            self._show_tooltip(event.x_root, event.y_root, tip)
+                            self._tooltip.show(event.x_root, event.y_root, tip)
                             return
                     # Cursor is in the flags column but not over a specific icon —
                     # keep any existing tooltip rather than flashing it away
@@ -4646,14 +4617,14 @@ class ModListPanel(ctk.CTkFrame):
                         tip = f"Loose file conflict - {_conflict_label[loose]}"
                     else:
                         tip = f"BSA conflict - {_conflict_label[bsa]}"
-                    self._show_tooltip(event.x_root, event.y_root, tip)
+                    self._tooltip.show(event.x_root, event.y_root, tip)
                     return
 
-        self._hide_tooltip()
+        self._tooltip.hide()
 
     def _on_mouse_leave(self, event):
         """Clear hover highlight when mouse leaves the canvas."""
-        self._hide_tooltip()
+        self._tooltip.hide()
         if self._hover_idx != -1:
             self._hover_idx = -1
             self._redraw()

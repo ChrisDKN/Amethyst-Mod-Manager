@@ -29,6 +29,7 @@ from gui.theme import (
     FONT_FAMILY,
     scaled,
 )
+from gui.tk_tooltip import TkTooltip
 
 # Card dimensions (shared with browse)
 # CARD_W / CARD_H are passed to CTkFrame (which applies its own widget scaling),
@@ -290,49 +291,14 @@ class ModCard:
 
     def _attach_tooltip(self, text: str) -> None:
         """Attach a hover tooltip showing the mod summary to the card."""
-        self._tooltip_win: tk.Toplevel | None = None
-
-        def _enter(event):
-            if self._tooltip_win is not None:
-                return
-            tw = tk.Toplevel(self.card)
-            tw.withdraw()
-            tw.overrideredirect(True)
-            tw.attributes("-alpha", 0.95)
-            tw.configure(bg=BG_DEEP)
-            tk.Label(
-                tw, text=text,
-                bg=BG_DEEP, fg=TEXT_MAIN,
-                font=font_sized(FONT_FAMILY, 11),
-                wraplength=scaled(320), justify="left",
-                padx=scaled(8), pady=scaled(6),
-            ).pack()
-            x = event.x_root + scaled(12)
-            y = event.y_root + scaled(12)
-            tw.update_idletasks()
-            sw = tw.winfo_screenwidth()
-            sh = tw.winfo_screenheight()
-            if x + tw.winfo_reqwidth() > sw:
-                x = event.x_root - tw.winfo_reqwidth() - scaled(4)
-            if y + tw.winfo_reqheight() > sh:
-                y = event.y_root - tw.winfo_reqheight() - scaled(4)
-            tw.geometry(f"+{x}+{y}")
-            tw.deiconify()
-            self._tooltip_win = tw
-
-        def _leave(event):
-            if self._tooltip_win:
-                self._tooltip_win.destroy()
-                self._tooltip_win = None
-
-        def _bind_recursive(w, depth=0) -> None:
-            w.bind("<Enter>", _enter, add="+")
-            w.bind("<Leave>", _leave, add="+")
-            if depth < 3:
-                for child in w.winfo_children():
-                    _bind_recursive(child, depth + 1)
-
-        _bind_recursive(self.card)
+        self._tooltip = TkTooltip(
+            self.card,
+            bg=BG_DEEP, fg=TEXT_MAIN,
+            font=font_sized(FONT_FAMILY, 11),
+            wraplength=scaled(320), padx=scaled(8), pady=scaled(6),
+            alpha=0.95,
+        )
+        self._tooltip.attach(self.card, text, offset_x=scaled(12), offset_y=scaled(12))
 
     def _apply_image(self, photo: ctk.CTkImage):
         if self._img_label.winfo_exists():

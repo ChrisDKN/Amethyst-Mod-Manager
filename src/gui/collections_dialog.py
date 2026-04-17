@@ -39,6 +39,7 @@ from Utils.profile_state import (
 )
 from gui.install_mod import install_mod_from_archive, FOMOD_DEFERRED, ExtractionMemoryBudget, get_uncompressed_size
 from gui.mod_card import CARD_PAD, make_placeholder_image
+from gui.tk_tooltip import TkTooltip
 from Utils.ui_config import get_ui_scale
 from gui.mod_name_utils import _suggest_mod_names
 from Utils.modlist import write_modlist, read_modlist, ModEntry
@@ -619,52 +620,14 @@ class CollectionCard:
 
     def _attach_tooltip(self, widget: tk.Widget, text: str) -> None:
         """Attach a hover tooltip showing *text* to *widget* and all its children."""
-        self._tooltip_win: tk.Toplevel | None = None
-        self._tooltip_text = text
-
-        def _enter(event):
-            if self._tooltip_win is not None:
-                return
-            tw = tk.Toplevel(widget)
-            tw.withdraw()
-            tw.overrideredirect(True)
-            tw.attributes("-alpha", 0.95)
-            tw.configure(bg=BG_DEEP)
-            wrap = min(scaled(340), scaled(int(self._coll_w * 1.4)))
-            tk.Label(
-                tw, text=self._tooltip_text,
-                bg=BG_DEEP, fg=TEXT_MAIN,
-                font=FONT_SMALL,
-                wraplength=wrap, justify="left",
-                padx=scaled(8), pady=scaled(6),
-            ).pack()
-            # Position near cursor, keep on-screen
-            x = event.x_root + scaled(12)
-            y = event.y_root + scaled(12)
-            tw.update_idletasks()
-            sw = tw.winfo_screenwidth()
-            sh = tw.winfo_screenheight()
-            if x + tw.winfo_reqwidth() > sw:
-                x = event.x_root - tw.winfo_reqwidth() - scaled(4)
-            if y + tw.winfo_reqheight() > sh:
-                y = event.y_root - tw.winfo_reqheight() - scaled(4)
-            tw.geometry(f"+{x}+{y}")
-            tw.deiconify()
-            self._tooltip_win = tw
-
-        def _leave(event):
-            if self._tooltip_win:
-                self._tooltip_win.destroy()
-                self._tooltip_win = None
-
-        def _bind_recursive(w: tk.Widget, depth=0) -> None:
-            w.bind("<Enter>", _enter, add="+")
-            w.bind("<Leave>", _leave, add="+")
-            if depth < 3:
-                for child in w.winfo_children():
-                    _bind_recursive(child, depth + 1)
-
-        _bind_recursive(widget)
+        wrap = min(scaled(340), scaled(int(self._coll_w * 1.4)))
+        self._tooltip = TkTooltip(
+            widget,
+            bg=BG_DEEP, fg=TEXT_MAIN, font=FONT_SMALL,
+            wraplength=wrap, padx=scaled(8), pady=scaled(6),
+            alpha=0.95,
+        )
+        self._tooltip.attach(widget, text, offset_x=scaled(12), offset_y=scaled(12))
 
 
 # ---------------------------------------------------------------------------
