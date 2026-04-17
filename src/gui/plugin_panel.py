@@ -1479,6 +1479,7 @@ class PluginPanel(ctk.CTkFrame):
             env.pop("DOTNET_ROOT", None)
             env.pop("DOTNET_BUNDLE_EXTRACT_BASE_DIR", None)
             env["PROTON_USE_WINED3D"] = "1"
+            env["WINE_D3D_CONFIG"] = "renderer=gdi"
 
         if exe_path.name == "Wrye Bash.exe":
             game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
@@ -1519,6 +1520,17 @@ class PluginPanel(ctk.CTkFrame):
             env_updates, final_cmd = _parse_launch_options(launch_opts, base_cmd)
             if env_updates:
                 env.update(env_updates)
+
+        self._log(f"Run EXE:   cmd: {' '.join(final_cmd)}")
+        _env_keys = (
+            "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
+            "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
+        )
+        _env_summary = " ".join(
+            f"{k}={env.get(k)}" for k in _env_keys if env.get(k) is not None
+        )
+        if _env_summary:
+            self._log(f"Run EXE:   env: {_env_summary}")
 
         def _worker():
             try:

@@ -515,7 +515,13 @@ class PGPatcherWizard(ctk.CTkFrame):
                 cwd=str(cache_path.parent),
             )
 
-            if proc.returncode != 0:
+            # Exit codes from the .NET desktop runtime installer:
+            #   0    = installed successfully
+            #   102  = already installed / no-op
+            #   1638 = another version already installed
+            #   3010 = installed, reboot required
+            _ok_codes = {0, 102, 1638, 3010}
+            if proc.returncode not in _ok_codes:
                 raise RuntimeError(f".NET 8 installer exited with code {proc.returncode}.")
 
             _mark_dep_installed(prefix_path, _NET8_DEP_KEY)

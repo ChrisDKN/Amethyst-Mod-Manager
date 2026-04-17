@@ -2573,10 +2573,15 @@ class ModListPanel(ctk.CTkFrame):
                             if _be.name in self._root_folder_mods and self._icon_root_folder and "root" not in _seen_flag:
                                 _agg_flags.append(("img", self._icon_root_folder))
                                 _seen_flag.add("root")
+                        # Only 4 image slots exist in the pool — cap before the
+                        # star insert so later img flags can't push earlier ones
+                        # off the end of the renderer.
+                        if len(_agg_flags) > 4:
+                            _agg_flags = _agg_flags[:4]
                         # Insert star after warning if any locked mod exists
                         if _any_locked and "star" not in _seen_flag:
                             _ins = 1 if (_agg_flags and _agg_flags[0][0] == "img"
-                                         and len(_seen_flag) > 0 and "warning" in _seen_flag) else 0
+                                         and "warning" in _seen_flag) else 0
                             _agg_flags.insert(_ins, ("star",))
                             _seen_flag.add("star")
 

@@ -344,24 +344,27 @@ def _find_cached_archive(
                 # normalized-stem equality (not substring) so that files whose
                 # names are prefixes of each other — e.g. "Deathbell" vs
                 # "Deathbell ENB-light" under the same mod ID — do not get
-                # misidentified as partials of one another.
+                # misidentified as partials of one another.  Strip any trailing
+                # ``(N)`` collision counter the downloader may have appended.
                 if not mod_id_str or mod_id_str in f.name:
+                    raw_stem = re.sub(r'\s*\(\d+\)$', '', f.stem)
                     if mod_id_str and norm_name:
                         clean = re.sub(
                             r'[^\w]', '',
-                            _clean_nexus_stem(f.stem, mod_id_str).lower()
+                            _clean_nexus_stem(raw_stem, mod_id_str).lower()
                         )
                         if clean and clean == norm_name:
                             best_partial = f
                     elif norm_name:
-                        norm_stem = re.sub(r'[^\w]', '', f.stem.lower())
+                        norm_stem = re.sub(r'[^\w]', '', raw_stem.lower())
                         if norm_stem == norm_name:
                             best_partial = f
         else:
             # No expected size: match by name stem only, verify integrity.
             # Require exact normalized equality for the same prefix-collision
-            # reason described above.
-            norm_stem = re.sub(r'[^\w]', '', f.stem.lower())
+            # reason described above.  Strip trailing ``(N)`` collision counter.
+            raw_stem = re.sub(r'\s*\(\d+\)$', '', f.stem)
+            norm_stem = re.sub(r'[^\w]', '', raw_stem.lower())
             if norm_name and norm_stem == norm_name:
                 if expected_md5 and not _md5_matches(f, expected_md5):
                     continue

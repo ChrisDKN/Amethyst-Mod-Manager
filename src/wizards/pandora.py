@@ -112,6 +112,15 @@ class PandoraWizard(ctk.CTkFrame):
                 pass
         self.after(0, _apply)
 
+    def _safe_after(self, delay: int, fn):
+        def _run():
+            try:
+                if self.winfo_exists():
+                    fn()
+            except Exception:
+                pass
+        self.after(delay, _run)
+
     def _get_proton_env(self):
         from Utils.steam_finder import (
             find_any_installed_proton,
@@ -288,7 +297,7 @@ class PandoraWizard(ctk.CTkFrame):
                 deploy_root_folder(target_rf, game_root, mode=deploy_mode, log_fn=_tlog)
 
             self._set_label("_deploy_status", "Deploy complete.", color="#6bc76b")
-            self.after(0, self._show_step_deps)
+            self._safe_after(0, self._show_step_deps)
 
         except Exception as exc:
             self._set_label("_deploy_status", f"Deploy error: {exc}", color="#e06c6c")
@@ -332,7 +341,7 @@ class PandoraWizard(ctk.CTkFrame):
 
         if _is_dep_installed(prefix_path, _NET10_DEP_KEY):
             self._set_label("_net10_status", ".NET 10 already installed \u2014 skipping.", color="#6bc76b")
-            self.after(500, self._show_step_run)
+            self._safe_after(500, self._show_step_run)
             return
 
         if proton_script is None:
@@ -366,12 +375,19 @@ class PandoraWizard(ctk.CTkFrame):
                 cwd=str(cache_path.parent),
             )
 
-            if proc.returncode != 0:
+            # Exit codes from the .NET desktop runtime installer:
+            #   0    = installed successfully
+            #   1602 = user cancel
+            #   1638 = another version already installed (success, no-op)
+            #   3010 = installed, reboot required (success)
+            #   102  = already installed / no-op (success)
+            _ok_codes = {0, 102, 1638, 3010}
+            if proc.returncode not in _ok_codes:
                 raise RuntimeError(f".NET 10 installer exited with code {proc.returncode}.")
 
             _mark_dep_installed(prefix_path, _NET10_DEP_KEY)
             self._set_label("_net10_status", ".NET 10 installed successfully.", color="#6bc76b")
-            self.after(500, self._show_step_run)
+            self._safe_after(500, self._show_step_run)
 
         except Exception as exc:
             self._set_label("_net10_status", f"Error: {exc}", color="#e06c6c")
@@ -440,16 +456,19 @@ class PandoraWizard(ctk.CTkFrame):
 
         staging = self._game.get_effective_mod_staging_path()
 
+        from gui.plugin_panel import _resolve_compat_data
+        compat_data = _resolve_compat_data(_prefix) if _prefix else None
+
         from Utils.exe_args_builder import _bootstrap_pandora_settings
         _bootstrap_pandora_settings(
             getattr(self._game, "game_id", None),
             game_path,
             staging,
-            _prefix,
+            compat_data,
             self._log,
         )
 
-        pfx = _prefix / "pfx" if _prefix and _prefix.name != "pfx" else _prefix
+        pfx = compat_data / "pfx" if compat_data and compat_data.name != "pfx" else compat_data
         game_arg = f'--tesv:{_to_wine_path(game_path, pfx)}'
 
         # Unset .NET environment variables that can prevent Pandora from launching
@@ -458,14 +477,25 @@ class PandoraWizard(ctk.CTkFrame):
         env.pop("DOTNET_BUNDLE_EXTRACT_BASE_DIR", None)
 
         # WPF rendering over DXVK produces a double title bar / frame glitch
-        # in Proton; fall back to WineD3D for a single, properly-decorated window.
+        # in Proton. Forcing the WineD3D GDI renderer bypasses the Vulkan path
+        # entirely and gives a single, properly-decorated window.
+        # PROTON_USE_WINED3D is required — WINE_D3D_CONFIG only takes effect
+        # when WineD3D (not DXVK) is actually handling the d3d calls.
         env["PROTON_USE_WINED3D"] = "1"
+        env["WINE_D3D_CONFIG"] = "renderer=gdi"
 
+        cmd = ["python3", str(proton_script), "run", str(exe), game_arg]
         self._log(f"Pandora Wizard: launching {exe} via Proton")
-        self._log(f"  args: {game_arg}")
+        self._log(f"  cmd: {' '.join(cmd)}")
+        self._log(
+            "  env: "
+            f"PROTON_USE_WINED3D={env.get('PROTON_USE_WINED3D', '<unset>')} "
+            f"WINE_D3D_CONFIG={env.get('WINE_D3D_CONFIG', '<unset>')} "
+            f"STEAM_COMPAT_DATA_PATH={env.get('STEAM_COMPAT_DATA_PATH', '<unset>')}"
+        )
         try:
             proc = subprocess.Popen(
-                ["python3", str(proton_script), "run", str(exe), game_arg],
+                cmd,
                 env=env,
                 cwd=str(exe.parent),
                 stdout=subprocess.DEVNULL,

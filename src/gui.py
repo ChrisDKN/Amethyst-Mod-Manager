@@ -280,6 +280,7 @@ class App(ctk.CTk):
         self.minsize(_min_w, _min_h)
         self.bind("<Configure>", self._on_window_configure)
         self._geom_save_id: str | None = None
+        self._minsize_sync_id: str | None = None
         # Thread-safe callback queue — background threads must never call
         # widget.after() directly (Python 3.13 Tkinter enforces this).
         # Use  app.call_threadsafe(fn)  instead.
@@ -863,10 +864,20 @@ class App(ctk.CTk):
         # Only react to top-level window events, not child widgets
         if event.widget is not self:
             return
+        # Re-cap col 0 minsize against the new window width (debounced via
+        # after_idle) so the plugin panel isn't clipped when the WM forces
+        # the window below col_sum.  Debouncing prevents feedback loops
+        # where configure → minsize change → configure → ...
+        if hasattr(self, "_mod_panel") and getattr(self, "_minsize_sync_id", None) is None:
+            self._minsize_sync_id = self.after_idle(self._deferred_minsize_sync)
         # Debounce — save 500ms after the last resize/move event
         if self._geom_save_id is not None:
             self.after_cancel(self._geom_save_id)
         self._geom_save_id = self.after(500, self._save_geometry)
+
+    def _deferred_minsize_sync(self) -> None:
+        self._minsize_sync_id = None
+        self._sync_mod_col_minsize()
 
     def _save_geometry(self) -> None:
         self._geom_save_id = None
@@ -981,8 +992,31 @@ class App(ctk.CTk):
 
     def _sync_mod_col_minsize(self) -> None:
         """Keep column 0's minsize in sync with the topbar/toolbar's current
-        required width, so grid weight distribution can't clip them."""
-        self.grid_columnconfigure(0, weight=5, minsize=self._mod_col_required_width())
+        required width, so grid weight distribution can't clip them.
+
+        When the window is narrower than col0_required + sep + col2_saved
+        (WM tiling, unmaximize, or a saved plugin width that exceeds the
+        window), col 2 is shrunk toward ``scaled(480)`` and col 0 capped so
+        both fit — otherwise col 2 pins at its saved width and squashes
+        the modlist column."""
+        required = self._mod_col_required_width()
+        win_w = self.winfo_width()
+        if win_w > 1 and self._plugin_panel_visible:
+            sep_w = self._col_drag_handle.winfo_reqwidth() or scaled(14)
+            plugin_min = scaled(480)
+            saved = max(plugin_min, self._plugin_panel_saved_w)
+            # How wide can the plugin panel be without overflowing?
+            max_plugin = max(plugin_min, win_w - required - sep_w)
+            plugin_w = min(saved, max_plugin)
+            self.grid_columnconfigure(2, weight=4, minsize=plugin_w)
+            try:
+                if abs(self._plugin_panel_container.winfo_width() - plugin_w) > 1:
+                    self._plugin_panel_container.configure(width=plugin_w)
+            except Exception:
+                pass
+            if required + sep_w + plugin_w > win_w:
+                required = max(scaled(320), win_w - sep_w - plugin_w)
+        self.grid_columnconfigure(0, weight=5, minsize=required)
 
     def _col_max_plugin_width(self) -> int:
         return self.winfo_width() - self._mod_col_required_width() - self._col_drag_handle.winfo_width()
