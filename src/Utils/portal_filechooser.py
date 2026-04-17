@@ -9,6 +9,7 @@ is unavailable (e.g. headless, older systems).
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import threading
 import traceback
@@ -228,7 +229,10 @@ def _run_portal_impl_gi(
     context = GLib.MainContext.new()
     context.push_thread_default()
     try:
-        loop = GLib.MainLoop.new(context)
+        try:
+            loop = GLib.MainLoop.new(context, False)
+        except TypeError:
+            loop = GLib.MainLoop(context)
     except Exception:
         context.pop_thread_default()
         raise
@@ -352,12 +356,20 @@ def _zenity_candidates() -> list[list[str]]:
 def _run_zenity(args: list[str]) -> subprocess.CompletedProcess[str] | None:
     """Try each zenity candidate with the given args. Returns first successful run or None."""
     for cmd in _zenity_candidates():
+        if shutil.which(cmd[0]) is None:
+            _debug_log(f"zenity not found at: {cmd[0]}")
+            continue
         try:
             result = subprocess.run(cmd + args, capture_output=True, text=True)
-            return result
         except FileNotFoundError:
             _debug_log(f"zenity not found at: {cmd[0]}")
             continue
+        # flatpak-spawn returns 127 when the host binary is missing. Treat that
+        # as "not found" rather than a zenity result.
+        if cmd[0] == "flatpak-spawn" and result.returncode == 127:
+            _debug_log("flatpak-spawn: zenity not installed on host")
+            continue
+        return result
     _debug_log("zenity unavailable — install zenity (e.g. sudo pacman -S zenity) for a better file picker")
     return None
 
@@ -370,9 +382,10 @@ def _zenity_folder(title: str) -> Path | object | None:
         p = Path(result.stdout.strip())
         if p.is_dir():
             return p
-    # Exit code 1 = user pressed Cancel; anything else is an error (e.g. D-Bus
-    # failure on bare X11/DWM) — fall through so the next picker is tried.
-    if result.returncode == 1:
+    # Exit code 1 with empty stderr = user pressed Cancel. Exit 1 with stderr
+    # output (or any other code) usually means zenity failed to start (e.g.
+    # D-Bus failure on bare X11/DWM) — fall through so the next picker is tried.
+    if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
     _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
     return None
@@ -391,9 +404,7 @@ def _zenity_file(title: str) -> Path | object | None:
         p = Path(result.stdout.strip())
         if p.is_file():
             return p
-    # Exit code 1 = user pressed Cancel; anything else is an error (e.g. D-Bus
-    # failure on bare X11/DWM) — fall through so the next picker is tried.
-    if result.returncode == 1:
+    if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
     _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
     return None
@@ -401,6 +412,8 @@ def _zenity_file(title: str) -> Path | object | None:
 
 def _kdialog_folder(title: str) -> Path | object | None:
     """Folder picker via kdialog (KDE). Returns None if kdialog is unavailable."""
+    if shutil.which("kdialog") is None:
+        return None
     try:
         result = subprocess.run(
             ["kdialog", "--getexistingdirectory", str(Path.home()), "--title", title],
@@ -410,7 +423,10 @@ def _kdialog_folder(title: str) -> Path | object | None:
             p = Path(result.stdout.strip())
             if p.is_dir():
                 return p
-        return _CANCELLED  # kdialog ran but user cancelled (or bad path)
+        if result.returncode == 1 and not result.stderr.strip():
+            return _CANCELLED
+        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} — falling through")
+        return None
     except FileNotFoundError:
         pass
     return None
@@ -421,6 +437,8 @@ _MOD_ARCHIVE_MIMETYPES = "application/zip application/x-7z-compressed applicatio
 
 def _kdialog_file(title: str) -> Path | object | None:
     """File picker via kdialog (KDE). Returns None if kdialog is unavailable."""
+    if shutil.which("kdialog") is None:
+        return None
     try:
         result = subprocess.run(
             [
@@ -434,7 +452,10 @@ def _kdialog_file(title: str) -> Path | object | None:
             p = Path(result.stdout.strip())
             if p.is_file():
                 return p
-        return _CANCELLED  # kdialog ran but user cancelled (or bad path)
+        if result.returncode == 1 and not result.stderr.strip():
+            return _CANCELLED
+        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} — falling through")
+        return None
     except FileNotFoundError:
         pass
     return None
@@ -442,11 +463,15 @@ def _kdialog_file(title: str) -> Path | object | None:
 
 def _tkinter_folder(title: str) -> Path | None:
     """Last-resort folder picker using tkinter.filedialog.
-    Must be dispatched to the main thread if a dispatcher is registered,
-    because Tkinter is not thread-safe.
+    Dispatched to the main thread because Tkinter is not thread-safe.
+    Returns None if no dispatcher is registered.
     """
-    import threading
     import tkinter.filedialog as fd
+
+    dispatcher = _main_thread_dispatcher
+    if dispatcher is None:
+        _debug_log("tkinter picker unavailable: no main-thread dispatcher registered")
+        return None
 
     result_holder: list[Path | None] = [None]
     done = threading.Event()
@@ -463,23 +488,22 @@ def _tkinter_folder(title: str) -> Path | None:
         finally:
             done.set()
 
-    dispatcher = _main_thread_dispatcher
-    if dispatcher is not None:
-        dispatcher(_run)
-        done.wait()
-    else:
-        # No dispatcher — call directly (only safe if already on main thread)
-        _run()
+    dispatcher(_run)
+    done.wait()
     return result_holder[0]
 
 
 def _tkinter_file(title: str) -> Path | None:
     """Last-resort file picker using tkinter.filedialog.
-    Must be dispatched to the main thread if a dispatcher is registered,
-    because Tkinter is not thread-safe.
+    Dispatched to the main thread because Tkinter is not thread-safe.
+    Returns None if no dispatcher is registered.
     """
-    import threading
     import tkinter.filedialog as fd
+
+    dispatcher = _main_thread_dispatcher
+    if dispatcher is None:
+        _debug_log("tkinter picker unavailable: no main-thread dispatcher registered")
+        return None
 
     result_holder: list[Path | None] = [None]
     done = threading.Event()
@@ -502,13 +526,8 @@ def _tkinter_file(title: str) -> Path | None:
         finally:
             done.set()
 
-    dispatcher = _main_thread_dispatcher
-    if dispatcher is not None:
-        dispatcher(_run)
-        done.wait()
-    else:
-        # No dispatcher — call directly (only safe if already on main thread)
-        _run()
+    dispatcher(_run)
+    done.wait()
     return result_holder[0]
 
 
@@ -631,7 +650,7 @@ def _zenity_files(title: str) -> "list[Path] | object | None":
         paths = [p for p in paths if p.is_file()]
         if paths:
             return paths
-    if result.returncode == 1:
+    if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
     _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
     return None
@@ -639,6 +658,8 @@ def _zenity_files(title: str) -> "list[Path] | object | None":
 
 def _kdialog_files(title: str) -> "list[Path] | object | None":
     """Multi-file picker via kdialog. Returns list of Paths, _CANCELLED, or None."""
+    if shutil.which("kdialog") is None:
+        return None
     try:
         result = subprocess.run(
             [
@@ -654,15 +675,26 @@ def _kdialog_files(title: str) -> "list[Path] | object | None":
             paths = [p for p in paths if p.is_file()]
             if paths:
                 return paths
-        return _CANCELLED
+        if result.returncode == 1 and not result.stderr.strip():
+            return _CANCELLED
+        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} — falling through")
+        return None
     except FileNotFoundError:
         pass
     return None
 
 
 def _tkinter_files(title: str) -> "list[Path]":
-    """Multi-file picker using tkinter.filedialog.askopenfilenames."""
+    """Multi-file picker using tkinter.filedialog.askopenfilenames.
+    Dispatched to the main thread because Tkinter is not thread-safe.
+    Returns an empty list if no dispatcher is registered.
+    """
     import tkinter.filedialog as fd
+
+    dispatcher = _main_thread_dispatcher
+    if dispatcher is None:
+        _debug_log("tkinter picker unavailable: no main-thread dispatcher registered")
+        return []
 
     result_holder: list[list[Path]] = [[]]
     done = threading.Event()
@@ -683,12 +715,8 @@ def _tkinter_files(title: str) -> "list[Path]":
         finally:
             done.set()
 
-    dispatcher = _main_thread_dispatcher
-    if dispatcher is not None:
-        dispatcher(_run)
-        done.wait()
-    else:
-        _run()
+    dispatcher(_run)
+    done.wait()
     return result_holder[0]
 
 
@@ -896,14 +924,23 @@ def _zenity_save(title: str, current_name: str) -> "Path | object | None":
     if result.returncode == 0:
         p = Path(result.stdout.strip())
         return p
-    if result.returncode == 1:
+    if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
     _debug_log(f"zenity save exited with code {result.returncode}: {result.stderr.strip()!r}")
     return None
 
 
 def _tkinter_save(title: str, current_name: str, filters: list) -> "Path | None":
+    """Last-resort save-file picker using tkinter.filedialog.
+    Dispatched to the main thread because Tkinter is not thread-safe.
+    Returns None if no dispatcher is registered.
+    """
     import tkinter.filedialog as fd
+
+    dispatcher = _main_thread_dispatcher
+    if dispatcher is None:
+        _debug_log("tkinter picker unavailable: no main-thread dispatcher registered")
+        return None
 
     result_holder: list[Path | None] = [None]
     done = threading.Event()
@@ -923,12 +960,8 @@ def _tkinter_save(title: str, current_name: str, filters: list) -> "Path | None"
         finally:
             done.set()
 
-    dispatcher = _main_thread_dispatcher
-    if dispatcher is not None:
-        dispatcher(_run)
-        done.wait()
-    else:
-        _run()
+    dispatcher(_run)
+    done.wait()
     return result_holder[0]
 
 
