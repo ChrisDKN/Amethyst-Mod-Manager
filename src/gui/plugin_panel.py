@@ -201,7 +201,7 @@ class PluginPanel(ctk.CTkFrame):
     """Right panel: tabview with Plugins, Mod Files, Data, Downloads, Tracked."""
 
     PLUGIN_HEADERS = ["", "Plugin Name", "Flags", "🔒", "Index"]
-    ROW_H = scaled(26)
+    ROW_H = scaled(30)
 
     def __init__(self, parent, log_fn=None, get_filemap_path=None):
         super().__init__(parent, fg_color=BG_PANEL, corner_radius=0)
@@ -242,32 +242,34 @@ class PluginPanel(ctk.CTkFrame):
         self._staging_root: Path | None = None
         self._data_dir: Path | None = None
 
+        _flag_icon_sz = scaled(18)
+
         # Warning icon for missing masters (canvas-compatible PhotoImage)
         self._warning_icon: ImageTk.PhotoImage | None = None
         _warn_path = _ICONS_DIR / "warning2.png"
         if _warn_path.is_file():
-            _img = PilImage.open(_warn_path).convert("RGBA").resize((16, 16), PilImage.LANCZOS)
+            _img = PilImage.open(_warn_path).convert("RGBA").resize((_flag_icon_sz, _flag_icon_sz), PilImage.LANCZOS)
             self._warning_icon = ImageTk.PhotoImage(_img)
 
         # Warning icon for late-loaded masters
         self._late_warn_icon: ImageTk.PhotoImage | None = None
         _late_warn_path = _ICONS_DIR / "warning.png"
         if _late_warn_path.is_file():
-            _img2 = PilImage.open(_late_warn_path).convert("RGBA").resize((16, 16), PilImage.LANCZOS)
+            _img2 = PilImage.open(_late_warn_path).convert("RGBA").resize((_flag_icon_sz, _flag_icon_sz), PilImage.LANCZOS)
             self._late_warn_icon = ImageTk.PhotoImage(_img2)
 
         # Warning icon for version-mismatched masters
         self._version_mismatch_icon: ImageTk.PhotoImage | None = None
         _vmm_path = _ICONS_DIR / "info.png"
         if _vmm_path.is_file():
-            _img3 = PilImage.open(_vmm_path).convert("RGBA").resize((16, 16), PilImage.LANCZOS)
+            _img3 = PilImage.open(_vmm_path).convert("RGBA").resize((_flag_icon_sz, _flag_icon_sz), PilImage.LANCZOS)
             self._version_mismatch_icon = ImageTk.PhotoImage(_img3)
 
         # Lock icon
         self._icon_lock: ImageTk.PhotoImage | None = None
         _lock_path = _ICONS_DIR / "lock.png"
         if _lock_path.is_file():
-            _lk_sz = scaled(14)
+            _lk_sz = scaled(18)
             self._icon_lock = ImageTk.PhotoImage(
                 PilImage.open(_lock_path).convert("RGBA").resize((_lk_sz, _lk_sz), PilImage.LANCZOS))
 
@@ -1917,7 +1919,7 @@ class PluginPanel(ctk.CTkFrame):
     # Ini Files tab
     # ------------------------------------------------------------------
 
-    _INI_JSON_EXTENSIONS = frozenset({".ini", ".json"})
+    _INI_JSON_EXTENSIONS = frozenset({".ini", ".json", ".toml"})
 
     @staticmethod
     def _ini_display_name(rel_path: str) -> str:
@@ -4080,7 +4082,7 @@ class PluginPanel(ctk.CTkFrame):
             )
             cb_mark = c.create_text(
                 0, -200, text="✓", anchor="center", fill=ACCENT,
-                font=(_theme.FONT_FAMILY, _theme.FS12, "bold"), state="hidden",
+                font=(_theme.FONT_FAMILY, int(_theme.FS13 * 1.25), "bold"), state="hidden",
                 tags=(cb_tag, "pcb"),
             )
             self._pool_check_rects.append(cb_rect)
@@ -4123,7 +4125,7 @@ class PluginPanel(ctk.CTkFrame):
 
             esl_badge = c.create_text(0, -200, text="L", anchor="center",
                                       fill="#7ec8e3",
-                                      font=(_theme.FONT_FAMILY, _theme.FS9, "bold"),
+                                      font=(_theme.FONT_FAMILY, _theme.FS11, "bold"),
                                       state="hidden")
             self._pool_esl_badge.append(esl_badge)
 
@@ -4360,9 +4362,9 @@ class PluginPanel(ctk.CTkFrame):
         # col 3: lock       28px
         # col 4: index      50px + 14px scrollbar gap
         idx_w = scaled(50) + scaled(14)
-        lock_w = scaled(28)
-        flags_w = scaled(50)
-        cb_col_w = scaled(28)
+        lock_w = scaled(32)
+        flags_w = scaled(110)
+        cb_col_w = scaled(32)
         flags_x = max(scaled(80), w - idx_w - lock_w - flags_w)
         self._pcol_x = [scaled(4), scaled(4) + cb_col_w, flags_x, flags_x + flags_w, flags_x + flags_w + lock_w]
 
@@ -4984,7 +4986,7 @@ class PluginPanel(ctk.CTkFrame):
                 if ul_dot_id is not None:
                     if has_ul:
                         cx = next(_flag_pos)
-                        r = scaled(3)
+                        r = scaled(4)
                         c.coords(ul_dot_id, cx - r, y_mid - r, cx + r, y_mid + r)
                         c.itemconfigure(ul_dot_id, state="normal")
                     else:
@@ -5003,7 +5005,7 @@ class PluginPanel(ctk.CTkFrame):
                 if not dragging:
                     is_vanilla = entry.name.lower() in self._vanilla_plugins
                     cb_cx = self._pcol_x[0] + scaled(12)
-                    cb_size = scaled(14)
+                    cb_size = scaled(18)
                     cx1, cy1 = cb_cx - cb_size // 2, y_mid - cb_size // 2
                     cx2, cy2 = cb_cx + cb_size // 2, y_mid + cb_size // 2
                     c.coords(self._pool_check_rects[s], cx1, cy1, cx2, cy2)
