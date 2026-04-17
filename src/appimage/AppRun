@@ -15,6 +15,11 @@ export GI_TYPELIB_PATH="${APPDIR}/usr/lib/girepository-1.0${GI_TYPELIB_PATH:+:$G
 # Bundled binaries (7zzs, etc.)
 export PATH="${APPDIR}/usr/bin:${PATH}"
 
+# Bundled fonts (Cantarell) — fontconfig picks up <dir>/fonts/ under any
+# XDG_DATA_DIRS entry, so the checkbox font renders correctly even on
+# hosts that don't ship Cantarell.
+export XDG_DATA_DIRS="${APPDIR}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
 # Tcl/Tk paths (bundled with python-appimage)
 export TCL_LIBRARY="${APPDIR}/usr/share/tcltk/tcl8.6"
 export TK_LIBRARY="${APPDIR}/usr/share/tcltk/tk8.6"
