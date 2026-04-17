@@ -464,9 +464,12 @@ class FalloutDowngradeWizard(ctk.CTkFrame):
             return None, None
 
         steam_id = getattr(self._game, "steam_id", "")
+        from gui.plugin_panel import _resolve_compat_data, _read_prefix_runner
+        compat_data = _resolve_compat_data(prefix_path)
         proton_script = find_proton_for_game(steam_id) if steam_id else None
         if proton_script is None:
-            proton_script = find_any_installed_proton()
+            preferred_runner = _read_prefix_runner(compat_data)
+            proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
                 if steam_id:
                     self._log(f"Wizard: could not find Proton for app {steam_id}, and no installed Proton tool was found.")
@@ -477,8 +480,6 @@ class FalloutDowngradeWizard(ctk.CTkFrame):
                 f"Wizard: using fallback Proton tool {proton_script.parent.name} "
                 "(no per-game Steam mapping found)."
             )
-
-        compat_data = prefix_path.parent
         steam_root = find_steam_root_for_proton_script(proton_script)
         if steam_root is None:
             self._log("Wizard: could not determine Steam root for the selected Proton tool.")

@@ -38,8 +38,28 @@ tags:
 modules:
   # Tkinter
   - python3-tkinter.yaml
-  # Python Dependencies 
+  # Python Dependencies
   - pypi-dependencies.yaml
+
+  - name: sevenzip
+    buildsystem: simple
+    build-commands:
+      - make -C CPP/7zip/Bundles/Alone2 -f makefile.gcc
+      - install -Dm755 CPP/7zip/Bundles/Alone2/_o/7zz /app/bin/7zz
+    sources:
+      - type: archive
+        url: https://www.7-zip.org/a/7z2501-src.tar.xz
+        sha256: ed087f83ee789c1ea5f39c464c55a5c9d4008deb0efe900814f2df262b82c36e
+        strip-components: 0
+  - name: unrar
+    buildsystem: simple
+    build-commands:
+      - make -f makefile
+      - install -Dm755 unrar /app/bin/unrar
+    sources:
+      - type: archive
+        url: https://www.rarlab.com/rar/unrarsrc-7.1.9.tar.gz
+        sha256: cbb5c7b65b720e59ffa47b2d00b8d1022a961da7ae1db27b6986c43671719483
 
   - name: amethyst-mod-manager
     buildsystem: simple

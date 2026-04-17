@@ -6,6 +6,9 @@ Set scale=auto to use automatic scaling based on screen size.
 """
 
 import configparser
+import os
+import re as _re
+import subprocess
 from pathlib import Path
 
 from Utils.config_paths import get_config_dir
@@ -39,9 +42,6 @@ def _get_compositor_scale() -> float:
 
     Returns 1.0 if nothing is detected or all sources fail.
     """
-    import re as _re
-    import subprocess
-
     # KDE Plasma 6: per-output scale lives in the compositor; kscreen-doctor
     # exposes it.  Output contains ANSI colour codes so strip those first.
     try:
@@ -63,9 +63,9 @@ def _get_compositor_scale() -> float:
             ["gsettings", "get", "org.gnome.desktop.interface", "scaling-factor"],
             capture_output=True, text=True, timeout=2,
         )
-        val = r.stdout.strip().lstrip("uint32").strip()
-        if val and int(val) > 1:
-            return float(int(val))
+        m = _re.search(r"\d+", r.stdout)
+        if m and int(m.group(0)) > 1:
+            return float(int(m.group(0)))
     except Exception:
         pass
 
@@ -91,8 +91,6 @@ def _get_primary_monitor_size() -> tuple[int, int]:
     lets us find the monitor marked 'primary' (or the first connected one).
     Returns (0, 0) if xrandr is unavailable or parsing fails.
     """
-    import re
-    import subprocess
     try:
         result = subprocess.run(
             ["xrandr", "--current"],
@@ -104,13 +102,13 @@ def _get_primary_monitor_size() -> tuple[int, int]:
     # Prefer the monitor explicitly marked "primary"
     for line in lines:
         if " connected " in line and "primary" in line:
-            m = re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+            m = _re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
             if m:
                 return int(m.group(1)), int(m.group(2))
     # Fall back to the first connected monitor with a geometry
     for line in lines:
         if " connected " in line:
-            m = re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+            m = _re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
             if m:
                 return int(m.group(1)), int(m.group(2))
     return 0, 0
@@ -184,6 +182,7 @@ def load_ui_scale() -> float:
     if not path.is_file():
         _ui_scale = detect_hidpi_scale()
         _write_ini(path, _INI_AUTO)
+        _seed_first_run_defaults(path)
         return _ui_scale
     try:
         parser = configparser.ConfigParser()
@@ -212,6 +211,30 @@ def _write_ini(path: Path, scale_str: str) -> None:
     parser[_INI_SECTION][_INI_OPTION] = scale_str
     with path.open("w") as f:
         parser.write(f)
+
+
+def _seed_first_run_defaults(path: Path) -> None:
+    """Write first-run-only defaults for collections and hidden columns.
+
+    Called exactly once, when the INI file is first created. Existing installs
+    never run this code path so their behaviour is unchanged.
+    """
+    try:
+        parser = configparser.ConfigParser()
+        if path.is_file():
+            parser.read(path)
+        if _COLLECTIONS_SECTION not in parser:
+            parser[_COLLECTIONS_SECTION] = {}
+        parser[_COLLECTIONS_SECTION]["download_order"] = _FIRST_RUN_DOWNLOAD_ORDER
+        parser[_COLLECTIONS_SECTION]["max_concurrent"] = str(_FIRST_RUN_MAX_CONCURRENT)
+        parser[_COLLECTIONS_SECTION]["max_extract_workers"] = str(_FIRST_RUN_MAX_EXTRACT_WORKERS)
+        if _COLUMNS_SECTION not in parser:
+            parser[_COLUMNS_SECTION] = {}
+        parser[_COLUMNS_SECTION]["hidden"] = ",".join(str(x) for x in _FIRST_RUN_HIDDEN_COLUMNS)
+        with path.open("w") as f:
+            parser.write(f)
+    except Exception:
+        pass
 
 
 def save_ui_scale(scale: float | str) -> None:
@@ -280,6 +303,14 @@ _COLLECTIONS_SECTION = "collections"
 _DEFAULT_DOWNLOAD_ORDER = "largest"   # "largest" | "smallest"
 _DEFAULT_MAX_CONCURRENT = 3
 _DEFAULT_MAX_EXTRACT_WORKERS = 4
+
+# First-run defaults — written to the INI only when it is being created for
+# the first time (see load_ui_scale). Existing installs keep whatever defaults
+# they had even if they have never saved these settings explicitly.
+_FIRST_RUN_DOWNLOAD_ORDER = "smallest"
+_FIRST_RUN_MAX_CONCURRENT = 8
+_FIRST_RUN_MAX_EXTRACT_WORKERS = 8
+_FIRST_RUN_HIDDEN_COLUMNS = [2, 5]  # category, installed
 
 
 def load_collection_settings() -> dict:
@@ -824,8 +855,6 @@ def save_default_staging_path(value: str) -> None:
 # ---------------------------------------------------------------------------
 # Theme colours
 # ---------------------------------------------------------------------------
-import re as _re
-
 _THEME_SECTION = "theme"
 
 THEME_DEFAULTS: dict[str, str] = {

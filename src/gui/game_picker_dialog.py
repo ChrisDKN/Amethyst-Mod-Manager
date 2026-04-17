@@ -291,12 +291,21 @@ class GamePickerPanel(tk.Frame):
         self._loader = CTkLoader(canvas_frame)
 
         def _deferred_build():
-            for name in self._game_names:
-                self._build_card(name)
-            self._regrid_cards()
-            self._hide_loader()
-            # Start fetching remote handlers after local cards are shown
-            threading.Thread(target=self._fetch_remote_handlers, daemon=True).start()
+            try:
+                for name in self._game_names:
+                    try:
+                        self._build_card(name)
+                    except Exception:
+                        pass
+                try:
+                    self._regrid_cards()
+                except Exception:
+                    pass
+            finally:
+                # Always drop the loader — a stuck spinner is the worst failure mode.
+                self._hide_loader()
+                # Start fetching remote handlers after local cards are shown
+                threading.Thread(target=self._fetch_remote_handlers, daemon=True).start()
 
         self.after(50, _deferred_build)
 

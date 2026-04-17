@@ -124,11 +124,11 @@ class SRMLWizard(ctk.CTkFrame):
             return None, None
 
         steam_id    = getattr(self._game, "steam_id", "")
-        compat_data = prefix_path.parent if prefix_path.name == "pfx" else prefix_path
+        from gui.plugin_panel import _resolve_compat_data, _read_prefix_runner
+        compat_data = _resolve_compat_data(prefix_path)
         proton_script = find_proton_for_game(steam_id) if steam_id else None
 
         if proton_script is None:
-            from gui.plugin_panel import _read_prefix_runner
             preferred_runner = _read_prefix_runner(compat_data)
             proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:

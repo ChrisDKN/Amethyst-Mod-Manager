@@ -280,6 +280,7 @@ class App(ctk.CTk):
         self.minsize(_min_w, _min_h)
         self.bind("<Configure>", self._on_window_configure)
         self._geom_save_id: str | None = None
+        self._minsize_sync_id: str | None = None
         # Thread-safe callback queue — background threads must never call
         # widget.after() directly (Python 3.13 Tkinter enforces this).
         # Use  app.call_threadsafe(fn)  instead.
@@ -863,10 +864,20 @@ class App(ctk.CTk):
         # Only react to top-level window events, not child widgets
         if event.widget is not self:
             return
+        # Re-cap col 0 minsize against the new window width (debounced via
+        # after_idle) so the plugin panel isn't clipped when the WM forces
+        # the window below col_sum.  Debouncing prevents feedback loops
+        # where configure → minsize change → configure → ...
+        if hasattr(self, "_mod_panel") and getattr(self, "_minsize_sync_id", None) is None:
+            self._minsize_sync_id = self.after_idle(self._deferred_minsize_sync)
         # Debounce — save 500ms after the last resize/move event
         if self._geom_save_id is not None:
             self.after_cancel(self._geom_save_id)
         self._geom_save_id = self.after(500, self._save_geometry)
+
+    def _deferred_minsize_sync(self) -> None:
+        self._minsize_sync_id = None
+        self._sync_mod_col_minsize()
 
     def _save_geometry(self) -> None:
         self._geom_save_id = None
@@ -901,8 +912,8 @@ class App(ctk.CTk):
 
     def _on_col_drag_start(self, event: tk.Event) -> None:
         self._col_drag_x = event.x_root
-        self._col_drag_w = self._plugin_panel_saved_w if not self._plugin_panel_visible else self._plugin_panel_container.winfo_width()
-        self._col_drag_target_w = 0 if not self._plugin_panel_visible else self._col_drag_w
+        self._col_drag_w = 0 if not self._plugin_panel_visible else self._plugin_panel_container.winfo_width()
+        self._col_drag_target_w = self._col_drag_w
         self._col_show_ghost(event.x_root)
 
     def _on_col_drag_motion(self, event: tk.Event) -> None:
@@ -912,9 +923,12 @@ class App(ctk.CTk):
         max_w = self._col_max_plugin_width()
         # Allow dragging past min width — collapse threshold is half of min width
         raw_w = self._col_drag_w + delta
-        self._col_drag_target_w = min(raw_w, max_w)
-        # Ghost line follows cursor directly
-        self._col_move_ghost(event.x_root)
+        clamped_w = max(0, min(raw_w, max_w))
+        self._col_drag_target_w = clamped_w
+        # Ghost line clamped to [max-width, fully-collapsed] range so it stops
+        # at the panel's min/max bounds instead of following the cursor off-range.
+        ghost_x = event.x_root + (raw_w - clamped_w)
+        self._col_move_ghost(ghost_x)
 
     def _on_col_drag_end(self, event: tk.Event) -> None:
         self._col_drag_x = None
@@ -959,13 +973,53 @@ class App(ctk.CTk):
             self._col_drag_handle.configure(cursor="hand2")
             self._col_drag_handle.itemconfigure("arrow", text="◀")
 
+    def _mod_col_required_width(self) -> int:
+        """Minimum width the modlist column needs to avoid clipping the topbar
+        or bottom toolbar. Scales with UI scale because widget req widths already do."""
+        mod_panel = getattr(self, "_mod_panel", None)
+        toolbar = getattr(mod_panel, "_toolbar_bar", None) if mod_panel is not None else None
+        toolbar_w = toolbar.winfo_reqwidth() if toolbar is not None else scaled(700)
+        topbar = getattr(self, "_topbar", None)
+        topbar_w = 0
+        if topbar is not None:
+            row1 = getattr(topbar, "_row1", None)
+            row2 = getattr(topbar, "_row2", None)
+            r1w = row1.winfo_reqwidth() if row1 is not None else 0
+            r2w = row2.winfo_reqwidth() if row2 is not None else 0
+            # Once the topbar wraps to two rows, min width is the wider row.
+            topbar_w = max(r1w, r2w)
+        return max(toolbar_w, topbar_w) + scaled(20)
+
+    def _sync_mod_col_minsize(self) -> None:
+        """Keep column 0's minsize in sync with the topbar/toolbar's current
+        required width, so grid weight distribution can't clip them.
+
+        When the window is narrower than col0_required + sep + col2_saved
+        (WM tiling, unmaximize, or a saved plugin width that exceeds the
+        window), col 2 is shrunk toward ``scaled(480)`` and col 0 capped so
+        both fit — otherwise col 2 pins at its saved width and squashes
+        the modlist column."""
+        required = self._mod_col_required_width()
+        win_w = self.winfo_width()
+        if win_w > 1 and self._plugin_panel_visible:
+            sep_w = self._col_drag_handle.winfo_reqwidth() or scaled(14)
+            plugin_min = scaled(480)
+            saved = max(plugin_min, self._plugin_panel_saved_w)
+            # How wide can the plugin panel be without overflowing?
+            max_plugin = max(plugin_min, win_w - required - sep_w)
+            plugin_w = min(saved, max_plugin)
+            self.grid_columnconfigure(2, weight=4, minsize=plugin_w)
+            try:
+                if abs(self._plugin_panel_container.winfo_width() - plugin_w) > 1:
+                    self._plugin_panel_container.configure(width=plugin_w)
+            except Exception:
+                pass
+            if required + sep_w + plugin_w > win_w:
+                required = max(scaled(320), win_w - sep_w - plugin_w)
+        self.grid_columnconfigure(0, weight=5, minsize=required)
+
     def _col_max_plugin_width(self) -> int:
-        toolbar = getattr(self._mod_panel, "_toolbar_bar", None)
-        if toolbar is not None:
-            mod_col_min = toolbar.winfo_reqwidth() + scaled(20)
-        else:
-            mod_col_min = scaled(720)
-        return self.winfo_width() - mod_col_min - self._col_drag_handle.winfo_width()
+        return self.winfo_width() - self._mod_col_required_width() - self._col_drag_handle.winfo_width()
 
     def _col_show_ghost(self, x_root: int) -> None:
         self._col_ghost = tk.Toplevel(self)
@@ -1076,6 +1130,7 @@ class App(ctk.CTk):
         def _set_plugin_width():
             try:
                 self._plugin_panel_container.configure(width=480)
+                self._sync_mod_col_minsize()
             except Exception:
                 pass
         self.after(50, _set_plugin_width)

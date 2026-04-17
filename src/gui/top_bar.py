@@ -272,6 +272,11 @@ class TopBar(ctk.CTkFrame):
         self._row2.pack_forget()
         self._two_rows = None  # reset so _apply_layout always runs
         self._apply_layout(self.winfo_width())
+        # Notify the app so it can widen the modlist column minsize to match.
+        app = self.winfo_toplevel()
+        sync = getattr(app, "_sync_mod_col_minsize", None)
+        if sync is not None:
+            sync()
 
     def _on_configure(self, event):
         """Re-evaluate single-row vs two-row layout whenever our width changes."""

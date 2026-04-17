@@ -233,6 +233,8 @@ class NexusCollectionMod:
     source_type: str = "nexus"  # "nexus", "bundle", "browse", "direct"
     category_id: int = 0
     category_name: str = ""
+    install_type: str = ""  # collection.json mods[].details.type — e.g. "dinput" → root install
+    md5: str = ""           # collection.json mods[].source.md5 — used to verify cached archives
 
 
 # ---------------------------------------------------------------------------

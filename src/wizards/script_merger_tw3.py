@@ -196,11 +196,11 @@ class ScriptMergerWizard(ctk.CTkFrame):
             return None, None, None
 
         steam_id    = getattr(self._game, "steam_id", "")
-        compat_data = prefix_path.parent if prefix_path.name == "pfx" else prefix_path
+        from gui.plugin_panel import _resolve_compat_data, _read_prefix_runner
+        compat_data = _resolve_compat_data(prefix_path)
         proton_script = find_proton_for_game(steam_id) if steam_id else None
 
         if proton_script is None:
-            from gui.plugin_panel import _read_prefix_runner
             preferred_runner = _read_prefix_runner(compat_data)
             proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
@@ -568,7 +568,13 @@ class ScriptMergerWizard(ctk.CTkFrame):
                 cwd=str(cache_path.parent),
             )
 
-            if proc.returncode != 0:
+            # Exit codes from the .NET desktop runtime installer:
+            #   0    = installed successfully
+            #   102  = already installed / no-op
+            #   1638 = another version already installed
+            #   3010 = installed, reboot required
+            _ok_codes = {0, 102, 1638, 3010}
+            if proc.returncode not in _ok_codes:
                 raise RuntimeError(f".NET 8 installer exited with code {proc.returncode}.")
 
             _mark_net8_installed(prefix_path)

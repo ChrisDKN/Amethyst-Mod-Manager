@@ -8,11 +8,15 @@ Applications/), so this wizard only appears when
 
 Workflow
 --------
-1. User is prompted to delete any previous Pandora output mod.
-2. Deploy the modlist.
+1. User is prompted to delete any previous Pandora output mod, then deploy.
+2. Silently install .NET 10 desktop runtime into the game prefix
+   (skipped if already installed).
 3. Run Pandora Behaviour Engine+.exe via Proton with:
      --tesv:<game_path>
-     --output:<staging>/Pandora
+
+   The output folder (<staging>/Pandora) is configured by rewriting
+   Pandora's Settings.json inside the Wine prefix, because newer
+   Pandora builds ignore the ``--output:`` CLI flag.
 """
 
 from __future__ import annotations
@@ -37,6 +41,10 @@ from gui.theme import (
 )
 
 _EXE_NAME = "Pandora Behaviour Engine+.exe"
+
+_NET10_URL      = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.0/windowsdesktop-runtime-10.0.0-win-x64.exe"
+_NET10_FILENAME = "windowsdesktop-runtime-10.0.0-win-x64.exe"
+_NET10_DEP_KEY  = "dotnet10_windowsdesktop"
 
 
 def find_pandora_exe(game: "BaseGame") -> Path | None:
@@ -104,6 +112,15 @@ class PandoraWizard(ctk.CTkFrame):
                 pass
         self.after(0, _apply)
 
+    def _safe_after(self, delay: int, fn):
+        def _run():
+            try:
+                if self.winfo_exists():
+                    fn()
+            except Exception:
+                pass
+        self.after(delay, _run)
+
     def _get_proton_env(self):
         from Utils.steam_finder import (
             find_any_installed_proton,
@@ -116,11 +133,11 @@ class PandoraWizard(ctk.CTkFrame):
             return None, None, None
 
         steam_id    = getattr(self._game, "steam_id", "")
-        compat_data = prefix_path.parent if prefix_path.name == "pfx" else prefix_path
+        from gui.plugin_panel import _resolve_compat_data, _read_prefix_runner
+        compat_data = _resolve_compat_data(prefix_path)
         proton_script = find_proton_for_game(steam_id) if steam_id else None
 
         if proton_script is None:
-            from gui.plugin_panel import _read_prefix_runner
             preferred_runner = _read_prefix_runner(compat_data)
             proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
@@ -189,7 +206,7 @@ class PandoraWizard(ctk.CTkFrame):
             btn_frame, text="Skip", width=100, height=36,
             font=FONT_BOLD,
             fg_color=BG_HEADER, hover_color="#3d3d3d", text_color=TEXT_DIM,
-            command=self._show_step_run,
+            command=self._show_step_deps,
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
@@ -280,21 +297,111 @@ class PandoraWizard(ctk.CTkFrame):
                 deploy_root_folder(target_rf, game_root, mode=deploy_mode, log_fn=_tlog)
 
             self._set_label("_deploy_status", "Deploy complete.", color="#6bc76b")
-            self.after(0, self._show_step_run)
+            self._safe_after(0, self._show_step_deps)
 
         except Exception as exc:
             self._set_label("_deploy_status", f"Deploy error: {exc}", color="#e06c6c")
             self._log(f"Pandora Wizard: deploy error: {exc}")
 
     # ------------------------------------------------------------------
-    # Step 2 — Run Pandora
+    # Step 2 — Install .NET 10 (silent)
+    # ------------------------------------------------------------------
+
+    def _show_step_deps(self):
+        self._clear_body()
+
+        ctk.CTkLabel(
+            self._body, text="Step 2: Install Dependencies",
+            font=FONT_BOLD, text_color=TEXT_MAIN,
+        ).pack(pady=(0, 12))
+
+        self._net10_status = ctk.CTkLabel(
+            self._body, text="Checking .NET 10\u2026",
+            font=FONT_NORMAL, text_color=TEXT_DIM, justify="center", wraplength=460,
+        )
+        self._net10_status.pack(pady=(0, 6))
+
+        threading.Thread(target=self._do_install_deps, daemon=True).start()
+
+    def _do_install_deps(self):
+        import urllib.request
+        from Utils.config_paths import get_dotnet_cache_dir
+        from wizards.pgpatcher import _is_dep_installed, _mark_dep_installed
+
+        proton_script, env, prefix_path = self._get_proton_env()
+
+        if prefix_path is None:
+            self._set_label(
+                "_net10_status",
+                "No Proton prefix configured for this game.\n"
+                "Configure the prefix in Game Settings, then reopen this wizard.",
+                color="#e06c6c",
+            )
+            return
+
+        if _is_dep_installed(prefix_path, _NET10_DEP_KEY):
+            self._set_label("_net10_status", ".NET 10 already installed \u2014 skipping.", color="#6bc76b")
+            self._safe_after(500, self._show_step_run)
+            return
+
+        if proton_script is None:
+            self._set_label(
+                "_net10_status",
+                "Could not find Proton \u2014 check that the prefix is configured.",
+                color="#e06c6c",
+            )
+            return
+
+        cache_path = get_dotnet_cache_dir() / _NET10_FILENAME
+
+        try:
+            if not cache_path.is_file():
+                self._set_label("_net10_status", "Downloading .NET 10 runtime\u2026")
+                self._log("Pandora Wizard: downloading .NET 10 runtime \u2026")
+                urllib.request.urlretrieve(_NET10_URL, cache_path)
+                self._log("Pandora Wizard: .NET 10 download complete.")
+            else:
+                self._log("Pandora Wizard: using cached .NET 10 installer.")
+
+            self._set_label(
+                "_net10_status",
+                "Installing .NET 10 into game prefix\u2026\n(this may take a few minutes)",
+            )
+            self._log("Pandora Wizard: launching .NET 10 installer in game prefix \u2026")
+
+            proc = subprocess.run(
+                ["python3", str(proton_script), "run", str(cache_path), "/quiet", "/norestart"],
+                env=env,
+                cwd=str(cache_path.parent),
+            )
+
+            # Exit codes from the .NET desktop runtime installer:
+            #   0    = installed successfully
+            #   1602 = user cancel
+            #   1638 = another version already installed (success, no-op)
+            #   3010 = installed, reboot required (success)
+            #   102  = already installed / no-op (success)
+            _ok_codes = {0, 102, 1638, 3010}
+            if proc.returncode not in _ok_codes:
+                raise RuntimeError(f".NET 10 installer exited with code {proc.returncode}.")
+
+            _mark_dep_installed(prefix_path, _NET10_DEP_KEY)
+            self._set_label("_net10_status", ".NET 10 installed successfully.", color="#6bc76b")
+            self._safe_after(500, self._show_step_run)
+
+        except Exception as exc:
+            self._set_label("_net10_status", f"Error: {exc}", color="#e06c6c")
+            self._log(f"Pandora Wizard: .NET 10 install error: {exc}")
+
+    # ------------------------------------------------------------------
+    # Step 3 — Run Pandora
     # ------------------------------------------------------------------
 
     def _show_step_run(self):
         self._clear_body()
 
         ctk.CTkLabel(
-            self._body, text="Step 2: Run Pandora",
+            self._body, text="Step 3: Run Pandora",
             font=FONT_BOLD, text_color=TEXT_MAIN,
         ).pack(pady=(0, 12))
 
@@ -347,23 +454,48 @@ class PandoraWizard(ctk.CTkFrame):
             self._set_label("_run_status", "Game path not configured.", color="#e06c6c")
             return
 
-        staging    = self._game.get_effective_mod_staging_path()
-        output_dir = staging / "Pandora"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        staging = self._game.get_effective_mod_staging_path()
 
-        game_arg   = f'--tesv:{_to_wine_path(game_path, _prefix / "pfx" if _prefix else None)}'
-        output_arg = f'--output:{_to_wine_path(output_dir, _prefix / "pfx" if _prefix else None)}'
+        from gui.plugin_panel import _resolve_compat_data
+        compat_data = _resolve_compat_data(_prefix) if _prefix else None
+
+        from Utils.exe_args_builder import _bootstrap_pandora_settings
+        _bootstrap_pandora_settings(
+            getattr(self._game, "game_id", None),
+            game_path,
+            staging,
+            compat_data,
+            self._log,
+        )
+
+        pfx = compat_data / "pfx" if compat_data and compat_data.name != "pfx" else compat_data
+        game_arg = f'--tesv:{_to_wine_path(game_path, pfx)}'
 
         # Unset .NET environment variables that can prevent Pandora from launching
         # when the host has a .NET runtime installed (e.g. via Bottles/MO2).
         env.pop("DOTNET_ROOT", None)
         env.pop("DOTNET_BUNDLE_EXTRACT_BASE_DIR", None)
 
+        # WPF rendering over DXVK produces a double title bar / frame glitch
+        # in Proton. Forcing the WineD3D GDI renderer bypasses the Vulkan path
+        # entirely and gives a single, properly-decorated window.
+        # PROTON_USE_WINED3D is required — WINE_D3D_CONFIG only takes effect
+        # when WineD3D (not DXVK) is actually handling the d3d calls.
+        env["PROTON_USE_WINED3D"] = "1"
+        env["WINE_D3D_CONFIG"] = "renderer=gdi"
+
+        cmd = ["python3", str(proton_script), "run", str(exe), game_arg]
         self._log(f"Pandora Wizard: launching {exe} via Proton")
-        self._log(f"  args: {game_arg}  {output_arg}")
+        self._log(f"  cmd: {' '.join(cmd)}")
+        self._log(
+            "  env: "
+            f"PROTON_USE_WINED3D={env.get('PROTON_USE_WINED3D', '<unset>')} "
+            f"WINE_D3D_CONFIG={env.get('WINE_D3D_CONFIG', '<unset>')} "
+            f"STEAM_COMPAT_DATA_PATH={env.get('STEAM_COMPAT_DATA_PATH', '<unset>')}"
+        )
         try:
             proc = subprocess.Popen(
-                ["python3", str(proton_script), "run", str(exe), game_arg, output_arg],
+                cmd,
                 env=env,
                 cwd=str(exe.parent),
                 stdout=subprocess.DEVNULL,

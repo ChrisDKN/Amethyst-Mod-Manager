@@ -1,3 +1,14 @@
+- v1.2.7
+- Added aggregated flags to the separators, collapsed separators now show flags/conflicts of mods in them
+- Fixed infinite loading screen in add game menu on first run
+- Collection installs now auto-flag mods with details.type "dinput" as Root Folder installs
+- Collection installs now verify md5 of cached archives when the manifest provides one, preventing false matches for manually-downloaded files
+- Fix for recent pandora versions (4.2.0+) that broke/changed the --output flag, Output path is now added to pandoras config at runtime
+- Added PROTON_USE_WINED3D=1 and WINE_D3D_CONFIG=renderer=gdi to pandora at runtime to fix its buggy interface on proton
+- Fixed proton version detection for non steam prefixes when running applications
+- Fixed very long mod names in the nexus window cutting off the view/install buttons
+- Various UI scaling tweaks 
+
 - v1.2.6
 - Fixed heroic appnames not saving for non bepinex games
 - Added Gog fallback for plugins.txt locations and My games location for gog versions of bethesda games

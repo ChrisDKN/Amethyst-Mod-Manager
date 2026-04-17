@@ -12,6 +12,7 @@ import threading
 from typing import Callable, Any
 
 import tkinter as tk
+import tkinter.font as tkfont
 
 import customtkinter as ctk
 import requests
@@ -34,7 +35,7 @@ from gui.theme import (
 # so keep them as design-pixel values — do NOT wrap in scaled().
 # For tk-level layout math (slot widths, canvas offsets) use scaled(CARD_W).
 CARD_W = 280
-CARD_H = 310
+CARD_H = 324
 # Image dimensions — unscaled design values. CTkImage/CTkLabel receive these
 # directly; CTk applies set_widget_scaling internally (scaled() would double-scale).
 CARD_IMG_W = CARD_W - 10
@@ -61,6 +62,55 @@ def _get_placeholder() -> ctk.CTkImage:
 def make_placeholder_image(w: int, h: int) -> PilImage.Image:
     """Create a solid-colour placeholder PIL image."""
     return PilImage.new("RGB", (w, h), PLACEHOLDER_COLOR)
+
+
+def _truncate_to_lines(text: str, font: tkfont.Font, max_width_px: int, max_lines: int) -> str:
+    """Word-wrap `text` to fit `max_width_px`; if it exceeds `max_lines`, truncate
+    the last kept line with an ellipsis. Mirrors tk's greedy wrap behaviour."""
+    words = text.split()
+    if not words:
+        return text
+    lines: list[str] = []
+    cur = ""
+    for w in words:
+        candidate = w if not cur else f"{cur} {w}"
+        if font.measure(candidate) <= max_width_px:
+            cur = candidate
+            continue
+        if cur:
+            lines.append(cur)
+            if len(lines) >= max_lines:
+                break
+        # word alone may exceed width — hard-break it
+        if font.measure(w) > max_width_px:
+            buf = ""
+            for ch in w:
+                if font.measure(buf + ch) <= max_width_px:
+                    buf += ch
+                else:
+                    lines.append(buf)
+                    if len(lines) >= max_lines:
+                        buf = ""
+                        break
+                    buf = ch
+            cur = buf
+        else:
+            cur = w
+    if cur and len(lines) < max_lines:
+        lines.append(cur)
+
+    # Check whether we consumed every word
+    consumed = " ".join(lines).split()
+    if len(consumed) >= len(words):
+        return "\n".join(lines)
+
+    # Need to ellipsise the last line
+    last = lines[-1] if lines else ""
+    ell = "…"
+    while last and font.measure(last + ell) > max_width_px:
+        last = last[:-1].rstrip()
+    lines[-1] = (last + ell) if last else ell
+    return "\n".join(lines)
 
 
 class ModCard:
@@ -107,12 +157,39 @@ class ModCard:
             stats_parts.append(f"♥{_get(entry, 'endorsement_count', 0):,}")
         stats_str = "  ".join(stats_parts)
 
+        title_font = font_sized(FONT_FAMILY, 13, "bold")
+        # Rebuild a tkfont.Font from the same tuple so text measurements match
+        # the rendered label (size is already scaled inside font_sized()).
+        title_measure_font = tkfont.Font(
+            family=title_font[0], size=title_font[1], weight="bold",
+        )
+        # Font size is already scaled; measure() returns scaled pixels, so
+        # compare against the scaled design width.
+        title_text = _truncate_to_lines(
+            title_text, title_measure_font, scaled(CARD_W - 20), max_lines=2,
+        )
+        # Always render 2 lines so every card reserves identical vertical
+        # space for the title — buttons then line up across the grid.
+        if "\n" not in title_text:
+            title_text += "\n "
+        # Reserve 2 lines of height so buttons line up across cards regardless
+        # of whether the title wraps to 1 or 2 lines. CTkLabel height takes
+        # design pixels (it scales internally), so derive from the unscaled
+        # point size rather than measure() which returns scaled px.
+        # Compute fixed 2-line height in actual pixels from the real font
+        # metrics. Used for both the label height and the grid row minsize so
+        # 1-line and 2-line titles occupy identical vertical space.
+        title_two_line_px = title_measure_font.metrics("linespace") * 2 + scaled(4)
         title_label = ctk.CTkLabel(
             self.card, text=title_text,
-            font=font_sized(FONT_FAMILY, 13, "bold"),
-            anchor="w", wraplength=CARD_W - 20, justify="left",
+            font=title_font,
+            anchor="nw", justify="left",
         )
-        title_label.grid(row=1, column=0, padx=10, pady=(6, 0), sticky="ew", columnspan=2)
+        title_label.grid(
+            row=1, column=0, padx=10, pady=(6, 0),
+            sticky="new", columnspan=2,
+        )
+        self.card.grid_rowconfigure(1, minsize=title_two_line_px)
 
         if stats_str:
             stats_label = ctk.CTkLabel(
@@ -143,7 +220,7 @@ class ModCard:
 
         # Buttons — each 50% of card width with padding between
         btn_frame = ctk.CTkFrame(self.card, fg_color="transparent")
-        btn_frame.grid(row=5, column=0, padx=8, pady=(4, 8), sticky="swe", columnspan=2)
+        btn_frame.grid(row=5, column=0, padx=8, pady=(4, 14), sticky="sew", columnspan=2)
         btn_frame.grid_columnconfigure(0, weight=1)
         btn_frame.grid_columnconfigure(1, weight=1)
 

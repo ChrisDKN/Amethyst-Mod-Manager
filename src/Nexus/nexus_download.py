@@ -69,11 +69,13 @@ def _fileid_sidecar(archive: Path) -> Path:
 def delete_archive_and_sidecar(archive_path: Path) -> None:
     """Remove an archive and its .fileid sidecar if present.
 
-    Safe to call even if either file is missing.
+    Safe to call even if either file is missing.  Also drops any cached md5
+    entry for this path.
     """
     try:
         archive_path.unlink(missing_ok=True)
         _fileid_sidecar(archive_path).unlink(missing_ok=True)
+        _md5_cache_forget(archive_path)
     except Exception:
         pass
 
@@ -92,6 +94,117 @@ def _write_sidecar_file_id(archive: Path, file_id: int) -> None:
         _fileid_sidecar(archive).write_text(str(file_id))
     except Exception:
         pass
+
+
+# -- md5 cache ---------------------------------------------------------------
+# Hashing a multi-GB archive is slow, so we cache results in a single JSON
+# file inside the app's download cache directory.  Entries are keyed by the
+# archive's absolute path and invalidated when size or mtime changes.  We
+# deliberately never write alongside the archive itself — that would pollute
+# the user's Downloads folder / any external download locations they've
+# configured.
+
+_MD5_CACHE_FILE = "md5_cache.json"
+_md5_cache_lock = threading.Lock()
+
+
+def _md5_cache_path() -> Path:
+    from Utils.config_paths import get_download_cache_dir
+    return get_download_cache_dir() / _MD5_CACHE_FILE
+
+
+def _md5_cache_load() -> dict:
+    try:
+        import json
+        return json.loads(_md5_cache_path().read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _md5_cache_save(data: dict) -> None:
+    try:
+        import json
+        path = _md5_cache_path()
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data), encoding="utf-8")
+        tmp.replace(path)
+    except Exception:
+        pass
+
+
+def _md5_cache_key(archive: Path) -> str:
+    try:
+        return str(archive.resolve())
+    except Exception:
+        return str(archive)
+
+
+def _md5_cache_get(archive: Path) -> str:
+    """Return the cached md5 for *archive*, or "" if absent/stale."""
+    try:
+        st = archive.stat()
+    except Exception:
+        return ""
+    key = _md5_cache_key(archive)
+    with _md5_cache_lock:
+        entry = _md5_cache_load().get(key)
+    if not entry:
+        return ""
+    if entry.get("size") != st.st_size or entry.get("mtime") != int(st.st_mtime):
+        return ""
+    return (entry.get("md5") or "").lower()
+
+
+def _md5_cache_put(archive: Path, md5_hex: str) -> None:
+    try:
+        st = archive.stat()
+    except Exception:
+        return
+    key = _md5_cache_key(archive)
+    with _md5_cache_lock:
+        data = _md5_cache_load()
+        data[key] = {"size": st.st_size, "mtime": int(st.st_mtime), "md5": md5_hex.lower()}
+        _md5_cache_save(data)
+
+
+def _md5_cache_forget(archive: Path) -> None:
+    key = _md5_cache_key(archive)
+    with _md5_cache_lock:
+        data = _md5_cache_load()
+        if data.pop(key, None) is not None:
+            _md5_cache_save(data)
+
+
+def _compute_md5(path: Path) -> str:
+    """Return the lowercase hex md5 of *path*, or "" on any error."""
+    import hashlib
+    try:
+        h = hashlib.md5()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return ""
+
+
+def _md5_matches(archive: Path, expected_md5: str) -> bool:
+    """Return True if *archive*'s md5 equals *expected_md5*.
+
+    Uses the shared md5 cache (in the app's download cache dir) to avoid
+    re-hashing archives we've already verified.  An empty *expected_md5*
+    means "no verification requested" and the function returns True.
+    """
+    if not expected_md5:
+        return True
+    expected = expected_md5.strip().lower()
+    cached = _md5_cache_get(archive)
+    if cached:
+        return cached == expected
+    actual = _compute_md5(archive)
+    if actual:
+        _md5_cache_put(archive, actual)
+    return actual == expected
 
 
 def _zip_is_intact(path: Path) -> bool:
@@ -118,6 +231,7 @@ def _find_cached_archive(
     expected_size_bytes: int,
     mod_id: int = 0,
     file_id: int = 0,
+    expected_md5: str = "",
 ) -> "tuple[Path | None, bool]":
     """Scan *dl_dir* for an existing archive that matches this mod.
 
@@ -131,6 +245,14 @@ def _find_cached_archive(
        name is used as an additional hint (substring match) when available.
     2. Fallback (no expected size): find a file whose stem partially matches
        the normalised *display_name*.
+
+    md5 verification
+    ----------------
+    If *expected_md5* is given, a size/name candidate is only accepted when
+    its md5 matches.  Manually-downloaded archives lack the ``.fileid``
+    sidecar so this extra check prevents false positives where an unrelated
+    archive happens to share the same size and name shape.  The computed
+    hash is cached in an ``.md5`` sidecar so repeat lookups don't rehash.
 
     Partial-download detection
     --------------------------
@@ -176,6 +298,16 @@ def _find_cached_archive(
     best_partial: "Path | None" = None
 
     for f in candidates:
+        # Skip files whose sidecar belongs to a different file_id — they are
+        # unambiguously a different download and must never be treated as
+        # partials of this one.  This prevents cross-contamination when two
+        # files from the same mod (e.g. 76460) are being fetched in parallel
+        # and one's filename is a prefix of the other.
+        if file_id > 0:
+            _sid = _read_sidecar_file_id(f)
+            if _sid > 0 and _sid != file_id:
+                continue
+
         try:
             actual = f.stat().st_size
         except Exception:
@@ -201,26 +333,41 @@ def _find_cached_archive(
                     )
                     if clean and norm_name not in clean and clean not in norm_name:
                         continue
-                # Size (and optional name hint) match — this is the right file.
+                # Size (and optional name hint) match — verify md5 when
+                # provided (e.g. from a collection manifest) to rule out
+                # unrelated archives that happen to share the same size.
+                if expected_md5 and not _md5_matches(f, expected_md5):
+                    continue
                 return f, _zip_is_intact(f)
             if ratio < _PARTIAL_CUTOFF:
-                # Might be a partial download of this file.
+                # Might be a partial download of this file.  Require exact
+                # normalized-stem equality (not substring) so that files whose
+                # names are prefixes of each other — e.g. "Deathbell" vs
+                # "Deathbell ENB-light" under the same mod ID — do not get
+                # misidentified as partials of one another.  Strip any trailing
+                # ``(N)`` collision counter the downloader may have appended.
                 if not mod_id_str or mod_id_str in f.name:
+                    raw_stem = re.sub(r'\s*\(\d+\)$', '', f.stem)
                     if mod_id_str and norm_name:
                         clean = re.sub(
                             r'[^\w]', '',
-                            _clean_nexus_stem(f.stem, mod_id_str).lower()
+                            _clean_nexus_stem(raw_stem, mod_id_str).lower()
                         )
-                        if norm_name in clean or clean in norm_name:
+                        if clean and clean == norm_name:
                             best_partial = f
                     elif norm_name:
-                        norm_stem = re.sub(r'[^\w]', '', f.stem.lower())
-                        if norm_name in norm_stem or norm_stem in norm_name:
+                        norm_stem = re.sub(r'[^\w]', '', raw_stem.lower())
+                        if norm_stem == norm_name:
                             best_partial = f
         else:
-            # No expected size: match by name stem only, verify integrity
-            norm_stem = re.sub(r'[^\w]', '', f.stem.lower())
-            if norm_name and (norm_name in norm_stem or norm_stem in norm_name):
+            # No expected size: match by name stem only, verify integrity.
+            # Require exact normalized equality for the same prefix-collision
+            # reason described above.  Strip trailing ``(N)`` collision counter.
+            raw_stem = re.sub(r'\s*\(\d+\)$', '', f.stem)
+            norm_stem = re.sub(r'[^\w]', '', raw_stem.lower())
+            if norm_name and norm_stem == norm_name:
+                if expected_md5 and not _md5_matches(f, expected_md5):
+                    continue
                 return f, _zip_is_intact(f)
 
     if best_partial is not None:
@@ -565,6 +712,14 @@ class NexusDownloader:
             while dest.exists():
                 dest = dest_dir / f"{stem} ({counter}){suffix}"
                 counter += 1
+
+            # Stamp the sidecar now, before the download starts, so that
+            # concurrent _find_cached_archive calls from other threads (e.g.
+            # a sibling file from the same mod) can identify this in-flight
+            # partial by file_id and skip it, rather than misclassifying it
+            # as a partial of their own file and unlinking it.
+            if file_id > 0:
+                _write_sidecar_file_id(dest, file_id)
 
             downloaded = 0
             with open(dest, "wb") as fh:

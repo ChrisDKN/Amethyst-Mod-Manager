@@ -977,10 +977,10 @@ class ProtonToolsPanel(ctk.CTkFrame):
 
         steam_id = getattr(self._game, "steam_id", "")
         proton_script = find_proton_for_game(steam_id) if steam_id else None
-        compat_data = prefix_path.parent if prefix_path.name == "pfx" else prefix_path
+        from gui.plugin_panel import _resolve_compat_data, _read_prefix_runner
+        compat_data = _resolve_compat_data(prefix_path)
 
         if proton_script is None:
-            from gui.plugin_panel import _read_prefix_runner
             preferred_runner = _read_prefix_runner(compat_data)
             proton_script = find_any_installed_proton(preferred_runner)
             if proton_script is None:
@@ -2380,17 +2380,58 @@ class ExeConfigPanel(ctk.CTkFrame):
         ).pack(side="right", padx=4)
         ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x")
 
-        # Body frame — grid layout lives here
-        self._body = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
-        self._body.pack(fill="both", expand=True)
+        # Bottom action bar host — packed first (bottom) so it stays visible
+        # when the scrollable section content is tall. Populated inside _build().
+        self._bar_host = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        self._bar_host.pack(side="bottom", fill="x")
+
+        # Scrollable body frame — sections live here
+        self._body = ctk.CTkScrollableFrame(
+            self, fg_color="transparent", corner_radius=0,
+            scrollbar_button_color=BG_HEADER,
+            scrollbar_button_hover_color=BG_HOVER,
+        )
+        self._body.pack(side="top", fill="both", expand=True)
 
         self._build()
+        self._bind_wheel_to_body(self._body)
 
         if self._initial_launch_mode is None:
             self._load_saved()
             self._game_flag_var.trace_add("write", self._assemble)
             self._output_flag_var.trace_add("write", self._assemble)
             self._mod_var.trace_add("write", self._assemble)
+
+    def _bind_wheel_to_body(self, root):
+        """Forward mousewheel events from every child of the scrollable body
+        to the body's internal canvas so scrolling works anywhere over it."""
+        try:
+            canvas = self._body._parent_canvas
+        except Exception:
+            return
+
+        def _on_wheel(event):
+            if event.num == 4:
+                canvas.yview_scroll(-3, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(3, "units")
+            else:
+                delta = -1 * int(event.delta / 40) if event.delta else 0
+                if delta:
+                    canvas.yview_scroll(delta, "units")
+            return "break"
+
+        def _walk(w):
+            try:
+                w.bind("<MouseWheel>", _on_wheel, add="+")
+                w.bind("<Button-4>", _on_wheel, add="+")
+                w.bind("<Button-5>", _on_wheel, add="+")
+            except Exception:
+                pass
+            for child in w.winfo_children():
+                _walk(child)
+
+        _walk(root)
 
     def _load_mod_entries(self) -> "list[tuple[str, Path]]":
         entries: list[tuple[str, Path]] = []
@@ -2589,9 +2630,9 @@ class ExeConfigPanel(ctk.CTkFrame):
                            _lo_entry._entry.icursor("end"), "break")[2],
             )
 
-        bar = ctk.CTkFrame(body, fg_color=BG_PANEL, corner_radius=0, height=48)
-        bar.grid(row=next(body_total_row), column=0, sticky="ew")
-        bar.grid_propagate(False)
+        bar = ctk.CTkFrame(self._bar_host, fg_color=BG_PANEL, corner_radius=0, height=48)
+        bar.pack(fill="x")
+        bar.pack_propagate(False)
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(
             side="top", fill="x"
         )

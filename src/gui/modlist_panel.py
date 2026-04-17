@@ -1232,7 +1232,7 @@ class ModListPanel(ctk.CTkFrame):
         slot_data_cols = [0, 1] + visible + [0] * (6 - len(visible))
         titles  = [self._DATA_COL_TITLES.get(slot_data_cols[i], "") for i in range(8)]
         x_pos   = self._COL_X
-        anchors = ["center", "w", "center", "center", "center", "center", "center", "center"]
+        anchors = ["center", "center", "center", "center", "center", "center", "center", "center"]
         widths  = self._COL_W
         for i, (title, x, anc, w) in enumerate(zip(titles, x_pos, anchors, widths)):
             dc = slot_data_cols[i]
@@ -2291,7 +2291,7 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         custom_color = self._sep_colors.get(entry.name)
                         base_bg = custom_color if custom_color else BG_SEP
-                        txt_col = _theme.contrasting_text_color(base_bg) if custom_color else TEXT_SEP
+                        txt_col = _theme.contrasting_text_color(base_bg) if custom_color else "#ffffff"
 
                     if is_sel_row:
                         row_bg = BG_SELECT
@@ -2327,7 +2327,7 @@ class ModListPanel(ctk.CTkFrame):
                     else:
                         label = entry.display_name
 
-                    mid_x     = cw // 2
+                    mid_x     = self._COL_X[1] + self._COL_W[1] // 2
                     lock_w    = scaled(28) if not is_synthetic else 0
                     _badge_info = self._sep_deploy_paths.get(entry.name, {}) if not is_synthetic else {}
                     has_badge = bool(_badge_info and (
@@ -2400,6 +2400,8 @@ class ModListPanel(ctk.CTkFrame):
                         c.itemconfigure(self._pool_sep_icon[s], state="hidden")
 
                     # Overwrite row conflict icons in conflict column — always wins only
+                    _sep_is_collapsed = (not is_synthetic
+                                         and entry.name in self._collapsed_seps)
                     if is_overwrite and self._overrides.get(OVERWRITE_NAME):
                         cx = _CONF_X + _CONF_W // 2
                         c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
@@ -2409,20 +2411,226 @@ class ModListPanel(ctk.CTkFrame):
                                             image=self._icon_plus, state="normal")
                         else:
                             c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
+                    elif _sep_is_collapsed:
+                        # Aggregate conflict/flag state from all mods in this block
+                        _blk = self._sep_block_range(i)
+                        _agg_wins = False
+                        _agg_loses = False
+                        _agg_bsa_wins = False
+                        _agg_bsa_loses = False
+                        for _bi in _blk:
+                            _be = self._entries[_bi]
+                            if _be.is_separator:
+                                continue
+                            _bc = self._conflict_map.get(_be.name, CONFLICT_NONE)
+                            if _bc in (CONFLICT_WINS, CONFLICT_PARTIAL, CONFLICT_FULL):
+                                _agg_wins = True
+                            if _bc in (CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL):
+                                _agg_loses = True
+                            _bbc = self._bsa_conflict_map.get(_be.name, CONFLICT_NONE)
+                            if _bbc in (CONFLICT_WINS, CONFLICT_PARTIAL, CONFLICT_FULL):
+                                _agg_bsa_wins = True
+                            if _bbc in (CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL):
+                                _agg_bsa_loses = True
+
+                        # Derive aggregate conflict constants
+                        if _agg_wins and _agg_loses:
+                            _agg_conflict = CONFLICT_PARTIAL
+                        elif _agg_wins:
+                            _agg_conflict = CONFLICT_WINS
+                        elif _agg_loses:
+                            _agg_conflict = CONFLICT_LOSES
+                        else:
+                            _agg_conflict = CONFLICT_NONE
+                        if _agg_bsa_wins and _agg_bsa_loses:
+                            _agg_bsa = CONFLICT_PARTIAL
+                        elif _agg_bsa_wins:
+                            _agg_bsa = CONFLICT_WINS
+                        elif _agg_bsa_loses:
+                            _agg_bsa = CONFLICT_LOSES
+                        else:
+                            _agg_bsa = CONFLICT_NONE
+
+                        # Render aggregated conflict icons (same logic as mod rows)
+                        cx_center = _CONF_X + _CONF_W // 2
+                        _has_loose = _agg_conflict != CONFLICT_NONE
+                        _has_bsa = _agg_bsa != CONFLICT_NONE
+                        if _has_loose and _has_bsa:
+                            _sep_x = cx_center
+                            _GAP = scaled(6)
+                            _ICON_HALF = scaled(7)
+                            if _agg_conflict == CONFLICT_PARTIAL:
+                                _lh = scaled(8) + _ICON_HALF
+                            else:
+                                _lh = _ICON_HALF
+                            _loose_cx = _sep_x - _GAP - _lh
+                            _DOT_R = scaled(4)
+                            if _agg_bsa == CONFLICT_PARTIAL:
+                                _bh = scaled(5) + _DOT_R
+                            else:
+                                _bh = _DOT_R
+                            _bsa_cx = _sep_x + _GAP + _bh
+                        else:
+                            _loose_cx = cx_center
+                            _bsa_cx = cx_center
+
+                        if _agg_conflict == CONFLICT_WINS and self._icon_plus:
+                            c.coords(self._pool_conflict_icon1[s], _loose_cx, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_plus, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        elif _agg_conflict == CONFLICT_LOSES and self._icon_minus:
+                            c.coords(self._pool_conflict_icon1[s], _loose_cx, y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_minus, state="normal")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+                        elif _agg_conflict == CONFLICT_PARTIAL and self._icon_minus and self._icon_plus:
+                            c.coords(self._pool_conflict_icon1[s], _loose_cx - scaled(8), y_mid)
+                            c.itemconfigure(self._pool_conflict_icon1[s],
+                                            image=self._icon_minus, state="normal")
+                            c.coords(self._pool_conflict_icon2[s], _loose_cx + scaled(8), y_mid)
+                            c.itemconfigure(self._pool_conflict_icon2[s],
+                                            image=self._icon_plus, state="normal")
+                        else:
+                            c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
+                            c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
+
+                        if _has_bsa:
+                            _dr = scaled(4)
+                            if _agg_bsa == CONFLICT_WINS:
+                                _color = "#4caf50"
+                                c.coords(self._pool_bsa_dot1[s],
+                                         _bsa_cx - _dr, y_mid - _dr, _bsa_cx + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill=_color, outline=_color, state="normal")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                            elif _agg_bsa == CONFLICT_LOSES:
+                                _color = "#f44336"
+                                c.coords(self._pool_bsa_dot1[s],
+                                         _bsa_cx - _dr, y_mid - _dr, _bsa_cx + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill=_color, outline=_color, state="normal")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                            elif _agg_bsa == CONFLICT_PARTIAL:
+                                _off = scaled(5)
+                                c.coords(self._pool_bsa_dot1[s],
+                                         _bsa_cx - _off - _dr, y_mid - _dr,
+                                         _bsa_cx - _off + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot1[s],
+                                                fill="#f44336", outline="#f44336", state="normal")
+                                c.coords(self._pool_bsa_dot2[s],
+                                         _bsa_cx + _off - _dr, y_mid - _dr,
+                                         _bsa_cx + _off + _dr, y_mid + _dr)
+                                c.itemconfigure(self._pool_bsa_dot2[s],
+                                                fill="#4caf50", outline="#4caf50", state="normal")
+                            else:
+                                c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                                c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        else:
+                            c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                            c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+
+                        if _has_loose and _has_bsa:
+                            _sh = scaled(7)
+                            c.coords(self._pool_bsa_sep[s],
+                                     _sep_x, y_mid - _sh, _sep_x, y_mid + _sh)
+                            c.itemconfigure(self._pool_bsa_sep[s],
+                                            fill=BORDER, state="normal")
+                            c.tag_raise(self._pool_bsa_sep[s])
+                        else:
+                            c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
+
+                        # Aggregate flags from mods in the block (deduplicated by type)
+                        _agg_flags: list = []
+                        _seen_flag = set()  # track which flag types we've added
+                        _any_locked = False
+                        for _bi in _blk:
+                            _be = self._entries[_bi]
+                            if _be.is_separator:
+                                continue
+                            _has_missing = (_be.name in self._missing_reqs
+                                           and _be.name not in self._ignored_missing_reqs)
+                            if _has_missing and self._icon_warning and "warning" not in _seen_flag:
+                                _agg_flags.append(("img", self._icon_warning))
+                                _seen_flag.add("warning")
+                            if _be.locked:
+                                _any_locked = True
+                            if _be.name in self._update_mods and self._icon_update and "update" not in _seen_flag:
+                                _agg_flags.append(("img", self._icon_update))
+                                _seen_flag.add("update")
+                            if _be.name in self._endorsed_mods and self._icon_endorsed and "endorsed" not in _seen_flag:
+                                _agg_flags.append(("img", self._icon_endorsed))
+                                _seen_flag.add("endorsed")
+                            if _be.name in self._prertx_mods and self._icon_info and "info" not in _seen_flag:
+                                _agg_flags.append(("img", self._icon_info))
+                                _seen_flag.add("info")
+                            if _be.name in self._excluded_mod_files_map and self._icon_disabled_files and "disabled" not in _seen_flag:
+                                _agg_flags.append(("img", self._icon_disabled_files))
+                                _seen_flag.add("disabled")
+                            if _be.name in self._root_folder_mods and self._icon_root_folder and "root" not in _seen_flag:
+                                _agg_flags.append(("img", self._icon_root_folder))
+                                _seen_flag.add("root")
+                        # Only 4 image slots exist in the pool — cap before the
+                        # star insert so later img flags can't push earlier ones
+                        # off the end of the renderer.
+                        if len(_agg_flags) > 4:
+                            _agg_flags = _agg_flags[:4]
+                        # Insert star after warning if any locked mod exists
+                        if _any_locked and "star" not in _seen_flag:
+                            _ins = 1 if (_agg_flags and _agg_flags[0][0] == "img"
+                                         and "warning" in _seen_flag) else 0
+                            _agg_flags.insert(_ins, ("star",))
+                            _seen_flag.add("star")
+
+                        # Render aggregated flags (same layout as mod rows)
+                        _FLAG_ICON_SPACING = 18
+                        _flag_slots = [
+                            (self._pool_flag_icon[s], "img"),
+                            (self._pool_flag_icon2[s], "img"),
+                            (self._pool_flag_icon3[s], "img"),
+                            (self._pool_flag_icon4[s], "img"),
+                        ]
+                        _flag_star_slot = self._pool_flag_star[s]
+                        _n_flags = len(_agg_flags)
+                        if _n_flags > 0:
+                            _group_w = (_n_flags - 1) * _FLAG_ICON_SPACING
+                            _fx_start = _FLAG_X + _FLAG_W // 2 - _group_w // 2
+                        else:
+                            _fx_start = _FLAG_X + _FLAG_W // 2
+                        _img_slot_idx = 0
+                        _star_placed = False
+                        for _fi, _flag in enumerate(_agg_flags):
+                            _fx = _fx_start + _fi * _FLAG_ICON_SPACING
+                            if _flag[0] == "star":
+                                c.coords(_flag_star_slot, _fx, y_mid)
+                                c.itemconfigure(_flag_star_slot, state="normal")
+                                _star_placed = True
+                            else:
+                                if _img_slot_idx < len(_flag_slots):
+                                    _slot_id = _flag_slots[_img_slot_idx][0]
+                                    c.coords(_slot_id, _fx, y_mid)
+                                    c.itemconfigure(_slot_id, image=_flag[1], state="normal")
+                                    _img_slot_idx += 1
+                        for _si in range(_img_slot_idx, len(_flag_slots)):
+                            c.itemconfigure(_flag_slots[_si][0], state="hidden")
+                        if not _star_placed:
+                            c.itemconfigure(_flag_star_slot, state="hidden")
                     else:
                         c.itemconfigure(self._pool_conflict_icon1[s], state="hidden")
                         c.itemconfigure(self._pool_conflict_icon2[s], state="hidden")
-                    # BSA dots never shown on separator / overwrite rows
-                    c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
-                    c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
-                    c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot1[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_dot2[s], state="hidden")
+                        c.itemconfigure(self._pool_bsa_sep[s], state="hidden")
+                        c.itemconfigure(self._pool_flag_icon[s], state="hidden")
+                        c.itemconfigure(self._pool_flag_icon2[s], state="hidden")
+                        c.itemconfigure(self._pool_flag_icon3[s], state="hidden")
+                        c.itemconfigure(self._pool_flag_icon4[s], state="hidden")
+                        c.itemconfigure(self._pool_flag_star[s], state="hidden")
 
-                    # Hide mod-only items
-                    c.itemconfigure(self._pool_flag_icon[s], state="hidden")
-                    c.itemconfigure(self._pool_flag_icon2[s], state="hidden")
-                    c.itemconfigure(self._pool_flag_icon3[s], state="hidden")
-                    c.itemconfigure(self._pool_flag_icon4[s], state="hidden")
-                    c.itemconfigure(self._pool_flag_star[s], state="hidden")
+                    # Hide other mod-only items on separators
                     c.itemconfigure(self._pool_category_text[s], state="hidden")
                     c.itemconfigure(self._pool_install_text[s], state="hidden")
                     c.itemconfigure(self._pool_priority_text[s], state="hidden")
@@ -3376,15 +3584,21 @@ class ModListPanel(ctk.CTkFrame):
             def _flags_key(i):
                 name = self._entries[i].name
                 # Lower number = flagged (sorts first when ascending)
-                has_warning = (name in self._missing_reqs
-                              and name not in self._ignored_missing_reqs)
-                has_update = name in self._update_mods
+                has_warning  = (name in self._missing_reqs
+                               and name not in self._ignored_missing_reqs)
+                is_locked    = self._entries[i].locked
+                has_update   = name in self._update_mods
+                has_root     = name in self._root_folder_mods
+                has_disabled = name in self._excluded_mod_files_map
+                has_info     = name in self._prertx_mods
                 has_endorsed = name in self._endorsed_mods
-                is_locked = self._entries[i].locked
                 score = 0
-                if has_warning:  score |= 8
-                if is_locked:    score |= 4
-                if has_update:   score |= 2
+                if has_warning:  score |= 64
+                if is_locked:    score |= 32
+                if has_update:   score |= 16
+                if has_root:     score |= 8
+                if has_disabled: score |= 4
+                if has_info:     score |= 2
                 if has_endorsed: score |= 1
                 return -score  # negate so flagged mods sort first in ascending
             return _flags_key
@@ -3591,6 +3805,8 @@ class ModListPanel(ctk.CTkFrame):
                     _items.append("prertx")
                 if entry.name in self._excluded_mod_files_map:
                     _items.append("disabled_files")
+                if entry.name in self._root_folder_mods:
+                    _items.append("root")
                 _n = len(_items)
                 if _n > 0:
                     _group_w = (_n - 1) * _FLAG_ICON_SPACING
@@ -4368,6 +4584,8 @@ class ModListPanel(ctk.CTkFrame):
                     _items.append("prertx")
                 if entry.name in self._excluded_mod_files_map:
                     _items.append("disabled_files")
+                if entry.name in self._root_folder_mods:
+                    _items.append("root")
                 _n = len(_items)
                 if _n > 0:
                     _group_w = (_n - 1) * _FLAG_ICON_SPACING
@@ -4384,6 +4602,8 @@ class ModListPanel(ctk.CTkFrame):
                             tip = "Pre-RTX mod"
                         elif _kind == "disabled_files":
                             tip = "Has disabled files"
+                        elif _kind == "root":
+                            tip = "This mod is sent to the root folder"
                         else:
                             tip = ""
                         if tip:

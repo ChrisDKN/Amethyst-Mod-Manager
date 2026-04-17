@@ -52,7 +52,7 @@ def get_uncompressed_size(path: str, compressed_size: int = 0) -> int:
         except Exception:
             pass
     # 7z/rar/zip fallback: use `7z l -slt` which prints Size: per entry
-    _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+    _7z_bin = shutil.which("7zzs") or shutil.which("7zz") or shutil.which("7z") or shutil.which("7za")
     if _7z_bin:
         try:
             import subprocess
@@ -985,7 +985,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             # For large ZIPs, prefer native tools (7z or bsdtar) over Python's
             # single-threaded zipfile — they use C/multi-threaded extraction.
             _archive_mb = os.path.getsize(archive_path) / (1024 * 1024)
-            _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+            _7z_bin = shutil.which("7zzs") or shutil.which("7zz") or shutil.which("7z") or shutil.which("7za")
             _bsdtar_bin = shutil.which("bsdtar")
             _has_native = _7z_bin or _bsdtar_bin
             # Python's zipfile is pure-Python and single-threaded, so use it
@@ -1054,7 +1054,12 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                         z.extractall(extract_dir, members)
                     _zip_done = True
                 except Exception as e_zip2:
-                    raise RuntimeError(f"All extraction methods failed for ZIP: {e_zip2}")
+                    raise RuntimeError(
+                        f"All extraction methods failed for ZIP: {e_zip2}\n"
+                        "The archive may use a compression method (e.g. "
+                        "deflate64) that requires the '7z' binary. Install "
+                        "the 'p7zip' package or use the Flatpak build."
+                    )
         elif ext.endswith(".7z"):
             import subprocess
             _7z_done = False
@@ -1062,7 +1067,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             _archive_mb = _archive_bytes / (1024 * 1024)
             # Prefer native 7z binary (multi-threaded) or bsdtar (native C)
             # over py7zr which is single-threaded and globally serialized.
-            _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+            _7z_bin = shutil.which("7zzs") or shutil.which("7zz") or shutil.which("7z") or shutil.which("7za")
             _bsdtar_bin = shutil.which("bsdtar")
             if _7z_bin:
                 if progress_fn is not None:
@@ -1117,7 +1122,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
             # Prefer native multi-threaded tools over Python's single-threaded
             # tarfile module — especially important for .tar.xz which is slow
             # to decompress in pure Python.
-            _7z_bin = shutil.which("7zzs") or shutil.which("7z") or shutil.which("7za")
+            _7z_bin = shutil.which("7zzs") or shutil.which("7zz") or shutil.which("7z") or shutil.which("7za")
             _bsdtar_bin = shutil.which("bsdtar")
             if _bsdtar_bin:
                 # bsdtar handles every tar variant natively and is the fastest
@@ -1195,20 +1200,13 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     t.extractall(extract_dir, filter="fully_trusted")
         elif ext.endswith(".rar"):
             import subprocess
+            # Prefer native unrar — bsdtar/libarchive cannot handle RAR5
+            # ("Declared dictionary size is not supported") and rarfile
+            # delegates to whatever backend it finds, which on sandboxed
+            # installs is often bsdtar.  Native unrar handles every RAR
+            # variant, so try it first.
             _rar_done = False
-            try:
-                import rarfile
-                log_fn("Extracting with rarfile…")
-                if progress_fn is not None:
-                    progress_fn(0, 0, "Extracting…")
-                with rarfile.RarFile(archive_path, "r") as r:
-                    r.extractall(extract_dir)
-                _rar_done = True
-            except ImportError:
-                pass
-            except Exception as e_rar:
-                log_fn(f"rarfile failed ({e_rar}), trying next method…")
-            if not _rar_done and shutil.which("unrar"):
+            if shutil.which("unrar"):
                 log_fn("Extracting with unrar…")
                 if progress_fn is not None:
                     progress_fn(0, 0, "Extracting…")
@@ -1217,9 +1215,22 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 )
                 if result.returncode != 0:
-                    log_fn(f"unrar failed ({result.stderr.strip()}), trying bsdtar…")
+                    log_fn(f"unrar failed ({result.stderr.strip()}), trying rarfile…")
                 else:
                     _rar_done = True
+            if not _rar_done:
+                try:
+                    import rarfile
+                    log_fn("Extracting with rarfile…")
+                    if progress_fn is not None:
+                        progress_fn(0, 0, "Extracting…")
+                    with rarfile.RarFile(archive_path, "r") as r:
+                        r.extractall(extract_dir)
+                    _rar_done = True
+                except ImportError:
+                    pass
+                except Exception as e_rar:
+                    log_fn(f"rarfile failed ({e_rar}), trying bsdtar…")
             if not _rar_done:
                 log_fn("Extracting with bsdtar…")
                 if progress_fn is not None:
@@ -1229,8 +1240,21 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 )
                 if result.returncode != 0:
-                    raise RuntimeError(f"bsdtar failed: {result.stderr.strip()}")
+                    raise RuntimeError(
+                        f"bsdtar failed: {result.stderr.strip()}\n"
+                        "This archive likely requires 'unrar' to extract. "
+                        "Install the 'unrar' package or use the Flatpak build."
+                    )
                 log_fn("Extracted with bsdtar.")
+            # Sanity check: an extractor returning success with an empty
+            # output directory means it silently skipped unsupported
+            # entries (libarchive's RAR5 behaviour).  Treat as failure so
+            # the caller doesn't delete the source archive.
+            if not any(os.scandir(extract_dir)):
+                raise RuntimeError(
+                    f"RAR extraction produced no files — the archive "
+                    f"format may be unsupported. Install 'unrar' and retry."
+                )
         else:
             log_fn(f"Unsupported archive format: {os.path.basename(archive_path)}")
             log_fn("Supported formats: .zip, .7z, .rar, .tar.gz")

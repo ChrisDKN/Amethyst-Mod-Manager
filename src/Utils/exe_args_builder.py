@@ -55,13 +55,6 @@ class _ExeProfile(NamedTuple):
 _DATA_PROFILE = _ExeProfile(game_flag="-d:", game_path_suffix="Data", output_flag="-o:")
 
 EXE_PROFILES: dict[str, _ExeProfile] = {
-    # Pandora Behaviour Engine+ ------------------------------------------------
-    "Pandora Behaviour Engine+.exe": _ExeProfile(
-        game_flag="--tesv:",
-        game_path_suffix="",        # points at game root
-        output_flag="--output:",
-    ),
-
     # xEdit / DynDOLOD / TexGen / xLODGen family --------------------
     **{name: _DATA_PROFILE for name in (
         "SSEEdit64.exe", "SSEEdit.exe", "SSEEditQuickAutoClean.exe",
@@ -94,6 +87,7 @@ EXE_SKIP: frozenset[str] = frozenset({
     "WitcherScriptMerger.exe",
     "Wrye Bash.exe",       # -o path injected at runtime from active game
     "NPC Plugin Chooser 2.exe",
+    "Pandora Behaviour Engine+.exe",  # output path configured via Settings.json
 })
 
 # Exe names (lowercase) hidden from the dropdown by default.  These are
@@ -359,6 +353,69 @@ def _bootstrap_npc_plugin_chooser_settings(
 
 
 # ---------------------------------------------------------------------------
+# Pandora Behaviour Engine+ Settings.json bootstrap
+# ---------------------------------------------------------------------------
+
+# Maps Mod Manager game_id → Pandora's Settings.json game key.
+_PANDORA_GAME_KEYS: dict[str, str] = {
+    "skyrim_se": "SkyrimSE",
+    "skyrim":    "SkyrimLE",
+    "skyrimvr":  "SkyrimVR",
+}
+
+
+def _bootstrap_pandora_settings(
+    game_id: "str | None",
+    game_path: "Path | None",
+    staging_path: "Path | None",
+    prefix_path: "Path | None",
+    log_fn: "Callable[[str], None]",
+) -> None:
+    """
+    Update Pandora Behaviour Engine's Settings.json inside the Wine prefix so
+    its outputPath points at <staging>/Pandora.
+
+    Pandora's newer builds read the output folder from Settings.json rather
+    than the ``--output:`` CLI flag, so we have to rewrite it at launch time
+    to follow the active profile's staging folder.
+
+    prefix_path : Path to the compatdata folder (containing ``pfx/``).
+    """
+    if staging_path is None or prefix_path is None:
+        log_fn("Pandora: staging or prefix path missing; skipping Settings.json update")
+        return
+
+    pandora_game_key = _PANDORA_GAME_KEYS.get(game_id or "", "SkyrimSE")
+
+    pfx = prefix_path / "pfx" if prefix_path.name != "pfx" else prefix_path
+    settings_file = (
+        pfx / "drive_c" / "users" / "steamuser" / "AppData" / "Local"
+        / "Pandora Behaviour Engine" / "Settings.json"
+    )
+
+    output_mod_dir = staging_path / "Pandora"
+    output_mod_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        settings: dict = json.loads(settings_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        settings = {}
+
+    games = settings.setdefault("games", {})
+    entry = games.setdefault(pandora_game_key, {})
+    entry["outputPath"] = _to_wine_path(output_mod_dir, pfx)
+    if game_path is not None:
+        entry.setdefault("gameDataPath", _to_wine_path(game_path / "Data", pfx))
+
+    try:
+        settings_file.parent.mkdir(parents=True, exist_ok=True)
+        settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+        log_fn(f"Pandora: updated {settings_file}")
+    except OSError as exc:
+        log_fn(f"Pandora: could not write Settings.json: {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -472,6 +529,14 @@ def build_default_exe_args(
                 update_witcher3_script_merger_config(game_path, exe_path) # type: ignore
             if name == "NPC Plugin Chooser 2.exe":
                 _bootstrap_npc_plugin_chooser_settings(exe_path, game_path, effective_staging_path, _log, pfx=pfx)
+            if name == "Pandora Behaviour Engine+.exe":
+                _bootstrap_pandora_settings(
+                    getattr(game, "game_id", None),
+                    game_path,
+                    effective_staging_path,
+                    prefix_path,
+                    _log,
+                )
             continue
 
         # Skip unknowns and already-configured entries
