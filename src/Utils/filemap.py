@@ -132,6 +132,12 @@ def _scan_dir(
                     if entry.is_dir(follow_symlinks=False):
                         if exclude_dirs and entry.name.lower() in exclude_dirs:
                             continue
+                        # Isolated Proton prefixes created next to a mod's exe
+                        # (see _get_tool_prefix_env in dialogs.py) are runtime
+                        # state, not mod content — never include them in the
+                        # filemap so they don't get deployed into the game.
+                        if entry.name.startswith("prefix_"):
+                            continue
                         if not _is_utf8_safe(entry.name):
                             invalid_names.append(prefix + entry.name + "/")
                             continue

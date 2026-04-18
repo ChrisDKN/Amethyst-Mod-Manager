@@ -627,6 +627,8 @@ class PluginPanel(ctk.CTkFrame):
                                         continue
                                 mod_dir = staging / mod_name
                                 candidate = mod_dir / rel_path
+                                if any(part.startswith("prefix_") for part in candidate.parts):
+                                    continue
                                 if candidate.is_file():
                                     exes.append(candidate)
                         except OSError:
