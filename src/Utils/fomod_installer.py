@@ -18,7 +18,8 @@ from Utils.fomod_parser import (
 
 def evaluate_dependency(dep: Dependency, flag_state: dict[str, str],
                         installed_files: set[str],
-                        active_files: set[str] | None = None) -> bool:
+                        active_files: set[str] | None = None,
+                        version_pass: bool = False) -> bool:
     """
     Recursively evaluate a Dependency tree.
 
@@ -27,13 +28,19 @@ def evaluate_dependency(dep: Dependency, flag_state: dict[str, str],
                      regardless of whether they are enabled or disabled.
     active_files:    set of enabled/active plugin names (lower-case).
                      If None, falls back to treating installed_files as active.
+    version_pass:    When True, unevaluable version dependencies
+                     (gameDependency, foseDependency, etc.) evaluate to True.
+                     Use for step visibility so steps with version gates are
+                     still shown. For typeDescriptor pattern matching leave
+                     False so patterns fall through to the default type.
 
     Returns True if the condition is satisfied.
     """
     if dep.dep_type == "composite":
         if not dep.sub_deps:
             return True  # Empty composite = no restriction = pass
-        results = [evaluate_dependency(d, flag_state, installed_files, active_files)
+        results = [evaluate_dependency(d, flag_state, installed_files,
+                                        active_files, version_pass)
                    for d in dep.sub_deps]
         if dep.operator.lower() == "or":
             return any(results)
@@ -58,6 +65,9 @@ def evaluate_dependency(dep: Dependency, flag_state: dict[str, str],
             return False
         # "Missing": file must not be installed at all
         return not present
+
+    if dep.dep_type == "version":
+        return version_pass
 
     if dep.dep_type == "unsatisfiable":
         return False
@@ -99,6 +109,58 @@ def resolve_plugin_type(plugin: Plugin, flag_state: dict[str, str],
 
 
 # ---------------------------------------------------------------------------
+# Pre-install module dependency gate
+# ---------------------------------------------------------------------------
+
+def describe_dependency(dep: Dependency, indent: int = 0) -> str:
+    """Human-readable one-line-per-clause description of a Dependency tree."""
+    pad = "  " * indent
+    if dep.dep_type == "composite":
+        if not dep.sub_deps:
+            return f"{pad}(no conditions)"
+        op = dep.operator.upper()
+        lines = [f"{pad}{op}:"]
+        for d in dep.sub_deps:
+            lines.append(describe_dependency(d, indent + 1))
+        return "\n".join(lines)
+    if dep.dep_type == "flag":
+        return f"{pad}flag {dep.flag_name!r} == {dep.flag_value!r}"
+    if dep.dep_type == "file":
+        return f"{pad}file {dep.file_name!r} state={dep.file_state}"
+    if dep.dep_type == "version":
+        return f"{pad}game/extender version (unchecked)"
+    if dep.dep_type == "unsatisfiable":
+        return f"{pad}<unknown dependency>"
+    return f"{pad}{dep.dep_type}"
+
+
+def check_module_dependencies(
+    config: ModuleConfig,
+    installed_files: set[str] | None = None,
+    active_files: set[str] | None = None,
+) -> tuple[bool, str]:
+    """
+    Evaluate <moduleDependencies> before the wizard runs.
+
+    Returns (ok, message). `ok` is True when the gate passes (or is absent).
+    When False, `message` is a human-readable description of what failed —
+    suitable to show to the user so they can decide whether to proceed.
+
+    Version / script-extender dependencies are treated as passing (version_pass
+    is True) so that we don't block installs when we can't detect the game
+    version.
+    """
+    if config.module_dependency is None:
+        return True, ""
+    inst = installed_files or set()
+    ok = evaluate_dependency(config.module_dependency, {}, inst, active_files,
+                             version_pass=True)
+    if ok:
+        return True, ""
+    return False, describe_dependency(config.module_dependency)
+
+
+# ---------------------------------------------------------------------------
 # Step visibility
 # ---------------------------------------------------------------------------
 
@@ -114,7 +176,9 @@ def get_visible_steps(config: ModuleConfig, flag_state: dict[str, str],
     for step in config.steps:
         if step.visible_condition is None:
             visible.append(step)
-        elif evaluate_dependency(step.visible_condition, flag_state, installed_files, active_files):
+        elif evaluate_dependency(step.visible_condition, flag_state,
+                                  installed_files, active_files,
+                                  version_pass=True):
             visible.append(step)
     return visible
 
@@ -198,12 +262,14 @@ def update_flags(step: InstallStep, selections: dict[str, list[str]],
     Returns an updated copy of flag_state.
 
     selections: {group_name: [plugin_name, ...]} for this step only.
+    SelectAll groups contribute every plugin's flags even if the selections
+    dict is empty for that group (matches MO2's preselect behaviour).
     """
     new_state = dict(flag_state)
     for group in step.groups:
         selected_names = set(selections.get(group.name, []))
         for plugin in group.plugins:
-            if plugin.name in selected_names:
+            if group.group_type == "SelectAll" or plugin.name in selected_names:
                 new_state.update(plugin.condition_flags)
     return new_state
 
@@ -222,57 +288,71 @@ def resolve_files(config: ModuleConfig,
 
     all_selections: {step_name: {group_name: [plugin_name, ...]}}
     Returns list of (source_path, destination_path, is_folder) tuples with OS-normalized paths.
-    Required files are always included first.
+
+    Install order matches MO2's three-phase scheme:
+      1. <requiredInstallFiles>        (always first, sorted by priority)
+      2. <plugin> files from selections + alwaysInstall/installIfUsable files
+      3. <conditionalFileInstalls>     (always last, sorted by priority)
     """
-    result: list[tuple[str, str, bool]] = []
     inst_files = installed_files or set()
 
-    # Always-install files
-    for fi in config.required_files:
-        result.append((fi.source_path, fi.destination_path, fi.is_folder))
+    required: list[tuple[int, str, str, bool]] = []
+    options: list[tuple[int, str, str, bool]] = []
+    conditional: list[tuple[int, str, str, bool]] = []
 
-    # Selected plugin files — collect with priority for sorting
-    prioritized: list[tuple[int, str, str, bool]] = []
+    for fi in config.required_files:
+        required.append((fi.priority, fi.source_path,
+                         fi.destination_path, fi.is_folder))
 
     # Build final flag state by replaying all steps in order
     flag_state: dict[str, str] = {}
     for i, step in enumerate(config.steps):
         # Skip steps whose visibility condition is not satisfied by the flags
-        # accumulated so far.  This mirrors the UI behaviour: if a step was
-        # invisible the user never saw it, so its SelectAll/selected plugins
-        # must not contribute files or flags to the install.
+        # accumulated so far. If a step was invisible the user never saw it,
+        # so its SelectAll/selected plugins must not contribute files or flags.
         if step.visible_condition is not None:
             if not evaluate_dependency(step.visible_condition, flag_state,
-                                       inst_files, active_files):
+                                       inst_files, active_files,
+                                       version_pass=True):
                 continue
         # Accept both new index-keyed format (str(i)) and old name-keyed format
-        # (step.name) for backward compatibility with previously saved JSON files.
+        # for backward compatibility with previously saved selection JSON.
         step_selections = all_selections.get(str(i)) or all_selections.get(step.name, {})
         for group in step.groups:
             selected_names = set(step_selections.get(group.name, []))
             for plugin in group.plugins:
-                # SelectAll groups must always install every plugin regardless
-                # of what the selections dict contains (e.g. collection installs
-                # that have no explicit entry for this group, or plugins with
-                # an empty name that can never match a selection string).
-                if group.group_type == "SelectAll" or plugin.name in selected_names:
+                ptype = resolve_plugin_type(plugin, flag_state, inst_files, active_files)
+                is_selected = (group.group_type == "SelectAll"
+                               or plugin.name in selected_names)
+                if is_selected:
                     for fi in plugin.files:
-                        prioritized.append((fi.priority, fi.source_path,
-                                            fi.destination_path, fi.is_folder))
+                        options.append((fi.priority, fi.source_path,
+                                        fi.destination_path, fi.is_folder))
                     flag_state.update(plugin.condition_flags)
+                else:
+                    # alwaysInstall / installIfUsable files install even when
+                    # the plugin is not selected.
+                    for fi in plugin.files:
+                        if fi.always_install or (fi.install_if_usable
+                                                 and ptype != "NotUsable"):
+                            options.append((fi.priority, fi.source_path,
+                                            fi.destination_path, fi.is_folder))
 
-    # Conditional file installs — evaluate each pattern against final flag state
+    # Conditional file installs — evaluated against final flag state
     for pattern in config.conditional_file_installs:
         if evaluate_dependency(pattern.dependency, flag_state, inst_files, active_files):
             for fi in pattern.files:
-                prioritized.append((fi.priority, fi.source_path,
+                conditional.append((fi.priority, fi.source_path,
                                     fi.destination_path, fi.is_folder))
 
-    # Sort by priority (lower number = install first)
-    prioritized.sort(key=lambda x: x[0])
-    for _, src, dst, is_folder in prioritized:
-        result.append((src, dst, is_folder))
+    required.sort(key=lambda x: x[0])
+    options.sort(key=lambda x: x[0])
+    conditional.sort(key=lambda x: x[0])
 
+    result: list[tuple[str, str, bool]] = []
+    for bucket in (required, options, conditional):
+        for _, src, dst, is_folder in bucket:
+            result.append((src, dst, is_folder))
     return result
 
 

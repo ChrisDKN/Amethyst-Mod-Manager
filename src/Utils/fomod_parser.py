@@ -25,6 +25,8 @@ class FileInstall:
     destination: str  # Raw path from XML
     priority: int
     is_folder: bool   # True if <folder>, False if <file>
+    always_install: bool = False
+    install_if_usable: bool = False
 
     @property
     def source_path(self) -> str:
@@ -114,6 +116,9 @@ class ModuleConfig:
     steps: list[InstallStep] = field(default_factory=list)
     required_files: list[FileInstall] = field(default_factory=list)
     conditional_file_installs: list[ConditionalInstallPattern] = field(default_factory=list)
+    # Pre-install gate — if non-None, must be satisfied before the wizard runs.
+    # Typically references other plugins/flags that must be installed first.
+    module_dependency: Optional[Dependency] = None
 
 
 @dataclass
@@ -134,6 +139,11 @@ def _text(el: Optional[ET.Element]) -> str:
     if el is None or el.text is None:
         return ""
     return el.text.strip()
+
+
+def _parse_bool(s: str) -> bool:
+    """Tolerantly parse an XSD boolean ('true'/'false'/'1'/'0')."""
+    return s.strip().lower() in ("true", "1")
 
 
 def _parse_dependency(el: ET.Element) -> Dependency:
@@ -159,10 +169,17 @@ def _parse_dependency(el: ET.Element) -> Dependency:
             file_name=el.get("file", ""),
             file_state=el.get("state", "Active"),
         )
+    elif tag in ("gameDependency", "fommDependency", "foseDependency",
+                 "nvseDependency", "f4seDependency", "skseDependency",
+                 "versionDependency", "falloutDependency"):
+        # Version dependencies — we don't track game / script-extender
+        # versions, so these are unevaluable. Treated as True for step
+        # visibility (so the user still sees the step) but False for
+        # typeDescriptor patterns (so pattern matching falls through to
+        # the default type, which resolve_plugin_type can then fix up).
+        return Dependency(dep_type="version")
     else:
-        # Unknown dependency type (e.g. gameDependency) — unsatisfiable; we
-        # cannot evaluate it, so treat it as a failing condition so that
-        # patterns which depend solely on it do not accidentally match.
+        # Unknown dependency type — fail closed.
         return Dependency(dep_type="unsatisfiable")
 
 
@@ -175,14 +192,16 @@ def _parse_files(files_el: ET.Element) -> list[FileInstall]:
             tag = tag.split("}", 1)[1]
         if tag in ("file", "folder"):
             source = child.get("source", "")
-            destination = child.get("destination", "")
-            if tag == "folder" and destination == source and source:
-                destination = source.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+            destination = child.get("destination")
+            if destination is None:
+                destination = source
             result.append(FileInstall(
                 source=source,
                 destination=destination,
                 priority=int(child.get("priority", "0")),
                 is_folder=(tag == "folder"),
+                always_install=_parse_bool(child.get("alwaysInstall", "false")),
+                install_if_usable=_parse_bool(child.get("installIfUsable", "false")),
             ))
     return result
 
@@ -257,6 +276,22 @@ def _findall(el: ET.Element, tag: str) -> list[ET.Element]:
     return result
 
 
+def _apply_order(items: list, order: str, key) -> list:
+    """
+    Honour FOMOD's `order` attribute on installSteps/optionalFileGroups/plugins.
+
+    Values (per XSD): "Explicit" (doc order — default), "Ascending", "Descending".
+    Sorting is by the element's `name` attribute, case-insensitive to match
+    MO2/Vortex. Items without a name sort last to keep behaviour stable.
+    """
+    if order == "Ascending":
+        return sorted(items, key=lambda x: (not key(x), (key(x) or "").lower()))
+    if order == "Descending":
+        return sorted(items, key=lambda x: (not key(x), (key(x) or "").lower()),
+                      reverse=True)
+    return items  # "Explicit" or unknown → document order
+
+
 def _parse_plugin(plugin_el: ET.Element) -> Plugin:
     """Parse a single <plugin> element."""
     name = plugin_el.get("name", "")
@@ -297,8 +332,9 @@ def _parse_group(group_el: ET.Element) -> Group:
 
     plugins_el = _find(group_el, "plugins")
     if plugins_el is not None:
-        for plugin_el in _findall(plugins_el, "plugin"):
-            group.plugins.append(_parse_plugin(plugin_el))
+        plugin_order = plugins_el.get("order", "Ascending")  # XSD default
+        parsed = [_parse_plugin(pe) for pe in _findall(plugins_el, "plugin")]
+        group.plugins = _apply_order(parsed, plugin_order, lambda p: p.name)
 
     return group
 
@@ -329,8 +365,9 @@ def _parse_install_step(step_el: ET.Element) -> InstallStep:
     # Groups
     groups_el = _find(step_el, "optionalFileGroups")
     if groups_el is not None:
-        for group_el in _findall(groups_el, "group"):
-            step.groups.append(_parse_group(group_el))
+        group_order = groups_el.get("order", "Ascending")  # XSD default
+        parsed = [_parse_group(ge) for ge in _findall(groups_el, "group")]
+        step.groups = _apply_order(parsed, group_order, lambda g: g.name)
 
     return step
 
@@ -345,25 +382,27 @@ def detect_fomod(extracted_root: str) -> Optional[tuple[str, str]]:
 
     Archives often have one or more wrapper folders before the actual mod root,
     e.g.:  extract_dir/<archive name>/<mod name (FOMOD)>/Fomod/ModuleConfig.xml
-    This walks up to 3 levels deep to find any fomod/ directory.
+
+    Strategy (matches MO2, with a BFS safety net):
+      1. MO2-style: peel single-directory wrapper chains unboundedly (up to 20
+         levels) until we find a dir containing fomod/.
+      2. Fallback BFS up to 6 levels deep for archives that have sibling
+         files alongside the wrapper (which MO2 itself refuses to detect).
 
     Returns (mod_root, config_path) where:
       mod_root    — the directory that contains the fomod/ folder
-                    (FOMOD source paths are relative to this)
       config_path — full path to ModuleConfig.xml
     Returns None if no FOMOD installer is found.
     """
     root = Path(extracted_root)
 
-    # Check each directory as a potential mod root (including the root itself),
-    # up to 3 levels deep.
     def _check(d: Path) -> Optional[tuple[str, str]]:
         try:
             for child in d.iterdir():
                 if child.is_dir() and child.name.lower() == "fomod":
-                    # Case-insensitive search for ModuleConfig.xml on Linux
                     config = next(
-                        (f for f in child.iterdir() if f.name.lower() == "moduleconfig.xml"),
+                        (f for f in child.iterdir()
+                         if f.name.lower() == "moduleconfig.xml"),
                         None,
                     )
                     if config is not None and config.is_file():
@@ -372,9 +411,26 @@ def detect_fomod(extracted_root: str) -> Optional[tuple[str, str]]:
             pass
         return None
 
-    # BFS: root first, then its children, then grandchildren, then great-grandchildren
+    # 1. MO2-style peel: recurse while the current dir has exactly one child
+    #    and that child is itself a directory.
+    cur = root
+    for _ in range(20):
+        hit = _check(cur)
+        if hit:
+            return hit
+        try:
+            entries = [c for c in cur.iterdir()]
+        except PermissionError:
+            break
+        if len(entries) == 1 and entries[0].is_dir():
+            cur = entries[0]
+            continue
+        break
+
+    # 2. Fallback BFS (covers archives where fomod/ sits next to sibling files).
     candidates: list[Path] = [root]
-    for _ in range(3):
+    seen: set[Path] = {root}
+    for _ in range(6):
         next_level: list[Path] = []
         for d in candidates:
             hit = _check(d)
@@ -382,7 +438,8 @@ def detect_fomod(extracted_root: str) -> Optional[tuple[str, str]]:
                 return hit
             try:
                 for child in sorted(d.iterdir()):
-                    if child.is_dir():
+                    if child.is_dir() and child not in seen:
+                        seen.add(child)
                         next_level.append(child)
             except PermissionError:
                 continue
@@ -396,20 +453,58 @@ def _parse_xml_tolerant(xml_path: str) -> ET.Element:
     import re as _re
     with open(xml_path, "rb") as f:
         raw = f.read()
-    # Detect actual encoding from BOM or default to UTF-8
-    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+    # Detect actual encoding from BOM first, then sniff for the XML prolog
+    # in UTF-16 LE/BE (some exporters drop the BOM), then fall back to UTF-8.
+    if raw.startswith(b"\xff\xfe"):
+        actual_enc = "utf-16"
+    elif raw.startswith(b"\xfe\xff"):
         actual_enc = "utf-16"
     elif raw.startswith(b"\xef\xbb\xbf"):
         actual_enc = "utf-8-sig"
+    elif raw.startswith(b"\x3c\x00\x3f\x00"):  # '<?' in UTF-16 LE (no BOM)
+        actual_enc = "utf-16-le"
+    elif raw.startswith(b"\x00\x3c\x00\x3f"):  # '<?' in UTF-16 BE (no BOM)
+        actual_enc = "utf-16-be"
     else:
         actual_enc = "utf-8"
-    try:
-        text = raw.decode(actual_enc)
-    except UnicodeDecodeError:
-        text = raw.decode("latin-1")
+    # Chained fallback: detected → utf-8 → latin-1 (MO2 uses the same order).
+    for enc in (actual_enc, "utf-8", "latin-1"):
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        text = raw.decode("latin-1", errors="replace")
     # Strip the XML encoding declaration so ElementTree won't reject it
     text = _re.sub(r"<\?xml[^?]*\?>", "", text, count=1)
     return ET.fromstring(text)
+
+
+def _fix_group_types(config: ModuleConfig) -> None:
+    """
+    Mirror MO2's XmlScriptExecutor.fixSteps: rewrite group types that are
+    impossible to satisfy given the static plugin type descriptors.
+
+    - SelectExactlyOne with >=2 statically-Required plugins → SelectAtLeastOne
+    - SelectAtMostOne  with >=2 statically-Required plugins → SelectAny
+
+    Conditional typeDescriptors are ignored here (we only look at the static
+    default). Matches MO2's tolerance for badly-authored FOMODs.
+    """
+    for step in config.steps:
+        for group in step.groups:
+            required = sum(
+                1 for p in group.plugins
+                if (not p.type_descriptor.is_conditional
+                    and p.type_descriptor.plugin_type == "Required")
+            )
+            if required < 2:
+                continue
+            if group.group_type == "SelectExactlyOne":
+                group.group_type = "SelectAtLeastOne"
+            elif group.group_type == "SelectAtMostOne":
+                group.group_type = "SelectAny"
 
 
 def parse_module_config(xml_path: str) -> ModuleConfig:
@@ -435,6 +530,18 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
     if img_el is not None:
         config.module_image_path = img_el.get("path", "")
 
+    # Pre-install dependency gate. The <moduleDependencies> element is itself
+    # a compositeDependency (has operator attribute + child dep elements), so
+    # treat it the same way we treat the v4+ <visible> form.
+    moddep_el = _find(root, "moduleDependencies")
+    if moddep_el is not None:
+        operator = moddep_el.get("operator", "And")
+        sub_deps = [_parse_dependency(child) for child in moddep_el]
+        if sub_deps:
+            config.module_dependency = Dependency(
+                dep_type="composite", operator=operator, sub_deps=sub_deps
+            )
+
     # Required files (always installed)
     req_el = _find(root, "requiredInstallFiles")
     if req_el is not None:
@@ -443,8 +550,9 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
     # Install steps
     steps_el = _find(root, "installSteps")
     if steps_el is not None:
-        for step_el in _findall(steps_el, "installStep"):
-            config.steps.append(_parse_install_step(step_el))
+        step_order = steps_el.get("order", "Ascending")  # XSD default
+        parsed = [_parse_install_step(se) for se in _findall(steps_el, "installStep")]
+        config.steps = _apply_order(parsed, step_order, lambda s: s.name)
 
     # Conditional file installs
     cfi_el = _find(root, "conditionalFileInstalls")
@@ -461,6 +569,7 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
                     pattern.files = _parse_files(files_el)
                 config.conditional_file_installs.append(pattern)
 
+    _fix_group_types(config)
     return config
 
 
