@@ -1033,7 +1033,20 @@ class NexusAPI:
         return resp.json()
 
     def abstain_mod(self, game_domain: str, mod_id: int, version: str = "") -> dict:
-        """Abstain from endorsing a mod on Nexus Mods."""
+        """Abstain from endorsing a mod on Nexus Mods.
+
+        The REST v1 /abstain endpoint returns 200 but does not actually remove
+        the endorsement on the site, so we prefer the GraphQL v2
+        abstainFromModEndorsement mutation. REST is kept as a last-resort
+        fallback if the uid lookup fails.
+        """
+        try:
+            result = self._abstain_mod_graphql(game_domain, mod_id)
+            if result is not None:
+                return result
+        except Exception as exc:
+            app_log(f"GraphQL abstain failed, falling back to REST: {exc}")
+
         resp = self._session.post(
             f"{API_BASE}/games/{game_domain}/mods/{mod_id}/abstain",
             json={"Version": version},
@@ -1043,6 +1056,57 @@ class NexusAPI:
         self._log_response("POST", f"/games/{game_domain}/mods/{mod_id}/abstain", resp)
         resp.raise_for_status()
         return resp.json()
+
+    def _abstain_mod_graphql(self, game_domain: str, mod_id: int) -> dict | None:
+        """Abstain via GraphQL v2. Returns None if the uid cannot be resolved."""
+        uid_query = """
+        query ModUid($ids: [CompositeDomainWithIdInput!]!) {
+            legacyModsByDomain(ids: $ids) {
+                nodes { uid }
+            }
+        }
+        """
+        uid_vars = {"ids": [{"gameDomain": game_domain, "modId": mod_id}]}
+        resp = self._session.post(
+            GRAPHQL_BASE,
+            json={"query": uid_query, "variables": uid_vars},
+            timeout=self._timeout,
+        )
+        self._log_response("POST", "GraphQL ModUid", resp)
+        if not resp.ok:
+            return None
+        payload = resp.json()
+        if "errors" in payload:
+            app_log(f"GraphQL ModUid errors: {payload['errors']}")
+            return None
+        nodes = ((payload.get("data") or {})
+                 .get("legacyModsByDomain") or {}).get("nodes") or []
+        if not nodes:
+            return None
+        mod_uid = nodes[0].get("uid")
+        if not mod_uid:
+            return None
+
+        mutation = """
+        mutation AbstainFromModEndorsement($modUid: String!) {
+            abstainFromModEndorsement(modUid: $modUid) {
+                success
+            }
+        }
+        """
+        m_resp = self._session.post(
+            GRAPHQL_BASE,
+            json={"query": mutation, "variables": {"modUid": str(mod_uid)}},
+            timeout=self._timeout,
+        )
+        self._log_response("POST", "GraphQL abstainFromModEndorsement", m_resp)
+        m_resp.raise_for_status()
+        m_payload = m_resp.json()
+        if "errors" in m_payload:
+            raise NexusAPIError(
+                f"GraphQL abstain error: {m_payload['errors'][0].get('message', 'unknown')}"
+            )
+        return m_payload.get("data", {}).get("abstainFromModEndorsement") or {}
 
     # -- Mod requirements (GraphQL v2) --------------------------------------
 
