@@ -35,6 +35,24 @@ from gui.theme import (
 # Mods per page when browsing
 PAGE_SIZE = 30
 
+# Time-range options for the Top Downloaded category (label → days, None = all time)
+TIME_RANGES: list[tuple[str, int | None]] = [
+    ("All time", None),
+    ("24 hours", 1),
+    ("7 days",   7),
+    ("14 days",  14),
+    ("28 days",  28),
+    ("Year",     365),
+]
+
+# Sort-key options for the Top Downloaded category (label → GraphQL sort field)
+SORT_KEYS: list[tuple[str, str]] = [
+    ("Downloads",      "downloads"),
+    ("Date Published", "createdAt"),
+    ("Endorsements",   "endorsements"),
+    ("Last Updated",   "updatedAt"),
+]
+
 
 @dataclass
 class BrowseModEntry:
@@ -93,6 +111,8 @@ class BrowseModsPanel(_NexusModListPanel):
         self._search_active: bool = False
         self._search_query: str = ""
         self._show_adult_var: tk.BooleanVar | None = None
+        self._time_range_idx: int = 0  # index into TIME_RANGES; 0 = All time
+        self._sort_key_idx: int = 0    # index into SORT_KEYS; 0 = Downloads
         super().__init__(
             parent_tab,
             log_fn=log_fn,
@@ -243,6 +263,28 @@ class BrowseModsPanel(_NexusModListPanel):
         )
         self._next_btn.pack(side="left", padx=4, pady=2)
 
+        self._sort_key_menu = ctk.CTkOptionMenu(
+            toolbar,
+            values=[label for label, _ in SORT_KEYS],
+            width=120, height=26,
+            fg_color=BG_ROW, button_color=ACCENT, button_hover_color=ACCENT_HOV,
+            text_color=TEXT_MAIN, font=FONT_HEADER,
+            command=self._on_sort_key_change,
+        )
+        self._sort_key_menu.set(SORT_KEYS[self._sort_key_idx][0])
+        self._sort_key_menu.pack(side="left", padx=4, pady=2)
+
+        self._time_range_menu = ctk.CTkOptionMenu(
+            toolbar,
+            values=[label for label, _ in TIME_RANGES],
+            width=90, height=26,
+            fg_color=BG_ROW, button_color=ACCENT, button_hover_color=ACCENT_HOV,
+            text_color=TEXT_MAIN, font=FONT_HEADER,
+            command=self._on_time_range_change,
+        )
+        self._time_range_menu.set(TIME_RANGES[self._time_range_idx][0])
+        self._time_range_menu.pack(side="left", padx=4, pady=2)
+
         self._show_adult_var = tk.BooleanVar(value=load_nexus_show_adult())
         ctk.CTkCheckBox(
             toolbar, text="Show Adult", variable=self._show_adult_var,
@@ -258,6 +300,24 @@ class BrowseModsPanel(_NexusModListPanel):
         self._cat_idx = (self._cat_idx + 1) % len(self._visible_categories)
         label, _ = self._visible_categories[self._cat_idx]
         self._cat_btn.configure(text=f"▸ {label}")
+        self.refresh()
+
+    def _on_time_range_change(self, label: str):
+        for i, (lbl, _days) in enumerate(TIME_RANGES):
+            if lbl == label:
+                self._time_range_idx = i
+                break
+        if self._search_active:
+            return
+        self.refresh()
+
+    def _on_sort_key_change(self, label: str):
+        for i, (lbl, _key) in enumerate(SORT_KEYS):
+            if lbl == label:
+                self._sort_key_idx = i
+                break
+        if self._search_active:
+            return
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -320,13 +380,25 @@ class BrowseModsPanel(_NexusModListPanel):
         self._next_btn.configure(state="disabled")
         cat_label, cat_method = self._visible_categories[self._cat_idx]
         page = self._page
-        self._status_label.configure(text=f"Loading {cat_label} (page {page + 1})…")
+        tr_label, tr_days = TIME_RANGES[self._time_range_idx]
+        sk_label, sk_key = SORT_KEYS[self._sort_key_idx]
+        if cat_method == "get_top_mods":
+            base = f"Top {sk_label}" if sk_key != "downloads" else cat_label
+            cat_status = f"{base} (last {tr_label})" if tr_days is not None else base
+        else:
+            cat_status = cat_label
+        self._status_label.configure(text=f"Loading {cat_status} (page {page + 1})…")
         self._show_loader()
+
+        created_since_days = TIME_RANGES[self._time_range_idx][1]
+        sort_key = SORT_KEYS[self._sort_key_idx][1]
 
         def _worker():
             try:
                 entries = self._fetch_page(api, cat_method, domain, page=page,
-                                           cat_names=self._selected_cat_names or None)
+                                           cat_names=self._selected_cat_names or None,
+                                           created_since_days=created_since_days,
+                                           sort_key=sort_key)
 
                 def _done():
                     self._entries = entries
@@ -338,8 +410,8 @@ class BrowseModsPanel(_NexusModListPanel):
                     )
                     self._build_cards()
                     self._canvas.yview_moveto(0)
-                    self._status_label.configure(text=f"{cat_label}: page {page + 1}")
-                    self._log(f"Browse: Loaded page {page + 1} — {len(entries)} {cat_label.lower()} mod(s).")
+                    self._status_label.configure(text=f"{cat_status}: page {page + 1}")
+                    self._log(f"Browse: Loaded page {page + 1} — {len(entries)} {cat_status.lower()} mod(s).")
 
                 self._parent.after(0, _done)
 
@@ -358,11 +430,15 @@ class BrowseModsPanel(_NexusModListPanel):
 
     @staticmethod
     def _fetch_page(api, cat_method: str, domain: str, page: int,
-                    cat_names: list | None = None) -> list[BrowseModEntry]:
+                    cat_names: list | None = None,
+                    created_since_days: int | None = None,
+                    sort_key: str = "downloads") -> list[BrowseModEntry]:
         """Call the API and return a list of BrowseModEntry for one page."""
         if cat_method == "get_top_mods":
             mod_infos = api.get_top_mods(
-                domain, count=PAGE_SIZE, offset=page * PAGE_SIZE, category_names=cat_names
+                domain, count=PAGE_SIZE, offset=page * PAGE_SIZE,
+                category_names=cat_names, created_since_days=created_since_days,
+                sort_key=sort_key,
             )
         else:
             mod_infos = getattr(api, cat_method)(domain)
