@@ -1,3 +1,13 @@
+- v1.2.9
+- The collection install window is now more informative, Shows currently downloading mods and mods being extracted
+- Tweaks to the fomod parser and installer
+- Added the suggested name selector to the rename option when a mod already exists
+- Added a notification when running loot and when checking updates.
+- Update check now compares against files in the same category as the installed file
+- Fixed Ctrl+A keybind selecting hidden mods when filtering
+- Added a category and date range to the Nexus panel
+- Reworked the modlist and plugins panel scrollbars, Marker strips now span the entire width of the scrollbar
+
 - v1.2.8
 - Added new conflict icons, The modlist rows are slightly taller to make them more visible.
 - Toml files are now displayed in the ini files tab
