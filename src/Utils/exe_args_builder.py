@@ -170,7 +170,20 @@ EXE_FILTER_DEFAULTS: frozenset[str] = frozenset({
     "script.bat",
     "lodgenx64win.exe",
     "dip.exe",
-    
+
+    # Bethesda script extender loaders — users should launch the game via
+    # Steam (with the extender wired up through launch options / proxy),
+    # not by running these EXEs directly through the mod manager.
+    "skse_loader.exe",          # Skyrim (Oldrim) SKSE
+    "skse64_loader.exe",        # Skyrim Special Edition / AE
+    "sksevr_loader.exe",        # Skyrim VR
+    "f4se_loader.exe",          # Fallout 4
+    "f4sevr_loader.exe",        # Fallout 4 VR
+    "fose_loader.exe",          # Fallout 3 FOSE
+    "nvse_loader.exe",          # Fallout: New Vegas NVSE
+    "obse_loader.exe",          # Oblivion OBSE
+    "sfse_loader.exe",          # Starfield SFSE
+    "mwse-launcher.exe",        # Morrowind MWSE
 })
 
 # ---------------------------------------------------------------------------
