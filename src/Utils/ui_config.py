@@ -153,13 +153,14 @@ def get_screen_info() -> tuple[int, int, float]:
         physical_h = h / de_scale if de_scale > 1.0 else h
     else:
         physical_h = h
-    # UI designed for Steam Deck (1280x800). Use height only; 800–1080 = 1.0.
-    if physical_h <= 800:
-        scale = max(_MIN_SCALE, physical_h / 800)
-    elif physical_h >= 1080:
+    # UI designed for Steam Deck (1280x800). Use height only; ≤1080 = 1.0.
+    # Never auto-scale below 1.0: detection is unreliable enough on Wayland /
+    # Flatpak / multi-monitor that a sub-1.0 result is almost always wrong —
+    # users with a genuinely tiny screen can still pick one manually.
+    if physical_h >= 1080:
         scale = min(2.0, physical_h / 1080)
     else:
-        scale = 1.0  # plateau: 800–1080 px all use 1.0
+        scale = 1.0
     scale = round(scale * 20) / 20  # Snap to nearest 0.05
     return w, h, scale
 
