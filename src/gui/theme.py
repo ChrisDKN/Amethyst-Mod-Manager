@@ -55,6 +55,34 @@ def contrasting_text_color(hex_bg: str) -> str:
     except Exception:
         return TEXT_SEP
 
+
+def hover_tint(hex_bg: str, amount: int = 20) -> str:
+    """Return a hover variant of *hex_bg* — brighter by *amount* per channel,
+    or darker if brightening would clip (channel already near 255).
+
+    When darkening a near-saturated colour, a plain ``-amount`` on one channel
+    is barely perceptible (e.g. pure red #ff0000 only shifts luminance by ~8%).
+    So darkening scales all channels proportionally toward black to produce a
+    shift roughly comparable to the lighten case.
+    """
+    try:
+        h = hex_bg.lstrip("#")
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        # If any channel would clip when brightening, darken instead.
+        if max(r, g, b) + amount > 255:
+            # Scale toward black by ~15% — perceptible regardless of hue.
+            factor = 0.82
+            r = int(r * factor)
+            g = int(g * factor)
+            b = int(b * factor)
+        else:
+            r = min(255, r + amount)
+            g = min(255, g + amount)
+            b = min(255, b + amount)
+        return f"#{r:02x}{g:02x}{b:02x}"
+    except Exception:
+        return hex_bg
+
 # Highlight colours — user-customisable via Settings → Theme, persisted in amethyst.ini.
 load_theme_colors()
 plugin_separator   = get_theme_color("plugin_separator")
