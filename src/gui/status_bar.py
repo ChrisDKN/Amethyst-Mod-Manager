@@ -965,6 +965,7 @@ class SettingsPanel(ctk.CTkFrame):
         _color_row("Cross-panel highlight",       "plugin_mod")
         _color_row("Plugin separator highlight",  "plugin_separator")
         _color_row("Separator conflict (gray)",   "conflict_separator")
+        _color_row("Separator background",        "separator_bg")
 
         # ==== Paths ====
         paths_sec = _begin_section("Paths")

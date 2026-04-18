@@ -21,7 +21,7 @@ BG_PANEL   = "#252526"
 BG_HEADER  = "#2a2a2b"
 BG_ROW     = "#2d2d2d"
 BG_ROW_ALT = "#303030"
-BG_SEP     = "#383838"
+BG_SEP     = "#383838"  # overridden below via load_theme_colors()
 BG_HOVER   = "#094771"
 BG_SELECT  = "#0f5fa3"
 BG_HOVER_ROW = "#3d3d3d"
@@ -90,6 +90,7 @@ plugin_mod         = get_theme_color("plugin_mod")
 conflict_separator = get_theme_color("conflict_separator")
 conflict_higher    = get_theme_color("conflict_higher")
 conflict_lower     = get_theme_color("conflict_lower")
+BG_SEP             = get_theme_color("separator_bg")
 
 
 def refresh_theme_colors() -> None:
@@ -99,13 +100,14 @@ def refresh_theme_colors() -> None:
     their old binding — rendering sites should use `theme.X` attribute access
     for the values to update live.
     """
-    global plugin_separator, plugin_mod, conflict_separator, conflict_higher, conflict_lower
+    global plugin_separator, plugin_mod, conflict_separator, conflict_higher, conflict_lower, BG_SEP
     load_theme_colors()
     plugin_separator   = get_theme_color("plugin_separator")
     plugin_mod         = get_theme_color("plugin_mod")
     conflict_separator = get_theme_color("conflict_separator")
     conflict_higher    = get_theme_color("conflict_higher")
     conflict_lower     = get_theme_color("conflict_lower")
+    BG_SEP             = get_theme_color("separator_bg")
 
 # ---------------------------------------------------------------------------
 # Fonts

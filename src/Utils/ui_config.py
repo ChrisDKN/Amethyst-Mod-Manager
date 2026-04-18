@@ -866,6 +866,7 @@ THEME_DEFAULTS: dict[str, str] = {
     "plugin_mod":         "#A45500",
     "plugin_separator":   "#A45500",
     "conflict_separator": "#5A5A5A",
+    "separator_bg":       "#3E3E3E",
 }
 
 _HEX_RE = _re.compile(r"^#[0-9A-Fa-f]{6}$")

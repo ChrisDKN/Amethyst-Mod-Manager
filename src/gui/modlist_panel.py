@@ -2317,11 +2317,11 @@ class ModListPanel(ctk.CTkFrame):
                         base_bg = "#1e2a1e"
                         txt_col = "#6dbf6d"
                     elif is_root_folder:
-                        base_bg = "#1e1e2e" if entry.enabled else BG_SEP
+                        base_bg = "#1e1e2e" if entry.enabled else _theme.BG_SEP
                         txt_col = "#7aa2f7" if entry.enabled else TEXT_DIM
                     else:
                         custom_color = self._sep_colors.get(entry.name)
-                        base_bg = custom_color if custom_color else BG_SEP
+                        base_bg = custom_color if custom_color else _theme.BG_SEP
                         txt_col = _theme.contrasting_text_color(base_bg) if custom_color else "#ffffff"
 
                     _is_hover_sep = (i == self._hover_idx and self._drag_idx < 0)
