@@ -57,6 +57,7 @@ from gui.theme import (
     scaled,
 )
 from Utils.ui_config import get_ui_scale, load_default_staging_path
+from gui.tk_tooltip import TkTooltip
 
 
 # ---------------------------------------------------------------------------
@@ -192,11 +193,16 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         # Forward scroll wheel — bind per-widget so buttons don't swallow events
         self.after(100, self._bind_scroll_recursive)
 
+        self._help_tooltip = TkTooltip(
+            self, bg="#1a1a2e", fg="#d6e4ff",
+            font=(FONT_NORMAL[0], FONT_NORMAL[1]),
+        )
+
         # --- Game path section ---
-        ctk.CTkLabel(
-            body, text="Game Installation Folder",
-            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
+        self._make_section_header(
+            body, row=0, title="Game Installation Folder",
+            tooltip="The location of the game's root install folder",
+        )
 
         self._status_label = ctk.CTkLabel(
             body, text="Scanning Steam libraries…",
@@ -244,10 +250,15 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         )
 
         # --- Proton prefix section ---
-        ctk.CTkLabel(
-            body, text="Proton Prefix (compatdata/pfx)",
-            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=5, column=0, sticky="ew", padx=16, pady=(6, 2))
+        self._make_section_header(
+            body, row=5, title="Proton Prefix (compatdata/pfx)",
+            tooltip=(
+                "The location of the prefix that the game uses, some files "
+                "will deploy to this location and needs to be set. If the "
+                "game is linux native then this is not needed"
+            ),
+            pady=(6, 2),
+        )
 
         _has_prefix_source = bool(self._game.steam_id or _get_heroic_app_names(self._game))
         self._prefix_status_label = ctk.CTkLabel(
@@ -297,10 +308,14 @@ class ReconfigureGamePanel(ctk.CTkFrame):
         )
 
         # --- Mod Staging Folder section ---
-        ctk.CTkLabel(
-            body, text="Mod Staging Folder",
-            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
-        ).grid(row=10, column=0, sticky="ew", padx=16, pady=(6, 2))
+        self._make_section_header(
+            body, row=10, title="Mod Staging Folder",
+            tooltip=(
+                "The location where installed mods and profile settings "
+                "are stored"
+            ),
+            pady=(6, 2),
+        )
 
         self._staging_status_label = ctk.CTkLabel(
             body, text="Default location will be used.",
@@ -434,6 +449,27 @@ class ReconfigureGamePanel(ctk.CTkFrame):
                 text_color="white", command=self._on_clean_game_folder
             )
             self._clean_btn.pack(side="left", padx=(0, 4), pady=10)
+
+    def _make_section_header(self, parent, *, row: int, title: str, tooltip: str,
+                              pady: tuple = (10, 2)) -> None:
+        """Section-title label with a blue help marker that shows *tooltip* on hover."""
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.grid(row=row, column=0, sticky="ew", padx=16, pady=pady)
+
+        ctk.CTkLabel(
+            header, text=title,
+            font=FONT_BOLD, text_color=TEXT_SEP, anchor="w"
+        ).pack(side="left")
+
+        help_marker = ctk.CTkLabel(
+            header, text="?", font=FONT_BOLD, text_color=ACCENT,
+            width=scaled(16), cursor="question_arrow"
+        )
+        help_marker.pack(side="left", padx=(6, 0))
+        self._help_tooltip.attach(
+            help_marker, tooltip,
+            offset_x=scaled(12), offset_y=scaled(12),
+        )
 
     def _bind_scroll_recursive(self, widget=None):
         """Bind Linux scroll-wheel events to every child widget so buttons don't swallow them."""
