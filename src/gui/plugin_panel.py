@@ -5608,7 +5608,7 @@ class PluginPanel(ctk.CTkFrame):
         Layers (bottom → top):
           1. Trough background
           2. Tick marks (priority-merged by y-coord)
-          3. Stippled thumb (ticks bleed through)
+          3. Solid thumb (hides ticks underneath)
         """
         self._marker_strip_after_id = None
         c = self._pmarker_strip
@@ -5719,7 +5719,7 @@ class PluginPanel(ctk.CTkFrame):
             y1 = max(0, y2 - 8)
         c.create_rectangle(
             0, y1, strip_w, y2,
-            fill=_theme.BG_SEP, outline="", stipple="gray50", tags="thumb",
+            fill=_theme.BG_SEP, outline="", tags="thumb",
         )
 
     def _pscroll_set(self, first: str, last: str) -> None:

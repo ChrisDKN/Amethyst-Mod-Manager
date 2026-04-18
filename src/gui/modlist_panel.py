@@ -8258,7 +8258,7 @@ class ModListPanel(ctk.CTkFrame):
                 y1 = max(0, y2 - 8)
             c.create_rectangle(
                 0, y1, strip_w, y2,
-                fill=_theme.BG_SEP, outline="", stipple="gray50", tags="thumb",
+                fill=_theme.BG_SEP, outline="", tags="thumb",
             )
 
     def _scroll_set(self, first: str, last: str) -> None:
@@ -8293,7 +8293,7 @@ class ModListPanel(ctk.CTkFrame):
             y1 = max(0, y2 - 8)
         c.create_rectangle(
             0, y1, strip_w, y2,
-            fill=_theme.BG_SEP, outline="", stipple="gray50", tags="thumb",
+            fill=_theme.BG_SEP, outline="", tags="thumb",
         )
 
     def _on_scrollbar_press(self, event):
