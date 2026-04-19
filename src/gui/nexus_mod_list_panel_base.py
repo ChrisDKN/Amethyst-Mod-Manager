@@ -390,7 +390,7 @@ class _NexusModListPanel:
 
     def _build_cat_side_panel(self, tab, rowspan: int = 2):
         """Build the categories side panel (column 0, initially hidden)."""
-        panel = ctk.CTkFrame(tab, fg_color=BG_PANEL, corner_radius=0, width=280)
+        panel = ctk.CTkFrame(tab, fg_color=BG_PANEL, corner_radius=0, width=320)
         panel.grid(row=0, column=0, rowspan=rowspan, sticky="nsew")
         panel.grid_propagate(False)
         panel.grid_remove()
@@ -467,6 +467,12 @@ class _NexusModListPanel:
         self._cat_panel_open: bool = False
         self._cat_cb_pool: list[ctk.CTkCheckBox] = []
         self._cat_cb_pool_used: int = 0
+
+        # Route wheel events anywhere over the panel (empty areas, header,
+        # button row, scroll canvas itself) into the category scroll canvas.
+        for w in (panel, header, btn_row,
+                  self._cat_scroll, self._cat_scroll._parent_canvas):
+            self._bind_cat_wheel_single(w)
 
     def _populate_cat_sidebar(self, categories: list):
         """Reconfigure pooled checkboxes for the category list."""
@@ -619,7 +625,7 @@ class _NexusModListPanel:
     def _open_cat_sidebar(self, domain: str, categories: list):
         """Show the categories side panel and populate it."""
         self._cat_panel_open = True
-        self._parent.grid_columnconfigure(0, minsize=280)
+        self._parent.grid_columnconfigure(0, minsize=320)
         self._cat_side_panel.grid()
         self._populate_cat_sidebar(categories)
         self._cat_filter_btn.configure(fg_color=ACCENT, hover_color=ACCENT_HOV)
