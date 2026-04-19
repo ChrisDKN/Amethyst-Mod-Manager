@@ -1499,7 +1499,7 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
 
                 final_selections = dialog_result
 
-            file_list = resolve_files(config, final_selections, installed_files)
+            file_list = resolve_files(config, final_selections, installed_files, active_files)
             is_fomod_install = True
             log_fn(f"FOMOD complete — {len(file_list)} file(s) to install.")
 

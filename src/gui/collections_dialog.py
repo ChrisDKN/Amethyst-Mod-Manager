@@ -1845,6 +1845,7 @@ class CollectionDetailDialog(tk.Frame):
         schema_file_id_to_logical: dict[int, str] = {}  # file_id → logicalFilename
         schema_file_id_to_mod_id: dict[int, int] = {}   # file_id → mod_id from collection.json
         schema_file_id_to_install_type: dict[int, str] = {}  # file_id → details.type (e.g. "dinput")
+        schema_file_id_to_phase: dict[int, int] = {}    # file_id → phase (0 = earliest)
         fomod_by_file_id: dict[int, dict] = {}   # file_id → saved_selections dict
         # First pass: collect raw logicalFilename values to detect duplicates
         _raw_logical: dict[int, str] = {}   # file_id → raw logicalFilename from source
@@ -1885,6 +1886,10 @@ class CollectionDetailDialog(tk.Frame):
                 _det_type = ((schema_mod.get("details") or {}).get("type") or "").strip()
                 if _det_type:
                     schema_file_id_to_install_type[fid] = _det_type
+                try:
+                    schema_file_id_to_phase[fid] = int(schema_mod.get("phase") or 0)
+                except (TypeError, ValueError):
+                    schema_file_id_to_phase[fid] = 0
                 choices = schema_mod.get("choices") or {}
                 if choices.get("type") == "fomod":
                     fomod_by_file_id[fid] = _fomod_choices_from_collection(choices)
@@ -2569,19 +2574,17 @@ class CollectionDetailDialog(tk.Frame):
             for t in _consumer_threads:
                 t.join()
 
-            # Before processing deferred FOMODs, write a preliminary plugins.txt
-            # so that fomod conditions can see plugins from already-installed mods.
-            if _fomod_deferred and not _col_stop.is_set():
+            # Writes a preliminary plugins.txt listing every .esp/.esm/.esl that
+            # has landed in staging so far. Called once before the first FOMOD
+            # and again between phases so later-phase FOMOD XML conditions can
+            # see plugins produced by earlier phases (Vortex-equivalent behaviour).
+            def _write_preliminary_plugins_txt(label: str) -> None:
                 try:
                     import os as _os
                     _plugin_exts = (".esm", ".esl", ".esp")
                     _pre_plugins: list = []
                     _seen_plugins: set = set()
                     _pre_staging = self._game.get_effective_mod_staging_path()
-                    # NOTE: collection installs run with skip_index_update=True,
-                    # so the mod index does not yet contain these mods. Walk the
-                    # staging dirs directly — os.walk is ~3-4× faster than
-                    # Path.rglob("*") because it avoids per-entry Path objects.
                     for _fid, _fname in _install_results.items():
                         _mod_dir = _pre_staging / _fname
                         if not _mod_dir.is_dir():
@@ -2602,17 +2605,44 @@ class CollectionDetailDialog(tk.Frame):
                         write_loadorder(profile_dir / "loadorder.txt", _pre_plugins)
                         self._log(
                             f"Collection install: wrote preliminary plugins.txt "
-                            f"({len(_pre_plugins)} plugin(s)) for deferred FOMOD installs."
+                            f"({len(_pre_plugins)} plugin(s)) — {label}."
                         )
                 except Exception as _pre_exc:
                     self._log(f"Collection install: preliminary plugins.txt skipped — {_pre_exc}")
 
+            # Before processing deferred FOMODs, write a preliminary plugins.txt
+            # so that fomod conditions can see plugins from already-installed mods.
+            if _fomod_deferred and not _col_stop.is_set():
+                _write_preliminary_plugins_txt("pre-FOMOD")
+
             # Process deferred FOMOD mods (those without auto-selections) now that
             # all other mods are installed so their dependencies are available.
+            # Sort by (phase, topo_pos) so lower-phase FOMODs run first — matches
+            # Vortex's phase semantics where phase N FOMODs can see files from
+            # phase N-1. Between phases, re-emit plugins.txt so XML conditions
+            # in the next phase's FOMODs see plugins produced by the previous.
             if _fomod_deferred and not _col_stop.is_set():
-                self._log(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s)…")
+                _fomod_deferred.sort(key=lambda t: (
+                    schema_file_id_to_phase.get(t[0].file_id, 0),
+                    schema_file_id_to_pos.get(t[0].file_id, len(schema_mods)),
+                ))
+                _phase_counts: dict[int, int] = {}
+                for _t in _fomod_deferred:
+                    _ph = schema_file_id_to_phase.get(_t[0].file_id, 0)
+                    _phase_counts[_ph] = _phase_counts.get(_ph, 0) + 1
+                _phase_summary = ", ".join(
+                    f"phase {p}: {_phase_counts[p]}" for p in sorted(_phase_counts)
+                )
+                self._log(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s) ({_phase_summary})…")
                 _set_status(f"Installing {len(_fomod_deferred)} deferred FOMOD mod(s)…")
+                _current_phase: int | None = None
                 for _def_mod, _def_result, _def_domain in _fomod_deferred:
+                    _this_phase = schema_file_id_to_phase.get(_def_mod.file_id, 0)
+                    if _current_phase is not None and _this_phase != _current_phase:
+                        _write_preliminary_plugins_txt(
+                            f"phase {_current_phase} → {_this_phase}"
+                        )
+                    _current_phase = _this_phase
                     _def_archive = str(_def_result.file_path)
                     _def_auto_fomod = fomod_by_file_id.get(_def_mod.file_id)
                     try:
