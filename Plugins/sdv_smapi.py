@@ -159,52 +159,97 @@ def _clean_env() -> dict:
     return env
 
 
+def _spawn_host_prefix() -> list[str]:
+    """flatpak-spawn invocation that starts on the host with a safe cwd.
+
+    Inside a flatpak the sandbox cwd (e.g. /app/share/amethyst-mod-manager)
+    doesn't exist on the host, and the portal call fails with:
+        Portal call failed: Failed to start command: Failed to change to
+        directory "/app/share/..." (No such file or directory)
+    Passing --directory=$HOME avoids it.
+    """
+    home = os.environ.get("HOME") or "/tmp"
+    return ["flatpak-spawn", "--host", f"--directory={home}"]
+
+
+def _host_has(exe: str, env: dict) -> bool:
+    """Ask the host (via flatpak-spawn) whether *exe* is on its PATH."""
+    try:
+        r = subprocess.run(
+            _spawn_host_prefix() + ["sh", "-c", f"command -v {exe}"],
+            env=env, capture_output=True, text=True, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0 and bool(r.stdout.strip())
+
+
 def _find_terminal_cmd(wrapper: str, log_fn=None) -> tuple[list[str], dict] | None:
     """Return (argv, env) for a terminal that actually launches, or None.
 
-    Probes each candidate with `<bin> --version` under the cleaned env so that
-    a konsole which is on PATH but fails to start (library conflict) doesn't
-    silently eat the install.
+    Order of preference:
+      1. Host-side terminal that passes `<bin> --version` under a cleaned env
+         (catches AppImage library-conflict crashes).
+      2. Host terminal via flatpak-spawn --host (for flatpak builds) —
+         selected by asking the host `command -v <exe>`, not by probing, because
+         `<exe> --version` through flatpak-spawn can spuriously fail on some
+         hosts.
+      3. x-terminal-emulator / xdg-terminal-exec.
+      4. Forced direct launch of a host terminal that's on PATH even if it
+         failed the probe.
+      5. Forced flatpak-spawn of konsole/alacritty/xterm even without host-check.
     """
     log = log_fn or (lambda m: None)
     env = _clean_env()
     have_spawn = shutil.which("flatpak-spawn") is not None
 
-    def _probe(exe: str, use_host: bool) -> bool:
-        cmd = (["flatpak-spawn", "--host"] if use_host else []) + [exe, "--version"]
+    def _probe_host(exe: str) -> bool:
         try:
-            r = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=5)
+            r = subprocess.run(
+                [exe, "--version"], env=env, capture_output=True, text=True, timeout=5,
+            )
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            log(f"SMAPI Wizard: probe {exe} (host={use_host}) failed: {exc}")
+            log(f"SMAPI Wizard: probe {exe} failed: {exc}")
             return False
         if r.returncode != 0:
-            log(f"SMAPI Wizard: probe {exe} (host={use_host}) rc={r.returncode} "
+            log(f"SMAPI Wizard: probe {exe} rc={r.returncode} "
                 f"stderr={r.stderr.strip()[:200]}")
             return False
         return True
 
     candidates = _terminal_candidates(wrapper)
 
+    # 1. Direct host invocation with a working probe.
     for exe, argv in candidates:
-        if shutil.which(exe) and _probe(exe, use_host=False):
+        if shutil.which(exe) and _probe_host(exe):
             log(f"SMAPI Wizard: selected host terminal: {exe}")
             return argv, env
 
+    # 2. flatpak-spawn --host, selecting by `command -v` on the host.
     if have_spawn:
         for exe, argv in candidates:
-            if _probe(exe, use_host=True):
+            if _host_has(exe, env):
                 log(f"SMAPI Wizard: selected host terminal via flatpak-spawn: {exe}")
-                return ["flatpak-spawn", "--host"] + argv, env
+                return _spawn_host_prefix() + argv, env
 
+    # 3. Generic terminal wrappers.
     for generic in ("x-terminal-emulator", "xdg-terminal-exec"):
         if shutil.which(generic):
             log(f"SMAPI Wizard: falling back to {generic}")
             return [generic, "-e", "bash", wrapper], env
 
+    # 4. Host terminal on PATH that failed probe — force it.
     for exe, argv in candidates:
         if shutil.which(exe):
             log(f"SMAPI Wizard: no terminal passed probe, forcing {exe}")
             return argv, env
+
+    # 5. Last-ditch for flatpak: try flatpak-spawn --host konsole anyway.
+    #    If it fails we'll see stderr in the log via the caller's capture_output.
+    if have_spawn:
+        for exe, argv in candidates:
+            log(f"SMAPI Wizard: last-ditch flatpak-spawn --host {exe}")
+            return _spawn_host_prefix() + argv, env
 
     return None
 
