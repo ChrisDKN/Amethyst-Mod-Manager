@@ -6950,7 +6950,25 @@ class ModListPanel(ctk.CTkFrame):
                     for _key in root_files:
                         if _key in my_files:
                             rel_to_losers.setdefault(_key, []).append(loser_mod)
-            else:
+            # Annotate wins against BSA-only losers: when this mod's loose files
+            # beat a lower-priority mod's BSA contents (engine rule: loose > BSA),
+            # the BSA mod appears in beaten_mods but has no entry in the loose
+            # mod_index. Consult bsa_index to surface those wins.
+            if _archive_exts and bsa_index_path is not None and bsa_index_path.is_file():
+                try:
+                    from Utils.bsa_filemap import read_bsa_index as _read_bi
+                    _bi = _read_bi(bsa_index_path) or {}
+                    for loser_mod in beaten_mods:
+                        archives = _bi.get(loser_mod)
+                        if not archives:
+                            continue
+                        for _bsa, _mt, _paths in archives:
+                            for _fp in _paths:
+                                if _fp in my_files and loser_mod not in rel_to_losers.get(_fp, ()):
+                                    rel_to_losers.setdefault(_fp, []).append(loser_mod)
+                except Exception:
+                    pass
+            if mod_index is None:
                 # Fallback: walk beaten mods' staging directly (older profiles
                 # without a mod index).
                 for loser_mod in beaten_mods:
