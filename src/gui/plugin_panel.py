@@ -394,6 +394,8 @@ class PluginPanel(ctk.CTkFrame):
         self._exe_var = tk.StringVar(value="")
         # Stores full Path objects in display-name order, parallel to dropdown values
         self._exe_paths: list[Path] = []
+        # Parallel to _exe_paths; the game's launch exe is shown as the game name.
+        self._exe_labels: list[str] = []
         self._game_exe_path: Path | None = None
         self._exe_menu = ctk.CTkOptionMenu(
             exe_bar, values=["(no executables)"], variable=self._exe_var,
@@ -717,7 +719,15 @@ class PluginPanel(ctk.CTkFrame):
         """Apply exe scan results to the UI (must be called on the main thread)."""
         self._exe_paths = exes
         self._game_exe_path = game_exe_path
-        labels = [p.name for p in exes] + [self._ADD_CUSTOM_SENTINEL]
+        game_label = self._game.name if self._game is not None else None
+        entry_labels: list[str] = []
+        for p in exes:
+            if game_label and game_exe_path is not None and p == game_exe_path:
+                entry_labels.append(game_label)
+            else:
+                entry_labels.append(p.name)
+        self._exe_labels = entry_labels
+        labels = entry_labels + [self._ADD_CUSTOM_SENTINEL]
         if not exes:
             labels = ["(no executables)", self._ADD_CUSTOM_SENTINEL]
         self._exe_menu.configure(values=labels)
@@ -1028,7 +1038,8 @@ class PluginPanel(ctk.CTkFrame):
             if chosen is None:
                 # User cancelled — restore previous selection
                 if self._exe_paths:
-                    self._safe_after(0, lambda: self._exe_var.set(self._exe_paths[0].name))
+                    first_label = self._exe_labels[0] if self._exe_labels else self._exe_paths[0].name
+                    self._safe_after(0, lambda: self._exe_var.set(first_label))
                 else:
                     self._safe_after(0, lambda: self._exe_var.set("(no executables)"))
                 return
@@ -1209,6 +1220,9 @@ class PluginPanel(ctk.CTkFrame):
     def _exe_var_index(self) -> int:
         """Return the index of the currently selected exe in _exe_paths."""
         name = self._exe_var.get()
+        for i, label in enumerate(self._exe_labels):
+            if label == name:
+                return i
         for i, p in enumerate(self._exe_paths):
             if p.name == name:
                 return i
