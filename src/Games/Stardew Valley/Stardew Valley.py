@@ -83,14 +83,7 @@ class StardewValley(BaseGame):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return self._base_wizard_tools() + [
-            WizardTool(
-                id="install_smapi",
-                label="Install SMAPI",
-                description="Download and install SMAPI (mod loader) for Stardew Valley.",
-                dialog_class_path="wizards.smapi.SmapiWizard",
-            ),
-        ]
+        return self._base_wizard_tools()
 
     @property
     def loot_game_type(self) -> str:

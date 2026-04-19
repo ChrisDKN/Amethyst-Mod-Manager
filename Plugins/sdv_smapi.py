@@ -1,19 +1,14 @@
 """
-SMAPI installation wizard for Stardew Valley (hotfix plugin).
+SMAPI installation wizard for Stardew Valley.
 
-Replaces the built-in SMAPI wizard, which failed because the terminal
-closed before the installer could run interactively and the cwd was
-not set to the extracted folder (installer uses relative paths).
+Downloads the latest SMAPI installer zip from GitHub, extracts it under
+~/.cache (so the path is visible to both a flatpak sandbox and the host),
+and runs "install on Linux.sh" inside a terminal emulator. A bash wrapper
+cd's into the extracted folder first and pauses after the installer exits
+so the user can see its output.
 
-Fixes:
-  * Writes a bash wrapper that cd's into the extracted folder before
-    running "install on Linux.sh", then pauses with `read` so the user
-    can read the installer's output.
-  * Detects flatpak and prefers `flatpak-spawn --host` for the terminal
-    so konsole/gnome-terminal on the host can be reached from inside
-    the sandbox.
-  * Chmods the install script, SMAPI.Installer binary, and any fallback
-    shell helpers before launching.
+Supports both native/AppImage (direct terminal launch with a cleaned env)
+and flatpak builds (via `flatpak-spawn --host --directory=$HOME`).
 """
 
 from __future__ import annotations
@@ -39,12 +34,12 @@ from gui.theme import (
 )
 
 PLUGIN_INFO = {
-    "id":           "sdv_smapi_hotfix",
-    "label":        "Install SMAPI (Updated)",
-    "description":  "Download and install SMAPI. Use this instead of the older 'Install SMAPI' option.",
+    "id":           "sdv_smapi",
+    "label":        "Install SMAPI",
+    "description":  "Download and install SMAPI (mod loader) for Stardew Valley.",
     "game_ids":     ["Stardew_Valley"],
     "all_games":    False,
-    "dialog_class": "SmapiWizardFixed",
+    "dialog_class": "SmapiWizard",
 }
 
 _GITHUB_API_URL = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest"
@@ -258,7 +253,7 @@ def _find_terminal_cmd(wrapper: str, log_fn=None) -> tuple[list[str], dict] | No
 # Wizard dialog
 # ============================================================================
 
-class SmapiWizardFixed(ctk.CTkFrame):
+class SmapiWizard(ctk.CTkFrame):
 
     def __init__(self, parent, game, log_fn=None, *, on_close=None, **_extra):
         super().__init__(parent, fg_color=BG_DEEP, corner_radius=0)
