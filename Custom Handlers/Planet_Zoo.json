@@ -1,0 +1,32 @@
+{
+  "name": "Planet Zoo",
+  "game_id": "Planet_Zoo",
+  "exe_name": "PlanetZoo.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "win64/ovldata",
+  "steam_id": "703080",
+  "nexus_game_domain": "planetzoo",
+  "editable": false,
+  "image_url": "https://cdn2.steamgriddb.com/icon_thumb/1e2b8f5d829d431013ead35192c62f96.png",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.jpg",
+    "*.png",
+    "*.txt"
+  ],
+  "mod_folder_strip_prefixes_post": [
+    "ovldata"
+  ],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "ovldata"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {},
+  "custom_routing_rules": [],
+  "custom_frameworks": {}
+}
