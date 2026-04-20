@@ -6,6 +6,8 @@
 - Nexus api rate limit is now displayed on the status bar
 - Added a warning when trying to sylink with cyber engine tweaks
 - Copying mods to another profile now shows progress and also copies over fomod options
+- The Linux native version of Baldurs Gate 3 is now detected and supported
+- Added patch selection to the Baldurs gate 3 configure menu to choose between patch 7,6 and 8
 
 - v1.2.10
 - Added a opt in to pre releases option in the settings menu, When toggled on the update checker will always use the latest pre release if available
