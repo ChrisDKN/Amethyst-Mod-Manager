@@ -321,18 +321,28 @@ class CustomRule:
     loose_only — when True, the rule only matches files that are not inside
                  any folder (i.e. files at the mod root with no directory
                  components in their relative path).  Default False.
+    companion_extensions — lowercase file extensions (e.g. [".ini"]) whose
+                 owners ride along with a primary match.  When this rule
+                 matches a file, any sibling in the same folder with the same
+                 basename stem and one of these extensions is also routed to
+                 the same destination.  Used for formats like RDR2's ASI
+                 plugins where "Foo.asi" and "Foo.ini" must both live at the
+                 game root even though the ``.ini`` extension is too generic
+                 to route unconditionally.
 
     Placement behaviour:
     - extension-only match: file placed as game_root/dest/<filename> (flat)
     - folder match (with or without extension): file placed as
       game_root/dest/<original rel_path> (full path preserved)
     - filename match: file placed flat as game_root/dest/<filename>
+    - companion match: file placed using the same rule as its primary owner
     """
     dest: str
     extensions: list[str] = field(default_factory=list)
     folders: list[str] = field(default_factory=list)
     filenames: list[str] = field(default_factory=list)
     loose_only: bool = False
+    companion_extensions: list[str] = field(default_factory=list)
 
 
 def _default_core(deploy_dir: Path) -> Path:

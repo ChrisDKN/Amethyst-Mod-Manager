@@ -3962,11 +3962,51 @@ class PluginPanel(ctk.CTkFrame):
                     return rule, -1
             return None, -1
 
-        resolved = []
-        for rel_path, mod_name in entries:
+        # First pass: record each entry's primary rule match so companions
+        # can ride along on the second pass.  Index entries by (parent, stem)
+        # so we can find siblings cheaply.
+        # primary_rules maps index -> (rule, strip_len); companions_by_key
+        # maps (parent_lower, stem_lower) -> list of (index, ext_lower).
+        primary_rules: dict[int, tuple] = {}
+        companions_by_key: dict[tuple[str, str], list[tuple[int, str]]] = {}
+        normalised: list[str] = []
+        for idx, (rel_path, _mod_name) in enumerate(entries):
             rel_norm = rel_path.replace("\\", "/")
-            rule, strip_len = _match(rel_norm.lower())
+            normalised.append(rel_norm)
+            rel_lower = rel_norm.lower()
+            parent_lower, _, name_lower = rel_lower.rpartition("/")
+            stem_lower, ext_lower = os.path.splitext(name_lower)
+            companions_by_key.setdefault(
+                (parent_lower, stem_lower), []
+            ).append((idx, ext_lower))
+            rule, strip_len = _match(rel_lower)
             if rule is not None:
+                primary_rules[idx] = (rule, strip_len)
+
+        # Second pass: mark companions (same folder, same stem, companion ext)
+        # with their primary's rule.
+        for idx, (rule, strip_len) in list(primary_rules.items()):
+            companions = {c.lower() for c in getattr(rule, "companion_extensions", [])}
+            if not companions:
+                continue
+            rel_norm = normalised[idx]
+            rel_lower = rel_norm.lower()
+            parent_lower, _, name_lower = rel_lower.rpartition("/")
+            stem_lower, _ = os.path.splitext(name_lower)
+            for sib_idx, sib_ext in companions_by_key.get((parent_lower, stem_lower), ()):
+                if sib_idx == idx:
+                    continue
+                if sib_idx in primary_rules:
+                    continue
+                if sib_ext in companions:
+                    primary_rules[sib_idx] = (rule, strip_len)
+
+        resolved = []
+        for idx, (rel_path, mod_name) in enumerate(entries):
+            rel_norm = normalised[idx]
+            match = primary_rules.get(idx)
+            if match is not None:
+                rule, strip_len = match
                 dest = rule.dest
                 if strip_len >= 0:
                     # Folder match — strip prefix above the folder,

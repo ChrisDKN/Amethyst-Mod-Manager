@@ -124,9 +124,13 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
         folders = [s.strip().lower() for s in entry.get("folders", []) if s.strip()]
         filenames = [s.strip().lower() for s in entry.get("filenames", []) if s.strip()]
         loose_only = bool(entry.get("loose_only", False))
+        companion_extensions = [
+            s.strip().lower() for s in entry.get("companion_extensions", []) if s.strip()
+        ]
         if dest or extensions or folders or filenames:
             rules.append(CustomRule(dest=dest, extensions=extensions, folders=folders,
-                                    filenames=filenames, loose_only=loose_only))
+                                    filenames=filenames, loose_only=loose_only,
+                                    companion_extensions=companion_extensions))
     return rules
 
 

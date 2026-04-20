@@ -646,7 +646,9 @@ class CustomGamePanel(ctk.CTkFrame):
         ctk.CTkLabel(
             body,
             text="Route specific files to alternate destinations during deploy. "
-                 "Each rule maps files (by extension or folder) to a game-root-relative directory.",
+                 "Each rule maps files (by extension or folder) to a game-root-relative directory. "
+                 "For extensions, append (.ext, .ext) to also route same-stem siblings "
+                 "(e.g. .asi (.ini) sends Foo.ini alongside Foo.asi).",
             font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
             wraplength=WRAP,
         ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 4))
@@ -668,12 +670,15 @@ class CustomGamePanel(ctk.CTkFrame):
         # Populate existing rules
         for rule_data in self._routing_rules_initial:
             if isinstance(rule_data, dict):
+                companions = rule_data.get("companion_extensions") or []
                 if rule_data.get("filenames"):
                     mt = "filenames"
                     mv = ", ".join(rule_data["filenames"])
                 elif rule_data.get("extensions"):
                     mt = "extensions"
                     mv = ", ".join(rule_data["extensions"])
+                    if companions:
+                        mv = f"{mv} ({', '.join(companions)})"
                 else:
                     mt = "folders"
                     mv = ", ".join(rule_data.get("folders") or [])
@@ -853,7 +858,8 @@ class CustomGamePanel(ctk.CTkFrame):
         ctk.CTkEntry(
             row_frame, textvariable=value_var, font=FONT_MONO,
             fg_color=BG_DEEP, text_color=TEXT_MAIN, border_color=BORDER,
-            placeholder_text="e.g. .pak, .utoc", width=140,
+            placeholder_text="e.g. .pak, .utoc   ·   .asi (.ini) routes same-stem .ini alongside each .asi",
+            width=140,
         ).grid(row=0, column=2, sticky="ew", padx=(4, 4), pady=4)
 
         ctk.CTkSwitch(
@@ -885,18 +891,34 @@ class CustomGamePanel(ctk.CTkFrame):
                     rd["frame"].grid(row=i + 1, column=0, sticky="ew", pady=2)
 
     def _collect_routing_rules(self) -> list[dict]:
-        """Collect routing rules from the UI rows into JSON-serializable dicts."""
+        """Collect routing rules from the UI rows into JSON-serializable dicts.
+
+        For ``extensions`` rules, values may end with ``(.ext, .ext)`` — those
+        parenthesised extensions are parsed as ``companion_extensions`` so a
+        same-stem sibling (e.g. ``Foo.ini`` next to ``Foo.asi``) rides along
+        with the primary match.
+        """
         rules = []
         for rd in self._routing_rules_rows:
             dest       = rd["dest"].get().strip()
             match_type = rd["type"].get()
             raw_value  = rd["value"].get().strip()
-            values     = [v.strip() for v in raw_value.split(",") if v.strip()]
+
+            companions: list[str] = []
+            if match_type == "extensions" and "(" in raw_value and ")" in raw_value:
+                before, _, rest = raw_value.partition("(")
+                inside, _, after = rest.partition(")")
+                companions = [v.strip() for v in inside.split(",") if v.strip()]
+                raw_value = (before + " " + after).strip().rstrip(",").strip()
+
+            values = [v.strip() for v in raw_value.split(",") if v.strip()]
             if not values and not dest:
                 continue
             rule: dict = {"dest": dest}
             if match_type == "extensions":
                 rule["extensions"] = values
+                if companions:
+                    rule["companion_extensions"] = companions
             elif match_type == "filenames":
                 rule["filenames"] = values
             else:

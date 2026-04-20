@@ -130,6 +130,12 @@ def deploy_custom_rules(
     already_seen: set[str] = set()
     tasks: list[tuple[Path, Path]] = []   # (src, dst)
     handled_lower: set[str] = set()
+    # Retain primary matches and all entries so we can resolve companions
+    # after the first pass.
+    # primary_matches: rel_lower -> (rule, strip_len, rel_str, mod_name)
+    primary_matches: dict[str, tuple[CustomRule, int, str, str]] = {}
+    # entries_by_key: (parent_lower, stem_lower) -> list of (rel_str, mod_name, ext_lower)
+    entries_by_key: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
 
     with filemap_path.open(encoding="utf-8") as f:
         for line in f:
@@ -142,10 +148,18 @@ def deploy_custom_rules(
                 continue
             already_seen.add(rel_lower)
 
+            # Index every entry by (parent, stem) for companion resolution.
+            parent_lower, _, name_lower = rel_lower.rpartition("/")
+            stem_lower, _ext = os.path.splitext(name_lower)
+            entries_by_key.setdefault(
+                (parent_lower, stem_lower), []
+            ).append((rel_str, mod_name, _ext))
+
             match = _match_rule(rel_lower)
             if match is None:
                 continue
             rule, strip_len = match
+            primary_matches[rel_lower] = (rule, strip_len, rel_str, mod_name)
 
             src_str = _resolve_source(
                 mod_name, rel_str, rel_lower, overwrite_dir, staging_root,
@@ -170,6 +184,38 @@ def deploy_custom_rules(
                 dst = dest_base / src.name
             tasks.append((src, dst))
             handled_lower.add(rel_lower)
+
+    # Second pass: companion files ride along with their primary match.
+    for rel_lower, (rule, strip_len, rel_str, _mod_name) in list(primary_matches.items()):
+        companions = {c.lower() for c in rule.companion_extensions}
+        if not companions:
+            continue
+        parent_lower, _, name_lower = rel_lower.rpartition("/")
+        stem_lower, _ = os.path.splitext(name_lower)
+        siblings = entries_by_key.get((parent_lower, stem_lower), ())
+        for sib_rel_str, sib_mod_name, sib_ext in siblings:
+            sib_lower = sib_rel_str.lower()
+            if sib_lower in handled_lower:
+                continue
+            if sib_ext not in companions:
+                continue
+            src_str = _resolve_source(
+                sib_mod_name, sib_rel_str, sib_lower, overwrite_dir, staging_root,
+                _overwrite_str, _staging_str, sorted_strip, {},
+                nocase_cache,
+            )
+            if src_str is None:
+                _log(f"  WARN: source not found — {sib_rel_str} ({sib_mod_name})")
+                continue
+            src = Path(src_str)
+            dest_base = game_root / rule.dest if rule.dest else game_root
+            if strip_len >= 0:
+                kept = sib_rel_str[strip_len:].lstrip("/")
+                dst = dest_base / kept if kept else dest_base
+            else:
+                dst = dest_base / src.name
+            tasks.append((src, dst))
+            handled_lower.add(sib_lower)
 
     if not tasks:
         return handled_lower
