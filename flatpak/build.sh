@@ -4,6 +4,11 @@
 # Prerequisites:
 #   - Flatpak installed; flatpak-builder is installed automatically when missing (needs sudo)
 #   - GNOME runtime: flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
+#   - 32-bit compat extensions (auto-installed by --install-deps-from=flathub):
+#       org.freedesktop.Platform.Compat.i386//25.08
+#       org.freedesktop.Platform.GL32//1.4
+#     These provide /lib/i386-linux-gnu/ld-linux.so.2 etc., needed to exec
+#     Proton's bundled 32-bit `wine` binary during Synthesis prefix setup.
 #
 # Usage:
 #   ./flatpak/build.sh           # Build and install locally

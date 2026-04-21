@@ -3,6 +3,22 @@ runtime: org.gnome.Platform
 runtime-version: "49"
 sdk: org.gnome.Sdk
 
+# 32-bit support for running Proton's bundled `wine` binary (ELF i386) during
+# Synthesis prefix setup. Without these, exec'ing wine fails with ENOENT — the
+# kernel reports the missing 32-bit ld-linux.so.2 interpreter as the error.
+add-extensions:
+  org.freedesktop.Platform.Compat.i386:
+    directory: lib/i386-linux-gnu
+    version: '25.08'
+  org.freedesktop.Platform.GL32:
+    directory: lib/i386-linux-gnu/GL
+    version: '1.4'
+    versions: 25.08;1.4
+    subdirectories: true
+    no-autodownload: false
+    autodelete: false
+    add-ld-path: lib
+
 command: amethyst-mod-manager
 
 # Sandbox permissions
@@ -29,11 +45,18 @@ finish-args:
   - --filesystem=~/.var/app/com.heroicgameslauncher.hgl
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.freedesktop.Flatpak
+  # Wine (Synthesis prefix setup) installs its own seccomp filter and runs
+  # 32-bit binaries; the default sandbox blocks both, killing wine with SIGSYS.
+  - --allow=multiarch
 
 tags:
   - modmanager
   - games
   - modding
+
+cleanup-commands:
+  # Mount points for the 32-bit compat extensions declared above.
+  - mkdir -p /app/lib/i386-linux-gnu/GL
 
 modules:
   # Tkinter
