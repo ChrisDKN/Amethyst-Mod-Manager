@@ -258,6 +258,40 @@ def _show_set_prefix_dialog_on_main(parent_window, required, file_list, mod_name
                         result_holder, done_event, result_attr="result")
 
 
+def _raise_toplevel(top) -> None:
+    """Surface a Tk toplevel that may be minimised or behind another window.
+
+    Wayland compositors (notably KDE) silently ignore plain lift/focus_force
+    calls unless the window provides a fresh activation token. Briefly
+    toggling ``-topmost`` gives the compositor a legitimate raise request,
+    and the iconify→deiconify cycle forces a map event when the window is
+    minimised. Together these cover KDE/Wayland, X11, and Windows.
+    """
+    try:
+        if top.state() == "iconic":
+            top.iconify()
+        top.deiconify()
+    except Exception:
+        pass
+    try:
+        top.attributes("-topmost", True)
+        top.after(200, lambda: _safe_set_attr(top, "-topmost", False))
+    except Exception:
+        pass
+    try:
+        top.lift()
+        top.focus_force()
+    except Exception:
+        pass
+
+
+def _safe_set_attr(top, key, value) -> None:
+    try:
+        top.attributes(key, value)
+    except Exception:
+        pass
+
+
 def _show_fomod_dialog_on_main(parent_window, config, mod_root,
                                installed_files: set, active_files: set,
                                saved_selections, selections_path,
@@ -282,6 +316,13 @@ def _show_fomod_dialog_on_main(parent_window, config, mod_root,
                 panel.place(relx=0, rely=0, relwidth=1, relheight=1)
                 panel.lift()
                 panel.focus_set()
+                # FOMOD dialogs need user input — surface the window in case
+                # it was minimised while an nxm:// download was in flight.
+                try:
+                    top = parent_window.winfo_toplevel()
+                    _raise_toplevel(top)
+                except Exception:
+                    pass
         except Exception:
             _tb.print_exc()
     except Exception:
@@ -1462,6 +1503,11 @@ def install_mod_from_archive(archive_path: str, parent_window, log_fn,
                                 panel.place(relx=0, rely=0, relwidth=1, relheight=1)
                                 panel.lift()
                                 panel.focus_set()
+                                try:
+                                    top = parent_window.winfo_toplevel()
+                                    _raise_toplevel(top)
+                                except Exception:
+                                    pass
                                 parent_window.wait_variable(_done_var)
                         except Exception:
                             import traceback as _tb; _tb.print_exc()

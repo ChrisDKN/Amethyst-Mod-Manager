@@ -667,10 +667,10 @@ class App(ctk.CTk):
     def _receive_nxm(self, nxm_url: str):
         """Handle an NXM link delivered via IPC from a second instance."""
         self._status.log(f"Nexus: Received link from browser.")
-        # Raise the window so the user sees what's happening
-        self.deiconify()
-        self.lift()
-        self.focus_force()
+        # Intentionally do NOT raise/deiconify the window here — starting a
+        # Nexus download shouldn't steal focus from the user's browser. The
+        # window is raised later only if a FOMOD dialog needs attention
+        # (see _show_fomod_dialog_on_main).
         self._process_nxm_link(nxm_url)
 
     def _process_nxm_link(self, nxm_url: str):
