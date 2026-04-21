@@ -2494,7 +2494,8 @@ class ExeConfigPanel(ctk.CTkFrame):
 
         def _walk(w):
             try:
-                w.bind("<MouseWheel>", _on_wheel, add="+")
+                # On Tk >= 8.7 CTkScrollableFrame handles <MouseWheel> itself via
+                # bind_all; only supplement Button-4/5 for Tk 8.6.
                 if not LEGACY_WHEEL_REDUNDANT:
                     w.bind("<Button-4>", _on_wheel, add="+")
                     w.bind("<Button-5>", _on_wheel, add="+")
@@ -2777,7 +2778,8 @@ class ExeConfigPanel(ctk.CTkFrame):
                 canvas.yview_scroll(-1, "units")
             else:
                 canvas.yview_scroll(1, "units")
-        popup.bind("<MouseWheel>", _forward_scroll)
+        # On Tk >= 8.7 CTkScrollableFrame handles <MouseWheel> itself; binding
+        # another would double-scroll.
         if not LEGACY_WHEEL_REDUNDANT:
             popup.bind("<Button-4>", _forward_scroll)
             popup.bind("<Button-5>", _forward_scroll)
@@ -4751,10 +4753,12 @@ class MissingReqsPanel(ctk.CTkFrame):
         self._list_frame = list_frame
 
         def _on_wheel(e):
-            if getattr(e, "delta", 0):
-                self._canvas.yview_scroll(-1 if e.delta > 0 else 1, "units")
+            self._canvas.yview_scroll(-3 if (getattr(e, "delta", 0) or 0) > 0 else 3, "units")
             return "break"
         self._canvas.bind("<MouseWheel>", _on_wheel)
+        if not LEGACY_WHEEL_REDUNDANT:
+            self._canvas.bind("<Button-4>", lambda e: (self._canvas.yview_scroll(-3, "units"), "break")[-1])
+            self._canvas.bind("<Button-5>", lambda e: (self._canvas.yview_scroll( 3, "units"), "break")[-1])
 
         # Footer
         footer = ctk.CTkFrame(self, fg_color=BG_PANEL, corner_radius=0, height=scaled(44))

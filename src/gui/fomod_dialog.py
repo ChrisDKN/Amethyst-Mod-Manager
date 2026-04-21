@@ -417,8 +417,9 @@ class FomodDialog(ctk.CTkFrame):
                 canvas.yview("scroll", direction, "units")
 
         # CTkBaseClass blocks bind_all on frames; bind on the toplevel window instead.
+        # On Tk >= 8.7 CTkScrollableFrame already handles <MouseWheel> via its own
+        # bind_all — we only need to supplement Button-4/5 for Tk 8.6.
         root = self.winfo_toplevel()
-        root.bind_all("<MouseWheel>", _on_scroll, add="+")
         if not LEGACY_WHEEL_REDUNDANT:
             root.bind_all("<Button-4>", _on_scroll, add="+")
             root.bind_all("<Button-5>", _on_scroll, add="+")

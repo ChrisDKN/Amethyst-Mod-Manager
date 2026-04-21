@@ -167,10 +167,10 @@ class _NexusModListPanel:
         self._canvas.bind("<MouseWheel>", self._on_mousewheel)
         self._inner.bind("<MouseWheel>",  self._on_mousewheel)
         if not LEGACY_WHEEL_REDUNDANT:
-            self._canvas.bind("<Button-4>", lambda e: self._scroll(-100))
-            self._canvas.bind("<Button-5>", lambda e: self._scroll(100))
-            self._inner.bind("<Button-4>",  lambda e: self._scroll(-100))
-            self._inner.bind("<Button-5>",  lambda e: self._scroll(100))
+            self._canvas.bind("<Button-4>", lambda e: self._scroll(-50))
+            self._canvas.bind("<Button-5>", lambda e: self._scroll(50))
+            self._inner.bind("<Button-4>",  lambda e: self._scroll(-50))
+            self._inner.bind("<Button-5>",  lambda e: self._scroll(50))
 
     def _initial_status_text(self) -> str:
         """Override to set the initial status bar text."""
@@ -550,13 +550,12 @@ class _NexusModListPanel:
             except Exception:
                 pass
             return "break"
-        widget.bind("<MouseWheel>", _scroll, add="+")
+        # On Tk >= 8.7 CTkScrollableFrame (self._cat_scroll) handles <MouseWheel>
+        # via its own bind_all; only supplement Button-4/5 for Tk 8.6.
         if not LEGACY_WHEEL_REDUNDANT:
             widget.bind("<Button-4>", _scroll, add="+")
             widget.bind("<Button-5>", _scroll, add="+")
-        for child in widget.winfo_children():
-            child.bind("<MouseWheel>", _scroll, add="+")
-            if not LEGACY_WHEEL_REDUNDANT:
+            for child in widget.winfo_children():
                 child.bind("<Button-4>", _scroll, add="+")
                 child.bind("<Button-5>", _scroll, add="+")
 

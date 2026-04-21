@@ -5404,7 +5404,7 @@ class CollectionsDialog(tk.Frame):
 
     def _on_mousewheel(self, event):
         direction = -1 if event.delta > 0 else 1
-        self._scroll(direction * 10)
+        self._scroll(direction * 80)
 
     def _bind_scroll(self, widget: tk.Widget, _depth=0):
         if not LEGACY_WHEEL_REDUNDANT:

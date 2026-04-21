@@ -690,8 +690,9 @@ class SettingsPanel(ctk.CTkFrame):
             if not LEGACY_WHEEL_REDUNDANT:
                 widget.bind("<Button-4>",   lambda e: self._body._parent_canvas.yview_scroll(-3, "units"), add="+")
                 widget.bind("<Button-5>",   lambda e: self._body._parent_canvas.yview_scroll( 3, "units"), add="+")
-            widget.bind("<MouseWheel>", lambda e: self._body._parent_canvas.yview_scroll(
-                -3 if (getattr(e, "delta", 0) or 0) > 0 else 3, "units"), add="+")
+            # On Tk >= 8.7, CTkScrollableFrame's own bind_all("<MouseWheel>") handler
+            # already scrolls the body (with event.delta=±120 per notch). Adding another
+            # MouseWheel binding here would stack on top, making scrolling far too fast.
         except Exception:
             pass
         for child in widget.winfo_children():

@@ -507,8 +507,8 @@ class ReconfigureGamePanel(ctk.CTkFrame):
             if not LEGACY_WHEEL_REDUNDANT:
                 widget.bind("<Button-4>", lambda e=None: self._scroll_frame._parent_canvas.yview_scroll(-3, "units"), add="+")
                 widget.bind("<Button-5>", lambda e=None: self._scroll_frame._parent_canvas.yview_scroll( 3, "units"), add="+")
-            widget.bind("<MouseWheel>", lambda e=None: self._scroll_frame._parent_canvas.yview_scroll(
-                -3 if (getattr(e, "delta", 0) or 0) > 0 else 3, "units"), add="+")
+            # On Tk >= 8.7, CTkScrollableFrame's own bind_all("<MouseWheel>") handler
+            # already scrolls the canvas. Binding another MouseWheel here would stack.
         except Exception:
             pass
         for child in widget.winfo_children():

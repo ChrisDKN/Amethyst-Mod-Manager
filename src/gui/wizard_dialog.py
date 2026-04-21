@@ -161,7 +161,9 @@ class WizardDialog(ctk.CTkToplevel):
         if not LEGACY_WHEEL_REDUNDANT:
             self.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"), add="+")
             self.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"), add="+")
-        self.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"), add="+")
+        # On Tk >= 8.7, CTkScrollableFrame's own bind_all("<MouseWheel>") handler
+        # already scrolls the canvas (with event.delta=±120 per notch). Binding another
+        # MouseWheel here would stack on top, making scroll far too fast.
 
     # ------------------------------------------------------------------
     # Actions

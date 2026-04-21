@@ -140,6 +140,10 @@ class ProfileSettingsOverlay(tk.Frame):
 
         self._list_frame.bind("<Configure>", self._on_frame_configure)
         canvas.bind("<Configure>", self._on_canvas_configure)
+        def _on_wheel(e):
+            canvas.yview_scroll(-3 if (getattr(e, "delta", 0) or 0) > 0 else 3, "units")
+        canvas.bind("<MouseWheel>", _on_wheel)
+        self._list_frame.bind("<MouseWheel>", _on_wheel)
         if not LEGACY_WHEEL_REDUNDANT:
             canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
             canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))

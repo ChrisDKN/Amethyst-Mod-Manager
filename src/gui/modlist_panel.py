@@ -980,10 +980,11 @@ class ModListPanel(ctk.CTkFrame):
             elif num == 5 or delta < 0:
                 scroll_frame._parent_canvas.yview_scroll(3, "units")
 
+        # On Tk >= 8.7 CTkScrollableFrame handles <MouseWheel> via its own bind_all;
+        # we only need to supplement Button-4/5 for Tk 8.6.
         _legacy = None if LEGACY_WHEEL_REDUNDANT else _on_wheel
 
         def _bind_recursive(w):
-            w.bind("<MouseWheel>", _on_wheel)
             if _legacy is not None:
                 w.bind("<Button-4>", _legacy)
                 w.bind("<Button-5>", _legacy)

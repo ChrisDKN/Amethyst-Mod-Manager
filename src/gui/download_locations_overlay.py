@@ -150,7 +150,7 @@ class DownloadLocationsOverlay(tk.Frame):
         self._list_canvas.configure(scrollregion=self._list_canvas.bbox("all"))
 
     def _on_list_scroll(self, event):
-        self._list_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        self._list_canvas.yview_scroll(-3 if (event.delta or 0) > 0 else 3, "units")
 
     def _repaint_list(self):
         """Rebuild the list of path rows."""

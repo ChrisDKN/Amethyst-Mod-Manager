@@ -139,9 +139,11 @@ class ModFilesOverlay(tk.Frame):
         if not LEGACY_WHEEL_REDUNDANT:
             self._scroll_bid4 = _root.bind("<Button-4>", self._on_scroll_up, add="+")
             self._scroll_bid5 = _root.bind("<Button-5>", self._on_scroll_down, add="+")
+            self._scroll_bid_wheel = None
         else:
             self._scroll_bid4 = None
             self._scroll_bid5 = None
+            self._scroll_bid_wheel = _root.bind("<MouseWheel>", self._on_mousewheel, add="+")
 
         # Shared grid columns on _inner (used by header row + all data rows)
         self._inner.grid_columnconfigure(0, weight=1)                         # file name
@@ -188,6 +190,9 @@ class ModFilesOverlay(tk.Frame):
     def _on_scroll_down(self, _evt):
         self._canvas.yview_scroll(3, "units")
 
+    def _on_mousewheel(self, evt):
+        self._canvas.yview_scroll(-3 if (getattr(evt, "delta", 0) or 0) > 0 else 3, "units")
+
     def cleanup(self):
         """Release scroll bindings and cancel pending timers. Idempotent."""
         if self._destroyed:
@@ -201,6 +206,8 @@ class ModFilesOverlay(tk.Frame):
             if not LEGACY_WHEEL_REDUNDANT:
                 _root.unbind("<Button-4>", self._scroll_bid4)
                 _root.unbind("<Button-5>", self._scroll_bid5)
+            elif self._scroll_bid_wheel:
+                _root.unbind("<MouseWheel>", self._scroll_bid_wheel)
         except Exception:
             pass
 
