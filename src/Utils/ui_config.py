@@ -32,16 +32,78 @@ def get_ui_config_path() -> Path:
     return get_config_dir() / "amethyst.ini"
 
 
+def _get_portal_scale() -> float:
+    """Read the DE scale via the XDG Settings portal.
+
+    Works inside Flatpak sandboxes and on Wayland where xrandr / kscreen-doctor
+    are absent.  Reads ``org.gnome.desktop.interface`` because every major
+    portal backend (xdg-desktop-portal-gnome/-kde/-hyprland/-wlr) exposes
+    ``scaling-factor`` and ``text-scaling-factor`` under that namespace
+    regardless of the actual DE.  Returns the larger of the two, or 1.0 if the
+    portal is unreachable.
+    """
+    def _read(key: str) -> str:
+        # Use gdbus if available, fall back to dbus-send — one of the two
+        # ships with essentially every Linux distro and Flatpak runtime.
+        for cmd in (
+            ["gdbus", "call", "--session",
+             "--dest", "org.freedesktop.portal.Desktop",
+             "--object-path", "/org/freedesktop/portal/desktop",
+             "--method", "org.freedesktop.portal.Settings.Read",
+             "org.gnome.desktop.interface", key],
+            ["dbus-send", "--session", "--print-reply=literal",
+             "--dest=org.freedesktop.portal.Desktop",
+             "/org/freedesktop/portal/desktop",
+             "org.freedesktop.portal.Settings.Read",
+             "string:org.gnome.desktop.interface", f"string:{key}"],
+        ):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+                if r.returncode == 0 and r.stdout.strip():
+                    return r.stdout
+            except Exception:
+                continue
+        return ""
+
+    scale = 1.0
+    # Integer scaling-factor (uint32): 0 or 1 → no scaling, ≥2 → HiDPI
+    raw = _read("scaling-factor")
+    m = _re.search(r"uint32\s+(\d+)", raw) or _re.search(r"\b(\d+)\b", raw)
+    if m:
+        try:
+            v = int(m.group(1))
+            if v >= 2:
+                scale = max(scale, float(v))
+        except ValueError:
+            pass
+    # Fractional text-scaling-factor (double), e.g. 1.25
+    raw = _read("text-scaling-factor")
+    m = _re.search(r"([0-9]+\.[0-9]+)", raw)
+    if m:
+        try:
+            v = float(m.group(1))
+            if v > 1.0:
+                scale = max(scale, v)
+        except ValueError:
+            pass
+    return scale
+
+
 def _get_compositor_scale() -> float:
     """Return the display compositor's global scale factor (>1.0 on HiDPI).
 
     Tries, in order:
-      1. kscreen-doctor  (KDE Plasma 6 — per-output scale from compositor)
-      2. gsettings       (GNOME — integer scaling-factor)
-      3. GDK_SCALE / QT_SCALE_FACTOR environment variables
+      1. XDG Settings portal (Flatpak-safe, works on Wayland & fractional)
+      2. kscreen-doctor  (KDE Plasma 6 — per-output scale from compositor)
+      3. gsettings       (GNOME — integer scaling-factor)
+      4. GDK_SCALE / QT_SCALE_FACTOR / GDK_DPI_SCALE environment variables
 
     Returns 1.0 if nothing is detected or all sources fail.
     """
+    portal = _get_portal_scale()
+    if portal > 1.0:
+        return portal
+
     # KDE Plasma 6: per-output scale lives in the compositor; kscreen-doctor
     # exposes it.  Output contains ANSI colour codes so strip those first.
     try:
@@ -57,60 +119,89 @@ def _get_compositor_scale() -> float:
         pass
 
     # GNOME: integer scaling-factor (fractional scaling is not exposed here,
-    # but integer scaling is still better than nothing)
+    # but integer scaling is still better than nothing).  Output looks like
+    # "uint32 2" — anchor on the type prefix so the regex doesn't match the
+    # "32" inside "uint32".
     try:
         r = subprocess.run(
             ["gsettings", "get", "org.gnome.desktop.interface", "scaling-factor"],
             capture_output=True, text=True, timeout=2,
         )
-        m = _re.search(r"\d+", r.stdout)
-        if m and int(m.group(0)) > 1:
-            return float(int(m.group(0)))
+        m = _re.search(r"uint32\s+(\d+)", r.stdout)
+        if m and int(m.group(1)) > 1:
+            return float(int(m.group(1)))
     except Exception:
         pass
 
     # Environment variables set by some DEs / launch wrappers
+    env_scale = 1.0
     for var in ("GDK_SCALE", "QT_SCALE_FACTOR"):
         try:
             v = os.environ.get(var, "").strip()
             if v:
                 f = float(v)
                 if f > 1.0:
-                    return f
+                    env_scale = max(env_scale, f)
         except Exception:
             pass
+    # GDK_DPI_SCALE is a fractional multiplier applied on top of GDK_SCALE
+    try:
+        v = os.environ.get("GDK_DPI_SCALE", "").strip()
+        if v:
+            f = float(v)
+            if f > 1.0:
+                env_scale *= f
+    except Exception:
+        pass
+    if env_scale > 1.0:
+        return env_scale
 
     return 1.0
 
 
 def _get_primary_monitor_size() -> tuple[int, int]:
-    """Return (width, height) of the primary monitor via xrandr.
+    """Return (width, height) of the primary monitor.
 
     On multi-monitor setups winfo_screenwidth/height returns the combined
-    virtual desktop size, which inflates the auto-detected UI scale.  xrandr
-    lets us find the monitor marked 'primary' (or the first connected one).
-    Returns (0, 0) if xrandr is unavailable or parsing fails.
+    virtual desktop size, which inflates the auto-detected UI scale.  This
+    tries xrandr first (X11), then wlr-randr (Wayland on wlroots compositors
+    like sway/Hyprland/labwc).  Returns (0, 0) if both are unavailable or
+    parsing fails.
     """
     try:
         result = subprocess.run(
             ["xrandr", "--current"],
             capture_output=True, text=True, timeout=3,
         )
+        lines = result.stdout.splitlines()
+        # Prefer the monitor explicitly marked "primary"
+        for line in lines:
+            if " connected " in line and "primary" in line:
+                m = _re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+                if m:
+                    return int(m.group(1)), int(m.group(2))
+        # Fall back to the first connected monitor with a geometry
+        for line in lines:
+            if " connected " in line:
+                m = _re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+                if m:
+                    return int(m.group(1)), int(m.group(2))
     except Exception:
-        return 0, 0
-    lines = result.stdout.splitlines()
-    # Prefer the monitor explicitly marked "primary"
-    for line in lines:
-        if " connected " in line and "primary" in line:
-            m = _re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+        pass
+
+    # wlr-randr output: per-monitor blocks with "  1920x1080 px, 60.000000 Hz (preferred, current)"
+    try:
+        result = subprocess.run(
+            ["wlr-randr"],
+            capture_output=True, text=True, timeout=3,
+        )
+        for line in result.stdout.splitlines():
+            m = _re.search(r"(\d+)x(\d+) px.*\bcurrent\b", line)
             if m:
                 return int(m.group(1)), int(m.group(2))
-    # Fall back to the first connected monitor with a geometry
-    for line in lines:
-        if " connected " in line:
-            m = _re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
-            if m:
-                return int(m.group(1)), int(m.group(2))
+    except Exception:
+        pass
+
     return 0, 0
 
 
@@ -135,6 +226,15 @@ def get_screen_info() -> tuple[int, int, float]:
         return 0, 0, _DEFAULT_SCALE
     if w <= 0 or h <= 0:
         return w, h, _DEFAULT_SCALE
+
+    # XDG Settings portal gives an authoritative scale on every backend that
+    # supports fractional scaling (GNOME/KDE/wlroots).  When it reports a
+    # value, trust it and skip the brittle "derive from monitor height" path —
+    # that path exists only for compositors that don't tell us their scale.
+    portal = _get_portal_scale()
+    if portal > 1.0:
+        scale = round(min(_MAX_SCALE, portal) * 20) / 20
+        return w, h, scale
 
     # Xft.dpi may already have been overridden to 96 (by a previous launch),
     # hiding the true compositor scale.  Read it directly from the DE and use
