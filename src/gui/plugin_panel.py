@@ -1942,6 +1942,7 @@ class PluginPanel(ctk.CTkFrame):
 
     def _build_mod_files_tab(self):
         tab = self._tabs.tab("Mod Files")
+        tab.configure(fg_color=BG_LIST)
         tab.grid_rowconfigure(1, weight=1)
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_columnconfigure(1, weight=0)
@@ -2100,6 +2101,7 @@ class PluginPanel(ctk.CTkFrame):
     def _build_ini_files_tab(self):
         """Build the Ini Files tab: list of ini/json files with search and marker strip."""
         tab = self._tabs.tab("Ini Files")
+        tab.configure(fg_color=BG_LIST)
         tab.grid_rowconfigure(3, weight=1)
         tab.grid_columnconfigure(0, weight=1)
 
@@ -3371,6 +3373,7 @@ class PluginPanel(ctk.CTkFrame):
 
     def _build_archive_tab(self):
         tab = self._tabs.tab("Archive")
+        tab.configure(fg_color=BG_LIST)
         tab.grid_rowconfigure(1, weight=1)
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_columnconfigure(1, weight=0)

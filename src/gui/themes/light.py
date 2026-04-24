@@ -31,7 +31,7 @@ PALETTE: dict[str, str | tuple] = {
     "BG_ROW":        "#ffffff",   # list row / textbox fill
     "BG_ROW_ALT":    "#d8d8d8",   # alternating row (~40-unit delta for non-OLED panels)
     "BG_ROW_HOVER":  "#b8b8b8",
-    "BG_LIST":       "#dbdbdb",   # tree/list surface (matches CTk gray86 for CTkTreeview parity)
+    "BG_LIST":       "#e5e5e5",   # tree/list surface (matches CTk gray90 for CTkTreeview parity)
     "BG_SEP":        "#b8b8b8",
     "BG_HOVER":      "#b8d4f0",
     "BG_SELECT":     "#8cbde8",

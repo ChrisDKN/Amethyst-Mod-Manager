@@ -21,7 +21,7 @@ PALETTE: dict[str, str | tuple] = {
     "BG_ROW":        "#2d2d2d",
     "BG_ROW_ALT":    "#303030",
     "BG_ROW_HOVER":  "#3d3d3d",
-    "BG_LIST":       "#2b2b2b",   # tree/list surface (matches CTk gray17 for CTkTreeview parity)
+    "BG_LIST":       "#212121",   # tree/list surface (matches CTk gray13 for CTkTreeview parity)
     "BG_SEP":        "#383838",   # overridden via load_theme_colors
     "BG_HOVER":      "#094771",
     "BG_SELECT":     "#0f5fa3",
