@@ -51,6 +51,7 @@ from gui.theme import (
     TEXT_ERR,
     TEXT_MAIN,
     TEXT_OK,
+    TEXT_ON_ACCENT,
     TEXT_WARN,
 )
 
@@ -1003,17 +1004,22 @@ class SettingsPanel(ctk.CTkFrame):
         # ==== Theme ====
         theme_sec = _begin_section("Theme")
 
-        # --- Appearance mode (dark / light). Applied on next restart. ---
+        # --- Appearance mode. Applied on next restart. Dropdown auto-populates
+        # from every theme discovered under src/gui/themes/ — drop a new .py
+        # file there and it appears here on next launch.
         mode_row = ctk.CTkFrame(theme_sec, fg_color="transparent")
         mode_row.pack(fill="x", pady=(0, 4))
         ctk.CTkLabel(
             mode_row, text="Appearance", font=FONT_NORMAL, text_color=TEXT_MAIN,
             anchor="w", width=scaled(220),
         ).pack(side="left")
-        _mode_label_to_val = {"Dark": "dark", "Light": "light"}
-        _mode_val_to_label = {v: k for k, v in _mode_label_to_val.items()}
+        from gui.theme import available_themes
+        _themes = available_themes() or {"dark": "Dark"}
+        _mode_label_to_val = {display: tid for tid, display in _themes.items()}
+        _mode_val_to_label = {tid: display for tid, display in _themes.items()}
+        _current = get_appearance_mode()
         self._appearance_mode_var = tk.StringVar(
-            value=_mode_val_to_label.get(get_appearance_mode(), "Dark")
+            value=_mode_val_to_label.get(_current, next(iter(_mode_val_to_label.values())))
         )
         def _on_appearance_change(choice: str) -> None:
             save_appearance_mode(_mode_label_to_val.get(choice, "dark"))
@@ -1234,7 +1240,7 @@ class SettingsPanel(ctk.CTkFrame):
                       ).pack(side="right", padx=8, pady=8)
 
         ctk.CTkButton(foot, text="Apply & Restart", width=scaled(120), height=scaled(28),
-                      fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="#ffffff",
+                      fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                       font=FONT_NORMAL, command=self._apply,
                       ).pack(side="right", padx=(0, 0), pady=8)
 

@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN,
     FONT_NORMAL, FONT_BOLD, FONT_SMALL,
 )
@@ -192,7 +193,7 @@ class VRAMrWizard(ctk.CTkFrame):
         ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_locate,
         ).pack(side="bottom")
 
@@ -352,7 +353,7 @@ class VRAMrWizard(ctk.CTkFrame):
         ctk.CTkButton(
             btn_frame, text="Deploy", width=160, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._start_deploy,
         ).pack(side="left")
 
@@ -504,7 +505,7 @@ class VRAMrWizard(ctk.CTkFrame):
         self._run_btn = ctk.CTkButton(
             self._body, text="\u25b6  Run VRAMr", width=160, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._start_run,
         )
         self._run_btn.pack(pady=(0, 8))

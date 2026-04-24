@@ -42,6 +42,7 @@ from gui.theme import (
     BG_HOVER,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     TEXT_SEP,
@@ -458,7 +459,7 @@ class ReconfigureGamePanel(ctk.CTkFrame):
 
         self._add_btn = ctk.CTkButton(
             btn_bar, text="Save", width=scaled(110), height=scaled(30), font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             state="disabled", command=self._on_add
         )
         self._add_btn.pack(side="right", padx=4, pady=10)

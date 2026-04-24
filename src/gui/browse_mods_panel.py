@@ -27,6 +27,7 @@ from gui.theme import (
     BG_ROW,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     FONT_HEADER,
@@ -145,7 +146,7 @@ class BrowseModsPanel(_NexusModListPanel):
 
         self._refresh_btn = ctk.CTkButton(
             toolbar, text="↺ Refresh", width=72, height=26,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self.refresh,
         )
         self._refresh_btn.pack(side="left", padx=4, pady=2)
@@ -221,7 +222,7 @@ class BrowseModsPanel(_NexusModListPanel):
 
         self._search_btn = ctk.CTkButton(
             search_bar, text="Search", width=64, height=26,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._do_search,
         )
         self._search_btn.pack(side="left", padx=2, pady=4)

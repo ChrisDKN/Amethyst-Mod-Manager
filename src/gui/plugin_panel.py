@@ -20,10 +20,12 @@ from PIL import Image as PilImage, ImageTk
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
     BG_HOVER_ROW,
+    BG_LIST,
     BG_PANEL,
     BG_ROW,
     BG_ROW_ALT,
@@ -490,7 +492,7 @@ class PluginPanel(ctk.CTkFrame):
 
         self._run_exe_btn = ctk.CTkButton(
             exe_bar, text="▶ Run EXE", width=90, height=28, font=_theme.FONT_SMALL,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_run_exe,
         )
         self._run_exe_btn.pack(side="right", padx=(0, scaled(4)), pady=scaled(6))
@@ -2017,7 +2019,7 @@ class PluginPanel(ctk.CTkFrame):
         except Exception:
             pass  # layout may already exist on re-open
 
-        _bg = BG_DEEP
+        _bg = BG_LIST
         _fg = TEXT_MAIN
         style.configure("ModFiles.Treeview",
             background=_bg, foreground=_fg,
@@ -2143,12 +2145,12 @@ class PluginPanel(ctk.CTkFrame):
         self._build_ini_content_search_bar(tab)
 
         # List frame: tree | marker_strip | scrollbar
-        list_frame = tk.Frame(tab, bg=BG_DEEP)
+        list_frame = tk.Frame(tab, bg=BG_LIST)
         list_frame.grid(row=3, column=0, sticky="nsew")
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
 
-        _bg = BG_DEEP
+        _bg = BG_LIST
         _fg = TEXT_MAIN
         _style_name = "IniFiles.Treeview"
         style = ttk.Style()
@@ -2430,7 +2432,7 @@ class PluginPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             bar, text="Search", width=72, height=26, font=_theme.FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ini_content_search_submit,
         ).pack(side="left", padx=(0, 4), pady=6)
 
@@ -3411,7 +3413,7 @@ class PluginPanel(ctk.CTkFrame):
         self._archive_label.pack(side="left", padx=8, pady=4, fill="x", expand=True)
 
         style = ttk.Style()
-        _bg = BG_DEEP
+        _bg = BG_LIST
         _fg = TEXT_MAIN
         style.configure("Archive.Treeview",
             background=_bg, foreground=_fg,
@@ -5144,7 +5146,7 @@ class PluginPanel(ctk.CTkFrame):
         ctk.CTkButton(
             btn_frame, text="Save", width=70, height=24,
             font=_theme.FONT_SMALL, fg_color=ACCENT,
-            hover_color=ACCENT_HOV, text_color="white",
+            hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._ul_save,
         ).pack(side="right")
 
@@ -5190,7 +5192,7 @@ class PluginPanel(ctk.CTkFrame):
         ctk.CTkButton(
             grp_btn_frame, text="Save", width=70, height=24,
             font=_theme.FONT_SMALL, fg_color=ACCENT,
-            hover_color=ACCENT_HOV, text_color="white",
+            hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._grp_save,
         ).pack(side="right")
 

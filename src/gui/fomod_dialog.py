@@ -29,6 +29,7 @@ from gui.theme import (
     BG_SELECT,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     TEXT_SEP,
@@ -262,7 +263,7 @@ class FomodDialog(ctk.CTkFrame):
         self._next_btn = ctk.CTkButton(
             bar, text="Next", width=100, height=30, font=FONT_BOLD,
             fg_color=ACCENT, hover_color=ACCENT_HOV,
-            text_color="white", command=self._on_next
+            text_color=TEXT_ON_ACCENT, command=self._on_next
         )
         self._next_btn.pack(side="right", padx=4, pady=10)
 

@@ -17,6 +17,7 @@ from gui.wheel_compat import LEGACY_WHEEL_REDUNDANT
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_PANEL,
@@ -850,7 +851,7 @@ class GamePickerPanel(tk.Frame):
 
         btn = ctk.CTkButton(
             card, text="Add", height=26, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
         )
         btn.grid(row=2, column=0, padx=8, pady=(0, 8), sticky="ew")
 

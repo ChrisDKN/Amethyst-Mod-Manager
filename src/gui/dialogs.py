@@ -26,6 +26,7 @@ import customtkinter as ctk
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
@@ -354,7 +355,7 @@ class NameModDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Install", width=90, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok
         ).pack(side="right", padx=4, pady=8)
 
@@ -438,7 +439,7 @@ class _SeparatorNameDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Add", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok
         ).pack(side="right", padx=4, pady=8)
 
@@ -511,7 +512,7 @@ class _ModNameDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Create", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok
         ).pack(side="right", padx=4, pady=8)
 
@@ -581,7 +582,7 @@ class _RenameDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Rename", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok
         ).pack(side="right", padx=4, pady=8)
 
@@ -677,7 +678,7 @@ class _RenameAfterInstallDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Rename", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=8)
 
@@ -845,7 +846,7 @@ class _PriorityDialog(ctk.CTkToplevel):
             font=FONT_BOLD,
             fg_color=ACCENT,
             hover_color=ACCENT_HOV,
-            text_color="white",
+            text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=8)
 
@@ -928,7 +929,7 @@ class _DotNetVersionPanel(ctk.CTkFrame):
         inner.place(relx=0.5, rely=0.5, anchor="center")
 
         btn_cfg = dict(width=260, height=34, font=FONT_BOLD,
-                       fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
+                       fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT)
 
         for label, ver in self._VERSIONS:
             ctk.CTkButton(
@@ -1026,7 +1027,7 @@ class ProtonToolsPanel(ctk.CTkFrame):
         inner.place(relx=0.5, rely=0.5, anchor="center")
 
         btn_cfg = dict(width=260, height=34, font=FONT_BOLD,
-                       fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white")
+                       fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT)
 
         ctk.CTkButton(inner, text="Run winecfg",                  command=self._run_winecfg,           **btn_cfg).pack(pady=(0, 6))
         ctk.CTkButton(inner, text="Run protontricks",              command=self._run_protontricks,     **btn_cfg).pack(pady=(0, 6))
@@ -1417,7 +1418,7 @@ class _ProfileNameDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Create", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok
         ).pack(side="right", padx=4, pady=8)
 
@@ -1661,7 +1662,7 @@ class MewgenicsLaunchCommandPanel(tk.Frame):
             bar, text="Copy to clipboard",
             width=scaled(140), height=scaled(30),
             font=font_sized_px(_theme.FONT_FAMILY, 11),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._copy,
         ).pack(side="right", padx=(scaled(4), scaled(10)), pady=scaled(8))
         ctk.CTkButton(
@@ -2015,7 +2016,7 @@ class VRAMrPresetPanel(ctk.CTkFrame):
         ctk.CTkButton(
             body, text="▶  Run VRAMr", width=160, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_run,
         ).pack(pady=(8, 20))
 
@@ -2607,7 +2608,7 @@ class ExeConfigPanel(ctk.CTkFrame):
             )
             ctk.CTkButton(
                 mod_row, text="\u25bc", width=28, font=FONT_SMALL,
-                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                 command=self._open_mod_popup,
             ).grid(row=0, column=1, padx=(4, 0))
             self._mod_var.trace_add("write", self._on_mod_typed)
@@ -2734,7 +2735,7 @@ class ExeConfigPanel(ctk.CTkFrame):
         ).pack(side="right", padx=(4, 12), pady=9)
         ctk.CTkButton(
             bar, text="Save", width=90, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_save,
         ).pack(side="right", padx=4, pady=9)
         if self._exe_path in self._custom_exes:
@@ -3178,7 +3179,7 @@ class _ReplaceModDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             self._rename_frame, text="Confirm", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_rename_confirm,
         ).grid(row=0, column=1)
 
@@ -3470,7 +3471,7 @@ class _SetPrefixDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=4, pady=12)
         ctk.CTkButton(
             bar, text="Install with Prefix", width=160, height=32, font=self._FONT_BTN_B,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_prefix,
         ).pack(side="right", padx=4, pady=12)
 
@@ -3606,7 +3607,7 @@ class _SelectFilesDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=12)
         ctk.CTkButton(
             bar, text="Install Selected", width=120, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=12)
 
@@ -3787,7 +3788,7 @@ class DisablePluginsPanel(ctk.CTkFrame):
         ).pack(side="right", padx=(4, 12), pady=12)
         ctk.CTkButton(
             bar, text="Save", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=12)
 
@@ -3921,7 +3922,7 @@ class DownloadCustomHandlerPanel(ctk.CTkFrame):
             ).grid(row=0, column=0, sticky="w", padx=(0, 8))
             ctk.CTkButton(
                 row_frame, text="Download", width=90, height=24, font=FONT_SMALL,
-                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                 command=lambda u=download_url, n=filename: self._download_handler(u, n),
             ).grid(row=0, column=1, padx=4, pady=2)
 
@@ -4125,7 +4126,7 @@ class SepColorPanel(ctk.CTkFrame):
         ).pack(side="left", padx=4)
         ctk.CTkButton(
             btn_inner, text="OK", width=90, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="left", padx=4)
 
@@ -4394,7 +4395,7 @@ class ExeFilterPanel(ctk.CTkFrame):
         self._entry_widget.grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ctk.CTkButton(
             add_row, text="Add", width=72, height=28, font=FONT_SMALL,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_add,
         ).grid(row=0, column=1)
 
@@ -4406,7 +4407,7 @@ class ExeFilterPanel(ctk.CTkFrame):
         )
         ctk.CTkButton(
             bar, text="Close", width=80, height=30, font=FONT_NORMAL,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_close,
         ).pack(side="right", padx=12, pady=10)
 
@@ -5059,7 +5060,7 @@ class CollectionInstallModeDialog(tk.Frame):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Install", width=80, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=8)
 
@@ -5158,7 +5159,7 @@ class CollectionContinueInstallDialog(tk.Frame):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Continue Install", width=120, height=28, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=8)
 
@@ -5248,7 +5249,7 @@ class _UserlistEntryDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=(4, 12), pady=8)
         ctk.CTkButton(
             bar, text="Save", width=80, height=28, font=FONT_NORMAL,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_ok,
         ).pack(side="right", padx=4, pady=8)
 

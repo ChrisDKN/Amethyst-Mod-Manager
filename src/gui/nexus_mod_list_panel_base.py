@@ -26,6 +26,7 @@ from gui.theme import (
     BORDER,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_HOVER,
     TEXT_MAIN,
     TEXT_DIM,
@@ -126,7 +127,7 @@ class _NexusModListPanel:
 
         self._refresh_btn = ctk.CTkButton(
             toolbar, text="↺ Refresh", width=72, height=26,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self.refresh,
         )
         self._refresh_btn.pack(side="left", padx=8, pady=2)

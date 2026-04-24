@@ -43,6 +43,7 @@ _ARCHIVE_EXTS = {".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL, BORDER,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN,
     FONT_NORMAL, FONT_BOLD, FONT_SMALL,
 )
@@ -256,7 +257,7 @@ class FalloutDowngradeWizard(ctk.CTkFrame):
         ctk.CTkButton(
             self._body, text="Next →", width=120, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_locate,
         ).pack(side="bottom")
 
@@ -285,7 +286,7 @@ class FalloutDowngradeWizard(ctk.CTkFrame):
         self._next_btn = ctk.CTkButton(
             btn_frame, text="Next →", width=120, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_run, state="disabled",
         )
         self._next_btn.pack(side="right", padx=(8, 0))

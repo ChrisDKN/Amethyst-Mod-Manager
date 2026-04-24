@@ -34,6 +34,7 @@ from gui.theme import (
     BG_ROW,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     TEXT_OK,
@@ -156,7 +157,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
 
         self._manual_code_btn = ctk.CTkButton(
             manual_inner, text="Use code", width=90, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_manual_code_submit,
         )
         self._manual_code_btn.pack(side="right")
@@ -198,7 +199,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
 
         self._rate_refresh_btn = ctk.CTkButton(
             body, text="Refresh", width=80, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_refresh_rate_limits,
         )
         self._rate_refresh_btn.pack(padx=16, pady=(0, 8), anchor="center")
@@ -227,7 +228,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             nxm_frame, text="Register", width=100, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_register_nxm,
         ).pack(side="left", padx=(0, 8))
 
@@ -261,7 +262,7 @@ class NexusSettingsPanel(ctk.CTkFrame):
         bar.pack_propagate(False)
         ctk.CTkFrame(bar, fg_color=BORDER, height=1, corner_radius=0).pack(fill="x", side="top")
         ctk.CTkButton(bar, text="OK", width=90, height=32, font=FONT_BOLD,
-                      fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                      fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                       command=dlg.destroy).pack(side="right", padx=12, pady=10)
 
         scroll = ctk.CTkScrollableFrame(dlg, fg_color=BG_DEEP,

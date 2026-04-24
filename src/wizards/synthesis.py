@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL, BORDER,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN,
     FONT_NORMAL, FONT_BOLD, FONT_SMALL,
 )
@@ -349,7 +350,7 @@ class SynthesisWizard(ctk.CTkFrame):
         btn = ctk.CTkButton(
             self._body, text="Continue \u2192", width=160, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_proton_chosen,
         )
         btn.pack(side="bottom", pady=(8, 0))
@@ -393,7 +394,7 @@ class SynthesisWizard(ctk.CTkFrame):
         self._launch_btn = ctk.CTkButton(
             btn_frame, text="Launch Synthesis", width=180, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_launch, state="disabled",
         )
         self._launch_btn.pack(side="right", padx=(8, 0))

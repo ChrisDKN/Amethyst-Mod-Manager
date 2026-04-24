@@ -16,333 +16,41 @@ from Utils.ui_config import (
 # ---------------------------------------------------------------------------
 # Color palette
 # ---------------------------------------------------------------------------
-# The app ships two palettes: "dark" (default) and "light". The mode is read
-# from amethyst.ini at import time; switching requires an app restart.
-#
-# Every constant below exists in both palettes. New additions: define in both
-# _PALETTE_DARK and _PALETTE_LIGHT, then re-export via _bind_palette().
+# Palettes live in src/gui/themes/. Each *.py file there defines a PALETTE
+# dict + NAME; this module discovers them at import time and binds the
+# palette named by the user's appearance_mode setting. Switching requires an
+# app restart.
 
-_PALETTE_DARK: dict[str, str | tuple] = {
-    # Backgrounds
-    "BG_DEEP":       "#1a1a1a",
-    "BG_PANEL":      "#252526",
-    "BG_HEADER":     "#2a2a2b",
-    "BG_ROW":        "#2d2d2d",
-    "BG_ROW_ALT":    "#303030",
-    "BG_ROW_HOVER":  "#3d3d3d",
-    "BG_SEP":        "#383838",   # overridden via load_theme_colors
-    "BG_HOVER":      "#094771",
-    "BG_SELECT":     "#0f5fa3",
-    "BG_HOVER_ROW":  "#3d3d3d",
+from gui.themes import load_palettes
 
-    # Accents
-    "ACCENT":        "#0078d4",
-    "ACCENT_HOV":    "#1084d8",
-
-    # Text
-    "TEXT_MAIN":     "#d4d4d4",
-    "TEXT_DIM":      "#858585",
-    "TEXT_MUTED":    "#aaaaaa",
-    "TEXT_FAINT":    "#888888",
-    "TEXT_SEP":      "#b0b0b0",
-    "TEXT_WHITE":    "#ffffff",
-    "TEXT_BLACK":    "#000000",
-    "TEXT_OK":       "#98c379",
-    "TEXT_ERR":      "#e06c75",
-    "TEXT_WARN":     "#e5c07b",
-    "TEXT_OK_BRIGHT":   "#6bc76b",
-    "TEXT_ERR_BRIGHT":  "#e06c6c",
-    "TEXT_WARN_BRIGHT": "#e5a04a",
-
-    # Borders
-    "BORDER":        "#444444",
-    "BORDER_DIM":    "#555555",
-    "BORDER_FAINT":  "#666666",
-
-    # Buttons — reds
-    "RED_BTN":       "#a83232",
-    "RED_HOV":       "#c43c3c",
-    "BTN_DANGER":        "#b33a3a",
-    "BTN_DANGER_HOV":    "#c94848",
-    "BTN_DANGER_ALT":    "#8b1a1a",
-    "BTN_DANGER_ALT_HOV":"#b22222",
-    "BTN_DANGER_DEEP":   "#7a1a1a",
-    "BTN_DANGER_DEEP_HOV":"#a02020",
-    "BTN_CANCEL":        "#c0392b",
-    "BTN_CANCEL_HOV":    "#a93226",
-
-    # Buttons — greens
-    "BTN_SUCCESS":          "#2d7a2d",
-    "BTN_SUCCESS_HOV":      "#3a9e3a",
-    "BTN_SUCCESS_ALT":      "#2e6b30",
-    "BTN_SUCCESS_ALT_HOV":  "#3a8a3d",
-    "BTN_SUCCESS_DEEP":     "#2a6e3f",
-    "BTN_SUCCESS_DEEP_HOV": "#369150",
-
-    # Buttons — oranges
-    "BTN_WARN":          "#c37800",
-    "BTN_WARN_HOV":      "#e28b00",
-    "BTN_WARN_DEEP":     "#7a5a00",
-    "BTN_WARN_DEEP_HOV": "#a07800",
-    "BTN_WARN_BROWN":    "#5a3a00",
-    "BTN_WARN_BROWN_HOV":"#7a5200",
-    "BTN_WARN_ORANGE":   "#b35a00",
-    "BTN_WARN_ORANGE_HOV":"#d97000",
-
-    # Buttons — blues
-    "BTN_INFO":          "#1e4d7a",
-    "BTN_INFO_HOV":      "#2a6aab",
-    "BTN_INFO_DEEP":     "#1a5a8a",
-    "BTN_INFO_DEEP_HOV": "#2070a8",
-    "BTN_NEUTRAL":       "#3a5a8a",
-    "BTN_NEUTRAL_HOV":   "#4a70aa",
-
-    # Buttons — greys
-    "BTN_GREY":        "#444444",
-    "BTN_GREY_HOV":    "#555555",
-    "BTN_GREY_ALT":    "#3c3c3c",
-    "BTN_GREY_ALT_HOV":"#505050",
-
-    # Buttons — purples
-    "BTN_PURPLE":     "#7b2fa8",
-    "BTN_PURPLE_HOV": "#9b3fd0",
-
-    # Tree tags
-    "TAG_FOLDER":       "#56b6c2",
-    "TAG_BSA":          "#d8a657",
-    "TAG_BSA_ALT":      "#56d8e4",
-    "TAG_INI_PROFILE":  "#00e5ff",
-    "TAG_BUNDLED_FG":   "#7ab8e8",
-    "TAG_BUNDLED_BG":   "#1a2a3a",
-    "TAG_INSTALLED_BG": "#1e4d1e",
-    "TAG_UNORDERED_FG": "#888888",
-
-    # Tones
-    "TONE_GREEN":     "#98c379",
-    "TONE_RED":       "#e06c75",
-    "TONE_BLUE":      "#61afef",
-    "TONE_CYAN":      "#7ec8e3",
-    "TONE_BLUE_SOFT": "#7aa2f7",
-    "TONE_FLAG":      "#e5c07b",
-
-    # Scrollbars
-    "SCROLL_BG":     "#383838",
-    "SCROLL_TROUGH": "#1a1a1a",
-    "SCROLL_ACTIVE": "#0078d4",
-
-    # Overlays / special
-    "BG_OVERLAY_ERR":  "#1a1a2e",
-    "BG_OVERLAY_DEEP": "#1a1a1a",
-    "BG_CARD":         "#333333",
-    "BG_CARD_ALT":     "#2b2b2b",
-    "BG_GREEN_ROW":    "#1a5c1a",
-    "BG_GREEN_DEEP":   "#1b4d1b",
-    "BG_RED_DEEP":     "#4d1b1b",
-    "BG_GREEN_TEXT":   "#c8ffc8",
-    "BG_RED_TEXT":     "#ffc8c8",
-    "BG_DARK_BLUE":    "#1e1e2e",
-    "BG_DARK_GREEN":   "#1e2a1e",
-    "BG_ENTRY":        "#1e1e1e",
-    "BG_BTN_SAVE":     "#4a4a8a",
-    "BG_SELECT_BAR":   "#3a3a5a",
-    "BG_MOD_REQ":      "#2d7a2d",
-    "BG_MOD_OPT":      "#c37800",
-
-    # Status
-    "STATUS_ERR_BRIGHT":    "#ff6b6b",
-    "STATUS_BADGE_RED":     "#e74c3c",
-    "STATUS_BADGE_GREEN":   "#2a8c2a",
-    "STATUS_SUCCESS_SOLID": "#00ff88",
-    "STATUS_QUEUED":        "#ff9a3c",
-    "STATUS_DL_GREEN":      "#4caf50",
-
-    # Card text
-    "TEXT_CARD":     "#cccccc",
-    "TEXT_CARD_DIM": "#777777",
-    "TEXT_CARD_MED": "#dddddd",
-    "TEXT_TREE_FG":  "#6dbf6d",
-
-    # CTk light/dark tuples — CustomTkinter picks one based on appearance mode.
-    # These stay as tuples in both palettes so built-in CTk widgets work either way.
-    "CTK_TEXT":       ("#000000", "#FFFFFF"),
-    "CTK_FOOTER_FG":  ("#EBECF0", "#393B40"),
-    "CTK_FOOTER_HOV": ("#DFE1E5", "#43454A"),
-    "CTK_SEP":        ("#C9CCD6", "#5A5D63"),
-    "CTK_SEP_ALT":    ("#D0D0D0", "#505050"),
-    "CTK_BTN_HOVER":  ("gray90", "gray25"),
-
-    # Misc
-    "LINK_BLUE":     "#3574F0",
-}
-
-_PALETTE_LIGHT: dict[str, str | tuple] = {
-    # Backgrounds — near-white bases with enough separation that gutter,
-    # alternating panels, and alternating rows are each readable. Aim for
-    # ~15-unit steps between layers so stacked surfaces don't merge.
-    "BG_DEEP":       "#9c9c9c",   # app gutter / outer scroll bg
-    "BG_PANEL":      "#e0e0e0",   # panel A / primary surface (grey so white inputs on it contrast)
-    "BG_HEADER":     "#b4b4b4",   # panel B / column headers / button-on-panel
-    "BG_ROW":        "#ffffff",   # list row / textbox fill
-    "BG_ROW_ALT":    "#d8d8d8",   # alternating row (~40-unit delta for non-OLED panels)
-    "BG_ROW_HOVER":  "#b8b8b8",
-    "BG_SEP":        "#b8b8b8",
-    "BG_HOVER":      "#b8d4f0",
-    "BG_SELECT":     "#8cbde8",
-    "BG_HOVER_ROW":  "#b8b8b8",
-
-    # Accents — keep the same blue (works in both modes)
-    "ACCENT":        "#0078d4",
-    "ACCENT_HOV":    "#1084d8",
-
-    # Text — dark on light
-    "TEXT_MAIN":     "#1e1e1e",
-    "TEXT_DIM":      "#555555",
-    "TEXT_MUTED":    "#6b6b6b",
-    "TEXT_FAINT":    "#8a8a8a",
-    "TEXT_SEP":      "#404040",
-    "TEXT_WHITE":    "#ffffff",
-    "TEXT_BLACK":    "#000000",
-    "TEXT_OK":       "#2e7a2e",
-    "TEXT_ERR":      "#b02020",
-    "TEXT_WARN":     "#a06a00",
-    "TEXT_OK_BRIGHT":   "#2e7a2e",
-    "TEXT_ERR_BRIGHT":  "#b02020",
-    "TEXT_WARN_BRIGHT": "#a06a00",
-
-    # Borders — visible greys (need enough contrast against BG_PANEL #f3f3f3
-    # for 1px divider lines to read on non-OLED monitors).
-    "BORDER":        "#8a8a8a",
-    "BORDER_DIM":    "#9a9a9a",
-    "BORDER_FAINT":  "#a8a8a8",
-
-    # Buttons — reds (slightly darker so text reads on lighter bg)
-    "RED_BTN":       "#c43c3c",
-    "RED_HOV":       "#d44848",
-    "BTN_DANGER":        "#c94848",
-    "BTN_DANGER_HOV":    "#b33a3a",
-    "BTN_DANGER_ALT":    "#a83232",
-    "BTN_DANGER_ALT_HOV":"#8b1a1a",
-    "BTN_DANGER_DEEP":   "#8b1a1a",
-    "BTN_DANGER_DEEP_HOV":"#7a1a1a",
-    "BTN_CANCEL":        "#c0392b",
-    "BTN_CANCEL_HOV":    "#a93226",
-
-    # Buttons — greens
-    "BTN_SUCCESS":          "#3a9e3a",
-    "BTN_SUCCESS_HOV":      "#2d7a2d",
-    "BTN_SUCCESS_ALT":      "#3a8a3d",
-    "BTN_SUCCESS_ALT_HOV":  "#2e6b30",
-    "BTN_SUCCESS_DEEP":     "#369150",
-    "BTN_SUCCESS_DEEP_HOV": "#2a6e3f",
-
-    # Buttons — oranges
-    "BTN_WARN":          "#e28b00",
-    "BTN_WARN_HOV":      "#c37800",
-    "BTN_WARN_DEEP":     "#a07800",
-    "BTN_WARN_DEEP_HOV": "#7a5a00",
-    "BTN_WARN_BROWN":    "#7a5200",
-    "BTN_WARN_BROWN_HOV":"#5a3a00",
-    "BTN_WARN_ORANGE":   "#d97000",
-    "BTN_WARN_ORANGE_HOV":"#b35a00",
-
-    # Buttons — blues
-    "BTN_INFO":          "#2a6aab",
-    "BTN_INFO_HOV":      "#1e4d7a",
-    "BTN_INFO_DEEP":     "#2070a8",
-    "BTN_INFO_DEEP_HOV": "#1a5a8a",
-    "BTN_NEUTRAL":       "#4a70aa",
-    "BTN_NEUTRAL_HOV":   "#3a5a8a",
-
-    # Buttons — greys
-    "BTN_GREY":        "#c8c8c8",
-    "BTN_GREY_HOV":    "#b8b8b8",
-    "BTN_GREY_ALT":    "#d4d4d4",
-    "BTN_GREY_ALT_HOV":"#c0c0c0",
-
-    # Buttons — purples
-    "BTN_PURPLE":     "#9b3fd0",
-    "BTN_PURPLE_HOV": "#7b2fa8",
-
-    # Tree tags — darker saturations that read on light bg
-    "TAG_FOLDER":       "#1e7a8a",
-    "TAG_BSA":          "#8a6a00",
-    "TAG_BSA_ALT":      "#1e7a8a",
-    "TAG_INI_PROFILE":  "#006a80",
-    "TAG_BUNDLED_FG":   "#1a5c8a",
-    "TAG_BUNDLED_BG":   "#d8e4f0",
-    "TAG_INSTALLED_BG": "#d0e8d0",
-    "TAG_UNORDERED_FG": "#888888",
-
-    # Tones
-    "TONE_GREEN":     "#2e7a2e",
-    "TONE_RED":       "#b02020",
-    "TONE_BLUE":      "#1e5a8a",
-    "TONE_CYAN":      "#1e7a8a",
-    "TONE_BLUE_SOFT": "#3a5a9a",
-    "TONE_FLAG":      "#a06a00",
-
-    # Scrollbars
-    "SCROLL_BG":     "#c8c8c8",
-    "SCROLL_TROUGH": "#e8e8e8",
-    "SCROLL_ACTIVE": "#0078d4",
-
-    # Overlays / special
-    "BG_OVERLAY_ERR":  "#f8e0e0",
-    "BG_OVERLAY_DEEP": "#e8e8e8",
-    "BG_CARD":         "#ffffff",
-    "BG_CARD_ALT":     "#f5f5f5",
-    "BG_GREEN_ROW":    "#d0e8d0",
-    "BG_GREEN_DEEP":   "#c8e0c8",
-    "BG_RED_DEEP":     "#f0d0d0",
-    "BG_GREEN_TEXT":   "#1a4d1a",
-    "BG_RED_TEXT":     "#6b1a1a",
-    "BG_DARK_BLUE":    "#dce4f0",
-    "BG_DARK_GREEN":   "#dcebdc",
-    "BG_ENTRY":        "#ffffff",
-    "BG_BTN_SAVE":     "#5a5a9a",
-    "BG_SELECT_BAR":   "#c0c8e0",
-    "BG_MOD_REQ":      "#3a9e3a",
-    "BG_MOD_OPT":      "#e28b00",
-
-    # Status
-    "STATUS_ERR_BRIGHT":    "#c42020",
-    "STATUS_BADGE_RED":     "#c0392b",
-    "STATUS_BADGE_GREEN":   "#2a8c2a",
-    "STATUS_SUCCESS_SOLID": "#2ea74d",
-    "STATUS_QUEUED":        "#c37800",
-    "STATUS_DL_GREEN":      "#2e8e40",
-
-    # Card text
-    "TEXT_CARD":     "#2a2a2a",
-    "TEXT_CARD_DIM": "#6a6a6a",
-    "TEXT_CARD_MED": "#404040",
-    "TEXT_TREE_FG":  "#2e7a2e",
-
-    # CTk light/dark tuples — tuples stay identical across palettes.
-    "CTK_TEXT":       ("#000000", "#FFFFFF"),
-    "CTK_FOOTER_FG":  ("#EBECF0", "#393B40"),
-    "CTK_FOOTER_HOV": ("#DFE1E5", "#43454A"),
-    "CTK_SEP":        ("#C9CCD6", "#5A5D63"),
-    "CTK_SEP_ALT":    ("#D0D0D0", "#505050"),
-    "CTK_BTN_HOVER":  ("gray90", "gray25"),
-
-    # Misc
-    "LINK_BLUE":     "#0a5ad4",
-}
+_PALETTES: dict[str, dict[str, str | tuple]] = load_palettes()
 
 
 def _bind_palette(mode: str) -> None:
-    """Bind the selected palette's values onto this module's globals."""
-    palette = _PALETTE_LIGHT if mode == "light" else _PALETTE_DARK
+    """Bind the selected palette's values onto this module's globals.
+
+    Falls back to 'dark' if the requested palette is missing. If 'dark'
+    itself is missing (shouldn't happen — it ships with the app) we pick
+    any available palette so the app doesn't crash on import.
+    """
+    palette = _PALETTES.get(mode)
+    if palette is None:
+        palette = _PALETTES.get("dark") or next(iter(_PALETTES.values()), {})
     globals().update(palette)
+
+
+def available_themes() -> dict[str, str]:
+    """Return {theme_id: display_name} for the Settings dropdown."""
+    from gui.themes import load_display_names
+    return load_display_names()
 
 
 # Static name declarations so linters / IDE autocomplete can see every
 # constant. The values are placeholders — _bind_palette() below overwrites
 # them immediately with the real palette values.
 BG_DEEP = BG_PANEL = BG_HEADER = BG_ROW = BG_ROW_ALT = BG_ROW_HOVER = ""
-BG_SEP = BG_HOVER = BG_SELECT = BG_HOVER_ROW = ""
-ACCENT = ACCENT_HOV = ""
+BG_LIST = BG_SEP = BG_HOVER = BG_SELECT = BG_HOVER_ROW = ""
+ACCENT = ACCENT_HOV = TEXT_ON_ACCENT = ""
 TEXT_MAIN = TEXT_DIM = TEXT_MUTED = TEXT_FAINT = TEXT_SEP = ""
 TEXT_WHITE = TEXT_BLACK = TEXT_OK = TEXT_ERR = TEXT_WARN = ""
 TEXT_OK_BRIGHT = TEXT_ERR_BRIGHT = TEXT_WARN_BRIGHT = ""

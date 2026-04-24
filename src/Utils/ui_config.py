@@ -1003,14 +1003,37 @@ THEME_DEFAULTS: dict[str, str] = {
     "separator_bg":       "#3E3E3E",
 }
 
-# Keys whose default should swap when appearance mode is "light". Values here
-# override THEME_DEFAULTS only when the user has not customised them via
-# Settings → Theme. Any key present in the [theme] section of amethyst.ini
-# takes precedence over both this and THEME_DEFAULTS.
-_THEME_LIGHT_DEFAULTS: dict[str, str] = {
-    "separator_bg":       "#b8b8b8",
-    "conflict_separator": "#a8a8a8",
-}
+# Keys whose default should swap per appearance mode. Each non-dark theme
+# contributes its own overrides via a THEME_DEFAULTS_OVERRIDE dict in its
+# theme file (src/gui/themes/<mode>.py); ui_config loads them lazily so the
+# Utils package doesn't import the gui package at import time.
+#
+# User overrides in [theme] of amethyst.ini always win — except when a
+# saved value exactly matches the dark default for a key that the current
+# theme overrides; that's treated as legacy/uncustomised so existing ini
+# files don't strand users with dark separators on a light or cyberpunk UI.
+_theme_defaults_override_cache: dict[str, dict[str, str]] = {}
+
+
+def _theme_defaults_override_for(mode: str) -> dict[str, str]:
+    """Return {key: hex} overrides declared by the active theme file.
+
+    Imports gui.themes.<mode> lazily. Missing file or missing dict yields {}.
+    Results are cached per mode to keep the ini read path cheap.
+    """
+    if mode in _theme_defaults_override_cache:
+        return _theme_defaults_override_cache[mode]
+    result: dict[str, str] = {}
+    try:
+        import importlib
+        mod = importlib.import_module(f"gui.themes.{mode}")
+        raw = getattr(mod, "THEME_DEFAULTS_OVERRIDE", None)
+        if isinstance(raw, dict):
+            result = {k: v for k, v in raw.items() if k in THEME_DEFAULTS and _valid_hex(v)}
+    except Exception:
+        pass
+    _theme_defaults_override_cache[mode] = result
+    return result
 
 _HEX_RE = _re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -1024,18 +1047,19 @@ def _valid_hex(s: str) -> bool:
 def load_theme_colors() -> dict[str, str]:
     """Load [theme] from INI, falling back to defaults for missing/invalid values.
 
-    Mode-aware: if appearance_mode is "light", defaults from
-    _THEME_LIGHT_DEFAULTS override THEME_DEFAULTS for keys the user hasn't
-    customised. User overrides in [theme] always win — except when a saved
-    value exactly matches the dark default for a key that has a light
-    default; in that case we treat it as "never customised" (the user saw a
-    dark-only app when they were last here) and apply the light default.
+    Theme-aware: the active theme (from get_appearance_mode()) can declare
+    THEME_DEFAULTS_OVERRIDE in its theme file to replace defaults for
+    user-customisable keys. User overrides in [theme] always win — except
+    when a saved value exactly matches the original dark default for a key
+    the current theme overrides; that's treated as legacy/uncustomised, so
+    existing ini files don't strand users with dark separators on a non-dark
+    theme.
     """
     global _theme_colors
-    is_light = get_appearance_mode() == "light"
+    mode = get_appearance_mode()
+    overrides = _theme_defaults_override_for(mode)
     result = dict(THEME_DEFAULTS)
-    if is_light:
-        result.update(_THEME_LIGHT_DEFAULTS)
+    result.update(overrides)
     path = get_ui_config_path()
     if path.is_file():
         try:
@@ -1046,9 +1070,7 @@ def load_theme_colors() -> dict[str, str]:
                     raw = parser.get(_THEME_SECTION, key, fallback="").strip()
                     if not _valid_hex(raw):
                         continue
-                    # Treat "saved value == dark default" as legacy / uncustomised
-                    # for mode-aware keys, so switching to light gets the light default.
-                    if (is_light and key in _THEME_LIGHT_DEFAULTS
+                    if (key in overrides
                             and raw.lower() == THEME_DEFAULTS[key].lower()):
                         continue
                     result[key] = raw
@@ -1085,15 +1107,19 @@ def get_theme_color(key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Appearance mode (dark / light) — applied at startup, requires restart.
+# Appearance mode — applied at startup, requires restart.
+#
+# Valid values are theme IDs (filenames) under src/gui/themes/ (e.g. "dark",
+# "light"). ui_config doesn't validate against that list to avoid importing
+# the gui package; theme.py handles unknown IDs by falling back to dark.
 # ---------------------------------------------------------------------------
 _APPEARANCE_OPTION = "appearance_mode"
 _APPEARANCE_DEFAULT = "dark"
-_APPEARANCE_VALID = ("dark", "light")
+_APPEARANCE_ID_RE = _re.compile(r"^[a-z0-9_][a-z0-9_-]*$")
 
 
 def get_appearance_mode() -> str:
-    """Return 'dark' or 'light' from amethyst.ini, defaulting to dark."""
+    """Return the saved appearance-mode theme ID, defaulting to 'dark'."""
     path = get_ui_config_path()
     if not path.is_file():
         return _APPEARANCE_DEFAULT
@@ -1101,15 +1127,17 @@ def get_appearance_mode() -> str:
         parser = configparser.ConfigParser()
         parser.read(path)
         raw = parser.get(_INI_SECTION, _APPEARANCE_OPTION, fallback=_APPEARANCE_DEFAULT).strip().lower()
-        return raw if raw in _APPEARANCE_VALID else _APPEARANCE_DEFAULT
+        return raw if _APPEARANCE_ID_RE.match(raw) else _APPEARANCE_DEFAULT
     except Exception:
         return _APPEARANCE_DEFAULT
 
 
 def save_appearance_mode(mode: str) -> None:
-    """Persist the appearance mode. Invalid values are silently rejected."""
+    """Persist the appearance mode. Values are normalised to lowercase; any
+    string that doesn't match the theme-id regex (lowercase word chars, digits,
+    dashes, underscores) is silently rejected."""
     mode = mode.strip().lower()
-    if mode not in _APPEARANCE_VALID:
+    if not _APPEARANCE_ID_RE.match(mode):
         return
     path = get_ui_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)

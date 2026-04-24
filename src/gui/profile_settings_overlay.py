@@ -21,6 +21,7 @@ from gui.wheel_compat import LEGACY_WHEEL_REDUNDANT
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
@@ -110,7 +111,7 @@ class ProfileSettingsOverlay(tk.Frame):
 
         ctk.CTkButton(
             toolbar, text="Import MO2", width=100, height=30,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_BOLD, command=self._on_import_mo2,
         ).pack(side="right", padx=(6, 0), pady=5)
 
@@ -303,7 +304,7 @@ class ProfileSettingsOverlay(tk.Frame):
 
         ctk.CTkButton(
             frame, text="OK", width=50, height=28, font=FONT_SMALL,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._do_rename,
         ).pack(side="left", padx=(0, 4))
 
@@ -649,7 +650,7 @@ class ProfileSettingsOverlay(tk.Frame):
 
         copy_btn = ctk.CTkButton(
             btn_frame, text="Copy", width=80, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=lambda: [
                 win.clipboard_clear(),
                 win.clipboard_append(cmd),

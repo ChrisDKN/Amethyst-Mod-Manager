@@ -28,6 +28,7 @@ from gui.theme import (
     BG_HOVER,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     TEXT_OK,
@@ -122,7 +123,7 @@ class OnboardingPanel(ctk.CTkFrame):
             font=FONT_BOLD,
             fg_color=ACCENT,
             hover_color=ACCENT_HOV,
-            text_color="white",
+            text_color=TEXT_ON_ACCENT,
             command=self._on_footer_btn,
         )
         self._footer_btn.pack(side="right", padx=12, pady=10)
@@ -163,7 +164,7 @@ class OnboardingPanel(ctk.CTkFrame):
             # Nexus page — starts as Skip, upgrades to Next on login
             if self._logged_in:
                 self._footer_btn.configure(
-                    text="Next →", text_color="white",
+                    text="Next →", text_color=TEXT_ON_ACCENT,
                     fg_color=ACCENT, hover_color=ACCENT_HOV,
                 )
             else:
@@ -485,7 +486,7 @@ class OnboardingPanel(ctk.CTkFrame):
             font=FONT_BOLD,
             fg_color=ACCENT,
             hover_color=ACCENT_HOV,
-            text_color="white",
+            text_color=TEXT_ON_ACCENT,
             command=self._on_add_game_clicked,
         ).pack()
 

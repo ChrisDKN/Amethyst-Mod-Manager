@@ -26,6 +26,7 @@ from gui.theme import (
     BG_HOVER,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     BORDER,
@@ -60,7 +61,7 @@ def _add_tool_row(parent, tool: "WizardTool", open_fn, padx=0) -> None:
 
     ctk.CTkButton(
         inner, text="Open", width=70, height=30, font=FONT_BOLD,
-        fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+        fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
         command=lambda t=tool: open_fn(t),
     ).pack(side="right", padx=(8, 0))
 

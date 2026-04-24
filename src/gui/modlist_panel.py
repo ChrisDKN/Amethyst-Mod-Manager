@@ -24,6 +24,7 @@ from PIL import Image as PilImage, ImageTk
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
@@ -656,7 +657,7 @@ class ModListPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             bar, text="Create", width=72, height=26, font=_theme.FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_new_profile_create,
         ).pack(side="left", padx=(0, 4), pady=6)
 

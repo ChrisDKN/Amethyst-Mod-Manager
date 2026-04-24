@@ -17,6 +17,7 @@ from gui.wheel_compat import LEGACY_WHEEL_REDUNDANT
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_ROW,
@@ -303,7 +304,7 @@ class ModFilesOverlay(tk.Frame):
             ctk.CTkButton(
                 btn_frame, text="Install", width=70, height=scaled(28),
                 fg_color=ACCENT, hover_color=ACCENT_HOV,
-                text_color="white", font=FONT_SMALL,
+                text_color=TEXT_ON_ACCENT, font=FONT_SMALL,
                 command=lambda i=fid, n=fname: self._do_install(i, n),
             ).pack(side="left", pady=6)
 

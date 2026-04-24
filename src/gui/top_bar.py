@@ -13,6 +13,7 @@ import customtkinter as ctk
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_HEADER,
     BG_HOVER,
     BG_PANEL,
@@ -193,7 +194,7 @@ class TopBar(ctk.CTkFrame):
         self._install_mod_btn = ctk.CTkButton(
             self._row2, text="Install Mod", width=125, height=32, font=FONT_BOLD,
             image=_install_mod_icon, compound="left",
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_install_mod
         )
         self._install_mod_btn.pack(side="left", padx=(8, 8))

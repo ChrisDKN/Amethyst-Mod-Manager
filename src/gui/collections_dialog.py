@@ -76,6 +76,7 @@ from gui.theme import (
     BG_MOD_REQ,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     TEXT_MUTED,
@@ -5206,7 +5207,7 @@ class CollectionsDialog(tk.Frame):
 
         self._open_current_btn = ctk.CTkButton(
             toolbar, text="Open Current", width=scaled(95), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._open_current_collection,
         )
         # Only show if current profile has a collection URL
@@ -5215,7 +5216,7 @@ class CollectionsDialog(tk.Frame):
 
         self._url_toggle_btn = ctk.CTkButton(
             toolbar, text="Open URL…", width=scaled(90), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._toggle_url_bar,
         )
         self._url_toggle_btn.pack(side="left", padx=4, pady=2)
@@ -5269,7 +5270,7 @@ class CollectionsDialog(tk.Frame):
 
         ctk.CTkButton(
             self._url_bar, text="Go", width=scaled(40), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._go_from_url,
         ).pack(side="left", padx=4, pady=4)
 
@@ -5337,7 +5338,7 @@ class CollectionsDialog(tk.Frame):
 
         self._search_btn = ctk.CTkButton(
             search_bar, text="Search", width=scaled(64), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._do_search,
         )
         self._search_btn.pack(side="left", padx=2, pady=4)

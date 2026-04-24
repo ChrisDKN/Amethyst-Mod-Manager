@@ -19,6 +19,7 @@ from gui.wheel_compat import LEGACY_WHEEL_REDUNDANT
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
@@ -105,7 +106,7 @@ class LootGroupsOverlay(tk.Frame):
 
         ctk.CTkButton(
             toolbar, text="Save", width=80, height=30,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_BOLD, command=self._do_save,
         ).pack(side="right", padx=(0, 4), pady=5)
 

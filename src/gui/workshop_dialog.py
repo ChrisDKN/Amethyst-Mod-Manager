@@ -36,6 +36,7 @@ from gui.theme import (
     BG_HOVER,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BORDER,
     TEXT_MAIN,
     TEXT_DIM,
@@ -386,7 +387,7 @@ class SourcePickerOverlay(tk.Frame):
 
         ctk.CTkButton(
             toolbar, text="Apply", width=scaled(72), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._apply,
         ).pack(side="right", padx=(0, 4), pady=2)
 
@@ -535,19 +536,19 @@ class WorkshopDialog(tk.Frame):
 
         ctk.CTkButton(
             toolbar, text="Export", width=scaled(72), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._do_export,
         ).pack(side="right", padx=(0, 4), pady=2)
 
         ctk.CTkButton(
             toolbar, text="Load", width=scaled(60), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._do_load,
         ).pack(side="right", padx=(0, 4), pady=2)
 
         ctk.CTkButton(
             toolbar, text="Save", width=scaled(60), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self._do_save,
         ).pack(side="right", padx=(0, 4), pady=2)
 
@@ -765,7 +766,7 @@ class WorkshopDialog(tk.Frame):
         btns.pack(fill="x", padx=12, pady=(6, 12))
         ctk.CTkButton(
             btns, text="Load", width=scaled(80), height=scaled(26),
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=_load_selected,
         ).pack(side="right", padx=(4, 0))
         ctk.CTkButton(

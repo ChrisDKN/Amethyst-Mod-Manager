@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN,
     FONT_NORMAL, FONT_BOLD, FONT_SMALL,
 )
@@ -129,7 +130,7 @@ class MCPWizard(ctk.CTkFrame):
         ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_locate,
         ).pack(side="bottom")
 
@@ -158,7 +159,7 @@ class MCPWizard(ctk.CTkFrame):
         self._locate_next_btn = ctk.CTkButton(
             btn_frame, text="Next \u2192", width=120, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_extract, state="disabled",
         )
         self._locate_next_btn.pack(side="right", padx=(8, 0))
@@ -229,7 +230,7 @@ class MCPWizard(ctk.CTkFrame):
         self._extract_next_btn = ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_run, state="disabled",
         )
         self._extract_next_btn.pack(side="bottom")

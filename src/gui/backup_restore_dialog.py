@@ -16,6 +16,7 @@ from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL, BORDER,
     TEXT_DIM, TEXT_MAIN,
     scaled,
+    TEXT_ON_ACCENT,
 )
 from Utils.profile_backup import list_backups, restore_backup, is_backup_kept, set_backup_kept
 
@@ -124,7 +125,7 @@ class BackupRestorePanel(ctk.CTkFrame):
         self._restore_btn = ctk.CTkButton(
             btn_frame, text="Restore", width=100, height=32,
             font=_font_bold(), fg_color=ACCENT, hover_color=ACCENT_HOV,
-            text_color="white", command=self._on_restore, state="disabled",
+            text_color=TEXT_ON_ACCENT, command=self._on_restore, state="disabled",
         )
         self._restore_btn.pack(side="right", padx=(8, 0))
 

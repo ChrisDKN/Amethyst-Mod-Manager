@@ -42,6 +42,7 @@ from gui.wheel_compat import LEGACY_WHEEL_REDUNDANT
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
@@ -749,7 +750,7 @@ class CustomGamePanel(ctk.CTkFrame):
 
         self._save_btn = ctk.CTkButton(
             btn_bar, text="Save Game", width=110, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_save,
         )
         self._save_btn.pack(side="right", padx=4, pady=10)

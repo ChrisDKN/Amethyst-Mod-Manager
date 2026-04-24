@@ -23,6 +23,7 @@ import customtkinter as ctk
 from gui.theme import (
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BG_DEEP,
     BG_HEADER,
     BG_HOVER,
@@ -167,7 +168,7 @@ class WineDllOverridesPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             add_frame, text="+ Add", width=90, height=30, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_add,
         ).grid(row=0, column=1, padx=(0, 10), pady=8)
 
@@ -179,7 +180,7 @@ class WineDllOverridesPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             save_frame, text="Save & Apply", width=200, height=34, font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._on_save,
         ).grid(row=0, column=0, padx=16, pady=8, sticky="e")
 

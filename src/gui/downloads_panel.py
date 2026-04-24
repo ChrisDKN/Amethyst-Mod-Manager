@@ -31,6 +31,7 @@ from gui.theme import (
     BG_SELECT,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     TEXT_MAIN,
     TEXT_DIM,
     TEXT_SEP,
@@ -140,7 +141,7 @@ class DownloadsPanel:
         toolbar.grid_propagate(False)
         ctk.CTkButton(
             toolbar, text="\u21ba Refresh", width=72, height=26,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             font=FONT_HEADER, command=self.refresh,
         ).pack(side="left", padx=8, pady=2)
         ctk.CTkButton(

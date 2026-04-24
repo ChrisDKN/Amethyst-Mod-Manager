@@ -704,7 +704,10 @@ class CTkLoader(ctk.CTkFrame):
         self.master.update()
         self.master_width = self.master.winfo_width()
         self.master_height = self.master.winfo_height()
-        super().__init__(master, width=self.master_width, height=self.master_height, corner_radius=0)
+        # Use our palette's deepest bg so the loader overlay matches the
+        # active theme rather than CTk's built-in dark/light defaults.
+        super().__init__(master, width=self.master_width, height=self.master_height,
+                         corner_radius=0, fg_color=BG_DEEP)
 
         if set_opacity:
             set_opacity(self.winfo_id(), value=opacity)

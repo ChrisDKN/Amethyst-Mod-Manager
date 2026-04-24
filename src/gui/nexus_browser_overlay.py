@@ -34,6 +34,7 @@ from gui.theme import (
     BG_HOVER_ROW,
     ACCENT,
     ACCENT_HOV,
+    TEXT_ON_ACCENT,
     BORDER,
     TEXT_MAIN,
     TEXT_DIM,
@@ -418,7 +419,7 @@ class NexusBrowserOverlay(tk.Frame):
         def _btn(name: str, cmd, w=85):
             return ctk.CTkButton(
                 toolbar, text=name, width=w, height=30,
-                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                 font=FONT_BOLD, command=cmd,
             )
 

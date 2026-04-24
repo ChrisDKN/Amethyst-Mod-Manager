@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL, BORDER,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN, TEXT_OK, TEXT_WARN, TEXT_ERR,
     FONT_NORMAL, FONT_BOLD, FONT_SMALL,
 )
@@ -341,7 +342,7 @@ class ReShadeWizard(ctk.CTkFrame):
 
         ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
-            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_download,
         ).pack(side="bottom")
 
@@ -370,7 +371,7 @@ class ReShadeWizard(ctk.CTkFrame):
 
         self._dl_next_btn = ctk.CTkButton(
             self._body, text="Next \u2192", width=120, height=36,
-            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._show_step_d3dcompiler, state="disabled",
         )
         self._dl_next_btn.pack(side="bottom")
@@ -504,7 +505,7 @@ class ReShadeWizard(ctk.CTkFrame):
 
         self._d3d_install_btn = ctk.CTkButton(
             btn_row, text="Install d3dcompiler_47", width=200, height=36,
-            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._do_install_d3dcompiler,
             state="normal" if (has_steam_id and has_protontricks) else "disabled",
         )
@@ -592,7 +593,7 @@ class ReShadeWizard(ctk.CTkFrame):
 
         self._do_install_btn = ctk.CTkButton(
             btn_row, text="Install", width=120, height=36,
-            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            font=FONT_BOLD, fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._do_install,
         )
         self._do_install_btn.pack(side="right")

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN,
     FONT_NORMAL, FONT_BOLD, FONT_SMALL,
 )
@@ -98,7 +99,7 @@ class MewgenicsGpakWizard(ctk.CTkFrame):
             ctk.CTkButton(
                 body, text="Close", width=100, height=32,
                 font=FONT_BOLD,
-                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                 command=self._on_close,
             ).pack(pady=12)
             return
@@ -123,7 +124,7 @@ class MewgenicsGpakWizard(ctk.CTkFrame):
             font=FONT_BOLD,
             fg_color=ACCENT,
             hover_color=ACCENT_HOV,
-            text_color="white",
+            text_color=TEXT_ON_ACCENT,
             command=self._do_unpack,
         ).pack(side="left", padx=(0, 12))
 
@@ -135,7 +136,7 @@ class MewgenicsGpakWizard(ctk.CTkFrame):
             font=FONT_BOLD,
             fg_color=ACCENT,
             hover_color=ACCENT_HOV,
-            text_color="white",
+            text_color=TEXT_ON_ACCENT,
             command=self._do_repack,
         ).pack(side="left")
 

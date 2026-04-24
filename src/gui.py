@@ -55,7 +55,7 @@ ctk.set_window_scaling(_UI_SCALE)
 from gui.wheel_compat import patch_ctk_scrollable_frame
 patch_ctk_scrollable_frame()
 
-from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, FS9, TEXT_DIM, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize
+from gui.theme import ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_HOVER, BORDER, FONT_BOLD, FONT_NORMAL, FS9, TEXT_DIM, TEXT_MAIN, init_fonts, scaled, scaled_layout_minsize, TEXT_ON_ACCENT
 from gui.game_helpers import (
     _GAMES,
     _vanilla_plugins_for_game,
@@ -99,7 +99,8 @@ from Nexus.nexus_meta import build_meta_from_download, write_meta
 from Utils.config_paths import get_download_cache_dir
 
 from Utils.ui_config import get_appearance_mode as _get_appearance_mode
-ctk.set_appearance_mode(_get_appearance_mode())
+from gui.themes import get_ctk_appearance as _get_ctk_appearance
+ctk.set_appearance_mode(_get_ctk_appearance(_get_appearance_mode()))
 ctk.set_default_color_theme("dark-blue")
 
 def _run_installer(allow_prerelease: bool = False):
@@ -562,7 +563,7 @@ class App(ctk.CTk):
             ctk.CTkButton(
                 btn_frame, text="Switch to stable" if is_downgrade else "Update via installer",
                 width=160, height=32, font=FONT_BOLD,
-                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                 command=_on_update,
             ).pack(side="left", padx=(0, 8))
 
@@ -570,7 +571,7 @@ class App(ctk.CTk):
             ctk.CTkButton(
                 btn_frame, text="Open AUR page",
                 width=140, height=32, font=FONT_NORMAL,
-                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+                fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
                 command=lambda: (open_url(_AUR_PACKAGE_URL), _close()),
             ).pack(side="left", padx=(0, 8))
         else:
@@ -579,7 +580,7 @@ class App(ctk.CTk):
                 width=140, height=32, font=FONT_NORMAL,
                 fg_color=ACCENT if mode == "flatpak" else BG_HEADER,
                 hover_color=ACCENT_HOV if mode == "flatpak" else BG_HOVER,
-                text_color="white" if mode == "flatpak" else TEXT_MAIN,
+                text_color=TEXT_ON_ACCENT if mode == "flatpak" else TEXT_MAIN,
                 command=lambda: (open_url(_APP_UPDATE_RELEASES_URL), _close()),
             ).pack(side="left", padx=(0, 8))
 

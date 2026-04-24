@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 from gui.theme import (
     ACCENT, ACCENT_HOV, BG_DEEP, BG_HEADER, BG_PANEL,
+    TEXT_ON_ACCENT,
     TEXT_DIM, TEXT_MAIN,
     FONT_NORMAL, FONT_BOLD,
 )
@@ -206,7 +207,7 @@ class _BodySlideBaseWizard(ctk.CTkFrame):
         ctk.CTkButton(
             btn_frame, text="Deploy", width=160, height=36,
             font=FONT_BOLD,
-            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color="white",
+            fg_color=ACCENT, hover_color=ACCENT_HOV, text_color=TEXT_ON_ACCENT,
             command=self._start_deploy,
         ).pack(side="left")
 
