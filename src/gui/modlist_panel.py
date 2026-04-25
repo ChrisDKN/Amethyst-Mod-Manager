@@ -5010,6 +5010,22 @@ class ModListPanel(ctk.CTkFrame):
                 lambda: self._show_ini_picker(ini_files,
                     parent_dismiss=menu._withdraw, parent_popup=menu))
 
+        # Lock / Unlock Separator(s)
+        if is_separator and not is_synthetic:
+            if len(_remove_multi_sep) >= 2:
+                _sel_sep_names = [self._entries[i].name for i in _remove_multi_sep]
+                _all_locked = all(self._sep_locks.get(n, False) for n in _sel_sep_names)
+                _label = (f"Unlock Separators ({len(_sel_sep_names)})" if _all_locked
+                          else f"Lock Separators ({len(_sel_sep_names)})")
+                menu.add_command(_label,
+                    lambda names=_sel_sep_names, lock=not _all_locked:
+                        self._set_sep_locks(names, lock))
+            else:
+                _is_sep_locked = self._sep_locks.get(_mod_name, False)
+                _label = "Unlock Separator" if _is_sep_locked else "Lock Separator"
+                menu.add_command(_label,
+                    lambda n=_mod_name: self._on_sep_lock_toggle(n))
+
         # Missing Requirements
         if _is_real_mod and not _is_multi and _mod_name in self._missing_reqs:
             dep_names = self._missing_reqs_detail.get(_mod_name, [])
@@ -5137,6 +5153,16 @@ class ModListPanel(ctk.CTkFrame):
         self._sep_locks[sep_name] = not self._sep_locks.get(sep_name, False)
         self._save_sep_locks()
         self._redraw()
+
+    def _set_sep_locks(self, sep_names: list[str], locked: bool) -> None:
+        changed = False
+        for n in sep_names:
+            if self._sep_locks.get(n, False) != locked:
+                self._sep_locks[n] = locked
+                changed = True
+        if changed:
+            self._save_sep_locks()
+            self._redraw()
 
     def _toggle_collapse(self, sep_name: str) -> None:
         if sep_name in self._collapsed_seps:
