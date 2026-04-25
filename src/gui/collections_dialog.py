@@ -24,18 +24,28 @@ import customtkinter as ctk
 from PIL import Image
 
 from gui.ctk_components import CTkAlert, CTkLoader
-from gui.dialogs import CollectionInstallModeDialog, CollectionContinueInstallDialog
+from gui.dialogs import (
+    CollectionInstallModeDialog,
+    CollectionContinueInstallDialog,
+    CollectionUpdateDialog,
+)
+from Utils.collection_diff import diff_collection, CollectionDiff
 from gui.game_helpers import (
     _create_profile,
     _profiles_for_game,
     _vanilla_plugins_for_game,
     find_profile_with_collection_url,
+    find_profile_with_collection_slug,
     get_collection_url_from_profile,
     save_collection_url_to_profile,
 )
 from Utils.profile_state import (
     read_collection_optional_skipped,
     write_collection_optional_skipped,
+    read_collection_revision,
+    write_collection_revision,
+    read_collection_install_paused,
+    write_collection_install_paused,
 )
 from gui.install_mod import install_mod_from_archive, FOMOD_DEFERRED, ExtractionMemoryBudget, get_uncompressed_size
 from gui.mod_card import CARD_PAD, make_placeholder_image
@@ -1233,9 +1243,13 @@ class CollectionDetailDialog(tk.Frame):
         lb.focus_set()
 
     def _revision_labels(self) -> list[str]:
-        """Build the sorted label list from self._revisions_list."""
+        """Build the sorted label list from self._revisions_list. The revision
+        currently installed for this collection (if any) is tagged with
+        ``(installed)`` so the user knows where they're at."""
         sorted_revs = sorted(self._revisions_list,
                              key=lambda r: int(r.get("revisionNumber") or 0), reverse=True)
+        info = self._installed_collection_revision()
+        installed_rev = info[1] if info else None
         labels = []
         for r in sorted_revs:
             num = r.get("revisionNumber", "?")
@@ -1243,6 +1257,11 @@ class CollectionDetailDialog(tk.Frame):
             label = f"Rev {num}"
             if status and status.lower() != "published":
                 label += f" ({status.lower()})"
+            try:
+                if installed_rev is not None and int(num) == int(installed_rev):
+                    label += " (installed)"
+            except (TypeError, ValueError):
+                pass
             labels.append(label)
         return labels
 
@@ -1414,6 +1433,10 @@ class CollectionDetailDialog(tk.Frame):
                 )
             self._revision_var.set(target_label or (labels[0] if labels else ""))
             self._revision_btn.configure(state="normal")
+            # Revision list is authoritative now; refresh the install button so
+            # it flips to Update Collection when the user has viewed a revision
+            # different from the one currently installed.
+            self._update_install_btn_state()
 
         _NO_POS = len(schema_order) + 1
         sorted_mods = sorted(mods, key=lambda m: schema_order.get(m.file_id, _NO_POS))
@@ -1505,11 +1528,22 @@ class CollectionDetailDialog(tk.Frame):
     def _on_install_collection(self):
         """Validate prerequisites then kick off the background install.
         Also handles Resume — clears paused state so the install restarts
-        from scratch (already-installed mods are skipped automatically)."""
+        from scratch (already-installed mods are skipped automatically).
+        If the user has an older/different revision installed, divert to the
+        collection-update flow instead of a full reinstall."""
         slug = self._collection.slug or ""
-        if slug:
+        paused = bool(slug and slug in _PAUSED_INSTALLS)
+        if paused:
             _PAUSED_INSTALLS.pop(slug, None)
-        self._update_install_btn_state()
+            try:
+                if self._game:
+                    profile_name = find_profile_with_collection_slug(self._game.name, slug)
+                    if profile_name:
+                        paused_profile_dir = self._game.get_profile_root() / "profiles" / profile_name
+                        write_collection_install_paused(paused_profile_dir, False)
+            except Exception:
+                pass
+            self._update_install_btn_state()
         if not self._game:
             self._status_var.set("Error: no game object — cannot install.")
             return
@@ -1523,6 +1557,17 @@ class CollectionDetailDialog(tk.Frame):
         mods = getattr(self, "_loaded_mods", None)
         if not mods:
             self._status_var.set("Mod list not loaded yet — please wait.")
+            return
+
+        # Clear any stale update context from a previous run — only the update
+        # flow should set this, and only the install that follows should read it.
+        self._update_context = None
+
+        # If this was a Resume click, run the standard install path.
+        # Otherwise, check whether the user has this collection installed at a
+        # different revision — if so, divert to the update flow.
+        if not paused and self._update_available():
+            self._on_update_collection(app, list(mods), downloader)
             return
 
         # Show profile selection first so we can pre-populate optional mod choices
@@ -1571,6 +1616,214 @@ class CollectionDetailDialog(tk.Frame):
             )
         overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
         overlay.lift()
+
+    # ------------------------------------------------------------------
+    # Collection update (installed revision ≠ viewed revision)
+    # ------------------------------------------------------------------
+    def _on_update_collection(self, app, all_mods, downloader):
+        """Compute the diff between the installed revision and the viewed one,
+        show a confirm dialog, and on apply remove obsolete mods then trigger
+        an install (which skips mods already present by file_id)."""
+        info = self._installed_collection_revision()
+        if info is None:
+            # Shouldn't happen since we only get here when _update_available(),
+            # but fall back to a fresh install path gracefully.
+            self._continue_install_collection(app, all_mods, downloader)
+            return
+        profile_name, installed_rev = info
+        profile_root = self._game.get_profile_root()
+        profile_dir = profile_root / "profiles" / profile_name
+        if not profile_dir.is_dir():
+            self._status_var.set(f"Profile '{profile_name}' not found.")
+            return
+
+        # Load old manifest for the diff; missing = empty dict, which still
+        # lets the diff classify anything tagged from_collection=<slug>.
+        old_manifest: dict = {}
+        try:
+            import json as _json
+            _saved = profile_dir / "collection.json"
+            if _saved.is_file():
+                old_manifest = _json.loads(_saved.read_text(encoding="utf-8"))
+        except Exception:
+            old_manifest = {}
+
+        # Collect currently installed mod folder names for this profile.
+        try:
+            modlist_path = profile_dir / "modlist.txt"
+            entries = read_modlist(modlist_path) if modlist_path.is_file() else []
+            installed_names_lower = {
+                e.name.lower() for e in entries if not e.is_separator
+            }
+        except Exception:
+            installed_names_lower = set()
+
+        staging_path = self._game.get_effective_mod_staging_path()
+
+        try:
+            diff = diff_collection(
+                old_manifest=old_manifest,
+                new_mods=all_mods,
+                staging_path=staging_path,
+                installed_names_lower=installed_names_lower,
+                collection_slug=self._collection.slug or "",
+            )
+        except Exception as exc:
+            self._status_var.set(f"Update diff failed: {exc}")
+            return
+
+        # Translate update_new_fids into human-readable labels using new_mods.
+        fid_to_new_label: dict[int, str] = {}
+        for m in all_mods:
+            if m.file_id:
+                fid_to_new_label[m.file_id] = (
+                    m.mod_name or m.file_name or f"file_id {m.file_id}"
+                )
+        update_labels = [
+            f"{old_name} → {fid_to_new_label.get(new_fid, f'file_id {new_fid}')}"
+            for old_name, new_fid in zip(diff.to_update_old, diff.to_update_new_fids)
+        ]
+        add_labels = [
+            fid_to_new_label.get(fid, f"file_id {fid}")
+            for fid in diff.to_install_fids
+        ]
+
+        # Determine "to revision" for the dialog header.
+        to_rev = self._revision_number
+        if to_rev is None:
+            try:
+                published = [
+                    int(r.get("revisionNumber") or 0)
+                    for r in (self._revisions_list or [])
+                    if (r.get("revisionStatus") or "").lower() == "published"
+                ]
+                to_rev = max(published) if published else None
+            except Exception:
+                to_rev = None
+
+        mod_panel = getattr(app, "_mod_panel", None)
+        overlay_parent = mod_panel if mod_panel is not None else self
+
+        def _on_confirm(apply_update: bool):
+            try:
+                overlay.destroy()
+            except Exception:
+                pass
+            if not apply_update:
+                self._status_var.set("Update cancelled.")
+                return
+            self._apply_collection_update(
+                app, all_mods, downloader, profile_name, profile_dir, diff,
+            )
+
+        overlay = CollectionUpdateDialog(
+            overlay_parent,
+            profile_name=profile_name,
+            from_revision=installed_rev,
+            to_revision=to_rev,
+            to_remove=list(diff.to_remove),
+            to_update=update_labels,
+            to_add=add_labels,
+            orphans=list(diff.orphans),
+            on_done=_on_confirm,
+        )
+        overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        overlay.lift()
+
+    def _apply_collection_update(
+        self,
+        app,
+        all_mods,
+        downloader,
+        profile_name: str,
+        profile_dir,
+        diff: CollectionDiff,
+    ) -> None:
+        """Run the update: remove obsolete mods via ModListPanel, then kick
+        off the standard install path (which skips mods already present by
+        file_id and handles its own ``_active_profile_dir`` context).
+
+        Crucially, we must NOT go through ``topbar._on_profile_change`` here —
+        that calls ``mod_panel.load_game`` which destroys this detail dialog
+        (it re-opens the collections panel fresh), and the install flow needs
+        ``self`` to still be alive to show the install overlay.
+
+        Requires the user to already be on the target profile. If not, abort
+        with a clear message — cross-profile removal would need the plugin
+        panel and filemap cache to be swapped too, which is out of scope for
+        v1 of this feature."""
+        mod_panel = getattr(app, "_mod_panel", None)
+
+        if mod_panel is None:
+            self._status_var.set("Update failed: mod panel not available.")
+            return
+
+        target_modlist = profile_dir / "modlist.txt"
+        current_modlist = getattr(mod_panel, "_modlist_path", None)
+        if diff.removals and current_modlist != target_modlist:
+            self._status_var.set(
+                f"Switch to profile '{profile_name}' first, then click "
+                f"Update Collection again."
+            )
+            self._log(
+                f"Collection update aborted: active profile's modlist "
+                f"{current_modlist} differs from collection profile's modlist "
+                f"{target_modlist}"
+            )
+            return
+
+        # Snapshot the modlist BEFORE removing anything — this preserves the
+        # user's current load order (including separators) so we can
+        # reconcile it after install instead of letting Step 3 overwrite it.
+        # Removed mods are stripped from the snapshot after _remove_selected_mods
+        # succeeds; the rest of their ordering is retained.
+        try:
+            snapshot_entries = list(read_modlist(target_modlist)) if target_modlist.is_file() else []
+        except Exception as exc:
+            self._log(f"Collection update: snapshot failed: {exc}")
+            snapshot_entries = []
+
+        removals = diff.removals
+        removed_lower: set[str] = set()
+        if removals:
+            try:
+                entries = getattr(mod_panel, "_entries", None) or []
+                remove_set = {name.lower() for name in removals}
+                indices = [
+                    i for i, e in enumerate(entries)
+                    if not e.is_separator and e.name.lower() in remove_set
+                ]
+                if indices:
+                    names_before = {entries[i].name.lower() for i in indices}
+                    mod_panel._remove_selected_mods(indices, skip_confirm=True)
+                    # Anything we just removed should drop from the snapshot too.
+                    removed_lower = names_before
+            except Exception as exc:
+                self._log(f"Collection update: removal step failed: {exc}")
+                self._status_var.set(f"Update failed during removal: {exc}")
+                return
+
+        # Filter removed mods out of the snapshot; separators stay.
+        filtered_snapshot = [
+            e for e in snapshot_entries
+            if e.is_separator or e.name.lower() not in removed_lower
+        ]
+
+        # Stash an update context on self so _run_install / _run_manual_install
+        # can skip their modlist-overwrite step and run _reconcile_update_modlist
+        # instead. Schema_order maps file_id -> position; we use it to insert
+        # new mods relative to their neighbors in the user's existing list.
+        self._update_context = {
+            "snapshot": filtered_snapshot,       # list[ModEntry] — current order minus removed mods
+            "schema_order": dict(self._schema_order or {}),  # file_id -> int position
+        }
+
+        # Hand off to the standard install flow in "continue" mode so the
+        # modlist, collection.json, and revision number all get refreshed.
+        # _finish_install_collection posts its overlay on self (this dialog),
+        # so we must run this path with the dialog still alive.
+        mode_result = ("continue", profile_name, False, False)
+        self._after_profile_selected(app, all_mods, downloader, mode_result)
 
     def _after_profile_selected(self, app, all_mods, downloader, mode_result):
         """Called after the profile dialog is dismissed. Shows the optional mods panel
@@ -1677,6 +1930,17 @@ class CollectionDetailDialog(tk.Frame):
             if self._revision_number is not None:
                 collection_url += f"/revisions/{self._revision_number}"
             save_collection_url_to_profile(profile_dir, collection_url)
+            try:
+                # Resolve "latest" (None) to an explicit revisionNumber so the
+                # Update button correctly appears when the user later picks a
+                # different revision. Falls back to raw None only when the
+                # revisions list hasn't loaded — which shouldn't happen at
+                # install time but is harmless.
+                write_collection_revision(
+                    profile_dir, self._resolved_viewing_revision()
+                )
+            except Exception:
+                pass
         elif mode == "new":
             # Sanitise collection name → profile name, append revision number
             raw = self._collection.name or self._collection.slug or "Collection"
@@ -1741,6 +2005,17 @@ class CollectionDetailDialog(tk.Frame):
             if self._revision_number is not None:
                 collection_url += f"/revisions/{self._revision_number}"
             save_collection_url_to_profile(profile_dir, collection_url)
+            try:
+                # Resolve "latest" (None) to an explicit revisionNumber so the
+                # Update button correctly appears when the user later picks a
+                # different revision. Falls back to raw None only when the
+                # revisions list hasn't loaded — which shouldn't happen at
+                # install time but is harmless.
+                write_collection_revision(
+                    profile_dir, self._resolved_viewing_revision()
+                )
+            except Exception:
+                pass
             # Refresh the profile dropdown immediately so the new profile is visible
             self._refresh_profile_menu()
         else:
@@ -1765,6 +2040,7 @@ class CollectionDetailDialog(tk.Frame):
 
         # Save the old profile dir so we can restore it after install
         old_profile = getattr(self._game, "_active_profile_dir", None)
+        # End of _finish_install_collection setup; _run_install takes over below.
 
         _install_args = (
             list(mods),
@@ -1796,6 +2072,132 @@ class CollectionDetailDialog(tk.Frame):
                 args=_install_args,
                 daemon=True,
             ).start()
+
+    # ------------------------------------------------------------------
+    # Collection update — reconcile modlist.txt post-install
+    # ------------------------------------------------------------------
+    def _reconcile_update_modlist(
+        self,
+        *,
+        modlist_path: Path,
+        install_order: "list[tuple[int, str]]",
+        update_context: dict,
+    ) -> None:
+        """Rebuild modlist.txt after a collection UPDATE install.
+
+        Preserves separators and the user's existing load order for mods that
+        are still in the new revision. New mods (those installed during this
+        run that weren't in the pre-update snapshot) are inserted relative to
+        their schema-defined neighbors; mods with no schema position go at
+        the top of the list.
+
+        Called on the install background thread, after all mods have finished
+        installing. ``install_order`` is the sorted list of
+        ``(schema_pos, folder_name)`` pairs the installer produced.
+        """
+        snapshot: "list[ModEntry]" = list(update_context.get("snapshot") or [])
+        # schema_order is file_id->pos, we want folder_name->pos. install_order
+        # is the canonical mapping since it's what the installer actually placed.
+        folder_to_pos: dict[str, int] = {}
+        for pos, folder in install_order:
+            folder_to_pos[folder] = pos
+
+        # Existing snapshot folder names (non-separator) — these are the mods
+        # that are staying put. Lowercased for case-insensitive matching.
+        snapshot_folder_lower: set[str] = {
+            e.name.lower() for e in snapshot if not e.is_separator
+        }
+
+        # Partition install_order into "already in snapshot" (no-op, order
+        # preserved) vs "new" (need insertion).
+        new_folders: list[tuple[int, str]] = [
+            (pos, folder) for pos, folder in install_order
+            if folder.lower() not in snapshot_folder_lower
+        ]
+
+        # Split new folders by whether they have a defined schema position.
+        # Position -1 (or missing, though install_order always has a value)
+        # means "no defined order" — those go at the top.
+        unplaced: list[str] = []
+        placeable: list[tuple[int, str]] = []
+        for pos, folder in new_folders:
+            if pos < 0:
+                unplaced.append(folder)
+            else:
+                placeable.append((pos, folder))
+
+        # Sort placeable by schema position ascending (lowest position first =
+        # highest priority in the collection author's order).
+        placeable.sort(key=lambda x: x[0])
+
+        # Work with a list we can mutate. We operate on snapshot indices,
+        # inserting new folders into the right slots. Start from the sorted
+        # placeable list and insert each one relative to its neighbors.
+        result: list = list(snapshot)  # copy
+
+        # Build a helper: for a given schema position P, find the index in
+        # `result` where we should insert. Algorithm:
+        #   - Look through install_order (sorted) for the RIGHT neighbor:
+        #     the folder with schema_pos > P that's already in `result`.
+        #     Insert just before that neighbor.
+        #   - If no right neighbor found, look for the LEFT neighbor
+        #     (schema_pos < P, already in `result`) and insert just after.
+        #   - If neither found, insert at the top.
+        sorted_io = sorted(install_order, key=lambda x: x[0])
+
+        def _find_result_index(folder_lower: str) -> int:
+            for i, e in enumerate(result):
+                if not e.is_separator and e.name.lower() == folder_lower:
+                    return i
+            return -1
+
+        for pos, folder in placeable:
+            # Right neighbor: first folder in sorted_io with pos > this pos
+            # that is currently present in result (and not this same folder).
+            insert_idx = None
+            for npos, nfolder in sorted_io:
+                if npos <= pos or nfolder == folder:
+                    continue
+                idx = _find_result_index(nfolder.lower())
+                if idx >= 0:
+                    insert_idx = idx
+                    break
+            if insert_idx is None:
+                # Left neighbor: last folder with pos < this pos in result.
+                left_candidates = [
+                    (npos, nfolder) for npos, nfolder in sorted_io
+                    if npos < pos and nfolder != folder
+                ]
+                # Walk from highest-pos to lowest.
+                for npos, nfolder in sorted(left_candidates, key=lambda x: -x[0]):
+                    idx = _find_result_index(nfolder.lower())
+                    if idx >= 0:
+                        insert_idx = idx + 1
+                        break
+            if insert_idx is None:
+                # No neighbor found at all — place at the top.
+                insert_idx = 0
+            result.insert(insert_idx, ModEntry(name=folder, enabled=True, locked=False))
+
+        # Unplaced (no schema position) go at the very top, per user request.
+        for folder in reversed(unplaced):
+            result.insert(0, ModEntry(name=folder, enabled=True, locked=False))
+
+        # Force-enable every mod entry we're writing — update never leaves a
+        # mod disabled. Separators keep their locked/enabled state.
+        for e in result:
+            if not e.is_separator:
+                e.enabled = True
+
+        try:
+            write_modlist(modlist_path, result)
+            self._log(
+                f"Collection update: reconciled modlist.txt "
+                f"({len(snapshot)} preserved, {len(placeable)} inserted, "
+                f"{len(unplaced)} unplaced at top)"
+            )
+        except Exception as exc:
+            self._log(f"Collection update: failed to write modlist.txt: {exc}")
 
     def _run_install(self, mods, download_link_path, profile_dir, old_profile, downloader, app, total, overwrite_existing: "bool | None" = None, skipped_fids: "set[int] | None" = None, skipped_mods: "list | None" = None, skip_existing: bool = False):
         """Background thread: download then install each mod in collection-defined order.
@@ -2417,6 +2819,7 @@ class CollectionDetailDialog(tk.Frame):
                     mod_id=_effective_mod_id,
                     file_id=mod.file_id,
                     archive_name=mod.file_name or "",
+                    from_collection=self._collection.slug or "",
                 )
                 _pmeta.nexus_name = mod.mod_name or ""
                 _pmeta.author = mod.mod_author or ""
@@ -2702,6 +3105,7 @@ class CollectionDetailDialog(tk.Frame):
                             mod_id=_def_mod_id,
                             file_id=_def_mod.file_id,
                             archive_name=_def_mod.file_name or "",
+                            from_collection=self._collection.slug or "",
                         )
                         _def_pmeta.nexus_name = _def_mod.mod_name or ""
                         _def_pmeta.author = _def_mod.mod_author or ""
@@ -2851,6 +3255,7 @@ class CollectionDetailDialog(tk.Frame):
                             cp["General"] = {
                                 "modname": bm_name,
                                 "installationfile": file_expr,
+                                "fromCollection": self._collection.slug or "",
                             }
                             with open(meta, "w", encoding="utf-8") as mf:
                                 cp.write(mf)
@@ -2879,9 +3284,41 @@ class CollectionDetailDialog(tk.Frame):
         # Also skipped when paused — the remaining mods haven't been
         # installed yet, so writing load order / running LOOT now would
         # produce an incomplete result. These steps run on Resume instead.
+        # For the update path (self._update_context set), we also skip the
+        # full rewrite — the pre-update snapshot is reconciled by
+        # _reconcile_update_modlist below, which preserves existing mod order
+        # and separators.
         # ------------------------------------------------------------------
-        if overwrite_existing is None and not _col_pause.is_set():
+        _update_ctx = getattr(self, "_update_context", None)
+        _is_update_run = _update_ctx is not None
+        if _is_update_run and overwrite_existing is None and not _col_pause.is_set():
+            try:
+                install_order.sort(key=lambda x: x[0])
+                self._reconcile_update_modlist(
+                    modlist_path=modlist_path,
+                    install_order=install_order,
+                    update_context=_update_ctx,
+                )
+            except Exception as exc:
+                self._log(f"Collection update: reconcile failed: {exc}")
+            # Clear so the next install (e.g. a Resume) uses the default path.
+            self._update_context = None
+        elif overwrite_existing is None and not _col_pause.is_set():
             install_order.sort(key=lambda x: x[0])
+            # Capture pre-existing modlist so we can preserve entries that are
+            # NOT in install_order (bundled carry-overs from a previous install,
+            # user-added mods, etc.) instead of dropping them silently.
+            try:
+                _pre_existing = read_modlist(modlist_path) if modlist_path.is_file() else []
+            except Exception:
+                _pre_existing = []
+            _ord_names_lower = {folder.lower() for _, folder in install_order}
+            # Preserve non-collection mods but drop separators — updates wipe
+            # separators so the author's load order applies cleanly.
+            _preserved = [
+                e for e in _pre_existing
+                if not e.is_separator and e.name.lower() not in _ord_names_lower
+            ]
             modlist_entries = [
                 ModEntry(name=folder, enabled=True, locked=False)
                 for _, folder in install_order
@@ -2915,13 +3352,29 @@ class CollectionDetailDialog(tk.Frame):
                             v.locked = False
                             v.enabled = True
                             final_entries.append(v)
+                    # Append preserved entries (user/bundled mods not in the
+                    # collection) under a locked separator at the bottom, so
+                    # the user can see what they had installed before the
+                    # update and move things back as needed. The collection
+                    # author's load order takes priority above this separator.
+                    user_sep_name = "User_Installed_separator"
+                    if _preserved:
+                        final_entries.append(
+                            ModEntry(
+                                name=user_sep_name,
+                                enabled=True, locked=True, is_separator=True,
+                            )
+                        )
+                        final_entries.extend(_preserved)
                     write_modlist(modlist_path, final_entries)
-                    # Lock bundle separators
-                    if _bundle_map:
+                    # Lock bundle separators AND the user-installed separator.
+                    if _bundle_map or _preserved:
                         from Utils.profile_state import read_separator_locks, write_separator_locks
                         _locks = read_separator_locks(profile_dir)
                         for bname in _bundle_map:
                             _locks[f"{bname}_separator"] = True
+                        if _preserved:
+                            _locks[user_sep_name] = True
                         write_separator_locks(profile_dir, _locks)
                     self._log(f"Collection install: wrote modlist.txt with {len(final_entries)} entries")
                 except Exception as exc:
@@ -3033,9 +3486,11 @@ class CollectionDetailDialog(tk.Frame):
         # and in collection-defined order.  This runs unconditionally so a
         # crash-restart (any mode) always ends in a clean, ordered state.
         # Skipped on pause — reconciliation will run on Resume once all
-        # mods are actually installed.
+        # mods are actually installed. Also skipped on update runs — the
+        # update reconcile above already placed new mods correctly without
+        # disturbing existing mod order or separators.
         # ------------------------------------------------------------------
-        if install_order and modlist_path.is_file() and not _col_pause.is_set():
+        if install_order and modlist_path.is_file() and not _col_pause.is_set() and not _is_update_run:
             try:
                 _folder_to_key: dict[str, int] = {
                     folder: key for key, folder in install_order
@@ -3104,6 +3559,10 @@ class CollectionDetailDialog(tk.Frame):
         if _col_pause.is_set():
             if _slug:
                 _PAUSED_INSTALLS[_slug] = {"profile_dir": profile_dir}
+            try:
+                write_collection_install_paused(profile_dir, True)
+            except Exception:
+                pass
             _install_state["status"] = f"Paused — {installed} installed so far."
             _install_state["done"] = True
             _ACTIVE_INSTALLS.pop(_slug, None)
@@ -4061,6 +4520,7 @@ class CollectionDetailDialog(tk.Frame):
                     mod_id=_effective_mod_id,
                     file_id=mod.file_id,
                     archive_name=mod.file_name or "",
+                    from_collection=self._collection.slug or "",
                 )
                 _pmeta.nexus_name = mod.mod_name or ""
                 _pmeta.author = mod.mod_author or ""
@@ -4169,7 +4629,11 @@ class CollectionDetailDialog(tk.Frame):
                         _shutil2.copytree(str(bundle_subdir), str(dest))
                         meta = dest / "meta.ini"
                         cp = _cpi.ConfigParser()
-                        cp["General"] = {"modname": bm_name, "installationfile": file_expr}
+                        cp["General"] = {
+                            "modname": bm_name,
+                            "installationfile": file_expr,
+                            "fromCollection": self._collection.slug or "",
+                        }
                         with open(meta, "w", encoding="utf-8") as mf:
                             cp.write(mf)
                         install_order.append((-1, mod_name_clean))
@@ -4205,9 +4669,38 @@ class CollectionDetailDialog(tk.Frame):
 
         # ------------------------------------------------------------------
         # Step 6: Write modlist.txt in collection-defined order
+        # For the update path (self._update_context set), skip the full rewrite
+        # and let _reconcile_update_modlist preserve the existing load order
+        # while inserting new mods relative to their neighbors.
         # ------------------------------------------------------------------
-        if overwrite_existing is None:
+        _update_ctx = getattr(self, "_update_context", None)
+        _is_update_run = _update_ctx is not None
+        if _is_update_run and overwrite_existing is None:
+            try:
+                install_order.sort(key=lambda x: x[0])
+                self._reconcile_update_modlist(
+                    modlist_path=modlist_path,
+                    install_order=install_order,
+                    update_context=_update_ctx,
+                )
+            except Exception as exc:
+                self._log(f"Collection update: reconcile failed: {exc}")
+            self._update_context = None
+        elif overwrite_existing is None:
             install_order.sort(key=lambda x: x[0])
+            # Capture pre-existing non-collection entries so an update doesn't
+            # silently drop user-added mods (they get moved under a locked
+            # "User_Installed" separator at the bottom). Separators from the
+            # previous install are wiped so the author's order applies cleanly.
+            try:
+                _pre_existing = read_modlist(modlist_path) if modlist_path.is_file() else []
+            except Exception:
+                _pre_existing = []
+            _ord_names_lower = {folder.lower() for _, folder in install_order}
+            _preserved = [
+                e for e in _pre_existing
+                if not e.is_separator and e.name.lower() not in _ord_names_lower
+            ]
             modlist_entries = [
                 ModEntry(name=folder, enabled=True, locked=False)
                 for _, folder in install_order
@@ -4238,12 +4731,25 @@ class CollectionDetailDialog(tk.Frame):
                             v.locked = False
                             v.enabled = True
                             final_entries.append(v)
+                    # Append preserved user/bundled mods under a locked separator
+                    # at the bottom so the user can see what was there before.
+                    user_sep_name = "User_Installed_separator"
+                    if _preserved:
+                        final_entries.append(
+                            ModEntry(
+                                name=user_sep_name,
+                                enabled=True, locked=True, is_separator=True,
+                            )
+                        )
+                        final_entries.extend(_preserved)
                     write_modlist(modlist_path, final_entries)
-                    if _bundle_map:
+                    if _bundle_map or _preserved:
                         from Utils.profile_state import read_separator_locks, write_separator_locks
                         _locks = read_separator_locks(profile_dir)
                         for bname in _bundle_map:
                             _locks[f"{bname}_separator"] = True
+                        if _preserved:
+                            _locks[user_sep_name] = True
                         write_separator_locks(profile_dir, _locks)
                 except Exception as exc:
                     self._log(f"Manual install: failed to write modlist.txt: {exc}")
@@ -4337,9 +4843,11 @@ class CollectionDetailDialog(tk.Frame):
                 self._log(f"Manual install: failed to write plugins.txt: {exc}")
 
         # ------------------------------------------------------------------
-        # Step 8: Final reconciliation
+        # Step 8: Final reconciliation (skipped on update runs — the update
+        # reconcile already placed new mods correctly without disturbing
+        # existing mod order or separators).
         # ------------------------------------------------------------------
-        if install_order and modlist_path.is_file():
+        if install_order and modlist_path.is_file() and not _is_update_run:
             try:
                 _folder_to_key = {folder: key for key, folder in install_order}
                 _existing = read_modlist(modlist_path)
@@ -4387,6 +4895,12 @@ class CollectionDetailDialog(tk.Frame):
         self._log(
             f"Collection install complete: {installed} installed, {skipped} skipped."
         )
+        try:
+            if self._game:
+                done_profile_dir = self._game.get_profile_root() / "profiles" / profile_name
+                write_collection_install_paused(done_profile_dir, False)
+        except Exception:
+            pass
         try:
             self._install_progress_bar.pack_forget()
         except Exception:
@@ -4562,8 +5076,59 @@ class CollectionDetailDialog(tk.Frame):
             pass
         self._update_install_btn_state()
 
+    def _installed_collection_revision(self) -> "tuple[str, int | None] | None":
+        """If this collection is installed in a profile for the current game, return
+        (profile_name, installed_revision_number). Revision may be None for legacy
+        installs that never recorded one. Returns None if not installed anywhere."""
+        if not self._game:
+            return None
+        slug = self._collection.slug or ""
+        if not slug:
+            return None
+        profile_name = find_profile_with_collection_slug(self._game.name, slug)
+        if not profile_name:
+            return None
+        profile_dir = self._game.get_profile_root() / "profiles" / profile_name
+        return profile_name, read_collection_revision(profile_dir)
+
+    def _resolved_viewing_revision(self) -> "int | None":
+        """Return the revision number the user is currently viewing. When
+        ``self._revision_number`` is None (i.e. the dropdown is showing the
+        latest published revision implicitly), resolve it to the highest
+        published revisionNumber from ``self._revisions_list``. Returns None
+        only when the revisions list hasn't loaded yet."""
+        if self._revision_number is not None:
+            return int(self._revision_number)
+        try:
+            published = [
+                int(r.get("revisionNumber") or 0)
+                for r in (self._revisions_list or [])
+                if (r.get("revisionStatus") or "").lower() == "published"
+            ]
+            return max(published) if published else None
+        except Exception:
+            return None
+
+    def _update_available(self) -> bool:
+        """Return True if an installed copy of this collection exists AND it's
+        pinned to a different revision than the one the user is currently viewing."""
+        info = self._installed_collection_revision()
+        if info is None:
+            return False
+        _profile, installed_rev = info
+        if installed_rev is None:
+            # Legacy install with no recorded revision - we don't know.
+            return False
+        viewing_rev = self._resolved_viewing_revision()
+        if viewing_rev is None:
+            return False
+        return int(viewing_rev) != int(installed_rev)
+
     def _update_install_btn_state(self):
-        """Show Install button as orange Resume if a paused install exists, else green Install."""
+        """Set Install button palette/text based on state.
+        Orange Resume takes priority over everything (paused install must finish
+        before updating); otherwise show blue Update Collection when the displayed
+        revision differs from the installed one, and green Install otherwise."""
         btn = getattr(self, "_install_btn", None)
         if btn is None:
             return
@@ -4576,14 +5141,23 @@ class CollectionDetailDialog(tk.Frame):
                 )
             except Exception:
                 pass
-        else:
+            return
+        if self._update_available():
             try:
                 btn.configure(
-                    text="Install Collection",
-                    fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOV,
+                    text="Update Collection",
+                    fg_color=BTN_INFO_DEEP, hover_color=BTN_INFO_DEEP_HOV,
                 )
             except Exception:
                 pass
+            return
+        try:
+            btn.configure(
+                text="Install Collection",
+                fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOV,
+            )
+        except Exception:
+            pass
 
     def _switch_to_profile(self, profile_name: str):
         """Switch the app to the given profile."""
@@ -4602,6 +5176,15 @@ class CollectionDetailDialog(tk.Frame):
     def _maybe_reconnect_install(self) -> None:
         """If an install is already running for this collection, start polling it."""
         slug = self._collection.slug or ""
+        if slug and slug not in _PAUSED_INSTALLS and slug not in _ACTIVE_INSTALLS and self._game:
+            try:
+                profile_name = find_profile_with_collection_slug(self._game.name, slug)
+                if profile_name:
+                    paused_dir = self._game.get_profile_root() / "profiles" / profile_name
+                    if read_collection_install_paused(paused_dir):
+                        _PAUSED_INSTALLS[slug] = {"profile_dir": paused_dir}
+            except Exception:
+                pass
         self._update_install_btn_state()
         if slug and slug in _ACTIVE_INSTALLS:
             state = _ACTIVE_INSTALLS[slug]
@@ -4974,13 +5557,15 @@ class CollectionDetailDialog(tk.Frame):
                     unordered.append(folder.name)
 
             ordered.sort(key=lambda x: x[0])  # position 0 = highest priority → top
-            # Unmatched mods (not in collection schema) go at the bottom
+            # Unmatched mods (bundled carry-overs, user-added patches, etc.)
+            # go at the TOP — top = highest priority in this app, which is
+            # where bundled patches need to sit to override collection mods.
             modlist_entries = [
                 ModEntry(name=name, enabled=True, locked=False)
-                for _, name in ordered
+                for name in unordered
             ] + [
                 ModEntry(name=name, enabled=True, locked=False)
-                for name in unordered
+                for _, name in ordered
             ]
 
             modlist_path = profile_dir / "modlist.txt"

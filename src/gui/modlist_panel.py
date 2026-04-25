@@ -4810,6 +4810,13 @@ class ModListPanel(ctk.CTkFrame):
             and self._entries[i].name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
         ] if len(self._sel_set) > 1 else []
 
+        _remove_multi_sep = [
+            i for i in sorted(self._sel_set)
+            if 0 <= i < len(self._entries)
+            and self._entries[i].is_separator
+            and self._entries[i].name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+        ] if _is_multi else []
+
         # Pre-compute profile data
         _other_profiles: list[str] = []
         _copy_mod_name: str | None = None
@@ -5050,9 +5057,13 @@ class ModListPanel(ctk.CTkFrame):
             else:
                 menu.add_command("Remove mod", lambda: self._remove_mod(idx))
 
-        # Remove separator
+        # Remove separator(s)
         if is_separator and not is_synthetic:
-            menu.add_command("Remove separator", lambda: self._remove_separator(idx))
+            if len(_remove_multi_sep) >= 2:
+                menu.add_command(f"Remove separators ({len(_remove_multi_sep)})",
+                    lambda inds=list(_remove_multi_sep): self._remove_separators(inds))
+            else:
+                menu.add_command("Remove separator", lambda: self._remove_separator(idx))
 
         # Rename mod
         if not is_separator and not _is_locked and not _is_bundle_var and not _is_multi:
@@ -5239,41 +5250,101 @@ class ModListPanel(ctk.CTkFrame):
             write_loadorder(loadorder_path, [PluginEntry(name=n, enabled=True) for n in new_lo])
 
     def _remove_separator(self, idx: int):
-        if 0 <= idx < len(self._entries) and self._entries[idx].is_separator:
-            sname = self._entries[idx].name
-            self._entries.pop(idx)
-            self._check_vars.pop(idx)
-            # Clean up lock canvas items for this separator
-            if sname in self._lock_cb_rects:
-                self._canvas.delete(self._lock_cb_rects.pop(sname))
-            if sname in self._lock_cb_marks:
-                self._canvas.delete(self._lock_cb_marks.pop(sname))
-            self._sep_locks.pop(sname, None)
+        if not (0 <= idx < len(self._entries) and self._entries[idx].is_separator):
+            return
+        flags = self._remove_separator_entry(idx)
+        if flags["sep_locks"]:
             self._save_sep_locks()
-            if self._sep_colors.pop(sname, None) is not None:
-                self._save_sep_colors()
-            self._collapsed_seps.discard(sname)
+        if flags["sep_colors"]:
+            self._save_sep_colors()
+        if flags["collapsed"]:
             self._save_collapsed()
-            self._update_expand_collapse_all_btn()
-            if self._sel_idx == idx:
-                self._sel_idx = -1
-            elif self._sel_idx > idx:
-                self._sel_idx -= 1
-            # If this separator had a custom deploy location, restore any
-            # backed-up originals for that path immediately.
-            _deploy_info = self._sep_deploy_paths.pop(sname, None)
-            if _deploy_info:
-                self._save_sep_deploy_paths()
-                _custom_path_str = _deploy_info.get("path", "")
-                if _custom_path_str and self._filemap_path is not None:
-                    restore_custom_deploy_backup_for_path(
-                        self._filemap_path, Path(_custom_path_str)
-                    )
-            self._invalidate_derived_caches()
-            self._save_modlist()
-            self._rebuild_filemap()
-            self._redraw()
-            self._update_info()
+        if flags["deploy_paths"]:
+            self._save_sep_deploy_paths()
+        self._update_expand_collapse_all_btn()
+        self._invalidate_derived_caches()
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._redraw()
+        self._update_info()
+
+    def _remove_separators(self, indices: list[int]):
+        sep_locks_changed = False
+        sep_colors_changed = False
+        collapsed_changed = False
+        deploy_paths_changed = False
+        removed = False
+        # Remove from highest index first to avoid shifting
+        for i in sorted(indices, reverse=True):
+            if not (0 <= i < len(self._entries) and self._entries[i].is_separator):
+                continue
+            flags = self._remove_separator_entry(i)
+            removed = True
+            sep_locks_changed |= flags["sep_locks"]
+            sep_colors_changed |= flags["sep_colors"]
+            collapsed_changed |= flags["collapsed"]
+            deploy_paths_changed |= flags["deploy_paths"]
+        if not removed:
+            return
+        if sep_locks_changed:
+            self._save_sep_locks()
+        if sep_colors_changed:
+            self._save_sep_colors()
+        if collapsed_changed:
+            self._save_collapsed()
+        if deploy_paths_changed:
+            self._save_sep_deploy_paths()
+        self._update_expand_collapse_all_btn()
+        self._sel_set = set()
+        self._invalidate_derived_caches()
+        self._save_modlist()
+        self._rebuild_filemap()
+        self._redraw()
+        self._update_info()
+
+    def _remove_separator_entry(self, idx: int) -> dict:
+        """Remove a single separator at *idx* without persisting/redrawing.
+        Returns flags indicating which persisted state changed so the caller
+        can coalesce save calls across a batch removal."""
+        sname = self._entries[idx].name
+        self._entries.pop(idx)
+        self._check_vars.pop(idx)
+        # Clean up lock canvas items for this separator
+        if sname in self._lock_cb_rects:
+            self._canvas.delete(self._lock_cb_rects.pop(sname))
+        if sname in self._lock_cb_marks:
+            self._canvas.delete(self._lock_cb_marks.pop(sname))
+        sep_locks_changed = self._sep_locks.pop(sname, None) is not None
+        sep_colors_changed = self._sep_colors.pop(sname, None) is not None
+        collapsed_changed = sname in self._collapsed_seps
+        self._collapsed_seps.discard(sname)
+        if self._sel_idx == idx:
+            self._sel_idx = -1
+        elif self._sel_idx > idx:
+            self._sel_idx -= 1
+        # Shift selection set indices above the removed row
+        if self._sel_set:
+            self._sel_set = {
+                (i - 1) if i > idx else i
+                for i in self._sel_set
+                if i != idx
+            }
+        # If this separator had a custom deploy location, restore any
+        # backed-up originals for that path immediately.
+        _deploy_info = self._sep_deploy_paths.pop(sname, None)
+        deploy_paths_changed = _deploy_info is not None
+        if _deploy_info:
+            _custom_path_str = _deploy_info.get("path", "")
+            if _custom_path_str and self._filemap_path is not None:
+                restore_custom_deploy_backup_for_path(
+                    self._filemap_path, Path(_custom_path_str)
+                )
+        return {
+            "sep_locks": sep_locks_changed,
+            "sep_colors": sep_colors_changed,
+            "collapsed": collapsed_changed,
+            "deploy_paths": deploy_paths_changed,
+        }
 
     def _remove_mod(self, idx: int):
         if not (0 <= idx < len(self._entries)):
@@ -5362,8 +5433,13 @@ class ModListPanel(ctk.CTkFrame):
     def _sort_selected_alphabetically(self, indices: list[int]):
         """Reorder the selected mods alphabetically (case-insensitive).
 
-        Mods with loose-file conflicts are pushed to the bottom of the
-        selection in their original relative order — never reordered, so the
+        Mods are sorted only within their own separator group — a mod beneath
+        separator A is never moved across to separator B's slots, even if both
+        are part of the selection. Mods above the first separator form their
+        own implicit group.
+
+        Within each group, mods with loose-file conflicts are pushed to the
+        bottom in their original relative order — never reordered, so the
         loose-file load order is preserved exactly. Only conflict-free mods
         are sorted alphabetically (placed above the conflict block).
         Separators and unselected mods between the slots stay in place.
@@ -5371,28 +5447,61 @@ class ModListPanel(ctk.CTkFrame):
         slots = sorted(i for i in indices if 0 <= i < len(self._entries))
         if len(slots) < 2:
             return
-        # Snapshot the actual entry/check_var pairs being reordered.
-        items: list[tuple[ModEntry, tk.BooleanVar | None]] = [
-            (self._entries[i], self._check_vars[i]) for i in slots
-        ]
-        # Loose-only conflict status — _conflict_map_base excludes BSA folding.
-        no_conflict: list[tuple[ModEntry, tk.BooleanVar | None]] = []
-        conflict_keep_order: list[tuple[ModEntry, tk.BooleanVar | None]] = []
-        for e, cv in items:
-            if self._conflict_map_base.get(e.name, CONFLICT_NONE) == CONFLICT_NONE:
-                no_conflict.append((e, cv))
+        # Map each entry index to its parent-separator index (-1 for entries
+        # above the first separator).
+        group_of: dict[int, int] = {}
+        cur_group = -1
+        for i, e in enumerate(self._entries):
+            if e.is_separator:
+                cur_group = i
             else:
-                conflict_keep_order.append((e, cv))
-        no_conflict.sort(key=lambda pair: pair[0].name.casefold())
-        new_pairs = no_conflict + conflict_keep_order
-        # Already in this exact order? Skip the save/rebuild.
-        if [e.name for e, _ in new_pairs] == [e.name for e, _ in items]:
+                group_of[i] = cur_group
+        # Bucket the selected slots by separator group, preserving order.
+        groups: dict[int, list[int]] = {}
+        for s in slots:
+            g = group_of.get(s, -1)
+            groups.setdefault(g, []).append(s)
+
+        total_sorted = 0
+        total_conflict = 0
+        any_changed = False
+        # Compute the new ordering for each group independently.
+        per_group_pairs: list[tuple[list[int], list[tuple[ModEntry, tk.BooleanVar | None]]]] = []
+        for g, gslots in groups.items():
+            if len(gslots) < 2:
+                continue
+            items: list[tuple[ModEntry, tk.BooleanVar | None]] = [
+                (self._entries[i], self._check_vars[i]) for i in gslots
+            ]
+            no_conflict: list[tuple[ModEntry, tk.BooleanVar | None]] = []
+            conflict_keep_order: list[tuple[ModEntry, tk.BooleanVar | None]] = []
+            for e, cv in items:
+                if self._conflict_map_base.get(e.name, CONFLICT_NONE) == CONFLICT_NONE:
+                    no_conflict.append((e, cv))
+                else:
+                    conflict_keep_order.append((e, cv))
+            no_conflict.sort(key=lambda pair: pair[0].name.casefold())
+            new_pairs = no_conflict + conflict_keep_order
+            if [e.name for e, _ in new_pairs] != [e.name for e, _ in items]:
+                any_changed = True
+            per_group_pairs.append((gslots, new_pairs))
+            total_sorted += len(no_conflict)
+            total_conflict += len(conflict_keep_order)
+
+        if not any_changed:
             return
+
         saved_col, saved_asc = self._clear_sort()
-        for slot, (e, cv) in zip(slots, new_pairs):
-            self._entries[slot] = e
-            self._check_vars[slot] = cv
-        self._sel_set = set(slots)
+        new_sel: set[int] = set()
+        for gslots, new_pairs in per_group_pairs:
+            for slot, (e, cv) in zip(gslots, new_pairs):
+                self._entries[slot] = e
+                self._check_vars[slot] = cv
+                new_sel.add(slot)
+        # Preserve any singleton-group slots that weren't reordered.
+        for s in slots:
+            new_sel.add(s)
+        self._sel_set = new_sel
         if self._sel_idx not in self._sel_set:
             self._sel_idx = slots[0]
         self._restore_sort(saved_col, saved_asc)
@@ -5402,8 +5511,8 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
         self._log(
-            f"Sorted {len(no_conflict)} mod(s) alphabetically; "
-            f"{len(conflict_keep_order)} with loose-file conflicts kept in original order."
+            f"Sorted {total_sorted} mod(s) alphabetically within their separator groups; "
+            f"{total_conflict} with loose-file conflicts kept in original order."
         )
 
     def _enable_selected_mods(self, indices: list[int]):
@@ -5434,22 +5543,25 @@ class ModListPanel(ctk.CTkFrame):
         self._redraw()
         self._update_info()
 
-    def _remove_selected_mods(self, indices: list[int]):
-        """Remove multiple mods at once (with confirmation)."""
+    def _remove_selected_mods(self, indices: list[int], skip_confirm: bool = False):
+        """Remove multiple mods at once. Shows a confirmation unless *skip_confirm*
+        is True — callers that have already confirmed (e.g. the collection
+        update flow) should pass True to avoid a double-prompt."""
         names = [self._entries[i].name for i in indices
                  if 0 <= i < len(self._entries)]
         if not names:
             return
-        alert = CTkAlert(
-            state="warning",
-            title="Remove Mods",
-            body_text=f"Are you sure you want to remove {len(names)} selected mod(s)?\n\nThis will delete the mod folders and cannot be undone.",
-            btn1="Remove",
-            btn2="Cancel",
-            parent=self.winfo_toplevel(),
-        )
-        if alert.get() != "Remove":
-            return
+        if not skip_confirm:
+            alert = CTkAlert(
+                state="warning",
+                title="Remove Mods",
+                body_text=f"Are you sure you want to remove {len(names)} selected mod(s)?\n\nThis will delete the mod folders and cannot be undone.",
+                btn1="Remove",
+                btn2="Cancel",
+                parent=self.winfo_toplevel(),
+            )
+            if alert.get() != "Remove":
+                return
         staging_root = None
         index_path = None
         if self._modlist_path is not None:

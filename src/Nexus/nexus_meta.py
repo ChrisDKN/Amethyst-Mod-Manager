@@ -62,6 +62,7 @@ class NexusModMeta:
     missing_requirements: str = ""     # semicolon-separated "modId:name" pairs
     is_fomod: bool = False             # True if installed via FOMOD installer
     root_folder: bool = False          # True if files should deploy to game root
+    from_collection: str = ""          # slug of the collection that installed this mod
 
     @property
     def nexus_page_url(self) -> str:
@@ -136,6 +137,7 @@ _KEY_MAP: dict[str, str] = {
     "missingRequirements": "missing_requirements",
     "FOMOD":             "is_fomod",
     "rootFolder":        "root_folder",
+    "fromCollection":    "from_collection",
 }
 
 # Attributes that are ints
@@ -241,12 +243,16 @@ def build_meta_from_download(
     archive_name: str = "",
     mod_info: Optional[object] = None,        # NexusModInfo
     file_info: Optional[object] = None,       # NexusModFile
+    from_collection: str = "",
 ) -> NexusModMeta:
     """
     Create a :class:`NexusModMeta` from download result + optional API data.
 
     ``mod_info`` and ``file_info`` are NexusModInfo/NexusModFile if the
     caller chose to fetch them; they enrich the metadata but aren't required.
+
+    ``from_collection`` is the collection slug if this mod is being installed
+    as part of a collection; leave empty for manual installs.
     """
     meta = NexusModMeta(
         game_domain=game_domain,
@@ -254,6 +260,7 @@ def build_meta_from_download(
         file_id=file_id,
         installation_file=archive_name,
         installed=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        from_collection=from_collection,
     )
 
     if mod_info is not None:

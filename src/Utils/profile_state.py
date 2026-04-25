@@ -447,3 +447,44 @@ def write_collection_optional_skipped(profile_dir: Path, skipped_fids: set[int])
         state = read_profile_state(profile_dir)
         state.pop("collection_optional_skipped_fids", None)
         write_profile_state(profile_dir, state)
+
+
+def read_collection_revision(profile_dir: Path) -> int | None:
+    """Return the revisionNumber this profile's collection was installed at, or None
+    if unknown (no collection installed, or pre-update-feature install)."""
+    raw = _read_key(profile_dir, None, "collection_revision_number")
+    if isinstance(raw, (int, float)):
+        try:
+            return int(raw)
+        except Exception:
+            return None
+    if isinstance(raw, str) and raw.isdigit():
+        return int(raw)
+    return None
+
+
+def write_collection_revision(profile_dir: Path, revision_number: int | None) -> None:
+    """Persist the installed collection revisionNumber. Pass None to clear it."""
+    if revision_number is None:
+        state = read_profile_state(profile_dir)
+        state.pop("collection_revision_number", None)
+        write_profile_state(profile_dir, state)
+    else:
+        _update_key(profile_dir, "collection_revision_number", int(revision_number))
+
+
+def read_collection_install_paused(profile_dir: Path) -> bool:
+    """Return True if this profile's collection install was paused partway through."""
+    raw = _read_key(profile_dir, None, "collection_install_paused")
+    return bool(raw)
+
+
+def write_collection_install_paused(profile_dir: Path, paused: bool) -> None:
+    """Persist the paused-mid-install flag. Pass False to clear it."""
+    if paused:
+        _update_key(profile_dir, "collection_install_paused", True)
+    else:
+        state = read_profile_state(profile_dir)
+        if "collection_install_paused" in state:
+            state.pop("collection_install_paused", None)
+            write_profile_state(profile_dir, state)

@@ -181,6 +181,31 @@ def find_profile_with_collection_url(game_name: str, collection_url: str) -> str
     return None
 
 
+def find_profile_with_collection_slug(game_name: str, slug: str) -> str | None:
+    """Return the profile name whose stored collection_url matches *slug*, regardless
+    of which /revisions/{N} suffix (if any) is attached. Use this to find a profile
+    eligible for a revision swap (update) rather than an exact-URL reinstall."""
+    if not slug:
+        return None
+    game = _GAMES.get(game_name)
+    if game is not None:
+        profiles_dir = game.get_profile_root() / "profiles"
+    else:
+        profiles_dir = get_profiles_dir() / game_name / "profiles"
+    if not profiles_dir.is_dir():
+        return None
+    needle = f"/collections/{slug}"
+    for p in profiles_dir.iterdir():
+        if not p.is_dir():
+            continue
+        url = get_collection_url_from_profile(p)
+        if not url:
+            continue
+        if needle in url and (url.endswith(needle) or f"{needle}/" in url):
+            return p.name
+    return None
+
+
 def _create_profile(
     game_name: str,
     profile_name: str,
