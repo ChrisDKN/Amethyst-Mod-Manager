@@ -1,6 +1,7 @@
 {
   "name": "Schedule 1",
   "game_id": "Schedule_1",
+  "version": 1,
   "exe_name": "Schedule I.exe",
   "deploy_type": "standard",
   "mod_data_path": "Mods",

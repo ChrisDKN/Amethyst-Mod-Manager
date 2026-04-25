@@ -1,6 +1,7 @@
 {
   "name": "Rimworld",
   "game_id": "Rimworld",
+  "version": 1,
   "exe_name": "start_RimWorld.sh",
   "deploy_type": "standard",
   "mod_data_path": "Mods",

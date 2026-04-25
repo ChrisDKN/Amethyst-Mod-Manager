@@ -1,6 +1,7 @@
 {
   "name": "Spyro Reignited Trilogy",
   "game_id": "Spyro_Reignited_Trilogy",
+  "version": 1,
   "exe_name": "Falcon/Binaries/Win64/Spyro-Win64-Shipping.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Falcon",

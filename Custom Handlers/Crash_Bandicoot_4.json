@@ -1,6 +1,7 @@
 {
   "name": "Crash Bandicoot 4",
   "game_id": "Crash_Bandicoot_4",
+  "version": 1,
   "exe_name": "Lava/Binaries/Win64/CrashBandicoot4.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Lava",

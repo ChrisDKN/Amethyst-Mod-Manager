@@ -1,6 +1,7 @@
 {
   "name": "My Summer Car",
   "game_id": "My_Summer_Car",
+  "version": 1,
   "exe_name": "mysummercar.exe",
   "deploy_type": "root",
   "mod_data_path": "",

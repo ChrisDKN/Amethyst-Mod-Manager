@@ -1,6 +1,7 @@
 {
   "name": "Stalker 2",
   "game_id": "Stalker_2",
+  "version": 1,
   "exe_name": "Stalker2.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Stalker2",

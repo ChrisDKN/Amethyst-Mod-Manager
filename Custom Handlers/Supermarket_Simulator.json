@@ -1,6 +1,7 @@
 {
   "name": "Supermarket Simulator",
   "game_id": "Supermarket_Simulator",
+  "version": 1,
   "exe_name": "Supermarket Simulator.exe",
   "deploy_type": "standard",
   "mod_data_path": "BepInEx/plugins",

@@ -1,6 +1,7 @@
 {
   "name": "No Man's Sky",
   "game_id": "No_Man_s_Sky",
+  "version": 1,
   "exe_name": "Binaries\\NMS.exe",
   "deploy_type": "standard",
   "mod_data_path": "GAMEDATA/MODS",

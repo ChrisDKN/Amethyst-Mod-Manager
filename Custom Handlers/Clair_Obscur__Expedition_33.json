@@ -1,6 +1,7 @@
 {
   "name": "Clair Obscur: Expedition 33",
   "game_id": "Clair_Obscur__Expedition_33",
+  "version": 1,
   "exe_name": "Expedition33_Steam.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Sandfall",

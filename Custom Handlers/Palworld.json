@@ -1,6 +1,7 @@
 {
   "name": "Palworld",
   "game_id": "Palworld",
+  "version": 1,
   "exe_name": "Pal/Binaries/Win64/Palworld-Win64-Shipping.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Pal",

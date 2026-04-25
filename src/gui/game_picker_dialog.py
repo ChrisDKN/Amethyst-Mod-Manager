@@ -707,9 +707,15 @@ class GamePickerPanel(tk.Frame):
     # ------------------------------------------------------------------
 
     def _fetch_remote_handlers(self):
-        """Background thread: fetch handler list from GitHub and build cards for any not yet downloaded."""
+        """Background thread: fetch handler list from GitHub and build cards for any not yet downloaded.
+
+        Also auto-updates already-downloaded handlers when the remote
+        ``version`` is greater than the local one and the local handler is
+        not flagged ``editable`` (user-customised handlers are left alone).
+        """
         import json as _json
         from Utils.gh_cache import fetch_text as _gh_fetch_text
+        from Utils.config_paths import get_custom_games_dir as _gcgd
         try:
             listing = _gh_fetch_text(
                 _CUSTOM_HANDLERS_API_URL,
@@ -726,10 +732,8 @@ class GamePickerPanel(tk.Frame):
                 download_url = h.get("download_url")
                 if not download_url:
                     continue
-                # Skip if already downloaded
-                from Utils.config_paths import get_custom_games_dir as _gcgd
-                if (_gcgd() / filename).exists():
-                    continue
+                local_path = _gcgd() / filename
+                local_exists = local_path.exists()
                 display_name = filename.removesuffix(".json").replace("_", " ")
                 try:
                     raw = _gh_fetch_text(
@@ -743,6 +747,31 @@ class GamePickerPanel(tk.Frame):
                     parsed = _json.loads(raw)
                     if isinstance(parsed, dict) and parsed.get("name"):
                         display_name = parsed["name"]
+                    if local_exists:
+                        try:
+                            local = _json.loads(local_path.read_text(encoding="utf-8"))
+                        except Exception:
+                            local = {}
+                        remote_ver = parsed.get("version", 0) if isinstance(parsed, dict) else 0
+                        # Local handlers from before the versioning system have no
+                        # "version" key; treat that as -1 so the first remote with
+                        # version >= 1 overwrites them once and brings them onto
+                        # the version track.
+                        if isinstance(local, dict) and "version" in local:
+                            local_ver = local.get("version", 0)
+                        else:
+                            local_ver = -1
+                        if (
+                            isinstance(remote_ver, int)
+                            and isinstance(local_ver, int)
+                            and remote_ver > local_ver
+                            and not local.get("editable", False)
+                        ):
+                            try:
+                                local_path.write_text(raw, encoding="utf-8")
+                            except Exception:
+                                pass
+                        continue
                     h["_parsed"] = parsed
                     # Download banner image if the handler declares one
                     image_url = parsed.get("image_url", "").strip() if isinstance(parsed, dict) else ""

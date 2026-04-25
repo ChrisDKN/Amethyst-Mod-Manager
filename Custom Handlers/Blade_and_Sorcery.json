@@ -1,6 +1,7 @@
 {
   "name": "Blade and Sorcery",
   "game_id": "Blade_and_Sorcery",
+  "version": 1,
   "exe_name": "BladeAndSorcery.exe",
   "deploy_type": "standard",
   "mod_data_path": "BladeAndSorcery_Data/StreamingAssets/Mods",

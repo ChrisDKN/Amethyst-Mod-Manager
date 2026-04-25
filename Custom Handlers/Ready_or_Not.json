@@ -1,6 +1,7 @@
 {
   "name": "Ready Or Not",
   "game_id": "Ready_or_Not",
+  "version": 1,
   "exe_name": "ReadyOrNot.exe",
   "deploy_type": "standard",
   "mod_data_path": "ReadyOrNot/Content/Paks/",

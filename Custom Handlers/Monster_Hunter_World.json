@@ -1,6 +1,7 @@
 {
   "name": "Monster Hunter World",
   "game_id": "Monster_Hunter_World",
+  "version": 1,
   "exe_name": "MonsterHunterWorld.exe",
   "deploy_type": "standard",
   "mod_data_path": "nativePC",

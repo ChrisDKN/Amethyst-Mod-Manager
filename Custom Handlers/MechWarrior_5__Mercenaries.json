@@ -1,6 +1,7 @@
 {
   "name": "MechWarrior 5: Mercenaries",
   "game_id": "MechWarrior_5__Mercenaries",
+  "version": 1,
   "exe_name": "MW5Mercs/Binaries/Win64/MechWarrior-Win64-Shipping.exe",
   "deploy_type": "standard",
   "mod_data_path": "MW5Mercs/Mods",

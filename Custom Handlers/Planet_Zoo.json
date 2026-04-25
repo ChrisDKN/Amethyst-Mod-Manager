@@ -1,6 +1,7 @@
 {
   "name": "Planet Zoo",
   "game_id": "Planet_Zoo",
+  "version": 1,
   "exe_name": "PlanetZoo.exe",
   "deploy_type": "standard",
   "mod_data_path": "win64/ovldata",

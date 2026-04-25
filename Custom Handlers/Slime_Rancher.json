@@ -1,6 +1,7 @@
 {
   "name": "Slime Rancher",
   "game_id": "Slime_Rancher",
+  "version": 1,
   "exe_name": "SlimeRancher.exe",
   "deploy_type": "root",
   "mod_data_path": "",
