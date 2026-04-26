@@ -295,17 +295,28 @@ class UE5Game(BaseGame):
             return False
 
         for rule in self.ue5_routing_rules:
-            if rule.loose_only and not is_loose:
-                continue
+            # loose_only on prefix/folder/folder_anywhere: matched folder
+            # must be at the top level (handled inline below).
+            # loose_only on ext/filename-only: file itself must be loose
+            # (handled by the late check before ext/filename branches).
             if rule.prefix and norm.lower().startswith(rule.prefix.lower() + "/"):
                 # If the rule also has an extension filter, only match when
                 # the file's extension is in the list.
                 if rule.extensions and not _ext_hit(rule.extensions):
                     continue
+                # loose_only: prefix must start at index 0 of the path
+                # (always true since startswith already requires that), but
+                # also require no segments above the prefix's last segment —
+                # i.e. the prefix is anchored at the root.
+                if rule.loose_only:
+                    # startswith already anchors at root, so this is True.
+                    pass
                 return rule, rule.strip, True
             if rule.folder and first_seg == rule.folder.lower():
                 if rule.extensions and not _ext_hit(rule.extensions):
                     continue
+                # rule.folder always matches at the first segment, so
+                # loose_only is automatically satisfied here.
                 return rule, rule.strip, True
             if rule.folder_anywhere:
                 target = rule.folder_anywhere.lower()
@@ -318,6 +329,10 @@ class UE5Game(BaseGame):
                 if hit_idx >= 0:
                     if rule.extensions and not _ext_hit(rule.extensions):
                         continue
+                    # loose_only on folder_anywhere: matched folder must
+                    # itself be at the top level.
+                    if rule.loose_only and hit_idx != 0:
+                        continue
                     if hit_idx == 0:
                         # Folder is already at root — no dynamic strip.
                         return rule, rule.strip, True
@@ -325,6 +340,10 @@ class UE5Game(BaseGame):
                     # folder + contents land under dest.
                     dyn_prefix = "/".join(parts[:hit_idx])
                     return rule, [dyn_prefix, *rule.strip], True
+            # For ext/filename-only rules, loose_only means the file itself
+            # has no directory components.
+            if rule.loose_only and not is_loose:
+                continue
             if rule.filenames and _name_hit(rule.filenames):
                 return rule, rule.strip, False
             if rule.extensions and _ext_hit(rule.extensions):

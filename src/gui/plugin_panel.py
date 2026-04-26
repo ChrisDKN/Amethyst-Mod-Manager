@@ -4092,8 +4092,6 @@ class PluginPanel(ctk.CTkFrame):
             filename = parts[-1]
             is_loose = len(parts) == 1
             for rule, folders, exts, filenames in _rules:
-                if rule.loose_only and not is_loose:
-                    continue
                 strip_len = -1
                 folder_hit = False
                 if folders:
@@ -4114,9 +4112,17 @@ class PluginPanel(ctk.CTkFrame):
                                     break
                             if folder_hit:
                                 break
+                    # loose_only on folder rules: matched folder must itself
+                    # be at the top level (no parent above it).
+                    if folder_hit and rule.loose_only and strip_len != 0:
+                        continue
                 matched_ext = _ext_match(filename, exts) if exts else None
                 if folder_hit and (not exts or matched_ext is not None):
                     return rule, strip_len, matched_ext or ""
+                # For ext/filename-only rules, loose_only means the file
+                # itself has no directory components.
+                if rule.loose_only and not is_loose:
+                    continue
                 if matched_ext is not None and not folders and not filenames:
                     return rule, -1, matched_ext
                 if filenames and _name_match(filename, filenames):
