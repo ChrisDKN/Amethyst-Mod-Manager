@@ -104,19 +104,19 @@ class RedDeadRedemption2(BaseGame):
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(dest="", filenames=["dinput8.dll"]),
-            CustomRule(dest="", filenames=["ScriptHookRDR2.dll"]),
+            CustomRule(dest="", filenames=["dinput8.dll"], flatten=True),
+            CustomRule(dest="", filenames=["ScriptHookRDR2.dll"], flatten=True),
             # ASI plugins ship alongside same-named .ini configs that belong
             # next to the .asi at the game root (Lenny's Mod Loader / ASI
             # Loader convention).
-            CustomRule(dest="", extensions=[".asi"], companion_extensions=[".ini"]),
-            CustomRule(dest="", filenames=["ModManager.Core.dll"]),
-            CustomRule(dest="", filenames=["ModManager.NativeInterop.dll"]),
-            CustomRule(dest="", filenames=["NLog.dll"]),
-            CustomRule(dest="", filenames=["lml.ini"]),
-            CustomRule(dest="", filenames=["vfs.asi"]),
-            CustomRule(dest="", folders=["x64"]),
-            CustomRule(dest="", folders=["RampageFiles"]),
+            CustomRule(dest="", extensions=[".asi"], companion_extensions=[".ini"], flatten=True),
+            CustomRule(dest="", filenames=["ModManager.Core.dll"], flatten=True),
+            CustomRule(dest="", filenames=["ModManager.NativeInterop.dll"], flatten=True),
+            CustomRule(dest="", filenames=["NLog.dll"], flatten=True),
+            CustomRule(dest="", filenames=["lml.ini"], flatten=True),
+            CustomRule(dest="", filenames=["vfs.asi"], flatten=True),
+            CustomRule(dest="", folders=["x64"], flatten=True),
+            CustomRule(dest="", folders=["RampageFiles"], flatten=True),
         ]
 
     @property

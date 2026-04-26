@@ -86,6 +86,13 @@ class UE5Rule:
         extensions: Match files with these lowercase extensions (e.g. ".pak").
         folder:     Match files whose first staged path segment equals this
                     value (case-insensitive), e.g. "ue4ss".
+        folder_anywhere:
+                    Match files where this folder name appears as any path
+                    segment (case-insensitive), not just the first one. The
+                    prefix above the matched segment is stripped automatically.
+                    Used by user-defined custom rules so a folder rule like
+                    "folder2" matches "Binaries/Win64/folder1/folder2/file"
+                    and lands at "<dest>/folder2/file".
         prefix:     Match files whose staged path starts with this multi-segment
                     prefix (case-insensitive), e.g. "Binaries/Win64/ue4ss".
                     More specific than ``folder`` — checked first.
@@ -105,6 +112,7 @@ class UE5Rule:
     dest: str
     extensions: list[str] = field(default_factory=list)
     folder: str = ""
+    folder_anywhere: str = ""
     prefix: str = ""
     filenames: list[str] = field(default_factory=list)
     strip: list[str] = field(default_factory=list)
@@ -237,8 +245,20 @@ class UE5Game(BaseGame):
     # Routing helpers
     # -----------------------------------------------------------------------
 
-    def _match_rule(self, rel_str: str) -> UE5Rule | None:
-        """Return the first rule that matches rel_str, or None.
+    def _match_rule(
+        self, rel_str: str,
+    ) -> tuple[UE5Rule, list[str], bool] | None:
+        """Return (rule, dynamic_strip, is_folder_match) for the first match,
+        or None.
+
+        ``dynamic_strip`` defaults to ``rule.strip`` but is overridden for
+        ``folder_anywhere`` matches to strip the prefix above the matched
+        segment so the matched folder is preserved under ``dest``.
+
+        ``is_folder_match`` is True when the match came from folder/prefix/
+        folder_anywhere (an "anchored" match where the matched folder should
+        be preserved under dest when flatten=True), False for ext/filename-
+        only matches (where flatten=True means bare filename).
 
         Extension matching uses filename-suffix logic so multi-dot extensions
         like ".dekcns.json" can be configured (Path.suffix returns only the
@@ -249,6 +269,7 @@ class UE5Game(BaseGame):
         first_seg = parts[0].lower() if parts else ""
         basename = parts[-1].lower() if parts else ""
         is_loose = len(parts) == 1
+        lower_segs = [p.lower() for p in parts]
 
         def _ext_hit(exts: list[str]) -> bool:
             # Longest-first so ".dekcns.json" wins over ".json" within the
@@ -281,15 +302,33 @@ class UE5Game(BaseGame):
                 # the file's extension is in the list.
                 if rule.extensions and not _ext_hit(rule.extensions):
                     continue
-                return rule
+                return rule, rule.strip, True
             if rule.folder and first_seg == rule.folder.lower():
                 if rule.extensions and not _ext_hit(rule.extensions):
                     continue
-                return rule
+                return rule, rule.strip, True
+            if rule.folder_anywhere:
+                target = rule.folder_anywhere.lower()
+                # Search any directory segment (not the basename).
+                hit_idx = -1
+                for i, seg in enumerate(lower_segs[:-1]):
+                    if seg == target:
+                        hit_idx = i
+                        break
+                if hit_idx >= 0:
+                    if rule.extensions and not _ext_hit(rule.extensions):
+                        continue
+                    if hit_idx == 0:
+                        # Folder is already at root — no dynamic strip.
+                        return rule, rule.strip, True
+                    # Strip the prefix above the matched folder so the
+                    # folder + contents land under dest.
+                    dyn_prefix = "/".join(parts[:hit_idx])
+                    return rule, [dyn_prefix, *rule.strip], True
             if rule.filenames and _name_hit(rule.filenames):
-                return rule
+                return rule, rule.strip, False
             if rule.extensions and _ext_hit(rule.extensions):
-                return rule
+                return rule, rule.strip, False
         return None
 
     def _apply_strip(self, rel_str: str, strips: list[str]) -> str:
@@ -306,13 +345,34 @@ class UE5Game(BaseGame):
 
         dest_rel  — game-root-relative destination directory (may be "")
         final_rel — file path relative to dest_rel
+
+        Placement under ``dest`` depends on rule.flatten:
+        - flatten=False (default) — preserve the full mod-relative path under
+          dest (no strip applied)
+        - flatten=True + folder/prefix/folder_anywhere match — apply the
+          rule's strip so the matched folder + contents land under dest.
+          If the matched folder is already at the root (no parent to strip),
+          the path is preserved as-is so the folder name itself is kept.
+        - flatten=True + ext/filename-only match — bare filename under dest
         """
-        rule = self._match_rule(rel_str)
-        if rule is not None:
+        match = self._match_rule(rel_str)
+        if match is not None:
+            rule, dyn_strip, is_folder_match = match
             dest = rule.dest
-            final_rel = self._apply_strip(rel_str, rule.strip)
+            norm = rel_str.replace("\\", "/")
             if rule.flatten:
-                final_rel = Path(final_rel).name
+                if is_folder_match:
+                    # Folder/prefix/folder_anywhere match: strip parents above
+                    # the matched folder, keep matched folder + contents.
+                    # Empty strip means "no parent to strip" (folder is
+                    # already at root) — preserve as-is.
+                    final_rel = self._apply_strip(rel_str, dyn_strip) if dyn_strip else norm
+                else:
+                    # Ext/filename-only: bare filename.
+                    final_rel = Path(norm).name
+            else:
+                # Preserve the full mod-relative path under dest.
+                final_rel = norm
         else:
             dest = self.ue5_default_dest
             final_rel = rel_str.replace("\\", "/")

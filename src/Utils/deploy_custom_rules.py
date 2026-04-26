@@ -41,12 +41,14 @@ def deploy_custom_rules(
 ) -> set[str]:
     """Deploy filemap entries that match a CustomRule to their designated dirs.
 
-    Matching logic (first matching rule wins):
-    - folder match: file's first path segment is in rule.folders (and extension
-      matches rule.extensions if non-empty) → placed at game_root/dest/rel_path
-      (full relative path preserved under dest)
-    - extension-only match: extension in rule.extensions (and rule.folders empty)
-      → placed flat as game_root/dest/<filename>
+    Matching logic (first matching rule wins): file matches a rule by folder
+    (any path segment in rule.folders), extension (rule.extensions), or
+    filename (rule.filenames). Placement under ``game_root / rule.dest``
+    depends on rule.flatten:
+    - flatten=False (default) — preserve the full mod-relative path under dest
+    - flatten=True + folder match — strip the prefix above the matched folder,
+      keep matched folder + contents under dest
+    - flatten=True + ext/filename match — bare filename under dest
 
     Returns the set of lowercased rel_paths that were handled so the caller
     can exclude them from the normal deploy step.
@@ -107,8 +109,10 @@ def deploy_custom_rules(
 
         strip_len is the number of leading characters to strip from rel_str
         so the folder itself (and its contents) are preserved under dest.
-        For extension/filename matches strip_len is -1 (sentinel for flat
-        placement).
+        For extension/filename matches strip_len is -1 (sentinel meaning
+        "no folder anchor"); placement is then driven by rule.flatten —
+        True flattens to the bare filename, False preserves the full
+        mod-relative path under dest.
 
         matched_ext is the extension that matched (e.g. ".dekcns.json"), or
         an empty string for folder/filename-only matches. Used to derive the
@@ -205,16 +209,25 @@ def deploy_custom_rules(
             src = Path(src_str)
 
             dest_base = game_root / rule.dest if rule.dest else game_root
-            if strip_len >= 0 and not rule.flatten:
-                # Folder match — strip the prefix above the matched
-                # folder and place the folder + contents under dest.
-                #   strip_len=0: LogicMods/f → dest/LogicMods/f
-                #   strip_len=5: Paks/LogicMods/f → dest/LogicMods/f
-                kept = rel_str[strip_len:].lstrip("/")
-                dst = dest_base / kept if kept else dest_base
+            if rule.flatten:
+                if strip_len >= 0:
+                    # Folder match + flatten=True: strip the prefix above the
+                    # matched folder so the folder + contents land under dest.
+                    #   strip_len=0: LogicMods/f → dest/LogicMods/f
+                    #   strip_len=5: Paks/LogicMods/f → dest/LogicMods/f
+                    kept = rel_str[strip_len:].lstrip("/")
+                    dst = dest_base / kept if kept else dest_base
+                else:
+                    # Ext/filename-only + flatten=True: bare filename under dest.
+                    dst = dest_base / src.name
             else:
-                # Extension/filename-only OR flatten=True: place flat (filename only)
-                dst = dest_base / src.name
+                # flatten=False (any match type): preserve the full
+                # mod-relative path under dest.
+                #   folders=["LogicMods"] dest="" file=Paks/LogicMods/x.pak
+                #     → Paks/LogicMods/x.pak (at game root)
+                #   exts=[".dll"] dest="win64/mods/dlls" file=folder1/x.dll
+                #     → win64/mods/dlls/folder1/x.dll
+                dst = dest_base / rel_str
             tasks.append((src, dst))
             handled_lower.add(rel_lower)
 
@@ -260,11 +273,14 @@ def deploy_custom_rules(
                 continue
             src = Path(src_str)
             dest_base = game_root / rule.dest if rule.dest else game_root
-            if strip_len >= 0 and not rule.flatten:
-                kept = sib_rel_str[strip_len:].lstrip("/")
-                dst = dest_base / kept if kept else dest_base
+            if rule.flatten:
+                if strip_len >= 0:
+                    kept = sib_rel_str[strip_len:].lstrip("/")
+                    dst = dest_base / kept if kept else dest_base
+                else:
+                    dst = dest_base / src.name
             else:
-                dst = dest_base / src.name
+                dst = dest_base / sib_rel_str
             tasks.append((src, dst))
             handled_lower.add(sib_lower)
 

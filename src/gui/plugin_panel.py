@@ -4179,15 +4179,20 @@ class PluginPanel(ctk.CTkFrame):
             if match is not None:
                 rule, strip_len, _matched_ext = match
                 dest = rule.dest
-                if strip_len >= 0:
-                    # Folder match — strip prefix above the folder,
-                    # keep the folder and its contents under dest.
-                    kept = rel_norm[strip_len:].lstrip("/")
-                    full_path = dest + "/" + kept if dest else kept
+                if rule.flatten:
+                    if strip_len >= 0:
+                        # Folder match + flatten=True: strip prefix above
+                        # the folder, keep folder + contents under dest.
+                        kept = rel_norm[strip_len:].lstrip("/")
+                        full_path = dest + "/" + kept if dest else kept
+                    else:
+                        # Ext/filename-only + flatten=True: bare filename.
+                        basename = rel_norm.split("/")[-1]
+                        full_path = dest + "/" + basename if dest else basename
                 else:
-                    # flat placement — just filename under dest
-                    basename = rel_norm.split("/")[-1]
-                    full_path = dest + "/" + basename if dest else basename
+                    # flatten=False (any match type): preserve full
+                    # mod-relative path under dest.
+                    full_path = dest + "/" + rel_norm if dest else rel_norm
                 # Strip the game's deploy subfolder prefix so the resolved
                 # path is shown relative to that folder (matching how the
                 # filemap entries themselves are stored).

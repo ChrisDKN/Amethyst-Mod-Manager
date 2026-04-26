@@ -101,9 +101,10 @@ class MarvelRivals(UE5Game):
             # under Paks). Must come before the .pak extension rule so files
             # inside LogicMods don't get routed to ~mods/.
             UE5Rule(dest="Content/Paks", prefix="Content/Paks/LogicMods",
-                    strip=["Content/Paks"]),
-            UE5Rule(dest="Content/Paks", prefix="Paks/LogicMods", strip=["Paks"]),
-            UE5Rule(dest="Content/Paks", folder="LogicMods"),
+                    strip=["Content/Paks"], flatten=True),
+            UE5Rule(dest="Content/Paks", prefix="Paks/LogicMods",
+                    strip=["Paks"], flatten=True),
+            UE5Rule(dest="Content/Paks", folder="LogicMods", flatten=True),
             # Pak / streaming files → Content/Paks/~mods/  (checked before the
             # generic folder="content" catch-all so mods shipped as
             # Content/Paks/… are routed here rather than to the game root as-is)
@@ -111,6 +112,7 @@ class MarvelRivals(UE5Game):
                 dest="Content/Paks/~mods",
                 extensions=[".pak", ".utoc", ".ucas"],
                 strip=["Content/Paks/~mods", "Content/Paks/~Mods", "Content/Paks", "Paks", "Content", "~mods", "~Mods"],
+                flatten=True,
             ),
             # Files already inside Content/Paks/~Mods (any casing) → normalise
             # to lowercase ~mods dest so only one folder is created on disk.
@@ -118,6 +120,7 @@ class MarvelRivals(UE5Game):
                 dest="Content/Paks/~mods",
                 prefix="Content/Paks/~Mods",
                 strip=["Content/Paks/~Mods", "Content/Paks/~mods"],
+                flatten=True,
             ),
             # Mods shipping Binaries/Win64/UE4SS/… → normalise to lowercase
             # ue4ss dest so only one folder is ever created on disk.
@@ -125,6 +128,7 @@ class MarvelRivals(UE5Game):
                 dest="Binaries/Win64/ue4ss",
                 prefix="Binaries/Win64/UE4SS",
                 strip=["Binaries/Win64/UE4SS", "Binaries/Win64/ue4ss"],
+                flatten=True,
             ),
             # ue4ss/ or UE4SS/ top-level folder → Binaries/Win64/ue4ss/
             # (catches loose ue4ss files like UE4SS-settings.ini before the
@@ -133,6 +137,7 @@ class MarvelRivals(UE5Game):
                 dest="Binaries/Win64/ue4ss",
                 folder="ue4ss",
                 strip=["ue4ss", "UE4SS"],
+                flatten=True,
             ),
             # Paths already starting with Binaries/ or Content/ → game root,
             # path preserved as-is.  These mods ship the full correct structure.
@@ -153,6 +158,7 @@ class MarvelRivals(UE5Game):
                     "ue4ss",
                     "Mods",
                 ],
+                flatten=True,
             ),
             # Loose UE4SS proxy/runtime files (dwmapi.dll, UE4SS.dll, etc.) → Binaries/Win64/
             UE5Rule(
@@ -163,6 +169,7 @@ class MarvelRivals(UE5Game):
                 dest="Binaries/Win64/plugins",
                 extensions=[".asi"],
                 strip=["plugins"],
+                flatten=True,
             ),
         ]
 

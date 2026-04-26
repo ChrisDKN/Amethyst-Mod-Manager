@@ -754,36 +754,47 @@ class Ue5CustomGame(UE5Game):
                     exts = list(cr.extensions)
                     fnames = list(cr.filenames)
                     if "/" in norm_folder:
-                        # Multi-segment: primary prefix rule, strip the
-                        # full prefix so content is placed flat under dest.
+                        # Multi-segment: primary prefix rule. When flatten is
+                        # ON, strip everything ABOVE the last segment so the
+                        # matched folder (last segment) + contents land under
+                        # dest. Parent of "Content/Paks/LogicMods" → strip
+                        # "Content/Paks".
+                        parent_strip = norm_folder.rsplit("/", 1)[0]
                         rules.append(UE5Rule(
                             dest=cr.dest, extensions=exts,
                             prefix=norm_folder, filenames=fnames,
-                            strip=[norm_folder],
+                            strip=[parent_strip],
                             loose_only=cr.loose_only,
                             flatten=cr.flatten,
                         ))
+                        # Also generate prefix rules for common UE5 packaging
+                        # prefixes above the target folder (Paks, Content,
+                        # Content/Paks). Strip the prefix above the matched
+                        # folder for the flatten=True case.
+                        ue5_prefixes = ["Paks", "Content/Paks", "Content"]
+                        for ue_pfx in ue5_prefixes:
+                            full = f"{ue_pfx}/{norm_folder}"
+                            if full.lower() == norm_folder.lower():
+                                continue
+                            # Parent above the matched folder = ue_pfx +
+                            # everything above the last segment of norm_folder.
+                            full_parent = f"{ue_pfx}/{parent_strip}"
+                            rules.append(UE5Rule(
+                                dest=cr.dest, extensions=exts,
+                                prefix=full, filenames=fnames,
+                                strip=[full_parent],
+                                loose_only=cr.loose_only,
+                                flatten=cr.flatten,
+                            ))
                     else:
-                        # Single-segment: match as first path segment.
-                        # No strip — the folder name is preserved under
-                        # dest unless flatten is set.
+                        # Single-segment: match the folder name anywhere in
+                        # the path; the prefix above it is auto-stripped so
+                        # the matched folder + contents land under dest.
+                        # (folder_anywhere replaces the previous
+                        # folder=/prefix= variants.)
                         rules.append(UE5Rule(
                             dest=cr.dest, extensions=exts,
-                            folder=norm_folder, filenames=fnames,
-                            loose_only=cr.loose_only,
-                            flatten=cr.flatten,
-                        ))
-                    # Generate extra prefix rules for common UE5 packaging
-                    # prefixes above the target folder.
-                    ue5_prefixes = ["Paks", "Content/Paks", "Content"]
-                    for ue_pfx in ue5_prefixes:
-                        full = f"{ue_pfx}/{norm_folder}"
-                        if full.lower() == norm_folder.lower():
-                            continue
-                        rules.append(UE5Rule(
-                            dest=cr.dest, extensions=exts,
-                            prefix=full, filenames=fnames,
-                            strip=[ue_pfx],
+                            folder_anywhere=norm_folder, filenames=fnames,
                             loose_only=cr.loose_only,
                             flatten=cr.flatten,
                         ))
@@ -810,9 +821,10 @@ class Ue5CustomGame(UE5Game):
             # under Paks). Must come before the .pak extension rule so files
             # inside LogicMods don't get routed to ~mods/.
             UE5Rule(dest="Content/Paks", prefix="Content/Paks/LogicMods",
-                    strip=["Content/Paks"]),
-            UE5Rule(dest="Content/Paks", prefix="Paks/LogicMods", strip=["Paks"]),
-            UE5Rule(dest="Content/Paks", folder="LogicMods"),
+                    strip=["Content/Paks"], flatten=True),
+            UE5Rule(dest="Content/Paks", prefix="Paks/LogicMods",
+                    strip=["Paks"], flatten=True),
+            UE5Rule(dest="Content/Paks", folder="LogicMods", flatten=True),
             # Pak / streaming files → Content/Paks/~mods/  (checked before the
             # generic folder="content" catch-all so mods shipped as
             # Content/Paks/… are routed here rather than to the game root as-is)
@@ -820,6 +832,7 @@ class Ue5CustomGame(UE5Game):
                 dest="Content/Paks/~mods",
                 extensions=[".pak", ".utoc", ".ucas"],
                 strip=["Content/Paks/~mods", "Content/Paks/~Mods", "Content/Paks", "Paks", "Content", "~mods", "~Mods"],
+                flatten=True,
             ),
             # Files already inside Content/Paks/~Mods (any casing) → normalise
             # to lowercase ~mods dest so only one folder is created on disk.
@@ -827,6 +840,7 @@ class Ue5CustomGame(UE5Game):
                 dest="Content/Paks/~mods",
                 prefix="Content/Paks/~Mods",
                 strip=["Content/Paks/~Mods", "Content/Paks/~mods"],
+                flatten=True,
             ),
             # Mods shipping Binaries/Win64/UE4SS/… → normalise to lowercase
             # ue4ss dest so only one folder is ever created on disk.
@@ -834,6 +848,7 @@ class Ue5CustomGame(UE5Game):
                 dest="Binaries/Win64/ue4ss",
                 prefix="Binaries/Win64/UE4SS",
                 strip=["Binaries/Win64/UE4SS", "Binaries/Win64/ue4ss"],
+                flatten=True,
             ),
             # ue4ss/ or UE4SS/ top-level folder → Binaries/Win64/ue4ss/
             # (catches loose ue4ss files like UE4SS-settings.ini before the
@@ -842,6 +857,7 @@ class Ue5CustomGame(UE5Game):
                 dest="Binaries/Win64/ue4ss",
                 folder="ue4ss",
                 strip=["ue4ss", "UE4SS"],
+                flatten=True,
             ),
             # Paths already starting with Binaries/ or Content/ → game root,
             # path preserved as-is.
@@ -863,6 +879,7 @@ class Ue5CustomGame(UE5Game):
                     "ue4ss",
                     "Mods",
                 ],
+                flatten=True,
             ),
             # Loose UE4SS proxy/runtime files (dwmapi.dll, UE4SS.dll, etc.) → Binaries/Win64/
             UE5Rule(
@@ -874,6 +891,7 @@ class Ue5CustomGame(UE5Game):
                 dest="Content/Movies",
                 extensions=[".bk2"],
                 strip=["Content/Movies"],
+                flatten=True,
             ),
         ])
         return rules

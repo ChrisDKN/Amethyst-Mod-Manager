@@ -87,11 +87,11 @@ class Subnautica(BaseGame):
     def custom_routing_rules(self) -> list:
         from Utils.deploy import CustomRule
         return [
-            CustomRule(dest="", filenames=["winhttp.dll"]),
-            CustomRule(dest="", filenames=["version.dll"]),
-            CustomRule(dest="", filenames=["run_bepinex.sh"]),
-            CustomRule(dest="", filenames=["libdoorstop.dylib"]),
-            CustomRule(dest="", filenames=["doorstop_config.ini"]),
+            CustomRule(dest="", filenames=["winhttp.dll"], flatten=True),
+            CustomRule(dest="", filenames=["version.dll"], flatten=True),
+            CustomRule(dest="", filenames=["run_bepinex.sh"], flatten=True),
+            CustomRule(dest="", filenames=["libdoorstop.dylib"], flatten=True),
+            CustomRule(dest="", filenames=["doorstop_config.ini"], flatten=True),
         ]
     
     @property

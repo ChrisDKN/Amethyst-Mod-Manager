@@ -1,13 +1,11 @@
 {
   "name": "Green Hell",
   "game_id": "Green_Hell",
-  "version": 1,
   "exe_name": "GH.exe",
   "deploy_type": "standard",
   "mod_data_path": "BepInEx/plugins",
   "steam_id": "815370",
   "nexus_game_domain": "greenhell",
-  "editable": false,
   "image_url": "https://cdn2.steamgriddb.com/icon/44ed1c3ad932e297c528b1ed9d849eb2/32/256x256.png",
   "mod_folder_strip_prefixes": [
     "BepInEx",
@@ -30,34 +28,41 @@
       "dest": "",
       "filenames": [
         "winhttp.dll"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "version.dll"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "run_bepinex.sh"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "libdoorstop.dylib"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "doorstop_config.ini"
-      ]
+      ],
+      "flatten": true
     }
   ],
   "custom_frameworks": {
     "BepInEx": "winhttp.dll"
-  }
+  },
+  "version": 2,
+  "editable": false
 }

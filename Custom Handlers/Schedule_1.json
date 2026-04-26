@@ -1,13 +1,11 @@
 {
   "name": "Schedule 1",
   "game_id": "Schedule_1",
-  "version": 1,
   "exe_name": "Schedule I.exe",
   "deploy_type": "standard",
   "mod_data_path": "Mods",
   "steam_id": "3164500",
   "nexus_game_domain": "schedule1",
-  "editable": false,
   "image_url": "https://cdn2.steamgriddb.com/icon_thumb/60a52d6250f2541bd7a002be5c30ab40.png",
   "mod_folder_strip_prefixes": [
     "mods",
@@ -35,13 +33,18 @@
       "dest": "",
       "folders": [
         "plugins"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "folders": [
         "userdata"
-      ]
+      ],
+      "flatten": true
     }
-  ]
+  ],
+  "custom_frameworks": {},
+  "version": 2,
+  "editable": false
 }

@@ -130,9 +130,10 @@ class OblivionRemastered(UE5Game):
             # under Paks). Must come before the .pak extension rule so files
             # inside LogicMods don't get routed to ~mods/.
             UE5Rule(dest="Content/Paks", prefix="Content/Paks/LogicMods",
-                    strip=["Content/Paks"]),
-            UE5Rule(dest="Content/Paks", prefix="Paks/LogicMods", strip=["Paks"]),
-            UE5Rule(dest="Content/Paks", folder="LogicMods"),
+                    strip=["Content/Paks"], flatten=True),
+            UE5Rule(dest="Content/Paks", prefix="Paks/LogicMods",
+                    strip=["Paks"], flatten=True),
+            UE5Rule(dest="Content/Paks", folder="LogicMods", flatten=True),
             # Pak / streaming files → Content/Paks/~mods  (checked before the
             # generic folder="content" catch-all so mods shipped as
             # Content/Paks/… are routed here rather than to the game root as-is)
@@ -140,6 +141,7 @@ class OblivionRemastered(UE5Game):
                 dest="Content/Paks/~mods",
                 extensions=[".pak", ".utoc", ".ucas"],
                 strip=["Content/Paks/~mods", "Content/Paks/~Mods", "Content/Paks", "Paks", "Content", "~mods", "~Mods"],
+                flatten=True,
             ),
             # Files already inside Content/Paks/~Mods (any casing) → normalise
             # to lowercase ~mods dest so only one folder is created on disk.
@@ -147,6 +149,7 @@ class OblivionRemastered(UE5Game):
                 dest="Content/Paks/~mods",
                 prefix="Content/Paks/~Mods",
                 strip=["Content/Paks/~Mods", "Content/Paks/~mods"],
+                flatten=True,
             ),
             # Mods shipping Binaries/Win64/UE4SS/… → normalise to lowercase
             # ue4ss dest so only one folder is created.
@@ -154,6 +157,7 @@ class OblivionRemastered(UE5Game):
                 dest="Binaries/Win64/ue4ss",
                 prefix="Binaries/Win64/UE4SS",
                 strip=["Binaries/Win64/UE4SS", "Binaries/Win64/ue4ss"],
+                flatten=True,
             ),
             # ue4ss/ or UE4SS/ top-level folder → Binaries/Win64/ue4ss/
             # (catches loose ue4ss files like UE4SS-settings.ini before the
@@ -162,6 +166,7 @@ class OblivionRemastered(UE5Game):
                 dest="Binaries/Win64/ue4ss",
                 folder="ue4ss",
                 strip=["ue4ss", "UE4SS"],
+                flatten=True,
             ),
             # GameSettings/ folder → Binaries/Win64/ (UE4SS game setting overrides)
             UE5Rule(
@@ -172,7 +177,6 @@ class OblivionRemastered(UE5Game):
             # Must be before folder="content" so mods shipping the full
             # Content/Movies/Modern/foo.bk2 path are routed here (and flattened)
             # rather than passed through as-is.
-            # flatten=True so files nested inside any mod subfolder (e.g.
             UE5Rule(
                 dest="Content/Movies/Modern",
                 extensions=[".bk2"],
@@ -188,6 +192,7 @@ class OblivionRemastered(UE5Game):
                 dest="Binaries/Win64/OBSE",
                 folder="obse",
                 strip=["obse", "OBSE"],
+                flatten=True,
             ),
             # Data/ folder → Content/Dev/ObvData/Data/ (path preserved under Data/).
             # Covers mods shipped as Data/MyMod.esp, Data/SyncMap/MyMod.ini, etc.
@@ -195,6 +200,7 @@ class OblivionRemastered(UE5Game):
                 dest="Content/Dev/ObvData/Data",
                 folder="data",
                 strip=["Content/Dev/ObvData/Data", "Data"],
+                flatten=True,
             ),
             # BashTags/ folder → Content/Dev/ObvData/Data/BashTags/ (alongside esp files)
             UE5Rule(
@@ -206,6 +212,7 @@ class OblivionRemastered(UE5Game):
                 dest="Content/Dev/ObvData/Data",
                 extensions=[".esp", ".esm"],
                 strip=["Content/Dev/ObvData/Data", "Data"],
+                flatten=True,
             ),
             # Lua UE4SS scripts and companion files (config.ini, data .json,
             # enabled.txt) → Binaries/Win64/ue4ss/Mods/
@@ -222,6 +229,7 @@ class OblivionRemastered(UE5Game):
                     "ue4ss",
                     "Mods",
                 ],
+                flatten=True,
             ),
             # Loose UE4SS proxy/runtime files (dwmapi.dll, UE4SS.dll, UE4SS.pdb) → Binaries/Win64/
             UE5Rule(

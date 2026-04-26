@@ -2044,6 +2044,10 @@ class App(ctk.CTk):
         from gui.dialogs import _CUSTOM_HANDLERS_API_URL
         from Utils.config_paths import get_custom_games_dir as _gcgd
         from Utils.gh_cache import fetch_text as _gh_fetch_text
+        from Utils.ui_config import load_dev_mode
+
+        if load_dev_mode():
+            return
 
         def _do():
             try:

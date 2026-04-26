@@ -113,10 +113,10 @@ class Darktide(BaseGame):
     def custom_routing_rules(self) -> list:
         from Utils.deploy import CustomRule
         return [
-            CustomRule(dest="", folders=["binaries"]),
-            CustomRule(dest="", folders=["bundle"]),
-            CustomRule(dest="", folders=["tools"]),
-            CustomRule(dest="", filenames=["toggle_darktide_mods.bat"]),
+            CustomRule(dest="", folders=["binaries"], flatten=True),
+            CustomRule(dest="", folders=["bundle"], flatten=True),
+            CustomRule(dest="", folders=["tools"], flatten=True),
+            CustomRule(dest="", filenames=["toggle_darktide_mods.bat"], flatten=True),
         ]
 
     # -----------------------------------------------------------------------

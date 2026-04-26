@@ -113,13 +113,13 @@ class SkyrimSE(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deploy import CustomRule
         return [
-            CustomRule(dest="", filenames=["d3dx9_42.dll"]),
-            CustomRule(dest="", filenames=["skse64_1_6_1170.dll"]),
-            CustomRule(dest="", filenames=["skse64_1_6_1179.dll"]),
-            CustomRule(dest="", filenames=["skse64_1_5_97.dll"]),
-            CustomRule(dest="", filenames=["skse64_loader.exe"]),
-            CustomRule(dest="", filenames=["d3dcompiler_47.dll"]),
-            CustomRule(dest="Data/SKSE/Plugins/CharGen/Presets", extensions=[".jslot"]),
+            CustomRule(dest="", filenames=["d3dx9_42.dll"], flatten=True),
+            CustomRule(dest="", filenames=["skse64_1_6_1170.dll"], flatten=True),
+            CustomRule(dest="", filenames=["skse64_1_6_1179.dll"], flatten=True),
+            CustomRule(dest="", filenames=["skse64_1_5_97.dll"], flatten=True),
+            CustomRule(dest="", filenames=["skse64_loader.exe"], flatten=True),
+            CustomRule(dest="", filenames=["d3dcompiler_47.dll"], flatten=True),
+            CustomRule(dest="Data/SKSE/Plugins/CharGen/Presets", extensions=[".jslot"], flatten=True),
             # ENB Series files → game root
             CustomRule(dest="", filenames=[
                 "d3d11.dll",
@@ -139,8 +139,8 @@ class SkyrimSE(Fallout_3):
                 "enbsunsprite.fx",
                 "enbunderwater.fx",
                 "enbunderwaternoise.bmp",
-            ]),
-            CustomRule(dest="", folders=["enbseries"]),
+            ], flatten=True),
+            CustomRule(dest="", folders=["enbseries"], flatten=True),
         ]
 
     @property

@@ -1,16 +1,19 @@
 {
   "name": "Palworld",
   "game_id": "Palworld",
-  "version": 1,
   "exe_name": "Pal/Binaries/Win64/Palworld-Win64-Shipping.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Pal",
   "steam_id": "1623730",
-  "editable": false,
   "nexus_game_domain": "palworld",
   "image_url": "https://cdn2.steamgriddb.com/icon/74428c0a6c8f499e67f96908f425fdd3/32/256x256.png",
   "mod_folder_strip_prefixes": [
-    "Pal"
+    "Pal",
+    "Binaries",
+    "Win64",
+    "Mods",
+    "Content",
+    "Paks"
   ],
   "conflict_ignore_filenames": [
     "*.png",
@@ -20,9 +23,9 @@
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
   "mod_required_top_level_folders": [],
-  "mod_auto_strip_until_required": false,
+  "mod_auto_strip_until_required": true,
   "mod_required_file_types": [],
-  "mod_install_as_is_if_no_match": false,
+  "mod_install_as_is_if_no_match": true,
   "restore_before_deploy": true,
   "normalize_folder_case": true,
   "wine_dll_overrides": {
@@ -30,11 +33,32 @@
   },
   "custom_routing_rules": [
     {
+      "dest": "Binaries/Win64/Mods",
+      "extensions": [
+        ".lua"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/Mods",
+      "extensions": [
+        ".modconfig.json"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/Mods",
+      "extensions": [
+        ".ini"
+      ]
+    },
+    {
       "dest": "Content/Paks",
       "folders": [
         "LogicMods"
-      ]
+      ],
+      "flatten": true
     }
   ],
-  "custom_frameworks": {}
+  "custom_frameworks": {},
+  "version": 2,
+  "editable": false
 }

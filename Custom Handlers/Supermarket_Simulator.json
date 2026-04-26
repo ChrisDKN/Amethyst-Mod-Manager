@@ -1,13 +1,11 @@
 {
   "name": "Supermarket Simulator",
   "game_id": "Supermarket_Simulator",
-  "version": 1,
   "exe_name": "Supermarket Simulator.exe",
   "deploy_type": "standard",
   "mod_data_path": "BepInEx/plugins",
   "steam_id": "2670630",
   "nexus_game_domain": "supermarketsimulator",
-  "editable": false,
   "image_url": "https://cdn2.steamgriddb.com/thumb/b074bde23201f4fa168329239ec3bfa2.jpg",
   "mod_folder_strip_prefixes": [
     "BepInEx",
@@ -30,34 +28,41 @@
       "dest": "",
       "filenames": [
         "winhttp.dll"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "version.dll"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "run_bepinex.sh"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "libdoorstop.dylib"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "",
       "filenames": [
         "doorstop_config.ini"
-      ]
+      ],
+      "flatten": true
     }
   ],
   "custom_frameworks": {
     "BepInEx": "winhttp.dll"
-  }
+  },
+  "version": 2,
+  "editable": false
 }

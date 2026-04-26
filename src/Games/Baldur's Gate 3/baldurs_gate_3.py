@@ -115,14 +115,14 @@ class BaldursGate3(BaseGame):
     @property
     def custom_routing_rules(self) -> list:
         return [
-            CustomRule(dest="Data", folders=["generated"]),
-            CustomRule(dest="Data", folders=["public"]),
-            CustomRule(dest="Data", folders=["video"]),
-            CustomRule(dest="Data", folders=["mods"]),
-            CustomRule(dest="Data", folders=["Cursors"]),
-            CustomRule(dest="bin", filenames=["DWrite.dll"]),
-            CustomRule(dest="", folders=["bin"]),
-            CustomRule(dest="", folders=["data"]),
+            CustomRule(dest="Data", folders=["generated"], flatten=True),
+            CustomRule(dest="Data", folders=["public"], flatten=True),
+            CustomRule(dest="Data", folders=["video"], flatten=True),
+            CustomRule(dest="Data", folders=["mods"], flatten=True),
+            CustomRule(dest="Data", folders=["Cursors"], flatten=True),
+            CustomRule(dest="bin", filenames=["DWrite.dll"], flatten=True),
+            CustomRule(dest="", folders=["bin"], flatten=True),
+            CustomRule(dest="", folders=["data"], flatten=True),
         ]
     
     @property

@@ -1,12 +1,10 @@
 {
   "name": "My Summer Car",
   "game_id": "My_Summer_Car",
-  "version": 1,
   "exe_name": "mysummercar.exe",
   "deploy_type": "root",
   "mod_data_path": "",
   "steam_id": "516750",
-  "editable": false,
   "nexus_game_domain": "mysummercar",
   "image_url": "https://cdn2.steamgriddb.com/icon/4b31d0c8bd51a28bd76f174161d18608/32/256x256.png",
   "mod_folder_strip_prefixes": [
@@ -33,22 +31,27 @@
       "dest": "Mods",
       "folders": [
         "Assets"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "Mods",
       "extensions": [
         ".dll"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "Mods",
       "extensions": [
         ".xml"
-      ]
+      ],
+      "flatten": true
     }
   ],
   "custom_frameworks": {
     "MSC Loader": "winhttp.dll"
-  }
+  },
+  "version": 2,
+  "editable": false
 }

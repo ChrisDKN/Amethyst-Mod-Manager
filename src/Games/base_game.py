@@ -680,13 +680,15 @@ class BaseGame(ABC):
         A list of CustomRule objects (from Utils.deploy) that route specific
         file types to a game-root-relative destination directory during deploy.
 
-        Files matching a rule are placed into game_root / rule.dest using only
-        their bare filename, and are excluded from the normal deploy destination.
+        Files matching a rule are placed under game_root / rule.dest and are
+        excluded from the normal deploy destination. Placement depends on
+        rule.flatten: when True the file lands as a bare filename under dest;
+        when False (default) the mod-relative path is preserved under dest.
 
-        Example (RE Engine .pak files)::
+        Example (RE Engine .pak files, flattened to one folder)::
 
             from Utils.deploy import CustomRule
-            return [CustomRule(dest="pak_mods", extensions=[".pak"])]
+            return [CustomRule(dest="pak_mods", extensions=[".pak"], flatten=True)]
 
         Return an empty list (the default) to use normal routing for all files.
         """

@@ -1121,6 +1121,12 @@ class CustomGamePanel(ctk.CTkFrame):
             "custom_frameworks":              self._collect_frameworks(),
         }
 
+        # Preserve repo-handler metadata so editing in devmode doesn't strip them
+        if self._existing:
+            for _key in ("version", "editable"):
+                if _key in self._existing:
+                    defn[_key] = self._existing[_key]
+
         save_custom_game_definition(defn)
 
         if image_url:

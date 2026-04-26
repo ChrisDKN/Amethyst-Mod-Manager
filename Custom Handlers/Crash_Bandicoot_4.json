@@ -1,12 +1,10 @@
 {
   "name": "Crash Bandicoot 4",
   "game_id": "Crash_Bandicoot_4",
-  "version": 1,
   "exe_name": "Lava/Binaries/Win64/CrashBandicoot4.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Lava",
   "steam_id": "1378990",
-  "editable": false,
   "nexus_game_domain": "crashbandicoot4itsabouttime",
   "image_url": "https://cdn2.steamgriddb.com/icon_thumb/2d140718297b693fcfaa8aee36d73f90.png",
   "mod_folder_strip_prefixes": [],
@@ -28,7 +26,11 @@
       "dest": "Content/Movies",
       "extensions": [
         ".mp4"
-      ]
+      ],
+      "flatten": true
     }
-  ]
+  ],
+  "custom_frameworks": {},
+  "version": 2,
+  "editable": false
 }

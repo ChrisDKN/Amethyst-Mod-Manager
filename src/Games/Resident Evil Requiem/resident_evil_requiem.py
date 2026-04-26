@@ -112,6 +112,17 @@ class ResidentEvilRequiem(BaseGame):
             CustomRule(
                 dest="pak_mods",
                 extensions=[".pak"],
+                flatten=True,
+            ),
+            CustomRule(
+                dest="pak_mods",
+                extensions=[".patch_metadata.json"],
+                flatten=True,
+            ),
+            CustomRule(
+                dest="reframework/autorun",
+                extensions=[".lua"],
+                flatten=True,
             ),
         ]
 

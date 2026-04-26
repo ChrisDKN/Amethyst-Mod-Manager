@@ -747,8 +747,11 @@ class TopBar(ctk.CTkFrame):
             return
 
         # For user-defined custom games, open the definition editor first
-        # (skipped when editable=false, e.g. repo-distributed handlers)
-        if getattr(game, "is_custom", False) and getattr(game, "editable", True):
+        # (skipped when editable=false, e.g. repo-distributed handlers — unless devmode is on)
+        from Utils.ui_config import load_dev_mode as _load_dev_mode
+        if getattr(game, "is_custom", False) and (
+            getattr(game, "editable", True) or _load_dev_mode()
+        ):
             existing_defn = getattr(game, "_defn", None)
             if self._show_custom_game_panel_fn:
                 def _on_custom_game_done(panel):

@@ -245,9 +245,14 @@ def get_download_cache_dir_for_game(game_name: str | None) -> Path:
 def list_all_cache_dirs(active_game_name: str | None = None) -> list[Path]:
     """Cache directories to scan for already-downloaded archives.
 
-    Returns ``[active-game folder, cache root, every other game subfolder]``,
-    de-duplicated by resolved path.  Reserved subfolders such as
-    ``wine_prefixes/`` are excluded.
+    Returns ``[active-game folder, cache root]``, de-duplicated by resolved
+    path.  Other games' subfolders are intentionally NOT included: file_id
+    is not unique across mods/games, so cross-game scans risk matching an
+    unrelated archive whose ``.fileid`` sidecar happens to share a value
+    with the requested file (e.g. Darktide mod 373 file 2964 colliding with
+    Palworld mod 678 file 2964).  The cache root is still included so
+    legacy archives placed there before per-game subdirs existed remain
+    discoverable.
     """
     root = get_download_cache_dir()
     out: list[Path] = []
@@ -261,16 +266,6 @@ def list_all_cache_dirs(active_game_name: str | None = None) -> list[Path]:
     if root_resolved not in seen:
         out.append(root)
         seen.add(root_resolved)
-    try:
-        for sub in root.iterdir():
-            if not sub.is_dir() or sub.name in _CACHE_ROOT_RESERVED:
-                continue
-            r = sub.resolve()
-            if r not in seen:
-                out.append(sub)
-                seen.add(r)
-    except OSError:
-        pass
     return out
 
 
