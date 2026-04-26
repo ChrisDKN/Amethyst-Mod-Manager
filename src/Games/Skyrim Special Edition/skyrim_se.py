@@ -263,12 +263,6 @@ class SkyrimSE(Fallout_3):
                 description="Download ParallaxR from Nexus, deploy mods, and process parallax textures.",
                 dialog_class_path="wizards.bendr_parallaxr.ParallaxRWizard",
             ),
-            WizardTool(
-                id="run_synthesis_skyrimse",
-                label="Run Synthesis",
-                description="Install and run Mutagen Synthesis patcher in its own prefix.",
-                dialog_class_path="wizards.synthesis.SynthesisWizard",
-            ),
         ]
 
     # -----------------------------------------------------------------------
