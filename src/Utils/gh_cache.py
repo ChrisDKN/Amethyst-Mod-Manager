@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import time
 import urllib.error
 import urllib.request
@@ -44,6 +45,38 @@ def _cache_dir() -> Path:
     d = get_config_dir() / "gh_cache"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def clear_if_version_changed(current_version: str) -> bool:
+    """Wipe the cache directory if the stored app version differs.
+
+    Called once on startup so users on a freshly-updated build always re-fetch
+    handlers/plugins/release metadata instead of waiting for the per-URL
+    throttle window to elapse.
+
+    Returns True if the cache was cleared.
+    """
+    base = _cache_dir()
+    stamp = base / "version.txt"
+    try:
+        prev = stamp.read_text(encoding="utf-8").strip() if stamp.is_file() else ""
+    except Exception:
+        prev = ""
+    if prev == current_version:
+        return False
+    for child in base.iterdir():
+        try:
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink()
+        except Exception:
+            pass
+    try:
+        stamp.write_text(current_version, encoding="utf-8")
+    except Exception:
+        pass
+    return True
 
 
 def _key(url: str) -> str:

@@ -314,6 +314,14 @@ class App(ctk.CTk):
         self._handle_nxm_argv()
         # Check for app update after a short delay (non-blocking)
         self.after(2000, self._check_for_app_update)
+        # Wipe the GitHub cache when the app version changes so users on a
+        # fresh build pick up updated handlers/plugins immediately instead of
+        # waiting for the 1h throttle window to elapse.
+        try:
+            from Utils.gh_cache import clear_if_version_changed
+            clear_if_version_changed(__version__)
+        except Exception:
+            pass
         # Silently sync all custom handlers and plugins from GitHub on startup
         self.after(3000, self._sync_custom_handlers)
         self.after(3500, self._sync_plugins)
@@ -2073,7 +2081,7 @@ class App(ctk.CTk):
                             download_url,
                             accept="*/*",
                             timeout=10,
-                            min_interval=6 * 3600,
+                            min_interval=3600,
                         )
                         if raw is None:
                             continue
@@ -2138,7 +2146,7 @@ class App(ctk.CTk):
                             download_url,
                             accept="*/*",
                             timeout=10,
-                            min_interval=6 * 3600,
+                            min_interval=3600,
                         )
                         if raw is None:
                             continue
