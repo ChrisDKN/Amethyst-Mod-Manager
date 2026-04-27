@@ -19,11 +19,13 @@ mod so that build_filemap() can skip the expensive disk scan on every
 enable/disable/reorder.  The index is only updated when mods are installed
 or removed (or when the user hits the Refresh button).
 
-Index format — msgpack binary, v3:
-    {"v": 3, "mods": [[mod_name, [[rel_key, rel_str, kind], ...]], ...]}
+Index format — msgpack binary, v4:
+    {"v": 4, "mods": [[mod_name, [[rel_key, rel_str, kind], ...]], ...]}
 where <kind> is "n" (normal) or "r" (unused legacy, kept for format compatibility).
-Paths stored in the index are already folder-case-normalized across all mods
-so build_filemap() can skip the normalize step entirely.
+Paths stored in the index reflect the raw on-disk casing of each mod's files.
+build_filemap() normalizes folder-case across mods when assembling the merged
+filemap output, but the index itself stays a faithful mirror of disk so that
+deploy can construct correct source paths regardless of cross-mod casing.
 """
 
 from __future__ import annotations
@@ -60,7 +62,7 @@ _EXCLUDE_NAMES = frozenset({"meta.ini"})
 # Reuse a modest thread pool across calls rather than creating one per call
 _POOL = ThreadPoolExecutor(max_workers=20)
 
-_INDEX_VERSION = 3
+_INDEX_VERSION = 4
 
 # In-memory cache: (path_str, mtime) → parsed index
 # Avoids re-parsing the ~5 MB index file on every filemap rebuild.
@@ -264,23 +266,48 @@ def _is_utf8_safe(s: str) -> bool:
         return False
 
 
-def _pick_canonical_segment(a: str, b: str) -> str:
-    """Choose the folder name with more uppercase characters.
-    On a tie, prefer the one that comes first alphabetically (stable choice).
+# Valid filemap casing strategies (game property `filemap_casing`).
+FILEMAP_CASING_UPPER       = "upper"        # pick variant with most uppercase letters (default)
+FILEMAP_CASING_LOWER       = "lower"        # pick variant with most lowercase letters
+FILEMAP_CASING_FORCE_LOWER = "force_lower"  # lowercase every folder segment and filename
+FILEMAP_CASING_FORCE_UPPER = "force_upper"  # uppercase every folder segment and filename stem (extension stays lower)
+_VALID_FILEMAP_CASINGS = frozenset({
+    FILEMAP_CASING_UPPER, FILEMAP_CASING_LOWER,
+    FILEMAP_CASING_FORCE_LOWER, FILEMAP_CASING_FORCE_UPPER,
+})
+
+
+def _pick_canonical_segment(a: str, b: str, strategy: str = FILEMAP_CASING_UPPER) -> str:
+    """Choose the folder name whose casing best matches *strategy*.
+
+    strategy="upper" — prefer the variant with more uppercase characters.
+    strategy="lower" — prefer the variant with more lowercase characters
+                       (= fewer uppercase).
+    On a tie, the first-seen variant (*a*) wins (stable choice).
     """
+    if strategy == FILEMAP_CASING_LOWER:
+        return a if _upper_count(a) <= _upper_count(b) else b
     return a if _upper_count(a) >= _upper_count(b) else b
 
 
-def _normalize_folder_cases(*all_files_list: dict[str, dict[str, str]]) -> None:
+def _normalize_folder_cases(
+    *all_files_list: dict[str, dict[str, str]],
+    strategy: str = FILEMAP_CASING_UPPER,
+) -> None:
     """Normalize folder name casing across all mods in-place.
 
     Folder names are case-insensitive on Windows (and in the game engine), so
     "Plugins" and "plugins" are the same folder.  When multiple mods use
-    different casings we pick the variant with the most uppercase characters
-    (e.g. "Plugins" beats "plugins") and rewrite every rel_str that uses the
-    losing variant so the whole filemap is consistent.
+    different casings we pick a single canonical variant according to
+    *strategy* and rewrite every rel_str that uses a losing variant so the
+    whole filemap is consistent.
 
-    File *names* are left exactly as they are.
+    strategy:
+      "upper" — prefer the variant with more uppercase letters (default).
+      "lower" — prefer the variant with more lowercase letters.
+
+    File *names* are left exactly as they are.  Use ``_apply_force_casing``
+    for force-lower / force-upper modes which transform every segment.
     Accepts one or more dicts (e.g. normal and root) and builds canonical
     casing from all in one pass, then rewrites each in turn.
     """
@@ -305,7 +332,7 @@ def _normalize_folder_cases(*all_files_list: dict[str, dict[str, str]]) -> None:
                     if ctx_key not in canonical:
                         canonical[ctx_key] = seg
                     else:
-                        canonical[ctx_key] = _pick_canonical_segment(canonical[ctx_key], seg)
+                        canonical[ctx_key] = _pick_canonical_segment(canonical[ctx_key], seg, strategy)
                     parent = parent + seg.lower() + "/"
 
     if not canonical:
@@ -337,6 +364,40 @@ def _normalize_folder_cases(*all_files_list: dict[str, dict[str, str]]) -> None:
                 files[rel_key] = "/".join(new_parts)
 
 
+def _apply_force_casing(
+    *all_files_list: dict[str, dict[str, str]],
+    strategy: str,
+) -> None:
+    """Force-rewrite every folder segment of rel_str in place.
+
+    strategy="force_lower" — every folder segment is lowercased.
+    strategy="force_upper" — every folder segment is uppercased.
+
+    Filenames (the final segment) are left exactly as each mod shipped them.
+    Used when the game engine prefers a uniform casing convention for
+    directories regardless of what mod authors ship on disk.
+    """
+    if strategy == FILEMAP_CASING_FORCE_LOWER:
+        _xform_seg = str.lower
+    elif strategy == FILEMAP_CASING_FORCE_UPPER:
+        _xform_seg = str.upper
+    else:
+        return
+
+    for all_files in all_files_list:
+        if not all_files:
+            continue
+        for files in all_files.values():
+            for rel_key in files:
+                rel_str = files[rel_key]
+                if "/" not in rel_str:
+                    continue  # no folder segments to rewrite
+                parts = rel_str.split("/")
+                new_parts = [_xform_seg(p) for p in parts[:-1]]
+                new_parts.append(parts[-1])  # filename untouched
+                files[rel_key] = "/".join(new_parts)
+
+
 # ---------------------------------------------------------------------------
 # Mod index — persistent cache of each mod's file list
 # ---------------------------------------------------------------------------
@@ -348,7 +409,9 @@ def read_mod_index(
 
     Returns None if the index does not exist or has an unrecognised version
     (caller should fall back to a full disk scan).
-    Paths in the returned dicts are already folder-case-normalized.
+    Paths in the returned dicts reflect raw on-disk casing per mod — folder
+    case normalization across mods is applied at filemap-build time, not in
+    the index.
     Results are cached in memory by (path, mtime) so repeated calls within
     the same session are free.
     """
@@ -395,13 +458,15 @@ def _write_mod_index(
     index: dict[str, tuple[dict[str, str], dict[str, str]]],
     normalize_folder_case: bool = True,
 ) -> None:
-    """Normalize paths, write the full index atomically, then update the cache."""
+    """Write the full index atomically, then update the cache.
+
+    The *normalize_folder_case* parameter is retained for API compatibility
+    but is now a no-op: cross-mod folder-case normalization happens at
+    filemap-build time, not in the index. The index always stores raw
+    on-disk casing per mod.
+    """
     global _index_cache
-    if normalize_folder_case:
-        _normalize_folder_cases(
-            {name: normal for name, (normal, _) in index.items()},
-            {name: root for name, (_, root) in index.items() if root},
-        )
+    del normalize_folder_case  # retained for back-compat; see docstring
     index_path.parent.mkdir(parents=True, exist_ok=True)
     mods = []
     for mod_name, (normal, root) in index.items():
@@ -639,6 +704,7 @@ def build_filemap(
     conflict_ignore_filenames: set[str] | None = None,
     excluded_mod_files: dict[str, set[str]] | None = None,
     normalize_folder_case: bool = True,
+    filemap_casing: str = FILEMAP_CASING_UPPER,
     conflict_key_fn: "Callable[[str], str] | None" = None,
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
@@ -802,6 +868,36 @@ def build_filemap(
     conflict_map = _compute_conflict_status(
         priority_order, overrides, overridden_by, win_count, mods_with_files,
     )
+
+    # Normalize folder casing across the merged filemap so that two mods which
+    # ship the same logical path with different casings (e.g. "archive/pc/Mod"
+    # vs "Archive/PC/Mod") produce a single canonical path in filemap.txt.
+    # This runs on the output dicts only — the index stays a faithful mirror
+    # of each mod's on-disk casing, which is what _resolve_source needs.
+    #
+    # The picking strategy comes from the game's `filemap_casing` property:
+    #   "upper"        — pick variant with more uppercase letters (default)
+    #   "lower"        — pick variant with more lowercase letters
+    #   "force_lower"  — every folder/filename forced lowercase
+    #   "force_upper"  — every folder/filename-stem forced uppercase (extension stays lower)
+    if normalize_folder_case and (filemap or filemap_root):
+        _strategy = filemap_casing if filemap_casing in _VALID_FILEMAP_CASINGS else FILEMAP_CASING_UPPER
+        _norm_normal: dict[str, dict[str, str]] = {}
+        _norm_root: dict[str, dict[str, str]] = {}
+        for _rk, (_rs, _mn) in filemap.items():
+            _norm_normal.setdefault(_mn, {})[_rk] = _rs
+        for _rk, (_rs, _mn) in filemap_root.items():
+            _norm_root.setdefault(_mn, {})[_rk] = _rs
+        if _strategy in (FILEMAP_CASING_FORCE_LOWER, FILEMAP_CASING_FORCE_UPPER):
+            _apply_force_casing(_norm_normal, _norm_root, strategy=_strategy)
+        else:
+            _normalize_folder_cases(_norm_normal, _norm_root, strategy=_strategy)
+        for _mn, _files in _norm_normal.items():
+            for _rk, _rs in _files.items():
+                filemap[_rk] = (_rs, _mn)
+        for _mn, _files in _norm_root.items():
+            for _rk, _rs in _files.items():
+                filemap_root[_rk] = (_rs, _mn)
 
     # Build per-mod disabled-plugin sets for fast lookup (lowercase filenames, root-level only)
     _disabled_lower: dict[str, set[str]] = {}

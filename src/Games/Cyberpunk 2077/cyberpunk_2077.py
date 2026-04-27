@@ -104,6 +104,14 @@ class Cyberpunk2077(BaseGame):
             ),
         ]
 
+    @property
+    def filemap_casing(self) -> str:
+        # REDengine consistently uses lowercase ``archive/pc/mod`` on disk;
+        # if even one mod ships ``Mod`` (uppercase) the default upper-wins
+        # picker would force every other mod into a non-existent directory
+        # on case-sensitive Linux filesystems.  Prefer lowercase canonicals.
+        return "lower"
+
 
     @property
     def frameworks(self) -> dict[str, str]:

@@ -113,6 +113,17 @@ def _str_to_list(text: str) -> list[str]:
     return [s.strip() for s in text.split(",") if s.strip()]
 
 
+# Display-label ↔ stored-value mapping for the filemap_casing dropdown.
+_FILEMAP_CASING_OPTIONS: list[tuple[str, str]] = [
+    ("Most uppercase",      "upper"),
+    ("Most lowercase",      "lower"),
+    ("Lowercase everything", "force_lower"),
+    ("Uppercase everything", "force_upper"),
+]
+_FILEMAP_CASING_LABEL_BY_VALUE = {v: lbl for lbl, v in _FILEMAP_CASING_OPTIONS}
+_FILEMAP_CASING_VALUE_BY_LABEL = {lbl: v for lbl, v in _FILEMAP_CASING_OPTIONS}
+
+
 def _parse_dll_text(text: str) -> dict[str, str]:
     """Parse one-per-line 'dll=mode' text into a dict."""
     result: dict[str, str] = {}
@@ -237,6 +248,7 @@ class CustomGamePanel(ctk.CTkFrame):
         self._install_as_is_var = tk.BooleanVar(value=False)
         self._restore_var       = tk.BooleanVar(value=True)
         self._norm_case_var     = tk.BooleanVar(value=True)
+        self._filemap_casing_var = tk.StringVar(value="Most uppercase")
         self._routing_rules_rows: list[dict] = []
         self._routing_rules_header: ctk.CTkFrame | None = None
         self._routing_rules_container = None
@@ -261,6 +273,10 @@ class CustomGamePanel(ctk.CTkFrame):
             self._install_as_is_var.set(bool(existing.get("mod_install_as_is_if_no_match", False)))
             self._restore_var.set(bool(existing.get("restore_before_deploy", True)))
             self._norm_case_var.set(bool(existing.get("normalize_folder_case", True)))
+            _existing_casing = existing.get("filemap_casing", "upper")
+            self._filemap_casing_var.set(
+                _FILEMAP_CASING_LABEL_BY_VALUE.get(_existing_casing, "Most uppercase")
+            )
             self._dll_initial = _dll_to_str(existing.get("wine_dll_overrides", {}))
             self._routing_rules_initial = existing.get("custom_routing_rules", [])
             self._frameworks_initial = existing.get("custom_frameworks", {})
@@ -467,6 +483,8 @@ class CustomGamePanel(ctk.CTkFrame):
         ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
         row += 1
 
+        # Order matches the install pipeline order so users see the property
+        # list in the same order operations actually run on a mod's files.
         _adv_fields = [
             (
                 "mod_folder_strip_prefixes",
@@ -474,23 +492,6 @@ class CustomGamePanel(ctk.CTkFrame):
                 "Strip Prefixes",
                 "Comma-separated top-level folder names to strip from mod files during "
                 "filemap building (case-insensitive).  e.g. Data, data",
-            ),
-            (
-                "conflict_ignore_filenames",
-                self._conflict_var,
-                "Conflict Ignore Filenames",
-                "Comma-separated filenames excluded from conflict detection.  "
-                "Supports glob patterns: *.<ext> matches any file with that "
-                "extension, <name>.* matches that name with any extension or "
-                "no extension at all.  e.g. modinfo.ini, manifest.json, "
-                "*.txt, LICENCE.*",
-            ),
-            (
-                "mod_folder_strip_prefixes_post",
-                self._strip_post_var,
-                "Strip Prefixes (post-install)",
-                "Like Strip Prefixes but applied after mod_required_top_level_folders "
-                "validation.  e.g. reframework",
             ),
             (
                 "mod_install_prefix",
@@ -513,9 +514,27 @@ class CustomGamePanel(ctk.CTkFrame):
                 "Comma-separated file extensions a mod must contain at its root.  "
                 "e.g. .esp, .esm — works standalone or as a fallback after Required Top-Level Folders.",
             ),
+            (
+                "mod_folder_strip_prefixes_post",
+                self._strip_post_var,
+                "Strip Prefixes (post-install)",
+                "Like Strip Prefixes but applied after mod_required_top_level_folders "
+                "validation.  e.g. reframework",
+            ),
+            (
+                "conflict_ignore_filenames",
+                self._conflict_var,
+                "Conflict Ignore Filenames",
+                "Comma-separated filenames excluded from conflict detection.  "
+                "Supports glob patterns: *.<ext> matches any file with that "
+                "extension, <name>.* matches that name with any extension or "
+                "no extension at all.  e.g. modinfo.ini, manifest.json, "
+                "*.txt, LICENCE.*",
+            ),
         ]
 
-        for _key, _var, _label, _hint in _adv_fields:
+        def _render_entry(_label: str, _hint: str, _var):
+            nonlocal row
             ctk.CTkLabel(
                 body, text=_label, font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
             ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
@@ -532,47 +551,42 @@ class CustomGamePanel(ctk.CTkFrame):
             ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 6))
             row += 1
 
-        # Auto-strip toggle
-        ctk.CTkLabel(
-            body, text="Auto Strip Until Required",
-            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
-        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
-        row += 1
-        ctk.CTkLabel(
-            body,
-            text="When enabled and Required Top-Level Folders is set, strip leading "
-                 "path segments automatically instead of prompting the user.",
-            font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
-            wraplength=WRAP,
-        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 2))
-        row += 1
-        ctk.CTkSwitch(
-            body, text="Enable", variable=self._auto_strip_var,
-            font=FONT_NORMAL, text_color=TEXT_MAIN,
-            fg_color=BG_ROW, progress_color=ACCENT,
-        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
-        row += 1
+        def _render_toggle(_label: str, _hint: str, _var):
+            nonlocal row
+            ctk.CTkLabel(
+                body, text=_label, font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
+            ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
+            row += 1
+            ctk.CTkLabel(
+                body, text=_hint, font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
+                wraplength=WRAP,
+            ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 2))
+            row += 1
+            ctk.CTkSwitch(
+                body, text="Enable", variable=_var,
+                font=FONT_NORMAL, text_color=TEXT_MAIN,
+                fg_color=BG_ROW, progress_color=ACCENT,
+            ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
+            row += 1
 
-        # Install as-is toggle
-        ctk.CTkLabel(
-            body, text="Install As-Is If No Match",
-            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
-        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
-        row += 1
-        ctk.CTkLabel(
-            body,
-            text="When enabled, if both Required Top-Level Folders and Required File Types "
-                 "checks fail, the mod is installed as-is without showing the prefix dialog.",
-            font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
-            wraplength=WRAP,
-        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 2))
-        row += 1
-        ctk.CTkSwitch(
-            body, text="Enable", variable=self._install_as_is_var,
-            font=FONT_NORMAL, text_color=TEXT_MAIN,
-            fg_color=BG_ROW, progress_color=ACCENT,
-        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
-        row += 1
+        for _key, _var, _label, _hint in _adv_fields:
+            _render_entry(_label, _hint, _var)
+            # Render the two Required-Top-Level decision toggles immediately
+            # after Required File Types so the dialog ordering matches the
+            # install pipeline (the toggles only affect that step).
+            if _key == "mod_required_file_types":
+                _render_toggle(
+                    "Auto Strip Until Required",
+                    "When enabled and Required Top-Level Folders is set, strip leading "
+                    "path segments automatically instead of prompting the user.",
+                    self._auto_strip_var,
+                )
+                _render_toggle(
+                    "Install As-Is If No Match",
+                    "When enabled, if both Required Top-Level Folders and Required File Types "
+                    "checks fail, the mod is installed as-is without showing the prefix dialog.",
+                    self._install_as_is_var,
+                )
 
         # Restore before deploy toggle
         ctk.CTkLabel(
@@ -615,6 +629,28 @@ class CustomGamePanel(ctk.CTkFrame):
             body, text="Enable", variable=self._norm_case_var,
             font=FONT_NORMAL, text_color=TEXT_MAIN,
             fg_color=BG_ROW, progress_color=ACCENT,
+        ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
+        row += 1
+
+        # Filemap casing strategy (only meaningful when normalize_folder_case is on)
+        ctk.CTkLabel(
+            body, text="Filemap Casing",
+            font=FONT_BOLD, text_color=TEXT_MAIN, anchor="center",
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(6, 0))
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text="How to pick canonical folder casing when mods disagree. "
+                 "Only used when Normalize Folder Case is enabled.",
+            font=FONT_SMALL, text_color=TEXT_DIM, anchor="center",
+            wraplength=WRAP,
+        ).grid(row=row, column=0, sticky="ew", padx=16, pady=(0, 2))
+        row += 1
+        ctk.CTkOptionMenu(
+            body, variable=self._filemap_casing_var,
+            values=[lbl for lbl, _ in _FILEMAP_CASING_OPTIONS],
+            font=FONT_NORMAL, fg_color=BG_ROW, text_color=TEXT_MAIN,
+            button_color=BG_HEADER, button_hover_color=BG_HOVER, width=200,
         ).grid(row=row, column=0, sticky="", padx=16, pady=(0, 6))
         row += 1
 
@@ -1114,6 +1150,8 @@ class CustomGamePanel(ctk.CTkFrame):
             "mod_install_as_is_if_no_match":  self._install_as_is_var.get(),
             "restore_before_deploy":          self._restore_var.get(),
             "normalize_folder_case":          self._norm_case_var.get(),
+            "filemap_casing":                 _FILEMAP_CASING_VALUE_BY_LABEL.get(
+                self._filemap_casing_var.get(), "upper"),
             "wine_dll_overrides":             _parse_dll_text(
                 self._dll_textbox.get("0.0", "end")
             ),

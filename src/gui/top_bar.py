@@ -975,6 +975,7 @@ class TopBar(ctk.CTkFrame):
                             conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
                             exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
                             normalize_folder_case=_norm_case,
+                            filemap_casing=getattr(game, "filemap_casing", "upper"),
                             conflict_key_fn=_cfn,
                             root_folder_mods=_rf_mods or None,
                         )

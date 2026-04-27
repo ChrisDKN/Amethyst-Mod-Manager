@@ -296,6 +296,11 @@ class StandardCustomGame(BaseGame):
         return bool(self._defn.get("normalize_folder_case", True))
 
     @property
+    def filemap_casing(self) -> str:
+        v = self._defn.get("filemap_casing", "upper")
+        return v if v in ("upper", "lower", "force_lower", "force_upper") else "upper"
+
+    @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:
         return _defn_to_set(self._defn, "mod_folder_strip_prefixes_post")
 
@@ -691,6 +696,11 @@ class Ue5CustomGame(UE5Game):
     @property
     def normalize_folder_case(self) -> bool:
         return bool(self._defn.get("normalize_folder_case", True))
+
+    @property
+    def filemap_casing(self) -> str:
+        v = self._defn.get("filemap_casing", "upper")
+        return v if v in ("upper", "lower", "force_lower", "force_upper") else "upper"
 
     @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:

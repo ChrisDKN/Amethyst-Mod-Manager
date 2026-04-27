@@ -437,6 +437,28 @@ class BaseGame(ABC):
         return True
 
     @property
+    def filemap_casing(self) -> str:
+        """
+        How to pick the canonical casing for folders/filenames in the filemap
+        when ``normalize_folder_case`` is True. Ignored when normalization is
+        off. One of:
+
+          "upper"        — prefer the variant with more uppercase letters
+                           (default; correct for most Windows-shipped mods).
+          "lower"        — prefer the variant with more lowercase letters
+                           (Cyberpunk 2077: REDengine reads ``archive/pc/mod``
+                           lowercase — using ``Mod`` for one mod and ``mod``
+                           for another would split into two real dirs on
+                           case-sensitive Linux filesystems).
+          "force_lower"  — every folder segment is lowercased regardless of
+                           how mod authors shipped it. Filenames untouched.
+          "force_upper"  — every folder segment is uppercased. Filenames
+                           untouched. Mostly here for symmetry — rarely
+                           useful in practice.
+        """
+        return "upper"
+
+    @property
     def mod_staging_requires_subdir(self) -> bool:
         """
         When True, each mod's staging folder must contain a named subdirectory

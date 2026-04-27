@@ -1425,6 +1425,7 @@ class PluginPanel(ctk.CTkFrame):
                             excluded_mod_files=_exc,
                             conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
                             exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
+                            filemap_casing=getattr(game, "filemap_casing", "upper"),
                         )
                     except Exception as fm_err:
                         _tlog(f"Run EXE: filemap rebuild warning: {fm_err}")

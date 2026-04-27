@@ -148,6 +148,7 @@ def cmd_deploy(games: dict, key: str, profile: str):
                 excluded_mod_files=_exc,
                 conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
                 normalize_folder_case=getattr(game, "normalize_folder_case", True) and _load_norm_case(),
+                filemap_casing=getattr(game, "filemap_casing", "upper"),
                 conflict_key_fn=getattr(game, "filemap_conflict_key_fn", None),
                 exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
                 root_folder_mods=_rf_mods or None,

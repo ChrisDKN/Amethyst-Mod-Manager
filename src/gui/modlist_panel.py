@@ -279,6 +279,7 @@ class ModListPanel(ctk.CTkFrame):
         self._root_deploy_folders: set[str] = set()
         self._staging_requires_subdir: bool = False
         self._normalize_folder_case: bool = True
+        self._filemap_casing: str = "upper"
         self._filemap_exclude_dirs: frozenset[str] = frozenset({"fomod"})
         self._root_folder_enabled: bool = True
         self._conflict_map:  dict[str, int]      = {}  # mod_name → CONFLICT_* constant
@@ -605,6 +606,7 @@ class ModListPanel(ctk.CTkFrame):
         self._root_deploy_folders = getattr(game, "mod_root_deploy_folders", set())
         self._staging_requires_subdir = getattr(game, "mod_staging_requires_subdir", False)
         self._normalize_folder_case = getattr(game, "normalize_folder_case", True) and load_normalize_folder_case()
+        self._filemap_casing = str(getattr(game, "filemap_casing", "upper"))
         self._conflict_ignore_filenames = getattr(game, "conflict_ignore_filenames", set())
         self._filemap_exclude_dirs = getattr(game, "filemap_exclude_dirs", frozenset({"fomod"}))
         # Load profile_state.json once; individual loaders pull from it
@@ -8135,6 +8137,7 @@ class ModListPanel(ctk.CTkFrame):
             _plugin_exts_snap = frozenset(e.lower() for e in getattr(_pp, "_plugin_extensions", []) or [])
         staging_requires_subdir = self._staging_requires_subdir
         normalize_folder_case   = self._normalize_folder_case
+        filemap_casing          = self._filemap_casing
         self._filemap_rescan_index = False
         disabled_plugins    = read_disabled_plugins(modlist_path.parent, None)  # fresh read for rebuild
         self._disabled_plugins_map = disabled_plugins
@@ -8184,6 +8187,7 @@ class ModListPanel(ctk.CTkFrame):
                     conflict_ignore_filenames=conflict_ignore_fn,
                     excluded_mod_files=excluded_mod_files or None,
                     normalize_folder_case=normalize_folder_case,
+                    filemap_casing=filemap_casing,
                     conflict_key_fn=_conflict_key_fn,
                     exclude_dirs=exclude_dirs,
                     log_fn=_log_thread_safe,
