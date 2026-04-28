@@ -699,6 +699,23 @@ def load_dev_mode() -> bool:
         return False
 
 
+def load_force_manual_install() -> bool:
+    """Return True if [dev] force_manual_install = true is set in amethyst.ini.
+
+    When True, collection installs use the non-premium manual-download flow
+    regardless of the user's actual Nexus premium status.
+    """
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(path)
+        return parser.get(_DEV_SECTION, "force_manual_install", fallback="false").strip().lower() == "true"
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Folder case normalisation setting
 # ---------------------------------------------------------------------------

@@ -61,7 +61,7 @@ from gui.download_locations_overlay import (
     is_default_downloads_disabled,
     load_extra_download_locations,
 )
-from Utils.ui_config import load_clear_archive_after_install, load_keep_fomod_archives, load_collection_settings
+from Utils.ui_config import load_clear_archive_after_install, load_keep_fomod_archives, load_collection_settings, load_force_manual_install
 from Nexus.nexus_meta import build_meta_from_download
 from Utils.xdg import open_url
 from Utils.plugins import PluginEntry, write_plugins, write_loadorder
@@ -155,9 +155,9 @@ _ACTIVE_INSTALLS: dict[str, dict] = {}
 # Paused installs: slug → {"cancel": threading.Event, "pause": threading.Event}
 _PAUSED_INSTALLS: dict[str, dict] = {}
 
-# DEBUG: set to True to force the non-premium manual-download flow regardless of
-# the user's actual premium status. Remove or set to False before release.
-_DEBUG_FORCE_MANUAL_INSTALL: bool = False
+# Toggle the non-premium manual-download flow at runtime via amethyst.ini:
+#   [dev]
+#   force_manual_install = true
 
 
 def _topo_sort_collection(schema_mods: list[dict], mod_rules: list[dict]) -> dict[int, int]:
@@ -1138,6 +1138,7 @@ class CollectionDetailDialog(tk.Frame):
                 category_name=cat_name,
                 install_type=(details.get("type") or "").strip(),
                 md5=(src.get("md5") or "").strip().lower(),
+                domain_name=(m.get("domainName") or "").strip(),
             ))
 
         self._offsite_mods = offsite
@@ -1332,7 +1333,7 @@ class CollectionDetailDialog(tk.Frame):
             # making it impossible to distinguish e.g. a main file from an
             # optional patch when both come from the same page.
             if cj:
-                _cj_info: dict[int, tuple[bool, str]] = {}  # file_id → (optional, name)
+                _cj_info: dict[int, tuple[bool, str, str]] = {}  # file_id → (optional, name, domain)
                 for _cm in cj.get("mods", []):
                     _src = _cm.get("source") or {}
                     _fid = _src.get("fileId")
@@ -1340,6 +1341,7 @@ class CollectionDetailDialog(tk.Frame):
                         _cj_info[int(_fid)] = (
                             bool(_cm.get("optional", False)),
                             _cm.get("name") or "",
+                            (_cm.get("domainName") or "").strip(),
                         )
                 # Detect mod pages that contribute more than one file — for
                 # those, the GraphQL mod_name is ambiguous and we should prefer
@@ -1350,12 +1352,14 @@ class CollectionDetailDialog(tk.Frame):
                         _mod_id_counts[_mod.mod_id] = _mod_id_counts.get(_mod.mod_id, 0) + 1
                 for _mod in mods:
                     if _mod.file_id and _mod.file_id in _cj_info:
-                        _opt, _cj_name = _cj_info[_mod.file_id]
+                        _opt, _cj_name, _cj_domain = _cj_info[_mod.file_id]
                         _mod.optional = _opt
                         # Replace the generic page name with the specific
                         # collection.json name when the page has multiple files.
                         if _cj_name and _mod_id_counts.get(_mod.mod_id, 1) > 1:
                             _mod.mod_name = _cj_name
+                        if _cj_domain:
+                            _mod.domain_name = _cj_domain
 
             # Extract off-site (browse/direct) and bundled mod entries from schema
             from Nexus.nexus_api import NexusCollectionMod as _NCM
@@ -2056,7 +2060,7 @@ class CollectionDetailDialog(tk.Frame):
             skip_existing if mode == "append" else False,
         )
 
-        if self._nexus_is_premium and not _DEBUG_FORCE_MANUAL_INSTALL:
+        if self._nexus_is_premium and not load_force_manual_install():
             # Premium: automated CDN download + parallel install
             self._show_install_overlay(len(mods), profile_name)
             threading.Thread(
@@ -2604,11 +2608,15 @@ class CollectionDetailDialog(tk.Frame):
         def _download_one(mod):
             nonlocal _dl_done, _dl_bytes_done
 
+            # Per-mod domain from collection.json (e.g. Skyrim mods inside an
+            # Enderal collection); fall back to the collection's own domain.
+            mod_domain = (getattr(mod, "domain_name", "") or "").strip() or self._game_domain
+
             # If paused or cancelled, skip this download (push None so install queue drains)
             if _col_stop.is_set():
                 with _dl_lock:
                     _dl_done += 1
-                _install_queue.put((mod, None, self._game_domain))
+                _install_queue.put((mod, None, mod_domain))
                 return
 
             def _progress_cb(cur: int, tot: int, _fid=mod.file_id, _mod=mod):
@@ -2633,10 +2641,8 @@ class CollectionDetailDialog(tk.Frame):
                 except Exception:
                     pass
 
-            # Enderal can use Skyrim mods; Enderal SE can use Skyrim SE mods.
-            _ENDERAL_FALLBACKS = {"enderal": "skyrim", "enderalspecialedition": "skyrimspecialedition"}
             result = None
-            effective_domain = self._game_domain
+            effective_domain = mod_domain
 
             # ------------------------------------------------------------------
             # Check system downloads folder and custom locations before downloading.
@@ -2682,7 +2688,7 @@ class CollectionDetailDialog(tk.Frame):
                         file_path=_ext_found,
                         file_name=_ext_found.name,
                         bytes_downloaded=_ext_found.stat().st_size,
-                        game_domain=self._game_domain,
+                        game_domain=mod_domain,
                         mod_id=mod.mod_id,
                         file_id=mod.file_id,
                     )
@@ -2693,7 +2699,7 @@ class CollectionDetailDialog(tk.Frame):
             try:
                 if result is None:
                     result = downloader.download_file(
-                        game_domain=self._game_domain,
+                        game_domain=mod_domain,
                         mod_id=mod.mod_id,
                         file_id=mod.file_id,
                         progress_cb=_progress_cb,
@@ -2702,27 +2708,6 @@ class CollectionDetailDialog(tk.Frame):
                         expected_size_bytes=getattr(mod, "size_bytes", 0) or 0,
                         dest_dir=get_download_cache_dir_for_game(getattr(self._game, "name", "") or ""),
                     )
-                err = result.error or ""
-                is_404 = "No Mod Found" in err or "No File found for mod" in err
-                if not result.success and is_404:
-                    fallback_domain = _ENDERAL_FALLBACKS.get(self._game_domain)
-                    if fallback_domain:
-                        self._log(
-                            f"Collection install: mod {mod.mod_id} not found on {self._game_domain}, "
-                            f"retrying under {fallback_domain}…"
-                        )
-                        result = downloader.download_file(
-                            game_domain=fallback_domain,
-                            mod_id=mod.mod_id,
-                            file_id=mod.file_id,
-                            progress_cb=_progress_cb,
-                            cancel=_col_stop,
-                            known_file_name=mod.file_name or "",
-                            expected_size_bytes=getattr(mod, "size_bytes", 0) or 0,
-                            dest_dir=get_download_cache_dir_for_game(getattr(self._game, "name", "") or ""),
-                        )
-                        if result.success:
-                            effective_domain = fallback_domain
             except Exception as exc:
                 import traceback as _tb
                 self._log(
@@ -4128,7 +4113,11 @@ class CollectionDetailDialog(tk.Frame):
     def _update_manual_overlay(self, mod, idx: int, total: int, installed_so_far: int,
                                upcoming_mods: "list | None" = None):
         """Update the manual overlay to show the current mod being requested."""
-        game_domain = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+        # Prefer the mod's own domain (from collection.json mods[].domainName) so
+        # cross-game mods (e.g. Skyrim mods inside an Enderal collection) open on
+        # the correct Nexus page; fall back to the collection's domain.
+        _fallback_domain = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+        game_domain = (getattr(mod, "domain_name", "") or "").strip() or _fallback_domain
         nexus_url = f"https://www.nexusmods.com/{game_domain}/mods/{mod.mod_id}?tab=files&file_id={mod.file_id}"
 
         self._manual_mod_name_lbl.configure(text=mod.mod_name or f"Mod {mod.mod_id}")
@@ -4159,8 +4148,9 @@ class CollectionDetailDialog(tk.Frame):
         # Always show "Open next 5" (current + upcoming), hide only if it would just duplicate "Open Download Page"
         if upcoming_mods:
             def _open_next(_mods=batch):
-                _gd = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+                _fallback = getattr(self._game, "nexus_game_domain", None) or self._game_domain
                 for _m in _mods:
+                    _gd = (getattr(_m, "domain_name", "") or "").strip() or _fallback
                     _u = f"https://www.nexusmods.com/{_gd}/mods/{_m.mod_id}?tab=files&file_id={_m.file_id}"
                     open_url(_u, log_fn=self._log)
             count = len(batch)
@@ -4522,8 +4512,9 @@ class CollectionDetailDialog(tk.Frame):
             # Build prebuilt metadata
             try:
                 _effective_mod_id = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+                _mod_domain = (getattr(mod, "domain_name", "") or "").strip() or self._game_domain
                 _pmeta = build_meta_from_download(
-                    game_domain=self._game_domain,
+                    game_domain=_mod_domain,
                     mod_id=_effective_mod_id,
                     file_id=mod.file_id,
                     archive_name=mod.file_name or "",
@@ -4587,7 +4578,8 @@ class CollectionDetailDialog(tk.Frame):
                 _next_mods = to_download[idx_0 + 1:]
                 if _next_mods and getattr(self, "_manual_auto_open_var", None) and self._manual_auto_open_var.get():
                     _next_mod = _next_mods[0]
-                    _gd = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+                    _fallback = getattr(self._game, "nexus_game_domain", None) or self._game_domain
+                    _gd = (getattr(_next_mod, "domain_name", "") or "").strip() or _fallback
                     _auto_url = f"https://www.nexusmods.com/{_gd}/mods/{_next_mod.mod_id}?tab=files&file_id={_next_mod.file_id}"
                     try:
                         open_url(_auto_url, log_fn=self._log)
@@ -5459,12 +5451,37 @@ class CollectionDetailDialog(tk.Frame):
 
     def _on_open_missing_on_nexus(self):
         """Open Nexus pages for all mods in the collection that are not installed."""
-        missing = self._get_missing_mod_ids()
+        installed_names, file_id_to_folder = self._get_installed_mod_info()
+        if installed_names is None:
+            return
+        # (mod_id, domain) — keep per-mod domain so cross-game collection mods
+        # (e.g. Skyrim mods inside an Enderal collection) open on the right page.
+        seen_ids: set[int] = set()
+        missing: list[tuple[int, str]] = []
+        for mod in getattr(self, "_loaded_mods", []) or []:
+            if mod.mod_id <= 0 or mod.mod_id in seen_ids:
+                continue
+            is_installed = False
+            if mod.file_id and mod.file_id in file_id_to_folder:
+                is_installed = True
+            elif installed_names:
+                for raw in (mod.mod_name or "", mod.file_name or ""):
+                    if raw:
+                        for s in _suggest_mod_names(raw):
+                            if s and s.lower() in installed_names:
+                                is_installed = True
+                                break
+                    if is_installed:
+                        break
+            if not is_installed:
+                seen_ids.add(mod.mod_id)
+                domain = (getattr(mod, "domain_name", "") or "").strip() or self._game_domain
+                missing.append((mod.mod_id, domain))
         if not missing:
             return
         _OPEN_LIMIT = 10
-        for mod_id in sorted(missing)[:_OPEN_LIMIT]:
-            url = f"https://www.nexusmods.com/{self._game_domain}/mods/{mod_id}"
+        for mod_id, domain in sorted(missing)[:_OPEN_LIMIT]:
+            url = f"https://www.nexusmods.com/{domain}/mods/{mod_id}"
             open_url(url)
 
     def _on_reset_load_order(self):

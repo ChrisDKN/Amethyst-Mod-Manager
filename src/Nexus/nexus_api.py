@@ -236,6 +236,8 @@ class NexusCollectionMod:
     category_name: str = ""
     install_type: str = ""  # collection.json mods[].details.type — e.g. "dinput" → root install
     md5: str = ""           # collection.json mods[].source.md5 — used to verify cached archives
+    domain_name: str = ""   # collection.json mods[].domainName — overrides collection-level domain
+                            # (e.g. Skyrim mods inside an Enderal collection)
 
 
 # ---------------------------------------------------------------------------

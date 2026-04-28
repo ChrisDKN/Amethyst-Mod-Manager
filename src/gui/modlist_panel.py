@@ -4930,11 +4930,10 @@ class ModListPanel(ctk.CTkFrame):
                         _cur_game = _GAMES.get(getattr(
                             getattr(app, "_topbar", None), "_game_var", tk.StringVar()).get(), None)
                         _domain = (
-                            _cur_game.nexus_game_domain
-                            if _cur_game and _cur_game.nexus_game_domain
-                            else _ctx_meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
-                            if "/mods/" in _ctx_meta.nexus_page_url
-                            else _ctx_meta.game_domain
+                            _ctx_meta.game_domain
+                            or (_ctx_meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
+                                if "/mods/" in _ctx_meta.nexus_page_url else "")
+                            or (_cur_game.nexus_game_domain if _cur_game else "")
                         )
                         nexus_url = f"https://www.nexusmods.com/{_domain}/mods/{_ctx_meta.mod_id}"
                     # Reinstall Mod — visible when the source archive is still available
@@ -4982,11 +4981,10 @@ class ModListPanel(ctk.CTkFrame):
                         _tmeta = read_meta(_tmeta_path)
                         if _tmeta.mod_id > 0:
                             _tdomain = (
-                                _cur_game.nexus_game_domain
-                                if _cur_game and _cur_game.nexus_game_domain
-                                else _tmeta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
-                                if "/mods/" in _tmeta.nexus_page_url
-                                else _tmeta.game_domain
+                                _tmeta.game_domain
+                                or (_tmeta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
+                                    if "/mods/" in _tmeta.nexus_page_url else "")
+                                or (_cur_game.nexus_game_domain if _cur_game else "")
                             )
                             _nexus_urls.append(
                                 f"https://www.nexusmods.com/{_tdomain}/mods/{_tmeta.mod_id}"
@@ -6594,12 +6592,15 @@ class ModListPanel(ctk.CTkFrame):
         app = self.winfo_toplevel()
         _cur_game = _GAMES.get(getattr(
             getattr(app, "_topbar", None), "_game_var", tk.StringVar()).get(), None)
+        # Prefer the mod's own domain (from meta.ini gamename) so cross-game
+        # mods inside a collection (e.g. Skyrim mods in an Enderal collection)
+        # open on the correct Nexus page. Fall back to the URL stored in the
+        # meta, then to the current game's domain.
         domain = (
-            _cur_game.nexus_game_domain
-            if _cur_game and _cur_game.nexus_game_domain
-            else meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
-            if "/mods/" in meta.nexus_page_url
-            else meta.game_domain
+            meta.game_domain
+            or (meta.nexus_page_url.split("/mods/")[0].rsplit("/", 1)[-1]
+                if "/mods/" in meta.nexus_page_url else "")
+            or (_cur_game.nexus_game_domain if _cur_game else "")
         )
         url = f"https://www.nexusmods.com/{domain}/mods/{meta.mod_id}"
         self._open_nexus_page(url)
@@ -6803,7 +6804,7 @@ class ModListPanel(ctk.CTkFrame):
         if game is None or not game.is_configured():
             self._log("Nexus: No configured game selected.")
             return
-        game_domain = game.nexus_game_domain or meta.game_domain
+        game_domain = meta.game_domain or game.nexus_game_domain
 
         if not meta.mod_id:
             self._log(f"Nexus: No mod ID in metadata for {mod_name}.")
