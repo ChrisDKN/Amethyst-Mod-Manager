@@ -191,7 +191,8 @@ class ModListFilterPanelMixin:
             import sys as _sys
 
             def _slow_mouse_wheel_all(self_sf, event, _step=step):
-                if not self_sf.check_if_master_is_canvas(event.widget):
+                check_fn = getattr(self_sf, "_check_if_valid_scroll", None) or getattr(self_sf, "check_if_master_is_canvas", None)
+                if check_fn and not check_fn(event.widget):
                     return
                 delta = getattr(event, "delta", 0) or 0
                 if delta == 0:

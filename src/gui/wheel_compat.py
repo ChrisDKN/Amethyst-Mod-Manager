@@ -129,7 +129,8 @@ def patch_ctk_scrollable_frame() -> None:
         return
 
     def _patched_mouse_wheel_all(self, event):
-        if not self.check_if_master_is_canvas(event.widget):
+        check_fn = getattr(self, "_check_if_valid_scroll", None) or getattr(self, "check_if_master_is_canvas", None)
+        if check_fn and not check_fn(event.widget):
             return
         delta = getattr(event, "delta", 0) or 0
         if delta == 0:
