@@ -666,6 +666,18 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
         <source>Install</source>
         <translation>Installeren</translation>
     </message>
+    <message>
+        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <translation>Wachtend op de browserdownload van '{0}' Klik op Annuleren om te stoppen.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>Waiting for the browser download — {0} / {1}</source>
+        <translation>Wachten op de browser downloaden {0} / {1}</translation>
+    </message>
 </context>
 <context>
     <name>CollectionCard</name>
@@ -904,6 +916,18 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
     <message>
         <source>Collections</source>
         <translation>Collecties</translation>
+    </message>
+    <message>
+        <source>Most downloaded</source>
+        <translation>Meest gedownload</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>Sorteer:</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>Weergeven voor volwassenen</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -1596,6 +1620,18 @@ Sluit het wanneer u klaar bent, klik vervolgens op Klaar.</translation>
         <translation>Een aangepast spel instellen</translation>
     </message>
     <message>
+        <source>Load Preset  (optional)</source>
+        <translation>Voorinstelling laden (facultatief)</translation>
+    </message>
+    <message>
+        <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
+        <translation>Prepopuleer de velden hieronder van een bestaand aangepast spel als een startsjabloon. Je moet nog steeds om het nieuwe spel zijn eigen unieke naam te geven.</translation>
+    </message>
+    <message>
+        <source>— Select a game to copy from —</source>
+        <translation>Selecteer een spel om uit te kopiëren</translation>
+    </message>
+    <message>
         <source>Game Name</source>
         <translation>Naam van het spel</translation>
     </message>
@@ -1864,6 +1900,17 @@ Sluit het wanneer u klaar bent, klik vervolgens op Klaar.</translation>
     <message>
         <source>Deployed files - {0} files in {1} mods</source>
         <translation>Geïmplementeerde bestanden - {0} bestanden in {1} mods</translation>
+    </message>
+</context>
+<context>
+    <name>DatePickerOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>Oké</translation>
     </message>
 </context>
 <context>
@@ -2504,6 +2551,22 @@ Proton-voorvoegsel: klik eens op 'Installeer Java in prefix' en dan draait het a
         <translation>bijv. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</translation>
     </message>
     <message>
+        <source>Deploy on run</source>
+        <translation>Inschakelen op run</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist before running this exe</source>
+        <translation>Activeer de modlist voordat u deze exe uitvoert</translation>
+    </message>
+    <message>
+        <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
+        <translation>Draait dezelfde inzet als de Deploy knop, dan start deze exe zodra de implementatie klaar is.</translation>
+    </message>
+    <message>
+        <source>Hide from dropdown</source>
+        <translation>Verbergen bij dropdown</translation>
+    </message>
+    <message>
         <source>Remove EXE</source>
         <translation>EXE verwijderen</translation>
     </message>
@@ -2782,6 +2845,10 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
     <message>
         <source>By category</source>
         <translation>Per categorie</translation>
+    </message>
+    <message>
+        <source>By author</source>
+        <translation>Op auteur</translation>
     </message>
     <message>
         <source>By file type</source>
@@ -3711,6 +3778,26 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>Bestandsnaam van de plug-ins</translation>
     </message>
     <message>
+        <source>{0} and {1} more</source>
+        <translation>{0} en {1} meer</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
+        <translation>Een game handler kon niet geladen worden ({0}). Beïnvloede games zijn verborgen, maar uw mods zijn veilig en zie het logboek.</translation>
+    </message>
+    <message>
+        <source>Installing 32-bit support (needed to run Windows tools) …</source>
+        <translation>Het installeren van 32-bit ondersteuning (nodig om Windows-tools uit te voeren) ..</translation>
+    </message>
+    <message>
+        <source>32-bit support installed — restart the app before running Windows tools.</source>
+        <translation>32-bits ondersteuning geïnstalleerd .</translation>
+    </message>
+    <message>
+        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
+        <translation>Kon 32-bits ondersteuning niet automatisch installeren Zie de log voor het handmatige commando.</translation>
+    </message>
+    <message>
         <source>Install-name Rules</source>
         <translation>Naamregels installeren</translation>
     </message>
@@ -4131,6 +4218,26 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>{0}-mod(s) opnieuw installeren; {1} overgeslagen (geen archief gevonden).</translation>
     </message>
     <message>
+        <source>Reinstall — redownloading {0} mod(s)…</source>
+        <translation>Herinstalleren van {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Redownloading {0} mod(s)…</source>
+        <translation>{0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Opnieuw installeren</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
+        <translation>Herinstalleren: {0} mod(s) kon niet opnieuw gedownload worden, zie de log.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
+        <translation>Opnieuw gedownload {0} mod(s); {1} is mislukt Zie de log.</translation>
+    </message>
+    <message>
         <source>A Quick Update is already running.</source>
         <translation>Er is al een 'Quick Update' aan de gang.</translation>
     </message>
@@ -4201,6 +4308,10 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>Missing Requirements</source>
         <translation>Ontbrekende vereisten</translation>
+    </message>
+    <message>
+        <source>View Requirements</source>
+        <translation>Bekijken Vereisten</translation>
     </message>
     <message>
         <source>Conflicts: {0}</source>
@@ -4379,6 +4490,10 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>▶  Uitvoeren</translation>
     </message>
     <message>
+        <source>No executables found in staging.</source>
+        <translation>Geen uitvoerbare bestanden gevonden.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Uitvoerbaar bestand niet gevonden: {0}</translation>
     </message>
@@ -4387,12 +4502,20 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Configureren: {0}</translation>
     </message>
     <message>
+        <source>Could not build launch command: {0}</source>
+        <translation>Kon startopdracht niet bouwen: {0}</translation>
+    </message>
+    <message>
         <source>'{0}' does not support deployment.</source>
         <translation>'{0}' biedt geen ondersteuning voor implementatie.</translation>
     </message>
     <message>
         <source>Deploying {0}…</source>
         <translation>{0} wordt geïnstalleerd…</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
+        <translation>Premium vereist om opnieuw te downloaden. Opende {0} download pagina(s) .</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -4779,6 +4902,10 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>{0} overlapt {1}-plugin(s)</translation>
     </message>
     <message>
+        <source>+ Add exe from staging…</source>
+        <translation>+ Exe van enscenering toevoegen..</translation>
+    </message>
+    <message>
         <source>Plugins</source>
         <translation>Plug-ins</translation>
     </message>
@@ -4999,6 +5126,70 @@ Toch inzetten?</translation>
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Een aanbeveling voor Amethyst Mod Manager…</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsDeployChoiceOverlay</name>
+    <message>
+        <source>Mewgenics — Deploy method</source>
+        <translation>Mewgenics Deploy method</translation>
+    </message>
+    <message>
+        <source>Steam launch command  (Safer / Recommended)</source>
+        <translation>Stoomstartopdracht (Safer / Aanbevolen)</translation>
+    </message>
+    <message>
+        <source>Generates a launch script for Steam. Set it once in Launch Options (no repack).</source>
+        <translation>Genereert een startscript voor Steam. Stel het eenmaal in in Startopties (geen herverpakking).</translation>
+    </message>
+    <message>
+        <source>Repack gpak  (No command needed / not recommended)</source>
+        <translation>Gpak herpakken (Geen opdracht nodig / niet aanbevolen)</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak, merge mods, repack.</source>
+        <translation>Resources.gpak uitpakken, mods samenvoegen, herpakken.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsLaunchCommandOverlay</name>
+    <message>
+        <source>Mewgenics — Steam / Lutris launch command</source>
+        <translation>Mewgenics </translation>
+    </message>
+    <message>
+        <source>Paste this into Steam Launch Options (Properties → General):</source>
+        <translation>Plak dit in Steam-startopties (Eigenschappen → Algemeen):</translation>
+    </message>
+    <message>
+        <source>Script written to:
+{0}
+
+Update this whenever you change your mod list.</source>
+        <translation>Script geschreven naar:
+{0}
+
+Update dit wanneer u uw mod lijst wijzigt.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Sluiten</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Kopiëren naar klembord</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Gekopiëerd</translation>
+    </message>
+    <message>
+        <source>Copy failed — copy it manually</source>
+        <translation>Kopiëren mislukt Kopiëren handmatig</translation>
     </message>
 </context>
 <context>
@@ -5226,6 +5417,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
         <translation>Ontbrekende vereisten ({0})</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>Bekijken Vereisten</translation>
+    </message>
+    <message>
         <source>Mod name:</source>
         <translation>Mod name:</translation>
     </message>
@@ -5276,6 +5471,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
         <source>Reinstall ({0})</source>
         <translation>Opnieuw installeren ({0})</translation>
+    </message>
+    <message>
+        <source>Reinstall (Redownload)</source>
+        <translation>Herinstalleren (herdownloaden)</translation>
     </message>
     <message>
         <source>Reinstall Mod</source>
@@ -5381,6 +5580,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
         <translation>Versie</translation>
     </message>
     <message>
+        <source>Author</source>
+        <translation>Auteur</translation>
+    </message>
+    <message>
         <source>Priority</source>
         <translation>Prioriteit</translation>
     </message>
@@ -5406,6 +5609,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
         <source>Hide separators</source>
         <translation>Scheidingstekens verbergen</translation>
+    </message>
+    <message>
+        <source>More status filters</source>
+        <translation>Meer statusfilters</translation>
     </message>
 </context>
 <context>
@@ -5757,6 +5964,10 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
         <translation>☰ Categorieën</translation>
     </message>
     <message>
+        <source>Custom…</source>
+        <translation>Aangepast</translation>
+    </message>
+    <message>
         <source>Show adult</source>
         <translation>Weergeven voor volwassenen</translation>
     </message>
@@ -5773,12 +5984,24 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
         <translation>Bezig met laden…</translation>
     </message>
     <message>
+        <source>Name</source>
+        <translation>Naam</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>Auteur</translation>
+    </message>
+    <message>
         <source>Search mods…</source>
         <translation>Zoek mods…</translation>
     </message>
     <message>
         <source>Search</source>
         <translation>Zoeken</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Wissen</translation>
     </message>
     <message>
         <source>◂ Prev</source>
@@ -5797,6 +6020,18 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
         <translation>Geen categorieën</translation>
     </message>
     <message>
+        <source>Uploaded since…</source>
+        <translation>Geüpload sinds ..</translation>
+    </message>
+    <message>
+        <source>Since {0}</source>
+        <translation>Sinds {0}</translation>
+    </message>
+    <message>
+        <source>Search by author…</source>
+        <translation>Zoeken op auteur..</translation>
+    </message>
+    <message>
         <source>No Nexus domain for this game.</source>
         <translation>Er is geen Nexus-domein voor dit spel.</translation>
     </message>
@@ -5805,12 +6040,24 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
         <translation>Openen op Nexus</translation>
     </message>
     <message>
+        <source>Cancel download detection</source>
+        <translation>Downloaddetectie annuleren</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Installeren</translation>
     </message>
     <message>
+        <source>Mods by this author</source>
+        <translation>Mods door deze auteur</translation>
+    </message>
+    <message>
         <source>Untrack</source>
         <translation>Niet bijhouden</translation>
+    </message>
+    <message>
+        <source>Track Mod</source>
+        <translation>Nummermodus</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -5820,8 +6067,32 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
 <context>
     <name>NexusFileChooser</name>
     <message>
-        <source>'{0}' has multiple main files.</source>
-        <translation>'{0}' bevat meerdere hoofdbestanden.</translation>
+        <source>Main</source>
+        <translation>Hoofd</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>Optioneel</translation>
+    </message>
+    <message>
+        <source>Misc</source>
+        <translation>Diversen</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>Voornaamste bestanden</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>Optionele bestanden</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>Diverse bestanden</translation>
+    </message>
+    <message>
+        <source>'{0}' has multiple files.</source>
+        <translation>'{0}' heeft meerdere bestanden.</translation>
     </message>
     <message>
         <source>Select which file to install:</source>
@@ -5834,6 +6105,10 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
     <message>
         <source>Install</source>
         <translation>Installeren</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>Geen beschrijving gegeven.</translation>
     </message>
 </context>
 <context>
@@ -5876,6 +6151,10 @@ Per dag: {1}</translation>
         <translation>Bekijken</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Opnieuw installeren</translation>
     </message>
@@ -5889,6 +6168,10 @@ Per dag: {1}</translation>
     <message>
         <source>Note — {0}</source>
         <translation>Opmerking — {0}</translation>
+    </message>
+    <message>
+        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <translation>Markdown wordt ondersteund .</translation>
     </message>
     <message>
         <source>Remove note</source>
@@ -6690,6 +6973,10 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
         <source>Show / hide columns</source>
         <translation>Kolommen weergeven / verbergen</translation>
     </message>
+    <message>
+        <source>Filters</source>
+        <translation>Filters</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -7328,6 +7615,57 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
 </context>
 <context>
+    <name>RequirementsView</name>
+    <message>
+        <source>Requirements</source>
+        <translation>Eisen</translation>
+    </message>
+    <message>
+        <source>Requires</source>
+        <translation>Vereist</translation>
+    </message>
+    <message>
+        <source>Required by</source>
+        <translation>Vereist door</translation>
+    </message>
+    <message>
+        <source>View Missing Requirements</source>
+        <translation>Bekijken Ontbrekende vereisten</translation>
+    </message>
+    <message>
+        <source>Requirements — {0}</source>
+        <translation>Vereisten {0}</translation>
+    </message>
+    <message>
+        <source>Requirements — {0} mods</source>
+        <translation>Vereisten {0} mods</translation>
+    </message>
+    <message>
+        <source>Select one or more mods.</source>
+        <translation>Selecteer een of meer mods.</translation>
+    </message>
+    <message>
+        <source>No Nexus data for the selected mod(s).</source>
+        <translation>Geen Nexus-gegevens voor de geselecteerde mod(s).</translation>
+    </message>
+    <message>
+        <source>No missing requirements for the selected mod(s).</source>
+        <translation>Geen ontbrekende eisen voor de geselecteerde mod(s).</translation>
+    </message>
+    <message>
+        <source>{0}  (not installed)</source>
+        <translation>{0} (niet geïnstalleerd)</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(geen)</translation>
+    </message>
+    <message>
+        <source>Run Check Updates for this data.</source>
+        <translation>Controleer Updates voor deze gegevens.</translation>
+    </message>
+</context>
+<context>
     <name>SDTView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -7897,6 +8235,14 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Mods die via een FOMOD-installatieprogramma zijn geïnstalleerd, behouden hun archief, zelfs als de optie 'Archief na installatie wissen' is ingeschakeld.</translation>
     </message>
     <message>
+        <source>Install new mods disabled</source>
+        <translation>Nieuwe mods installeren uitgeschakeld</translation>
+    </message>
+    <message>
+        <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
+        <translation>Nieuw geïnstalleerde mods starten uitgeschakeld in de modlist in plaats van ingeschakeld. Geldt voor elk installatiepad behalve collectie installaties.</translation>
+    </message>
+    <message>
         <source>Max concurrent downloads</source>
         <translation>Maximaal aantal gelijktijdige downloads</translation>
     </message>
@@ -7907,6 +8253,26 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
     <message>
         <source>Extractions are gated by available memory; the effective number may be lower than set.</source>
         <translation>Het aantal extracties wordt beperkt door de beschikbare geheugencapaciteit; het werkelijke aantal kan lager zijn dan het ingestelde aantal.</translation>
+    </message>
+    <message>
+        <source>Extraction CPU threads</source>
+        <translation>CPU-draden uitpakken</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Alles</translation>
+    </message>
+    <message>
+        <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
+        <translation>CPU draden elke extractie kan gebruiken. 'Alles' is het snelst; een lagere waarde houdt het systeem responsief terwijl grote archieven uitpakken.</translation>
+    </message>
+    <message>
+        <source>Low priority extractions</source>
+        <translation>Extracten met lage prioriteit</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>Uitvoer extracties bij lage CPU en schijf prioriteit, zodat ze geven aan andere toepassingen in plaats van vertragen. De extractiesnelheid wordt niet beïnvloed terwijl het systeem anders inactief is.</translation>
     </message>
     <message>
         <source>Caches</source>
@@ -8316,6 +8682,29 @@ Klik op Gereed om te sluiten.</translation>
     <message>
         <source>Starting Amethyst…</source>
         <translation>Amethist starten..</translation>
+    </message>
+</context>
+<context>
+    <name>StagingExePickerOverlay</name>
+    <message>
+        <source>Add executable from staging</source>
+        <translation>Uitvoerbaar bestand toevoegen vanaf enscenering</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
+        <translation>Controleer de uitvoerbare bestanden om toe te voegen aan het menu Uitvoeren. Tools met een wizard openen hun tovenaar wanneer uitgevoerd.</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Doorzoeken..</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Toevoegen</translation>
     </message>
 </context>
 <context>
@@ -9640,6 +10029,281 @@ of gebruik ‘Bladeren’ om het handmatig te selecteren.</translation>
     </message>
 </context>
 <context>
+    <name>ThemePreviewPanel</name>
+    <message>
+        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>Voorbeeld bij benadering; gebruik "Restart to apply" om het thema in de hele app te zien.</translation>
+    </message>
+    <message>
+        <source>Header &amp; tabs</source>
+        <translation>Berichtkop &amp; tabbladen</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>Profielen</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Vernieuwen</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Opslaan</translation>
+    </message>
+    <message>
+        <source>▶ Play</source>
+        <translation>Afspelen</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Mods</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Plug-ins</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Gegevens</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>Modlijst</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>Naam van de mod</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Opmerkingen</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>Overschrijven</translation>
+    </message>
+    <message>
+        <source>Root Folder</source>
+        <translation>Hoofdmap</translation>
+    </message>
+    <message>
+        <source>— Gameplay —</source>
+        <translation>Gameplay</translation>
+    </message>
+    <message>
+        <source>Unofficial Patch</source>
+        <translation>Onofficiële patch</translation>
+    </message>
+    <message>
+        <source>Selected mod</source>
+        <translation>Geselecteerde bewerking</translation>
+    </message>
+    <message>
+        <source>Wins over selection</source>
+        <translation>Wint boven selectie</translation>
+    </message>
+    <message>
+        <source>conflict</source>
+        <translation>conflict</translation>
+    </message>
+    <message>
+        <source>Loses to selection</source>
+        <translation>Verliest aan selectie</translation>
+    </message>
+    <message>
+        <source>Plugin's mod</source>
+        <translation>Plugin-mod</translation>
+    </message>
+    <message>
+        <source>anchor</source>
+        <translation>anker</translation>
+    </message>
+    <message>
+        <source>Required by selection</source>
+        <translation>Vereist door selectie</translation>
+    </message>
+    <message>
+        <source>requirement</source>
+        <translation>eis</translation>
+    </message>
+    <message>
+        <source>Requires selection</source>
+        <translation>Vereist selectie</translation>
+    </message>
+    <message>
+        <source>Textures folder</source>
+        <translation>Textuurmap</translation>
+    </message>
+    <message>
+        <source>Archive.bsa</source>
+        <translation>Archief.bsa</translation>
+    </message>
+    <message>
+        <source>Profile.ini</source>
+        <translation>Profiel.ini</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Geïnstalleerd</translation>
+    </message>
+    <message>
+        <source>Unordered plugin</source>
+        <translation>Plugin zonder bestelling</translation>
+    </message>
+    <message>
+        <source>Plugins &amp; files</source>
+        <translation>Plugins &amp; bestanden</translation>
+    </message>
+    <message>
+        <source>✔  SKSE Installed</source>
+        <translation>Geïnstalleerd SKSE</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not deployed</source>
+        <translation>● SKSE aanwezig in modlist maar niet ingezet</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not enabled</source>
+        <translation>● SKSE aanwezig in modlist maar niet ingeschakeld</translation>
+    </message>
+    <message>
+        <source>✘  SKSE Not Present</source>
+        <translation>SKSE niet aanwezig</translation>
+    </message>
+    <message>
+        <source>Cycle detected among pinned plugins</source>
+        <translation>Cyclus gedetecteerd tussen gepinde plugins</translation>
+    </message>
+    <message>
+        <source>Cycle resolved</source>
+        <translation>Cyclus opgelost</translation>
+    </message>
+    <message>
+        <source>Flipping this rule resolves the cycle</source>
+        <translation>Deze regel omdraaien lost de cyclus op</translation>
+    </message>
+    <message>
+        <source>load before</source>
+        <translation>belasting vóór</translation>
+    </message>
+    <message>
+        <source>load after</source>
+        <translation>belasting na</translation>
+    </message>
+    <message>
+        <source>winning file</source>
+        <translation>winnend bestand</translation>
+    </message>
+    <message>
+        <source>overridden file</source>
+        <translation>bestand wordt overschreven</translation>
+    </message>
+    <message>
+        <source>inactive file</source>
+        <translation>inactief bestand</translation>
+    </message>
+    <message>
+        <source>anchor file</source>
+        <translation>ankerbestand</translation>
+    </message>
+    <message>
+        <source>Drag selection outline</source>
+        <translation>Sleep selectie overzicht</translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation>Knoppen</translation>
+    </message>
+    <message>
+        <source>Hover a button to preview its hover colour.</source>
+        <translation>Klik op een knop om de zweefkleur te bekijken.</translation>
+    </message>
+    <message>
+        <source>Inputs &amp; scrollbar</source>
+        <translation>Schuifbalk invoeren</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Doorzoeken..</translation>
+    </message>
+    <message>
+        <source>Default profile</source>
+        <translation>Standaardprofiel</translation>
+    </message>
+    <message>
+        <source>Testing</source>
+        <translation>Testen</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Ingeschakeld</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Uitgeschakeld</translation>
+    </message>
+    <message>
+        <source>Selected option</source>
+        <translation>Geselecteerde optie</translation>
+    </message>
+    <message>
+        <source>List row {0}</source>
+        <translation>Lijst rij {0}</translation>
+    </message>
+    <message>
+        <source>Cards, toasts &amp; progress</source>
+        <translation>Kaarten, toasten &amp; voortgang</translation>
+    </message>
+    <message>
+        <source>Card title</source>
+        <translation>Kaarttitel</translation>
+    </message>
+    <message>
+        <source>Card detail text</source>
+        <translation>Kaart detail tekst</translation>
+    </message>
+    <message>
+        <source>Card secondary text</source>
+        <translation>Tweede kaarttekst</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>Informatie</translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation>Succes</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>Waarschuwing</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Fout</translation>
+    </message>
+    <message>
+        <source>Required mod</source>
+        <translation>Vereiste mod</translation>
+    </message>
+    <message>
+        <source>Optional mod</source>
+        <translation>Optionele mod</translation>
+    </message>
+    <message>
+        <source>Status badges</source>
+        <translation>Statusbadges</translation>
+    </message>
+    <message>
+        <source>Deployed</source>
+        <translation>Uitgezet</translation>
+    </message>
+    <message>
+        <source>Text &amp; tones</source>
+        <translation>Tekst &amp; tonen</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -10244,6 +10908,14 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     <message>
         <source>No description provided.</source>
         <translation>Geen beschrijving gegeven.</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>Negeren</translation>
+    </message>
+    <message>
+        <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
+        <translation>Tel deze eis niet mee naar de ontbrekende vlag. Het blijft hier staan zodat je het kunt negeren.</translation>
     </message>
     <message>
         <source>View</source>

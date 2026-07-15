@@ -666,6 +666,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <source>Install</source>
         <translation>Установить</translation>
     </message>
+    <message>
+        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <translation>В ожидании загрузки браузера «{0}» — нажмите «Отменить», чтобы остановиться.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Waiting for the browser download — {0} / {1}</source>
+        <translation>Ожидание загрузки браузера — {0} / {1}</translation>
+    </message>
 </context>
 <context>
     <name>CollectionCard</name>
@@ -904,6 +916,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
         <source>Collections</source>
         <translation>Коллекции</translation>
+    </message>
+    <message>
+        <source>Most downloaded</source>
+        <translation>Большинство загруженных</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>Сорт:</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>Показать контент для взрослых</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -1596,6 +1620,18 @@ Close it when you are done, then click Done.</source>
         <translation>Создать пользовательскую игру</translation>
     </message>
     <message>
+        <source>Load Preset  (optional)</source>
+        <translation>Load Preset (необязательно)</translation>
+    </message>
+    <message>
+        <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
+        <translation>Заселите поля ниже из существующей пользовательской игры в качестве исходного шаблона. Вы должны дать новой игре свое уникальное имя.</translation>
+    </message>
+    <message>
+        <source>— Select a game to copy from —</source>
+        <translation>Выберите игру для копирования из..</translation>
+    </message>
+    <message>
         <source>Game Name</source>
         <translation>Название игры</translation>
     </message>
@@ -1864,6 +1900,17 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Deployed files - {0} files in {1} mods</source>
         <translation>Размещенные файлы — файлы из «{0}» в модах «{1}»</translation>
+    </message>
+</context>
+<context>
+    <name>DatePickerOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>Хорошо</translation>
     </message>
 </context>
 <context>
@@ -2504,6 +2551,22 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>например, PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</translation>
     </message>
     <message>
+        <source>Deploy on run</source>
+        <translation>Развернуть в бегах</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist before running this exe</source>
+        <translation>Разверните модуль перед запуском этого exe</translation>
+    </message>
+    <message>
+        <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
+        <translation>Запускает то же развертывание, что и кнопка «Развернуть», а затем запускает этот exe после завершения развертывания.</translation>
+    </message>
+    <message>
+        <source>Hide from dropdown</source>
+        <translation>Скрыться от выпадения</translation>
+    </message>
+    <message>
         <source>Remove EXE</source>
         <translation>Удалить EXE</translation>
     </message>
@@ -2782,6 +2845,10 @@ Click Done to clean up the extracted files and close.</source>
     <message>
         <source>By category</source>
         <translation>По категориям</translation>
+    </message>
+    <message>
+        <source>By author</source>
+        <translation>Автор</translation>
     </message>
     <message>
         <source>By file type</source>
@@ -3711,6 +3778,26 @@ SHA-1: {1}
         <translation>Имя файла плагина</translation>
     </message>
     <message>
+        <source>{0} and {1} more</source>
+        <translation>{0} и {1} больше</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
+        <translation>Обработчик не смог загрузить игру ({0}). Пострадавшие игры скрыты, но ваши моды в безопасности — смотрите журнал.</translation>
+    </message>
+    <message>
+        <source>Installing 32-bit support (needed to run Windows tools) …</source>
+        <translation>Установка 32-разрядной поддержки (необходимой для запуска инструментов Windows)</translation>
+    </message>
+    <message>
+        <source>32-bit support installed — restart the app before running Windows tools.</source>
+        <translation>Установлена 32-разрядная поддержка — перезагрузите приложение перед запуском инструментов Windows.</translation>
+    </message>
+    <message>
+        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
+        <translation>Не удалось установить 32-разрядную поддержку автоматически — см. журнал для ручной команды.</translation>
+    </message>
+    <message>
         <source>Install-name Rules</source>
         <translation>Правила именования установок</translation>
     </message>
@@ -4131,6 +4218,26 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Повторная установка модификаций «{0}»; установка «{1}» пропущена (архив не найден).</translation>
     </message>
     <message>
+        <source>Reinstall — redownloading {0} mod(s)…</source>
+        <translation>Reinstall — перезагрузка {0} mod(s)</translation>
+    </message>
+    <message>
+        <source>Redownloading {0} mod(s)…</source>
+        <translation>Перезагрузка {0} mod(s)</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Переустановить</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
+        <translation>Reinstall: {0} mod(s) не может быть перезагружен — см. журнал.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
+        <translation>Redownloaded {0} mod(s); {1} failed — см. журнал.</translation>
+    </message>
+    <message>
         <source>A Quick Update is already running.</source>
         <translation>«Быстрое обновление» уже запущено.</translation>
     </message>
@@ -4201,6 +4308,10 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>Missing Requirements</source>
         <translation>Отсутствующие требования</translation>
+    </message>
+    <message>
+        <source>View Requirements</source>
+        <translation>Посмотреть Требования</translation>
     </message>
     <message>
         <source>Conflicts: {0}</source>
@@ -4379,6 +4490,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>▶  Запустить</translation>
     </message>
     <message>
+        <source>No executables found in staging.</source>
+        <translation>Никаких исполняемых файлов не найдено.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Исполняемый файл не найден: {0}</translation>
     </message>
@@ -4387,12 +4502,20 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Настройки: {0}</translation>
     </message>
     <message>
+        <source>Could not build launch command: {0}</source>
+        <translation>Не удалось создать команду запуска {0}</translation>
+    </message>
+    <message>
         <source>'{0}' does not support deployment.</source>
         <translation>«{0}» не поддерживает развертывание.</translation>
     </message>
     <message>
         <source>Deploying {0}…</source>
         <translation>Развертывание службы «{0}»…</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
+        <translation>Премиум, необходимый для перезагрузки. Открыл страницу (ы) загрузки {0} - они будут переустанавливаться автоматически после загрузки.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -4779,6 +4902,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} перекрывает плагин (плагины) {1} — выделен в списке</translation>
     </message>
     <message>
+        <source>+ Add exe from staging…</source>
+        <translation>+ Добавить exe из постановки ..</translation>
+    </message>
+    <message>
         <source>Plugins</source>
         <translation>Плагины</translation>
     </message>
@@ -4999,6 +5126,70 @@ CET не будет загружаться из symlinked asi. Это проис
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Рекомендую Amethyst Mod Manager…</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsDeployChoiceOverlay</name>
+    <message>
+        <source>Mewgenics — Deploy method</source>
+        <translation>Mewgenics — метод развертывания</translation>
+    </message>
+    <message>
+        <source>Steam launch command  (Safer / Recommended)</source>
+        <translation>Команда запуска Steam (Safer / Recommended)</translation>
+    </message>
+    <message>
+        <source>Generates a launch script for Steam. Set it once in Launch Options (no repack).</source>
+        <translation>Создает сценарий запуска для Steam. Установите его один раз в параметрах запуска (без переупаковки).</translation>
+    </message>
+    <message>
+        <source>Repack gpak  (No command needed / not recommended)</source>
+        <translation>Repack gpak (не требуется / не рекомендуется)</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak, merge mods, repack.</source>
+        <translation>Распаковать resources.gpak, слить мод, перепаковать.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsLaunchCommandOverlay</name>
+    <message>
+        <source>Mewgenics — Steam / Lutris launch command</source>
+        <translation>Mewgenics — команда запуска Steam / Lutris</translation>
+    </message>
+    <message>
+        <source>Paste this into Steam Launch Options (Properties → General):</source>
+        <translation>Вставьте это в параметры запуска Steam (Свойства → Общие):</translation>
+    </message>
+    <message>
+        <source>Script written to:
+{0}
+
+Update this whenever you change your mod list.</source>
+        <translation>Сценарий написан для:
+{0}X
+
+Обновляйте это каждый раз, когда вы меняете свой список модов.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Скопировать в буфер обмена</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Скопировано ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed — copy it manually</source>
+        <translation>Копировать не удалось — копировать вручную</translation>
     </message>
 </context>
 <context>
@@ -5226,6 +5417,10 @@ How would you like to handle the existing mod?</source>
         <translation>Отсутствующие требования ({0})</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>Посмотреть Требования</translation>
+    </message>
+    <message>
         <source>Mod name:</source>
         <translation>Название мод:</translation>
     </message>
@@ -5276,6 +5471,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Reinstall ({0})</source>
         <translation>Переустановить ({0})</translation>
+    </message>
+    <message>
+        <source>Reinstall (Redownload)</source>
+        <translation>Reinstall (Redownload)</translation>
     </message>
     <message>
         <source>Reinstall Mod</source>
@@ -5381,6 +5580,10 @@ How would you like to handle the existing mod?</source>
         <translation>Версия</translation>
     </message>
     <message>
+        <source>Author</source>
+        <translation>Автор</translation>
+    </message>
+    <message>
         <source>Priority</source>
         <translation>Приоритет</translation>
     </message>
@@ -5406,6 +5609,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Hide separators</source>
         <translation>Скрыть разделители</translation>
+    </message>
+    <message>
+        <source>More status filters</source>
+        <translation>Больше фильтров состояния</translation>
     </message>
 </context>
 <context>
@@ -5757,6 +5964,10 @@ or an encrypted file when no keyring is available).</source>
         <translation>☰ Категории</translation>
     </message>
     <message>
+        <source>Custom…</source>
+        <translation>Пользователь..</translation>
+    </message>
+    <message>
         <source>Show adult</source>
         <translation>Показать контент для взрослых</translation>
     </message>
@@ -5773,12 +5984,24 @@ or an encrypted file when no keyring is available).</source>
         <translation>Загрузка…</translation>
     </message>
     <message>
+        <source>Name</source>
+        <translation>Имя</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>Автор</translation>
+    </message>
+    <message>
         <source>Search mods…</source>
         <translation>Поиск модов…</translation>
     </message>
     <message>
         <source>Search</source>
         <translation>Поиск</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
     </message>
     <message>
         <source>◂ Prev</source>
@@ -5797,6 +6020,18 @@ or an encrypted file when no keyring is available).</source>
         <translation>Категорий нет</translation>
     </message>
     <message>
+        <source>Uploaded since…</source>
+        <translation>Загруженный с тех пор..</translation>
+    </message>
+    <message>
+        <source>Since {0}</source>
+        <translation>Смартфон {0}</translation>
+    </message>
+    <message>
+        <source>Search by author…</source>
+        <translation>Поиск автора..</translation>
+    </message>
+    <message>
         <source>No Nexus domain for this game.</source>
         <translation>Для этой игры нет домена Nexus.</translation>
     </message>
@@ -5805,12 +6040,24 @@ or an encrypted file when no keyring is available).</source>
         <translation>Открыть в Nexus</translation>
     </message>
     <message>
+        <source>Cancel download detection</source>
+        <translation>Отменить обнаружение загрузки</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Установить</translation>
     </message>
     <message>
+        <source>Mods by this author</source>
+        <translation>Моды этого автора</translation>
+    </message>
+    <message>
         <source>Untrack</source>
         <translation>Отменить отслеживание</translation>
+    </message>
+    <message>
+        <source>Track Mod</source>
+        <translation>Трек мод</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -5820,8 +6067,32 @@ or an encrypted file when no keyring is available).</source>
 <context>
     <name>NexusFileChooser</name>
     <message>
-        <source>'{0}' has multiple main files.</source>
-        <translation>В «{0}» есть несколько основных файлов.</translation>
+        <source>Main</source>
+        <translation>Главный</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>Необязательно</translation>
+    </message>
+    <message>
+        <source>Misc</source>
+        <translation>Миск</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>Основные файлы</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>Дополнительные файлы</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>Разные файлы</translation>
+    </message>
+    <message>
+        <source>'{0}' has multiple files.</source>
+        <translation>{0} имеет несколько файлов.</translation>
     </message>
     <message>
         <source>Select which file to install:</source>
@@ -5834,6 +6105,10 @@ or an encrypted file when no keyring is available).</source>
     <message>
         <source>Install</source>
         <translation>Установить</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>Никакого описания.</translation>
     </message>
 </context>
 <context>
@@ -5876,6 +6151,10 @@ Daily: {1}</source>
         <translation>Просмотр</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Переустановить</translation>
     </message>
@@ -5889,6 +6168,10 @@ Daily: {1}</source>
     <message>
         <source>Note — {0}</source>
         <translation>Примечание — {0}</translation>
+    </message>
+    <message>
+        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <translation>Markdown поддерживается — он отображается в подсказке ноты.</translation>
     </message>
     <message>
         <source>Remove note</source>
@@ -6690,6 +6973,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <source>Show / hide columns</source>
         <translation>Показать / скрыть столбцы</translation>
     </message>
+    <message>
+        <source>Filters</source>
+        <translation>Фильтры</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -7328,6 +7615,57 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>RequirementsView</name>
+    <message>
+        <source>Requirements</source>
+        <translation>Требования</translation>
+    </message>
+    <message>
+        <source>Requires</source>
+        <translation>Требования</translation>
+    </message>
+    <message>
+        <source>Required by</source>
+        <translation>Требуемый</translation>
+    </message>
+    <message>
+        <source>View Missing Requirements</source>
+        <translation>Пропущенные требования</translation>
+    </message>
+    <message>
+        <source>Requirements — {0}</source>
+        <translation>Требования: {0}</translation>
+    </message>
+    <message>
+        <source>Requirements — {0} mods</source>
+        <translation>Требования - Моды {0}</translation>
+    </message>
+    <message>
+        <source>Select one or more mods.</source>
+        <translation>Выберите один или несколько модов.</translation>
+    </message>
+    <message>
+        <source>No Nexus data for the selected mod(s).</source>
+        <translation>Нет данных Nexus для выбранного мода(ов).</translation>
+    </message>
+    <message>
+        <source>No missing requirements for the selected mod(s).</source>
+        <translation>Отсутствие отсутствующих требований к выбранному моду(ам).</translation>
+    </message>
+    <message>
+        <source>{0}  (not installed)</source>
+        <translation>{0} (не установлен)</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(нет)</translation>
+    </message>
+    <message>
+        <source>Run Check Updates for this data.</source>
+        <translation>Проверьте обновления для этих данных.</translation>
+    </message>
+</context>
+<context>
     <name>SDTView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -7897,6 +8235,14 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Модификации, установленные с помощью установщика FOMOD, сохраняют свой архив даже при включенной опции «Очистить архив после установки».</translation>
     </message>
     <message>
+        <source>Install new mods disabled</source>
+        <translation>Установка новых модов отключена</translation>
+    </message>
+    <message>
+        <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
+        <translation>Недавно установленные моды отключаются в модлисте вместо включенных. Применяется к каждому пути установки, кроме сборных установок.</translation>
+    </message>
+    <message>
         <source>Max concurrent downloads</source>
         <translation>Максимальное количество одновременных загрузок</translation>
     </message>
@@ -7907,6 +8253,26 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Extractions are gated by available memory; the effective number may be lower than set.</source>
         <translation>Выполнение извлечений ограничивается объемом доступной памяти; фактическое количество может оказаться меньше заданного.</translation>
+    </message>
+    <message>
+        <source>Extraction CPU threads</source>
+        <translation>Извлечение потоков CPU</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Все</translation>
+    </message>
+    <message>
+        <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
+        <translation>Нити CPU может использовать каждое извлечение. «Все» быстрее; более низкое значение поддерживает отзывчивость системы при извлечении больших архивов.</translation>
+    </message>
+    <message>
+        <source>Low priority extractions</source>
+        <translation>Низкий приоритет добычи</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>Запускайте извлечения с низким приоритетом процессора и диска, чтобы они уступали другим приложениям, а не замедляли их. Скорость извлечения не влияет, в то время как система в противном случае простаивает.</translation>
     </message>
     <message>
         <source>Caches</source>
@@ -8316,6 +8682,29 @@ Click Done to close.</source>
     <message>
         <source>Starting Amethyst…</source>
         <translation>Начинается аметист..</translation>
+    </message>
+</context>
+<context>
+    <name>StagingExePickerOverlay</name>
+    <message>
+        <source>Add executable from staging</source>
+        <translation>Добавить исполняемый от постановки</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
+        <translation>Проверьте исполняемые файлы, чтобы добавить в меню Run. Волшебники открывают свои двери перед колдуном.</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Поиск..</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Добавить</translation>
     </message>
 </context>
 <context>
@@ -9640,6 +10029,281 @@ or use Browse to select it manually.</source>
     </message>
 </context>
 <context>
+    <name>ThemePreviewPanel</name>
+    <message>
+        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>Предварительный просмотр — приблизительный; используйте «Restart to apply», чтобы увидеть тему во всем приложении.</translation>
+    </message>
+    <message>
+        <source>Header &amp; tabs</source>
+        <translation>Заголовок и вкладки</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>Профили</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Обновить</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Сохранить</translation>
+    </message>
+    <message>
+        <source>▶ Play</source>
+        <translation>▶ Играть</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Модификации</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Плагины</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Данные</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>Список мод</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>Название мода</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Заметки</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>Перезаписывать</translation>
+    </message>
+    <message>
+        <source>Root Folder</source>
+        <translation>Корневая папка</translation>
+    </message>
+    <message>
+        <source>— Gameplay —</source>
+        <translation>- Геймплей -</translation>
+    </message>
+    <message>
+        <source>Unofficial Patch</source>
+        <translation>Неофициальный патч</translation>
+    </message>
+    <message>
+        <source>Selected mod</source>
+        <translation>Выбранный мод</translation>
+    </message>
+    <message>
+        <source>Wins over selection</source>
+        <translation>Победа над отбором</translation>
+    </message>
+    <message>
+        <source>conflict</source>
+        <translation>конфликт</translation>
+    </message>
+    <message>
+        <source>Loses to selection</source>
+        <translation>Утрата выбора</translation>
+    </message>
+    <message>
+        <source>Plugin's mod</source>
+        <translation>Мод Plugin</translation>
+    </message>
+    <message>
+        <source>anchor</source>
+        <translation>якорь</translation>
+    </message>
+    <message>
+        <source>Required by selection</source>
+        <translation>Требуется путем отбора</translation>
+    </message>
+    <message>
+        <source>requirement</source>
+        <translation>требование</translation>
+    </message>
+    <message>
+        <source>Requires selection</source>
+        <translation>Требуется выбор</translation>
+    </message>
+    <message>
+        <source>Textures folder</source>
+        <translation>Текстурная папка</translation>
+    </message>
+    <message>
+        <source>Archive.bsa</source>
+        <translation>Архив.bsa</translation>
+    </message>
+    <message>
+        <source>Profile.ini</source>
+        <translation>Профиль.ini</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Установлено</translation>
+    </message>
+    <message>
+        <source>Unordered plugin</source>
+        <translation>Неупорядоченный плагин</translation>
+    </message>
+    <message>
+        <source>Plugins &amp; files</source>
+        <translation>Плагины и файлы</translation>
+    </message>
+    <message>
+        <source>✔  SKSE Installed</source>
+        <translation>SKSE установлена</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not deployed</source>
+        <translation>SKSE присутствует в модлисте, но не развернут</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not enabled</source>
+        <translation>SKSE присутствует в модлисте, но не включен</translation>
+    </message>
+    <message>
+        <source>✘  SKSE Not Present</source>
+        <translation>SKSE не присутствует</translation>
+    </message>
+    <message>
+        <source>Cycle detected among pinned plugins</source>
+        <translation>Цикл обнаружен среди подключаемых плагинов</translation>
+    </message>
+    <message>
+        <source>Cycle resolved</source>
+        <translation>Цикл решен</translation>
+    </message>
+    <message>
+        <source>Flipping this rule resolves the cycle</source>
+        <translation>Перевернуть это правило решает цикл</translation>
+    </message>
+    <message>
+        <source>load before</source>
+        <translation>грузить перед</translation>
+    </message>
+    <message>
+        <source>load after</source>
+        <translation>груз после</translation>
+    </message>
+    <message>
+        <source>winning file</source>
+        <translation>выигрышный файл</translation>
+    </message>
+    <message>
+        <source>overridden file</source>
+        <translation>перегруженный файл</translation>
+    </message>
+    <message>
+        <source>inactive file</source>
+        <translation>неактивный файл</translation>
+    </message>
+    <message>
+        <source>anchor file</source>
+        <translation>якорный файл</translation>
+    </message>
+    <message>
+        <source>Drag selection outline</source>
+        <translation>Схема выбора тангажа</translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation>Кнопки</translation>
+    </message>
+    <message>
+        <source>Hover a button to preview its hover colour.</source>
+        <translation>Наведите кнопку, чтобы просмотреть его цвет наведения.</translation>
+    </message>
+    <message>
+        <source>Inputs &amp; scrollbar</source>
+        <translation>Ввод и прокрутка</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Поиск..</translation>
+    </message>
+    <message>
+        <source>Default profile</source>
+        <translation>Профиль по умолчанию</translation>
+    </message>
+    <message>
+        <source>Testing</source>
+        <translation>Испытание</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Включенный</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Инвалид</translation>
+    </message>
+    <message>
+        <source>Selected option</source>
+        <translation>Выбранный вариант</translation>
+    </message>
+    <message>
+        <source>List row {0}</source>
+        <translation>Список строк {0}</translation>
+    </message>
+    <message>
+        <source>Cards, toasts &amp; progress</source>
+        <translation>Карты, тосты и прогресс</translation>
+    </message>
+    <message>
+        <source>Card title</source>
+        <translation>Название карты</translation>
+    </message>
+    <message>
+        <source>Card detail text</source>
+        <translation>Подробный текст карты</translation>
+    </message>
+    <message>
+        <source>Card secondary text</source>
+        <translation>Вторичный текст карточки</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>Информация</translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation>Успех</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>Предупреждение</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Ошибка</translation>
+    </message>
+    <message>
+        <source>Required mod</source>
+        <translation>Требуемый мод</translation>
+    </message>
+    <message>
+        <source>Optional mod</source>
+        <translation>Необязательный мод</translation>
+    </message>
+    <message>
+        <source>Status badges</source>
+        <translation>Значки состояния</translation>
+    </message>
+    <message>
+        <source>Deployed</source>
+        <translation>Развернутый</translation>
+    </message>
+    <message>
+        <source>Text &amp; tones</source>
+        <translation>Текст и тона</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -10244,6 +10908,14 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>No description provided.</source>
         <translation>Никакого описания.</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>Игнорировать</translation>
+    </message>
+    <message>
+        <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
+        <translation>Не учитывайте это требование в отношении флага недостающих требований. Он остается в списке здесь, так что вы можете отказаться от него.</translation>
     </message>
     <message>
         <source>View</source>

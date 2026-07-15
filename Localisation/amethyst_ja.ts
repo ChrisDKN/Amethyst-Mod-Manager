@@ -666,6 +666,18 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <source>Install</source>
         <translation>インストール</translation>
     </message>
+    <message>
+        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <translation>「{0}」のブラウザのダウンロードを待ってから、「キャンセル」をクリックします.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Waiting for the browser download — {0} / {1}</source>
+        <translation>ブラウザのダウンロード待ち - {0} / {1}</translation>
+    </message>
 </context>
 <context>
     <name>CollectionCard</name>
@@ -904,6 +916,18 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
     <message>
         <source>Collections</source>
         <translation>コレクション</translation>
+    </message>
+    <message>
+        <source>Most downloaded</source>
+        <translation>ダウンロード</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>ソート:</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>成人向けを表示</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -1596,6 +1620,18 @@ Close it when you are done, then click Done.</source>
         <translation>カスタムゲームの設定</translation>
     </message>
     <message>
+        <source>Load Preset  (optional)</source>
+        <translation>負荷事前調整(任意)</translation>
+    </message>
+    <message>
+        <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
+        <translation>既存のカスタムゲームから下のフィールドを先頭テンプレートとして表示します。 新しいゲームに独自の名前を付ける必要があります.</translation>
+    </message>
+    <message>
+        <source>— Select a game to copy from —</source>
+        <translation>— コピーするゲームを選択 —</translation>
+    </message>
+    <message>
         <source>Game Name</source>
         <translation>ゲーム名</translation>
     </message>
@@ -1864,6 +1900,17 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Deployed files - {0} files in {1} mods</source>
         <translation>デプロイされたファイル - {1} 個のMod内の {0} 個のファイル</translation>
+    </message>
+</context>
+<context>
+    <name>DatePickerOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
     </message>
 </context>
 <context>
@@ -2504,6 +2551,22 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
         <translation>例：PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</translation>
     </message>
     <message>
+        <source>Deploy on run</source>
+        <translation>実行上の展開</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist before running this exe</source>
+        <translation>この実行を実行する前にモダリストを展開する</translation>
+    </message>
+    <message>
+        <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
+        <translation>デプロイボタンと同じデプロイを実行し、デプロイが完了したらこの実行を起動します.</translation>
+    </message>
+    <message>
+        <source>Hide from dropdown</source>
+        <translation>ドロップダウンから非表示</translation>
+    </message>
+    <message>
         <source>Remove EXE</source>
         <translation>EXEを削除</translation>
     </message>
@@ -2782,6 +2845,10 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
     <message>
         <source>By category</source>
         <translation>カテゴリー別</translation>
+    </message>
+    <message>
+        <source>By author</source>
+        <translation>著者による</translation>
     </message>
     <message>
         <source>By file type</source>
@@ -3711,6 +3778,26 @@ SHA-1:{1}
         <translation>プラグインのファイル名</translation>
     </message>
     <message>
+        <source>{0} and {1} more</source>
+        <translation>{0} と {1} 以上</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
+        <translation>ゲームハンドラがロードできなかった({0})。 感染したゲームは隠されていますが、あなたのMODは安全です - ログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Installing 32-bit support (needed to run Windows tools) …</source>
+        <translation>32ビットサポートのインストール(Windowsツールを実行するために必要)..</translation>
+    </message>
+    <message>
+        <source>32-bit support installed — restart the app before running Windows tools.</source>
+        <translation>32ビットのサポートがインストールされ、Windowsツールを実行する前にアプリを再起動します.</translation>
+    </message>
+    <message>
+        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
+        <translation>32ビットのサポートを自動的にインストールできません。マニュアルコマンドのログを参照してください.</translation>
+    </message>
+    <message>
         <source>Install-name Rules</source>
         <translation>Install-name のルール</translation>
     </message>
@@ -4131,6 +4218,26 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0}のMODを再インストール中。{1}はスキップされました（アーカイブが見つかりませんでした）。</translation>
     </message>
     <message>
+        <source>Reinstall — redownloading {0} mod(s)…</source>
+        <translation>再インストール — {0} mod(s) を再ダウンロード..</translation>
+    </message>
+    <message>
+        <source>Redownloading {0} mod(s)…</source>
+        <translation>{0} mod(s) をダウンロード..</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>再インストール</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
+        <translation>再インストール:{0} mod(s) は再ダウンロードできませんでした。ログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
+        <translation>{0} mod(s); {1} が失敗しました。ログを参照してください.</translation>
+    </message>
+    <message>
         <source>A Quick Update is already running.</source>
         <translation>「クイックアップデート」はすでに実行中です。</translation>
     </message>
@@ -4201,6 +4308,10 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>Missing Requirements</source>
         <translation>不足している要件</translation>
+    </message>
+    <message>
+        <source>View Requirements</source>
+        <translation>要件を見る</translation>
     </message>
     <message>
         <source>Conflicts: {0}</source>
@@ -4379,6 +4490,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>▶  実行</translation>
     </message>
     <message>
+        <source>No executables found in staging.</source>
+        <translation>ステージングでは実行できません.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>実行ファイルが見つかりません：{0}</translation>
     </message>
@@ -4387,12 +4502,20 @@ Download and install them manually — the links are in the collection page's "O
         <translation>設定：{0}</translation>
     </message>
     <message>
+        <source>Could not build launch command: {0}</source>
+        <translation>起動コマンドはビルドできません。{0}</translation>
+    </message>
+    <message>
         <source>'{0}' does not support deployment.</source>
         <translation>「{0}」はデプロイに対応していません。</translation>
     </message>
     <message>
         <source>Deploying {0}…</source>
         <translation>{0} の展開中…</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
+        <translation>再ダウンロードに必要なプレミアム。 {0}のダウンロードページを開く — 一度ダウンロードすると自動的に再インストールされます.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -4779,6 +4902,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} が {1} プラグインをオーバーラップ — リストでハイライト</translation>
     </message>
     <message>
+        <source>+ Add exe from staging…</source>
+        <translation>+ ステージングからexeを追加..</translation>
+    </message>
+    <message>
         <source>Plugins</source>
         <translation>プラグイン</translation>
     </message>
@@ -4999,6 +5126,70 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Amethyst Mod Managerを推奨…</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsDeployChoiceOverlay</name>
+    <message>
+        <source>Mewgenics — Deploy method</source>
+        <translation>Mewgenics — デプロイ方法</translation>
+    </message>
+    <message>
+        <source>Steam launch command  (Safer / Recommended)</source>
+        <translation>蒸気起動コマンド(安全・推奨)</translation>
+    </message>
+    <message>
+        <source>Generates a launch script for Steam. Set it once in Launch Options (no repack).</source>
+        <translation>Steam 用の起動スクリプトを生成します。 起動オプション(リパックなし)に一度設定します.</translation>
+    </message>
+    <message>
+        <source>Repack gpak  (No command needed / not recommended)</source>
+        <translation>Repack gpak(コマンド不要/推奨しない)</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak, merge mods, repack.</source>
+        <translation>Unpack Resource.gpak、mods をマージし、再パックします.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsLaunchCommandOverlay</name>
+    <message>
+        <source>Mewgenics — Steam / Lutris launch command</source>
+        <translation>Mewgenics — Steam / Lutris 起動コマンド</translation>
+    </message>
+    <message>
+        <source>Paste this into Steam Launch Options (Properties → General):</source>
+        <translation>これをスチーム起動オプションに貼り付ける(プロパティ → 一般):</translation>
+    </message>
+    <message>
+        <source>Script written to:
+{0}
+
+Update this whenever you change your mod list.</source>
+        <translation>スクリプト:
+{0}の
+
+変更時に更新してください.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>クリップボードにコピー</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>コピー済み ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed — copy it manually</source>
+        <translation>失敗コピー — 手動でコピーする</translation>
     </message>
 </context>
 <context>
@@ -5226,6 +5417,10 @@ How would you like to handle the existing mod?</source>
         <translation>要件の欠落（{0}）</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>要件を見る</translation>
+    </message>
+    <message>
         <source>Mod name:</source>
         <translation>Mod の名前:</translation>
     </message>
@@ -5276,6 +5471,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Reinstall ({0})</source>
         <translation>再インストール（{0}）</translation>
+    </message>
+    <message>
+        <source>Reinstall (Redownload)</source>
+        <translation>再インストール(再ダウンロード)</translation>
     </message>
     <message>
         <source>Reinstall Mod</source>
@@ -5381,6 +5580,10 @@ How would you like to handle the existing mod?</source>
         <translation>バージョン</translation>
     </message>
     <message>
+        <source>Author</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
         <source>Priority</source>
         <translation>優先順位</translation>
     </message>
@@ -5406,6 +5609,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Hide separators</source>
         <translation>区切り記号を非表示にする</translation>
+    </message>
+    <message>
+        <source>More status filters</source>
+        <translation>ステータスフィルタ</translation>
     </message>
 </context>
 <context>
@@ -5757,6 +5964,10 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>☰ カテゴリ</translation>
     </message>
     <message>
+        <source>Custom…</source>
+        <translation>カスタム..</translation>
+    </message>
+    <message>
         <source>Show adult</source>
         <translation>成人向けを表示</translation>
     </message>
@@ -5773,12 +5984,24 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>読み込み中…</translation>
     </message>
     <message>
+        <source>Name</source>
+        <translation>お名前 (必須)</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
         <source>Search mods…</source>
         <translation>MODを検索…</translation>
     </message>
     <message>
         <source>Search</source>
         <translation>検索</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>クリア</translation>
     </message>
     <message>
         <source>◂ Prev</source>
@@ -5797,6 +6020,18 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>カテゴリなし</translation>
     </message>
     <message>
+        <source>Uploaded since…</source>
+        <translation>アップロード以来..</translation>
+    </message>
+    <message>
+        <source>Since {0}</source>
+        <translation>{0}以降</translation>
+    </message>
+    <message>
+        <source>Search by author…</source>
+        <translation>著者から探す</translation>
+    </message>
+    <message>
         <source>No Nexus domain for this game.</source>
         <translation>このゲームにはNexusドメインがありません。</translation>
     </message>
@@ -5805,12 +6040,24 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>Nexusで開く</translation>
     </message>
     <message>
+        <source>Cancel download detection</source>
+        <translation>ダウンロード解除</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>インストール</translation>
     </message>
     <message>
+        <source>Mods by this author</source>
+        <translation>この著者による変更</translation>
+    </message>
+    <message>
         <source>Untrack</source>
         <translation>追跡解除</translation>
+    </message>
+    <message>
+        <source>Track Mod</source>
+        <translation>Mod を追跡する</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -5820,8 +6067,32 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
 <context>
     <name>NexusFileChooser</name>
     <message>
-        <source>'{0}' has multiple main files.</source>
-        <translation>「{0}」には複数のメインファイルがあります。</translation>
+        <source>Main</source>
+        <translation>メインページ</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>任意</translation>
+    </message>
+    <message>
+        <source>Misc</source>
+        <translation>ミスク</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>メインファイル</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>任意ファイル</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>その他のファイル</translation>
+    </message>
+    <message>
+        <source>'{0}' has multiple files.</source>
+        <translation>'{0}' には複数のファイルがあります.</translation>
     </message>
     <message>
         <source>Select which file to install:</source>
@@ -5834,6 +6105,10 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
     <message>
         <source>Install</source>
         <translation>インストール</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>説明はありません.</translation>
     </message>
 </context>
 <context>
@@ -5876,6 +6151,10 @@ Daily: {1}</source>
         <translation>表示</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>再インストール</translation>
     </message>
@@ -5889,6 +6168,10 @@ Daily: {1}</source>
     <message>
         <source>Note — {0}</source>
         <translation>注 — {0}</translation>
+    </message>
+    <message>
+        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <translation>Markdown がサポートされています。ノートツールチップにレンダリングされます.</translation>
     </message>
     <message>
         <source>Remove note</source>
@@ -6690,6 +6973,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <source>Show / hide columns</source>
         <translation>列の表示／非表示</translation>
     </message>
+    <message>
+        <source>Filters</source>
+        <translation>フィルター</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -7328,6 +7615,57 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>RequirementsView</name>
+    <message>
+        <source>Requirements</source>
+        <translation>よくある質問</translation>
+    </message>
+    <message>
+        <source>Requires</source>
+        <translation>リクエスト</translation>
+    </message>
+    <message>
+        <source>Required by</source>
+        <translation>必須条件</translation>
+    </message>
+    <message>
+        <source>View Missing Requirements</source>
+        <translation>ミスの要件を見る</translation>
+    </message>
+    <message>
+        <source>Requirements — {0}</source>
+        <translation>要件 — {0}</translation>
+    </message>
+    <message>
+        <source>Requirements — {0} mods</source>
+        <translation>要件 — {0} モジュール</translation>
+    </message>
+    <message>
+        <source>Select one or more mods.</source>
+        <translation>複数のモジュールを選択します.</translation>
+    </message>
+    <message>
+        <source>No Nexus data for the selected mod(s).</source>
+        <translation>選択したモジュールのNexusデータはありません.</translation>
+    </message>
+    <message>
+        <source>No missing requirements for the selected mod(s).</source>
+        <translation>選択されたMOD(s)の要件が欠如しません.</translation>
+    </message>
+    <message>
+        <source>{0}  (not installed)</source>
+        <translation>{0} (インストールされていない)</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(なし)</translation>
+    </message>
+    <message>
+        <source>Run Check Updates for this data.</source>
+        <translation>このデータをCheck Updateを実行します.</translation>
+    </message>
+</context>
+<context>
     <name>SDTView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -7897,6 +8235,14 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>FOMODインストーラーを介してインストールされたMODは、「インストール後にアーカイブを削除する」がオンになっていても、アーカイブが保持されます。</translation>
     </message>
     <message>
+        <source>Install new mods disabled</source>
+        <translation>無効な新しいmods をインストールする</translation>
+    </message>
+    <message>
+        <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
+        <translation>Mods が modlist で無効にインストールされた mods は、 有効 ではなく modlist で起動します。 コレクションのインストール以外のすべてのインストールパスに適用されます.</translation>
+    </message>
+    <message>
         <source>Max concurrent downloads</source>
         <translation>最大同時ダウンロード数</translation>
     </message>
@@ -7907,6 +8253,26 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Extractions are gated by available memory; the effective number may be lower than set.</source>
         <translation>抽出処理は利用可能なメモリによって制限されるため、実際の抽出数は設定値よりも少なくなる場合があります。</translation>
+    </message>
+    <message>
+        <source>Extraction CPU threads</source>
+        <translation>抽出CPUスレッド</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>すべて</translation>
+    </message>
+    <message>
+        <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
+        <translation>CPU は各抽出物が使用する場合があります。 'All' は最速です。低値でシステムレスポンシブを保ちながら、大規模なアーカイブ抽出物.</translation>
+    </message>
+    <message>
+        <source>Low priority extractions</source>
+        <translation>低優先抽出物</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>低いCPUとディスクの優先度で抽出を実行し、それらを遅くするのではなく、他のアプリケーションに収まります。 システムがそうでなければアイドルである間、抽出の速度は影響しません.</translation>
     </message>
     <message>
         <source>Caches</source>
@@ -8316,6 +8682,29 @@ Done をクリックして閉じます.</translation>
     <message>
         <source>Starting Amethyst…</source>
         <translation>アメジストを始める..</translation>
+    </message>
+</context>
+<context>
+    <name>StagingExePickerOverlay</name>
+    <message>
+        <source>Add executable from staging</source>
+        <translation>ステージングから実行可能を追加</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
+        <translation>実行可能値をチェックして実行メニューに追加します。 ウィザードが実行時にウィザードを開くツール.</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
     </message>
 </context>
 <context>
@@ -9640,6 +10029,281 @@ or use Browse to select it manually.</source>
     </message>
 </context>
 <context>
+    <name>ThemePreviewPanel</name>
+    <message>
+        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>プレビュー — 近似; "Restart to Apply" を使用して、アプリ全体でテーマを見ることができます.</translation>
+    </message>
+    <message>
+        <source>Header &amp; tabs</source>
+        <translation>ヘッダーとタブ</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>更新</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>▶ Play</source>
+        <translation>▶ プレイ</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Mods</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>プラグイン</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>データ</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>Mod リスト</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>MOD名</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>オーバーライト</translation>
+    </message>
+    <message>
+        <source>Root Folder</source>
+        <translation>ルートフォルダ</translation>
+    </message>
+    <message>
+        <source>— Gameplay —</source>
+        <translation>— ゲームプレイ —</translation>
+    </message>
+    <message>
+        <source>Unofficial Patch</source>
+        <translation>非公式パッチ</translation>
+    </message>
+    <message>
+        <source>Selected mod</source>
+        <translation>選択されたmod</translation>
+    </message>
+    <message>
+        <source>Wins over selection</source>
+        <translation>選択に勝つ</translation>
+    </message>
+    <message>
+        <source>conflict</source>
+        <translation>インタビュー</translation>
+    </message>
+    <message>
+        <source>Loses to selection</source>
+        <translation>選択を失う</translation>
+    </message>
+    <message>
+        <source>Plugin's mod</source>
+        <translation>プラグインのmod</translation>
+    </message>
+    <message>
+        <source>anchor</source>
+        <translation>アンカー</translation>
+    </message>
+    <message>
+        <source>Required by selection</source>
+        <translation>選択によって必須</translation>
+    </message>
+    <message>
+        <source>requirement</source>
+        <translation>条件:</translation>
+    </message>
+    <message>
+        <source>Requires selection</source>
+        <translation>選択を要求して下さい</translation>
+    </message>
+    <message>
+        <source>Textures folder</source>
+        <translation>テクスチャフォルダ</translation>
+    </message>
+    <message>
+        <source>Archive.bsa</source>
+        <translation>アーカイブ.bsa</translation>
+    </message>
+    <message>
+        <source>Profile.ini</source>
+        <translation>プロフィール.ini</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>インストール済み</translation>
+    </message>
+    <message>
+        <source>Unordered plugin</source>
+        <translation>無秩序なプラグイン</translation>
+    </message>
+    <message>
+        <source>Plugins &amp; files</source>
+        <translation>プラグインとファイル</translation>
+    </message>
+    <message>
+        <source>✔  SKSE Installed</source>
+        <translation>✔ SKSEインストール済み</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not deployed</source>
+        <translation>● SKSE は modlist に存在するがデプロイされていない</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not enabled</source>
+        <translation>● SKSEはモダリストに提示しますが、有効ではありません</translation>
+    </message>
+    <message>
+        <source>✘  SKSE Not Present</source>
+        <translation>◀ SKSE 未発表</translation>
+    </message>
+    <message>
+        <source>Cycle detected among pinned plugins</source>
+        <translation>ピン留めされたプラグイン間で検出される周期</translation>
+    </message>
+    <message>
+        <source>Cycle resolved</source>
+        <translation>サイクルの解決</translation>
+    </message>
+    <message>
+        <source>Flipping this rule resolves the cycle</source>
+        <translation>このルールを反転すると、サイクルが解消されます</translation>
+    </message>
+    <message>
+        <source>load before</source>
+        <translation>負荷の前に</translation>
+    </message>
+    <message>
+        <source>load after</source>
+        <translation>負荷の後で</translation>
+    </message>
+    <message>
+        <source>winning file</source>
+        <translation>勝ちファイル</translation>
+    </message>
+    <message>
+        <source>overridden file</source>
+        <translation>オーバーライドファイル</translation>
+    </message>
+    <message>
+        <source>inactive file</source>
+        <translation>非アクティブファイル</translation>
+    </message>
+    <message>
+        <source>anchor file</source>
+        <translation>アンカーファイル</translation>
+    </message>
+    <message>
+        <source>Drag selection outline</source>
+        <translation>選択の輪郭をドラッグして下さい</translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation>ボタン</translation>
+    </message>
+    <message>
+        <source>Hover a button to preview its hover colour.</source>
+        <translation>ホバーカラーをプレビューするボタンを押します.</translation>
+    </message>
+    <message>
+        <source>Inputs &amp; scrollbar</source>
+        <translation>入力とスクロールバー</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Default profile</source>
+        <translation>デフォルトプロファイル</translation>
+    </message>
+    <message>
+        <source>Testing</source>
+        <translation>テスト</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>有効化</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>バリアフリー</translation>
+    </message>
+    <message>
+        <source>Selected option</source>
+        <translation>選択されたオプション</translation>
+    </message>
+    <message>
+        <source>List row {0}</source>
+        <translation>リスト行 {0}</translation>
+    </message>
+    <message>
+        <source>Cards, toasts &amp; progress</source>
+        <translation>カード、トースト&amp;進行</translation>
+    </message>
+    <message>
+        <source>Card title</source>
+        <translation>カードタイトル</translation>
+    </message>
+    <message>
+        <source>Card detail text</source>
+        <translation>カード詳細テキスト</translation>
+    </message>
+    <message>
+        <source>Card secondary text</source>
+        <translation>カード二次テキスト</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation>成功事例</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>エラー</translation>
+    </message>
+    <message>
+        <source>Required mod</source>
+        <translation>必須項目</translation>
+    </message>
+    <message>
+        <source>Optional mod</source>
+        <translation>オプション mod</translation>
+    </message>
+    <message>
+        <source>Status badges</source>
+        <translation>ステータスバッジ</translation>
+    </message>
+    <message>
+        <source>Deployed</source>
+        <translation>導入事例</translation>
+    </message>
+    <message>
+        <source>Text &amp; tones</source>
+        <translation>テキストとトーン</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -10244,6 +10908,14 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>No description provided.</source>
         <translation>説明はありません.</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>イグノー</translation>
+    </message>
+    <message>
+        <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
+        <translation>この要件を欠落要件のフラグにカウントしないでください。 ここのリストにしておくと、無視できません.</translation>
     </message>
     <message>
         <source>View</source>

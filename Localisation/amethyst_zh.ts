@@ -666,6 +666,18 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <source>Install</source>
         <translation>安装</translation>
     </message>
+    <message>
+        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <translation>正在等待"{0}"的浏览器下载——点击取消以停止.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Waiting for the browser download — {0} / {1}</source>
+        <translation>等待浏览器下载 — {0} / {1}</translation>
+    </message>
 </context>
 <context>
     <name>CollectionCard</name>
@@ -904,6 +916,18 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
     <message>
         <source>Collections</source>
         <translation>系列</translation>
+    </message>
+    <message>
+        <source>Most downloaded</source>
+        <translation>大部分下载</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>排序 :</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>显示成人内容</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -1596,6 +1620,18 @@ Close it when you are done, then click Done.</source>
         <translation>定义自定义游戏</translation>
     </message>
     <message>
+        <source>Load Preset  (optional)</source>
+        <translation>装入预设( 可选)</translation>
+    </message>
+    <message>
+        <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
+        <translation>从已有自定义游戏中将下面的字段作为起始模板。 您仍需要给新游戏自己取出独有的名称 .</translation>
+    </message>
+    <message>
+        <source>— Select a game to copy from —</source>
+        <translation>——选择要复制的游戏..</translation>
+    </message>
+    <message>
         <source>Game Name</source>
         <translation>游戏名称</translation>
     </message>
@@ -1864,6 +1900,17 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Deployed files - {0} files in {1} mods</source>
         <translation>已部署的文件——{1}模组中的{0}文件</translation>
+    </message>
+</context>
+<context>
+    <name>DatePickerOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>好的</translation>
     </message>
 </context>
 <context>
@@ -2504,6 +2551,22 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>例如：PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</translation>
     </message>
     <message>
+        <source>Deploy on run</source>
+        <translation>运行中部署</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist before running this exe</source>
+        <translation>运行此 exe 之前先部署调用列表</translation>
+    </message>
+    <message>
+        <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
+        <translation>运行与部署按钮相同的部署,然后在部署完成后启动此 exe .</translation>
+    </message>
+    <message>
+        <source>Hide from dropdown</source>
+        <translation>隐藏下拉</translation>
+    </message>
+    <message>
         <source>Remove EXE</source>
         <translation>删除 EXE</translation>
     </message>
@@ -2782,6 +2845,10 @@ Click Done to clean up the extracted files and close.</source>
     <message>
         <source>By category</source>
         <translation>按类别</translation>
+    </message>
+    <message>
+        <source>By author</source>
+        <translation>作者</translation>
     </message>
     <message>
         <source>By file type</source>
@@ -3711,6 +3778,26 @@ SHA-1: {1} (英语).
         <translation>插件文件名</translation>
     </message>
     <message>
+        <source>{0} and {1} more</source>
+        <translation>增加{0}和{1}</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
+        <translation>一个游戏处理器未能加载({0}). 受影响的游戏被隐藏,但您的模式是安全的——参见日志.</translation>
+    </message>
+    <message>
+        <source>Installing 32-bit support (needed to run Windows tools) …</source>
+        <translation>安装32位支持(运行Windows工具需要)..</translation>
+    </message>
+    <message>
+        <source>32-bit support installed — restart the app before running Windows tools.</source>
+        <translation>32位支持已安装——运行Windows工具前重新启动应用程序.</translation>
+    </message>
+    <message>
+        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
+        <translation>无法自动安装32位支持——参见手动命令的日志.</translation>
+    </message>
+    <message>
         <source>Install-name Rules</source>
         <translation>安装名称规则</translation>
     </message>
@@ -4131,6 +4218,26 @@ Download and install them manually — the links are in the collection page's "O
         <translation>正在重新安装 {0} 模组；{1} 被跳过（未找到存档）。</translation>
     </message>
     <message>
+        <source>Reinstall — redownloading {0} mod(s)…</source>
+        <translation>Reinstall——重新下载{0} Mod(s).....</translation>
+    </message>
+    <message>
+        <source>Redownloading {0} mod(s)…</source>
+        <translation>正在重新下载 {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>重新安装</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
+        <translation>Reinstall: {0} Mod (s) 无法被重新下载——参见日志.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
+        <translation>重新下载了 {0} mod (s); {1} 失败 ——参见日志.</translation>
+    </message>
+    <message>
         <source>A Quick Update is already running.</source>
         <translation>“快速更新”已开始运行。</translation>
     </message>
@@ -4201,6 +4308,10 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>Missing Requirements</source>
         <translation>缺失的要求</translation>
+    </message>
+    <message>
+        <source>View Requirements</source>
+        <translation>查看要求</translation>
     </message>
     <message>
         <source>Conflicts: {0}</source>
@@ -4379,6 +4490,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>▶  运行</translation>
     </message>
     <message>
+        <source>No executables found in staging.</source>
+        <translation>在中转中找不到可执行文件 .</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>找不到可执行文件：{0}</translation>
     </message>
@@ -4387,12 +4502,20 @@ Download and install them manually — the links are in the collection page's "O
         <translation>配置：{0}</translation>
     </message>
     <message>
+        <source>Could not build launch command: {0}</source>
+        <translation>无法构建发射命令: {0}</translation>
+    </message>
+    <message>
         <source>'{0}' does not support deployment.</source>
         <translation>“{0}” 不支持部署。</translation>
     </message>
     <message>
         <source>Deploying {0}…</source>
         <translation>正在部署 {0}…</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
+        <translation>重新下载所需的高分. 打开了{0}下载页面——一旦下载,它们会自动重新安装.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -4779,6 +4902,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} 重叠 {1} 插件 — 在列表中突出显示</translation>
     </message>
     <message>
+        <source>+ Add exe from staging…</source>
+        <translation>+ 从中添加 exe..</translation>
+    </message>
+    <message>
         <source>Plugins</source>
         <translation>插件</translation>
     </message>
@@ -4999,6 +5126,70 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>推荐 Amethyst Mod Manager……</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsDeployChoiceOverlay</name>
+    <message>
+        <source>Mewgenics — Deploy method</source>
+        <translation>遗传学——部署方法</translation>
+    </message>
+    <message>
+        <source>Steam launch command  (Safer / Recommended)</source>
+        <translation>Steam 发射命令( Safer / 建议)</translation>
+    </message>
+    <message>
+        <source>Generates a launch script for Steam. Set it once in Launch Options (no repack).</source>
+        <translation>为Steam生成一个发射脚本. 在发射选项中设定一次( 不重新包装) .</translation>
+    </message>
+    <message>
+        <source>Repack gpak  (No command needed / not recommended)</source>
+        <translation>重新包装 gpak (不需要命令/ 不建议)</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak, merge mods, repack.</source>
+        <translation>解包资源. gpak, 合并 Mods, 重新包装.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsLaunchCommandOverlay</name>
+    <message>
+        <source>Mewgenics — Steam / Lutris launch command</source>
+        <translation>Mewgenics-Steam/Lutris发射命令</translation>
+    </message>
+    <message>
+        <source>Paste this into Steam Launch Options (Properties → General):</source>
+        <translation>把它粘入Steam发射选项( Properties ~ General):</translation>
+    </message>
+    <message>
+        <source>Script written to:
+{0}
+
+Update this whenever you change your mod list.</source>
+        <translation>写入脚本 :
+第{0}号
+
+当您更改您的模式列表时更新此内容 .</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>复制到剪贴板</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>已复制 ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed — copy it manually</source>
+        <translation>复制失败 – 手动复制</translation>
     </message>
 </context>
 <context>
@@ -5226,6 +5417,10 @@ How would you like to handle the existing mod?</source>
         <translation>缺失的要求（{0}）</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>查看要求</translation>
+    </message>
+    <message>
         <source>Mod name:</source>
         <translation>模式名称 :</translation>
     </message>
@@ -5276,6 +5471,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Reinstall ({0})</source>
         <translation>重新安装（{0}）</translation>
+    </message>
+    <message>
+        <source>Reinstall (Redownload)</source>
+        <translation>Reinstall( 重新下载)</translation>
     </message>
     <message>
         <source>Reinstall Mod</source>
@@ -5381,6 +5580,10 @@ How would you like to handle the existing mod?</source>
         <translation>版本</translation>
     </message>
     <message>
+        <source>Author</source>
+        <translation>作者</translation>
+    </message>
+    <message>
         <source>Priority</source>
         <translation>优先级</translation>
     </message>
@@ -5406,6 +5609,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Hide separators</source>
         <translation>隐藏分隔符</translation>
+    </message>
+    <message>
+        <source>More status filters</source>
+        <translation>更多状态过滤器</translation>
     </message>
 </context>
 <context>
@@ -5757,6 +5964,10 @@ or an encrypted file when no keyring is available).</source>
         <translation>☰ 分类</translation>
     </message>
     <message>
+        <source>Custom…</source>
+        <translation>自定义..</translation>
+    </message>
+    <message>
         <source>Show adult</source>
         <translation>显示成人内容</translation>
     </message>
@@ -5773,12 +5984,24 @@ or an encrypted file when no keyring is available).</source>
         <translation>正在加载……</translation>
     </message>
     <message>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>作者</translation>
+    </message>
+    <message>
         <source>Search mods…</source>
         <translation>搜索模组……</translation>
     </message>
     <message>
         <source>Search</source>
         <translation>搜索</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>清除</translation>
     </message>
     <message>
         <source>◂ Prev</source>
@@ -5797,6 +6020,18 @@ or an encrypted file when no keyring is available).</source>
         <translation>无分类</translation>
     </message>
     <message>
+        <source>Uploaded since…</source>
+        <translation>上传自..</translation>
+    </message>
+    <message>
+        <source>Since {0}</source>
+        <translation>自{0}以来</translation>
+    </message>
+    <message>
+        <source>Search by author…</source>
+        <translation>作者进行搜索..</translation>
+    </message>
+    <message>
         <source>No Nexus domain for this game.</source>
         <translation>该游戏没有Nexus域名。Simplified Chinese (Mainland)</translation>
     </message>
@@ -5805,12 +6040,24 @@ or an encrypted file when no keyring is available).</source>
         <translation>在 Nexus 上打开</translation>
     </message>
     <message>
+        <source>Cancel download detection</source>
+        <translation>取消下载检测</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>安装</translation>
     </message>
     <message>
+        <source>Mods by this author</source>
+        <translation>这个作者的模样</translation>
+    </message>
+    <message>
         <source>Untrack</source>
         <translation>取消跟踪</translation>
+    </message>
+    <message>
+        <source>Track Mod</source>
+        <translation>音轨模式</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -5820,8 +6067,32 @@ or an encrypted file when no keyring is available).</source>
 <context>
     <name>NexusFileChooser</name>
     <message>
-        <source>'{0}' has multiple main files.</source>
-        <translation>“{0}”包含多个主文件。</translation>
+        <source>Main</source>
+        <translation>主要</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>可选</translation>
+    </message>
+    <message>
+        <source>Misc</source>
+        <translation>杂项</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>主要文件</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>可选文件</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>杂项文件</translation>
+    </message>
+    <message>
+        <source>'{0}' has multiple files.</source>
+        <translation>'{0}'有多个文件.</translation>
     </message>
     <message>
         <source>Select which file to install:</source>
@@ -5834,6 +6105,10 @@ or an encrypted file when no keyring is available).</source>
     <message>
         <source>Install</source>
         <translation>安装</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>未提供说明.</translation>
     </message>
 </context>
 <context>
@@ -5876,6 +6151,10 @@ Daily: {1}</source>
         <translation>查看</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>重新安装</translation>
     </message>
@@ -5889,6 +6168,10 @@ Daily: {1}</source>
     <message>
         <source>Note — {0}</source>
         <translation>注 — {0}</translation>
+    </message>
+    <message>
+        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <translation>Markdown 被支持——它在备注工具提示中制作.</translation>
     </message>
     <message>
         <source>Remove note</source>
@@ -6690,6 +6973,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <source>Show / hide columns</source>
         <translation>显示/隐藏列</translation>
     </message>
+    <message>
+        <source>Filters</source>
+        <translation>筛选条件</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -7328,6 +7615,57 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>RequirementsView</name>
+    <message>
+        <source>Requirements</source>
+        <translation>所需资源</translation>
+    </message>
+    <message>
+        <source>Requires</source>
+        <translation>要求数</translation>
+    </message>
+    <message>
+        <source>Required by</source>
+        <translation>要求为:</translation>
+    </message>
+    <message>
+        <source>View Missing Requirements</source>
+        <translation>查看缺失的要求</translation>
+    </message>
+    <message>
+        <source>Requirements — {0}</source>
+        <translation>所需经费——{0}</translation>
+    </message>
+    <message>
+        <source>Requirements — {0} mods</source>
+        <translation>所需经费——{0}型</translation>
+    </message>
+    <message>
+        <source>Select one or more mods.</source>
+        <translation>选择一个或多个模式.</translation>
+    </message>
+    <message>
+        <source>No Nexus data for the selected mod(s).</source>
+        <translation>没有选定模式的 Nexus 数据 .</translation>
+    </message>
+    <message>
+        <source>No missing requirements for the selected mod(s).</source>
+        <translation>选定模式没有缺少要求.</translation>
+    </message>
+    <message>
+        <source>{0}  (not installed)</source>
+        <translation>{0}(未安装)</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(无)</translation>
+    </message>
+    <message>
+        <source>Run Check Updates for this data.</source>
+        <translation>运行此数据的更新 .</translation>
+    </message>
+</context>
+<context>
     <name>SDTView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -7897,6 +8235,14 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>通过 FOMOD 安装程序安装的模组，即使启用了“安装后清除存档”选项，其存档文件仍会保留。</translation>
     </message>
     <message>
+        <source>Install new mods disabled</source>
+        <translation>安装已禁用的新模式</translation>
+    </message>
+    <message>
+        <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
+        <translation>新安装的mods开始在modlist中被禁用,而不是启用. 适用于除收藏安装以外的每一个安装路径.</translation>
+    </message>
+    <message>
         <source>Max concurrent downloads</source>
         <translation>最大并发下载数</translation>
     </message>
@@ -7907,6 +8253,26 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Extractions are gated by available memory; the effective number may be lower than set.</source>
         <translation>提取操作受可用内存的限制；实际数量可能低于设定值。</translation>
+    </message>
+    <message>
+        <source>Extraction CPU threads</source>
+        <translation>提取 CPU 线程</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>全部</translation>
+    </message>
+    <message>
+        <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
+        <translation>CPU 线程每个提取可能使用. 'All'是最快的;一个更低的值在大型档案提取时保持系统响应.</translation>
+    </message>
+    <message>
+        <source>Low priority extractions</source>
+        <translation>低优先提取</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>运行低 CPU 和磁盘优先级的提取程序,使其屈服于其他应用程序而不是减速. 采掘速度不受系统闲置的影响.</translation>
     </message>
     <message>
         <source>Caches</source>
@@ -8316,6 +8682,29 @@ Click Done to close.</source>
     <message>
         <source>Starting Amethyst…</source>
         <translation>开始阿梅西斯特..</translation>
+    </message>
+</context>
+<context>
+    <name>StagingExePickerOverlay</name>
+    <message>
+        <source>Add executable from staging</source>
+        <translation>从启动中添加可执行文件</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
+        <translation>检查可执行文件以添加到运行菜单中 。 有向导的工具在运行时打开他们的向导 .</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>搜索..</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
     </message>
 </context>
 <context>
@@ -9640,6 +10029,281 @@ or use Browse to select it manually.</source>
     </message>
 </context>
 <context>
+    <name>ThemePreviewPanel</name>
+    <message>
+        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>预览 — 大致; 使用"重新启动应用"来查看整个应用程序的主题.</translation>
+    </message>
+    <message>
+        <source>Header &amp; tabs</source>
+        <translation>页眉标签( T)</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>简介</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>▶ Play</source>
+        <translation>游戏</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Mods</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>插件</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>数据</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>模式列表</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>模组名称</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>页:1</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>覆盖</translation>
+    </message>
+    <message>
+        <source>Root Folder</source>
+        <translation>根文件夹</translation>
+    </message>
+    <message>
+        <source>— Gameplay —</source>
+        <translation>- 游戏..</translation>
+    </message>
+    <message>
+        <source>Unofficial Patch</source>
+        <translation>非官方补丁</translation>
+    </message>
+    <message>
+        <source>Selected mod</source>
+        <translation>选中模式</translation>
+    </message>
+    <message>
+        <source>Wins over selection</source>
+        <translation>胜过选择</translation>
+    </message>
+    <message>
+        <source>conflict</source>
+        <translation>冲突</translation>
+    </message>
+    <message>
+        <source>Loses to selection</source>
+        <translation>失去选择</translation>
+    </message>
+    <message>
+        <source>Plugin's mod</source>
+        <translation>插件的调制</translation>
+    </message>
+    <message>
+        <source>anchor</source>
+        <translation>锁定</translation>
+    </message>
+    <message>
+        <source>Required by selection</source>
+        <translation>选择要求</translation>
+    </message>
+    <message>
+        <source>requirement</source>
+        <translation>所需经费</translation>
+    </message>
+    <message>
+        <source>Requires selection</source>
+        <translation>需要选择</translation>
+    </message>
+    <message>
+        <source>Textures folder</source>
+        <translation>纹理文件夹</translation>
+    </message>
+    <message>
+        <source>Archive.bsa</source>
+        <translation>存档. bsa</translation>
+    </message>
+    <message>
+        <source>Profile.ini</source>
+        <translation>简介.ini</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>已安装</translation>
+    </message>
+    <message>
+        <source>Unordered plugin</source>
+        <translation>无序插件</translation>
+    </message>
+    <message>
+        <source>Plugins &amp; files</source>
+        <translation>插件文件( F)</translation>
+    </message>
+    <message>
+        <source>✔  SKSE Installed</source>
+        <translation>已安装 SKSE</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not deployed</source>
+        <translation>* SKSE在调制列表中,但没有部署</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not enabled</source>
+        <translation>* SKSE 在调制列表中存在,但没有启用</translation>
+    </message>
+    <message>
+        <source>✘  SKSE Not Present</source>
+        <translation>SKSE不在场</translation>
+    </message>
+    <message>
+        <source>Cycle detected among pinned plugins</source>
+        <translation>在被绑定的插件中检测到循环</translation>
+    </message>
+    <message>
+        <source>Cycle resolved</source>
+        <translation>周期已解决</translation>
+    </message>
+    <message>
+        <source>Flipping this rule resolves the cycle</source>
+        <translation>翻转规则解决周期</translation>
+    </message>
+    <message>
+        <source>load before</source>
+        <translation>装入前</translation>
+    </message>
+    <message>
+        <source>load after</source>
+        <translation>装入后</translation>
+    </message>
+    <message>
+        <source>winning file</source>
+        <translation>中选文件</translation>
+    </message>
+    <message>
+        <source>overridden file</source>
+        <translation>覆盖文件</translation>
+    </message>
+    <message>
+        <source>inactive file</source>
+        <translation>不活动文件</translation>
+    </message>
+    <message>
+        <source>anchor file</source>
+        <translation>锁定文件</translation>
+    </message>
+    <message>
+        <source>Drag selection outline</source>
+        <translation>拖动选择大纲</translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation>按钮</translation>
+    </message>
+    <message>
+        <source>Hover a button to preview its hover colour.</source>
+        <translation>绕过一个按钮来预览其徘徊的颜色.</translation>
+    </message>
+    <message>
+        <source>Inputs &amp; scrollbar</source>
+        <translation>输入滚动条( F)</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>搜索..</translation>
+    </message>
+    <message>
+        <source>Default profile</source>
+        <translation>默认配置文件</translation>
+    </message>
+    <message>
+        <source>Testing</source>
+        <translation>测试</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>已启用</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>已禁用</translation>
+    </message>
+    <message>
+        <source>Selected option</source>
+        <translation>选中选项</translation>
+    </message>
+    <message>
+        <source>List row {0}</source>
+        <translation>列表行 {0}</translation>
+    </message>
+    <message>
+        <source>Cards, toasts &amp; progress</source>
+        <translation>纸牌、土司和进度</translation>
+    </message>
+    <message>
+        <source>Card title</source>
+        <translation>卡片标题</translation>
+    </message>
+    <message>
+        <source>Card detail text</source>
+        <translation>纸牌细节文本</translation>
+    </message>
+    <message>
+        <source>Card secondary text</source>
+        <translation>纸牌副文本</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>资讯</translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation>成绩</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>3⁄4 ̄ ̧漯B</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <source>Required mod</source>
+        <translation>所需模式</translation>
+    </message>
+    <message>
+        <source>Optional mod</source>
+        <translation>可选模式</translation>
+    </message>
+    <message>
+        <source>Status badges</source>
+        <translation>状态徽章</translation>
+    </message>
+    <message>
+        <source>Deployed</source>
+        <translation>已部署</translation>
+    </message>
+    <message>
+        <source>Text &amp; tones</source>
+        <translation>文本音调( T)</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -10244,6 +10908,14 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>No description provided.</source>
         <translation>未提供说明.</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>忽略</translation>
+    </message>
+    <message>
+        <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
+        <translation>对缺位要求的旗帜不要算这个要求. 放在这,这样你才能解开它.</translation>
     </message>
     <message>
         <source>View</source>

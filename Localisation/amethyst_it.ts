@@ -666,6 +666,18 @@ La cache MD5 viene conservata. Gli archivi verranno scaricati nuovamente all'occ
         <source>Install</source>
         <translation>Installa</translation>
     </message>
+    <message>
+        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <translation>In attesa del download del browser di '{0}' — fare clic su Annulla per arrestarsi.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Waiting for the browser download — {0} / {1}</source>
+        <translation>In attesa del download del browser — {0} / {1}</translation>
+    </message>
 </context>
 <context>
     <name>CollectionCard</name>
@@ -904,6 +916,18 @@ La cache MD5 viene conservata. Gli archivi verranno scaricati nuovamente all'occ
     <message>
         <source>Collections</source>
         <translation>Collezioni</translation>
+    </message>
+    <message>
+        <source>Most downloaded</source>
+        <translation>Più scaricato</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>Tipo:</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>Mostra contenuti per adulti</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -1596,6 +1620,18 @@ Chiudere quando si è fatto, quindi fare clic su Fatto.</translation>
         <translation>Definisci una partita personalizzata</translation>
     </message>
     <message>
+        <source>Load Preset  (optional)</source>
+        <translation>Preimpostazione del carico (opzionale)</translation>
+    </message>
+    <message>
+        <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
+        <translation>Prepopolare i campi sottostanti da un gioco personalizzato esistente come modello di partenza. Hai ancora bisogno di dare al nuovo gioco il suo nome unico.</translation>
+    </message>
+    <message>
+        <source>— Select a game to copy from —</source>
+        <translation>— Selezionare un gioco da copiare da —</translation>
+    </message>
+    <message>
         <source>Game Name</source>
         <translation>Nome del gioco</translation>
     </message>
@@ -1864,6 +1900,17 @@ Chiudere quando si è fatto, quindi fare clic su Fatto.</translation>
     <message>
         <source>Deployed files - {0} files in {1} mods</source>
         <translation>File distribuiti - File "{0}" nelle mod di "{1}"</translation>
+    </message>
+</context>
+<context>
+    <name>DatePickerOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
     </message>
 </context>
 <context>
@@ -2504,6 +2551,22 @@ Proton prefix: fare clic su 'Install Java in prefix' una volta, quindi viene ese
         <translation>ad es. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</translation>
     </message>
     <message>
+        <source>Deploy on run</source>
+        <translation>Deploy on run</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist before running this exe</source>
+        <translation>Distribuire il modlist prima di eseguire questo exe</translation>
+    </message>
+    <message>
+        <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
+        <translation>Esegue lo stesso dispiegamento del pulsante Deploy, quindi lancia questo exe una volta terminata la distribuzione.</translation>
+    </message>
+    <message>
+        <source>Hide from dropdown</source>
+        <translation>Nascondi dal menu a tendina</translation>
+    </message>
+    <message>
         <source>Remove EXE</source>
         <translation>Rimuovi EXE</translation>
     </message>
@@ -2782,6 +2845,10 @@ Fare clic su Fatto per pulire i file estratti e chiudere.</translation>
     <message>
         <source>By category</source>
         <translation>Per categoria</translation>
+    </message>
+    <message>
+        <source>By author</source>
+        <translation>Per autore</translation>
     </message>
     <message>
         <source>By file type</source>
@@ -3711,6 +3778,26 @@ Può già essere modificato. Verificare i file di gioco in Steam / Eroico per ot
         <translation>Nome del file dei plugin</translation>
     </message>
     <message>
+        <source>{0} and {1} more</source>
+        <translation>{0} e {1} di più</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
+        <translation>Un gestore di giochi non è riuscito a caricare ({0}). I giochi colpiti sono nascosti, ma le tue mod sono al sicuro — vedere il registro.</translation>
+    </message>
+    <message>
+        <source>Installing 32-bit support (needed to run Windows tools) …</source>
+        <translation>Installazione di supporto a 32 bit (necessario per eseguire gli strumenti di Windows) ..</translation>
+    </message>
+    <message>
+        <source>32-bit support installed — restart the app before running Windows tools.</source>
+        <translation>Supporto a 32 bit installato — riavviare l'applicazione prima di eseguire gli strumenti di Windows.</translation>
+    </message>
+    <message>
+        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
+        <translation>Non è possibile installare il supporto a 32 bit automaticamente — vedere il log per il comando manuale.</translation>
+    </message>
+    <message>
         <source>Install-name Rules</source>
         <translation>Regole relative al nome di installazione</translation>
     </message>
@@ -4131,6 +4218,26 @@ Scaricare e installarli manualmente — i link sono nel pannello "Off-site mods"
         <translation>Reinstallazione delle mod di {0}; {1} saltato (archivio non trovato).</translation>
     </message>
     <message>
+        <source>Reinstall — redownloading {0} mod(s)…</source>
+        <translation>Reinstallare — ricaricare {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Redownloading {0} mod(s)…</source>
+        <translation>Ricaricare {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Reinstalla</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
+        <translation>Reinstallare: {0} mod(s) non può essere ricaricato — vedere il registro.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
+        <translation>Redownloaded {0} mod(s); {1} fallito — vedere il registro.</translation>
+    </message>
+    <message>
         <source>A Quick Update is already running.</source>
         <translation>È già in esecuzione un aggiornamento rapido.</translation>
     </message>
@@ -4201,6 +4308,10 @@ Scaricare e installarli manualmente — i link sono nel pannello "Off-site mods"
     <message>
         <source>Missing Requirements</source>
         <translation>Requisiti mancanti</translation>
+    </message>
+    <message>
+        <source>View Requirements</source>
+        <translation>Visualizzare i requisiti</translation>
     </message>
     <message>
         <source>Conflicts: {0}</source>
@@ -4379,6 +4490,10 @@ Scaricare e installarli manualmente — i link sono nel pannello "Off-site mods"
         <translation>▶  Esegui</translation>
     </message>
     <message>
+        <source>No executables found in staging.</source>
+        <translation>Nessun esecutivo trovato nella messa in scena.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>File eseguibile non trovato: {0}</translation>
     </message>
@@ -4387,12 +4502,20 @@ Scaricare e installarli manualmente — i link sono nel pannello "Off-site mods"
         <translation>Configurazione: {0}</translation>
     </message>
     <message>
+        <source>Could not build launch command: {0}</source>
+        <translation>Non poteva costruire il comando di lancio: {0}</translation>
+    </message>
+    <message>
         <source>'{0}' does not support deployment.</source>
         <translation>"{0}" non supporta la distribuzione.</translation>
     </message>
     <message>
         <source>Deploying {0}…</source>
         <translation>In esecuzione di "{0}"...</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
+        <translation>Premium necessario per ricaricare. Opened {0} download page(s) — essi reinstalleranno automaticamente una volta scaricato.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -4779,6 +4902,10 @@ Scaricare e installarli manualmente — i link sono nel pannello "Off-site mods"
         <translation>{0} si sovrappone {1} plugin(s) — evidenziato nell'elenco</translation>
     </message>
     <message>
+        <source>+ Add exe from staging…</source>
+        <translation>+ Aggiungi exe da staging..</translation>
+    </message>
+    <message>
         <source>Plugins</source>
         <translation>Plugin</translation>
     </message>
@@ -4999,6 +5126,70 @@ Deploy?</translation>
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Raccomandiamo Amethyst Mod Manager…</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsDeployChoiceOverlay</name>
+    <message>
+        <source>Mewgenics — Deploy method</source>
+        <translation>Mewgenics — Metodo di distribuzione</translation>
+    </message>
+    <message>
+        <source>Steam launch command  (Safer / Recommended)</source>
+        <translation>Comando di lancio vapore (Safer / Raccomandato)</translation>
+    </message>
+    <message>
+        <source>Generates a launch script for Steam. Set it once in Launch Options (no repack).</source>
+        <translation>Genera uno script di lancio per Steam. Impostare una volta in Opzioni di lancio (nessun repack).</translation>
+    </message>
+    <message>
+        <source>Repack gpak  (No command needed / not recommended)</source>
+        <translation>Repack gpak (Nessun comando necessario / non consigliato)</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak, merge mods, repack.</source>
+        <translation>Disfare le risorse.gpak, unire mods, repack.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsLaunchCommandOverlay</name>
+    <message>
+        <source>Mewgenics — Steam / Lutris launch command</source>
+        <translation>Mewgenics — Steam / Lutris comando di lancio</translation>
+    </message>
+    <message>
+        <source>Paste this into Steam Launch Options (Properties → General):</source>
+        <translation>Incolla questo in Opzioni di lancio di Steam (Proprietà → Generale):</translation>
+    </message>
+    <message>
+        <source>Script written to:
+{0}
+
+Update this whenever you change your mod list.</source>
+        <translation>Script scritto a:
+{0}
+
+Aggiorna questo ogni volta che cambi l'elenco mod.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Chiudi</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Copia negli appunti</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Copiato ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed — copy it manually</source>
+        <translation>Copia fallito — copialo manualmente</translation>
     </message>
 </context>
 <context>
@@ -5226,6 +5417,10 @@ Come si desidera gestire il mod esistente?</translation>
         <translation>Requisiti mancanti ({0})</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>Visualizzare i requisiti</translation>
+    </message>
+    <message>
         <source>Mod name:</source>
         <translation>Nome Mod:</translation>
     </message>
@@ -5276,6 +5471,10 @@ Come si desidera gestire il mod esistente?</translation>
     <message>
         <source>Reinstall ({0})</source>
         <translation>Reinstalla ({0})</translation>
+    </message>
+    <message>
+        <source>Reinstall (Redownload)</source>
+        <translation>Reinstallare (Ricaricare)</translation>
     </message>
     <message>
         <source>Reinstall Mod</source>
@@ -5381,6 +5580,10 @@ Come si desidera gestire il mod esistente?</translation>
         <translation>Versione</translation>
     </message>
     <message>
+        <source>Author</source>
+        <translation>Autore</translation>
+    </message>
+    <message>
         <source>Priority</source>
         <translation>Priorità</translation>
     </message>
@@ -5406,6 +5609,10 @@ Come si desidera gestire il mod esistente?</translation>
     <message>
         <source>Hide separators</source>
         <translation>Nascondi i separatori</translation>
+    </message>
+    <message>
+        <source>More status filters</source>
+        <translation>Altri filtri di stato</translation>
     </message>
 </context>
 <context>
@@ -5757,6 +5964,10 @@ o in un file crittografato qualora il portachiavi non fosse disponibile).</trans
         <translation>☰ Categorie</translation>
     </message>
     <message>
+        <source>Custom…</source>
+        <translation>Personalizzato..</translation>
+    </message>
+    <message>
         <source>Show adult</source>
         <translation>Mostra contenuti per adulti</translation>
     </message>
@@ -5773,12 +5984,24 @@ o in un file crittografato qualora il portachiavi non fosse disponibile).</trans
         <translation>Caricamento in corso…</translation>
     </message>
     <message>
+        <source>Name</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>Autore</translation>
+    </message>
+    <message>
         <source>Search mods…</source>
         <translation>Cerca mod…</translation>
     </message>
     <message>
         <source>Search</source>
         <translation>Cerca</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Cancella</translation>
     </message>
     <message>
         <source>◂ Prev</source>
@@ -5797,6 +6020,18 @@ o in un file crittografato qualora il portachiavi non fosse disponibile).</trans
         <translation>Nessuna categoria</translation>
     </message>
     <message>
+        <source>Uploaded since…</source>
+        <translation>Caricato da..</translation>
+    </message>
+    <message>
+        <source>Since {0}</source>
+        <translation>Da {0}</translation>
+    </message>
+    <message>
+        <source>Search by author…</source>
+        <translation>Ricerca per autore..</translation>
+    </message>
+    <message>
         <source>No Nexus domain for this game.</source>
         <translation>Non esiste un dominio Nexus per questo gioco.</translation>
     </message>
@@ -5805,12 +6040,24 @@ o in un file crittografato qualora il portachiavi non fosse disponibile).</trans
         <translation>Apri su Nexus</translation>
     </message>
     <message>
+        <source>Cancel download detection</source>
+        <translation>Annulla il rilevamento del download</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Installa</translation>
     </message>
     <message>
+        <source>Mods by this author</source>
+        <translation>Mods di questo autore</translation>
+    </message>
+    <message>
         <source>Untrack</source>
         <translation>Non tracciare</translation>
+    </message>
+    <message>
+        <source>Track Mod</source>
+        <translation>Tracciamento</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -5820,8 +6067,32 @@ o in un file crittografato qualora il portachiavi non fosse disponibile).</trans
 <context>
     <name>NexusFileChooser</name>
     <message>
-        <source>'{0}' has multiple main files.</source>
-        <translation>"{0}" contiene diversi file principali.</translation>
+        <source>Main</source>
+        <translation>Principali</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>Facoltativo</translation>
+    </message>
+    <message>
+        <source>Misc</source>
+        <translation>Variazione</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>File principali</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>File opzionali</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>File vari</translation>
+    </message>
+    <message>
+        <source>'{0}' has multiple files.</source>
+        <translation>'{0}' ha più file.</translation>
     </message>
     <message>
         <source>Select which file to install:</source>
@@ -5834,6 +6105,10 @@ o in un file crittografato qualora il portachiavi non fosse disponibile).</trans
     <message>
         <source>Install</source>
         <translation>Installa</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>Nessuna descrizione fornita.</translation>
     </message>
 </context>
 <context>
@@ -5876,6 +6151,10 @@ Giornaliere: {1}</translation>
         <translation>Visualizza</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Reinstalla</translation>
     </message>
@@ -5889,6 +6168,10 @@ Giornaliere: {1}</translation>
     <message>
         <source>Note — {0}</source>
         <translation>Nota — {0}</translation>
+    </message>
+    <message>
+        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <translation>Markdown è supportato — rende nella punta degli strumenti di nota.</translation>
     </message>
     <message>
         <source>Remove note</source>
@@ -6690,6 +6973,10 @@ Trascina un plugin dal riquadro di sinistra per aggiungere una regola.</translat
         <source>Show / hide columns</source>
         <translation>Mostra/nascondi colonne</translation>
     </message>
+    <message>
+        <source>Filters</source>
+        <translation>Filtri</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -7328,6 +7615,57 @@ Scegliere "Mantieni" se si tratta di una variante opzionale/alternativa piuttost
     </message>
 </context>
 <context>
+    <name>RequirementsView</name>
+    <message>
+        <source>Requirements</source>
+        <translation>Requisiti</translation>
+    </message>
+    <message>
+        <source>Requires</source>
+        <translation>Richiesta</translation>
+    </message>
+    <message>
+        <source>Required by</source>
+        <translation>Richiesto da</translation>
+    </message>
+    <message>
+        <source>View Missing Requirements</source>
+        <translation>Visualizzare i requisiti mancanti</translation>
+    </message>
+    <message>
+        <source>Requirements — {0}</source>
+        <translation>Requisiti — {0}</translation>
+    </message>
+    <message>
+        <source>Requirements — {0} mods</source>
+        <translation>Requisiti — {0} mods</translation>
+    </message>
+    <message>
+        <source>Select one or more mods.</source>
+        <translation>Selezionare una o più mod.</translation>
+    </message>
+    <message>
+        <source>No Nexus data for the selected mod(s).</source>
+        <translation>Nessun dato Nexus per le modifiche selezionate.</translation>
+    </message>
+    <message>
+        <source>No missing requirements for the selected mod(s).</source>
+        <translation>Nessun requisito mancante per le modifiche selezionate.</translation>
+    </message>
+    <message>
+        <source>{0}  (not installed)</source>
+        <translation>{0} (non installato)</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(nessuno)</translation>
+    </message>
+    <message>
+        <source>Run Check Updates for this data.</source>
+        <translation>Esegui Control Updates per questi dati.</translation>
+    </message>
+</context>
+<context>
     <name>SDTView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -7897,6 +8235,14 @@ Unire i conflitti, quindi chiudere e fare clic su Fatto.</translation>
         <translation>I mod installati tramite un programma di installazione FOMOD mantengono il proprio archivio anche quando l'opzione "Cancella archivio dopo l'installazione" è attiva.</translation>
     </message>
     <message>
+        <source>Install new mods disabled</source>
+        <translation>Installare nuovi mod disabilitati</translation>
+    </message>
+    <message>
+        <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
+        <translation>Le mod installate di recente iniziano a disabilitare nel modlist invece di abilitare. Si applica ad ogni percorso di installazione, tranne le installazioni di raccolta.</translation>
+    </message>
+    <message>
         <source>Max concurrent downloads</source>
         <translation>Numero massimo di download simultanei</translation>
     </message>
@@ -7907,6 +8253,26 @@ Unire i conflitti, quindi chiudere e fare clic su Fatto.</translation>
     <message>
         <source>Extractions are gated by available memory; the effective number may be lower than set.</source>
         <translation>Le estrazioni sono limitate dalla memoria disponibile; il numero effettivo potrebbe essere inferiore a quello impostato.</translation>
+    </message>
+    <message>
+        <source>Extraction CPU threads</source>
+        <translation>Fili della CPU di estrazione</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Tutto</translation>
+    </message>
+    <message>
+        <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
+        <translation>Filetti di CPU ogni estrazione può utilizzare. 'All' è più veloce; un valore inferiore mantiene il sistema reattivo mentre l'estratto di grandi archivi.</translation>
+    </message>
+    <message>
+        <source>Low priority extractions</source>
+        <translation>Estrazione a bassa priorità</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>Eseguire estrazioni a bassa CPU e priorità del disco in modo da cedere ad altre applicazioni invece di rallentarle. La velocità di estrazione non è influenzata mentre il sistema è altrimenti inattivo.</translation>
     </message>
     <message>
         <source>Caches</source>
@@ -8316,6 +8682,29 @@ Fare clic su Fatto per chiudere.</translation>
     <message>
         <source>Starting Amethyst…</source>
         <translation>A partire da Ametista..</translation>
+    </message>
+</context>
+<context>
+    <name>StagingExePickerOverlay</name>
+    <message>
+        <source>Add executable from staging</source>
+        <translation>Aggiungere eseguibile dalla messa in scena</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
+        <translation>Controllare gli eseguibili da aggiungere al menu Run. Strumenti con un wizard aprire il loro wizard quando viene eseguito.</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Cerca..</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annulla</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Aggiungi</translation>
     </message>
 </context>
 <context>
@@ -9640,6 +10029,281 @@ oppure usa "Sfoglia" per selezionarlo manualmente.</translation>
     </message>
 </context>
 <context>
+    <name>ThemePreviewPanel</name>
+    <message>
+        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>Anteprima — approssimativo; utilizzare "Riavviare per applicare" per vedere il tema in tutta l'applicazione.</translation>
+    </message>
+    <message>
+        <source>Header &amp; tabs</source>
+        <translation>Intestazione e schede</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>Profili</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Aggiorna</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Salva</translation>
+    </message>
+    <message>
+        <source>▶ Play</source>
+        <translation>▶ Gioca</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Modifiche</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Plugin</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Dati</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>Elenco dei modi</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>Nome della mod</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Note</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>Sovrascrittura</translation>
+    </message>
+    <message>
+        <source>Root Folder</source>
+        <translation>Cartella di radice</translation>
+    </message>
+    <message>
+        <source>— Gameplay —</source>
+        <translation>— Gameplay —</translation>
+    </message>
+    <message>
+        <source>Unofficial Patch</source>
+        <translation>Patch non ufficiale</translation>
+    </message>
+    <message>
+        <source>Selected mod</source>
+        <translation>Mod selezionato</translation>
+    </message>
+    <message>
+        <source>Wins over selection</source>
+        <translation>Vince sulla selezione</translation>
+    </message>
+    <message>
+        <source>conflict</source>
+        <translation>conflitto</translation>
+    </message>
+    <message>
+        <source>Loses to selection</source>
+        <translation>Perdita di selezione</translation>
+    </message>
+    <message>
+        <source>Plugin's mod</source>
+        <translation>Mod del plugin</translation>
+    </message>
+    <message>
+        <source>anchor</source>
+        <translation>ancora</translation>
+    </message>
+    <message>
+        <source>Required by selection</source>
+        <translation>Richiesto per selezione</translation>
+    </message>
+    <message>
+        <source>requirement</source>
+        <translation>requisito</translation>
+    </message>
+    <message>
+        <source>Requires selection</source>
+        <translation>Richiede la selezione</translation>
+    </message>
+    <message>
+        <source>Textures folder</source>
+        <translation>Cartella delle texture</translation>
+    </message>
+    <message>
+        <source>Archive.bsa</source>
+        <translation>Archivio.bsa</translation>
+    </message>
+    <message>
+        <source>Profile.ini</source>
+        <translation>Profilo.ini</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Installato</translation>
+    </message>
+    <message>
+        <source>Unordered plugin</source>
+        <translation>Plugin non ordinato</translation>
+    </message>
+    <message>
+        <source>Plugins &amp; files</source>
+        <translation>Plugin e file</translation>
+    </message>
+    <message>
+        <source>✔  SKSE Installed</source>
+        <translation>✔ SKSE installato</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not deployed</source>
+        <translation>● SKSE presente in modlist ma non distribuito</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not enabled</source>
+        <translation>● SKSE presente in modlist ma non abilitato</translation>
+    </message>
+    <message>
+        <source>✘  SKSE Not Present</source>
+        <translation>✘ SKSE Non presente</translation>
+    </message>
+    <message>
+        <source>Cycle detected among pinned plugins</source>
+        <translation>Ciclo rilevato tra plugin pinned</translation>
+    </message>
+    <message>
+        <source>Cycle resolved</source>
+        <translation>Ciclo risolto</translation>
+    </message>
+    <message>
+        <source>Flipping this rule resolves the cycle</source>
+        <translation>Flipping questa regola risolve il ciclo</translation>
+    </message>
+    <message>
+        <source>load before</source>
+        <translation>prima del carico</translation>
+    </message>
+    <message>
+        <source>load after</source>
+        <translation>carico dopo</translation>
+    </message>
+    <message>
+        <source>winning file</source>
+        <translation>file vincente</translation>
+    </message>
+    <message>
+        <source>overridden file</source>
+        <translation>file overridden</translation>
+    </message>
+    <message>
+        <source>inactive file</source>
+        <translation>file inattivo</translation>
+    </message>
+    <message>
+        <source>anchor file</source>
+        <translation>file di ancoraggio</translation>
+    </message>
+    <message>
+        <source>Drag selection outline</source>
+        <translation>Profilo di selezione del drag</translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation>Pulsanti</translation>
+    </message>
+    <message>
+        <source>Hover a button to preview its hover colour.</source>
+        <translation>Hover un pulsante per visualizzare in anteprima il suo colore hover.</translation>
+    </message>
+    <message>
+        <source>Inputs &amp; scrollbar</source>
+        <translation>Ingressi e barra di scorrimento</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>Cerca..</translation>
+    </message>
+    <message>
+        <source>Default profile</source>
+        <translation>Profilo predefinito</translation>
+    </message>
+    <message>
+        <source>Testing</source>
+        <translation>Testing</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Abilitato</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Disabili</translation>
+    </message>
+    <message>
+        <source>Selected option</source>
+        <translation>Opzione selezionata</translation>
+    </message>
+    <message>
+        <source>List row {0}</source>
+        <translation>Lista riga {0}</translation>
+    </message>
+    <message>
+        <source>Cards, toasts &amp; progress</source>
+        <translation>Carte, brindisi e progressi</translation>
+    </message>
+    <message>
+        <source>Card title</source>
+        <translation>Titolo della carta</translation>
+    </message>
+    <message>
+        <source>Card detail text</source>
+        <translation>Testo del dettaglio della carta</translation>
+    </message>
+    <message>
+        <source>Card secondary text</source>
+        <translation>Testo secondario della carta</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>Info</translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation>Successo</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>Avvertenza</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Errore</translation>
+    </message>
+    <message>
+        <source>Required mod</source>
+        <translation>Mod richiesta</translation>
+    </message>
+    <message>
+        <source>Optional mod</source>
+        <translation>Opzionale mod</translation>
+    </message>
+    <message>
+        <source>Status badges</source>
+        <translation>Tassi di stato</translation>
+    </message>
+    <message>
+        <source>Deployed</source>
+        <translation>Distribuito</translation>
+    </message>
+    <message>
+        <source>Text &amp; tones</source>
+        <translation>Testo e toni</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -10244,6 +10908,14 @@ Chiudilo quando hai finito, quindi fai clic su "Fatto".</translation>
     <message>
         <source>No description provided.</source>
         <translation>Nessuna descrizione fornita.</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>Ignora</translation>
+    </message>
+    <message>
+        <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
+        <translation>Non contare questo requisito verso la bandiera dei requisiti mancanti. Resta qui elencato in modo da poter ignorarlo.</translation>
     </message>
     <message>
         <source>View</source>
