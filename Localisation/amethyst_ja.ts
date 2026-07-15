@@ -27,6 +27,18 @@
 <context>
     <name>BG3ImportView</name>
     <message>
+        <source>Load Order (*.json)</source>
+        <translation>ロードオーダー(*.json)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>すべてのファイル</translation>
+    </message>
+    <message>
+        <source>Import BG3MM Load Order — {0}</source>
+        <translation>インポートBG3MMロードオーダー — {0}</translation>
+    </message>
+    <message>
         <source>Step 1: Select a BG3 Mod Manager order file</source>
         <translation>手順 1：BG3 Mod Manager の順序ファイルを選択する</translation>
     </message>
@@ -49,6 +61,10 @@ MODはUUIDに基づいて、インストール済みのMODと照合されます�
         <translation>プレビュー →</translation>
     </message>
     <message>
+        <source>Select a BG3MM order .json</source>
+        <translation>BG3MM 注文 .json を選択します</translation>
+    </message>
+    <message>
         <source>Selected: {0}</source>
         <translation>選択済み：{0}</translation>
     </message>
@@ -67,6 +83,10 @@ MODはUUIDに基づいて、インストール済みのMODと照合されます�
     <message>
         <source>Reading order and scanning installed mods…</source>
         <translation>読み込み順序と、インストール済みのMODのスキャン中…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
     <message>
         <source>Failed</source>
@@ -192,6 +212,56 @@ Deploy to push the new load order to the game.</source>
 <context>
     <name>BethiniView</name>
     <message>
+        <source>Run BethINI Pie — {0}</source>
+        <translation>BethINI Pieを実行 — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download BethINI Pie</source>
+        <translation>ステップ1: BethINI Pieをダウンロード</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the BethINI Pie page on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
+        <translation>下のボタンをクリックして、Nexus Mods の BethINI Pie ページを開きます。
+
+手動でアーカイブをダウンロード (Mod Managerのダウンロードボタンを使用しないでください)、次に[次へ]をクリックします.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>ステップ 2：アーカイブの場所を確認する</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract BethINI Pie</source>
+        <translation>ステップ3: BethINI Pieを抽出する</translation>
+    </message>
+    <message>
+        <source>Step 5: Run BethINI Pie</source>
+        <translation>ステップ5: BethINI Pieを実行します</translation>
+    </message>
+    <message>
+        <source>Select the BethINI Pie archive</source>
+        <translation>BethINI Pie アーカイブを選択</translation>
+    </message>
+    <message>
+        <source>BethINI archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>ダウンロードされていない BethINI アーカイブ。
+ダウンロードしてから、試してみる
+またはブラウザを使用して手動で選択します.</translation>
+    </message>
+    <message>
+        <source>Step 4: Choose Proton Version</source>
+        <translation>ステップ4: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
+        <source>'{0}' was not found.
+Please restart the wizard and install BethINI Pie first.</source>
+        <translation>'{0}' が見つかりませんでした。
+ウィザードを再起動し、BethINI Pieを最初にインストールしてください.</translation>
+    </message>
+    <message>
         <source>'{0}' was not found.</source>
         <translation>「{0}」が見つかりませんでした。</translation>
     </message>
@@ -199,9 +269,35 @@ Deploy to push the new load order to the game.</source>
         <source>Preparing BethINI Pie's Wine prefix…</source>
         <translation>BethINI Pieの「Wine」プレフィックスの準備中…</translation>
     </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>BethINI Pie is running.
+Configure your INI settings, then close it and click Done.</source>
+        <translation>ベスイン パイは動く。
+INI設定を構成し、それを閉じて、[完了]をクリックします.</translation>
+    </message>
+    <message>
+        <source>BethINI Pie finished.</source>
+        <translation>ベスイン 完成品.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
 </context>
 <context>
     <name>BodySlideView</name>
+    <message>
+        <source>{0} — {1}</source>
+        <translation>{0} — {1}</translation>
+    </message>
+    <message>
+        <source>Step 3: Run {0}</source>
+        <translation>ステップ3:{0}を実行</translation>
+    </message>
     <message>
         <source>Step 1: Deploy Modlist</source>
         <translation>ステップ 1: Modlist をデプロイする</translation>
@@ -227,6 +323,18 @@ Deploy your modlist first, then click Run.</source>
         <translation>デプロイ</translation>
     </message>
     <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>ステップ 2：Proton のバージョンを選択する</translation>
+    </message>
+    <message>
+        <source>{0} was not found in your mod staging folder.
+
+Install {0} as a mod, then reopen this wizard.</source>
+        <translation>{0} は、mod のステージングフォルダに見つかりませんでした。
+
+mod として {0} をインストールし、このウィザードを再オープンします.</translation>
+    </message>
+    <message>
         <source>Launching {0}…</source>
         <translation>{0}の起動中…</translation>
     </message>
@@ -237,6 +345,24 @@ Deploy your modlist first, then reopen this wizard.</source>
         <translation>{0} デプロイされた「Data」フォルダ内に見つかりませんでした。
 
 まずmodlistをデプロイしてから、このウィザードを再度開いてください。</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} 実行中です。
+作業が終わったらこれを閉じ、[完了] をクリックしてください。</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} が完成しました.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -284,6 +410,18 @@ Deploy your modlist first, then reopen this wizard.</source>
 </context>
 <context>
     <name>BsaPreview</name>
+    <message>
+        <source>Only conflicts</source>
+        <translation>紛争のみ</translation>
+    </message>
+    <message>
+        <source>Expand All</source>
+        <translation>すべて表示</translation>
+    </message>
+    <message>
+        <source>Collapse All</source>
+        <translation>崩壊 すべて</translation>
+    </message>
     <message>
         <source>(archive is empty or unreadable)</source>
         <translation>（アーカイブが空か、読み取れない）</translation>
@@ -370,8 +508,32 @@ Deploy your modlist first, then reopen this wizard.</source>
         <translation>掲載先：{0}</translation>
     </message>
     <message>
+        <source>All</source>
+        <translation>すべて</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>Clear Selected</source>
+        <translation>選択された明確</translation>
+    </message>
+    <message>
+        <source>Clear All</source>
+        <translation>全てクリア</translation>
+    </message>
+    <message>
         <source>No per-game caches found.</source>
         <translation>ゲームごとのキャッシュは見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>{0}  (active)</source>
+        <translation>{0}(アクティブ)</translation>
+    </message>
+    <message>
+        <source>Leftover temp folders  ({0})</source>
+        <translation>残り温度フォルダ({0})</translation>
     </message>
     <message>
         <source>Total: {0}</source>
@@ -457,6 +619,22 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
 <context>
     <name>ChangeVersionView</name>
     <message>
+        <source>File</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>バージョン</translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation>カテゴリ</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>サイズ</translation>
+    </message>
+    <message>
         <source>Change Version — {0}</source>
         <translation>バージョンの変更 — {0}</translation>
     </message>
@@ -488,6 +666,18 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <source>Install</source>
         <translation>インストール</translation>
     </message>
+    <message>
+        <source>Waiting for the browser download of '{0}' — click Cancel to stop.</source>
+        <translation>「{0}」のブラウザのダウンロードを待ってから、「キャンセル」をクリックします.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Waiting for the browser download — {0} / {1}</source>
+        <translation>ブラウザのダウンロード待ち - {0} / {1}</translation>
+    </message>
 </context>
 <context>
     <name>CollectionCard</name>
@@ -510,6 +700,26 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
 </context>
 <context>
     <name>CollectionDetailView</name>
+    <message>
+        <source>Name</source>
+        <translation>お名前 (必須)</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>バージョン</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>サイズ</translation>
+    </message>
+    <message>
+        <source>Opt</source>
+        <translation>ログイン</translation>
+    </message>
     <message>
         <source>Total size: {0}  |  {1} mods</source>
         <translation>合計サイズ：{0}  |  {1} mods</translation>
@@ -561,6 +771,14 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
     <message>
         <source>Update Collection</source>
         <translation>更新コレクション</translation>
+    </message>
+    <message>
+        <source>Rev {0}</source>
+        <translation>{0}牧師</translation>
+    </message>
+    <message>
+        <source>(installed)</source>
+        <translation>(インストール済み)</translation>
     </message>
     <message>
         <source>No optional mods.</source>
@@ -700,6 +918,18 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>コレクション</translation>
     </message>
     <message>
+        <source>Most downloaded</source>
+        <translation>ダウンロード</translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>ソート:</translation>
+    </message>
+    <message>
+        <source>Show adult</source>
+        <translation>成人向けを表示</translation>
+    </message>
+    <message>
         <source>Open on Nexus</source>
         <translation>Nexusで開く</translation>
     </message>
@@ -734,6 +964,26 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
     <message>
         <source>No Nexus domain for this game.</source>
         <translation>このゲームにはNexusドメインがありません。</translation>
+    </message>
+    <message>
+        <source>Search '{0}': page {1} ({2} result(s))</source>
+        <translation>検索する '{0}': ページ {1} ({2} 結果)</translation>
+    </message>
+    <message>
+        <source>Collections: page {0}</source>
+        <translation>コレクション: ページ {0}</translation>
+    </message>
+    <message>
+        <source>No collections found.</source>
+        <translation>コレクションが見つかりません.</translation>
+    </message>
+    <message>
+        <source>No matches for '{0}'.</source>
+        <translation>'{0}' のマッチはありません.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -862,8 +1112,36 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>ハードリンク</translation>
     </message>
     <message>
+        <source>Swap launcher with script extender on deploy</source>
+        <translation>スワップランチャーとスクリプトエクステンダーをデプロイ</translation>
+    </message>
+    <message>
+        <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
+        <translation>自動デプロイ(有効/無効/予約時に自動デプロイ)</translation>
+    </message>
+    <message>
+        <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
+        <translation>自動アーカイブの無効化(BSA上のプレッダーの緩いファイル)</translation>
+    </message>
+    <message>
+        <source>Use profile-specific INI files</source>
+        <translation>プロファイル固有のINIファイルを使用する</translation>
+    </message>
+    <message>
+        <source>Use profile-specific saves</source>
+        <translation>プロファイル固有の保存を使用する</translation>
+    </message>
+    <message>
+        <source>Prepend load-order numbers to mod folders</source>
+        <translation>読み込み順の数値を mod フォルダーに送信します</translation>
+    </message>
+    <message>
         <source>Game Patch Version</source>
         <translation>ゲームのパッチバージョン</translation>
+    </message>
+    <message>
+        <source>Patch {0}</source>
+        <translation>パッチ {0}</translation>
     </message>
     <message>
         <source>Plugins file name</source>
@@ -900,6 +1178,18 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Settings saved.</source>
         <translation>設定が保存されました。</translation>
+    </message>
+    <message>
+        <source>Found via Lutris.</source>
+        <translation>Lutris によって見つけられる.</translation>
+    </message>
+    <message>
+        <source>Executable ({0}) not found in this folder — double-check the path.</source>
+        <translation>実行可能({0})はこのフォルダに見つかりません.</translation>
+    </message>
+    <message>
+        <source>Executable found.</source>
+        <translation>実行可能が見つかりました.</translation>
     </message>
     <message>
         <source>Custom staging folder selected.</source>
@@ -954,12 +1244,58 @@ The default profile's settings are not affected.</source>
         <translation>既存のステージングファイルを確認中…</translation>
     </message>
     <message>
+        <source>Move</source>
+        <translation>交通アクセス</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>スキップ</translation>
+    </message>
+    <message>
         <source>Moving staging files…</source>
         <translation>ステージングファイルの移動中…</translation>
     </message>
     <message>
+        <source>Moving Mod Staging Files</source>
+        <translation>移動 Mod のステージング ファイル</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Remove the instance configuration for {0}?
+
+Deleted: game config + generated caches; the game is restored to vanilla.
+Kept: your mods, profiles, and overwrite folders.
+
+This cannot be undone.</source>
+        <translation>{0} のインスタンス構成を削除しますか?
+
+Deleted: ゲームコンフィグ + 生成されたキャッシュ; ゲームはバニラに復元されます。
+Kept: mods、プロファイル、および上書きフォルダ。
+
+これは元に戻すことができません.</translation>
+    </message>
+    <message>
+        <source>Remove Instance — {0}</source>
+        <translation>インスタンスを削除 — {0}</translation>
+    </message>
+    <message>
         <source>Removing instance…</source>
         <translation>インスタンスを削除中…</translation>
+    </message>
+    <message>
+        <source>Scan {0} and remove leftover deployed mod files (hardlinks/symlinks/copies) that weren't restored?
+
+Vanilla game files are kept. This cannot be undone.</source>
+        <translation>{0} をスキャンし、復元されていない mod ファイル (hardlinks/symlinks/copies) をデプロイした残りのファイルを削除しますか?
+
+バニラゲームファイルは保存されます。 これは元に戻すことができません.</translation>
+    </message>
+    <message>
+        <source>Clean Game Folder — {0}</source>
+        <translation>クリーンゲームフォルダ — {0}</translation>
     </message>
     <message>
         <source>Cleaning game folder…</source>
@@ -972,6 +1308,21 @@ The default profile's settings are not affected.</source>
     <message>
         <source>Clean complete — {0} deployed file(s) removed.</source>
         <translation>クリーン完了 — {0} にデプロイされたファイルが削除されました。</translation>
+    </message>
+</context>
+<context>
+    <name>ConfirmOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
     </message>
 </context>
 <context>
@@ -995,6 +1346,10 @@ The default profile's settings are not affected.</source>
 </context>
 <context>
     <name>CreationKitView</name>
+    <message>
+        <source>Run Creation Kit — {0}</source>
+        <translation>クリエイションキット — {0}</translation>
+    </message>
     <message>
         <source>Step 3: Deploy Modlist</source>
         <translation>ステップ 3: Modlist のデプロイ</translation>
@@ -1034,6 +1389,22 @@ Skyrim Special Edition → ⚙ → 管理 → Creation Kit。
         <translation>ステップ 2: Creation Kit Platform Extended</translation>
     </message>
     <message>
+        <source>Creation Kit Platform Extended (CKPE) patches the Creation Kit so it runs correctly. It is downloaded from GitHub and installed as a mod with the root flag enabled, so it deploys into the game folder next to CreationKit.exe.
+
+</source>
+        <translation>クリエイションキットプラットフォーム拡張(CKPE)はクリエイションキットをパッチ化し、正しく動作させます。 GitHub からダウンロードして、root フラグが有効になっている mod としてインストールされているので、CreationKit.exe の横にあるゲームフォルダーにデプロイします。
+
+.</translation>
+    </message>
+    <message>
+        <source>CKPE already appears to be installed. You can update it or skip.</source>
+        <translation>CKPE は既にインストールされているようです。 更新やスキップができます.</translation>
+    </message>
+    <message>
+        <source>Click Install to download and add the latest CKPE (SSE build).</source>
+        <translation>インストールをクリックして、最新のCKPE(SSEビルド)をダウンロードして追加します.</translation>
+    </message>
+    <message>
         <source>Update CKPE</source>
         <translation>CKPEの更新</translation>
     </message>
@@ -1058,8 +1429,26 @@ The Creation Kit can also occasionally crash on startup under Proton (a known Wi
         <translation>完了</translation>
     </message>
     <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>ステップ3: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.
+Install the Creation Kit from Steam, then reopen this wizard.</source>
+        <translation>ゲームフォルダに{0}が見つかりませんでした。
+作成キットをSteamからインストールし、このウィザードを再開します.</translation>
+    </message>
+    <message>
         <source>Contacting GitHub…</source>
         <translation>GitHub に接続中…</translation>
+    </message>
+    <message>
+        <source>CKPE {0} installed as a mod (root flag enabled).</source>
+        <translation>CKPE {0} を mod (root フラグを有効に) としてインストールします.</translation>
+    </message>
+    <message>
+        <source>CKPE install error: {0}</source>
+        <translation>CKPE インストールエラー: {0}</translation>
     </message>
     <message>
         <source>{0} was not found.</source>
@@ -1068,6 +1457,36 @@ The Creation Kit can also occasionally crash on startup under Proton (a known Wi
     <message>
         <source>Launching Creation Kit…</source>
         <translation>Creation Kit を起動中…</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Game path not configured.</source>
+        <translation>設定されていないゲームパス.</translation>
+    </message>
+    <message>
+        <source>Installing d3dcompiler_47…</source>
+        <translation>D3dcompiler 47のインストール..</translation>
+    </message>
+    <message>
+        <source>Installing VC++ Redistributable (first run only)…</source>
+        <translation>VC++のインストール 再配布可能(最初の実行のみ)..</translation>
+    </message>
+    <message>
+        <source>Creation Kit is running.
+Close it when you are done, then click Done.</source>
+        <translation>クリエイションキットが稼働しています。
+完了したら閉じて、Doneをクリックします.</translation>
+    </message>
+    <message>
+        <source>Creation Kit finished.</source>
+        <translation>制作キット完成.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -1199,6 +1618,18 @@ The Creation Kit can also occasionally crash on startup under Proton (a known Wi
     <message>
         <source>Define Custom Game</source>
         <translation>カスタムゲームの設定</translation>
+    </message>
+    <message>
+        <source>Load Preset  (optional)</source>
+        <translation>負荷事前調整(任意)</translation>
+    </message>
+    <message>
+        <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
+        <translation>既存のカスタムゲームから下のフィールドを先頭テンプレートとして表示します。 新しいゲームに独自の名前を付ける必要があります.</translation>
+    </message>
+    <message>
+        <source>— Select a game to copy from —</source>
+        <translation>— コピーするゲームを選択 —</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -1432,6 +1863,18 @@ The Creation Kit can also occasionally crash on startup under Proton (a known Wi
         <source>Remove framework</source>
         <translation>フレームワークを削除する</translation>
     </message>
+    <message>
+        <source>Downloading image…</source>
+        <translation>画像のダウンロード</translation>
+    </message>
+    <message>
+        <source>Image cached.</source>
+        <translation>イメージキャッシュ.</translation>
+    </message>
+    <message>
+        <source>Image download failed: {0}</source>
+        <translation>画像のダウンロードに失敗: {0}</translation>
+    </message>
 </context>
 <context>
     <name>DataModel</name>
@@ -1457,6 +1900,17 @@ The Creation Kit can also occasionally crash on startup under Proton (a known Wi
     <message>
         <source>Deployed files - {0} files in {1} mods</source>
         <translation>デプロイされたファイル - {1} 個のMod内の {0} 個のファイル</translation>
+    </message>
+</context>
+<context>
+    <name>DatePickerOverlay</name>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
     </message>
 </context>
 <context>
@@ -1571,9 +2025,43 @@ The Creation Kit can also occasionally crash on startup under Proton (a known Wi
         <source>Scan default Downloads folder ({0})</source>
         <translation>デフォルトの「ダウンロード」フォルダ（{0}）をスキャンする</translation>
     </message>
+    <message>
+        <source>Add download folder</source>
+        <translation>ダウンロードフォルダの追加</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadsDelegate</name>
+    <message>
+        <source>Select all</source>
+        <translation>すべて選択</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>再インストール</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>インストール</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadsModel</name>
+    <message>
+        <source>Name</source>
+        <translation>お名前 (必須)</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>サイズ</translation>
+    </message>
 </context>
 <context>
     <name>DtkitPatchView</name>
+    <message>
+        <source>Patch Game (dtkit-patch) — {0}</source>
+        <translation>パッチゲーム(dtkit-patch) — {0}</translation>
+    </message>
     <message>
         <source>Step 1: Deploy mods</source>
         <translation>ステップ1:modsを展開する</translation>
@@ -1625,6 +2113,10 @@ Darktide Mod Loader mod が有効になっていることを確認してくだ�
         <translation>実行dtkit-patch — toggle..</translation>
     </message>
     <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
         <source>Done. The bundle patch state was toggled.
 Launch the game to verify mods load (toggle again to disable).</source>
         <translation>お問い合わせ バンドルパッチの状態がトグルされた。
@@ -1672,6 +2164,22 @@ Download the archive manually (do NOT use the Mod Manager download button), then
         <translation>手順 1：{0} をダウンロードする</translation>
     </message>
     <message>
+        <source>Downloading {0}…</source>
+        <translation>{0}のダウンロード中…</translation>
+    </message>
+    <message>
+        <source>{0} not found after extraction.</source>
+        <translation>抽出後に{0}が見つかりません.</translation>
+    </message>
+    <message>
+        <source>Downloaded and extracted {0}.</source>
+        <translation>{0}をダウンロードして抽出しました.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
         <source>Step 2: Locate the Archive</source>
         <translation>ステップ 2：アーカイブの場所を確認する</translation>
     </message>
@@ -1696,12 +2204,34 @@ or use Browse to select it manually.</source>
 「参照」を使用して手動でファイルを選択してください。</translation>
     </message>
     <message>
+        <source>Select the DynDOLOD archive</source>
+        <translation>DynDOLOD アーカイブを選択</translation>
+    </message>
+    <message>
         <source>Selected: {0}</source>
         <translation>選択済み：{0}</translation>
     </message>
     <message>
         <source>Step 3: Extract DynDOLOD</source>
         <translation>ステップ 3: DynDOLOD を解凍する</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>アーカイブが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>{0}を抽出する..</translation>
+    </message>
+    <message>
+        <source>{0} not found after extraction.
+Check that the archive contains {0}.</source>
+        <translation>抽出後に{0}が見つかりません。
+アーカイブに{0}が含まれていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Extracted {0} file(s).</source>
+        <translation>{0} ファイルを抽出しました.</translation>
     </message>
     <message>
         <source>Step 4: Deploy Modlist</source>
@@ -1752,6 +2282,10 @@ Please restart the wizard and install {1} first.</source>
 ウィザードを再起動し、まず{1}をインストールしてください。</translation>
     </message>
     <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>ステップ5: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
         <source>Step 6: Run {0}</source>
         <translation>手順 6：{0} を実行する</translation>
     </message>
@@ -1766,6 +2300,22 @@ Please restart the wizard and install {1} first.</source>
     <message>
         <source>Launching {0}…</source>
         <translation>{0}の起動中…</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Game path not configured.</source>
+        <translation>設定されていないゲームパス.</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} が完成しました.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -1788,6 +2338,10 @@ Close it when you are done, then click Done.</source>
 </context>
 <context>
     <name>ESLifierView</name>
+    <message>
+        <source>Run ESLifier — {0}</source>
+        <translation>ESLifierを実行 — {0}</translation>
+    </message>
     <message>
         <source>Step 1: Install ESLifier</source>
         <translation>ステップ 1: ESLifier をインストールする</translation>
@@ -1827,12 +2381,44 @@ ESLifierの処理が完了すると、その出力結果が
         <translation>完了</translation>
     </message>
     <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>ステップ 2：Proton のバージョンを選択する</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and let it install ESLifier first.</source>
+        <translation>{0}が見つかりませんでした。
+ウィザードを再起動し、まず ESLifier をインストールしてください.</translation>
+    </message>
+    <message>
         <source>Launching ESLifier…</source>
         <translation>ESLifierを起動中…</translation>
     </message>
     <message>
         <source>{0} was not found.</source>
         <translation>{0} 見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Could not write settings: {0}</source>
+        <translation>設定を書くことができませんでした: {0}</translation>
+    </message>
+    <message>
+        <source>ESLifier is running.
+Close it when you are done, then click Done.</source>
+        <translation>ESLifierが稼働しています。
+完了したら閉じて、Doneをクリックします.</translation>
+    </message>
+    <message>
+        <source>ESLifier finished. Click Done to close.</source>
+        <translation>ESLifier完成。 Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -1848,6 +2434,10 @@ ESLifierの処理が完了すると、その出力結果が
     <message>
         <source>Close</source>
         <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Engine Fixes — {0}</source>
+        <translation>エンジンの修正 — {0}</translation>
     </message>
     <message>
         <source>Reset to defaults</source>
@@ -1889,12 +2479,32 @@ ESLifierの処理が完了すると、その出力結果が
         <translation>設定：{0}</translation>
     </message>
     <message>
+        <source>Java runtime</source>
+        <translation>Java ランタイム</translation>
+    </message>
+    <message>
+        <source>How to run this .jar:
+Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
+Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' — anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
+        <translation>この .jar を実行する方法:
+Host: お使いのシステムのJava(Protonなし)で実行します。 「java -jar %command%」(%command% は jar パス) の起動オプションで Java コマンドを設定します。
+Proton プレフィックス: 'Install Java をプレフィックスに一度クリックすると、'java.exe -jar &lt;jar&gt;' として自動的に実行されます。 起動オプション/起動引数に置いたものは、追加のフラグとして追加されます。 どの接頭辞は、以下のProtonバージョン('Game default' =ゲームの接頭辞;特定のバージョン = jarの横に分離された接頭辞)に従います.</translation>
+    </message>
+    <message>
         <source>Host (system java)</source>
         <translation>ホスト（システムJava）</translation>
     </message>
     <message>
         <source>Proton prefix (Windows Java)</source>
         <translation>Proton接頭辞（Windows版Java）</translation>
+    </message>
+    <message>
+        <source>Launch arguments</source>
+        <translation>引数の起動</translation>
+    </message>
+    <message>
+        <source>Arguments passed to the exe. Use Wine paths for file arguments (e.g. Z:\home\...) — the buttons below insert them for you.</source>
+        <translation>実行に渡された引数。 ファイルの引数にワインパスを使う(例:Z\home\...) — 下のボタンはそれらを入力します.</translation>
     </message>
     <message>
         <source>Insert game path</source>
@@ -1905,8 +2515,56 @@ ESLifierの処理が完了すると、その出力結果が
         <translation>MODのパスを指定 ▼</translation>
     </message>
     <message>
+        <source>Proton version</source>
+        <translation>Protonバージョン</translation>
+    </message>
+    <message>
+        <source>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
+        <translation>ゲームのプレフィックスの代わりに、exeの横にある独立したプレフィックスで特定のProtonバージョンを使用します。 ゲームのProtonバージョンで動作しないツールに便利です。 Bethesdaゲームでは、ゲームパス(Registry)、プラグイン.txt、My Games INIsが起動時に自動的にプレフィックスで設定されます.</translation>
+    </message>
+    <message>
+        <source>Run EXE in prefix…</source>
+        <translation>プレフィックスでEXEを実行..</translation>
+    </message>
+    <message>
+        <source>Run winecfg</source>
+        <translation>winecfg を実行する</translation>
+    </message>
+    <message>
+        <source>Run winetricks</source>
+        <translation>winetricks を実行する</translation>
+    </message>
+    <message>
+        <source>Open prefix folder</source>
+        <translation>プレフィックスフォルダを開く</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>起動オプション</translation>
+    </message>
+    <message>
+        <source>Steam-style options: env vars (KEY=VALUE), wrappers (e.g. gamemoderun), and %command% as placeholder for the full command. Without %command%, appended as suffix.</source>
+        <translation>蒸気スタイルのオプション: env vars (KEY=VALUE), wrappers (例: gamemoderun), %command% は、完全なコマンドのプレースホルダーとして. %command% なし、サフィックスとして追加.</translation>
+    </message>
+    <message>
         <source>e.g. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</source>
         <translation>例：PROTON_ENABLE_WAYLAND=0 gamemoderun %command%</translation>
+    </message>
+    <message>
+        <source>Deploy on run</source>
+        <translation>実行上の展開</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist before running this exe</source>
+        <translation>この実行を実行する前にモダリストを展開する</translation>
+    </message>
+    <message>
+        <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
+        <translation>デプロイボタンと同じデプロイを実行し、デプロイが完了したらこの実行を起動します.</translation>
+    </message>
+    <message>
+        <source>Hide from dropdown</source>
+        <translation>ドロップダウンから非表示</translation>
     </message>
     <message>
         <source>Remove EXE</source>
@@ -1931,6 +2589,26 @@ ESLifierの処理が完了すると、その出力結果が
 </context>
 <context>
     <name>ExportProfileView</name>
+    <message>
+        <source>Nexus</source>
+        <translation>ネクサス</translation>
+    </message>
+    <message>
+        <source>Direct</source>
+        <translation>アクセス</translation>
+    </message>
+    <message>
+        <source>Bundle</source>
+        <translation>バンド</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>イグノー</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
     <message>
         <source>Export Profile</source>
         <translation>プロファイルのエクスポート</translation>
@@ -1958,6 +2636,26 @@ ESLifierの処理が完了すると、その出力結果が
     <message>
         <source>Export…</source>
         <translation>エクスポート…</translation>
+    </message>
+    <message>
+        <source>Mod Name</source>
+        <translation>MOD名</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>ソース</translation>
+    </message>
+    <message>
+        <source>Preferred Version</source>
+        <translation>推奨バージョン</translation>
+    </message>
+    <message>
+        <source>Fomod</source>
+        <translation>メニュー</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>任意</translation>
     </message>
     <message>
         <source>Nothing to save.</source>
@@ -1992,8 +2690,36 @@ ESLifierの処理が完了すると、その出力結果が
         <translation>エクスポートするMODはありません。</translation>
     </message>
     <message>
+        <source>mod</source>
+        <translation>メニュー</translation>
+    </message>
+    <message>
+        <source>mods</source>
+        <translation>メニュー</translation>
+    </message>
+    <message>
+        <source>is</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>are</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
         <source>{0} Nexus {1} {2} missing a File ID and must be set before exporting.</source>
         <translation>{0} Nexus {1} {2} にファイル ID が欠けており、エクスポートする前に設定する必要があります。</translation>
+    </message>
+    <message>
+        <source>Export Amethyst Manifest</source>
+        <translation>輸出アメジストマニフェスト</translation>
+    </message>
+    <message>
+        <source>Amethyst Manifest (*.amethyst)</source>
+        <translation>アメジスト・マニフェスト(*.amethyst)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>すべてのファイル</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -2007,8 +2733,88 @@ ESLifierの処理が完了すると、その出力結果が
 <context>
     <name>FalloutDowngradeView</name>
     <message>
+        <source>Downgrade Fallout 3 — {0}</source>
+        <translation>ダウングレードのフォールアウト 3 — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the Patcher</source>
+        <translation>ステップ1: Patcherをダウンロード</translation>
+    </message>
+    <message>
+        <source>To downgrade Fallout 3 you need the
+Fallout Anniversary Patcher from Nexus Mods.
+
+Click the button below to open the mod page,
+then download the main file.</source>
+        <translation>ダウングレードのフォールアウトに 3 あなたが必要とする
+Nexus Mods からのフォールアウトの記念日の Patcher。
+
+下のボタンをクリックすると、MODページが開きます。
+その後、メインファイルをダウンロードします.</translation>
+    </message>
+    <message>
+        <source>Open Nexus Mods Page</source>
+        <translation>ネクサス変更ページを開く</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>ステップ 2：アーカイブの場所を確認する</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract &amp; Run Patcher</source>
+        <translation>ステップ3:エキス&amp;ランパッチャー</translation>
+    </message>
+    <message>
+        <source>Select the Fallout Anniversary Patcher archive</source>
+        <translation>フォールアウト・アニバーサリー・パッチャーのアーカイブを選択</translation>
+    </message>
+    <message>
+        <source>Archive not found in Downloads.
+Make sure you downloaded the mod, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>ダウンロードされていないアーカイブ
+mod をダウンロードし、試してみる もう一度、
+またはブラウザを使用して手動で選択します.</translation>
+    </message>
+    <message>
         <source>Extracting archive to game folder…</source>
         <translation>アーカイブをゲームフォルダに解凍中…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>ゲームパスが設定されていません。</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>アーカイブが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Could not find Patcher.exe after extraction.
+Make sure you downloaded the correct mod.</source>
+        <translation>抽出後の Patcher.exe が見つかりませんでした。
+正しいMODをダウンロードしてください.</translation>
+    </message>
+    <message>
+        <source>Running {0} via Proton…
+This may take a moment.</source>
+        <translation>プロトンを介して{0}を実行...
+しばらくお待ちください.</translation>
+    </message>
+    <message>
+        <source>Could not determine Proton version for this game.</source>
+        <translation>このゲームではプロトンバージョンを判断できません.</translation>
+    </message>
+    <message>
+        <source>Patcher has finished.
+
+Click Done to clean up the extracted files and close.</source>
+        <translation>パッチャは終わりました。
+
+Doneをクリックして抽出されたファイルをクリーンアップし、閉じます.</translation>
     </message>
 </context>
 <context>
@@ -2039,6 +2845,10 @@ ESLifierの処理が完了すると、その出力結果が
     <message>
         <source>By category</source>
         <translation>カテゴリー別</translation>
+    </message>
+    <message>
+        <source>By author</source>
+        <translation>著者による</translation>
     </message>
     <message>
         <source>By file type</source>
@@ -2220,6 +3030,10 @@ ESLifierの処理が完了すると、その出力結果が
 <context>
     <name>Fnv4GbView</name>
     <message>
+        <source>4GB Patch — {0}</source>
+        <translation>4GB パッチ — {0}</translation>
+    </message>
+    <message>
         <source>Fallout New Vegas 4GB Patch</source>
         <translation>『フォールアウト：ニューベガス』4GBパッチ</translation>
     </message>
@@ -2256,12 +3070,52 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
         <translation>{0} を確認中…</translation>
     </message>
     <message>
+        <source>Error reading exe: {0}</source>
+        <translation>エラー読み込みの実行: {0}</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder.</source>
+        <translation>ゲームフォルダに{0}が見つかりません.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>{0}は既に4GBパッチを当てています.</translation>
+    </message>
+    <message>
+        <source>Unpatched {0} detected ({1} version) — ready to patch.</source>
+        <translation>{0} が検出されていない ({1} バージョン) — パッチへの準備が整いました.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version.
+SHA-1: {1}
+It may already be modified. Verify game files in Steam/Heroic to get a clean exe, then try again.</source>
+        <translation>{0} のバージョンを認識しない。
+SHA-1:{1}
+既に変更される場合があります。 Steam/Heroic でゲームファイルを確認して、クリーンな実行を取得してからもう一度お試しください.</translation>
+    </message>
+    <message>
+        <source>Backup found: {0}</source>
+        <translation>見つかったバックアップ: {0}</translation>
+    </message>
+    <message>
+        <source>No backup present.</source>
+        <translation>バックアップはありません.</translation>
+    </message>
+    <message>
         <source>Patching {0}…</source>
         <translation>{0}のパッチ適用…</translation>
     </message>
     <message>
+        <source>Patch failed: {0}</source>
+        <translation>パッチが失敗しました: {0}</translation>
+    </message>
+    <message>
         <source>Restoring original {0}…</source>
         <translation>{0}の初期状態への復元…</translation>
+    </message>
+    <message>
+        <source>Restore failed: {0}</source>
+        <translation>ストアが失敗しました: {0}</translation>
     </message>
 </context>
 <context>
@@ -2308,7 +3162,30 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
     </message>
 </context>
 <context>
+    <name>FrameworkBanner</name>
+    <message>
+        <source>✔  {0} Installed</source>
+        <translation>✔ {0} インストール</translation>
+    </message>
+    <message>
+        <source>●  {0} present in modlist but not deployed</source>
+        <translation>● modlist に存在する {0} がデプロイされていない</translation>
+    </message>
+    <message>
+        <source>●  {0} present in modlist but not enabled</source>
+        <translation>● modlist に存在する {0} が機能しない</translation>
+    </message>
+    <message>
+        <source>✘  {0} Not Present</source>
+        <translation>̇ {0} 未発表</translation>
+    </message>
+</context>
+<context>
     <name>GpakView</name>
+    <message>
+        <source>GPAK tools — {0}</source>
+        <translation>GPAKツール — {0}</translation>
+    </message>
     <message>
         <source>GPAK unpack / repack</source>
         <translation>GPAKの解凍／再圧縮</translation>
@@ -2332,6 +3209,38 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
     <message>
         <source>Log:</source>
         <translation>ログ：</translation>
+    </message>
+    <message>
+        <source>'{0}' not found in game root.</source>
+        <translation>'{0}' はゲームルートに見つかりません.</translation>
+    </message>
+    <message>
+        <source>Unpacking resources.gpak…</source>
+        <translation>リソースの解凍.gpak..</translation>
+    </message>
+    <message>
+        <source>Removing previous Unpacked folder…</source>
+        <translation>以前のUnpackedフォルダを削除..</translation>
+    </message>
+    <message>
+        <source>Unpack complete.</source>
+        <translation>解凍完了.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>'{0}' folder not found. Unpack first.</source>
+        <translation>'{0}' フォルダが見つかりません。 最初に解凍して下さい.</translation>
+    </message>
+    <message>
+        <source>Repacking to resources.gpak…</source>
+        <translation>リソースにリパック.gpak..</translation>
+    </message>
+    <message>
+        <source>Repack complete.</source>
+        <translation>再梱包完了.</translation>
     </message>
 </context>
 <context>
@@ -2425,8 +3334,8 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
         <translation>以下から起動</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Steam/Heroicの所有状況を自動検出します。特定のランチャーを強制的に使用するか、「なし」を選択すると、常にProton経由でexeファイルを直接起動します。</translation>
+        <source>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>オートは、Steam/Heroic/Lutrisの所有権を検出します。 特定のランチャーを強制するか、None は Proton 経由で直接実行を起動します.</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -2458,12 +3367,28 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
 <context>
     <name>MSCLoaderView</name>
     <message>
+        <source>Select the MSCLoader archive</source>
+        <translation>MSCLoader アーカイブを選択</translation>
+    </message>
+    <message>
         <source>Step 4: Create MSCFolder.txt</source>
         <translation>手順 4: MSCFolder.txt を作成する</translation>
     </message>
     <message>
         <source>Writing MSCFolder.txt…</source>
         <translation>MSCFolder.txt の書き込み中…</translation>
+    </message>
+    <message>
+        <source>Game path not configured.</source>
+        <translation>設定されていないゲームパス.</translation>
+    </message>
+    <message>
+        <source>Created MSCFolder.txt → {0}</source>
+        <translation>作成したMSCFolder.txt → {0}</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -2789,6 +3714,90 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
         <translation>今すぐ再起動する</translation>
     </message>
     <message>
+        <source>Deploy Method</source>
+        <translation>デプロイ方法</translation>
+    </message>
+    <message>
+        <source>Symlink</source>
+        <translation>シンボリックリンク</translation>
+    </message>
+    <message>
+        <source>Symlink (Recommended)</source>
+        <translation>シンボリックリンク（推奨）</translation>
+    </message>
+    <message>
+        <source>Hardlink</source>
+        <translation>ハードリンク</translation>
+    </message>
+    <message>
+        <source>Hardlink (Recommended)</source>
+        <translation>ハードリンク（推奨）</translation>
+    </message>
+    <message>
+        <source>Swap launcher with script extender on deploy</source>
+        <translation>スワップランチャーとスクリプトエクステンダーをデプロイ</translation>
+    </message>
+    <message>
+        <source>Auto deploy (on enable/disable/reorder)</source>
+        <translation>自動デプロイ(有効/無効/予約)</translation>
+    </message>
+    <message>
+        <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
+        <translation>自動アーカイブの無効化(BSA上のプレッダーの緩いファイル)</translation>
+    </message>
+    <message>
+        <source>Use profile-specific INI files</source>
+        <translation>プロファイル固有のINIファイルを使用する</translation>
+    </message>
+    <message>
+        <source>Use profile-specific saves</source>
+        <translation>プロファイル固有の保存を使用する</translation>
+    </message>
+    <message>
+        <source>Prepend load-order numbers to mod folders</source>
+        <translation>読み込み順の数値を mod フォルダーに送信します</translation>
+    </message>
+    <message>
+        <source>Game Patch Version</source>
+        <translation>ゲームのパッチバージョン</translation>
+    </message>
+    <message>
+        <source>Patch 8</source>
+        <translation>パッチ 8</translation>
+    </message>
+    <message>
+        <source>Patch 7</source>
+        <translation>パッチ 7</translation>
+    </message>
+    <message>
+        <source>Patch 6</source>
+        <translation>パッチ 6</translation>
+    </message>
+    <message>
+        <source>Plugins file name</source>
+        <translation>プラグインのファイル名</translation>
+    </message>
+    <message>
+        <source>{0} and {1} more</source>
+        <translation>{0} と {1} 以上</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
+        <translation>ゲームハンドラがロードできなかった({0})。 感染したゲームは隠されていますが、あなたのMODは安全です - ログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Installing 32-bit support (needed to run Windows tools) …</source>
+        <translation>32ビットサポートのインストール(Windowsツールを実行するために必要)..</translation>
+    </message>
+    <message>
+        <source>32-bit support installed — restart the app before running Windows tools.</source>
+        <translation>32ビットのサポートがインストールされ、Windowsツールを実行する前にアプリを再起動します.</translation>
+    </message>
+    <message>
+        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
+        <translation>32ビットのサポートを自動的にインストールできません。マニュアルコマンドのログを参照してください.</translation>
+    </message>
+    <message>
         <source>Install-name Rules</source>
         <translation>Install-name のルール</translation>
     </message>
@@ -2803,6 +3812,42 @@ Proton 環境下では、このパッチの有無を確認する MOD による�
     <message>
         <source>Search files… (try !.dds)</source>
         <translation>ファイルを検索... ( !.dds)</translation>
+    </message>
+    <message>
+        <source>Remove archives</source>
+        <translation>アーカイブを削除</translation>
+    </message>
+    <message>
+        <source>Permanently delete {0} archive(s) from disk?
+
+</source>
+        <translation>ディスクから{0}アーカイブを永久に削除しますか?
+
+?</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Overwrite archives</source>
+        <translation>アーカイブを上書きする</translation>
+    </message>
+    <message>
+        <source>{0} file(s) already exist in that folder and will be overwritten:
+
+</source>
+        <translation>そのフォルダに{0}ファイル(s)が既に存在し、上書きされる:
+
+</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>オーバーライト</translation>
+    </message>
+    <message>
+        <source>Install XACT audio (XAudio2)</source>
+        <translation>XACTオーディオ(XAudio2)をインストールする</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -2989,12 +4034,84 @@ Remove the appended-collection entry?</source>
         <translation>インストール：{0}</translation>
     </message>
     <message>
+        <source>Cancelling…</source>
+        <translation>キャンセル..</translation>
+    </message>
+    <message>
+        <source>Cancel install?</source>
+        <translation>インストールをキャンセルしますか?</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the collection profile.</source>
+        <translation>インストールを停止し、コレクションプロファイルを削除します.</translation>
+    </message>
+    <message>
+        <source>Cancel Install</source>
+        <translation>キャンセル インストール</translation>
+    </message>
+    <message>
+        <source>Keep Going</source>
+        <translation>行き続ける</translation>
+    </message>
+    <message>
         <source>Nexus Premium not detected — manual download mode.</source>
         <translation>Nexus Premium が検出されませんでした — 手動ダウンロードモードです。</translation>
     </message>
     <message>
+        <source>Paused — {0} installed.</source>
+        <translation>パユース — {0} をインストール.</translation>
+    </message>
+    <message>
         <source>Install paused — {0} mod(s) installed.</source>
         <translation>インストールが一時停止しました — 「{0}」のMODがインストールされました。</translation>
+    </message>
+    <message>
+        <source>Done — {0}/{1} installed.</source>
+        <translation>Done — {0}/{1} をインストールしました.</translation>
+    </message>
+    <message>
+        <source>Collection installed — {0}/{1} mod(s)</source>
+        <translation>コレクションのインストール — {0}/{1} mod(s)</translation>
+    </message>
+    <message>
+        <source> ({0} skipped)</source>
+        <translation>({0}はスキップしました)</translation>
+    </message>
+    <message>
+        <source>Restoring bundled mods + profile files…</source>
+        <translation>バンドルされたMOD +プロファイルファイルを復元する..</translation>
+    </message>
+    <message>
+        <source>Imported — {0}/{1} installed.</source>
+        <translation>インポート — {0}/{1} をインストールしました.</translation>
+    </message>
+    <message>
+        <source>Profile imported — {0}/{1} mod(s)</source>
+        <translation>プロフィールの輸入 — {0}/{1} MOD (s)</translation>
+    </message>
+    <message>
+        <source>…and {0} more</source>
+        <translation>と {0} より</translation>
+    </message>
+    <message>
+        <source>Off-site mods to install</source>
+        <translation>インストールするオフサイトMOD</translation>
+    </message>
+    <message>
+        <source>This collection includes {0} off-site mod(s) the installer could not download:
+
+{1}
+
+Download and install them manually — the links are in the collection page's "Off-site mods" panel.</source>
+        <translation>このコレクションには、{0}オフサイトMOD(s)インストーラはダウンロードできません。
+
+{1}シリーズ
+
+手動でダウンロードしてインストール — リンクは、コレクションページの「オフサイトMOD」パネルにあります.</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -3027,6 +4144,10 @@ Remove the appended-collection entry?</source>
     <message>
         <source>The login session has ended — start 'Login via SSO' again.</source>
         <translation>ログインセッションが終了しました。「SSO経由でログイン」を再度開始してください。</translation>
+    </message>
+    <message>
+        <source>Submit</source>
+        <translation>送信する</translation>
     </message>
     <message>
         <source>Nexus credentials cleared.</source>
@@ -3095,6 +4216,26 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Reinstalling {0} mod(s); {1} skipped (no archive found).</source>
         <translation>{0}のMODを再インストール中。{1}はスキップされました（アーカイブが見つかりませんでした）。</translation>
+    </message>
+    <message>
+        <source>Reinstall — redownloading {0} mod(s)…</source>
+        <translation>再インストール — {0} mod(s) を再ダウンロード..</translation>
+    </message>
+    <message>
+        <source>Redownloading {0} mod(s)…</source>
+        <translation>{0} mod(s) をダウンロード..</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>再インストール</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
+        <translation>再インストール:{0} mod(s) は再ダウンロードできませんでした。ログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
+        <translation>{0} mod(s); {1} が失敗しました。ログを参照してください.</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -3169,6 +4310,10 @@ Remove the appended-collection entry?</source>
         <translation>不足している要件</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>要件を見る</translation>
+    </message>
+    <message>
         <source>Conflicts: {0}</source>
         <translation>対立：{0}</translation>
     </message>
@@ -3203,6 +4348,22 @@ Remove the appended-collection entry?</source>
     <message>
         <source>All selected mods already exist there.</source>
         <translation>選択したMODはすべて、すでにそこに存在しています。</translation>
+    </message>
+    <message>
+        <source>Copy to profile</source>
+        <translation>プロフィールにコピー</translation>
+    </message>
+    <message>
+        <source>{0} of {1} mod(s) already exist in '{2}'. Replace them? (Cancel skips those.)</source>
+        <translation>{1} mod(s) の {0} は '{2}' に既に存在しています。 それらを置き換える? (それらをスキップできます。)</translation>
+    </message>
+    <message>
+        <source>Replace</source>
+        <translation>リプレース</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>スキップ</translation>
     </message>
     <message>
         <source>A copy/move is already in progress.</source>
@@ -3329,6 +4490,10 @@ Remove the appended-collection entry?</source>
         <translation>▶  実行</translation>
     </message>
     <message>
+        <source>No executables found in staging.</source>
+        <translation>ステージングでは実行できません.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>実行ファイルが見つかりません：{0}</translation>
     </message>
@@ -3337,12 +4502,20 @@ Remove the appended-collection entry?</source>
         <translation>設定：{0}</translation>
     </message>
     <message>
+        <source>Could not build launch command: {0}</source>
+        <translation>起動コマンドはビルドできません。{0}</translation>
+    </message>
+    <message>
         <source>'{0}' does not support deployment.</source>
         <translation>「{0}」はデプロイに対応していません。</translation>
     </message>
     <message>
         <source>Deploying {0}…</source>
         <translation>{0} の展開中…</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
+        <translation>再ダウンロードに必要なプレミアム。 {0}のダウンロードページを開く — 一度ダウンロードすると自動的に再インストールされます.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -3421,6 +4594,26 @@ Remove the appended-collection entry?</source>
         <translation>winetricks を起動中…</translation>
     </message>
     <message>
+        <source>Select EXE to run in this prefix</source>
+        <translation>このプレフィックスで実行する EXE を選択</translation>
+    </message>
+    <message>
+        <source>Installing VC++ Redistributable</source>
+        <translation>VC++のインストール リディステーブル</translation>
+    </message>
+    <message>
+        <source>Installing d3dcompiler_47</source>
+        <translation>D3dcompiler 47 のインストール</translation>
+    </message>
+    <message>
+        <source>Installing XACT audio (XAudio2)</source>
+        <translation>XACTオーディオ(XAudio2)のインストール</translation>
+    </message>
+    <message>
+        <source>Installing .NET {0}</source>
+        <translation>.NET {0}のインストール</translation>
+    </message>
+    <message>
         <source>A Proton installer is already running.</source>
         <translation>Protonのインストーラーはすでに実行されています。</translation>
     </message>
@@ -3495,6 +4688,10 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Install cancelled: {0}</source>
         <translation>インストールがキャンセルされました：{0}</translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation>名前を変更</translation>
     </message>
     <message>
         <source>Replace failed: {0}</source>
@@ -3661,12 +4858,20 @@ Remove the appended-collection entry?</source>
         <translation>BA2アーカイブを含むMOD</translation>
     </message>
     <message>
+        <source>Mods with PAK archives</source>
+        <translation>PAK アーカイブによる変更</translation>
+    </message>
+    <message>
         <source>Mods with BSA archives</source>
         <translation>BSAアーカイブを含むMOD</translation>
     </message>
     <message>
         <source>{0} enabled of {1} mods</source>
         <translation>{0} {1}のMODを有効化</translation>
+    </message>
+    <message>
+        <source>P:{0} / Non-ESL:{1}</source>
+        <translation>P:{0}/非ESL:{1}</translation>
     </message>
     <message>
         <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
@@ -3695,6 +4900,10 @@ Remove the appended-collection entry?</source>
     <message>
         <source>{0} overlaps {1} plugin(s) — highlighted in list</source>
         <translation>{0} が {1} プラグインをオーバーラップ — リストでハイライト</translation>
+    </message>
+    <message>
+        <source>+ Add exe from staging…</source>
+        <translation>+ ステージングからexeを追加..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -3920,6 +5129,70 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     </message>
 </context>
 <context>
+    <name>MewgenicsDeployChoiceOverlay</name>
+    <message>
+        <source>Mewgenics — Deploy method</source>
+        <translation>Mewgenics — デプロイ方法</translation>
+    </message>
+    <message>
+        <source>Steam launch command  (Safer / Recommended)</source>
+        <translation>蒸気起動コマンド(安全・推奨)</translation>
+    </message>
+    <message>
+        <source>Generates a launch script for Steam. Set it once in Launch Options (no repack).</source>
+        <translation>Steam 用の起動スクリプトを生成します。 起動オプション(リパックなし)に一度設定します.</translation>
+    </message>
+    <message>
+        <source>Repack gpak  (No command needed / not recommended)</source>
+        <translation>Repack gpak(コマンド不要/推奨しない)</translation>
+    </message>
+    <message>
+        <source>Unpack resources.gpak, merge mods, repack.</source>
+        <translation>Unpack Resource.gpak、mods をマージし、再パックします.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+</context>
+<context>
+    <name>MewgenicsLaunchCommandOverlay</name>
+    <message>
+        <source>Mewgenics — Steam / Lutris launch command</source>
+        <translation>Mewgenics — Steam / Lutris 起動コマンド</translation>
+    </message>
+    <message>
+        <source>Paste this into Steam Launch Options (Properties → General):</source>
+        <translation>これをスチーム起動オプションに貼り付ける(プロパティ → 一般):</translation>
+    </message>
+    <message>
+        <source>Script written to:
+{0}
+
+Update this whenever you change your mod list.</source>
+        <translation>スクリプト:
+{0}の
+
+変更時に更新してください.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>クリップボードにコピー</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>コピー済み ✓</translation>
+    </message>
+    <message>
+        <source>Copy failed — copy it manually</source>
+        <translation>失敗コピー — 手動でコピーする</translation>
+    </message>
+</context>
+<context>
     <name>MissingReqsView</name>
     <message>
         <source>Missing requirements — {0}</source>
@@ -3953,6 +5226,18 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>そのMODはすでに存在します</translation>
     </message>
     <message>
+        <source>'{0}' is also already installed.
+Pick a different name, or choose another option.</source>
+        <translation>'{0}' は既にインストールされています。
+別の名前を選ぶか、別の選択を選んで下さい.</translation>
+    </message>
+    <message>
+        <source>'{0}' is already installed.
+How would you like to handle the existing mod?</source>
+        <translation>'{0}' は既にインストールされています。
+既存のMODを処理するにはどうすればよいですか?</translation>
+    </message>
+    <message>
         <source>New mod name…</source>
         <translation>新しいMODの名前…</translation>
     </message>
@@ -3971,6 +5256,21 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Replace All</source>
         <translation>すべて置換</translation>
+    </message>
+</context>
+<context>
+    <name>ModFilesModel</name>
+    <message>
+        <source>File name</source>
+        <translation>ファイル名</translation>
+    </message>
+    <message>
+        <source>Top Level</source>
+        <translation>トップレベル</translation>
+    </message>
+    <message>
+        <source>Disable</source>
+        <translation>免責事項</translation>
     </message>
 </context>
 <context>
@@ -3997,6 +5297,14 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Add note ({0})</source>
         <translation>メモを追加（{0}）</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
+    <message>
+        <source>Add separator</source>
+        <translation>分離器を追加</translation>
     </message>
     <message>
         <source>Add separator above</source>
@@ -4031,8 +5339,22 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>プロフィールにコピー（{0}）</translation>
     </message>
     <message>
+        <source>Could not create the mod folder:
+{0}</source>
+        <translation>Mod フォルダーを作成できません。
+{0}の</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>作成</translation>
+    </message>
+    <message>
         <source>Create an empty mod below</source>
         <translation>以下の空のMODを作成します</translation>
+    </message>
+    <message>
+        <source>Create empty mod</source>
+        <translation>空のMODを作成する</translation>
     </message>
     <message>
         <source>Create empty mod below</source>
@@ -4095,6 +5417,14 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>要件の欠落（{0}）</translation>
     </message>
     <message>
+        <source>View Requirements</source>
+        <translation>要件を見る</translation>
+    </message>
+    <message>
+        <source>Mod name:</source>
+        <translation>Mod の名前:</translation>
+    </message>
+    <message>
         <source>Move to profile</source>
         <translation>プロフィールへ移動</translation>
     </message>
@@ -4109,6 +5439,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Move to separator ({0})</source>
         <translation>区切り文字の位置に移動（{0}）</translation>
+    </message>
+    <message>
+        <source>New name:</source>
+        <translation>新しい名前:</translation>
     </message>
     <message>
         <source>Open folder</source>
@@ -4139,6 +5473,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>再インストール（{0}）</translation>
     </message>
     <message>
+        <source>Reinstall (Redownload)</source>
+        <translation>再インストール(再ダウンロード)</translation>
+    </message>
+    <message>
         <source>Reinstall Mod</source>
         <translation>MODの再インストール</translation>
     </message>
@@ -4163,6 +5501,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>区切り文字を削除する（{0}）</translation>
     </message>
     <message>
+        <source>Rename</source>
+        <translation>名前を変更</translation>
+    </message>
+    <message>
         <source>Rename mod</source>
         <translation>modの名前変更</translation>
     </message>
@@ -4171,12 +5513,24 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>区切り文字の名前を変更</translation>
     </message>
     <message>
+        <source>Separator name:</source>
+        <translation>分離器の名前:</translation>
+    </message>
+    <message>
         <source>Separator settings…</source>
         <translation>区切り文字の設定…</translation>
     </message>
     <message>
+        <source>Set priority</source>
+        <translation>優先順位の設定</translation>
+    </message>
+    <message>
         <source>Set priority…</source>
         <translation>優先順位を設定…</translation>
+    </message>
+    <message>
+        <source>Priority for {0}:</source>
+        <translation>{0}の優先度:</translation>
     </message>
     <message>
         <source>Show Conflicts</source>
@@ -4226,6 +5580,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>バージョン</translation>
     </message>
     <message>
+        <source>Author</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
         <source>Priority</source>
         <translation>優先順位</translation>
     </message>
@@ -4240,9 +5598,53 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <source>Show / hide columns</source>
         <translation>列の表示／非表示</translation>
     </message>
+    <message>
+        <source>Enabled</source>
+        <translation>有効化</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>バリアフリー</translation>
+    </message>
+    <message>
+        <source>Hide separators</source>
+        <translation>区切り記号を非表示にする</translation>
+    </message>
+    <message>
+        <source>More status filters</source>
+        <translation>ステータスフィルタ</translation>
+    </message>
 </context>
 <context>
     <name>ModLoaderInstallerView</name>
+    <message>
+        <source>Select the archive</source>
+        <translation>アーカイブを選択</translation>
+    </message>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>{0}をインストール — {1}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download {0}</source>
+        <translation>手順 1：{0} をダウンロードする</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the {0}
+download page on Nexus Mods.
+
+Download the archive manually (do NOT use the Mod Manager
+download button), then click Next.</source>
+        <translation>下のボタンをクリックして{0}を開きます
+Nexus Mods のダウンロードページ。
+
+手動でアーカイブをダウンロード(Mod Managerを使用しないでください)
+ダウンロードボタン)、[次へ]をクリックします.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>ステップ 2：アーカイブの場所を確認する</translation>
+    </message>
     <message>
         <source>Step 3: Extract to Game Folder</source>
         <translation>ステップ3：ゲームフォルダに解凍する</translation>
@@ -4252,12 +5654,151 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>次へ →</translation>
     </message>
     <message>
+        <source>Step {0}: Run {1}</source>
+        <translation>ステップ{0}:{1}を実行します</translation>
+    </message>
+    <message>
+        <source>{0} archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>{0} 「ダウンロード」フォルダにアーカイブが見つかりません。
+ダウンロードが完了していることを確認してから、「再試行」をクリックするか、
+「参照」を使用して手動でファイルを選択してください。</translation>
+    </message>
+    <message>
         <source>Extracting archive to game folder…</source>
         <translation>アーカイブをゲームフォルダに解凍中…</translation>
     </message>
     <message>
         <source>Launching {0} via Proton…</source>
         <translation>Protonを通じて{0}を立ち上げ…</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>ゲームパスが設定されていません。</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>アーカイブが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Extracted {0} file(s).
+
+Click Next to continue.</source>
+        <translation>{0} ファイルを抽出しました。
+
+[次へ] をクリックして続行します.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>{0} was not found in the game folder.
+Check that the archive extracted correctly.</source>
+        <translation>ゲームフォルダに{0}が見つかりませんでした。
+アーカイブが正しく抽出されていることを確認します.</translation>
+    </message>
+    <message>
+        <source>Could not find Proton — check that the prefix is configured.</source>
+        <translation>Protonが見つかりません。プレフィックスが設定されていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} 実行中です。
+作業が終わったらこれを閉じ、[完了] をクリックしてください。</translation>
+    </message>
+    <message>
+        <source>{0} finished.
+
+Click Done to close.</source>
+        <translation>{0} が完成しました。
+
+Done をクリックして閉じます.</translation>
+    </message>
+</context>
+<context>
+    <name>ModRowDelegate</name>
+    <message>
+        <source>Note</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Click here to open bundle settings</source>
+        <translation>バンドル設定を開くにはここをクリック</translation>
+    </message>
+    <message>
+        <source>Missing requirements</source>
+        <translation>要件の欠落</translation>
+    </message>
+    <message>
+        <source>Update available on Nexus Mods</source>
+        <translation>Nexus Modsで利用可能なアップデート</translation>
+    </message>
+    <message>
+        <source>Update available on mod.io</source>
+        <translation>Mod.ioで利用可能なアップデート</translation>
+    </message>
+    <message>
+        <source>Endorsed</source>
+        <translation>終了</translation>
+    </message>
+    <message>
+        <source>Pre-RTX mod</source>
+        <translation>プリRTX MOD</translation>
+    </message>
+    <message>
+        <source>This mod is a collection bundled mod</source>
+        <translation>このMODはコレクションのバンドルされたMODです</translation>
+    </message>
+    <message>
+        <source>This mod has diff patches applied by the collection install</source>
+        <translation>このmod はコレクションの取付けによって加えられた diff のパッチがあります</translation>
+    </message>
+    <message>
+        <source>Modified in Mod Files tab</source>
+        <translation>Mod ファイルのタブで変更</translation>
+    </message>
+    <message>
+        <source>Contains a plugin modified in xEdit</source>
+        <translation>XEditで変更されたプラグインが含まれています</translation>
+    </message>
+    <message>
+        <source>This mod is sent to the root folder</source>
+        <translation>このmod は root フォルダーに送信されます</translation>
+    </message>
+    <message>
+        <source>This mod contains files that route to the game root</source>
+        <translation>このmod には、ゲームルートにルートするファイルが含まれています</translation>
+    </message>
+    <message>
+        <source>Loose file conflict - Winning</source>
+        <translation>ファイルの競合を緩める - 勝つ</translation>
+    </message>
+    <message>
+        <source>Loose file conflict - Losing</source>
+        <translation>ルーズファイル対立 - 喪失</translation>
+    </message>
+    <message>
+        <source>Loose file conflict - Partial</source>
+        <translation>ファイルの競合を緩める - 部分</translation>
+    </message>
+    <message>
+        <source>Loose file conflict - Full</source>
+        <translation>ファイルの競合を緩める - 完全</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Winning</source>
+        <translation>アーカイブの競合 - ウィンニング</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Losing</source>
+        <translation>アーカイブ紛争 - 喪失</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Partial</source>
+        <translation>アーカイブの競合 - 部分</translation>
     </message>
 </context>
 <context>
@@ -4281,6 +5822,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Append to existing profile</source>
         <translation>既存のプロファイルに追加する</translation>
+    </message>
+    <message>
+        <source>(no profiles)</source>
+        <translation>(プロフィールなし)</translation>
     </message>
     <message>
         <source>Overwrite existing mods</source>
@@ -4332,6 +5877,38 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
     <message>
         <source>Test &amp;&amp; Save</source>
         <translation>テスト &amp;&amp; 保存</translation>
+    </message>
+    <message>
+        <source>Enter a key first.</source>
+        <translation>最初にキーを入力してください.</translation>
+    </message>
+    <message>
+        <source>Testing key…</source>
+        <translation>キーのテスト..</translation>
+    </message>
+    <message>
+        <source>Key rejected by mod.io.</source>
+        <translation>Mod.io で拒否されたキー.</translation>
+    </message>
+    <message>
+        <source>Key test failed: {0}</source>
+        <translation>キーテストが失敗しました: {0}</translation>
+    </message>
+    <message>
+        <source>Key saved. mod.io update checks are now enabled.</source>
+        <translation>キー保存。 mod.io 更新チェックが有効になりました.</translation>
+    </message>
+    <message>
+        <source>Could not save key: {0}</source>
+        <translation>キーを保存できません: {0}</translation>
+    </message>
+    <message>
+        <source>Key cleared.</source>
+        <translation>クリアしたキー.</translation>
+    </message>
+    <message>
+        <source>Could not clear key: {0}</source>
+        <translation>キーをクリアできませんでした: {0}</translation>
     </message>
 </context>
 <context>
@@ -4387,6 +5964,10 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>☰ カテゴリ</translation>
     </message>
     <message>
+        <source>Custom…</source>
+        <translation>カスタム..</translation>
+    </message>
+    <message>
         <source>Show adult</source>
         <translation>成人向けを表示</translation>
     </message>
@@ -4403,12 +5984,24 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>読み込み中…</translation>
     </message>
     <message>
+        <source>Name</source>
+        <translation>お名前 (必須)</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
         <source>Search mods…</source>
         <translation>MODを検索…</translation>
     </message>
     <message>
         <source>Search</source>
         <translation>検索</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>クリア</translation>
     </message>
     <message>
         <source>◂ Prev</source>
@@ -4427,6 +6020,18 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>カテゴリなし</translation>
     </message>
     <message>
+        <source>Uploaded since…</source>
+        <translation>アップロード以来..</translation>
+    </message>
+    <message>
+        <source>Since {0}</source>
+        <translation>{0}以降</translation>
+    </message>
+    <message>
+        <source>Search by author…</source>
+        <translation>著者から探す</translation>
+    </message>
+    <message>
         <source>No Nexus domain for this game.</source>
         <translation>このゲームにはNexusドメインがありません。</translation>
     </message>
@@ -4435,12 +6040,24 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>Nexusで開く</translation>
     </message>
     <message>
+        <source>Cancel download detection</source>
+        <translation>ダウンロード解除</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>インストール</translation>
     </message>
     <message>
+        <source>Mods by this author</source>
+        <translation>この著者による変更</translation>
+    </message>
+    <message>
         <source>Untrack</source>
         <translation>追跡解除</translation>
+    </message>
+    <message>
+        <source>Track Mod</source>
+        <translation>Mod を追跡する</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -4450,8 +6067,32 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
 <context>
     <name>NexusFileChooser</name>
     <message>
-        <source>'{0}' has multiple main files.</source>
-        <translation>「{0}」には複数のメインファイルがあります。</translation>
+        <source>Main</source>
+        <translation>メインページ</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>任意</translation>
+    </message>
+    <message>
+        <source>Misc</source>
+        <translation>ミスク</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>メインファイル</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>任意ファイル</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>その他のファイル</translation>
+    </message>
+    <message>
+        <source>'{0}' has multiple files.</source>
+        <translation>'{0}' には複数のファイルがあります.</translation>
     </message>
     <message>
         <source>Select which file to install:</source>
@@ -4464,6 +6105,10 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
     <message>
         <source>Install</source>
         <translation>インストール</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>説明はありません.</translation>
     </message>
 </context>
 <context>
@@ -4506,6 +6151,10 @@ Daily: {1}</source>
         <translation>表示</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>再インストール</translation>
     </message>
@@ -4519,6 +6168,10 @@ Daily: {1}</source>
     <message>
         <source>Note — {0}</source>
         <translation>注 — {0}</translation>
+    </message>
+    <message>
+        <source>Markdown is supported — it renders in the note tooltip.</source>
+        <translation>Markdown がサポートされています。ノートツールチップにレンダリングされます.</translation>
     </message>
     <message>
         <source>Remove note</source>
@@ -4584,6 +6237,14 @@ You can skip this and connect later from the Nexus button in the toolbar.</sourc
     <message>
         <source>Waiting for browser...</source>
         <translation>ブラウザの読み込みを待っています...</translation>
+    </message>
+    <message>
+        <source>Browser login started — complete it in your browser.</source>
+        <translation>ブラウザのログインが始まりました。ブラウザで完了します.</translation>
+    </message>
+    <message>
+        <source>✓ Logged in to Nexus Mods!</source>
+        <translation>✓ Nexus Mods にログイン!</translation>
     </message>
     <message>
         <source>Default Mod Staging Folder</source>
@@ -4656,6 +6317,10 @@ Each game gets its own subfolder.</source>
 <context>
     <name>PGPatcherView</name>
     <message>
+        <source>Run PGPatcher — {0}</source>
+        <translation>PGPatcherを実行 — {0}</translation>
+    </message>
+    <message>
         <source>Step 1: Download PGPatcher</source>
         <translation>手順 1：PGPatcher をダウンロードする</translation>
     </message>
@@ -4666,6 +6331,10 @@ Each game gets its own subfolder.</source>
     <message>
         <source>Step 4: Apply PGPatcher Config</source>
         <translation>ステップ 4: PGPatcher の設定を適用する</translation>
+    </message>
+    <message>
+        <source>Step 6: Run PGPatcher</source>
+        <translation>ステップ6: PGPatcherを実行</translation>
     </message>
     <message>
         <source>Step 5: Deploy Modlist</source>
@@ -4700,6 +6369,16 @@ conflicts per-mod, matching a real MO2 setup. Experimental.</source>
         <translation>デプロイ</translation>
     </message>
     <message>
+        <source>Step 2: Choose Proton Version</source>
+        <translation>ステップ 2：Proton のバージョンを選択する</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Please restart the wizard and download PGPatcher first.</source>
+        <translation>{0}が見つかりませんでした。
+ウィザードを再起動し、PGPatcherを最初にダウンロードしてください.</translation>
+    </message>
+    <message>
         <source>Checking d3dcompiler_47…</source>
         <translation>d3dcompiler_47 の確認中…</translation>
     </message>
@@ -4712,12 +6391,90 @@ conflicts per-mod, matching a real MO2 setup. Experimental.</source>
         <translation>PGPatcher を起動中…</translation>
     </message>
     <message>
+        <source>Preparing PGPatcher's Wine prefix…</source>
+        <translation>PGPatcherのワインプレフィックスの準備..</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 already installed — skipping.</source>
+        <translation>d3dcompiler 47 は既にインストールされています.</translation>
+    </message>
+    <message>
+        <source>Installing d3dcompiler_47… (may take a minute)</source>
+        <translation>D3dcompiler 47のインストール...(数分間かかる)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 installed.</source>
+        <translation>d3dcompiler 47 をインストールしました.</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 install failed — continuing anyway.</source>
+        <translation>d3dcompiler 47 インストールが失敗しました.</translation>
+    </message>
+    <message>
+        <source>Checking .NET 8…</source>
+        <translation>.NET 8 を確認中…</translation>
+    </message>
+    <message>
+        <source>.NET 8 already installed — skipping.</source>
+        <translation>.NET 8 は既にインストールされています.</translation>
+    </message>
+    <message>
+        <source>.NET 8 install failed (see log).</source>
+        <translation>.NET 8 インストール失敗 (ログを参照).</translation>
+    </message>
+    <message>
+        <source>.NET 8 ready.</source>
+        <translation>.NET 8対応.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>{0} not found — please restart the wizard.</source>
+        <translation>{0}が見つかりません。ウィザードを再起動してください.</translation>
+    </message>
+    <message>
+        <source>Config applied.</source>
+        <translation>Config が適用されます.</translation>
+    </message>
+    <message>
+        <source>Config error: {0}</source>
+        <translation>設定エラー: {0}</translation>
+    </message>
+    <message>
         <source>Building MO2 instance…</source>
         <translation>MO2インスタンスを構築中…</translation>
     </message>
     <message>
+        <source>MO2 instance error: {0}</source>
+        <translation>MO2インスタンスエラー: {0}</translation>
+    </message>
+    <message>
         <source>{0} was not found.</source>
         <translation>{0} 見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>PGPatcher is running.
+Wait for it to finish, then click Done.</source>
+        <translation>PGPatcherが稼働しています。
+完了するまで待ってから、Dane をクリックします.</translation>
+    </message>
+    <message>
+        <source>PGPatcher finished.</source>
+        <translation>PGPatcher完成.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -4753,6 +6510,14 @@ Pandoraの実行で生成された出力（MODリスト内の「Pandora_output�
         <translation>デプロイ</translation>
     </message>
     <message>
+        <source>Deploy is unavailable here.</source>
+        <translation>ここでは「デプロイ」機能は利用できません。</translation>
+    </message>
+    <message>
+        <source>Deploying…</source>
+        <translation>展開中…</translation>
+    </message>
+    <message>
         <source>Deploy complete.</source>
         <translation>デプロイが完了しました。</translation>
     </message>
@@ -4785,6 +6550,26 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
         <translation>.NET 10 を確認中…</translation>
     </message>
     <message>
+        <source>Preparing Pandora's Wine prefix…</source>
+        <translation>パンドラのワインプレフィックスの準備..</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+    </message>
+    <message>
+        <source>.NET 10 already installed — skipping.</source>
+        <translation>.NET 10 は既にインストールされています.</translation>
+    </message>
+    <message>
+        <source>.NET 10 installed successfully.</source>
+        <translation>.NET 10が正常にインストールされました.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
         <source>Step 4: Run Pandora</source>
         <translation>ステップ4：Pandoraを起動する</translation>
     </message>
@@ -4797,6 +6582,24 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
         <translation>完了</translation>
     </message>
     <message>
+        <source>Prefix was not prepared — go back and retry.</source>
+        <translation>プレフィックスは用意されていません.</translation>
+    </message>
+    <message>
+        <source>Pandora exited with error (code {0}).
+See the log for details. Click Done to close.</source>
+        <translation>エラーで終了したパンドラ({0})。
+詳細はログを参照してください。 Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Pandora finished. Click Done to close.</source>
+        <translation>パンドラ完成。 Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+    <message>
         <source>Pandora is running.
 Close it when you are done, then click Done.</source>
         <translation>Pandoraが実行中です。
@@ -4805,6 +6608,10 @@ Close it when you are done, then click Done.</source>
 </context>
 <context>
     <name>PluginAuditView</name>
+    <message>
+        <source>Plugin Audit — {0}</source>
+        <translation>プラグイン監査 — {0}</translation>
+    </message>
     <message>
         <source>Scan Load Order</source>
         <translation>スキャン実行順序</translation>
@@ -4820,6 +6627,10 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Scanning…</source>
         <translation>スキャン中…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
     <message>
         <source>No active plugins found.</source>
@@ -4854,12 +6665,56 @@ Close it when you are done, then click Done.</source>
         <translation>ブロックされました</translation>
     </message>
     <message>
+        <source>Safe to disable ({0})</source>
+        <translation>無効化({0})</translation>
+    </message>
+    <message>
+        <source>Blocked — adds new records ({0})</source>
+        <translation>ブロック — 新しいレコードを追加します。 ({0})</translation>
+    </message>
+    <message>
+        <source>Blocked — required by other plugins ({0})</source>
+        <translation>ブロック — 他のプラグイン({0})で必要</translation>
+    </message>
+    <message>
         <source>Audit complete — {0} plugins, {1} safe to disable.</source>
         <translation>監査完了 — {0} のプラグイン、{1} は無効化しても問題ありません。</translation>
     </message>
     <message>
+        <source>Disable Selected Plugins</source>
+        <translation>選択されたプラグインを無効にする</translation>
+    </message>
+    <message>
+        <source>Disable {0} plugin(s)?
+
+{1}
+
+The patches for these plugins will still apply at runtime.</source>
+        <translation>{0}プラグインを無効にしますか?
+
+{1}シリーズ
+
+これらのプラグインのパッチはまだランタイムで適用されます.</translation>
+    </message>
+    <message>
+        <source>Disable</source>
+        <translation>免責事項</translation>
+    </message>
+    <message>
         <source>No orphaned INIs to clean.</source>
         <translation>クリーンアップすべき孤立したINIはありません。</translation>
+    </message>
+    <message>
+        <source>Delete SkyGen-generated INI files for {0} plugin(s) that cannot be disabled?
+
+This removes INIs in the SkyGen BOS and SkyGen SkyPatcher output mods. INIs that ship with original mods are not affected.</source>
+        <translation>無効にできない{0}プラグイン用のSkyGen生成されたINIファイルを削除しますか?
+
+これにより、SkyGen BOSとSkyGen SkyPatcher出力modsでINIが削除されます。 オリジナル商品で発送するINIは影響を受けません.</translation>
+    </message>
+    <message>
+        <source>Clean</source>
+        <translation>クリーン</translation>
     </message>
     <message>
         <source>Cleanup complete — deleted {0} of {1} INI(s) found.
@@ -4915,6 +6770,21 @@ Re-scan to verify.</source>
     <message>
         <source>(group rule — edit via Groups overlay)</source>
         <translation>（グループルール — 「グループ」オーバーレイから編集）</translation>
+    </message>
+</context>
+<context>
+    <name>PluginDelegate</name>
+    <message>
+        <source>Missing masters:</source>
+        <translation>マスターを欠く:</translation>
+    </message>
+    <message>
+        <source>Masters loaded after this plugin:</source>
+        <translation>このプラグインの後に読み込まれたマスター:</translation>
+    </message>
+    <message>
+        <source>Version mismatched masters:</source>
+        <translation>バージョンの不一致のマスター:</translation>
     </message>
 </context>
 <context>
@@ -5077,6 +6947,10 @@ Re-scan to verify.</source>
         <translation>フィルター</translation>
     </message>
     <message>
+        <source>— no plugin selected —</source>
+        <translation>— 選択したプラグインなし —</translation>
+    </message>
+    <message>
         <source>Rules for: {0}</source>
         <translation>ルール対象：{0}</translation>
     </message>
@@ -5098,6 +6972,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Show / hide columns</source>
         <translation>列の表示／非表示</translation>
+    </message>
+    <message>
+        <source>Filters</source>
+        <translation>フィルター</translation>
     </message>
 </context>
 <context>
@@ -5161,6 +7039,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>{0} prefixes found.</source>
         <translation>{0} 接頭辞が見つかりました。</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
     </message>
     <message>
         <source>Deleting…</source>
@@ -5228,12 +7110,28 @@ Drag a plugin from the left pane to add a rule.</source>
 <context>
     <name>ProtonStepWidget</name>
     <message>
+        <source>Choose Proton Version</source>
+        <translation>Protonバージョンを選択</translation>
+    </message>
+    <message>
+        <source>Each version gets its own prefix; dependencies are installed into it automatically on the next step.</source>
+        <translation>各バージョンは独自のプレフィックスを取得します。依存関係は、次のステップで自動的にインストールされます.</translation>
+    </message>
+    <message>
         <source>No Proton versions were found.
 
 Install a Proton version in Steam, then reopen this wizard.</source>
         <translation>Protonバージョンは見つかりませんでした。
 
 SteamにProtonバージョンをインストールしてから、このウィザードを再度開いてください。</translation>
+    </message>
+    <message>
+        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
+
+</source>
+        <translation>{0} は、独自の Wine 接頭辞で実行し、ゲームの接頭辞から分離するので、ゲームに影響を与えることなく Proton バージョンを選ぶことができます。
+
+.</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -5364,6 +7262,26 @@ If the game is still broken, verify the game files via Steam.</source>
         <source>Log:</source>
         <translation>ログ：</translation>
     </message>
+    <message>
+        <source>Repairing PAK files from game-root manifest …</source>
+        <translation>ゲームルートマニフェストからPAKファイルを修復..</translation>
+    </message>
+    <message>
+        <source>Repair complete — restored {0} entry to vanilla.</source>
+        <translation>修理完了 — {0} エントリをバニラに復元しました.</translation>
+    </message>
+    <message>
+        <source>Repair complete — restored {0} entries to vanilla.</source>
+        <translation>修理完了 — {0} エントリをバニラに復元しました.</translation>
+    </message>
+    <message>
+        <source>Nothing to repair — the PAK entries are already vanilla (or no manifest was found).</source>
+        <translation>PAKエントリーはすでにバニラ(またはマニフェストが見つかりませんでした)です.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
 </context>
 <context>
     <name>ReShadeView</name>
@@ -5390,6 +7308,14 @@ If the game is still broken, verify the game files via Steam.</source>
     <message>
         <source>Executable architecture</source>
         <translation>実行可能アーキテクチャ</translation>
+    </message>
+    <message>
+        <source>64-bit</source>
+        <translation>64ビット</translation>
+    </message>
+    <message>
+        <source>32-bit</source>
+        <translation>32ビット</translation>
     </message>
     <message>
         <source>Next →</source>
@@ -5428,6 +7354,10 @@ If the game is still broken, verify the game files via Steam.</source>
         <translation>← 戻る</translation>
     </message>
     <message>
+        <source>Select a ReShade preset (.ini)</source>
+        <translation>ReShadeプリセット(.ini)を選択します</translation>
+    </message>
+    <message>
         <source>{0} (no effects found — using pack selection)</source>
         <translation>{0} （効果が見つかりませんでした — パック選択を使用中）</translation>
     </message>
@@ -5442,6 +7372,44 @@ If the game is still broken, verify the game files via Steam.</source>
     <message>
         <source>Fetching latest ReShade version…</source>
         <translation>ReShadeの最新バージョンを取得中…</translation>
+    </message>
+    <message>
+        <source>Downloading ReShade and shaders…</source>
+        <translation>ReShadeとシェーダーをダウンロード..</translation>
+    </message>
+    <message>
+        <source>Downloaded ReShade and shaders successfully.</source>
+        <translation>ReShadeとシェーダーを正常にダウンロードしました.</translation>
+    </message>
+    <message>
+        <source>Trimming shaders to preset…</source>
+        <translation>プリセットにシェーダーをトリミング..</translation>
+    </message>
+    <message>
+        <source>Installed {0} of {1} preset effects.</source>
+        <translation>{1}プリセットエフェクトの{0}をインストールしました.</translation>
+    </message>
+    <message>
+        <source>Missing (not in any pack): {0}</source>
+        <translation>欠損(パックに入れない): {0}</translation>
+    </message>
+    <message>
+        <source>Skipped (renamed/removed upstream): {0}</source>
+        <translation>スキップ(名前変更/削除された上流): {0}</translation>
+    </message>
+    <message>
+        <source>Trimmed shaders to {0} preset effect(s).</source>
+        <translation>{0} プリセット効果(s) へのトリミングシェーダー.</translation>
+    </message>
+    <message>
+        <source>Download failed:
+{0}
+
+Check your internet connection and try again.</source>
+        <translation>ダウンロード失敗:
+{0}の
+
+インターネット接続をチェックしてもう一度お試しください.</translation>
     </message>
     <message>
         <source>Retry ↺</source>
@@ -5482,6 +7450,20 @@ This may take up to a minute.</source>
         <translation>インストール中…</translation>
     </message>
     <message>
+        <source>Install error: {0}</source>
+        <translation>インストールエラー: {0}</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 installed successfully.
+Click Next to continue.</source>
+        <translation>d3dcompiler 47 が正常にインストールされました。
+[次へ] をクリックして続行します.</translation>
+    </message>
+    <message>
+        <source>Install failed — you can Skip and install it manually.</source>
+        <translation>インストール失敗 - 手動でスキップしてインストールできます.</translation>
+    </message>
+    <message>
         <source>Retry</source>
         <translation>再試行</translation>
     </message>
@@ -5492,6 +7474,18 @@ This may take up to a minute.</source>
     <message>
         <source>Install destination</source>
         <translation>インストール先</translation>
+    </message>
+    <message>
+        <source>Game folder</source>
+        <translation>ゲームフォルダ</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root Folder(ステージング)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>管理されたMODとして(root-flagged)</translation>
     </message>
     <message>
         <source>Mod name</source>
@@ -5517,9 +7511,17 @@ Wine DLLのオーバーライド設定である {1} =native,builtin
         <source>{0} - ReShade</source>
         <translation>{0} - ReShade</translation>
     </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
 </context>
 <context>
     <name>RegisterGamePathView</name>
+    <message>
+        <source>Register Game Path — {0}</source>
+        <translation>ゲームパスを登録 — {0}</translation>
+    </message>
     <message>
         <source>not configured</source>
         <translation>設定されていません</translation>
@@ -5556,6 +7558,34 @@ Protonのプレフィックス：{2}</translation>
         <source>Retry</source>
         <translation>再試行</translation>
     </message>
+    <message>
+        <source>This game has no Bethesda registry name; nothing to do.</source>
+        <translation>このゲームには、ベテスダのレジストリ名はありません。 何もしないでください.</translation>
+    </message>
+    <message>
+        <source>Game path or Proton prefix not available.</source>
+        <translation>ゲームパスまたはプロトンプレフィックスは使用できません.</translation>
+    </message>
+    <message>
+        <source>Prefix: {0}</source>
+        <translation>プレフィックス: {0}</translation>
+    </message>
+    <message>
+        <source>Proton: {0}</source>
+        <translation>プロトン: {0}</translation>
+    </message>
+    <message>
+        <source>Registry write raised: {0}</source>
+        <translation>レジストリの書き込み: {0}</translation>
+    </message>
+    <message>
+        <source>Registry keys written (64-bit + Wow6432Node views).</source>
+        <translation>レジストリキー(64ビット+Wow6432) ノードビュー).</translation>
+    </message>
+    <message>
+        <source>Registry write finished with errors — see log above.</source>
+        <translation>レジストリはエラーで終了した書き込み — 上記のログを参照してください.</translation>
+    </message>
 </context>
 <context>
     <name>RemovePreviousOverlay</name>
@@ -5585,6 +7615,57 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>RequirementsView</name>
+    <message>
+        <source>Requirements</source>
+        <translation>よくある質問</translation>
+    </message>
+    <message>
+        <source>Requires</source>
+        <translation>リクエスト</translation>
+    </message>
+    <message>
+        <source>Required by</source>
+        <translation>必須条件</translation>
+    </message>
+    <message>
+        <source>View Missing Requirements</source>
+        <translation>ミスの要件を見る</translation>
+    </message>
+    <message>
+        <source>Requirements — {0}</source>
+        <translation>要件 — {0}</translation>
+    </message>
+    <message>
+        <source>Requirements — {0} mods</source>
+        <translation>要件 — {0} モジュール</translation>
+    </message>
+    <message>
+        <source>Select one or more mods.</source>
+        <translation>複数のモジュールを選択します.</translation>
+    </message>
+    <message>
+        <source>No Nexus data for the selected mod(s).</source>
+        <translation>選択したモジュールのNexusデータはありません.</translation>
+    </message>
+    <message>
+        <source>No missing requirements for the selected mod(s).</source>
+        <translation>選択されたMOD(s)の要件が欠如しません.</translation>
+    </message>
+    <message>
+        <source>{0}  (not installed)</source>
+        <translation>{0} (インストールされていない)</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(なし)</translation>
+    </message>
+    <message>
+        <source>Run Check Updates for this data.</source>
+        <translation>このデータをCheck Updateを実行します.</translation>
+    </message>
+</context>
+<context>
     <name>SDTView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -5597,6 +7678,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>Close</source>
         <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>SSE Display Tweaks — {0}</source>
+        <translation>SSEの表示 微調整 — {0}</translation>
     </message>
     <message>
         <source>Reset to defaults</source>
@@ -5628,6 +7713,13 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>SRMLView</name>
+    <message>
+        <source>Select the SRML archive</source>
+        <translation>SRML アーカイブを選択</translation>
+    </message>
+</context>
+<context>
     <name>ScriptExtenderView</name>
     <message>
         <source>Install Script Extender — {0}</source>
@@ -5640,6 +7732,18 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>Install destination</source>
         <translation>インストール先</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>ゲームフォルダ(最初にバニラに復元)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root Folder(ステージング)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>管理されたMODとして(root-flagged)</translation>
     </message>
     <message>
         <source>Choose a Version</source>
@@ -5666,6 +7770,38 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>次へ →</translation>
     </message>
     <message>
+        <source>Fetching release from GitHub…</source>
+        <translation>GitHubからリリースをフェッチ..</translation>
+    </message>
+    <message>
+        <source>selected version</source>
+        <translation>選択したバージョン</translation>
+    </message>
+    <message>
+        <source>No download URL configured.</source>
+        <translation>設定したURLをダウンロードしないでください.</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>{0}のダウンロード中…</translation>
+    </message>
+    <message>
+        <source>Downloaded {0}.
+Choose the install destination, then click Next.</source>
+        <translation>{0}のダウンロード
+インストール先を選択し、[次へ] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Download failed:
+{0}
+
+Use Browse… to pick an archive you downloaded manually.</source>
+        <translation>ダウンロード失敗:
+{0}の
+
+手動でダウンロードしたアーカイブを選択するために、ブラウザを使用して....</translation>
+    </message>
+    <message>
         <source>This script extender must be downloaded manually. Click the button below to open the download page, save the archive to your Downloads folder, then click Next.</source>
         <translation>このスクリプトエクステンダーは手動でダウンロードする必要があります。下のボタンをクリックしてダウンロードページを開き、アーカイブファイルを「ダウンロード」フォルダに保存してから、「次へ」をクリックしてください。</translation>
     </message>
@@ -5682,12 +7818,62 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>もう一度試す</translation>
     </message>
     <message>
+        <source>Found: {0}
+Click Next to install it.</source>
+        <translation>見つかった: {0}
+[次へ] をクリックしてインストールします.</translation>
+    </message>
+    <message>
+        <source>No archive matching '{0}' was found in your Downloads folder.
+Download it first, then Try Again — or Browse… to pick the file.</source>
+        <translation>ダウンロードフォルダに「{0}」のアーカイブマッチングが見つかりませんでした。
+最初にダウンロードし、再び試してみてください。 または ブラウザ... ファイルを選択します.</translation>
+    </message>
+    <message>
+        <source>Select the script extender archive</source>
+        <translation>スクリプトエクステンダーアーカイブを選択します</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Choose the install destination, then click Next.</source>
+        <translation>選択: {0}
+インストール先を選択し、[次へ] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Click Next to install it.</source>
+        <translation>選択: {0}
+[次へ] をクリックしてインストールします.</translation>
+    </message>
+    <message>
         <source>Install Script Extender</source>
         <translation>Script Extender をインストールする</translation>
     </message>
     <message>
         <source>Done</source>
         <translation>完了</translation>
+    </message>
+    <message>
+        <source>Extracting…</source>
+        <translation>抽出中…</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla state…</source>
+        <translation>バニラの状態にゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Script extender installed successfully!
+{0} file(s) extracted to the {1}.
+
+Click Done to close.</source>
+        <translation>スクリプトエクステンダーが正常にインストールされました!
+{1} に抽出された {0} ファイル。
+
+Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -5701,12 +7887,78 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>スキップ</translation>
     </message>
     <message>
+        <source>Step 2: Download Script Merger</source>
+        <translation>ステップ2:スクリプトマーガーをダウンロード</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the Script Merger download page
+on Nexus Mods, then download the archive.
+
+Once downloaded, click Next.</source>
+        <translation>下記のボタンをクリックすると、スクリプトマーガーのダウンロードページが開きます
+Nexus Mods でアーカイブをダウンロードします。
+
+ダウンロードしたら、[次へ] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Step 3: Locate the Archive</source>
+        <translation>ステップ3:アーカイブの検索</translation>
+    </message>
+    <message>
+        <source>Step 4: Extract Script Merger</source>
+        <translation>ステップ4:スクリプトマーガーを抽出する</translation>
+    </message>
+    <message>
         <source>Step 6: Install .NET 8</source>
         <translation>手順 6: .NET 8 をインストールする</translation>
     </message>
     <message>
+        <source>Step 7: Run Script Merger</source>
+        <translation>ステップ7:スクリプトマーガーを実行します</translation>
+    </message>
+    <message>
+        <source>Select the Script Merger archive</source>
+        <translation>スクリプトマーガーアーカイブを選択します</translation>
+    </message>
+    <message>
+        <source>Script Merger archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>ダウンロードされていないスクリプトマーガーアーカイブ。
+ダウンロードしてから、試してみる
+またはブラウザを使用して手動で選択します.</translation>
+    </message>
+    <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>ステップ5: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
         <source>Checking .NET 8…</source>
         <translation>.NET 8 を確認中…</translation>
+    </message>
+    <message>
+        <source>Preparing Script Merger's Wine prefix…</source>
+        <translation>スクリプトマーガーのワインプレフィックスの準備..</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認して、このウィザードを再オープンしてください.</translation>
+    </message>
+    <message>
+        <source>.NET 8 already installed — skipping.</source>
+        <translation>.NET 8 は既にインストールされています.</translation>
+    </message>
+    <message>
+        <source>.NET 8 install failed (see log).</source>
+        <translation>.NET 8 インストール失敗 (ログを参照).</translation>
+    </message>
+    <message>
+        <source>.NET 8 ready.</source>
+        <translation>.NET 8対応.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
     <message>
         <source>Existing Merges Use Missing Mods</source>
@@ -5743,10 +7995,32 @@ Cancel and re-enable the listed mods to keep the merges, or delete the existing 
         <translation>WitcherScriptMerger を起動中…</translation>
     </message>
     <message>
+        <source>Run Script Merger — {0}</source>
+        <translation>スクリプト・マーガを実行 — {0}</translation>
+    </message>
+    <message>
         <source>{0} was not found.
 Please restart the wizard and install Script Merger first.</source>
         <translation>{0} 見つかりませんでした。
 ウィザードを再起動し、まずScript Mergerをインストールしてください。</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>WitcherScriptMerger is running.
+Merge your conflicts, then close it and click Done.</source>
+        <translation>WitcherScriptMerger は実行中です。
+競合をマージし、それを閉じて、[完了]をクリックします.</translation>
+    </message>
+    <message>
+        <source>WitcherScriptMerger closed.</source>
+        <translation>WitcherScriptMerger は閉じました.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
     <message>
         <source>Restoring game files (rescuing merges)…</source>
@@ -5949,8 +8223,8 @@ Please restart the wizard and install Script Merger first.</source>
         <translation>インストール後にアーカイブを削除する</translation>
     </message>
     <message>
-        <source>Delete a mod's downloaded archive after it is extracted.</source>
-        <translation>modのダウンロード済みアーカイブは、解凍後に削除してください。</translation>
+        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself — installs from the Install Mod button or the Downloads tab keep their archive.</source>
+        <translation>Mod のダウンロードしたアーカイブを抽出した後に削除します。 ダウンロードしたAmethystのアーカイブのみに適用され、インストールModボタンやダウンロードタブからアーカイブを保持します.</translation>
     </message>
     <message>
         <source>Keep FOMOD archives</source>
@@ -5959,6 +8233,14 @@ Please restart the wizard and install Script Merger first.</source>
     <message>
         <source>Mods installed via a FOMOD installer keep their archive even when 'Clear archive after install' is on.</source>
         <translation>FOMODインストーラーを介してインストールされたMODは、「インストール後にアーカイブを削除する」がオンになっていても、アーカイブが保持されます。</translation>
+    </message>
+    <message>
+        <source>Install new mods disabled</source>
+        <translation>無効な新しいmods をインストールする</translation>
+    </message>
+    <message>
+        <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
+        <translation>Mods が modlist で無効にインストールされた mods は、 有効 ではなく modlist で起動します。 コレクションのインストール以外のすべてのインストールパスに適用されます.</translation>
     </message>
     <message>
         <source>Max concurrent downloads</source>
@@ -5971,6 +8253,26 @@ Please restart the wizard and install Script Merger first.</source>
     <message>
         <source>Extractions are gated by available memory; the effective number may be lower than set.</source>
         <translation>抽出処理は利用可能なメモリによって制限されるため、実際の抽出数は設定値よりも少なくなる場合があります。</translation>
+    </message>
+    <message>
+        <source>Extraction CPU threads</source>
+        <translation>抽出CPUスレッド</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>すべて</translation>
+    </message>
+    <message>
+        <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
+        <translation>CPU は各抽出物が使用する場合があります。 'All' は最速です。低値でシステムレスポンシブを保ちながら、大規模なアーカイブ抽出物.</translation>
+    </message>
+    <message>
+        <source>Low priority extractions</source>
+        <translation>低優先抽出物</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>低いCPUとディスクの優先度で抽出を実行し、それらを遅くするのではなく、他のアプリケーションに収まります。 システムがそうでなければアイドルである間、抽出の速度は影響しません.</translation>
     </message>
     <message>
         <source>Caches</source>
@@ -6053,6 +8355,22 @@ Please restart the wizard and install Script Merger first.</source>
         <translation>Heroicのconfig.jsonが含まれるフォルダ。空の場合 = 自動検出（Flatpakおよびネイティブの保存場所）。</translation>
     </message>
     <message>
+        <source>Lutris Data Location</source>
+        <translation>データロケーション</translation>
+    </message>
+    <message>
+        <source>Folder containing Lutris's pga.db. Blank = auto-detect (Flatpak and native locations).</source>
+        <translation>Lutrisのpga.dbを含むフォルダ。 Blank = auto-detect (Flatpak とネイティブの場所).</translation>
+    </message>
+    <message>
+        <source>Lutris AppImage</source>
+        <translation>Lutrisアプリイメージ</translation>
+    </message>
+    <message>
+        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</source>
+        <translation>Lutris AppImage へのパス、Play は直接起動できます。 AppImage のインストールのみが必要で、Flatpak またはネイティブ Lutris の空白のままにします.</translation>
+    </message>
+    <message>
         <source>Steam libraryfolders.vdf</source>
         <translation>Steamライブラリフォルダ.vdf</translation>
     </message>
@@ -6110,6 +8428,18 @@ Please restart the wizard and install Script Merger first.</source>
         <source>Import</source>
         <translation>インポート</translation>
     </message>
+    <message>
+        <source>Not a valid share code.</source>
+        <translation>有効な共有コードではありません.</translation>
+    </message>
+    <message>
+        <source>, ~{0} to download</source>
+        <translation>, ~{0} をダウンロード</translation>
+    </message>
+    <message>
+        <source>exported {0}</source>
+        <translation>エクスポート {0}</translation>
+    </message>
 </context>
 <context>
     <name>ShowConflictsView</name>
@@ -6157,6 +8487,10 @@ Please restart the wizard and install Script Merger first.</source>
 <context>
     <name>SkyGenView</name>
     <message>
+        <source>SkyGen — Patch Generator — {0}</source>
+        <translation>SkyGen — パッチジェネレータ — {0}</translation>
+    </message>
+    <message>
         <source>Step 1: Scan Active Plugins</source>
         <translation>ステップ 1：有効なプラグインをスキャンする</translation>
     </message>
@@ -6175,6 +8509,10 @@ Please restart the wizard and install Script Merger first.</source>
     <message>
         <source>Scanning…</source>
         <translation>スキャン中…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
     <message>
         <source>No active plugins found.
@@ -6251,6 +8589,10 @@ Output mod: {2}
 <context>
     <name>SmapiView</name>
     <message>
+        <source>Install SMAPI — {0}</source>
+        <translation>SMAPIのインストール — {0}</translation>
+    </message>
+    <message>
         <source>Step 1: Download SMAPI</source>
         <translation>手順 1：SMAPI をダウンロードする</translation>
     </message>
@@ -6273,6 +8615,30 @@ Follow its prompts, then press a key to close it.</source>
         <translation>次へ →</translation>
     </message>
     <message>
+        <source>Fetching latest SMAPI release from GitHub…</source>
+        <translation>GitHubから最新のSMAPIリリースを取得..</translation>
+    </message>
+    <message>
+        <source>Downloading SMAPI {0}…</source>
+        <translation>SMAPI {0}をダウンロード..</translation>
+    </message>
+    <message>
+        <source>Downloaded SMAPI {0}: {1}</source>
+        <translation>ダウンロード SMAPI {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}
+
+Use Browse to select a manually downloaded archive.</source>
+        <translation>ダウンロード失敗: {0}
+
+手動でダウンロードしたアーカイブを選択するには、ブラウザを使用します.</translation>
+    </message>
+    <message>
+        <source>Select the SMAPI archive</source>
+        <translation>SMAPI アーカイブを選択</translation>
+    </message>
+    <message>
         <source>Selected: {0}</source>
         <translation>選択済み：{0}</translation>
     </message>
@@ -6288,6 +8654,58 @@ Follow its prompts, then press a key to close it.</source>
         <source>Extracting SMAPI archive…</source>
         <translation>SMAPIアーカイブの抽出中…</translation>
     </message>
+    <message>
+        <source>Launching the SMAPI installer in a terminal.
+
+Follow the on-screen prompts, then press a key to close the terminal and click Done here.</source>
+        <translation>SMAPIインストーラをターミナルで起動します。
+
+画面上のプロンプトに従って、キーを押してターミナルを閉じて、ここにDoneをクリックします.</translation>
+    </message>
+    <message>
+        <source>SMAPI installer finished.
+
+If it completed successfully, SMAPI is now installed.
+Click Done to close.</source>
+        <translation>SMAPIインストーラが完成しました。
+
+正常に完了したら、SMAPIをインストールします。
+Done をクリックして閉じます.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>Splash</name>
+    <message>
+        <source>Starting Amethyst…</source>
+        <translation>アメジストを始める..</translation>
+    </message>
+</context>
+<context>
+    <name>StagingExePickerOverlay</name>
+    <message>
+        <source>Add executable from staging</source>
+        <translation>ステージングから実行可能を追加</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
+        <translation>実行可能値をチェックして実行メニューに追加します。 ウィザードが実行時にウィザードを開くツール.</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
 </context>
 <context>
     <name>StatsBar</name>
@@ -6299,12 +8717,24 @@ Follow its prompts, then press a key to close it.</source>
 <context>
     <name>SynthesisView</name>
     <message>
+        <source>Run Synthesis — {0}</source>
+        <translation>統合を実行 — {0}</translation>
+    </message>
+    <message>
         <source>Step 1: Download Synthesis</source>
         <translation>ステップ 1：Synthesis をダウンロードする</translation>
     </message>
     <message>
         <source>Fetching latest release from GitHub …</source>
         <translation>GitHubから最新リリースを取得中……</translation>
+    </message>
+    <message>
+        <source>Installed Synthesis {0}.</source>
+        <translation>インストールされた合成 {0}.</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>ダウンロード失敗: {0}</translation>
     </message>
     <message>
         <source>Step 2: Select Proton Version</source>
@@ -6337,12 +8767,52 @@ Pick a Proton version to create that prefix with.</source>
         <translation>ローンチ・シンセシス</translation>
     </message>
     <message>
+        <source>Game path is not configured; aborting.</source>
+        <translation>ゲームパスは設定されていません.</translation>
+    </message>
+    <message>
+        <source>Game path not configured.</source>
+        <translation>設定されていないゲームパス.</translation>
+    </message>
+    <message>
+        <source>No Proton selected; aborting.</source>
+        <translation>選択したプロトンはありません.</translation>
+    </message>
+    <message>
+        <source>Synthesis dir: {0}</source>
+        <translation>統合の dir: {0}</translation>
+    </message>
+    <message>
+        <source>Proton: {0}</source>
+        <translation>プロトン: {0}</translation>
+    </message>
+    <message>
+        <source>Game path: {0}</source>
+        <translation>ゲームパス: {0}</translation>
+    </message>
+    <message>
+        <source>Prefix setup raised: {0}</source>
+        <translation>プレフィックスセットアップ: {0}</translation>
+    </message>
+    <message>
+        <source>Prefix ready. Click Launch Synthesis.</source>
+        <translation>プレフィックス対応 起動合成をクリックします.</translation>
+    </message>
+    <message>
+        <source>Setup completed with errors — launch may still work.</source>
+        <translation>エラーで完了したセットアップ — 起動はまだ動作する可能性があります.</translation>
+    </message>
+    <message>
         <source>Running …</source>
         <translation>走っている……</translation>
     </message>
 </context>
 <context>
     <name>TTWView</name>
+    <message>
+        <source>Install Tale of Two Wastelands — {0}</source>
+        <translation>2つの廃棄物の物語をインストール — {0}</translation>
+    </message>
     <message>
         <source>Step 1: Install the TTW MPI Installer</source>
         <translation>手順 1: TTW MPI インストーラーをインストールする</translation>
@@ -6372,6 +8842,30 @@ Click Install to begin.</source>
     <message>
         <source>Contacting GitHub…</source>
         <translation>GitHub に接続中…</translation>
+    </message>
+    <message>
+        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
+        <translation>最新のTTWリリース({0})で見つかったLinuxインストーラアセットはありません.</translation>
+    </message>
+    <message>
+        <source>Downloading TTW installer {0}…</source>
+        <translation>TTWインストーラ{0}をダウンロード..</translation>
+    </message>
+    <message>
+        <source>Extracting installer…</source>
+        <translation>抽出インストーラー..</translation>
+    </message>
+    <message>
+        <source>{0} not found after extraction at {1}.</source>
+        <translation>{1}の抽出後に{0}が見つかりません.</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>インストーラーの準備ができました.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>インストールエラー: {0}</translation>
     </message>
     <message>
         <source>Tale of Two Wastelands is already installed</source>
@@ -6418,12 +8912,52 @@ mod.pubから最新のTTW .mpiを入手してください（無料アカウン�
         <translation>mod.pubのTTWページを開く</translation>
     </message>
     <message>
+        <source>Fallout New Vegas:</source>
+        <translation>フォールアウトニューベガス:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Fallout New Vegasフォルダを選択します</translation>
+    </message>
+    <message>
+        <source>Fallout 3:</source>
+        <translation>フォールアウト3:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout 3 folder</source>
+        <translation>Fallout 3フォルダを選択します</translation>
+    </message>
+    <message>
+        <source>TTW .mpi package:</source>
+        <translation>TTW .mpiのパッケージ:</translation>
+    </message>
+    <message>
+        <source>Choose .mpi…</source>
+        <translation>.mpiを選ぶ</translation>
+    </message>
+    <message>
         <source>Continue</source>
         <translation>続きを読む</translation>
     </message>
     <message>
+        <source>Browse…</source>
+        <translation>閲覧…</translation>
+    </message>
+    <message>
         <source>— not set —</source>
         <translation>— 未設定 —</translation>
+    </message>
+    <message>
+        <source>Select the TTW .mpi package</source>
+        <translation>TTW .mpi パッケージを選択します</translation>
+    </message>
+    <message>
+        <source>TTW Package (*.mpi)</source>
+        <translation>TTWパッケージ(*.mpi)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>すべてのファイル</translation>
     </message>
     <message>
         <source>Please select the TTW .mpi package.</source>
@@ -6457,6 +8991,92 @@ Output is written directly into your mod list as the '{0}' mod.</source>
         <source>Done</source>
         <translation>完了</translation>
     </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>インストーラバイナリが欠落しています。 wizardを再起動し、最初にインストールしましょう.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>バニラにゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>インストール前にバニラの状態にゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>失敗した復元 - ログを参照してください。 問題を修正(または復元ボタンを介して手動で復元)、再試行.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod ステージングパスの設定は行いません.</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas: {0}</source>
+        <translation>フォールアウトニューベガス:{0}</translation>
+    </message>
+    <message>
+        <source>Fallout 3: {0}</source>
+        <translation>フォールアウト3:{0}</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>ERROR: 欠落したバニラプラグインファイル:
+{0}の</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click each game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>バニラに復元した後でもバニラプラグインファイルを見逃す — これらはバックアップされませんでした。
+Steam では、各ゲーム → プロパティ → インストールされたファイル → ゲームファイルの完全性を確認し、再試行します。
+
+{0}の</translation>
+    </message>
+    <message>
+        <source>Installing… (see log below)</source>
+        <translation>インストール... (下のログを参照してください)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>インストーラはエラーで終了({0})。 詳細はログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Install complete — registering mod…</source>
+        <translation>インストール完了 — mod を登録する..</translation>
+    </message>
+    <message>
+        <source>Install finished but registering the mod failed: {0}</source>
+        <translation>終了をインストールしますが、mod の登録に失敗しました: {0}</translation>
+    </message>
+    <message>
+        <source>Setting up profile INIs + FalloutCustom.ini for TTW…</source>
+        <translation>プロフィールの設定 INIS + FalloutCustom.ini TTWの..</translation>
+    </message>
+    <message>
+        <source>Recommended Nexus mods are flagged on the TTW mod via the 'missing requirements' marker (installed ones are hidden automatically).</source>
+        <translation>推奨Nexus modsは 'missing 要件' マーカーを介して TTW mod にフラグが付けられます (インストールされたものは自動的に隠されます).</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Done! '{0}' を mod リストに追加しました。 有効化して展開します.</translation>
+    </message>
+    <message>
+        <source>Setup re-applied for the existing '{0}' mod. Enable it and deploy.</source>
+        <translation>既存の '{0}' mod に再適用されたセットアップ。 有効化して展開します.</translation>
+    </message>
+    <message>
+        <source>
+
+TTW needs several supporting mods (script extender plugins, patches, etc.). These are flagged on the TTW mod via the red 'missing requirements' marker — click it to install them, then deploy.</source>
+        <translation>TTWは、いくつかのサポートモジュール(スクリプトエクステンダープラグイン、パッチなど)が必要です。 これらは、赤い 'missing 要件' マーカーを介して TTW MOD にフラグが付けられているので、インストールしてからデプロイします.</translation>
+    </message>
 </context>
 <context>
     <name>TextEditor</name>
@@ -6482,6 +9102,24 @@ Output is written directly into your mod list as the '{0}' mod.</source>
     </message>
 </context>
 <context>
+    <name>TextFilesModel</name>
+    <message>
+        <source>Name</source>
+        <translation>お名前 (必須)</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>ソース</translation>
+    </message>
+</context>
+<context>
+    <name>TextFilesView</name>
+    <message>
+        <source>(no ext)</source>
+        <translation>(税抜き)</translation>
+    </message>
+</context>
+<context>
     <name>TextInputOverlay</name>
     <message>
         <source>Cancel</source>
@@ -6490,6 +9128,54 @@ Output is written directly into your mod list as the '{0}' mod.</source>
 </context>
 <context>
     <name>TextureToolView</name>
+    <message>
+        <source>Select an optimisation preset, then click Run.</source>
+        <translation>最適化プリセットを選択し、[実行] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Processes normal maps: BSA extract → filter → parallax prep → bend normals → BC7 compress</source>
+        <translation>プロセス 通常のマップ: BSA 抽出 → フィルター → パララックス プレップ → ベンド ノーマル → BC7 圧縮</translation>
+    </message>
+    <message>
+        <source>Processes parallax textures: BSA extract → filter pairs → height maps → output QC</source>
+        <translation>プロセスパララックステクスチャ:BSA抽出→フィルタペア→高さマップ→出力QC</translation>
+    </message>
+    <message>
+        <source>Run {0} — {1}</source>
+        <translation>{0} を実行 — {1}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download {0}</source>
+        <translation>手順 1：{0} をダウンロードする</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the {0} page on Nexus Mods, then download the archive.
+
+Once downloaded, click Next.</source>
+        <translation>下のボタンをクリックして、Nexus Mods の {0} ページを開き、アーカイブをダウンロードします。
+
+ダウンロードしたら、[次へ] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>ステップ 2：アーカイブの場所を確認する</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract {0}</source>
+        <translation>ステップ 3：{0} を抽出する</translation>
+    </message>
+    <message>
+        <source>Step 4: Deploy Modlist</source>
+        <translation>ステップ 4: Modlist のデプロイ</translation>
+    </message>
+    <message>
+        <source>{0} reads your mods from the deployed Data folder.
+
+Deploy your modlist first, then click Run.</source>
+        <translation>{0} は、デプロイされたデータフォルダーからモジュールを読み込みます。
+
+modlist を最初にデプロイし、実行をクリックします.</translation>
+    </message>
     <message>
         <source>Step 5: Run {0}</source>
         <translation>ステップ 5：{0} を実行する</translation>
@@ -6507,12 +9193,40 @@ Output is written directly into your mod list as the '{0}' mod.</source>
         <translation>完了</translation>
     </message>
     <message>
+        <source>Select the {0} archive</source>
+        <translation>{0} アーカイブを選択</translation>
+    </message>
+    <message>
+        <source>{0} archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>{0} 「ダウンロード」フォルダにアーカイブが見つかりません。
+ダウンロードが完了していることを確認してから、「再試行」をクリックするか、
+「参照」を使用して手動でファイルを選択してください。</translation>
+    </message>
+    <message>
         <source>{0} not found. Please restart the wizard.</source>
         <translation>{0} 見つかりませんでした。ウィザードを再起動してください。</translation>
     </message>
     <message>
         <source>Game Data folder not found. Deploy first.</source>
         <translation>「Game Data」フォルダが見つかりません。まずデプロイを行ってください。</translation>
+    </message>
+    <message>
+        <source>Running {0} ({1})… This may take a while.</source>
+        <translation>{0}({1})を実行... しばらくお待ちください.</translation>
+    </message>
+    <message>
+        <source>Running {0}… This may take a while.</source>
+        <translation>実行{0} ... しばらくお待ちください.</translation>
+    </message>
+    <message>
+        <source>{0} complete! Output is ready as a mod.</source>
+        <translation>{0} 完了! 出力はmodとして準備されます.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -7315,6 +10029,281 @@ Output is written directly into your mod list as the '{0}' mod.</source>
     </message>
 </context>
 <context>
+    <name>ThemePreviewPanel</name>
+    <message>
+        <source>Preview — approximate; use "Restart to apply" to see the theme across the whole app.</source>
+        <translation>プレビュー — 近似; "Restart to Apply" を使用して、アプリ全体でテーマを見ることができます.</translation>
+    </message>
+    <message>
+        <source>Header &amp; tabs</source>
+        <translation>ヘッダーとタブ</translation>
+    </message>
+    <message>
+        <source>Profiles</source>
+        <translation>プロフィール</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>更新</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>▶ Play</source>
+        <translation>▶ プレイ</translation>
+    </message>
+    <message>
+        <source>Mods</source>
+        <translation>Mods</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>プラグイン</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>データ</translation>
+    </message>
+    <message>
+        <source>Mod list</source>
+        <translation>Mod リスト</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>MOD名</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>Overwrite</source>
+        <translation>オーバーライト</translation>
+    </message>
+    <message>
+        <source>Root Folder</source>
+        <translation>ルートフォルダ</translation>
+    </message>
+    <message>
+        <source>— Gameplay —</source>
+        <translation>— ゲームプレイ —</translation>
+    </message>
+    <message>
+        <source>Unofficial Patch</source>
+        <translation>非公式パッチ</translation>
+    </message>
+    <message>
+        <source>Selected mod</source>
+        <translation>選択されたmod</translation>
+    </message>
+    <message>
+        <source>Wins over selection</source>
+        <translation>選択に勝つ</translation>
+    </message>
+    <message>
+        <source>conflict</source>
+        <translation>インタビュー</translation>
+    </message>
+    <message>
+        <source>Loses to selection</source>
+        <translation>選択を失う</translation>
+    </message>
+    <message>
+        <source>Plugin's mod</source>
+        <translation>プラグインのmod</translation>
+    </message>
+    <message>
+        <source>anchor</source>
+        <translation>アンカー</translation>
+    </message>
+    <message>
+        <source>Required by selection</source>
+        <translation>選択によって必須</translation>
+    </message>
+    <message>
+        <source>requirement</source>
+        <translation>条件:</translation>
+    </message>
+    <message>
+        <source>Requires selection</source>
+        <translation>選択を要求して下さい</translation>
+    </message>
+    <message>
+        <source>Textures folder</source>
+        <translation>テクスチャフォルダ</translation>
+    </message>
+    <message>
+        <source>Archive.bsa</source>
+        <translation>アーカイブ.bsa</translation>
+    </message>
+    <message>
+        <source>Profile.ini</source>
+        <translation>プロフィール.ini</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>インストール済み</translation>
+    </message>
+    <message>
+        <source>Unordered plugin</source>
+        <translation>無秩序なプラグイン</translation>
+    </message>
+    <message>
+        <source>Plugins &amp; files</source>
+        <translation>プラグインとファイル</translation>
+    </message>
+    <message>
+        <source>✔  SKSE Installed</source>
+        <translation>✔ SKSEインストール済み</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not deployed</source>
+        <translation>● SKSE は modlist に存在するがデプロイされていない</translation>
+    </message>
+    <message>
+        <source>●  SKSE present in modlist but not enabled</source>
+        <translation>● SKSEはモダリストに提示しますが、有効ではありません</translation>
+    </message>
+    <message>
+        <source>✘  SKSE Not Present</source>
+        <translation>◀ SKSE 未発表</translation>
+    </message>
+    <message>
+        <source>Cycle detected among pinned plugins</source>
+        <translation>ピン留めされたプラグイン間で検出される周期</translation>
+    </message>
+    <message>
+        <source>Cycle resolved</source>
+        <translation>サイクルの解決</translation>
+    </message>
+    <message>
+        <source>Flipping this rule resolves the cycle</source>
+        <translation>このルールを反転すると、サイクルが解消されます</translation>
+    </message>
+    <message>
+        <source>load before</source>
+        <translation>負荷の前に</translation>
+    </message>
+    <message>
+        <source>load after</source>
+        <translation>負荷の後で</translation>
+    </message>
+    <message>
+        <source>winning file</source>
+        <translation>勝ちファイル</translation>
+    </message>
+    <message>
+        <source>overridden file</source>
+        <translation>オーバーライドファイル</translation>
+    </message>
+    <message>
+        <source>inactive file</source>
+        <translation>非アクティブファイル</translation>
+    </message>
+    <message>
+        <source>anchor file</source>
+        <translation>アンカーファイル</translation>
+    </message>
+    <message>
+        <source>Drag selection outline</source>
+        <translation>選択の輪郭をドラッグして下さい</translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation>ボタン</translation>
+    </message>
+    <message>
+        <source>Hover a button to preview its hover colour.</source>
+        <translation>ホバーカラーをプレビューするボタンを押します.</translation>
+    </message>
+    <message>
+        <source>Inputs &amp; scrollbar</source>
+        <translation>入力とスクロールバー</translation>
+    </message>
+    <message>
+        <source>Search…</source>
+        <translation>お問い合わせ</translation>
+    </message>
+    <message>
+        <source>Default profile</source>
+        <translation>デフォルトプロファイル</translation>
+    </message>
+    <message>
+        <source>Testing</source>
+        <translation>テスト</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>有効化</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>バリアフリー</translation>
+    </message>
+    <message>
+        <source>Selected option</source>
+        <translation>選択されたオプション</translation>
+    </message>
+    <message>
+        <source>List row {0}</source>
+        <translation>リスト行 {0}</translation>
+    </message>
+    <message>
+        <source>Cards, toasts &amp; progress</source>
+        <translation>カード、トースト&amp;進行</translation>
+    </message>
+    <message>
+        <source>Card title</source>
+        <translation>カードタイトル</translation>
+    </message>
+    <message>
+        <source>Card detail text</source>
+        <translation>カード詳細テキスト</translation>
+    </message>
+    <message>
+        <source>Card secondary text</source>
+        <translation>カード二次テキスト</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation>成功事例</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>インフォメーション</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>エラー</translation>
+    </message>
+    <message>
+        <source>Required mod</source>
+        <translation>必須項目</translation>
+    </message>
+    <message>
+        <source>Optional mod</source>
+        <translation>オプション mod</translation>
+    </message>
+    <message>
+        <source>Status badges</source>
+        <translation>ステータスバッジ</translation>
+    </message>
+    <message>
+        <source>Deployed</source>
+        <translation>導入事例</translation>
+    </message>
+    <message>
+        <source>Text &amp; tones</source>
+        <translation>テキストとトーン</translation>
+    </message>
+</context>
+<context>
     <name>UpdateOverlay</name>
     <message>
         <source>Update Collection</source>
@@ -7491,6 +10480,76 @@ Latest:  {1}</source>
         <translation>完了</translation>
     </message>
     <message>
+        <source>Open Download Page</source>
+        <translation>ダウンロードページを開く</translation>
+    </message>
+    <message>
+        <source>Locate the Archive</source>
+        <translation>アーカイブの場所を確認する</translation>
+    </message>
+    <message>
+        <source>Found: {0}</source>
+        <translation>出典：{0}</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>選択済み：{0}</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>アーカイブが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>{0}を抽出する..</translation>
+    </message>
+    <message>
+        <source>'{0}' folder not found after extraction.
+Check that the archive contains {1}.</source>
+        <translation>抽出後に '{0}' フォルダが見つかりません。
+アーカイブに{1}が含まれていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>{0} not found after extraction.
+Check that the archive contains {0}.</source>
+        <translation>抽出後に{0}が見つかりません。
+アーカイブに{0}が含まれていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Extracted {0} file(s).</source>
+        <translation>{0} ファイルを抽出しました.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Fetching latest release from GitHub…</source>
+        <translation>GitHubから最新リリースを取得中…</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>{0}のダウンロード中…</translation>
+    </message>
+    <message>
+        <source>{0} not found after extraction.</source>
+        <translation>抽出後に{0}が見つかりません.</translation>
+    </message>
+    <message>
+        <source>Downloaded and extracted {0}.</source>
+        <translation>{0}をダウンロードして抽出しました.</translation>
+    </message>
+    <message>
+        <source>Choose Proton Version</source>
+        <translation>Protonバージョンを選択</translation>
+    </message>
+    <message>
+        <source>{0} was not found.
+Reopen this wizard.</source>
+        <translation>{0}が見つかりませんでした。
+このウィザードが開きます.</translation>
+    </message>
+    <message>
         <source>Deploy is unavailable here.</source>
         <translation>ここでは「デプロイ」機能は利用できません。</translation>
     </message>
@@ -7522,8 +10581,38 @@ Latest:  {1}</source>
 <context>
     <name>WryeBashView</name>
     <message>
+        <source>Run Wrye Bash — {0}</source>
+        <translation>Wrye Bashを実行 — {0}</translation>
+    </message>
+    <message>
         <source>Step 1: Download Wrye Bash</source>
         <translation>ステップ 1: Wrye Bash をダウンロードする</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>ステップ2:Modlistを展開する</translation>
+    </message>
+    <message>
+        <source>Deploy the modlist so Wrye Bash sees your mods and the
+Bashed Patch it creates lands in the modded Data folder.
+On restore, the new plugin is moved to Overwrite.</source>
+        <translation>Modlist を展開するので、Wrye Bash は mods と
+埋め込まれたデータ フォルダーに土地を作成するバッシュ パッチ。
+復元すると、新しいプラグインが上書きに移動します.</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Wrye Bash</source>
+        <translation>ステップ4: Wrye Bashを実行</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>ステップ3: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
+        <source>'{0}' was not found.
+Please restart the wizard to reinstall Wrye Bash.</source>
+        <translation>'{0}' が見つかりませんでした。
+Wrye Bashを再インストールするには、ウィザードを再起動してください.</translation>
     </message>
     <message>
         <source>'{0}' was not found.</source>
@@ -7532,6 +10621,24 @@ Latest:  {1}</source>
     <message>
         <source>Launching Wrye Bash…</source>
         <translation>「Wrye Bash」を起動中…</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Wrye Bash is running.
+Close it when you are done, then click Done.</source>
+        <translation>Wrye Bashが稼働しています。
+完了したら閉じて、Doneをクリックします.</translation>
+    </message>
+    <message>
+        <source>Wrye Bash finished.</source>
+        <translation>ワリーバッシュ完成.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
 </context>
 <context>
@@ -7611,12 +10718,38 @@ or use Browse to select it manually.</source>
 「参照」を使用して手動でファイルを選択してください。</translation>
     </message>
     <message>
+        <source>Select the {0} archive</source>
+        <translation>{0} アーカイブを選択</translation>
+    </message>
+    <message>
         <source>Selected: {0}</source>
         <translation>選択済み：{0}</translation>
     </message>
     <message>
         <source>Step 3: Extract {0}</source>
         <translation>ステップ 3：{0} を抽出する</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>アーカイブが見つかりません.</translation>
+    </message>
+    <message>
+        <source>Extracting {0}…</source>
+        <translation>{0}を抽出する..</translation>
+    </message>
+    <message>
+        <source>{0} not found after extraction.
+Check that the archive contains {0}.</source>
+        <translation>抽出後に{0}が見つかりません。
+アーカイブに{0}が含まれていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Extracted {0} file(s).</source>
+        <translation>{0} ファイルを抽出しました.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
     </message>
     <message>
         <source>Step 4: Deploy Modlist</source>
@@ -7653,6 +10786,10 @@ Please restart the wizard and install {1} first.</source>
 ウィザードを再起動し、まず{1}をインストールしてください。</translation>
     </message>
     <message>
+        <source>Step 5: Choose Proton Version</source>
+        <translation>ステップ5: Protonバージョンを選択してください</translation>
+    </message>
+    <message>
         <source>Step 6: Run {0}</source>
         <translation>手順 6：{0} を実行する</translation>
     </message>
@@ -7671,6 +10808,22 @@ Please restart the wizard and install {1} first.</source>
     <message>
         <source>Launching {0}…</source>
         <translation>{0}の起動中…</translation>
+    </message>
+    <message>
+        <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
+        <translation>Proton '{0}' が見つかりません。Steam にインストールされていることを確認してください.</translation>
+    </message>
+    <message>
+        <source>Game path not configured.</source>
+        <translation>設定されていないゲームパス.</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} が完成しました.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
     </message>
     <message>
         <source>{0} is running.
@@ -7712,8 +10865,16 @@ Close it when you are done, then click Done.</source>
 <context>
     <name>_LoadSettingsOverlay</name>
     <message>
+        <source>Load export settings</source>
+        <translation>エクスポート設定をロードする</translation>
+    </message>
+    <message>
         <source>Select a saved settings file:</source>
         <translation>保存済みの設定ファイルを選択してください：</translation>
+    </message>
+    <message>
+        <source>Load</source>
+        <translation>ログイン</translation>
     </message>
 </context>
 <context>
@@ -7737,6 +10898,26 @@ Close it when you are done, then click Done.</source>
 <context>
     <name>_ReqCard</name>
     <message>
+        <source>Mod {0}</source>
+        <translation>変更 {0}</translation>
+    </message>
+    <message>
+        <source>(External)</source>
+        <translation>(外部)</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>説明はありません.</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>イグノー</translation>
+    </message>
+    <message>
+        <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
+        <translation>この要件を欠落要件のフラグにカウントしないでください。 ここのリストにしておくと、無視できません.</translation>
+    </message>
+    <message>
         <source>View</source>
         <translation>表示</translation>
     </message>
@@ -7747,6 +10928,42 @@ Close it when you are done, then click Done.</source>
 </context>
 <context>
     <name>_SourceOverlay</name>
+    <message>
+        <source>Source — {0}</source>
+        <translation>ソース — {0}</translation>
+    </message>
+    <message>
+        <source>Nexus Mods</source>
+        <translation>ネクサス Mods</translation>
+    </message>
+    <message>
+        <source>Download mod from Nexus</source>
+        <translation>NexusからMODをダウンロード</translation>
+    </message>
+    <message>
+        <source>Direct URL</source>
+        <translation>ダイレクトURL</translation>
+    </message>
+    <message>
+        <source>For off-site mods</source>
+        <translation>オフサイト商品の場合</translation>
+    </message>
+    <message>
+        <source>Bundle</source>
+        <translation>バンド</translation>
+    </message>
+    <message>
+        <source>Include mod in the output (e.g. DynDOLOD output)</source>
+        <translation>出力にMODを含める(例:DynDOLOD出力)</translation>
+    </message>
+    <message>
+        <source>Ignore</source>
+        <translation>イグノー</translation>
+    </message>
+    <message>
+        <source>Exclude this mod from the export entirely</source>
+        <translation>完全にエクスポートからこのMODを除外</translation>
+    </message>
     <message>
         <source>{0}   — {1}</source>
         <translation>{0}   — {1}</translation>
@@ -7759,12 +10976,24 @@ Close it when you are done, then click Done.</source>
         <source>https://…</source>
         <translation>https://…</translation>
     </message>
+    <message>
+        <source>Apply</source>
+        <translation>お問い合わせ</translation>
+    </message>
 </context>
 <context>
     <name>_VersionOverlay</name>
     <message>
+        <source>Version — {0}</source>
+        <translation>バージョン — {0}</translation>
+    </message>
+    <message>
         <source>Preferred version (file id — version):</source>
         <translation>推奨バージョン（ファイルID — バージョン）：</translation>
+    </message>
+    <message>
+        <source>Select</source>
+        <translation>選択</translation>
     </message>
 </context>
 <context>

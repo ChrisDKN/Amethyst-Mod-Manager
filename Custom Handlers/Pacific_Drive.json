@@ -1,0 +1,75 @@
+{
+  "name": "Pacific Drive",
+  "game_id": "Pacific_Drive",
+  "exe_name": "PenDriverPro/Binaries/Win64/PenDriverPro-Win64-Shipping.exe",
+  "deploy_type": "ue5",
+  "mod_data_path": "PenDriverPro",
+  "steam_id": "1458140",
+  "nexus_game_domain": "pacificdrive",
+  "image_url": "https://cdn2.steamgriddb.com/icon/7ec928c93c17666bfff1a4c404de2940/32/512x512.png",
+  "mod_folder_strip_prefixes": [
+    "PenDriverPro",
+    "Content",
+    "Binaries",
+    "Paks",
+    "~mods"
+  ],
+  "conflict_ignore_filenames": [
+    "*.txt"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dxgi": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "reshade-shaders"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".addon64"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content",
+      "folders": [
+        "Movies"
+      ],
+      "loose_only": true
+    },
+    {
+      "dest": "Content",
+      "folders": [
+        "Splash"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
+}
