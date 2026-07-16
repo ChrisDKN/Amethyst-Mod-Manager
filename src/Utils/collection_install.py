@@ -407,6 +407,27 @@ def run_collection_install(
                 fomod_by_file_id[fid] = choices["selections"]
             elif choices.get("type") == "bain_selections":
                 bain_by_file_id[fid] = choices["selections"]
+    # Category + endorsement never come from the collection manifest — kick
+    # off a background batched GraphQL fetch NOW, concurrently with the whole
+    # download/install pipeline, so it's ready (or nearly ready) by the time
+    # Step 5 reconciles. Never gates the critical path.
+    _extra_meta: "dict[int, object]" = {}
+    _extra_meta_ready = threading.Event()
+
+    def _fetch_extra_meta():
+        try:
+            unique_mids = sorted(set(schema_file_id_to_mod_id.values()))
+            if unique_mids:
+                result = api.graphql_mod_update_info_batch(
+                    [(game_domain, mid) for mid in unique_mids])
+                _extra_meta.update(result)
+        except Exception as exc:
+            log(f"Collection install: background metadata fetch failed: {exc}")
+        finally:
+            _extra_meta_ready.set()
+
+    threading.Thread(target=_fetch_extra_meta, daemon=True,
+                     name="col-extra-meta").start()
 
     def _sort_key(m):
         return schema_file_id_to_pos.get(m.file_id, len(schema_mods))
@@ -595,8 +616,8 @@ def run_collection_install(
 
     def _scan_dirs(include_all: bool = False) -> "list[Path]":
         """Folders checked for an already-downloaded archive: game cache dirs,
-        plus (when the premium check_download_locations setting allows it, or
-        always in manual mode) the system Downloads dir + extra locations."""
+        #plus (when the premium check_download_locations setting allows it, or
+        #always in manual mode) the system Downloads dir + extra locations."""
         dirs: list[Path] = list(list_all_cache_dirs(getattr(game, "name", "") or ""))
         seen: set = {p.resolve() for p in dirs}
         if include_all or _col_cfg.get("check_download_locations", True):
@@ -729,11 +750,24 @@ def run_collection_install(
                 from_collection=_slug)
             pmeta.nexus_name = mod.mod_name or ""
             pmeta.author = mod.mod_author or ""
+            pmeta.uploaded_by = mod.uploaded_by or ""
             pmeta.version = mod.version or ""
             if getattr(mod, "category_id", 0):
                 pmeta.category_id = mod.category_id
             if getattr(mod, "category_name", ""):
                 pmeta.category_name = mod.category_name
+            # Best-effort: if the background metadata fetch (started at Step 1)
+            # has already resolved by the time this mod installs, use it now so
+            # meta.ini is correct on first write. If not ready yet, Step 5's
+            # reconciliation pass catches it regardless.
+            if _extra_meta_ready.is_set():
+                _extra = _extra_meta.get(_effective_mod_id)
+                if _extra is not None:
+                    if _extra.category_id:
+                        pmeta.category_id = _extra.category_id
+                        pmeta.category_name = _extra.category_name
+                    if _extra.viewer_endorsed is not None:
+                        pmeta.endorsed = _extra.viewer_endorsed
             if schema_file_id_to_install_type.get(mod.file_id, "").lower() == "dinput":
                 pmeta.root_folder = True
             return pmeta
@@ -1416,6 +1450,46 @@ def run_collection_install(
         except Exception as _ver_exc:
             log(f"Collection install: verification summary failed: {_ver_exc}")
 
+    # Step 5: reconcile category + endorsement for every installed mod. Never
+    # touches anything if the install was cancelled/paused — same guard as the
+    # verification block above, so this can't race with cleanup_cancelled_install
+    # deleting the profile dir.
+    if not _col_cancel.is_set() and not _col_pause.is_set() and _install_results:
+        try:
+            _extra_meta_ready.wait(timeout=30.0)
+            if _extra_meta:
+                from Nexus.nexus_meta import read_meta, write_meta
+                _staging_for_backfill = game.get_effective_mod_staging_path()
+                _updated = 0
+                for fid, folder in _install_results.items():
+                    mid = schema_file_id_to_mod_id.get(fid, 0)
+                    extra = _extra_meta.get(mid)
+                    if extra is None:
+                        continue
+                    meta_path = _staging_for_backfill / folder / "meta.ini"
+                    if not meta_path.is_file():
+                        continue
+                    try:
+                        m = read_meta(meta_path)
+                        changed = False
+                        if extra.category_id and m.category_id != extra.category_id:
+                            m.category_id = extra.category_id
+                            m.category_name = extra.category_name
+                            changed = True
+                        if (extra.viewer_endorsed is not None
+                                and m.endorsed != extra.viewer_endorsed):
+                            m.endorsed = extra.viewer_endorsed
+                            changed = True
+                        if changed:
+                            write_meta(meta_path, m)
+                            _updated += 1
+                    except Exception:
+                        continue
+                log(f"Collection install: reconciled category/endorsement for "
+                    f"{_updated} mod(s).")
+        except Exception as exc:
+            log(f"Collection install: metadata reconciliation failed: {exc}")
+
     # Terminal handling
     if _col_cancel.is_set():
         cb.on_cancelled(profile_dir)
@@ -1454,6 +1528,7 @@ def _process_deferred(
                 archive_name=mod.file_name or "", from_collection=_slug)
             pmeta.nexus_name = mod.mod_name or ""
             pmeta.author = mod.mod_author or ""
+            pmeta.uploaded_by = mod.uploaded_by or ""
             pmeta.version = mod.version or ""
             if getattr(mod, "category_id", 0):
                 pmeta.category_id = mod.category_id

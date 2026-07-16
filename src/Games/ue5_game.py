@@ -801,7 +801,6 @@ class UE5Game(BaseGame):
                 if not enabled:
                     slot[1] += 1
 
-        mod_set = set(mod_names)
         used_index = False
         if index is not None:
             used_index = True

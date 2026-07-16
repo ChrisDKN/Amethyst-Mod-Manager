@@ -268,6 +268,10 @@ class NexusCollectionMod:
     file_id: int = 0
     mod_name: str = ""
     mod_author: str = ""
+    uploaded_by: str = ""   # Nexus uploader account name (distinct from mod_author,
+                            # which is a free-text credits field the mod author
+                            # can write anything into — this is the actual account
+                            # that uploaded the file)
     file_name: str = ""
     version: str = ""
     size_bytes: int = 0
@@ -2542,7 +2546,7 @@ class NexusAPI:
                     fileId
                     file {
                         name version sizeInBytes
-                        mod { modId name author }
+                        mod { modId name author uploader { name memberId } }
                     }
                 }
             }
@@ -2561,7 +2565,7 @@ class NexusAPI:
                 fileId
                 file {
                     name version sizeInBytes
-                    mod { modId name author }
+                    mod { modId name author uploader { name memberId } }
                 }
             }
         }
@@ -2663,16 +2667,19 @@ class NexusAPI:
                     continue
                 if fid:
                     _seen_file_ids.add(fid)
+                
                 mods.append(NexusCollectionMod(
                     mod_id=int(mod.get("modId") or 0),
                     file_id=fid,
                     mod_name=mod.get("name", "") or "",
                     mod_author=mod.get("author", "") or "",
+                    uploaded_by=(mod.get("uploader") or {}).get("name", "") or "",  # ADD THIS LINE
                     file_name=f.get("name", "") or "",
                     version=f.get("version", "") or "",
                     size_bytes=int(f.get("sizeInBytes") or 0),
                     optional=bool(entry.get("optional", False)),
                 ))
+
             return (col_name, total_size, mod_count, mods, download_link_path,
                     revisions, card)
         except Exception as exc:

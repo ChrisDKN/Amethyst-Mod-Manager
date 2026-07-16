@@ -47,8 +47,7 @@ class Ba2WriteError(Exception):
 # the packing rules stay in lockstep.
 # ---------------------------------------------------------------------------
 
-from Utils.bsa_writer import is_packable, _INCOMPRESSIBLE_EXT
-
+from Utils.bsa_writer import is_packable, _INCOMPRESSIBLE_EXT  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Hash — FO4 BA2 CRC-32 variant.  zlib.crc32 won't do because zlib's

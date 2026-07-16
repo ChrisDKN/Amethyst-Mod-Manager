@@ -27,13 +27,13 @@ from typing import Callable, Optional
 
 import requests
 
-# Game scope: None = apply to all games; str = Nexus game domain (e.g. "fallout4", "skyrimspecialedition")
-GameScope = Optional[str]
-
 from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
 from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, write_meta
-from Utils.config_paths import get_requirement_external_tool_mod_ids_path
 from Utils.ca_bundle import resolve_ca_bundle
+from Utils.config_paths import get_requirement_external_tool_mod_ids_path
+
+# Game scope: None = apply to all games; str = Nexus game domain (e.g. "fallout4", "skyrimspecialedition")
+GameScope = Optional[str]
 
 ProgressCallback = Callable[[str], None]
 
