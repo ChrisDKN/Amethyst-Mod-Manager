@@ -917,7 +917,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Sort: </source>
-        <translation>Ordenar:</translation>
+        <translation>Ordenar: </translation>
     </message>
     <message>
         <source>Show adult</source>
@@ -1388,7 +1388,7 @@ Instale-o e, em seguida, reabra este assistente.</translation>
 </source>
         <translation>Plataforma Kit de Criação Estendida (CKPE) patches o Kit de Criação para que funcione corretamente. Ele é baixado do GitHub e instalado como um mod com a bandeira root ativada, então ele implementa na pasta de jogo ao lado do CreationKit.exe.
 
-.</translation>
+</translation>
     </message>
     <message>
         <source>CKPE already appears to be installed. You can update it or skip.</source>
@@ -3817,7 +3817,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
 </source>
         <translation>Apagar permanentemente arquivos {0} do disco?
 
-?</translation>
+</translation>
     </message>
     <message>
         <source>Delete</source>
@@ -4069,7 +4069,7 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
         <source> ({0} skipped)</source>
-        <translation>({0} pulou)</translation>
+        <translation> ({0} ignorados)</translation>
     </message>
     <message>
         <source>Restoring bundled mods + profile files…</source>
@@ -6398,7 +6398,7 @@ Por favor, reinicie o assistente e baixe o PGPatcher primeiro.</translation>
     </message>
     <message>
         <source>Installing d3dcompiler_47… (may take a minute)</source>
-        <translation>Instalando d3dcompiler 47…</translation>
+        <translation>Instalando d3dcompiler_47… (pode levar um minuto)</translation>
     </message>
     <message>
         <source>d3dcompiler_47 installed.</source>
@@ -7125,7 +7125,7 @@ Instale uma versão do Proton no Steam e, em seguida, reabra este assistente.</t
 </source>
         <translation>{0} roda em seu próprio prefixo Wine, armazenado ao lado de seu exe e separado do prefixo do jogo, para que você possa escolher qualquer versão Proton sem afetar o jogo.
 
-.</translation>
+</translation>
     </message>
     <message>
         <source>Use shared prefix</source>
@@ -9026,7 +9026,7 @@ No Steam, clique com o botão direito do mouse em cada jogo → Propriedades →
     </message>
     <message>
         <source>Installing… (see log below)</source>
-        <translation>Instalando…</translation>
+        <translation>Instalando… (veja o log abaixo)</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -10079,7 +10079,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>— Gameplay —</source>
-        <translation>- Jogabilidade..</translation>
+        <translation>— Jogabilidade —</translation>
     </message>
     <message>
         <source>Unofficial Patch</source>
