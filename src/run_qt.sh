@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 
 # Drop AppImage-injected env that poisons a from-source run. If the user
 # launched a terminal from a running AppImage at any point, these inherit
