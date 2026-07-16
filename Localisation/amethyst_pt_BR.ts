@@ -2167,7 +2167,7 @@ Baixe o arquivo manualmente (NÃO use o botão de download do Mod Manager) e, em
     </message>
     <message>
         <source>Downloaded and extracted {0}.</source>
-        <translation>Transferido e extraído {0}.</translation>
+        <translation>{0} baixado e extraído.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -2481,7 +2481,7 @@ Feche quando terminar e clique em "Feito".</translation>
 Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
 Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' — anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
         <translation>Como fazer isso?
-Host: execute com o java do seu sistema (sem próton). Defina o comando Java em Opções de Lançamento, por exemplo 'java -jar% command%' (% command% é o caminho do jar).
+Host: execute com o java do seu sistema (sem Proton). Defina o comando Java em Opções de Lançamento, por exemplo 'java -jar% command%' (% command% é o caminho do jar).
 Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é executado automaticamente como 'java.exe -jar &lt;jar&gt;' — qualquer coisa que você colocar em Opções de Lançamento / Lançamento argumentos é adicionado como bandeiras extras. Que prefixo segue a versão Proton abaixo ('Game default' = prefixo do jogo; uma versão específica = um prefixo isolado ao lado do frasco).</translation>
     </message>
     <message>
@@ -2756,7 +2756,7 @@ Então baixe o arquivo principal.</translation>
     </message>
     <message>
         <source>Step 3: Extract &amp; Run Patcher</source>
-        <translation>Passo 3: Extrair e Correr Patcher</translation>
+        <translation>Passo 3: Extrair &amp; Executar Patcher</translation>
     </message>
     <message>
         <source>Select the Fallout Anniversary Patcher archive</source>
@@ -3493,7 +3493,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Removed {0} archive(s)</source>
-        <translation>Removidos arquivos {0}</translation>
+        <translation>{0} arquivo(s) removido(s)</translation>
     </message>
     <message>
         <source>Cannot use that folder: {0}</source>
@@ -7373,7 +7373,7 @@ Se o jogo ainda estiver com problemas, verifique os arquivos pelo Steam.</transl
     </message>
     <message>
         <source>Downloaded ReShade and shaders successfully.</source>
-        <translation>Transferido ReShade e Shaders com sucesso.</translation>
+        <translation>Baixado ReShade e shaders com sucesso.</translation>
     </message>
     <message>
         <source>Trimming shaders to preset…</source>
@@ -7782,7 +7782,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     <message>
         <source>Downloaded {0}.
 Choose the install destination, then click Next.</source>
-        <translation>Transferido {0}.
+        <translation>Baixado {0}.
 Escolha o destino da instalação e clique em Próximo.</translation>
     </message>
     <message>
@@ -8613,7 +8613,7 @@ Siga as instruções exibidas e, em seguida, pressione qualquer tecla para fech�
     </message>
     <message>
         <source>Downloaded SMAPI {0}: {1}</source>
-        <translation>Transferido SMAPI {0}: {1}</translation>
+        <translation>Baixado SMAPI {0}: {1}</translation>
     </message>
     <message>
         <source>Download failed: {0}
@@ -9884,7 +9884,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Lines and frames around panels, lists and inputs.</source>
-        <translation>Linhas e molduras em torno de painéis, listas e entradas.</translation>
+        <translation>Linhas e molduras em torno de painéis, listas e campos de entrada.</translation>
     </message>
     <message>
         <source>Danger / cancel / remove buttons (delete, remove profile, ✕ close).</source>
@@ -10027,7 +10027,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Header &amp; tabs</source>
-        <translation>Cabeçalhos e guias</translation>
+        <translation>Cabeçalho &amp; guias</translation>
     </message>
     <message>
         <source>Profiles</source>
@@ -10143,7 +10143,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Plugins &amp; files</source>
-        <translation>Plugins e arquivos</translation>
+        <translation>Plugins &amp; arquivos</translation>
     </message>
     <message>
         <source>✔  SKSE Installed</source>
@@ -10211,7 +10211,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Inputs &amp; scrollbar</source>
-        <translation>Entradas e barras de rolagem</translation>
+        <translation>Campos &amp; barra de rolagem</translation>
     </message>
     <message>
         <source>Search…</source>
@@ -10243,7 +10243,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Cards, toasts &amp; progress</source>
-        <translation>Cartas, brindes e progresso</translation>
+        <translation>Cartões, toasts &amp; progresso</translation>
     </message>
     <message>
         <source>Card title</source>
@@ -10291,7 +10291,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Text &amp; tones</source>
-        <translation>Texto e tons</translation>
+        <translation>Texto &amp; tons</translation>
     </message>
 </context>
 <context>
@@ -10524,7 +10524,7 @@ Verifique se o arquivo contém {0}.</translation>
     </message>
     <message>
         <source>Downloaded and extracted {0}.</source>
-        <translation>Transferido e extraído {0}.</translation>
+        <translation>{0} baixado e extraído.</translation>
     </message>
     <message>
         <source>Choose Proton Version</source>
