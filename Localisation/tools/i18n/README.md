@@ -18,11 +18,14 @@ local LibreTranslate server, and run a refresh with a live log.
 Translation `.ts`/`.qm` normally live on the **Resources branch** and are synced
 to users at runtime. To update after changing UI strings:
 
-1. Copy the current language files into `src/translations/`.
-2. Refresh (GUI, or `./tools/i18n/refresh_translations.sh src/translations`).
-3. Move the updated files back to the Resources branch's `Localisation/`.
+1. **Pull** the current language `.ts` from the Resources branch (GitHub) — the
+   GUI's "⭳ Pull from Resources" button, or
+   `./tools/i18n/pull_from_resources.py src/translations`.
+2. **Refresh** — GUI, or `./tools/i18n/refresh_translations.sh src/translations`.
+3. **Push** the updated `.ts` + `.qm` to the Resources branch's `Localisation/`.
 
-`src/translations/` ships **English only**; other languages come via the sync.
+No branch-switching needed to update — pull, refresh, push. `src/translations/`
+ships **English only**; other languages reach users via the runtime sync.
 
 ## Files
 
@@ -37,6 +40,8 @@ to users at runtime. To update after changing UI strings:
 | `i18n_update.sh` | Extract strings → refresh the English base (`amethyst_en.ts`) + compile. |
 | `i18n_wrap.py` | Dev tool: auto-wrap unwrapped `tr()` strings in a source file. |
 | `i18n_batch.sh` | Run `i18n_wrap.py` over many files. |
+| `pull_from_resources.py` | Download the language `.ts` from the Resources branch (GitHub) so you can refresh without switching branches. |
+| `normalize_ts.py` | Normalise a `.ts` to literal quotes/apostrophes (not `&quot;`/`&apos;`) so lupdate and Qt Linguist stop producing spurious diffs. Run automatically by the refresh; safe to run by hand. |
 
 ## Translation backends
 
@@ -61,3 +66,16 @@ DeepL free tier is 500k chars/month. When it's exhausted, use LibreTranslate:
   after; the refresh reports 0 placeholder mismatches when clean.
 - `-locations none` is used so a code edit that shifts line numbers never churns
   the `.ts` — they only change when a string does.
+- **Quotes/apostrophes are stored literally** (`"`, `'`), not as `&quot;`/`&apos;`
+  entities. `pyside6-lupdate` emits entities, so the refresh runs `normalize_ts.py`
+  to convert them back — this matches Qt Linguist / hand-edited contributor files,
+  so translating a few strings and saving produces a clean, small diff instead of
+  hundreds of entity-churn lines. (`&amp;`/`&lt;`/`&gt;` stay escaped — required
+  for valid XML. Both forms compile to the identical `.qm`.)
+- **"Check for unwrapped strings"** (GUI) / `i18n_wrap.py --list` audits
+  `gui_qt/` + `wizards_qt/` for user-facing text not wrapped in `tr()`. It covers
+  widget/setter calls, keyword args (`title=`, `confirm_label=`, …), `safe_emit`
+  status text, file-local text helpers, and UI-named literal lists/dicts
+  (`_COLS`, `*_TIPS`). To silence a deliberately-untranslated literal (a protocol
+  token, or a keyword matched against source-language data), put `# i18n: skip`
+  on its line — that drops it from both the report and `--apply`.

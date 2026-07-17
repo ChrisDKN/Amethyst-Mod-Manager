@@ -141,7 +141,9 @@ for code in "${LANGS[@]}"; do
         esac
     fi
 
-    # 4. Compile the .qm right next to the .ts in Localisation/.
+    # 4. Normalise quotes/apostrophes to literal (matches Linguist/contributor
+    #    files, so edits don't churn in git — see normalize_ts.py), then compile.
+    .venv/bin/python3 "$(dirname "$0")/normalize_ts.py" "$ts" >/dev/null
     "$LRELEASE" "$ts" 2>&1 | grep -E "Generated" | head -1
     echo "  updated -> $ts + .qm"
 done

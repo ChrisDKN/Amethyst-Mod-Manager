@@ -116,10 +116,17 @@ class TranslationManager(QWidget):
         self._dir_edit = QLineEdit(str(REPO / "src" / "translations"))
         browse = QPushButton("Browse…")
         browse.clicked.connect(self._browse)
+        self._pull_btn = QPushButton("⭳ Pull from Resources")
+        self._pull_btn.setToolTip(
+            "Download the current language .ts files from the Resources branch "
+            "on GitHub into this folder (so you can refresh without switching "
+            "branches). English is skipped — it's built locally.")
+        self._pull_btn.clicked.connect(self._pull_from_resources)
         reload_btn = QPushButton("Reload status")
         reload_btn.clicked.connect(self._refresh_status)
         fl.addWidget(self._dir_edit, 1)
         fl.addWidget(browse)
+        fl.addWidget(self._pull_btn)
         fl.addWidget(reload_btn)
         v.addWidget(fbox)
 
@@ -198,6 +205,11 @@ class TranslationManager(QWidget):
 
         # --- Run + log ---
         runrow = QHBoxLayout()
+        self._audit_btn = QPushButton("Check for unwrapped strings")
+        self._audit_btn.setToolTip(
+            "Scan gui_qt/ + wizards_qt/ for user-facing strings NOT wrapped in "
+            "tr() — those won't be translatable. Run after adding new UI text.")
+        self._audit_btn.clicked.connect(self._run_audit)
         self._run_btn = QPushButton("▶  Refresh translations")
         self._run_btn.setStyleSheet(
             "QPushButton{background:#3a7a3a; color:#fff; font-weight:600;"
@@ -207,6 +219,7 @@ class TranslationManager(QWidget):
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setEnabled(False)
         self._cancel_btn.clicked.connect(self._cancel)
+        runrow.addWidget(self._audit_btn)
         runrow.addWidget(self._run_btn, 1)
         runrow.addWidget(self._cancel_btn)
         v.addLayout(runrow)
@@ -345,6 +358,120 @@ class TranslationManager(QWidget):
 
     def _stop_server(self):
         self._run(["bash", str(I18N_DIR / "libretranslate_server.sh"), "stop"])
+
+    def _run_audit(self):
+        """Scan gui_qt/ + wizards_qt/ for user-facing strings NOT wrapped in
+        tr(). Uses i18n_wrap.find_sites() in-process; 'wrappable' sites are the
+        real misses (they can be auto-wrapped). Streams a report to the log."""
+        self._log.clear()
+        self._log_line("Scanning gui_qt/ + wizards_qt/ for unwrapped strings…\n")
+        try:
+            import importlib
+            sys.path.insert(0, str(I18N_DIR))
+            wrap = importlib.import_module("i18n_wrap")
+        except Exception as e:
+            self._log_line(f"[error] could not load i18n_wrap: {e}")
+            return
+        import ast
+        import re as _re
+        files = sorted(
+            list((REPO / "src" / "gui_qt").glob("*.py"))
+            + list((REPO / "src" / "wizards_qt").glob("*.py")))
+        total_wrap = 0       # auto-wrappable misses (self.tr can be applied)
+        total_manual = 0     # need a hand fix (ternary/f-string/no-self/literal)
+        flagged = 0
+        for f in files:
+            try:
+                src = f.read_text(encoding="utf-8")
+                tree = ast.parse(src)
+                wrapped, skipped = wrap.find_sites(tree, src)
+                literals = wrap.find_literal_sites(tree, src)
+            except Exception:
+                continue
+            src_lines = src.splitlines()
+            real = [s for s in wrapped
+                    if self._is_real_miss(s, src_lines)]
+            manual = [s for s in (list(skipped) + list(literals))
+                      if self._is_real_miss(s, src_lines)]
+            if real or manual:
+                flagged += 1
+                total_wrap += len(real)
+                total_manual += len(manual)
+                rel = f.relative_to(REPO)
+                self._log_line(
+                    f"⚠ {rel}: {len(real)} auto-wrappable, "
+                    f"{len(manual)} manual")
+                for s in (real + manual)[:12]:
+                    tag = "" if s in real else f"  [{s.reason}]"
+                    line = src_lines[s.lineno - 1].strip()
+                    self._log_line(f"    L{s.lineno}: {line[:72]}{tag}")
+                if len(real) + len(manual) > 12:
+                    self._log_line(
+                        f"    …and {len(real) + len(manual) - 12} more")
+        self._log_line("")
+        if total_wrap == 0 and total_manual == 0:
+            self._log_line("✓ No unwrapped user-facing strings found. "
+                           "Everything is translatable.")
+        else:
+            self._log_line(
+                f"Found {total_wrap} auto-wrappable + {total_manual} "
+                f"manual string(s) in {flagged} file(s).")
+            if total_wrap:
+                self._log_line(
+                    "Auto-wrap the first group with:  "
+                    "./tools/i18n/i18n_wrap.py <file> --apply")
+            if total_manual:
+                self._log_line(
+                    "Manual group = ternary / complex f-string / no-self / "
+                    "UI literal (list/dict). These need a hand-written tr() "
+                    "template or a QT_TRANSLATE_NOOP registration.")
+
+    def _pull_from_resources(self):
+        """Download the language .ts from the Resources branch into the current
+        folder (so the refresh can run without switching branches)."""
+        d = self._dir_edit.text().strip()
+        if not d:
+            QMessageBox.warning(self, "No folder", "Pick a destination folder.")
+            return
+        if Path(d).resolve() == (REPO / "src" / "translations").resolve():
+            r = QMessageBox.question(
+                self, "Pull into src/translations?",
+                "This will download the Resources .ts into src/translations/, "
+                "overwriting anything there. Continue?")
+            if r != QMessageBox.Yes:
+                return
+        self._log.clear()
+        self._run([sys.executable,
+                   str(I18N_DIR / "pull_from_resources.py"), d])
+
+    @staticmethod
+    def _is_real_miss(site, src_lines) -> bool:
+        """Filter i18n_wrap false positives so the audit only reports genuine
+        unwrapped user-facing text. Drops:
+          * the literal it wants to wrap being a short lowercase CODE
+            (dim/ok/err/warn/… — status kinds, not UI text; from _set_status's
+            dual signature), or a number/percent/glyph-only string;
+          * a site on a line that already contains self.tr( for the same arg
+            (the flagged token is a sibling arg, not missed text)."""
+        import re as _re
+        repl = getattr(site, "replacement", "")
+        m = _re.search(r'tr\((["\'])(.*?)\1\)', repl)
+        if m:
+            text = m.group(2)
+        else:
+            # Report-only sites (ternary / f-string / no-self / UI literal) carry
+            # no replacement — pull the first string literal off the source line
+            # so the code-word/glyph filters below still apply.
+            line = src_lines[site.lineno - 1] if site.lineno <= len(src_lines) else ""
+            lm = _re.search(r'(["\'])(.*?)\1', line)
+            text = lm.group(2) if lm else ""
+        # short lowercase code word (dim, ok, err, warn, info, success, …)
+        if text and _re.fullmatch(r"[a-z_]{1,8}", text):
+            return False
+        # no translatable letters (numbers, %, glyphs, placeholders only)
+        if text and not any(ch.isalpha() for ch in _re.sub(r"\{\d+\}", "", text)):
+            return False
+        return True
 
     def _run_refresh(self):
         langs = self._selected_langs()

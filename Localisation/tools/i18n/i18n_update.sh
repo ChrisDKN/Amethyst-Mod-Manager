@@ -54,11 +54,16 @@ mapfile -t PY_FILES < <(find "$SRC/gui_qt" "$SRC/wizards_qt" -name '*.py' | sort
 # translator jump to source in Qt Linguist (no runtime effect — the .qm has none,
 # matching is by context+source), but they churn on EVERY code edit that shifts a
 # line, bloating diffs. Dropping them means the .ts only changes when a STRING does.
+# lupdate writes quotes/apostrophes as XML entities (&quot;/&apos;), but
+# contributor/Linguist files use literal " and '. Normalising to the literal
+# form (normalize_ts.py) keeps both in sync so edits don't churn in git.
+NORMALIZE="$(dirname "$0")/normalize_ts.py"
 for code in "${LANGS[@]}"; do
     ts="$TR_DIR/amethyst_${code}.ts"
     echo ">> lupdate -> $ts"
     "$LUPDATE" -no-obsolete -locations none "${PY_FILES[@]}" -ts "$ts" \
         -source-language en -target-language "$code"
+    "$VENV/bin/python3" "$NORMALIZE" "$ts" >/dev/null
 done
 
 # --- English base (amethyst_en.ts): extract, then fill every <translation>
@@ -96,6 +101,7 @@ with open(path, "w", encoding="utf-8") as f:
     f.write("\n")
 print(f"   filled {n} English translations")
 PY
+"$VENV/bin/python3" "$NORMALIZE" "$EN_TS" >/dev/null
 
 echo ">> lrelease all .ts"
 for ts in "$TR_DIR"/amethyst_*.ts; do
