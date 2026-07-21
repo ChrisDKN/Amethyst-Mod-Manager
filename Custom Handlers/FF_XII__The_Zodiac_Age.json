@@ -1,0 +1,74 @@
+{
+  "name": "FF XII: The Zodiac Age",
+  "game_id": "FF_XII__The_Zodiac_Age",
+  "exe_name": "x64/FFXII_TZA.exe",
+  "deploy_type": "root",
+  "mod_data_path": "",
+  "steam_id": "595520",
+  "nexus_game_domain": "finalfantasy12",
+  "image_url": "https://cdn2.steamgriddb.com/icon/9d7f65333e1beadf67e0eee2051c38f7/32/256x256.png",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.png",
+    "*read*.txt",
+    "mod.ini"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "x64",
+    "mods",
+    "ff12data",
+    "gamedata",
+    "scripts",
+    "modules",
+    "ps2data"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dinput8": "native,builtin",
+    "dxgi": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "mods/deploy/ff12data",
+      "folders": [
+        "gamedata"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "mods/deploy/ff12data",
+      "folders": [
+        "ps2data"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "x64",
+      "folders": [
+        "modules"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "x64",
+      "folders": [
+        "scripts"
+      ],
+      "flatten": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "External File Loader": "x64/dinput8.dll",
+    "LUA Loader": "x64/modules/ff12-lua-loader.dll"
+  },
+  "version": 1,
+  "editable": false
+}
