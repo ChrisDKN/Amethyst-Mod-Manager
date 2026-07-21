@@ -1,0 +1,134 @@
+{
+  "name": "StarRupture",
+  "game_id": "StarRupture",
+  "exe_name": "StarRupture/Binaries/Win64/StarRuptureGameSteam-Win64-Shipping.exe",
+  "deploy_type": "ue5",
+  "mod_data_path": "StarRupture",
+  "steam_id": "1631270",
+  "nexus_game_domain": "starrupture",
+  "image_url": "https://cdn2.steamgriddb.com/thumb/c35c4a755b087cac3929e62d37fc6bd5.jpg",
+  "mod_folder_strip_prefixes": [
+    "StarRupture",
+    "Content",
+    "Paks",
+    "mods",
+    "Binaries",
+    "Win64"
+  ],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*read*.txt",
+    "*.7z",
+    "*.pdf",
+    "*.ct"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dwmpapi": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Content",
+      "folders": [
+        "Splash"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Movies",
+      "extensions": [
+        ".mp4"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "reshade-shaders"
+      ],
+      "flatten": true,
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks/mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ModLoader",
+        "Plugins"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "filenames": [
+        "dwmapi.dll"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/Plugins",
+      "extensions": [
+        ".dll"
+      ],
+      "loose_only": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".ini"
+      ],
+      "loose_only": true
+    },
+    {
+      "dest": "Unused",
+      "folders": [
+        "map-tiles"
+      ]
+    },
+    {
+      "dest": "Unused",
+      "extensions": [
+        ".html",
+        ".usmap"
+      ]
+    },
+    {
+      "dest": "Unused",
+      "extensions": [
+        ".txt"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
+}
