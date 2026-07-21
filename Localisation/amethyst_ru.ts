@@ -2,6 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru" sourcelanguage="en">
 <context>
+    <name />
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Downloading {0} from Nexus… {1}%</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Premium account — downloading {0} from Nexus…</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>The archive is picked up automatically once the download finishes.</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -108,6 +126,257 @@ Deploy to push the new load order to the game.</source>
     </message>
 </context>
 <context>
+    <name>BSADecompressorView</name>
+    <message>
+        <source>BSA Decompressor — {0}</source>
+        <translation>Декомпрессор BSA {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Шаг 1: Установите установщик MPI</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>Установщик Linux MPI (также используется для Tale of Two Wastelands) будет загружен с GitHub.
+и помещены в папку Приложения этой игры.
+
+Нажмите Установить, чтобы начать.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Установщик от SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Установить</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Устанавливается соединение с GitHub…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Установщик готов.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Ошибка установки: {0}</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor output is already installed</source>
+        <translation>Выход декомпрессора BSA уже установлен</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
+        <translation>Мод «{0}» уже есть в вашем списке модов — вам нечего повторно применять, поэтому вы можете просто закрыть этот мастер.
+
+Восстановление с нуля восстанавливает игру до ванили и снова запускает декомпрессор (нужен пакет .mpi).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Переделать с нуля</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Готово</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Шаг 2: Игровая папка и пакет</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>Декомпрессор BSA восстанавливает ванильные архивы BSA без сжатия для более быстрой загрузки, и в результате добавляется мод.
+
+Скачайте основной файл из Nexus — пакет .mpi внутри архива обнаруживается автоматически.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Открытая страница Nexus</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Выберите папку Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor package:</source>
+        <translation>Декомпрессорный пакет BSA:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Выберите файл..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Обнаружить снова</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Продолжить</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Просмотреть…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— не указано —</translation>
+    </message>
+    <message>
+        <source>Looking for the BSA Decompressor download…</source>
+        <translation>В поисках декомпрессора BSA скачать..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Использование ранее извлеченной упаковки.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Архив не найден в папках загрузки — скачайте его из Nexus, затем снова нажмите «Обнаружить» (или «Выбрать файл»).</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Извлечение пакета .mpi из {0}</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Автоматическое обнаружение {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Автообнаружить не удалось: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
+        <translation>Скачать пакет BSA Decompressor из Nexus... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
+        <translation>Премиум-аккаунт — загрузка пакета BSA Decompressor с Nexus</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Архив не найден — скачать его с Nexus (кнопка выше). Он будет подобран автоматически, как только загрузка закончится.</translation>
+    </message>
+    <message>
+        <source>Select the BSA Decompressor .mpi or its archive</source>
+        <translation>Выберите BSA Decompressor .mpi или его архив</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPI пакет или архив</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Все файлы</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Выбрано: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Использование .mpi от {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the BSA Decompressor .mpi package (or its downloaded archive).</source>
+        <translation>Пожалуйста, выберите пакет BSA Decompressor .mpi (или загруженный архив).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>Папка «Fallout New Vegas» не указана.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>Начинаем…</translation>
+    </message>
+    <message>
+        <source>Step 3: Decompressing BSA archives</source>
+        <translation>Шаг 3: Декомпрессия архивов BSA</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>Игра сначала восстанавливается до ванильного состояния, затем установщик восстанавливает ванильные архивы BSA без сжатия. Это может занять некоторое время - пожалуйста, оставьте его работать.
+Выход записывается непосредственно в ваш список модов как мод «{0}».</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Бинарный инсталлятор отсутствует. Перезагрузите мастера и дайте ему установить первым.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Реставрация игры для ванили</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Восстановление игры до состояния ванили перед установкой</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Восстановление не удалось — смотрите журнал. Исправьте проблему (или восстановите вручную с помощью кнопки Восстановить) и повторите.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Путь постановки модов не настроен.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>Недостающие файлы ванильного плагина:
+{0}X</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Пропавшие файлы плагинов ванили даже после восстановления ванили — они никогда не были резервными копиями.
+В Steam щелкните правой кнопкой мыши игру → Свойства → Установленные файлы → Проверьте целостность игровых файлов, затем повторите попытку.
+
+{0}X</translation>
+    </message>
+    <message>
+        <source>Decompressing… (see log below)</source>
+        <translation>Декомпрессия... (см. журнал ниже)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Ошибка запуска: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>Установщик вышел с ошибкой (код {0}). Смотрите журнал для деталей.</translation>
+    </message>
+    <message>
+        <source>Build complete — registering mod…</source>
+        <translation>Завершено строительство — регистрация мод..</translation>
+    </message>
+    <message>
+        <source>Build finished but registering the mod failed: {0}</source>
+        <translation>Строительство завершено, но регистрация мода не удалась: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>"{0}" был добавлен в ваш список модов. Включите и разверните.</translation>
+    </message>
+</context>
+<context>
     <name>BackupRestoreView</name>
     <message>
         <source>Restore backup — {0}</source>
@@ -116,10 +385,6 @@ Deploy to push the new load order to the game.</source>
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
         <translation>Выберите резервную копию, чтобы восстановить список модификаций и плагины для этого профиля.</translation>
-    </message>
-    <message>
-        <source>No backups yet. Backups are created when you deploy.</source>
-        <translation>Резервных копий пока нет. Резервные копии создаются при развертывании.</translation>
     </message>
     <message>
         <source>New backup</source>
@@ -134,12 +399,28 @@ Deploy to push the new load order to the game.</source>
         <translation>Сохранить</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation>Отменить</translation>
+        <source>Remove</source>
+        <translation>Удалить</translation>
     </message>
     <message>
         <source>Restore</source>
         <translation>Восстановить</translation>
+    </message>
+    <message>
+        <source>User backups</source>
+        <translation>Резервные копии пользователей</translation>
+    </message>
+    <message>
+        <source>No user backups. Use New backup, or Keep an automated one.</source>
+        <translation>Никаких резервных копий. Используйте новую резервную копию или сохраните автоматизированную.</translation>
+    </message>
+    <message>
+        <source>Automated backups</source>
+        <translation>Автоматическое резервное копирование</translation>
+    </message>
+    <message>
+        <source>No automated backups yet. One is created every time you deploy.</source>
+        <translation>Автоматизированных резервных копий пока нет. Он создается каждый раз, когда вы его используете.</translation>
     </message>
     <message>
         <source>Kept</source>
@@ -168,6 +449,14 @@ Deploy to push the new load order to the game.</source>
     <message>
         <source>Enter a name for this backup (leave blank to use the date).</source>
         <translation>Введите название для этой резервной копии (оставьте поле пустым, чтобы использовать дату).</translation>
+    </message>
+    <message>
+        <source>Remove backup</source>
+        <translation>Удалить резервную копию</translation>
+    </message>
+    <message>
+        <source>Remove backup "{0}"? This cannot be undone.</source>
+        <translation>Удалить резервную копию "{0}"? Это нельзя отменить.</translation>
     </message>
 </context>
 <context>
@@ -806,6 +1095,22 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
         <source>Installing / Extracting</source>
         <translation>Установка / Распаковка</translation>
+    </message>
+    <message>
+        <source>Speed limit:</source>
+        <translation>Ограничение скорости:</translation>
+    </message>
+    <message>
+        <source> MB/s</source>
+        <translation>MB/s</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Неограниченный</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of this install. 0 = use the full connection. Applies immediately.</source>
+        <translation>Сократите общую скорость загрузки этой установки. 0 = полное соединение. Применяется немедленно.</translation>
     </message>
     <message>
         <source>Pause</source>
@@ -1490,6 +1795,219 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>CuratedProfileView</name>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>Установка {0} — {1}</translation>
+    </message>
+    <message>
+        <source>Install the {0} modlist</source>
+        <translation>Установите модуль {0}</translation>
+    </message>
+    <message>
+        <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
+
+The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+        <translation>Этот мастер загружает кураторский профиль «{0}» и открывает импортер профиля, который устанавливает модуль в новый профиль.
+
+Моды загружаются из Nexus Mods - сначала войдите в систему (Nexus - Login to Nexus), если вы этого не сделали.</translation>
+    </message>
+    <message>
+        <source>Open guide website</source>
+        <translation>Открытый путеводитель</translation>
+    </message>
+    <message>
+        <source>Also install Ultimate Edition ESM Fixes (recommended)</source>
+        <translation>Также установите Ultimate Edition ESM Fixes (рекомендуется)</translation>
+    </message>
+    <message>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>Устанавливает мастера ванильного .esm с ошибками сообщества после установки модуля. Он слишком большой, чтобы его можно было связать, поэтому он работает как дополнительный шаг — требуется загрузка «Ultimate Edition ESM Fixes Remastered» из Nexus.</translation>
+    </message>
+    <message>
+        <source>Also run the FNV BSA Decompressor (recommended)</source>
+        <translation>Также запустите декомпрессор FNV BSA (рекомендуется)</translation>
+    </message>
+    <message>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>Восстанавливает ванильные BSA-архивы без сжатия для более быстрой загрузки, добавляется как мод после установки модлиста — требуется загрузка «FNV BSA Decompressor» из Nexus. Также его можно использовать через собственного волшебника.</translation>
+    </message>
+    <message>
+        <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
+        <translation>Патч 4 ГБ применяется к FalloutNV.exe в качестве последнего шага (оригинальный exe хранится в качестве резервной копии).</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Начинать</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the modlist profile</source>
+        <translation>Шаг 1: Загрузите профиль модлиста</translation>
+    </message>
+    <message>
+        <source>Downloading '{0}' from GitHub…</source>
+        <translation>Скачать «{0}» с GitHub</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Повторить попытку</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Устанавливается соединение с GitHub…</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>Скачать не удалось: {0}</translation>
+    </message>
+    <message>
+        <source>Premium account — the wizard continues automatically when the import completes.</source>
+        <translation>Премиум-счет — мастер продолжает автоматически при завершении импорта.</translation>
+    </message>
+    <message>
+        <source>Could not read manifest: {0}</source>
+        <translation>Не удалось прочитать манифест: {0}</translation>
+    </message>
+    <message>
+        <source>Import is unavailable here.</source>
+        <translation>Импорт здесь недоступен.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install the modlist</source>
+        <translation>Шаг 2: Установите модуль</translation>
+    </message>
+    <message>
+        <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
+
+When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+        <translation>Завершите установку на вкладке Импорт: выберите имя профиля и нажмите Установка. Моды загружаются из Nexus, что может занять некоторое время.
+
+Когда он завершится, приложение переключается на новый профиль — затем вернитесь сюда и нажмите Continue.</translation>
+    </message>
+    <message>
+        <source>Reopen import tab</source>
+        <translation>Открыть импортную вкладку</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Продолжить</translation>
+    </message>
+    <message>
+        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <translation>Активный профиль не изменился — импорт не выглядит законченным. Сначала заполните его на вкладке «Импорт», или нажмите «Продолжить все равно».</translation>
+    </message>
+    <message>
+        <source>Checking FalloutNV.exe…</source>
+        <translation>Проверка FalloutNV.exe</translation>
+    </message>
+    <message>
+        <source>Final step: Apply the 4GB Patch</source>
+        <translation>Заключительный шаг: Примените патч 4 ГБ</translation>
+    </message>
+    <message>
+        <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
+        <translation>FalloutNV.exe исправлен, так что игра может использовать 4 ГБ памяти и автоматически загружает NVSE при запуске. Оригинальный exe хранится в качестве резервного копирования (восстанавливается с помощью мастера патчей 4 ГБ).</translation>
+    </message>
+    <message>
+        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <translation>Путь игры не настроен — пропуск патча 4 ГБ.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>{0} уже получил 4 Гб.</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <translation>{0} не найден в папке игры — пропуск патча 4 ГБ.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>Непризнанная версия {0} — пропуск. Проверьте игровые файлы в Steam/Heroic, а затем запустите мастер патчей 4 ГБ вручную.</translation>
+    </message>
+    <message>
+        <source>Patching {0}…</source>
+        <translation>Установка исправлений для {0}…</translation>
+    </message>
+    <message>
+        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <translation>Патчированный {0} (версия {1}) — оригинально сохранен как {2}.</translation>
+    </message>
+    <message>
+        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <translation>Патч не удался: {0} — вы можете запустить 4 ГБ мастера патчей вручную позже.</translation>
+    </message>
+    <message>
+        <source>All done</source>
+        <translation>Все сделано</translation>
+    </message>
+    <message>
+        <source>The {0} profile is set up. Review the mod list, then Deploy and play.</source>
+        <translation>Настроен профиль {0}. Просмотрите список модов, затем развертывайте и играйте.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Готово</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameExportOverlay</name>
+    <message>
+        <source>Export game</source>
+        <translation>Экспортная игра</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone your "{0}" custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Поделитесь этим кодом, чтобы отправить кому-то свою пользовательскую настройку игры «{0}». Они могут добавить его с кодом импорта в Define Custom Game.</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone this custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Поделитесь этим кодом, чтобы отправить кому-то эту пользовательскую настройку игры. Они могут добавить его с кодом импорта в Define Custom Game.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Скопировать в буфер обмена</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Скопировано ✓</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameImportOverlay</name>
+    <message>
+        <source>Import game</source>
+        <translation>Импортная игра</translation>
+    </message>
+    <message>
+        <source>Paste a share code below to prefill the form from another custom game's setup. You still need to give it a unique name.</source>
+        <translation>Вставьте код обмена ниже, чтобы предварительно заполнить форму из настройки другой пользовательской игры. Вы должны дать ему уникальное имя.</translation>
+    </message>
+    <message>
+        <source>Paste from clipboard</source>
+        <translation>Вставить из буфера обмена</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Импорт</translation>
+    </message>
+    <message>
+        <source>Not a valid game code.</source>
+        <translation>Не действительный игровой код.</translation>
+    </message>
+    <message>
+        <source>{0} deploy</source>
+        <translation>{0} скачать</translation>
+    </message>
+</context>
+<context>
     <name>CustomGameView</name>
     <message>
         <source>Standard</source>
@@ -1620,6 +2138,10 @@ Close it when you are done, then click Done.</source>
         <translation>Создать пользовательскую игру</translation>
     </message>
     <message>
+        <source>Export code…</source>
+        <translation>Экспорт кода…</translation>
+    </message>
+    <message>
         <source>Load Preset  (optional)</source>
         <translation>Load Preset (необязательно)</translation>
     </message>
@@ -1630,6 +2152,18 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>— Select a game to copy from —</source>
         <translation>Выберите игру для копирования из..</translation>
+    </message>
+    <message>
+        <source>{0}  (built-in template)</source>
+        <translation>{0} (встроенный шаблон)</translation>
+    </message>
+    <message>
+        <source>Or paste a share code exported from another custom game to prefill every field below.</source>
+        <translation>Или вставьте код акции, экспортированный из другой пользовательской игры, чтобы предварительно заполнить каждое поле ниже.</translation>
+    </message>
+    <message>
+        <source>Import code…</source>
+        <translation>Импортировать код…</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -2422,6 +2956,261 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>ESMFixesView</name>
+    <message>
+        <source>Ultimate Edition ESM Fixes — {0}</source>
+        <translation>Ultimate Edition ESM Fixes — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Шаг 1: Установите установщик MPI</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>Установщик Linux MPI (также используется для Tale of Two Wastelands) будет загружен с GitHub.
+и помещены в папку Приложения этой игры.
+
+Нажмите Установить, чтобы начать.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Установщик от SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Установить</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Устанавливается соединение с GitHub…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Установщик готов.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Ошибка установки: {0}</translation>
+    </message>
+    <message>
+        <source>The ESM Fixes output is already installed</source>
+        <translation>Выход ESM Fixes уже установлен</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
+        <translation>Мод «{0}» уже есть в вашем списке модов — вам нечего повторно применять, поэтому вы можете просто закрыть этот мастер.
+
+Восстановление с нуля восстанавливает игру до ванили и снова запускает патчер (нужен пакет .mpi).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Переделать с нуля</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Готово</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Шаг 2: Игровая папка и пакет</translation>
+    </message>
+    <message>
+        <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>Окончательное издание ESM Исправления патчи ванильных мастеров .esm (FalloutNV + все DLC) с ошибками сообщества, и результат добавляется в виде мода.
+
+Загрузите основной файл «Ultimate Edition ESM Fixes Remastered» из Nexus — пакет .mpi внутри архива обнаруживается автоматически.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Открытая страница Nexus</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Выберите папку Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>ESM Fixes package:</source>
+        <translation>Пакет исправлений ESM:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Выберите файл..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Обнаружить снова</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Продолжить</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Просмотреть…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— не указано —</translation>
+    </message>
+    <message>
+        <source>Looking for the ESM Fixes download…</source>
+        <translation>В поисках ESM Fixes скачать</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Использование ранее извлеченной упаковки.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Архив не найден в папках загрузки — скачайте его из Nexus, затем снова нажмите «Обнаружить» (или «Выбрать файл»).</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Извлечение пакета .mpi из {0}</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Автоматическое обнаружение {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Автообнаружить не удалось: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
+        <translation>Загрузка пакета исправлений ESM от Nexus... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
+        <translation>Премиум-аккаунт — загрузка пакета ESM Fixes с Nexus</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Архив не найден — скачать его с Nexus (кнопка выше). Он будет подобран автоматически, как только загрузка закончится.</translation>
+    </message>
+    <message>
+        <source>Select the ESM Fixes .mpi or its archive</source>
+        <translation>Выберите ESM Fixes .mpi или его архив</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPI пакет или архив</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Все файлы</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Выбрано: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Использование .mpi от {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
+        <translation>Пожалуйста, выберите пакет ESM Fixes .mpi (или его загруженный архив).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>Папка «Fallout New Vegas» не указана.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>Начинаем…</translation>
+    </message>
+    <message>
+        <source>Step 3: Patching the vanilla masters</source>
+        <translation>Шаг 3: Поймать мастеров ванили</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>Игра сначала восстанавливается в ванильном состоянии, затем установщик исправляет мастера ванильного .esm с помощью ошибок сообщества.
+Выход записывается непосредственно в ваш список модов как мод «{0}».</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Бинарный инсталлятор отсутствует. Перезагрузите мастера и дайте ему установить первым.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Реставрация игры для ванили</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Восстановление игры до состояния ванили перед установкой</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Восстановление не удалось — смотрите журнал. Исправьте проблему (или восстановите вручную с помощью кнопки Восстановить) и повторите.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Путь постановки модов не настроен.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>Недостающие файлы ванильного плагина:
+{0}X</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Пропавшие файлы плагинов ванили даже после восстановления ванили — они никогда не были резервными копиями.
+В Steam щелкните правой кнопкой мыши игру → Свойства → Установленные файлы → Проверьте целостность игровых файлов, затем повторите попытку.
+
+{0}X</translation>
+    </message>
+    <message>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <translation>Предупреждение: FalloutNV.exe имеет разрешение 4 ГБ. Установщик проверяет exe игры и может отказать в запуске — если он выйдет из строя ниже, восстановите оригинальный exe через мастер патчей 4 ГБ, запустите его снова, а затем повторно нанесите патч 4 ГБ.</translation>
+    </message>
+    <message>
+        <source>Patching… (see log below)</source>
+        <translation>Патчирование... (см. журнал ниже)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Ошибка запуска: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>Установщик вышел с ошибкой (код {0}). Смотрите журнал для деталей.</translation>
+    </message>
+    <message>
+        <source>Patching complete — registering mod…</source>
+        <translation>Полное исправление — регистрация мод..</translation>
+    </message>
+    <message>
+        <source>Patching finished but registering the mod failed: {0}</source>
+        <translation>Патчи закончились, но регистрация мода не удалась: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>"{0}" был добавлен в ваш список модов. Включите и разверните.</translation>
+    </message>
+</context>
+<context>
     <name>EngineFixesView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -2720,6 +3509,30 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>All files</source>
         <translation>Все файлы</translation>
+    </message>
+    <message>
+        <source>Preparing export…</source>
+        <translation>Подготовка к экспорту..</translation>
+    </message>
+    <message>
+        <source>Packing mod: {0}</source>
+        <translation>Мод упаковки: {0}</translation>
+    </message>
+    <message>
+        <source>Packing overwrite files…</source>
+        <translation>Упаковка перезаписываемых файлов..</translation>
+    </message>
+    <message>
+        <source>Packing profile files…</source>
+        <translation>Упаковка файлов профиля..</translation>
+    </message>
+    <message>
+        <source>Packing…</source>
+        <translation>Упаковка..</translation>
+    </message>
+    <message>
+        <source>Exporting profile</source>
+        <translation>Профиль экспорта</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -3147,6 +3960,14 @@ SHA-1: {1}
     <message>
         <source>Finish</source>
         <translation>Завершить</translation>
+    </message>
+    <message>
+        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>Недавно доступный - необходимый плагин этой опции теперь установлен с момента последнего запуска этого установщика.</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <translation>Требуемый плагин этой опции не включен — сначала включите его или выберите его, только если вы планируете добавить его.</translation>
     </message>
     <message>
         <source>Click to view full size</source>
@@ -3794,10 +4615,6 @@ SHA-1: {1}
         <translation>Установлена 32-разрядная поддержка — перезагрузите приложение перед запуском инструментов Windows.</translation>
     </message>
     <message>
-        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
-        <translation>Не удалось установить 32-разрядную поддержку автоматически — см. журнал для ручной команды.</translation>
-    </message>
-    <message>
         <source>Install-name Rules</source>
         <translation>Правила именования установок</translation>
     </message>
@@ -4042,10 +4859,6 @@ Remove the appended-collection entry?</source>
         <translation>Отменить установку?</translation>
     </message>
     <message>
-        <source>This will stop the install and delete the collection profile.</source>
-        <translation>Это остановит установку и удалит профиль сбора.</translation>
-    </message>
-    <message>
         <source>Cancel Install</source>
         <translation>Отменить установку</translation>
     </message>
@@ -4112,6 +4925,74 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>OK</source>
         <translation>Хорошо</translation>
+    </message>
+    <message>
+        <source>32-bit support could not be installed</source>
+        <translation>32-разрядную поддержку установить не удалось</translation>
+    </message>
+    <message>
+        <source>Amethyst could not install 32-bit support automatically. Windows tools (and some games) may fail to run until it is installed. Run this on a terminal, then restart the app:
+
+{0}</source>
+        <translation>Amethyst не смог установить 32-разрядную поддержку автоматически. Инструменты Windows (и некоторые игры) могут не работать до тех пор, пока не будут установлены. Запустите это на терминале, затем перезапустите приложение:
+
+{0}X</translation>
+    </message>
+    <message>
+        <source>Don't show again</source>
+        <translation>Не показывайся снова</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>Обновление плагинов</translation>
+    </message>
+    <message>
+        <source>Force update handler</source>
+        <translation>Обработчик Force Update</translation>
+    </message>
+    <message>
+        <source>Updating handler…</source>
+        <translation>Обновление ручки..</translation>
+    </message>
+    <message>
+        <source>Handler update failed — check your connection.</source>
+        <translation>Обновление Handler не удалось — проверьте соединение.</translation>
+    </message>
+    <message>
+        <source>Handler not found on the Resources branch.</source>
+        <translation>Хендлера не нашли в отделении Ресурсов.</translation>
+    </message>
+    <message>
+        <source>Handler is already up to date.</source>
+        <translation>Хендлер уже в курсе.</translation>
+    </message>
+    <message>
+        <source>Handler updated.</source>
+        <translation>Руководитель обновлен.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>бета</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>стабильный</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
+        <translation>Канал {0} еще не опубликован на пульте обновления — попробуйте еще раз после следующего выпуска {0}.</translation>
+    </message>
+    <message>
+        <source>An install is finishing — try the collection again in a moment.</source>
+        <translation>Установка завершается — попробуйте коллекцию снова через мгновение.</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the new profile '{0}'.</source>
+        <translation>Это остановит установку и удалит новый профиль «{0}».</translation>
+    </message>
+    <message>
+        <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
+        <translation>Это остановит установку. Профиль «{0}» и его уже установленные модули будут сохранены.</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -4494,6 +5375,26 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Никаких исполняемых файлов не найдено.</translation>
     </message>
     <message>
+        <source>No game folder configured.</source>
+        <translation>Ни одна папка игры не настроена.</translation>
+    </message>
+    <message>
+        <source>No executables found in the game folder.</source>
+        <translation>Никаких исполняемых файлов не найдено в папке игры.</translation>
+    </message>
+    <message>
+        <source>Add executable from game folder</source>
+        <translation>Добавить исполняемый файл из папки игры</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
+        <translation>Проверьте исполняемые файлы, чтобы добавить в меню Run. Они работают от своего местоположения в папке игры, включая файлы, развернутые там модами.</translation>
+    </message>
+    <message>
+        <source>Play failed — see log.</source>
+        <translation>Игра провалилась — см. Лог.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Исполняемый файл не найден: {0}</translation>
     </message>
@@ -4710,6 +5611,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Установлено{0}</translation>
     </message>
     <message>
+        <source>Restore queued — it will run after the current install finishes.</source>
+        <translation>Восстановите очередь — она будет работать после окончания текущей установки.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>Установленные модификации для игры «{0}»</translation>
     </message>
@@ -4878,6 +5783,18 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} плагины ({1} — для ESL, {2} — не для ESL)</translation>
     </message>
     <message>
+        <source>Refreshing LOOT metadata for {0} plugins…</source>
+        <translation>Обновление метаданных LOOT для плагинов {0}</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed — see log.</source>
+        <translation>Обновление LOOT не удалось — см.</translation>
+    </message>
+    <message>
+        <source>Plugin metadata refreshed.</source>
+        <translation>Обновлены метаданные плагина.</translation>
+    </message>
+    <message>
         <source>LOOT library not available — cannot check overlap.</source>
         <translation>Библиотека LOOT недоступна — не может проверить перекрытие.</translation>
     </message>
@@ -4904,6 +5821,10 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>+ Add exe from staging…</source>
         <translation>+ Добавить exe из постановки ..</translation>
+    </message>
+    <message>
+        <source>+ Add exe from game folder…</source>
+        <translation>+ Добавить exe из папки игры..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -5733,6 +6654,10 @@ Click Done to close.</source>
         <translation>Отсутствующие требования</translation>
     </message>
     <message>
+        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <translation>Плагин FOMOD-патч теперь установлен — нажмите, чтобы повторно запустить установщик FOMOD</translation>
+    </message>
+    <message>
         <source>Update available on Nexus Mods</source>
         <translation>Обновление доступно на Nexus Mods</translation>
     </message>
@@ -6253,6 +7178,10 @@ You can skip this and connect later from the Nexus button in the toolbar.</sourc
     <message>
         <source>Default: {0}</source>
         <translation>По умолчанию: {0}</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;имя игры&gt;</translation>
     </message>
     <message>
         <source>Leave blank to use the default</source>
@@ -8255,6 +9184,22 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Выполнение извлечений ограничивается объемом доступной памяти; фактическое количество может оказаться меньше заданного.</translation>
     </message>
     <message>
+        <source>Download speed limit</source>
+        <translation>Скачать Speed Limit</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Неограниченный</translation>
+    </message>
+    <message>
+        <source>{0} MB/s</source>
+        <translation>{0} MB/s</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>Сократите общую скорость загрузки всех загрузок (коллекции, одиночные моды, ссылки nxm), чтобы они не использовали все соединение. Применяется немедленно, в том числе для запуска сборки.</translation>
+    </message>
+    <message>
         <source>Extraction CPU threads</source>
         <translation>Извлечение потоков CPU</translation>
     </message>
@@ -8327,6 +9272,66 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Кроме того, при проверке наличия обновлений предлагайте бета-версии и версии-кандидаты приложений.</translation>
     </message>
     <message>
+        <source>Notify about new versions on startup</source>
+        <translation>Уведомление о новых версиях стартапа</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Покажите уведомление, когда доступна новая версия аметиста. Отключение отключает только уведомление — вы все равно можете обновить его через менеджер пакетов или переключая настройку предварительного выпуска.</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates…</source>
+        <translation>Автоматические обновления..</translation>
+    </message>
+    <message>
+        <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
+        <translation>Переключите этот Flatpak на удаленное обновление Amethyst, чтобы будущие обновления автоматически поступали через менеджер пакетов (GNOME Software / Discover) с меньшими загрузками. Это переустанавливает приложение один раз из пульта и перезапускает его.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>бета</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>стабильный</translation>
+    </message>
+    <message>
+        <source>Channel not available</source>
+        <translation>Канал недоступен</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet. Try again after the next {0} release (or change the pre-release setting).</source>
+        <translation>Канал {0} пока не опубликован на пульте обновления. Попробуйте еще раз после следующего выпуска {0} (или измените настройку предварительного выпуска).</translation>
+    </message>
+    <message>
+        <source>Could not reach Flatpak</source>
+        <translation>Не удалось добраться до Флатпак</translation>
+    </message>
+    <message>
+        <source>The host Flatpak service couldn't be reached. You can add the remote manually:
+
+flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</source>
+        <translation>До хозяина сервиса Flatpak добраться не удалось. Вы можете добавить пульт вручную:
+
+flatpak remote-add - пользователь аметист https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates?</source>
+        <translation>Включить автоматические обновления?</translation>
+    </message>
+    <message>
+        <source>Amethyst will add its update remote and reinstall itself from it once, then relaunch. Future updates then arrive automatically through your package manager.</source>
+        <translation>Amethyst добавит удаленное обновление и переустановит его один раз, а затем перезапустит. Будущие обновления автоматически поступают через менеджер пакетов.</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Включить</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отменить</translation>
+    </message>
+    <message>
         <source>Paths</source>
         <translation>Пути</translation>
     </message>
@@ -8337,6 +9342,10 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>When set, games added after this point stage mods here. Blank = default ({0}).</source>
         <translation>Если этот параметр установлен, игры, добавленные после этого момента, будут модифицированы с помощью этих модов. Пустое поле = значение по умолчанию ({0}).</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;имя игры&gt;</translation>
     </message>
     <message>
         <source>Download Cache Folder</source>
@@ -8842,22 +9851,6 @@ Click Install to begin.</source>
     <message>
         <source>Contacting GitHub…</source>
         <translation>Устанавливается соединение с GitHub…</translation>
-    </message>
-    <message>
-        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
-        <translation>В последней версии TTW ({0}) нет актива установки Linux.</translation>
-    </message>
-    <message>
-        <source>Downloading TTW installer {0}…</source>
-        <translation>Скачать TTW установщик {0}</translation>
-    </message>
-    <message>
-        <source>Extracting installer…</source>
-        <translation>Извлечение установщика..</translation>
-    </message>
-    <message>
-        <source>{0} not found after extraction at {1}.</source>
-        <translation>{0} не обнаружен после экстракции в {1}.</translation>
     </message>
     <message>
         <source>Installer ready.</source>
@@ -10414,6 +11407,10 @@ Latest:  {1}</source>
 Последняя версия:  {1}</translation>
     </message>
     <message>
+        <source>Don't notify me about new versions</source>
+        <translation>Не сообщайте мне о новых версиях</translation>
+    </message>
+    <message>
         <source>Switch to stable</source>
         <translation>Перейти на стабильную версию</translation>
     </message>
@@ -10482,6 +11479,10 @@ Latest:  {1}</source>
     <message>
         <source>Open Download Page</source>
         <translation>Открыть страницу загрузки</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Скачать: {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -10692,6 +11693,10 @@ It contains xFOEdit (Fallout), xSFEdit (Starfield) and xTESEdit (Elder Scrolls);
   3. Оставьте архив в папке «Загрузки» и нажмите «Далее».
 
 Архив содержит xFOEdit (Fallout), xSFEdit (Starfield) и xTESEdit (Elder Scrolls); мастер установки автоматически запустит программу, соответствующую данной игре.</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Скачать: {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>

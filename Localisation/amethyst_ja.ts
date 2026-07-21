@@ -2,6 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ja" sourcelanguage="en">
 <context>
+    <name />
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Downloading {0} from Nexus… {1}%</comment>
+        <translation>ウィザードビューベース</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Premium account — downloading {0} from Nexus…</comment>
+        <translation>ウィザードビューベース</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>The archive is picked up automatically once the download finishes.</comment>
+        <translation>ウィザードビューベース</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -108,6 +126,257 @@ Deploy to push the new load order to the game.</source>
     </message>
 </context>
 <context>
+    <name>BSADecompressorView</name>
+    <message>
+        <source>BSA Decompressor — {0}</source>
+        <translation>BSAデコンプレッサー — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>ステップ1:MPIインストーラをインストールする</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>GitHubからネイティブLinux MPIインストーラ(また、2つの廃棄物の物語に使用されます)をダウンロードします
+そして、このゲームのアプリケーションフォルダに配置します。
+
+インストールをクリックして開始します.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>SulfurNitride によるインストーラー (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>インストール</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>GitHub に接続中…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>インストーラーの準備ができました.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>インストールエラー: {0}</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor output is already installed</source>
+        <translation>BSA Decompressorの出力は既に取付けられています</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
+        <translation>'{0}' mod は既にあなたのMODリストにあります。再適用することは何もないので、単にこのウィザードを閉じることができます。
+
+ゲームをバニラに復元し、再びデコンプレッサーを実行します(.mpiパッケージが必要です).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>一から作り直す</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>ステップ2:ゲームフォルダ&amp;パッケージ</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>BSA Decompressor は、バニラ BSA のアーカイブを圧縮せずに再構築し、結果は mod として追加されます。
+
+'FNV BSA Decompressor' のメインファイルを Nexus からダウンロードします。 アーカイブ内の .mpi パッケージは自動的に検出されます.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>ネクサスページを開く</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>フォールアウトニューベガス:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Fallout New Vegasフォルダを選択します</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor package:</source>
+        <translation>BSAのデコンプレッサーのパッケージ:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>ファイルを選択してください..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>再度検出して下さい</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>続きを読む</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>閲覧…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— 未設定 —</translation>
+    </message>
+    <message>
+        <source>Looking for the BSA Decompressor download…</source>
+        <translation>BSAデコンプレッサーのダウンロードを探して..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>以前に抽出したパッケージを使用する.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>ダウンロードフォルダに見つからなかったアーカイブ — Nexus からダウンロードしてから、もう一度 検出 (または ファイルを選択してください...) をクリックします.</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>{0}から.mpiパッケージを抽出..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>{0}から自動検出.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>自動検出失敗: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
+        <translation>NexusからBSAデコンプレッサーパッケージをダウンロード... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
+        <translation>プレミアムアカウント — Nexus から BSA Decompressor パッケージをダウンロード..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>アーカイブが見つかりません。Nexus(上のボタン)からダウンロードしてください。 ダウンロードが完了すると、自動的にピックアップされます.</translation>
+    </message>
+    <message>
+        <source>Select the BSA Decompressor .mpi or its archive</source>
+        <translation>BSA Decompressor .mpi またはそのアーカイブを選択します</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPIパッケージまたはアーカイブ</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>すべてのファイル</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>選択済み：{0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>{0} から .mpi を使う.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the BSA Decompressor .mpi package (or its downloaded archive).</source>
+        <translation>BSA Decompressor .mpi パッケージ(またはダウンロードしたアーカイブ)を選択してください.</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>「Fallout New Vegas」フォルダが設定されていません。</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>開始…</translation>
+    </message>
+    <message>
+        <source>Step 3: Decompressing BSA archives</source>
+        <translation>ステップ3: BSAアーカイブの解凍</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>ゲームは最初にバニラの状態に戻り、インストーラは圧縮なしでバニラBSAアーカイブを再構築します。 しばらくお待ちください。
+出力は '{0}' mod としてあなたの mod リストに直接書かれています.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>インストーラバイナリが欠落しています。 wizardを再起動し、最初にインストールしましょう.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>バニラにゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>インストール前にバニラの状態にゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>失敗した復元 - ログを参照してください。 問題を修正(または復元ボタンを介して手動で復元)、再試行.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod ステージングパスの設定は行いません.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>ERROR: 欠落したバニラプラグインファイル:
+{0}の</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>バニラに復元した後でもバニラプラグインファイルを見逃す — これらはバックアップされませんでした。
+Steam では、ゲーム → プロパティ → インストールされたファイル → ゲームファイルの完全性を確認し、再試行します。
+
+{0}の</translation>
+    </message>
+    <message>
+        <source>Decompressing… (see log below)</source>
+        <translation>解凍...(下記参照)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>インストーラはエラーで終了({0})。 詳細はログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Build complete — registering mod…</source>
+        <translation>ビルド完了 — mod を登録する..</translation>
+    </message>
+    <message>
+        <source>Build finished but registering the mod failed: {0}</source>
+        <translation>ビルドが完了したが、mod の登録に失敗しました: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Done! '{0}' を mod リストに追加しました。 有効化して展開します.</translation>
+    </message>
+</context>
+<context>
     <name>BackupRestoreView</name>
     <message>
         <source>Restore backup — {0}</source>
@@ -116,10 +385,6 @@ Deploy to push the new load order to the game.</source>
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
         <translation>このプロファイルのmodlistとプラグインを復元するには、バックアップを選択してください。</translation>
-    </message>
-    <message>
-        <source>No backups yet. Backups are created when you deploy.</source>
-        <translation>まだバックアップはありません。バックアップはデプロイ時に作成されます。</translation>
     </message>
     <message>
         <source>New backup</source>
@@ -134,12 +399,28 @@ Deploy to push the new load order to the game.</source>
         <translation>保持</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation>キャンセル</translation>
+        <source>Remove</source>
+        <translation>削除</translation>
     </message>
     <message>
         <source>Restore</source>
         <translation>復元</translation>
+    </message>
+    <message>
+        <source>User backups</source>
+        <translation>ユーザーバックアップ</translation>
+    </message>
+    <message>
+        <source>No user backups. Use New backup, or Keep an automated one.</source>
+        <translation>ユーザーのバックアップはありません。 新しいバックアップを使用するか、自動化されたバックアップを保って下さい.</translation>
+    </message>
+    <message>
+        <source>Automated backups</source>
+        <translation>自動バックアップ</translation>
+    </message>
+    <message>
+        <source>No automated backups yet. One is created every time you deploy.</source>
+        <translation>自動バックアップはありません。 デプロイ時に一つずつ作成されます.</translation>
     </message>
     <message>
         <source>Kept</source>
@@ -168,6 +449,14 @@ Deploy to push the new load order to the game.</source>
     <message>
         <source>Enter a name for this backup (leave blank to use the date).</source>
         <translation>このバックアップの名前を入力してください（日付を使用する場合は空欄のままにしてください）。</translation>
+    </message>
+    <message>
+        <source>Remove backup</source>
+        <translation>バックアップを削除</translation>
+    </message>
+    <message>
+        <source>Remove backup "{0}"? This cannot be undone.</source>
+        <translation>バックアップ「{0}」を削除しますか? これは元に戻すことができません.</translation>
     </message>
 </context>
 <context>
@@ -806,6 +1095,22 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
     <message>
         <source>Installing / Extracting</source>
         <translation>インストール／解凍</translation>
+    </message>
+    <message>
+        <source>Speed limit:</source>
+        <translation>速度の限界:</translation>
+    </message>
+    <message>
+        <source> MB/s</source>
+        <translation>MB/秒</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>無制限</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of this install. 0 = use the full connection. Applies immediately.</source>
+        <translation>このインストールの結合されたダウンロード速度をキャップします。 0 = フル接続を使用します。 すぐに適用して下さい.</translation>
     </message>
     <message>
         <source>Pause</source>
@@ -1490,6 +1795,219 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>CuratedProfileView</name>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>{0}をインストール — {1}</translation>
+    </message>
+    <message>
+        <source>Install the {0} modlist</source>
+        <translation>{0} modlist をインストール</translation>
+    </message>
+    <message>
+        <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
+
+The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+        <translation>このウィザードは、キュレーションされた '{0}' プロファイルをダウンロードし、 プロファイル インポート を開き、 modlist を新しいプロファイルにインストールします。
+
+mods は、Nexus Mods からダウンロードされます。 最初にログ (Nexus ▸ ログイン ネクサス) は、 いったい い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い す い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い い.</translation>
+    </message>
+    <message>
+        <source>Open guide website</source>
+        <translation>サイトマップ</translation>
+    </message>
+    <message>
+        <source>Also install Ultimate Edition ESM Fixes (recommended)</source>
+        <translation>また、究極のエディションESM修正(推奨)をインストール</translation>
+    </message>
+    <message>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>Modlist がインストールされた後、コミュニティバグフィックスで vanilla .esm マスターをパッチします。 余計なステップとして実行されるので、Nexusから「究極のエディションESM Fixes Remastered」をダウンロードする必要があります.</translation>
+    </message>
+    <message>
+        <source>Also run the FNV BSA Decompressor (recommended)</source>
+        <translation>また、FNV BSA Decompressor(推奨)を実行します</translation>
+    </message>
+    <message>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>Modlist がインストールされた後、mod として追加され、圧縮なしでバニラ BSA アーカイブを再構築します。Nexus から「FNV BSA Decompressor」のダウンロードが必要です。 あとは自分でウィザードで実行することもできます.</translation>
+    </message>
+    <message>
+        <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
+        <translation>4GB パッチは、FalloutNV.exe に最終ステップとして適用されます(元の実行はバックアップとして保持されます).</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>スタート</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the modlist profile</source>
+        <translation>ステップ1: modlistプロファイルをダウンロード</translation>
+    </message>
+    <message>
+        <source>Downloading '{0}' from GitHub…</source>
+        <translation>GitHubから「{0}」をダウンロード..</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>再試行</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>GitHub に接続中…</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>ダウンロード失敗: {0}</translation>
+    </message>
+    <message>
+        <source>Premium account — the wizard continues automatically when the import completes.</source>
+        <translation>プレミアムアカウント — インポートが完了したときにウィザードが自動的に継続されます.</translation>
+    </message>
+    <message>
+        <source>Could not read manifest: {0}</source>
+        <translation>マニフェストを読み込めませんでした：{0}</translation>
+    </message>
+    <message>
+        <source>Import is unavailable here.</source>
+        <translation>インポートは利用できません.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install the modlist</source>
+        <translation>ステップ2:モダリストをインストールする</translation>
+    </message>
+    <message>
+        <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
+
+When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+        <translation>インポートタブにインストールを完了します。プロファイル名を選択し、インストールを押します。 mods は Nexus からダウンロードされます。
+
+完了すると、アプリは新しいプロファイルに切り替えるので、ここで戻って続行を押します.</translation>
+    </message>
+    <message>
+        <source>Reopen import tab</source>
+        <translation>インポートタブを開く</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>続きを読む</translation>
+    </message>
+    <message>
+        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <translation>アクティブなプロファイルは変更されていません — インポートは終了していません。 最初に [インポート] タブで完了するか、[続行] をもう一度押して、とにかく続行します.</translation>
+    </message>
+    <message>
+        <source>Checking FalloutNV.exe…</source>
+        <translation>FalloutNV.exeをチェックする..</translation>
+    </message>
+    <message>
+        <source>Final step: Apply the 4GB Patch</source>
+        <translation>最終ステップ:4GBパッチを適用</translation>
+    </message>
+    <message>
+        <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
+        <translation>FalloutNV.exe は、ゲームが 4 GB のメモリを使用し、起動時に自動的に NVSE をロードできるようにパッチを当てています。 元のexeはバックアップとして保存されます(4GBパッチウィザードを介して修復可能).</translation>
+    </message>
+    <message>
+        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <translation>ゲームパスは設定されていません。4GBパッチをスキップします.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>{0}は既に4GBパッチを当てています.</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <translation>ゲームフォルダに{0}が見つかりません — 4GBパッチをスキップします.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>{0} の認識を解除 — スキッピング. Steam/Heroic でゲームファイルを検証し、4GB パッチウィザードを手動で実行します.</translation>
+    </message>
+    <message>
+        <source>Patching {0}…</source>
+        <translation>{0}のパッチ適用…</translation>
+    </message>
+    <message>
+        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <translation>{0} ({1}バージョン) — 元の{2}として保存されます.</translation>
+    </message>
+    <message>
+        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <translation>パッチが失敗しました: {0} — あなたは手動で4GBパッチウィザードを実行することができます.</translation>
+    </message>
+    <message>
+        <source>All done</source>
+        <translation>すべて完了</translation>
+    </message>
+    <message>
+        <source>The {0} profile is set up. Review the mod list, then Deploy and play.</source>
+        <translation>{0} プロファイルをセットアップします。 mod リストを確認し、デプロイして再生します.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameExportOverlay</name>
+    <message>
+        <source>Export game</source>
+        <translation>輸出ゲーム</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone your "{0}" custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>このコードを共有して、「{0}」カスタムゲームのセットアップを送信してください。 カスタムゲームの定義にインポートコードを追加できます.</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone this custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>このコードを共有して、このカスタムゲームのセットアップを誰かに送ることができます。 カスタムゲームの定義にインポートコードを追加できます.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>クリップボードにコピー</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>コピー済み ✓</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameImportOverlay</name>
+    <message>
+        <source>Import game</source>
+        <translation>インポートゲーム</translation>
+    </message>
+    <message>
+        <source>Paste a share code below to prefill the form from another custom game's setup. You still need to give it a unique name.</source>
+        <translation>別のカスタムゲームのセットアップからフォームを埋めるために、下の共有コードを貼り付けます。 あなたはまだ、そのユニークな名前を与える必要があります.</translation>
+    </message>
+    <message>
+        <source>Paste from clipboard</source>
+        <translation>クリップボードから貼り付け</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>インポート</translation>
+    </message>
+    <message>
+        <source>Not a valid game code.</source>
+        <translation>有効なゲームコードではありません.</translation>
+    </message>
+    <message>
+        <source>{0} deploy</source>
+        <translation>{0} デプロイ</translation>
+    </message>
+</context>
+<context>
     <name>CustomGameView</name>
     <message>
         <source>Standard</source>
@@ -1620,6 +2138,10 @@ Close it when you are done, then click Done.</source>
         <translation>カスタムゲームの設定</translation>
     </message>
     <message>
+        <source>Export code…</source>
+        <translation>コードをエクスポート…</translation>
+    </message>
+    <message>
         <source>Load Preset  (optional)</source>
         <translation>負荷事前調整(任意)</translation>
     </message>
@@ -1630,6 +2152,18 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>— Select a game to copy from —</source>
         <translation>— コピーするゲームを選択 —</translation>
+    </message>
+    <message>
+        <source>{0}  (built-in template)</source>
+        <translation>{0}(組み込みテンプレート)</translation>
+    </message>
+    <message>
+        <source>Or paste a share code exported from another custom game to prefill every field below.</source>
+        <translation>または別のカスタムゲームからエクスポートされた共有コードを貼り付けて、下の各フィールドをプレフィルします.</translation>
+    </message>
+    <message>
+        <source>Import code…</source>
+        <translation>コードをインポート…</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -2422,6 +2956,261 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>ESMFixesView</name>
+    <message>
+        <source>Ultimate Edition ESM Fixes — {0}</source>
+        <translation>究極のエディションESM修正 — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>ステップ1:MPIインストーラをインストールする</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>GitHubからネイティブLinux MPIインストーラ(また、2つの廃棄物の物語に使用されます)をダウンロードします
+そして、このゲームのアプリケーションフォルダに配置します。
+
+インストールをクリックして開始します.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>SulfurNitride によるインストーラー (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>インストール</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>GitHub に接続中…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>インストーラーの準備ができました.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>インストールエラー: {0}</translation>
+    </message>
+    <message>
+        <source>The ESM Fixes output is already installed</source>
+        <translation>ESM Fixesの出力は既にインストールされています</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
+        <translation>'{0}' mod は既にあなたのMODリストにあります。再適用することは何もないので、単にこのウィザードを閉じることができます。
+
+ゲームをバニラに復元し、再びパッチャーを実行します(.mpiパッケージが必要です).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>一から作り直す</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>ステップ2:ゲームフォルダ&amp;パッケージ</translation>
+    </message>
+    <message>
+        <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>究極のエディションESM コミュニティバグ修正でバニラ .esm マスター (FalloutNV + すべての DLC) をパッチ化し、結果は mod として追加されます。
+
+「究極のエディションESM Fixes Remastered」メインファイルをNexusからダウンロードします。アーカイブ内の.mpiパッケージは自動的に検出されます.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>ネクサスページを開く</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>フォールアウトニューベガス:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Fallout New Vegasフォルダを選択します</translation>
+    </message>
+    <message>
+        <source>ESM Fixes package:</source>
+        <translation>ESMはパッケージを修理します:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>ファイルを選択してください..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>再度検出して下さい</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>続きを読む</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>閲覧…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— 未設定 —</translation>
+    </message>
+    <message>
+        <source>Looking for the ESM Fixes download…</source>
+        <translation>ESM Fixesのダウンロードを探して..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>以前に抽出したパッケージを使用する.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>ダウンロードフォルダに見つからなかったアーカイブ — Nexus からダウンロードしてから、もう一度 検出 (または ファイルを選択してください...) をクリックします.</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>{0}から.mpiパッケージを抽出..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>{0}から自動検出.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>自動検出失敗: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
+        <translation>NexusからESM Fixesパッケージをダウンロード... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
+        <translation>プレミアムアカウント — NexusからESM Fixesパッケージをダウンロード..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>アーカイブが見つかりません。Nexus(上のボタン)からダウンロードしてください。 ダウンロードが完了すると、自動的にピックアップされます.</translation>
+    </message>
+    <message>
+        <source>Select the ESM Fixes .mpi or its archive</source>
+        <translation>ESM Fixes .mpi またはそのアーカイブを選択します</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPIパッケージまたはアーカイブ</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>すべてのファイル</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>選択済み：{0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>{0} から .mpi を使う.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
+        <translation>ESM Fixes .mpiパッケージ(またはダウンロードしたアーカイブ)を選択してください.</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>「Fallout New Vegas」フォルダが設定されていません。</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>開始…</translation>
+    </message>
+    <message>
+        <source>Step 3: Patching the vanilla masters</source>
+        <translation>ステップ3:バニラマスターをパッチ</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>ゲームは最初にバニラの状態に戻り、インストーラはコミュニティバグフィックスでバニラ.esmのマスターをパッチします。
+出力は '{0}' mod としてあなたの mod リストに直接書かれています.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>インストーラバイナリが欠落しています。 wizardを再起動し、最初にインストールしましょう.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>バニラにゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>インストール前にバニラの状態にゲームを復元する..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>失敗した復元 - ログを参照してください。 問題を修正(または復元ボタンを介して手動で復元)、再試行.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod ステージングパスの設定は行いません.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>ERROR: 欠落したバニラプラグインファイル:
+{0}の</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>バニラに復元した後でもバニラプラグインファイルを見逃す — これらはバックアップされませんでした。
+Steam では、ゲーム → プロパティ → インストールされたファイル → ゲームファイルの完全性を確認し、再試行します。
+
+{0}の</translation>
+    </message>
+    <message>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <translation>警告: FalloutNV.exe は 4GB-patched です。 インストーラは、ゲーム実行を検証し、実行を拒否することができます。 以下に失敗した場合は、4GBパッチウィザードで元の実行を復元し、これを再度実行し、4GBパッチを再適用します.</translation>
+    </message>
+    <message>
+        <source>Patching… (see log below)</source>
+        <translation>パッチ... (下のログを参照してください)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>起動エラー: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>インストーラはエラーで終了({0})。 詳細はログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Patching complete — registering mod…</source>
+        <translation>パッチ完了 — mod を登録する..</translation>
+    </message>
+    <message>
+        <source>Patching finished but registering the mod failed: {0}</source>
+        <translation>パッチの終了が、mod の登録に失敗しました: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Done! '{0}' を mod リストに追加しました。 有効化して展開します.</translation>
+    </message>
+</context>
+<context>
     <name>EngineFixesView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -2720,6 +3509,30 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     <message>
         <source>All files</source>
         <translation>すべてのファイル</translation>
+    </message>
+    <message>
+        <source>Preparing export…</source>
+        <translation>輸出の準備..</translation>
+    </message>
+    <message>
+        <source>Packing mod: {0}</source>
+        <translation>パッキングMOD:{0}</translation>
+    </message>
+    <message>
+        <source>Packing overwrite files…</source>
+        <translation>パッキング オーバーライトファイル..</translation>
+    </message>
+    <message>
+        <source>Packing profile files…</source>
+        <translation>パッキング プロフィール ファイル..</translation>
+    </message>
+    <message>
+        <source>Packing…</source>
+        <translation>パッキング..</translation>
+    </message>
+    <message>
+        <source>Exporting profile</source>
+        <translation>プロフィールのエクスポート</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -3147,6 +3960,14 @@ SHA-1:{1}
     <message>
         <source>Finish</source>
         <translation>終了</translation>
+    </message>
+    <message>
+        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>このインストーラの最後の実行以来、このオプションの必要なプラグインがインストールされます.</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <translation>このオプションのプラグインが有効化されていないので、最初に有効にするか、追加する予定のプラグインのみを選択します.</translation>
     </message>
     <message>
         <source>Click to view full size</source>
@@ -3794,10 +4615,6 @@ SHA-1:{1}
         <translation>32ビットのサポートがインストールされ、Windowsツールを実行する前にアプリを再起動します.</translation>
     </message>
     <message>
-        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
-        <translation>32ビットのサポートを自動的にインストールできません。マニュアルコマンドのログを参照してください.</translation>
-    </message>
-    <message>
         <source>Install-name Rules</source>
         <translation>Install-name のルール</translation>
     </message>
@@ -4042,10 +4859,6 @@ Remove the appended-collection entry?</source>
         <translation>インストールをキャンセルしますか?</translation>
     </message>
     <message>
-        <source>This will stop the install and delete the collection profile.</source>
-        <translation>インストールを停止し、コレクションプロファイルを削除します.</translation>
-    </message>
-    <message>
         <source>Cancel Install</source>
         <translation>キャンセル インストール</translation>
     </message>
@@ -4112,6 +4925,74 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>OK</source>
         <translation>OK</translation>
+    </message>
+    <message>
+        <source>32-bit support could not be installed</source>
+        <translation>32ビットのサポートはインストールできません</translation>
+    </message>
+    <message>
+        <source>Amethyst could not install 32-bit support automatically. Windows tools (and some games) may fail to run until it is installed. Run this on a terminal, then restart the app:
+
+{0}</source>
+        <translation>Amethystは32ビット サポートを自動的に取付けません。 Windowsツール(一部のゲーム)はインストールされるまで実行できません。 ターミナルでこれを実行し、アプリを再起動します。
+
+{0}の</translation>
+    </message>
+    <message>
+        <source>Don't show again</source>
+        <translation>再び表示しないでください</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>プラグインをリフレッシュ</translation>
+    </message>
+    <message>
+        <source>Force update handler</source>
+        <translation>強制更新ハンドラ</translation>
+    </message>
+    <message>
+        <source>Updating handler…</source>
+        <translation>ハンドラの更新..</translation>
+    </message>
+    <message>
+        <source>Handler update failed — check your connection.</source>
+        <translation>ハンドラの更新が失敗しました。接続を確認してください.</translation>
+    </message>
+    <message>
+        <source>Handler not found on the Resources branch.</source>
+        <translation>リソースブランチに見つからないハンドラ.</translation>
+    </message>
+    <message>
+        <source>Handler is already up to date.</source>
+        <translation>ハンドラは既に最新です.</translation>
+    </message>
+    <message>
+        <source>Handler updated.</source>
+        <translation>ハンドラの更新.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>ログイン</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>安定した</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
+        <translation>{0} チャネルは、更新リモートではまだ公開されていません。次の {0} リリースの後にもう一度お試しください.</translation>
+    </message>
+    <message>
+        <source>An install is finishing — try the collection again in a moment.</source>
+        <translation>インストールは完了です。コレクションを一瞬でお試しください.</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the new profile '{0}'.</source>
+        <translation>インストールを停止し、新しいプロファイル「{0}」を削除します.</translation>
+    </message>
+    <message>
+        <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
+        <translation>インストールを停止します。 '{0}' と、既にインストール済みの mod が保存されます.</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -4494,6 +5375,26 @@ Download and install them manually — the links are in the collection page's "O
         <translation>ステージングでは実行できません.</translation>
     </message>
     <message>
+        <source>No game folder configured.</source>
+        <translation>ゲームフォルダの設定はありません.</translation>
+    </message>
+    <message>
+        <source>No executables found in the game folder.</source>
+        <translation>ゲームフォルダに実行できません.</translation>
+    </message>
+    <message>
+        <source>Add executable from game folder</source>
+        <translation>ゲームフォルダから実行可能を追加</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
+        <translation>実行可能値をチェックして実行メニューに追加します。 これらは、mods によって配置されたファイルを含む、ゲームフォルダ内の場所から実行されます.</translation>
+    </message>
+    <message>
+        <source>Play failed — see log.</source>
+        <translation>失敗した再生 — ログを参照してください.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>実行ファイルが見つかりません：{0}</translation>
     </message>
@@ -4710,6 +5611,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} をインストールしました</translation>
     </message>
     <message>
+        <source>Restore queued — it will run after the current install finishes.</source>
+        <translation>キューを復元 — 現在のインストールが完了すると実行されます.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>{0}のMODをインストールしました</translation>
     </message>
@@ -4878,6 +5783,18 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} プラグイン（{1} ESL、{2} 非ESL）</translation>
     </message>
     <message>
+        <source>Refreshing LOOT metadata for {0} plugins…</source>
+        <translation>{0}プラグイン用のLOOTメタデータをリフレッシュ..</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed — see log.</source>
+        <translation>LOOT のリフレッシュ失敗 — ログを参照してください.</translation>
+    </message>
+    <message>
+        <source>Plugin metadata refreshed.</source>
+        <translation>プラグインメタデータが更新されました.</translation>
+    </message>
+    <message>
         <source>LOOT library not available — cannot check overlap.</source>
         <translation>LOOTライブラリは利用できません。重複確認はできません.</translation>
     </message>
@@ -4904,6 +5821,10 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>+ Add exe from staging…</source>
         <translation>+ ステージングからexeを追加..</translation>
+    </message>
+    <message>
+        <source>+ Add exe from game folder…</source>
+        <translation>+ ゲームフォルダからexeを追加..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -5733,6 +6654,10 @@ Done をクリックして閉じます.</translation>
         <translation>要件の欠落</translation>
     </message>
     <message>
+        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <translation>FOMOD パッチオプションのプラグインがインストールされました。FOMOD インストーラを再実行するには、クリックします</translation>
+    </message>
+    <message>
         <source>Update available on Nexus Mods</source>
         <translation>Nexus Modsで利用可能なアップデート</translation>
     </message>
@@ -6253,6 +7178,10 @@ You can skip this and connect later from the Nexus button in the toolbar.</sourc
     <message>
         <source>Default: {0}</source>
         <translation>デフォルト：{0}</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;ゲーム名&gt;</translation>
     </message>
     <message>
         <source>Leave blank to use the default</source>
@@ -8255,6 +9184,22 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>抽出処理は利用可能なメモリによって制限されるため、実際の抽出数は設定値よりも少なくなる場合があります。</translation>
     </message>
     <message>
+        <source>Download speed limit</source>
+        <translation>ダウンロード速度制限</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>無制限</translation>
+    </message>
+    <message>
+        <source>{0} MB/s</source>
+        <translation>{0} MB/秒</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>すべてのダウンロードの結合されたダウンロード速度(コレクション、シングルモッド、nxmリンク)をキャップし、接続全体を使用しないでください。 実行中のコレクションのインストールを含む、すぐに適用します.</translation>
+    </message>
+    <message>
         <source>Extraction CPU threads</source>
         <translation>抽出CPUスレッド</translation>
     </message>
@@ -8327,6 +9272,66 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>また、更新の確認時には、ベータ版やリリース候補版のアプリビルドも提供してください。</translation>
     </message>
     <message>
+        <source>Notify about new versions on startup</source>
+        <translation>スタートアップの新しいバージョンについて通知する</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Amethystの新しいバージョンが利用可能になったときに通知を表示します。 これをオフにすると、通知をミュートするだけで、パッケージマネージャを介してまだ更新したり、プレリリース設定を切り替えたりすることができます.</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates…</source>
+        <translation>自動更新を有効にする..</translation>
+    </message>
+    <message>
+        <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
+        <translation>このFlatpakをAmethystの更新リモートに切り替えるので、将来のアップデートはパッケージマネージャ(GNOME Software / Discover)によって自動的により小さいダウンロードで到着します。 これは、リモートから一度アプリを再インストールし、それを再起動します.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>ログイン</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>安定した</translation>
+    </message>
+    <message>
+        <source>Channel not available</source>
+        <translation>チャネルは利用できません</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet. Try again after the next {0} release (or change the pre-release setting).</source>
+        <translation>{0} チャネルはまだ更新のリモートで公開されていません。 次の{0}リリース(またはプレリリース設定を変更)後にもう一度お試しください.</translation>
+    </message>
+    <message>
+        <source>Could not reach Flatpak</source>
+        <translation>Flatpakに達できませんでした</translation>
+    </message>
+    <message>
+        <source>The host Flatpak service couldn't be reached. You can add the remote manually:
+
+flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</source>
+        <translation>ホストFlatpakサービスは到達できませんでした。 リモートを手動で追加できます。
+
+flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates?</source>
+        <translation>自動更新を有効にする?</translation>
+    </message>
+    <message>
+        <source>Amethyst will add its update remote and reinstall itself from it once, then relaunch. Future updates then arrive automatically through your package manager.</source>
+        <translation>Amethyst は、リモートで更新を追加し、そこから再インストールします。 今後のアップデートは、パッケージマネージャによって自動的に到着します.</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>有効にする</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
         <source>Paths</source>
         <translation>パス</translation>
     </message>
@@ -8337,6 +9342,10 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>When set, games added after this point stage mods here. Blank = default ({0}).</source>
         <translation>設定すると、この時点以降に追加されたゲームには、ここで指定されたMODが適用されます。空白の場合はデフォルト（{0}）となります。</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;ゲーム名&gt;</translation>
     </message>
     <message>
         <source>Download Cache Folder</source>
@@ -8842,22 +9851,6 @@ Click Install to begin.</source>
     <message>
         <source>Contacting GitHub…</source>
         <translation>GitHub に接続中…</translation>
-    </message>
-    <message>
-        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
-        <translation>最新のTTWリリース({0})で見つかったLinuxインストーラアセットはありません.</translation>
-    </message>
-    <message>
-        <source>Downloading TTW installer {0}…</source>
-        <translation>TTWインストーラ{0}をダウンロード..</translation>
-    </message>
-    <message>
-        <source>Extracting installer…</source>
-        <translation>抽出インストーラー..</translation>
-    </message>
-    <message>
-        <source>{0} not found after extraction at {1}.</source>
-        <translation>{1}の抽出後に{0}が見つかりません.</translation>
     </message>
     <message>
         <source>Installer ready.</source>
@@ -10414,6 +11407,10 @@ Latest:  {1}</source>
 最新版：  {1}</translation>
     </message>
     <message>
+        <source>Don't notify me about new versions</source>
+        <translation>新しいバージョンについて通知しないでください</translation>
+    </message>
+    <message>
         <source>Switch to stable</source>
         <translation>安定版に切り替える</translation>
     </message>
@@ -10482,6 +11479,10 @@ Latest:  {1}</source>
     <message>
         <source>Open Download Page</source>
         <translation>ダウンロードページを開く</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>ダウンロード: {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -10692,6 +11693,10 @@ It contains xFOEdit (Fallout), xSFEdit (Starfield) and xTESEdit (Elder Scrolls);
   3. アーカイブファイルを「ダウンロード」フォルダに置いたまま、「次へ」をクリックしてください。
 
 このアーカイブには、xFOEdit（Fallout）、xSFEdit（Starfield）、xTESEdit（Elder Scrolls）が含まれており、ウィザードが該当するゲーム用のエディタを自動的に起動します。</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>ダウンロード: {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>

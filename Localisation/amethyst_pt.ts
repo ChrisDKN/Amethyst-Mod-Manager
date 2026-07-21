@@ -2,6 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="pt" sourcelanguage="en">
 <context>
+    <name />
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Downloading {0} from Nexus… {1}%</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Premium account — downloading {0} from Nexus…</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>The archive is picked up automatically once the download finishes.</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -108,6 +126,257 @@ Execute o comando «Deploy» para aplicar a nova ordem de carregamento ao jogo.<
     </message>
 </context>
 <context>
+    <name>BSADecompressorView</name>
+    <message>
+        <source>BSA Decompressor — {0}</source>
+        <translation>Descompressor BSA — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Passo 1: Instalar o Instalador de MPI</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>O instalador nativo do Linux MPI (também usado para Tale of Two Wastelands) será baixado do GitHub
+e colocado na pasta Aplicações deste jogo.
+
+Clique em Instalar para iniciar.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Programa de instalação da SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Instalar</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>A contactar o GitHub…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Instalador pronto.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Erro de instalação: {0}</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor output is already installed</source>
+        <translation>A saída do descompressor BSA já está instalada</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
+        <translation>O mod '{0}' já está em sua lista de mods — não há nada para re-aplicar, então você pode simplesmente fechar este assistente.
+
+Reconstruir do zero restaura o jogo para baunilha e executa o descompressor novamente (precisa do pacote .mpi).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Reconstruir do zero</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Feito</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Passo 2: Pasta de jogo &amp; pacote</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>O Descompressor BSA reconstrói os arquivos BSA de baunilha sem compressão para carregamento mais rápido, e o resultado é adicionado como um mod.
+
+Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus — o pacote .mpi dentro do arquivo é detectado automaticamente.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Abrir página Nexus</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Selecione a pasta Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor package:</source>
+        <translation>Pacote de descompressores BSA:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Escolher arquivo..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Detectar novamente</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continuar</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Explorar…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— não definido —</translation>
+    </message>
+    <message>
+        <source>Looking for the BSA Decompressor download…</source>
+        <translation>À procura do descompressor BSA..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Usando pacote extraído anteriormente.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Arquivo não encontrado em suas pastas de download — baixe-o do Nexus e clique em Detectar novamente (ou Escolher arquivo...).</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Extraindo o pacote .mpi do {0}..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Detectado automaticamente a partir de {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Falha ao detectar automaticamente: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
+        <translation>A transferir o pacote de descompressores BSA do Nexus... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
+        <translation>Conta Premium — baixando o pacote BSA Descompressor da Nexus..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Arquivo não encontrado — baixe-o do Nexus (botão acima). Ele será captado automaticamente assim que o download terminar.</translation>
+    </message>
+    <message>
+        <source>Select the BSA Decompressor .mpi or its archive</source>
+        <translation>Selecione o descompressor BSA .mpi ou seu arquivo</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>Pacote ou arquivo MPI</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Todos os arquivos</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Selecionado: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Usando o .mpi de {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Erro: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the BSA Decompressor .mpi package (or its downloaded archive).</source>
+        <translation>Selecione o pacote BSA Descompressor .mpi (ou seu arquivo baixado).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>A pasta «Fallout New Vegas» não está definida.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>A começar…</translation>
+    </message>
+    <message>
+        <source>Step 3: Decompressing BSA archives</source>
+        <translation>Etapa 3: Descompressão dos arquivos BSA</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>O jogo é primeiro restaurado para um estado de baunilha, em seguida, o instalador reconstrói os arquivos BSA baunilha sem compressão. Isto pode demorar um pouco — por favor, deixe-o em execução.
+A saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Falta o binário do instalador. Reinicie o assistente e deixe-o instalar primeiro.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Restaurando jogo para baunilha..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Restaurando jogo para um estado de baunilha antes de instalar..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>A restauração falhou — veja o log. Corrigir o problema (ou restaurar manualmente através do botão Restaurar) e tentar novamente.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>O caminho de estadiamento do mod não está configurado.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>ERRO: faltando arquivos de plug-in de baunilha:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Arquivos de plugin de baunilha ausentes, mesmo depois de restaurar a baunilha — estes nunca foram backup.
+No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arquivos Instalados → Verifique a integridade dos arquivos do jogo e, em seguida, tente novamente.
+
+{0}</translation>
+    </message>
+    <message>
+        <source>Decompressing… (see log below)</source>
+        <translation>Descompressão... (ver log abaixo)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Erro de lançamento: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>O instalador terminou com erro (código {0}). Veja o registro para mais detalhes.</translation>
+    </message>
+    <message>
+        <source>Build complete — registering mod…</source>
+        <translation>Compilação completa — registrando mod..</translation>
+    </message>
+    <message>
+        <source>Build finished but registering the mod failed: {0}</source>
+        <translation>A compilação terminou, mas o registo do mod falhou: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Feito! '{0}' foi adicionado à sua lista de mods. Activar e implantar.</translation>
+    </message>
+</context>
+<context>
     <name>BackupRestoreView</name>
     <message>
         <source>Restore backup — {0}</source>
@@ -116,10 +385,6 @@ Execute o comando «Deploy» para aplicar a nova ordem de carregamento ao jogo.<
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
         <translation>Selecione uma cópia de segurança para restaurar a lista de mods e os plugins deste perfil.</translation>
-    </message>
-    <message>
-        <source>No backups yet. Backups are created when you deploy.</source>
-        <translation>Ainda não há cópias de segurança. As cópias de segurança são criadas quando se efetua a implementação.</translation>
     </message>
     <message>
         <source>New backup</source>
@@ -134,12 +399,28 @@ Execute o comando «Deploy» para aplicar a nova ordem de carregamento ao jogo.<
         <translation>Manter</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation>Cancelar</translation>
+        <source>Remove</source>
+        <translation>Remover</translation>
     </message>
     <message>
         <source>Restore</source>
         <translation>Restaurar</translation>
+    </message>
+    <message>
+        <source>User backups</source>
+        <translation>Backups do usuário</translation>
+    </message>
+    <message>
+        <source>No user backups. Use New backup, or Keep an automated one.</source>
+        <translation>Sem backups de usuários. Use Novo backup, ou mantenha um automatizado.</translation>
+    </message>
+    <message>
+        <source>Automated backups</source>
+        <translation>Backups automatizados</translation>
+    </message>
+    <message>
+        <source>No automated backups yet. One is created every time you deploy.</source>
+        <translation>Sem backups automatizados ainda. Um é criado cada vez que você implantar.</translation>
     </message>
     <message>
         <source>Kept</source>
@@ -168,6 +449,14 @@ Execute o comando «Deploy» para aplicar a nova ordem de carregamento ao jogo.<
     <message>
         <source>Enter a name for this backup (leave blank to use the date).</source>
         <translation>Introduza um nome para esta cópia de segurança (deixe em branco para utilizar a data).</translation>
+    </message>
+    <message>
+        <source>Remove backup</source>
+        <translation>Remover cópia de segurança</translation>
+    </message>
+    <message>
+        <source>Remove backup "{0}"? This cannot be undone.</source>
+        <translation>Remover a cópia de segurança "{0}"? Isto não pode ser desfeito.</translation>
     </message>
 </context>
 <context>
@@ -806,6 +1095,22 @@ O cache MD5 é mantido. Os arquivos serão descarregados novamente, conforme nec
     <message>
         <source>Installing / Extracting</source>
         <translation>Instalação / Extração</translation>
+    </message>
+    <message>
+        <source>Speed limit:</source>
+        <translation>Limite de velocidade:</translation>
+    </message>
+    <message>
+        <source> MB/s</source>
+        <translation>MB/s</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Ilimitado</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of this install. 0 = use the full connection. Applies immediately.</source>
+        <translation>Cap a velocidade de download combinada desta instalação. 0 = use a conexão completa. Aplica-se imediatamente.</translation>
     </message>
     <message>
         <source>Pause</source>
@@ -1490,6 +1795,219 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
 </context>
 <context>
+    <name>CuratedProfileView</name>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>Instalar o {0} — {1}</translation>
+    </message>
+    <message>
+        <source>Install the {0} modlist</source>
+        <translation>Instalar o modlist {0}</translation>
+    </message>
+    <message>
+        <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
+
+The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+        <translation>Este assistente baixa o perfil '{0}' curado e abre o importador de perfil, que instala o modlist em um perfil NOVO.
+
+Os mods são baixados do Nexus Mods — faça login primeiro (Nexus □ Login para Nexus) se você não tiver.</translation>
+    </message>
+    <message>
+        <source>Open guide website</source>
+        <translation>Abrir o site do guia</translation>
+    </message>
+    <message>
+        <source>Also install Ultimate Edition ESM Fixes (recommended)</source>
+        <translation>Também instalar Ultimate Edition ESM Fixes (recomendado)</translation>
+    </message>
+    <message>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>Aplica patches no mestre de baunilha .esm com bugfixes da comunidade após a instalação do modlist. É muito grande para empacotar, por isso é executado como um passo extra — precisa do download 'Ultimate Edition ESM Fixes Remastered' do Nexus.</translation>
+    </message>
+    <message>
+        <source>Also run the FNV BSA Decompressor (recommended)</source>
+        <translation>Execute também o Descompressor FNV BSA (recomendado)</translation>
+    </message>
+    <message>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>Reconstrui os arquivos BSA de baunilha sem compressão para carregamento mais rápido, adicionado como um modlist após a instalação do modlist — precisa do download 'FNV BSA Decompressor' do Nexus. Também pode ser executado mais tarde através de seu próprio assistente.</translation>
+    </message>
+    <message>
+        <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
+        <translation>O patch 4GB é aplicado ao FalloutNV.exe como o passo final (exe original mantido como backup).</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Iniciar</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the modlist profile</source>
+        <translation>Passo 1: Baixe o perfil modlist</translation>
+    </message>
+    <message>
+        <source>Downloading '{0}' from GitHub…</source>
+        <translation>A transferir o '{0}' do GitHub..</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Tentar novamente</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>A contactar o GitHub…</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>Falha na transferência: {0}</translation>
+    </message>
+    <message>
+        <source>Premium account — the wizard continues automatically when the import completes.</source>
+        <translation>Conta Premium — o assistente continua automaticamente quando a importação termina.</translation>
+    </message>
+    <message>
+        <source>Could not read manifest: {0}</source>
+        <translation>Não foi possível ler o manifesto: {0}</translation>
+    </message>
+    <message>
+        <source>Import is unavailable here.</source>
+        <translation>A importação não está disponível aqui.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install the modlist</source>
+        <translation>Passo 2: Instale o modlist</translation>
+    </message>
+    <message>
+        <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
+
+When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+        <translation>Terminar a instalação na aba Importar: escolha o nome do perfil e pressione Instalar. Os mods são baixados do Nexus, que pode demorar um pouco.
+
+Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pressione Continuar.</translation>
+    </message>
+    <message>
+        <source>Reopen import tab</source>
+        <translation>Abrir novamente a página de importação</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continuar</translation>
+    </message>
+    <message>
+        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <translation>O perfil ativo não mudou — a importação não parece concluída. Complete-o na aba Importar primeiro, ou pressione Continuar novamente para continuar de qualquer maneira.</translation>
+    </message>
+    <message>
+        <source>Checking FalloutNV.exe…</source>
+        <translation>Verificando FalloutNV.exe..</translation>
+    </message>
+    <message>
+        <source>Final step: Apply the 4GB Patch</source>
+        <translation>Passo final: Aplicar o patch de 4GB</translation>
+    </message>
+    <message>
+        <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
+        <translation>FalloutNV.exe é corrigido para que o jogo possa usar 4 GB de memória e carrega NVSE automaticamente na inicialização. O exe original é mantido como backup (restaurável através do assistente de 4GB Patch).</translation>
+    </message>
+    <message>
+        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <translation>O caminho do jogo não está configurado — ignorando o patch de 4GB.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>O {0} já está em 4GB.</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <translation>{0} não foi encontrado na pasta de jogos — ignorando o patch de 4GB.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>Versão {0} não reconhecida — pulando. Verifique os arquivos de jogo no Steam/Heroic e execute manualmente o assistente de patch de 4GB.</translation>
+    </message>
+    <message>
+        <source>Patching {0}…</source>
+        <translation>A aplicar correções em {0}…</translation>
+    </message>
+    <message>
+        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <translation>{0} (versão {1}) — original mantido como {2}.</translation>
+    </message>
+    <message>
+        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <translation>Falha no patch: {0} - você pode executar o assistente de patch de 4GB manualmente mais tarde.</translation>
+    </message>
+    <message>
+        <source>All done</source>
+        <translation>Tudo feito</translation>
+    </message>
+    <message>
+        <source>The {0} profile is set up. Review the mod list, then Deploy and play.</source>
+        <translation>O perfil {0} está configurado. Reveja a lista de mods, depois implante e jogue.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Feito</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameExportOverlay</name>
+    <message>
+        <source>Export game</source>
+        <translation>Exportar jogo</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone your "{0}" custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Compartilhe este código para enviar a alguém sua configuração personalizada de jogo "{0}". Eles podem adicioná-lo com o código Importar no Defina Jogo Personalizado.</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone this custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Partilhe este código para enviar a alguém esta configuração personalizada do jogo. Eles podem adicioná-lo com o código Importar no Defina Jogo Personalizado.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fechar</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Copiar para a área de transferência</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Copiado ✓</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameImportOverlay</name>
+    <message>
+        <source>Import game</source>
+        <translation>Importar jogo</translation>
+    </message>
+    <message>
+        <source>Paste a share code below to prefill the form from another custom game's setup. You still need to give it a unique name.</source>
+        <translation>Cola um código de compartilhamento abaixo para preencher o formulário a partir da configuração de outro jogo personalizado. Ainda precisas de lhe dar um nome único.</translation>
+    </message>
+    <message>
+        <source>Paste from clipboard</source>
+        <translation>Colar da área de transferência</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importar</translation>
+    </message>
+    <message>
+        <source>Not a valid game code.</source>
+        <translation>Não é um código de jogo válido.</translation>
+    </message>
+    <message>
+        <source>{0} deploy</source>
+        <translation>Implante {0}</translation>
+    </message>
+</context>
+<context>
     <name>CustomGameView</name>
     <message>
         <source>Standard</source>
@@ -1620,6 +2138,10 @@ Feche-o quando terminar e clique em Concluído.</translation>
         <translation>Definir Jogo Personalizado</translation>
     </message>
     <message>
+        <source>Export code…</source>
+        <translation>Exportar código…</translation>
+    </message>
+    <message>
         <source>Load Preset  (optional)</source>
         <translation>Carregar a Predefinição (opcional)</translation>
     </message>
@@ -1630,6 +2152,18 @@ Feche-o quando terminar e clique em Concluído.</translation>
     <message>
         <source>— Select a game to copy from —</source>
         <translation>— Seleccionar um jogo de onde copiar —</translation>
+    </message>
+    <message>
+        <source>{0}  (built-in template)</source>
+        <translation>{0} (modelo incorporado)</translation>
+    </message>
+    <message>
+        <source>Or paste a share code exported from another custom game to prefill every field below.</source>
+        <translation>Ou cole um código de compartilhamento exportado de outro jogo personalizado para preencher todos os campos abaixo.</translation>
+    </message>
+    <message>
+        <source>Import code…</source>
+        <translation>Importar código…</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -2422,6 +2956,261 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
 </context>
 <context>
+    <name>ESMFixesView</name>
+    <message>
+        <source>Ultimate Edition ESM Fixes — {0}</source>
+        <translation>Corrigições ESM de edição final — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Passo 1: Instalar o Instalador de MPI</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>O instalador nativo do Linux MPI (também usado para Tale of Two Wastelands) será baixado do GitHub
+e colocado na pasta Aplicações deste jogo.
+
+Clique em Instalar para iniciar.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Programa de instalação da SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Instalar</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>A contactar o GitHub…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Instalador pronto.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Erro de instalação: {0}</translation>
+    </message>
+    <message>
+        <source>The ESM Fixes output is already installed</source>
+        <translation>A saída ESM Fixes já está instalada</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
+        <translation>O mod '{0}' já está em sua lista de mods — não há nada para re-aplicar, então você pode simplesmente fechar este assistente.
+
+Reconstruir do zero restaura o jogo para baunilha e executa o packer novamente (precisa do pacote .mpi).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Reconstruir do zero</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Feito</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Passo 2: Pasta de jogo &amp; pacote</translation>
+    </message>
+    <message>
+        <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>ESM de edição final Corrige os patches dos mestres de baunilha .esm (FalloutNV + todos os DLC) com correções de bugs da comunidade, e o resultado é adicionado como um mod.
+
+Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus — o pacote .mpi dentro do arquivo é detectado automaticamente.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Abrir página Nexus</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Selecione a pasta Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>ESM Fixes package:</source>
+        <translation>Pacote ESM Fixes:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Escolher arquivo..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Detectar novamente</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continuar</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Explorar…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— não definido —</translation>
+    </message>
+    <message>
+        <source>Looking for the ESM Fixes download…</source>
+        <translation>À procura do ESM Fixes download..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Usando pacote extraído anteriormente.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Arquivo não encontrado em suas pastas de download — baixe-o do Nexus e clique em Detectar novamente (ou Escolher arquivo...).</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Extraindo o pacote .mpi do {0}..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Detectado automaticamente a partir de {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Falha ao detectar automaticamente: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
+        <translation>Baixando o pacote ESM Fixes do Nexus... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
+        <translation>Conta Premium — baixar o pacote ESM Fixes da Nexus..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Arquivo não encontrado — baixe-o do Nexus (botão acima). Ele será captado automaticamente assim que o download terminar.</translation>
+    </message>
+    <message>
+        <source>Select the ESM Fixes .mpi or its archive</source>
+        <translation>Selecione o ESM Corrige .mpi ou seu arquivo</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>Pacote ou arquivo MPI</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Todos os arquivos</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Selecionado: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Usando o .mpi de {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Erro: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
+        <translation>Selecione o pacote ESM Fixes .mpi (ou seu arquivo baixado).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>A pasta «Fallout New Vegas» não está definida.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>A começar…</translation>
+    </message>
+    <message>
+        <source>Step 3: Patching the vanilla masters</source>
+        <translation>Passo 3: Patching os mestres de baunilha</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>O jogo é primeiro restaurado para um estado de baunilha, em seguida, o instalador patches o mestre de baunilha .esm com a comunidade bugfixes.
+A saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Falta o binário do instalador. Reinicie o assistente e deixe-o instalar primeiro.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Restaurando jogo para baunilha..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Restaurando jogo para um estado de baunilha antes de instalar..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>A restauração falhou — veja o log. Corrigir o problema (ou restaurar manualmente através do botão Restaurar) e tentar novamente.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>O caminho de estadiamento do mod não está configurado.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>ERRO: faltando arquivos de plug-in de baunilha:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Arquivos de plugin de baunilha ausentes, mesmo depois de restaurar a baunilha — estes nunca foram backup.
+No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arquivos Instalados → Verifique a integridade dos arquivos do jogo e, em seguida, tente novamente.
+
+{0}</translation>
+    </message>
+    <message>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <translation>AVISO: FalloutNV.exe é 4GB-patched. O instalador verifica o exe do jogo e pode recusar-se a executar — se falhar abaixo, restaure o exe original através do assistente de 4GB Patch, execute isto novamente, em seguida, reaplique o patch de 4GB.</translation>
+    </message>
+    <message>
+        <source>Patching… (see log below)</source>
+        <translation>Aplicando patch... (ver log abaixo)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Erro de lançamento: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>O instalador terminou com erro (código {0}). Veja o registro para mais detalhes.</translation>
+    </message>
+    <message>
+        <source>Patching complete — registering mod…</source>
+        <translation>A patch foi completada — registrando mod..</translation>
+    </message>
+    <message>
+        <source>Patching finished but registering the mod failed: {0}</source>
+        <translation>O patch terminou, mas o registro do mod falhou: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Feito! '{0}' foi adicionado à sua lista de mods. Activar e implantar.</translation>
+    </message>
+</context>
+<context>
     <name>EngineFixesView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -2720,6 +3509,30 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     <message>
         <source>All files</source>
         <translation>Todos os arquivos</translation>
+    </message>
+    <message>
+        <source>Preparing export…</source>
+        <translation>A preparar a exportação..</translation>
+    </message>
+    <message>
+        <source>Packing mod: {0}</source>
+        <translation>Modo de embalagem: {0}</translation>
+    </message>
+    <message>
+        <source>Packing overwrite files…</source>
+        <translation>A embalar ficheiros de substituição..</translation>
+    </message>
+    <message>
+        <source>Packing profile files…</source>
+        <translation>A embalar ficheiros de perfil..</translation>
+    </message>
+    <message>
+        <source>Packing…</source>
+        <translation>A empacotar..</translation>
+    </message>
+    <message>
+        <source>Exporting profile</source>
+        <translation>Exportando perfil</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -3147,6 +3960,14 @@ Pode já ser modificado. Verifique os arquivos de jogo no Steam/Heroic para obte
     <message>
         <source>Finish</source>
         <translation>Concluir</translation>
+    </message>
+    <message>
+        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>Recentemente disponível — o plugin necessário desta opção está agora instalado desde a sua última execução deste instalador.</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <translation>O plug-in obrigatório desta opção não está habilitado — habilite-o primeiro, ou selecione isso apenas se você planeja adicioná-lo.</translation>
     </message>
     <message>
         <source>Click to view full size</source>
@@ -3794,10 +4615,6 @@ Pode já ser modificado. Verifique os arquivos de jogo no Steam/Heroic para obte
         <translation>Suporte de 32 bits instalado — reinicie o aplicativo antes de executar as ferramentas do Windows.</translation>
     </message>
     <message>
-        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
-        <translation>Não foi possível instalar o suporte de 32 bits automaticamente — veja o log do comando manual.</translation>
-    </message>
-    <message>
         <source>Install-name Rules</source>
         <translation>Regras de nomes de instalação</translation>
     </message>
@@ -4042,10 +4859,6 @@ Deseja remover a entrada da coleção anexada?</translation>
         <translation>Cancelar a instalação?</translation>
     </message>
     <message>
-        <source>This will stop the install and delete the collection profile.</source>
-        <translation>Isto irá parar a instalação e excluir o perfil da coleção.</translation>
-    </message>
-    <message>
         <source>Cancel Install</source>
         <translation>Cancelar a Instalação</translation>
     </message>
@@ -4112,6 +4925,74 @@ Baixe e instale-os manualmente — os links estão no painel de "mods off-site" 
     <message>
         <source>OK</source>
         <translation>OK</translation>
+    </message>
+    <message>
+        <source>32-bit support could not be installed</source>
+        <translation>não foi possível instalar o suporte de 32 bits</translation>
+    </message>
+    <message>
+        <source>Amethyst could not install 32-bit support automatically. Windows tools (and some games) may fail to run until it is installed. Run this on a terminal, then restart the app:
+
+{0}</source>
+        <translation>Não foi possível instalar o suporte de 32 bits automaticamente. Ferramentas do Windows (e alguns jogos) podem falhar até que seja instalado. Execute isso em um terminal e reinicie o aplicativo:
+
+{0}</translation>
+    </message>
+    <message>
+        <source>Don't show again</source>
+        <translation>Não apareças outra vez</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>Atualizar plug- ins</translation>
+    </message>
+    <message>
+        <source>Force update handler</source>
+        <translation>Forçar o manipulador de atualização</translation>
+    </message>
+    <message>
+        <source>Updating handler…</source>
+        <translation>A actualizar o controlador..</translation>
+    </message>
+    <message>
+        <source>Handler update failed — check your connection.</source>
+        <translation>A atualização do manipulador falhou — verifique sua conexão.</translation>
+    </message>
+    <message>
+        <source>Handler not found on the Resources branch.</source>
+        <translation>O manipulador não foi encontrado no ramo Recursos.</translation>
+    </message>
+    <message>
+        <source>Handler is already up to date.</source>
+        <translation>O encarregado já está actualizado.</translation>
+    </message>
+    <message>
+        <source>Handler updated.</source>
+        <translation>O encarregado está actualizado.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>beta</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>estável</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
+        <translation>O canal {0} ainda não foi publicado no controle remoto de atualização — tente novamente após a próxima versão do {0}.</translation>
+    </message>
+    <message>
+        <source>An install is finishing — try the collection again in a moment.</source>
+        <translation>Uma instalação está terminando — tente a coleção novamente em um momento.</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the new profile '{0}'.</source>
+        <translation>Isso irá parar a instalação e excluir o novo perfil '{0}'.</translation>
+    </message>
+    <message>
+        <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
+        <translation>Isto irá parar a instalação. O perfil '{0}' e seus mods já instalados serão mantidos.</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -4494,6 +5375,26 @@ Baixe e instale-os manualmente — os links estão no painel de "mods off-site" 
         <translation>Nenhum executável encontrado na fase.</translation>
     </message>
     <message>
+        <source>No game folder configured.</source>
+        <translation>Nenhuma pasta de jogo configurada.</translation>
+    </message>
+    <message>
+        <source>No executables found in the game folder.</source>
+        <translation>Nenhum executável encontrado na pasta do jogo.</translation>
+    </message>
+    <message>
+        <source>Add executable from game folder</source>
+        <translation>Adicionar executável da pasta do jogo</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
+        <translation>Verifique os executáveis a adicionar ao menu Executar. Estes são executados a partir de sua localização na pasta de jogo — incluindo arquivos implantados lá por mods.</translation>
+    </message>
+    <message>
+        <source>Play failed — see log.</source>
+        <translation>Falha na reprodução — veja log.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Ficheiro executável não encontrado: {0}</translation>
     </message>
@@ -4710,6 +5611,10 @@ Baixe e instale-os manualmente — os links estão no painel de "mods off-site" 
         <translation>{0} instalado</translation>
     </message>
     <message>
+        <source>Restore queued — it will run after the current install finishes.</source>
+        <translation>Restaurar em fila — ele será executado após a instalação atual terminar.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>Mods instalados no «{0}»</translation>
     </message>
@@ -4878,6 +5783,18 @@ Baixe e instale-os manualmente — os links estão no painel de "mods off-site" 
         <translation>{0} plugins ({1} ESL, {2} não-ESL)</translation>
     </message>
     <message>
+        <source>Refreshing LOOT metadata for {0} plugins…</source>
+        <translation>Atualizando metadados LOOT para plug-ins {0}..</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed — see log.</source>
+        <translation>Falha na atualização do LOOT — veja log.</translation>
+    </message>
+    <message>
+        <source>Plugin metadata refreshed.</source>
+        <translation>Actualizar os meta- dados do plug- in.</translation>
+    </message>
+    <message>
         <source>LOOT library not available — cannot check overlap.</source>
         <translation>Biblioteca LOOT não disponível — não é possível verificar sobreposição.</translation>
     </message>
@@ -4904,6 +5821,10 @@ Baixe e instale-os manualmente — os links estão no painel de "mods off-site" 
     <message>
         <source>+ Add exe from staging…</source>
         <translation>+ Adicionar exe da encenação..</translation>
+    </message>
+    <message>
+        <source>+ Add exe from game folder…</source>
+        <translation>+ Adicionar exe da pasta do jogo..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -5733,6 +6654,10 @@ Clique em Concluído para fechar.</translation>
         <translation>Requisitos em falta</translation>
     </message>
     <message>
+        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <translation>O plugin da opção de patch FOMOD está agora instalado — clique para repetir o instalador do FOMOD</translation>
+    </message>
+    <message>
         <source>Update available on Nexus Mods</source>
         <translation>Atualizar disponível em Mods Nexus</translation>
     </message>
@@ -6253,6 +7178,10 @@ Pode ignorar este passo e ligar-se mais tarde através do botão Nexus na barra 
     <message>
         <source>Default: {0}</source>
         <translation>Valor predefinido: {0}</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;nome do jogo&gt;</translation>
     </message>
     <message>
         <source>Leave blank to use the default</source>
@@ -8255,6 +9184,22 @@ Mesclar seus conflitos, então fechá-lo e clique em Concluído.</translation>
         <translation>As extrações são limitadas pela memória disponível; o número efetivo pode ser inferior ao definido.</translation>
     </message>
     <message>
+        <source>Download speed limit</source>
+        <translation>Limite de velocidade de download</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Ilimitado</translation>
+    </message>
+    <message>
+        <source>{0} MB/s</source>
+        <translation>{0} MB/ s</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>Cap a velocidade de download combinada de todos os downloads (coleções, mods simples, links nxm) para que eles não usem toda a conexão. Aplica-se imediatamente, incluindo para uma instalação de coleção em execução.</translation>
+    </message>
+    <message>
         <source>Extraction CPU threads</source>
         <translation>Linhas de extracção de CPU</translation>
     </message>
@@ -8327,6 +9272,66 @@ Mesclar seus conflitos, então fechá-lo e clique em Concluído.</translation>
         <translation>Ofereça também versões beta e candidatas a lançamento das aplicações ao verificar se há atualizações.</translation>
     </message>
     <message>
+        <source>Notify about new versions on startup</source>
+        <translation>Notificar sobre novas versões no início</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Mostrar uma notificação quando estiver disponível uma nova versão do Amethyst. Desligar isso só muda a notificação — você ainda pode atualizar através do gerenciador de pacotes ou alternando a configuração pré-lançamento.</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates…</source>
+        <translation>Habilitar atualizações automáticas..</translation>
+    </message>
+    <message>
+        <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
+        <translation>Mude este Flatpak para o remoto de atualização Amethyst para futuras atualizações chegam automaticamente através do seu gerenciador de pacotes (GNOME Software / Discover) com downloads menores. Isso reinstala o aplicativo uma vez do controle remoto e o libera.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>beta</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>estável</translation>
+    </message>
+    <message>
+        <source>Channel not available</source>
+        <translation>Canal não disponível</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet. Try again after the next {0} release (or change the pre-release setting).</source>
+        <translation>O canal {0} ainda não foi publicado no remoto de atualização. Tente novamente após a próxima versão {0} (ou mude a configuração pré-lançamento).</translation>
+    </message>
+    <message>
+        <source>Could not reach Flatpak</source>
+        <translation>Não foi possível alcançar Flatpak</translation>
+    </message>
+    <message>
+        <source>The host Flatpak service couldn't be reached. You can add the remote manually:
+
+flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</source>
+        <translation>O serviço Flatpak não foi alcançado. Você pode adicionar o controle remoto manualmente:
+
+flatpak remote-add -- user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates?</source>
+        <translation>Habilitar atualizações automáticas?</translation>
+    </message>
+    <message>
+        <source>Amethyst will add its update remote and reinstall itself from it once, then relaunch. Future updates then arrive automatically through your package manager.</source>
+        <translation>Amethyst irá adicionar sua atualização remota e reinstalar-se dele uma vez, em seguida, relançar. As atualizações futuras chegam automaticamente através do gerenciador de pacotes.</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Ativar</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
         <source>Paths</source>
         <translation>Caminhos</translation>
     </message>
@@ -8337,6 +9342,10 @@ Mesclar seus conflitos, então fechá-lo e clique em Concluído.</translation>
     <message>
         <source>When set, games added after this point stage mods here. Blank = default ({0}).</source>
         <translation>Quando definido, os jogos adicionados a partir deste momento serão modificados aqui. Em branco = predefinição ({0}).</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;nome do jogo&gt;</translation>
     </message>
     <message>
         <source>Download Cache Folder</source>
@@ -8842,22 +9851,6 @@ Clique em «Instalar» para começar.</translation>
     <message>
         <source>Contacting GitHub…</source>
         <translation>A contactar o GitHub…</translation>
-    </message>
-    <message>
-        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
-        <translation>Nenhum ativo instalador Linux encontrado na versão mais recente do TTW ({0}).</translation>
-    </message>
-    <message>
-        <source>Downloading TTW installer {0}…</source>
-        <translation>Baixando o instalador do TTW {0}..</translation>
-    </message>
-    <message>
-        <source>Extracting installer…</source>
-        <translation>Extraindo o instalador..</translation>
-    </message>
-    <message>
-        <source>{0} not found after extraction at {1}.</source>
-        <translation>{0} não encontrado após a extração em {1}.</translation>
     </message>
     <message>
         <source>Installer ready.</source>
@@ -10414,6 +11407,10 @@ Atual: {0}
 Mais recente:  {1}</translation>
     </message>
     <message>
+        <source>Don't notify me about new versions</source>
+        <translation>Não me notifique sobre novas versões</translation>
+    </message>
+    <message>
         <source>Switch to stable</source>
         <translation>Mudar para a versão estável</translation>
     </message>
@@ -10482,6 +11479,10 @@ Mais recente:  {1}</translation>
     <message>
         <source>Open Download Page</source>
         <translation>Abrir a página de downloads</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Transferido: {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -10692,6 +11693,10 @@ Para o obter:
   3. Deixe o arquivo na sua pasta «Downloads» e clique em «Seguinte».
 
 Este arquivo contém o xFOEdit (Fallout), o xSFEdit (Starfield) e o xTESEdit (Elder Scrolls); o assistente executa automaticamente o correspondente a este jogo.</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Transferido: {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>

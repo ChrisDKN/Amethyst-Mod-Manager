@@ -2,6 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="cs" sourcelanguage="en">
 <context>
+    <name />
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Downloading {0} from Nexus… {1}%</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Premium account — downloading {0} from Nexus…</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>The archive is picked up automatically once the download finishes.</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -108,6 +126,257 @@ Spusťte příkaz „Deploy“, aby se nové pořadí načítání modů uplatni
     </message>
 </context>
 <context>
+    <name>BSADecompressorView</name>
+    <message>
+        <source>BSA Decompressor — {0}</source>
+        <translation>BSA Dekompressor - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Krok 1: Nainstalujte MPI Installer</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>Nativní Linux MPI instalátor (také používaný pro Příběh dvou Wastelands) bude stažen z GitHub
+a umístěn do složky aplikace této hry.
+
+Klepněte na tlačítko Install pro začátek.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Instalační program od SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Nainstalovat</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Navazování spojení s GitHubem…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Instalátor připraven.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Chyba instalace: {0}</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor output is already installed</source>
+        <translation>BSA dekompresor výstup je již nainstalován</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
+        <translation>Mod '{0}' je již ve vašem seznamu modů - není zde nic, co by se dalo znovu použít, takže můžete jednoduše uzavřít tohoto čaroděje.
+
+Rebuild od nuly obnovuje hru na vanilku a běží dekompresor znovu (potřebuje .mpi balíček).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Začít úplně od začátku</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Hotovo</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Krok 2: Složka hry a balíček</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>BSA Decompressor přestaví vanilkové BSA archivy bez komprese pro rychlejší načítání a výsledek se přidá jako mod.
+
+Stáhnout hlavní soubor 'FNV BSA Decompressor' z Nexus - .mpi balíček uvnitř archivu je automaticky detekován.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Otevřít stránku Nexus</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Vyberte složku Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor package:</source>
+        <translation>Balíček dekompresoru BSA:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Vyberte soubor..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Zjisti to znovu</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Pokračovat</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Procházet…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— není zadáno —</translation>
+    </message>
+    <message>
+        <source>Looking for the BSA Decompressor download…</source>
+        <translation>Hledám stažení BSA Decompressor..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Použití dříve extrahovaného balíčku.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Archiv není nalezen ve vašich složkách ke stažení - stáhnout z Nexus, pak klikněte na tlačítko Zjistit znovu (nebo Zvolte soubor...).</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Extrakce .mpi balíčku z {0}..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Automaticky detekován z {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Autodetekce selhala: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
+        <translation>Stahování BSA dekompresoru z Nexu... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
+        <translation>Premium účet - stahování BSA Decompressor balíčku z Nexus..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Archiv nenalezen - stáhnout z Nexus (tlačítko nahoře). Jakmile bude stahování dokončeno, bude automaticky vyzvednuto.</translation>
+    </message>
+    <message>
+        <source>Select the BSA Decompressor .mpi or its archive</source>
+        <translation>Vyberte BSA Decompressor .mpi nebo jeho archiv</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>Balíček nebo archiv MPI</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Všechny soubory</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Vybrané: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Používám .mpi z {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Chyba: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the BSA Decompressor .mpi package (or its downloaded archive).</source>
+        <translation>Vyberte prosím balíček BSA Decompressor .mpi (nebo jeho stažený archiv).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>Složka pro hru Fallout New Vegas není nastavena.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>Začínáme…</translation>
+    </message>
+    <message>
+        <source>Step 3: Decompressing BSA archives</source>
+        <translation>Krok 3: Dekompressing BSA archivů</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>Hra je nejprve obnovena na vanilkový stav, pak instalátor přestaví vanilkové BSA archivy bez komprese. Může to chvíli trvat, prosím, nechte to běžet.
+Výstup je zapsán přímo do vašeho seznamu mod jako '{0}' mod.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Instalátor binárně chybí. Restartujte průvodce a nechte ho nainstalovat jako první.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Obnovení hry na vanilkové..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Obnovení hry do stavu vanilky před instalací..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Obnovení selhalo - viz záznam. Opravit problém (nebo obnovit ručně pomocí tlačítka Obnovit) a znovu.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod stagingová cesta není nastavena.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>Error: chybějící vanilkové plugin soubory:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Chybějící vanilkové plugin soubory i po obnovení vanilkové - tyto nebyly nikdy zálohovány.
+Ve službě Steam klepněte pravým tlačítkem myši na hru → Vlastnosti → Nainstalované soubory → Ověřte integritu herních souborů a poté znovu zkuste.
+
+{0}</translation>
+    </message>
+    <message>
+        <source>Decompressing… (see log below)</source>
+        <translation>Dekomprese... (viz níže)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Chyba spuštění: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>Installer vyšel s chybou (kód {0}). Podrobnosti naleznete v deníku.</translation>
+    </message>
+    <message>
+        <source>Build complete — registering mod…</source>
+        <translation>Sestavit kompletní - registrace mod..</translation>
+    </message>
+    <message>
+        <source>Build finished but registering the mod failed: {0}</source>
+        <translation>Stavba dokončena, ale registrace modu selhala: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>"{0}" byl přidán na váš seznam modů. Povolit a nasadit.</translation>
+    </message>
+</context>
+<context>
     <name>BackupRestoreView</name>
     <message>
         <source>Restore backup — {0}</source>
@@ -116,10 +385,6 @@ Spusťte příkaz „Deploy“, aby se nové pořadí načítání modů uplatni
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
         <translation>Vyberte zálohu, ze které chcete obnovit seznam modů a pluginy pro tento profil.</translation>
-    </message>
-    <message>
-        <source>No backups yet. Backups are created when you deploy.</source>
-        <translation>Zatím nejsou k dispozici žádné zálohy. Zálohy se vytvoří při nasazení.</translation>
     </message>
     <message>
         <source>New backup</source>
@@ -134,12 +399,28 @@ Spusťte příkaz „Deploy“, aby se nové pořadí načítání modů uplatni
         <translation>Uchovat</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation>Zrušit</translation>
+        <source>Remove</source>
+        <translation>Odstranit</translation>
     </message>
     <message>
         <source>Restore</source>
         <translation>Obnovit</translation>
+    </message>
+    <message>
+        <source>User backups</source>
+        <translation>Uživatelské zálohy</translation>
+    </message>
+    <message>
+        <source>No user backups. Use New backup, or Keep an automated one.</source>
+        <translation>Žádné zálohy pro uživatele. Použijte novou zálohu, nebo si nechte automatickou.</translation>
+    </message>
+    <message>
+        <source>Automated backups</source>
+        <translation>Automatické zálohování</translation>
+    </message>
+    <message>
+        <source>No automated backups yet. One is created every time you deploy.</source>
+        <translation>Zatím žádné automatické zálohy. Jeden je vytvořen pokaždé, když se nasadíte.</translation>
     </message>
     <message>
         <source>Kept</source>
@@ -168,6 +449,14 @@ Spusťte příkaz „Deploy“, aby se nové pořadí načítání modů uplatni
     <message>
         <source>Enter a name for this backup (leave blank to use the date).</source>
         <translation>Zadejte název této zálohy (pokud pole ponecháte prázdné, použije se datum).</translation>
+    </message>
+    <message>
+        <source>Remove backup</source>
+        <translation>Odstranit zálohu</translation>
+    </message>
+    <message>
+        <source>Remove backup "{0}"? This cannot be undone.</source>
+        <translation>Odstranit záložní "{0}"? To se nedá odčinit.</translation>
     </message>
 </context>
 <context>
@@ -806,6 +1095,22 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     <message>
         <source>Installing / Extracting</source>
         <translation>Instalace / Rozbalení</translation>
+    </message>
+    <message>
+        <source>Speed limit:</source>
+        <translation>Omezení rychlosti:</translation>
+    </message>
+    <message>
+        <source> MB/s</source>
+        <translation>MB / s</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Bez omezení</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of this install. 0 = use the full connection. Applies immediately.</source>
+        <translation>Kryjte kombinovanou rychlost stahování této instalace. 0 = plné připojení. Platí okamžitě.</translation>
     </message>
     <message>
         <source>Pause</source>
@@ -1490,6 +1795,219 @@ Zavřít, když jste hotovi, pak klepněte na tlačítko Hotovo.</translation>
     </message>
 </context>
 <context>
+    <name>CuratedProfileView</name>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>Nainstalovat {0} - {1}</translation>
+    </message>
+    <message>
+        <source>Install the {0} modlist</source>
+        <translation>Nainstalovat {0} modlist</translation>
+    </message>
+    <message>
+        <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
+
+The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+        <translation>Tento průvodce stáhne profil '{0}' a otevře dovozce profilu, který nainstaluje modlist do nového profilu.
+
+Mods jsou staženy z Nexus Mods - přihlaste se jako první (Nexus ÇLogin Nexus), pokud nemáte.</translation>
+    </message>
+    <message>
+        <source>Open guide website</source>
+        <translation>Otevřít webové stránky průvodce</translation>
+    </message>
+    <message>
+        <source>Also install Ultimate Edition ESM Fixes (recommended)</source>
+        <translation>Také nainstalujte Ultimate Edition ESM Fixes (doporučeno)</translation>
+    </message>
+    <message>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>Záplaty vanilkových misterů .esm s komunitními chybami po instalaci modlistu. Je příliš velký na svazek, takže běží jako další krok - potřebuje 'Ultimate Edition ESM Fixes Remastered' stáhnout z Nexus.</translation>
+    </message>
+    <message>
+        <source>Also run the FNV BSA Decompressor (recommended)</source>
+        <translation>Spustit také dekompresor FNV BSA (doporučený)</translation>
+    </message>
+    <message>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>Obnovit vanilkové BSA archivy bez komprese pro rychlejší načítání, přidáno jako mod po instalaci modlistu - potřebuje stahování 'FNV BSA Decompressor' od Nexus. Lze také spustit později prostřednictvím svého vlastního průvodce.</translation>
+    </message>
+    <message>
+        <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
+        <translation>Náplast 4GB se aplikuje na FalloutNV.exe jako závěrečný krok (původní exe jako záloha).</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the modlist profile</source>
+        <translation>Krok 1: Stáhněte si profil seznamu změn</translation>
+    </message>
+    <message>
+        <source>Downloading '{0}' from GitHub…</source>
+        <translation>Stahuji {0} z GitHubu..</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Zkusit znovu</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Navazování spojení s GitHubem…</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>Stahování selhalo: {0}</translation>
+    </message>
+    <message>
+        <source>Premium account — the wizard continues automatically when the import completes.</source>
+        <translation>Premium účet - průvodce automaticky pokračuje, když import dokončí.</translation>
+    </message>
+    <message>
+        <source>Could not read manifest: {0}</source>
+        <translation>Nepodařilo se načíst manifest: {0}</translation>
+    </message>
+    <message>
+        <source>Import is unavailable here.</source>
+        <translation>Import je nedostupný.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install the modlist</source>
+        <translation>Krok 2: Nainstalujte modlist</translation>
+    </message>
+    <message>
+        <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
+
+When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+        <translation>Dokončit instalaci v záložce Import: zvolte název profilu a stiskněte Install. Mods jsou staženy z Nexus, což může chvíli trvat.
+
+Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stiskněte Pokračovat.</translation>
+    </message>
+    <message>
+        <source>Reopen import tab</source>
+        <translation>Znovu otevřít kartu importu</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Pokračovat</translation>
+    </message>
+    <message>
+        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <translation>Aktivní profil se nezměnil - import nevypadá dokončený. Dokončete to v záložce Import, nebo stiskněte Pokračovat tak jako tak.</translation>
+    </message>
+    <message>
+        <source>Checking FalloutNV.exe…</source>
+        <translation>Kontroluji FalloutNV.exe..</translation>
+    </message>
+    <message>
+        <source>Final step: Apply the 4GB Patch</source>
+        <translation>Závěrečný krok: Aplikujte 4GB Patch</translation>
+    </message>
+    <message>
+        <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
+        <translation>FalloutNV.exe je zálohován, takže hra může při spuštění automaticky použít 4 GB paměti a načíst NVSE. Původní exe je udržován jako záloha (lze obnovit pomocí 4GB Patch průvodce).</translation>
+    </message>
+    <message>
+        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <translation>Cesta ke hře není nastavena - přeskočení 4GB patch.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>{0} je už 4GB.</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <translation>{0} není nalezen ve složce hry - přeskakuje 4GB patch.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>Neznámá verze {0} - skákání. Ověřte herní soubory ve službě Steam / Heroic a pak ručně spusťte průvodce 4GB Patch.</translation>
+    </message>
+    <message>
+        <source>Patching {0}…</source>
+        <translation>Oprava souboru {0}…</translation>
+    </message>
+    <message>
+        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <translation>Zásilka {0} (verze {1}) - originál uložen jako {2}.</translation>
+    </message>
+    <message>
+        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <translation>Záplata selhala: {0} - průvodce 4GB záplaty můžete spustit manuálně později.</translation>
+    </message>
+    <message>
+        <source>All done</source>
+        <translation>Hotovo</translation>
+    </message>
+    <message>
+        <source>The {0} profile is set up. Review the mod list, then Deploy and play.</source>
+        <translation>{0} profil je nastaven. Projděte si seznam modů, pak nasaďte a hrajte.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Hotovo</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameExportOverlay</name>
+    <message>
+        <source>Export game</source>
+        <translation>Exportovat hru</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone your "{0}" custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Sdílet tento kód poslat někomu vlastní nastavení hry "{0}". Mohou jej přidat s importním kódem v Definovat vlastní hru.</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone this custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Sdílet tento kód poslat někomu tento vlastní nastavení hry. Mohou jej přidat s importním kódem v Definovat vlastní hru.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Zavřít</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Kopírovat do schránky</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Name</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameImportOverlay</name>
+    <message>
+        <source>Import game</source>
+        <translation>Importovat hru</translation>
+    </message>
+    <message>
+        <source>Paste a share code below to prefill the form from another custom game's setup. You still need to give it a unique name.</source>
+        <translation>Vložte níže kód sdílení pro předvyplnění formuláře z jiného nastavení vlastní hry. Pořád tomu musíte dát jedinečné jméno.</translation>
+    </message>
+    <message>
+        <source>Paste from clipboard</source>
+        <translation>Vložit z schránky</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Zrušit</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importovat</translation>
+    </message>
+    <message>
+        <source>Not a valid game code.</source>
+        <translation>To není platný herní kód.</translation>
+    </message>
+    <message>
+        <source>{0} deploy</source>
+        <translation>{0} nasazení</translation>
+    </message>
+</context>
+<context>
     <name>CustomGameView</name>
     <message>
         <source>Standard</source>
@@ -1620,6 +2138,10 @@ Zavřít, když jste hotovi, pak klepněte na tlačítko Hotovo.</translation>
         <translation>Definovat vlastní hru</translation>
     </message>
     <message>
+        <source>Export code…</source>
+        <translation>Vývozní kód..</translation>
+    </message>
+    <message>
         <source>Load Preset  (optional)</source>
         <translation>Předložení (nepovinné)</translation>
     </message>
@@ -1630,6 +2152,18 @@ Zavřít, když jste hotovi, pak klepněte na tlačítko Hotovo.</translation>
     <message>
         <source>— Select a game to copy from —</source>
         <translation>- Vyberte hru pro kopírování z -</translation>
+    </message>
+    <message>
+        <source>{0}  (built-in template)</source>
+        <translation>{0} (built- in šablona)</translation>
+    </message>
+    <message>
+        <source>Or paste a share code exported from another custom game to prefill every field below.</source>
+        <translation>Nebo vložit kód akcie vyvážený z jiné vlastní hry předvyplnit každé pole níže.</translation>
+    </message>
+    <message>
+        <source>Import code…</source>
+        <translation>Dovozní kód..</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -2422,6 +2956,261 @@ Zavřít, když jste hotovi, pak klepněte na tlačítko Hotovo.</translation>
     </message>
 </context>
 <context>
+    <name>ESMFixesView</name>
+    <message>
+        <source>Ultimate Edition ESM Fixes — {0}</source>
+        <translation>Ultimate Edition ESM Fixy - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Krok 1: Nainstalujte MPI Installer</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>Nativní Linux MPI instalátor (také používaný pro Příběh dvou Wastelands) bude stažen z GitHub
+a umístěn do složky aplikace této hry.
+
+Klepněte na tlačítko Install pro začátek.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Instalační program od SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Nainstalovat</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Navazování spojení s GitHubem…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Instalátor připraven.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Chyba instalace: {0}</translation>
+    </message>
+    <message>
+        <source>The ESM Fixes output is already installed</source>
+        <translation>Výstup ESM Fixy je již nainstalován</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
+        <translation>Mod '{0}' je již ve vašem seznamu modů - není zde nic, co by se dalo znovu použít, takže můžete jednoduše uzavřít tohoto čaroděje.
+
+Přestavět od nuly obnovuje hru na vanilku a běží patcher znovu (potřebuje .mpi balíček).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Začít úplně od začátku</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Hotovo</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Krok 2: Složka hry a balíček</translation>
+    </message>
+    <message>
+        <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>Konečné vydání ESM Upevňuje mistry vanilkových .esm (FalloutNV + všechny DLC) s komunitními chybami a výsledek se přidává jako mod.
+
+Stáhnout 'Ultimate Edition ESM Fixes Remastered' hlavní soubor z Nexus - .mpi balíček uvnitř archivu je automaticky detekován.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Otevřít stránku Nexus</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Vyberte složku Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>ESM Fixes package:</source>
+        <translation>Balíček ESM fixy:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Vyberte soubor..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Zjisti to znovu</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Pokračovat</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Procházet…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— není zadáno —</translation>
+    </message>
+    <message>
+        <source>Looking for the ESM Fixes download…</source>
+        <translation>Hledáte stahování ESM Fixů..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Použití dříve extrahovaného balíčku.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Archiv není nalezen ve vašich složkách ke stažení - stáhnout z Nexus, pak klikněte na tlačítko Zjistit znovu (nebo Zvolte soubor...).</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Extrakce .mpi balíčku z {0}..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Automaticky detekován z {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Autodetekce selhala: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
+        <translation>Stahování balíku ESM fixů z Nexu... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
+        <translation>Premium účet - stahování balíčku ESM Fixes z Nexus..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Archiv nenalezen - stáhnout z Nexus (tlačítko nahoře). Jakmile bude stahování dokončeno, bude automaticky vyzvednuto.</translation>
+    </message>
+    <message>
+        <source>Select the ESM Fixes .mpi or its archive</source>
+        <translation>Vyberte ESM Fixes .mpi nebo jeho archiv</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>Balíček nebo archiv MPI</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Všechny soubory</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Vybrané: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Používám .mpi z {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Chyba: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
+        <translation>Vyberte prosím balíček ESM Fixes .mpi (nebo jeho stažený archiv).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>Složka pro hru Fallout New Vegas není nastavena.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>Začínáme…</translation>
+    </message>
+    <message>
+        <source>Step 3: Patching the vanilla masters</source>
+        <translation>Krok 3: Zarovnání vanilkových mistrů</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>Hra je nejprve obnovena na vanilkový stav, pak instalátor záplaty vanilkových mistrů .esm s komunitní chyby.
+Výstup je zapsán přímo do vašeho seznamu mod jako '{0}' mod.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Instalátor binárně chybí. Restartujte průvodce a nechte ho nainstalovat jako první.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Obnovení hry na vanilkové..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Obnovení hry do stavu vanilky před instalací..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Obnovení selhalo - viz záznam. Opravit problém (nebo obnovit ručně pomocí tlačítka Obnovit) a znovu.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod stagingová cesta není nastavena.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>Error: chybějící vanilkové plugin soubory:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Chybějící vanilkové plugin soubory i po obnovení vanilkové - tyto nebyly nikdy zálohovány.
+Ve službě Steam klepněte pravým tlačítkem myši na hru → Vlastnosti → Nainstalované soubory → Ověřte integritu herních souborů a poté znovu zkuste.
+
+{0}</translation>
+    </message>
+    <message>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <translation>VAROVÁNÍ: FalloutNV.exe je 4GB-patch. Instalátor ověřuje herní exe a může odmítnout spustit - pokud selže níže, obnoví původní exe pomocí 4GB Patch průvodce, spustit znovu, pak znovu použít 4GB patch.</translation>
+    </message>
+    <message>
+        <source>Patching… (see log below)</source>
+        <translation>Záplata... (viz níže)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Chyba spuštění: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>Installer vyšel s chybou (kód {0}). Podrobnosti naleznete v deníku.</translation>
+    </message>
+    <message>
+        <source>Patching complete — registering mod…</source>
+        <translation>Zápis kompletní - registrace mod..</translation>
+    </message>
+    <message>
+        <source>Patching finished but registering the mod failed: {0}</source>
+        <translation>Záplata dokončena, ale registrace modu selhala: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>"{0}" byl přidán na váš seznam modů. Povolit a nasadit.</translation>
+    </message>
+</context>
+<context>
     <name>EngineFixesView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -2720,6 +3509,30 @@ Proton prefix: kliknutím na tlačítko 'Nainstalujte Java do prefixu' jednou, p
     <message>
         <source>All files</source>
         <translation>Všechny soubory</translation>
+    </message>
+    <message>
+        <source>Preparing export…</source>
+        <translation>Příprava exportu..</translation>
+    </message>
+    <message>
+        <source>Packing mod: {0}</source>
+        <translation>Balení mod: {0}</translation>
+    </message>
+    <message>
+        <source>Packing overwrite files…</source>
+        <translation>Balení přepsat soubory..</translation>
+    </message>
+    <message>
+        <source>Packing profile files…</source>
+        <translation>Balím profily..</translation>
+    </message>
+    <message>
+        <source>Packing…</source>
+        <translation>Balím..</translation>
+    </message>
+    <message>
+        <source>Exporting profile</source>
+        <translation>Exportační profil</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -3147,6 +3960,14 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
     <message>
         <source>Finish</source>
         <translation>Dokončit</translation>
+    </message>
+    <message>
+        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>Nově dostupné - tato volba vyžaduje plugin je nyní nainstalován od vašeho posledního spuštění tohoto instalátoru.</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <translation>Tato volba je vyžadována plugin není povolen - povolit nejprve, nebo vyberte to pouze pokud máte v plánu přidat.</translation>
     </message>
     <message>
         <source>Click to view full size</source>
@@ -3794,10 +4615,6 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
         <translation>32- bitová podpora nainstalována - restartujte aplikaci před spuštěním Windows nástrojů.</translation>
     </message>
     <message>
-        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
-        <translation>Nelze nainstalovat 32bitovou podporu automaticky - viz záznam pro manuální příkaz.</translation>
-    </message>
-    <message>
         <source>Install-name Rules</source>
         <translation>Instal- name Rules</translation>
     </message>
@@ -4042,10 +4859,6 @@ Chcete odstranit záznam z přidané sbírky?</translation>
         <translation>Zrušit instalaci?</translation>
     </message>
     <message>
-        <source>This will stop the install and delete the collection profile.</source>
-        <translation>Tím zastavíte instalaci a smažete profil sběru.</translation>
-    </message>
-    <message>
         <source>Cancel Install</source>
         <translation>Zrušit instalaci</translation>
     </message>
@@ -4112,6 +4925,74 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
     <message>
         <source>OK</source>
         <translation>Dobře</translation>
+    </message>
+    <message>
+        <source>32-bit support could not be installed</source>
+        <translation>32bitová podpora nemohla být nainstalována</translation>
+    </message>
+    <message>
+        <source>Amethyst could not install 32-bit support automatically. Windows tools (and some games) may fail to run until it is installed. Run this on a terminal, then restart the app:
+
+{0}</source>
+        <translation>Ametyst nemohl nainstalovat 32bitovou podporu automaticky. Nástroje Windows (a některé hry) nemusí běžet, dokud není nainstalován. Spusťte to na terminálu a pak restartujte aplikaci:
+
+{0}</translation>
+    </message>
+    <message>
+        <source>Don't show again</source>
+        <translation>Už se neukazuj</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>Obnovit moduly</translation>
+    </message>
+    <message>
+        <source>Force update handler</source>
+        <translation>Zprostředkovatel aktualizace sil</translation>
+    </message>
+    <message>
+        <source>Updating handler…</source>
+        <translation>Aktualizace..</translation>
+    </message>
+    <message>
+        <source>Handler update failed — check your connection.</source>
+        <translation>Aktualizace Handler selhala - zkontrolujte spojení.</translation>
+    </message>
+    <message>
+        <source>Handler not found on the Resources branch.</source>
+        <translation>Handler nebyl nalezen na pobočce Resources.</translation>
+    </message>
+    <message>
+        <source>Handler is already up to date.</source>
+        <translation>Handler je již aktuální.</translation>
+    </message>
+    <message>
+        <source>Handler updated.</source>
+        <translation>Správce aktualizován.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>beta</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>stabilní</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
+        <translation>{0} kanál ještě není zveřejněn na ovladači aktualizace - zkuste to znovu po dalším {0} vydání.</translation>
+    </message>
+    <message>
+        <source>An install is finishing — try the collection again in a moment.</source>
+        <translation>Končí instalace - za chvíli zkuste sbírku znovu.</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the new profile '{0}'.</source>
+        <translation>Tím zastavíte instalaci a smažete nový profil '{0}'.</translation>
+    </message>
+    <message>
+        <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
+        <translation>To zastaví instalaci. Bude zachován profil '{0}' a jeho already- instalovaný mods.</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -4494,6 +5375,26 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>V aranžmá nebyly nalezeny žádné vykonatelné předměty.</translation>
     </message>
     <message>
+        <source>No game folder configured.</source>
+        <translation>Není nastavena složka hry.</translation>
+    </message>
+    <message>
+        <source>No executables found in the game folder.</source>
+        <translation>Ve složce hry nebyly nalezeny žádné koncovky.</translation>
+    </message>
+    <message>
+        <source>Add executable from game folder</source>
+        <translation>Přidat spustitelný ze složky hry</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
+        <translation>Zkontrolujte, zda lze provést přidat do nabídky Run. Ty běží z jejich umístění ve složce hry - včetně souborů nasazených tam mods.</translation>
+    </message>
+    <message>
+        <source>Play failed — see log.</source>
+        <translation>Hra selhala - viz záznam.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Spustitelný soubor nebyl nalezen: {0}</translation>
     </message>
@@ -4710,6 +5611,10 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>Nainstalováno{0}</translation>
     </message>
     <message>
+        <source>Restore queued — it will run after the current install finishes.</source>
+        <translation>Obnovit frontu - spustí se po ukončení aktuální instalace.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>Nainstalované mody pro hru „{0}“</translation>
     </message>
@@ -4878,6 +5783,18 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>{0} pluginy ({1} ESL, {2} non-ESL)</translation>
     </message>
     <message>
+        <source>Refreshing LOOT metadata for {0} plugins…</source>
+        <translation>Osvěžující metadata LOOT pro moduly {0}..</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed — see log.</source>
+        <translation>LOOT obnova selhala - viz záznam.</translation>
+    </message>
+    <message>
+        <source>Plugin metadata refreshed.</source>
+        <translation>Name.</translation>
+    </message>
+    <message>
         <source>LOOT library not available — cannot check overlap.</source>
         <translation>Knihovna LOOT není k dispozici - nelze zkontrolovat překrytí.</translation>
     </message>
@@ -4904,6 +5821,10 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
     <message>
         <source>+ Add exe from staging…</source>
         <translation>+ Přidat exe z nastavení..</translation>
+    </message>
+    <message>
+        <source>+ Add exe from game folder…</source>
+        <translation>+ Přidat exe ze složky hry..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -5733,6 +6654,10 @@ Klepněte na tlačítko Hotovo pro uzavření.</translation>
         <translation>Chybějící požadavky</translation>
     </message>
     <message>
+        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <translation>Name</translation>
+    </message>
+    <message>
         <source>Update available on Nexus Mods</source>
         <translation>Aktualizace k dispozici na Nexus Mods</translation>
     </message>
@@ -6253,6 +7178,10 @@ Tento krok můžete přeskočit a připojit se později pomocí tlačítka Nexus
     <message>
         <source>Default: {0}</source>
         <translation>Výchozí nastavení: {0}</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt; název hry &gt;</translation>
     </message>
     <message>
         <source>Leave blank to use the default</source>
@@ -8255,6 +9184,22 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
         <translation>Extrakce jsou omezeny dostupnou pamětí; skutečný počet může být nižší než nastavený.</translation>
     </message>
     <message>
+        <source>Download speed limit</source>
+        <translation>Omezení rychlosti stahování</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Bez omezení</translation>
+    </message>
+    <message>
+        <source>{0} MB/s</source>
+        <translation>{0} MB / s</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>Kryjte kombinovanou rychlost stahování všech stahů (sbírky, jednotlivé módy, nxm odkazy), aby nepoužili celé spojení. Platí okamžitě, včetně běžící montážní sbírky.</translation>
+    </message>
+    <message>
         <source>Extraction CPU threads</source>
         <translation>Extrakce CPU závitů</translation>
     </message>
@@ -8327,6 +9272,66 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
         <translation>Při kontrole dostupnosti aktualizací nabízejte také beta verze a verze „release candidate“ aplikací.</translation>
     </message>
     <message>
+        <source>Notify about new versions on startup</source>
+        <translation>Upozorňovat na nové verze při spuštění</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Ukázat oznámení, kdy je k dispozici nová verze Ametystu. Vypnutí tohoto vypnutí pouze ztlumí oznámení - stále můžete aktualizovat prostřednictvím svého správce balíku nebo přepínáním nastavení předuvolnění.</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates…</source>
+        <translation>Povolit automatické aktualizace..</translation>
+    </message>
+    <message>
+        <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
+        <translation>Přepněte tento Flatpak na vzdálený ovladač aktualizace Ametyst, takže budoucí aktualizace dorazí automaticky přes správce balíčku (GNOME Software / Discover) s menšími stahy. To obnoví aplikaci jednou ze vzdáleného a obnoví ji.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>beta</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>stabilní</translation>
+    </message>
+    <message>
+        <source>Channel not available</source>
+        <translation>Kanál není k dispozici</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet. Try again after the next {0} release (or change the pre-release setting).</source>
+        <translation>{0} kanál ještě není zveřejněn na ovladači aktualizace. Zkuste to znovu po dalším {0} vydání (nebo změnit nastavení pre- release).</translation>
+    </message>
+    <message>
+        <source>Could not reach Flatpak</source>
+        <translation>Nelze dosáhnout Flatpak</translation>
+    </message>
+    <message>
+        <source>The host Flatpak service couldn't be reached. You can add the remote manually:
+
+flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</source>
+        <translation>Hostitel Flatpak se nemohl dostavit. Vzdálený ovladač můžete přidat ručně:
+
+ametyst.flatpakrepo</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates?</source>
+        <translation>Povolit automatické aktualizace?</translation>
+    </message>
+    <message>
+        <source>Amethyst will add its update remote and reinstall itself from it once, then relaunch. Future updates then arrive automatically through your package manager.</source>
+        <translation>Ametyst přidá svou aktualizaci na dálku a jednou se z ní znovu nainstaluje a pak se obnoví. Budoucí aktualizace pak automaticky dorazí přes správce balíčku.</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Povolit</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Zrušit</translation>
+    </message>
+    <message>
         <source>Paths</source>
         <translation>Cesty</translation>
     </message>
@@ -8337,6 +9342,10 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
     <message>
         <source>When set, games added after this point stage mods here. Blank = default ({0}).</source>
         <translation>Je-li tato možnost nastavena, hry přidané po tomto okamžiku se zde zařadí do modů. Prázdné pole = výchozí nastavení ({0}).</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt; název hry &gt;</translation>
     </message>
     <message>
         <source>Download Cache Folder</source>
@@ -8842,22 +9851,6 @@ Kliknutím na tlačítko „Install“ spusťte instalaci.</translation>
     <message>
         <source>Contacting GitHub…</source>
         <translation>Navazování spojení s GitHubem…</translation>
-    </message>
-    <message>
-        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
-        <translation>Žádný Linux installer aktivum nalezeno v nejnovější TTW verzi ({0}).</translation>
-    </message>
-    <message>
-        <source>Downloading TTW installer {0}…</source>
-        <translation>Stahuji TTW instalátor {0}..</translation>
-    </message>
-    <message>
-        <source>Extracting installer…</source>
-        <translation>Extrakce instalátoru..</translation>
-    </message>
-    <message>
-        <source>{0} not found after extraction at {1}.</source>
-        <translation>{0} nebyl nalezen po extrakci na {1}.</translation>
     </message>
     <message>
         <source>Installer ready.</source>
@@ -10414,6 +11407,10 @@ Aktuální verze: {0}
 Nejnovější verze:  {1}</translation>
     </message>
     <message>
+        <source>Don't notify me about new versions</source>
+        <translation>Neinformujte mě o nových verzích</translation>
+    </message>
+    <message>
         <source>Switch to stable</source>
         <translation>Přepnout na stabilní verzi</translation>
     </message>
@@ -10482,6 +11479,10 @@ Nejnovější verze:  {1}</translation>
     <message>
         <source>Open Download Page</source>
         <translation>Otevřít stránku ke stažení</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Staženo: {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -10692,6 +11693,10 @@ Chcete-li získat:
 3. Zanechte archiv ve složce ke stažení a klikněte na Další.
 
 Obsahuje xFOEdit (Fallout), xSFEdit (Starfield) a xTESEdit (Elder Scrolls); průvodce běží pro tuto hru automaticky.</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Staženo: {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>

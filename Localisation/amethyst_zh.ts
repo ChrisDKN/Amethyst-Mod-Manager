@@ -2,6 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh" sourcelanguage="en">
 <context>
+    <name />
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Downloading {0} from Nexus… {1}%</comment>
+        <translation>向导ViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Premium account — downloading {0} from Nexus…</comment>
+        <translation>向导ViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>The archive is picked up automatically once the download finishes.</comment>
+        <translation>向导ViewBase</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -108,6 +126,257 @@ Deploy to push the new load order to the game.</source>
     </message>
 </context>
 <context>
+    <name>BSADecompressorView</name>
+    <message>
+        <source>BSA Decompressor — {0}</source>
+        <translation>BSA减压器 — {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>第1步:安装 MPI 安装器</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>从 GitHub 下载本地 Linux MPI 安装器( 也用于两个荒地的故事)
+并放入此游戏的应用程序文件夹。
+
+单击安装开始 .</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>SulfurNitride 开发的安装程序 (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>安装</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>正在联系 GitHub……</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>安装器准备好了 .</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>安装错误: {0}</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor output is already installed</source>
+        <translation>BSA 解压缩器输出已安装</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
+        <translation>'{0}'的mod已经出现在你的mod列表中——没有什么可以重新应用的,所以你可以简单地关闭这个向导.
+
+从零开始重建将游戏恢复到香草并再次运行解压器(需要.mpi包).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>从头开始重建</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>步骤2: 游戏文件夹包( P)</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>BSA解压缩器在不压缩的情况下重建了香草BSA档案以更快地加载,结果被添加为mod.
+
+从Nexus下载"FNV BSA Decompressor"的主文件——自动检测出归档中的.mpi包.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>打开 Nexus 页面</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>倒下的新拉斯维加斯:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>选择 Fallout 新拉斯维加斯 文件夹</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor package:</source>
+        <translation>BSA 减压器包 :</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>选择文件..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>再次检测</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>继续</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>浏览……</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— 未设置 —</translation>
+    </message>
+    <message>
+        <source>Looking for the BSA Decompressor download…</source>
+        <translation>正在寻找 BSA 解压缩器下载..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>使用先前提取的软件包 .</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>在您的下载文件夹中找不到归档 —— 从 Nexus 下载, 然后再次单击检测( 或选择文件...) .</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>从 {0} 提取 . mpi 软件包..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>从{0}自动检测出.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>自动检测失败: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
+        <translation>下载 Nexus 的 BSA 解压器包... XPH0 QQ</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
+        <translation>Premium帐号——从Nexus下载BSA解压缩器包. </translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>没有找到存档——从Nexus下载(上方按钮). 下载完成后会自动取出.</translation>
+    </message>
+    <message>
+        <source>Select the BSA Decompressor .mpi or its archive</source>
+        <translation>选择 BSA 解压缩器 . mpi 或其归档</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPI 软件包或归档</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>已选中：{0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>使用从{0}的.mpi.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the BSA Decompressor .mpi package (or its downloaded archive).</source>
+        <translation>请选择 BSA Decompressor .mpi 软件包(或其已下载的归档) .</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>未设置《辐射：新维加斯》文件夹。</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>开始……</translation>
+    </message>
+    <message>
+        <source>Step 3: Decompressing BSA archives</source>
+        <translation>第3步:压低BSA档案</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>游戏首先恢复为香草状态,再由安装者重建香草BSA档案而无需压缩. 这需要一段时间——请让它运行下去。
+输出直接被写入您的 Mod列表中作为"{0}" mod.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>安装器二进制缺失 。 重新启动向导并让它先安装.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>恢复对香草的游戏..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>在安装前将游戏恢复到香草状态..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>还原失败——参见日志. 修复问题(或通过还原按钮手动恢复)并重试.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>未配置 Mod 中程路径 .</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>错误: 缺少香草插件文件 :
+第{0}号</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>即使在恢复到香草后仍然缺少香草插件文件——这些从未备份.
+在Steam中,右键单击游戏 → 属性 → 已安装文件 → 验证游戏文件的完整性,然后重试.
+
+第{0}号</translation>
+    </message>
+    <message>
+        <source>Decompressing… (see log below)</source>
+        <translation>减压... (见下文日志)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>发射错误: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>安装器以出错退出(代码为{0}). 详情见日志.</translation>
+    </message>
+    <message>
+        <source>Build complete — registering mod…</source>
+        <translation>构建完整——注册mod</translation>
+    </message>
+    <message>
+        <source>Build finished but registering the mod failed: {0}</source>
+        <translation>构建完成但注册模式失败: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>完成!"{0}"被添加到您的模式列表中 。 启用并部署.</translation>
+    </message>
+</context>
+<context>
     <name>BackupRestoreView</name>
     <message>
         <source>Restore backup — {0}</source>
@@ -116,10 +385,6 @@ Deploy to push the new load order to the game.</source>
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
         <translation>选择一个备份，以恢复此配置文件的模组列表和插件。</translation>
-    </message>
-    <message>
-        <source>No backups yet. Backups are created when you deploy.</source>
-        <translation>目前还没有备份。备份会在部署时自动生成。</translation>
     </message>
     <message>
         <source>New backup</source>
@@ -134,12 +399,28 @@ Deploy to push the new load order to the game.</source>
         <translation>保留</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation>取消</translation>
+        <source>Remove</source>
+        <translation>删除</translation>
     </message>
     <message>
         <source>Restore</source>
         <translation>恢复</translation>
+    </message>
+    <message>
+        <source>User backups</source>
+        <translation>用户备份</translation>
+    </message>
+    <message>
+        <source>No user backups. Use New backup, or Keep an automated one.</source>
+        <translation>没有用户备份 。 使用新备份, 或者保留自动备份 .</translation>
+    </message>
+    <message>
+        <source>Automated backups</source>
+        <translation>自动备份</translation>
+    </message>
+    <message>
+        <source>No automated backups yet. One is created every time you deploy.</source>
+        <translation>还没有自动备份 。 你每次部署时都会产生一个.</translation>
     </message>
     <message>
         <source>Kept</source>
@@ -168,6 +449,14 @@ Deploy to push the new load order to the game.</source>
     <message>
         <source>Enter a name for this backup (leave blank to use the date).</source>
         <translation>请为此次备份输入名称（留空即使用日期）。</translation>
+    </message>
+    <message>
+        <source>Remove backup</source>
+        <translation>删除备份</translation>
+    </message>
+    <message>
+        <source>Remove backup "{0}"? This cannot be undone.</source>
+        <translation>删除备份"{0}"? 这一点是无法消除的.</translation>
     </message>
 </context>
 <context>
@@ -806,6 +1095,22 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
     <message>
         <source>Installing / Extracting</source>
         <translation>安装/解压</translation>
+    </message>
+    <message>
+        <source>Speed limit:</source>
+        <translation>速度限制 :</translation>
+    </message>
+    <message>
+        <source> MB/s</source>
+        <translation>甲基溴</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>无限制</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of this install. 0 = use the full connection. Applies immediately.</source>
+        <translation>控制此安装的综合下载速度 。 0=使用全线连接. 立即应用.</translation>
     </message>
     <message>
         <source>Pause</source>
@@ -1490,6 +1795,219 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>CuratedProfileView</name>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>安装 {0} - {1}</translation>
+    </message>
+    <message>
+        <source>Install the {0} modlist</source>
+        <translation>安装 {0} 调制解调器</translation>
+    </message>
+    <message>
+        <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
+
+The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+        <translation>此向导下载所编译的" {0}" profile 并打开 profile 导入器, 将 modlist 安装到 NEW profile 中 。
+
+mods是从Nexus Mods下载的——如果还没有登录的话首先登录(Nexus QQ登录到Nexus).</translation>
+    </message>
+    <message>
+        <source>Open guide website</source>
+        <translation>开放指南网站</translation>
+    </message>
+    <message>
+        <source>Also install Ultimate Edition ESM Fixes (recommended)</source>
+        <translation>并安装最终版无害环境管理固定设备(建议)</translation>
+    </message>
+    <message>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>安装了 modlist 后, 将 vanilla.esm masters 和 community bugfix 补齐 。 它太大,无法捆绑,因此它作为一个额外步骤运行——需要Nexus的"Ultimate EME Fixes Remastered"下载.</translation>
+    </message>
+    <message>
+        <source>Also run the FNV BSA Decompressor (recommended)</source>
+        <translation>同时运行FNV BSA解压器(推荐)</translation>
+    </message>
+    <message>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>在不压缩的情况下重建香草BSA档案以更快地加载,在modlist安装后添加为mod——需要从Nexus下载"FNV BSA Decompressor". 也可以在以后通过自己的巫师运行.</translation>
+    </message>
+    <message>
+        <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
+        <translation>4GB补丁被应用到FalloutNV.exe作为最后一步(原始exe保存为备份).</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>开始</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the modlist profile</source>
+        <translation>第 1 步 : 下载 modlist 配置文件</translation>
+    </message>
+    <message>
+        <source>Downloading '{0}' from GitHub…</source>
+        <translation>从 GitHub 下载“ {0} ”..</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>重试</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>正在联系 GitHub……</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>下载失败: {0}</translation>
+    </message>
+    <message>
+        <source>Premium account — the wizard continues automatically when the import completes.</source>
+        <translation>Premium 帐号——当导入完成后向导自动继续.</translation>
+    </message>
+    <message>
+        <source>Could not read manifest: {0}</source>
+        <translation>无法读取清单：{0}</translation>
+    </message>
+    <message>
+        <source>Import is unavailable here.</source>
+        <translation>无法在此导入 .</translation>
+    </message>
+    <message>
+        <source>Step 2: Install the modlist</source>
+        <translation>步骤2:安装调制解调器</translation>
+    </message>
+    <message>
+        <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
+
+When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+        <translation>在导入标签中完成安装: 选择配置文件名称并按下安装 。 mods从Nexus下载,这需要一段时间.
+
+完成后,应用切换到新配置——再回来按"续".</translation>
+    </message>
+    <message>
+        <source>Reopen import tab</source>
+        <translation>重新打开导入标签</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>继续</translation>
+    </message>
+    <message>
+        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <translation>活性描述文件没有改变——导入看起来没有完成. 先在导入标签中完成, 或者再按一次继续继续 .</translation>
+    </message>
+    <message>
+        <source>Checking FalloutNV.exe…</source>
+        <translation>正在检查 FalloutNV.exe..</translation>
+    </message>
+    <message>
+        <source>Final step: Apply the 4GB Patch</source>
+        <translation>最后一步:应用4GB补丁</translation>
+    </message>
+    <message>
+        <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
+        <translation>FalloutNV.exe被补丁,因此游戏可以在启动时使用4GB的内存并自动加载NVSE. 原始exe保存为备份(可以通过4GB补丁向导恢复).</translation>
+    </message>
+    <message>
+        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <translation>游戏路径没有配置——跳过4GB补丁.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>{0}已经被4GB补丁了.</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <translation>{0} 在游戏文件夹中找不到——跳过4GB补丁.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>未识别出{0}版本——跳出. 在Steam/Heroic中验证游戏文件,然后手动运行4GB补丁向导.</translation>
+    </message>
+    <message>
+        <source>Patching {0}…</source>
+        <translation>修补 {0}…</translation>
+    </message>
+    <message>
+        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <translation>被补丁的{0}({1}版本)-原作被保留为{2}.</translation>
+    </message>
+    <message>
+        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <translation>补丁失败: {0} — 您可以稍后手动运行 4GB 补丁向导 .</translation>
+    </message>
+    <message>
+        <source>All done</source>
+        <translation>都结束了</translation>
+    </message>
+    <message>
+        <source>The {0} profile is set up. Review the mod list, then Deploy and play.</source>
+        <translation>{0}简介设置. 检查mod列表,然后部署和播放.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameExportOverlay</name>
+    <message>
+        <source>Export game</source>
+        <translation>导出游戏</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone your "{0}" custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>共享此代码以发送某人您的"{0}"自定义游戏设置. 他们可以在"定义自定义游戏"中用导入代码来添加.</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone this custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>共享此代码以发送自定义游戏设置 。 他们可以在"定义自定义游戏"中用导入代码来添加.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>复制到剪贴板</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>已复制 ✓</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameImportOverlay</name>
+    <message>
+        <source>Import game</source>
+        <translation>导入游戏</translation>
+    </message>
+    <message>
+        <source>Paste a share code below to prefill the form from another custom game's setup. You still need to give it a unique name.</source>
+        <translation>在下面粘贴一个共享代码来预填来自另一个自定义游戏设置的表格. 你还需要给它一个独特的名字.</translation>
+    </message>
+    <message>
+        <source>Paste from clipboard</source>
+        <translation>从剪贴板粘贴</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <source>Not a valid game code.</source>
+        <translation>不是有效的游戏代码 .</translation>
+    </message>
+    <message>
+        <source>{0} deploy</source>
+        <translation>{0} 部署</translation>
+    </message>
+</context>
+<context>
     <name>CustomGameView</name>
     <message>
         <source>Standard</source>
@@ -1620,6 +2138,10 @@ Close it when you are done, then click Done.</source>
         <translation>定义自定义游戏</translation>
     </message>
     <message>
+        <source>Export code…</source>
+        <translation>导出代码……</translation>
+    </message>
+    <message>
         <source>Load Preset  (optional)</source>
         <translation>装入预设( 可选)</translation>
     </message>
@@ -1630,6 +2152,18 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>— Select a game to copy from —</source>
         <translation>——选择要复制的游戏..</translation>
+    </message>
+    <message>
+        <source>{0}  (built-in template)</source>
+        <translation>{0}(内建模板)</translation>
+    </message>
+    <message>
+        <source>Or paste a share code exported from another custom game to prefill every field below.</source>
+        <translation>或者粘贴从另一个自定义游戏导出的一个共享代码来预填下面的每个字段.</translation>
+    </message>
+    <message>
+        <source>Import code…</source>
+        <translation>导入代码……</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -2422,6 +2956,261 @@ Close it when you are done, then click Done.</source>
     </message>
 </context>
 <context>
+    <name>ESMFixesView</name>
+    <message>
+        <source>Ultimate Edition ESM Fixes — {0}</source>
+        <translation>最终版无害环境管理</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>第1步:安装 MPI 安装器</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>从 GitHub 下载本地 Linux MPI 安装器( 也用于两个荒地的故事)
+并放入此游戏的应用程序文件夹。
+
+单击安装开始 .</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>SulfurNitride 开发的安装程序 (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>安装</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>正在联系 GitHub……</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>安装器准备好了 .</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>安装错误: {0}</translation>
+    </message>
+    <message>
+        <source>The ESM Fixes output is already installed</source>
+        <translation>ESM 修复器输出已安装</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
+        <translation>'{0}'的mod已经出现在你的mod列表中——没有什么可以重新应用的,所以你可以简单地关闭这个向导.
+
+从零开始重建将游戏恢复到香草并再次运行补丁(需要.mpi包).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>从头开始重建</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>步骤2: 游戏文件夹包( P)</translation>
+    </message>
+    <message>
+        <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>最终版无害环境管理 修复将香草.esm主机(FalloutNV +全部 DLC)用社区bugfix补上,结果被添加为mod.
+
+从 Nexus 下载“ Ultimate Edition EME Fixes remastered” 主文件——自动检测归档中的.mpi包.</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>打开 Nexus 页面</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>倒下的新拉斯维加斯:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>选择 Fallout 新拉斯维加斯 文件夹</translation>
+    </message>
+    <message>
+        <source>ESM Fixes package:</source>
+        <translation>无害环境管理</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>选择文件..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>再次检测</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>继续</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>浏览……</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— 未设置 —</translation>
+    </message>
+    <message>
+        <source>Looking for the ESM Fixes download…</source>
+        <translation>正在寻找ESM Fixs的下载..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>使用先前提取的软件包 .</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>在您的下载文件夹中找不到归档 —— 从 Nexus 下载, 然后再次单击检测( 或选择文件...) .</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>从 {0} 提取 . mpi 软件包..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>从{0}自动检测出.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>自动检测失败: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
+        <translation>从 Nexus 下载 ESM 修复软件包... XPH0 QQ</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
+        <translation>Premium账户——从Nexus下载ESM Fixes包..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>没有找到存档——从Nexus下载(上方按钮). 下载完成后会自动取出.</translation>
+    </message>
+    <message>
+        <source>Select the ESM Fixes .mpi or its archive</source>
+        <translation>选择 . mpi 或它的归档</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPI 软件包或归档</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>已选中：{0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>使用从{0}的.mpi.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
+        <translation>请选择 HEM Fixes .mpi 包(或其已下载的归档) .</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>未设置《辐射：新维加斯》文件夹。</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>开始……</translation>
+    </message>
+    <message>
+        <source>Step 3: Patching the vanilla masters</source>
+        <translation>第3步:补上香草大师</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>游戏首先恢复为香草状态,再由安装者用社区bugfix来补上香草.esm主机.
+输出直接被写入您的 Mod列表中作为"{0}" mod.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>安装器二进制缺失 。 重新启动向导并让它先安装.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>恢复对香草的游戏..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>在安装前将游戏恢复到香草状态..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>还原失败——参见日志. 修复问题(或通过还原按钮手动恢复)并重试.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>未配置 Mod 中程路径 .</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>错误: 缺少香草插件文件 :
+第{0}号</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>即使在恢复到香草后仍然缺少香草插件文件——这些从未备份.
+在Steam中,右键单击游戏 → 属性 → 已安装文件 → 验证游戏文件的完整性,然后重试.
+
+第{0}号</translation>
+    </message>
+    <message>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <translation>(原始内容存档于2018-10-21) (英语). FalloutNV.exe is 4GB propated. 安装者验证了游戏exe,并可能拒绝运行——如果在下面失败,通过4GB补丁向导恢复原来的exe,再运行一次,再重新应用4GB补丁.</translation>
+    </message>
+    <message>
+        <source>Patching… (see log below)</source>
+        <translation>正在补丁... (见下文日志)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>发射错误: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>安装器以出错退出(代码为{0}). 详情见日志.</translation>
+    </message>
+    <message>
+        <source>Patching complete — registering mod…</source>
+        <translation>补丁完成——注册mod..</translation>
+    </message>
+    <message>
+        <source>Patching finished but registering the mod failed: {0}</source>
+        <translation>补丁完成但注册模式失败: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>完成!"{0}"被添加到您的模式列表中 。 启用并部署.</translation>
+    </message>
+</context>
+<context>
     <name>EngineFixesView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -2720,6 +3509,30 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>All files</source>
         <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>Preparing export…</source>
+        <translation>正在准备导出..</translation>
+    </message>
+    <message>
+        <source>Packing mod: {0}</source>
+        <translation>包装模式: {0}</translation>
+    </message>
+    <message>
+        <source>Packing overwrite files…</source>
+        <translation>正在覆盖文件..</translation>
+    </message>
+    <message>
+        <source>Packing profile files…</source>
+        <translation>正在包装配置文件..</translation>
+    </message>
+    <message>
+        <source>Packing…</source>
+        <translation>包装中..</translation>
+    </message>
+    <message>
+        <source>Exporting profile</source>
+        <translation>导出配置文件</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -3147,6 +3960,14 @@ SHA-1: {1} (英语).
     <message>
         <source>Finish</source>
         <translation>完成</translation>
+    </message>
+    <message>
+        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>新的可用性 —— 此选项所需的插件自您上次运行此安装器以来, 现在已经安装 .</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <translation>此选项需要的插件没有启用 —— 先启用它, 或仅在您计划添加时选择它 .</translation>
     </message>
     <message>
         <source>Click to view full size</source>
@@ -3794,10 +4615,6 @@ SHA-1: {1} (英语).
         <translation>32位支持已安装——运行Windows工具前重新启动应用程序.</translation>
     </message>
     <message>
-        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
-        <translation>无法自动安装32位支持——参见手动命令的日志.</translation>
-    </message>
-    <message>
         <source>Install-name Rules</source>
         <translation>安装名称规则</translation>
     </message>
@@ -4042,10 +4859,6 @@ Remove the appended-collection entry?</source>
         <translation>取消安装吗 ?</translation>
     </message>
     <message>
-        <source>This will stop the install and delete the collection profile.</source>
-        <translation>这将停止安装并删除收藏配置 .</translation>
-    </message>
-    <message>
         <source>Cancel Install</source>
         <translation>取消安装</translation>
     </message>
@@ -4112,6 +4925,74 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>OK</source>
         <translation>好的</translation>
+    </message>
+    <message>
+        <source>32-bit support could not be installed</source>
+        <translation>无法安装32位支持</translation>
+    </message>
+    <message>
+        <source>Amethyst could not install 32-bit support automatically. Windows tools (and some games) may fail to run until it is installed. Run this on a terminal, then restart the app:
+
+{0}</source>
+        <translation>Amethyst 无法自动安装32位支持 。 Windows工具(和一些游戏)在被安装之前可能无法运行. 在终端上运行, 然后重新启动应用程序 :
+
+第{0}号</translation>
+    </message>
+    <message>
+        <source>Don't show again</source>
+        <translation>别再来了</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>刷新插件</translation>
+    </message>
+    <message>
+        <source>Force update handler</source>
+        <translation>强制更新处理器</translation>
+    </message>
+    <message>
+        <source>Updating handler…</source>
+        <translation>更新处理器..</translation>
+    </message>
+    <message>
+        <source>Handler update failed — check your connection.</source>
+        <translation>Handler 更新失败 – 请检查您的连接 .</translation>
+    </message>
+    <message>
+        <source>Handler not found on the Resources branch.</source>
+        <translation>在资源分支中找不到 Handler .</translation>
+    </message>
+    <message>
+        <source>Handler is already up to date.</source>
+        <translation>汉德勒已经更新了.</translation>
+    </message>
+    <message>
+        <source>Handler updated.</source>
+        <translation>汉德勒更新了.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>β 语录</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>稳定</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
+        <translation>{0}频道尚未在更新远程上发布——在下一期{0}发布后再次尝试.</translation>
+    </message>
+    <message>
+        <source>An install is finishing — try the collection again in a moment.</source>
+        <translation>一个安装正在完成——在一瞬间再次尝试收藏.</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the new profile '{0}'.</source>
+        <translation>这将停止安装并删除新配置文件"{0}".</translation>
+    </message>
+    <message>
+        <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
+        <translation>这将停止安装。 配置文件“ {0}” 及其已安装的 Mods 将被保留 .</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -4494,6 +5375,26 @@ Download and install them manually — the links are in the collection page's "O
         <translation>在中转中找不到可执行文件 .</translation>
     </message>
     <message>
+        <source>No game folder configured.</source>
+        <translation>未配置游戏文件夹 .</translation>
+    </message>
+    <message>
+        <source>No executables found in the game folder.</source>
+        <translation>在游戏文件夹中找不到可执行文件 .</translation>
+    </message>
+    <message>
+        <source>Add executable from game folder</source>
+        <translation>从游戏文件夹中添加可执行文件</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
+        <translation>检查可执行文件以添加到运行菜单中 。 这些从它们在游戏文件夹中的位置运行——包括由mods部署在那里的文件.</translation>
+    </message>
+    <message>
+        <source>Play failed — see log.</source>
+        <translation>播放失败 — 见日志 .</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>找不到可执行文件：{0}</translation>
     </message>
@@ -4710,6 +5611,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>已安装 {0}</translation>
     </message>
     <message>
+        <source>Restore queued — it will run after the current install finishes.</source>
+        <translation>已恢复队列——它将在当前安装完成后运行.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>已安装的{0}模组</translation>
     </message>
@@ -4878,6 +5783,18 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} 插件（{1} ESL，{2} 非ESL）</translation>
     </message>
     <message>
+        <source>Refreshing LOOT metadata for {0} plugins…</source>
+        <translation>正在刷新 {0} 插件的 LOOT 元数据..</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed — see log.</source>
+        <translation>LOOT 刷新失败 — 见日志 .</translation>
+    </message>
+    <message>
+        <source>Plugin metadata refreshed.</source>
+        <translation>插件元数据已刷新 .</translation>
+    </message>
+    <message>
         <source>LOOT library not available — cannot check overlap.</source>
         <translation>LOOT 库不可用——无法检查重叠 .</translation>
     </message>
@@ -4904,6 +5821,10 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>+ Add exe from staging…</source>
         <translation>+ 从中添加 exe..</translation>
+    </message>
+    <message>
+        <source>+ Add exe from game folder…</source>
+        <translation>+ 从游戏文件夹中添加exe..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -5733,6 +6654,10 @@ Click Done to close.</source>
         <translation>缺失的要求</translation>
     </message>
     <message>
+        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <translation>FOMOD 补丁选项的插件现已安装——单击以重新运行 FOMOD 安装器</translation>
+    </message>
+    <message>
         <source>Update available on Nexus Mods</source>
         <translation>关于 Nexus Mods 的更新</translation>
     </message>
@@ -6253,6 +7178,10 @@ You can skip this and connect later from the Nexus button in the toolbar.</sourc
     <message>
         <source>Default: {0}</source>
         <translation>默认值：{0}</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt; 游戏名称&gt;</translation>
     </message>
     <message>
         <source>Leave blank to use the default</source>
@@ -8255,6 +9184,22 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>提取操作受可用内存的限制；实际数量可能低于设定值。</translation>
     </message>
     <message>
+        <source>Download speed limit</source>
+        <translation>下载速度限制</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>无限制</translation>
+    </message>
+    <message>
+        <source>{0} MB/s</source>
+        <translation>{0} 甲基溴/s</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>将所有下载(收集,单相模,nxm链接)的合并下载速度上钩,这样它们就不会使用整个连接. 立即应用,包括运行中的收藏安装.</translation>
+    </message>
+    <message>
         <source>Extraction CPU threads</source>
         <translation>提取 CPU 线程</translation>
     </message>
@@ -8327,6 +9272,66 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>在检查更新时，还应提供测试版和候选发布版应用构建。</translation>
     </message>
     <message>
+        <source>Notify about new versions on startup</source>
+        <translation>启动时通知新版本</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>当新版本的Amethyst可用时显示通知 。 关闭此选项只可调音通知 —— 您仍然可以通过您的软件包管理器进行更新, 也可以将发布前的设置拖入其中 .</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates…</source>
+        <translation>启用自动更新..</translation>
+    </message>
+    <message>
+        <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
+        <translation>将这个 Flatpak 切换到 Amethyst 更新远程, 因此未来的更新会自动通过您的软件包管理器( GNOME Software / Discover) 到达, 下载次数会较小 。 这一次从遥控器上重新安装了应用程序并重新启动了它.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>β 语录</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>稳定</translation>
+    </message>
+    <message>
+        <source>Channel not available</source>
+        <translation>频道不可用</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet. Try again after the next {0} release (or change the pre-release setting).</source>
+        <translation>{0}频道尚未在更新远程上发布. 在下一次{0}发布后再次尝试(或更改发布前设置).</translation>
+    </message>
+    <message>
+        <source>Could not reach Flatpak</source>
+        <translation>无法到达平板电脑</translation>
+    </message>
+    <message>
+        <source>The host Flatpak service couldn't be reached. You can add the remote manually:
+
+flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</source>
+        <translation>主持人平板电脑服务无法通达. 您可以手动添加远程 :
+
+flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Manager/amethyst.flatpakrepo</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates?</source>
+        <translation>启用自动更新吗 ?</translation>
+    </message>
+    <message>
+        <source>Amethyst will add its update remote and reinstall itself from it once, then relaunch. Future updates then arrive automatically through your package manager.</source>
+        <translation>Amethyst将添加其更新远程,并从中重新安装一次,然后重新启动。 然后通过您的软件包管理器自动到达未来的更新 .</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>启用</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
         <source>Paths</source>
         <translation>路径</translation>
     </message>
@@ -8337,6 +9342,10 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>When set, games added after this point stage mods here. Blank = default ({0}).</source>
         <translation>设置后，此后添加的游戏将在此处应用此阶段的模组。留空即为默认设置（{0}）。</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt; 游戏名称&gt;</translation>
     </message>
     <message>
         <source>Download Cache Folder</source>
@@ -8842,22 +9851,6 @@ Click Install to begin.</source>
     <message>
         <source>Contacting GitHub…</source>
         <translation>正在联系 GitHub……</translation>
-    </message>
-    <message>
-        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
-        <translation>在最新的TTW发布({0})中找不到Linux安装器资产.</translation>
-    </message>
-    <message>
-        <source>Downloading TTW installer {0}…</source>
-        <translation>正在下载 TTW 安装器 {0}..</translation>
-    </message>
-    <message>
-        <source>Extracting installer…</source>
-        <translation>正在提取安装器..</translation>
-    </message>
-    <message>
-        <source>{0} not found after extraction at {1}.</source>
-        <translation>{0}在{1}取出后未发现.</translation>
     </message>
     <message>
         <source>Installer ready.</source>
@@ -10414,6 +11407,10 @@ Latest:  {1}</source>
 最新版本：  {1}</translation>
     </message>
     <message>
+        <source>Don't notify me about new versions</source>
+        <translation>别通知我新版本</translation>
+    </message>
+    <message>
         <source>Switch to stable</source>
         <translation>切换到稳定版</translation>
     </message>
@@ -10482,6 +11479,10 @@ Latest:  {1}</source>
     <message>
         <source>Open Download Page</source>
         <translation>打开下载页面</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>已下载 : {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -10692,6 +11693,10 @@ It contains xFOEdit (Fallout), xSFEdit (Starfield) and xTESEdit (Elder Scrolls);
   3. 将压缩包保留在“下载”文件夹中，然后点击“下一步”。
 
 该压缩包包含 xFOEdit（《辐射》）、xSFEdit（《星野》）和 xTESEdit（《上古卷轴》）；安装向导会自动运行对应游戏的编辑器。</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>已下载 : {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>

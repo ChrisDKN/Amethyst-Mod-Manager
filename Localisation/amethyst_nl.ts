@@ -2,6 +2,24 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="nl" sourcelanguage="en">
 <context>
+    <name />
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Downloading {0} from Nexus… {1}%</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>Premium account — downloading {0} from Nexus…</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+    <message>
+        <source>WizardViewBase</source>
+        <comment>The archive is picked up automatically once the download finishes.</comment>
+        <translation>WizardViewBase</translation>
+    </message>
+</context>
+<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -108,6 +126,257 @@ Klik op ‘Deploy’ om de nieuwe laadvolgorde naar het spel door te voeren.</tr
     </message>
 </context>
 <context>
+    <name>BSADecompressorView</name>
+    <message>
+        <source>BSA Decompressor — {0}</source>
+        <translation>BSA Decompressor {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Stap 1: Installeer de MPI Installer</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>Het native Linux MPI installatieprogramma (ook gebruikt voor Tale of Two Wastelands) wordt gedownload van GitHub
+en geplaatst in de toepassingsmap van dit spel.
+
+Klik op installeren om te beginnen.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Installatieprogramma van SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Installeren</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Verbinding maken met GitHub…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Installer klaar.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Installeerfout: {0}</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor output is already installed</source>
+        <translation>De BSA Decompressor uitgang is al geïnstalleerd</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
+        <translation>De '{0}' mod staat al in je mod lijst 
+
+Herbouwt vanaf nul herstelt het spel naar vanille en loopt de decompressor weer (heeft het .mpi pakket nodig).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Helemaal opnieuw opbouwen</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Klaar</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Stap 2: Spelmap &amp; pakket</translation>
+    </message>
+    <message>
+        <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
+
+Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>De BSA Decompressor herbouwt de vanille BSA archieven zonder compressie voor sneller laden, en het resultaat wordt toegevoegd als een mod.
+
+Download het hoofdbestand 'FNV BSA Decompressor' van Nexus .</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Nexus-pagina openen</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Selecteer de map Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>BSA Decompressor package:</source>
+        <translation>BSA Decompressor pakket:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Bestand kiezen..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Opnieuw detecteren</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Doorgaan</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Bladeren…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— niet ingesteld —</translation>
+    </message>
+    <message>
+        <source>Looking for the BSA Decompressor download…</source>
+        <translation>Op zoek naar de BSA Decompressor download..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Gebruik van eerder gewonnen pakket.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Archief niet gevonden in uw downloadmappen .</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Het .mpi pakket uit {0} halen..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Automatisch gedetecteerd van {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Automatisch detecteren mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
+        <translation>Downloaden van het BSA Decompressor pakket van Nexus... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
+        <translation>Premium account te downloaden het BSA Decompressor pakket van Nexus..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Archief niet gevonden: Download het van Nexus (knop hierboven). Het wordt automatisch opgehaald zodra de download klaar is.</translation>
+    </message>
+    <message>
+        <source>Select the BSA Decompressor .mpi or its archive</source>
+        <translation>Selecteer de BSA Decompressor .mpi of het archief</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPI-pakket of -archief</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Alle bestanden</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Geselecteerd: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Gebruik van de .mpi van {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Fout: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the BSA Decompressor .mpi package (or its downloaded archive).</source>
+        <translation>Selecteer het BSA Decompressor .mpi pakket (of het gedownloade archief).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>De map voor Fallout New Vegas is niet ingesteld.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>We beginnen…</translation>
+    </message>
+    <message>
+        <source>Step 3: Decompressing BSA archives</source>
+        <translation>Stap 3: BSA-archieven decomprimeren</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>Het spel is eerst gerestaureerd in een vanille staat, dan de installateur herbouwt de vanille BSA archieven zonder compressie. Dit kan een tijdje duren.
+Output wordt direct in uw mod lijst geschreven als de '{0}' mod.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Installer binaire is vermist. Herstart de wizard en laat het eerst installeren.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Spel herstellen naar vanille..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Het herstellen van spel naar een vanille staat voordat..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Terugzetten mislukt Zie het logboek. Repareer het probleem (of herstel handmatig via de knop Herstellen) en probeer het opnieuw.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod staging pad is niet geconfigureerd.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>FOUT: ontbrekende vanille-pluginbestanden:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Ontbrekende vanille plugin bestanden, zelfs na het herstellen van vanille 
+In Steam, klik met de rechtermuisknop op het spel → Eigenschappen → Geïnstalleerde bestanden → Controleer de integriteit van de spelbestanden, probeer het dan opnieuw.
+
+{0}</translation>
+    </message>
+    <message>
+        <source>Decompressing… (see log below)</source>
+        <translation>Uitpakken... (zie log hieronder)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Startfout: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>Installer afgesloten met fout (code {0}). Zie het logboek voor details.</translation>
+    </message>
+    <message>
+        <source>Build complete — registering mod…</source>
+        <translation>Bouwen van volledige .</translation>
+    </message>
+    <message>
+        <source>Build finished but registering the mod failed: {0}</source>
+        <translation>Bouw voltooid maar registreren van de mod is mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Klaar! '{0}' is toegevoegd aan je mod lijst. Inschakelen en inzetten.</translation>
+    </message>
+</context>
+<context>
     <name>BackupRestoreView</name>
     <message>
         <source>Restore backup — {0}</source>
@@ -116,10 +385,6 @@ Klik op ‘Deploy’ om de nieuwe laadvolgorde naar het spel door te voeren.</tr
     <message>
         <source>Select a backup to restore the modlist and plugins for this profile.</source>
         <translation>Kies een back-up om de modlijst en plug-ins voor dit profiel te herstellen.</translation>
-    </message>
-    <message>
-        <source>No backups yet. Backups are created when you deploy.</source>
-        <translation>Er zijn nog geen back-ups. Back-ups worden aangemaakt wanneer je de implementatie uitvoert.</translation>
     </message>
     <message>
         <source>New backup</source>
@@ -134,12 +399,28 @@ Klik op ‘Deploy’ om de nieuwe laadvolgorde naar het spel door te voeren.</tr
         <translation>Bewaren</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation>Annuleren</translation>
+        <source>Remove</source>
+        <translation>Verwijderen</translation>
     </message>
     <message>
         <source>Restore</source>
         <translation>Herstellen</translation>
+    </message>
+    <message>
+        <source>User backups</source>
+        <translation>Gebruikersback-ups</translation>
+    </message>
+    <message>
+        <source>No user backups. Use New backup, or Keep an automated one.</source>
+        <translation>Geen gebruikers backups. Gebruik Nieuwe back-up, of Houd een automatische.</translation>
+    </message>
+    <message>
+        <source>Automated backups</source>
+        <translation>Automatische back-ups</translation>
+    </message>
+    <message>
+        <source>No automated backups yet. One is created every time you deploy.</source>
+        <translation>Nog geen automatische back-ups. Er wordt er een gemaakt elke keer als je inzet.</translation>
     </message>
     <message>
         <source>Kept</source>
@@ -168,6 +449,14 @@ Klik op ‘Deploy’ om de nieuwe laadvolgorde naar het spel door te voeren.</tr
     <message>
         <source>Enter a name for this backup (leave blank to use the date).</source>
         <translation>Voer een naam in voor deze back-up (laat het veld leeg om de datum te gebruiken).</translation>
+    </message>
+    <message>
+        <source>Remove backup</source>
+        <translation>Reservekopie verwijderen</translation>
+    </message>
+    <message>
+        <source>Remove backup "{0}"? This cannot be undone.</source>
+        <translation>Reservekopie "{0}" verwijderen? Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
 </context>
 <context>
@@ -806,6 +1095,22 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
     <message>
         <source>Installing / Extracting</source>
         <translation>Installeren / Verwijderen</translation>
+    </message>
+    <message>
+        <source>Speed limit:</source>
+        <translation>Snelheidslimiet:</translation>
+    </message>
+    <message>
+        <source> MB/s</source>
+        <translation>MB/s</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Onbeperkt</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of this install. 0 = use the full connection. Applies immediately.</source>
+        <translation>Sluit de gecombineerde downloadsnelheid van deze installatie aan. 0 = gebruik de volledige verbinding. Geldt onmiddellijk.</translation>
     </message>
     <message>
         <source>Pause</source>
@@ -1490,6 +1795,219 @@ Sluit het wanneer u klaar bent, klik vervolgens op Klaar.</translation>
     </message>
 </context>
 <context>
+    <name>CuratedProfileView</name>
+    <message>
+        <source>Install {0} — {1}</source>
+        <translation>{0} installeren</translation>
+    </message>
+    <message>
+        <source>Install the {0} modlist</source>
+        <translation>Installeer de {0}-modlist</translation>
+    </message>
+    <message>
+        <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
+
+The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
+        <translation>Deze wizard downloadt het gecureerde '{0}' profiel en opent de profielimporteur, die de modlist installeert in een NIEUW profiel.
+
+De mods worden gedownload van Nexus Mods .</translation>
+    </message>
+    <message>
+        <source>Open guide website</source>
+        <translation>Open gids website</translation>
+    </message>
+    <message>
+        <source>Also install Ultimate Edition ESM Fixes (recommended)</source>
+        <translation>Ook installeren Ultimate Edition ESM Fixes (aanbevolen)</translation>
+    </message>
+    <message>
+        <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
+        <translation>Patches de vanille .esm meesters met community bugfixes nadat de modlist is geïnstalleerd. Het is te groot om te bundelen, dus het loopt als een extra stap .</translation>
+    </message>
+    <message>
+        <source>Also run the FNV BSA Decompressor (recommended)</source>
+        <translation>Draai ook de FNV BSA Decompressor (aanbevolen)</translation>
+    </message>
+    <message>
+        <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
+        <translation>Herbouwt de vanilla BSA archieven zonder compressie voor een snellere lading, toegevoegd als een mod nadat de modlist is geïnstalleerd  Kan ook later worden uitgevoerd via zijn eigen tovenaar.</translation>
+    </message>
+    <message>
+        <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
+        <translation>De 4GB patch wordt toegepast op FalloutNV.exe als laatste stap (originele exe bewaard als back-up).</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>Begin</translation>
+    </message>
+    <message>
+        <source>Step 1: Download the modlist profile</source>
+        <translation>Stap 1: Download het modlist profiel</translation>
+    </message>
+    <message>
+        <source>Downloading '{0}' from GitHub…</source>
+        <translation>'{0}' downloaden van GitHub..</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Opnieuw proberen</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Verbinding maken met GitHub…</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>Downloaden mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Premium account — the wizard continues automatically when the import completes.</source>
+        <translation>Premium account .</translation>
+    </message>
+    <message>
+        <source>Could not read manifest: {0}</source>
+        <translation>Het manifest kon niet worden gelezen: {0}</translation>
+    </message>
+    <message>
+        <source>Import is unavailable here.</source>
+        <translation>Importeren is hier niet beschikbaar.</translation>
+    </message>
+    <message>
+        <source>Step 2: Install the modlist</source>
+        <translation>Stap 2: Installeer de modlist</translation>
+    </message>
+    <message>
+        <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
+
+When it completes, the app switches to the new profile — then come back here and press Continue.</source>
+        <translation>Sluit de installatie af in het tabblad Importeren: kies de profielnaam en druk op Installeren. De mods worden gedownload van Nexus, die een tijdje kan duren.
+
+Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op Doorgaan.</translation>
+    </message>
+    <message>
+        <source>Reopen import tab</source>
+        <translation>Importtabblad opnieuw openen</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Doorgaan</translation>
+    </message>
+    <message>
+        <source>The active profile hasn't changed — the import doesn't look finished. Complete it in the Import tab first, or press Continue again to proceed anyway.</source>
+        <translation>Het actieve profiel is nog niet veranderd.De import lijkt niet voltooid. Vul het eerst in in het tabblad Importeren, of druk op Doorgaan om toch verder te gaan.</translation>
+    </message>
+    <message>
+        <source>Checking FalloutNV.exe…</source>
+        <translation>FalloutNV.exe wordt gecontroleerd..</translation>
+    </message>
+    <message>
+        <source>Final step: Apply the 4GB Patch</source>
+        <translation>Laatste stap: Pas de 4GB Patch toe</translation>
+    </message>
+    <message>
+        <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
+        <translation>FalloutNV.exe is gepatcht zodat het spel 4 GB geheugen kan gebruiken en NVSE automatisch kan laden bij het opstarten. De originele exe wordt bewaard als back-up (herstellenbaar via de 4GB Patch wizard).</translation>
+    </message>
+    <message>
+        <source>Game path is not configured — skipping the 4GB patch.</source>
+        <translation>Het spelpad is niet geconfigureerd en slaat de 4GB patch over.</translation>
+    </message>
+    <message>
+        <source>{0} is already 4GB patched.</source>
+        <translation>{0} is al 4GB gepatcht.</translation>
+    </message>
+    <message>
+        <source>{0} not found in the game folder — skipping the 4GB patch.</source>
+        <translation>{0} is niet gevonden in de game map en slaat de 4GB patch over.</translation>
+    </message>
+    <message>
+        <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
+        <translation>Niet-erkende {0}-versie overslaan. Controleer gamebestanden in Steam/Heroic en voer vervolgens de 4GB Patch wizard handmatig uit.</translation>
+    </message>
+    <message>
+        <source>Patching {0}…</source>
+        <translation>{0} patchen…</translation>
+    </message>
+    <message>
+        <source>Patched {0} ({1} version) — original kept as {2}.</source>
+        <translation>Gepatched {0} ({1} versie) originele bewaard als {2}.</translation>
+    </message>
+    <message>
+        <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
+        <translation>Patch is mislukt: {0} .</translation>
+    </message>
+    <message>
+        <source>All done</source>
+        <translation>Klaar</translation>
+    </message>
+    <message>
+        <source>The {0} profile is set up. Review the mod list, then Deploy and play.</source>
+        <translation>Het {0}-profiel is ingesteld. Bekijk de mod lijst, dan Deploy en spelen.</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Klaar</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameExportOverlay</name>
+    <message>
+        <source>Export game</source>
+        <translation>Spel exporteren</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone your "{0}" custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Deel deze code om iemand uw "{0}" aangepaste spel setup te sturen. Ze kunnen het toevoegen met Importcode in Aangepast Spel definiëren.</translation>
+    </message>
+    <message>
+        <source>Share this code to send someone this custom game setup. They can add it with Import code in Define Custom Game.</source>
+        <translation>Deel deze code om iemand deze aangepaste game setup te sturen. Ze kunnen het toevoegen met Importcode in Aangepast Spel definiëren.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Sluiten</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>Kopiëren naar klembord</translation>
+    </message>
+    <message>
+        <source>Copied ✓</source>
+        <translation>Gekopiëerd</translation>
+    </message>
+</context>
+<context>
+    <name>CustomGameImportOverlay</name>
+    <message>
+        <source>Import game</source>
+        <translation>Spel importeren</translation>
+    </message>
+    <message>
+        <source>Paste a share code below to prefill the form from another custom game's setup. You still need to give it a unique name.</source>
+        <translation>Plakken een gedeelde code hieronder om het formulier voor te vullen van een ander aangepast spel setup. Je moet het nog een unieke naam geven.</translation>
+    </message>
+    <message>
+        <source>Paste from clipboard</source>
+        <translation>Plakken vanaf klembord</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importeren</translation>
+    </message>
+    <message>
+        <source>Not a valid game code.</source>
+        <translation>Geen geldige spelcode.</translation>
+    </message>
+    <message>
+        <source>{0} deploy</source>
+        <translation>{0}-implementatie</translation>
+    </message>
+</context>
+<context>
     <name>CustomGameView</name>
     <message>
         <source>Standard</source>
@@ -1620,6 +2138,10 @@ Sluit het wanneer u klaar bent, klik vervolgens op Klaar.</translation>
         <translation>Een aangepast spel instellen</translation>
     </message>
     <message>
+        <source>Export code…</source>
+        <translation>Code exporteren..</translation>
+    </message>
+    <message>
         <source>Load Preset  (optional)</source>
         <translation>Voorinstelling laden (facultatief)</translation>
     </message>
@@ -1630,6 +2152,18 @@ Sluit het wanneer u klaar bent, klik vervolgens op Klaar.</translation>
     <message>
         <source>— Select a game to copy from —</source>
         <translation>Selecteer een spel om uit te kopiëren</translation>
+    </message>
+    <message>
+        <source>{0}  (built-in template)</source>
+        <translation>{0} (ingebouwd sjabloon)</translation>
+    </message>
+    <message>
+        <source>Or paste a share code exported from another custom game to prefill every field below.</source>
+        <translation>Of plak een gedeelde code geëxporteerd van een ander aangepast spel om elk veld hieronder voor te vullen.</translation>
+    </message>
+    <message>
+        <source>Import code…</source>
+        <translation>Code importeren..</translation>
     </message>
     <message>
         <source>Game Name</source>
@@ -2422,6 +2956,261 @@ Sluit het wanneer u klaar bent, klik vervolgens op Klaar.</translation>
     </message>
 </context>
 <context>
+    <name>ESMFixesView</name>
+    <message>
+        <source>Ultimate Edition ESM Fixes — {0}</source>
+        <translation>Ultimate Edition ESM Repareert {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install the MPI Installer</source>
+        <translation>Stap 1: Installeer de MPI Installer</translation>
+    </message>
+    <message>
+        <source>The native Linux MPI installer (also used for Tale of Two Wastelands) will be downloaded from GitHub
+and placed in this game's Applications folder.
+
+Click Install to begin.</source>
+        <translation>Het native Linux MPI installatieprogramma (ook gebruikt voor Tale of Two Wastelands) wordt gedownload van GitHub
+en geplaatst in de toepassingsmap van dit spel.
+
+Klik op installeren om te beginnen.</translation>
+    </message>
+    <message>
+        <source>Installer by SulfurNitride (TTW_Linux_Installer)</source>
+        <translation>Installatieprogramma van SulfurNitride (TTW_Linux_Installer)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Installeren</translation>
+    </message>
+    <message>
+        <source>Contacting GitHub…</source>
+        <translation>Verbinding maken met GitHub…</translation>
+    </message>
+    <message>
+        <source>Installer ready.</source>
+        <translation>Installer klaar.</translation>
+    </message>
+    <message>
+        <source>Install error: {0}</source>
+        <translation>Installeerfout: {0}</translation>
+    </message>
+    <message>
+        <source>The ESM Fixes output is already installed</source>
+        <translation>De ESM Fixes uitvoer is al geïnstalleerd</translation>
+    </message>
+    <message>
+        <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
+
+Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
+        <translation>De '{0}' mod staat al in je mod lijst 
+
+Herbouwt vanaf nul herstelt het spel naar vanille en draait de patcher weer (heeft het .mpi pakket nodig).</translation>
+    </message>
+    <message>
+        <source>Rebuild from scratch</source>
+        <translation>Helemaal opnieuw opbouwen</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Klaar</translation>
+    </message>
+    <message>
+        <source>Step 2: Game folder &amp; package</source>
+        <translation>Stap 2: Spelmap &amp; pakket</translation>
+    </message>
+    <message>
+        <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
+
+Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
+        <translation>Ultimate Edition ESM Fixes patches de vanille .esm masters (FalloutNV + alle DLC) met community bugfixes, en het resultaat wordt toegevoegd als een mod.
+
+Download het hoofdbestand 'Ultimate Edition ESM Fixes Remastered' van Nexus .</translation>
+    </message>
+    <message>
+        <source>Open Nexus page</source>
+        <translation>Nexus-pagina openen</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas:</source>
+        <translation>Fallout New Vegas:</translation>
+    </message>
+    <message>
+        <source>Select the Fallout New Vegas folder</source>
+        <translation>Selecteer de map Fallout New Vegas</translation>
+    </message>
+    <message>
+        <source>ESM Fixes package:</source>
+        <translation>ESM Fixes pakket:</translation>
+    </message>
+    <message>
+        <source>Choose file…</source>
+        <translation>Bestand kiezen..</translation>
+    </message>
+    <message>
+        <source>Detect again</source>
+        <translation>Opnieuw detecteren</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Doorgaan</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Bladeren…</translation>
+    </message>
+    <message>
+        <source>— not set —</source>
+        <translation>— niet ingesteld —</translation>
+    </message>
+    <message>
+        <source>Looking for the ESM Fixes download…</source>
+        <translation>Op zoek naar de ESM Fixes download..</translation>
+    </message>
+    <message>
+        <source>Using previously extracted package.</source>
+        <translation>Gebruik van eerder gewonnen pakket.</translation>
+    </message>
+    <message>
+        <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
+        <translation>Archief niet gevonden in uw downloadmappen .</translation>
+    </message>
+    <message>
+        <source>Extracting the .mpi package from {0}…</source>
+        <translation>Het .mpi pakket uit {0} halen..</translation>
+    </message>
+    <message>
+        <source>Auto-detected from {0}.</source>
+        <translation>Automatisch gedetecteerd van {0}.</translation>
+    </message>
+    <message>
+        <source>Auto-detect failed: {0}</source>
+        <translation>Automatisch detecteren mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
+        <translation>Downloaden van het ESM Fixes pakket van Nexus... {0}%</translation>
+    </message>
+    <message>
+        <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
+        <translation>Premium account te downloaden het ESM Fixes pakket van Nexus..</translation>
+    </message>
+    <message>
+        <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
+        <translation>Archief niet gevonden: Download het van Nexus (knop hierboven). Het wordt automatisch opgehaald zodra de download klaar is.</translation>
+    </message>
+    <message>
+        <source>Select the ESM Fixes .mpi or its archive</source>
+        <translation>Selecteer het ESM Fixes .mpi of het archief</translation>
+    </message>
+    <message>
+        <source>MPI package or archive</source>
+        <translation>MPI-pakket of -archief</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Alle bestanden</translation>
+    </message>
+    <message>
+        <source>Selected: {0}</source>
+        <translation>Geselecteerd: {0}</translation>
+    </message>
+    <message>
+        <source>Using the .mpi from {0}.</source>
+        <translation>Gebruik van de .mpi van {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Fout: {0}</translation>
+    </message>
+    <message>
+        <source>Please select the ESM Fixes .mpi package (or its downloaded archive).</source>
+        <translation>Selecteer het ESM Fixes .mpi pakket (of het gedownloade archief).</translation>
+    </message>
+    <message>
+        <source>Fallout New Vegas folder is not set.</source>
+        <translation>De map voor Fallout New Vegas is niet ingesteld.</translation>
+    </message>
+    <message>
+        <source>Starting…</source>
+        <translation>We beginnen…</translation>
+    </message>
+    <message>
+        <source>Step 3: Patching the vanilla masters</source>
+        <translation>Stap 3: Patchen van de vanillemeesters</translation>
+    </message>
+    <message>
+        <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
+Output is written directly into your mod list as the '{0}' mod.</source>
+        <translation>Het spel wordt eerst hersteld in een vanille staat, dan de installateur patches de vanille .esm meesters met de community bugfixes.
+Output wordt direct in uw mod lijst geschreven als de '{0}' mod.</translation>
+    </message>
+    <message>
+        <source>Installer binary is missing. Restart the wizard and let it install first.</source>
+        <translation>Installer binaire is vermist. Herstart de wizard en laat het eerst installeren.</translation>
+    </message>
+    <message>
+        <source>Restoring game to vanilla…</source>
+        <translation>Spel herstellen naar vanille..</translation>
+    </message>
+    <message>
+        <source>Restoring game to a vanilla state before install…</source>
+        <translation>Het herstellen van spel naar een vanille staat voordat..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
+        <translation>Terugzetten mislukt Zie het logboek. Repareer het probleem (of herstel handmatig via de knop Herstellen) en probeer het opnieuw.</translation>
+    </message>
+    <message>
+        <source>Mod staging path is not configured.</source>
+        <translation>Mod staging pad is niet geconfigureerd.</translation>
+    </message>
+    <message>
+        <source>ERROR: missing vanilla plugin files:
+{0}</source>
+        <translation>FOUT: ontbrekende vanille-pluginbestanden:
+{0}</translation>
+    </message>
+    <message>
+        <source>Missing vanilla plugin files even after restoring to vanilla — these were never backed up.
+In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
+
+{0}</source>
+        <translation>Ontbrekende vanille plugin bestanden, zelfs na het herstellen van vanille 
+In Steam, klik met de rechtermuisknop op het spel → Eigenschappen → Geïnstalleerde bestanden → Controleer de integriteit van de spelbestanden, probeer het dan opnieuw.
+
+{0}</translation>
+    </message>
+    <message>
+        <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
+        <translation>WAARSCHUWING: FalloutNV.exe is 4GB-patched. Het installatieprogramma controleert de game exe en kan weigeren om te draaien .</translation>
+    </message>
+    <message>
+        <source>Patching… (see log below)</source>
+        <translation>Patchen... (zie log hieronder)</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Startfout: {0}</translation>
+    </message>
+    <message>
+        <source>Installer exited with error (code {0}). See the log for details.</source>
+        <translation>Installer afgesloten met fout (code {0}). Zie het logboek voor details.</translation>
+    </message>
+    <message>
+        <source>Patching complete — registering mod…</source>
+        <translation>Patchen van volledige..</translation>
+    </message>
+    <message>
+        <source>Patching finished but registering the mod failed: {0}</source>
+        <translation>Patchen voltooid maar registreren van de mod is mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
+        <translation>Klaar! '{0}' is toegevoegd aan je mod lijst. Inschakelen en inzetten.</translation>
+    </message>
+</context>
+<context>
     <name>EngineFixesView</name>
     <message>
         <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -2720,6 +3509,30 @@ Proton-voorvoegsel: klik eens op 'Installeer Java in prefix' en dan draait het a
     <message>
         <source>All files</source>
         <translation>Alle bestanden</translation>
+    </message>
+    <message>
+        <source>Preparing export…</source>
+        <translation>Uitvoer voorbereiden..</translation>
+    </message>
+    <message>
+        <source>Packing mod: {0}</source>
+        <translation>Verpakkingsmod: {0}</translation>
+    </message>
+    <message>
+        <source>Packing overwrite files…</source>
+        <translation>Bestanden overschrijven..</translation>
+    </message>
+    <message>
+        <source>Packing profile files…</source>
+        <translation>Profielbestanden worden ingepakt..</translation>
+    </message>
+    <message>
+        <source>Packing…</source>
+        <translation>Inpakken..</translation>
+    </message>
+    <message>
+        <source>Exporting profile</source>
+        <translation>Profiel exporteren</translation>
     </message>
     <message>
         <source>Exported to {0}</source>
@@ -3147,6 +3960,14 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <message>
         <source>Finish</source>
         <translation>Einde</translation>
+    </message>
+    <message>
+        <source>Newly available — this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>Nieuw beschikbaar .</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled — enable it first, or select this only if you plan to add it.</source>
+        <translation>Deze optie's vereiste plugin is niet ingeschakeld en activeer het eerst, of selecteer dit alleen als u van plan bent om het toe te voegen.</translation>
     </message>
     <message>
         <source>Click to view full size</source>
@@ -3794,10 +4615,6 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>32-bits ondersteuning geïnstalleerd .</translation>
     </message>
     <message>
-        <source>Could not install 32-bit support automatically — see the log for the manual command.</source>
-        <translation>Kon 32-bits ondersteuning niet automatisch installeren Zie de log voor het handmatige commando.</translation>
-    </message>
-    <message>
         <source>Install-name Rules</source>
         <translation>Naamregels installeren</translation>
     </message>
@@ -4042,10 +4859,6 @@ Wil je het toegevoegde collectievermelding verwijderen?</translation>
         <translation>Installatie annuleren?</translation>
     </message>
     <message>
-        <source>This will stop the install and delete the collection profile.</source>
-        <translation>Dit zal de installatie stoppen en het collectieprofiel verwijderen.</translation>
-    </message>
-    <message>
         <source>Cancel Install</source>
         <translation>Annuleren installeren</translation>
     </message>
@@ -4112,6 +4925,74 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>OK</source>
         <translation>Oké</translation>
+    </message>
+    <message>
+        <source>32-bit support could not be installed</source>
+        <translation>32-bit ondersteuning kon niet geïnstalleerd worden</translation>
+    </message>
+    <message>
+        <source>Amethyst could not install 32-bit support automatically. Windows tools (and some games) may fail to run until it is installed. Run this on a terminal, then restart the app:
+
+{0}</source>
+        <translation>Amethist kon geen 32-bit ondersteuning automatisch installeren. Windows-tools (en sommige games) kunnen niet draaien totdat het is geïnstalleerd. Voer dit uit op een terminal en herstart de app:
+
+{0}</translation>
+    </message>
+    <message>
+        <source>Don't show again</source>
+        <translation>Kom niet meer opdagen</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>Plugins vernieuwen</translation>
+    </message>
+    <message>
+        <source>Force update handler</source>
+        <translation>Updateafhandeling forceren</translation>
+    </message>
+    <message>
+        <source>Updating handler…</source>
+        <translation>Bijwerken van begeleider..</translation>
+    </message>
+    <message>
+        <source>Handler update failed — check your connection.</source>
+        <translation>Handler-update is mislukt. Controleer uw verbinding.</translation>
+    </message>
+    <message>
+        <source>Handler not found on the Resources branch.</source>
+        <translation>Handler niet gevonden op de Resources tak.</translation>
+    </message>
+    <message>
+        <source>Handler is already up to date.</source>
+        <translation>Handler is al op de hoogte.</translation>
+    </message>
+    <message>
+        <source>Handler updated.</source>
+        <translation>Handler bijgewerkt.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>beta</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>stabiel</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
+        <translation>Het {0} kanaal is niet gepubliceerd op de update remote nog .</translation>
+    </message>
+    <message>
+        <source>An install is finishing — try the collection again in a moment.</source>
+        <translation>Een installatie is klaar met de collectie opnieuw proberen in een moment.</translation>
+    </message>
+    <message>
+        <source>This will stop the install and delete the new profile '{0}'.</source>
+        <translation>Dit zal de installatie stoppen en het nieuwe profiel '{0}' verwijderen.</translation>
+    </message>
+    <message>
+        <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
+        <translation>Dit zal de installatie stoppen. Profiel '{0}' en de reeds geïnstalleerde mods worden bewaard.</translation>
     </message>
     <message>
         <source>A load-order reset is already running.</source>
@@ -4494,6 +5375,26 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Geen uitvoerbare bestanden gevonden.</translation>
     </message>
     <message>
+        <source>No game folder configured.</source>
+        <translation>Geen gamemap ingesteld.</translation>
+    </message>
+    <message>
+        <source>No executables found in the game folder.</source>
+        <translation>Geen uitvoerbare bestanden gevonden in de gamemap.</translation>
+    </message>
+    <message>
+        <source>Add executable from game folder</source>
+        <translation>Uitvoerbaar bestand uit gamemap toevoegen</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
+        <translation>Controleer de uitvoerbare bestanden om toe te voegen aan het menu Uitvoeren. Deze worden uitgevoerd vanaf hun locatie in de game map met inbegrip van bestanden die daar door mods.</translation>
+    </message>
+    <message>
+        <source>Play failed — see log.</source>
+        <translation>Afspelen is mislukt, zie log.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Uitvoerbaar bestand niet gevonden: {0}</translation>
     </message>
@@ -4710,6 +5611,10 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>{0} geïnstalleerd</translation>
     </message>
     <message>
+        <source>Restore queued — it will run after the current install finishes.</source>
+        <translation>Terugzetten in de wachtrij wordt uitgevoerd nadat de huidige installatie is voltooid.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>{0}-mods geïnstalleerd</translation>
     </message>
@@ -4878,6 +5783,18 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>{0} plug-ins ({1} ESL, {2} niet-ESL)</translation>
     </message>
     <message>
+        <source>Refreshing LOOT metadata for {0} plugins…</source>
+        <translation>LOOT-metadata voor {0}-plugins wordt ververst..</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed — see log.</source>
+        <translation>LOOT-verversen is mislukt, zie log.</translation>
+    </message>
+    <message>
+        <source>Plugin metadata refreshed.</source>
+        <translation>Plugin metadata vernieuwd.</translation>
+    </message>
+    <message>
         <source>LOOT library not available — cannot check overlap.</source>
         <translation>LOOT-bibliotheek is niet beschikbaar.</translation>
     </message>
@@ -4904,6 +5821,10 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>+ Add exe from staging…</source>
         <translation>+ Exe van enscenering toevoegen..</translation>
+    </message>
+    <message>
+        <source>+ Add exe from game folder…</source>
+        <translation>+ Exe uit game map toevoegen..</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -5733,6 +6654,10 @@ Klik op Gereed om te sluiten.</translation>
         <translation>Ontbrekende vereisten</translation>
     </message>
     <message>
+        <source>A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer</source>
+        <translation>De plugin van een FOMOD patch optie is nu geïnstalleerd Klik om de FOMOD installatie opnieuw uit te voeren</translation>
+    </message>
+    <message>
         <source>Update available on Nexus Mods</source>
         <translation>Update beschikbaar op Nexus Mods</translation>
     </message>
@@ -6253,6 +7178,10 @@ Je kunt dit overslaan en later verbinding maken via de Nexus-knop in de werkbalk
     <message>
         <source>Default: {0}</source>
         <translation>Standaard: {0}</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;gamenaam&gt;</translation>
     </message>
     <message>
         <source>Leave blank to use the default</source>
@@ -8255,6 +9184,22 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Het aantal extracties wordt beperkt door de beschikbare geheugencapaciteit; het werkelijke aantal kan lager zijn dan het ingestelde aantal.</translation>
     </message>
     <message>
+        <source>Download speed limit</source>
+        <translation>Snelheidslimiet downloaden</translation>
+    </message>
+    <message>
+        <source>Unlimited</source>
+        <translation>Onbeperkt</translation>
+    </message>
+    <message>
+        <source>{0} MB/s</source>
+        <translation>{0} MB/s</translation>
+    </message>
+    <message>
+        <source>Cap the combined download speed of all downloads (collections, single mods, nxm links) so they don't use the whole connection. Applies immediately, including to a running collection install.</source>
+        <translation>Sluit de gecombineerde downloadsnelheid van alle downloads (collecties, enkele mods, nxm links) zodat ze niet de hele verbinding gebruiken. Geldt onmiddellijk, inclusief voor een lopende collectie installatie.</translation>
+    </message>
+    <message>
         <source>Extraction CPU threads</source>
         <translation>CPU-draden uitpakken</translation>
     </message>
@@ -8327,6 +9272,66 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Bied bij het controleren op updates ook bèta- en release-candidate-versies van de app aan.</translation>
     </message>
     <message>
+        <source>Notify about new versions on startup</source>
+        <translation>Bericht over nieuwe versies bij opstarten</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Een melding tonen wanneer een nieuwe versie van Amethist beschikbaar is. Het uitschakelen van deze uit slechts de notificatie tempert .</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates…</source>
+        <translation>Automatische updates inschakelen..</translation>
+    </message>
+    <message>
+        <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
+        <translation>Schakel deze Flatpak naar de Amethyst update op afstand zodat toekomstige updates automatisch via uw pakketbeheerder (GNOME Software / Discover) met kleinere downloads arriveren. Dit herinstalleert de app eenmaal van de remote en herstart het.</translation>
+    </message>
+    <message>
+        <source>beta</source>
+        <translation>beta</translation>
+    </message>
+    <message>
+        <source>stable</source>
+        <translation>stabiel</translation>
+    </message>
+    <message>
+        <source>Channel not available</source>
+        <translation>Kanaal niet beschikbaar</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet. Try again after the next {0} release (or change the pre-release setting).</source>
+        <translation>Het {0}-kanaal wordt nog niet op de update op afstand gepubliceerd. Probeer het opnieuw na de volgende {0} release (of wijzig de instelling voor de release).</translation>
+    </message>
+    <message>
+        <source>Could not reach Flatpak</source>
+        <translation>Kon Flatpak niet bereiken</translation>
+    </message>
+    <message>
+        <source>The host Flatpak service couldn't be reached. You can add the remote manually:
+
+flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo</source>
+        <translation>De host Flatpak service kon niet worden bereikt. U kunt de afstandsbediening handmatig toevoegen:
+
+flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manager/amethist.flatpakrepo</translation>
+    </message>
+    <message>
+        <source>Enable automatic updates?</source>
+        <translation>Automatische updates inschakelen?</translation>
+    </message>
+    <message>
+        <source>Amethyst will add its update remote and reinstall itself from it once, then relaunch. Future updates then arrive automatically through your package manager.</source>
+        <translation>Amethist zal zijn update remote toevoegen en zichzelf opnieuw installeren van het een keer, dan opnieuw opstarten. Toekomstige updates komen dan automatisch aan via uw pakketbeheerder.</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Inschakelen</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Annuleren</translation>
+    </message>
+    <message>
         <source>Paths</source>
         <translation>Paden</translation>
     </message>
@@ -8337,6 +9342,10 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
     <message>
         <source>When set, games added after this point stage mods here. Blank = default ({0}).</source>
         <translation>Indien ingesteld, worden games die na dit moment worden toegevoegd hier gemodificeerd. Leeg = standaard ({0}).</translation>
+    </message>
+    <message>
+        <source>&lt;game name&gt;</source>
+        <translation>&lt;gamenaam&gt;</translation>
     </message>
     <message>
         <source>Download Cache Folder</source>
@@ -8842,22 +9851,6 @@ Klik op ‘Installeren’ om te beginnen.</translation>
     <message>
         <source>Contacting GitHub…</source>
         <translation>Verbinding maken met GitHub…</translation>
-    </message>
-    <message>
-        <source>No Linux installer asset found in the latest TTW release ({0}).</source>
-        <translation>Geen Linux installatie activa gevonden in de nieuwste TTW release ({0}).</translation>
-    </message>
-    <message>
-        <source>Downloading TTW installer {0}…</source>
-        <translation>Downloaden van TTW installatie {0}..</translation>
-    </message>
-    <message>
-        <source>Extracting installer…</source>
-        <translation>Uitpakken van installatie..</translation>
-    </message>
-    <message>
-        <source>{0} not found after extraction at {1}.</source>
-        <translation>{0} niet gevonden na extractie bij {1}.</translation>
     </message>
     <message>
         <source>Installer ready.</source>
@@ -10414,6 +11407,10 @@ Huidige versie: {0}
 Nieuwste versie:  {1}</translation>
     </message>
     <message>
+        <source>Don't notify me about new versions</source>
+        <translation>Vertel me niets over nieuwe versies</translation>
+    </message>
+    <message>
         <source>Switch to stable</source>
         <translation>Overstappen naar de stabiele versie</translation>
     </message>
@@ -10482,6 +11479,10 @@ Nieuwste versie:  {1}</translation>
     <message>
         <source>Open Download Page</source>
         <translation>Downloadpagina openen</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Gedownload: {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -10692,6 +11693,10 @@ Om het te krijgen:
 3. Laat het archief in uw map Downloads en klik op Volgende.
 
 Het bevat xFOEdit (Fallout), xSFEdit (Starfield) en xTESEdit (Elder Scrolls); de wizard draait de ene voor dit spel automatisch.</translation>
+    </message>
+    <message>
+        <source>Downloaded: {0}</source>
+        <translation>Gedownload: {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>
