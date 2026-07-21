@@ -18,7 +18,8 @@
   "conflict_ignore_filenames": [
     "*.png",
     "*.jpg",
-    "*readme*.txt"
+    "*readme*.txt",
+    "*.md"
   ],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
@@ -30,7 +31,8 @@
   "normalize_folder_case": true,
   "filemap_casing": "upper",
   "wine_dll_overrides": {
-    "d3d9": "native,builtin"
+    "d3d9": "native,builtin",
+    "dwmapi": "native,builtin"
   },
   "custom_routing_rules": [
     {
@@ -50,42 +52,86 @@
       "to_prefix": true
     },
     {
-      "dest": "Content/Paks",
+      "dest": "Binaries/Win64",
       "folders": [
-        "LogicMods"
+        "ue4ss",
+        "UE4SS_Signatures"
       ],
       "flatten": true
     },
     {
-      "dest": "Binaries/Win64/Mods",
+      "dest": "Content/Paks",
+      "folders": [
+        "LogicMods",
+        "~mods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".utoc",
+        ".ucas",
+        ".modconfig.json"
+      ]
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "folders": [
+        "SwapJSON"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
       "filenames": [
         "Main.lua"
       ],
       "include_siblings": true
     },
     {
-      "dest": "Binaries/Win64/Mods",
+      "dest": "Binaries/Win64/ue4ss/Mods",
       "filenames": [
         "enabled.txt"
       ],
       "include_siblings": true
     },
     {
-      "dest": "Binaries/Win64/Mods",
+      "dest": "Binaries/Win64/ue4ss/Mods",
       "folders": [
         "Scripts"
       ],
       "include_siblings": true
     },
     {
-      "dest": "Binaries/Win64/Mods",
+      "dest": "Binaries/Win64/ue4ss/Mods",
       "folders": [
         "Shared"
       ],
       "flatten": true
+    },
+    {
+      "dest": "Content/Paks/~mods/SwapJSON",
+      "extensions": [
+        ".json"
+      ],
+      "loose_only": true
+    },
+    {
+      "dest": "unused",
+      "extensions": [
+        ".json"
+      ],
+      "include_siblings": true
     }
   ],
-  "custom_frameworks": {},
-  "version": 4,
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "UE4SS": "Binaries/Win64/dwmapi.dll"
+  },
+  "version": 5,
   "editable": false
 }
