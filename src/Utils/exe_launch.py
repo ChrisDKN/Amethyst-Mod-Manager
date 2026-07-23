@@ -1839,6 +1839,8 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     proton_override_name = load_proton_override(game, exe_path.name)
     lutris_env_extra = None  # set for classic lutris-wine prefixes only
     umu_bin = None  # set for Lutris umu/Proton prefixes when umu-run exists
+    prefix_path = None  # game-prefix branch only (None with a Proton override)
+    lutris_is_prefix = False
     if proton_override_name:
         # Try exact match first, then prefix match ("Proton 10" → "Proton 10.0")
         proton_script = find_any_installed_proton(proton_override_name)
@@ -2000,6 +2002,38 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         extra_args = shlex.split(load_exe_args(game, exe_path.name))
     except ValueError as e:
         log_fn(f"Run EXE: invalid arguments — {e}")
+        return
+
+    if load_winetricks_style(game, exe_path.name):
+        # Per-exe opt-in mirrored from the wizards' Proton step: bypass the
+        # Proton session and run bare `wine start.exe` against the resolved
+        # prefix (see run_tool_winetricks_style). The prefix itself is still
+        # created/updated through Proton. Env vars from Launch Options are
+        # applied; wrappers/%command% are not — there is no wrapped command.
+        extra_env, _ = parse_launch_options(
+            load_launch_options(game, exe_path.name), [])
+        pfx_root = prefix_path if lutris_is_prefix else compat_data
+        if (lutris_env_extra is None
+                and not (pfx_root / "pfx" / "user.reg").is_file()
+                and not (pfx_root / "user.reg").is_file()):
+            log_fn("Run EXE: initialising the prefix via Proton before the "
+                   "plain-Wine launch …")
+            try:
+                subprocess.run(
+                    # "run" (not "runinprefix"): triggers Proton's full
+                    # first-time prefix setup, same as get_tool_prefix_env.
+                    proton_run_command(proton_script, "run", "wineboot",
+                                       "--init", env=env),
+                    env=env,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=60,
+                )
+            except Exception:
+                pass
+        run_tool_winetricks_style(
+            proton_script, exe_path, pfx_root, log_fn=log_fn,
+            extra_args=extra_args, extra_env=extra_env or None,
+            label=exe_path.name)
         return
 
     runner_name = (proton_script.parent.parent.name

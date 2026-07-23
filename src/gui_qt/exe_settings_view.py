@@ -15,6 +15,7 @@ app's thread-safe _append_log) — never widgets.
 
 from __future__ import annotations
 
+import html
 import subprocess
 import threading
 from pathlib import Path
@@ -64,6 +65,20 @@ class ExeSettingsView(QWidget):
             self._install_java_btn.setEnabled(True)
             self._install_java_btn.setText(self.tr("Install Java into prefix"))
 
+    # ---- tooltip helpers --------------------------------------------------
+    def _tip_text(self, text: str) -> str:
+        # Rich-text so the tooltip word-wraps; plain-text tooltips render as
+        # one long unbroken line. Newlines become <br> so multi-line hints
+        # (e.g. the .jar runtime notes) keep their breaks.
+        return "<qt>" + html.escape(text).replace("\n", "<br>") + "</qt>"
+
+    def _help_marker(self, text: str) -> QLabel:
+        mark = QLabel("ⓘ")
+        mark.setObjectName("HelpMark")
+        mark.setToolTip(self._tip_text(text))
+        mark.setCursor(Qt.WhatsThisCursor)
+        return mark
+
     # ---- layout -----------------------------------------------------------
     def _build(self):
         p = self._pal = active_palette()
@@ -92,32 +107,33 @@ class ExeSettingsView(QWidget):
         bv.setContentsMargins(12, 12, 12, 12)
         bv.setSpacing(10)
 
-        def section(title_text: str) -> tuple[QFrame, QVBoxLayout]:
+        def section(title_text: str, tip: str = "") -> tuple[QFrame, QVBoxLayout]:
             sec = QFrame()
             sec.setObjectName("SettingsSection")
             sec.setStyleSheet(
                 f"#SettingsSection {{ background:{_c(p,'BG_PANEL')};"
-                f" border:1px solid {_c(p,'BORDER')}; border-radius:6px; }}")
+                f" border:1px solid {_c(p,'BORDER')}; border-radius:6px; }}"
+                f" QLabel#HelpMark {{ color:{_c(p,'TEXT_DIM')}; }}")
             sv = QVBoxLayout(sec)
             sv.setContentsMargins(10, 8, 10, 8)
             sv.setSpacing(4)
+            # Title row: label + a ⓘ marker whose tooltip carries the
+            # description (matches the Settings menu — no inline hint text).
+            head = QHBoxLayout(); head.setContentsMargins(0, 0, 0, 0); head.setSpacing(6)
             lbl = QLabel(title_text)
             lbl.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
-            sv.addWidget(lbl)
+            head.addWidget(lbl)
+            if tip:
+                head.addWidget(self._help_marker(tip))
+            head.addStretch(1)
+            sv.addLayout(head)
             return sec, sv
-
-        def hint(text: str) -> QLabel:
-            h = QLabel(text)
-            h.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:12px;")
-            h.setWordWrap(True)
-            return h
 
         self._is_jar = exe_launch.is_jar(self._exe_path)
 
         # -- Java runtime (.jar only) ----------------------------------------
         if self._is_jar:
-            sec_jar, sj = section(self.tr("Java runtime"))
-            sj.addWidget(hint(self.tr(
+            sec_jar, sj = section(self.tr("Java runtime"), self.tr(
                 "How to run this .jar:\n"
                 "Host: run with your system's java (no Proton). Set the Java "
                 "command in Launch Options, e.g. 'java -jar %command%' "
@@ -127,7 +143,7 @@ class ExeSettingsView(QWidget):
                 "in Launch Options / Launch arguments is appended as extra "
                 "flags. Which prefix follows the Proton version below "
                 "('Game default' = the game's prefix; a specific version = an "
-                "isolated prefix next to the jar).")))
+                "isolated prefix next to the jar)."))
             self._jar_runtime_combo = QComboBox()
             self._jar_runtime_combo.addItem(self.tr("Host (system java)"),
                                             exe_launch.JAR_RUNTIME_HOST)
@@ -146,10 +162,9 @@ class ExeSettingsView(QWidget):
             bv.addWidget(sec_jar)
 
         # -- Launch arguments ------------------------------------------------
-        sec_args, sa = section(self.tr("Launch arguments"))
-        sa.addWidget(hint(self.tr(
+        sec_args, sa = section(self.tr("Launch arguments"), self.tr(
             "Arguments passed to the exe. Use Wine paths for file arguments "
-            "(e.g. Z:\\home\\...) — the buttons below insert them for you.")))
+            "(e.g. Z:\\home\\...) — the buttons below insert them for you."))
         self._args_box = QPlainTextEdit()
         self._args_box.setFixedHeight(90)
         sa.addWidget(self._args_box)
@@ -170,7 +185,12 @@ class ExeSettingsView(QWidget):
         bv.addWidget(sec_args)
 
         # -- Proton version ---------------------------------------------------
-        sec_proton, sp = section(self.tr("Proton version"))
+        sec_proton, sp = section(self.tr("Proton version"), self.tr(
+            "Use a specific Proton version with an isolated prefix next to the "
+            "exe, instead of the game's prefix. Useful for tools that don't "
+            "work with the game's Proton version. For Bethesda games the game "
+            "path (registry), plugins.txt and My Games INIs are set up in the "
+            "prefix automatically at launch."))
         proton_row = QHBoxLayout()
         proton_row.setSpacing(8)
         self._proton_combo = QComboBox()
@@ -179,12 +199,25 @@ class ExeSettingsView(QWidget):
         proton_row.addWidget(self._proton_combo)
         proton_row.addStretch(1)
         sp.addLayout(proton_row)
-        sp.addWidget(hint(self.tr(
-            "Use a specific Proton version with an isolated prefix next to the "
-            "exe, instead of the game's prefix. Useful for tools that don't "
-            "work with the game's Proton version. For Bethesda games the game "
-            "path (registry), plugins.txt and My Games INIs are set up in the "
-            "prefix automatically at launch.")))
+        self._winetricks_chk = None
+        if not self._is_jar:
+            wt_help = self.tr(
+                "Run this exe with bare Wine against the same prefix instead "
+                "of a Proton session — no Steam client attach, so Steam Input "
+                "keeps the desktop controls (trackpad / on-screen keyboard). "
+                "The prefix is still created and updated through Proton. Env "
+                "vars in Launch Options still apply; wrappers and %command% "
+                "are skipped in this mode.")
+            self._winetricks_chk = QCheckBox(
+                self.tr("Launch with plain Wine (winetricks-style)"))
+            self._winetricks_chk.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
+            self._winetricks_chk.setToolTip(self._tip_text(wt_help))
+            wt_row = QHBoxLayout(); wt_row.setContentsMargins(0, 0, 0, 0)
+            wt_row.setSpacing(6)
+            wt_row.addWidget(self._winetricks_chk)
+            wt_row.addWidget(self._help_marker(wt_help))
+            wt_row.addStretch(1)
+            sp.addLayout(wt_row)
         tool_row = QHBoxLayout()
         tool_row.setSpacing(6)
         for label, cb in ((self.tr("Run EXE in prefix…"), self._run_exe_in_prefix),
@@ -201,11 +234,10 @@ class ExeSettingsView(QWidget):
         bv.addWidget(sec_proton)
 
         # -- Launch options ----------------------------------------------------
-        sec_opts, so = section(self.tr("Launch Options"))
-        so.addWidget(hint(self.tr(
+        sec_opts, so = section(self.tr("Launch Options"), self.tr(
             "Steam-style options: env vars (KEY=VALUE), wrappers (e.g. "
             "gamemoderun), and %command% as placeholder for the full command. "
-            "Without %command%, appended as suffix.")))
+            "Without %command%, appended as suffix."))
         self._options_edit = QLineEdit()
         self._options_edit.setPlaceholderText(
             self.tr("e.g. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%"))
@@ -213,15 +245,16 @@ class ExeSettingsView(QWidget):
         bv.addWidget(sec_opts)
 
         # -- Deploy on run -----------------------------------------------------
-        sec_deploy, sd = section(self.tr("Deploy on run"))
+        deploy_help = self.tr(
+            "Runs the same deploy as the Deploy button, then launches this exe "
+            "once the deploy finishes.")
+        sec_deploy, sd = section(self.tr("Deploy on run"), deploy_help)
         self._deploy_on_run_chk = QCheckBox(
             self.tr("Deploy the modlist before running this exe"))
         self._deploy_on_run_chk.setStyleSheet(
             f"color:{_c(p,'TEXT_MAIN')};")
+        self._deploy_on_run_chk.setToolTip(self._tip_text(deploy_help))
         sd.addWidget(self._deploy_on_run_chk)
-        sd.addWidget(hint(self.tr(
-            "Runs the same deploy as the Deploy button, then launches this exe "
-            "once the deploy finishes.")))
         bv.addWidget(sec_deploy)
 
         bv.addStretch(1)
@@ -259,6 +292,9 @@ class ExeSettingsView(QWidget):
         self._proton_combo.setCurrentText(self._best_proton_match(saved))
         self._deploy_on_run_chk.setChecked(
             exe_launch.load_deploy_on_run(game, name))
+        if self._winetricks_chk is not None:
+            self._winetricks_chk.setChecked(
+                exe_launch.load_winetricks_style(game, name))
         if self._is_jar:
             runtime = exe_launch.load_jar_runtime(game, name)
             idx = self._jar_runtime_combo.findData(runtime)
@@ -287,6 +323,9 @@ class ExeSettingsView(QWidget):
                                        self._options_edit.text().strip())
         exe_launch.save_deploy_on_run(
             game, name, self._deploy_on_run_chk.isChecked())
+        if self._winetricks_chk is not None:
+            exe_launch.save_winetricks_style(
+                game, name, self._winetricks_chk.isChecked())
         if self._is_jar:
             exe_launch.save_jar_runtime(
                 game, name, self._jar_runtime_combo.currentData())
