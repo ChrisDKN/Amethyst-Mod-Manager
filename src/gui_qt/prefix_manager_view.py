@@ -13,9 +13,10 @@ import shutil
 import threading
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
-    QScrollArea, QFrame,
+    QScrollArea, QFrame, QSizePolicy,
 )
 
 from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss, err_text
@@ -24,6 +25,35 @@ from Utils.prefix_manager import (
     PrefixEntry, enumerate_prefixes, fmt_size, get_dir_size,
     is_deletable_prefix,
 )
+
+
+class _ElidedDetailLabel(QLabel):
+    """Detail line that takes whatever width the row offers and elides the
+    middle of overlong text (keeps the prefix folder name visible) instead of
+    forcing the panel wider or clipping at the right edge. Full text in the
+    tooltip."""
+
+    def __init__(self, text=""):
+        super().__init__()
+        self._full = text
+        self.setToolTip(text)
+        sp = self.sizePolicy()
+        sp.setHorizontalPolicy(QSizePolicy.Ignored)
+        self.setSizePolicy(sp)
+        self._apply_elide()
+
+    def setText(self, text):  # noqa: N802 (Qt override)
+        self._full = text
+        self.setToolTip(text)
+        self._apply_elide()
+
+    def _apply_elide(self):
+        fm = QFontMetrics(self.font())
+        super().setText(fm.elidedText(self._full, Qt.ElideMiddle, self.width()))
+
+    def resizeEvent(self, event):  # noqa: N802 (Qt override)
+        super().resizeEvent(event)
+        self._apply_elide()
 
 
 class PrefixManagerView(QWidget):
@@ -192,7 +222,7 @@ class PrefixManagerView(QWidget):
         name.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         tv.addWidget(name)
         bits = [b for b in (e.location, e.proton, str(e.path.parent)) if b]
-        detail = QLabel("  ·  ".join(bits))
+        detail = _ElidedDetailLabel("  ·  ".join(bits))
         detail.setStyleSheet(self._dim_css)
         tv.addWidget(detail)
         h.addWidget(text, 1)
