@@ -1268,7 +1268,6 @@ class MainWindow(QMainWindow):
         _handlers = {
             "Expand all": self._on_toggle_collapse_all,
             "Enable all": self._on_toggle_enable_all,
-            "Filters": self._toggle_modlist_filters,
             "Refresh Modlist": self._on_refresh_modlist,
             "Check Updates": self._on_check_updates,
             "Restore backup": self._open_restore_backup_tab,
@@ -1279,17 +1278,13 @@ class MainWindow(QMainWindow):
         for label, disp in [("Expand all", self.tr("Expand all")),
                             ("Enable all", self.tr("Enable all")),
                             ("Check Updates", self.tr("Check Updates")),
-                            ("Filters", self.tr("Filters")),
                             ("Restore backup", self.tr("Restore backup")),
                             ("Refresh Modlist", self.tr("Refresh Modlist"))]:
             b = self._text_button(disp, compact=True)
             b.setFixedHeight(self._FOOT_BTN_H)
             if label in _handlers:
                 b.clicked.connect(_handlers[label])
-            if label == "Filters":
-                b.setProperty("active", False)
-                self._modlist_filters_btn = b
-            elif label == "Expand all":
+            if label == "Expand all":
                 self._expand_all_btn = b
             elif label == "Enable all":
                 self._enable_all_btn = b
@@ -1317,16 +1312,23 @@ class MainWindow(QMainWindow):
         self._modlist_count = count
         search_row.addWidget(count)
 
+        # Filters button — blue, to the left of the search icon (mirrors the
+        # plugins footer). Toggles the modlist filter side-panel.
+        self._modlist_filters_btn = self._color_button(
+            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
+        self._modlist_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._modlist_filters_btn.setProperty("active", False)
+        self._modlist_filters_btn.clicked.connect(self._toggle_modlist_filters)
+        self._modlist_footer_btns.append(self._modlist_filters_btn)
+        search_row.addWidget(self._modlist_filters_btn)
+
         # Search box spans the remaining footer width. (It used to be pinned to
         # the summed button-row width so its edge lined up with the last button;
         # that assumed a single, non-wrapping row — with the FlowLayout the
         # buttons can wrap, so a fixed cap would over/under-shoot. Full width is
         # simpler and robust across languages.)
-        search_icon = QLabel()
-        search_icon.setPixmap(icon("search.png", 18).pixmap(18, 18))
-        search_icon.setToolTip(self._modlist_search_tooltip())
-        search_icon.setAlignment(Qt.AlignCenter)
-        search_row.addWidget(search_icon)
+        search_row.addWidget(
+            self._search_icon_label(self._modlist_search_tooltip()))
 
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Search mods… (try !update, !fomod, !.dds)"))
@@ -1392,6 +1394,7 @@ class MainWindow(QMainWindow):
         self._plugin_count = count
         search_row.addWidget(count)
         search_row.addWidget(self._plugin_filters_btn)
+        search_row.addWidget(self._search_icon_label())
 
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Search plugins…"))
@@ -1439,6 +1442,7 @@ class MainWindow(QMainWindow):
         search_row.setContentsMargins(0, 0, 0, 0)
         search_row.setSpacing(6)
         search_row.addWidget(self._mf_filters_btn)
+        search_row.addWidget(self._search_icon_label())
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Search files… (try !.dds)"))
         search.setClearButtonEnabled(True)
@@ -1473,6 +1477,7 @@ class MainWindow(QMainWindow):
         search_row.setContentsMargins(0, 0, 0, 0)
         search_row.setSpacing(6)
         search_row.addWidget(self._data_filters_btn)
+        search_row.addWidget(self._search_icon_label())
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Search files… (try !.dds)"))
         search.setClearButtonEnabled(True)
@@ -1533,6 +1538,7 @@ class MainWindow(QMainWindow):
         search_row.setContentsMargins(0, 0, 0, 0)
         search_row.setSpacing(6)
         search_row.addWidget(self._dl_filters_btn)
+        search_row.addWidget(self._search_icon_label())
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Search downloads…"))
         search.setClearButtonEnabled(True)
@@ -1709,6 +1715,7 @@ class MainWindow(QMainWindow):
         search_row.setContentsMargins(0, 0, 0, 0)
         search_row.setSpacing(6)
         search_row.addWidget(self._tf_filters_btn)
+        search_row.addWidget(self._search_icon_label())
         search = QLineEdit()
         search.setPlaceholderText(self.tr("Search files… (try !.dds)"))
         search.setClearButtonEnabled(True)
@@ -12382,6 +12389,16 @@ class MainWindow(QMainWindow):
         menu.aboutToHide.connect(lambda: _set_open(False))
         b._menu = menu
         return b
+
+    def _search_icon_label(self, tooltip: str = "") -> QLabel:
+        """A small magnifying-glass label placed just left of a search box, so
+        every panel/tab search bar reads the same as the modlist footer."""
+        lbl = QLabel()
+        lbl.setPixmap(icon("search.png", 18).pixmap(18, 18))
+        lbl.setAlignment(Qt.AlignCenter)
+        if tooltip:
+            lbl.setToolTip(tooltip)
+        return lbl
 
     def _text_button(self, text: str, compact: bool = False) -> QToolButton:
         """Flat text-only button (same chrome as the action buttons)."""
