@@ -793,8 +793,8 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------- header row
     def _build_header_row(self) -> QWidget:
         """Full-width top bar (selectors + action buttons) — spans the whole
-        window so the buttons have room. The Play section now lives above the
-        plugins panel (see _build_body_row), not here."""
+        window so the buttons have room. The Play section now lives at the top
+        of the plugins panel (see _build_body_row), not here."""
         return self._left_header()
 
     # ---------------------------------------------------------- body row
@@ -810,7 +810,6 @@ class MainWindow(QMainWindow):
         rc.setSpacing(0)
         play = self._play_bar()
         self._play_bar_widget = play
-        rc.addWidget(play)
         # Build the plugins panel FIRST — it creates the sub-tab views (incl.
         # _text_files_view) that the footers below reference.
         plugins_body = self._build_plugins()
@@ -832,13 +831,15 @@ class MainWindow(QMainWindow):
         # Re-fit the stack (and thus the panel) whenever the visible page swaps.
         self._plugin_footer_stack.currentChanged.connect(
             lambda _i: self._plugin_footer_stack.clamp_to_current())
-        # The whole plugins panel (sub-tab strip + content + footer, but NOT the
-        # Play bar) lives in a stack so a panel-scoped tab (Change Version) can
-        # take it over entirely. Page 0 = the plugins panel + its footer.
+        # The whole plugins panel (Play bar + sub-tab strip + content + footer)
+        # lives in a stack so a panel-scoped tab (Change Version) can take it
+        # over entirely — including the Play bar's row, giving scoped tabs the
+        # full column height. Page 0 = Play bar + plugins panel + footer.
         plugins_panel = QWidget()
         pp = QVBoxLayout(plugins_panel)
         pp.setContentsMargins(0, 0, 0, 0)
         pp.setSpacing(0)
+        pp.addWidget(play)
         pp.addWidget(plugins_body, 1)
         pp.addWidget(self._plugin_footer_stack)
         # Inline userlist edit bars (hidden until opened from the plugins
