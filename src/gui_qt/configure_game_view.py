@@ -398,6 +398,10 @@ class ConfigureGameView(QWidget):
         add_check("script_extender_swap",
                   self.tr("Swap launcher with script extender on deploy"),
                   hasattr(self._game, "script_extender_swap"))
+        add_check("auto_4gb_patch",
+                  self.tr("Apply the 4GB patch automatically (deploy patches "
+                          "the exe, restore reverts it)"),
+                  hasattr(self._game, "set_auto_4gb_patch"))
         add_check("auto_deploy",
                   self.tr("Auto deploy (deploy automatically on enable/disable/reorder)"),
                   True)
@@ -476,6 +480,7 @@ class ConfigureGameView(QWidget):
             # option values
             self._set_check("script_extender_swap",
                             getattr(g, "script_extender_swap", True))
+            self._set_check("auto_4gb_patch", getattr(g, "auto_4gb_patch", True))
             self._set_check("auto_deploy", getattr(g, "auto_deploy", False))
             self._set_check("archive_invalidation",
                             getattr(g, "archive_invalidation", True))
@@ -497,6 +502,7 @@ class ConfigureGameView(QWidget):
             # add_game_dialog: script_extender_swap/archive_invalidation start ON,
             # the rest OFF except prefix_numbering).
             self._set_check("script_extender_swap", True)
+            self._set_check("auto_4gb_patch", True)
             self._set_check("auto_deploy", False)
             self._set_check("archive_invalidation", True)
             self._set_check("profile_ini_files", False)
@@ -1102,6 +1108,8 @@ class ConfigureGameView(QWidget):
             g.set_staging_path(self._custom_staging)
         if hasattr(g, "set_script_extender_swap") and "script_extender_swap" in self._opt_checks:
             g.set_script_extender_swap(self._opt_checks["script_extender_swap"].isChecked())
+        if hasattr(g, "set_auto_4gb_patch") and "auto_4gb_patch" in self._opt_checks:
+            g.set_auto_4gb_patch(self._opt_checks["auto_4gb_patch"].isChecked())
         if "auto_deploy" in self._opt_checks:
             g.auto_deploy = self._opt_checks["auto_deploy"].isChecked()
         if "archive_invalidation" in self._opt_checks:

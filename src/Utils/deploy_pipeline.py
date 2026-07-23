@@ -676,6 +676,11 @@ def run_deploy_pipeline(
         if hasattr(game, "swap_launcher"):
             game.swap_launcher(log_fn)
 
+        try:
+            game.post_deploy(log_fn=log_fn)
+        except Exception as pd_err:
+            log_fn(f"post_deploy warning: {pd_err}")
+
         _tag = " (incremental)" if incr_plan is not None else ""
         log_fn(f"Deploy finished OK in {_time.perf_counter() - _t_start:.1f}s "
                f"— profile '{profile}'.{_tag}")

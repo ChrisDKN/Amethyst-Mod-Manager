@@ -1956,6 +1956,15 @@ class BaseGame(ABC):
         The default implementation is a no-op.
         """
 
+    def post_deploy(self, log_fn=None) -> None:
+        """Called by run_deploy_pipeline after a successful deploy (after the
+        launcher swap). Override in game handlers that need a fix-up step on
+        the deployed game folder (e.g. Fallout NV auto-applies the 4GB patch).
+        Failures are logged by the pipeline and never fail the deploy.
+
+        The default implementation is a no-op.
+        """
+
     def post_clean_game_folder(self, log_fn=None) -> None:
         """Called after Clean Game Folder removes deployed files.
         Override in game handlers that need extra cleanup (e.g. resetting

@@ -1,5 +1,6 @@
 - v2.0.5
 - Added an argument field in the xedit wizards for adding additional command line arguments
+- Added an option to apply the 4gb patch to New vegas on deploy
 - Condensed the Nexus actions in the right click context menu into a sub menu
 - The plugins tab is no longer shown for games that do not use it
 - Fixed an issue where fose (Fallout 3 script extender) was being installed incorrectly

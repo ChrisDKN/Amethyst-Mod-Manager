@@ -53,7 +53,7 @@ class Fnv4GbView(WizardViewBase):
     def _build_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Fallout New Vegas 4GB Patch"))
         self._make_note(lay, (
-            self.tr('Patches FalloutNV.exe so the game can use 4 GB of memory\nand loads NVSE automatically at startup.\n\nUnder Proton this mostly silences in-game warnings from mods\nthat check for the patch, but it is safe and recommended.\n\nThe original exe is kept as {0}.').format(BACKUP_NAME)))
+            self.tr('Patches FalloutNV.exe so the game can use 4 GB of memory\nand loads NVSE automatically at startup.\n\nUnder Proton this mostly silences in-game warnings from mods\nthat check for the patch, but it is safe and recommended.\n\nWhile "Apply the 4GB patch automatically" is enabled in\nConfigure Game (the default), deploy applies the patch and\nrestore reverts it — disable that option to manage the patch\nmanually here.\n\nThe original exe is kept as {0}.').format(BACKUP_NAME)))
         lay.addSpacing(8)
         self._exe_status = self._make_status(lay)
         self._backup_status = self._make_status(lay)
@@ -165,6 +165,11 @@ class Fnv4GbView(WizardViewBase):
             try:
                 restore_backup(game_root)
                 self._log(f"4GB patch wizard: restored {EXE_NAME} from {BACKUP_NAME}.")
+                if getattr(self._game, "auto_4gb_patch", False):
+                    self._log("4GB patch wizard: note — automatic patching is "
+                              "enabled, so the next deploy will re-apply the "
+                              "patch (disable it in Configure Game to manage "
+                              "the patch manually).")
             except Exception as exc:
                 self._log(f"4GB patch wizard: restore failed: {exc}")
                 safe_emit(self._exe_status_sig, self.tr("Restore failed: {0}").format(exc), RED)
