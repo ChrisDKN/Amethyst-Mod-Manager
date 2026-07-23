@@ -1562,8 +1562,7 @@ class MainWindow(QMainWindow):
         paths = self._downloads_view.checked_paths()
         if not paths:
             return
-        names = "\n".join(Path(p).name for p in paths[:20])
-        more = f"\n… and {len(paths) - 20} more" if len(paths) > 20 else ""
+        names = [Path(p).name for p in paths]
 
         def _confirmed(ok):
             if not ok:
@@ -1582,9 +1581,8 @@ class MainWindow(QMainWindow):
         from gui_qt.confirm_overlay import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Remove archives"),
-            self.tr("Permanently delete {0} archive(s) from disk?\n\n").format(len(paths))
-            + names + more,
-            _confirmed, confirm_label=self.tr("Delete"))
+            self.tr("Permanently delete {0} archive(s) from disk?").format(len(paths)),
+            _confirmed, confirm_label=self.tr("Delete"), list_items=names)
 
     def _on_downloads_move(self):
         """Move the checked archives between the *configured* download locations.
