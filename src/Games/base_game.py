@@ -704,6 +704,12 @@ class BaseGame(ABC):
         Example (Skyrim SE):
             {"Script Extender": "skse64_loader.exe"}
 
+        A value may also be a tuple/list of alternative paths — the framework
+        counts as satisfied when ANY of them is found (e.g. BepInEx ships
+        winhttp.dll on Windows builds but run_bepinex.sh on native Linux
+        builds):
+            {"BepInEx": ("winhttp.dll", "run_bepinex.sh")}
+
         Return an empty dict (the default) to show no banners.
         """
         return {}

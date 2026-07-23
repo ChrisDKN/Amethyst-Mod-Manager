@@ -893,8 +893,10 @@ class RequirementResolver:
             frameworks = game.frameworks or {}
         except Exception:
             frameworks = {}
+        from Utils.framework_detect import framework_exe_candidates
         se_exes = [
-            exe for label, exe in frameworks.items()
+            exe for label, value in frameworks.items()
+            for exe in framework_exe_candidates(value)
             if "script extender" in label.lower()
             or _SE_LOADER_RE.search(exe.rsplit("/", 1)[-1].lower())
         ]
