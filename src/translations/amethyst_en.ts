@@ -1415,6 +1415,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Swap launcher with script extender on deploy</translation>
     </message>
     <message>
+        <source>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</source>
+        <translation>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</translation>
+    </message>
+    <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>Auto deploy (deploy automatically on enable/disable/reorder)</translation>
     </message>
@@ -3851,12 +3855,22 @@ and loads NVSE automatically at startup.
 Under Proton this mostly silences in-game warnings from mods
 that check for the patch, but it is safe and recommended.
 
+While "Apply the 4GB patch automatically" is enabled in
+Configure Game (the default), deploy applies the patch and
+restore reverts it — disable that option to manage the patch
+manually here.
+
 The original exe is kept as {0}.</source>
         <translation>Patches FalloutNV.exe so the game can use 4 GB of memory
 and loads NVSE automatically at startup.
 
 Under Proton this mostly silences in-game warnings from mods
 that check for the patch, but it is safe and recommended.
+
+While "Apply the 4GB patch automatically" is enabled in
+Configure Game (the default), deploy applies the patch and
+restore reverts it — disable that option to manage the patch
+manually here.
 
 The original exe is kept as {0}.</translation>
     </message>
@@ -4629,14 +4643,6 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Remove archives</translation>
     </message>
     <message>
-        <source>Permanently delete {0} archive(s) from disk?
-
-</source>
-        <translation>Permanently delete {0} archive(s) from disk?
-
-</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>Delete</translation>
     </message>
@@ -4941,6 +4947,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Refresh Plugins</translation>
     </message>
     <message>
+        <source>Permanently delete {0} archive(s) from disk?</source>
+        <translation>Permanently delete {0} archive(s) from disk?</translation>
+    </message>
+    <message>
         <source>Force update handler</source>
         <translation>Force update handler</translation>
     </message>
@@ -5211,6 +5221,18 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>No mods were updated (already in that state or no Nexus id).</source>
         <translation>No mods were updated (already in that state or no Nexus id).</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s)…</source>
+        <translation>Tracking {0} mod(s)…</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s).</source>
+        <translation>Tracking {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>No mods were tracked (no Nexus id).</source>
+        <translation>No mods were tracked (no Nexus id).</translation>
     </message>
     <message>
         <source>Could not resolve target profile: {0}</source>
@@ -6356,6 +6378,10 @@ How would you like to handle the existing mod?</translation>
         <translation>Move to separator ({0})</translation>
     </message>
     <message>
+        <source>Nexus Actions</source>
+        <translation>Nexus Actions</translation>
+    </message>
+    <message>
         <source>New name:</source>
         <translation>New name:</translation>
     </message>
@@ -6456,6 +6482,14 @@ How would you like to handle the existing mod?</translation>
         <translation>Sort Alphabetically ({0})</translation>
     </message>
     <message>
+        <source>Track Mod</source>
+        <translation>Track Mod</translation>
+    </message>
+    <message>
+        <source>Track Mod ({0})</source>
+        <translation>Track Mod ({0})</translation>
+    </message>
+    <message>
         <source>Unlock Separator</source>
         <translation>Unlock Separator</translation>
     </message>
@@ -6528,6 +6562,10 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>More status filters</source>
         <translation>More status filters</translation>
+    </message>
+    <message>
+        <source>Lock Separator - Mods in this separator are attached to it</source>
+        <translation>Lock Separator - Mods in this separator are attached to it</translation>
     </message>
 </context>
 <context>
@@ -8073,8 +8111,24 @@ Install a Proton version in Steam, then reopen this wizard.</translation>
         <translation>Run inside the game's own prefix. No new prefix is created and the Proton version follows the game's Steam setting.</translation>
     </message>
     <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>Launch with plain Wine (winetricks-style)</translation>
+    </message>
+    <message>
+        <source>Use Winetricks style launch</source>
+        <translation>Use Winetricks style launch</translation>
+    </message>
+    <message>
         <source>Delete Prefix</source>
         <translation>Delete Prefix</translation>
+    </message>
+    <message>
+        <source>Launch Arguments (optional)</source>
+        <translation>Launch Arguments (optional)</translation>
+    </message>
+    <message>
+        <source>Extra command-line arguments appended when the tool launches. Saved next to the exe and reapplied on every run.</source>
+        <translation>Extra command-line arguments appended when the tool launches. Saved next to the exe and reapplied on every run.</translation>
     </message>
     <message>
         <source>Environment Variables (optional)</source>
@@ -9136,10 +9190,6 @@ Merge your conflicts, then close it and click Done.</translation>
         <translation>Make the whole interface bigger or smaller. Changes take effect after a restart.</translation>
     </message>
     <message>
-        <source>Downloads &amp; Collections</source>
-        <translation>Downloads &amp; Collections</translation>
-    </message>
-    <message>
         <source>Clear archive after install</source>
         <translation>Clear archive after install</translation>
     </message>
@@ -9278,6 +9328,18 @@ Merge your conflicts, then close it and click Done.</translation>
     <message>
         <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
         <translation>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</translation>
+    </message>
+    <message>
+        <source>Archives</source>
+        <translation>Archives</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Extraction</source>
+        <translation>Extraction</translation>
     </message>
     <message>
         <source>beta</source>
