@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
+from gui_qt.flow_layout import FlowLayout
 from gui_qt.safe_emit import safe_emit
 from gui_qt.worker import run_in_worker
 from gui_qt.selector_button import SelectorButton
@@ -178,6 +179,15 @@ class NexusBrowserView(QWidget):
         except Exception:
             return PAGE_SIZE_BROWSE
 
+    @staticmethod
+    def _enable_hfw(w: QWidget) -> None:
+        """Report the bar's height via heightForWidth (the wrapped FlowLayout
+        height at the actual width), not the sizeHint Qt evaluates at minimum
+        width (every control on its own row) — same as app._enable_height_for_width."""
+        pol = w.sizePolicy()
+        pol.setHeightForWidth(True)
+        w.setSizePolicy(pol)
+
     def _build(self):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -185,11 +195,16 @@ class NexusBrowserView(QWidget):
         p = active_palette()
 
         # --- blue toolbar ---------------------------------------------------
+        # FlowLayout, not QHBoxLayout: pinned into a panel this view can get
+        # much narrower than one row of buttons, and the un-wrappable row's
+        # minimum width would poison the panel stack's minimum (a QStackedWidget
+        # takes the max over ALL its pages), jamming the body splitter for every
+        # other panel tab. Wrapping keeps our minimum width to the widest single
+        # control instead.
         toolbar = QWidget()
         toolbar.setObjectName("HeaderBar")
-        tb = QHBoxLayout(toolbar)
+        tb = FlowLayout(toolbar, spacing=6)
         tb.setContentsMargins(10, 6, 10, 6)
-        tb.setSpacing(6)
 
         self._cat_toggle = QToolButton()
         self._cat_toggle.setText(self.tr("☰ Categories"))
@@ -211,7 +226,7 @@ class NexusBrowserView(QWidget):
             tb.addWidget(b)
             self._section_btns[name] = b
 
-        tb.addStretch(1)
+        tb.add_stretch()
 
         self._sort_sel = SelectorButton(
             items=[lbl for lbl, _ in SORT_KEYS], current="Downloads",
@@ -235,6 +250,7 @@ class NexusBrowserView(QWidget):
         refresh.clicked.connect(self._reload)
         tb.addWidget(refresh)
 
+        self._enable_hfw(toolbar)
         outer.addWidget(toolbar)
 
         # --- body: categories (green) + card grid (pink) -------------------
@@ -310,11 +326,12 @@ class NexusBrowserView(QWidget):
         outer.addWidget(self._body_split, 1)
 
         # --- yellow footer --------------------------------------------------
+        # FlowLayout for the same reason as the toolbar: wrap when narrow
+        # instead of imposing a full-row minimum width on the host panel.
         footer = QWidget()
         footer.setObjectName("HeaderBar")
-        ft = QHBoxLayout(footer)
+        ft = FlowLayout(footer, spacing=6)
         ft.setContentsMargins(10, 6, 10, 6)
-        ft.setSpacing(6)
 
         # Search-field mode: the labels are translated for display, but we map
         # each back to a canonical English key ("Name"/"Author") so the worker's
@@ -348,7 +365,7 @@ class NexusBrowserView(QWidget):
         cbtn.clicked.connect(self._clear_search)
         ft.addWidget(cbtn)
 
-        ft.addStretch(1)
+        ft.add_stretch()
 
         self._perpage_sel = SelectorButton(
             items=[str(n) for n in PAGE_SIZE_CHOICES],
@@ -381,6 +398,7 @@ class NexusBrowserView(QWidget):
         self._status.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
         ft.addWidget(self._status)
 
+        self._enable_hfw(footer)
         outer.addWidget(footer)
 
     # -- section / control state -------------------------------------------

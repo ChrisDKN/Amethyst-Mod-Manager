@@ -13,7 +13,9 @@ each item's own margins and a configurable spacing.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QMargins, QPoint, QRect, QSize
-from PySide6.QtWidgets import QLayout, QLayoutItem, QWidget
+from PySide6.QtWidgets import (
+    QLayout, QLayoutItem, QSizePolicy, QSpacerItem, QWidget,
+)
 
 
 class FlowLayout(QLayout):
@@ -52,6 +54,31 @@ class FlowLayout(QLayout):
 
     def spacing(self) -> int:
         return self._spacing
+
+    # ---- stretch ----------------------------------------------------------
+    def add_stretch(self) -> None:
+        """QBoxLayout.addStretch equivalent: a spring that absorbs the leftover
+        width of its row, splitting the row into a left and a right group. When
+        the row wraps (nothing left over) it collapses to zero, so narrow
+        widths degrade to plain left-aligned flow rows."""
+        self.addItem(QSpacerItem(0, 0, QSizePolicy.Expanding,
+                                 QSizePolicy.Minimum))
+
+    @staticmethod
+    def _is_spring(item: QLayoutItem) -> bool:
+        return (item.spacerItem() is not None
+                and bool(item.expandingDirections() & Qt.Horizontal))
+
+    @staticmethod
+    def _can_grow_v(item: QLayoutItem) -> bool:
+        """Whether the item's widget may be stretched past its hint height
+        (vertical size policy carries the grow flag — e.g. labels), mirroring
+        qSmartMaxSize in QBoxLayout."""
+        w = item.widget()
+        if w is None:
+            return False
+        return bool(w.sizePolicy().verticalPolicy().value
+                    & QSizePolicy.GrowFlag.value)
 
     # ---- height-for-width -------------------------------------------------
     def hasHeightForWidth(self) -> bool:                  # noqa: N802
@@ -98,19 +125,34 @@ class FlowLayout(QLayout):
             rows.append(row)
 
         # Pass 2: place each row, optionally centred in the effective rect.
+        # Spring items (add_stretch) share the row's leftover width between the
+        # widgets on either side of them; a row with springs is never centred.
         for row in rows:
             row_w = sum(it.sizeHint().width() for it in row) \
                 + self._spacing * (len(row) - 1)
+            springs = sum(1 for it in row if self._is_spring(it))
+            per_spring = (max(0, effective.width() - row_w) // springs
+                          if springs else 0)
             x = effective.x()
-            if self._center:
+            if self._center and not springs:
                 x += max(0, (effective.width() - row_w) // 2)
-            line_height = 0
+            line_height = max((it.sizeHint().height() for it in row
+                               if not self._is_spring(it)), default=0)
             for item in row:
+                if self._is_spring(item):
+                    x += per_spring
+                    continue
                 w = item.sizeHint()
+                # Match QBoxLayout's cross-axis behaviour: widgets whose
+                # vertical policy can grow fill the row height; fixed-height
+                # ones (buttons, line edits) are centred on the row instead of
+                # top-aligned, so mixed-height rows keep a common midline.
+                h = line_height if self._can_grow_v(item) else w.height()
                 if not test_only:
-                    item.setGeometry(QRect(QPoint(x, y), w))
+                    item.setGeometry(QRect(
+                        QPoint(x, y + (line_height - h) // 2),
+                        QSize(w.width(), h)))
                 x += w.width() + self._spacing
-                line_height = max(line_height, w.height())
             y += line_height + self._spacing
         if rows:
             y -= self._spacing
