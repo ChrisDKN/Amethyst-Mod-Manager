@@ -1402,29 +1402,6 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     return proton_script, compat_data, env
 
 
-def force_xwayland_env(env: dict, log_fn=_noop_log) -> dict:
-    """Blank WAYLAND_DISPLAY in *env* so Wine falls back to winex11/XWayland.
-
-    Wine's native Wayland driver (winewayland.drv) has no on-screen surface for
-    embedded child GL windows: it renders them into an offscreen buffer whose
-    blit-back to visible pixels is broken on some compositor/Nvidia setups. The
-    symptom is a blank/black 3D preview pane in wizard tools like BodySlide and
-    Outfit Studio while the top-level window renders fine (traced as
-    ``client_surface_update_offscreen ... offscreen 1`` on the preview HWND).
-
-    With no WAYLAND_DISPLAY socket in the environment, winewayland.drv bails and
-    Wine uses winex11 through XWayland, where child-window compositing works.
-    This keeps the user in their Wayland desktop session — no X11 login needed —
-    and is version-agnostic (works regardless of whether PROTON_ENABLE_WAYLAND
-    was set). No-op when the host isn't a Wayland session.
-    """
-    if not env.get("WAYLAND_DISPLAY"):
-        return env
-    env["WAYLAND_DISPLAY"] = ""
-    log_fn("forcing XWayland for tool preview (blanking WAYLAND_DISPLAY)")
-    return env
-
-
 def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
                         log_fn=_noop_log, *,
                         isolated_prefix_dir: "Path | None" = None):
@@ -1462,10 +1439,6 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     if result is None:
         return None
     proton_script, compat_data, env = result
-    # Force XWayland for the tool's embedded 3D preview (BodySlide/Outfit Studio
-    # etc). Applied before saved overrides so a user who explicitly wants native
-    # Wayland can re-add WAYLAND_DISPLAY via launch_env.json.
-    force_xwayland_env(env, log_fn)
     extra = parse_env_overrides(load_tool_launch_env(exe))
     if extra:
         env.update(extra)
