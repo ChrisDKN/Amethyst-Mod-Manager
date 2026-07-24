@@ -222,14 +222,20 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn) -> None:
 def resolve_direct_files(extract_dir: str) -> list[tuple[str, str, bool]]:
     """Every file under *extract_dir* as a (src, dst, is_folder) tuple (src == dst,
     both relative to the root). A top-level ``fomod/`` folder is skipped (installer
-    metadata, not game content)."""
+    metadata, not game content), as is a root-level ``meta.ini`` — some archives
+    (e.g. re-uploaded MO2 mods) ship their own MO2 meta.ini, which would collide
+    with the one we write and, being in MO2's valueless-key format, break every
+    ConfigParser read of it (``read_meta`` etc.)."""
     result: list[tuple[str, str, bool]] = []
     root = Path(extract_dir)
     for entry in root.rglob("*"):
         if entry.is_file():
             rel = str(entry.relative_to(root))
-            first = rel.replace("\\", "/").split("/", 1)[0]
+            parts = rel.replace("\\", "/").split("/")
+            first = parts[0]
             if first.lower() == "fomod":
+                continue
+            if len(parts) == 1 and first.lower() == "meta.ini":
                 continue
             result.append((rel, rel, False))
     return result
@@ -459,7 +465,12 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
     if post_strip_prefixes and not is_root_install:
         file_list = apply_strip_prefixes_to_file_list(file_list, post_strip_prefixes)
 
-    return file_list
+    # Drop any file whose FINAL destination is the mod-root meta.ini.
+    filtered = [(s, d, f) for s, d, f in file_list
+                if d.replace("\\", "/").strip("/").lower() != "meta.ini"]
+    if len(filtered) != len(file_list):
+        log_fn("Skipped bundled meta.ini from archive (Amethyst writes its own).")
+    return filtered
 
 
 # ---------------------------------------------------------------- temp location

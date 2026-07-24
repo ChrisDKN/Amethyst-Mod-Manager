@@ -201,8 +201,12 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
         if entry is not None and entry[0] == mtime_ns:
             return copy.copy(entry[1])
 
-    cp = configparser.ConfigParser()
-    cp.read(path_str, encoding="utf-8")
+    # allow_no_value/strict=False tolerate MO2's meta.ini quirk
+    cp = configparser.ConfigParser(allow_no_value=True, strict=False)
+    try:
+        cp.read(path_str, encoding="utf-8")
+    except configparser.Error as e:
+        app_log(f"read_meta: tolerating malformed meta.ini {path_str}: {e}")
 
     meta = NexusModMeta()
     meta.mod_name = meta_ini_path.parent.name

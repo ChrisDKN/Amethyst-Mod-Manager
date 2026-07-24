@@ -1333,6 +1333,7 @@ def restore_data_core(
         rescued_to_overwrite = 0
         rescued_edited_vanilla = 0
         kept_whitelisted = 0
+        discarded_empty = 0
         # Track rel_strs rescued to overwrite/ so we can update modindex.bin
         # by appending entries instead of re-walking the entire overwrite tree.
         rescued_overwrite_rels: list[str] = []
@@ -1437,6 +1438,14 @@ def restore_data_core(
                     if (st.st_ino == _core_ino or
                         (st.st_size == _core_sz and st.st_mtime_ns == _core_mt)):
                         continue  # untouched vanilla — restore from core
+                    if st.st_size == 0 and _core_sz > 0:
+                        # A 0-byte file is never a legitimate edit (xEdit
+                        # can't save an empty plugin)
+                        _log(f"  WARN: deployed {rel_str} is 0 bytes "
+                             f"(runtime-damaged?) — discarded; keeping the "
+                             f"vanilla backup.")
+                        discarded_empty += 1
+                        continue
                     core_dst = core_path.get(rel_lower)
                     if core_dst is not None:
                         try:
@@ -1455,6 +1464,14 @@ def restore_data_core(
                 # plugin — move it into core_dir at its rel path so the
                 # rmtree+rename below restores it to deploy_dir rather
                 # than burying it in overwrite/.
+                if st.st_size == 0:
+                    # Never restore a 0-byte "edited vanilla" — that's
+                    # runtime damage, not an edit (see GH#307 note above).
+                    _log(f"  WARN: deployed {rel_str} is 0 bytes "
+                         f"(runtime-damaged?) — discarded; verify game "
+                         f"files to restore the vanilla copy.")
+                    discarded_empty += 1
+                    continue
                 core_dst = _core_str + "/" + rel_str
                 try:
                     os.makedirs(os.path.dirname(core_dst), exist_ok=True)
@@ -1529,6 +1546,14 @@ def restore_data_core(
                                 continue
                         except OSError:
                             pass
+                        if st.st_size == 0:
+                            # A 0-byte deployed copy is runtime damage
+                            # (Wine/game truncating a deployed file
+                            _log(f"  WARN: deployed {rel_str} is 0 bytes "
+                                 f"(runtime-damaged?) — discarded; keeping "
+                                 f"the staging copy in '{target_mod}'.")
+                            discarded_empty += 1
+                            continue
                         _move_crash_safe(src_str, staging_path)
                         rescued += 1
                         rescued_to_mod += 1
@@ -1542,6 +1567,14 @@ def restore_data_core(
                                 _staging / target_mod, os.path.basename(rel_str))
                         continue
                     # xEdit orphan: staging missing — put file back in original mod or overwrite
+                    if st.st_size == 0:
+                        # Same 0-byte guard as above: don't plant an empty
+                        # file into a mod folder / overwrite where future
+                        # deploys would pick it up.
+                        _log(f"  WARN: deployed {rel_str} is 0 bytes "
+                             f"(runtime-damaged?) — discarded, not rescued.")
+                        discarded_empty += 1
+                        continue
                     target_mod = (
                         filemap_rel_to_mod.get(rel_lower)
                         or (modindex_rel_to_mods.get(rel_lower) or [None])[0]
@@ -1619,6 +1652,9 @@ def restore_data_core(
                     pass
         if kept_whitelisted:
             _log(f"  Left {kept_whitelisted} whitelisted file(s) in the game folder.")
+        if discarded_empty:
+            _log(f"  Discarded {discarded_empty} runtime-damaged 0-byte file(s) "
+                 f"(kept the good staging/backup copies).")
         print(f"  [TIMER] restore — rescue walk: {_time.perf_counter() - _t_rescue_start:.3f}s")
         # core_path was populated by the rescue walk above — one entry per
         # core file, so len() is our return-value count without a second walk.
