@@ -229,7 +229,12 @@ class DetachableTabWidget(QTabWidget):
         # target stack to the scoped page; deselecting restores the stack to 0.
         self._scoped: dict[int, tuple] = {}
         self._permanent_widget: QWidget | None = None
-        self._active_scoped: int | None = None
+        # Per-panel active scoped tab: id(target_stack) → id(placeholder).
+        # Lets a modlist-scoped AND a plugins-scoped tab show at the same time —
+        # selecting one only claims ITS panel; the other panel keeps whatever
+        # scoped view it was showing. Cleared (all panels reset to page 0) when
+        # a full-UI or the permanent tab is selected.
+        self._panel_active: dict[int, int] = {}
         # Panel stacks a view can be re-pinned into, and each open view's current
         # presentation mode (keyed by id(content-widget)). The content widget is
         # the REAL view for both full and scoped tabs (for scoped tabs that's the
@@ -260,28 +265,38 @@ class DetachableTabWidget(QTabWidget):
         if scoped is not None:
             # A panel-scoped tab was selected. Its own page is an empty
             # placeholder — we don't want to show that. Instead snap the content
-            # back to the permanent full-UI page and flip the target panel stack
-            # to the scoped widget, so the full UI stays live with one panel
-            # showing the scoped view. The tab stays HIGHLIGHTED via the bar's
-            # own current index (we leave the bar on the scoped tab; only the
-            # displayed page is forced to the permanent one).
-            target_stack, scoped_widget, _page_idx = scoped
-            self._active_scoped = id(w)
-            # Reset every scoped stack to page 0 FIRST, then activate this one
-            # LAST. Two scoped tabs can share one target stack (e.g. Change
-            # Version + Missing Requirements both scope the plugins panel); a
-            # single pass would let the "reset other → 0" step clobber the page
-            # this tab just set on the shared stack, blanking the panel.
-            for (ts, _s, _p) in self._scoped.values():
-                ts.setCurrentIndex(0)
-            # Resolve the page by WIDGET, not the stored index — closing another
-            # scoped tab on the same stack shifts indices (removeWidget), which
-            # would make a stored page_idx stale.
-            target_stack.setCurrentWidget(scoped_widget)
+            # back to the permanent full-UI page and show the scoped widget in
+            # its target panel stack, so the full UI stays live with that panel
+            # showing the scoped view. Only THIS tab's panel is claimed: a scoped
+            # tab already showing in the OTHER panel stays visible, so a modlist
+            # tab and a plugins tab can be on screen together. The tab stays
+            # HIGHLIGHTED via the bar's own current index (we leave the bar on
+            # the scoped tab; only the displayed page is forced to the permanent
+            # one).
+            target_stack, _scoped_widget, _page_idx = scoped
+            self._panel_active[id(target_stack)] = id(w)
+            self._sync_scoped_stacks()
             self._show_permanent_page_keeping_tab(index)
         else:
-            self._active_scoped = None
-            for (ts, _s, _p) in self._scoped.values():
+            # Full-UI or permanent tab selected → hide ALL scoped panels.
+            self._panel_active.clear()
+            self._sync_scoped_stacks()
+
+    def _sync_scoped_stacks(self):
+        """Bring every panel stack in line with _panel_active: show the active
+        scoped widget where one is recorded (and still open), else page 0.
+        Resolves pages by WIDGET, not stored index — closing another scoped tab
+        on the same stack shifts indices (removeWidget), which would make a
+        stored page_idx stale."""
+        stacks: dict[int, QStackedWidget] = {}
+        for (ts, _s, _p) in self._scoped.values():
+            stacks[id(ts)] = ts
+        for sid, ts in stacks.items():
+            entry = self._scoped.get(self._panel_active.get(sid))
+            if entry is not None:
+                ts.setCurrentWidget(entry[1])
+            else:
+                self._panel_active.pop(sid, None)
                 ts.setCurrentIndex(0)
 
     def _show_permanent_page_keeping_tab(self, scoped_index: int):
@@ -452,8 +467,8 @@ class DetachableTabWidget(QTabWidget):
         scoped_widget.deleteLater()
         # Clear BEFORE removeTab: the currentChanged it fires may activate
         # another scoped tab, and must not be clobbered afterwards.
-        if self._active_scoped == id(placeholder):
-            self._active_scoped = None
+        if self._panel_active.get(id(target_stack)) == id(placeholder):
+            self._panel_active.pop(id(target_stack), None)
         tab_idx = self.indexOf(placeholder)
         if tab_idx != -1:
             self.removeTab(tab_idx)
@@ -534,6 +549,8 @@ class DetachableTabWidget(QTabWidget):
                     ts.setCurrentIndex(0)
                     ts.removeWidget(content)
                     self._scoped.pop(pid, None)
+                    if self._panel_active.get(id(ts)) == pid:
+                        self._panel_active.pop(id(ts), None)
                     ti = self.indexOf(placeholder) if placeholder else -1
                     if ti != -1:
                         self.removeTab(ti)
@@ -591,6 +608,8 @@ class DetachableTabWidget(QTabWidget):
         scoped = self._scoped.pop(id(w), None)
         if scoped is not None:
             target_stack, scoped_widget, _pi = scoped
+            if self._panel_active.get(id(target_stack)) == id(w):
+                self._panel_active.pop(id(target_stack), None)
             target_stack.setCurrentIndex(0)        # reveal the panel again
             target_stack.removeWidget(scoped_widget)
             self.removeTab(index)
