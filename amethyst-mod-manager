@@ -1,0 +1,6 @@
+#!/bin/sh
+export MOD_MANAGER_GAMES="/app/share/amethyst-mod-manager/Games"
+export XDG_DATA_DIRS=/app/share:/usr/share
+: "${QT_QPA_PLATFORM:=xcb}"
+export QT_QPA_PLATFORM
+exec python3 -m run_qt "$@"

@@ -10,5 +10,7 @@ subdir('wrappers')
 
 py.install_sources(
   'app_bootstrap.py',
+  'cli.py',
+  'run_qt.py',
   'version.py',
 )
