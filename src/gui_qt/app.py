@@ -241,6 +241,9 @@ class MainWindow(QMainWindow):
     # Deploy worker asks the UI to show the Cyberpunk CET symlink warning
     # (same blocking holder+Event handshake as _need_prefix).
     _confirm_cet = Signal(object)              # (dict with holder/event)
+    # Deploy worker asks the UI to show the Windows-filesystem (NTFS/exFAT)
+    # advisory (same handshake; GH#307).
+    _confirm_windows_fs = Signal(object)       # (dict with holder/event/hits/fp/game_name)
     # Proton-tools installer worker → UI thread.
     _proton_done = Signal(str, bool)           # (title, success)
     # Nexus validate() worker → UI thread (username or None).
@@ -404,6 +407,7 @@ class MainWindow(QMainWindow):
         self._need_prefix.connect(self._on_need_prefix_ui)
         self._mod_exists.connect(self._on_mod_exists_ui)
         self._confirm_cet.connect(self._on_confirm_cet_ui)
+        self._confirm_windows_fs.connect(self._on_confirm_windows_fs_ui)
         self._proton_busy = False
         self._proton_done.connect(self._on_proton_done)
         # Game-scoped panel views (lazily built; closed on game change).
@@ -7383,6 +7387,7 @@ class MainWindow(QMainWindow):
                     progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p),
                     root_folder_enabled=rf_enabled,
                     confirm_cet=self._make_confirm_cet_cb(game),
+                    confirm_windows_fs=self._make_confirm_windows_fs_cb(game),
                     do_backup=True,
                 )
             except Exception as exc:
@@ -8518,6 +8523,82 @@ class MainWindow(QMainWindow):
             confirm_label=self.tr("Deploy anyway"),
             cancel_label=self.tr("Cancel"),
             card_h=340,
+        )
+
+    def _make_confirm_windows_fs_cb(self, game):
+        """Return a confirm_windows_fs() callback for run_deploy_pipeline.
+        Runs on the deploy WORKER thread: if the mod staging folder or a
+        deploy target sits on a Windows filesystem (NTFS/exFAT — weak write
+        guarantees on Linux, the root cause of GH#307's 0-byte files), asks
+        the UI thread to show the advisory and BLOCKS on an Event until the
+        user chooses. Confirming persists the drive-layout fingerprint so the
+        popup shows once per game (re-arming if the drives change)."""
+        import threading
+        from Utils.fs_check import windows_fs_targets, fs_ack_fingerprint
+        from Utils.ui_config import get_fs_warning_ack
+
+        def _cb() -> bool:
+            try:
+                hits = windows_fs_targets(game)
+                if not hits:
+                    return True
+                fp = fs_ack_fingerprint(hits)
+                if get_fs_warning_ack(game.name) == fp:
+                    return True   # user already chose "Deploy anyway" for this layout
+            except Exception:
+                return True
+            holder = {"result": True}
+            ev = threading.Event()
+            self._confirm_windows_fs.emit({
+                "holder": holder, "event": ev,
+                "hits": hits, "fp": fp, "game_name": game.name,
+            })
+            ev.wait()
+            return holder["result"]
+
+        return _cb
+
+    def _on_confirm_windows_fs_ui(self, payload):
+        """UI thread: show the Windows-filesystem advisory; unblock the worker.
+        The progress popup is cleared while the user decides (no work running)."""
+        if self._progress_popup is not None:
+            self._progress_popup.clear()
+        from gui_qt.confirm_overlay import ConfirmOverlay
+
+        lines = "\n".join(
+            f"•  {label}:  {fs_label}  ({mnt})"
+            for label, fs_label, mnt in payload["hits"])
+
+        def _done(ok):
+            if ok:
+                # Remember the acknowledgement so the advisory shows once per
+                # game; it re-arms if the folders move to different mounts.
+                try:
+                    from Utils.ui_config import save_fs_warning_ack
+                    save_fs_warning_ack(payload["game_name"], payload["fp"])
+                except Exception:
+                    pass
+            payload["holder"]["result"] = bool(ok)
+            payload["event"].set()
+
+        ConfirmOverlay.show_over(
+            self,
+            self.tr("Windows filesystem detected"),
+            self.tr(
+                "These folders are on a Windows filesystem:\n\n{0}\n\n"
+                "NTFS and exFAT drives have weak write guarantees on Linux: "
+                "an unclean unmount, power loss, or a dual-boot Windows with "
+                "Fast Startup enabled can silently truncate files to 0 KB — "
+                "including deployed mod files and your mod staging library.\n\n"
+                "A Linux filesystem (ext4/btrfs) is recommended for both the "
+                "game and the mod staging folder.\n\nIf you continue, this "
+                "warning won't be shown again for {1} unless the drives "
+                "change."
+            ).format(lines, payload["game_name"]),
+            _done,
+            confirm_label=self.tr("Deploy anyway"),
+            cancel_label=self.tr("Cancel"),
+            card_h=400,
         )
 
     def _install_next(self):

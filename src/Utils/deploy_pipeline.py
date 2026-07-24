@@ -425,6 +425,7 @@ def run_deploy_pipeline(
     progress_fn: Optional[ProgressFn] = None,
     root_folder_enabled: bool = True,
     confirm_cet: Optional[Callable[[], bool]] = None,
+    confirm_windows_fs: Optional[Callable[[], bool]] = None,
     do_backup: bool = True,
     on_pre_filemap: Optional[Callable[[], None]] = None,
 ) -> bool:
@@ -440,6 +441,11 @@ def run_deploy_pipeline(
     confirm_cet
         Optional blocking confirmation prompt (Cyberpunk CET symlink check).
         Return False to abort the deploy. None means "always proceed".
+    confirm_windows_fs
+        Optional blocking advisory when deploy folders sit on a Windows
+        filesystem (NTFS/exFAT — see Utils.fs_check; GH#307). Called before
+        any state is touched, so returning False is a clean no-op cancel.
+        None means "always proceed".
     do_backup
         If True, run `create_backup` for the profile dir before deploy.
     on_pre_filemap
@@ -455,6 +461,11 @@ def run_deploy_pipeline(
     mount_err = check_paths_mounted(game)
     if mount_err:
         log_fn(f"Deploy aborted: {mount_err}")
+        return False
+
+    if confirm_windows_fs is not None and not confirm_windows_fs():
+        log_fn("Deploy: cancelled — deploy folders are on a Windows "
+               "filesystem (NTFS/exFAT) and the warning was declined.")
         return False
 
     import time as _time

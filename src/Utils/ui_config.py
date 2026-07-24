@@ -663,6 +663,48 @@ def save_tab_pin(key: str, mode: str) -> None:
         parser.write(f)
 
 
+# ---------------------------------------------------------------------------
+# Windows-filesystem deploy warning acknowledgements — per-game fingerprint of
+# the drive layout the user chose to "Deploy anyway" on (see Utils.fs_check).
+# Stored so the advisory shows once per game, re-arming if the drives change.
+# ---------------------------------------------------------------------------
+_FS_WARNINGS_SECTION = "fs_warnings"
+
+
+def get_fs_warning_ack(game_name: str) -> str:
+    """Return the acknowledged fs_check fingerprint for *game_name* ("" if
+    the user has never confirmed the Windows-filesystem warning for it)."""
+    if not game_name:
+        return ""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return ""
+    try:
+        parser = _new_parser()
+        parser.read(path)
+        return parser.get(_FS_WARNINGS_SECTION, game_name, fallback="").strip()
+    except Exception:
+        return ""
+
+
+def save_fs_warning_ack(game_name: str, fingerprint: str) -> None:
+    """Persist the acknowledged Windows-filesystem fingerprint for *game_name*."""
+    if not game_name or not fingerprint:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FS_WARNINGS_SECTION not in parser:
+        parser[_FS_WARNINGS_SECTION] = {}
+    # Escape % for ConfigParser interpolation (mount paths may contain it);
+    # parser.get() on read resolves %% back to %.
+    parser[_FS_WARNINGS_SECTION][game_name] = fingerprint.replace("%", "%%")
+    with path.open("w", encoding="utf-8") as f:
+        parser.write(f)
+
+
 def _clamp(value: float) -> float:
     return max(_MIN_SCALE, min(_MAX_SCALE, value))
 
