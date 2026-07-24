@@ -112,9 +112,88 @@ class DownloadsView(QWidget):
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent
-        if obj is self._tree.viewport() and event.type() == QEvent.Resize:
-            self._fit_name_to_width()
+        if obj is self._tree.viewport():
+            if event.type() == QEvent.Resize:
+                self._fit_name_to_width()
+            # Drag an archive row out (onto the modlist to install-at-position).
+            # Only observe here — press/release still reach the delegate, so the
+            # checkbox and Install button behave as before; a drag only starts
+            # after the cursor moves past the threshold with the button held.
+            elif (event.type() == QEvent.MouseButtonPress
+                    and event.button() == Qt.LeftButton):
+                self._drag_press_pos = event.position().toPoint()
+                self._drag_press_path = self._draggable_path_at(self._drag_press_pos)
+            elif (event.type() == QEvent.MouseMove
+                    and getattr(self, "_drag_press_path", None) is not None
+                    and event.buttons() & Qt.LeftButton):
+                from PySide6.QtWidgets import QApplication
+                delta = (event.position().toPoint() - self._drag_press_pos)
+                if delta.manhattanLength() >= QApplication.startDragDistance():
+                    self._start_archive_drag()
+            elif event.type() in (QEvent.MouseButtonRelease, QEvent.Leave):
+                self._drag_press_path = None
         return super().eventFilter(obj, event)
+
+    def _draggable_path_at(self, pos):
+        """The archive path under *pos* if a drag may start there: the Name or
+        Size cell of a real archive row (never the checkbox / Install button,
+        so press-and-slide on those still works as a click)."""
+        index = self._tree.indexAt(pos)
+        if not index.isValid() or index.column() not in (COL_NAME, COL_SIZE):
+            return None
+        e = self._model.entry(index.row())
+        if e is None or e.is_section_header or e.path is None:
+            return None
+        return e.path
+
+    def _start_archive_drag(self):
+        """Begin a Qt drag carrying archive paths. If the pressed row is one of
+        several checked rows the whole checked set is carried; otherwise just
+        the pressed row."""
+        path = self._drag_press_path
+        self._drag_press_path = None
+        checked = self._model.checked_paths()
+        paths = checked if (path in checked and len(checked) > 1) else [path]
+        from PySide6.QtCore import QMimeData
+        from PySide6.QtGui import QDrag
+        from gui_qt.modlist_view import ARCHIVE_DROP_MIME
+        mime = QMimeData()
+        mime.setData(ARCHIVE_DROP_MIME,
+                     "\n".join(str(p) for p in paths).encode("utf-8"))
+        drag = QDrag(self._tree)
+        drag.setMimeData(mime)
+        drag.setPixmap(self._drag_pixmap(
+            path.name if len(paths) == 1
+            else self.tr("{0} archives").format(len(paths))))
+        # NB: over non-target areas Qt asks for its 'forbidden' no-drop cursor.
+        # setDragCursor(pixmap, Qt.IgnoreAction) DOES override that at the Qt
+        # level (verified: QGuiApplication.overrideCursor is our pixmap during
+        # the drag), but under a Wayland session the app runs via XWayland and
+        # KWin draws its OWN DnD cursor for XWayland clients — the X11 override
+        # cursor can't reach it (KDE bug: XWayland drag shows the wrong cursor).
+        # So there's nothing to set here; the badge is compositor-owned. The
+        # setPixmap label + the modlist's blue drop line carry the feedback.
+        drag.exec(Qt.CopyAction)
+
+    def _drag_pixmap(self, text: str):
+        """A small translucent label following the cursor during the drag."""
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPixmap, QPainter, QColor
+        fm = self._tree.fontMetrics()
+        text = fm.elidedText(text, Qt.ElideMiddle, 260)
+        w = fm.horizontalAdvance(text) + 16
+        h = fm.height() + 8
+        pm = QPixmap(w, h)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(0, 0, 0, 170))
+        p.drawRoundedRect(QRectF(0, 0, w, h), 4, 4)
+        p.setPen(QColor(255, 255, 255, 230))
+        p.drawText(QRectF(8, 4, w - 16, h - 8), Qt.AlignLeft | Qt.AlignVCenter, text)
+        p.end()
+        return pm
 
     def _on_model_changed(self, tl, br, roles):
         if Qt.CheckStateRole in roles:

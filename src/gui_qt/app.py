@@ -8304,7 +8304,8 @@ class MainWindow(QMainWindow):
     def _install_paths(self, paths: list[str], metas: dict | None = None,
                        previous_mod_name: str | None = None,
                        preferred_names: dict | None = None,
-                       on_all_done=None, clear_archives: bool = True):
+                       on_all_done=None, clear_archives: bool = True,
+                       place: dict | None = None):
         """Queue + install a list of archive paths (shared by the Install Mod
         button and the Downloads tab). FOMODs pause for the wizard mid-queue.
         *metas* optionally maps an archive path → a prebuilt NexusModMeta (the
@@ -8320,7 +8321,11 @@ class MainWindow(QMainWindow):
         re-checks flags + reports its own summary).
         *clear_archives* — False for archives the USER supplied (Install Mod
         button, Downloads tab, reinstall-from-archive): 'Clear archive after
-        install' only applies to archives the app downloaded itself."""
+        install' only applies to archives the app downloaded itself.
+        *place* — optional modlist placement for the installed mods (drag-drop
+        from the Downloads tab): {"anchor": name|None, "after": bool,
+        "at_end": bool}. Applied in _on_install_done just before the reload
+        (and per-wizard for detached FOMOD/BAIN handoffs)."""
         if not paths:
             return
         game = self._gs.game
@@ -8345,7 +8350,8 @@ class MainWindow(QMainWindow):
                 "previous_mod_name": previous_mod_name,
                 "preferred_names": preferred_names,
                 "on_all_done": on_all_done,
-                "clear_archives": clear_archives})
+                "clear_archives": clear_archives,
+                "place": place})
             _busy = self.tr("install") if getattr(self, "_install_running", False) \
                 else (self.tr("deploy") if getattr(self, "_deploy_running", False)
                       else self.tr("install"))
@@ -8384,6 +8390,7 @@ class MainWindow(QMainWindow):
         self._install_preferred = dict(preferred_names or {})
         self._install_all_done_cb = on_all_done
         self._install_clear_archives = clear_archives
+        self._install_place = place
         self._notify(self.tr("Installing {0} mod(s)…").format(len(paths)) if len(paths) > 1
                      else self.tr("Installing {0}…").format(Path(paths[0]).name), "info")
         # Multi-archive batch (Downloads tab multi-select, Nexus batches):
@@ -8752,6 +8759,10 @@ class MainWindow(QMainWindow):
         prev_name = getattr(self, "_install_prev_name", None) if from_queue else None
         if prev_name is not None:
             self._install_prev_name = None
+        # Likewise capture this batch's drop placement (drag-install from the
+        # Downloads tab) — the shared _install_place belongs to the CURRENT
+        # batch and may be gone/replaced by the time this wizard finishes.
+        place = getattr(self, "_install_place", None) if from_queue else None
         done = {"v": False}   # per-wizard double-fire guard (finish/cancel/close)
         # NB: the progress popup is intentionally NOT cleared here (unlike the old
         # blocking flow) — the install pipeline keeps running behind this detached
@@ -8768,7 +8779,7 @@ class MainWindow(QMainWindow):
                 done["v"] = True
                 self._tabs.close_tab(tab_key)
                 self._stage_wizard_finish(prepared, selections, None,
-                                          clear_archives, prev_name)
+                                          clear_archives, prev_name, place)
 
             def _cancel():
                 if done["v"]:
@@ -8835,7 +8846,7 @@ class MainWindow(QMainWindow):
                     self._notify(self.tr("Install cancelled: {0}").format(prepared.mod_name), "info")
                     return
                 self._stage_wizard_finish(prepared, None, result,
-                                          clear_archives, prev_name)
+                                          clear_archives, prev_name, place)
 
             view = BainPickerView(
                 prepared.bain_subpkgs, prepared.bain_root, prepared.mod_name,
@@ -8877,7 +8888,7 @@ class MainWindow(QMainWindow):
 
     # -- detached-wizard staging --------------------------------------------
     def _stage_wizard_finish(self, prepared, selections, bain_selections,
-                             clear_archives, prev_name=None):
+                             clear_archives, prev_name=None, place=None):
         """A detached FOMOD/BAIN wizard finished — enqueue its staging step.
 
         Staging (finish_install) mutates the shared game (get_effective_mod_
@@ -8892,7 +8903,8 @@ class MainWindow(QMainWindow):
         self._staged_finish_queue.append({
             "prepared": prepared, "selections": selections,
             "bain_selections": bain_selections,
-            "clear_archives": clear_archives, "prev_name": prev_name})
+            "clear_archives": clear_archives, "prev_name": prev_name,
+            "place": place})
         self._notify(self.tr("Installing {0}…").format(prepared.mod_name), "info")
         self._run_staged_finish()
 
@@ -8914,6 +8926,9 @@ class MainWindow(QMainWindow):
         selections = job["selections"]
         bain_selections = job["bain_selections"]
         prev_name = job.get("prev_name")
+        # Consumed by _on_wizard_finish_done; staged finishes are serialised
+        # (_staged_finish_running), so a plain attribute is race-free.
+        self._staged_finish_place = job.get("place")
         # Carry the clear-archive policy captured when this wizard opened (the
         # pipeline's _install_clear_archives may have changed for a later batch).
         self._install_clear_archives = job["clear_archives"]
@@ -8950,6 +8965,8 @@ class MainWindow(QMainWindow):
         optional rename prompt / remove-previous), reload, then drain the next
         queued wizard job."""
         self._staged_finish_running = False
+        place = getattr(self, "_staged_finish_place", None)
+        self._staged_finish_place = None
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         if hasattr(self, "_downloads_view"):
@@ -8974,6 +8991,11 @@ class MainWindow(QMainWindow):
                         self._append_log(f"[install] deferred action error: {exc}")
 
         def _after_named(final):
+            # Drag-install placement captured when this wizard opened.
+            if place:
+                self._apply_install_placement(
+                    [final], place,
+                    profile_dir=getattr(prepared, "profile_dir", None))
             self._reload_modlist()
             # Plugins reload comes from _on_conflicts_ready after the rebuild —
             # an immediate reload prunes the fresh plugins.txt entry against the
@@ -9238,6 +9260,14 @@ class MainWindow(QMainWindow):
             self._install_btn.setEnabled(True)
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
+        # Drag-install from the Downloads tab: move the freshly installed mods
+        # to the drop position BEFORE the reload so the modlist appears with
+        # them already in place. Wizard handoffs position themselves later
+        # (_on_wizard_finish_done) with the same captured placement.
+        place = getattr(self, "_install_place", None)
+        self._install_place = None
+        if place and names:
+            self._apply_install_placement(list(names), place)
         self._reload_modlist()
         # NOTE: the plugin panel is reloaded from _on_conflicts_ready, after the
         # conflict/filemap rebuild queued by _reload_modlist — NOT here. An
@@ -9279,6 +9309,23 @@ class MainWindow(QMainWindow):
         else:
             self._notify(self.tr("Install failed — see log."), "error")
 
+    def _apply_install_placement(self, names, place, profile_dir=None):
+        """Reposition just-installed mods at the Downloads-tab drop point (see
+        _install_paths *place*). Anchoring is by mod NAME — rows may have
+        shifted since the drop; a vanished anchor leaves the mods at the top,
+        the normal install position."""
+        pd = profile_dir or getattr(self, "_install_profile_dir", None)
+        if pd is None:
+            return
+        try:
+            from Utils.modlist import move_mods_to_anchor
+            move_mods_to_anchor(Path(pd) / "modlist.txt", names,
+                                anchor=place.get("anchor"),
+                                after=bool(place.get("after")),
+                                at_end=bool(place.get("at_end")))
+        except Exception as exc:
+            self._append_log(f"[install] drop placement skipped: {exc}")
+
     def _drain_pending_installs(self):
         """Start the next install batch queued while an earlier install OR
         deploy OR a detached-wizard staging job ran. If a callback/coalesced
@@ -9296,7 +9343,8 @@ class MainWindow(QMainWindow):
                             previous_mod_name=b["previous_mod_name"],
                             preferred_names=b["preferred_names"],
                             on_all_done=b["on_all_done"],
-                            clear_archives=b.get("clear_archives", True))
+                            clear_archives=b.get("clear_archives", True),
+                            place=b.get("place"))
 
     def _build_modlist(self) -> QWidget:
         self._modlist_model = ModListModel([])
@@ -9304,6 +9352,9 @@ class MainWindow(QMainWindow):
         self._modlist_model.save_failed.connect(
             lambda msg: self._notify(msg, "error"))
         self._modlist_view = ModListView(self._modlist_model)
+        # Drag-install: archives dropped from the Downloads tab install at the
+        # drop position (drop slot → name-anchored placement).
+        self._modlist_view.on_archives_dropped = self._on_archives_dropped
         # Search/filter hidden sets are row-indexed, so any structural change
         # (reorder/insert/remove) leaves them misaligned and must be recomputed
         # from the current entries — the view's own handler only re-applies the
@@ -9320,6 +9371,43 @@ class MainWindow(QMainWindow):
     def _on_modlist_layout_changed(self, *_a):
         self._apply_modlist_search()
         self._apply_modlist_filters()
+
+    def _on_archives_dropped(self, paths: list[str], slot: int):
+        """Archives dragged from the Downloads tab were dropped on the modlist
+        at display row *slot* — install them there."""
+        self._install_paths(paths, clear_archives=False,
+                            place=self._placement_from_slot(slot))
+
+    def _placement_from_slot(self, slot: int) -> dict | None:
+        """Translate a modlist display drop slot into a name-anchored placement
+        for _install_paths (None = default top placement). The anchor is the
+        first real entry at/below the slot: mod names are stable across the
+        install (row indices are not — the batch prepends rows)."""
+        m = self._modlist_model
+        key, _asc = m.sort_state()
+        if key not in (None, "priority"):
+            # A non-priority column sort shows a permutation of the load order,
+            # so a visual slot has no load-order meaning. Install normally.
+            return None
+        from gui_qt.modlist_model import _PINNED_NAMES, ROOT_FOLDER_NAME
+        anchor = None
+        at_end = False
+        for r in range(max(0, slot), m.rowCount()):
+            name = m.entry(r).name
+            if name == ROOT_FOLDER_NAME:
+                at_end = True
+                break
+            if name not in _PINNED_NAMES:
+                anchor = name
+                break
+        if m.reverse_mode_active:
+            # Reverse-priority display is the inverted file order: visually
+            # above the anchor = AFTER it in modlist.txt. No anchor (dropped at
+            # the visual bottom) = the natural top — the default placement.
+            return {"anchor": anchor, "after": True} if anchor else None
+        if anchor is not None:
+            return {"anchor": anchor}
+        return {"at_end": True} if at_end else None
 
     def _on_mods_enabled_changed(self, changes):
         """Mods were toggled (checkbox / Enable-Disable all / context menu) —

@@ -172,6 +172,50 @@ def ensure_mod_preserving_position(
     write_modlist(modlist_path, entries)
 
 
+def move_mods_to_anchor(
+    modlist_path: Path,
+    mod_names: list[str],
+    anchor: str | None = None,
+    after: bool = False,
+    at_end: bool = False,
+) -> bool:
+    """Move existing entries to a new position as one block, keeping each
+    entry's enabled/locked flags. Used by drag-install from the Downloads tab:
+    the freshly installed mods (prepended at the top by _add_to_modlist) are
+    repositioned to where the archives were dropped.
+
+    The block is inserted directly before ``anchor`` (or after it when
+    ``after`` is True — reverse-priority display), or appended at the bottom
+    when ``at_end`` is True. Anchoring is by NAME, not index: rows can shift
+    between the drop and the end of an install batch. If the anchor entry no
+    longer exists (removed/renamed meanwhile, or it is itself one of the moved
+    mods) the modlist is left untouched — the mods stay at the top, the normal
+    install position. Returns True if the file was rewritten.
+    """
+    names = [n for n in mod_names if n]
+    if not names or (anchor is None and not at_end):
+        return False
+    entries = read_modlist(modlist_path)
+    moving = set(names)
+    block = [e for e in entries if e.name in moving]
+    if not block:
+        return False
+    # Keep the caller's order for the block where possible (install order).
+    order = {n: i for i, n in enumerate(names)}
+    block.sort(key=lambda e: order.get(e.name, len(order)))
+    rest = [e for e in entries if e.name not in moving]
+    if at_end:
+        idx = len(rest)
+    else:
+        idx = next((i for i, e in enumerate(rest) if e.name == anchor), None)
+        if idx is None:
+            return False
+        if after:
+            idx += 1
+    write_modlist(modlist_path, rest[:idx] + block + rest[idx:])
+    return True
+
+
 # Profile-root infrastructure folder names. If one of these turns up *inside*
 # the mods/ staging folder it's almost always stray/test pollution (a mirror of
 # the profile-root layout), never a real mod — so the sync must never adopt it

@@ -53,6 +53,10 @@ COL_MINS = {
 }
 NAME_MIN = COL_MINS[COL_NAME]
 
+# MIME type for archive paths dragged from the Downloads tab (newline-joined,
+# utf-8). Dropping them on the modlist installs at the drop position.
+ARCHIVE_DROP_MIME = "application/x-amethyst-archive-paths"
+
 # Columns shown by default on a fresh INI (no persisted state). Tk parity:
 # Category, Installed, Size are hidden until the user enables them; Author
 # (Nexus uploader) is likewise opt-in.
@@ -88,7 +92,12 @@ class ModListView(QTreeView):
         # the edges is fast/continuous like the Tk app. See _press/_move/_release.
         self.setDragDropMode(QAbstractItemView.NoDragDrop)
         self.setDragEnabled(False)
-        self.setAcceptDrops(False)
+        # Qt-native drops stay on for EXTERNAL drags only (archives dragged
+        # from the Downloads tab → install at the drop position). The internal
+        # reorder never uses Qt DnD, so the two cannot collide.
+        self.setAcceptDrops(True)
+        self.on_archives_dropped = None   # callback(paths: list[str], slot: int)
+        self._extern_drop = False         # an archive drag is over the view
 
         # Drag state.
         self._drag_rows: list[int] = []   # source rows being carried (block)
@@ -1153,9 +1162,60 @@ class ModListView(QTreeView):
         self._apply_separator_spanning()
         self.apply_collapse()
 
+    # ---- external drop: archives from the Downloads tab --------------------
+    def _is_archive_drag(self, event) -> bool:
+        return (self.on_archives_dropped is not None
+                and event.mimeData().hasFormat(ARCHIVE_DROP_MIME))
+
+    def dragEnterEvent(self, event):
+        if self._is_archive_drag(event):
+            self._extern_drop = True
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if self._extern_drop:
+            # Reuse the internal-reorder slot maths + blue indicator, and the
+            # same edge autoscroll (Qt DnD keeps delivering moves while the
+            # timer scrolls underneath the cursor).
+            self._last_mouse_y = int(event.position().y())
+            self._update_drop_slot(self._last_mouse_y)
+            if not self._scroll_timer.isActive():
+                self._scroll_timer.start()
+            self.viewport().update()
+            event.acceptProposedAction()
+            return
+        super().dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event):
+        if self._extern_drop:
+            self._end_extern_drop()
+            return
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        if self._extern_drop:
+            self._update_drop_slot(int(event.position().y()))
+            slot = self._drop_slot
+            raw = bytes(event.mimeData().data(ARCHIVE_DROP_MIME)).decode("utf-8")
+            paths = [p for p in raw.split("\n") if p]
+            self._end_extern_drop()
+            event.acceptProposedAction()
+            if paths and slot >= 0:
+                self.on_archives_dropped(paths, slot)
+            return
+        super().dropEvent(event)
+
+    def _end_extern_drop(self):
+        self._extern_drop = False
+        self._drop_slot = -1
+        self._scroll_timer.stop()
+        self.viewport().update()
+
     # ---- continuous autoscroll (Tk cadence: fast, proportional to depth) ---
     def _autoscroll_tick(self):
-        if not self._drag_active:
+        if not (self._drag_active or self._extern_drop):
             self._scroll_timer.stop()
             return
         h = self.viewport().height()
@@ -1184,10 +1244,12 @@ class ModListView(QTreeView):
     def paintEvent(self, event):
         super().paintEvent(event)
         # Sticky separator band (hidden during a drag — it would cover the
-        # drop zone while autoscrolling toward the top).
-        if not self._drag_active:
+        # drop zone while autoscrolling toward the top). An external archive
+        # drag (Downloads tab) paints the same indicator.
+        dragging = self._drag_active or self._extern_drop
+        if not dragging:
             self._paint_sticky_separator()
-        if not self._drag_active or self._drop_slot < 0:
+        if not dragging or self._drop_slot < 0:
             return
         m = self.model()
         n = m.rowCount()
