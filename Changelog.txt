@@ -6,6 +6,7 @@
 - The plugins tab is no longer shown for games that do not use it
 - Fixed an issue where fose (Fallout 3 script extender) was being installed incorrectly
 - Fixed an issue where plugins could not be disabled for older Bethesda titles
+- Mods can now be dragged from the downloads tab to the modlist panel to install them
 
 ---
 

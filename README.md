@@ -50,6 +50,12 @@ Run the following command
 flatpak install --user https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakref
 ```
 
+The remote can also be added manually where you can then install from the app store/discover store
+
+```bash
+flatpak remote-add --if-not-exists modmanager-origin https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo
+```
+
 Updates will be shown in your package manager
 
 Manually swap to the beta branch
