@@ -386,7 +386,7 @@ class CustomGameView(QWidget):
             g, self.tr("Game Name"), self._name_edit,
             self.tr("The display name shown in the game selector "
                     "(must be unique)."))
-        self._exe_edit = self._mono_edit(self.tr("e.g. MyGame.exe"))
+        self._exe_edit = self._mono_edit(self.tr("e.g. MyGame.exe or Bin/x64/MyGame.exe"))
         self._field_row(
             g, self.tr("Executable Filename"), self._exe_edit,
             self.tr("The .exe location from the game's root folder. e.g. bin/bg3.exe "
@@ -396,11 +396,13 @@ class CustomGameView(QWidget):
         g = self._section(self.tr("Deployment"))
         self._deploy_group = QButtonGroup(self)
         self._deploy_buttons: dict[str, QRadioButton] = {}
-        # Radios one per row in the field column, "Deploy Method" labelling the
-        # first row; each radio carries its own description marker.
-        label_row = self._next_row(g)
-        g.addWidget(QLabel(self.tr("Deploy Method")), label_row, 0)
-        first = True
+        # Radios laid out horizontally on a single row, "Deploy Method"
+        # labelling the row; each radio carries its own description marker.
+        row = self._next_row(g)
+        g.addWidget(QLabel(self.tr("Deploy Method")), row, 0)
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.setSpacing(6)
         for label, value, desc in _DEPLOY_OPTIONS:
             rb = QRadioButton(self.tr(label))
             self._deploy_group.addButton(rb)
@@ -408,15 +410,12 @@ class CustomGameView(QWidget):
             rb.toggled.connect(self._update_data_path_visibility)
             d = self.tr(desc)
             rb.setToolTip(tip_text(d))
-            wrap = QHBoxLayout()
-            wrap.setContentsMargins(0, 0, 0, 0)
-            wrap.setSpacing(6)
             wrap.addWidget(rb)
             wrap.addWidget(make_help_marker(d))
-            wrap.addStretch(1)
-            holder = QWidget(); holder.setLayout(wrap)
-            g.addWidget(holder, label_row if first else self._next_row(g), 1)
-            first = False
+            wrap.addSpacing(12)
+        wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        g.addWidget(holder, row, 1)
         self._deploy_buttons["standard"].setChecked(True)
 
         # Mod Sub-folder (standard / ue5; disabled for root). Title, tooltip
