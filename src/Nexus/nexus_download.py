@@ -533,6 +533,7 @@ class NexusDownloader:
         cancel: threading.Event | None = None,
         known_file_name: str = "",
         expected_size_bytes: int = 0,
+        prefetched_links: "list[NexusDownloadLink] | None" = None,
     ) -> DownloadResult:
         """
         Download a file directly (premium users only — no key needed).
@@ -553,6 +554,13 @@ class NexusDownloader:
                                (from the API).  Used to validate cached files
                                and detect partial downloads.  Pass 0 if
                                unknown.
+        prefetched_links     : Signed CDN links already fetched by the caller
+                               (via :meth:`get_download_links`) so the in-line
+                               link-fetch round-trip can be skipped — lets a
+                               caller pipeline the link fetch AHEAD of the
+                               download so a worker starts transferring bytes
+                               with zero link latency. Ignored when a complete
+                               cached archive is found (no download needed).
 
         Returns
         -------
@@ -593,19 +601,24 @@ class NexusDownloader:
                 except Exception:
                     pass
 
-        # Fetch a fresh signed CDN link (one rate-limited API call per download).
-        try:
-            links = self._api.get_download_links(
-                game_domain=game_domain,
-                mod_id=mod_id,
-                file_id=file_id,
-            )
-        except NexusAPIError as exc:
-            return DownloadResult(
-                success=False, error=str(exc),
-                game_domain=game_domain,
-                mod_id=mod_id, file_id=file_id,
-            )
+        # Use links the caller pre-fetched (pipelined ahead of the download) if
+        # provided; otherwise fetch a fresh signed CDN link now (one
+        # rate-limited API call per download). Either way it's exactly one
+        # get_download_links per downloaded mod.
+        links = prefetched_links
+        if not links:
+            try:
+                links = self._api.get_download_links(
+                    game_domain=game_domain,
+                    mod_id=mod_id,
+                    file_id=file_id,
+                )
+            except NexusAPIError as exc:
+                return DownloadResult(
+                    success=False, error=str(exc),
+                    game_domain=game_domain,
+                    mod_id=mod_id, file_id=file_id,
+                )
 
         if not links:
             return DownloadResult(
