@@ -158,6 +158,13 @@ class Fallout_NV(Fallout_3):
                 ]
 
     @property
+    def filemap_casing_pins(self) -> dict[str, str]:
+        return {
+            "nvse":"NVSE",
+            "plugins":"Plugins",
+        }
+
+    @property
     def loot_masterlist_repo(self) -> str:
         return "falloutnv"
 
