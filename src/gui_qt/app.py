@@ -374,6 +374,7 @@ class MainWindow(QMainWindow):
         self._op_silent = False   # silent (auto) deploy: suppress progress popup
         self._post_deploy_action = None   # launch closure run after deploy succeeds
         self._deploy_done_hooks: list = []   # wizard on_done(ok) one-shots
+        self._restore_done_hooks: list = []  # wizard on_done(ok) one-shots
         self._progress_popup = None
         self._notifier = None
         self._op_progress.connect(self._on_op_progress)
@@ -7692,6 +7693,14 @@ class MainWindow(QMainWindow):
                     h(success)
                 except Exception as exc:
                     self._append_log(f"Wizards: deploy hook error: {exc}")
+        elif kind == "restore":
+            # Wizard restore steps (4GB patch / FO3 downgrade restore-first).
+            hooks, self._restore_done_hooks = self._restore_done_hooks, []
+            for h in hooks:
+                try:
+                    h(success)
+                except Exception as exc:
+                    self._append_log(f"Wizards: restore hook error: {exc}")
 
     # ----------------------------------------------------------------- install
     def _on_install_mod(self):
@@ -8252,6 +8261,7 @@ class MainWindow(QMainWindow):
         ctx = QtWizardContext(
             profile_name=self._gs.profile or "default",
             run_deploy=self._wizard_run_deploy,
+            run_restore=self._wizard_run_restore,
             refresh_modlist=self._on_refresh_modlist,
             refresh_plugins=self._wizard_refresh_plugins,
             import_manifest=lambda manifest, stem, bundle_zip:
@@ -8279,6 +8289,21 @@ class MainWindow(QMainWindow):
             return False
         self._deploy_done_hooks.append(on_done)
         self._on_deploy()
+        return True
+
+    def _wizard_run_restore(self, on_done) -> bool:
+        """Start a modlist restore for a wizard step through the normal
+        restore path (progress popup + last-deployed-profile handling).
+        *on_done(ok)* fires on the UI thread after the restore completes.
+        Returns False when a restore can't be started (unconfigured game or
+        a deploy/restore already running)."""
+        game = self._gs.game
+        if game is None or not game.is_configured() or not hasattr(game, "restore"):
+            return False
+        if self._deploy_running:
+            return False
+        self._restore_done_hooks.append(on_done)
+        self._on_restore()
         return True
 
     def _wizard_refresh_plugins(self):

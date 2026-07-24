@@ -165,6 +165,19 @@ class Fallout_NV(Fallout_3):
         }
 
     @property
+    def restore_whitelist(self) -> list:
+        # Keep the 4GB-patch backup exe in the game root across restores. It
+        # is created after the deploy snapshot (post_deploy or the wizard), so
+        # the runtime sweep would otherwise move it into Root_Folder/ whenever
+        # _undo_4gb_patch skips it — auto-patching turned off between deploy
+        # and restore, or a fresh unpatched exe after Steam verify-files.
+        from Utils.deploy import RestoreWhitelistRule
+        from Utils.fnv4gb_tools import BACKUP_NAME
+        return super().restore_whitelist + [
+            RestoreWhitelistRule(path="", filenames=[BACKUP_NAME]),
+        ]
+
+    @property
     def loot_masterlist_repo(self) -> str:
         return "falloutnv"
 
@@ -212,8 +225,8 @@ class Fallout_NV(Fallout_3):
         return self.auto_4gb_patch and os.environ.get("AMM_FNV_AUTO_4GB") != "0"
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
-        super().restore(log_fn=log_fn, progress_fn=progress_fn)
         self._undo_4gb_patch(log_fn)
+        super().restore(log_fn=log_fn, progress_fn=progress_fn)
 
     def _undo_4gb_patch(self, log_fn=None) -> None:
         """Put the vanilla exe back after a restore while automatic patching

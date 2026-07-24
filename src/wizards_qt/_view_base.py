@@ -661,6 +661,34 @@ class WizardViewBase(QWidget):
             return False
         return True
 
+    # ---- restore through the app machinery ------------------------------------------
+    def _run_ctx_restore(self, status_lbl: QLabel, on_ok, on_fail=None):
+        """Start a modlist restore via ctx.run_restore; done-callback fires on
+        the UI thread. Returns False when no restore hook is available or the
+        restore could not start (e.g. a deploy is already running)."""
+        run_restore = getattr(self._ctx, "run_restore", None)
+        if run_restore is None:
+            self._set_status(status_lbl, self.tr("Restore is unavailable here."), err_text())
+            return False
+        self._set_status(status_lbl, self.tr("Restoring modlist…"))
+
+        def _done(ok: bool):
+            if self._closing:
+                return
+            if ok:
+                on_ok()
+            else:
+                self._set_status(status_lbl, self.tr("Restore failed — see log."), err_text())
+                if on_fail is not None:
+                    on_fail()
+
+        if not run_restore(_done):
+            self._set_status(status_lbl, self.tr("Could not start restore — see log."), err_text())
+            if on_fail is not None:
+                on_fail()
+            return False
+        return True
+
     # ---- common page: deploy (explicit Deploy + Skip buttons) -----------------------
     def _build_deploy_page(self, heading: str, note: str, on_next) -> QWidget:
         """Deploy step with explicit Deploy/Skip buttons; on_next() fires on

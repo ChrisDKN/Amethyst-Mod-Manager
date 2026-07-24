@@ -32,6 +32,7 @@ class Fnv4GbView(WizardViewBase):
     _backup_status_sig = Signal(str, str)
     _buttons_sig = Signal(bool, bool)     # (apply enabled, restore enabled)
     _refresh_sig = Signal()               # worker → re-run the state scan
+    _redeploy_sig = Signal()              # worker → redeploy after restore-first apply
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
@@ -46,6 +47,7 @@ class Fnv4GbView(WizardViewBase):
             lambda t, c: self._set_status(self._backup_status, t, c)))
         self._buttons_sig.connect(self._guard(self._set_buttons))
         self._refresh_sig.connect(self._guard(self._refresh))
+        self._redeploy_sig.connect(self._guard(self._start_redeploy))
 
         self._stack.addWidget(self._build_page())
         self._refresh()
@@ -134,13 +136,36 @@ class Fnv4GbView(WizardViewBase):
             return
         self._busy = True
         self._set_buttons(False, False)
+        # Patching creates FalloutNV_backup.exe in the game root. If a profile
+        # is deployed, that file is absent from the deploy snapshot, so the
+        # next restore would sweep it into overwrite/ as a runtime file —
+        # restore the modlist first, patch the vanilla root, then redeploy.
+        if getattr(self._game, "get_deploy_active", lambda: False)():
+            self._log("4GB patch wizard: modlist is deployed — restoring "
+                      "before patching (redeploys afterwards).")
+
+            def _restore_failed():
+                self._busy = False
+                self._refresh()
+
+            if not self._run_ctx_restore(
+                    self._exe_status,
+                    lambda: self._start_apply(redeploy=True),
+                    _restore_failed):
+                self._busy = False
+            return
+        self._start_apply()
+
+    def _start_apply(self, redeploy: bool = False):
         self._set_status(self._exe_status, self.tr("Patching {0}…").format(EXE_NAME))
         game_root = self._game_root
 
         def worker():
             from Utils.fnv4gb_tools import apply_4gb_patch
+            ok = False
             try:
                 variant = apply_4gb_patch(game_root)
+                ok = True
                 self._log(f"4GB patch wizard: patched {EXE_NAME} ({variant} "
                           f"version), original saved as {BACKUP_NAME}.")
             except Exception as exc:
@@ -148,9 +173,19 @@ class Fnv4GbView(WizardViewBase):
                 safe_emit(self._exe_status_sig, self.tr("Patch failed: {0}").format(exc), RED)
             finally:
                 self._busy = False
-                safe_emit(self._refresh_sig)
+                # Redeploy (successful or not) puts the restored modlist back;
+                # the new deploy snapshot then records the backup exe so later
+                # restores leave it in the game root.
+                if redeploy:
+                    safe_emit(self._redeploy_sig)
+                else:
+                    safe_emit(self._refresh_sig)
 
         threading.Thread(target=worker, daemon=True, name="fnv4gb-apply").start()
+
+    def _start_redeploy(self):
+        if not self._run_ctx_deploy(self._exe_status, self._refresh, self._refresh):
+            self._refresh()
 
     def _on_restore(self):
         if self._busy or self._game_root is None:
