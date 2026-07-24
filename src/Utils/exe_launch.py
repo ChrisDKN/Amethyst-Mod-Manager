@@ -1504,7 +1504,14 @@ def run_tool_logged(
     # reachable). The shim's other services don't apply here: the prefix was
     # already created/updated by get_tool_prefix_env's wineboot step, and every
     # caller converts its path arguments to wine paths itself.
-    cmd = proton_run_command(proton_script, "runinprefix", str(exe), env=env)
+    # Run the tool from its own folder (or the caller's cwd). Pass this to
+    # proton_run_command too: inside the flatpak sandbox the portal chdirs the
+    # host process itself, and the Popen cwd below is ignored — without it a
+    # tool writing files relative to its cwd (e.g. WitcherScriptMerger's
+    # MergeInventory.xml) would land at Z:\\ (host "/", unwritable).
+    tool_cwd = str(cwd) if cwd is not None else str(exe.parent)
+    cmd = proton_run_command(proton_script, "runinprefix", str(exe), env=env,
+                             host_cwd=tool_cwd)
     if extra_args:
         cmd = cmd + list(extra_args)
 
@@ -1512,7 +1519,7 @@ def run_tool_logged(
         proc = subprocess.Popen(
             cmd,
             env=env,
-            cwd=str(cwd) if cwd is not None else str(exe.parent),
+            cwd=tool_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,

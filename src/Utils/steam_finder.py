@@ -113,6 +113,7 @@ def _host_python() -> str:
 
 def proton_run_command(
     proton_script: "Path", *args: str, env: "dict | None" = None,
+    host_cwd: "str | Path | None" = None,
 ) -> list[str]:
     """Build the command to invoke ``proton <args>`` for *proton_script*.
 
@@ -141,6 +142,16 @@ def proton_run_command(
     waitforexitandrun) have no wine equivalent and are dropped — and there is
     no python interpreter in front of the command.
     """
+    # Directory flatpak-spawn's portal chdirs the host process into. Proton's
+    # runinprefix (and bare wine) start the exe from this cwd, and Windows apps
+    # that write files relative to their working directory (e.g.
+    # WitcherScriptMerger's MergeInventory.xml) resolve them here — under Wine
+    # cwd "/" maps to "Z:\\", which is not writable, so a real host directory
+    # must be passed when the caller has one. Defaults to "/" because the app's
+    # own sandbox cwd does not exist on the host and the portal would fail to
+    # chdir into it.
+    directory = str(host_cwd) if host_cwd is not None else "/"
+
     script = Path(proton_script)
     if script.name in ("wine", "wine64"):
         payload = [a for a in map(str, args) if a not in
@@ -152,7 +163,8 @@ def proton_run_command(
                 for k, v in (env or {}).items()
                 if os.environ.get(k) != v
             ]
-            cmd = ["flatpak-spawn", "--host", *fwd, *cmd]
+            cmd = ["flatpak-spawn", "--host", f"--directory={directory}",
+                   *fwd, *cmd]
         return cmd
     base = [_host_python(), str(proton_script), *map(str, args)]
     if not (_proton_script_in_steam_flatpak(proton_script)
@@ -163,7 +175,8 @@ def proton_run_command(
                 for k, v in (env or {}).items()
                 if os.environ.get(k) != v
             ]
-            return ["flatpak-spawn", "--host", "--directory=/", *fwd, *base]
+            return ["flatpak-spawn", "--host", f"--directory={directory}",
+                    *fwd, *base]
         return base
     # Steam-flatpak Proton runs INSIDE the sandbox, so --command=python3 uses
     # the sandbox's own interpreter (not our host resolver) — that's correct.
