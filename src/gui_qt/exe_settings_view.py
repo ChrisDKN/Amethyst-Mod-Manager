@@ -15,7 +15,6 @@ app's thread-safe _append_log) — never widgets.
 
 from __future__ import annotations
 
-import html
 import subprocess
 import threading
 from pathlib import Path
@@ -27,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss
+from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from gui_qt.worker import run_in_worker
 from Utils import exe_launch
@@ -67,17 +67,10 @@ class ExeSettingsView(QWidget):
 
     # ---- tooltip helpers --------------------------------------------------
     def _tip_text(self, text: str) -> str:
-        # Rich-text so the tooltip word-wraps; plain-text tooltips render as
-        # one long unbroken line. Newlines become <br> so multi-line hints
-        # (e.g. the .jar runtime notes) keep their breaks.
-        return "<qt>" + html.escape(text).replace("\n", "<br>") + "</qt>"
+        return tip_text(text)
 
     def _help_marker(self, text: str) -> QLabel:
-        mark = QLabel("ⓘ")
-        mark.setObjectName("HelpMark")
-        mark.setToolTip(self._tip_text(text))
-        mark.setCursor(Qt.WhatsThisCursor)
-        return mark
+        return make_help_marker(text)
 
     # ---- layout -----------------------------------------------------------
     def _build(self):
@@ -113,11 +106,11 @@ class ExeSettingsView(QWidget):
             sec.setStyleSheet(
                 f"#SettingsSection {{ background:{_c(p,'BG_PANEL')};"
                 f" border:1px solid {_c(p,'BORDER')}; border-radius:6px; }}"
-                f" QLabel#HelpMark {{ color:{_c(p,'TEXT_DIM')}; }}")
+                f" {help_mark_qss(p)}")
             sv = QVBoxLayout(sec)
             sv.setContentsMargins(10, 8, 10, 8)
             sv.setSpacing(4)
-            # Title row: label + a ⓘ marker whose tooltip carries the
+            # Title row: label + a "?" marker whose tooltip carries the
             # description (matches the Settings menu — no inline hint text).
             head = QHBoxLayout(); head.setContentsMargins(0, 0, 0, 0); head.setSpacing(6)
             lbl = QLabel(title_text)

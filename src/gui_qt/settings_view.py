@@ -16,13 +16,11 @@ User Interface (incl. Theme + UI Scale), Archives, Downloads, Extraction,
 General, Paths — plus a Manage Caches action. Theme colour pickers are
 intentionally omitted (Qt has no colour-override system yet).
 
-Option descriptions are tooltips (on the row and on its ⓘ marker), not inline
-labels — rows stay one line tall and nothing clips at narrow widths.
+Option descriptions are tooltips (on the row and on its accent "?" marker), not
+inline labels — rows stay one line tall and nothing clips at narrow widths.
 """
 
 from __future__ import annotations
-
-import html
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -31,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
+from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from Utils import ui_config as uc
 
@@ -110,7 +109,7 @@ class SettingsView(QWidget):
             color: {c('TEXT_MAIN')};
             font-weight: bold;
         }}
-        QLabel#HelpMark {{ color: {c('TEXT_DIM')}; }}
+        {help_mark_qss(self._pal)}
         QLabel#RestartNote {{ color: {c('TEXT_WARN')}; }}
         QSlider::groove:horizontal {{
             height: 4px; background: {c('BG_DEEP')}; border-radius: 2px;
@@ -143,16 +142,10 @@ class SettingsView(QWidget):
         return r
 
     def _tip_text(self, text: str) -> str:
-        # Rich-text so the tooltip word-wraps; plain-text tooltips render as
-        # one long unbroken line.
-        return "<qt>" + html.escape(text) + "</qt>"
+        return tip_text(text)
 
     def _help_marker(self, text: str) -> QLabel:
-        mark = QLabel("ⓘ")
-        mark.setObjectName("HelpMark")
-        mark.setToolTip(self._tip_text(text))
-        mark.setCursor(Qt.WhatsThisCursor)
-        return mark
+        return make_help_marker(text)
 
     def _checkbox(self, grid: QGridLayout, label: str, load_fn, save_fn,
                   help: str | None = None, on_changed=None) -> QCheckBox:

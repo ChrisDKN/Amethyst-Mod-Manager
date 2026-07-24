@@ -2140,10 +2140,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>Export code…</translation>
     </message>
     <message>
-        <source>Load Preset  (optional)</source>
-        <translation>Load Preset  (optional)</translation>
-    </message>
-    <message>
         <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
         <translation>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</translation>
     </message>
@@ -2196,20 +2192,12 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>Mod Sub-folder</translation>
     </message>
     <message>
-        <source>Steam App ID  (optional)</source>
-        <translation>Steam App ID  (optional)</translation>
-    </message>
-    <message>
         <source>Used to auto-detect the Proton prefix. Leave empty if not on Steam.</source>
         <translation>Used to auto-detect the Proton prefix. Leave empty if not on Steam.</translation>
     </message>
     <message>
         <source>e.g. 377160</source>
         <translation>e.g. 377160</translation>
-    </message>
-    <message>
-        <source>Nexus Mods Domain  (optional)</source>
-        <translation>Nexus Mods Domain  (optional)</translation>
     </message>
     <message>
         <source>The game's slug on nexusmods.com. e.g. 'skyrimspecialedition'.</source>
@@ -2220,10 +2208,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>e.g. myfavouritegame</translation>
     </message>
     <message>
-        <source>Banner Image URL  (optional)</source>
-        <translation>Banner Image URL  (optional)</translation>
-    </message>
-    <message>
         <source>A direct URL to a PNG/JPG image shown in the game picker card. The image is downloaded once and cached locally.</source>
         <translation>A direct URL to a PNG/JPG image shown in the game picker card. The image is downloaded once and cached locally.</translation>
     </message>
@@ -2232,16 +2216,8 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
-        <source>Advanced Options  (optional)</source>
-        <translation>Advanced Options  (optional)</translation>
-    </message>
-    <message>
         <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
         <translation>Used to change the folder structure of an installed mod to match what is required by the manager.</translation>
-    </message>
-    <message>
-        <source>Enable</source>
-        <translation>Enable</translation>
     </message>
     <message>
         <source>Filemap Casing</source>
@@ -2316,10 +2292,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>Cancel</translation>
     </message>
     <message>
-        <source>Game Sub-folder  (optional)</source>
-        <translation>Game Sub-folder  (optional)</translation>
-    </message>
-    <message>
         <source>Location of the folder from root where deployed mods are sent to. e.g. Phoenix for Hogwarts Legacy.</source>
         <translation>Location of the folder from root where deployed mods are sent to. e.g. Phoenix for Hogwarts Legacy.</translation>
     </message>
@@ -2330,6 +2302,54 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Path relative to the game root where mod files are installed. e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. Leave empty to target the game root directly.</source>
         <translation>Path relative to the game root where mod files are installed. e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. Leave empty to target the game root directly.</translation>
+    </message>
+    <message>
+        <source>Load Preset</source>
+        <translation>Load Preset</translation>
+    </message>
+    <message>
+        <source>Preset</source>
+        <translation>Preset</translation>
+    </message>
+    <message>
+        <source>Share code</source>
+        <translation>Share code</translation>
+    </message>
+    <message>
+        <source>Basics</source>
+        <translation>Basics</translation>
+    </message>
+    <message>
+        <source>Deployment</source>
+        <translation>Deployment</translation>
+    </message>
+    <message>
+        <source>Store &amp; Artwork</source>
+        <translation>Store &amp; Artwork</translation>
+    </message>
+    <message>
+        <source>Steam App ID</source>
+        <translation>Steam App ID</translation>
+    </message>
+    <message>
+        <source>Nexus Mods Domain</source>
+        <translation>Nexus Mods Domain</translation>
+    </message>
+    <message>
+        <source>Banner Image URL</source>
+        <translation>Banner Image URL</translation>
+    </message>
+    <message>
+        <source>Mod Install Tuning</source>
+        <translation>Mod Install Tuning</translation>
+    </message>
+    <message>
+        <source>Conflicts &amp; Advanced Behaviour</source>
+        <translation>Conflicts &amp; Advanced Behaviour</translation>
+    </message>
+    <message>
+        <source>Game Sub-folder</source>
+        <translation>Game Sub-folder</translation>
     </message>
     <message>
         <source>e.g. Data   (leave empty for game root)</source>
@@ -3308,6 +3328,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
         <translation>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+    </message>
+    <message>
+        <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
+        <translation>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</translation>
+    </message>
+    <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>Launch with plain Wine (winetricks-style)</translation>
     </message>
     <message>
         <source>Run EXE in prefix…</source>
