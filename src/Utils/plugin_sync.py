@@ -18,13 +18,19 @@ from Utils.plugins import (
 
 def _mod_plugins(staging_root: Path, mod_name: str,
                  plugin_exts: set[str],
-                 data_subfolders: "set[str] | None" = None) -> list[str]:
+                 data_subfolders: "set[str] | None" = None,
+                 game=None) -> list[str]:
     """Top-level plugin filenames inside staging_root/<mod_name>/ (what Tk
     scans), plus the top level of any *data_subfolders* (lowercase names, e.g.
     {'data files'}). The latter covers mods whose plugins sit one level down in
     staging yet deploy to the top of the data dir: root-flagged mods (verbatim
     to game root → '<subfolder>/x.esp' lands in the data dir) and mods that
-    retain a strip prefix on disk (the filemap strips it)."""
+    retain a strip prefix on disk (the filemap strips it).
+
+    For rule-routing games (*game* with a plugins_routing_ctx, e.g. Oblivion
+    Remastered) plugins can additionally sit ANYWHERE inside the mod as long
+    as the deploy rules route them to the top of the data dir — those are
+    picked up via routed_mod_plugin_names."""
     mod_dir = staging_root / mod_name
     if not mod_dir.is_dir():
         return []
@@ -42,6 +48,16 @@ def _mod_plugins(staging_root: Path, mod_name: str,
                     names.append(f.name)
     except OSError:
         pass
+    if game is not None:
+        try:
+            from Utils.game_helpers import routed_mod_plugin_names
+            seen = {n.lower() for n in names}
+            for n in routed_mod_plugin_names(game, mod_dir):
+                if n.lower() not in seen:
+                    names.append(n)
+                    seen.add(n.lower())
+        except Exception:
+            pass
     return names
 
 
@@ -89,7 +105,8 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
     add: list[str] = []
     remove_lower: set[str] = set()
     for mod_name, now_enabled in changes:
-        found = _mod_plugins(staging_root, mod_name, plugin_exts, data_subs)
+        found = _mod_plugins(staging_root, mod_name, plugin_exts, data_subs,
+                             game=game)
         if now_enabled and not found:
             # Enabling a mod whose staging folder has NO top-level plugin files
             # for this game's extensions. This is completely normal for

@@ -159,7 +159,7 @@ class OblivionRemastered(UE5Game):
             
             # Required as our strip prefix rules do not apply to fomods
             CustomRule(dest="", 
-                        folders=["Content, Binaries"], 
+                        folders=["Content", "Binaries"], 
                         flatten=True),
 
             CustomRule(dest="Binaries/Win64", 

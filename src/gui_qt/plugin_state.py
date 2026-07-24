@@ -158,7 +158,8 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
                           filemap_path: Path | None,
                           plugin_exts: tuple[str, ...],
                           root_filemap_path: Path | None = None,
-                          root_prefix: str = "") -> dict[str, Path]:
+                          root_prefix: str = "",
+                          routing_ctx=None) -> dict[str, Path]:
     """Map plugin filename (lowercase) → its on-disk path, from THREE sources in
     priority order (Tk parity: gui/plugin_panel.py:_check_all_masters).
 
@@ -179,6 +180,20 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
                 rel_path, mod_name = line.split("\t", 1)
                 rel_path = rel_path.replace("\\", "/")
                 if "/" in rel_path:
+                    # Rule-routing games (Oblivion Remastered): a NESTED
+                    # staged path can still deploy to the top of the plugins
+                    # data dir — resolve it via the game's routing rules. The
+                    # staged rel is the real on-disk path under the mod dir.
+                    if routing_ctx is None:
+                        continue
+                    from Utils.game_helpers import routed_plugin_name
+                    name = routed_plugin_name(routing_ctx, rel_path, exts)
+                    if name is None:
+                        continue
+                    if mod_name == _OVERWRITE_NAME and overwrite_dir is not None:
+                        paths[name.lower()] = overwrite_dir / rel_path
+                    else:
+                        paths[name.lower()] = staging_dir / mod_name / rel_path
                     continue
                 if not rel_path.lower().endswith(exts):
                     continue
@@ -270,11 +285,17 @@ def resolve_plugin_paths_for_game(game, data_dir: Path | None = None
             root_prefix = game_data_subpath(game)
         except Exception:
             root_prefix = ""
+        try:
+            from Utils.game_helpers import plugins_routing_ctx
+            routing_ctx = plugins_routing_ctx(game)
+        except Exception:
+            routing_ctx = None
         exts = tuple(x.lower() for x in (getattr(game, "plugin_extensions", []) or ())) \
             or (".esp", ".esm", ".esl")
         return _resolve_plugin_paths(staging, data_dir, filemap_path, exts,
                                      root_filemap_path=root_fm,
-                                     root_prefix=root_prefix)
+                                     root_prefix=root_prefix,
+                                     routing_ctx=routing_ctx)
     except Exception:
         return {}
 
@@ -301,6 +322,14 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
         _diag(f"_filemap_deployed_plugins: filemap.txt MISSING at {fm}")
         return {}
     exts = tuple(e.lower() for e in plugin_exts)
+    # Rule-routing games (Oblivion Remastered): a nested staged path can still
+    # deploy to the top of the plugins data dir — treat those the same as
+    # top-level entries. See Utils.game_helpers.plugins_routing_ctx.
+    try:
+        from Utils.game_helpers import plugins_routing_ctx, routed_plugin_name
+        routing_ctx = plugins_routing_ctx(game)
+    except Exception:
+        routing_ctx = None
     found: dict[str, str] = {}
     total_lines = 0
     try:
@@ -310,7 +339,15 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
                 continue
             rel_path = line.split("\t", 1)[0].replace("\\", "/")
             if "/" in rel_path:
-                continue   # top-level plugins only (matches deploy layout)
+                # Top-level entries match the deploy layout directly; nested
+                # ones only count when the routing rules land them in the
+                # data dir.
+                if routing_ctx is None:
+                    continue
+                name = routed_plugin_name(routing_ctx, rel_path, exts)
+                if name is not None:
+                    found.setdefault(name.lower(), name)
+                continue
             low = rel_path.lower()
             if low.endswith(exts):
                 found.setdefault(low, rel_path)
