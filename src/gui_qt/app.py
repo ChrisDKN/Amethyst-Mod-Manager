@@ -6439,6 +6439,10 @@ class MainWindow(QMainWindow):
         from gui_qt.configure_game_view import ConfigureGameView
 
         def _done(saved: bool, removed: bool):
+            migrated = bool(getattr(page, "staging_migrated", False))
+            if migrated:
+                page.staging_migrated = False
+
             # Reconfigure saves keep the tab open; adding a game (or removing an
             # instance, or cancelling) closes it.
             if removed or not saved or from_add_game:
@@ -6478,6 +6482,14 @@ class MainWindow(QMainWindow):
                         self._game_selector.set_current(fallback)
                     else:
                         self._open_add_game_tab()
+
+            # Staging files moved: re-sync the mods folder and rescan the index
+            # against the NEW root (same work as the Refresh Modlist button).
+            # Deferred so it runs after the game-switch reload above settles.
+            if saved and not removed and migrated \
+                    and self._gs.game is not None \
+                    and self._gs.game.name == game.name:
+                QTimer.singleShot(0, self._on_refresh_modlist)
 
             # Reconfigure kept the tab open — confirm the save inline and re-sync
             # its header (a per-profile override may have just been pinned).

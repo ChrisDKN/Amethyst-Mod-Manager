@@ -117,6 +117,7 @@ class ConfigureGameView(QWidget):
         self._sig.staging_move_done.connect(self._on_staging_move_done)
         self._staging_popup = None
         self._destructive_busy = False
+        self.staging_migrated = False
 
         self._build()
         self._prepopulate()
@@ -1231,6 +1232,8 @@ class ConfigureGameView(QWidget):
             self._staging_popup.clear()
             self._staging_popup.deleteLater()
             self._staging_popup = None
+        if moved:
+            self.staging_migrated = True
         self._finalize_save()
 
     def _install_prefix_deps(self) -> None:
