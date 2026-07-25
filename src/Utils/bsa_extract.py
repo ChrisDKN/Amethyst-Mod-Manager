@@ -99,7 +99,7 @@ def extract_bsa(
     except BsaExtractError:
         raise
     except (OSError, struct.error, ValueError, zlib.error,
-            lz4.frame.LZ4FrameError) as exc:
+            RuntimeError) as exc:
         raise BsaExtractError(f"failed to extract {bsa_path.name}: {exc}") from exc
 
 
@@ -127,7 +127,7 @@ def _extract(
         archive_flags,
         folder_count,
         file_count,
-        total_folder_name_length,
+        _total_folder_name_length,
         total_file_name_length,
         _file_flags,
     ) = struct.unpack("<IIIIIIII", header)
