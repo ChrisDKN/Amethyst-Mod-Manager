@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from Utils.atomic_write import write_atomic_text
 
 try:
-    import LOOT.loot as loot
+    import loot
     _AVAILABLE = True
 except ImportError as _exc:
     loot = None
