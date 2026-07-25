@@ -49,6 +49,10 @@ class ExeSettingsView(QWidget):
         # Auto-detected framework entry (installed script extender): not in
         # custom_exes.json, so "Remove" becomes "Hide from dropdown".
         self._is_auto = is_auto
+        # Script extender: pinned to the game's prefix, so the Proton picker
+        # is disabled below.
+        self._is_framework = exe_launch.is_framework_launch_exe(
+            game, exe_path.name)
 
         from Utils.steam_finder import list_installed_proton
         self._proton_versions = (
@@ -178,17 +182,29 @@ class ExeSettingsView(QWidget):
         bv.addWidget(sec_args)
 
         # -- Proton version ---------------------------------------------------
-        sec_proton, sp = section(self.tr("Proton version"), self.tr(
+        proton_help = self.tr(
             "Use a specific Proton version with an isolated prefix next to the "
             "exe, instead of the game's prefix. Useful for tools that don't "
             "work with the game's Proton version. For Bethesda games the game "
             "path (registry), plugins.txt and My Games INIs are set up in the "
-            "prefix automatically at launch."))
+            "prefix automatically at launch.")
+        if self._is_framework:
+            proton_help = self.tr(
+                "Script extenders always run in the game's own prefix with the "
+                "game's Proton version: they launch the game itself, which "
+                "needs the game's Steam app ID and its INIs, saves and mod "
+                "DLLs. Change the game's Proton version in the game settings "
+                "instead.")
+        sec_proton, sp = section(self.tr("Proton version"), proton_help)
         proton_row = QHBoxLayout()
         proton_row.setSpacing(8)
         self._proton_combo = QComboBox()
         self._proton_combo.addItems(self._proton_versions)
         no_wheel(self._proton_combo)
+        if self._is_framework:
+            self._proton_combo.setCurrentText("Game default")
+            self._proton_combo.setEnabled(False)
+            self._proton_combo.setToolTip(self._tip_text(proton_help))
         proton_row.addWidget(self._proton_combo)
         proton_row.addStretch(1)
         sp.addLayout(proton_row)
@@ -281,8 +297,11 @@ class ExeSettingsView(QWidget):
         game, name = self._game, self._exe_path.name
         self._args_box.setPlainText(exe_launch.load_exe_args(game, name))
         self._options_edit.setText(exe_launch.load_launch_options(game, name))
-        saved = exe_launch.load_proton_override(game, name) or ""
-        self._proton_combo.setCurrentText(self._best_proton_match(saved))
+        # Script extenders stay on "Game default" whatever was saved before the
+        # picker was gated (the launch path ignores it too).
+        if not self._is_framework:
+            saved = exe_launch.load_proton_override(game, name) or ""
+            self._proton_combo.setCurrentText(self._best_proton_match(saved))
         self._deploy_on_run_chk.setChecked(
             exe_launch.load_deploy_on_run(game, name))
         if self._winetricks_chk is not None:

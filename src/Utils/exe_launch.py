@@ -1793,6 +1793,22 @@ def launch_game(game, log_fn=_noop_log) -> None:
     launch_exe_via_proton(exe_path, game, log_fn)
 
 
+def is_framework_launch_exe(game, exe_name: str) -> bool:
+    """True when *exe_name* is a declared framework launcher (script extender).
+
+    These start the game rather than a tool, so they need the game's own
+    prefix and Steam app context — see launch_exe_via_proton.
+    """
+    if game is None or not exe_name:
+        return False
+    try:
+        declared = getattr(game, "framework_launch_exes", None) or {}
+    except Exception:
+        return False
+    target = exe_name.lower()
+    return any(Path(rel).name.lower() == target for rel in declared.values())
+
+
 def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     """Standard Proton launch path for .exe files. Call from a worker thread.
 
@@ -1817,6 +1833,14 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     )
 
     proton_override_name = load_proton_override(game, exe_path.name)
+    # Script extenders always use the game's prefix. The settings UI disables
+    # the picker for these, but an override saved before that gate existed (or
+    # edited by hand) must not resurrect the isolated-prefix path.
+    if proton_override_name and is_framework_launch_exe(game, exe_path.name):
+        log_fn(f"Run EXE: {exe_path.name} is a script extender — ignoring the "
+               f"'{proton_override_name}' override and using the game's prefix "
+               "(it launches the game, which needs the game's Steam app ID).")
+        proton_override_name = None
     lutris_env_extra = None  # set for classic lutris-wine prefixes only
     umu_bin = None  # set for Lutris umu/Proton prefixes when umu-run exists
     prefix_path = None  # game-prefix branch only (None with a Proton override)
@@ -2034,19 +2058,27 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         from Utils.lutris_finder import umu_run_command
         base_cmd = umu_run_command(umu_bin, str(exe_path), env=env) + extra_args
     else:
-        # "runinprefix" skips Proton's steam.exe shim, so launching a tool
-        # doesn't register the game as "Running" with Steam — that
-        # registration also makes Steam Input swap the desktop profile
-        # (trackpad mouse) for the game's mouse-less profile on Steam Deck,
-        # locking the user out of the tool's UI. Script extenders still work:
-        # the game's own SteamAPI_Init attaches via the SteamAppId env vars
-        # when the game actually starts, which is the right moment for the
-        # input-profile switch. A never-booted prefix (fresh per-exe override
-        # prefix) still needs "run" — it performs Proton's initial prefix
-        # setup, and its env carries no SteamAppId so nothing registers with
-        # Steam anyway.
-        verb = ("runinprefix"
-                if (compat_data / "pfx" / "user.reg").is_file() else "run")
+        # Anything that starts the game needs "waitforexitandrun" (the verb
+        # Steam itself uses): it boots the steam.exe shim, without which
+        # Steam-stub DRM fails SteamAPI init even with SteamAppId in env —
+        # NVSE shows "Application load error 5:0000065434", skse64_loader
+        # exits 245. Steam Input swapping to the game's controller profile is
+        # correct here; it IS the game.
+        # Tools keep "runinprefix" — no shim, so no "Running" status and no
+        # profile swap, which on Steam Deck would lock the trackpad/OSK out of
+        # the tool's UI. A never-booted prefix still needs "run" for Proton's
+        # initial setup.
+        game_exe = resolve_game_exe(game)
+        launches_game = (
+            not proton_override_name
+            and (is_framework_launch_exe(game, exe_path.name)
+                 or (game_exe is not None
+                     and str(exe_path).lower() == str(game_exe).lower())))
+        if launches_game:
+            verb = "waitforexitandrun"
+        else:
+            verb = ("runinprefix"
+                    if (compat_data / "pfx" / "user.reg").is_file() else "run")
         base_cmd = proton_run_command(proton_script, verb, str(exe_path),
                                       env=env) + extra_args
     if not launch_opts:
@@ -2059,6 +2091,8 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
+        # App context: a missing/zero SteamAppId is what DRM load errors report.
+        "SteamAppId", "STEAM_COMPAT_INSTALL_PATH",
     )
     _env_summary = " ".join(
         f"{k}={env.get(k)}" for k in _env_keys if env.get(k) is not None
