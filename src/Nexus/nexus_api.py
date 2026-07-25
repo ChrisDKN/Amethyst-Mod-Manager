@@ -756,12 +756,14 @@ class NexusAPI:
         )
         resp.raise_for_status()
         data = resp.json()
-        # Determine premium/supporter from userinfo membership_roles / premium_expiry
+        # Determine premium/supporter from userinfo membership_roles / premium_expiry.
+        # premium_expiry is also returned for EX-premium users (as the past
+        # timestamp when it lapsed), so it only counts when still in the future.
         membership_roles = data.get("membership_roles") or []
         premium_expiry = data.get("premium_expiry")
         is_premium = (
             "premium" in [str(r).lower() for r in membership_roles]
-            or (premium_expiry is not None and premium_expiry != 0)
+            or (isinstance(premium_expiry, (int, float)) and premium_expiry > time.time())
         )
         is_supporter = "supporter" in [str(r).lower() for r in membership_roles]
         return NexusUser(
