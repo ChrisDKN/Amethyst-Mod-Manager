@@ -93,8 +93,13 @@ class ModFilesView(QWidget):
         # Tk-style column resize (boundary drag, constant total) — same as the
         # modlist/plugins panels.
         from gui_qt.modlist_header import TkStyleHeader
-        col_mins = {COL_NAME: 120, COL_TOPLEVEL: 60, COL_DISABLE: 55}
-        col_defaults = {COL_TOPLEVEL: 70, COL_DISABLE: 60}
+        col_mins = {
+            COL_NAME: 120,
+            COL_TOPLEVEL: self._header_min(COL_TOPLEVEL, 60),
+            COL_DISABLE: self._header_min(COL_DISABLE, 55),
+        }
+        col_defaults = {COL_TOPLEVEL: max(70, col_mins[COL_TOPLEVEL]),
+                        COL_DISABLE: max(60, col_mins[COL_DISABLE])}
         hdr = TkStyleHeader(self._tree, col_mins, col_defaults)
         self._tree.setHeader(hdr)
         hdr.setMinimumSectionSize(min(col_mins.values()))
@@ -108,6 +113,18 @@ class ModFilesView(QWidget):
         # Name column absorbs leftover width on resize (modlist parity).
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
+
+    def _header_min(self, col: int, floor: int) -> int:
+        """Width that fits this column's header caption in full.
+
+        Qt paints header labels inset by the style's header margin on each
+        side; we add that plus a couple of px of slack so the text sits at the
+        minimum width without eliding.
+        """
+        from PySide6.QtWidgets import QStyle
+        text = ModFilesModel.column_title(col)
+        pad = self.style().pixelMetric(QStyle.PM_HeaderMargin, None, self) * 2 + 6
+        return max(floor, self.fontMetrics().horizontalAdvance(text) + pad)
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent

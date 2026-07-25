@@ -14,7 +14,7 @@ algorithms live in Utils.mod_files. The view drives saves on checkbox clicks.
 from __future__ import annotations
 
 from PySide6.QtCore import (
-    Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP)
+    Qt, QAbstractItemModel, QCoreApplication, QModelIndex, QT_TRANSLATE_NOOP)
 
 COL_NAME = 0
 COL_TOPLEVEL = 1
@@ -113,9 +113,15 @@ class ModFilesModel(QAbstractItemModel):
     def columnCount(self, parent=QModelIndex()):
         return len(COLUMNS)
 
+    @classmethod
+    def column_title(cls, section: int) -> str:
+        """The translated header caption. Classmethod so the view can measure
+        it for column minimums before a model exists."""
+        return QCoreApplication.translate("ModFilesModel", COLUMNS[section])
+
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.tr(COLUMNS[section])
+            return self.column_title(section)
         return None
 
     def flags(self, index):
