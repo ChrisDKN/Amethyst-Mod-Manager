@@ -1,0 +1,162 @@
+{
+  "name": "Abiotic Factor",
+  "game_id": "Abiotic_Factor",
+  "exe_name": "AbioticFactor/Binaries/Win64/AbioticFactor-Win64-Shipping.exe",
+  "deploy_type": "ue5",
+  "mod_data_path": "AbioticFactor",
+  "steam_id": "427410",
+  "nexus_game_domain": "abioticfactor",
+  "image_url": "https://cdn2.steamgriddb.com/icon/c70ffc306bfe48fb7630f05793c811d7/32/180x180.png",
+  "mod_folder_strip_prefixes": [
+    "AbioticFactor",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64"
+  ],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*.bat",
+    "*read*.txt"
+  ],
+  "conflict_ignore_foldernames": [
+    "Abiotic Loader",
+    "AbioticImprovements"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dwmpapi": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "drive_c/users/steamuser/AppData/Local/AbioticFactor/Saved/Config/Windows",
+      "filenames": [
+        "engine.ini",
+        "Scalability.ini"
+      ],
+      "flatten": true,
+      "to_prefix": true
+    },
+    {
+      "dest": "drive_c/users/steamuser/AppData/Local/AbioticFactor/Saved/SaveGames",
+      "extensions": [
+        ".sav"
+      ],
+      "flatten": true,
+      "to_prefix": true
+    },
+    {
+      "dest": "Content/Splash",
+      "filenames": [
+        "Splash.bmp"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Movies",
+      "extensions": [
+        ".mp4"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Mods",
+      "folders": [
+        "VTSpectator"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks",
+      "folders": [
+        "LogicMods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss",
+      "folders": [
+        "Mods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "scripts"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "dlls"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "mods.txt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Unused",
+      "extensions": [
+        ".txt"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "UE4SS": "Binaries/Win64/dwmapi.dll"
+  },
+  "version": 1,
+  "editable": false
+}
