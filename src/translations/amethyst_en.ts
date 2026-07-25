@@ -2180,10 +2180,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>The .exe location from the game's root folder. e.g. bin/bg3.exe for BG3 or SkyrimSELauncher.exe for Skyrim SE</translation>
     </message>
     <message>
-        <source>e.g. MyGame.exe</source>
-        <translation>e.g. MyGame.exe</translation>
-    </message>
-    <message>
         <source>Deploy Method</source>
         <translation>Deploy Method</translation>
     </message>
@@ -2318,6 +2314,10 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Basics</source>
         <translation>Basics</translation>
+    </message>
+    <message>
+        <source>e.g. MyGame.exe or Bin/x64/MyGame.exe</source>
+        <translation>e.g. MyGame.exe or Bin/x64/MyGame.exe</translation>
     </message>
     <message>
         <source>Deployment</source>
@@ -2606,6 +2606,13 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Size</source>
         <translation>Size</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadsView</name>
+    <message>
+        <source>{0} archives</source>
+        <translation>{0} archives</translation>
     </message>
 </context>
 <context>
@@ -3328,6 +3335,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
         <translation>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+    </message>
+    <message>
+        <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
+        <translation>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
@@ -5659,6 +5670,30 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Restore queued — it will run after the current install finishes.</translation>
     </message>
     <message>
+        <source>Windows filesystem detected</source>
+        <translation>Windows filesystem detected</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</translation>
+    </message>
+    <message>
         <source>Installed {0} mods</source>
         <translation>Installed {0} mods</translation>
     </message>
@@ -7056,6 +7091,10 @@ or an encrypted file when no keyring is available).</translation>
         <translation>Main</translation>
     </message>
     <message>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
         <source>Optional</source>
         <translation>Optional</translation>
     </message>
@@ -7066,6 +7105,10 @@ or an encrypted file when no keyring is available).</translation>
     <message>
         <source>Main files</source>
         <translation>Main files</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>Update files</translation>
     </message>
     <message>
         <source>Optional files</source>
@@ -11646,6 +11689,22 @@ Reopen this wizard.</translation>
     <message>
         <source>Could not start deploy — see log.</source>
         <translation>Could not start deploy — see log.</translation>
+    </message>
+    <message>
+        <source>Restore is unavailable here.</source>
+        <translation>Restore is unavailable here.</translation>
+    </message>
+    <message>
+        <source>Restoring modlist…</source>
+        <translation>Restoring modlist…</translation>
+    </message>
+    <message>
+        <source>Restore failed — see log.</source>
+        <translation>Restore failed — see log.</translation>
+    </message>
+    <message>
+        <source>Could not start restore — see log.</source>
+        <translation>Could not start restore — see log.</translation>
     </message>
     <message>
         <source>Skip</source>
