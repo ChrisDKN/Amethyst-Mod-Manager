@@ -21,7 +21,7 @@ PYTHON_DIR="${LIBLOOT_DIR}/python"
 PY_TAG="$(python3 -c 'import sys; print(f"cpython-{sys.version_info.major}{sys.version_info.minor}")')"
 PY_TAG_SHORT="$(python3 -c 'import sys; print(f"cp{sys.version_info.major}{sys.version_info.minor}")')"
 OUT_SO_NAME="loot.${PY_TAG}-x86_64-linux-gnu.so"
-OUT_PRIMARY="${SCRIPT_DIR}/${OUT_SO_NAME}"
+OUT_PRIMARY="${PROJECT_DIR}/${OUT_SO_NAME}"
 
 # Optional: build a specific tag or commit (e.g. v0.29.0)
 REF="${1:-}"
