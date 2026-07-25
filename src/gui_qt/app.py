@@ -12889,20 +12889,31 @@ class MainWindow(QMainWindow):
 
     def _refresh_log_filter_labels(self):
         """Colour the filter labels; highlight (bold) the active filter, dim the
-        inactive one when a filter is engaged so it reads as an active toggle."""
+        inactive one when a filter is engaged so it reads as an active toggle.
+
+        Styles every Error/Warning label pair — the docked log bar's and, when
+        the log is open as a tab, that tab's copies — so both read the same
+        filter state."""
         active = getattr(self, "_log_filter", None)
         dim = _c(self._pal, "TEXT_DIM")
         err_c = _c(self._pal, "TEXT_ERR")
         warn_c = _c(self._pal, "TEXT_WARN")
         if active == "error":
-            self._errors_lbl.setStyleSheet(f"color:{err_c}; font-weight:bold;")
-            self._warnings_lbl.setStyleSheet(f"color:{dim};")
+            err_css, warn_css = f"color:{err_c}; font-weight:bold;", f"color:{dim};"
         elif active == "warning":
-            self._errors_lbl.setStyleSheet(f"color:{dim};")
-            self._warnings_lbl.setStyleSheet(f"color:{warn_c}; font-weight:bold;")
+            err_css, warn_css = f"color:{dim};", f"color:{warn_c}; font-weight:bold;"
         else:
-            self._errors_lbl.setStyleSheet(f"color:{err_c};")
-            self._warnings_lbl.setStyleSheet(f"color:{warn_c};")
+            err_css, warn_css = f"color:{err_c};", f"color:{warn_c};"
+        pairs = [(self._errors_lbl, self._warnings_lbl)]
+        tab_pair = getattr(self, "_log_tab_filter_lbls", None)
+        if tab_pair is not None:
+            pairs.append(tab_pair)
+        for err_lbl, warn_lbl in pairs:
+            try:
+                err_lbl.setStyleSheet(err_css)
+                warn_lbl.setStyleSheet(warn_css)
+            except RuntimeError:      # label deleted with a closed tab
+                pass
 
     def _clear_log(self):
         """Clear both the docked log view and the full-screen log tab (if open)."""
@@ -12928,10 +12939,19 @@ class MainWindow(QMainWindow):
 
     def _open_log_tab(self):
         """Open the log as a full-screen (detachable) tab. It mirrors the docked
-        log view: new lines land in both, and Clear Log wipes both."""
+        log view: new lines land in both, and Clear Log wipes both.
+
+        The tab carries its own copy of the log bar's controls along its bottom
+        edge (Errors/Warnings filters, Clear Log, Open Log Folder) so the log is
+        fully usable without the docked bar in view."""
         if self._tabs.has_key("log"):
             self._tabs.focus_key("log")
             return
+        page = QWidget()
+        col = QVBoxLayout(page)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(0)
+
         view = QPlainTextEdit()
         view.setReadOnly(True)
         view.setObjectName("LogView")
@@ -12941,9 +12961,37 @@ class MainWindow(QMainWindow):
             if self._line_visible(sev):
                 view.appendHtml(self._log_line_html(text, sev, ts))
         view.moveCursor(QTextCursor.End)
-        view.destroyed.connect(
-            lambda *_: setattr(self, "_log_tab_view", None))
-        self._tabs.open_tab(view, self.tr("Log"), key="log")
+        col.addWidget(view, 1)
+
+        bar = QWidget()
+        bar.setObjectName("LogBar")
+        h = QHBoxLayout(bar)
+        h.setContentsMargins(8, 4, 8, 4)
+        h.setSpacing(12)
+        errors_lbl = QLabel(self.tr("● Errors"))
+        errors_lbl.setCursor(Qt.PointingHandCursor)
+        errors_lbl.mousePressEvent = lambda e: self._toggle_log_filter("error")
+        h.addWidget(errors_lbl)
+        warnings_lbl = QLabel(self.tr("● Warnings"))
+        warnings_lbl.setCursor(Qt.PointingHandCursor)
+        warnings_lbl.mousePressEvent = lambda e: self._toggle_log_filter("warning")
+        h.addWidget(warnings_lbl)
+        self._log_tab_filter_lbls = (errors_lbl, warnings_lbl)
+        self._refresh_log_filter_labels()
+        clear_btn = self._text_button(self.tr("Clear Log"), compact=True)
+        clear_btn.clicked.connect(self._clear_log)
+        h.addWidget(clear_btn)
+        open_btn = self._text_button(self.tr("Open Log Folder"), compact=True)
+        open_btn.clicked.connect(self._open_logs_folder)
+        h.addWidget(open_btn)
+        h.addStretch(1)
+        col.addWidget(bar)
+
+        def _forget(*_):
+            self._log_tab_view = None
+            self._log_tab_filter_lbls = None
+        view.destroyed.connect(_forget)
+        self._tabs.open_tab(page, self.tr("Log"), key="log")
 
     def _find_changelog_file(self):
         """Locate the bundled Changelog.txt across the from-source and
