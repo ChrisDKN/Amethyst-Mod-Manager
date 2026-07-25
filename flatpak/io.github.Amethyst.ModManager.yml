@@ -16,10 +16,10 @@ base-version: "6.9"
 add-extensions:
   org.freedesktop.Platform.Compat.i386:
     directory: lib/i386-linux-gnu
-    version: '24.08'
+    version: "24.08"
   org.freedesktop.Platform.GL32:
     directory: lib/i386-linux-gnu/GL
-    version: '1.4'
+    version: "1.4"
     versions: 24.08;1.4
     subdirectories: true
     no-autodownload: false
@@ -32,8 +32,8 @@ build-options:
   env:
     # cleanup-BaseApp.sh knobs — the app only uses QtCore/QtGui/QtWidgets,
     # so strip the QtWebEngine stack the BaseApp inherits.
-    BASEAPP_REMOVE_WEBENGINE: 'true'
-    BASEAPP_DISABLE_NUMPY: 'true'
+    BASEAPP_REMOVE_WEBENGINE: "true"
+    BASEAPP_DISABLE_NUMPY: "true"
 
 # Sandbox permissions
 # - network: Nexus API send/receive, version checks, downloads
