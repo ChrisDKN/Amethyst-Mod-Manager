@@ -95,7 +95,8 @@
     {
       "dest": "Binaries/Win64",
       "filenames": [
-        "*reshade*.*"
+        "*reshade*.*",
+        "UE4SS-settings.ini"
       ]
     },
     {
@@ -145,6 +146,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 2,
+  "version": 3,
   "editable": false
 }
