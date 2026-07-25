@@ -344,13 +344,17 @@ class ModListView(QTreeView):
             ("filter_show_enabled", self.tr("Enabled")),
             ("filter_show_disabled", self.tr("Disabled")),
             ("filter_hide_separators", self.tr("Hide separators")),
+            # Already translated under FilterSidePanel (it's a STATUS_FILTERS
+            # label) — reuse that entry rather than minting a ModListView copy.
+            ("filter_has_updates",
+             QCoreApplication.translate("FilterSidePanel", "Mods with updates")),
         ):
             self._add_quick_filter_action(menu, key, label)
         # The remaining "By status" filters live in a submenu so the top level
         # stays short. Same include-mode semantics as the quick filters above.
         from gui_qt.modlist_filter import STATUS_FILTERS
         _QUICK = {"filter_show_enabled", "filter_show_disabled",
-                  "filter_hide_separators"}
+                  "filter_hide_separators", "filter_has_updates"}
         more = _StayOpenMenu(self.tr("More status filters"), menu)
         for key, label in STATUS_FILTERS:
             if key in _QUICK:
