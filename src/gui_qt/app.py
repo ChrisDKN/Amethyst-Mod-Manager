@@ -13191,7 +13191,8 @@ def _apply_app_identity(app) -> None:
         app.setDesktopFileName("io.github.Amethyst.ModManager")
     elif os.environ.get("APPDIR") or os.environ.get("APPIMAGE"):
         app.setDesktopFileName("amethyst-mod-manager")
-
+    else:
+        app.setDesktopFileName("io.github.Amethyst.ModManager")
 
 def run() -> int:
     import sys
