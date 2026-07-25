@@ -70,7 +70,7 @@
       "flatten": true
     },
     {
-      "dest": "Binaries/Win64/ue4ss",
+      "dest": "Binaries/Win64",
       "filenames": [
         "dwmapi.dll"
       ],
@@ -80,6 +80,13 @@
       "dest": "Binaries/Win64/ue4ss/Mods",
       "filenames": [
         "mods.txt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks",
+      "folders": [
+        "LogicMods"
       ],
       "flatten": true
     },
@@ -99,6 +106,6 @@
     }
   ],
   "custom_frameworks": {},
-  "version": 4,
+  "version": 5,
   "editable": false
 }
