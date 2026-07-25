@@ -7,6 +7,7 @@
 - Added a wizard to install Viva New Vegas
 - Added a refresh plugins button to gather loot meta data without sorting plugins. xedit wizards now refresh meta data automatically once they close
 - Added an option to supress the update notification
+- Added Profile Groups: combine several profiles into one named, ordered group that deploys as a single merged profile. Shared mods across member profiles are only ever deployed once, and each member's distinct enabled mods are combined rather than one profile silently overriding another. Manage groups from the profile menu's "Manage groups…". Only tested on Stardew Valley so far — feedback on other games is welcome
 ### Changes
 - When deploying a game installed via heroic flatpak, heroic is granted permission to access the staging folder to allow it to read symlinked files.
 - File dependancies (plugins) in fomods are now saved to their meta.ini. If the plugin is later installed or removed a flag is shown as a reminder to reinstall the fomod

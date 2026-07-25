@@ -25,6 +25,9 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, danger_close_button, contrast_text
 from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
+from Utils.profile_groups import (
+    get_members, is_group, list_groups, remove_profile_everywhere, rename_profile_everywhere,
+)
 from Utils.profile_state import (
     read_profile_settings, merge_profile_settings, profile_uses_specific_mods,
 )
@@ -233,6 +236,8 @@ class ProfileSettingsView(QWidget):
             text += "  (default)"
         if is_active:
             text += "  ★"
+        if is_group(self._get_profile_dir(profile)):
+            text += "  [Group]"
         name = QLabel(text)
         if is_active:
             name.setStyleSheet(f"color:{_c(p,'ACCENT')}; font-weight:bold;")
@@ -369,6 +374,14 @@ class ProfileSettingsView(QWidget):
         if was_original_default:
             self._mark_original_default(new_dir)
 
+        try:
+            from Utils.game_helpers import _GAMES
+            game = _GAMES.get(self._game_name)
+            if game is not None:
+                rename_profile_everywhere(game, old_name, new_name)
+        except Exception:
+            pass
+
         self._log(f"Profile '{old_name}' renamed to '{new_name}'.")
         if old_name == self._current_profile:
             self._current_profile = new_name
@@ -392,13 +405,20 @@ class ProfileSettingsView(QWidget):
         if self._is_original_default(profile) or self._is_profile_locked(profile):
             return
         from gui_qt.confirm_overlay import ConfirmOverlay
+        from Utils.game_helpers import _GAMES
+        game = _GAMES.get(self._game_name)
+        profile_dir = self._get_profile_dir(profile)
+        profile_is_group = profile_dir.is_dir() and is_group(profile_dir)
+        referencing_groups: list[str] = []
+        if game is not None and not profile_is_group:
+            referencing_groups = [
+                g for g in list_groups(game)
+                if profile in get_members(self._get_profile_dir(g))
+            ]
 
         def after_first(ok: bool):
             if not ok:
                 return
-            profile_dir = self._get_profile_dir(profile)
-            from Utils.game_helpers import _GAMES
-            game = _GAMES.get(self._game_name)
             is_deployed = bool(
                 game is not None and game.is_configured()
                 and game.get_deploy_active()
@@ -407,7 +427,8 @@ class ProfileSettingsView(QWidget):
             def proceed():
                 self._start_remove_worker(profile, is_deployed)
 
-            if profile_dir.is_dir() and profile_uses_specific_mods(profile_dir):
+            if not profile_is_group and profile_dir.is_dir() \
+                    and profile_uses_specific_mods(profile_dir):
                 ConfirmOverlay.show_over(
                     self._overlay_host(), "Remove Profile",
                     f"The '{profile}' profile has profile-specific mods.\n\n"
@@ -418,10 +439,25 @@ class ProfileSettingsView(QWidget):
             else:
                 proceed()
 
+        if profile_is_group:
+            body = (
+                f"Are you sure you want to remove the Profile Group '{profile}'?\n\n"
+                "This deletes only the merged view — its member profiles and "
+                "their mods are not affected.")
+        elif referencing_groups:
+            names = ", ".join(f"'{g}'" for g in referencing_groups)
+            body = (
+                f"Are you sure you want to remove the '{profile}' profile?\n\n"
+                f"It is used by Profile Group(s) {names} — removing it will drop "
+                "it from those groups' deployments.\n\n"
+                "The game will be restored first if this profile is deployed.")
+        else:
+            body = (
+                f"Are you sure you want to remove the '{profile}' profile?\n\n"
+                "The game will be restored first if this profile is deployed.")
+
         ConfirmOverlay.show_over(
-            self._overlay_host(), "Remove Profile",
-            f"Are you sure you want to remove the '{profile}' profile?\n\n"
-            "The game will be restored first if this profile is deployed.",
+            self._overlay_host(), "Remove Profile", body,
             on_done=after_first, confirm_label=self.tr("Remove"))
 
     def _start_remove_worker(self, profile: str, is_deployed: bool):
@@ -503,6 +539,13 @@ class ProfileSettingsView(QWidget):
             self._log(f"Profile '{profile}' removed.")
             if profile == self._current_profile:
                 self._current_profile = "default"
+            try:
+                from Utils.game_helpers import _GAMES
+                game = _GAMES.get(self._game_name)
+                if game is not None:
+                    remove_profile_everywhere(game, profile)
+            except Exception:
+                pass
         self._populate_list()
         if ok:
             self._on_profile_removed(profile)

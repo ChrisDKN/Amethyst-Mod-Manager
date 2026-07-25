@@ -472,3 +472,14 @@ class GameState:
                     g.load_paths()
             except Exception:
                 pass
+            # Profile Groups are a synthetic merged profile — refresh it from
+            # its members' current state whenever it becomes the active
+            # selection, so simply browsing it (not just deploying it) shows
+            # an accurate, up-to-date merged mod list.
+            try:
+                from Utils.profile_groups import is_group, materialize_group
+                profile_dir = g.get_profile_root() / "profiles" / self.profile
+                if is_group(profile_dir):
+                    materialize_group(g, profile_dir)
+            except Exception:
+                pass

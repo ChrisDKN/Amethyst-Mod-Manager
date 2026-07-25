@@ -1244,6 +1244,43 @@ def save_suppress_i386_warning(value: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Profile Group "merged view" notice suppression
+# ---------------------------------------------------------------------------
+_PROFILE_GROUPS_SECTION = "profile_groups"
+
+
+def load_suppress_group_view_notice() -> bool:
+    """Return True if the user has dismissed the "this is a merged Profile
+    Group view" notice permanently (via its "Don't show this message again"
+    checkbox)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _new_parser()
+        parser.read(path)
+        return parser.getboolean(_PROFILE_GROUPS_SECTION, "suppress_group_view_notice",
+                                 fallback=False)
+    except Exception:
+        return False
+
+
+def save_suppress_group_view_notice(value: bool) -> None:
+    """Persist the suppress_group_view_notice setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _PROFILE_GROUPS_SECTION not in parser:
+        parser[_PROFILE_GROUPS_SECTION] = {}
+    parser[_PROFILE_GROUPS_SECTION]["suppress_group_view_notice"] = (
+        "true" if value else "false")
+    with path.open("w", encoding="utf-8") as f:
+        parser.write(f)
+
+
+# ---------------------------------------------------------------------------
 # Folder case normalisation setting
 # ---------------------------------------------------------------------------
 _FILEMAP_SECTION = "filemap"

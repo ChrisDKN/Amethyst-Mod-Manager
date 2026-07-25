@@ -784,7 +784,8 @@ class MainWindow(QMainWindow):
         self._refresh_game_actions()
         profs = gs.profiles()
         if profs:
-            self._profile_selector.set_items(profs, current=gs.profile)
+            self._profile_selector.set_items(
+                profs, current=gs.profile, item_icons=self._profile_group_icons(profs))
         self._refresh_profile_actions()
 
     # ---------------------------------------------------------- header row
@@ -6454,6 +6455,8 @@ class MainWindow(QMainWindow):
             self._remove_current_profile()
         elif which == "settings":
             self._open_profile_settings_tab()
+        elif which == "groups":
+            self._open_profile_groups_tab()
         elif which == "export":
             self._open_export_profile_tab()
         elif which == "import":
@@ -6714,6 +6717,108 @@ class MainWindow(QMainWindow):
             on_profiles_changed=self._on_profiles_lock_changed,
             log_fn=self._append_log,
         )
+
+    def _open_profile_groups_tab(self):
+        """Open the Manage Profile Groups panel scoped over the MODLIST panel
+        (same hosting pattern as Profile Settings): create/rename/remove groups
+        and edit their ordered member-profile list."""
+        if self._gs.game_name is None:
+            self._notify(self.tr("No game selected."), "warning")
+            return
+        if self._tabs.has_key("profile_groups"):
+            self._tabs.focus_key("profile_groups")
+            return
+        from gui_qt.profile_groups_view import ProfileGroupsView
+        view = ProfileGroupsView(
+            self,
+            game_name=self._gs.game_name,
+            on_groups_changed=self._on_groups_changed,
+            log_fn=self._append_log,
+        )
+        self._profile_groups_view = view
+        self._tabs.open_scoped_tab(
+            view, self.tr("Profile Groups"), self._modlist_panel_stack,
+            key="profile_groups")
+
+    def _on_groups_changed(self):
+        """A Profile Group was created/renamed/removed, or its membership
+        changed — refresh the selector list and, if the active profile is a
+        group, refresh its live merged preview immediately (it would otherwise
+        only refresh on the next profile switch or deploy)."""
+        profs = self._gs.profiles()
+        self._profile_selector.set_items(
+            profs, current=self._gs.profile, item_icons=self._profile_group_icons(profs))
+        self._refresh_profile_actions()
+        try:
+            from Utils.profile_groups import is_group, materialize_group
+            pd = self._gs.profile_dir()
+            if pd is not None and is_group(pd):
+                materialize_group(self._gs.game, pd, log_fn=self._append_log)
+                self._reload_modlist()
+                self._reload_plugins()
+        except Exception:
+            pass
+
+    def _maybe_notify_group_view(self):
+        """Show a one-time-per-switch notice when the modlist panel is showing
+        a Profile Group's merged (auto-regenerated) mod list, so edits made
+        here aren't mistaken for permanent — they're overwritten from the
+        member profiles on the next deploy or profile switch. An alert (not
+        an auto-dismissing toast) so it doesn't disappear before it can be
+        read, with a "don't show again" checkbox for users who've seen it.
+        Only fires once per profile switch (not on every reload of the same
+        group, e.g. after a toggle)."""
+        try:
+            from Utils.profile_groups import is_group
+            pdir = self._gs.profile_dir()
+            is_grp = pdir is not None and is_group(pdir)
+            if not is_grp:
+                self._last_group_notice_pdir = None
+                return
+            if getattr(self, "_last_group_notice_pdir", None) == pdir:
+                return
+            self._last_group_notice_pdir = pdir
+            from Utils.ui_config import load_suppress_group_view_notice
+            if load_suppress_group_view_notice():
+                return
+
+            def _done(_confirmed, dont_show_again):
+                if dont_show_again:
+                    from Utils.ui_config import save_suppress_group_view_notice
+                    save_suppress_group_view_notice(True)
+
+            from gui_qt.confirm_overlay import ConfirmOverlay
+            ConfirmOverlay.show_message(
+                self,
+                self.tr("Profile Group: merged view"),
+                self.tr("'{0}' is a Profile Group — this is a merged, "
+                        "auto-regenerated view. Add/remove mods in its "
+                        "member profiles, and manage membership via the "
+                        "profile menu's “Manage groups…”.").format(self._gs.profile),
+                _done,
+                checkbox_label=self.tr("Don't show this message again"),
+                card_h=300,
+            )
+        except Exception:
+            pass
+
+    def _profile_group_icons(self, profs: list) -> dict:
+        """{profile_name: QIcon} for entries in *profs* that are Profile
+        Groups, so the selector can badge them distinctly from regular
+        profiles."""
+        game = self._gs.game
+        if game is None:
+            return {}
+        try:
+            from gui_qt.icons import icon as _icon
+            from Utils.profile_groups import is_group
+            grp_icon = _icon("collection.png", 16)
+            return {
+                name: grp_icon for name in profs
+                if is_group(game.get_profile_root() / "profiles" / name)
+            }
+        except Exception:
+            return {}
 
     def _current_profile_locked(self) -> bool:
         """True when the active profile is locked (or the original default) and so
@@ -7721,7 +7826,8 @@ class MainWindow(QMainWindow):
             actions.append((self.tr("Quick configure"), quick))
         # Profile settings, then the export/import group (profile + code together).
         actions.extend([
-            (self.tr("Profile settings…"), lambda: self._on_profile_action("settings"),
+            (self.tr("Profile settings…"), lambda: self._on_profile_action("settings")),
+            (self.tr("Manage groups…"), lambda: self._on_profile_action("groups"),
              {"separator_after": True}),
             (self.tr("Export profile…"), lambda: self._on_profile_action("export")),
             (self.tr("Import profile…"), lambda: self._on_profile_action("import")),
@@ -10391,6 +10497,7 @@ class MainWindow(QMainWindow):
         from Utils.perftrace import span
 
         self._reassert_profile_paths()
+        self._maybe_notify_group_view()
 
         ml_path = self._gs.modlist_path()
         staging = self._gs.staging_dir()

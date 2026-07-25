@@ -6,12 +6,17 @@ title, body text, and Confirm / Cancel buttons. ``on_done(True)`` on confirm,
 
 Pass ``cancel_label=None`` for a single-button message card (OK-only) — the
 in-app replacement for ``QMessageBox.warning``/``critical``/``information``.
+
+Pass ``checkbox_label=`` to add a checkbox above the buttons (e.g. "Don't
+show this message again"); when set, ``on_done`` is called as
+``on_done(result, checkbox_checked)`` instead of the usual single-arg
+``on_done(result)``.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QCheckBox, QHBoxLayout, QLabel, QPushButton
 
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, _c, contrast_text
@@ -29,7 +34,19 @@ class ConfirmOverlay(OverlayBase):
                  confirm_label: str | None = None,
                  cancel_label=_NO_CANCEL,
                  danger: bool = True,
-                 card_h: int | None = None):
+                 card_h: int | None = None,
+                 checkbox_label: str | None = None):
+        self._checkbox: QCheckBox | None = None
+        if checkbox_label is not None:
+            # Adapt the callback shape here (rather than in _finish, which
+            # every overlay subclass shares) so ordinary single-arg callers
+            # are completely unaffected.
+            _user_on_done = on_done
+
+            def on_done(result):  # noqa: F811 - intentional shadow
+                _user_on_done(result, self._checkbox.isChecked()
+                              if self._checkbox is not None else False)
+
         super().__init__(host, on_done=on_done, card_h=card_h)
         p = active_palette()
 
@@ -52,6 +69,12 @@ class ConfirmOverlay(OverlayBase):
         body_lbl.setWordWrap(True)
         v.addWidget(body_lbl)
         v.addStretch(1)
+
+        if checkbox_label is not None:
+            self._checkbox = QCheckBox(checkbox_label)
+            self._checkbox.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:12px;")
+            self._checkbox.setCursor(Qt.PointingHandCursor)
+            v.addWidget(self._checkbox)
 
         bar = QHBoxLayout()
         bar.addStretch(1)

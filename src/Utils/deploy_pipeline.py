@@ -449,6 +449,11 @@ def run_deploy_pipeline(
     Returns True on success, False on user-cancel / error. The active profile
     is always reset to *profile* before returning, even on error.
     """
+    target_profile_dir = game.get_profile_root() / "profiles" / profile
+    from Utils.profile_groups import is_group, materialize_group
+    if is_group(target_profile_dir):
+        materialize_group(game, target_profile_dir, log_fn=log_fn)
+
     game_root = game.get_game_path()
 
     mount_err = check_paths_mounted(game)
