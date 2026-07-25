@@ -207,12 +207,15 @@ class DataView(QWidget):
         self.scan_status_changed.emit(True)
         index_path = self.index_path
         profile_dir = self.profile_dir
+        # Same gate as the Mod Files tab: both views share one single-slot
+        # conflict cache, so they must pass the same argument or thrash it.
+        bsa_index_path = mflogic.bsa_conflict_index_path(self.game, index_path)
 
         def worker():
             try:
                 entries = self._resolved_entries()
                 contested, _winner = mflogic.build_conflict_cache(
-                    index_path, profile_dir)
+                    index_path, profile_dir, bsa_index_path=bsa_index_path)
             except Exception:
                 safe_emit(self._data_ready, gen, [], set())
                 return

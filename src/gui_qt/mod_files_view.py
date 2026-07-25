@@ -244,7 +244,11 @@ class ModFilesView(QWidget):
 
         excluded = mflogic.read_exclusions(self.profile_dir, mod_name)
         contested, winner = mflogic.build_conflict_cache(
-            self.index_path, self.profile_dir, full_index)
+            self.index_path, self.profile_dir, full_index,
+            # Archive-aware: a loose file contesting another mod's BSA copy
+            # tints like any other conflict (see data_view for the shared gate).
+            bsa_index_path=mflogic.bsa_conflict_index_path(
+                self.game, self.index_path))
 
         def conflict_of(rel_key: str) -> int:
             key = mflogic.rel_key_after_strip(rel_key, self._stripped)

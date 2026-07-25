@@ -108,6 +108,7 @@ _BSA_CONFLICT_ICONS = {
     1: "archive-conflict-winner.png",
     -1: "archive-conflict-loser.png",
     2: "archive-conflict-mixed.png",
+    3: "archive-conflict-redundant.png",   # FULL — every archive file overridden
 }
 
 # Conflict code → hover tooltip (verbatim from the Tk modlist, ~5217). Loose-file
@@ -123,6 +124,7 @@ _BSA_CONFLICT_TIPS = {
     1:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Winning"),
     -1: QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Losing"),
     2:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Partial"),
+    3:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Full"),
 }
 
 def _contrasting_text_color(hex_bg: str) -> str:

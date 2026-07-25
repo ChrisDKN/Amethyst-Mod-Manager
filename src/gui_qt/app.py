@@ -207,9 +207,10 @@ class MainWindow(QMainWindow):
     # Carries (generation, ConflictData) from a worker thread to the UI thread
     # (queued connection — thread-safe). See _rebuild_conflicts_async.
     _conflicts_ready = Signal(int, object)
-    # (generation, bsa_codes, bsa_overrides, bsa_overridden_by) — BSA-only
-    # recompute after a plugin toggle/reorder (no filemap rebuild).
-    _bsa_conflicts_ready = Signal(int, object, object, object)
+    # (generation, bsa_codes, bsa_overrides, bsa_overridden_by, loose_codes) —
+    # BSA-only recompute after a plugin toggle/reorder (no filemap rebuild).
+    # loose_codes is the re-merged loose map, or None if it couldn't be built.
+    _bsa_conflicts_ready = Signal(int, object, object, object, object)
     # (generation) — filemap-only rebuild finished (disable fast path: the
     # conflict scan was provably redundant). See _rebuild_filemap_light_async.
     _filemap_light_done = Signal(int)
@@ -1105,22 +1106,46 @@ class MainWindow(QMainWindow):
                     for fp in paths
                 }
                 if my_bsa_paths:
-                    from Utils.filemap import read_mod_index
-                    loose_index = read_mod_index(
-                        staging.parent / "modindex.bin") or {}
-                    for cand in prio:
-                        if cand == mod_name:
-                            continue
-                        entry = loose_index.get(cand)
-                        if not entry:
-                            continue
-                        normal, _root = entry
-                        for rel_key in normal:
+                    # Prefer filemap.txt (resolved deploy map) so Mod Files ▸
+                    # Disable exclusions count — modindex.bin still lists
+                    # excluded files. Same preference as build_bsa_conflicts.
+                    loose_resolved = False
+                    try:
+                        fm_text = (staging.parent / "filemap.txt").read_text(
+                            encoding="utf-8")
+                    except OSError:
+                        fm_text = None
+                    if fm_text is not None:
+                        loose_resolved = True
+                        prio_set = set(prio)
+                        for line in fm_text.splitlines():
+                            if "\t" not in line:
+                                continue
+                            rel_str, mod = line.split("\t", 1)
+                            if mod == mod_name or mod not in prio_set:
+                                continue
+                            rel_key = rel_str.replace("\\", "/").lower()
                             if rel_key in my_bsa_paths:
-                                # A higher-priority loose file wins outright; a
-                                # lower-priority one still beats the BSA (engine
-                                # loads BSAs first, then loose on top).
+                                # Any loose file at a BSA path beats the BSA
+                                # (engine loads BSAs first, then loose on top).
                                 codes[rel_key] = -1
+                    if not loose_resolved:
+                        from Utils.filemap import read_mod_index
+                        loose_index = read_mod_index(
+                            staging.parent / "modindex.bin") or {}
+                        for cand in prio:
+                            if cand == mod_name:
+                                continue
+                            entry = loose_index.get(cand)
+                            if not entry:
+                                continue
+                            normal, _root = entry
+                            for rel_key in normal:
+                                if rel_key in my_bsa_paths:
+                                    # A higher-priority loose file wins outright; a
+                                    # lower-priority one still beats the BSA (engine
+                                    # loads BSAs first, then loose on top).
+                                    codes[rel_key] = -1
             return codes
         except Exception:
             return {}
@@ -10613,11 +10638,12 @@ class MainWindow(QMainWindow):
         return {n: m[c] for n, c in (cd.loose_codes or {}).items() if c in m}
 
     def _bsa_backend_codes(self, cd) -> dict:
-        """BSA codes from ConflictData are 1/-1/2 (win/lose/mixed). Map to
-        backend codes for the engine (mixed→PARTIAL)."""
+        """BSA codes from ConflictData are 1/-1/2/3 (win/lose/mixed/full).
+        Map to backend codes for the engine (mixed→PARTIAL)."""
         from Utils.filemap import (
-            CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL)
-        m = {1: CONFLICT_WINS, -1: CONFLICT_LOSES, 2: CONFLICT_PARTIAL}
+            CONFLICT_WINS, CONFLICT_LOSES, CONFLICT_PARTIAL, CONFLICT_FULL)
+        m = {1: CONFLICT_WINS, -1: CONFLICT_LOSES, 2: CONFLICT_PARTIAL,
+             3: CONFLICT_FULL}
         return {n: m[c] for n, c in (cd.bsa_codes or {}).items() if c in m}
 
     def _reassert_profile_paths(self):
@@ -11891,16 +11917,27 @@ class MainWindow(QMainWindow):
 
         def worker():
             try:
-                bsa_codes, bsa_over, bsa_overby = self._gs._build_bsa_conflicts(
-                    g, lambda _m: None)
+                (bsa_codes, bsa_over, bsa_overby,
+                 lob) = self._gs._build_bsa_conflicts(g, lambda _m: None)
             except Exception as exc:
                 print(f"[gui_qt] BSA recompute failed: {exc}", flush=True)
                 return
-            self._bsa_conflicts_ready.emit(gen, bsa_codes, bsa_over, bsa_overby)
+            # Plugin order decides BSA winners, hence whether a loose file
+            # still overrides one — so the loose icons can change too. Re-merge
+            # from the pristine base, not the already-merged copy (which would
+            # accumulate upgrades across toggles).
+            loose_codes = None
+            cd = getattr(self, "_conflict_data", None)
+            if cd is not None and cd.loose_codes_base is not None:
+                loose_codes = self._gs._merge_loose_beats_bsa(
+                    dict(cd.loose_codes_base), lob)
+            self._bsa_conflicts_ready.emit(
+                gen, bsa_codes, bsa_over, bsa_overby, loose_codes)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_bsa_conflicts_ready(self, gen, bsa_codes, bsa_over, bsa_overby):
+    def _on_bsa_conflicts_ready(self, gen, bsa_codes, bsa_over, bsa_overby,
+                                loose_codes=None):
         if gen != getattr(self, "_bsa_conflict_gen", 0):
             return   # superseded by a newer plugin toggle
         # Keep the cached conflict data's BSA maps in sync so a later full
@@ -11909,7 +11946,15 @@ class MainWindow(QMainWindow):
             self._conflict_data.bsa_codes = bsa_codes
             self._conflict_data.bsa_overrides = bsa_over
             self._conflict_data.bsa_overridden_by = bsa_overby
-        self._modlist_model.set_bsa_conflicts(bsa_codes)
+            if loose_codes is not None:
+                self._conflict_data.loose_codes = loose_codes
+        if loose_codes is not None:
+            # A changed BSA winner can add/remove a loose-beats-BSA win, so
+            # repaint both icon sets together.
+            self._modlist_model.set_conflicts(loose_codes,
+                                              bsa_conflicts=bsa_codes)
+        else:
+            self._modlist_model.set_bsa_conflicts(bsa_codes)
         # Cross-panel highlights follow the BSA override maps (loose maps unchanged).
         loose_over = loose_overby = None
         if getattr(self, "_conflict_data", None) is not None:
@@ -11980,17 +12025,19 @@ class MainWindow(QMainWindow):
 
     def _toggle_skips_conflict_scan(self, changes) -> bool:
         """True when a toggle batch is disable-only and every disabled mod has
-        no loose-conflict partners, no plugin files, no BSA/BA2 archives and
-        no framework-exe files — then no ConflictData product changes: codes/
-        override maps lose nothing (the mod's sets were empty), plugin_owner
-        and the plugins panel keep the same winners, BSA conflicts follow
-        plugin order + bsa_index (untouched), framework statuses can't flip
-        (matching is by exe basename — the mod ships none). Only the filemap
-        file set shrinks → _rebuild_filemap_light_async. Enables are never
-        skipped: the maps can't prove a disabled mod won't CREATE conflicts.
-        Capability sets come from the same accepted build as the maps (see
-        ConflictData), so the _conflict_maps_current guard covers them too.
-        AMM_TOGGLE_LIGHT=0 kills the fast path."""
+        no loose-conflict partners, no plugin files, no BSA/BA2 archives, no
+        framework-exe files and no loose file overriding an archive — then no
+        ConflictData product changes: codes/override maps lose nothing (the
+        mod's sets were empty), plugin_owner and the plugins panel keep the
+        same winners, BSA conflicts follow plugin order + bsa_index
+        (untouched), framework statuses can't flip (matching is by exe
+        basename — the mod ships none). Only the filemap file set shrinks →
+        _rebuild_filemap_light_async. loose_beats_bsa_mods is its own test —
+        such a mod appears in none of the other sets yet still flips two icons
+        (see ConflictData). Enables are never skipped: the maps can't prove a
+        disabled mod won't CREATE conflicts. Capability sets come from the
+        same accepted build as the maps, so the _conflict_maps_current guard
+        covers them too. AMM_TOGGLE_LIGHT=0 kills the fast path."""
         if os.environ.get("AMM_TOGGLE_LIGHT") == "0":
             return False
         if not getattr(self, "_conflict_maps_current", False):
@@ -12006,7 +12053,8 @@ class MainWindow(QMainWindow):
             if data.overrides.get(name) or data.overridden_by.get(name):
                 return False
             if (name in data.plugin_mods or name in data.bsa_mods
-                    or name in data.framework_file_mods):
+                    or name in data.framework_file_mods
+                    or name in data.loose_beats_bsa_mods):
                 return False
         self._append_log(
             f"[filemap] toggle: disable-only, no conflicts/plugins/BSAs — "
