@@ -67,6 +67,9 @@ finish-args:
   # Wine (Synthesis prefix setup) installs its own seccomp filter and runs
   # 32-bit binaries; the default sandbox blocks both, killing wine with SIGSYS.
   - --allow=multiarch
+  - --env=MOD_MANAGER_GAMES=/app/share/amethyst-mod-manager/Games
+  - --env=XDG_DATA_DIRS=/app/share:/usr/share
+  - --env=QT_QPA_PLATFORM=xcb
 
 tags:
   - modmanager

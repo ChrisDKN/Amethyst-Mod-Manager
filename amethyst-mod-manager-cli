@@ -1,4 +1,2 @@
 #!/bin/sh
-export MOD_MANAGER_GAMES="/app/share/amethyst-mod-manager/Games"
-export XDG_DATA_DIRS=/app/share:/usr/share
 exec python3 -m cli "$@"
