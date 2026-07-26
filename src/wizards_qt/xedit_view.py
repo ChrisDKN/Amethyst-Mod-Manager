@@ -65,6 +65,7 @@ class XEditView(QWidget):
     _run_finished_sig = Signal()          # xEdit exited + restore done → close
     _run_error_sig = Signal()             # launch/run failed → unlock close
     _qac_all_started_sig = Signal()       # QAC-All loop began → lock close + mark ran
+    _qac_all_aborted_sig = Signal()       # QAC-All bailed pre-launch → re-offer chooser
     _auto_dl_status_sig = Signal(str, str)   # auto-fetch → download-page status
     _auto_dl_gate_sig = Signal(bool)         # auto-fetch → manual Next enable
     _auto_dl_archive_sig = Signal(object)    # auto-fetch → finished archive
@@ -139,6 +140,7 @@ class XEditView(QWidget):
         self._run_finished_sig.connect(_guard(self._on_run_finished))
         self._run_error_sig.connect(_guard(self._on_run_error))
         self._qac_all_started_sig.connect(_guard(self._on_qac_all_started))
+        self._qac_all_aborted_sig.connect(_guard(self._on_qac_all_aborted))
         self._auto_dl_status_sig.connect(_guard(self._on_auto_dl_status))
         self._auto_dl_gate_sig.connect(_guard(self._on_auto_dl_gate))
         self._auto_dl_archive_sig.connect(_guard(self._on_auto_dl_archive))
@@ -782,6 +784,7 @@ class XEditView(QWidget):
                         self.tr("Could not find Proton '{0}' — "
                         "check that it is installed in Steam.").format(
                             proton_name), err_text())
+                    safe_emit(self._qac_all_aborted_sig)
                     return
                 proton_script, compat_data, env = result
 
@@ -789,6 +792,7 @@ class XEditView(QWidget):
                 if game_path is None:
                     safe_emit(self._run_status_sig,
                               self.tr("Game path not configured."), err_text())
+                    safe_emit(self._qac_all_aborted_sig)
                     return
 
                 pfx = compat_data / "pfx"
@@ -859,13 +863,23 @@ class XEditView(QWidget):
         threading.Thread(target=worker, daemon=True, name="xedit-qac-all").start()
 
     def _on_qac_all_started(self):
-        # The batch is underway — lock close like an interactive run; the
-        # _run_finished_sig at the end auto-closes via _on_run_finished.
+        # The batch drives the same prefix as the interactive run, so it takes
+        # the same close lock: closing mid-batch would rescan staging before
+        # restore_after_xedit. _run_finished_sig unlocks and auto-closes.
         self._ran = True
         self._tool_running = True
         self._close_btn.setEnabled(False)
         self._close_btn.setToolTip(
-            self.tr("{0} is running — close it to continue.").format(self._name))
+            self.tr("{0} is cleaning plugins — please wait.").format(self._name))
+
+    def _on_qac_all_aborted(self):
+        # The batch bailed before launching anything (no Proton / no game path),
+        # so nothing was cleaned and no lock was taken — put the chooser back
+        # rather than stranding the user on a hidden row. The error status the
+        # worker already emitted stays on screen.
+        self._qac_launch_btn.setEnabled(True)
+        self._qac_all_btn.setEnabled(True)
+        self._qac_choice_row.setVisible(True)
 
     # ---- shared -------------------------------------------------------------
     def _goto_step(self, idx: int):
