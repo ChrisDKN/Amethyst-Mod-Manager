@@ -1,4 +1,4 @@
-# Generated with flatpak-pip-generator --runtime org.kde.Sdk//6.9 --requirements-file src/requirements-vendor.txt --prefer-wheels inflate64,pybcj,pyppmd,cryptography,cffi,backports-zstd,brotli,psutil,pycryptodomex,Pillow,lz4,zstandard,msgpack,bsdiff4,maturin --output flatpak/pypi-dependencies --yaml
+# Generated with flatpak-pip-generator --runtime org.kde.Sdk//6.9 --requirements-file src/requirements-vendor.txt --prefer-wheels inflate64,pybcj,pyppmd,cryptography,cffi,backports-zstd,Pillow,lz4,zstandard,msgpack,bsdiff4,maturin --output flatpak/pypi-dependencies --yaml
 name: pypi-dependencies
 buildsystem: simple
 build-commands: []
