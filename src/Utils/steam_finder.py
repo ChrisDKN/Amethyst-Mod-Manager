@@ -67,6 +67,43 @@ def _in_flatpak_sandbox() -> bool:
     return os.path.exists("/.flatpak-info")
 
 
+def steam_client_installed() -> bool:
+    """True when any known Steam client install exists on this machine.
+
+    Heroic/Lutris-only systems (GH#320) have none: there is no Steam root to
+    use as STEAM_COMPAT_CLIENT_INSTALL_PATH and no Steam runtime for a raw
+    ``proton run``, so Proton launches on such systems are routed through
+    umu-run instead (see :func:`proton_run_command`).
+    """
+    return any((root / "steamapps").is_dir() for root in _STEAM_CANDIDATES)
+
+
+_steamless_no_umu_logged = False
+
+
+def _maybe_log_steamless_no_umu() -> None:
+    """Log once when a Steam-less system has no umu-run launcher either.
+
+    The raw ``proton <verb>`` fallback that follows needs Steam's client and
+    runtime, so it will very likely fail — point the user at the fix instead
+    of leaving only an opaque wine error.
+    """
+    global _steamless_no_umu_logged
+    if _steamless_no_umu_logged:
+        return
+    _steamless_no_umu_logged = True
+    try:
+        from Utils.app_log import app_log
+        app_log(
+            "No Steam client and no umu-run launcher were found — attempting "
+            "a raw Proton launch, which will likely fail. umu-run ships with "
+            "Heroic and Lutris (installing either, or the umu-launcher "
+            "package, provides it)."
+        )
+    except Exception:
+        pass
+
+
 def _host_python() -> str:
     """Return a *host* python3 to run the Proton script with.
 
@@ -166,6 +203,39 @@ def proton_run_command(
             cmd = ["flatpak-spawn", "--host", f"--directory={directory}",
                    *fwd, *cmd]
         return cmd
+
+    if not steam_client_installed():
+        # Steam-less system (Heroic/Lutris-only, GH#320): a raw
+        # ``python3 proton <verb>`` needs a Steam client for its compat
+        # plumbing and runtime, which doesn't exist here. Route the launch
+        # through umu-run — the launcher Heroic itself uses — which runs
+        # Proton inside the Steam Linux Runtime container with no Steam
+        # client at all. umu has no verbs (it always does a full Proton
+        # session) and derives its plumbing from WINEPREFIX / PROTONPATH /
+        # GAMEID; the caller's STEAM_COMPAT_* vars are overridden by umu
+        # itself, so they can stay in *env*. Mutates *env* (callers pass the
+        # same dict to Popen, and umu_run_command re-exports the diff under
+        # flatpak-spawn).
+        try:
+            from Utils.lutris_finder import find_umu_run, umu_run_command
+            umu_bin = find_umu_run()
+        except Exception:
+            umu_bin = None
+        if umu_bin is not None and env is not None:
+            payload = [a for a in map(str, args) if a not in
+                       ("run", "runinprefix", "waitforexitandrun")]
+            if not env.get("WINEPREFIX") and env.get("STEAM_COMPAT_DATA_PATH"):
+                # Proton resolves the real prefix as $WINEPREFIX/pfx, same
+                # shape as $STEAM_COMPAT_DATA_PATH/pfx (umu self-links pfx →
+                # "." when absent), so the compat-data root maps straight
+                # across.
+                env["WINEPREFIX"] = env["STEAM_COMPAT_DATA_PATH"]
+            env["PROTONPATH"] = str(script.parent)
+            env.setdefault("GAMEID", "umu-default")
+            return umu_run_command(umu_bin, *payload, env=env,
+                                   host_cwd=directory)
+        _maybe_log_steamless_no_umu()
+
     base = [_host_python(), str(proton_script), *map(str, args)]
     if not (_proton_script_in_steam_flatpak(proton_script)
             and not _own_process_in_steam_flatpak()):
@@ -221,8 +291,10 @@ def _proton_sort_key(name: str) -> tuple[int, tuple[int, ...], str]:
 def list_installed_proton() -> list[Path]:
     """Return all installed Proton launcher scripts, sorted by _proton_sort_key.
 
-    Deduplicates by resolved path so symlinked Steam roots (e.g. ~/.steam/steam)
-    don't produce duplicate entries.
+    Covers the Steam roots (compatibilitytools.d + steamapps/common) and the
+    Proton builds Heroic's Wine Manager downloads (the only source on
+    Steam-less systems, GH#320). Deduplicates by resolved path so symlinked
+    Steam roots (e.g. ~/.steam/steam) don't produce duplicate entries.
     """
     seen: set[Path] = set()
     candidates: list[Path] = []
@@ -247,6 +319,24 @@ def list_installed_proton() -> list[Path]:
                     candidates.append(proton_script)
             except OSError:
                 continue
+    # Heroic-managed Proton builds. A Heroic copy whose directory name matches
+    # a Steam-provided tool is skipped — it's the same build, and the Steam
+    # copy plays nicer with the Steam runtime plumbing.
+    try:
+        from Utils.heroic_finder import list_heroic_proton_scripts
+        heroic_scripts = list_heroic_proton_scripts()
+    except Exception:
+        heroic_scripts = []
+    steam_names = {c.parent.name.lower() for c in candidates}
+    for proton_script in heroic_scripts:
+        try:
+            resolved = proton_script.resolve()
+        except OSError:
+            resolved = proton_script
+        if resolved in seen or proton_script.parent.name.lower() in steam_names:
+            continue
+        seen.add(resolved)
+        candidates.append(proton_script)
     candidates.sort(key=lambda p: _proton_sort_key(p.parent.name))
     return candidates
 
@@ -264,29 +354,7 @@ def find_any_installed_proton(preferred_name: str = "") -> Path | None:
     """
     preferred_norm = _normalize_tool_name(preferred_name) if preferred_name else ""
 
-    candidates: list[Path] = []
-    seen: set[Path] = set()
-    for steam_root in _all_proton_search_roots():
-        for search_dir in (
-            steam_root / "compatibilitytools.d",
-            steam_root / "steamapps" / "common",
-        ):
-            if not search_dir.is_dir():
-                continue
-            try:
-                for entry in search_dir.iterdir():
-                    if not entry.is_dir():
-                        continue
-                    proton_script = entry / "proton"
-                    if not proton_script.is_file():
-                        continue
-                    resolved = proton_script.resolve()
-                    if resolved in seen:
-                        continue
-                    seen.add(resolved)
-                    candidates.append(proton_script)
-            except OSError:
-                continue
+    candidates = list_installed_proton()
 
     if not candidates:
         return None
@@ -359,6 +427,15 @@ def find_steam_root_for_proton_script(proton_script: Path) -> Path | None:
             return Path(*parts[:idx])
     except ValueError:
         pass
+
+    # No Steam client is installed at all (Heroic/Lutris-only system, GH#320)
+    # and the tool lives outside any Steam-shaped path (e.g. Heroic's
+    # tools/proton). Return the tool's own directory as a stand-in so callers
+    # can proceed: launches on such systems are routed through umu-run
+    # (proton_run_command), which builds its own compat plumbing and
+    # overrides STEAM_COMPAT_CLIENT_INSTALL_PATH itself.
+    if not steam_client_installed():
+        return script.parent
 
     return None
 

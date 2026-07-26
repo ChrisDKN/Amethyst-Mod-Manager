@@ -95,8 +95,8 @@ class ProtonStepWidget(QWidget):
         self._versions = [s.parent.name for s in list_installed_proton()]
         if not self._versions:
             err = QLabel(self.tr("No Proton versions were found.\n\n"
-                         "Install a Proton version in Steam, then reopen "
-                         "this wizard."))
+                         "Install a Proton version in Steam (or with "
+                         "Heroic's Wine Manager), then reopen this wizard."))
             err.setAlignment(Qt.AlignHCenter)
             err.setWordWrap(True)
             err.setStyleSheet(f"color:{err_text()};")

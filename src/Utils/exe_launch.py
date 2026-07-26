@@ -1104,6 +1104,7 @@ def get_tool_prefix_env(
 
     if is_new:
         try:
+            from Utils.steam_finder import steam_client_installed
             subprocess.run(
                 # Must stay on the "run" verb: it's what triggers Proton's
                 # full prefix setup (dist files, DLL overrides, tracked_files)
@@ -1112,7 +1113,10 @@ def get_tool_prefix_env(
                                    env=env),
                 env=env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                timeout=60,
+                # Steam-less systems boot the prefix through umu-run, whose
+                # first ever run downloads the Steam Linux Runtime — allow
+                # for that instead of aborting the init at 60s.
+                timeout=60 if steam_client_installed() else 600,
             )
         except Exception:
             pass
@@ -2023,6 +2027,7 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
             log_fn("Run EXE: initialising the prefix via Proton before the "
                    "plain-Wine launch …")
             try:
+                from Utils.steam_finder import steam_client_installed
                 subprocess.run(
                     # "run" (not "runinprefix"): triggers Proton's full
                     # first-time prefix setup, same as get_tool_prefix_env.
@@ -2030,7 +2035,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
                                        "--init", env=env),
                     env=env,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    timeout=60,
+                    # umu-run's first ever run on a Steam-less system
+                    # downloads the Steam Linux Runtime — allow for it.
+                    timeout=60 if steam_client_installed() else 600,
                 )
             except Exception:
                 pass

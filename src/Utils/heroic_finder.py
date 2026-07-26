@@ -537,6 +537,72 @@ def _proton_script_from_wine_version(wine_version: dict) -> Path | None:
     return None
 
 
+def list_heroic_proton_scripts() -> list[Path]:
+    """Proton launcher scripts installed or referenced by Heroic.
+
+    Heroic's Wine Manager downloads GE-Proton builds into
+    ``<config root>/tools/proton/<Tool>/`` (``tools/wine`` holds plain Wine
+    builds, which have no ``proton`` script and are skipped naturally). Proton
+    bins referenced from ``GamesConfig/*.json`` / global ``config.json``
+    ``wineVersion`` blocks are included too, so builds kept in custom
+    locations are still found. Lets Steam-less systems (Heroic-only, GH#320)
+    offer Proton versions in the wizards and tool launchers.
+    """
+    seen: set[Path] = set()
+    out: list[Path] = []
+
+    def _add(script: Path | None) -> None:
+        if script is None or not script.is_file():
+            return
+        try:
+            resolved = script.resolve()
+        except OSError:
+            resolved = script
+        if resolved not in seen:
+            seen.add(resolved)
+            out.append(script)
+
+    for heroic_root in _find_heroic_config_roots():
+        tools_dir = heroic_root / "tools" / "proton"
+        if tools_dir.is_dir():
+            try:
+                for entry in tools_dir.iterdir():
+                    if entry.is_dir():
+                        _add(entry / "proton")
+            except OSError:
+                pass
+
+        global_cfg_file = heroic_root / "config.json"
+        if global_cfg_file.is_file():
+            try:
+                cfg = json.loads(global_cfg_file.read_text(
+                    encoding="utf-8", errors="replace"))
+                settings = cfg.get("defaultSettings", cfg)
+                if isinstance(settings, dict):
+                    _add(_proton_script_from_wine_version(
+                        settings.get("wineVersion", {})))
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        games_config = heroic_root / "GamesConfig"
+        if games_config.is_dir():
+            try:
+                cfg_files = list(games_config.glob("*.json"))
+            except OSError:
+                cfg_files = []
+            for cfg_file in cfg_files:
+                try:
+                    cfg = json.loads(cfg_file.read_text(
+                        encoding="utf-8", errors="replace"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                inner = cfg.get(cfg_file.stem, cfg) if isinstance(cfg, dict) else {}
+                if isinstance(inner, dict):
+                    _add(_proton_script_from_wine_version(
+                        inner.get("wineVersion", {})))
+    return out
+
+
 def find_heroic_proton_for_prefix(prefix_path: "str | Path") -> Path | None:
     """Return the Proton launcher script Heroic uses for *prefix_path*.
 
