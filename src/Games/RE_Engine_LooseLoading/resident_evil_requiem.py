@@ -2,6 +2,10 @@
 resident_evil_requiem.py
 Game handler for Resident Evil Requiem.
 
+Base class for RE Engine games that load loose files directly (no PAK
+archive invalidation needed) — the other handlers in RE_Engine_LooseLoading/
+subclass this one.
+
 Mod structure:
   Mods install into the game root (like Cyberpunk 2077).
   Staged mods live in Profiles/Resident Evil Requiem/mods/
@@ -263,25 +267,3 @@ class ResidentEvilRequiem(BaseGame):
             restore_whitelist=self.restore_whitelist_matcher(),
         )
         _log("Restore complete.")
-
-class Pragmata(ResidentEvilRequiem):
-
-    @property
-    def name(self) -> str:
-        return "Pragmata"
-
-    @property
-    def game_id(self) -> str:
-        return "Pragmata"
-
-    @property
-    def exe_name(self) -> str:
-        return "PRAGMATA.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "3357650"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "pragmata"
