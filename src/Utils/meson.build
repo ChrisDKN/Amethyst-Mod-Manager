@@ -66,6 +66,7 @@ py.install_sources(
   'fomod_installer.py',
   'fomod_parser.py',
   'framework_detect.py',
+  'fs_check.py',
   'game_helpers.py',
   'game_loader.py',
   'gh_cache.py',
