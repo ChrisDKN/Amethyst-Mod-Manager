@@ -16,3 +16,4 @@ keyring
 jeepney
 msgpack
 bsdiff4
+maturin

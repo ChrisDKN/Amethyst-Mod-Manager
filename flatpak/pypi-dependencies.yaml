@@ -1,4 +1,4 @@
-# Generated with flatpak-pip-generator --runtime org.kde.Sdk//6.9 --requirements-file src/requirements-vendor.txt --prefer-wheels inflate64,pybcj,pyppmd,cryptography,cffi,backports-zstd,Pillow,lz4,zstandard,msgpack --output flatpak/pypi-dependencies --yaml
+# Generated with flatpak-pip-generator --runtime org.kde.Sdk//6.9 --requirements-file src/requirements-vendor.txt --prefer-wheels inflate64,pybcj,pyppmd,cryptography,cffi,backports-zstd,brotli,psutil,pycryptodomex,Pillow,lz4,zstandard,msgpack,bsdiff4,maturin --output flatpak/pypi-dependencies --yaml
 name: pypi-dependencies
 buildsystem: simple
 build-commands: []
@@ -226,5 +226,28 @@ modules:
         --prefix=${FLATPAK_DEST} "bsdiff4" --no-build-isolation
     sources:
       - type: file
-        url: https://files.pythonhosted.org/packages/53/b9/4559ede9a4c8c4451688303544da84654643fdc7f28790aca85be80b4b7c/bsdiff4-1.2.6.tar.gz
-        sha256: 2ab57d01a78b39e29e5accc9cfead4130982ded9dccbc4261bd0e9c51d6b751d
+        url: https://files.pythonhosted.org/packages/88/23/98fc7482f957602c611203a9e485b9dbf4caf9d918e92453e3729cf5f0b4/bsdiff4-1.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+        sha256: 56c2728c96d1d4eb8e089e4797c018a56be3f905f440fb507773f44c567fcd38
+        only-arches:
+          - x86_64
+      - type: file
+        url: https://files.pythonhosted.org/packages/1a/90/36531261d8a150fcb8193fe2ad46d939b8a91549976424852f6a2a335689/bsdiff4-1.2.6-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+        sha256: 48ea2298a281068d82b78454ee58ac7306ed38c9af55afddb04cf796df932d63
+        only-arches:
+          - aarch64
+  - name: python3-maturin
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "maturin" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/1a/bd/9c0d5d6983905ce2c9edaa073a7e89355a9cf7f396988e05d32f1c37785d/maturin-1.14.1-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl
+        sha256: dfc54ae32e6fcb18302193ab9a30b0b25eefffba994ae13238974805533ef75e
+        only-arches:
+          - x86_64
+      - type: file
+        url: https://files.pythonhosted.org/packages/e5/33/b096412bd6a7cb399652b260666f901adf88a687181a6dbd6a3f89f0a94e/maturin-1.14.1-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl
+        sha256: a131d912b5267e640bc96d70f4914e10590aed64082ec9abacba7cea52004224
+        only-arches:
+          - aarch64

@@ -20,7 +20,7 @@ from pathlib import Path
 from Utils.tmp_dirs import make_tracked_tmpdir, sweep_stale_tmpdirs
 
 try:
-    import LOOT.loot as loot
+    import loot
     _AVAILABLE = True
 except ImportError:
     loot = None
