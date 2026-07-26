@@ -11,6 +11,7 @@ flatpak/repo
 *.AppImage
 /AUR
 src/LOOT/loot.cpython-*.so
+src/loot.cpython-*.so
 /Nexus
 release.sh
 release/
