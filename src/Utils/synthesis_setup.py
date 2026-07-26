@@ -67,9 +67,9 @@ _INI_PROTON_KEY = "proton"
 
 _DOTNET10_SDK_URL = (
     "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.302/"
-    "dotnet-sdk-10.0.302-win-x86.exe"
+    "dotnet-sdk-10.0.302-win-x64.exe"
 )
-_DOTNET10_SDK_FILENAME = "dotnet-sdk-10.0.302-win-x86.exe"
+_DOTNET10_SDK_FILENAME = "dotnet-sdk-10.0.302-win-x64.exe"
 
 _DOTNET10_DESKTOP_URL = (
     "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.2/"
