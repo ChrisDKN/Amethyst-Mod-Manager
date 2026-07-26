@@ -7,7 +7,6 @@
 #   - flatpak/pypi-dependencies.yaml         (regenerated from this file via
 #     flatpak-pip-generator — see that file's header for the exact command)
 py7zr
-libarchive-c
 Pillow
 lz4
 zstandard
@@ -15,7 +14,6 @@ requests
 websocket-client
 keyring
 jeepney
-importlib_metadata
-backports.tarfile
 msgpack
 bsdiff4
+maturin
