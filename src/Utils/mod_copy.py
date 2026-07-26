@@ -38,8 +38,15 @@ def copy_fomod_choice(src_profile_dir: Path, dst_profile_dir: Path,
         if not src.is_file():
             continue
         dst_dir = dst_profile_dir / sub
+        dst = dst_dir / f"{out}.json"
+        # An in-place conversion (same profile becoming/leaving profile-specific)
+        # calls this with src_profile_dir == dst_profile_dir and no rename — the
+        # sidecar is already exactly where it needs to be, and shutil.copy2 would
+        # raise SameFileError trying to copy a file onto itself.
+        if src.resolve() == dst.resolve():
+            continue
         dst_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(str(src), str(dst_dir / f"{out}.json"))
+        shutil.copy2(str(src), str(dst))
 
 
 def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,

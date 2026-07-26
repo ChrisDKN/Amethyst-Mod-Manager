@@ -314,6 +314,10 @@ class MainWindow(QMainWindow):
     _col_import_done = Signal(object)          # (profile_name, installed, total, skipped)
     _import_file_picked = Signal(object)       # portal picker result (Path|None) → UI thread
     _export_code_ready = Signal(object, int)   # (code str|None, mod_count) share-code build → UI thread
+    _group_export_path_picked = Signal(object)  # portal save-picker result (Path|None) → UI thread
+    _group_export_done = Signal(bool, str)     # (ok, final_path_or_error) group file export → UI thread
+    _group_export_code_ready = Signal(object, int)  # (code str|None, member_count) group code build → UI thread
+    _group_import_done = Signal(bool, str)     # (ok, group_name_or_error) group import → UI thread
     _install_files_picked = Signal(object)     # portal picker result (list[Path]) → UI thread
     _custom_exe_picked = Signal(object)        # portal picker result (Path|None) → UI thread
     # Worker blocks on these to show the deferred FOMOD / BAIN pickers (holder+Event).
@@ -591,6 +595,10 @@ class MainWindow(QMainWindow):
         self._col_import_done.connect(self._on_import_bundle_done)
         self._import_file_picked.connect(self._on_import_file_picked)
         self._export_code_ready.connect(self._on_export_code_ready)
+        self._group_export_path_picked.connect(self._on_group_export_path_picked)
+        self._group_export_done.connect(self._on_group_export_done)
+        self._group_export_code_ready.connect(self._on_group_export_code_ready)
+        self._group_import_done.connect(self._on_group_import_done)
         self._install_files_picked.connect(self._on_install_files_picked)
         self._custom_exe_picked.connect(self._on_custom_exe_picked)
         self._col_fomod.connect(self._on_col_fomod_ui)
@@ -3614,7 +3622,7 @@ class MainWindow(QMainWindow):
         # detail-view list; *mods* already excludes them.
         skipped_mods = list(info.get("skipped_mods") or [])
 
-        from Utils.game_helpers import _create_profile, _profiles_for_game
+        from Utils.game_helpers import _create_profile, dedupe_profile_name
         from Utils.profile_state import write_collection_optional_skipped
         import re as _re
 
@@ -3628,13 +3636,7 @@ class MainWindow(QMainWindow):
             base = _re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_") or "Collection"
             profile_name = (f"{base}_Rev{revision_number}"[:64]
                             if revision_number is not None else base[:64])
-            _existing = set(_profiles_for_game(game.name))
-            _pn = profile_name
-            _i = 2
-            while _pn in _existing:
-                _pn = f"{profile_name}_{_i}"[:64]
-                _i += 1
-            profile_name = _pn
+            profile_name = dedupe_profile_name(game.name, profile_name)
             try:
                 profile_dir = Path(_create_profile(
                     game.name, profile_name, profile_specific_mods=True))
@@ -4482,27 +4484,48 @@ class MainWindow(QMainWindow):
 
         # Normalise the subset to a set (or None for "all").
         subset = set(names) if names else None
+
+        # Scope only applies to a full check (no explicit selection) — a
+        # right-click subset always stays scoped to just those mods, and to
+        # the active profile's own staging, regardless of the setting.
+        nexus_targets = [(staging, domain)]
+        if have_nexus and subset is None:
+            nexus_targets = self._resolve_check_updates_targets(game, domain)
+
         self._updates_running = True
         btn = getattr(self, "_check_updates_btn", None)
         if btn is not None:
             btn.setEnabled(False)
             btn.setText(self.tr("Checking…"))
         n = len(subset) if subset else "all"
+        # "(all)" above means "every installed mod" (vs. a specific right-click
+        # subset) — orthogonal to the Check Updates scope setting. Spell out
+        # the profile count too whenever more than one staging is in play, so
+        # the two "all"s (all mods vs. all profiles/games) are never conflated.
+        scope_note = (self.tr(", {0} profiles").format(len(nexus_targets))
+                     if subset is None and len(nexus_targets) > 1 else "")
         # Sticky toast: stays on screen until _on_updates_ready dismisses it,
         # so it doesn't vanish mid-check on the transient auto-dismiss timer.
         self._updates_toast = self._notify(
-            self.tr("Checking for updates ({0})…").format(n), "info", sticky=True)
+            self.tr("Checking for updates ({0}{1})…").format(n, scope_note),
+            "info", sticky=True)
 
         import threading
         from Nexus.nexus_update_checker import check_for_updates
 
         def _worker():
             # Carry the checked subset (None = all) so _on_updates_ready can do a
-            # scoped, filemap-free flag refresh instead of a full reload.
-            out = {"nexus": None, "modio": [], "subset": subset}
+            # scoped, filemap-free flag refresh instead of a full reload. Also
+            # carry the target count so the final summary can repeat the same
+            # "N profiles" note (the sticky toast may have scrolled off-screen
+            # or been read before the check actually finished).
+            out = {"nexus": None, "modio": [], "subset": subset,
+                  "target_count": len(nexus_targets)}
             try:
                 # Run the mod.io check (BG3) in parallel with the Nexus check —
                 # they hit different APIs and write disjoint meta.ini keys.
+                # mod.io only applies to the active game/profile — the "all
+                # profiles"/"all games" scope only extends the Nexus side.
                 modio_box = {"results": []}
 
                 def _modio_work():
@@ -4518,14 +4541,21 @@ class MainWindow(QMainWindow):
                     modio_thread.start()
 
                 if have_nexus:
-                    try:
-                        out["nexus"] = check_for_updates(
-                            api, staging, game_domain=domain, save_results=True,
-                            enabled_only=subset,
-                            progress_cb=lambda m: self._op_log.emit(f"[nexus] {m}"),
-                        )
-                    except Exception as exc:
-                        self._op_log.emit(f"[nexus] update check failed: {exc}")
+                    all_updates = []
+                    all_missing = []
+                    for target_staging, target_domain in nexus_targets:
+                        try:
+                            updates, missing = check_for_updates(
+                                api, target_staging, game_domain=target_domain,
+                                save_results=True, enabled_only=subset,
+                                progress_cb=lambda m: self._op_log.emit(f"[nexus] {m}"),
+                            )
+                            all_updates.extend(updates)
+                            all_missing.extend(missing)
+                        except Exception as exc:
+                            self._op_log.emit(
+                                f"[nexus] update check failed for '{target_staging}': {exc}")
+                    out["nexus"] = (all_updates, all_missing)
 
                 if modio_thread is not None:
                     modio_thread.join()
@@ -4537,6 +4567,34 @@ class MainWindow(QMainWindow):
             self._updates_ready.emit(out)
 
         threading.Thread(target=_worker, daemon=True, name="check-updates").start()
+
+    def _resolve_check_updates_targets(self, game, domain: str) -> list:
+        """Build the (staging_path, game_domain) pairs a full "Check Updates"
+        pass should scan, per the persisted scope setting (Utils.ui_config
+        load_check_updates_scope): "profile" (today's default — just the
+        active profile's own staging), "game" (every profile of *game*,
+        deduped by staging folder), or "all" (every profile of every
+        configured game with a Nexus domain)."""
+        from Utils import ui_config as uc
+        scope = uc.load_check_updates_scope()
+        if scope == "profile":
+            return [(self._gs.staging_dir(), domain)]
+
+        from Utils.game_helpers import resolve_all_profile_stagings
+        if scope == "game":
+            return [(s, domain) for s in resolve_all_profile_stagings(game)]
+
+        # scope == "all": every configured game with its own Nexus domain.
+        from Utils.game_helpers import _GAMES
+        targets = []
+        for g in _GAMES.values():
+            if not g.is_configured():
+                continue
+            g_domain = getattr(g, "nexus_game_domain", "") or ""
+            if not g_domain:
+                continue
+            targets.extend((s, g_domain) for s in resolve_all_profile_stagings(g))
+        return targets or [(self._gs.staging_dir(), domain)]
 
     def _on_updates_ready(self, result):
         """Worker finished — re-enable the button, summarise, refresh the rows.
@@ -4581,10 +4639,13 @@ class MainWindow(QMainWindow):
             parts.append(f"{len(modio_unknown)} mod.io version"
                          f"{'s' if len(modio_unknown) != 1 else ''} unknown")
 
+        target_count = result.get("target_count") or 1
+        scope_suffix = (self.tr(" (across {0} profiles)").format(target_count)
+                       if target_count > 1 else "")
         if parts:
-            _finish(", ".join(parts) + ".", "warning")
+            _finish(", ".join(parts) + "." + scope_suffix, "warning")
         else:
-            _finish(self.tr("All mods are up to date."), "info")
+            _finish(self.tr("All mods are up to date.") + scope_suffix, "info")
         # Check Updates only rewrote meta.ini flags (update / missing-reqs) —
         # the deployed file set is unchanged, so skip the full reload + filemap
         # rebuild and just re-read the affected flags (endorse/note parity).
@@ -6055,6 +6116,116 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=_worker, daemon=True, name="copy-to-profile").start()
 
+    # ---- Copy/Move to a brand-new profile ----------------------------------
+    def _copy_mods_to_new_profile_prompt(self, names, enabled_map, move):
+        """"New profile…" destination in the modlist's Copy/Move-to-profile
+        submenu: prompt for a name + kind, create it, then copy/move *names*
+        into it. Kept separate from ``_copy_mods_to_profile``'s existing-profile
+        path because the destination may share the SAME physical staging pool
+        as the source (a brand-new standard profile of this game) — reusing
+        the existing collision-detection there would misreport every mod as
+        already existing (they trivially do, in the one shared pool) and a
+        Replace would delete the only copy. See
+        ``Utils.profile_convert.copy_mods_to_new_profile``, whose same-pool
+        handling this mirrors."""
+        game = self._gs.game
+        src_staging = self._gs.staging_dir()
+        src_profile_dir = self._gs.profile_dir()
+        if game is None or src_staging is None or src_profile_dir is None:
+            return
+        names = [n for n in names if n]
+        if not names:
+            return
+        existing_names = set(self._gs.profiles())
+
+        def _prompted(result):
+            if not result:
+                return
+            new_name, new_specific = result
+            if new_name in existing_names:
+                self._notify(self.tr("Profile '{0}' already exists.").format(new_name),
+                            "warning")
+                return
+            self._run_copy_to_new_profile(
+                names, enabled_map, move, new_name, new_specific,
+                src_staging, src_profile_dir, game)
+
+        from gui_qt.new_profile_prompt_overlay import NewProfilePromptOverlay
+        NewProfilePromptOverlay.show_over(self, self.tr("New profile"), _prompted)
+
+    def _run_copy_to_new_profile(self, names, enabled_map, move, new_name, new_specific,
+                                 src_staging, src_profile_dir, game):
+        """Worker: create the new profile, copy each mod (or just register it
+        when source and destination share the same staging pool), then (move)
+        remove the sources — but never physically remove them when the pool is
+        shared, since the destination profile references those exact files."""
+        import threading
+        from Utils import mod_copy
+        if getattr(self, "_copy_running", False):
+            self._notify(self.tr("A copy/move is already in progress."), "info")
+            return
+        self._copy_running = True
+        self._op_title = self.tr("Moving") if move else self.tr("Copying")
+        self._ensure_feedback()
+        self._notify(
+            (self.tr("Moving {0} mod(s) to new profile '{1}'…") if move
+             else self.tr("Copying {0} mod(s) to new profile '{1}'…"))
+            .format(len(names), new_name), "info")
+        total = len(names)
+        self._op_progress.emit(0, total, f"to '{new_name}'")
+
+        def _worker():
+            from Utils.game_helpers import _create_profile
+            new_profile_dir = _create_profile(
+                game.name, new_name, profile_specific_mods=new_specific)
+            target_staging = mod_copy.resolve_target_staging(game, new_profile_dir)
+            same_pool = Path(src_staging).resolve() == Path(target_staging).resolve()
+
+            copied = []
+            registered = []
+            for done, nm in enumerate(names):
+                self._op_progress.emit(done, total, nm)
+                if same_pool:
+                    copied.append(nm)
+                    registered.append((nm, enabled_map.get(nm, True)))
+                    continue
+                try:
+                    out = mod_copy.copy_mod_to_profile(
+                        Path(src_staging), Path(src_profile_dir),
+                        Path(target_staging), new_profile_dir,
+                        nm, enabled_map.get(nm, True), game=game, register=False)
+                    if out:
+                        copied.append(nm)
+                        registered.append((out, enabled_map.get(nm, True)))
+                except Exception as exc:
+                    self._op_log.emit(f"Copy to new profile failed for '{nm}': {exc}")
+            if registered:
+                try:
+                    mod_copy.register_mods_in_modlist(
+                        new_profile_dir / "modlist.txt", registered)
+                except Exception as exc:
+                    self._op_log.emit(f"Copy to new profile: modlist update failed: {exc}")
+            self._op_progress.emit(total, total, "finishing")
+
+            removed = False
+            if move and copied and not same_pool:
+                try:
+                    from Utils.mod_remove import remove_mods
+                    remove_mods(game, Path(src_profile_dir), copied,
+                                log_fn=lambda m: self._op_log.emit(str(m)))
+                    removed = True
+                except Exception as exc:
+                    self._op_log.emit(f"Move: could not remove sources: {exc}")
+            self._copy_done.emit({
+                "copied": len(copied), "total": total, "move": move,
+                "removed": removed, "target": new_name,
+                # Drop the row from THIS profile's modlist on any move — even
+                # the same-pool case, where the files themselves stay put but
+                # the entry should no longer live in both profiles' modlists.
+                "removed_names": list(copied) if move else []})
+
+        threading.Thread(target=_worker, daemon=True, name="copy-to-new-profile").start()
+
     def _on_copy_done(self, payload):
         """UI thread: report the copy/move result. For a move, drop the moved
         mods' rows from this profile's modlist (remove_mods left modlist.txt to
@@ -6458,15 +6629,167 @@ class MainWindow(QMainWindow):
         elif which == "groups":
             self._open_profile_groups_tab()
         elif which == "export":
-            self._open_export_profile_tab()
+            self._start_export_profile_flow()
         elif which == "import":
             self._import_profile()
         elif which == "export_code":
-            self._export_profile_code()
+            self._start_export_code_flow()
         elif which == "import_code":
             self._import_profile_code()
         else:
             self._append_log(f"[profile] {which} (not wired yet)")
+
+    def _active_profile_is_group(self) -> bool:
+        try:
+            from Utils.profile_groups import is_group
+            pd = self._gs.profile_dir()
+            return pd is not None and is_group(pd)
+        except Exception:
+            return False
+
+    def _start_export_profile_flow(self):
+        """"Export profile…" — if the active profile is a Profile Group, ask
+        whether to export it as a real group (members preserved) or as a
+        single flattened combined profile (today's plain behavior) before
+        continuing."""
+        if not self._active_profile_is_group():
+            self._open_export_profile_tab()
+            return
+        from gui_qt.group_mode_overlay import GroupExportModeOverlay
+
+        def _chosen(mode):
+            if mode == "group":
+                self._export_group_file()
+            elif mode == "combined":
+                self._materialize_then(self._open_export_profile_tab)
+
+        GroupExportModeOverlay.show_over(self, _chosen)
+
+    def _start_export_code_flow(self):
+        """"Export code…" — same Group-vs-combined choice as
+        :meth:`_start_export_profile_flow`, for the share-code mechanism."""
+        if not self._active_profile_is_group():
+            self._export_profile_code()
+            return
+        from gui_qt.group_mode_overlay import GroupExportModeOverlay
+
+        def _chosen(mode):
+            if mode == "group":
+                self._export_group_code()
+            elif mode == "combined":
+                self._materialize_then(self._export_profile_code)
+
+        GroupExportModeOverlay.show_over(self, _chosen)
+
+    def _materialize_then(self, continuation):
+        """Refresh a Profile Group's merged/materialized directory (so a
+        "combined" export reflects each member's current state), then run
+        *continuation* — the existing, unmodified single-profile export
+        entry point, which just sees an ordinary profile directory."""
+        game = self._gs.game
+        pd = self._gs.profile_dir()
+        if game is not None and pd is not None:
+            try:
+                from Utils.profile_groups import materialize_group
+                materialize_group(game, pd, log_fn=self._append_log)
+            except Exception as exc:
+                self._append_log(f"[group-export] materialize failed: {exc}")
+        continuation()
+
+    # ---- Profile Group export (file + code) --------------------------------
+    def _export_group_file(self):
+        game = self._gs.game
+        pd = self._gs.profile_dir()
+        if game is None or pd is None:
+            self._notify(self.tr("No active Profile Group."), "warning")
+            return
+        default_name = f"{pd.name}_group_export.amethyst"
+        from Utils.portal_filechooser import pick_save_file
+        pick_save_file(
+            self.tr("Export Profile Group"),
+            lambda path: self._group_export_path_picked.emit(path),
+            current_name=default_name,
+            filters=[(self.tr("Amethyst Manifest (*.amethyst)"), ["*.amethyst"]),
+                     (self.tr("All files"), ["*"])])
+
+    def _on_group_export_path_picked(self, path):
+        if not path:
+            return
+        game = self._gs.game
+        pd = self._gs.profile_dir()
+        if game is None or pd is None:
+            return
+        self._notify(self.tr("Exporting Profile Group…"), "info")
+        import threading
+        threading.Thread(
+            target=self._export_group_file_worker, args=(game, pd, str(path)),
+            daemon=True, name="export-group").start()
+
+    def _export_group_file_worker(self, game, group_dir, out_path):
+        try:
+            from Utils import profile_group_export as pge
+            try:
+                from version import __version__ as app_version
+            except Exception:
+                app_version = ""
+
+            def _progress(done, total, arcname):
+                if arcname:
+                    self._append_log(f"[group-export] {arcname}")
+
+            final = pge.write_group_amethyst(
+                game, group_dir, out_path, app_version, progress_cb=_progress)
+            self._group_export_done.emit(True, str(final))
+        except Exception as exc:
+            self._group_export_done.emit(False, str(exc))
+
+    def _on_group_export_done(self, ok: bool, message: str):
+        if ok:
+            self._notify(self.tr("Profile Group exported: {0}").format(
+                Path(message).name), "info")
+        else:
+            self._notify(self.tr("Group export failed: {0}").format(message), "error")
+
+    def _export_group_code(self):
+        game = self._gs.game
+        pd = self._gs.profile_dir()
+        if game is None or pd is None:
+            self._notify(self.tr("No active Profile Group."), "warning")
+            return
+        import threading
+        threading.Thread(
+            target=self._export_group_code_worker, args=(game, pd),
+            daemon=True, name="export-group-code").start()
+
+    def _export_group_code_worker(self, game, group_dir):
+        try:
+            from Utils import profile_group_export as pge
+            from Utils import profile_export
+            try:
+                from version import __version__ as app_version
+            except Exception:
+                app_version = ""
+            group_manifest = pge.build_group_code_manifest(game, group_dir, app_version)
+            members = group_manifest.get("members") or []
+            if not members:
+                self._group_export_code_ready.emit("", 0)
+                return
+            code = profile_export.encode_group_manifest(group_manifest)
+            self._group_export_code_ready.emit(code, len(members))
+        except Exception as exc:
+            self._append_log(f"[group-export-code] failed: {exc}")
+            self._group_export_code_ready.emit(None, -1)
+
+    def _on_group_export_code_ready(self, code, member_count):
+        if code is None:
+            self._notify(self.tr("Could not build group share code."), "error")
+            return
+        if not code:
+            self._notify(self.tr("No members to share."), "warning")
+            return
+        from gui_qt.share_code_overlay import ShareCodeExportOverlay
+        ShareCodeExportOverlay(self.window(), code, member_count)
+        self._append_log(f"[group-export-code] built code for {member_count} member(s).")
 
     def _open_export_profile_tab(self):
         """Open the Export Profile panel scoped over the MODLIST panel (like Profile
@@ -6523,6 +6846,20 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
+
+        # Group detection is content-based (a top-level group.json) and must run
+        # BEFORE read_manifest(): that function's fallback scan for "*manifest.json"
+        # would otherwise silently match one member's manifest.json inside a group
+        # zip and misimport the whole archive as a single ordinary profile.
+        from Utils import profile_group_export as pge
+        try:
+            group_manifest = pge.read_group_manifest(path)
+        except Exception:
+            group_manifest = None
+        if group_manifest is not None:
+            self._start_group_import_flow(path, group_manifest)
+            return
+
         api = self._ensure_nexus_api()
         if api is None:
             self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
@@ -6540,6 +6877,141 @@ class MainWindow(QMainWindow):
             return
         bundle_zip = path if Path(path).suffix.lower() in (".amethyst", ".zip") else ""
         self._open_manifest_import(manifest, Path(path).stem, bundle_zip=bundle_zip)
+
+    # ---- Profile Group import (file + code) ---------------------------------
+    def _start_group_import_flow(self, src_path, group_manifest, *, is_code=False):
+        """A group container (file or decoded code) was detected — ask Group
+        vs. combined before continuing."""
+        from gui_qt.group_mode_overlay import GroupImportModeOverlay
+
+        def _chosen(mode):
+            if mode == "group":
+                if is_code:
+                    self._import_group_code_flow(group_manifest)
+                else:
+                    self._import_group_bundle_flow(src_path, group_manifest)
+            elif mode == "combined":
+                if is_code:
+                    self._import_group_code_combined_flow(group_manifest)
+                else:
+                    self._import_group_bundle_combined_flow(src_path, group_manifest)
+
+        GroupImportModeOverlay.show_over(self, _chosen)
+
+    def _group_downloader_for(self, game, api):
+        if api is None:
+            return None
+        from Nexus.nexus_download import NexusDownloader
+        from Utils.config_paths import get_download_cache_dir_for_game
+        return NexusDownloader(api, download_dir=get_download_cache_dir_for_game(game.name or ""))
+
+    def _import_group_bundle_flow(self, src_path, group_manifest):
+        """"Import as Group + separate profiles" — file path."""
+        game = self._gs.game
+        from Utils import profile_group_export as pge
+        needs_login = pge.group_bundle_needs_nexus_login(src_path)
+        api = self._ensure_nexus_api()
+        if needs_login and api is None:
+            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+                         "warning")
+            return
+        self._notify(self.tr("Importing Profile Group…"), "info")
+        import threading
+        threading.Thread(
+            target=self._import_group_bundle_worker,
+            args=(game, api, src_path, group_manifest),
+            daemon=True, name="import-group").start()
+
+    def _import_group_bundle_worker(self, game, api, src_path, group_manifest):
+        try:
+            from Utils import profile_group_export as pge
+            downloader = self._group_downloader_for(game, api)
+            group_name = pge.import_group_bundle(
+                game, api, downloader, src_path, group_manifest, log_fn=self._append_log)
+            self._group_import_done.emit(True, group_name)
+        except Exception as exc:
+            self._group_import_done.emit(False, str(exc))
+
+    def _import_group_code_flow(self, group_manifest):
+        """"Import as Group + separate profiles" — code path."""
+        game = self._gs.game
+        from Utils import profile_group_export as pge
+        needs_login = pge.group_code_needs_nexus_login(group_manifest)
+        api = self._ensure_nexus_api()
+        if needs_login and api is None:
+            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
+                         "warning")
+            return
+        self._notify(self.tr("Importing Profile Group…"), "info")
+        import threading
+        threading.Thread(
+            target=self._import_group_code_worker, args=(game, api, group_manifest),
+            daemon=True, name="import-group-code").start()
+
+    def _import_group_code_worker(self, game, api, group_manifest):
+        try:
+            from Utils import profile_group_export as pge
+            downloader = self._group_downloader_for(game, api)
+            group_name = pge.import_group_code(
+                game, api, downloader, group_manifest, log_fn=self._append_log)
+            self._group_import_done.emit(True, group_name)
+        except Exception as exc:
+            self._group_import_done.emit(False, str(exc))
+
+    def _on_group_import_done(self, ok: bool, message: str):
+        if ok:
+            self._notify(self.tr("Profile Group imported: {0}").format(message), "info")
+            self._select_installed_collection_profile(message, rescan_index=True)
+        else:
+            self._notify(self.tr("Group import failed: {0}").format(message), "error")
+
+    def _import_group_bundle_combined_flow(self, src_path, group_manifest):
+        """"Import as single combined profile" — file path: merge every
+        member's manifest into one, flatten the surviving bundle-sourced
+        mods' files into a temp single-profile-shaped zip, then hand off to
+        the existing, unmodified single-profile import flow."""
+        from Utils import profile_group_export as pge
+        member_names = list(group_manifest.get("members") or [])
+        member_manifests = []
+        for name in member_names:
+            manifest = pge._read_member_manifest_from_zip(src_path, name)
+            if manifest is not None:
+                member_manifests.append((name, manifest))
+        if not member_manifests:
+            self._notify(self.tr("No members could be read from this Profile Group."),
+                         "error")
+            return
+        combined, home_member = pge.merge_group_manifests(member_manifests)
+        member_order = [name for name, _ in member_manifests]
+        import tempfile
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".amethyst", prefix="amm_group_combined_")
+        import os as _os
+        _os.close(tmp_fd)
+        try:
+            pge.build_combined_import_bundle(
+                src_path, combined, home_member, member_order, tmp_path)
+        except Exception as exc:
+            self._notify(self.tr("Could not merge Profile Group: {0}").format(exc), "error")
+            return
+        stem = (group_manifest.get("name") or Path(src_path).stem) + "_combined"
+        self._open_manifest_import(combined, stem, bundle_zip=tmp_path)
+
+    def _import_group_code_combined_flow(self, group_manifest):
+        """"Import as single combined profile" — code path: no bundled files
+        exist for a code import, so this is just the merge + the existing
+        single-profile code-import continuation."""
+        from Utils import profile_group_export as pge
+        member_manifests = [
+            (entry.get("name") or f"Member{i + 1}", entry.get("manifest") or {})
+            for i, entry in enumerate(group_manifest.get("members") or [])
+        ]
+        if not member_manifests:
+            self._notify(self.tr("No members in this Profile Group code."), "error")
+            return
+        combined, _home_member = pge.merge_group_manifests(member_manifests)
+        info = group_manifest.get("info") or {}
+        stem = (info.get("name") or "ImportedGroup") + "_combined"
+        self._open_manifest_import(combined, stem, bundle_zip="", allow_append=True)
 
     def _open_manifest_import(self, manifest, source_stem, *, bundle_zip="",
                               allow_append=False):
@@ -6668,6 +7140,14 @@ class MainWindow(QMainWindow):
             if not text:
                 return
             from Utils import profile_export
+            if profile_export.is_group_code(text):
+                try:
+                    group_manifest = profile_export.decode_group_manifest(text)
+                except Exception as exc:
+                    self._notify(self.tr("Could not read code: {0}").format(exc), "error")
+                    return
+                self._start_group_import_flow(None, group_manifest, is_code=True)
+                return
             try:
                 manifest = profile_export.decode_manifest(text)
             except Exception as exc:
@@ -10597,6 +11077,9 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_notes_changed = self._refresh_modlist_flags
         # Copy/Move to profile: worker copy + collision overlay + (move) remove.
         self._modlist_view.on_copy_to_profile = self._copy_mods_to_profile
+        # Copy/Move to a brand-new profile: prompt for name + kind, create it,
+        # then copy/move into it.
+        self._modlist_view.on_copy_to_new_profile = self._copy_mods_to_new_profile_prompt
         # Rename (context menu): folder + modindex + per-mod state migration.
         self._modlist_view.on_rename_mod = self._rename_mod_on_disk
         # Separator settings (colour + deploy override): open the scoped tab;

@@ -317,29 +317,24 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
     }
 
 
-def write_amethyst(out_path, manifest: dict, *, staging_root=None,
-                   overwrite_root=None, profile_dir=None,
-                   bundle_names=None, progress_cb=None) -> Path:
-    """Write the ``.amethyst`` zip: ``manifest.json`` + bundled ``mods/`` +
-    ``overwrite/`` + ``profile/`` state files. Returns the final path (suffix
-    forced to .amethyst when not already .zip/.amethyst).
+def _collect_amethyst_jobs(manifest: dict, *, staging_root=None, overwrite_root=None,
+                           profile_dir=None, bundle_names=None,
+                           arc_prefix: str = "") -> list[tuple]:
+    """Collect (src_path, arcname, data) job tuples for one profile's export
+    (src_path=None means an in-memory writestr member, pre-encoded in *data*).
 
-    *progress_cb* (optional) is called as ``progress_cb(done_bytes, total_bytes,
-    arcname)`` — once with ``done_bytes=0`` before writing starts (total known),
-    then after each member is written. Members are collected up-front so the
-    byte total is exact; the callback runs on the caller's thread."""
-    out_path = Path(out_path)
-    if out_path.suffix.lower() not in (".zip", ".amethyst"):
-        out_path = out_path.with_suffix(".amethyst")
-
+    *arc_prefix*, when given, namespaces every arcname under it (e.g.
+    ``"<member_name>/"``) — used by the Profile Group exporter to combine
+    several members' jobs into one shared zip without them colliding."""
     bundle_names = list(bundle_names or [])
     staging_root = Path(staging_root) if staging_root else None
     overwrite_root = Path(overwrite_root) if overwrite_root else None
 
-    # Collect (src_path, arcname, data) members first: src_path=None means an
-    # in-memory writestr member (pre-encoded bytes in *data*).
+    def _arc(rel) -> str:
+        return (Path(arc_prefix) / rel).as_posix() if arc_prefix else Path(rel).as_posix()
+
     jobs: list[tuple] = [
-        (None, "manifest.json", json.dumps(manifest, indent=2).encode("utf-8")),
+        (None, _arc("manifest.json"), json.dumps(manifest, indent=2).encode("utf-8")),
     ]
 
     if staging_root:
@@ -349,14 +344,12 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                 continue
             for fp in mod_dir.rglob("*"):
                 if fp.is_file():
-                    arcname = Path("mods") / name / fp.relative_to(mod_dir)
-                    jobs.append((fp, arcname.as_posix(), None))
+                    jobs.append((fp, _arc(Path("mods") / name / fp.relative_to(mod_dir)), None))
 
     if overwrite_root and overwrite_root.is_dir():
         for fp in overwrite_root.rglob("*"):
             if fp.is_file():
-                arcname = Path("overwrite") / fp.relative_to(overwrite_root)
-                jobs.append((fp, arcname.as_posix(), None))
+                jobs.append((fp, _arc(Path("overwrite") / fp.relative_to(overwrite_root)), None))
 
     # Bundle profile state files: fixed names + any *.ini files.
     if profile_dir:
@@ -386,14 +379,14 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                     ps["profile_settings"] = settings
                 if not settings.get("profile_specific_mods"):
                     settings["profile_specific_mods"] = True
-                jobs.append((None, (Path("profile") / fname).as_posix(),
+                jobs.append((None, _arc(Path("profile") / fname),
                              json.dumps(ps, indent=2).encode("utf-8")))
             else:
-                jobs.append((fp, (Path("profile") / fname).as_posix(), None))
+                jobs.append((fp, _arc(Path("profile") / fname), None))
         # Legacy: root-level *.ini files
         for fp in pdir.glob("*.ini"):
             if fp.is_file():
-                jobs.append((fp, (Path("profile") / fp.name).as_posix(), None))
+                jobs.append((fp, _arc(Path("profile") / fp.name), None))
         # Bundle whole profile subfolders
         for sub in ("ini files", "Saves", "installed_collections"):
             sub_dir = pdir / sub
@@ -401,9 +394,17 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                 continue
             for fp in sub_dir.rglob("*"):
                 if fp.is_file():
-                    arcname = Path("profile") / sub / fp.relative_to(sub_dir)
-                    jobs.append((fp, arcname.as_posix(), None))
+                    jobs.append((fp, _arc(Path("profile") / sub / fp.relative_to(sub_dir)), None))
 
+    return jobs
+
+
+def _write_zip_jobs(out_path: Path, jobs: list[tuple], progress_cb=None) -> None:
+    """Write a flat (src_path_or_None, arcname, data_or_None) job list to one
+    zip. *progress_cb* (optional) is called as
+    ``progress_cb(done_bytes, total_bytes, arcname)`` — once with
+    ``done_bytes=0`` before writing starts (total known), then after each
+    member is written."""
     sizes = []
     for src, _arc, data in jobs:
         if data is not None:
@@ -428,6 +429,26 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
             if progress_cb:
                 progress_cb(done, total, arcname)
 
+
+def write_amethyst(out_path, manifest: dict, *, staging_root=None,
+                   overwrite_root=None, profile_dir=None,
+                   bundle_names=None, progress_cb=None) -> Path:
+    """Write the ``.amethyst`` zip: ``manifest.json`` + bundled ``mods/`` +
+    ``overwrite/`` + ``profile/`` state files. Returns the final path (suffix
+    forced to .amethyst when not already .zip/.amethyst).
+
+    *progress_cb* (optional) is called as ``progress_cb(done_bytes, total_bytes,
+    arcname)`` — once with ``done_bytes=0`` before writing starts (total known),
+    then after each member is written. Members are collected up-front so the
+    byte total is exact; the callback runs on the caller's thread."""
+    out_path = Path(out_path)
+    if out_path.suffix.lower() not in (".zip", ".amethyst"):
+        out_path = out_path.with_suffix(".amethyst")
+
+    jobs = _collect_amethyst_jobs(
+        manifest, staging_root=staging_root, overwrite_root=overwrite_root,
+        profile_dir=profile_dir, bundle_names=bundle_names)
+    _write_zip_jobs(out_path, jobs, progress_cb)
     return out_path
 
 
@@ -463,7 +484,7 @@ def read_manifest(src_path) -> dict:
 
 
 def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
-                         log_fn=None) -> list[str]:
+                         log_fn=None, member_prefix: str = "") -> list[str]:
     """Extract a locally-exported ``.amethyst`` bundle into a freshly-installed
     profile — faithful to the Tk import (CollectionsDialog bundle-zip extraction):
 
@@ -476,6 +497,11 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
     Nexus-source mods are installed by the collection pipeline; this covers the
     bundled assets + profile state files that live *inside* the local zip.
+
+    *member_prefix*, when given (e.g. ``"<member_name>"``), restricts extraction
+    to entries under ``<member_prefix>/mods/…`` etc. and strips that prefix
+    first — used by the Profile Group importer, where several members' files
+    share one zip under member-name subfolders.
 
     Returns the list of extracted bundle folder names.
     """
@@ -490,13 +516,21 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
     mods_dir.mkdir(parents=True, exist_ok=True)
     overwrite_dir.mkdir(parents=True, exist_ok=True)
+    name_prefix = f"{member_prefix}/" if member_prefix else ""
 
     staged: list[str] = []
     with _zip.ZipFile(src_path, "r") as zf:
-        names = zf.namelist()
+        raw_names = zf.namelist()
+        # (original_name, name_relative_to_this_member) pairs — zf.open() needs
+        # the ORIGINAL (still-prefixed) name; parsing needs the stripped one.
+        if name_prefix:
+            entries = [(orig, orig[len(name_prefix):]) for orig in raw_names
+                      if orig.startswith(name_prefix)]
+        else:
+            entries = [(orig, orig) for orig in raw_names]
 
         # (1) Bundled mods + overwrite — extract verbatim (no rename, keep meta.ini).
-        for n in names:
+        for orig, n in entries:
             if n.endswith("/"):
                 continue
             parts = n.split("/")
@@ -511,7 +545,7 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
             else:
                 continue
             dest.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(n) as srcf, open(dest, "wb") as dstf:
+            with zf.open(orig) as srcf, open(dest, "wb") as dstf:
                 shutil.copyfileobj(srcf, dstf)
         if staged:
             log(f"Import: extracted {len(staged)} bundled mod(s): "
@@ -519,7 +553,7 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
         # (2) profile/ state files → copy over the generated ones.
         wrote_profile = False
-        for n in names:
+        for orig, n in entries:
             if n.endswith("/"):
                 continue
             parts = n.split("/")
@@ -527,7 +561,7 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
                 continue
             dest = profile_dir / Path(*parts[1:])
             dest.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(n) as srcf, open(dest, "wb") as dstf:
+            with zf.open(orig) as srcf, open(dest, "wb") as dstf:
                 shutil.copyfileobj(srcf, dstf)
             wrote_profile = True
         if wrote_profile:
@@ -564,6 +598,10 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 # emit a ``loadOrder`` block so the exact order survives.
 
 CODE_PREFIX = "AMMCODE1:"   # version tag; bump the digit on a format change.
+GROUP_CODE_PREFIX = "AMMGROUP1:"   # Profile Group code envelope — a sibling
+                                   # format, not a bump of CODE_PREFIX, since
+                                   # the payload shape is different (a group
+                                   # of per-member manifests, not one itself).
 
 
 def build_code_manifest(entries, game, app_version: str, *,
@@ -657,30 +695,66 @@ def _separator_blocks(entries, kept_names: set, profile_dir) -> list[dict]:
     return [b for b in blocks if b["mods"]]
 
 
-def encode_manifest(manifest: dict) -> str:
-    """Serialise a manifest into a compact, copy-pasteable share code:
-    JSON → zlib(level 9) → urlsafe base64, with a version prefix."""
-    raw = json.dumps(manifest, separators=(",", ":")).encode("utf-8")
+def _encode_payload(payload: dict, prefix: str) -> str:
+    """Shared core for encode_manifest/encode_group_manifest: compact JSON →
+    zlib(level 9) → urlsafe base64, with a version-tagged prefix."""
+    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     packed = zlib.compress(raw, 9)
     b64 = base64.urlsafe_b64encode(packed).decode("ascii")
-    return CODE_PREFIX + b64
+    return prefix + b64
 
 
-def decode_manifest(code: str) -> dict:
-    """Reverse :func:`encode_manifest`. Accepts a code with or without the
-    ``AMMCODE1:`` prefix and tolerates surrounding whitespace / line breaks.
-    Raises ``ValueError`` on a malformed code."""
+def _decode_payload(code: str, prefix: str) -> dict:
+    """Shared core for decode_manifest/decode_group_manifest. Accepts a code
+    with or without *prefix* and tolerates surrounding whitespace/line breaks.
+    Raises ``ValueError`` on a malformed code; does not validate the
+    resulting payload's shape (callers check for their own required keys)."""
     if not code:
         raise ValueError("Empty code.")
     text = "".join(code.split())   # strip all whitespace / newlines
-    if text.startswith(CODE_PREFIX):
-        text = text[len(CODE_PREFIX):]
+    if text.startswith(prefix):
+        text = text[len(prefix):]
     try:
         packed = base64.urlsafe_b64decode(text.encode("ascii"))
         raw = zlib.decompress(packed)
-        manifest = json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8"))
     except Exception as exc:
         raise ValueError(f"Not a valid Amethyst code: {exc}") from exc
+
+
+def encode_manifest(manifest: dict) -> str:
+    """Serialise a manifest into a compact, copy-pasteable share code."""
+    return _encode_payload(manifest, CODE_PREFIX)
+
+
+def decode_manifest(code: str) -> dict:
+    """Reverse :func:`encode_manifest`. Raises ``ValueError`` on a malformed
+    code or one missing the expected single-profile manifest shape."""
+    manifest = _decode_payload(code, CODE_PREFIX)
     if not isinstance(manifest, dict) or not manifest.get("mods"):
         raise ValueError("Code does not contain a valid manifest.")
+    return manifest
+
+
+def is_group_code(code: str) -> bool:
+    """True if *code* looks like a Profile Group code (by prefix alone) —
+    check this before attempting a full :func:`decode_manifest`/
+    :func:`decode_group_manifest`, since the two formats use different
+    envelopes and this is a cheap way to tell them apart up front."""
+    return bool(code) and "".join(code.split()).startswith(GROUP_CODE_PREFIX)
+
+
+def encode_group_manifest(group_manifest: dict) -> str:
+    """Serialise a Profile Group envelope (see
+    ``Utils.profile_group_export.build_group_code_manifest``) into a compact,
+    copy-pasteable share code."""
+    return _encode_payload(group_manifest, GROUP_CODE_PREFIX)
+
+
+def decode_group_manifest(code: str) -> dict:
+    """Reverse :func:`encode_group_manifest`. Raises ``ValueError`` on a
+    malformed code or one missing the expected group envelope shape."""
+    manifest = _decode_payload(code, GROUP_CODE_PREFIX)
+    if not isinstance(manifest, dict) or not manifest.get("members"):
+        raise ValueError("Code does not contain a valid Profile Group.")
     return manifest

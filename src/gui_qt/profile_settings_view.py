@@ -25,8 +25,9 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, danger_close_button, contrast_text
 from gui_qt.icons import icon
 from gui_qt.safe_emit import safe_emit
+from Utils.modlist import read_modlist
 from Utils.profile_groups import (
-    get_members, is_group, list_groups, remove_profile_everywhere, rename_profile_everywhere,
+    is_group, member_of_groups, remove_profile_everywhere, rename_profile_everywhere,
 )
 from Utils.profile_state import (
     read_profile_settings, merge_profile_settings, profile_uses_specific_mods,
@@ -80,6 +81,8 @@ class ProfileSettingsView(QWidget):
 
     # (profile_name, ok) from the remove worker → UI thread.
     _remove_finished = Signal(str, bool)
+    # (ok, message, profile_name) from the convert worker → UI thread.
+    _convert_finished = Signal(bool, str, str)
 
     def __init__(self, window, game_name: str, current_profile: str,
                  on_profile_renamed=None, on_profile_removed=None,
@@ -99,6 +102,7 @@ class ProfileSettingsView(QWidget):
 
         self.setObjectName("ProfileSettingsView")
         self._remove_finished.connect(self._on_remove_finished)
+        self._convert_finished.connect(self._on_convert_finished)
         self._build()
         self._populate_list()
 
@@ -215,6 +219,7 @@ class ProfileSettingsView(QWidget):
         is_default = self._is_original_default(profile)
         is_active = profile == self._current_profile
         is_locked = self._is_profile_locked(profile)
+        profile_is_group = is_group(self._get_profile_dir(profile))
 
         row = QFrame()
         row.setObjectName("ProfileRow")
@@ -236,7 +241,7 @@ class ProfileSettingsView(QWidget):
             text += "  (default)"
         if is_active:
             text += "  ★"
-        if is_group(self._get_profile_dir(profile)):
+        if profile_is_group:
             text += "  [Group]"
         name = QLabel(text)
         if is_active:
@@ -245,7 +250,18 @@ class ProfileSettingsView(QWidget):
             name.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
         rl.addWidget(name, 1)
 
-        # (3) Buttons — Rename / Open / Remove (NO Steam Cmd).
+        # (3) Buttons — Rename / Open / Convert / Remove (NO Steam Cmd).
+        convert = QPushButton(self.tr("Convert…"))
+        convert.setObjectName("FormButton")
+        # The default profile is always "locked" (see _is_profile_locked), but
+        # unlike a genuinely user-locked profile it CAN still be copied into a
+        # new profile — just never converted in place (see _on_convert_click).
+        convert.setEnabled(not profile_is_group and (is_default or not is_locked))
+        if convert.isEnabled():
+            convert.setCursor(Qt.PointingHandCursor)
+        convert.clicked.connect(lambda _=False, pr=profile: self._on_convert_click(pr))
+        rl.addWidget(convert)
+
         rename = QPushButton(self.tr("Rename"))
         rename.setObjectName("FormButton")
         rename.setCursor(Qt.PointingHandCursor)
@@ -281,6 +297,96 @@ class ProfileSettingsView(QWidget):
             return
         self._populate_list()
         self._on_profiles_changed()
+
+    # -- convert --------------------------------------------------------------
+    def _on_convert_click(self, profile: str):
+        from Utils.game_helpers import _GAMES
+        game = _GAMES.get(self._game_name)
+        if game is None:
+            self._notify(self.tr("No configured game."), "warning")
+            return
+        profile_dir = self._get_profile_dir(profile)
+        currently_specific = profile_uses_specific_mods(profile_dir)
+        mod_entries = [(e.name, e.enabled) for e in read_modlist(profile_dir / "modlist.txt")
+                      if not e.is_separator]
+        if not mod_entries:
+            self._notify(self.tr("'{0}' has no mods to convert.").format(profile),
+                        "info")
+            return
+        # The default profile must never be converted IN PLACE — only ever
+        # copied into a new profile (see the button-enable comment above).
+        allow_in_place = not self._is_original_default(profile)
+
+        def _done(result):
+            if not result:
+                return
+            if result["mode"] == "in_place" and not allow_in_place:
+                return
+            # Converting a profile-specific profile AWAY in place would break
+            # any group that depends on it still being profile-specific —
+            # "copy to a new profile" is unaffected (the original is untouched),
+            # so this only gates the "in_place" choice.
+            if result["mode"] == "in_place" and currently_specific:
+                referencing = member_of_groups(game, profile)
+                if referencing:
+                    names = ", ".join(f"'{g}'" for g in referencing)
+                    self._notify(
+                        self.tr("'{0}' is used by Group(s) {1} — remove it "
+                                "from the group first, then convert it.")
+                        .format(profile, names), "warning")
+                    return
+            self._start_convert_worker(game, profile, profile_dir, result)
+
+        from gui_qt.convert_profile_overlay import ConvertProfileOverlay
+        ConvertProfileOverlay.show_over(
+            self._overlay_host(), profile, currently_specific, mod_entries, _done,
+            allow_in_place=allow_in_place)
+
+    def _start_convert_worker(self, game, profile: str, profile_dir: Path, result: dict):
+        self._notify(self.tr("Converting '{0}'…").format(profile), "info")
+
+        def worker():
+            from Utils import profile_convert
+            try:
+                if result["mode"] == "new":
+                    profile_convert.copy_mods_to_new_profile(
+                        game, profile_dir, result["scope"], result["new_name"],
+                        new_profile_specific=result["new_specific"], log_fn=self._log)
+                    msg = self.tr("Copied to new profile '{0}'.").format(result["new_name"])
+                    safe_emit(self._convert_finished, True, msg, profile)
+                else:
+                    applied = profile_convert.convert_in_place(
+                        game, profile_dir, result["scope"], log_fn=self._log)
+                    if applied:
+                        msg = self.tr("'{0}' converted.").format(profile)
+                        safe_emit(self._convert_finished, True, msg, profile)
+                    else:
+                        msg = self.tr(
+                            "Conversion aborted — a shared-pool mod with a "
+                            "different same-named mod already exists (see log). "
+                            "Nothing was changed.")
+                        safe_emit(self._convert_finished, False, msg, profile)
+            except Exception as exc:
+                safe_emit(self._convert_finished, False, str(exc), profile)
+
+        threading.Thread(target=worker, daemon=True, name="profile-convert").start()
+
+    def _on_convert_finished(self, ok: bool, message: str, profile: str):
+        self._populate_list()
+        self._on_profiles_changed()
+        # Converting the profile the user is currently looking at changes its
+        # own mod set / staging location out from under the modlist panel —
+        # the lock-toggle-only on_profiles_changed refresh doesn't touch it,
+        # so force a real reload here (mirrors a profile rename's own reload
+        # when the renamed profile is the active one).
+        active_profile = getattr(getattr(self._window, "_gs", None), "profile", None)
+        if ok and profile == active_profile:
+            try:
+                self._window._reload_modlist(rescan_index=True)
+                self._window._reload_plugins()
+            except Exception as exc:
+                self._log(f"Convert: post-convert reload failed: {exc}")
+        self._notify(message, "info" if ok else "warning")
 
     # -- open ---------------------------------------------------------------
     def _open_profile_folder(self, profile: str):
@@ -411,10 +517,7 @@ class ProfileSettingsView(QWidget):
         profile_is_group = profile_dir.is_dir() and is_group(profile_dir)
         referencing_groups: list[str] = []
         if game is not None and not profile_is_group:
-            referencing_groups = [
-                g for g in list_groups(game)
-                if profile in get_members(self._get_profile_dir(g))
-            ]
+            referencing_groups = member_of_groups(game, profile)
 
         def after_first(ok: bool):
             if not ok:

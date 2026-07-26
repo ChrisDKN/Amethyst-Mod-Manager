@@ -1663,6 +1663,42 @@ def save_nexus_page_size(value: int) -> None:
         parser.write(f)
 
 
+_CHECK_UPDATES_SCOPES = ("profile", "game", "all")
+
+
+def load_check_updates_scope() -> str:
+    """Return the persisted "Check Updates" scope: "profile" (only the active
+    profile's own staging — today's default behavior), "game" (every profile
+    of the active game, deduped by staging folder), or "all" (every profile of
+    every configured game). Falls back to "profile" if unset or invalid."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return "profile"
+    try:
+        parser = _new_parser()
+        parser.read(path)
+        val = parser.get(_NEXUS_SECTION, "check_updates_scope", fallback="profile")
+        return val if val in _CHECK_UPDATES_SCOPES else "profile"
+    except Exception:
+        return "profile"
+
+
+def save_check_updates_scope(value: str) -> None:
+    """Persist the "Check Updates" scope setting to amethyst.ini."""
+    if value not in _CHECK_UPDATES_SCOPES:
+        value = "profile"
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _NEXUS_SECTION not in parser:
+        parser[_NEXUS_SECTION] = {}
+    parser[_NEXUS_SECTION]["check_updates_scope"] = value
+    with path.open("w", encoding="utf-8") as f:
+        parser.write(f)
+
+
 # ---------------------------------------------------------------------------
 # Custom launcher paths
 # ---------------------------------------------------------------------------

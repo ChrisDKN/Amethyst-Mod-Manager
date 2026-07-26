@@ -185,6 +185,50 @@ def _profiles_for_game(game_name: str) -> list[str]:
     return names if names else ["default"]
 
 
+def resolve_all_profile_stagings(game) -> list[Path]:
+    """Every DISTINCT staging path used by any of *game*'s profiles — a
+    standard profile's shared pool collapses to one entry regardless of how
+    many profiles reference it; a profile-specific profile contributes its
+    own private ``mods/`` folder. Profile Groups are skipped (their own
+    ``mods/`` is just a re-materialized copy of their member profiles', which
+    are already covered on their own). Used by the multi-profile "Check
+    Updates" scope."""
+    from Utils.mod_copy import resolve_target_staging
+    from Utils.profile_groups import is_group
+    profiles_root = game.get_profile_root() / "profiles"
+    seen: set[str] = set()
+    result: list[Path] = []
+    for name in _profiles_for_game(game.name):
+        pdir = profiles_root / name
+        if is_group(pdir):
+            continue
+        try:
+            staging = Path(resolve_target_staging(game, pdir))
+        except Exception:
+            continue
+        key = str(staging.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(staging)
+    return result
+
+
+def dedupe_profile_name(game_name: str, base_name: str) -> str:
+    """Return *base_name* if no profile by that name exists yet for
+    *game_name*, else the first "_2", "_3", ... suffixed variant that's free
+    (capped at 64 chars). Extracted from the collection-install "new profile"
+    naming logic (``gui_qt.app._start_collection_pipeline``) so the Profile
+    Group importer can reuse the exact same collision behavior."""
+    existing = set(_profiles_for_game(game_name))
+    name = base_name
+    i = 2
+    while name in existing:
+        name = f"{base_name}_{i}"[:64]
+        i += 1
+    return name
+
+
 def get_collection_url_from_profile(profile_dir: Path) -> str | None:
     """Return the collection URL from profile_state profile_settings, or None if not set."""
     url = read_profile_settings(profile_dir, None).get("collection_url")

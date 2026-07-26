@@ -538,6 +538,19 @@ class SettingsView(QWidget):
                  "of enabled. Applies to every install path except collection "
                  "installs."))
 
+        self._combo(
+            g, self.tr("Check Updates scope"),
+            [(self.tr("Current profile only"), "profile"),
+             (self.tr("All profiles (this game)"), "game"),
+             (self.tr("All profiles (every game)"), "all")],
+            uc.load_check_updates_scope(), uc.save_check_updates_scope)
+        self._add_help(
+            g, self.tr("How much \"Check Updates\" (the footer button, with no mods "
+                 "selected) scans in one pass: just the active profile's own "
+                 "mods, every profile of the current game, or every profile of "
+                 "every configured game. Checking a right-click selection of "
+                 "specific mods always stays scoped to just those mods."))
+
         # Collection settings — all persisted together via save_collection_settings.
         self._slider(
             g, self.tr("Max concurrent downloads"), 1, uc._MAX_CONCURRENT_CEILING,

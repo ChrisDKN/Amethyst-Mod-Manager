@@ -61,15 +61,18 @@ class ProfileGroupsView(QWidget):
         return root / "profiles" / name
 
     def _eligible_members(self) -> list[str]:
-        """Profiles that can be a group member: not a group themselves, and not
-        profile-specific-mods (which have their own private staging pool)."""
+        """Profiles that can be a group member: profile-specific-mods
+        profiles only (their own private mods/ folder, so the group only
+        ever sees what was deliberately added to that profile — not a group
+        itself, and not a profile sharing the game's common mod pool, which
+        would drag in every mod the pool happens to have)."""
         from Utils.game_helpers import _profiles_for_game
         out = []
         for name in _profiles_for_game(self._game_name):
             d = self._profile_dir(name)
             if _is_group(d):
                 continue
-            if profile_uses_specific_mods(d):
+            if not profile_uses_specific_mods(d):
                 continue
             out.append(name)
         return out
@@ -274,9 +277,10 @@ class ProfileGroupsView(QWidget):
             add_row.addWidget(add_btn)
             v.addLayout(add_row)
         elif not members:
-            none_lbl = QLabel(self.tr("No eligible profiles to add — create another "
-                                       "profile first (profile-specific-mods profiles "
-                                       "and other groups can't be members)."))
+            none_lbl = QLabel(self.tr("No eligible profiles to add — group members "
+                                       "must use profile-specific mods (its own "
+                                       "private mod folder). Create a new profile "
+                                       "with that option checked."))
             none_lbl.setWordWrap(True)
             none_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
             v.addWidget(none_lbl)
@@ -351,8 +355,10 @@ class ProfileGroupsView(QWidget):
 
         eligible = self._eligible_members()
         if not eligible:
-            none_lbl = QLabel(self.tr("No eligible profiles yet — create at least one "
-                                       "regular profile first."))
+            none_lbl = QLabel(self.tr("No eligible profiles yet — group members must "
+                                       "use profile-specific mods (its own private "
+                                       "mod folder). Create one with that option "
+                                       "checked first."))
             none_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
             v.addWidget(none_lbl)
         self._create_checks: dict[str, QCheckBox] = {}

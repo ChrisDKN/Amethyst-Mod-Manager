@@ -281,6 +281,55 @@ class NexusCollectionMod:
                             # (e.g. Skyrim mods inside an Enderal collection)
 
 
+def manifest_to_collection_mods(
+        manifest: dict) -> "tuple[list[NexusCollectionMod], list[tuple[str, str]], int]":
+    """Convert an Amethyst manifest dict's ``mods`` array into
+    ``NexusCollectionMod`` objects, ready for
+    ``Utils.collection_install.run_collection_install``.
+
+    Returns ``(mods, offsite, total_size)`` — *offsite* is
+    ``[(mod_name, url), ...]`` for entries sourced as ``"browse"``/``"direct"``
+    (no automatic downloader exists for these; the GUI surfaces them as a
+    manual off-site reminder). *total_size* is the sum of every entry's known
+    ``fileSize``.
+
+    Pure / no Qt — this is the exact conversion
+    ``gui_qt.collection_detail_view.CollectionDetailView._populate_from_local_manifest``
+    already did inline; factored out so a headless Profile Group importer can
+    reuse it too."""
+    schema_mods = (manifest or {}).get("mods", [])
+    mods: list[NexusCollectionMod] = []
+    offsite: list[tuple[str, str]] = []
+    total_size = 0
+    for m in schema_mods:
+        src = m.get("source") or {}
+        src_type = (src.get("type") or "nexus").lower()
+        mod_name = m.get("name") or ""
+        fid = int(src.get("fileId") or 0)
+        mid = int(src.get("modId") or 0)
+        file_size = int(src.get("fileSize") or 0)
+        total_size += file_size
+        if src.get("bundle") is True or src_type == "bundle":
+            mods.append(NexusCollectionMod(mod_name=mod_name,
+                                           file_name=mod_name, source_type="bundle"))
+            continue
+        if src_type in ("browse", "direct"):
+            url = src.get("url") or src.get("fileUrl") or ""
+            if url:
+                offsite.append((mod_name, url))
+            continue
+        cat = m.get("category") or {}
+        mods.append(NexusCollectionMod(
+            mod_id=mid, file_id=fid, mod_name=mod_name,
+            file_name=src.get("logicalFilename") or mod_name,
+            size_bytes=file_size, optional=bool(m.get("optional", False)),
+            source_type="nexus", version=m.get("version") or "",
+            category_id=int(cat.get("id") or 0),
+            category_name=(cat.get("name") or "").strip(),
+            domain_name=(m.get("domainName") or "").strip()))
+    return mods, offsite, total_size
+
+
 # ---------------------------------------------------------------------------
 # API key persistence (system keyring, with file fallback)
 # ---------------------------------------------------------------------------

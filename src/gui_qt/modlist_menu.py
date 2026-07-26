@@ -229,13 +229,13 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             act(_mtf("Reinstall ({0})", len(_reinstall_multi)),
                 lambda ns=_reinstall_multi: _reinstall(view, ns))
         divider()
-        # Group: organise
+        # Group: organise. Always shown: "New profile…" is always a valid
+        # destination even with no other existing profiles.
         _others = _other_profiles(view)
-        if _others:
-            submenu(_mtf("Copy to profile ({0})", n),
-                    _profile_submenu_items(view, _names, sel_mods, _others, False))
-            submenu(_mtf("Move to profile ({0})", n),
-                    _profile_submenu_items(view, _names, sel_mods, _others, True))
+        submenu(_mtf("Copy to profile ({0})", n),
+                _profile_submenu_items(view, _names, sel_mods, _others, False))
+        submenu(_mtf("Move to profile ({0})", n),
+                _profile_submenu_items(view, _names, sel_mods, _others, True))
         act(_mtf("Disable selected ({0})", n),
             lambda: _set_enabled(view, model, sel_mods, False))
         act(_mtf("Enable selected ({0})", n),
@@ -308,11 +308,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
     act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
     _others = _other_profiles(view)
-    if _others:
-        submenu(_mt("Copy to profile"),
-                _profile_submenu_items(view, [name], [row], _others, False))
-        submenu(_mt("Move to profile"),
-                _profile_submenu_items(view, [name], [row], _others, True))
+    submenu(_mt("Copy to profile"),
+            _profile_submenu_items(view, [name], [row], _others, False))
+    submenu(_mt("Move to profile"),
+            _profile_submenu_items(view, [name], [row], _others, True))
     if not locked and _separator_choices(model):
         submenu(_mt("Move to separator"),
                 _separator_submenu_items(view, model, [row]))
@@ -608,20 +607,35 @@ def _other_profiles(view):
 
 
 def _profile_submenu_items(view, names, mod_rows, others, move: bool):
-    """Build the (profile_name, slot) list for the Copy/Move-to-profile submenu.
-    Each entry copies/moves *names* to that profile (Tk lists the profiles as a
-    submenu rather than opening a picker window)."""
+    """Build the (profile_name, slot) list for the Copy/Move-to-profile submenu:
+    a fixed "New profile…" entry first (creates the destination on the fly, of
+    either kind — see ``_copy_to_new_profile``), then one entry per existing
+    other profile (Tk lists the profiles as a submenu rather than opening a
+    picker window)."""
     model = view.model()
     enabled_map = {}
     for r in mod_rows:
         e = model.entry(r)
         if not e.is_separator:
             enabled_map[e.name] = e.enabled
-    return [
+    items = [
+        (_mt("New profile…"), (lambda: _copy_to_new_profile(
+            view, names, dict(enabled_map), move))),
+    ]
+    items.extend(
         (prof, (lambda p=prof: _copy_to_profile(
             view, names, dict(enabled_map), p, move)))
         for prof in others
-    ]
+    )
+    return items
+
+
+def _copy_to_new_profile(view, names, enabled_map, move):
+    """Delegate to the window: prompt for a new profile's name + kind, create
+    it, then copy/move *names* into it."""
+    cb = getattr(view, "on_copy_to_new_profile", None)
+    if cb is not None and names:
+        cb(list(names), dict(enabled_map), move)
 
 
 def _copy_to_profile(view, names, enabled_map, target_profile, move):
@@ -1267,6 +1281,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Move to separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Move to separator ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "New name:"),
+    QT_TRANSLATE_NOOP("ModListMenu", "New profile…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open folder"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus ({0})"),
