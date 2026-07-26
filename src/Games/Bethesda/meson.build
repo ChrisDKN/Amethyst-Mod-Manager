@@ -1,0 +1,18 @@
+py.install_sources(
+  '__init__.py',
+  'bethesda_ini.py',
+  'enderal.py',
+  'enderal_se.py',
+  'fallout_3.py',
+  'fallout_3_goty.py',
+  'fallout_4.py',
+  'fallout_4vr.py',
+  'fallout_76.py',
+  'fallout_nv.py',
+  'oblivion.py',
+  'skyrim.py',
+  'skyrim_se.py',
+  'skyrim_vr.py',
+  'starfield.py',
+  subdir: 'Games' / 'Bethesda',
+)

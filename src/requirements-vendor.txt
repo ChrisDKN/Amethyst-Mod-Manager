@@ -19,3 +19,4 @@ importlib_metadata
 backports.tarfile
 msgpack
 bsdiff4
+maturin
