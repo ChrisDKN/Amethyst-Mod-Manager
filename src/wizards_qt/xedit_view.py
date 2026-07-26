@@ -63,6 +63,7 @@ class XEditView(QWidget):
     _extract_done_sig = Signal(bool)
     _run_started_sig = Signal()           # xEdit launched → enable Done
     _run_finished_sig = Signal()          # xEdit exited + restore done → close
+    _qac_all_started_sig = Signal()       # QAC-All loop began → arm Done + mark ran
     _auto_dl_status_sig = Signal(str, str)   # auto-fetch → download-page status
     _auto_dl_gate_sig = Signal(bool)         # auto-fetch → manual Next enable
     _auto_dl_archive_sig = Signal(object)    # auto-fetch → finished archive
@@ -134,6 +135,7 @@ class XEditView(QWidget):
         self._extract_done_sig.connect(_guard(self._on_extract_done))
         self._run_started_sig.connect(_guard(self._on_run_started))
         self._run_finished_sig.connect(_guard(self._finish))
+        self._qac_all_started_sig.connect(_guard(self._on_qac_all_started))
         self._auto_dl_status_sig.connect(_guard(self._on_auto_dl_status))
         self._auto_dl_gate_sig.connect(_guard(self._on_auto_dl_gate))
         self._auto_dl_archive_sig.connect(_guard(self._on_auto_dl_archive))
@@ -502,6 +504,22 @@ class XEditView(QWidget):
         self._dirty_box_added = False
         lay.addStretch(1)
         self._run_status = self._make_status(lay)
+
+        self._qac_choice_row = QWidget()
+        crow = QHBoxLayout(self._qac_choice_row)
+        crow.setContentsMargins(0, 0, 0, 0)
+        crow.setSpacing(8)
+        self._qac_launch_btn = self._accent_btn(self.tr("Launch {0}").format(self._name))
+        self._qac_launch_btn.clicked.connect(self._launch_qac_interactive)
+        crow.addWidget(self._qac_launch_btn)
+        self._qac_all_btn = QPushButton(self.tr("QAC All"))
+        self._qac_all_btn.setCursor(Qt.PointingHandCursor)
+        self._qac_all_btn.setStyleSheet(button_qss("BTN_SUCCESS"))
+        self._qac_all_btn.clicked.connect(self._start_qac_all)
+        crow.addWidget(self._qac_all_btn)
+        self._qac_choice_row.setVisible(False)
+        lay.addWidget(self._qac_choice_row, 0, Qt.AlignHCenter)
+
         self._done_btn = QPushButton(self.tr("Done"))
         self._done_btn.setCursor(Qt.PointingHandCursor)
         self._done_btn.setEnabled(False)
@@ -665,6 +683,163 @@ class XEditView(QWidget):
             ok_text())
         self._done_btn.setEnabled(True)
 
+    # ---- QAC batch clean ----------------------------------------------------
+    def _enter_qac_run_choices(self):
+        """QAC run page: let the user launch the tool interactively (pick a
+        plugin each time) or clean every dirty plugin in one pass. Nothing
+        launches until they choose."""
+        from Utils.xedit_tools import collect_dirty_plugins
+        dirty = collect_dirty_plugins(self._game)
+        n = len(dirty)
+        if n:
+            self._qac_all_btn.setText(self.tr("QAC All ({0})").format(n))
+            self._qac_all_btn.setEnabled(True)
+            self._set_status(
+                self._run_status,
+                self.tr('Launch {0} to clean plugins one at a time, or QAC All '
+                        'to clean all {1} flagged plugin(s) automatically.').format(
+                            self._name, n),
+                "")
+        else:
+            # No LOOT-flagged dirty plugins — QAC All has nothing to do, so only
+            # offer the interactive launch (LOOT may simply never have run).
+            self._qac_all_btn.setEnabled(False)
+            self._set_status(
+                self._run_status,
+                self.tr('No plugins are flagged as dirty. Launch {0} to inspect '
+                        'or clean manually.').format(self._name),
+                "")
+        self._qac_launch_btn.setEnabled(True)
+        self._qac_choice_row.setVisible(True)
+
+    def _launch_qac_interactive(self):
+        # User picked the manual flow: hide the chooser and run the tool the
+        # classic way (module-selection dialog, one plugin at a time).
+        self._qac_choice_row.setVisible(False)
+        self._start_run()
+
+    def _start_qac_all(self):
+        exe, game = self._exe, self._game
+        if exe is None:
+            self._set_status(self._run_status,
+                             self.tr("{0} was not found.").format(self._exe_name), err_text())
+            return
+        from Utils.xedit_tools import collect_dirty_plugins
+        plugins = [name for name, _ in collect_dirty_plugins(game)]
+        if not plugins:
+            self._set_status(self._run_status,
+                             self.tr("No plugins need cleaning."), ok_text())
+            return
+
+        # Lock the chooser so the batch can't be double-started or the
+        # interactive launch fired mid-run (both drive the same prefix).
+        self._qac_launch_btn.setEnabled(False)
+        self._qac_all_btn.setEnabled(False)
+        self._qac_choice_row.setVisible(False)
+        self._set_status(self._run_status,
+                         self.tr("Preparing to clean {0} plugin(s)…").format(len(plugins)), "")
+
+        name = self._name
+        proton_name, prefix_mode = self._proton_name, self._prefix_mode
+
+        def worker():
+            from Utils.exe_launch import (
+                resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
+            )
+            from Utils.wine_paths import to_wine_path
+            from Utils.xedit_tools import (
+                finalize_xedit_saves, prepare_xedit_prefix, restore_after_xedit,
+            )
+            _wlog = lambda m: self._log(f"{name} Wizard: {m}")
+            try:
+                result = resolve_tool_prefix(
+                    exe, game, proton_name, prefix_mode, log_fn=_wlog)
+                if result is None:
+                    safe_emit(self._run_status_sig,
+                        self.tr("Could not find Proton '{0}' — "
+                        "check that it is installed in Steam.").format(
+                            proton_name), err_text())
+                    return
+                proton_script, compat_data, env = result
+
+                game_path = game.get_game_path()
+                if game_path is None:
+                    safe_emit(self._run_status_sig,
+                              self.tr("Game path not configured."), err_text())
+                    return
+
+                pfx = compat_data / "pfx"
+                data_arg = f'-d:{to_wine_path(game_path / "Data", pfx)}'
+                # QuickAutoClean CLI: -autoload skips the module-selection
+                # dialog, -autoexit closes the tool when the clean finishes, and
+                # the plugin filename (positional) is the one to clean. The QAC
+                # exe already forces IKnowWhatImDoing + autosave, so no prompt.
+                base_args = [data_arg, "-autoload", "-autoexit"]
+                # The Discord build's QuickAutoClean is the same launcher with a
+                # -quickautoclean switch (the Nexus builds ship a separate exe).
+                if self._qac and self._discord:
+                    base_args.insert(0, "-quickautoclean")
+                # The multi-game Discord launcher needs a game-mode arg to pick
+                # the game (e.g. -SSE / -FO4 / -SF1) or it errors out.
+                if self._discord and self._discord_mode:
+                    base_args.insert(0, f"-{self._discord_mode}")
+
+                seed_name = self._xedit_name
+                if self._discord and self._discord_mode:
+                    seed_name = f"{self._discord_mode}Edit"
+                prepare_xedit_prefix(
+                    game, compat_data, proton_script, env,
+                    xedit_name=seed_name, exe=exe, log_fn=_wlog)
+
+                safe_emit(self._qac_all_started_sig)
+                total = len(plugins)
+                data_dir = game_path / "Data"
+                cleaned = 0
+                for i, plugin in enumerate(plugins, 1):
+                    if self._closing:
+                        break
+                    safe_emit(self._run_status_sig,
+                              self.tr("Cleaning {0} of {1}: {2}…").format(
+                                  i, total, plugin), "")
+                    self._log(f"{name} Wizard: QAC All — cleaning {plugin} "
+                              f"({i}/{total})")
+                    run_tool_logged(proton_script, exe, env, log_fn=_wlog,
+                                    extra_args=base_args + [plugin],
+                                    label=f"{name} [{plugin}]")
+                    # Finalise this plugin's <name>.save.<ts> temp before the
+                    # next launch reloads Data/ (QAC queues the rename to run on
+                    # shutdown, but we relaunch into the same prefix).
+                    finalize_xedit_saves(data_dir, log_fn=_wlog)
+                    cleaned += 1
+
+                shutdown_prefix_wineserver(proton_script, compat_data,
+                                           log_fn=_wlog)
+                # Catch any straggler temp the per-plugin pass missed.
+                finalize_xedit_saves(data_dir, log_fn=_wlog)
+
+                # Un-deploy so every cleaned plugin lands back in its mod folder
+                # before the close-refresh rescans staging (same fix the
+                # interactive flow relies on).
+                restore_after_xedit(game, name, log_fn=self._log)
+                self._log(f"{name} Wizard: QAC All cleaned {cleaned} plugin(s).")
+
+                safe_emit(self._run_status_sig,
+                          self.tr("QAC All finished — cleaned {0} plugin(s).").format(
+                              cleaned), ok_text())
+                safe_emit(self._run_finished_sig)
+            except Exception as exc:
+                safe_emit(self._run_status_sig,
+                          self.tr("QAC All error: {0}").format(exc), err_text())
+                self._log(f"{name} Wizard: QAC All error: {exc}")
+
+        threading.Thread(target=worker, daemon=True, name="xedit-qac-all").start()
+
+    def _on_qac_all_started(self):
+        # The batch is underway; allow the user to dismiss when it completes
+        # (the auto-close on _run_finished_sig also lands on Done → _finish).
+        self._ran = True
+        self._done_btn.setEnabled(True)
+
     # ---- shared -------------------------------------------------------------
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
@@ -682,7 +857,9 @@ class XEditView(QWidget):
         elif idx == _PG_RUN:
             if self._qac:
                 self._build_dirty_plugins_panel()
-            self._start_run()
+                self._enter_qac_run_choices()
+            else:
+                self._start_run()
 
     def _finish(self):
         # ✕, Done, and the auto-close after the tool exits all land here.
