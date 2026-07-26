@@ -98,15 +98,6 @@ modules:
           - https://www.7-zip.org/a/7z2501-src.tar.xz
         sha256: ed087f83ee789c1ea5f39c464c55a5c9d4008deb0efe900814f2df262b82c36e
         strip-components: 0
-  - name: unrar
-    buildsystem: simple
-    build-commands:
-      - make -f makefile
-      - install -Dm755 unrar /app/bin/unrar
-    sources:
-      - type: archive
-        url: https://www.rarlab.com/rar/unrarsrc-7.1.9.tar.gz
-        sha256: cbb5c7b65b720e59ffa47b2d00b8d1022a961da7ae1db27b6986c43671719483
 
   # cabextract is needed by winetricks (vcredist/d3dcompiler installs).
   # Bundling it means Utils/protontricks.py finds it on PATH and never falls
