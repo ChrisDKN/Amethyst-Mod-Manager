@@ -446,7 +446,15 @@ class DetachableTabWidget(QTabWidget):
         w = self.widget(index)
         if id(w) in self._permanent:
             return
-        if id(w) in self._scoped:
+        # A view may veto the tab-bar ✕ (e.g. an xEdit wizard while the tool
+        # is running). For scoped tabs the page is a placeholder — ask the
+        # real content widget in the panel stack.
+        scoped = self._scoped.get(id(w))
+        content = scoped[1] if scoped is not None else w
+        blocked = getattr(content, "tab_close_blocked", None)
+        if blocked is not None and blocked():
+            return
+        if scoped is not None:
             self._close_scoped(w)
             return
         self.removeTab(index)
