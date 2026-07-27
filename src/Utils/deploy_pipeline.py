@@ -310,9 +310,19 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
     # against materialize_group() (which takes the identical lock) for group
     # profiles only — regular profiles never touch this lock.
     from Utils.profile_groups import is_group, group_build_lock
-    _group_lock = group_build_lock(modlist_path.parent) if is_group(modlist_path.parent) else None
+    _is_group = is_group(modlist_path.parent)
+    _group_lock = group_build_lock(modlist_path.parent) if _is_group else None
     if _group_lock is not None:
         _group_lock.acquire()
+
+    # Only a Profile Group's own mods/ folder is deliberately populated with
+    # per-file symlinks into its member profiles' real mod folders (see
+    # profile_groups._stage_mod_tree) — bound the index scanner's
+    # symlink-follow allowance to this game's own profiles directory so it
+    # can see those specific links (see _scan_dir in filemap.py) without
+    # opening the door to a symlink planted by an untrusted mod archive
+    # pointing anywhere else on the filesystem.
+    _symlink_root = str((profile_root / "profiles").resolve()) if _is_group else None
 
     try:
         from Nexus.nexus_meta import collect_root_flagged_mods
@@ -371,6 +381,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                     allowed_extensions=set(game.mod_install_extensions or ()) or None,
                     root_folder_mods=set(rf_mods or ()) or None,
                     log_fn=log_fn,
+                    symlink_root=_symlink_root,
                 )
             except Exception as idx_err:
                 log_fn(f"Index rescan warning: {idx_err}")
@@ -415,6 +426,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 filemap_casing_pins=getattr(game, "filemap_casing_pins", None),
                 conflict_key_fn=conflict_key_fn,
                 root_folder_mods=rf_mods or None,
+                symlink_root=_symlink_root,
             )
         # Game-specific filemap rewrite (e.g. Witcher 3 routes staging paths
         # like TrueFires_v1.01/modTrueFires/… to mods/modTrueFires/… so the

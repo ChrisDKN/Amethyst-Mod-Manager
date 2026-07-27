@@ -359,14 +359,28 @@ class GameState:
         try:
             from Utils.bsa_filemap import build_bsa_conflicts, rebuild_bsa_index
             from Utils.plugins import read_loadorder
+            from Utils.profile_groups import is_group
         except Exception:
             return empty
         out_dir = staging.parent
         bsa_index = out_dir / "bsa_index.bin"
         try:
-            if not bsa_index.is_file():
-                rebuild_bsa_index(bsa_index, staging, exts, log_fn=log)
             pdir = self.profile_dir()
+            if not bsa_index.is_file():
+                # Only a Profile Group's own mods/ folder is deliberately
+                # populated with per-file symlinks into its member profiles'
+                # real mod folders (profile_groups._stage_mod_tree) — bound
+                # the BSA scanner's symlink-follow allowance to this game's
+                # own profiles directory so it can see those specific links
+                # without opening the door to a symlink planted by an
+                # untrusted mod archive pointing anywhere else (see
+                # _scan_mod_bsas in bsa_filemap.py).
+                _symlink_root = (
+                    str((g.get_profile_root() / "profiles").resolve())
+                    if pdir is not None and is_group(pdir) else None
+                )
+                rebuild_bsa_index(bsa_index, staging, exts, log_fn=log,
+                                   symlink_root=_symlink_root)
             # UE pak mounting is not plugin-driven — winners follow pure mod
             # priority there, so skip the plugin load-order refinement.
             use_plugin_order = getattr(g, "archive_plugin_ordering", True)

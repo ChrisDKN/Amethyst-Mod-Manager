@@ -153,6 +153,7 @@ def _scan_mod_bsas(
     mod_dir: str,
     archive_extensions: frozenset[str],
     cached_archives: dict[str, tuple[str, float, list[str]]] | None = None,
+    symlink_root: str | None = None,
 ) -> tuple[str, list[tuple[str, float, list[str]]], int]:
     """Scan a single mod directory for archive files and parse their TOCs.
 
@@ -164,6 +165,11 @@ def _scan_mod_bsas(
     If ``cached_archives`` is provided (keyed by that archive key), any
     archive whose mtime matches the cache is returned directly from cache
     without parsing.
+
+    symlink_root — absolute (realpath'd) path that a per-file BSA symlink
+    must resolve inside of to be indexed; see _scan_dir's docstring in
+    filemap.py for why this defaults to closed (None = never follow). Only
+    Profile Groups' own staging root should ever pass this.
 
     Returns (mod_name, [(archive_key, mtime, [file_paths])], parse_count)
     where ``parse_count`` is the number of archives actually parsed (cache
@@ -193,13 +199,33 @@ def _scan_mod_bsas(
             with os.scandir(mod_dir) as it:
                 for entry in it:
                     try:
-                        if not entry.is_file(follow_symlinks=False):
+                        # A Profile Group's private mods/ folder links in
+                        # each file via a per-file symlink (see
+                        # profile_groups._stage_mod_tree) — plain
+                        # follow_symlinks=False would make a symlinked BSA
+                        # invisible here (same blind spot as _scan_dir in
+                        # filemap.py), silently dropping its archived files
+                        # from the deploy. Only follow when symlink_root is
+                        # supplied AND the resolved target stays within it —
+                        # an installed mod has no legitimate reason to
+                        # contain a symlink at all, so this stays closed by
+                        # default (an untrusted mod archive could otherwise
+                        # plant a symlink to an arbitrary path). A dangling
+                        # symlink still safely evaluates False.
+                        _is_real_file = entry.is_file(follow_symlinks=False)
+                        if not _is_real_file and symlink_root is not None:
+                            from Utils.filemap import _symlink_target_contained
+                            if (entry.is_symlink()
+                                    and entry.is_file(follow_symlinks=True)
+                                    and _symlink_target_contained(entry.path, symlink_root)):
+                                _is_real_file = True
+                        if not _is_real_file:
                             continue
                         ext = os.path.splitext(entry.name)[1].lower()
                         if ext in archive_extensions:
-                            # Reuses the dirent's cached lstat — no extra
+                            # Reuses the dirent's cached stat — no extra
                             # syscall (is_file above already fetched it).
-                            mtime = entry.stat(follow_symlinks=False).st_mtime
+                            mtime = entry.stat(follow_symlinks=True).st_mtime
                             candidates.append((entry.name, entry.path, ext, mtime))
                     except OSError:
                         continue
@@ -225,11 +251,15 @@ def rebuild_bsa_index(
     staging_root: Path,
     archive_extensions: frozenset[str],
     log_fn: "Callable[[str], None] | None" = None,
+    symlink_root: str | None = None,
 ) -> None:
     """Scan all mod folders for BSA files and write bsa_index.bin.
 
     Uses the existing BSA index for incremental updates: only re-parses
     BSAs whose mtime has changed since the last scan.
+
+    symlink_root — forwarded to _scan_mod_bsas; see its docstring. Only a
+    Profile Group's own staging root should ever pass this.
     """
     if not staging_root.is_dir():
         return
@@ -256,6 +286,7 @@ def rebuild_bsa_index(
         cached = old_archive_map.get(mod_name)
         futures.append(_POOL.submit(
             _scan_mod_bsas, mod_name, mod_path, archive_extensions, cached,
+            symlink_root=symlink_root,
         ))
 
     index: _BsaIndex = {}

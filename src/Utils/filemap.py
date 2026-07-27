@@ -1065,6 +1065,19 @@ def _try_incremental(
             st0.lock.release()
 
 
+def _symlink_target_contained(path: str, root: str) -> bool:
+    """True if the fully-resolved real path of *path* is *root* itself or
+    lives somewhere underneath it. Used to allow-list the specific,
+    known-safe symlinks Profile Groups create (see symlink_root on
+    _scan_dir) without opening the door to a symlink planted by an
+    untrusted mod archive pointing anywhere else on the filesystem."""
+    try:
+        real = os.path.realpath(path)
+    except OSError:
+        return False
+    return real == root or real.startswith(root + os.sep)
+
+
 def _scan_dir(
     source_name: str,
     source_dir: str,
@@ -1073,6 +1086,7 @@ def _scan_dir(
     _unused_root_deploy_folders: frozenset[str] = frozenset(),
     strip_path_prefixes: list[str] | None = None,
     exclude_dirs: frozenset[str] = frozenset(),
+    symlink_root: str | None = None,
 ) -> tuple[str, dict[str, str], dict[str, str], list[str]]:
     """Walk source_dir with os.scandir (fast, no Pathlib overhead).
 
@@ -1099,6 +1113,20 @@ def _scan_dir(
     pushed onto the scan stack, so none of its files reach the filemap.
     e.g. exclude_dirs={"fomod"} prevents FOMOD installer metadata from being
     deployed to the game's data directory.
+
+    symlink_root — absolute path (as returned by os.path.realpath) that a
+    per-FILE symlink must resolve inside of to be indexed at all; symlinks
+    resolving outside it (or any symlink at all, when this is None) are
+    silently skipped, same as historical behavior. This exists ONLY for
+    Profile Groups, whose private mods/ folder is deliberately populated with
+    per-file symlinks into member profiles' real mod folders (see
+    profile_groups._stage_mod_tree) — a mod folder installed from an
+    untrusted archive has no legitimate reason to contain a symlink at all,
+    so a bare "follow every symlink" policy would let a maliciously crafted
+    mod archive plant a symlink to an arbitrary path (e.g. ~/.ssh/id_rsa) and
+    have it indexed and deployed. Restricting to a known-safe root (the
+    game's own profiles directory) keeps that door closed while still
+    indexing the legitimate cross-profile links a group creates.
 
     _unused_root_deploy_folders — retained for call-site compatibility only;
     the root-deploy routing has been removed in favour of custom_routing_rules.
@@ -1142,7 +1170,29 @@ def _scan_dir(
                             prefix + entry.name + "/",
                             entry.path,
                         ))
-                    elif entry.is_file(follow_symlinks=False):
+                    elif entry.is_file(follow_symlinks=False) or (
+                        symlink_root is not None
+                        and entry.is_symlink()
+                        and entry.is_file(follow_symlinks=True)
+                        and _symlink_target_contained(entry.path, symlink_root)
+                    ):
+                        # The `or` clause only applies to a Profile Group's
+                        # private mods/ folder, which is deliberately
+                        # populated with per-FILE symlinks pointing at each
+                        # member profile's real files (see
+                        # profile_groups._stage_mod_tree). Plain
+                        # follow_symlinks=False makes every entry.is_dir()/
+                        # is_file() check false for those symlinks — invisible
+                        # to both branches — so the mod folder still gets an
+                        # index entry (it's a real directory) but with zero
+                        # files, and a deploy built from it silently
+                        # transfers nothing. Symlinks are only followed when
+                        # symlink_root is supplied AND the resolved target
+                        # stays within it — an installed mod has no
+                        # legitimate reason to contain a symlink at all, so
+                        # this stays closed by default to avoid letting a
+                        # malicious archive plant a symlink to an arbitrary
+                        # path (e.g. ~/.ssh/id_rsa) and have it deployed.
                         if entry.name in _EXCLUDE_NAMES:
                             continue
                         if _is_macos_junk(entry.name):
@@ -1759,6 +1809,7 @@ def rebuild_mod_index(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
+    symlink_root: str | None = None,
 ) -> None:
     """Scan every mod folder under staging_root and rewrite the full index.
 
@@ -1772,6 +1823,10 @@ def rebuild_mod_index(
     ``Data``) must NOT be applied: a SKSE-style mod ships ``Data/Scripts/...``
     plus loose ``.exe`` files at top level; stripping ``Data/`` would dump the
     Scripts subtree at the game root instead of inside ``<game>/Data/``.
+
+    symlink_root — forwarded to _scan_dir; see its docstring. Only a Profile
+    Group's own staging root should ever pass this (its per-file symlinks are
+    the one legitimate case), so every other caller leaves it None.
     """
     _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
     _per_mod = per_mod_strip_prefixes or {}
@@ -1828,6 +1883,7 @@ def rebuild_mod_index(
             _scan_dir, name, d, _strip_for_mod(name), _exts, _root,
             strip_path_prefixes=_path_prefixes_for_mod(name),
             exclude_dirs=_excl_dirs,
+            symlink_root=symlink_root,
         ): name
         for name, d in scan_targets
     }
@@ -2132,6 +2188,7 @@ def build_filemap(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
+    symlink_root: str | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -2169,6 +2226,10 @@ def build_filemap(
     files are treated as if the mod does not have them, so the next
     lower-priority mod that has the same file wins instead.
 
+    symlink_root — forwarded to rebuild_mod_index/_scan_dir when a full
+    rescan is needed; see _scan_dir's docstring. Only a Profile Group's own
+    staging root should ever pass this.
+
     Returns:
         (count, conflict_map, overrides, overridden_by)
     """
@@ -2203,6 +2264,7 @@ def build_filemap(
             exclude_dirs=exclude_dirs,
             log_fn=log_fn,
             root_folder_mods=root_folder_mods,
+            symlink_root=symlink_root,
         )
         index = read_mod_index(index_path) or {}
 
