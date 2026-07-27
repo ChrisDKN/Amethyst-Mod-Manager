@@ -236,10 +236,11 @@ class GameState:
             return _empty
         index_path = staging.parent / "modindex.bin"
         try:
-            mtime = index_path.stat().st_mtime
+            _st = index_path.stat()
+            stat_key = (_st.st_mtime_ns, _st.st_size)
         except OSError:
             return _empty
-        cache_key = (str(index_path), mtime, getattr(g, "name", None))
+        cache_key = (str(index_path), stat_key, getattr(g, "name", None))
         cached = getattr(self, "_flag_mods_cache", None)
         if cached is not None and cached[0] == cache_key:
             return cached[1]

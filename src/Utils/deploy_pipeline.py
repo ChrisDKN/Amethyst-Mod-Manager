@@ -359,7 +359,13 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                     log_fn=log_fn,
                 )
             except Exception as idx_err:
-                log_fn(f"Index rescan warning: {idx_err}")
+                # Make the consequence explicit: a failed index write is the
+                # root cause of the whole "no conflicts / no plugins / mod
+                # missing from Data tab" symptom family, and this line is its
+                # only trace.
+                log_fn(f"WARN: modindex.bin was NOT rewritten — mods may be "
+                       f"missing from conflicts/plugins/Data tab until a "
+                       f"Refresh succeeds. Cause: {idx_err}")
         norm_case = (
             getattr(game, "normalize_folder_case", True)
             and load_normalize_folder_case()

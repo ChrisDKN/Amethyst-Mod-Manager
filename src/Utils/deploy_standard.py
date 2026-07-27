@@ -1621,7 +1621,10 @@ def restore_data_core(
             # than rglob-ing the entire overwrite tree.
             if rescued_overwrite_rels:
                 try:
-                    from Utils.filemap import update_mod_index, read_mod_index
+                    from Utils.filemap import (
+                        update_mod_index, read_mod_index, _is_utf8_safe,
+                        _safe_log_str,
+                    )
                     # Default assumes overwrite_dir is the profile's top-level
                     # overwrite/ (so its parent is the profile root holding
                     # modindex.bin). Callers that pass a SUB-path of overwrite/
@@ -1644,12 +1647,29 @@ def restore_data_core(
                         if os.path.exists(_overwrite_str + "/" + _v):
                             new_normal[_k] = _v
                     for _rel_str in rescued_overwrite_rels:
+                        # Runtime files are GAME-created — their names can be
+                        # any bytes. A surrogate-escaped non-UTF-8 name can't
+                        # be msgpack-serialized and would abort the whole
+                        # index update; skip it (the file itself stays safely
+                        # in overwrite/, it just isn't indexed).
+                        if not _is_utf8_safe(_rel_str):
+                            _log(f"  WARN: rescued file has a non-UTF-8 name, "
+                                 f"not indexed: {_safe_log_str(_rel_str)}")
+                            continue
                         # Normalise separators for cross-platform safety
                         _rel_posix = _rel_str.replace("\\", "/")
                         new_normal[_rel_posix.lower()] = _rel_posix
-                    update_mod_index(_index_path, _OVERWRITE_NAME, new_normal, existing_root)
-                except Exception:
-                    pass
+                    update_mod_index(_index_path, _OVERWRITE_NAME, new_normal,
+                                     existing_root, log_fn=_log)
+                except Exception as _idx_err:
+                    # A failed update only loses the [Overwrite] refresh — but
+                    # say so instead of hiding it (a bare pass here masked
+                    # rescued files silently missing from the Data tab).
+                    try:
+                        _log(f"  WARN: could not update modindex.bin with "
+                             f"rescued file(s): {_idx_err}")
+                    except Exception:
+                        pass
         if kept_whitelisted:
             _log(f"  Left {kept_whitelisted} whitelisted file(s) in the game folder.")
         if discarded_empty:

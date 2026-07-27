@@ -37,7 +37,10 @@ import sys
 import time
 from bisect import bisect_left
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import (
+    ThreadPoolExecutor, as_completed,
+    TimeoutError as _FuturesTimeoutError,  # builtin alias on 3.11+, distinct before
+)
 import threading
 from pathlib import Path
 from functools import lru_cache
@@ -91,13 +94,40 @@ def _is_macos_junk(name: str) -> bool:
 # Reuse a modest thread pool across calls rather than creating one per call
 _POOL = ThreadPoolExecutor(max_workers=20)
 
+# Overall deadline for one index scan (rebuild/rescan). A hung mount (dead
+# FUSE/network share, dying SD card) blocks a _scan_dir worker in
+# uninterruptible I/O; without a deadline the rebuild never returns, the
+# index is never written, and the caller's build lock stays held forever.
+# scandir-only walks finish in seconds even on large libraries, so a scan
+# that exceeds this is stuck, not slow.
+_SCAN_TIMEOUT = 300.0
+
 _INDEX_VERSION = 4
 
-# In-memory cache: (path_str, mtime) → parsed index
+# In-memory cache: (path_str, (mtime_ns, size)) → parsed index
 # Avoids re-parsing the ~5 MB index file on every filemap rebuild.
 _IndexCache = dict[str, tuple[dict[str, str], dict[str, str]]]
-_index_cache: tuple[str, float, _IndexCache] | None = None  # (path, mtime, data)
+_index_cache: tuple[str, tuple, _IndexCache] | None = None  # (path, stat_key, data)
 _index_cache_lock = threading.Lock()
+
+# Serializes every read-modify-write of modindex.bin across threads.
+# update/remove/rename/rescan all read the index, mutate, and write it back;
+# without this, two writers on different threads (e.g. an install finishing
+# during a Refresh rebuild) interleave and one's changes are lost — or their
+# temp files collide and a half-written index gets renamed into place.
+# RLock because the RMW helpers hold it while calling _write_mod_index,
+# which takes it too.
+_index_write_lock = threading.RLock()
+
+
+def _index_stat_key(index_path: Path):
+    """(st_mtime_ns, st_size) — cache-validity key for modindex.bin.
+
+    A bare float mtime is too coarse on FAT/exFAT SD cards (2 s resolution):
+    a rewrite by another process inside the same tick would serve stale cache.
+    Size + ns-mtime makes an unnoticed change vanishingly unlikely."""
+    st = index_path.stat()
+    return (st.st_mtime_ns, st.st_size)
 
 # Per-output-path cache of the last filemap_winner dict.
 # If the new winner dict is identical, we skip the file write entirely.
@@ -1286,8 +1316,8 @@ def _safe_log_str(s: str) -> str:
         return s.encode("utf-8", "backslashreplace").decode("utf-8", "replace")
 
 
-# (path, mtime) → mods with non-UTF-8 file names. See mod_index_utf8_unsafe.
-_utf8_unsafe_cache: tuple[str, float, frozenset] | None = None
+# (path, stat_key) → mods with non-UTF-8 file names. See mod_index_utf8_unsafe.
+_utf8_unsafe_cache: tuple[str, tuple, frozenset] | None = None
 
 
 def mod_index_utf8_unsafe(index_path: Path) -> frozenset:
@@ -1299,18 +1329,18 @@ def mod_index_utf8_unsafe(index_path: Path) -> frozenset:
     index rewrite, so per-toggle filemap rebuilds shouldn't repeat it."""
     global _utf8_unsafe_cache
     try:
-        mtime = index_path.stat().st_mtime
+        stat_key = _index_stat_key(index_path)
     except OSError:
         return frozenset()
     key = str(index_path)
     c = _utf8_unsafe_cache
-    if c is not None and c[0] == key and c[1] == mtime:
+    if c is not None and c[0] == key and c[1] == stat_key:
         return c[2]
     index = read_mod_index(index_path) or {}
     bad = frozenset(
         name for name, (normal, _root) in index.items()
         if any(not _is_utf8_safe(rs) for rs in normal.values()))
-    _utf8_unsafe_cache = (key, mtime, bad)
+    _utf8_unsafe_cache = (key, stat_key, bad)
     return bad
 
 
@@ -1618,10 +1648,10 @@ def read_mod_index(
     path_str = str(index_path)
     with _index_cache_lock:
         try:
-            mtime = index_path.stat().st_mtime
+            stat_key = _index_stat_key(index_path)
         except OSError:
             return None
-        if _index_cache is not None and _index_cache[0] == path_str and _index_cache[1] == mtime:
+        if _index_cache is not None and _index_cache[0] == path_str and _index_cache[1] == stat_key:
             return _index_cache[2]
     try:
         with perftrace.span("read_mod_index: COLD parse"):
@@ -1644,8 +1674,35 @@ def read_mod_index(
     except Exception:
         return None
     with _index_cache_lock:
-        _index_cache = (path_str, mtime, index)
+        _index_cache = (path_str, stat_key, index)
     return index
+
+
+def _drop_non_utf8_entries(
+    index: dict[str, tuple[dict[str, str], dict[str, str]]],
+) -> tuple[dict[str, tuple[dict[str, str], dict[str, str]]], list[str]]:
+    """Filter out entries msgpack cannot UTF-8-encode.
+
+    Returns (clean_index, dropped_descriptions). A mod whose NAME is bad is
+    dropped whole; a mod with bad rel paths keeps its good files. Descriptions
+    are backslash-escaped, safe for any log sink."""
+    clean: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+    dropped: list[str] = []
+    for mod_name, (normal, root) in index.items():
+        if not _is_utf8_safe(mod_name):
+            dropped.append(f"mod \"{_safe_log_str(mod_name)}\" (bad folder name)")
+            continue
+        bad_rels = [v for v in (*normal.values(), *root.values())
+                    if not _is_utf8_safe(v)]
+        if not bad_rels:
+            clean[mod_name] = (normal, root)
+            continue
+        dropped.extend(f"{mod_name}: {_safe_log_str(v)}" for v in bad_rels)
+        clean[mod_name] = (
+            {k: v for k, v in normal.items() if _is_utf8_safe(v)},
+            {k: v for k, v in root.items() if _is_utf8_safe(v)},
+        )
+    return clean, dropped
 
 
 def _write_mod_index(
@@ -1668,13 +1725,51 @@ def _write_mod_index(
         files += [[k, v, "r"] for k, v in root.items()]
         mods.append([mod_name, files])
     payload = {"v": _INDEX_VERSION, "mods": mods}
-    with atomic_writer(index_path, "wb", encoding=None) as f:
-        msgpack.pack(payload, f, use_bin_type=True)
+    # Per-process temp suffix: a second PROCESS (two app instances, CLI + GUI)
+    # writing concurrently must not truncate/rename this writer's temp file —
+    # a fixed ".tmp" let one writer rename the other's half-written file over
+    # the real index. In-process writers are serialized by _index_write_lock.
+    tmp_suffix = f".tmp-{os.getpid()}"
+    with _index_write_lock:
+        try:
+            with atomic_writer(index_path, "wb", encoding=None,
+                               suffix=tmp_suffix) as f:
+                msgpack.pack(payload, f, use_bin_type=True)
+        except UnicodeEncodeError:
+            # A mod name or rel path carries surrogate-escaped non-UTF-8 bytes
+            # msgpack cannot serialize. Scan-time filters catch files inside
+            # mods, but e.g. a non-UTF-8 mod FOLDER name or a caller-supplied
+            # rel can still reach here — and one bad entry must not block the
+            # ENTIRE index write (the historical "index permanently stale"
+            # failure). Drop the unencodable entries, warn, and write the rest;
+            # a later Refresh (after repair_nonutf8_names) restores them.
+            index, dropped = _drop_non_utf8_entries(index)
+            try:
+                print(f"[filemap] WARN: modindex.bin write dropped "
+                      f"non-UTF-8 entr(y/ies): {', '.join(dropped)}",
+                      file=sys.stderr, flush=True)
+            except Exception:
+                pass
+            mods = []
+            for mod_name, (normal, root) in index.items():
+                files = [[k, v, "n"] for k, v in normal.items()]
+                files += [[k, v, "r"] for k, v in root.items()]
+                mods.append([mod_name, files])
+            payload = {"v": _INDEX_VERSION, "mods": mods}
+            with atomic_writer(index_path, "wb", encoding=None,
+                               suffix=tmp_suffix) as f:
+                msgpack.pack(payload, f, use_bin_type=True)
+        # Sweep temp litter: legacy fixed-name ".tmp" strays and pid-suffixed
+        # temps from crashed runs (this process's own temp was just renamed).
+        try:
+            for stray in index_path.parent.glob(index_path.name + ".tmp*"):
+                stray.unlink()
+        except OSError:
+            pass
     # Update the in-memory index cache to match what was just written.
     with _index_cache_lock:
         try:
-            mtime = index_path.stat().st_mtime
-            _index_cache = (str(index_path), mtime, index)
+            _index_cache = (str(index_path), _index_stat_key(index_path), index)
         except OSError:
             _index_cache = None
     # Invalidate the filemap skip-cache: the index changed so the next
@@ -1695,15 +1790,33 @@ def update_mod_index(
     normal_files: dict[str, str],
     root_files: dict[str, str],
     normalize_folder_case: bool = True,
+    log_fn: "Callable[[str], None] | None" = None,
 ) -> None:
     """Add or replace a single mod's entry in the index.
 
     Reads the existing index (if any), replaces the entry for mod_name,
     and writes the result atomically.  Call this after installing a mod.
+
+    If an index file EXISTS but cannot be read (corrupt, truncated, or a
+    future version), the update is SKIPPED: rewriting from a failed read
+    would produce an index containing only *mod_name*, silently dropping
+    every other mod until the next full Refresh. The bad file is left for
+    rebuild_mod_index (Refresh) to replace wholesale.
     """
-    index = read_mod_index(index_path) or {}
-    index[mod_name] = (normal_files, root_files)
-    _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
+    with _index_write_lock:
+        index = read_mod_index(index_path)
+        if index is None and index_path.is_file():
+            if log_fn is not None:
+                try:
+                    log_fn(f"WARN: modindex.bin exists but is unreadable — "
+                           f"skipped index update for \"{_safe_log_str(mod_name)}\" "
+                           f"(a full Refresh will rebuild the index).")
+                except Exception:
+                    pass
+            return
+        index = index or {}
+        index[mod_name] = (normal_files, root_files)
+        _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
 
 def remove_from_mod_index(
@@ -1718,16 +1831,17 @@ def remove_from_mod_index(
     """
     if not index_path.is_file():
         return
-    index = read_mod_index(index_path)
-    if not index:
-        return
-    changed = False
-    for name in mod_names:
-        if name in index:
-            del index[name]
-            changed = True
-    if changed:
-        _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
+    with _index_write_lock:
+        index = read_mod_index(index_path)
+        if not index:
+            return
+        changed = False
+        for name in mod_names:
+            if name in index:
+                del index[name]
+                changed = True
+        if changed:
+            _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
 
 def rename_in_mod_index(
@@ -1744,11 +1858,12 @@ def rename_in_mod_index(
     """
     if not index_path.is_file() or old_name == new_name:
         return
-    index = read_mod_index(index_path)
-    if not index or old_name not in index:
-        return
-    index[new_name] = index.pop(old_name)
-    _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
+    with _index_write_lock:
+        index = read_mod_index(index_path)
+        if not index or old_name not in index:
+            return
+        index[new_name] = index.pop(old_name)
+        _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
 
 def rebuild_mod_index(
@@ -1789,10 +1904,19 @@ def rebuild_mod_index(
     # Collect all mod folders that exist on disk
     scan_targets: list[tuple[str, str]] = []
     skipped_nondir: list[str] = []
+    skipped_badname: list[str] = []
     try:
         with os.scandir(staging_str) as it:
             for entry in it:
                 if entry.is_dir(follow_symlinks=False):
+                    # The folder name becomes the index KEY — a non-UTF-8
+                    # (surrogate) name makes msgpack refuse to serialize the
+                    # whole payload, blocking the ENTIRE index write. Skip it
+                    # here (repair_nonutf8_names usually renames it on the
+                    # next Refresh before this runs).
+                    if not _is_utf8_safe(entry.name):
+                        skipped_badname.append(entry.name)
+                        continue
                     scan_targets.append((entry.name, entry.path))
                 elif entry.is_dir(follow_symlinks=True):
                     # A SYMLINK pointing at a directory: the modlist sync adopts
@@ -1801,12 +1925,36 @@ def rebuild_mod_index(
                     # yet deploys nothing. This is the top-suspect cause of
                     # "copied mod is invisible / has no plugins". Record + warn.
                     skipped_nondir.append(entry.name)
-    except OSError:
-        pass
+    except OSError as scan_err:
+        # Staging root unreadable (unmounted SD card, permission loss).
+        # Writing an index from this state would WIPE every mod's entry —
+        # abort without touching the existing index instead.
+        if log_fn is not None:
+            try:
+                log_fn(f"WARN: staging folder could not be read "
+                       f"({scan_err}) — modindex.bin left unchanged.")
+            except Exception:
+                pass
+        return
     if skipped_nondir and log_fn is not None:
-        log_fn(f"WARN: {len(skipped_nondir)} staging entr(y/ies) are SYMLINKS to "
-               f"directories and were NOT indexed (they deploy nothing yet show "
-               f"in the modlist): {', '.join(skipped_nondir[:10])}")
+        # Names come raw from disk and may carry surrogate bytes — escape them
+        # and never let a log-sink failure abort the rescan (same hardening as
+        # the non-UTF-8 warning below; an unguarded sink crash here would
+        # leave the index permanently stale).
+        try:
+            log_fn(f"WARN: {len(skipped_nondir)} staging entr(y/ies) are SYMLINKS to "
+                   f"directories and were NOT indexed (they deploy nothing yet show "
+                   f"in the modlist): "
+                   f"{', '.join(_safe_log_str(n) for n in skipped_nondir[:10])}")
+        except Exception:
+            pass
+    if skipped_badname and log_fn is not None:
+        try:
+            log_fn(f"WARN: {len(skipped_badname)} mod folder(s) skipped — folder "
+                   f"NAME is not valid UTF-8 (rename to fix): "
+                   f"{', '.join(_safe_log_str(n) for n in skipped_badname[:10])}")
+        except Exception:
+            pass
     scan_targets.append((OVERWRITE_NAME, overwrite_str))
 
     def _strip_for_mod(name: str) -> frozenset[str]:
@@ -1836,23 +1984,38 @@ def rebuild_mod_index(
     }
 
     index: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
-    for fut in futures:
-        name, normal, root, invalid_names = fut.result()
-        if invalid_names:
-            if log_fn is not None:
-                # The names are KNOWN non-UTF-8 — escape them, and never let a
-                # log-sink failure abort the rescan (an unguarded print of the
-                # raw names crashed here and left the index permanently stale).
-                try:
-                    log_fn(
-                        f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
-                        f"file(s) with non-UTF-8 name(s): "
-                        f"{', '.join(_safe_log_str(n) for n in invalid_names)}"
-                    )
-                except Exception:
-                    pass
-            continue  # skip the entire mod
-        index[name] = (normal, root)
+    try:
+        for fut in as_completed(futures, timeout=_SCAN_TIMEOUT):
+            name, normal, root, invalid_names = fut.result()
+            if invalid_names:
+                if log_fn is not None:
+                    # The names are KNOWN non-UTF-8 — escape them, and never let a
+                    # log-sink failure abort the rescan (an unguarded print of the
+                    # raw names crashed here and left the index permanently stale).
+                    try:
+                        log_fn(
+                            f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
+                            f"file(s) with non-UTF-8 name(s): "
+                            f"{', '.join(_safe_log_str(n) for n in invalid_names)}"
+                        )
+                    except Exception:
+                        pass
+                continue  # skip the entire mod
+            index[name] = (normal, root)
+    except _FuturesTimeoutError:
+        # A scan worker is stuck (hung mount / dying disk). Writing what we
+        # have would silently drop the unscanned mods — keep the old index.
+        stuck = [futures[f] for f in futures if not f.done()]
+        if log_fn is not None:
+            try:
+                log_fn(f"WARN: index rescan timed out after {_SCAN_TIMEOUT:.0f}s "
+                       f"waiting on: "
+                       f"{', '.join(_safe_log_str(n) for n in stuck[:10])} — "
+                       f"modindex.bin left unchanged (is the staging drive "
+                       f"responding?).")
+            except Exception:
+                pass
+        return
 
     _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
@@ -1885,7 +2048,19 @@ def rescan_mods_in_index(
     _exts  = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
     _excl_dirs = exclude_dirs if exclude_dirs is not None else frozenset()
 
-    index = read_mod_index(index_path) or {}
+    def _warn_unreadable() -> None:
+        # An existing-but-unreadable index means a subset rewrite would WIPE
+        # every other mod's entry — skip and leave it for a full Refresh.
+        if log_fn is not None:
+            try:
+                log_fn("WARN: modindex.bin exists but is unreadable — skipped "
+                       "partial index update (a full Refresh will rebuild it).")
+            except Exception:
+                pass
+
+    if read_mod_index(index_path) is None and index_path.is_file():
+        _warn_unreadable()   # advisory early-out; re-checked under the lock
+        return
 
     def _strip_for_mod(name: str) -> frozenset[str]:
         if name in _root_mods:
@@ -1920,22 +2095,47 @@ def rescan_mods_in_index(
         ): name
         for name, d in targets
     }
-    for fut in futures:
-        name, normal, root, invalid_names = fut.result()
-        if invalid_names:
-            if log_fn is not None:
-                try:  # escaped names + guarded: logging must never abort the write
-                    log_fn(
-                        f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
-                        f"file(s) with non-UTF-8 name(s): "
-                        f"{', '.join(_safe_log_str(n) for n in invalid_names)}"
-                    )
-                except Exception:
-                    pass
-            continue
-        index[name] = (normal, root)
+    scanned: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+    try:
+        for fut in as_completed(futures, timeout=_SCAN_TIMEOUT):
+            name, normal, root, invalid_names = fut.result()
+            if invalid_names:
+                if log_fn is not None:
+                    try:  # escaped names + guarded: logging must never abort the write
+                        log_fn(
+                            f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
+                            f"file(s) with non-UTF-8 name(s): "
+                            f"{', '.join(_safe_log_str(n) for n in invalid_names)}"
+                        )
+                    except Exception:
+                        pass
+                continue
+            scanned[name] = (normal, root)
+    except _FuturesTimeoutError:
+        stuck = [futures[f] for f in futures if not f.done()]
+        if log_fn is not None:
+            try:
+                log_fn(f"WARN: index rescan timed out after {_SCAN_TIMEOUT:.0f}s "
+                       f"waiting on: "
+                       f"{', '.join(_safe_log_str(n) for n in stuck[:10])} — "
+                       f"modindex.bin left unchanged (is the staging drive "
+                       f"responding?).")
+            except Exception:
+                pass
+        return
+    if not scanned:
+        return
 
-    _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
+    # Merge under the write lock against a FRESH read so a concurrent
+    # writer's changes (install finishing, overwrite update) aren't lost.
+    with _index_write_lock:
+        index = read_mod_index(index_path)
+        if index is None and index_path.is_file():
+            _warn_unreadable()
+            return
+        index = index or {}
+        index.update(scanned)
+        _write_mod_index(index_path, index, normalize_folder_case=normalize_folder_case)
 
 
 def _compute_conflict_status(
@@ -2255,7 +2455,7 @@ def build_filemap(
     _incr_fp: tuple = ()
     if _incr_on:
         try:
-            _index_mtime = index_path.stat().st_mtime
+            _index_mtime = index_path.stat().st_mtime_ns
         except OSError:
             _incr_on = False
         else:
