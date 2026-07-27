@@ -72,6 +72,7 @@ is deployed at all.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from Utils.modlist import ModEntry, read_modlist, write_modlist
@@ -108,6 +109,32 @@ from Utils.profile_state import (
 class GroupValidationError(ValueError):
     """Raised when a Profile Group create/edit request violates an invariant
     (duplicate name, missing member, nested group, member not profile-specific)."""
+
+
+_group_build_locks: dict[str, threading.RLock] = {}
+_group_build_locks_guard = threading.Lock()
+
+
+def group_build_lock(profile_dir: Path) -> threading.RLock:
+    """Process-wide lock, one per group profile dir, serializing
+    materialize_group() against any concurrent build_filemap() for that same
+    group (see deploy_pipeline._build_filemap_for_game).
+
+    Without this, a GUI conflicts-panel rebuild (an async worker spawned on
+    profile switch) can be mid-scan of a group's mods/ folder at the exact
+    moment a deploy's own materialize_group() call rmtree's and repopulates
+    that same folder — each side's index/filemap ends up individually
+    well-formed, but built from a directory tree that was torn down and
+    relinked out from under the scan, so a deploy can silently transfer 0 mod
+    files even though modindex.bin looks completely valid moments before and
+    after."""
+    key = str(profile_dir)
+    with _group_build_locks_guard:
+        lock = _group_build_locks.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _group_build_locks[key] = lock
+        return lock
 
 
 def _profiles_root(game) -> Path:
@@ -624,40 +651,41 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
     _log = log_fn or (lambda _msg: None)
     if not is_group(profile_dir):
         return
-    profiles_dir = profile_dir.parent
-    members = get_members(profile_dir)
+    with group_build_lock(profile_dir):
+        profiles_dir = profile_dir.parent
+        members = get_members(profile_dir)
 
-    merged_entries, home_member = _merge_modlist(profiles_dir, members, _log)
-    write_modlist(profile_dir / "modlist.txt", merged_entries)
+        merged_entries, home_member = _merge_modlist(profiles_dir, members, _log)
+        write_modlist(profile_dir / "modlist.txt", merged_entries)
 
-    # Stage mod files BEFORE the plugin merge/LOOT sort below — LOOT needs to
-    # actually read the plugin files (they live inside each mod's folder),
-    # so the group's own mods/ must already be populated by then.
-    _restage_group_mods(game, profile_dir, profiles_dir, merged_entries, home_member, _log)
+        # Stage mod files BEFORE the plugin merge/LOOT sort below — LOOT needs to
+        # actually read the plugin files (they live inside each mod's folder),
+        # so the group's own mods/ must already be populated by then.
+        _restage_group_mods(game, profile_dir, profiles_dir, merged_entries, home_member, _log)
 
-    if getattr(game, "plugin_extensions", None):
-        star_prefix = bool(getattr(game, "plugins_use_star_prefix", True))
-        merged_order, merged_enabled = _merge_plugins(profiles_dir, members, star_prefix)
-        merged_order = _sort_with_loot(game, profile_dir, profiles_dir, members,
-                                        merged_order, merged_enabled, _log)
-        entries = [PluginEntry(name=n, enabled=merged_enabled.get(n, False)) for n in merged_order]
-        write_loadorder(profile_dir / "loadorder.txt", entries)
-        write_plugins(profile_dir / "plugins.txt", entries, star_prefix=star_prefix)
+        if getattr(game, "plugin_extensions", None):
+            star_prefix = bool(getattr(game, "plugins_use_star_prefix", True))
+            merged_order, merged_enabled = _merge_plugins(profiles_dir, members, star_prefix)
+            merged_order = _sort_with_loot(game, profile_dir, profiles_dir, members,
+                                            merged_order, merged_enabled, _log)
+            entries = [PluginEntry(name=n, enabled=merged_enabled.get(n, False)) for n in merged_order]
+            write_loadorder(profile_dir / "loadorder.txt", entries)
+            write_plugins(profile_dir / "plugins.txt", entries, star_prefix=star_prefix)
 
-    merge_profile_settings(profile_dir, {"is_group": True, "group_members": members})
-    write_disabled_plugins(profile_dir, _merge_keyed_dict(profiles_dir, members, read_disabled_plugins))
-    write_excluded_mod_files(profile_dir, _merge_keyed_dict(profiles_dir, members, read_excluded_mod_files))
-    write_mod_notes(profile_dir, _merge_keyed_dict(profiles_dir, members, read_mod_notes))
-    write_plugin_locks(profile_dir, _merge_keyed_dict(profiles_dir, members, read_plugin_locks))
-    write_mod_strip_prefixes(profile_dir, _merge_keyed_dict(profiles_dir, members, read_mod_strip_prefixes))
-    write_separator_locks(profile_dir, _merge_keyed_dict(profiles_dir, members, read_separator_locks))
-    write_separator_colors(profile_dir, _merge_keyed_dict(profiles_dir, members, read_separator_colors))
-    write_separator_deploy_paths(profile_dir, _merge_keyed_dict(profiles_dir, members, read_separator_deploy_paths))
-    write_collapsed_seps(profile_dir, _merge_union_set(profiles_dir, members, read_collapsed_seps))
-    write_ignored_missing_requirements(
-        profile_dir, _merge_union_set(profiles_dir, members, read_ignored_missing_requirements)
-    )
-    write_root_folder_state(
-        profile_dir,
-        any(read_root_folder_state(profiles_dir / m) for m in members if (profiles_dir / m).is_dir()),
-    )
+        merge_profile_settings(profile_dir, {"is_group": True, "group_members": members})
+        write_disabled_plugins(profile_dir, _merge_keyed_dict(profiles_dir, members, read_disabled_plugins))
+        write_excluded_mod_files(profile_dir, _merge_keyed_dict(profiles_dir, members, read_excluded_mod_files))
+        write_mod_notes(profile_dir, _merge_keyed_dict(profiles_dir, members, read_mod_notes))
+        write_plugin_locks(profile_dir, _merge_keyed_dict(profiles_dir, members, read_plugin_locks))
+        write_mod_strip_prefixes(profile_dir, _merge_keyed_dict(profiles_dir, members, read_mod_strip_prefixes))
+        write_separator_locks(profile_dir, _merge_keyed_dict(profiles_dir, members, read_separator_locks))
+        write_separator_colors(profile_dir, _merge_keyed_dict(profiles_dir, members, read_separator_colors))
+        write_separator_deploy_paths(profile_dir, _merge_keyed_dict(profiles_dir, members, read_separator_deploy_paths))
+        write_collapsed_seps(profile_dir, _merge_union_set(profiles_dir, members, read_collapsed_seps))
+        write_ignored_missing_requirements(
+            profile_dir, _merge_union_set(profiles_dir, members, read_ignored_missing_requirements)
+        )
+        write_root_folder_state(
+            profile_dir,
+            any(read_root_folder_state(profiles_dir / m) for m in members if (profiles_dir / m).is_dir()),
+        )

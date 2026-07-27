@@ -300,6 +300,20 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
     if not modlist_path.is_file():
         return None
 
+    # A group profile's mods/ folder is torn down and relinked from scratch by
+    # materialize_group() on every profile switch/deploy — if that races a
+    # scan of the same folder (e.g. the GUI's async conflicts-panel rebuild
+    # calling this same function on a worker thread right as a deploy's own
+    # materialize_group() call is mid-rmtree), the scan can see a
+    # half-populated tree and produce a near-empty filemap.txt even though
+    # modindex.bin looks completely valid moments before and after. Serialize
+    # against materialize_group() (which takes the identical lock) for group
+    # profiles only — regular profiles never touch this lock.
+    from Utils.profile_groups import is_group, group_build_lock
+    _group_lock = group_build_lock(modlist_path.parent) if is_group(modlist_path.parent) else None
+    if _group_lock is not None:
+        _group_lock.acquire()
+
     try:
         from Nexus.nexus_meta import collect_root_flagged_mods
         from Games.ue5_game import UE5Game
@@ -414,6 +428,9 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
     except Exception as fm_err:
         log_fn(f"Filemap rebuild warning: {fm_err}")
         return None
+    finally:
+        if _group_lock is not None:
+            _group_lock.release()
 
 
 def run_deploy_pipeline(
