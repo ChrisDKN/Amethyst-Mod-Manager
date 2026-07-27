@@ -97,7 +97,6 @@ py.install_sources(
   'plugin_loader.py',
   'plugin_mtimes.py',
   'plugin_parser.py',
-  'plugin_scan_common.py',
   'plugin_sync.py',
   'plugins.py',
   'portal_filechooser.py',
