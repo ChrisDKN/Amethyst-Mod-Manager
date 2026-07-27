@@ -134,6 +134,7 @@ py.install_sources(
   'ui_hooks.py',
   'userlist.py',
   'version_check.py',
+  'wiki_sync.py',
   'wine_dll_config.py',
   'wine_paths.py',
   'wizard_archives.py',

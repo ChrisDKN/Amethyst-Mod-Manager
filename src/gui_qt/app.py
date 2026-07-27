@@ -12759,6 +12759,12 @@ class MainWindow(QMainWindow):
 
         h.addStretch(1)
 
+        # Wiki button — opens the project's GitHub wiki as a detachable tab,
+        # fetched live so it always matches what is published on GitHub.
+        self._wiki_btn = self._text_button(self.tr("Wiki"), compact=True)
+        self._wiki_btn.clicked.connect(self._open_wiki_tab)
+        h.addWidget(self._wiki_btn)
+
         # Changelog button — sits just left of the Nexus info; opens the
         # bundled Changelog.txt as a detachable tab.
         self._changelog_btn = self._text_button(self.tr("Changelog"), compact=True)
@@ -13086,6 +13092,14 @@ class MainWindow(QMainWindow):
             if c.is_file():
                 return c
         return None
+
+    def _open_wiki_tab(self):
+        """Open the project's GitHub wiki as a detachable tab."""
+        if self._tabs.has_key("wiki"):
+            self._tabs.focus_key("wiki")
+            return
+        from gui_qt.wiki_view import WikiView
+        self._tabs.open_tab(WikiView(), self.tr("Wiki"), key="wiki")
 
     def _open_changelog_tab(self):
         """Open the bundled Changelog.txt as a read-only detachable tab."""

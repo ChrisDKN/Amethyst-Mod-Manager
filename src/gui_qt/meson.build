@@ -111,6 +111,7 @@ py.install_sources(
   'update_overlay.py',
   'userlist_bars.py',
   'wheel_guard.py',
+  'wiki_view.py',
   'worker.py',
   subdir: 'gui_qt',
 )
