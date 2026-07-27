@@ -389,7 +389,8 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
 
 
 def load_plugins(game, profile: str,
-                 cancelled=None) -> "list[PluginRow] | None":
+                 cancelled=None, report: dict | None = None
+                 ) -> "list[PluginRow] | None":
     """Return the ordered plugin rows for *game*/*profile*, or [] if none.
 
     *cancelled* — optional zero-arg callable polled between the expensive
@@ -397,7 +398,13 @@ def load_plugins(game, profile: str,
     eligibility, BOS/SP scan). When it returns True the load aborts and
     returns None: a superseded reload's result is dropped by the caller's
     generation check anyway, so finishing it just burns seconds of disk + GIL
-    time that slow the reload that superseded it."""
+    time that slow the reload that superseded it.
+
+    *report* — optional dict filled with prune diagnostics for the caller:
+    'prune_checked' (the phantom-prune actually ran, i.e. filemap_ok held)
+    and 'mass_prune' (names SAFETY 3 refused to auto-prune — more unresolved
+    entries than _PRUNE_MAX). An explicit Refresh uses this to offer the
+    user a confirmed cleanup the automatic path must not do on its own."""
     if cancelled is None:
         cancelled = lambda: False
     p = plugins_path(game, profile)
@@ -570,6 +577,8 @@ def load_plugins(game, profile: str,
     # current gen's result was applied on top of the damaged files).
     if cancelled():
         return None
+    if report is not None:
+        report["prune_checked"] = filemap_ok
     if filemap_ok:
         kept: list[PluginEntry] = []
         pruned: list[str] = []
@@ -586,10 +595,17 @@ def load_plugins(game, profile: str,
         # plugins. A mass miss means the resolution itself is wrong (desync
         # not caught above, or filemap.txt read mid-rewrite) — keep the
         # entries and let a later healthy reload prune them one by one.
+        # Reported to the caller so an EXPLICIT Refresh can offer the user a
+        # confirmed mass cleanup (a genuinely polluted plugins.txt — e.g.
+        # another profile's load order copied in — looks identical to a
+        # broken resolution from here, so only the user can arbitrate).
         if pruned and len(pruned) > _PRUNE_MAX:
             app_log(f"Plugins: NOT pruning {len(pruned)} unresolved plugin(s) "
                     f"(> {_PRUNE_MAX}) — wrong-staging/partial-filemap "
-                    f"resolution suspected; plugins.txt left untouched.")
+                    f"resolution suspected; plugins.txt left untouched. "
+                    f"Refresh Modlist offers a confirmed cleanup.")
+            if report is not None:
+                report["mass_prune"] = list(pruned)
         elif pruned:
             app_log(f"Plugins: pruned {len(pruned)} stale entr(y/ies) with no "
                     f"on-disk file: {', '.join(pruned)}")
@@ -735,6 +751,22 @@ def _prune_phantom_plugins(plugins_path: Path, star: bool,
                             [PluginEntry(name=n, enabled=True) for n in new_lo])
     except Exception:
         pass
+
+
+def prune_listed_plugins(game, profile: str, names: list[str]) -> None:
+    """Remove *names* from the profile's plugins.txt + loadorder.txt.
+
+    User-confirmed mass cleanup behind the Refresh Modlist flow: load_plugins'
+    automatic prune refuses to drop more than _PRUNE_MAX unresolved entries
+    (SAFETY 3 — a mass miss usually means a broken resolution, not a stale
+    file), so removals above the cap require this explicit path."""
+    p = plugins_path(game, profile)
+    if p is None or not p.is_file() or not names:
+        return
+    star = getattr(game, "plugins_use_star_prefix", True)
+    _prune_phantom_plugins(p, star, {n.lower() for n in names})
+    app_log(f"Plugins: removed {len(names)} listed plugin(s) with no on-disk "
+            f"file (user-confirmed Refresh cleanup): {', '.join(names)}")
 
 
 def _to_row(e: PluginEntry, vanilla: dict, resolved: dict[str, Path],

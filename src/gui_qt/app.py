@@ -255,9 +255,9 @@ class MainWindow(QMainWindow):
     # list[str] overlaps | None on error). Full libloot load, so off-thread.
     _overlap_ready = Signal(str, object)
     # Plugin reload worker → UI thread: (gen, rows, plugin_paths, userlist
-    # state). The disk work (per-plugin header reads) runs off-thread; a
-    # generation counter drops results from a superseded reload.
-    _plugins_loaded = Signal(int, object, object, object)
+    # state, prune report). The disk work (per-plugin header reads) runs
+    # off-thread; a generation counter drops results from a superseded reload.
+    _plugins_loaded = Signal(int, object, object, object, object)
     # Deferred ESL-eligibility worker → UI thread (gen, {name_lower: PF bit}).
     _esl_elig_ready = Signal(int, object)
     # Size-column disk walk worker → UI thread (gen, sizes, size_bytes).
@@ -10229,6 +10229,11 @@ class MainWindow(QMainWindow):
                 sync_modlist_with_mods_folder(ml, staging)
             except Exception as exc:
                 print(f"[gui_qt] modlist sync failed: {exc}", flush=True)
+        # Arm the mass phantom-prune offer: if the reload finds more stale
+        # plugins.txt entries than the automatic prune's cap, an explicit
+        # refresh asks the user instead of silently keeping them forever
+        # (see _on_plugins_loaded / plugin_state SAFETY 3).
+        self._offer_mass_prune = True
         self._reload_modlist(rescan_index=True, preserve_overlays=True)
         self._reload_plugins()
         self._refresh_footer_toggle_labels()
@@ -11171,9 +11176,11 @@ class MainWindow(QMainWindow):
             # newer reload bumping the gen makes this one's result dead on
             # arrival (dropped in _on_plugins_loaded), so stop working on it.
             stale = lambda: gen != self._plugins_gen
+            report = {}
             try:
                 with span("plugins.load_plugins(worker)"):
-                    rows = load_plugins(game, profile, cancelled=stale)
+                    rows = load_plugins(game, profile, cancelled=stale,
+                                        report=report)
             except Exception as exc:
                 print(f"[gui_qt] plugin load failed: {exc}", flush=True)
                 rows = []
@@ -11190,7 +11197,7 @@ class MainWindow(QMainWindow):
                 state = read_userlist_state(ul_path)
             except Exception:
                 state = None
-            self._plugins_loaded.emit(gen, rows, paths, state)
+            self._plugins_loaded.emit(gen, rows, paths, state, report)
 
         threading.Thread(target=worker, daemon=True,
                          name="plugins-reload").start()
@@ -11201,6 +11208,8 @@ class MainWindow(QMainWindow):
         authoritative one). Bumps the generation so any in-flight load from
         the previous profile is dropped/cancelled."""
         self._plugins_gen += 1
+        # A pending Refresh cleanup offer belongs to the OLD profile.
+        self._offer_mass_prune = False
         self._plugin_model.set_rows([], game=self._gs.game,
                                     profile=self._gs.profile,
                                     profile_dir=self._gs.profile_dir())
@@ -11209,7 +11218,7 @@ class MainWindow(QMainWindow):
         self._plugin_view.refresh_cycle_marker()
         self._refresh_plugin_stats()
 
-    def _on_plugins_loaded(self, gen, rows, paths, state):
+    def _on_plugins_loaded(self, gen, rows, paths, state, report=None):
         """UI thread: apply a finished plugin reload (see _reload_plugins)."""
         if gen != self._plugins_gen:
             msg = (f"plugins_loaded gen={gen} SUPERSEDED "
@@ -11291,6 +11300,52 @@ class MainWindow(QMainWindow):
         if not self._splash_dismissed and self._splash is not None:
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, self._dismiss_splash)
+        # Explicit Refresh Modlist: the automatic phantom-prune caps at
+        # _PRUNE_MAX entries (a mass miss usually means a broken resolution),
+        # so a listed-but-nowhere-on-disk load order above the cap — e.g.
+        # another profile's plugins.txt copied in — survives every reload.
+        # On a user-initiated refresh, offer the mass cleanup with a confirm
+        # instead. One-shot: consumed by the first reload whose prune check
+        # actually ran (filemap_ok), so a refresh whose direct reload got
+        # superseded still offers from the conflicts-ready reload.
+        if (getattr(self, "_offer_mass_prune", False)
+                and report is not None and report.get("prune_checked")):
+            self._offer_mass_prune = False
+            phantoms = report.get("mass_prune") or []
+            if phantoms:
+                self._offer_phantom_cleanup(list(phantoms))
+
+    def _offer_phantom_cleanup(self, names: list[str]):
+        """Confirm-then-prune for a mass phantom load order (see the Refresh
+        hook in _on_plugins_loaded). The confirm re-checks that the same
+        game/profile is still active before writing: the overlay is modeless,
+        and pruning these names from a DIFFERENT profile's plugins.txt (where
+        they may be perfectly valid) would be data loss."""
+        game, profile = self._gs.game, self._gs.profile
+        if game is None or not profile:
+            return
+
+        def _confirmed(ok):
+            if not ok:
+                return
+            if self._gs.game is not game or self._gs.profile != profile:
+                return   # switched away while the confirm was up
+            from gui_qt.plugin_state import prune_listed_plugins
+            prune_listed_plugins(game, profile, names)
+            self._notify(
+                self.tr("Removed {0} stale plugin(s)").format(len(names)),
+                "info")
+            self._reload_plugins()
+
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Remove stale plugins"),
+            self.tr("{0} plugins listed in this profile have no file in its "
+                    "mods, overwrite, or game folder — usually leftovers "
+                    "from removed mods or another profile's load order. "
+                    "Remove them from the load order? Mod files are not "
+                    "touched.").format(len(names)),
+            _confirmed, confirm_label=self.tr("Remove"), list_items=names)
 
     def _start_esl_scan(self, gen, rows, resolved):
         """Compute the ESL-safe/unsafe filter bits on a worker AFTER the plugin

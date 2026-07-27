@@ -5862,6 +5862,18 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
     </message>
     <message>
+        <source>Removed {0} stale plugin(s)</source>
+        <translation>Removed {0} stale plugin(s)</translation>
+    </message>
+    <message>
+        <source>Remove stale plugins</source>
+        <translation>Remove stale plugins</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</translation>
+    </message>
+    <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
         <translation>Refreshing LOOT metadata for {0} plugins…</translation>
     </message>
@@ -6819,6 +6831,10 @@ Click Done to close.</translation>
     <message>
         <source>Archive conflict - Partial</source>
         <translation>Archive conflict - Partial</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Full</source>
+        <translation>Archive conflict - Full</translation>
     </message>
 </context>
 <context>
@@ -8152,10 +8168,10 @@ Drag a plugin from the left pane to add a rule.</translation>
     <message>
         <source>No Proton versions were found.
 
-Install a Proton version in Steam, then reopen this wizard.</source>
+Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
         <translation>No Proton versions were found.
 
-Install a Proton version in Steam, then reopen this wizard.</translation>
+Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</translation>
     </message>
     <message>
         <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
@@ -9724,6 +9740,22 @@ Output mod: {2}
         <translation>Install SMAPI — {0}</translation>
     </message>
     <message>
+        <source>Install destination</source>
+        <translation>Install destination</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>Game folder (restores to vanilla first)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root_Folder (staging)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>As a managed mod (root-flagged)</translation>
+    </message>
+    <message>
         <source>Step 1: Download SMAPI</source>
         <translation>Step 1: Download SMAPI</translation>
     </message>
@@ -9732,10 +9764,50 @@ Output mod: {2}
         <translation>Checking for the latest SMAPI release…</translation>
     </message>
     <message>
-        <source>A terminal window will open to run the installer.
-Follow its prompts, then press a key to close it.</source>
-        <translation>A terminal window will open to run the installer.
-Follow its prompts, then press a key to close it.</translation>
+        <source>SMAPI is installed automatically — no terminal window and no prompts to answer.</source>
+        <translation>SMAPI is installed automatically — no terminal window and no prompts to answer.</translation>
+    </message>
+    <message>
+        <source>Downloaded SMAPI {0}: {1}
+Choose the install destination, then click Next.</source>
+        <translation>Downloaded SMAPI {0}: {1}
+Choose the install destination, then click Next.</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Choose the install destination, then click Next.</source>
+        <translation>Selected: {0}
+Choose the install destination, then click Next.</translation>
+    </message>
+    <message>
+        <source>Installing SMAPI…</source>
+        <translation>Installing SMAPI…</translation>
+    </message>
+    <message>
+        <source>Restoring the game to its vanilla state, then installing SMAPI…</source>
+        <translation>Restoring the game to its vanilla state, then installing SMAPI…</translation>
+    </message>
+    <message>
+        <source>Unpacking and installing SMAPI…</source>
+        <translation>Unpacking and installing SMAPI…</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>
+
+Deploy your mods to activate it.</translation>
+    </message>
+    <message>
+        <source>SMAPI installed successfully!
+{0} file(s) installed into the {1}.{2}
+
+Click Done to close.</source>
+        <translation>SMAPI installed successfully!
+{0} file(s) installed into the {1}.{2}
+
+Click Done to close.</translation>
     </message>
     <message>
         <source>Browse…</source>
@@ -9754,10 +9826,6 @@ Follow its prompts, then press a key to close it.</translation>
         <translation>Downloading SMAPI {0}…</translation>
     </message>
     <message>
-        <source>Downloaded SMAPI {0}: {1}</source>
-        <translation>Downloaded SMAPI {0}: {1}</translation>
-    </message>
-    <message>
         <source>Download failed: {0}
 
 Use Browse to select a manually downloaded archive.</source>
@@ -9770,38 +9838,12 @@ Use Browse to select a manually downloaded archive.</translation>
         <translation>Select the SMAPI archive</translation>
     </message>
     <message>
-        <source>Selected: {0}</source>
-        <translation>Selected: {0}</translation>
-    </message>
-    <message>
         <source>Step 2: Install SMAPI</source>
         <translation>Step 2: Install SMAPI</translation>
     </message>
     <message>
         <source>Done</source>
         <translation>Done</translation>
-    </message>
-    <message>
-        <source>Extracting SMAPI archive…</source>
-        <translation>Extracting SMAPI archive…</translation>
-    </message>
-    <message>
-        <source>Launching the SMAPI installer in a terminal.
-
-Follow the on-screen prompts, then press a key to close the terminal and click Done here.</source>
-        <translation>Launching the SMAPI installer in a terminal.
-
-Follow the on-screen prompts, then press a key to close the terminal and click Done here.</translation>
-    </message>
-    <message>
-        <source>SMAPI installer finished.
-
-If it completed successfully, SMAPI is now installed.
-Click Done to close.</source>
-        <translation>SMAPI installer finished.
-
-If it completed successfully, SMAPI is now installed.
-Click Done to close.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -11935,8 +11977,58 @@ Please restart the wizard and install {1} first.</translation>
         <translation>Step 6: Run {0}</translation>
     </message>
     <message>
-        <source>Done</source>
-        <translation>Done</translation>
+        <source>Launch {0}</source>
+        <translation>Launch {0}</translation>
+    </message>
+    <message>
+        <source>QAC All</source>
+        <translation>QAC All</translation>
+    </message>
+    <message>
+        <source>{0} is running — close it to continue.</source>
+        <translation>{0} is running — close it to continue.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+When you close it, your changes are restored automatically.</source>
+        <translation>{0} is running.
+When you close it, your changes are restored automatically.</translation>
+    </message>
+    <message>
+        <source>QAC All ({0})</source>
+        <translation>QAC All ({0})</translation>
+    </message>
+    <message>
+        <source>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</source>
+        <translation>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</translation>
+    </message>
+    <message>
+        <source>No plugins are flagged as dirty. Launch {0} to inspect or clean manually.</source>
+        <translation>No plugins are flagged as dirty. Launch {0} to inspect or clean manually.</translation>
+    </message>
+    <message>
+        <source>No plugins need cleaning.</source>
+        <translation>No plugins need cleaning.</translation>
+    </message>
+    <message>
+        <source>Preparing to clean {0} plugin(s)…</source>
+        <translation>Preparing to clean {0} plugin(s)…</translation>
+    </message>
+    <message>
+        <source>Cleaning {0} of {1}: {2}…</source>
+        <translation>Cleaning {0} of {1}: {2}…</translation>
+    </message>
+    <message>
+        <source>QAC All finished — cleaned {0} plugin(s).</source>
+        <translation>QAC All finished — cleaned {0} plugin(s).</translation>
+    </message>
+    <message>
+        <source>QAC All error: {0}</source>
+        <translation>QAC All error: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is cleaning plugins — please wait.</source>
+        <translation>{0} is cleaning plugins — please wait.</translation>
     </message>
     <message>
         <source>Plugins needing cleaning ({0}):</source>
@@ -11965,12 +12057,6 @@ Please restart the wizard and install {1} first.</translation>
     <message>
         <source>Launch error: {0}</source>
         <translation>Launch error: {0}</translation>
-    </message>
-    <message>
-        <source>{0} is running.
-Close it when you are done, then click Done.</source>
-        <translation>{0} is running.
-Close it when you are done, then click Done.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
