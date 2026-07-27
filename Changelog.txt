@@ -3,6 +3,7 @@
 - Added Devil May Cry 5
 - Added Dragons Dogma 2
 ### Additions
+- The wiki can now be viewed from within the manager
 - Added an argument field in the xedit wizards for adding additional command line arguments
 - Added an option to apply the 4gb patch to New vegas on deploy
 - Mods can now be dragged from the downloads tab to the modlist panel to install them
