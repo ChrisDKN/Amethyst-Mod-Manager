@@ -300,7 +300,9 @@ def resolve_plugin_paths_for_game(game, data_dir: Path | None = None
         return {}
 
 
-def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, str]:
+def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
+                              enabled_mods_lower: "set[str] | None" = None
+                              ) -> dict[str, str]:
     """Top-level plugin names that the CURRENT filemap.txt deploys — i.e. still
     provided by some enabled mod (or overwrite). Returns {lower: original_name}.
 
@@ -311,6 +313,12 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
     copies. Without this recovery those plugins vanish from the panel until a
     full re-sync. Tk recovers them in _refresh_plugins_tab via its Data/ orphan
     scan; we recover them from the freshly-rebuilt filemap instead.
+
+    *enabled_mods_lower* (from the CURRENT modlist.txt) filters out entries
+    whose providing mod is no longer enabled: the filemap on disk can be a
+    rebuild behind the modlist (a reload racing a mass disable), and without
+    the filter a stale filemap resurrects every just-disabled mod's plugins
+    in the panel. None = no filtering (modlist unavailable).
     """
     staging = (game.get_effective_mod_staging_path()
                if hasattr(game, "get_effective_mod_staging_path") else None)
@@ -337,7 +345,12 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
             total_lines += 1
             if "\t" not in line:
                 continue
-            rel_path = line.split("\t", 1)[0].replace("\\", "/")
+            rel_path, mod_name = line.split("\t", 1)
+            if (enabled_mods_lower is not None
+                    and mod_name != _OVERWRITE_NAME
+                    and mod_name.lower() not in enabled_mods_lower):
+                continue   # provider disabled since this filemap was built
+            rel_path = rel_path.replace("\\", "/")
             if "/" in rel_path:
                 # Top-level entries match the deploy layout directly; nested
                 # ones only count when the routing rules land them in the
@@ -372,7 +385,12 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
                 for line in fm_root.read_text(encoding="utf-8").splitlines():
                     if "\t" not in line:
                         continue
-                    rel_path = line.split("\t", 1)[0].replace("\\", "/")
+                    rel_path, mod_name = line.split("\t", 1)
+                    if (enabled_mods_lower is not None
+                            and mod_name != _OVERWRITE_NAME
+                            and mod_name.lower() not in enabled_mods_lower):
+                        continue
+                    rel_path = rel_path.replace("\\", "/")
                     if not rel_path.lower().startswith(prefix_low):
                         continue
                     name = rel_path[plen:]
@@ -386,6 +404,50 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...]) -> dict[str, s
     _diag(f"_filemap_deployed_plugins: {fm} has {total_lines} line(s), "
           f"{len(found)} top-level plugin(s) with exts {exts}")
     return found
+
+
+def _staged_top_level_plugins(game, staging: "Path | None",
+                              exts: tuple[str, ...]) -> "set[str] | None":
+    """Lowercase top-level plugin names across ALL staged mods (enabled or
+    not), from modindex.bin. None when the index is unavailable — callers
+    must treat that as unknown, not empty."""
+    if staging is None:
+        return None
+    try:
+        from Utils.filemap import read_mod_index, OVERWRITE_NAME
+        index = read_mod_index(staging.parent / "modindex.bin")
+    except Exception:
+        return None
+    if not index:
+        return None
+    try:
+        from Utils.game_helpers import (
+            plugins_routing_ctx, routed_plugin_name, game_data_subpath)
+        routing_ctx = plugins_routing_ctx(game)
+        prefix = game_data_subpath(game)
+    except Exception:
+        routing_ctx, prefix = None, ""
+    prefix_low = (prefix.lower() + "/") if prefix else ""
+    plen = len(prefix) + 1 if prefix else 0
+    out: set[str] = set()
+    for mod_name, (normal, root) in index.items():
+        if mod_name == OVERWRITE_NAME:
+            continue   # overwrite plugins always resolve via the direct scan
+        for rel_low, rel_orig in normal.items():
+            if "/" not in rel_low:
+                if rel_low.endswith(exts):
+                    out.add(rel_low)
+            elif routing_ctx is not None:
+                n = routed_plugin_name(routing_ctx, rel_orig, exts)
+                if n is not None:
+                    out.add(n.lower())
+        if prefix_low and root:
+            for rel_low in root:
+                if rel_low.startswith(prefix_low):
+                    name = rel_low[plen:]
+                    if "/" not in name and name.endswith(exts):
+                        out.add(name)
+    return out
 
 
 def load_plugins(game, profile: str,
@@ -452,8 +514,19 @@ def load_plugins(game, profile: str,
                 continue
             entries.append(PluginEntry(name=name, enabled=False))
             listed_lower.add(low)
+    # Enabled mods per the CURRENT modlist.txt — the recovery filter (see
+    # _filemap_deployed_plugins). Missing/unreadable modlist → no filtering.
+    enabled_mods: "set[str] | None" = None
+    modlist_path = p.parent / "modlist.txt"
+    if modlist_path.is_file():
+        try:
+            from Utils.modlist import read_modlist
+            enabled_mods = {e.name.lower()
+                            for e in read_modlist(modlist_path) if e.enabled}
+        except Exception:
+            enabled_mods = None
     with span("plugins.filemap_deployed"):
-        deployed = _filemap_deployed_plugins(game, exts)
+        deployed = _filemap_deployed_plugins(game, exts, enabled_mods)
     recovered: list[str] = []
     for low, orig in deployed.items():
         if low in listed_lower or low in vanilla:
@@ -580,17 +653,38 @@ def load_plugins(game, profile: str,
     if report is not None:
         report["prune_checked"] = filemap_ok
     if filemap_ok:
-        kept: list[PluginEntry] = []
         pruned: list[str] = []
         for e in ordered:
             low = e.name.lower()
             if low in vanilla:
-                kept.append(e); continue
+                continue
             rp = resolved.get(low)
-            if rp is not None and rp.is_file():
-                kept.append(e)
-            else:
+            if rp is None or not rp.is_file():
                 pruned.append(e.name)
+        # Partition unresolved entries by staged ownership (modindex.bin):
+        # a name that IS a top-level plugin of some staged mod can only be
+        # unresolved because that mod is disabled — the toggle sync should
+        # have removed it (missed scan, older version, externally edited
+        # profile). Ownership is proven, so it is NOT the broken-resolution
+        # case SAFETY 3 exists for and prunes uncapped (self-heals the
+        # GH#318 state). plugins.txt only on star games — loadorder.txt
+        # keeps the position for a re-enable. AMM_PRUNE_OWNED=0 kills it.
+        staged = (_staged_top_level_plugins(game, staging, exts)
+                  if pruned else None)
+        if os.environ.get("AMM_PRUNE_OWNED") == "0":
+            staged = None
+        owned = [n for n in pruned
+                 if staged is not None and n.lower() in staged]
+        unowned = [n for n in pruned
+                   if staged is None or n.lower() not in staged]
+        pruned_now: set[str] = set()
+        if owned:
+            app_log(f"Plugins: removed {len(owned)} entr(y/ies) belonging to "
+                    f"disabled mod(s): {', '.join(owned[:20])}"
+                    f"{'…' if len(owned) > 20 else ''}")
+            _prune_phantom_plugins(p, star, {n.lower() for n in owned},
+                                   loadorder_too=not star)
+            pruned_now.update(n.lower() for n in owned)
         # SAFETY 3: a genuine stale entry is one removed mod's worth of
         # plugins. A mass miss means the resolution itself is wrong (desync
         # not caught above, or filemap.txt read mid-rewrite) — keep the
@@ -599,18 +693,20 @@ def load_plugins(game, profile: str,
         # confirmed mass cleanup (a genuinely polluted plugins.txt — e.g.
         # another profile's load order copied in — looks identical to a
         # broken resolution from here, so only the user can arbitrate).
-        if pruned and len(pruned) > _PRUNE_MAX:
-            app_log(f"Plugins: NOT pruning {len(pruned)} unresolved plugin(s) "
+        if unowned and len(unowned) > _PRUNE_MAX:
+            app_log(f"Plugins: NOT pruning {len(unowned)} unresolved plugin(s) "
                     f"(> {_PRUNE_MAX}) — wrong-staging/partial-filemap "
                     f"resolution suspected; plugins.txt left untouched. "
                     f"Refresh Modlist offers a confirmed cleanup.")
             if report is not None:
-                report["mass_prune"] = list(pruned)
-        elif pruned:
-            app_log(f"Plugins: pruned {len(pruned)} stale entr(y/ies) with no "
-                    f"on-disk file: {', '.join(pruned)}")
-            _prune_phantom_plugins(p, star, set(n.lower() for n in pruned))
-            ordered = kept
+                report["mass_prune"] = list(unowned)
+        elif unowned:
+            app_log(f"Plugins: pruned {len(unowned)} stale entr(y/ies) with no "
+                    f"on-disk file: {', '.join(unowned)}")
+            _prune_phantom_plugins(p, star, set(n.lower() for n in unowned))
+            pruned_now.update(n.lower() for n in unowned)
+        if pruned_now:
+            ordered = [e for e in ordered if e.name.lower() not in pruned_now]
 
     # Persist manual orphans into plugins.txt so LOOT sort and deploy pick
     # them up even if the user never touches the panel. Same SAFETY-2 guard
@@ -714,13 +810,20 @@ def _append_orphans_to_plugins(plugins_path: Path, star: bool,
     orphans AND filemap-recovered entries from enabled mods) so they stay
     listed (and get deployed / LOOT-sorted) without requiring a panel edit.
     Best-effort and idempotent — names already listed are skipped, failures
-    are swallowed (the plugin just re-surfaces from its scan next reload)."""
+    are swallowed (the plugin just re-surfaces from its scan next reload).
+    Entries with a loadorder.txt position go back to that slot (plugins.txt
+    file order is the engine load order); the rest append at the end."""
     try:
+        from Utils.plugins import insert_by_loadorder
         entries = read_plugins(plugins_path, star_prefix=star)
         listed = {e.name.lower() for e in entries}
         new = [o for o in orphans if o.name.lower() not in listed]
         if new:
-            write_plugins(plugins_path, entries + new, star_prefix=star)
+            lo = read_loadorder(plugins_path.parent / "loadorder.txt")
+            lo_pos = {n.lower(): i for i, n in enumerate(lo)}
+            for o in new:
+                insert_by_loadorder(entries, o, lo_pos)
+            write_plugins(plugins_path, entries, star_prefix=star)
             app_log(f"Plugins: added {len(new)} plugin(s) missing from "
                     f"plugins.txt: {', '.join(o.name for o in new)}")
     except Exception:
@@ -728,13 +831,12 @@ def _append_orphans_to_plugins(plugins_path: Path, star: bool,
 
 
 def _prune_phantom_plugins(plugins_path: Path, star: bool,
-                           phantom_lower: set[str]) -> None:
-    """Remove *phantom_lower* plugin names from plugins.txt + loadorder.txt.
-
-    Called when load_plugins finds a listed plugin with no on-disk file (removed
-    mod). Mirrors Tk, which lets its plugins.txt sync write such entries out once
-    their source plugin disappears. Best-effort — failures are swallowed so a
-    read-only profile still renders (the phantom just re-prunes next reload)."""
+                           phantom_lower: set[str],
+                           loadorder_too: bool = True) -> None:
+    """Remove *phantom_lower* plugin names from plugins.txt (+ loadorder.txt
+    unless *loadorder_too* is False — disabled-mod-owned prunes on star games
+    keep the loadorder entry as position memory). Best-effort — failures are
+    swallowed so a read-only profile still renders."""
     try:
         entries = read_plugins(plugins_path, star_prefix=star)
         new_entries = [e for e in entries if e.name.lower() not in phantom_lower]
@@ -742,6 +844,8 @@ def _prune_phantom_plugins(plugins_path: Path, star: bool,
             write_plugins(plugins_path, new_entries, star_prefix=star)
     except Exception:
         pass
+    if not loadorder_too:
+        return
     try:
         lo_path = plugins_path.parent / "loadorder.txt"
         lo = read_loadorder(lo_path)

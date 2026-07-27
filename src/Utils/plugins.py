@@ -177,6 +177,23 @@ def write_plugins(path: Path, entries: list[PluginEntry], star_prefix: bool = Tr
         _plugins_parse_cache.pop((str(path), False), None)
 
 
+def insert_by_loadorder(entries: list[PluginEntry], entry: PluginEntry,
+                        lo_pos: dict[str, int]) -> None:
+    """Insert *entry* at the slot loadorder.txt remembers for it.
+
+    Placed before the first existing entry that *lo_pos* (lowercase name →
+    loadorder.txt index) orders later, so a re-added plugin returns to its
+    old load-order slot. Names without a position append at the end."""
+    pos = lo_pos.get(entry.name.lower())
+    if pos is not None:
+        for i, existing in enumerate(entries):
+            epos = lo_pos.get(existing.name.lower())
+            if epos is not None and epos > pos:
+                entries.insert(i, entry)
+                return
+    entries.append(entry)
+
+
 def deploy_plugins_copy(directory: Path, filename: str, content: str, log_fn=None) -> None:
     """Write `content` into `directory / filename` as a real file (not a symlink).
 
