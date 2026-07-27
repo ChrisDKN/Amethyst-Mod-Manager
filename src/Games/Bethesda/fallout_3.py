@@ -206,7 +206,7 @@ class Fallout_3(BaseGame):
 
     @property
     def conflict_ignore_foldernames(self) -> set[str]:
-        return {"src","source"}
+        return {"src"}
     
     @property
     def excluded_loose_filenames(self) -> set[str]:
