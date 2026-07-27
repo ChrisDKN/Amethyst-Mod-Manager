@@ -9,6 +9,7 @@ subdir('wizards_qt')
 subdir('wrappers')
 
 py.install_sources(
+  '__init__.py',
   'app_bootstrap.py',
   'cli.py',
   'run_qt.py',
