@@ -388,11 +388,6 @@ def update_root_manifest(game_root: Path, pak_path: Path, backup_path: Path,
         tmp.unlink(missing_ok=True)
 
 
-def remove_root_manifest(game_root: Path) -> None:
-    """Delete the game-root restore manifest (after a clean full restore)."""
-    root_manifest_path(game_root).unlink(missing_ok=True)
-
-
 def restore_from_root_manifest(game_root: Path, log_fn=None) -> int:
     """Restore every PAK listed in the game-root manifest.
 

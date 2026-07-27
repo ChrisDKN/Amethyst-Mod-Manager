@@ -50,6 +50,8 @@ APP_VERSION = __version__
 # How long to wait after a 429 before retrying (seconds)
 _RATE_LIMIT_BACKOFF = 2.0
 _MAX_RETRIES = 3
+# Upper bound for a server-supplied numeric Retry-After header (seconds)
+_RETRY_AFTER_CAP = 30.0
 
 # Keys to redact when logging API responses (values replaced with [REDACTED])
 _SENSITIVE_KEYS = frozenset({"key", "email", "api_key", "token", "authorization", "password"})
@@ -349,8 +351,16 @@ def _save_key_file(key: str) -> None:
     p = _api_key_file_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     cipher = Fernet(_derive_key())
-    p.write_bytes(cipher.encrypt(_json.dumps({"api_key": key}).encode()))
-    _os.chmod(p, 0o600)
+    # Create owner-only from the start — no chmod window with looser perms.
+    fd = _os.open(p, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+    try:
+        _os.fchmod(fd, 0o600)  # tighten a pre-existing file too
+        with _os.fdopen(fd, "wb") as fh:
+            fd = -1
+            fh.write(cipher.encrypt(_json.dumps({"api_key": key}).encode()))
+    finally:
+        if fd != -1:
+            _os.close(fd)
 
 
 def _clear_key_file() -> None:
@@ -549,17 +559,19 @@ class NexusAPI:
         """Parse rate-limit headers from the response."""
         h = resp.headers
         updated = False
-        if "x-rl-hourly-remaining" in h:
-            self._rate.hourly_remaining = int(h["x-rl-hourly-remaining"])
-            updated = True
-        if "x-rl-daily-remaining" in h:
-            self._rate.daily_remaining = int(h["x-rl-daily-remaining"])
-            updated = True
-        if "x-rl-hourly-limit" in h:
-            self._rate.hourly_limit = int(h["x-rl-hourly-limit"])
-            updated = True
-        if "x-rl-daily-limit" in h:
-            self._rate.daily_limit = int(h["x-rl-daily-limit"])
+        for header, attr in (
+            ("x-rl-hourly-remaining", "hourly_remaining"),
+            ("x-rl-daily-remaining", "daily_remaining"),
+            ("x-rl-hourly-limit", "hourly_limit"),
+            ("x-rl-daily-limit", "daily_limit"),
+        ):
+            if header not in h:
+                continue
+            try:
+                value = int(h[header])
+            except (TypeError, ValueError):
+                continue
+            setattr(self._rate, attr, value)
             updated = True
         if updated:
             self._rate.last_updated = datetime.now(timezone.utc)
@@ -588,6 +600,18 @@ class NexusAPI:
             except Exception:
                 pass
 
+    @staticmethod
+    def _retry_wait(resp: requests.Response, attempt: int) -> float:
+        """Seconds to back off before retrying a 429, honoring a numeric Retry-After header."""
+        wait = _RATE_LIMIT_BACKOFF * (attempt + 1)
+        retry_after = resp.headers.get("Retry-After")
+        if retry_after:
+            try:
+                wait = min(max(float(retry_after), 0.0), _RETRY_AFTER_CAP)
+            except ValueError:
+                pass
+        return wait
+
     def _get(self, path: str, params: dict | None = None,
              retries: int = _MAX_RETRIES) -> Any:
         """Issue a GET request against the v1 API, with retry on 429."""
@@ -609,10 +633,11 @@ class NexusAPI:
             self._log_response("GET", path, resp)
 
             if resp.status_code == 429:
-                wait = _RATE_LIMIT_BACKOFF * (attempt + 1)
-                app_log(f"Nexus 429 rate-limited, backing off {wait:.1f}s "
-                        f"(attempt {attempt + 1}/{retries})")
-                time.sleep(wait)
+                if attempt + 1 < retries:
+                    wait = self._retry_wait(resp, attempt)
+                    app_log(f"Nexus 429 rate-limited, backing off {wait:.1f}s "
+                            f"(attempt {attempt + 1}/{retries})")
+                    time.sleep(wait)
                 continue
 
             if resp.status_code == 401:
@@ -634,8 +659,17 @@ class NexusAPI:
     def _post_v3(self, path: str, body: dict,
                  retries: int = _MAX_RETRIES) -> Any:
         """Issue a POST request against the v3 REST API, with retry on 429."""
+        return self._post_json(V3_BASE + path, path, body, retries)
+
+    def _post_v1(self, path: str, body: dict,
+                 retries: int = _MAX_RETRIES) -> Any:
+        """Issue a POST request against the v1 REST API, with retry on 429."""
+        return self._post_json(API_BASE + path, path, body, retries)
+
+    def _post_json(self, url: str, path: str, body: dict,
+                   retries: int = _MAX_RETRIES) -> Any:
+        """Shared REST POST: OAuth refresh, rate-limit tracking, retry on 429."""
         self._refresh_oauth_if_needed()
-        url = V3_BASE + path
         for attempt in range(retries):
             try:
                 resp = self._session.post(url, json=body,
@@ -652,10 +686,11 @@ class NexusAPI:
             self._log_response("POST", path, resp)
 
             if resp.status_code == 429:
-                wait = _RATE_LIMIT_BACKOFF * (attempt + 1)
-                app_log(f"Nexus 429 rate-limited, backing off {wait:.1f}s "
-                        f"(attempt {attempt + 1}/{retries})")
-                time.sleep(wait)
+                if attempt + 1 < retries:
+                    wait = self._retry_wait(resp, attempt)
+                    app_log(f"Nexus 429 rate-limited, backing off {wait:.1f}s "
+                            f"(attempt {attempt + 1}/{retries})")
+                    time.sleep(wait)
                 continue
 
             if resp.status_code == 401:
@@ -673,6 +708,41 @@ class NexusAPI:
             return resp.json()
 
         raise RateLimitError(url)
+
+    def _post_graphql(self, query: str, variables: dict | None = None,
+                      op: str = "GraphQL",
+                      retries: int = _MAX_RETRIES) -> requests.Response:
+        """POST to the GraphQL v2 API (OAuth refresh + 429 retry); returns the raw response."""
+        self._refresh_oauth_if_needed()
+        payload: dict[str, Any] = {"query": query}
+        if variables is not None:
+            payload["variables"] = variables
+        for attempt in range(retries):
+            try:
+                resp = self._session.post(GRAPHQL_BASE, json=payload,
+                                          timeout=self._timeout)
+            except requests.ConnectionError as exc:
+                raise NexusAPIError(
+                    f"Connection failed: {exc}", url=GRAPHQL_BASE) from exc
+            except requests.Timeout as exc:
+                raise NexusAPIError(
+                    f"Request timed out after {self._timeout}s",
+                    url=GRAPHQL_BASE) from exc
+
+            self._update_rate_limits(resp)
+            self._log_response("POST", op, resp)
+
+            if resp.status_code == 429:
+                if attempt + 1 < retries:
+                    wait = self._retry_wait(resp, attempt)
+                    app_log(f"Nexus 429 rate-limited, backing off {wait:.1f}s "
+                            f"(attempt {attempt + 1}/{retries})")
+                    time.sleep(wait)
+                continue
+
+            return resp
+
+        raise RateLimitError(GRAPHQL_BASE)
 
     @property
     def rate_limits(self) -> NexusRateLimits:
@@ -966,12 +1036,8 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL trendingMods", resp)
+            resp = self._post_graphql(query, variables,
+                                      op="GraphQL trendingMods")
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL trending query failed: {resp.status_code}",
@@ -1030,11 +1096,9 @@ class NexusAPI:
         if cached is not None:
             return cached
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": f'{{ game(domainName: "{game_domain}") {{ id }} }}'},
-                timeout=self._timeout,
-            )
+            resp = self._post_graphql(
+                f'{{ game(domainName: "{game_domain}") {{ id }} }}',
+                op="GraphQL resolveGameId")
             if not resp.ok:
                 return 0
             payload = resp.json()
@@ -1120,12 +1184,7 @@ class NexusAPI:
                     f"  }}\n"
                     f"}}"
                 )
-                resp = self._session.post(
-                    GRAPHQL_BASE,
-                    json={"query": query},
-                    timeout=self._timeout,
-                )
-                self._log_response("POST", "GraphQL modFiles", resp)
+                resp = self._post_graphql(query, op="GraphQL modFiles")
                 if resp.ok:
                     payload = resp.json()
                     entries = (
@@ -1283,15 +1342,10 @@ class NexusAPI:
 
     def endorse_mod(self, game_domain: str, mod_id: int, version: str = "") -> dict:
         """Endorse a mod on Nexus Mods."""
-        resp = self._session.post(
-            f"{API_BASE}/games/{game_domain}/mods/{mod_id}/endorse",
-            json={"Version": version},
-            timeout=self._timeout,
+        return self._post_v1(
+            f"/games/{game_domain}/mods/{mod_id}/endorse",
+            {"Version": version},
         )
-        self._update_rate_limits(resp)
-        self._log_response("POST", f"/games/{game_domain}/mods/{mod_id}/endorse", resp)
-        resp.raise_for_status()
-        return resp.json()
 
     def abstain_mod(self, game_domain: str, mod_id: int, version: str = "") -> dict:
         """Abstain from endorsing a mod on Nexus Mods.
@@ -1328,12 +1382,7 @@ class NexusAPI:
         }
         """
         uid_vars = {"ids": [{"gameDomain": game_domain, "modId": mod_id}]}
-        resp = self._session.post(
-            GRAPHQL_BASE,
-            json={"query": uid_query, "variables": uid_vars},
-            timeout=self._timeout,
-        )
-        self._log_response("POST", "GraphQL ModUid", resp)
+        resp = self._post_graphql(uid_query, uid_vars, op="GraphQL ModUid")
         if not resp.ok:
             return None
         payload = resp.json()
@@ -1355,12 +1404,8 @@ class NexusAPI:
             }
         }
         """
-        m_resp = self._session.post(
-            GRAPHQL_BASE,
-            json={"query": mutation, "variables": {"modUid": str(mod_uid)}},
-            timeout=self._timeout,
-        )
-        self._log_response("POST", "GraphQL abstainFromModEndorsement", m_resp)
+        m_resp = self._post_graphql(mutation, {"modUid": str(mod_uid)},
+                                    op="GraphQL abstainFromModEndorsement")
         m_resp.raise_for_status()
         m_payload = m_resp.json()
         if "errors" in m_payload:
@@ -1402,12 +1447,8 @@ class NexusAPI:
         """
         variables = {"ids": [{"gameDomain": game_domain, "modId": mod_id}]}
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL modRequirements", resp)
+            resp = self._post_graphql(query, variables,
+                                      op="GraphQL modRequirements")
             if not resp.ok:
                 app_log(f"GraphQL requirements query failed: {resp.status_code}")
                 return []
@@ -1551,12 +1592,8 @@ class NexusAPI:
         """
         variables = {"ids": [{"gameDomain": game_domain, "modId": mod_id}]}
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL NxmModAndFile", resp)
+            resp = self._post_graphql(query, variables,
+                                      op="GraphQL NxmModAndFile")
             if not resp.ok:
                 app_log(f"GraphQL NxmModAndFile failed: {resp.status_code}")
                 return (None, None)
@@ -1651,12 +1688,8 @@ class NexusAPI:
                 "ids": [{"gameDomain": gd, "modId": mid} for gd, mid in batch]
             }
             try:
-                resp = self._session.post(
-                    GRAPHQL_BASE,
-                    json={"query": query, "variables": variables},
-                    timeout=self._timeout,
-                )
-                self._log_response("POST", "GraphQL batchUpdateCheck", resp)
+                resp = self._post_graphql(query, variables,
+                                          op="GraphQL batchUpdateCheck")
                 if not resp.ok:
                     app_log(f"GraphQL batch update check failed: {resp.status_code}")
                     continue
@@ -1759,12 +1792,7 @@ class NexusAPI:
             )
             query = f"query ModFilesBatch {{\n{aliases}\n}}"
             try:
-                resp = self._session.post(
-                    GRAPHQL_BASE,
-                    json={"query": query},
-                    timeout=self._timeout,
-                )
-                self._log_response("POST", "GraphQL modFilesBatch", resp)
+                resp = self._post_graphql(query, op="GraphQL modFilesBatch")
                 if not resp.ok:
                     app_log(f"GraphQL modFilesBatch failed: {resp.status_code}")
                     continue
@@ -1866,12 +1894,8 @@ class NexusAPI:
                 "ids": [{"gameDomain": gd, "modId": mid} for gd, mid in batch]
             }
             try:
-                resp = self._session.post(
-                    GRAPHQL_BASE,
-                    json={"query": query, "variables": variables},
-                    timeout=self._timeout,
-                )
-                self._log_response("POST", "GraphQL modInfoBatch", resp)
+                resp = self._post_graphql(query, variables,
+                                          op="GraphQL modInfoBatch")
                 if not resp.ok:
                     app_log(f"GraphQL modInfoBatch failed: {resp.status_code}")
                     continue
@@ -1935,11 +1959,9 @@ class NexusAPI:
         """
         # Resolve domain name → numeric game ID (modFiles requires the integer ID)
         try:
-            gid_resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": f'{{ game(domainName: "{game_domain}") {{ id }} }}'},
-                timeout=self._timeout,
-            )
+            gid_resp = self._post_graphql(
+                f'{{ game(domainName: "{game_domain}") {{ id }} }}',
+                op="GraphQL resolveGameId")
             game_id = int(
                 ((gid_resp.json().get("data") or {}).get("game") or {}).get("id") or 0
             )
@@ -1969,12 +1991,7 @@ class NexusAPI:
             )
             query = f"query FileSizesBatch {{\n{aliases}\n}}"
             try:
-                resp = self._session.post(
-                    GRAPHQL_BASE,
-                    json={"query": query},
-                    timeout=self._timeout,
-                )
-                self._log_response("POST", "GraphQL fileSizesBatch", resp)
+                resp = self._post_graphql(query, op="GraphQL fileSizesBatch")
                 if not resp.ok:
                     app_log(f"GraphQL fileSizesBatch failed: {resp.status_code}")
                     continue
@@ -2057,13 +2074,7 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            self._refresh_oauth_if_needed()
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL topMods", resp)
+            resp = self._post_graphql(query, variables, op="GraphQL topMods")
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL top-mods query failed: {resp.status_code}",
@@ -2236,12 +2247,8 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL searchMods", resp)
+            resp = self._post_graphql(query, variables,
+                                      op="GraphQL searchMods")
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL search query failed: {resp.status_code}",
@@ -2420,12 +2427,8 @@ class NexusAPI:
         variables = {"gameDomain": game_domain, "count": count, "offset": offset}
         query = self._collections_query(self._collection_sort_clause(sort))
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL get_collections", resp)
+            resp = self._post_graphql(query, variables,
+                                      op="GraphQL get_collections")
             if not resp.ok:
                 app_log(f"GraphQL get_collections failed: {resp.status_code}")
                 return []
@@ -2503,12 +2506,8 @@ class NexusAPI:
         query_text = self._collections_search_query(
             self._collection_sort_clause(sort))
         try:
-            resp = self._session.post(
-                GRAPHQL_BASE,
-                json={"query": query_text, "variables": variables},
-                timeout=self._timeout,
-            )
-            self._log_response("POST", "GraphQL search_collections", resp)
+            resp = self._post_graphql(query_text, variables,
+                                      op="GraphQL search_collections")
             if not resp.ok:
                 app_log(f"GraphQL search_collections failed: {resp.status_code}")
                 return []
@@ -2594,6 +2593,10 @@ class NexusAPI:
         fields (``tile_image_url``, ``total_downloads``, ``endorsements``) for
         re-hydrating a NexusCollection.
         """
+        try:
+            self._refresh_oauth_if_needed()
+        except Exception as exc:
+            app_log(f"get_collection_detail: OAuth refresh failed: {exc}")
         headers = dict(self._session.headers)
         try:
             # Always fetch the main collection query to get name + full revisions list
@@ -2698,6 +2701,10 @@ class NexusAPI:
         import py7zr
         import requests as _requests
 
+        try:
+            self._refresh_oauth_if_needed()
+        except Exception as exc:
+            app_log(f"get_collection_archive_json: OAuth refresh failed: {exc}")
         _verify = self._session.verify
         api_headers = dict(self._session.headers)
         try:
@@ -2801,6 +2808,10 @@ class NexusAPI:
         import py7zr
         import requests as _requests
 
+        try:
+            self._refresh_oauth_if_needed()
+        except Exception as exc:
+            app_log(f"get_collection_archive_full: OAuth refresh failed: {exc}")
         _verify = self._session.verify
         api_headers = dict(self._session.headers)
         try:

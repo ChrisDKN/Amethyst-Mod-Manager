@@ -66,12 +66,6 @@ def load_extra_download_locations() -> list[str]:
     return read_config()[0]
 
 
-def save_extra_download_locations(locations: list[str]) -> None:
-    """Save extra scan paths, preserving the toggle flags."""
-    _, disabled, cache_disabled = read_config()
-    write_config(locations, disabled, cache_disabled)
-
-
 def get_default_downloads_dir() -> Path:
     """The system default Downloads folder (per xdg-user-dirs)."""
     return xdg_download_dir()
@@ -81,18 +75,8 @@ def is_default_downloads_disabled() -> bool:
     return read_config()[1]
 
 
-def set_default_downloads_disabled(disabled: bool) -> None:
-    extras, _, cache_disabled = read_config()
-    write_config(extras, bool(disabled), cache_disabled)
-
-
 def is_cache_default_disabled() -> bool:
     return read_config()[2]
-
-
-def set_cache_default_disabled(disabled: bool) -> None:
-    extras, default_disabled, _ = read_config()
-    write_config(extras, default_disabled, bool(disabled))
 
 
 def get_effective_download_locations() -> list[Path]:

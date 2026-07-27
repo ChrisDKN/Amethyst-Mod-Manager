@@ -104,11 +104,24 @@ _SCAN_TIMEOUT = 300.0
 
 _INDEX_VERSION = 4
 
-# In-memory cache: (path_str, (mtime_ns, size)) → parsed index
-# Avoids re-parsing the ~5 MB index file on every filemap rebuild.
+# In-memory cache: path_str → ((mtime_ns, size), parsed index)
+# Avoids re-parsing the ~5 MB index file on every filemap rebuild. Small
+# multi-entry dict (insertion-ordered, oldest evicted past the cap) so
+# alternating between two profiles' index paths doesn't thrash re-parses.
 _IndexCache = dict[str, tuple[dict[str, str], dict[str, str]]]
-_index_cache: tuple[str, tuple, _IndexCache] | None = None  # (path, stat_key, data)
+_INDEX_CACHE_MAX = 4
+_index_cache: dict[str, tuple[tuple, _IndexCache]] = {}
 _index_cache_lock = threading.Lock()
+
+
+def _index_cache_store(path_str: str, stat_key: tuple, index) -> None:
+    """Insert/refresh a cache entry, evicting the oldest past the cap.
+
+    Caller must hold _index_cache_lock."""
+    _index_cache.pop(path_str, None)
+    _index_cache[path_str] = (stat_key, index)
+    while len(_index_cache) > _INDEX_CACHE_MAX:
+        _index_cache.pop(next(iter(_index_cache)))
 
 # Serializes every read-modify-write of modindex.bin across threads.
 # update/remove/rename/rescan all read the index, mutate, and write it back;
@@ -135,29 +148,29 @@ def _index_stat_key(index_path: Path):
 _filemap_winner_cache: dict[str, frozenset] = {}
 _filemap_winner_cache_lock = threading.Lock()
 
-# Cache for the lowercase-set form of `disabled_plugins`, keyed by the dict's
-# id() plus a fingerprint covering its mod-keys and per-mod plugin-list lengths.
-# Skips re-lowercasing on every filemap rebuild when the underlying dict hasn't
-# meaningfully changed. The fingerprint is cheap enough that even a miss is
-# bounded; on a hit we avoid re-allocating len(mods) sets per build.
-_disabled_lower_cache: tuple[int, tuple, dict[str, frozenset[str]]] | None = None
+# Cache for the lowercase-set form of `disabled_plugins`, keyed by a
+# fingerprint of the dict's ACTUAL contents (mod names + their plugin names).
+# id()-based keying was unsound: id reuse after GC, or swapping WHICH plugin
+# is disabled while list lengths stay equal, served a stale set. Skips
+# re-lowercasing on every filemap rebuild when the data hasn't changed.
+_disabled_lower_cache: tuple[tuple, dict[str, frozenset[str]]] | None = None
 _disabled_lower_cache_lock = threading.Lock()
 
 
 def _get_disabled_lower(disabled_plugins: dict[str, list[str]]) -> dict[str, frozenset[str]]:
     global _disabled_lower_cache
-    dp_id = id(disabled_plugins)
-    dp_fp = tuple(sorted((m, len(n)) for m, n in disabled_plugins.items()))
+    dp_fp = tuple(sorted((m, tuple(sorted(n)))
+                         for m, n in disabled_plugins.items()))
     with _disabled_lower_cache_lock:
         cached = _disabled_lower_cache
-        if cached is not None and cached[0] == dp_id and cached[1] == dp_fp:
-            return cached[2]
+        if cached is not None and cached[0] == dp_fp:
+            return cached[1]
     built = {
         mod: frozenset(n.lower() for n in names)
         for mod, names in disabled_plugins.items()
     }
     with _disabled_lower_cache_lock:
-        _disabled_lower_cache = (dp_id, dp_fp, built)
+        _disabled_lower_cache = (dp_fp, built)
     return built
 
 
@@ -1145,13 +1158,33 @@ def _scan_dir(
         sorted(((p.lower(), len(p)) for p in strip_path_prefixes), key=lambda t: -t[1])
         if strip_path_prefixes else []
     )
-    # Iterative scandir stack — avoids rglob/Pathlib per-entry object cost
+    # Iterative scandir stack — avoids rglob/Pathlib per-entry object cost.
+    # Errors are handled at three levels so a transient failure on ONE entry
+    # (stale NFS handle, permission blip, dying SD card) doesn't silently drop
+    # every remaining entry of that directory: opening the directory and
+    # advancing the iterator each have their own guard, and per-entry work has
+    # its own try that counts the skip and continues.
+    skipped_errors = 0
     stack = [("", source_dir)]
     while stack:
         prefix, current = stack.pop()
         try:
-            with os.scandir(current) as it:
-                for entry in it:
+            it = os.scandir(current)
+        except OSError:
+            skipped_errors += 1
+            continue
+        with it:
+            while True:
+                try:
+                    entry = next(it)
+                except StopIteration:
+                    break
+                except OSError:
+                    # readdir itself failed — remaining entries of this
+                    # directory are unreadable; count once and move on.
+                    skipped_errors += 1
+                    break
+                try:
                     if entry.is_dir(follow_symlinks=False):
                         if exclude_dirs and entry.name.lower() in exclude_dirs:
                             continue
@@ -1227,7 +1260,14 @@ def _scan_dir(
                                 result[key] = rel_str
                         else:
                             result[key] = rel_str
-        except OSError:
+                except OSError:
+                    skipped_errors += 1
+    if skipped_errors:
+        try:  # escaped name + guarded: logging must never abort the scan
+            print(f"[filemap] WARN: scan of \"{_safe_log_str(source_name)}\" "
+                  f"skipped {skipped_errors} entr(y/ies) due to filesystem "
+                  f"errors", file=sys.stderr, flush=True)
+        except Exception:
             pass
     return source_name, result, root_result, invalid_names
 
@@ -1641,18 +1681,18 @@ def read_mod_index(
     Paths in the returned dicts reflect raw on-disk casing per mod — folder
     case normalization across mods is applied at filemap-build time, not in
     the index.
-    Results are cached in memory by (path, mtime) so repeated calls within
+    Results are cached in memory by (path, stat) so repeated calls within
     the same session are free.
     """
-    global _index_cache
     path_str = str(index_path)
     with _index_cache_lock:
         try:
             stat_key = _index_stat_key(index_path)
         except OSError:
             return None
-        if _index_cache is not None and _index_cache[0] == path_str and _index_cache[1] == stat_key:
-            return _index_cache[2]
+        cached = _index_cache.get(path_str)
+        if cached is not None and cached[0] == stat_key:
+            return cached[1]
     try:
         with perftrace.span("read_mod_index: COLD parse"):
             with index_path.open("rb") as f:
@@ -1674,7 +1714,7 @@ def read_mod_index(
     except Exception:
         return None
     with _index_cache_lock:
-        _index_cache = (path_str, stat_key, index)
+        _index_cache_store(path_str, stat_key, index)
     return index
 
 
@@ -1717,7 +1757,6 @@ def _write_mod_index(
     filemap-build time, not in the index. The index always stores raw
     on-disk casing per mod.
     """
-    global _index_cache
     del normalize_folder_case  # retained for back-compat; see docstring
     mods = []
     for mod_name, (normal, root) in index.items():
@@ -1769,9 +1808,9 @@ def _write_mod_index(
     # Update the in-memory index cache to match what was just written.
     with _index_cache_lock:
         try:
-            _index_cache = (str(index_path), _index_stat_key(index_path), index)
+            _index_cache_store(str(index_path), _index_stat_key(index_path), index)
         except OSError:
-            _index_cache = None
+            _index_cache.pop(str(index_path), None)
     # Invalidate the filemap skip-cache: the index changed so the next
     # build_filemap() must write a fresh filemap.txt regardless.
     profile_dir = str(index_path.parent)

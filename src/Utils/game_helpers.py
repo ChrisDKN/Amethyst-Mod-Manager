@@ -428,24 +428,3 @@ def _clear_game_config(game_name: str) -> None:
     game = _GAMES.get(game_name)
     if game is not None:
         game.load_paths()
-
-
-def _handle_missing_profile_root(topbar, game_name: str) -> None:
-    """Profile/staging folder was deleted: clear game config, refresh list, switch to another game or clear last_game."""
-    _clear_game_config(game_name)
-    game_names = _load_games()
-    topbar._game_menu.configure(values=game_names)
-    if game_names and game_names[0] != "No games configured":
-        topbar._game_var.set(game_names[0])
-        if hasattr(topbar, "_profile_menu") and topbar._profile_menu is not None:
-            profiles = _profiles_for_game(game_names[0])
-            topbar._profile_menu.configure(values=profiles)
-            topbar._profile_var.set(profiles[0])
-        topbar._reload_mod_panel()
-    else:
-        get_last_game_path().unlink(missing_ok=True)
-        topbar._game_var.set("No games configured")
-        if hasattr(topbar, "_profile_menu") and topbar._profile_menu is not None:
-            topbar._profile_menu.configure(values=["default"])
-            topbar._profile_var.set("default")
-        topbar._reload_mod_panel()

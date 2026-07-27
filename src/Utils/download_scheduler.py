@@ -38,57 +38,6 @@ def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = Non
     return sorted(mods, key=lambda m: (size_key(m) <= 0, size_key(m)))
 
 
-def run_smallest_first(mods: list, work: Callable[[object], None], workers: int,
-                       *, stop: "threading.Event | None" = None,
-                       spawn: Callable[[Callable, str], object] | None = None
-                       ) -> None:
-    """Dispatch *mods* to *work* strictly smallest→largest across *workers*
-    threads, blocking until every mod is processed (or *stop* is set).
-
-    Unlike :func:`run_double_ended`, NO worker is dedicated to large mods: all
-    workers pull from the head of the (pre-sorted smallest→largest) list, so the
-    smallest remaining mod is always the next one downloaded. NB this is a
-    deliberate Qt policy, NOT Tk parity: the Tk installer honoured the
-    ``download_order`` collection setting (default "largest" = largest-first);
-    Qt ignores that legacy key and always downloads smallest-first.
-
-    *mods*  — PRE-SORTED smallest→largest (see :func:`order_by_size`).
-    *stop*  — optional cancel event; when set, workers drain the remainder
-              (feeding *work*, which is expected to short-circuit) so the
-              caller's per-mod bookkeeping still fires.
-    *spawn* — optional ``spawn(target, name) -> thread-like`` for tests.
-    """
-    n = len(mods)
-    if n == 0:
-        return
-    workers = max(1, int(workers))
-
-    lock = threading.Lock()
-    cursor = {"lo": 0, "hi": n - 1}
-
-    def _worker():
-        while True:
-            if stop is not None and stop.is_set():
-                _drain_remaining(work, cursor, lock, mods, stop)
-                return
-            with lock:
-                if cursor["lo"] > cursor["hi"]:
-                    return
-                mod = mods[cursor["lo"]]
-                cursor["lo"] += 1
-            work(mod)
-
-    if spawn is None:
-        def spawn(target, name):
-            return threading.Thread(target=target, name=name, daemon=True)
-
-    threads = [spawn(_worker, f"col-dl-{i}") for i in range(workers)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-
-
 def run_double_ended(mods: list, work: Callable[[object], None], workers: int,
                      *, stop: "threading.Event | None" = None,
                      spawn: Callable[[Callable, str], object] | None = None

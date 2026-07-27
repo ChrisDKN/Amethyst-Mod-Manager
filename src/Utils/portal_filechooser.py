@@ -375,17 +375,6 @@ def _is_flatpak() -> bool:
     return os.path.exists("/.flatpak-info")
 
 
-def is_doc_portal_path(path: "Path | str") -> bool:
-    """True if *path* is a document-portal FUSE path (/run/user/<uid>/doc/…).
-
-    The portal hands these out for picks outside the sandbox's granted
-    filesystems. They are only valid inside this sandbox — never use one as
-    a deploy target or staging location.
-    """
-    parts = Path(path).parts
-    return len(parts) >= 5 and parts[1:3] == ("run", "user") and parts[4] == "doc"
-
-
 def _zenity_candidates() -> list[list[str]]:
     """Return zenity invocation candidates to try in order."""
     if _is_flatpak():

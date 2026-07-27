@@ -72,17 +72,37 @@ def _tinted_icon_url(name: str, color: str) -> str:
 _QT_DEFAULT_THEME = "dark"
 
 
+# Memoised active_palette() result. Model data() methods call it per cell per
+# repaint, and an uncached call rescans the theme packages + parses config each
+# time. Invalidated by apply_theme() and wherever the theme/appearance is
+# changed (settings / theme editor save paths).
+_active_palette_cache: dict | None = None
+
+
+def invalidate_palette_cache() -> None:
+    """Drop the memoised active palette (call after the theme changes)."""
+    global _active_palette_cache
+    _active_palette_cache = None
+
+
 def active_palette() -> dict:
     """Return the {KEY: hex} palette for the Qt app. Defaults to the dark palette;
     an explicit saved appearance_mode theme wins when present. (Values may be str
-    or (light,dark) tuples; _c() normalises them.)"""
+    or (light,dark) tuples; _c() normalises them.) Memoised — see
+    invalidate_palette_cache()."""
+    global _active_palette_cache
+    if _active_palette_cache is not None:
+        return _active_palette_cache
     palettes = load_palettes()
     mode = get_appearance_mode()
     if mode and mode in palettes:
-        return palettes[mode]
-    return (palettes.get(_QT_DEFAULT_THEME)
-            or palettes.get("dark")
-            or next(iter(palettes.values()), {}))
+        pal = palettes[mode]
+    else:
+        pal = (palettes.get(_QT_DEFAULT_THEME)
+               or palettes.get("dark")
+               or next(iter(palettes.values()), {}))
+    _active_palette_cache = pal
+    return pal
 
 
 def _c(pal: dict, key: str) -> str:
@@ -786,6 +806,7 @@ def apply_theme(app) -> None:
     tab close button) + a role-based QPalette + the QSS overlay. Mirrors MO2's
     QStyle+QSS model, with QPalette added so Fusion's disabled/tooltip/frame/
     inactive states look right (MO2 leans on native styles for those)."""
+    invalidate_palette_cache()
     p = active_palette()
     base = _resolve_base_style(p)
     app.setStyle(_make_proxy_style(base))

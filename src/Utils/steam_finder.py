@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import threading
 from pathlib import Path
 
@@ -444,24 +445,60 @@ def find_steam_root_for_proton_script(proton_script: Path) -> Path | None:
 # Public API
 # ---------------------------------------------------------------------------
 
+# find_steam_libraries() cache — the GUI calls it on every refresh, and a
+# full run re-reads the ini + every candidate VDF and resolves every library.
+# Validated against the (st_mtime_ns, st_size) of the source files actually
+# read, so any change to them re-parses; stat-only validation is ~free.
+_libraries_lock = threading.Lock()
+_libraries_cache: "tuple[tuple, tuple[Path, ...]] | None" = None  # (signature, libs)
+_custom_vdf_cache: "tuple[tuple | None, str] | None" = None       # (ini sig, path)
+
+
+def _stat_sig(path) -> "tuple[int, int] | None":
+    """(st_mtime_ns, st_size) for a regular file, None if absent/unreadable."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size) if stat.S_ISREG(st.st_mode) else None
+
+
+def _custom_vdf_path() -> str:
+    """User-configured libraryfolders.vdf path, cached on amethyst.ini's stat."""
+    global _custom_vdf_cache
+    try:
+        from Utils.ui_config import (
+            get_ui_config_path,
+            load_steam_libraries_vdf_path,
+        )
+        ini_sig = _stat_sig(get_ui_config_path())
+        cached = _custom_vdf_cache
+        if cached is not None and cached[0] == ini_sig:
+            return cached[1]
+        custom = load_steam_libraries_vdf_path()
+        _custom_vdf_cache = (ini_sig, custom)
+        return custom
+    except Exception:
+        return ""
+
+
 def find_steam_libraries() -> list[Path]:
     """
     Parse libraryfolders.vdf from all known Steam install locations.
     Returns a deduplicated list of existing steamapps/common/ directories.
+
+    Results are cached module-wide and revalidated by stat signature of the
+    config ini and every VDF hit, so repeated GUI-refresh calls are cheap.
+    Each call returns a fresh list, so callers can't corrupt the cache.
     """
-    seen: set[Path] = set()
-    libraries: list[Path] = []
+    global _libraries_cache
 
     vdf_candidates: list[Path] = []
 
     # User-configured VDF path takes highest priority
-    try:
-        from Utils.ui_config import load_steam_libraries_vdf_path
-        custom = load_steam_libraries_vdf_path()
-        if custom:
-            vdf_candidates.append(Path(custom))
-    except Exception:
-        pass
+    custom = _custom_vdf_path()
+    if custom:
+        vdf_candidates.append(Path(custom))
 
     # Built-in fallbacks. Steam keeps copies under both steamapps/ and the
     # root config/, and may spell the file singular or plural — try them all.
@@ -471,14 +508,32 @@ def find_steam_libraries() -> list[Path]:
             vdf_candidates.append(steam_root / "config" / name)
             vdf_candidates.append(steam_root / name)
 
+    # Stat every candidate once: the existing files (in order) plus their
+    # signatures form the cache key, so a VDF appearing, vanishing or being
+    # rewritten all invalidate the cached result.
+    hits: list[tuple[Path, tuple]] = []
     for vdf_path in vdf_candidates:
-        if vdf_path.is_file():
-            for common in parse_vdf_libraries(vdf_path):
-                resolved = common.resolve()
-                if resolved not in seen:
-                    seen.add(resolved)
-                    libraries.append(common)
+        sig = _stat_sig(vdf_path)
+        if sig is not None:
+            hits.append((vdf_path, sig))
+    signature = (custom, tuple((str(p), s) for p, s in hits))
 
+    with _libraries_lock:
+        cached = _libraries_cache
+        if cached is not None and cached[0] == signature:
+            return list(cached[1])
+
+    seen: set[Path] = set()
+    libraries: list[Path] = []
+    for vdf_path, _sig in hits:
+        for common in parse_vdf_libraries(vdf_path):
+            resolved = common.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                libraries.append(common)
+
+    with _libraries_lock:
+        _libraries_cache = (signature, tuple(libraries))
     return libraries
 
 

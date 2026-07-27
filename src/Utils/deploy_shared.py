@@ -971,19 +971,24 @@ def _rm_any(path: str) -> None:
 def _clear_dir(directory: Path) -> int:
     """Delete all files inside directory and remove empty subdirectories.
     Returns the number of files deleted.  The directory itself is kept.
-
-    Uses shutil.rmtree + recreate rather than per-file unlink — significantly
-    faster for large directories (avoids repeated stat/unlink/rmdir syscalls).
     """
     if not directory.is_dir():
         return 0
-    # os.walk classifies entries via readdir d_type — no stat per entry like
-    # rglob + is_file.
-    count = sum(len(fns) for _dp, _dns, fns in os.walk(str(directory)))
-    if count == 0:
-        return 0
-    shutil.rmtree(directory)
-    directory.mkdir(parents=True, exist_ok=True)
+    # Single bottom-up walk: unlink files (counting as we go) and rmdir the
+    # emptied subdirs — os.walk classifies entries via readdir d_type, so
+    # there is no stat per entry, and no second walk just to get the count.
+    count = 0
+    for dp, dns, fns in os.walk(str(directory), topdown=False):
+        for fn in fns:
+            os.unlink(os.path.join(dp, fn))
+            count += 1
+        for dn in dns:
+            sub = os.path.join(dp, dn)
+            try:
+                os.rmdir(sub)
+            except NotADirectoryError:
+                # Symlink to a dir — walk lists it in dns but never descends.
+                os.unlink(sub)
     return count
 
 
@@ -1885,17 +1890,21 @@ def _path_under_root(path: Path, root: Path) -> bool:
 
     Checks the unresolved path first so that symlinks whose targets live
     outside root (e.g. symlinks into staging) are not incorrectly blocked.
+    Any ``..`` component below root is rejected outright — relative_to()
+    never collapses ``..``, so "root/a/../../x" would otherwise pass the
+    prefix check while actually pointing outside root.
     """
     try:
-        path.relative_to(root)
-        return True
+        rel = path.relative_to(root)
     except ValueError:
         pass
+    else:
+        return ".." not in rel.parts
     try:
-        path.resolve().relative_to(root.resolve())
-        return True
+        rel = path.resolve().relative_to(root.resolve())
     except ValueError:
         return False
+    return ".." not in rel.parts
 
 
 def _get_staging_source_path(

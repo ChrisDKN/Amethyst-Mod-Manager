@@ -73,8 +73,13 @@ def read_modlist(modlist_path: Path) -> list[ModEntry]:
     entries: list[ModEntry] = []
     if not modlist_path.is_file():
         return entries
-    for line in modlist_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    # surrogateescape: imported MO2 modlists can carry non-UTF-8 (e.g. cp1252)
+    # bytes in mod names; a strict read would raise on every profile load.
+    # Only line endings are stripped — mod folder names may legitimately
+    # start/end with spaces and must round-trip unchanged.
+    for line in modlist_path.read_text(
+            encoding="utf-8", errors="surrogateescape").splitlines():
+        line = line.rstrip("\r\n")
         if not line:
             continue
         prefix = line[0]
@@ -116,7 +121,8 @@ def write_modlist(modlist_path: Path, entries: list[ModEntry]) -> None:
             prefix = "-"
         lines.append(f"{prefix}{e.name}")
     write_atomic_text(modlist_path,
-                      "\n".join(lines) + ("\n" if lines else ""))
+                      "\n".join(lines) + ("\n" if lines else ""),
+                      errors="surrogateescape")
 
 
 def prepend_mod(modlist_path: Path, mod_name: str, enabled: bool = True,
@@ -245,8 +251,8 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
 
     # Normalise mod folder names that Windows/Wine path resolution would mangle
     # (leading/trailing whitespace, trailing dots, reserved characters). Such a
-    # folder desyncs from the modlist: read_modlist strips whitespace from the
-    # line, and the folder name is unaddressable to Wine tools, but the
+    # folder desyncs from the modlist: the folder name is unaddressable to
+    # Wine tools, and the
     # index/filemap read the raw folder name — so build_filemap's
     # index.get(name) misses and the mod drops out of filemap.txt entirely (no
     # conflicts, no Data-tab rows, no plugins). Rename each such folder to the
@@ -299,9 +305,10 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
     existing_names: set[str] = set()
     dropped: list[str] = []
     if modlist_path.exists():
-        for line in modlist_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped:
+        for line in modlist_path.read_text(
+                encoding="utf-8", errors="surrogateescape").splitlines():
+            stripped = line.rstrip("\r\n")
+            if not stripped.strip():
                 continue
             if stripped[0] in ("+", "-", "*"):
                 name = stripped[1:]
@@ -342,4 +349,5 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
 
     all_lines = new_lines + existing_lines
     write_atomic_text(modlist_path,
-                      "\n".join(all_lines) + ("\n" if all_lines else ""))
+                      "\n".join(all_lines) + ("\n" if all_lines else ""),
+                      errors="surrogateescape")

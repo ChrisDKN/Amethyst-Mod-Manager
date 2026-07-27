@@ -56,10 +56,6 @@ class SmapiView(WizardViewBase):
         self._install_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._run_status, t, c)))
         self._install_done_sig.connect(self._guard(self._on_install_done))
-        # portal picker (Browse) marshals through the base _picked_sig; we route
-        # its result to _on_smapi_picked instead of the locate-page handler.
-        self._picked_sig.disconnect()
-        self._picked_sig.connect(self._guard(self._on_smapi_picked))
 
         self._stack.addWidget(self._build_download_page())
         self._stack.addWidget(self._build_install_page())
@@ -178,6 +174,11 @@ class SmapiView(WizardViewBase):
         from Utils.portal_filechooser import pick_file
         pick_file(self.tr("Select the SMAPI archive"),
                   lambda p: safe_emit(self._picked_sig, p))
+
+    def _on_picked(self, path):
+        """Base portal-picker override — this view has no locate page, so the
+        pick lands on the SMAPI handler (the base connection stays guarded)."""
+        self._on_smapi_picked(path)
 
     def _on_smapi_picked(self, path):
         if path and Path(path).is_file():

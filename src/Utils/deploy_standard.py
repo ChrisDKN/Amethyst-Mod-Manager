@@ -1695,6 +1695,7 @@ def restore_data_core(
     # deployed files.  Leftover trash from a crash is removed by
     # sweep_deploy_trash (start of move_to_core/restore, and app startup).
     with _timer("restore — swap dirs"):
+        merge_needed = False
         if deploy_dir.is_dir():
             trash = deploy_dir.parent / (
                 f"{deploy_dir.name}{_TRASH_INFIX}{_time.time_ns()}")
@@ -1705,12 +1706,68 @@ def restore_data_core(
                      f"in the background).")
             except OSError:
                 # Rename refused (e.g. exotic mount) — fall back to the old
-                # foreground rmtree.
-                shutil.rmtree(deploy_dir)
-                _log(f"  Cleared {deploy_dir.name}/.")
-        shutil.move(str(core_dir), str(deploy_dir))
+                # foreground rmtree.  A partial rmtree failure (EACCES/EBUSY)
+                # must NOT escape here: that would abort the restore with a
+                # half-deleted deploy dir AND the vanilla files still
+                # stranded in core_dir.  Merge them back over the leftovers
+                # instead.
+                try:
+                    shutil.rmtree(deploy_dir)
+                    _log(f"  Cleared {deploy_dir.name}/.")
+                except OSError as rm_err:
+                    if deploy_dir.exists():
+                        merge_needed = True
+                        _log(f"  ERROR: could not fully clear "
+                             f"{deploy_dir.name}/ ({rm_err}) — restoring the "
+                             f"vanilla files over the leftovers.")
+                    else:
+                        _log(f"  Cleared {deploy_dir.name}/.")
+        if merge_needed:
+            _merge_restore_core(core_dir, deploy_dir, _log)
+        else:
+            shutil.move(str(core_dir), str(deploy_dir))
 
     return restored
+
+
+def _merge_restore_core(core_dir: Path, deploy_dir: Path, _log) -> None:
+    """Move core_dir's files into a partially-cleared deploy_dir one by one.
+
+    Fallback for when the whole-dir swap in restore_data_core could not run
+    (deploy_dir could not be fully deleted).  Each vanilla file replaces any
+    leftover at its path; files that cannot be moved stay safely in core_dir
+    (which is only removed once it has been fully emptied) so a later restore
+    can retry them.
+    """
+    failed = 0
+    core_str = str(core_dir)
+    deploy_str = str(deploy_dir)
+    for dp, _dns, fns in os.walk(core_str):
+        rel_dp = os.path.relpath(dp, core_str)
+        dst_dp = deploy_str if rel_dp == "." else os.path.join(deploy_str, rel_dp)
+        for fn in fns:
+            src = os.path.join(dp, fn)
+            dst = os.path.join(dst_dp, fn)
+            try:
+                os.makedirs(dst_dp, exist_ok=True)
+                if os.path.isdir(dst) and not os.path.islink(dst):
+                    # Leftover deployed dir shadowing a vanilla file path.
+                    shutil.rmtree(dst)
+                try:
+                    os.replace(src, dst)
+                except OSError:
+                    shutil.move(src, dst)
+            except (OSError, shutil.Error) as exc:
+                failed += 1
+                _log(f"  WARN: could not restore "
+                     f"{os.path.relpath(src, core_str)}: {exc}")
+    if failed:
+        _log(f"  ERROR: {failed} vanilla file(s) could not be restored and "
+             f"remain in {core_dir.name}/ — they will be retried on the "
+             f"next restore.")
+    else:
+        # Everything moved — drop the now-empty core_dir tree.
+        shutil.rmtree(core_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

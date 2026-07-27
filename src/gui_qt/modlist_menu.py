@@ -1108,10 +1108,6 @@ def _show_overwrite_log(view, boundary_name=None):
     OverwriteLogOverlay.show_over(view, parse_overwrite_log(text), title=title)
 
 
-def _toggle_collapse(view, model, row):
-    view._toggle_collapse_row(row)
-
-
 def _toggle_sep_lock(view, model, row):
     view._toggle_lock_row(row)
 

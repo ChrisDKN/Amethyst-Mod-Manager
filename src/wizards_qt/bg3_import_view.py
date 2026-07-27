@@ -36,7 +36,6 @@ _JSON_FILTERS = [
 class BG3ImportView(WizardViewBase):
     """Import a BG3MM order file into the active profile's modlist."""
 
-    _pick_status_sig = Signal(str, str)
     _preview_ready_sig = Signal(str, str)     # summary, detail
     _preview_error_sig = Signal(str)
 
@@ -47,14 +46,9 @@ class BG3ImportView(WizardViewBase):
         self._json_path: Path | None = None
         self._plan = None
 
-        self._pick_status_sig.connect(self._guard(
-            lambda t, c: self._set_status(self._pick_status, t, c)))
         self._preview_ready_sig.connect(self._guard(self._on_preview_ready))
         self._preview_error_sig.connect(self._guard(
             lambda t: self._set_status(self._preview_summary, t, RED)))
-        # route the base portal picker signal to our handler
-        self._picked_sig.disconnect()
-        self._picked_sig.connect(self._guard(self._on_json_picked))
 
         self._stack.addWidget(self._build_pick_page())
         self._stack.addWidget(self._build_preview_page())
@@ -90,6 +84,11 @@ class BG3ImportView(WizardViewBase):
         from Utils.portal_filechooser import pick_file
         pick_file(self.tr("Select a BG3MM order .json"),
                   lambda p: safe_emit(self._picked_sig, p), _JSON_FILTERS)
+
+    def _on_picked(self, path):
+        """Base portal-picker override — this view has no locate page, so the
+        pick lands on the .json handler (the base connection stays guarded)."""
+        self._on_json_picked(path)
 
     def _on_json_picked(self, path):
         if path and Path(path).is_file():

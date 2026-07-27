@@ -61,23 +61,34 @@ def compute_mod_conflicts(
     per_mod = load_per_mod_strip_prefixes(profile_dir)
     strip_lower = {s.lower() for s in strip_prefixes}
 
+    # Per-mod strip data memoized once per mod (the sort + set merge used to
+    # be rebuilt on every _strip_for call, i.e. once per file walked).
+    _strip_cache: dict[str, tuple[list[tuple[str, str]], set[str]]] = {}
+
+    def _strip_data(name: str) -> "tuple[list[tuple[str, str]], set[str]]":
+        """(path prefixes longest-first with lowercase, merged segment set)."""
+        data = _strip_cache.get(name)
+        if data is None:
+            entries = per_mod.get(name, [])
+            paths = sorted((p for p in entries if "/" in p),
+                           key=len, reverse=True)
+            data = ([(p, p.lower()) for p in paths],
+                    strip_lower | {s.lower() for s in entries if "/" not in s})
+            _strip_cache[name] = data
+        return data
+
     def _strip_for(name: str, rel: str) -> str:
         """Strip prefixes the same way filemap.py does for a given mod."""
-        mod_paths = sorted(
-            (p for p in per_mod.get(name, []) if "/" in p),
-            key=lambda p: -len(p),
-        )
+        mod_paths, mod_segs = _strip_data(name)
         if mod_paths:
             rl = rel.lower()
-            for p in mod_paths:
-                pl = p.lower()
+            for p, pl in mod_paths:
                 if rl.startswith(pl + "/"):
                     rel = rel[len(p) + 1:]
                     break
                 elif rl == pl:
                     rel = ""
                     break
-        mod_segs = strip_lower | {s.lower() for s in per_mod.get(name, []) if "/" not in s}
         while "/" in rel and rel.split("/", 1)[0].lower() in mod_segs:
             rel = rel.split("/", 1)[1]
         return rel

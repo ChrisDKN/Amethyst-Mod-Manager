@@ -169,16 +169,6 @@ def get_bain_selections_path(game_name: str, mod_name: str) -> Path:
     return path
 
 
-def get_nexus_config_dir() -> Path:
-    """Return the Nexus Mods config directory, creating it if needed.
-
-    Result: ~/.config/AmethystModManager/Nexus/
-    """
-    d = get_config_dir() / "Nexus"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
 def get_last_game_path() -> Path:
     """Return the path to the last-opened game state file.
 

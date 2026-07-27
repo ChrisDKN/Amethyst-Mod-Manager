@@ -173,6 +173,25 @@ class GameState:
         from gui_qt.modlist_data import display_codes_from_conflict_map
         from Utils.perftrace import span
         log = log_fn or (lambda _m: None)
+        # Flat-staging heal (Tk parity): wrap manually-copied flat mods before
+        # the index/filemap build so deploy targets Mods/<Name>/ correctly. A
+        # fix forces a full rescan — the index still has the pre-wrap layout.
+        if getattr(g, "mod_staging_requires_subdir", False):
+            try:
+                from Utils.mod_install import fix_flat_staging_folders
+                names, exts = getattr(g, "mod_staging_wrap_signals",
+                                      ({"manifest.json"}, set()))
+                guard = getattr(g, "mod_staging_already_structured_markers",
+                                set())
+                staging = self.staging_dir()
+                fixed = (fix_flat_staging_folders(staging, names, exts, guard)
+                         if staging is not None else [])
+                if fixed:
+                    rescan_index = True
+                    log(f"Auto-fixed {len(fixed)} mod(s) with flat staging "
+                        f"structure: " + ", ".join(fixed))
+            except Exception as exc:
+                log(f"Flat-staging check failed: {exc}")
         with span("_build_filemap_for_game"):
             result = _build_filemap_for_game(
                 g, self.profile, log_fn=log, rescan_index=rescan_index)
@@ -474,9 +493,6 @@ class GameState:
         if preferred and preferred in profs:
             return preferred
         return profs[0] if profs else None
-
-    def _select_default_profile(self) -> None:
-        self.profile = self._select_profile(None)
 
     def _select_last_active_profile(self) -> None:
         """Set self.profile to this game's saved last-active profile (if it still

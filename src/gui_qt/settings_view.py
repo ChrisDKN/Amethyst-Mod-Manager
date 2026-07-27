@@ -388,6 +388,8 @@ class SettingsView(QWidget):
         """Persist the chosen theme, then offer a restart (same pattern as UI
         scale / language) so the new palette applies on a fresh launch."""
         self._safe_save(uc.save_appearance_mode, tid)
+        from gui_qt.theme_qt import invalidate_palette_cache
+        invalidate_palette_cache()
         self._prompt_restart("theme")
 
     def _open_theme_editor(self):
@@ -510,9 +512,12 @@ class SettingsView(QWidget):
             return
         combo.blockSignals(True)
         current = uc.load_language()
-        if getattr(self, "_lang_combo_connected", False):
-            combo.currentIndexChanged.disconnect()
-            self._lang_combo_connected = False
+        # Disconnect only our own slot — a bare disconnect() would also sever
+        # any other connection on the signal.
+        prev_slot = getattr(self, "_lang_combo_slot", None)
+        if prev_slot is not None:
+            combo.currentIndexChanged.disconnect(prev_slot)
+            self._lang_combo_slot = None
         combo.clear()
         sel = 0
         for i, (disp, code) in enumerate(available_languages()):
@@ -520,9 +525,9 @@ class SettingsView(QWidget):
             if code == current:
                 sel = i
         combo.setCurrentIndex(sel)
-        combo.currentIndexChanged.connect(
+        self._lang_combo_slot = (
             lambda i: self._on_language_changed(combo.itemData(i)))
-        self._lang_combo_connected = True
+        combo.currentIndexChanged.connect(self._lang_combo_slot)
         combo.blockSignals(False)
 
     def _on_language_changed(self, code):

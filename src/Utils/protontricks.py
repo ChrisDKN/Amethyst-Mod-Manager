@@ -651,8 +651,3 @@ def install_vcredist(
     except Exception as exc:
         _log(f"VC++ Redistributable install error: {exc}")
         return False
-
-
-def protontricks_available() -> bool:
-    """Return True if protontricks (native or flatpak) is available on this system."""
-    return _resolve_protontricks() is not None

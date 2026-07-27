@@ -448,15 +448,6 @@ def _dep_plugin_name(dep: "Dependency") -> str:
     return (FLAG_ABSENT + name) if dep.file_state == "Missing" else name
 
 
-def _is_plugin_file_dep(dep: "Dependency") -> bool:
-    """True if *dep* is a fileDependency on a real plugin (a .esp/.esm/.esl with
-    no path separator — loose assets skipped) that would need to be PRESENT +
-    enabled (Active) for the pattern to match. Inactive/Missing gates are not
-    'present-required' so return False."""
-    name = _dep_plugin_name(dep)
-    return bool(name) and not name.startswith(FLAG_ABSENT)
-
-
 def _pattern_has_inactive_plugin(dep: "Dependency") -> bool:
     """True if *dep*'s tree references any real plugin with state="Inactive".
     The rerun-flag clause format can't represent "present but DISABLED" (only

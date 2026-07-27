@@ -735,11 +735,19 @@ class NexusDownloader:
             if not _has_archive_ext:
                 cd = resp.headers.get("Content-Disposition", "")
                 if "filename=" in cd:
-                    file_name = cd.split("filename=")[-1].strip(' "\'')
+                    # Sanitise: server-controlled value must never carry path
+                    # components ("../evil", "C:\evil") or be empty/dot-only.
+                    cand = cd.split("filename=")[-1].strip(' "\'')
+                    cand = os.path.basename(cand.replace("\\", "/")).strip(' "\'')
+                    if cand and cand.strip("."):
+                        file_name = cand
             if not file_name:
                 file_name = f"{game_domain}_{mod_id}_{file_id}.zip"
 
-            total = int(resp.headers.get("Content-Length", 0))
+            try:
+                total = int(resp.headers.get("Content-Length", 0))
+            except (TypeError, ValueError):
+                total = 0
             dest = dest_dir / file_name
 
             # Don't clobber existing files — add a suffix
@@ -772,6 +780,19 @@ class NexusDownloader:
 
                     if progress_cb:
                         progress_cb(downloaded, total)
+
+        # Verify against Content-Length — a dropped connection can end the
+        # stream early without raising; a short file must not look successful.
+        if total and downloaded != total:
+            app_log(f"Incomplete download of {file_name}: got {downloaded} "
+                    f"of {total} bytes — discarding")
+            delete_archive_and_sidecar(dest)
+            return DownloadResult(
+                success=False,
+                error=f"Incomplete download: got {downloaded} of {total} bytes",
+                game_domain=game_domain,
+                mod_id=mod_id, file_id=file_id,
+            )
 
         app_log(f"Downloaded {file_name} ({downloaded} bytes) → {dest}")
         if file_id > 0:

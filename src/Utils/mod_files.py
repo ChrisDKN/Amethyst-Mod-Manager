@@ -129,8 +129,8 @@ def build_conflict_cache(index_path: Path | None,
     filemap_winner owners, so an excluded loose file (no filemap entry)
     resolves to "no tint" naturally.
 
-    Results are cached by (filemap.txt mtime, modlist.txt mtime, bsa_index.bin
-    path+mtime, index identity); treat the returned set/dict as read-only.
+    Results are cached by (filemap.txt stat, modlist.txt stat, bsa_index.bin
+    path+stat, index identity); treat the returned set/dict as read-only.
     """
     global _conflict_cache
     if index_path is None:
@@ -145,16 +145,21 @@ def build_conflict_cache(index_path: Path | None,
         except Exception:
             full_index = None
 
-    def _mtime(p: Path | None) -> float | None:
+    def _stat_key(p: Path | None) -> "tuple[int, int] | None":
+        # (st_mtime_ns, st_size) — a bare float mtime is too coarse on
+        # FAT/exFAT SD cards (2 s resolution); see filemap._index_stat_key.
         try:
-            return p.stat().st_mtime if p is not None else None
+            if p is None:
+                return None
+            st = p.stat()
+            return (st.st_mtime_ns, st.st_size)
         except OSError:
             return None
 
-    key = (str(index_path), _mtime(fm_path),
-           str(ml_path) if ml_path is not None else None, _mtime(ml_path),
+    key = (str(index_path), _stat_key(fm_path),
+           str(ml_path) if ml_path is not None else None, _stat_key(ml_path),
            str(bsa_index_path) if bsa_index_path is not None else None,
-           _mtime(bsa_index_path))
+           _stat_key(bsa_index_path))
     with _conflict_cache_lock:
         cached = _conflict_cache
     # read_mod_index caches by mtime, so an unchanged index returns the SAME

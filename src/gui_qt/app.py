@@ -120,37 +120,6 @@ _QUICK_CONFIGURE_TR = (
 )
 
 
-class _FooterBar(QWidget):
-    """A footer container whose reported height follows its FlowLayout's
-    *wrapped* height at the current width. Qt evaluates a widget's sizeHint
-    height at its MINIMUM width (every button on its own row), so a footer whose
-    buttons only wrap when narrow otherwise reserves that fully-wrapped tall
-    height — a blank gap above the search box. We report heightForWidth for the
-    sizeHint/minimumSizeHint heights so the parent layout fits us exactly."""
-
-    def _hfw(self) -> int:
-        lay = self.layout()
-        if lay is not None and lay.hasHeightForWidth():
-            w = self.width() or self.sizeHint().width()
-            return lay.heightForWidth(w)
-        return -1
-
-    def sizeHint(self) -> QSize:            # noqa: N802
-        s = super().sizeHint()
-        h = self._hfw()
-        return QSize(s.width(), h) if h >= 0 else s
-
-    def minimumSizeHint(self) -> QSize:     # noqa: N802
-        s = super().minimumSizeHint()
-        h = self._hfw()
-        return QSize(s.width(), h) if h >= 0 else s
-
-    def resizeEvent(self, e):               # noqa: N802
-        super().resizeEvent(e)
-        # Width changed → our wrapped height may have changed; re-fit.
-        self.updateGeometry()
-
-
 class _CurrentPageStack(QStackedWidget):
     """A QStackedWidget that sizes to its *currently visible* page instead of
     the tallest one.
@@ -12740,16 +12709,6 @@ class MainWindow(QMainWindow):
         w = max((b.sizeHint().width() for b in buttons), default=0)
         for b in buttons:
             b.setMinimumWidth(w)
-
-    def _icon_button(self, icon_name: str, tip: str = "") -> QToolButton:
-        b = QToolButton()
-        b.setIcon(icon(icon_name, self._ICON_PX))
-        b.setIconSize(QSize(self._ICON_PX, self._ICON_PX))
-        b.setAutoRaise(True)
-        b.setCursor(Qt.PointingHandCursor)
-        if tip:
-            b.setToolTip(tip)
-        return b
 
     def _group_sep(self) -> QFrame:
         s = QFrame()

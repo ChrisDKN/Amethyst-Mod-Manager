@@ -145,6 +145,33 @@ STAGING_EXE_SUFFIXES = (".exe", ".bat", ".jar")
 _PREFIX_DIR_NAMES = frozenset({"pfx", "drive_c"})
 
 
+def _walk_launchables(root: Path, seen: set, found: list,
+                      skip_key: "str | None" = None) -> None:
+    """os.walk *root* for launchable files, pruning prefix dirs before descent."""
+    for dirpath, dirnames, filenames in os.walk(root):
+        # Prune wine/Proton prefix trees in place so the walk never descends
+        # into them (rglob visited every Windows system exe first and only
+        # filtered them out afterwards).
+        dirnames[:] = [d for d in dirnames
+                       if d.lower() not in _PREFIX_DIR_NAMES]
+        for fname in filenames:
+            if os.path.splitext(fname)[1].lower() not in STAGING_EXE_SUFFIXES:
+                continue
+            full = os.path.join(dirpath, fname)
+            if not os.path.isfile(full):  # broken symlink / special file
+                continue
+            if skip_key is not None and full.lower() == skip_key:
+                continue
+            # Dedupe key: plain paths are already unique within a walk and
+            # across deduped roots — only a symlink can alias another entry,
+            # so resolve just those instead of stat-resolving every file.
+            key = os.path.realpath(full) if os.path.islink(full) else full
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(Path(full))
+
+
 def scan_staging_exes(game) -> list[Path]:
     """Return launchable files found under the game's staging area.
 
@@ -167,30 +194,23 @@ def scan_staging_exes(game) -> list[Path]:
         active_mods = game.get_effective_mod_staging_path()
     else:
         active_mods = shared
-    roots = [active_mods, shared, shared.parent / "Applications"]
-    seen: set[Path] = set()
+    # Dedupe roots by resolved path: without profile-specific mods the
+    # effective staging path IS the shared mods/ folder, and walking the same
+    # tree twice doubles the scan cost for nothing.
+    roots: dict[Path, Path] = {}
+    for root in (active_mods, shared, shared.parent / "Applications"):
+        try:
+            rkey = root.resolve()
+        except OSError:
+            rkey = root
+        roots.setdefault(rkey, root)
+    seen: set[str] = set()
     found: list[Path] = []
-    for root in roots:
+    for root in roots.values():
         try:
             if not root.is_dir():
                 continue
-            for p in root.rglob("*"):
-                if p.suffix.lower() not in STAGING_EXE_SUFFIXES:
-                    continue
-                # Skip anything inside a wine/Proton prefix.
-                rel_parts = {part.lower() for part in p.relative_to(root).parts}
-                if rel_parts & _PREFIX_DIR_NAMES:
-                    continue
-                if not p.is_file():
-                    continue
-                try:
-                    key = p.resolve()
-                except OSError:
-                    key = p
-                if key in seen:
-                    continue
-                seen.add(key)
-                found.append(p)
+            _walk_launchables(root, seen, found)
         except OSError:
             continue
     found.sort(key=lambda p: (p.name.lower(), str(p).lower()))
@@ -216,29 +236,12 @@ def scan_game_folder_exes(game) -> list[Path]:
     root = Path(root)
     game_exe = resolve_game_exe(game)
     game_exe_key = str(game_exe).lower() if game_exe is not None else None
-    seen: set[Path] = set()
+    seen: set[str] = set()
     found: list[Path] = []
     try:
         if not root.is_dir():
             return []
-        for p in root.rglob("*"):
-            if p.suffix.lower() not in STAGING_EXE_SUFFIXES:
-                continue
-            rel_parts = {part.lower() for part in p.relative_to(root).parts}
-            if rel_parts & _PREFIX_DIR_NAMES:
-                continue
-            if not p.is_file():
-                continue
-            if game_exe_key is not None and str(p).lower() == game_exe_key:
-                continue
-            try:
-                key = p.resolve()
-            except OSError:
-                key = p
-            if key in seen:
-                continue
-            seen.add(key)
-            found.append(p)
+        _walk_launchables(root, seen, found, skip_key=game_exe_key)
     except OSError:
         pass
     found.sort(key=lambda p: (p.name.lower(), str(p).lower()))

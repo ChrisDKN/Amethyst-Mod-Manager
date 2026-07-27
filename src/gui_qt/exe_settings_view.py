@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QComboBox, QLineEdit, QPlainTextEdit, QMenu, QScrollArea, QCheckBox,
 )
 
+from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c, danger_close_button, button_qss
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
@@ -512,7 +513,7 @@ class ExeSettingsView(QWidget):
                 from Utils.jre_prefix import install_windows_jre
                 install_windows_jre(compat_data, log_fn=log)
             finally:
-                self._install_java_done.emit()
+                safe_emit(self._install_java_done)
 
         threading.Thread(target=worker, daemon=True,
                          name="jar-install-java").start()

@@ -60,12 +60,6 @@ def set_limit_mbps(mbps: float) -> None:
         _last = time.monotonic()
 
 
-def get_limit_mbps() -> float:
-    with _lock:
-        _ensure_init_locked()
-        return _rate / (1024 * 1024)
-
-
 def throttle(nbytes: int, cancel: "threading.Event | None" = None) -> None:
     """Account *nbytes* just transferred and sleep as needed to keep the
     aggregate rate at the configured cap. No-op when unlimited. Returns

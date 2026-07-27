@@ -540,21 +540,6 @@ def find_lutris_slugs_by_exes(exe_names) -> list[str]:
     return slugs
 
 
-def find_lutris_prefix(slugs: list[str]) -> Path | None:
-    """Wine prefix of the first installed game matching any of *slugs*."""
-    slugs_lower = {s.lower() for s in slugs if s}
-    if not slugs_lower:
-        return None
-    for root, row, yml in _iter_games():
-        if str(row.get("slug", "") or "").lower() not in slugs_lower:
-            continue
-        exe = _resolve_game_exe(root, row, yml)
-        prefix = _resolve_game_prefix(row, yml, exe)
-        if prefix is not None:
-            return prefix
-    return None
-
-
 def find_lutris_launch_info(slugs: list[str]) -> "tuple[str, bool] | None":
     """(slug, lutris_is_flatpak) for the first installed game matching any
     of *slugs* — used to build a ``lutris:rungame/<slug>`` launch."""
@@ -678,13 +663,6 @@ def find_lutris_proton_name_for_prefix(prefix_path: "str | Path") -> str | None:
     if version and _is_protonish(version):
         return version
     return None
-
-
-def find_lutris_wine_bin_dir_for_prefix(prefix_path: "str | Path") -> Path | None:
-    """bin/ directory of the lutris-wine runner for *prefix_path* (winetricks
-    PATH patching). None for Proton/umu-managed games."""
-    wine_bin = find_lutris_wine_for_prefix(prefix_path)
-    return wine_bin.parent if wine_bin is not None else None
 
 
 def lutris_wine_env(wine_bin: Path, prefix_path: "str | Path",

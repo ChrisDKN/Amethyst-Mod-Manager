@@ -719,24 +719,3 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
 
     _fix_group_types(config)
     return config
-
-
-def parse_mod_info(xml_path: str) -> ModInfo:
-    """
-    Parse a fomod/info.xml file.
-    Returns an empty ModInfo if the file is not found or fails to parse.
-    """
-    if not os.path.isfile(xml_path):
-        return ModInfo()
-    try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-        info = ModInfo()
-        for tag, attr in (("Name", "name"), ("Author", "author"),
-                           ("Version", "version"), ("Description", "description")):
-            el = _find(root, tag)
-            if el is not None:
-                setattr(info, attr, _text(el))
-        return info
-    except ET.ParseError:
-        return ModInfo()
