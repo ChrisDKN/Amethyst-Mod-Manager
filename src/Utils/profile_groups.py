@@ -556,6 +556,18 @@ def _restage_group_mods(game, profile_dir: Path, profiles_dir: Path,
             continue
         _stage_mod_tree(src_mod_dir, group_mods_dir / e.name, mode, log_fn)
 
+    # Membership/enabled-state changes just added, removed, or swapped mod
+    # folders under group_mods_dir, but modindex.bin is a separate on-disk
+    # cache that nothing above touches. build_filemap() (and the GUI's
+    # conflicts-panel rebuild) trust that cache blindly unless it's literally
+    # missing — a stale-but-valid index silently drops any mod it doesn't
+    # know about from the next deploy (0 files transferred, no error) instead
+    # of erroring. Deleting both index files forces a full rescan on the next
+    # read, the same recovery path already used for the legacy stray-index
+    # sweep in deploy_pipeline._build_filemap_for_game.
+    (profile_dir / "modindex.bin").unlink(missing_ok=True)
+    (profile_dir / "bsa_index.bin").unlink(missing_ok=True)
+
 
 def _sort_with_loot(game, profile_dir: Path, profiles_dir: Path, members: list[str],
                      merged_order: list[str], merged_enabled: dict[str, bool], log_fn):
