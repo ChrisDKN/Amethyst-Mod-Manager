@@ -32,9 +32,13 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Utils.app_log import app_log
+from Utils.deploy_shared import resolve_mod_dir
 
 
 @dataclass
@@ -366,16 +370,22 @@ def build_meta_from_download(
 # Scanning
 # ---------------------------------------------------------------------------
 
-def scan_installed_mods(staging_root: Path) -> list[NexusModMeta]:
+def scan_installed_mods(staging_root: "Path | Mapping[str, Path]") -> list[NexusModMeta]:
     """
-    Walk all mod folders under *staging_root* and return metadata for
-    those that have a Nexus ``modid`` set (i.e. were installed from Nexus).
+    Walk all mod folders under *staging_root* (or, for a Profile Group, every
+    real mod folder in its {mod_name: real_mod_dir} mapping — see
+    resolve_mod_dir in deploy_shared.py) and return metadata for those that
+    have a Nexus ``modid`` set (i.e. were installed from Nexus).
     """
     results: list[NexusModMeta] = []
-    if not staging_root.is_dir():
-        return results
+    if isinstance(staging_root, Path):
+        if not staging_root.is_dir():
+            return results
+        folders = sorted(staging_root.iterdir())
+    else:
+        folders = sorted(staging_root.values())
 
-    for folder in sorted(staging_root.iterdir()):
+    for folder in folders:
         meta_path = folder / "meta.ini"
         if not meta_path.is_file():
             continue
@@ -411,7 +421,7 @@ def parse_req_pairs(raw: str) -> list[tuple[int, str]]:
 _root_flag_cache: dict[str, tuple[float, bool]] = {}
 
 
-def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
+def collect_root_flagged_mods(modlist_path: Path, staging_root: "Path | Mapping[str, Path]",
                               log_fn=None) -> set[str]:
     """Return the set of mods in *modlist_path* whose meta.ini sets
     rootFolder=true — DISABLED mods included. Malformed meta.ini files are
@@ -437,7 +447,10 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
     for entry in read_modlist(modlist_path):
         if entry.is_separator:
             continue
-        meta_path = staging_root / entry.name / "meta.ini"
+        mod_dir = resolve_mod_dir(staging_root, entry.name)
+        if mod_dir is None:
+            continue
+        meta_path = mod_dir / "meta.ini"
         try:
             mtime = meta_path.stat().st_mtime
         except OSError:

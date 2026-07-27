@@ -11930,11 +11930,21 @@ class MainWindow(QMainWindow):
             "refresh": refresh,
         }
 
+        # A Profile Group has no mods/ folder of its own — resolve straight
+        # to whichever member profile actually owns each mod instead (see
+        # profile_groups.get_group_resolver / resolve_mod_dir).
+        from Utils.profile_groups import is_group, get_group_resolver
+        if pdir is not None and is_group(pdir):
+            loot_staging_root = get_group_resolver(pdir, log_fn=None)
+        else:
+            loot_staging_root = game.get_effective_mod_staging_path()
+
         kw = dict(
             plugin_names=plugin_names, enabled_set=enabled_set,
             game_name=getattr(game, "name", self._gs.game_name),
             game_path=game.get_game_path(),
-            staging_root=game.get_effective_mod_staging_path(),
+            staging_root=loot_staging_root,
+            filemap_path=(pdir / "filemap.txt") if pdir is not None else None,
             game_type_attr=getattr(game, "loot_game_type", ""),
             game_id=game.game_id,
             masterlist_url=getattr(game, "loot_masterlist_url", ""),
@@ -12059,12 +12069,21 @@ class MainWindow(QMainWindow):
 
         # Snapshot everything the worker needs — no model access mid-flight.
         plugin_names = [r.name for r in rows]
+        # A Profile Group has no mods/ folder of its own — see the identical
+        # resolver swap in _on_sort_plugins above.
+        from Utils.profile_groups import is_group, get_group_resolver
+        pdir = self._gs.profile_dir()
+        if pdir is not None and is_group(pdir):
+            overlap_staging_root = get_group_resolver(pdir, log_fn=None)
+        else:
+            overlap_staging_root = game.get_effective_mod_staging_path()
         kw = dict(
             target_plugin=plugin_name,
             plugin_names=plugin_names,
             game_name=getattr(game, "name", self._gs.game_name),
             game_path=game.get_game_path(),
-            staging_root=game.get_effective_mod_staging_path(),
+            staging_root=overlap_staging_root,
+            filemap_path=(pdir / "filemap.txt") if pdir is not None else None,
             game_type_attr=getattr(game, "loot_game_type", ""),
             game_data_dir=(game.get_vanilla_plugins_path()
                            if hasattr(game, "get_vanilla_plugins_path") else None),

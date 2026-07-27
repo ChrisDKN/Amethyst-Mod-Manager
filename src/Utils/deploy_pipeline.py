@@ -294,35 +294,28 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
     Returns None if the modlist is missing or the build fails.
     """
     profile_root = game.get_profile_root()
-    staging = game.get_effective_mod_staging_path()
     modlist_path = profile_root / "profiles" / profile / "modlist.txt"
-    filemap_out = staging.parent / "filemap.txt"
     if not modlist_path.is_file():
         return None
 
-    # A group profile's mods/ folder is torn down and relinked from scratch by
-    # materialize_group() on every profile switch/deploy — if that races a
-    # scan of the same folder (e.g. the GUI's async conflicts-panel rebuild
-    # calling this same function on a worker thread right as a deploy's own
-    # materialize_group() call is mid-rmtree), the scan can see a
-    # half-populated tree and produce a near-empty filemap.txt even though
-    # modindex.bin looks completely valid moments before and after. Serialize
-    # against materialize_group() (which takes the identical lock) for group
-    # profiles only — regular profiles never touch this lock.
-    from Utils.profile_groups import is_group, group_build_lock
+    # A Profile Group has no staging directory of its own — every mod lives
+    # under whichever member profile actually owns it — so it gets a
+    # {mod_name: real_mod_dir} resolver here instead of a single Path (see
+    # profile_groups.get_group_resolver / Utils.deploy_shared.resolve_mod_dir).
+    # get_effective_filemap_path() (not staging.parent) is used for the group
+    # case since a resolver has no .parent.
+    from Utils.profile_groups import is_group, get_group_resolver
     _is_group = is_group(modlist_path.parent)
-    _group_lock = group_build_lock(modlist_path.parent) if _is_group else None
-    if _group_lock is not None:
-        _group_lock.acquire()
-
-    # Only a Profile Group's own mods/ folder is deliberately populated with
-    # per-file symlinks into its member profiles' real mod folders (see
-    # profile_groups._stage_mod_tree) — bound the index scanner's
-    # symlink-follow allowance to this game's own profiles directory so it
-    # can see those specific links (see _scan_dir in filemap.py) without
-    # opening the door to a symlink planted by an untrusted mod archive
-    # pointing anywhere else on the filesystem.
-    _symlink_root = str((profile_root / "profiles").resolve()) if _is_group else None
+    if _is_group:
+        staging = get_group_resolver(modlist_path.parent, log_fn=log_fn)
+        if staging is None:
+            log_fn(f"Profile Group resolver unavailable for '{profile}' — "
+                   f"skipping filemap build.")
+            return None
+        filemap_out = modlist_path.parent / "filemap.txt"
+    else:
+        staging = game.get_effective_mod_staging_path()
+        filemap_out = staging.parent / "filemap.txt"
 
     try:
         from Nexus.nexus_meta import collect_root_flagged_mods
@@ -335,7 +328,11 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
         with span("collect_root_flagged_mods"):
             rf_mods = collect_root_flagged_mods(modlist_path, staging, log_fn=log_fn)
 
-        if rescan_index:
+        # A group has no index of its own to rescan (see _read_group_index in
+        # filemap.py — it's always assembled fresh from each member's own,
+        # already-correctly-invalidated index), so Refresh is a no-op for it
+        # at this level; each member's own Refresh is what actually rescans.
+        if rescan_index and not _is_group:
             # Sweep stray Tk-era per-profile indexes. The old Tk install path
             # wrote modindex.bin/bsa_index.bin into the PROFILE folder
             # (profiles/<name>/) even for shared-mods profiles, whose real
@@ -381,7 +378,6 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                     allowed_extensions=set(game.mod_install_extensions or ()) or None,
                     root_folder_mods=set(rf_mods or ()) or None,
                     log_fn=log_fn,
-                    symlink_root=_symlink_root,
                 )
             except Exception as idx_err:
                 log_fn(f"Index rescan warning: {idx_err}")
@@ -405,28 +401,30 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 # vs ff12data/gamedata/).
                 conflict_key_fn = _make_custom_routing_conflict_key_fn(game)
 
+        _bf_kwargs = dict(
+            strip_prefixes=game.mod_folder_strip_prefixes or None,
+            per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
+            allowed_extensions=game.mod_install_extensions or None,
+            root_deploy_folders=game.mod_root_deploy_folders or None,
+            excluded_mod_files=exc,
+            conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
+            excluded_loose_filenames=getattr(game, "excluded_loose_filenames", None) or None,
+            allowed_top_level_folders=(
+                getattr(game, "mod_required_top_level_folders", None) or None
+                if getattr(game, "filemap_exclude_unknown_top_level", False)
+                else None
+            ),
+            exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
+            normalize_folder_case=norm_case,
+            filemap_casing=getattr(game, "filemap_casing", "upper"),
+            filemap_casing_pins=getattr(game, "filemap_casing_pins", None),
+            conflict_key_fn=conflict_key_fn,
+            root_folder_mods=rf_mods or None,
+        )
         with span("build_filemap"):
             result = build_filemap(
                 modlist_path, staging, filemap_out,
-                strip_prefixes=game.mod_folder_strip_prefixes or None,
-                per_mod_strip_prefixes=load_per_mod_strip_prefixes(modlist_path.parent),
-                allowed_extensions=game.mod_install_extensions or None,
-                root_deploy_folders=game.mod_root_deploy_folders or None,
-                excluded_mod_files=exc,
-                conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
-                excluded_loose_filenames=getattr(game, "excluded_loose_filenames", None) or None,
-                allowed_top_level_folders=(
-                    getattr(game, "mod_required_top_level_folders", None) or None
-                    if getattr(game, "filemap_exclude_unknown_top_level", False)
-                    else None
-                ),
-                exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
-                normalize_folder_case=norm_case,
-                filemap_casing=getattr(game, "filemap_casing", "upper"),
-                filemap_casing_pins=getattr(game, "filemap_casing_pins", None),
-                conflict_key_fn=conflict_key_fn,
-                root_folder_mods=rf_mods or None,
-                symlink_root=_symlink_root,
+                **_bf_kwargs,
             )
         # Game-specific filemap rewrite (e.g. Witcher 3 routes staging paths
         # like TrueFires_v1.01/modTrueFires/… to mods/modTrueFires/… so the
@@ -440,9 +438,6 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
     except Exception as fm_err:
         log_fn(f"Filemap rebuild warning: {fm_err}")
         return None
-    finally:
-        if _group_lock is not None:
-            _group_lock.release()
 
 
 def run_deploy_pipeline(
@@ -479,9 +474,21 @@ def run_deploy_pipeline(
     is always reset to *profile* before returning, even on error.
     """
     target_profile_dir = game.get_profile_root() / "profiles" / profile
-    from Utils.profile_groups import is_group, materialize_group
+    from Utils.profile_groups import is_group, materialize_group, get_group_resolver
     if is_group(target_profile_dir):
         materialize_group(game, target_profile_dir, log_fn=log_fn)
+
+    def _sync_mod_staging_override(profile_dir: Path) -> None:
+        """Keep game.get_effective_mod_staging_path() resolving through this
+        group's {mod_name: real_mod_dir} map for as long as *profile_dir* —
+        whichever profile is currently active in the pipeline below — is a
+        group; None otherwise. Every call site that switches the active
+        profile in this function calls this right after, and the outer
+        finally clears it unconditionally so it never leaks into any other
+        (non-group-aware) caller of the getter once this function returns."""
+        game.set_mod_staging_override(
+            get_group_resolver(profile_dir, log_fn=log_fn) if is_group(profile_dir) else None
+        )
 
     game_root = game.get_game_path()
 
@@ -501,9 +508,9 @@ def run_deploy_pipeline(
         # ShaderCache, etc.) land in *that* profile's overwrite/ folder.
         last_deployed = game.get_last_deployed_profile()
         if last_deployed:
-            game.set_active_profile_dir(
-                game.get_profile_root() / "profiles" / last_deployed
-            )
+            last_deployed_dir = game.get_profile_root() / "profiles" / last_deployed
+            game.set_active_profile_dir(last_deployed_dir)
+            _sync_mod_staging_override(last_deployed_dir)
             # Reload so per-profile path overrides apply to the restore (the
             # last-deployed profile may target a different game folder/prefix).
             game.load_paths()
@@ -556,9 +563,8 @@ def run_deploy_pipeline(
             )
 
         # Switch to the target profile before filemap + deploy.
-        game.set_active_profile_dir(
-            game.get_profile_root() / "profiles" / profile
-        )
+        game.set_active_profile_dir(target_profile_dir)
+        _sync_mod_staging_override(target_profile_dir)
         # Reload so the deploy uses the target profile's path overrides.
         game.load_paths()
         game_root = game.get_game_path()
@@ -718,7 +724,6 @@ def run_deploy_pipeline(
                f"{e}\n{traceback.format_exc()}")
         return False
     finally:
-        game.set_active_profile_dir(
-            game.get_profile_root() / "profiles" / profile
-        )
+        game.set_active_profile_dir(target_profile_dir)
+        _sync_mod_staging_override(target_profile_dir)
         game.load_paths()

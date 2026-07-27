@@ -37,6 +37,10 @@ import os
 import stat as _stat_m
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import atomic_writer
@@ -51,6 +55,7 @@ from Utils.deploy_shared import (
     _mkdir_leaves,
     _move_crash_safe,
     _resolve_root_path_str,
+    resolve_mod_dir,
 )
 
 DEPLOYED_FILEMAP_NAME = "deployed_filemap.txt"
@@ -248,7 +253,7 @@ def apply_incremental(
     overwrite_dir: Path,
     mode: LinkMode,
     state_dir: Path,
-    staging_root: "Path | None" = None,
+    staging_root: "Path | Mapping[str, Path] | None" = None,
     log_fn=None,
     progress_fn=None,
 ) -> "tuple[int, set[str]]":
@@ -424,9 +429,10 @@ def apply_incremental(
             mod_name = rel_mod[rel_lower][1]
             if mod_name != _OVERWRITE_NAME and staging_root is not None \
                     and rel_str.lower().endswith((".esp", ".esm", ".esl")):
-                from Utils.deploy_standard import _tag_mod_xedit_modified
-                _tag_mod_xedit_modified(Path(staging_root) / mod_name,
-                                        os.path.basename(rel_str))
+                _mod_dir = resolve_mod_dir(staging_root, mod_name)
+                if _mod_dir is not None:
+                    from Utils.deploy_standard import _tag_mod_xedit_modified
+                    _tag_mod_xedit_modified(_mod_dir, os.path.basename(rel_str))
             return
         _move_crash_safe(dst, str(overwrite_dir) + "/" + rel_str)
         rescued_overwrite.append(rel_str)

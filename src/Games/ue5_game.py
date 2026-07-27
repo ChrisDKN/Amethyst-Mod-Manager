@@ -51,9 +51,14 @@ import fnmatch
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, expand_separator_link_modes, _resolve_nocase, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
+from Utils.deploy_shared import resolve_mod_dir
 from Utils.deploy_custom_rules import deploy_custom_rules, restore_custom_rules, compute_prefix_handled
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
@@ -1477,7 +1482,7 @@ class UE5Game(BaseGame):
 
     def _find_staged_file(
         self,
-        staging: Path,
+        staging: "Path | Mapping[str, Path]",
         mod_name: str,
         staged_rel: str,
         mod_strips: list[str],
@@ -1491,12 +1496,18 @@ class UE5Game(BaseGame):
           2. staging/<mod>/<staged_rel>  (direct)
           3. staging/<mod>/<global_strip>/<staged_rel>  (re-add stripped prefix)
           4. staging/<mod>/<per_mod_strip>/<staged_rel>
+
+        staging is a plain Path for a regular profile or a
+        {mod_name: real_mod_dir} mapping for a Profile Group — see
+        resolve_mod_dir in deploy_shared.py.
         """
         ow = overwrite_dir / staged_rel
         if ow.is_file():
             return ow
 
-        mod_root = staging / mod_name
+        mod_root = resolve_mod_dir(staging, mod_name)
+        if mod_root is None:
+            return None
         norm = staged_rel.replace("\\", "/")
 
         src = _resolve_nocase(mod_root, norm)

@@ -10,23 +10,32 @@ single read-modify-write so Enable/Disable-all doesn't do N I/O round-trips.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from typing import Mapping
+
+from Utils.deploy_shared import resolve_mod_dir
 from Utils.plugins import (
     read_plugins, write_plugins, read_loadorder, write_loadorder, PluginEntry,
 )
 
 
-def _mod_plugins(staging_root: Path, mod_name: str,
+def _mod_plugins(staging_root: "Path | Mapping[str, Path]", mod_name: str,
                  plugin_exts: set[str],
                  data_subfolders: "set[str] | None" = None) -> list[str]:
-    """Top-level plugin filenames inside staging_root/<mod_name>/ (what Tk
+    """Top-level plugin filenames inside the mod's real folder (what Tk
     scans), plus the top level of any *data_subfolders* (lowercase names, e.g.
     {'data files'}). The latter covers mods whose plugins sit one level down in
     staging yet deploy to the top of the data dir: root-flagged mods (verbatim
     to game root → '<subfolder>/x.esp' lands in the data dir) and mods that
-    retain a strip prefix on disk (the filemap strips it)."""
-    mod_dir = staging_root / mod_name
-    if not mod_dir.is_dir():
+    retain a strip prefix on disk (the filemap strips it).
+
+    staging_root is a plain Path for a regular profile or a
+    {mod_name: real_mod_dir} mapping for a Profile Group — see
+    resolve_mod_dir in deploy_shared.py."""
+    mod_dir = resolve_mod_dir(staging_root, mod_name)
+    if mod_dir is None or not mod_dir.is_dir():
         return []
     names: list[str] = []
     subdirs: list[Path] = []
@@ -46,7 +55,7 @@ def _mod_plugins(staging_root: Path, mod_name: str,
 
 
 def sync_plugins_for_mods(game, profile_dir: Path | None,
-                          staging_root: Path | None,
+                          staging_root: "Path | Mapping[str, Path] | None",
                           changes: list[tuple[str, bool]],
                           log_fn=None) -> bool:
     """Apply mod enable/disable *changes* (``[(mod_name, now_enabled), ...]``)
@@ -97,8 +106,8 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
             # report. Only warn when the staging folder is actually missing,
             # which points at a real bug (never-staged / wrong-cased / symlinked
             # folder) rather than a plain content mod.
-            mdir = staging_root / mod_name
-            if not mdir.is_dir():
+            mdir = resolve_mod_dir(staging_root, mod_name)
+            if mdir is None or not mdir.is_dir():
                 log(f"WARN plugin sync: enabled mod \"{mod_name}\" has no "
                     f"staging folder at {mdir} — nothing added to plugins.txt")
         for name in found:

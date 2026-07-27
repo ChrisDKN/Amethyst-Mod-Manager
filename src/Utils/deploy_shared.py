@@ -17,6 +17,7 @@ from contextlib import contextmanager as _contextmanager
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
+from typing import Mapping
 
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import atomic_writer
@@ -989,13 +990,30 @@ def _clear_dir(directory: Path) -> int:
 
 _OVERWRITE_NAME = "[Overwrite]"
 
+# A regular profile has one staging directory shared by every mod, so
+# `staging_root` is a plain Path everywhere and every mod's folder is
+# `staging_root / mod_name`. A Profile Group has no staging directory of its
+# own — each mod's real files live under whichever member profile actually
+# owns it — so group call sites instead pass a `{mod_name: real_mod_dir}`
+# mapping. `resolve_mod_dir` is the one place that distinction is resolved;
+# every other function below should call it (or inline the same isinstance
+# check) rather than assuming a single shared root.
+StagingRoot = "Path | Mapping[str, Path]"
+
+
+def resolve_mod_dir(staging_root: "Path | Mapping[str, Path]", mod_name: str) -> "Path | None":
+    """Return *mod_name*'s real on-disk folder for either kind of staging root."""
+    if isinstance(staging_root, Path):
+        return staging_root / mod_name
+    return staging_root.get(mod_name)
+
 
 def _resolve_source(
     mod_name: str,
     rel_str: str,
     rel_lower: str,
     overwrite_dir: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     overwrite_str: str,
     staging_str: str,
     sorted_strip: list[str],
@@ -1008,19 +1026,30 @@ def _resolve_source(
     Returns the source path as a string, or None if not found.
     Tries (in order): direct stat, mod-index O(1) lookup, case-insensitive
     walk, strip-prefix combinations, per-mod strip prefixes.
+
+    staging_root is a plain Path for a regular profile (every mod lives under
+    it) or a {mod_name: real_mod_dir} mapping for a Profile Group (every mod
+    lives under whichever member profile actually owns it) — see
+    resolve_mod_dir.
     """
     _isfile = os.path.isfile
 
-    # Fast path: direct string join + stat
     if mod_name == _OVERWRITE_NAME:
+        mod_root = overwrite_dir
         candidate = overwrite_str + "/" + rel_str
-    else:
+    elif isinstance(staging_root, Path):
+        mod_root = staging_root / mod_name
+        # Fast path: direct string join + stat (avoids Path overhead).
         candidate = staging_str + "/" + mod_name + "/" + rel_str
+    else:
+        mod_root = staging_root.get(mod_name)
+        if mod_root is None:
+            return None
+        candidate = str(mod_root) + "/" + rel_str
     if _isfile(candidate):
         return candidate
 
     # Slow path
-    mod_root = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
     src: Path | None = None
 
     if mod_index_cache is not None:
@@ -1235,7 +1264,7 @@ def _wrapper_chains(
 def _prebuild_mod_indexes(
     tab_lines: list[str],
     overwrite_dir: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     mod_index_cache: dict,
     *,
     index_dir: "Path | None" = None,
@@ -1290,8 +1319,8 @@ def _prebuild_mod_indexes(
     for mn in mod_names:
         if _has_traversal(mn):
             continue
-        mr = overwrite_dir if mn == _OVERWRITE_NAME else staging_root / mn
-        if mr in mod_index_cache:
+        mr = overwrite_dir if mn == _OVERWRITE_NAME else resolve_mod_dir(staging_root, mn)
+        if mr is None or mr in mod_index_cache:
             continue
 
         entry = index_from_disk.get(mn) if index_from_disk is not None else None

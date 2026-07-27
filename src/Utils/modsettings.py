@@ -20,10 +20,15 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Utils.modlist import ModEntry, read_modlist
 from Utils.pak_reader import extract_meta_lsx, read_pak_info
 from Utils.app_log import app_log, safe_log as _safe_log
+from Utils.deploy_shared import resolve_mod_dir
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -358,7 +363,7 @@ def _se_config_requires_extender(se_config: str | None) -> bool:
 # ---------------------------------------------------------------------------
 
 def scan_mod_paks(
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     enabled_mods: list[ModEntry],
     no_metadata: list[str] | None = None,
     excluded: dict[str, set[str]] | None = None,
@@ -368,6 +373,14 @@ def scan_mod_paks(
     Each mod's staging folder may contain one or more .pak files.  We extract
     meta.lsx from each and collect the metadata.  If a mod folder contains
     multiple .pak files, each one that has a meta.lsx is recorded.
+
+    staging_root is a plain Path for a regular profile or a
+    {mod_name: real_mod_dir} mapping for a Profile Group — see
+    resolve_mod_dir in deploy_shared.py. This is the map modsettings.lsx
+    (what BG3 actually reads to know which mods to load) gets built from,
+    so a Profile Group deploy depends on every enabled mod resolving to its
+    real, winning member's .pak — verify this manually against a real BG3
+    install before trusting a group's load order.
 
     *no_metadata* — optional list; enabled mods that contain at least one .pak
     but yielded no usable meta.lsx are appended (with the reason) for the
@@ -381,8 +394,8 @@ def scan_mod_paks(
     _excluded = excluded or {}
 
     for entry in enabled_mods:
-        mod_dir = staging_root / entry.name
-        if not mod_dir.is_dir():
+        mod_dir = resolve_mod_dir(staging_root, entry.name)
+        if mod_dir is None or not mod_dir.is_dir():
             continue
         paks = list(mod_dir.rglob("*.pak"))
         _mod_excl = _excluded.get(entry.name)
@@ -728,7 +741,7 @@ def _apply_manifest_pak_order(
 def write_modsettings(
     modsettings_path: Path,
     modlist_path: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     log_fn=None,
     game_data_path: Path | None = None,
     patch_version: int = 8,

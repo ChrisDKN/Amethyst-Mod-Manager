@@ -15,6 +15,10 @@ import shutil
 import threading as _threading
 import time as _time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Utils.app_log import safe_log as _safe_log, app_log as _app_log
 from Utils.atomic_write import atomic_writer
@@ -37,6 +41,7 @@ from Utils.deploy_shared import (
     _resolve_source,
     _timer,
     _TRASH_INFIX,
+    resolve_mod_dir,
 )
 
 
@@ -429,7 +434,7 @@ def move_to_core(
 def deploy_filemap(
     filemap_path: Path,
     deploy_dir: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: set[str] | None = None,
     per_mod_strip_prefixes: dict[str, list[str]] | None = None,
@@ -490,7 +495,10 @@ def deploy_filemap(
         if _per_mode is None:
             _per_mode = {}
     _per_mode = _per_mode or {}
-    overwrite_dir = staging_root.parent / "overwrite"
+    overwrite_dir = (
+        staging_root.parent / "overwrite" if isinstance(staging_root, Path)
+        else staging_root[_OVERWRITE_NAME]
+    )
 
     already_seen: set[str] = set()
     tasks: list[tuple[Path, Path, str]] = []
@@ -563,7 +571,7 @@ def deploy_filemap(
         # --- Fast path: O(1) mod-index lookup (no syscall) ---
         _mr = _mod_root_cache.get(mod_name)
         if _mr is None:
-            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
+            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else resolve_mod_dir(staging_root, mod_name)
             _mod_root_cache[mod_name] = _mr
         _idx = mod_index_cache.get(_mr)
         src_str: str | None = None
@@ -1154,7 +1162,7 @@ def restore_data_core(
     deploy_dir: Path,
     core_dir: Path | None = None,
     overwrite_dir: Path | None = None,
-    staging_root: Path | None = None,
+    staging_root: "Path | Mapping[str, Path] | None" = None,
     strip_prefixes: set[str] | None = None,
     index_path: Path | None = None,
     log_fn=None,
@@ -1339,7 +1347,6 @@ def restore_data_core(
         _deploy_str = str(deploy_dir)
         _deploy_plen = len(_deploy_str) + 1
         _overwrite_str = str(overwrite_dir)
-        _staging_str = str(_staging) if _staging else ""
         _lstat = os.lstat
         # Phase 1 — collect candidates with an os.scandir walk.  DirEntry
         # is_symlink()/is_file() use d_type from readdir on Linux — no extra
@@ -1503,7 +1510,9 @@ def restore_data_core(
                         if mod_name == _OVERWRITE_NAME:
                             mod_root = overwrite_dir
                         else:
-                            mod_root = _staging / mod_name
+                            mod_root = resolve_mod_dir(_staging, mod_name)
+                        if mod_root is None:
+                            continue
                         found = _get_staging_source_path(
                             mod_root, rel_str, _strip,
                             index_cache=_staging_index_cache,
@@ -1538,8 +1547,9 @@ def restore_data_core(
                         # Flag the mod if it's a plugin (e.g. xEdit).
                         if (target_mod != _OVERWRITE_NAME
                                 and rel_str.lower().endswith(_PLUGIN_EXTS)):
-                            _tag_mod_xedit_modified(
-                                _staging / target_mod, os.path.basename(rel_str))
+                            _tagged_dir = resolve_mod_dir(_staging, target_mod)
+                            if _tagged_dir is not None:
+                                _tag_mod_xedit_modified(_tagged_dir, os.path.basename(rel_str))
                         continue
                     # xEdit orphan: staging missing — put file back in original mod or overwrite
                     target_mod = (
@@ -1552,8 +1562,13 @@ def restore_data_core(
                             rescued_to_overwrite += 1
                             rescued_overwrite_rels.append(rel_str)
                         else:
-                            dst_str = _staging_str + "/" + target_mod + "/" + rel_str
-                            rescued_to_mod += 1
+                            _target_dir = resolve_mod_dir(_staging, target_mod)
+                            if _target_dir is None:
+                                target_mod = None
+                            else:
+                                dst_str = str(_target_dir) + "/" + rel_str
+                                rescued_to_mod += 1
+                    if target_mod:
                         _move_crash_safe(src_str, dst_str)
                         rescued += 1
                         # Staging source was missing (xEdit deleted the
@@ -1561,8 +1576,9 @@ def restore_data_core(
                         # edited plugin.  Flag the owning mod.
                         if (target_mod != _OVERWRITE_NAME
                                 and rel_str.lower().endswith(_PLUGIN_EXTS)):
-                            _tag_mod_xedit_modified(
-                                _staging / target_mod, os.path.basename(rel_str))
+                            _tagged_dir = resolve_mod_dir(_staging, target_mod)
+                            if _tagged_dir is not None:
+                                _tag_mod_xedit_modified(_tagged_dir, os.path.basename(rel_str))
                         continue
                     # Known mod file but no owner resolved — fall through to overwrite.
                 else:
@@ -1667,7 +1683,7 @@ def undeploy_mod_files(
     game_root: "Path | None",
     index_path: Path,
     log_fn=None,
-    staging_root: "Path | None" = None,
+    staging_root: "Path | Mapping[str, Path] | None" = None,
 ) -> int:
     """Remove any files belonging to the given mods from the game's deploy
     directory and/or game root, using the modindex.bin to find them.
@@ -1718,7 +1734,9 @@ def undeploy_mod_files(
     if staging_root is not None:
         identities = {}
         for mod_name in mod_names:
-            mod_dir = staging_root / mod_name
+            mod_dir = resolve_mod_dir(staging_root, mod_name)
+            if mod_dir is None:
+                continue
             inodes: set = set()
             sizes: dict = {}
             for dp, _dns, fns in os.walk(str(mod_dir)):

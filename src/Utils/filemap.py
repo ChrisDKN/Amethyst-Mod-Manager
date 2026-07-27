@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING
 import msgpack
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from typing import Callable, Mapping
 
 from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.modlist import read_modlist
@@ -1065,19 +1065,6 @@ def _try_incremental(
             st0.lock.release()
 
 
-def _symlink_target_contained(path: str, root: str) -> bool:
-    """True if the fully-resolved real path of *path* is *root* itself or
-    lives somewhere underneath it. Used to allow-list the specific,
-    known-safe symlinks Profile Groups create (see symlink_root on
-    _scan_dir) without opening the door to a symlink planted by an
-    untrusted mod archive pointing anywhere else on the filesystem."""
-    try:
-        real = os.path.realpath(path)
-    except OSError:
-        return False
-    return real == root or real.startswith(root + os.sep)
-
-
 def _scan_dir(
     source_name: str,
     source_dir: str,
@@ -1086,7 +1073,6 @@ def _scan_dir(
     _unused_root_deploy_folders: frozenset[str] = frozenset(),
     strip_path_prefixes: list[str] | None = None,
     exclude_dirs: frozenset[str] = frozenset(),
-    symlink_root: str | None = None,
 ) -> tuple[str, dict[str, str], dict[str, str], list[str]]:
     """Walk source_dir with os.scandir (fast, no Pathlib overhead).
 
@@ -1114,19 +1100,14 @@ def _scan_dir(
     e.g. exclude_dirs={"fomod"} prevents FOMOD installer metadata from being
     deployed to the game's data directory.
 
-    symlink_root — absolute path (as returned by os.path.realpath) that a
-    per-FILE symlink must resolve inside of to be indexed at all; symlinks
-    resolving outside it (or any symlink at all, when this is None) are
-    silently skipped, same as historical behavior. This exists ONLY for
-    Profile Groups, whose private mods/ folder is deliberately populated with
-    per-file symlinks into member profiles' real mod folders (see
-    profile_groups._stage_mod_tree) — a mod folder installed from an
-    untrusted archive has no legitimate reason to contain a symlink at all,
-    so a bare "follow every symlink" policy would let a maliciously crafted
-    mod archive plant a symlink to an arbitrary path (e.g. ~/.ssh/id_rsa) and
-    have it indexed and deployed. Restricting to a known-safe root (the
-    game's own profiles directory) keeps that door closed while still
-    indexing the legitimate cross-profile links a group creates.
+    A symlinked file is never indexed, deliberately: an installed mod has no
+    legitimate reason to contain one, and archive extraction doesn't sanitize
+    symlinks embedded in a downloaded mod archive, so following them would
+    let a malicious archive plant a symlink to an arbitrary path (e.g.
+    ~/.ssh/id_rsa) and have it indexed and deployed. (Profile Groups used to
+    need an exception here for their own staged symlinks; the virtual-merge
+    redesign removed that staging entirely, so this stays closed with no
+    exceptions.)
 
     _unused_root_deploy_folders — retained for call-site compatibility only;
     the root-deploy routing has been removed in favour of custom_routing_rules.
@@ -1170,29 +1151,7 @@ def _scan_dir(
                             prefix + entry.name + "/",
                             entry.path,
                         ))
-                    elif entry.is_file(follow_symlinks=False) or (
-                        symlink_root is not None
-                        and entry.is_symlink()
-                        and entry.is_file(follow_symlinks=True)
-                        and _symlink_target_contained(entry.path, symlink_root)
-                    ):
-                        # The `or` clause only applies to a Profile Group's
-                        # private mods/ folder, which is deliberately
-                        # populated with per-FILE symlinks pointing at each
-                        # member profile's real files (see
-                        # profile_groups._stage_mod_tree). Plain
-                        # follow_symlinks=False makes every entry.is_dir()/
-                        # is_file() check false for those symlinks — invisible
-                        # to both branches — so the mod folder still gets an
-                        # index entry (it's a real directory) but with zero
-                        # files, and a deploy built from it silently
-                        # transfers nothing. Symlinks are only followed when
-                        # symlink_root is supplied AND the resolved target
-                        # stays within it — an installed mod has no
-                        # legitimate reason to contain a symlink at all, so
-                        # this stays closed by default to avoid letting a
-                        # malicious archive plant a symlink to an arbitrary
-                        # path (e.g. ~/.ssh/id_rsa) and have it deployed.
+                    elif entry.is_file(follow_symlinks=False):
                         if entry.name in _EXCLUDE_NAMES:
                             continue
                         if _is_macos_junk(entry.name):
@@ -1800,7 +1759,7 @@ def rename_in_mod_index(
 
 def rebuild_mod_index(
     index_path: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     strip_prefixes: set[str] | None = None,
     per_mod_strip_prefixes: dict[str, list[str]] | None = None,
     allowed_extensions: set[str] | None = None,
@@ -1809,7 +1768,6 @@ def rebuild_mod_index(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
-    symlink_root: str | None = None,
 ) -> None:
     """Scan every mod folder under staging_root and rewrite the full index.
 
@@ -1823,10 +1781,6 @@ def rebuild_mod_index(
     ``Data``) must NOT be applied: a SKSE-style mod ships ``Data/Scripts/...``
     plus loose ``.exe`` files at top level; stripping ``Data/`` would dump the
     Scripts subtree at the game root instead of inside ``<game>/Data/``.
-
-    symlink_root — forwarded to _scan_dir; see its docstring. Only a Profile
-    Group's own staging root should ever pass this (its per-file symlinks are
-    the one legitimate case), so every other caller leaves it None.
     """
     _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
     _per_mod = per_mod_strip_prefixes or {}
@@ -1835,31 +1789,40 @@ def rebuild_mod_index(
     _root  = frozenset()  # root_deploy_folders routing removed; param kept for compat
     _excl_dirs = exclude_dirs if exclude_dirs is not None else frozenset()
 
-    staging_str   = str(staging_root)
-    overwrite_str = str(staging_root.parent / "overwrite")
-
-    # Collect all mod folders that exist on disk
+    # Collect all mod folders to scan. A regular profile has one staging_root
+    # directory that every mod lives under, so we scan it; a Profile Group
+    # passes a {mod_name: real_mod_dir} mapping instead (see resolve_mod_dir
+    # in deploy_shared.py) — each mod's location is already known, including
+    # OVERWRITE_NAME, so there's nothing to scan for.
     scan_targets: list[tuple[str, str]] = []
-    skipped_nondir: list[str] = []
-    try:
-        with os.scandir(staging_str) as it:
-            for entry in it:
-                if entry.is_dir(follow_symlinks=False):
-                    scan_targets.append((entry.name, entry.path))
-                elif entry.is_dir(follow_symlinks=True):
-                    # A SYMLINK pointing at a directory: the modlist sync adopts
-                    # it (pathlib is_dir follows links), but this index scan skips
-                    # it (follow_symlinks=False) — so the mod appears in the list
-                    # yet deploys nothing. This is the top-suspect cause of
-                    # "copied mod is invisible / has no plugins". Record + warn.
-                    skipped_nondir.append(entry.name)
-    except OSError:
-        pass
-    if skipped_nondir and log_fn is not None:
-        log_fn(f"WARN: {len(skipped_nondir)} staging entr(y/ies) are SYMLINKS to "
-               f"directories and were NOT indexed (they deploy nothing yet show "
-               f"in the modlist): {', '.join(skipped_nondir[:10])}")
-    scan_targets.append((OVERWRITE_NAME, overwrite_str))
+    if isinstance(staging_root, Path):
+        staging_str   = str(staging_root)
+        overwrite_str = str(staging_root.parent / "overwrite")
+        skipped_nondir: list[str] = []
+        try:
+            with os.scandir(staging_str) as it:
+                for entry in it:
+                    if entry.is_dir(follow_symlinks=False):
+                        scan_targets.append((entry.name, entry.path))
+                    elif entry.is_dir(follow_symlinks=True):
+                        # A SYMLINK pointing at a directory: the modlist sync adopts
+                        # it (pathlib is_dir follows links), but this index scan skips
+                        # it (follow_symlinks=False) — so the mod appears in the list
+                        # yet deploys nothing. This is the top-suspect cause of
+                        # "copied mod is invisible / has no plugins". Record + warn.
+                        skipped_nondir.append(entry.name)
+        except OSError:
+            pass
+        if skipped_nondir and log_fn is not None:
+            log_fn(f"WARN: {len(skipped_nondir)} staging entr(y/ies) are SYMLINKS to "
+                   f"directories and were NOT indexed (they deploy nothing yet show "
+                   f"in the modlist): {', '.join(skipped_nondir[:10])}")
+        scan_targets.append((OVERWRITE_NAME, overwrite_str))
+    else:
+        scan_targets = [
+            (name, str(mod_dir)) for name, mod_dir in staging_root.items()
+            if mod_dir.is_dir()
+        ]
 
     def _strip_for_mod(name: str) -> frozenset[str]:
         if name in _root_mods:
@@ -1883,7 +1846,6 @@ def rebuild_mod_index(
             _scan_dir, name, d, _strip_for_mod(name), _exts, _root,
             strip_path_prefixes=_path_prefixes_for_mod(name),
             exclude_dirs=_excl_dirs,
-            symlink_root=symlink_root,
         ): name
         for name, d in scan_targets
     }
@@ -1912,7 +1874,7 @@ def rebuild_mod_index(
 
 def rescan_mods_in_index(
     index_path: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     mod_names: list[str],
     strip_prefixes: set[str] | None = None,
     per_mod_strip_prefixes: dict[str, list[str]] | None = None,
@@ -1959,8 +1921,11 @@ def rescan_mods_in_index(
 
     targets: list[tuple[str, str]] = []
     for name in mod_names:
-        mod_dir = staging_root / name
-        if mod_dir.is_dir():
+        mod_dir = (
+            staging_root / name if isinstance(staging_root, Path)
+            else staging_root.get(name)
+        )
+        if mod_dir is not None and mod_dir.is_dir():
             targets.append((name, str(mod_dir)))
     if not targets:
         return
@@ -2164,13 +2129,66 @@ def _build_path_filters(
                         excluded_mod_files or {})
 
 
+def _read_group_index(
+    staging_root: "Mapping[str, Path]",
+    strip_prefixes: set[str] | None,
+    allowed_extensions: set[str] | None,
+    exclude_dirs: frozenset[str] | None,
+    log_fn: "Callable[[str], None] | None",
+) -> dict[str, tuple[dict[str, str], dict[str, str]]]:
+    """Assemble a Profile Group's merged mod index without ever scanning a
+    member's mod folder here: every mod in *staging_root* already lives
+    under some member profile's own mods/ folder, and that member already
+    maintains its own correctly-invalidated modindex.bin via the ordinary
+    (non-group) index machinery. Reading those small cached files is far
+    cheaper than a fresh disk walk, and — unlike a group-owned modindex.bin
+    — never goes stale, since there is no group-level cache to invalidate in
+    the first place; each lookup reflects whatever the owning member's index
+    currently says.
+
+    The group's own OVERWRITE_NAME folder is a small real directory it owns
+    outright (not a member's), so that one entry is scanned directly.
+    """
+    index: dict[str, tuple[dict[str, str], dict[str, str]]] = {}
+    member_index_cache: dict[Path, dict] = {}
+    for mod_name, mod_dir in staging_root.items():
+        if mod_name == OVERWRITE_NAME:
+            continue
+        # mod_dir is <profiles_dir>/<member>/mods/<mod_name>; the member's own
+        # index sits next to its mods/ folder, i.e. two levels up.
+        member_profile_dir = mod_dir.parent.parent
+        member_index = member_index_cache.get(member_profile_dir)
+        if member_index is None:
+            member_index = read_mod_index(member_profile_dir / "modindex.bin") or {}
+            member_index_cache[member_profile_dir] = member_index
+        entry = member_index.get(mod_name)
+        if entry is not None:
+            index[mod_name] = entry
+        elif log_fn is not None:
+            log_fn(f"WARN: Profile Group mod \"{_safe_log_str(mod_name)}\" has no "
+                   f"entry in its owning member's index — it will deploy no "
+                   f"files until that member's own index is refreshed.")
+
+    overwrite_dir = staging_root.get(OVERWRITE_NAME)
+    if overwrite_dir is not None and overwrite_dir.is_dir():
+        _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
+        _exts = frozenset(e.lower() for e in allowed_extensions) if allowed_extensions else frozenset()
+        _excl_dirs = exclude_dirs if exclude_dirs is not None else frozenset()
+        _name, normal, root, _invalid = _scan_dir(
+            OVERWRITE_NAME, str(overwrite_dir), _strip, _exts, frozenset(),
+            exclude_dirs=_excl_dirs,
+        )
+        index[OVERWRITE_NAME] = (normal, root)
+    return index
+
+
 # ---------------------------------------------------------------------------
 # Main filemap builder
 # ---------------------------------------------------------------------------
 
 def build_filemap(
     modlist_path: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     output_path: Path,
     strip_prefixes: set[str] | None = None,
     per_mod_strip_prefixes: dict[str, list[str]] | None = None,
@@ -2188,7 +2206,6 @@ def build_filemap(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
-    symlink_root: str | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -2226,10 +2243,6 @@ def build_filemap(
     files are treated as if the mod does not have them, so the next
     lower-priority mod that has the same file wins instead.
 
-    symlink_root — forwarded to rebuild_mod_index/_scan_dir when a full
-    rescan is needed; see _scan_dir's docstring. Only a Profile Group's own
-    staging root should ever pass this.
-
     Returns:
         (count, conflict_map, overrides, overridden_by)
     """
@@ -2251,22 +2264,27 @@ def build_filemap(
     priority_order = [e.name for e in enabled_low_to_high if e.name != ROOT_FOLDER_NAME] + [OVERWRITE_NAME]
 
     index_path = output_path.parent / "modindex.bin"
-    index = read_mod_index(index_path)
 
-    if index is None:
-        # Index missing or corrupt — fall back to full disk scan and rebuild it.
-        rebuild_mod_index(
-            index_path, staging_root,
-            strip_prefixes=strip_prefixes,
-            per_mod_strip_prefixes=per_mod_strip_prefixes,
-            allowed_extensions=allowed_extensions,
-            normalize_folder_case=normalize_folder_case,
-            exclude_dirs=exclude_dirs,
-            log_fn=log_fn,
-            root_folder_mods=root_folder_mods,
-            symlink_root=symlink_root,
+    if isinstance(staging_root, Path):
+        index = read_mod_index(index_path)
+        if index is None:
+            # Index missing or corrupt — fall back to full disk scan and rebuild it.
+            rebuild_mod_index(
+                index_path, staging_root,
+                strip_prefixes=strip_prefixes,
+                per_mod_strip_prefixes=per_mod_strip_prefixes,
+                allowed_extensions=allowed_extensions,
+                normalize_folder_case=normalize_folder_case,
+                exclude_dirs=exclude_dirs,
+                log_fn=log_fn,
+                root_folder_mods=root_folder_mods,
+            )
+            index = read_mod_index(index_path) or {}
+    else:
+        # Profile Group: no index of its own — see _read_group_index.
+        index = _read_group_index(
+            staging_root, strip_prefixes, allowed_extensions, exclude_dirs, log_fn,
         )
-        index = read_mod_index(index_path) or {}
 
     # Mods with legacy surrogate-encoded file names (skipped below). The sweep
     # is mtime-cached — per-toggle rebuilds otherwise re-encode ~100k names.

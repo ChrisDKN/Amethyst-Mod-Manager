@@ -11,6 +11,10 @@ import concurrent.futures
 import os
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Utils.app_log import safe_log as _safe_log
 from Utils.deploy_shared import (
@@ -28,6 +32,7 @@ from Utils.deploy_shared import (
     _resolve_source,
     _restore_from_log,
     _write_deploy_snapshot,
+    resolve_mod_dir,
 )
 
 
@@ -40,7 +45,7 @@ _FILEMAP_BACKUP_DIR = "filemap_backup"
 def deploy_filemap_to_root(
     filemap_path: Path,
     game_root: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: set[str] | None = None,
     per_mod_strip_prefixes: dict[str, list[str]] | None = None,
@@ -92,7 +97,10 @@ def deploy_filemap_to_root(
     if ext_remap:
         for old_ext, new_ext in ext_remap.items():
             _ext_remap.append((old_ext.lower(), new_ext))
-    overwrite_dir = staging_root.parent / "overwrite"
+    overwrite_dir = (
+        staging_root.parent / "overwrite" if isinstance(staging_root, Path)
+        else staging_root[_OVERWRITE_NAME]
+    )
     backup_dir    = filemap_path.parent / _FILEMAP_BACKUP_DIR
     log_path      = filemap_path.parent / _FILEMAP_LOG_NAME
 
@@ -177,7 +185,7 @@ def deploy_filemap_to_root(
         # --- Fast path: O(1) mod-index lookup (no syscall) ---
         _mr = _mod_root_cache.get(mod_name)
         if _mr is None:
-            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
+            _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else resolve_mod_dir(staging_root, mod_name)
             _mod_root_cache[mod_name] = _mr
         _idx = mod_index_cache.get(_mr)
         src_str: str | None = None

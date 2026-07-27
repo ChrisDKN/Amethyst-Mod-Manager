@@ -75,6 +75,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+from Utils.filemap import OVERWRITE_NAME
 from Utils.modlist import ModEntry, read_modlist, write_modlist
 from Utils.plugins import PluginEntry, read_loadorder, read_plugins, write_loadorder, write_plugins
 from Utils.profile_state import (
@@ -116,18 +117,20 @@ _group_build_locks_guard = threading.Lock()
 
 
 def group_build_lock(profile_dir: Path) -> threading.RLock:
-    """Process-wide lock, one per group profile dir, serializing
-    materialize_group() against any concurrent build_filemap() for that same
-    group (see deploy_pipeline._build_filemap_for_game).
+    """Process-wide lock, one per group profile dir, serializing concurrent
+    materialize_group() calls for the same group against each other.
 
-    Without this, a GUI conflicts-panel rebuild (an async worker spawned on
-    profile switch) can be mid-scan of a group's mods/ folder at the exact
-    moment a deploy's own materialize_group() call rmtree's and repopulates
-    that same folder — each side's index/filemap ends up individually
-    well-formed, but built from a directory tree that was torn down and
-    relinked out from under the scan, so a deploy can silently transfer 0 mod
-    files even though modindex.bin looks completely valid moments before and
-    after."""
+    materialize_group() writes the group's own modlist.txt/plugins.txt/
+    loadorder.txt/profile_state.json (reconciled from its members' current
+    state — see _reconcile_group_modlist/_reconcile_group_plugins). Without
+    this lock, two overlapping calls (e.g. a profile-switch materialize
+    racing a deploy's own materialize moments later) could interleave their
+    reads and writes of those same small files and produce an inconsistent
+    reconcile. The group owns no physical mods/ folder to race over any
+    more — every mod resolves straight to its real owning member via
+    build_group_resolver — so this is purely a small-file read/write race
+    now, not the large-scale physical-staging race this lock originally
+    guarded against."""
     key = str(profile_dir)
     with _group_build_locks_guard:
         lock = _group_build_locks.get(key)
@@ -169,7 +172,13 @@ def set_members(profile_dir: Path, members: list[str]) -> None:
     merge_profile_settings(profile_dir, {"group_members": list(members)})
 
 
-def _validate_member(profiles_dir: Path, member_name: str) -> None:
+def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
+    if not getattr(game, "profile_groups_supported", True):
+        raise GroupValidationError(
+            f"Profile Groups aren't supported for {getattr(game, 'name', 'this game')} "
+            "yet — its mod-merging logic doesn't have a per-mod/enabled-state "
+            "concept the group's virtual merge depends on."
+        )
     member_dir = profiles_dir / member_name
     if not member_dir.is_dir():
         raise GroupValidationError(f"Profile '{member_name}' does not exist.")
@@ -201,17 +210,19 @@ def create_group(game, group_name: str, members: list[str]) -> Path:
         if m in seen:
             raise GroupValidationError(f"Duplicate member profile '{m}'.")
         seen.add(m)
-        _validate_member(profiles_dir, m)
+        _validate_member(game, profiles_dir, m)
 
     group_dir.mkdir(parents=True, exist_ok=True)
     (group_dir / "modlist.txt").touch()
     (group_dir / "plugins.txt").touch()
     (group_dir / "loadorder.txt").touch()
-    # The group needs its own private staging to link members' mod files
-    # into (they live in physically different profile-specific folders) —
-    # profile_specific_mods=True gives it that for free via the existing
-    # get_effective_mod_staging_path()/overwrite/Root_Folder resolution.
-    (group_dir / "mods").mkdir(exist_ok=True)
+    # The group owns no mods/ folder of its own — every mod resolves straight
+    # to whichever member profile actually owns it (see build_group_resolver).
+    # It DOES own a small real overwrite/ and Root_Folder/ (runtime files,
+    # manual additions, LOOT clean-plugin output — normal-sized, not the
+    # "duplicate every member's mod files" problem); profile_specific_mods
+    # gives it those via the existing get_effective_overwrite_path()/
+    # get_effective_root_folder_path() resolution.
     (group_dir / "overwrite").mkdir(exist_ok=True)
     (group_dir / "Root_Folder").mkdir(exist_ok=True)
     write_profile_settings(group_dir, {
@@ -224,7 +235,7 @@ def create_group(game, group_name: str, members: list[str]) -> Path:
 
 def add_member(game, profile_dir: Path, member_name: str) -> None:
     profiles_dir = _profiles_root(game)
-    _validate_member(profiles_dir, member_name)
+    _validate_member(game, profiles_dir, member_name)
     members = get_members(profile_dir)
     if member_name in members:
         raise GroupValidationError(f"'{member_name}' is already a member of this group.")
@@ -519,84 +530,66 @@ def _merge_union_set(profiles_dir: Path, members: list[str], reader) -> set:
     return merged
 
 
-def _group_deploy_mode(game):
-    """The link mode to stage member mods with — the game's own configured
-    deploy mode (hardlink or symlink, whichever the user has it set to),
-    falling back to hardlink if the game doesn't expose one."""
-    get_mode = getattr(game, "get_deploy_mode", None)
-    if callable(get_mode):
-        try:
-            mode = get_mode()
-            if mode is not None:
-                return mode
-        except Exception:
-            pass
-    from Utils.deploy_shared import LinkMode
-    return LinkMode.HARDLINK
+def _reconcile_group_modlist(current: list[ModEntry],
+                             prescribed: list[ModEntry]) -> list[ModEntry]:
+    """"Adopt once, reconcile thereafter": merge the group's own previous
+    modlist with a freshly recomputed merge from its members.
 
-
-def _stage_mod_tree(src_root: Path, dst_root: Path, mode, log_fn) -> None:
-    """Populate *dst_root* with every file under *src_root* using *mode*
-    (hardlink or symlink — see _group_deploy_mode), reusing the exact same
-    per-file transfer primitive (with automatic cross-filesystem fallback to
-    symlink/copy) the deploy pipeline itself uses to link mods into a game."""
-    from Utils.deploy_shared import _transfer
-    if not src_root.is_dir():
-        return
-    for src_file in src_root.rglob("*"):
-        if not src_file.is_file():
+    - A mod present in both keeps the GROUP's own entry (position/enabled/
+      locked) verbatim — once adopted, a user's in-group edit is permanent
+      and is never silently re-flipped by a member's later change (this is a
+      deliberate departure from continuously re-computing the OR-merge on
+      every materialize, which made in-group edits impossible to keep).
+    - A mod only in *prescribed* (a member added it, or this is the group's
+      very first materialize) is appended at the end — new arrivals never
+      jump ahead of mods the user already arranged.
+    - A mod only in *current* (no member references it any more) is dropped.
+    - Any separator the user added directly in the group (organizing the
+      merged list) is preserved verbatim in its existing position;
+      _merge_modlist never emits separators of its own, so there's nothing
+      to reconcile it against.
+    """
+    prescribed_by_name = {e.name: e for e in prescribed if not e.is_separator}
+    result: list[ModEntry] = []
+    seen: set[str] = set()
+    for e in current:
+        if e.is_separator:
+            result.append(e)
             continue
-        rel = src_file.relative_to(src_root)
-        try:
-            _transfer(src_file, dst_root / rel, mode)
-        except OSError as exc:
-            log_fn(f"Profile Group: could not stage '{rel}': {exc}")
-
-
-def _restage_group_mods(game, profile_dir: Path, profiles_dir: Path,
-                        merged: list[ModEntry], home_member: dict[str, str],
-                        log_fn) -> None:
-    """Rebuild the group's own private mods/ folder from scratch: link each
-    enabled mod's files in from whichever member profile actually owns it
-    (members are profile-specific, so their files live in genuinely separate
-    physical locations — the group must assemble its own copy of "what
-    should deploy" rather than just referencing an already-shared pool).
-
-    Wiped and regenerated on every materialize — links are cheap to recreate,
-    and a full rebuild guarantees no stale mod lingers after a membership or
-    enabled-state change."""
-    import shutil
-    group_mods_dir = profile_dir / "mods"
-    shutil.rmtree(group_mods_dir, ignore_errors=True)
-    group_mods_dir.mkdir(parents=True, exist_ok=True)
-    mode = _group_deploy_mode(game)
-    for e in merged:
-        if e.is_separator or not e.enabled:
+        if e.name in prescribed_by_name:
+            result.append(e)
+            seen.add(e.name)
+        # else: no member references this mod any more — drop it.
+    for e in prescribed:
+        if e.is_separator or e.name in seen:
             continue
-        member_name = home_member.get(e.name)
-        if not member_name:
-            continue
-        src_mod_dir = profiles_dir / member_name / "mods" / e.name
-        if not src_mod_dir.is_dir():
-            log_fn(f"Profile Group: '{e.name}' not found under member "
-                   f"'{member_name}' — skipping.")
-            continue
-        _stage_mod_tree(src_mod_dir, group_mods_dir / e.name, mode, log_fn)
-
-    # Membership/enabled-state changes just added, removed, or swapped mod
-    # folders under group_mods_dir, but modindex.bin is a separate on-disk
-    # cache that nothing above touches. build_filemap() (and the GUI's
-    # conflicts-panel rebuild) trust that cache blindly unless it's literally
-    # missing — a stale-but-valid index silently drops any mod it doesn't
-    # know about from the next deploy (0 files transferred, no error) instead
-    # of erroring. Deleting both index files forces a full rescan on the next
-    # read, the same recovery path already used for the legacy stray-index
-    # sweep in deploy_pipeline._build_filemap_for_game.
-    (profile_dir / "modindex.bin").unlink(missing_ok=True)
-    (profile_dir / "bsa_index.bin").unlink(missing_ok=True)
+        result.append(e)
+        seen.add(e.name)
+    return result
 
 
-def _sort_with_loot(game, profile_dir: Path, profiles_dir: Path, members: list[str],
+def _reconcile_group_plugins(
+    current_order: list[str], current_enabled: dict[str, bool],
+    prescribed_order: list[str], prescribed_enabled: dict[str, bool],
+) -> "tuple[list[str], dict[str, bool]]":
+    """Same "adopt once" reconciliation as _reconcile_group_modlist, for the
+    plugin load order: kept plugins retain the group's own order/enabled
+    state; new plugins (from a member, or LOOT's sort of the very first
+    materialize) are appended; plugins no member references any more are
+    dropped."""
+    prescribed_set = set(prescribed_order)
+    order = [n for n in current_order if n in prescribed_set]
+    seen = set(order)
+    for n in prescribed_order:
+        if n not in seen:
+            order.append(n)
+            seen.add(n)
+    enabled = {n: current_enabled.get(n, prescribed_enabled.get(n, False)) for n in order}
+    return order, enabled
+
+
+def _sort_with_loot(game, profile_dir: Path, resolver: dict[str, Path],
+                     profiles_dir: Path, members: list[str],
                      merged_order: list[str], merged_enabled: dict[str, bool], log_fn):
     """Best-effort LOOT auto-sort of a freshly merged load order. Never raises —
     naive block-concatenation across profiles can violate plugin master
@@ -622,11 +615,11 @@ def _sort_with_loot(game, profile_dir: Path, profiles_dir: Path, members: list[s
             enabled_set=enabled_set,
             game_name=getattr(game, "name", ""),
             game_path=game.get_game_path(),
-            # The group's own private mods/ (not
-            # game.get_effective_mod_staging_path() — that depends on
-            # _active_profile_dir, which materialize_group() may run before
-            # the pipeline has pointed at this group yet).
-            staging_root=profile_dir / "mods",
+            # The group has no mods/ folder of its own — resolver maps each
+            # mod straight to whichever member profile actually owns it (see
+            # build_group_resolver / resolve_mod_dir in deploy_shared.py).
+            staging_root=resolver,
+            filemap_path=profile_dir / "filemap.txt",
             game_type_attr=getattr(game, "loot_game_type", ""),
             game_id=game.game_id,
             masterlist_url=getattr(game, "loot_masterlist_url", ""),
@@ -643,8 +636,18 @@ def _sort_with_loot(game, profile_dir: Path, profiles_dir: Path, members: list[s
 
 def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
     """Regenerate a Profile Group's modlist.txt / plugins.txt / loadorder.txt /
-    mods/ folder / profile_state.json sub-maps from its members' current
-    on-disk state.
+    profile_state.json sub-maps from its members' current on-disk state.
+
+    "Adopt once, reconcile thereafter": the group owns no mods/ folder of its
+    own (see build_group_resolver — every mod resolves straight to whichever
+    member profile actually owns it), and its modlist/plugin order is
+    authoritative once adopted. A mod/plugin a member still references keeps
+    the group's own position/enabled/locked state exactly as the user left
+    it; only mods/plugins newly added by a member get appended, and ones no
+    member references any more get dropped (see _reconcile_group_modlist /
+    _reconcile_group_plugins). This deliberately replaces the previous
+    continuous "OR across all members" recompute, which made an in-group
+    edit impossible to keep — the trade-off is intentional, not a bug.
 
     Safe to call repeatedly (before every deploy and on every profile switch).
     """
@@ -655,20 +658,25 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
         profiles_dir = profile_dir.parent
         members = get_members(profile_dir)
 
-        merged_entries, home_member = _merge_modlist(profiles_dir, members, _log)
-        write_modlist(profile_dir / "modlist.txt", merged_entries)
+        prescribed_entries, home_member = _merge_modlist(profiles_dir, members, _log)
+        current_entries = read_modlist(profile_dir / "modlist.txt")
+        final_entries = _reconcile_group_modlist(current_entries, prescribed_entries)
+        write_modlist(profile_dir / "modlist.txt", final_entries)
 
-        # Stage mod files BEFORE the plugin merge/LOOT sort below — LOOT needs to
-        # actually read the plugin files (they live inside each mod's folder),
-        # so the group's own mods/ must already be populated by then.
-        _restage_group_mods(game, profile_dir, profiles_dir, merged_entries, home_member, _log)
+        resolver = build_group_resolver(profile_dir, final_entries, home_member)
 
         if getattr(game, "plugin_extensions", None):
             star_prefix = bool(getattr(game, "plugins_use_star_prefix", True))
-            merged_order, merged_enabled = _merge_plugins(profiles_dir, members, star_prefix)
-            merged_order = _sort_with_loot(game, profile_dir, profiles_dir, members,
-                                            merged_order, merged_enabled, _log)
-            entries = [PluginEntry(name=n, enabled=merged_enabled.get(n, False)) for n in merged_order]
+            prescribed_order, prescribed_enabled = _merge_plugins(profiles_dir, members, star_prefix)
+            prescribed_order = _sort_with_loot(game, profile_dir, resolver, profiles_dir, members,
+                                                prescribed_order, prescribed_enabled, _log)
+            current_plugin_entries = read_plugins(profile_dir / "plugins.txt", star_prefix=star_prefix)
+            current_order = [e.name for e in current_plugin_entries]
+            current_enabled = {e.name: e.enabled for e in current_plugin_entries}
+            final_order, final_enabled = _reconcile_group_plugins(
+                current_order, current_enabled, prescribed_order, prescribed_enabled,
+            )
+            entries = [PluginEntry(name=n, enabled=final_enabled.get(n, False)) for n in final_order]
             write_loadorder(profile_dir / "loadorder.txt", entries)
             write_plugins(profile_dir / "plugins.txt", entries, star_prefix=star_prefix)
 
@@ -689,3 +697,62 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             profile_dir,
             any(read_root_folder_state(profiles_dir / m) for m in members if (profiles_dir / m).is_dir()),
         )
+
+
+# ---------------------------------------------------------------------------
+# Virtual merge resolver — see the "Profile Groups: replace physical
+# symlink-staging with a virtual merge" plan. A group owns no mods/ folder
+# of its own; every consumer that used to read one (filemap/index building,
+# deploy/restore/undeploy, LOOT plugin discovery, flatpak sandbox grants)
+# instead gets this {mod_name: real_owning_member_dir} map wherever it used
+# to receive a single staging_root Path — see resolve_mod_dir in
+# deploy_shared.py.
+# ---------------------------------------------------------------------------
+
+def build_group_resolver(profile_dir: Path, merged: list[ModEntry],
+                         home_member: dict[str, str]) -> dict[str, Path]:
+    """Build a {mod_name: real_mod_dir} resolver for a group from an already-
+    computed merge (see _merge_modlist) — every enabled mod maps directly to
+    its winning member's own mods/ folder, never to a group-owned copy.
+
+    Pure path arithmetic, no disk I/O. See resolve_mod_dir in
+    deploy_shared.py for how downstream code consumes this instead of a
+    single shared staging_root Path."""
+    profiles_dir = profile_dir.parent
+    resolver: dict[str, Path] = {OVERWRITE_NAME: profile_dir / "overwrite"}
+    for e in merged:
+        if e.is_separator or not e.enabled:
+            continue
+        member = home_member.get(e.name)
+        if member:
+            resolver[e.name] = profiles_dir / member / "mods" / e.name
+    return resolver
+
+
+def get_group_resolver(profile_dir: Path, *, log_fn=None) -> "dict[str, Path] | None":
+    """Build the resolver for *profile_dir* (a group) from its OWN current,
+    already-adopted modlist.txt — not a fresh re-merge — so it always
+    reflects the user's in-group edits (order/enabled/locked) exactly as
+    materialize_group() last reconciled them, never the raw "OR across
+    members" result. A fresh _merge_modlist() pass is still used, but only
+    for its home_member map (which member currently owns each mod's real
+    files) — that can legitimately change between materializes (a member
+    updates a mod, say) even when the group's own adopted mod SET hasn't.
+    A mod in the group's modlist with no current home_member (no member
+    references it any more, but the group hasn't been re-materialized since)
+    is simply omitted from the resolver rather than raising — the same
+    "deploys nothing until reconciled" degradation build_group_resolver
+    already applies to any unresolvable entry.
+
+    Returns None if profile_dir isn't a group. Safe to call any time — it
+    only reads members' modlist.txt/meta.ini (cheap) and the group's own
+    modlist.txt, never writes or restages anything.
+    """
+    if not is_group(profile_dir):
+        return None
+    _log = log_fn or (lambda _msg: None)
+    profiles_dir = profile_dir.parent
+    members = get_members(profile_dir)
+    _, home_member = _merge_modlist(profiles_dir, members, _log)
+    current_entries = read_modlist(profile_dir / "modlist.txt")
+    return build_group_resolver(profile_dir, current_entries, home_member)

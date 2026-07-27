@@ -22,7 +22,7 @@ from Utils.deploy import LinkMode
 from Utils.steam_finder import find_prefix as _find_steam_prefix
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from typing import Callable, Mapping
 
 
 # Shared auto_install_deps preset for modern DirectX/x64-runtime games (modern
@@ -890,6 +890,25 @@ class BaseGame(ABC):
         return False
 
     @property
+    def profile_groups_supported(self) -> bool:
+        """
+        Whether this game's profiles can be combined into a Profile Group.
+
+        A group merges its members virtually — every mod resolves straight
+        to whichever member profile owns it (see profile_groups.py) — which
+        every game's deploy path already handles once it only goes through
+        the shared primitives (deploy_filemap/deploy_filemap_to_root/
+        deploy_custom_rules/build_filemap et al.). A game whose deploy logic
+        instead does its own raw directory walk over one staging_root with
+        no per-mod or enabled-state concept — Dragon Age Origins' registry/
+        chargen merge (dao_xml.py/dao_chargen.py) is the only current
+        example — can't correctly support a multi-member merge without a
+        dedicated rework of that discovery logic first, so it returns False
+        here until that happens.
+        """
+        return True
+
+    @property
     def loot_sort_enabled(self) -> bool:
         """
         Whether LOOT plugin sorting is supported for this game.
@@ -1225,6 +1244,10 @@ class BaseGame(ABC):
     # Active profile directory — set by the UI whenever the user switches profiles.
     _active_profile_dir: "Path | None" = None
 
+    # Transient Profile-Group override for get_effective_mod_staging_path() —
+    # see set_mod_staging_override.
+    _mod_staging_override: "Mapping[str, Path] | None" = None
+
     def set_active_profile_dir(self, profile_dir: "Path | None") -> None:
         """Record which profile folder is currently active.
 
@@ -1233,6 +1256,21 @@ class BaseGame(ABC):
         path overrides.
         """
         self._active_profile_dir = profile_dir
+
+    def set_mod_staging_override(self, resolver: "Mapping[str, Path] | None") -> None:
+        """Transiently make get_effective_mod_staging_path() return *resolver*
+        (a Profile Group's {mod_name: real_owning_member_dir} map — see
+        profile_groups.get_group_resolver) instead of a single Path.
+
+        Scope this narrowly: deploy_pipeline.run_deploy_pipeline() is the only
+        caller, and only for the duration of the deploy/restore/undeploy calls
+        it makes for a group profile — always cleared (set back to None) in a
+        finally immediately after, specifically so every OTHER caller of the
+        getter (GUI views, wizards, mod install, tool integrations — none of
+        which know what a Profile Group is) keeps getting a plain Path exactly
+        as before. Leaving this set outside that narrow window would silently
+        break any of those ~60 other call sites the next time they run."""
+        self._mod_staging_override = resolver
 
     def _is_default_profile(self) -> bool:
         """True when the active profile is the default one (or none is set).
@@ -1287,17 +1325,28 @@ class BaseGame(ABC):
             if applied:
                 self._load_paths_extra(overlay)
 
-    def get_effective_mod_staging_path(self) -> Path:
+    def get_effective_mod_staging_path(self) -> "Path | Mapping[str, Path]":
         """Return the mods staging path that should be used for the active profile.
 
-        If the active profile has the ``profile_specific_mods`` flag set in
-        ``profile_state.json`` (profile_settings), returns ``<profile_dir>/mods/`` so that all
-        mod files are kept inside the profile folder itself.
+        If a Profile Group override is active (see set_mod_staging_override),
+        returns that {mod_name: real_owning_member_dir} mapping instead of a
+        single Path — scoped narrowly to deploy_pipeline's own deploy/restore/
+        undeploy calls for a group profile, never left set for any other
+        caller. Every other caller (the overwhelming majority — GUI views,
+        wizards, mod install, tool integrations) always gets a plain Path,
+        exactly as before.
+
+        Otherwise: if the active profile has the ``profile_specific_mods``
+        flag set in ``profile_state.json`` (profile_settings), returns
+        ``<profile_dir>/mods/`` so that all mod files are kept inside the
+        profile folder itself.
 
         Otherwise falls back to the standard :meth:`get_mod_staging_path`
         (shared ``mods/`` folder next to ``profiles/``), which preserves the
         existing behaviour for all profiles without the flag.
         """
+        if self._mod_staging_override is not None:
+            return self._mod_staging_override
         if self._active_profile_dir is not None:
             try:
                 from Utils.profile_state import profile_uses_specific_mods
@@ -1312,15 +1361,25 @@ class BaseGame(ABC):
 
         For profiles with the ``profile_specific_mods`` flag the overwrite
         folder lives inside the profile directory itself (a sibling of the
-        profile-specific ``mods/`` folder).  For all other profiles it
-        falls back to ``<profile_root>/overwrite/``, which is the original
-        shared location that sits alongside the shared ``mods/`` folder.
+        profile-specific ``mods/`` folder — for a Profile Group this is a
+        small real folder it owns outright, unrelated to the virtual mods/
+        mapping). For all other profiles it falls back to
+        ``<profile_root>/overwrite/``, the original shared location that
+        sits alongside the shared ``mods/`` folder.
 
-        This is always consistent with :meth:`get_effective_mod_staging_path`:
-        ``overwrite/`` is a sibling of ``mods/`` regardless of which root they
-        live under.
+        Deliberately does NOT derive from get_effective_mod_staging_path()
+        (whose return type depends on whether a group override is active) —
+        this checks profile_specific_mods directly instead, the same way
+        get_effective_root_folder_path() already does.
         """
-        return self.get_effective_mod_staging_path().parent / "overwrite"
+        if self._active_profile_dir is not None:
+            try:
+                from Utils.profile_state import profile_uses_specific_mods
+                if profile_uses_specific_mods(self._active_profile_dir):
+                    return self._active_profile_dir / "overwrite"
+            except Exception:
+                pass
+        return self.get_mod_staging_path().parent / "overwrite"
 
     def get_effective_filemap_path(self) -> Path:
         """Return the filemap.txt path for the active profile.
@@ -1328,8 +1387,18 @@ class BaseGame(ABC):
         For profile-specific-mods profiles this is ``<profile_dir>/filemap.txt``
         so that each profile maintains its own independent filemap.
         For normal profiles it falls back to ``<profile_root>/filemap.txt``.
+
+        Deliberately does NOT derive from get_effective_mod_staging_path() —
+        see get_effective_overwrite_path().
         """
-        return self.get_effective_mod_staging_path().parent / "filemap.txt"
+        if self._active_profile_dir is not None:
+            try:
+                from Utils.profile_state import profile_uses_specific_mods
+                if profile_uses_specific_mods(self._active_profile_dir):
+                    return self._active_profile_dir / "filemap.txt"
+            except Exception:
+                pass
+        return self.get_mod_staging_path().parent / "filemap.txt"
 
     def get_effective_root_folder_path(self) -> Path:
         """Return the Root_Folder staging path for the active profile.

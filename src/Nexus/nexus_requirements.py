@@ -23,7 +23,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 import requests
 
@@ -34,6 +37,7 @@ from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
 from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, write_meta
 from Utils.config_paths import get_requirement_external_tool_mod_ids_path
 from Utils.ca_bundle import resolve_ca_bundle
+from Utils.deploy_shared import resolve_mod_dir
 
 ProgressCallback = Callable[[str], None]
 
@@ -201,7 +205,7 @@ def _merge_reqs(
 
 def check_missing_requirements(
     api: NexusAPI,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     game_domain: str = "",
     progress_cb: Optional[ProgressCallback] = None,
     save_results: bool = True,
@@ -330,14 +334,16 @@ def check_missing_requirements(
                     meta.missing_requirements = ";".join(
                         f"{r.mod_id}:{r.mod_name}" for r in missing
                     )
-                    meta_path = staging_root / meta.mod_name / "meta.ini"
-                    write_meta(meta_path, meta)
+                    mod_dir = resolve_mod_dir(staging_root, meta.mod_name)
+                    if mod_dir is not None:
+                        write_meta(mod_dir / "meta.ini", meta)
             else:
                 # All requirements satisfied — clear flag
                 if save_results and meta.missing_requirements:
                     meta.missing_requirements = ""
-                    meta_path = staging_root / meta.mod_name / "meta.ini"
-                    write_meta(meta_path, meta)
+                    mod_dir = resolve_mod_dir(staging_root, meta.mod_name)
+                    if mod_dir is not None:
+                        write_meta(mod_dir / "meta.ini", meta)
 
         if checked % 10 == 0:
             _log(f"  Checked {checked}/{total} mods...")
@@ -350,7 +356,7 @@ def check_requirements_from_gql(
     gql_info: dict[int, NexusModUpdateInfo],
     all_installed: list,
     game_domain: str = "",
-    staging_root: Path = Path(),
+    staging_root: "Path | Mapping[str, Path]" = Path(),
     progress_cb: Optional[ProgressCallback] = None,
     save_results: bool = True,
     enabled_only: Optional[set] = None,
@@ -476,7 +482,9 @@ def check_requirements_from_gql(
                                  or meta.nexus_requirements != full_str):
                 meta.missing_requirements = missing_str
                 meta.nexus_requirements = full_str
-                write_meta(staging_root / meta.mod_name / "meta.ini", meta)
+                mod_dir = resolve_mod_dir(staging_root, meta.mod_name)
+                if mod_dir is not None:
+                    write_meta(mod_dir / "meta.ini", meta)
 
     _log(f"Requirements check complete: {len(results)} mod(s) with missing dependencies.")
     return results

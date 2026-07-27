@@ -15,6 +15,10 @@ import os
 import stat
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 # Spacing between mtime values (seconds).
 _MTIME_STEP = 1
@@ -34,17 +38,27 @@ def _data_dir_files(data_dir: Path) -> "dict[str, Path]":
 
 
 def _staging_plugin_map(
-    staging_root: "Path | None",
+    staging_root: "Path | Mapping[str, Path] | None",
     overwrite_dir: "Path | None",
     wanted: "set[str]",
 ) -> "dict[str, list[Path]]":
-    """Map lowercased plugin filename → candidate staging/overwrite paths."""
+    """Map lowercased plugin filename → candidate staging/overwrite paths.
+
+    staging_root is a plain Path for a regular profile (its mod folders are
+    scanned directly) or a {mod_name: real_mod_dir} mapping for a Profile
+    Group (every mod's location is already known) — see resolve_mod_dir in
+    deploy_shared.py.
+    """
     out: dict[str, list[Path]] = {}
     roots: list[Path] = []
     if overwrite_dir is not None and overwrite_dir.is_dir():
         roots.append(overwrite_dir)
-    if staging_root is not None and staging_root.is_dir():
-        roots.extend(d for d in staging_root.iterdir() if d.is_dir())
+    if staging_root is not None:
+        if isinstance(staging_root, Path):
+            if staging_root.is_dir():
+                roots.extend(d for d in staging_root.iterdir() if d.is_dir())
+        else:
+            roots.extend(d for d in staging_root.values() if d.is_dir())
     for root in roots:
         for d in (root, root / "Data"):
             try:
@@ -62,7 +76,7 @@ def _staging_plugin_map(
 def stamp_plugin_load_order(
     ordered: "list[str]",
     data_dir: Path,
-    staging_root: "Path | None" = None,
+    staging_root: "Path | Mapping[str, Path] | None" = None,
     overwrite_dir: "Path | None" = None,
     log_fn=None,
 ) -> int:

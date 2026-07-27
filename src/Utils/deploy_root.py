@@ -14,6 +14,11 @@ import stat as _stat
 import time as _time
 from pathlib import Path
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
+
 from Utils.app_log import safe_log as _safe_log
 from Utils.deploy_shared import (
     LinkMode,
@@ -25,6 +30,7 @@ from Utils.deploy_shared import (
     _prune_empty_dirs,
     _resolve_root_path,
     _restore_backup_dir,
+    resolve_mod_dir,
 )
 
 
@@ -158,7 +164,7 @@ def deploy_root_folder(
 def deploy_root_flagged_mods(
     filemap_root_path: Path,
     game_root: Path,
-    staging_root: Path,
+    staging_root: "Path | Mapping[str, Path]",
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: "set[str] | None" = None,
     per_mod_strip_prefixes: "dict[str, list[str]] | None" = None,
@@ -220,15 +226,19 @@ def deploy_root_flagged_mods(
     tasks: list[tuple[Path, Path, str]] = []  # (src, dst, rel_posix)
 
     for rel_str, mod_name in entries:
+        mod_dir = resolve_mod_dir(staging_root, mod_name)
+        if mod_dir is None:
+            _log(f"  WARN: source not found for root-flagged file: {mod_name}/{rel_str}")
+            continue
         # Locate source in staging, trying per-mod then shared strip prefixes.
-        src = staging_root / mod_name / rel_str
+        src = mod_dir / rel_str
         if not src.is_file():
             _mod_prefixes = (per_mod_strip_prefixes or {}).get(mod_name)
             _candidates = list(_mod_prefixes) if _mod_prefixes else []
             if strip_prefixes:
                 _candidates.extend(strip_prefixes)
             for prefix in _candidates:
-                candidate = staging_root / mod_name / prefix / rel_str
+                candidate = mod_dir / prefix / rel_str
                 if candidate.is_file():
                     src = candidate
                     break

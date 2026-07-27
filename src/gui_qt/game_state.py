@@ -141,12 +141,27 @@ class GameState:
         except Exception:
             return None
 
+    def filemap_dir(self) -> Path | None:
+        """Directory holding filemap.txt/modindex.bin/bsa_index.bin for the
+        active profile — g.get_effective_filemap_path().parent, which (unlike
+        staging_dir()) resolves correctly for a Profile Group: a group has no
+        mods/ folder of its own to stage into, but it does have its own real
+        filemap.txt/modindex.bin location (get_effective_filemap_path doesn't
+        derive from get_effective_mod_staging_path — see base_game.py)."""
+        g = self.game
+        if g is None:
+            return None
+        try:
+            return g.get_effective_filemap_path().parent
+        except Exception:
+            return None
+
     def bsa_index_path(self) -> Path | None:
         """Location of bsa_index.bin (next to filemap.txt), or None."""
-        staging = self.staging_dir()
-        if staging is None:
+        fmdir = self.filemap_dir()
+        if fmdir is None:
             return None
-        p = staging.parent / "bsa_index.bin"
+        p = fmdir / "bsa_index.bin"
         return p if p.is_file() else None
 
     def build_conflicts(self, log_fn=None, rescan_index: bool = False) -> "ConflictData":
@@ -193,8 +208,8 @@ class GameState:
         """Framework banner statuses (worker-side; see ConflictData)."""
         try:
             from Utils.framework_detect import detect_frameworks
-            staging = self.staging_dir()
-            fm = (staging.parent / "filemap.txt") if staging is not None else None
+            fmdir = self.filemap_dir()
+            fm = (fmdir / "filemap.txt") if fmdir is not None else None
             return detect_frameworks(g, fm, self.modlist_path(),
                                      rf_toggle_enabled=True)
         except Exception as exc:
@@ -216,10 +231,10 @@ class GameState:
         ~100-150 ms file walk entirely."""
         from Utils.perftrace import span
         _empty = (set(), set(), set(), set(), set())
-        staging = self.staging_dir()
-        if staging is None:
+        fmdir = self.filemap_dir()
+        if fmdir is None:
             return _empty
-        index_path = staging.parent / "modindex.bin"
+        index_path = fmdir / "modindex.bin"
         try:
             mtime = index_path.stat().st_mtime
         except OSError:
@@ -235,6 +250,11 @@ class GameState:
         except Exception:
             index = None
         if not index:
+            # Also the normal (harmless) outcome for a Profile Group: it has
+            # no modindex.bin of its own by design (its merged index is
+            # assembled in memory from each member's own index — see
+            # filemap._read_group_index) — so these toggle-capability flags
+            # are simply empty for a group profile for now.
             return _empty
         # pre-RTX: any file under a remapped source prefix.
         prertx: set = set()
@@ -305,8 +325,8 @@ class GameState:
     def _build_plugin_owner(self, g) -> dict[str, str]:
         """Map plugin filename (lower) → the mod that wins it, from filemap.txt.
         Used for plugin↔mod cross-panel highlighting."""
-        staging = self.staging_dir()
-        if staging is None:
+        fmdir = self.filemap_dir()
+        if fmdir is None:
             return {}
         exts = tuple(e.lower() for e in (getattr(g, "plugin_extensions", []) or []))
         if not exts:
@@ -314,8 +334,8 @@ class GameState:
         owner: dict[str, str] = {}
         # filemap_root.txt second: root-flagged mods deploy after (and over)
         # the main deploy, so they win same-named plugins.
-        for fm in (staging.parent / "filemap.txt",
-                   staging.parent / "filemap_root.txt"):
+        for fm in (fmdir / "filemap.txt",
+                   fmdir / "filemap_root.txt"):
             if not fm.is_file():
                 continue
             try:
@@ -352,35 +372,39 @@ class GameState:
                     return empty
             except Exception:
                 pass
-        staging = self.staging_dir()
         ml = self.modlist_path()
-        if staging is None or ml is None or not ml.is_file():
+        fmdir = self.filemap_dir()
+        if ml is None or not ml.is_file() or fmdir is None:
             return empty
         try:
             from Utils.bsa_filemap import build_bsa_conflicts, rebuild_bsa_index
             from Utils.plugins import read_loadorder
-            from Utils.profile_groups import is_group
+            from Utils.profile_groups import is_group, get_group_resolver
         except Exception:
             return empty
-        out_dir = staging.parent
+        pdir = self.profile_dir()
+        _is_group = pdir is not None and is_group(pdir)
+        if _is_group:
+            # A group has no mods/ folder of its own — resolve straight to
+            # whichever member profile actually owns each mod instead (see
+            # profile_groups.get_group_resolver).
+            staging_or_resolver = get_group_resolver(pdir, log_fn=log)
+            if staging_or_resolver is None:
+                return empty
+        else:
+            staging_or_resolver = self.staging_dir()
+            if staging_or_resolver is None:
+                return empty
+        out_dir = fmdir
         bsa_index = out_dir / "bsa_index.bin"
         try:
-            pdir = self.profile_dir()
-            if not bsa_index.is_file():
-                # Only a Profile Group's own mods/ folder is deliberately
-                # populated with per-file symlinks into its member profiles'
-                # real mod folders (profile_groups._stage_mod_tree) — bound
-                # the BSA scanner's symlink-follow allowance to this game's
-                # own profiles directory so it can see those specific links
-                # without opening the door to a symlink planted by an
-                # untrusted mod archive pointing anywhere else (see
-                # _scan_mod_bsas in bsa_filemap.py).
-                _symlink_root = (
-                    str((g.get_profile_root() / "profiles").resolve())
-                    if pdir is not None and is_group(pdir) else None
-                )
-                rebuild_bsa_index(bsa_index, staging, exts, log_fn=log,
-                                   symlink_root=_symlink_root)
+            # A group's bsa_index.bin is never trusted across calls (it has
+            # no persisted index of its own by design — see
+            # filemap._read_group_index for the loose-file equivalent), so
+            # it's unconditionally rebuilt; a regular profile's cache is only
+            # rebuilt when missing.
+            if _is_group or not bsa_index.is_file():
+                rebuild_bsa_index(bsa_index, staging_or_resolver, exts, log_fn=log)
             # UE pak mounting is not plugin-driven — winners follow pure mod
             # priority there, so skip the plugin load-order refinement.
             use_plugin_order = getattr(g, "archive_plugin_ordering", True)

@@ -33,8 +33,14 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Utils.atomic_write import write_atomic_text
+from Utils.deploy_shared import resolve_mod_dir
+from Utils.filemap import OVERWRITE_NAME
 
 try:
     import LOOT.loot as loot
@@ -655,17 +661,27 @@ def _is_valid_plugin_file(path: Path) -> bool:
 
 
 def _read_filemap_winners(
-    staging_root: Path | None,
+    staging_root: "Path | Mapping[str, Path] | None",
     needed_lower: set[str],
+    filemap_path: "Path | None" = None,
 ) -> dict[str, Path]:
     """Resolve plugin names to the staging file of their *winning* enabled mod.
 
-    `filemap.txt` (Profiles/<game>/filemap.txt) maps each deployed relative
-    path to the mod folder that wins the conflict — it already encodes both the
-    enabled/disabled state and mod priority. We use it to pin each plugin to the
-    copy that would actually be deployed, rather than letting an arbitrary
-    staging tree walk return a *disabled* mod's copy (e.g. a stale ESLifier
-    "cleaned" plugin left in staging after the mod is turned off).
+    `filemap.txt` (Profiles/<game>/filemap.txt, or <profile_dir>/filemap.txt
+    for a profile-specific-mods profile / Profile Group) maps each deployed
+    relative path to the mod folder that wins the conflict — it already
+    encodes both the enabled/disabled state and mod priority. We use it to
+    pin each plugin to the copy that would actually be deployed, rather than
+    letting an arbitrary staging tree walk return a *disabled* mod's copy
+    (e.g. a stale ESLifier "cleaned" plugin left in staging after the mod is
+    turned off).
+
+    filemap_path — explicit path to filemap.txt. Callers should always pass
+    this (they already know the owning profile dir); when omitted, it's
+    derived as staging_root.parent / "filemap.txt", which only works when
+    staging_root is a plain Path (a Profile Group's resolver has no
+    meaningful .parent, since its mods live under several different member
+    profiles — see resolve_mod_dir in deploy_shared.py).
 
     Root-level plugins appear in filemap.txt as a bare basename key, which is
     exactly what we match on. Returns a map of lowercase basename → resolved
@@ -675,7 +691,10 @@ def _read_filemap_winners(
     """
     if not staging_root or not needed_lower:
         return {}
-    filemap_path = staging_root.parent / "filemap.txt"
+    if filemap_path is None:
+        if not isinstance(staging_root, Path):
+            return {}
+        filemap_path = staging_root.parent / "filemap.txt"
     if not filemap_path.is_file():
         return {}
 
@@ -697,7 +716,10 @@ def _read_filemap_winners(
                 mod = line[tab + 1:].rstrip("\r\n")
                 if not mod:
                     continue
-                candidate = staging_root / mod / rel
+                mod_dir = resolve_mod_dir(staging_root, mod)
+                if mod_dir is None:
+                    continue
+                candidate = mod_dir / rel
                 if candidate.is_file():
                     resolved[rel_lower] = candidate
     except OSError:
@@ -706,7 +728,7 @@ def _read_filemap_winners(
 
 
 def _scan_tree_for_plugins(
-    root: Path,
+    root: "Path | Mapping[str, Path]",
     needed_lower: set[str],
     plugin_exts: set[str] | None = None,
 ) -> dict[str, Path]:
@@ -720,12 +742,19 @@ def _scan_tree_for_plugins(
 
     When `plugin_exts` is given (e.g. {".esp", ".esm", ".esl"}), matches are
     further restricted to those extensions; pass None to match by basename only.
+
+    root is a plain Path for a regular profile (walked directly) or a
+    {mod_name: real_mod_dir} mapping for a Profile Group — each distinct
+    member mod folder is walked in turn (see resolve_mod_dir in
+    deploy_shared.py).
     """
     if not needed_lower:
         return {}
     remaining = set(needed_lower)
     found: dict[str, Path] = {}
-    stack: list[str] = [str(root)]
+    stack: list[str] = (
+        [str(root)] if isinstance(root, Path) else [str(d) for d in root.values()]
+    )
     while stack and remaining:
         try:
             entries = list(os.scandir(stack.pop()))
@@ -755,7 +784,8 @@ def _scan_tree_for_plugins(
 def _find_plugin_paths(
     plugin_names: list[str],
     game_data_dir: Path,
-    staging_root: Path | None,
+    staging_root: "Path | Mapping[str, Path] | None",
+    filemap_path: "Path | None" = None,
 ) -> tuple[list[str], list[str]]:
     """
     Locate plugin files on disk, searching the game's Data directory first,
@@ -763,6 +793,11 @@ def _find_plugin_paths(
 
     Empty or malformed plugin files are skipped — libloot can hang or crash
     when handed a 0-byte or non-TES file.
+
+    staging_root is a plain Path for a regular profile or a
+    {mod_name: real_mod_dir} mapping for a Profile Group — see
+    resolve_mod_dir in deploy_shared.py. filemap_path should always be
+    passed explicitly by the caller (see _read_filemap_winners).
 
     Returns:
         (found_paths, missing_names)
@@ -797,7 +832,10 @@ def _find_plugin_paths(
                 found_basenames.add(low)
 
     # 2. For anything still missing, search the mod staging folders.
-    if staging_root and staging_root.is_dir():
+    _staging_usable = bool(staging_root) and (
+        staging_root.is_dir() if isinstance(staging_root, Path) else True
+    )
+    if _staging_usable:
         missing_lower = {n.lower() for n in plugin_names if n not in found}
         if missing_lower:
             # 2a. Prefer the filemap winner so we read the *enabled* mod's copy
@@ -805,7 +843,7 @@ def _find_plugin_paths(
             #     plugin still in staging after the mod is turned off). This
             #     resolution drives the CRC libloot uses for dirty/clean flags.
             for name_lower, path in _read_filemap_winners(
-                    staging_root, missing_lower).items():
+                    staging_root, missing_lower, filemap_path).items():
                 orig = names_lower.get(name_lower)
                 if (orig and orig not in found
                         and name_lower not in found_basenames
@@ -828,10 +866,15 @@ def _find_plugin_paths(
                     found_basenames.add(name_lower)
 
     # 3. For anything still missing, check the overwrite folder
-    #    (staging_root's sibling: Profiles/<game>/overwrite/)
+    #    (staging_root's sibling: Profiles/<game>/overwrite/ — or, for a
+    #    Profile Group, its own OVERWRITE_NAME entry in the resolver, since
+    #    the group owns a small real overwrite/ folder outright).
     if staging_root:
-        overwrite_dir = staging_root.parent / "overwrite"
-        if overwrite_dir.is_dir():
+        overwrite_dir = (
+            staging_root.parent / "overwrite" if isinstance(staging_root, Path)
+            else staging_root.get(OVERWRITE_NAME)
+        )
+        if overwrite_dir is not None and overwrite_dir.is_dir():
             missing_lower = {n.lower() for n in plugin_names if n not in found}
             if missing_lower:
                 for name_lower, path in _scan_tree_for_plugins(
@@ -853,7 +896,7 @@ def sort_plugins(
     enabled_set: set[str],
     game_name: str,
     game_path: Path,
-    staging_root: Path | None = None,
+    staging_root: "Path | Mapping[str, Path] | None" = None,
     log_fn=None,
     game_type_attr: str = "",
     game_id: str = "",
@@ -861,6 +904,7 @@ def sort_plugins(
     masterlist_repo: str = "",
     game_data_dir: Path | None = None,
     userlist_path: Path | None = None,
+    filemap_path: "Path | None" = None,
 ) -> SortResult:
     """
     Sort plugins using libloot's masterlist rules.
@@ -870,7 +914,15 @@ def sort_plugins(
         enabled_set: Set of plugin names (case-sensitive) that are enabled.
         game_name: Display name of the game (for log messages).
         game_path: Root install directory of the game.
-        staging_root: Path to the mod staging directory (Profiles/<game>/mods/).
+        staging_root: Path to the mod staging directory (Profiles/<game>/mods/)
+                      for a regular profile, or a {mod_name: real_mod_dir}
+                      resolver for a Profile Group — see resolve_mod_dir in
+                      deploy_shared.py.
+        filemap_path: Explicit path to filemap.txt. Callers should always
+                      pass this — required to resolve filemap winners for a
+                      Profile Group (whose resolver has no single .parent);
+                      derived from staging_root.parent for a regular profile
+                      when omitted.
         log_fn: Optional callback for status messages.
         game_type_attr: libloot GameType attribute name (e.g. 'SkyrimSE').
                         Obtained from game.loot_game_type.
@@ -956,7 +1008,10 @@ def sort_plugins(
     _plugin_exts = {".esp", ".esm", ".esl"}
     _temp_data_symlinks: list[Path] = []
 
-    if staging_root and staging_root.is_dir() and effective_data_dir.is_dir():
+    _staging_usable = bool(staging_root) and (
+        staging_root.is_dir() if isinstance(staging_root, Path) else True
+    )
+    if _staging_usable and effective_data_dir.is_dir():
         # We only need to symlink plugins that aren't already present in Data/.
         # For a deployed profile every plugin is already there, so this set is
         # empty and we skip the (potentially huge) staging tree walk entirely.
@@ -981,7 +1036,7 @@ def sort_plugins(
             # the CRC used for dirty/clean flags — comes from the file that
             # would actually deploy, not a disabled mod's leftover copy. Fall
             # back to a recursive scan for anything the filemap can't resolve.
-            staging_plugin_map = _read_filemap_winners(staging_root, needed)
+            staging_plugin_map = _read_filemap_winners(staging_root, needed, filemap_path)
             still_needed = needed - set(staging_plugin_map)
             if still_needed:
                 staging_plugin_map.update(_scan_tree_for_plugins(
@@ -1025,7 +1080,7 @@ def sort_plugins(
 
         # Find plugin files on disk — check game Data dir AND staging mods
         plugin_paths, missing = _find_plugin_paths(
-            plugin_names, effective_data_dir, staging_root,
+            plugin_names, effective_data_dir, staging_root, filemap_path,
         )
 
         if missing:
@@ -1110,10 +1165,11 @@ def find_overlapping_plugins(
     plugin_names: list[str],
     game_name: str,
     game_path: Path,
-    staging_root: Path | None = None,
+    staging_root: "Path | Mapping[str, Path] | None" = None,
     log_fn=None,
     game_type_attr: str = "",
     game_data_dir: Path | None = None,
+    filemap_path: "Path | None" = None,
 ) -> list[str]:
     """Return plugins whose records overlap with `target_plugin`.
 
@@ -1163,7 +1219,7 @@ def find_overlapping_plugins(
     game = loot.Game(game_type, str(game_path), str(loot_data_dir))
 
     plugin_paths, missing = _find_plugin_paths(
-        plugin_names, effective_data_dir, staging_root,
+        plugin_names, effective_data_dir, staging_root, filemap_path,
     )
     if not plugin_paths:
         return []

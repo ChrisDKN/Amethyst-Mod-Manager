@@ -94,6 +94,17 @@ class DragonAgeOrigins(BaseGame):
         return "47810"
 
     @property
+    def profile_groups_supported(self) -> bool:
+        # dao_xml.py::build_registry_xml() / dao_chargen.py::build_chargenmorph()
+        # do a raw, unfiltered directory walk over one staging root with no
+        # per-mod or enabled-state concept at all — supporting a multi-member
+        # Profile Group correctly means introducing that concept first (walk
+        # only enabled mods, in group priority order, across every member's
+        # own root), not just a resolver swap like every other game got. See
+        # base_game.py's docstring for this property.
+        return False
+
+    @property
     def nexus_game_domain(self) -> str:
         return "dragonage"
 

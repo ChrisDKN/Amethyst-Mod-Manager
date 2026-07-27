@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable, Mapping, Optional
 
 LogFn = Callable[[str], None]
 
@@ -275,15 +275,29 @@ def _grant_paths(app_id: str, paths: "list[Path]", log_fn: LogFn) -> bool:
     return True
 
 
-def _wanted_roots(staging: Optional[Path],
+def _wanted_roots(staging: "Path | Mapping[str, Path] | None",
                   profile_dir: Optional[Path]) -> "list[Path]":
     """Symlink-target roots the sandbox must see, deduped by ancestry.
 
     The shared staging path is `<staging_root>/mods`; granting its parent
     also covers siblings like overwrite/.  Never widen to $HOME itself.
+
+    A Profile Group has no single staging root — staging is instead a
+    {mod_name: real_mod_dir} map spanning every member profile that
+    contributed a mod (see profile_groups.get_group_resolver) — so each
+    distinct member's own mods/ folder is granted individually instead.
     """
+    candidates: list[Path] = []
+    if isinstance(staging, Mapping):
+        # Each value is <profiles_dir>/<member>/mods/<mod_name> — grant the
+        # member's mods/ folder (one level up), not every individual mod dir.
+        candidates.extend(v.parent for v in staging.values())
+    else:
+        candidates.append(staging)
+    candidates.append(profile_dir)
+
     wanted: list[Path] = []
-    for p in (staging, profile_dir):
+    for p in candidates:
         if not p:
             continue
         p = Path(p).expanduser()
@@ -301,7 +315,7 @@ def ensure_symlink_target_access(
     game,
     *,
     game_root: Optional[Path],
-    staging: Optional[Path],
+    staging: "Path | Mapping[str, Path] | None",
     profile_dir: Optional[Path],
     log_fn: LogFn,
 ) -> None:
