@@ -79,10 +79,55 @@ _WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]")
 
 # <img ...> tags and the two attributes worth keeping off them.
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*?/?>", re.IGNORECASE)
+#: An <img> that is the whole line — how GitHub records a pasted screenshot.
+_LONE_IMG_LINE_RE = re.compile(r"^\s*<img\b[^>]*?/?>\s*$", re.IGNORECASE)
 _IMG_SRC_RE = re.compile(r"\bsrc\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))",
                          re.IGNORECASE)
 _IMG_ALT_RE = re.compile(r"\balt\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))",
                          re.IGNORECASE)
+
+# HTML comments, and fenced code blocks (protected from every rewrite below).
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_FENCE_RE = re.compile(r"^(\s{0,3})(`{3,}|~{3,})", re.MULTILINE)
+_BLANKS_RE = re.compile(r"\n{3,}")
+
+# The HTML this wiki actually uses in its pages, and the markdown each maps to.
+_A_RE = re.compile(r"<a\b[^>]*?\bhref\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))"
+                   r"[^>]*>(.*?)</a\s*>", re.IGNORECASE | re.DOTALL)
+_HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1\s*>",
+                         re.IGNORECASE | re.DOTALL)
+_BR_RE = re.compile(r"<br\b[^>]*/?>", re.IGNORECASE)
+_HR_RE = re.compile(r"<hr\b[^>]*/?>", re.IGNORECASE)
+_EMPHASIS_RES = (
+    (re.compile(r"</?(?:b|strong)\s*>", re.IGNORECASE), "**"),
+    (re.compile(r"</?(?:i|em)\s*>", re.IGNORECASE), "*"),
+    (re.compile(r"</?code\s*>", re.IGNORECASE), "`"),
+)
+#: Wrappers that only exist to group/position content — each becomes a break.
+_BLOCK_TAG_RE = re.compile(
+    r"</?(?:p|div|center|span|section|details|summary|blockquote)\b[^>]*>",
+    re.IGNORECASE)
+_ANY_TAG_RE = re.compile(r"</?[a-zA-Z][^>]*>")
+#: Real HTML element names, so a line opening with a placeholder like
+#: ``<game>`` or ``<user>`` (both appear in this wiki's path examples) is
+#: treated as the prose it is rather than as the start of an HTML block.
+_HTML_BLOCK_START_RE = re.compile(
+    r"^\s{0,3}</?(?:p|div|span|center|section|details|summary|blockquote"
+    r"|table|thead|tbody|tr|td|th|ul|ol|li|dl|dt|dd|h[1-6]|img|a|br|hr|pre"
+    r"|picture|video|figure|figcaption|b|i|em|strong|code|kbd|sub|sup)\b",
+    re.IGNORECASE)
+_CENTERED_RE = re.compile(r"align\s*=\s*[\"']?center", re.IGNORECASE)
+#: A <table> block, left as HTML — Qt imports those into real tables. It ends
+#: at </table> rather than at a blank line, since long tables often have both.
+_TABLE_RE = re.compile(r"^\s{0,3}<table\b", re.IGNORECASE)
+_TABLE_END_RE = re.compile(r"</table\s*>", re.IGNORECASE)
+#: Leading markdown block marker, so the centring mark goes after it.
+_MD_PREFIX_RE = re.compile(r"^(\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)?)(.*)$")
+
+#: Zero-width marker: content the wiki centres, for the viewer to align.
+#: Invisible either way, so a page that skips the post-import pass just reads
+#: as ordinary left-aligned prose.
+CENTER_MARK = "⁢"
 
 
 def page_web_url(slug: str) -> str:
@@ -196,41 +241,167 @@ def _attr(regex, tag: str) -> str:
     return next((g for g in m.groups() if g is not None), "")
 
 
+def _wikilink(m) -> str:
+    first, second = m.group(1).strip(), m.group(2)
+    # GitHub's form is [[Label|Target]]; with one part it is both.
+    label, target = (first, first) if second is None else (first, second.strip())
+    return "[{0}]({1})".format(label, urllib.parse.quote(target.replace(" ", "-")))
+
+
+def _img_markdown(tag: str) -> str:
+    """Rewrite one ``<img>`` tag as a native ``![alt](src)`` image."""
+    src = _attr(_IMG_SRC_RE, tag).strip()
+    if not src:
+        return ""
+    alt = _attr(_IMG_ALT_RE, tag).replace("[", "").replace("]", "")
+    # Angle-bracket form keeps a destination containing spaces or brackets
+    # from terminating the markdown link early.
+    if any(ch in src for ch in " ()<>"):
+        src = "<{0}>".format(src.replace("<", "").replace(">", ""))
+    return "![{0}]({1})".format(alt, src)
+
+
+def _split_fences(text: str) -> List[Tuple[bool, str]]:
+    """Split *text* into (is_code, chunk) runs, ``is_code`` for fenced blocks.
+
+    Everything the display rewrite does — dropping comments, converting wiki
+    links, promoting images — must leave fenced code samples byte-identical.
+    """
+    chunks: List[Tuple[bool, str]] = []
+    buf: List[str] = []
+    fence: Optional[str] = None
+
+    def flush(is_code: bool) -> None:
+        if buf:
+            chunks.append((is_code, "\n".join(buf) + "\n"))
+            buf.clear()
+
+    for line in text.split("\n"):
+        m = _FENCE_RE.match(line)
+        if fence is None:
+            if m:
+                flush(False)
+                fence = m.group(2)[0]
+            buf.append(line)
+        else:
+            buf.append(line)
+            if m and m.group(2)[0] == fence:
+                flush(True)
+                fence = None
+    flush(fence is not None)
+    return chunks
+
+
+def _html_to_markdown(region: str) -> str:
+    """Convert one block of hand-written HTML into equivalent markdown.
+
+    Qt's markdown importer takes an HTML block as an opaque fragment and
+    splices it into whatever paragraph happens to be next, so a hand-written
+    header comes out as one run-on line with the logo drawn across it. Turning
+    the HTML into markdown first gives every piece its own block.
+    """
+    centered = bool(_CENTERED_RE.search(region))
+    region = _IMG_TAG_RE.sub(lambda m: "\n\n" + _img_markdown(m.group(0)) + "\n\n",
+                             region)
+    region = _A_RE.sub(
+        lambda m: "[{0}]({1})".format(
+            _ANY_TAG_RE.sub("", m.group(4)).strip(),
+            next(g for g in m.groups()[:3] if g is not None)),
+        region)
+    region = _HEADING_RE.sub(
+        lambda m: "\n\n{0} {1}\n\n".format(
+            "#" * int(m.group(1)), _ANY_TAG_RE.sub("", m.group(2)).strip()),
+        region)
+    region = _HR_RE.sub("\n\n---\n\n", region)
+    region = _BR_RE.sub("  \n", region)
+    for pattern, repl in _EMPHASIS_RES:
+        region = pattern.sub(repl, region)
+    region = _BLOCK_TAG_RE.sub("\n\n", region)
+    region = _ANY_TAG_RE.sub("", region)
+    region = html.unescape(region)
+    # Indentation left behind by a stripped wrapper would otherwise survive as
+    # a whitespace-only line, which markdown renders as an empty paragraph.
+    region = re.sub(r"^[ \t]+$", "", region, flags=re.MULTILINE)
+    region = _BLANKS_RE.sub("\n\n", region)
+    if centered:
+        # Only the line that opens each block is marked: a mark on a
+        # continuation line would end up as a stray character mid-paragraph.
+        lines = []
+        at_block_start = True
+        for line in region.split("\n"):
+            if line.strip():
+                if at_block_start:
+                    line = _MD_PREFIX_RE.sub(r"\1" + CENTER_MARK + r"\2", line)
+                at_block_start = False
+            else:
+                at_block_start = True
+            lines.append(line)
+        region = "\n".join(lines)
+    return region
+
+
+def _rewrite_prose(text: str) -> str:
+    """Apply the display rewrites to one non-code chunk of a wiki page."""
+    text = _COMMENT_RE.sub("", text)
+    text = _WIKILINK_RE.sub(_wikilink, text)
+
+    out: List[str] = []
+    region: List[str] = []
+    verbatim = False
+
+    def close_region() -> None:
+        if region:
+            out.append("\n".join(region) if verbatim
+                       else _html_to_markdown("\n".join(region)))
+            region.clear()
+
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if region:
+            region.append(line)
+            if _TABLE_END_RE.search(line) if verbatim else not stripped:
+                close_region()
+            continue
+        if _LONE_IMG_LINE_RE.match(line):
+            # Blank lines around it so the image can never be absorbed into an
+            # adjacent paragraph — the whole point of promoting it to markdown.
+            out.extend(["", _img_markdown(stripped), ""])
+            continue
+        if _HTML_BLOCK_START_RE.match(line):
+            # A <table> is the one construct Qt imports properly, so it is
+            # handed over untouched; everything else becomes markdown.
+            verbatim = bool(_TABLE_RE.match(line))
+            region.append(line)
+            continue
+        out.append(line)
+    close_region()
+    return _BLANKS_RE.sub("\n\n", "\n".join(out))
+
+
 def to_display_markdown(text: str) -> str:
     """Adapt raw wiki markdown for rendering in a QTextBrowser.
 
-    Two adjustments, neither of which touches the wiki itself:
+    Four adjustments, none of which touches the wiki itself:
 
+    * HTML comments are dropped. GitHub hides them; Qt's importer keeps their
+      text, so a commented-out screenshot showed up as stray ``-->`` prose.
     * ``[[Page]]`` / ``[[Label|Page]]`` wiki links become ordinary markdown
       links so they are clickable instead of showing as literal brackets.
-    * ``<img>`` tags — how GitHub records every pasted screenshot — are
-      rewritten as native ``![alt](src)`` markdown images.
+    * An ``<img>`` tag alone on its line — how GitHub records a pasted
+      screenshot — is rewritten as a native ``![alt](src)`` image. Left as
+      HTML it reaches Qt's importer as an opaque fragment and gets welded to a
+      neighbouring paragraph instead of standing on its own; dropping the
+      tag's ``width``/``height`` also lets the viewer scale wide screenshots
+      down rather than forcing horizontal scrolling.
+    * Blocks of hand-written HTML — the ``<p align="center">`` header on this
+      wiki's Home page — are converted to markdown for the same reason, with
+      ``align="center"`` recorded as a :data:`CENTER_MARK` for the viewer.
 
-    The image rewrite matters for layout, not just tidiness. Left as HTML, the
-    tag reaches Qt's markdown importer as a raw *HTML block*, which it splices
-    in as a fragment instead of giving it its own paragraph: the picture ends
-    up welded to a neighbouring block of text and drifts sideways across the
-    page. As markdown, each image becomes a normal paragraph and sits on its
-    own line. Dropping the tag's ``width``/``height`` also lets the viewer
-    scale wide screenshots down instead of forcing horizontal scrolling.
+    ``<table>`` is the single exception, passed through as HTML: Qt imports it
+    into a real table, which markdown pipe syntax could not express anyway
+    (the Home page's game list is four columns of ``<td>``).
     """
-    def _wikilink(m):
-        first, second = m.group(1).strip(), m.group(2)
-        # GitHub's form is [[Label|Target]]; with one part it is both.
-        label, target = (first, first) if second is None else (first, second.strip())
-        return "[{0}]({1})".format(label, urllib.parse.quote(target.replace(" ", "-")))
-
-    def _img(m):
-        tag = m.group(0)
-        src = _attr(_IMG_SRC_RE, tag).strip()
-        if not src:
-            return ""
-        alt = _attr(_IMG_ALT_RE, tag).replace("[", "").replace("]", "")
-        # Angle-bracket form keeps a destination containing spaces or brackets
-        # from terminating the markdown link early.
-        if any(ch in src for ch in " ()<>"):
-            src = "<{0}>".format(src.replace("<", "").replace(">", ""))
-        return "![{0}]({1})".format(alt, src)
-
-    text = _WIKILINK_RE.sub(_wikilink, text)
-    return _IMG_TAG_RE.sub(_img, text)
+    return "".join(
+        chunk if is_code else _rewrite_prose(chunk)
+        for is_code, chunk in _split_fences(text)
+    )

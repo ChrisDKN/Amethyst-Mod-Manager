@@ -16,7 +16,10 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal, QUrl, QTimer
-from PySide6.QtGui import QDesktopServices, QImage, QTextCursor, QTextDocument
+from PySide6.QtGui import (
+    QColor, QDesktopServices, QImage, QTextCursor, QTextDocument,
+    QTextFrameFormat, QTextLength, QTextTable,
+)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QSplitter, QTextBrowser, QToolButton,
@@ -51,9 +54,15 @@ class _WikiBrowser(QTextBrowser):
         self.setOpenLinks(False)
         self.setOpenExternalLinks(False)
 
-    def reset_images(self) -> None:
-        """Forget which images were requested (called when the page changes)."""
+    def reset_images(self, *, drop_cached: bool = False) -> None:
+        """Forget which images were requested (called when the page changes).
+
+        *drop_cached* also discards the decoded bitmaps, so an explicit
+        Refresh re-fetches artwork that was replaced at the same URL.
+        """
         self._requested.clear()
+        if drop_cached:
+            self._originals.clear()
 
     def loadResource(self, type_, url):
         if type_ == QTextDocument.ImageResource:
@@ -112,6 +121,8 @@ class WikiView(QWidget):
         super().__init__(parent)
         self._closing = False
         self._current_slug: Optional[str] = None
+        self._page_text: dict[str, str] = {}
+        self._awaiting_refresh = False
         self._pal = active_palette()
 
         root = QVBoxLayout(self)
@@ -140,6 +151,14 @@ class WikiView(QWidget):
                 _c(self._pal, "TEXT_MAIN")))
         head.addWidget(self._title)
         head.addStretch(1)
+        self._status = QLabel("")
+        self._status.setStyleSheet(
+            "color:{0};".format(_c(self._pal, "TEXT_DIM")))
+        head.addWidget(self._status)
+        self._status_timer = QTimer(self)
+        self._status_timer.setSingleShot(True)
+        self._status_timer.setInterval(8000)
+        self._status_timer.timeout.connect(lambda: self._status.setText(""))
         self._refresh_btn = self._flat_button(self.tr("Refresh"))
         self._refresh_btn.clicked.connect(self._refresh)
         head.addWidget(self._refresh_btn)
@@ -241,27 +260,49 @@ class WikiView(QWidget):
                 "Could not load “{0}”.\n\nPress Refresh to try again."
             ).format(slug))
             return
-        self._view.reset_images()
+        was_refresh = self._awaiting_refresh
+        self._awaiting_refresh = False
+        unchanged = was_refresh and self._page_text.get(slug) == text
+        self._page_text[slug] = text
+        self._view.reset_images(drop_cached=was_refresh)
         # QTextEdit.setMarkdown takes no dialect argument — it always uses
         # MarkdownDialectGitHub, which is what the wiki is authored in.
         self._view.setMarkdown(wiki_sync.to_display_markdown(text))
         self._space_blocks()
+        self._style_tables()
         self._view.moveCursor(QTextCursor.Start)
         self._view.verticalScrollBar().setValue(0)
+        if was_refresh:
+            # GitHub serves wiki markdown through a CDN with a five-minute TTL,
+            # so a page edited moments ago can come back unchanged however hard
+            # we ask. Say so rather than let Refresh look broken.
+            self._set_status(self.tr(
+                "No change yet — GitHub caches wiki pages for up to 5 minutes."
+            ) if unchanged else self.tr("Updated."))
 
     def _space_blocks(self) -> None:
         """Add paragraph spacing to the rendered page.
 
         Qt's markdown importer gives every block zero margins, so prose comes
         out visually cramped compared to how the same page reads on GitHub.
+        Table cells are left tight: the padding set in :meth:`_style_tables`
+        does that job, and prose margins on top of it make rows tower.
         """
         doc = self._view.document()
         cur = QTextCursor(doc)
         cur.beginEditBlock()
+        marks: list[int] = []
         block = doc.begin()
         while block.isValid():
             fmt = block.blockFormat()
-            if fmt.headingLevel():
+            cur.setPosition(block.position())
+            if block.text().startswith(wiki_sync.CENTER_MARK):
+                fmt.setAlignment(Qt.AlignHCenter)
+                marks.append(block.position())
+            if cur.currentTable() is not None:
+                fmt.setTopMargin(0)
+                fmt.setBottomMargin(0)
+            elif fmt.headingLevel():
                 fmt.setTopMargin(14)
                 fmt.setBottomMargin(4)
             elif block.textList() is not None:
@@ -270,10 +311,62 @@ class WikiView(QWidget):
             else:
                 fmt.setTopMargin(0)
                 fmt.setBottomMargin(10)
-            cur.setPosition(block.position())
             cur.setBlockFormat(fmt)
             block = block.next()
+        # Drop the centring marks last, back to front, so the positions
+        # collected above stay valid as the document shrinks.
+        for pos in reversed(marks):
+            cur.setPosition(pos)
+            cur.deleteChar()
         cur.endEditBlock()
+
+    def _style_tables(self) -> None:
+        """Give every table on the page a readable, consistent look.
+
+        Qt's importer leaves tables in two different states — markdown pipe
+        tables get a 1px *outset* (3D-looking) border and 4px padding, while a
+        raw ``<table>`` block gets no border and no padding at all, so its
+        columns run together. Both are restyled here into one flat, banded
+        table that fills the page width.
+        """
+        doc = self._view.document()
+        border = QColor(_c(self._pal, "BORDER"))
+        header_bg = QColor(_c(self._pal, "BG_HEADER"))
+        band_bg = QColor(_c(self._pal, "BG_ROW_ALT"))
+        cur = QTextCursor(doc)
+        cur.beginEditBlock()
+        for table in self._iter_tables(doc.rootFrame()):
+            fmt = table.format()
+            fmt.setBorder(1)
+            fmt.setBorderStyle(QTextFrameFormat.BorderStyle_Solid)
+            fmt.setBorderBrush(border)
+            fmt.setBorderCollapse(True)
+            fmt.setCellPadding(6)
+            fmt.setCellSpacing(0)
+            fmt.setHeaderRowCount(1)
+            fmt.setWidth(QTextLength(QTextLength.PercentageLength, 100))
+            table.setFormat(fmt)
+            for row in range(table.rows()):
+                if row and row % 2 == 0:
+                    shade = band_bg
+                elif row:
+                    continue
+                else:
+                    shade = header_bg
+                for col in range(table.columns()):
+                    cell = table.cellAt(row, col)
+                    cell_fmt = cell.format()
+                    cell_fmt.setBackground(shade)
+                    cell.setFormat(cell_fmt)
+        cur.endEditBlock()
+
+    @classmethod
+    def _iter_tables(cls, frame):
+        """Yield every QTextTable under *frame*, nested ones included."""
+        for child in frame.childFrames():
+            if isinstance(child, QTextTable):
+                yield child
+            yield from cls._iter_tables(child)
 
     def _on_image_ready(self, url, image) -> None:
         if self._closing or image is None:
@@ -286,6 +379,8 @@ class WikiView(QWidget):
         if current is None:
             return
         slug = current.data(_SLUG_ROLE)
+        if slug != self._current_slug:
+            self._awaiting_refresh = False   # a Refresh result is no longer wanted
         self._current_slug = slug
         self._title.setText(current.text())
         self._set_message(self.tr("Loading…"))
@@ -297,6 +392,7 @@ class WikiView(QWidget):
             if self._list.item(i).data(_SLUG_ROLE) == slug:
                 self._list.setCurrentRow(i)
                 return
+        self._awaiting_refresh = False
         self._current_slug = slug
         self._title.setText(slug.replace("-", " "))
         self._set_message(self.tr("Loading…"))
@@ -312,9 +408,16 @@ class WikiView(QWidget):
             QDesktopServices.openUrl(url)
 
     def _refresh(self) -> None:
+        self._set_status(self.tr("Refreshing…"))
         self._start_list_fetch(force=True)
         if self._current_slug:
+            self._awaiting_refresh = True
             self._start_page_fetch(self._current_slug, force=True)
+
+    def _set_status(self, text: str) -> None:
+        """Show a short-lived note next to the Refresh button."""
+        self._status.setText(text)
+        self._status_timer.start()
 
     def _open_in_browser(self) -> None:
         slug = self._current_slug or "Home"
