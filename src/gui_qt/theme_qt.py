@@ -178,6 +178,11 @@ def build_qss(pal: dict | None = None) -> str:
         margin: 1px 2px;
     }}
     QMenu::item:selected {{ background: {c('BG_SELECT')}; color: {c('TEXT_ON_ACCENT')}; }}
+    /* Disabled entries (e.g. "Manage groups…" when the game doesn't support
+       Profile Groups) — dimmed so they read as unclickable at a glance, same
+       token #PrimaryButton:disabled uses. Without this rule the custom QMenu
+       styling above leaves disabled items looking identical to enabled ones. */
+    QMenu::item:disabled {{ color: {c('TEXT_DIM')}; }}
     /* Menu indicators. Exclusive (selector) menus = a blue-filled dot when
        checked, a hollow ring otherwise. Non-exclusive (checkable) items use the
        same blue rounded-square box as the modlist / QCheckBox indicators. */

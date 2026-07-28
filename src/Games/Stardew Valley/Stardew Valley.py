@@ -57,6 +57,16 @@ class StardewValley(BaseGame):
         return "stardewvalley"
 
     @property
+    def profile_groups_supported(self) -> bool:
+        # Profile Groups default to off (see base_game.py's docstring for this
+        # property) pending wider review of the virtual-merge rework. Stardew
+        # Valley opts in as the pilot game: a common real use case is one
+        # profile per save-specific overhaul (Stardew Valley Expanded,
+        # Ridgeside Village, ...) that all want the same shared QoL/cheat
+        # mods without duplicating them per profile.
+        return True
+
+    @property
     def mods_dir(self) -> str:
         return "Mods"
 

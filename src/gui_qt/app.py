@@ -8368,11 +8368,24 @@ class MainWindow(QMainWindow):
         quick = self._quick_configure_submenu(game)
         if quick:
             actions.append((self.tr("Quick configure"), quick))
+        # Manage groups… is greyed out (not just an error-on-click) for a game
+        # that doesn't support Profile Groups (see BaseGame.profile_groups_supported)
+        # — previously it opened the panel and let you build a whole group before
+        # failing with GroupValidationError at the very end.
+        if getattr(game, "profile_groups_supported", False):
+            manage_groups_entry = (
+                self.tr("Manage groups…"), lambda: self._on_profile_action("groups"),
+                {"separator_after": True})
+        else:
+            manage_groups_entry = (
+                self.tr("Manage groups…"), None,
+                {"separator_after": True,
+                 "tooltip": self.tr("Profile Groups aren't supported for {0} yet.")
+                     .format(game.name if game is not None else self.tr("this game"))})
         # Profile settings, then the export/import group (profile + code together).
         actions.extend([
             (self.tr("Profile settings…"), lambda: self._on_profile_action("settings")),
-            (self.tr("Manage groups…"), lambda: self._on_profile_action("groups"),
-             {"separator_after": True}),
+            manage_groups_entry,
             (self.tr("Export profile…"), lambda: self._on_profile_action("export")),
             (self.tr("Import profile…"), lambda: self._on_profile_action("import")),
             (self.tr("Export code…"), lambda: self._on_profile_action("export_code")),

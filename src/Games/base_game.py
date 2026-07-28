@@ -903,10 +903,15 @@ class BaseGame(ABC):
         no per-mod or enabled-state concept — Dragon Age Origins' registry/
         chargen merge (dao_xml.py/dao_chargen.py) is the only current
         example — can't correctly support a multi-member merge without a
-        dedicated rework of that discovery logic first, so it returns False
-        here until that happens.
+        dedicated rework of that discovery logic first.
+
+        Defaults to False pending wider review/testing of the virtual-merge
+        rework across the rest of the game roster — only games that have
+        overridden this to True (currently just Stardew Valley) expose
+        Profile Groups. Flip this default back to True (and remove the
+        per-game opt-ins) once that review is done.
         """
-        return True
+        return False
 
     @property
     def loot_sort_enabled(self) -> bool:

@@ -166,7 +166,9 @@ class SelectorButton(QToolButton):
           checked   — initial checked state
           group     — a hashable id; entries sharing it become mutually
                       exclusive (radio) within their menu
-          separator_after — add a separator after this entry."""
+          separator_after — add a separator after this entry.
+          tooltip   — shown on hover; only applied to a disabled (cb=None)
+                      entry, e.g. to explain why it's greyed out."""
         self._actions = list(actions or [])
         self._rebuild()
 
@@ -207,6 +209,9 @@ class SelectorButton(QToolButton):
         self._menu.setStyleSheet(
             f"QMenu {{ icon-size: {self._item_icon_px}px; }}"
             if self._item_icons else "")
+        # A disabled action entry (opts={"tooltip": ...}, see _add_actions)
+        # relies on this to actually show its explanation on hover.
+        self._menu.setToolTipsVisible(True)
         self._menu.clear()
         # Exclusive action group → the selectable items render as radio buttons.
         self._group = QActionGroup(self._menu)
@@ -283,6 +288,8 @@ class SelectorButton(QToolButton):
             else:
                 a = menu.addAction(label)
                 a.setEnabled(False)
+                if opts.get("tooltip"):
+                    a.setToolTip(opts["tooltip"])
             if opts.get("separator_after"):
                 menu.addSeparator()
 
