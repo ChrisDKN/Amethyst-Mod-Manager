@@ -93,6 +93,14 @@ class ResidentEvilVillage(BaseGame):
     def nexus_game_domain(self) -> str:
         return "residentevilvillage"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_required_top_level_folders(self) -> set[str]:
         return {"reframework", "natives"}
@@ -423,6 +431,14 @@ class ResidentEvil4(ResidentEvilVillage):
     def nexus_game_domain(self) -> str:
         return "residentevil42023"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
 
 class ResidentEvil3(ResidentEvilVillage):
     """Resident Evil 3 Remake (2020).
@@ -450,6 +466,14 @@ class ResidentEvil3(ResidentEvilVillage):
     @property
     def nexus_game_domain(self) -> str:
         return "residentevil32020"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
 
     @property
     def mod_deploy_path_remap(self) -> dict[str, str]:
@@ -487,6 +511,14 @@ class ResidentEvil2(ResidentEvilVillage):
     def nexus_game_domain(self) -> str:
         return "residentevil22019"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_deploy_path_remap(self) -> dict[str, str]:
         return {"natives/x64/": "natives/STM/"}
@@ -518,6 +550,14 @@ class ResidentEvil7(ResidentEvilVillage):
     @property
     def nexus_game_domain(self) -> str:
         return "residentevil7"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
     
     @property
     def mod_deploy_path_remap(self) -> dict[str, str]:
@@ -548,3 +588,11 @@ class StreetFighter6(ResidentEvilVillage):
     @property
     def nexus_game_domain(self) -> str:
         return "streetfighter6"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True

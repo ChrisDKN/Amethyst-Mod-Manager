@@ -75,6 +75,14 @@ class ResidentEvilRequiem(BaseGame):
     def nexus_game_domain(self) -> str:
         return "residentevilrequiem"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_required_top_level_folders(self) -> set[str]:
         return {"reframework", "natives", "pak_mods"}
@@ -285,3 +293,11 @@ class Pragmata(ResidentEvilRequiem):
     @property
     def nexus_game_domain(self) -> str:
         return "pragmata"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True

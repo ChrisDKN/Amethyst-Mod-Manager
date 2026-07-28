@@ -74,6 +74,14 @@ class MarvelRivals(UE5Game):
     @property
     def nexus_game_domain(self) -> str:
         return "marvelrivals"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
     
     @property
     def wine_dll_overrides(self) -> dict[str, str]:

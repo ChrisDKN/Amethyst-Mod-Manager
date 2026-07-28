@@ -107,6 +107,14 @@ class OpenMW(BaseGame):
     def nexus_game_domain(self) -> str:
         return "morrowind"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"Data Files"}

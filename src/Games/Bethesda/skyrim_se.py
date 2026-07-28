@@ -59,6 +59,15 @@ class SkyrimSE(Fallout_3):
     def nexus_game_domain(self) -> str:
         return "skyrimspecialedition"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. This is the game the
+    # virtual-merge rework was actually live-tested against this session
+    # (feature/profile-groups); uncomment to re-enable once reviewed.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_required_top_level_folders(self) -> set[str]:
         # Skyrim SE subset — excludes Fallout-specific folders (f4se, nvse,

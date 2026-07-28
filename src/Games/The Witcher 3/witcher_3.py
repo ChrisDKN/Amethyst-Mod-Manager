@@ -174,6 +174,14 @@ class Witcher3(BaseGame):
     def nexus_game_domain(self) -> str:
         return "witcher3"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_install_prefix(self) -> str:
         """No install-time prefix — routing is resolved at deploy time."""

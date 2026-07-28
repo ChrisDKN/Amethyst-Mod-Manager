@@ -54,6 +54,14 @@ class Fallout_76(Fallout_3):
     def nexus_game_domain(self) -> str:
         return "fallout76"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def plugin_extensions(self) -> list[str]:
         # FO76 has no plugin system — disable all plugin tracking.

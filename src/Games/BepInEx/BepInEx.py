@@ -63,6 +63,14 @@ class Subnautica(BaseGame):
     def nexus_game_domain(self) -> str:
         return "subnautica"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"plugins", "bepinex"}
@@ -319,6 +327,14 @@ class Subnautica_Below_Zero(Subnautica):
     def nexus_game_domain(self) -> str:
         return "subnauticabelowzero"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
 class TCG_Card_Shop_Simulator(Subnautica):
 
     @property
@@ -340,6 +356,14 @@ class TCG_Card_Shop_Simulator(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "tcgcardshopsimulator"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
 
     @property
     def default_deploy_mode(self) -> str:
@@ -368,6 +392,14 @@ class Lethal_Company(Subnautica):
     def nexus_game_domain(self) -> str:
         return "lethalcompany"
 
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
+
     @property
     def default_deploy_mode(self) -> str:
         # Not yet verified for hardlink; keep the base symlink default.
@@ -393,6 +425,14 @@ class Valheim(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "valheim"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
 
     @property
     def default_deploy_mode(self) -> str:
@@ -450,6 +490,14 @@ class HNSS(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "hollowknightsilksong"
+
+    # Profile Groups: disabled for now — only Stardew Valley currently opts
+    # in (see base_game.py's profile_groups_supported docstring) pending
+    # wider review of the virtual-merge rework. Uncomment to enable once
+    # this game's deploy path has been reviewed/tested.
+    # @property
+    # def profile_groups_supported(self) -> bool:
+    #     return True
     
     @property
     def exe_name_alts(self) -> list[str]:
