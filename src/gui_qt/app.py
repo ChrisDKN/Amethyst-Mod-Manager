@@ -4619,6 +4619,22 @@ class MainWindow(QMainWindow):
         # subset is None for a full check (re-reads all flags) or the checked
         # names for a right-click subset; either way, no filemap rebuild.
         self._refresh_modlist_flags(result.get("subset"))
+        # Offer to Quick Update everything the check just flagged. Nexus only —
+        # Quick Update resolves and downloads through the Nexus API, so mod.io
+        # updates (BG3) stay manual. Ignored updates never reach this list.
+        if nexus is not None and nexus[0]:
+            qu_names = [u.mod_name for u in nexus[0]]
+
+            def _qu_confirmed(ok, ns=qu_names):
+                if ok:
+                    self._quick_update_mods(ns)
+
+            from gui_qt.confirm_overlay import ConfirmOverlay
+            ConfirmOverlay.show_over(
+                self, self.tr("Updates available"),
+                self.tr("{0} mod(s) have an update available.\n\n"
+                        "Run Quick Update on all of them now?").format(len(qu_names)),
+                _qu_confirmed, confirm_label=self.tr("Quick Update"))
 
     # ---- Quick Update -----------------------------------------------------
 

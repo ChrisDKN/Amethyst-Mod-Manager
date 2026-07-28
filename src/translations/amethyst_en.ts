@@ -5190,6 +5190,18 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Quick Update</translation>
     </message>
     <message>
+        <source>Updates available</source>
+        <translation>Updates available</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) have an update available.
+
+Run Quick Update on all of them now?</source>
+        <translation>{0} mod(s) have an update available.
+
+Run Quick Update on all of them now?</translation>
+    </message>
+    <message>
         <source>Quick Update: updated {0} mod(s)</source>
         <translation>Quick Update: updated {0} mod(s)</translation>
     </message>
