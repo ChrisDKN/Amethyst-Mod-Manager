@@ -474,9 +474,21 @@ def run_deploy_pipeline(
     is always reset to *profile* before returning, even on error.
     """
     target_profile_dir = game.get_profile_root() / "profiles" / profile
-    from Utils.profile_groups import is_group, materialize_group, get_group_resolver
+    from Utils.profile_groups import (
+        is_group, materialize_group, get_group_resolver,
+        group_loot_sort_pending, run_group_loot_sort,
+    )
     if is_group(target_profile_dir):
         materialize_group(game, target_profile_dir, log_fn=log_fn)
+        # materialize_group() deliberately skips LOOT sorting inline (it can
+        # block for a long time with no way to cancel it) — run it here
+        # instead, synchronously but off the GUI thread: run_deploy_pipeline
+        # itself is always invoked from a background worker thread (see
+        # gui_qt.app._start_deploy), and the deployed plugins.txt/
+        # loadorder.txt need to reflect the sorted order before Play launches
+        # the game, not sometime after.
+        if group_loot_sort_pending(game, target_profile_dir):
+            run_group_loot_sort(game, target_profile_dir, log_fn=log_fn)
 
     def _sync_mod_staging_override(profile_dir: Path) -> None:
         """Keep game.get_effective_mod_staging_path() resolving through this
@@ -725,5 +737,20 @@ def run_deploy_pipeline(
         return False
     finally:
         game.set_active_profile_dir(target_profile_dir)
-        _sync_mod_staging_override(target_profile_dir)
+        # Unconditionally clear, NOT _sync_mod_staging_override(target_profile_dir)
+        # — that would re-arm the override to the group's resolver whenever the
+        # deployed profile is itself a group, since is_group(target_profile_dir)
+        # is True. The override must never survive past this function returning
+        # (see set_mod_staging_override's docstring: it's scoped to this
+        # pipeline's OWN internal calls only), or every one of the ~65 other
+        # get_effective_mod_staging_path() callers (GUI plugin/data-tab loaders,
+        # wizards, mod install, ...) — none of which know how to handle a
+        # {mod_name: Path} mapping — silently gets one instead of a Path for the
+        # rest of the session, breaking with AttributeError the next time any of
+        # them runs. This was confirmed as the cause of the Plugins/Data tabs
+        # going empty immediately after every Profile Group deploy: the
+        # override stayed armed, and gui_qt.plugin_state.load_plugins()'s
+        # AttributeError was being silently swallowed (see the fixed except
+        # blocks in app.py/data_view.py) instead of surfacing.
+        game.set_mod_staging_override(None)
         game.load_paths()

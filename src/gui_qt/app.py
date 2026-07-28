@@ -213,6 +213,9 @@ class MainWindow(QMainWindow):
     # (generation) — filemap-only rebuild finished (disable fast path: the
     # conflict scan was provably redundant). See _rebuild_filemap_light_async.
     _filemap_light_done = Signal(int)
+    # (profile_name) — a Profile Group's deferred LOOT sort finished on a
+    # background thread. See GameState.kick_off_group_loot_sort_if_needed.
+    _group_loot_sort_done = Signal(str)
     # (generation, list[FrameworkStatus]) from the framework-detect worker —
     # detect_frameworks reads filemap.txt + the mod index, too slow for the UI
     # thread on a big modlist. See _refresh_framework_banner.
@@ -360,6 +363,8 @@ class MainWindow(QMainWindow):
         self._conflicts_ready.connect(self._on_conflicts_ready)
         self._bsa_conflicts_ready.connect(self._on_bsa_conflicts_ready)
         self._filemap_light_done.connect(self._on_filemap_light_done)
+        self._group_loot_sort_done.connect(self._on_group_loot_sort_done)
+        self._gs.group_loot_sort_done_cb = self._emit_group_loot_sort_done
         self._framework_statuses_ready.connect(self._on_framework_statuses)
         # Drops stale framework-detect results (game switched mid-compute).
         self._framework_gen = 0
@@ -440,6 +445,7 @@ class MainWindow(QMainWindow):
         self._win_state_timer.setSingleShot(True)
         self._win_state_timer.setInterval(1000)
         self._win_state_timer.timeout.connect(self._save_window_state)
+        self._start_ui_heartbeat_if_enabled()
         self.resize(1280, 800)
         # Restore the last-session window position/size/maximized state.
         # restoreGeometry() validates the saved rect against the current screen
@@ -6692,9 +6698,29 @@ class MainWindow(QMainWindow):
             try:
                 from Utils.profile_groups import materialize_group
                 materialize_group(game, pd, log_fn=self._append_log)
+                self._gs.kick_off_group_loot_sort_if_needed(game, pd)
             except Exception as exc:
                 self._append_log(f"[group-export] materialize failed: {exc}")
         continuation()
+
+    def _emit_group_loot_sort_done(self, profile_name: str) -> None:
+        """Plain-callback trampoline: GameState's background sort worker calls
+        this from a non-UI thread, so it must go through safe_emit rather than
+        touching widgets directly."""
+        from gui_qt.safe_emit import safe_emit
+        safe_emit(self._group_loot_sort_done, profile_name)
+
+    def _on_group_loot_sort_done(self, profile_name: str):
+        """A Profile Group's deferred LOOT sort finished on a background
+        thread. If that group is still the active profile, refresh the
+        modlist/plugin panels so the sorted load order becomes visible —
+        otherwise this is a no-op (the next switch back will already see the
+        sorted plugins.txt/loadorder.txt on disk)."""
+        if self._gs.profile != profile_name:
+            return
+        self._append_log(f"[loot] background sort finished for '{profile_name}'")
+        self._reload_modlist()
+        self._reload_plugins()
 
     # ---- Profile Group export (file + code) --------------------------------
     def _export_group_file(self):
@@ -7234,6 +7260,7 @@ class MainWindow(QMainWindow):
             pd = self._gs.profile_dir()
             if pd is not None and is_group(pd):
                 materialize_group(self._gs.game, pd, log_fn=self._append_log)
+                self._gs.kick_off_group_loot_sort_if_needed(self._gs.game, pd)
                 self._reload_modlist()
                 self._reload_plugins()
         except Exception:
@@ -7950,6 +7977,43 @@ class MainWindow(QMainWindow):
             return
 
         self._start_deploy(game, self._gs.profile, silent=silent)
+
+    def _start_ui_heartbeat_if_enabled(self):
+        """Debug-only: when AMM_UI_HEARTBEAT=1, log a monotonic tick every
+        ~250ms from a GUI-thread QTimer. A queued Qt timer can only fire
+        between event-loop iterations, so an unbroken sequence of ticks in
+        the log proves the GUI thread was never blocked (e.g. by a
+        synchronous LOOT sort); a gap wider than a few ticks' worth proves it
+        was, and roughly how long for. Off by default — this is a
+        diagnostic tool for reproducing/verifying the LOOT-freeze bug, not
+        something to run in normal use."""
+        import os
+        if os.environ.get("AMM_UI_HEARTBEAT") != "1":
+            return
+        import sys
+        import time as _time
+        self._heartbeat_timer = QTimer(self)
+        self._heartbeat_timer.setInterval(250)
+        self._heartbeat_n = 0
+        self._heartbeat_last = _time.perf_counter()
+
+        def _tick():
+            now = _time.perf_counter()
+            gap = now - self._heartbeat_last
+            self._heartbeat_last = now
+            self._heartbeat_n += 1
+            late = f" LATE by {gap - 0.25:.2f}s" if gap > 0.5 else ""
+            # stderr (not stdout): install_stderr_file() mirrors fd 2 into the
+            # session log file and the on-screen log panel even when launched
+            # from a desktop icon with no terminal attached — stdout is not
+            # captured either way, so ticks written there would be invisible
+            # outside a manual terminal run.
+            print(f"[ui-heartbeat] tick={self._heartbeat_n} gap={gap:.3f}s{late}",
+                  file=sys.stderr, flush=True)
+
+        self._heartbeat_timer.timeout.connect(_tick)
+        self._heartbeat_timer.start()
+        print("[ui-heartbeat] enabled via AMM_UI_HEARTBEAT=1", file=sys.stderr, flush=True)
 
     def _save_window_state(self):
         """Persist the window geometry (pos/size/maximized) and the modlist ║
@@ -11097,9 +11161,17 @@ class MainWindow(QMainWindow):
             self._apply_modlist_sizes()
         with span("reload_modlist.load_separator_state"):
             self._modlist_view.load_separator_state()
+        # filemap.txt/modindex.bin live next to the filemap for BOTH a regular
+        # profile (staging.parent) and a Profile Group — but a group has no
+        # mods/ folder of its own, so staging is None for it (see
+        # GameState.staging_dir) and staging.parent would always be None too,
+        # leaving these tabs permanently blank for any deployed group. Use
+        # filemap_dir() instead, which resolves via get_effective_filemap_path()
+        # (group-aware — see its docstring) rather than deriving from staging.
+        fmdir = self._gs.filemap_dir()
         # Point the Mod Files tab at this game/profile (index next to filemap).
         if hasattr(self, "_mod_files_view"):
-            idx = (staging.parent / "modindex.bin") if staging is not None else None
+            idx = (fmdir / "modindex.bin") if fmdir is not None else None
             self._mod_files_view.configure(
                 self._gs.game, self._gs.profile_dir(), idx)
             # Re-show the previously selected mod on a same-context refresh (it
@@ -11114,8 +11186,8 @@ class MainWindow(QMainWindow):
                 keep_mod_files if still_present else None)
         # Point the Data tab at this game/profile (filemap.txt + modindex.bin).
         if hasattr(self, "_data_view"):
-            fm = (staging.parent / "filemap.txt") if staging is not None else None
-            idx2 = (staging.parent / "modindex.bin") if staging is not None else None
+            fm = (fmdir / "filemap.txt") if fmdir is not None else None
+            idx2 = (fmdir / "modindex.bin") if fmdir is not None else None
             self._data_view.configure(
                 self._gs.game, self._gs.profile_dir(), fm, idx2)
         # Point the Downloads tab at this game (game-name getter for cache dir).
@@ -11124,7 +11196,7 @@ class MainWindow(QMainWindow):
                 self._gs.game, lambda: self._gs.game_name)
         # Point the Text Files tab at this game/profile.
         if hasattr(self, "_text_files_view"):
-            fm3 = (staging.parent / "filemap.txt") if staging is not None else None
+            fm3 = (fmdir / "filemap.txt") if fmdir is not None else None
             self._text_files_view.configure(
                 self._gs.game, self._gs.profile_dir(), fm3, staging)
         self._refresh_footer_toggle_labels()
@@ -11475,8 +11547,15 @@ class MainWindow(QMainWindow):
             try:
                 with span("plugins.load_plugins(worker)"):
                     rows = load_plugins(game, profile, cancelled=stale)
-            except Exception as exc:
-                print(f"[gui_qt] plugin load failed: {exc}", flush=True)
+            except Exception:
+                import traceback
+                tb = traceback.format_exc()
+                # Was a plain print() to stdout — invisible in the session log
+                # file and the stderr tee (run_qt.sh/install_stderr_file only
+                # capture fd 2), so a real failure here left zero trace beyond
+                # "0 rows applied to the panel". Route through _append_log
+                # (thread-safe) so the next occurrence is actually diagnosable.
+                self._append_log(f"[rescan-diag] plugin load gen={gen} FAILED:\n{tb}")
                 rows = []
             if rows is None or stale():
                 msg = (f"plugin load gen={gen} cancelled mid-build "

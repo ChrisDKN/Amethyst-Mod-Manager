@@ -389,7 +389,13 @@ def deploy_custom_rules(
     rules = [r for r in rules if not (r.to_prefix and prefix_root is None)]
     if not rules:
         return set()
-    overwrite_dir = staging_root.parent / "overwrite"
+    # filemap_path.parent is the profile dir for both a regular profile and a
+    # Profile Group (which owns no mods/ folder, so staging_root.parent is
+    # unusable — staging_root is a {mod_name: real_mod_dir} resolver dict for
+    # a group, not a Path). filemap_path.parent equals staging_root.parent
+    # for a regular profile too (staging_root = profile_dir/"mods"), so this
+    # is a strict generalization, not a behavior change for non-group deploys.
+    overwrite_dir = filemap_path.parent / "overwrite"
     _overwrite_str = str(overwrite_dir)
     _staging_str   = str(staging_root)
     nocase_cache: dict[Path, dict[str, list[Path]]] = {}

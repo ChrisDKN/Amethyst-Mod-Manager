@@ -214,6 +214,12 @@ class DataView(QWidget):
                 contested, _winner = mflogic.build_conflict_cache(
                     index_path, profile_dir)
             except Exception:
+                import traceback
+                from Utils.app_log import app_log
+                # Previously a bare except with NO diagnostic output at all —
+                # a real failure here surfaced only as an empty "0 files in 0
+                # mods" Data tab, with nothing in any log to explain why.
+                app_log(f"[data-tab] build gen={gen} FAILED:\n{traceback.format_exc()}")
                 safe_emit(self._data_ready, gen, [], set())
                 return
             safe_emit(self._data_ready, gen, entries, contested)

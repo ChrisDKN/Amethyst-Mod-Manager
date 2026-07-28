@@ -663,13 +663,17 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
         final_entries = _reconcile_group_modlist(current_entries, prescribed_entries)
         write_modlist(profile_dir / "modlist.txt", final_entries)
 
-        resolver = build_group_resolver(profile_dir, final_entries, home_member)
-
         if getattr(game, "plugin_extensions", None):
+            # LOOT sorting is NOT run inline here — it's a synchronous call
+            # into native code with no timeout, and this function runs on
+            # every profile switch/reload/deploy, including on the GUI
+            # thread. Reconciling against the un-sorted prescribed order
+            # keeps materialize_group() itself fast; the caller is
+            # responsible for checking group_loot_sort_pending() afterward
+            # and running run_group_loot_sort() off-thread if a re-sort is
+            # actually needed (see gui_qt.game_state for the GUI wiring).
             star_prefix = bool(getattr(game, "plugins_use_star_prefix", True))
             prescribed_order, prescribed_enabled = _merge_plugins(profiles_dir, members, star_prefix)
-            prescribed_order = _sort_with_loot(game, profile_dir, resolver, profiles_dir, members,
-                                                prescribed_order, prescribed_enabled, _log)
             current_plugin_entries = read_plugins(profile_dir / "plugins.txt", star_prefix=star_prefix)
             current_order = [e.name for e in current_plugin_entries]
             current_enabled = {e.name: e.enabled for e in current_plugin_entries}
@@ -697,6 +701,186 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             profile_dir,
             any(read_root_folder_state(profiles_dir / m) for m in members if (profiles_dir / m).is_dir()),
         )
+
+
+# ---------------------------------------------------------------------------
+# Deferred LOOT sorting — materialize_group() above deliberately does NOT
+# call LOOT inline (see its comment). These three functions let a caller
+# (the GUI, or the deploy pipeline, both already off the GUI thread by the
+# time they'd call run_group_loot_sort) decide when a re-sort is actually
+# needed and run it without blocking materialize_group() itself.
+# ---------------------------------------------------------------------------
+
+def _loot_sort_fingerprint(profile_dir: Path, star_prefix: bool) -> str:
+    """Cheap fingerprint of a group's current UNLOCKED plugin SET (names +
+    enabled state) — locked plugins never move under LOOT, so they don't
+    affect whether a re-sort would change anything. Deliberately
+    order-independent (sorted before joining): LOOT's own sort changes the
+    order on disk without changing the underlying set, and this fingerprint
+    must still match afterward, or every completed sort would immediately
+    re-flag itself as pending again. Comparing this against the fingerprint
+    recorded the last time a sort actually completed (see run_group_loot_sort)
+    is how group_loot_sort_pending decides whether a plain profile
+    switch/reload (nothing new) needs to trigger LOOT again."""
+    plugin_locks = read_plugin_locks(profile_dir)
+    entries = read_plugins(profile_dir / "plugins.txt", star_prefix=star_prefix)
+    parts = sorted(f"{e.name}:{int(e.enabled)}" for e in entries if not plugin_locks.get(e.name))
+    return "|".join(parts)
+
+
+_group_loot_locks: dict[str, threading.Lock] = {}
+_group_loot_locks_guard = threading.Lock()
+
+
+def _group_loot_lock(profile_dir: Path) -> threading.Lock:
+    """Process-wide non-reentrant lock, one per group profile dir, so at most
+    one run_group_loot_sort() call is ever in flight for a given group.
+
+    Without this, a profile switch (game_state._apply_active_profile), the
+    group-management panel (_on_groups_changed), and a deploy
+    (run_deploy_pipeline) can all independently see group_loot_sort_pending()
+    return True around the same moment — before the first sort has had a
+    chance to persist its fingerprint — and each spawn its own background
+    thread. Multiple threads then call into libloot concurrently; the native
+    extension's internal state is not proven safe for that, and a real run
+    reproduced this as the whole app freezing hard enough to require killing
+    the process (5 overlapping "Starting background LOOT sort" calls in the
+    log, all initializing libloot at once, then silence). See caller sites:
+    run_group_loot_sort() below acquires this non-blocking and simply skips
+    (not queues) when a sort is already running — the in-flight sort will
+    persist a fresh fingerprint when it finishes, so a genuinely-needed
+    re-sort is never lost, just deferred to the next trigger."""
+    key = str(profile_dir)
+    with _group_loot_locks_guard:
+        lock = _group_loot_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _group_loot_locks[key] = lock
+        return lock
+
+
+def group_loot_sort_pending(game, profile_dir: Path) -> bool:
+    """Cheap, synchronous check: does this group's current (already
+    materialize_group()-reconciled) unlocked plugin set differ from the one
+    LOOT last actually sorted? Call this right after materialize_group();
+    if it returns True, run run_group_loot_sort() off the GUI thread.
+
+    False for a non-group profile, a game without plugins, or a group with
+    no unlocked plugins at all (nothing for LOOT to do)."""
+    if not is_group(profile_dir) or not getattr(game, "plugin_extensions", None):
+        return False
+    star_prefix = bool(getattr(game, "plugins_use_star_prefix", True))
+    current_fp = _loot_sort_fingerprint(profile_dir, star_prefix)
+    if not current_fp:
+        return False
+    stored_fp = read_profile_settings(profile_dir, None).get("loot_sort_fingerprint")
+    return current_fp != stored_fp
+
+
+def run_group_loot_sort(game, profile_dir: Path, *, log_fn=None,
+                        timeout: float = 120.0) -> bool:
+    """Run LOOT sorting for a group's CURRENT plugin list (as already
+    reconciled by materialize_group()) and write the result back.
+
+    Intended to be called from a background thread — never the GUI thread —
+    since the native LOOT call can genuinely hang with no way to cancel it.
+    An internal timeout means THIS function always returns within roughly
+    `timeout` seconds either way; a hung call is abandoned (logged, not
+    retried) rather than awaited forever, but note that abandoning it here
+    cannot actually kill the native call — a truly stuck libloot call keeps
+    running on its own thread until the process exits. That thread is never
+    joined, so it cannot block shutdown or anything else past this point.
+
+    Debug: set AMM_LOOT_FORCE_HANG=<seconds> to make this sleep before
+    calling into LOOT, to exercise the timeout path on demand.
+
+    Returns True if a sort actually completed and was applied; False if it
+    was skipped, timed out, or failed (all logged, never raises).
+    """
+    _log = log_fn or (lambda _msg: None)
+    if not is_group(profile_dir) or not getattr(game, "plugin_extensions", None):
+        return False
+    star_prefix = bool(getattr(game, "plugins_use_star_prefix", True))
+    profiles_dir = profile_dir.parent
+    members = get_members(profile_dir)
+
+    current_entries = read_plugins(profile_dir / "plugins.txt", star_prefix=star_prefix)
+    current_order = [e.name for e in current_entries]
+    current_enabled = {e.name: e.enabled for e in current_entries}
+    fp = _loot_sort_fingerprint(profile_dir, star_prefix)
+    if not fp:
+        return False
+
+    # Serialize against any other run_group_loot_sort() call for this same
+    # group (see _group_loot_lock) — skip rather than queue if one is already
+    # running, since concurrent calls into libloot from multiple threads is
+    # what caused a real hard app freeze (see the lock's docstring).
+    lock = _group_loot_lock(profile_dir)
+    if not lock.acquire(blocking=False):
+        _log("[loot] Profile Group LOOT sort already in progress for this group — "
+             "skipping (the in-flight sort will pick up the current state when it "
+             "finishes; a still-needed re-sort will be retried on the next trigger).")
+        return False
+    try:
+        resolver = get_group_resolver(profile_dir, log_fn=_log)
+        if resolver is None:
+            return False
+
+        import concurrent.futures
+        import os
+        import time as _time
+
+        def _do_sort():
+            _hang = os.environ.get("AMM_LOOT_FORCE_HANG")
+            if _hang:
+                _log(f"[loot] AMM_LOOT_FORCE_HANG={_hang} — sleeping before sorting (debug).")
+                _time.sleep(float(_hang))
+            return _sort_with_loot(game, profile_dir, resolver, profiles_dir, members,
+                                    current_order, current_enabled, _log)
+
+        _log("[loot] Starting background LOOT sort for Profile Group...")
+        _t0 = _time.perf_counter()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(_do_sort)
+        try:
+            sorted_order = future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            _log(f"[loot] Profile Group LOOT sort timed out after {timeout:.0f}s — "
+                 f"leaving the previous order in place. The native call may still "
+                 f"be running in the background; it will be retried on the next "
+                 f"materialize.")
+            executor.shutdown(wait=False, cancel_futures=True)
+            return False
+        except Exception as exc:
+            _log(f"[loot] Profile Group LOOT sort failed: {exc}")
+            executor.shutdown(wait=False, cancel_futures=True)
+            return False
+        executor.shutdown(wait=False)
+        _log(f"[loot] Profile Group LOOT sort completed in {_time.perf_counter() - _t0:.1f}s.")
+
+        # sorted_order is the new authoritative order (that's the whole point of
+        # running LOOT) — unlike _reconcile_group_plugins (which always keeps
+        # "current"'s order and only uses "prescribed" for placing brand-new
+        # names), here we must apply LOOT's order, not discard it. Re-read
+        # plugins.txt now (not the snapshot from the top of this function) in
+        # case a user edit landed while this background sort was running: a
+        # plugin removed in the meantime is dropped, one added in the meantime
+        # (which LOOT never saw) is appended, and enabled-state changes made
+        # during the sort win over the pre-sort snapshot.
+        latest_entries = read_plugins(profile_dir / "plugins.txt", star_prefix=star_prefix)
+        latest_order = [e.name for e in latest_entries]
+        latest_enabled = {e.name: e.enabled for e in latest_entries}
+        latest_set = set(latest_order)
+        final_order = [n for n in sorted_order if n in latest_set]
+        seen = set(final_order)
+        final_order += [n for n in latest_order if n not in seen]
+        entries = [PluginEntry(name=n, enabled=latest_enabled.get(n, False)) for n in final_order]
+        write_loadorder(profile_dir / "loadorder.txt", entries)
+        write_plugins(profile_dir / "plugins.txt", entries, star_prefix=star_prefix)
+        merge_profile_settings(profile_dir, {"loot_sort_fingerprint": fp})
+        return True
+    finally:
+        lock.release()
 
 
 # ---------------------------------------------------------------------------

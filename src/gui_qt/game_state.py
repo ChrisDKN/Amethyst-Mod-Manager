@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Callable
 
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
@@ -57,6 +61,18 @@ class GameState:
         self.game_names: list[str] = []
         self.game_name: str | None = None
         self.profile: str | None = None
+        # Set by the GUI layer (app.py) to a thread-safe callback — typically
+        # a lambda that marshals onto the GUI thread via a Qt Signal/safe_emit
+        # — invoked with the group's profile name when a background LOOT
+        # sort kicked off by _apply_active_profile finishes. GameState itself
+        # has no Qt dependency, so this stays a plain optional callable
+        # rather than a Signal; None (the default) means "nobody's listening,
+        # just let the sort happen silently."
+        self.group_loot_sort_done_cb: "Callable[[str], None] | None" = None
+        # (game_name, profile) of the last profile _apply_active_profile()
+        # actually ran its Profile Group materialize+LOOT-kick block for —
+        # see the dedup guard in _apply_active_profile.
+        self._last_group_kick_key: "tuple[str | None, str | None] | None" = None
 
     # -- discovery / load ---------------------------------------------------
     def load(self) -> None:
@@ -513,11 +529,67 @@ class GameState:
             # Profile Groups are a synthetic merged profile — refresh it from
             # its members' current state whenever it becomes the active
             # selection, so simply browsing it (not just deploying it) shows
-            # an accurate, up-to-date merged mod list.
+            # an accurate, up-to-date merged mod list. materialize_group()
+            # itself is fast (no inline LOOT sort — see its docstring); this
+            # runs synchronously on whatever thread called set_profile()/
+            # set_game()/load(), which for a GUI-triggered profile switch is
+            # the GUI thread, so it must stay cheap.
+            #
+            # Gated on an actual (game_name, profile) change: _apply_active_profile
+            # is also reached via reassert_active_profile(), which many unrelated
+            # GUI refresh paths (_reload_modlist, _reload_plugins, conflict/BSA
+            # rebuilds, ...) call on every pass specifically to be a cheap no-op
+            # resync — including the refresh this same class fires from
+            # group_loot_sort_done_cb once a sort finishes. Without this guard,
+            # each of those calls re-checks group_loot_sort_pending() and, while
+            # a sort is still in flight (its fingerprint not yet persisted), sees
+            # "pending" again and kicks off another thread — a feedback loop
+            # that spawned 190+ redundant sort threads in a few seconds during
+            # testing (harmless post-lock, but the log spam and thread thrash are
+            # a real regression on their own).
+            key = (self.game_name, self.profile)
+            if key != self._last_group_kick_key:
+                self._last_group_kick_key = key
+                try:
+                    from Utils.profile_groups import is_group, materialize_group
+                    profile_dir = g.get_profile_root() / "profiles" / self.profile
+                    if is_group(profile_dir):
+                        materialize_group(g, profile_dir)
+                        self.kick_off_group_loot_sort_if_needed(g, profile_dir)
+                except Exception:
+                    pass
+
+    def kick_off_group_loot_sort_if_needed(self, g, profile_dir: Path) -> None:
+        """After materialize_group(profile_dir), check whether its unlocked
+        plugin set actually needs a LOOT re-sort and — if so — run it on a
+        background thread so the (potentially slow, uncancellable) native
+        call never blocks whichever thread called materialize_group().
+
+        Every GUI call site that calls materialize_group() directly should
+        call this right after, the same way _apply_active_profile does.
+        Safe to call for a non-group profile or one with nothing pending —
+        both are cheap no-ops."""
+        try:
+            from Utils.profile_groups import group_loot_sort_pending, run_group_loot_sort
+            if not group_loot_sort_pending(g, profile_dir):
+                return
+        except Exception:
+            return
+
+        import threading
+        from Utils.app_log import app_log
+        profile_name = profile_dir.name
+
+        def _worker():
             try:
-                from Utils.profile_groups import is_group, materialize_group
-                profile_dir = g.get_profile_root() / "profiles" / self.profile
-                if is_group(profile_dir):
-                    materialize_group(g, profile_dir)
-            except Exception:
-                pass
+                from Utils.profile_groups import run_group_loot_sort
+                run_group_loot_sort(g, profile_dir, log_fn=lambda m: app_log(f"[loot] {m}"))
+            finally:
+                cb = self.group_loot_sort_done_cb
+                if cb is not None:
+                    try:
+                        cb(profile_name)
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_worker, daemon=True, name="group-loot-sort").start()
