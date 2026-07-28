@@ -4986,6 +4986,10 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Refresh Plugins</translation>
     </message>
     <message>
+        <source>↻ Refresh</source>
+        <translation>↻ Refresh</translation>
+    </message>
+    <message>
         <source>Permanently delete {0} archive(s) from disk?</source>
         <translation>Permanently delete {0} archive(s) from disk?</translation>
     </message>
@@ -6062,6 +6066,10 @@ Deploy anyway?</translation>
         <translation>Downloads</translation>
     </message>
     <message>
+        <source>Overrides</source>
+        <translation>Overrides</translation>
+    </message>
+    <message>
         <source>Log</source>
         <translation>Log</translation>
     </message>
@@ -6084,6 +6092,10 @@ Deploy anyway?</translation>
     <message>
         <source>Open Log Folder</source>
         <translation>Open Log Folder</translation>
+    </message>
+    <message>
+        <source>Wiki</source>
+        <translation>Wiki</translation>
     </message>
     <message>
         <source>Changelog</source>
@@ -7349,6 +7361,25 @@ Each game gets its own subfolder.</translation>
     <message>
         <source>Skip</source>
         <translation>Skip</translation>
+    </message>
+</context>
+<context>
+    <name>OverridesView</name>
+    <message>
+        <source>Override paks</source>
+        <translation>Override paks</translation>
+    </message>
+    <message>
+        <source>No override paks in the enabled mods.
+
+Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</source>
+        <translation>No override paks in the enabled mods.
+
+Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</translation>
+    </message>
+    <message>
+        <source>Override paks - {0} deployed to the game's Mods folder, not in the load order</source>
+        <translation>Override paks - {0} deployed to the game's Mods folder, not in the load order</translation>
     </message>
 </context>
 <context>
@@ -9881,13 +9912,6 @@ Use Browse to select a manually downloaded archive.</translation>
     </message>
 </context>
 <context>
-    <name>StatsBar</name>
-    <message>
-        <source>{0}: {1}</source>
-        <translation>{0}: {1}</translation>
-    </message>
-</context>
-<context>
     <name>SynthesisView</name>
     <message>
         <source>Run Synthesis — {0}</source>
@@ -11609,6 +11633,42 @@ Latest:  {1}</translation>
     </message>
 </context>
 <context>
+    <name>WikiView</name>
+    <message>
+        <source>Refresh</source>
+        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>Open in Browser</translation>
+    </message>
+    <message>
+        <source>Loading the wiki…</source>
+        <translation>Loading the wiki…</translation>
+    </message>
+    <message>
+        <source>Could not reach the wiki.
+
+Check your connection and press Refresh — pages you have already opened stay readable offline.</source>
+        <translation>Could not reach the wiki.
+
+Check your connection and press Refresh — pages you have already opened stay readable offline.</translation>
+    </message>
+    <message>
+        <source>Could not load “{0}”.
+
+Press Refresh to try again.</source>
+        <translation>Could not load “{0}”.
+
+Press Refresh to try again.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Loading…</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -12109,6 +12169,29 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Locked profiles can't be removed</source>
         <translation>Locked profiles can't be removed</translation>
+    </message>
+</context>
+<context>
+    <name>_OverridesModel</name>
+    <message>
+        <source>Pak</source>
+        <translation>Pak</translation>
+    </message>
+    <message>
+        <source>Mod</source>
+        <translation>Mod</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>No meta.lsx</source>
+        <translation>No meta.lsx</translation>
+    </message>
+    <message>
+        <source>Override only</source>
+        <translation>Override only</translation>
     </message>
 </context>
 <context>

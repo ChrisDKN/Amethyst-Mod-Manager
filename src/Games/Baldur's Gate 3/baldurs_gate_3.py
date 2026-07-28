@@ -180,7 +180,11 @@ class BaldursGate3(BaseGame):
     @property
     def plugin_extensions(self) -> list[str]:
         return []
-    
+
+    @property
+    def has_override_pak_tab(self) -> bool:
+        return True
+
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return {"info.json","*.txt"}

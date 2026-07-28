@@ -864,6 +864,11 @@ class BaseGame(ABC):
         return []
 
     @property
+    def has_override_pak_tab(self) -> bool:
+        """Whether the plugins panel shows the BG3-style Overrides pak tab."""
+        return False
+
+    @property
     def plugins_use_star_prefix(self) -> bool:
         """
         Whether plugins.txt uses the MO2-style '*Name' prefix for enabled plugins.

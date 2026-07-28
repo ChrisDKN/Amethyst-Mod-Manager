@@ -89,6 +89,7 @@ py.install_sources(
   'modlist.py',
   'modsettings.py',
   'mpi_auto_fetch.py',
+  'override_scan.py',
   'pak_reader.py',
   'pandora_tools.py',
   'path_utils.py',

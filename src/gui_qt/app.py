@@ -796,7 +796,7 @@ class MainWindow(QMainWindow):
         self._plugin_footer_stack = _CurrentPageStack()
         for _page in (self._plugins_footer(), self._mod_files_footer(),
                       self._data_footer(), self._downloads_footer(),
-                      self._text_files_footer()):
+                      self._text_files_footer(), self._overrides_footer()):
             self._enable_height_for_width(_page)
             self._plugin_footer_stack.addWidget(_page)
         # The stack must also report height via heightForWidth so its parent
@@ -1171,6 +1171,11 @@ class MainWindow(QMainWindow):
         # now (the async rescan below refreshes the rest a moment later).
         if hasattr(self, "_modlist_model"):
             self._modlist_model.set_modified_mf(self._build_modified_mf_mods())
+        # Exclusion edits change the Overrides tab's checkbox states too (a
+        # pak disabled in Mod Files shows unchecked there). Re-reads from disk,
+        # so an Overrides-originated toggle just refreshes to the same state.
+        if hasattr(self, "_overrides_view"):
+            self._overrides_view.mark_dirty()
         self._rebuild_conflicts_async(rescan_index=True)
 
     def _on_plugin_selection_changed(self):
@@ -1491,6 +1496,22 @@ class MainWindow(QMainWindow):
         expanded = self._data_view._toggle_expand_all()
         self._data_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
                                       else self.tr("⊞ Expand all"))
+
+    def _overrides_footer(self) -> QWidget:
+        """Refresh, shown under the plugins column when the Overrides sub-tab
+        is active (BG3 override paks)."""
+        bar = QWidget()
+        bar.setObjectName("HeaderBar")
+        v = QVBoxLayout(bar)
+        v.setContentsMargins(8, 6, 8, 6)
+        v.setSpacing(6)
+        btns = FlowLayout(spacing=4)
+        refresh = self._text_button(self.tr("↻ Refresh"), compact=True)
+        refresh.setFixedHeight(self._FOOT_BTN_H)
+        refresh.clicked.connect(lambda: self._overrides_view.mark_dirty())
+        btns.addWidget(refresh)
+        v.addLayout(btns)
+        return bar
 
     def _downloads_footer(self) -> QWidget:
         """Install Selected / Remove Selected / Locations / Filters + search,
@@ -10795,6 +10816,10 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_downloads_view"):
             self._downloads_view.configure(
                 self._gs.game, lambda: self._gs.game_name)
+        # Point the Overrides tab (BG3) at this game/profile.
+        if hasattr(self, "_overrides_view"):
+            self._overrides_view.configure(
+                self._gs.profile_dir(), staging, ml_path)
         # Point the Text Files tab at this game/profile.
         if hasattr(self, "_text_files_view"):
             fm3 = (staging.parent / "filemap.txt") if staging is not None else None
@@ -10823,6 +10848,8 @@ class MainWindow(QMainWindow):
             self._downloads_view.mark_dirty()
         if hasattr(self, "_text_files_view"):
             self._text_files_view.mark_dirty()
+        if hasattr(self, "_overrides_view"):
+            self._overrides_view.mark_dirty()
         # The Nexus browser (if open) shows Install/Reinstall per the active
         # profile's installed mods — refresh on every modlist reload (covers
         # profile/game change AND post-install).
@@ -11860,11 +11887,23 @@ class MainWindow(QMainWindow):
         was_hidden = getattr(self, "_plugins_tab_hidden", False)
         self._plugins_tab_hidden = not supported
         self._plugin_tab_labels[0].setVisible(supported)
+        # The Overrides tab (BG3 override paks) replaces the Plugins tab for
+        # games that declare it — the two are never visible together.
+        overrides = bool(getattr(self._gs.game, "has_override_pak_tab", False))
+        was_overrides = getattr(self, "_overrides_tab_shown", False)
+        self._overrides_tab_shown = overrides
+        self._plugin_tab_labels[self._OVERRIDES_TAB_IDX].setVisible(overrides)
         if not supported and self._plugin_stack.currentIndex() == 0:
-            self._select_plugin_tab(self._DOWNLOADS_TAB_IDX)
+            self._select_plugin_tab(self._OVERRIDES_TAB_IDX if overrides
+                                    else self._DOWNLOADS_TAB_IDX)
         elif (supported and was_hidden
-                and self._plugin_stack.currentIndex() == self._DOWNLOADS_TAB_IDX):
+                and self._plugin_stack.currentIndex() in (
+                    self._DOWNLOADS_TAB_IDX, self._OVERRIDES_TAB_IDX)):
             self._select_plugin_tab(0)
+        elif (not overrides and was_overrides and
+                self._plugin_stack.currentIndex() == self._OVERRIDES_TAB_IDX):
+            # BG3 → another plugin-less game: leave the now-hidden tab.
+            self._select_plugin_tab(self._DOWNLOADS_TAB_IDX)
         # Footer (page 0 of the swap stack = the plugin tools) is hidden only
         # while the Plugins sub-tab is active; other tabs keep their own footer.
         self._refresh_plugin_footer_visibility()
@@ -12494,7 +12533,7 @@ class MainWindow(QMainWindow):
         # Sub-tab strip — switches the stacked pages below.
         self._plugin_tab_names = [self.tr("Plugins"), self.tr("Mod Files"),
                                   self.tr("Text Files"), self.tr("Data"),
-                                  self.tr("Downloads")]
+                                  self.tr("Downloads"), self.tr("Overrides")]
         self._plugin_stack = QStackedWidget()
 
         # Page 0: the real Plugins view, with a framework-status banner above the
@@ -12541,9 +12580,20 @@ class MainWindow(QMainWindow):
         self._downloads_view.selection_changed.connect(
             self._update_downloads_footer)
         self._plugin_stack.addWidget(self._downloads_view)
+        # Page 5: the BG3 Overrides view (override paks — tab shown only for
+        # games with has_override_pak_tab; the label is repositioned below so
+        # it renders where the hidden Plugins tab sits).
+        from gui_qt.override_view import OverridesView
+        self._overrides_view = OverridesView()
+        self._overrides_view.changed.connect(self._on_mod_files_changed)
+        # Pak row selected → orange its owning mod in the modlist + marker
+        # strip (same anchor-highlight path the Plugins/Data tabs use).
+        self._overrides_view.on_select_mod = self._on_data_select_mod
+        self._plugin_stack.addWidget(self._overrides_view)
         self._TEXT_FILES_TAB_IDX = 2
         self._DATA_TAB_IDX = 3
         self._DOWNLOADS_TAB_IDX = 4
+        self._OVERRIDES_TAB_IDX = 5
 
         tabs = QHBoxLayout()
         tabs.setSpacing(2)
@@ -12554,8 +12604,16 @@ class MainWindow(QMainWindow):
             lbl = QLabel(t)
             lbl.setCursor(Qt.PointingHandCursor)
             lbl.mousePressEvent = lambda _e, idx=i: self._select_plugin_tab(idx)
-            tabs.addWidget(lbl)
             self._plugin_tab_labels.append(lbl)
+        # Layout in display order: the Overrides label leads the strip (where
+        # Plugins sits — the two are never visible together). Its list index
+        # stays 5 so the click closure, styling loop and stack page all keep
+        # their numbering.
+        ov = self._OVERRIDES_TAB_IDX
+        for i in [ov] + [i for i in range(len(self._plugin_tab_labels))
+                         if i != ov]:
+            tabs.addWidget(self._plugin_tab_labels[i])
+        self._plugin_tab_labels[ov].setVisible(False)
         tabs.addStretch(1)
         # Framework-status banner ABOVE the tabs so it's visible on every
         # sub-tab (one colored row per framework the game declares).
@@ -12566,20 +12624,26 @@ class MainWindow(QMainWindow):
         return frame
 
     def _select_plugin_tab(self, idx: int):
-        # Plugin-less games have no Plugins tab — route to Downloads instead.
+        # Plugin-less games have no Plugins tab — route to the Overrides tab
+        # (BG3) when it's shown, else to Downloads.
         if idx == 0 and getattr(self, "_plugins_tab_hidden", False):
-            idx = getattr(self, "_DOWNLOADS_TAB_IDX", 4)
+            idx = (getattr(self, "_OVERRIDES_TAB_IDX", 5)
+                   if getattr(self, "_overrides_tab_shown", False)
+                   else getattr(self, "_DOWNLOADS_TAB_IDX", 4))
         self._plugin_stack.setCurrentIndex(idx)
         # Swap the column footer to match the active sub-tab. Footer pages:
-        # 0 plugins / 1 Mod Files / 2 Data / 3 Downloads / 4 Text Files.
+        # 0 plugins / 1 Mod Files / 2 Data / 3 Downloads / 4 Text Files /
+        # 5 Overrides.
         fstack = getattr(self, "_plugin_footer_stack", None)
         tf_idx = getattr(self, "_TEXT_FILES_TAB_IDX", 2)
         data_idx = getattr(self, "_DATA_TAB_IDX", 3)
         dl_idx = getattr(self, "_DOWNLOADS_TAB_IDX", 4)
+        ov_idx = getattr(self, "_OVERRIDES_TAB_IDX", 5)
         if fstack is not None:
             fstack.setCurrentIndex(
                 1 if idx == 1 else 2 if idx == data_idx
-                else 3 if idx == dl_idx else 4 if idx == tf_idx else 0)
+                else 3 if idx == dl_idx else 4 if idx == tf_idx
+                else 5 if idx == ov_idx else 0)
             # Plugin-less games hide the plugin tools footer on the Plugins tab.
             self._refresh_plugin_footer_visibility()
         # Deferred build: only (re)build a tab's contents when it's shown.
@@ -12594,6 +12658,9 @@ class MainWindow(QMainWindow):
         tfv = getattr(self, "_text_files_view", None)
         if tfv is not None:
             tfv.set_visible_tab(idx == tf_idx)
+        ovv = getattr(self, "_overrides_view", None)
+        if ovv is not None:
+            ovv.set_visible_tab(idx == ov_idx)
         for i, lbl in enumerate(self._plugin_tab_labels):
             sel = i == idx
             # Theme foreground (dim when unselected) so the tab strip reads on

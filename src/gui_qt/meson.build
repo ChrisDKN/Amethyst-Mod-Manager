@@ -73,6 +73,7 @@ py.install_sources(
   'nexus_footer.py',
   'nexus_mod_card.py',
   'note_editor_overlay.py',
+  'override_view.py',
   'notifications.py',
   'onboarding_view.py',
   'overlay_base.py',
