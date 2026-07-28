@@ -646,9 +646,27 @@ def game_is_steam_install(game) -> bool:
 
 
 def heroic_app_names_for_launch(game) -> list:
-    """Heroic app names for launch — detected by scanning Heroic's
-    installed.json for the game's exe, plus legacy handler/paths.json values."""
-    names: list[str] = []
+    """Heroic app names for launch — handler-declared names and the value
+    saved in paths.json at configure time are authoritative; the exe scan
+    runs only when neither is set, since generic launcher names collide
+    across games (e.g. FalloutLauncher.exe ships with both Fallout 3 GOTY
+    and classic Fallout on GOG)."""
+    names = [n for n in (getattr(game, "heroic_app_names", []) or []) if n]
+    if hasattr(game, "name"):
+        try:
+            paths_file = get_game_config_path(game.name)
+            if paths_file.is_file():
+                data = json.loads(paths_file.read_text(encoding="utf-8"))
+                saved = data.get("heroic_app_name", "").strip()
+                if saved and saved not in names:
+                    # Saved first: it records what configure actually
+                    # resolved to, so it beats the handler's declared list.
+                    names.insert(0, saved)
+        except (OSError, json.JSONDecodeError):
+            pass
+    if names:
+        return names
+
     from Utils.heroic_finder import find_heroic_app_name_by_exe
     exe_names = [getattr(game, "exe_name", None)]
     exe_names += list(getattr(game, "exe_name_alts", []) or [])
@@ -659,19 +677,6 @@ def heroic_app_names_for_launch(game) -> list:
             found = None
         if found and found not in names:
             names.append(found)
-
-    names.extend(n for n in (getattr(game, "heroic_app_names", []) or []) if n not in names)
-
-    if not names and hasattr(game, "name"):
-        try:
-            paths_file = get_game_config_path(game.name)
-            if paths_file.is_file():
-                data = json.loads(paths_file.read_text(encoding="utf-8"))
-                saved = data.get("heroic_app_name", "").strip()
-                if saved:
-                    names = [saved]
-        except (OSError, json.JSONDecodeError):
-            pass
     return names
 
 

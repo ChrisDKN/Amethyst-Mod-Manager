@@ -821,24 +821,23 @@ class BaseGame(ABC):
         return self.steam_id
 
     @property
-    def heroic_app_names(self) -> list[str]: # Legacy, App names are now detected automatically
+    def heroic_app_names(self) -> list[str]:
         """
-        Heroic Games Launcher app identifiers for this game.
+        Heroic Games Launcher app identifiers for this game, resolved from
+        the central registry in Games/heroic_appnames.py (keyed by game_id,
+        so it also covers custom games).  Add entries there, not here.
 
-        Used as a fallback when the game is not found in Steam libraries.
-        Heroic uses different identifiers per store:
-          - Epic Games: the 'appName' string from the Epic catalogue
-            e.g. 'Pewee' for Cyberpunk 2077
-          - GOG: the numeric product ID as a string, or the exact game title
-            e.g. '1207658924' or 'The Witcher 3: Wild Hunt'
-
-        List multiple values if the game may appear under different IDs or
-        across stores, e.g. ['Pewee', '1207658924'].
-
-        Return an empty list (the default) to disable Heroic detection for
-        this game.
+        When empty (the default), Heroic detection matches on the handler's
+        exe name(s).  When set, these names are authoritative and the exe
+        scan is skipped entirely — register games whose launcher name
+        collides with a different title (e.g. FalloutLauncher.exe ships
+        with both Fallout 3 GOTY and classic Fallout on GOG).
         """
-        return []
+        try:
+            from Games.heroic_appnames import heroic_app_names_for
+            return heroic_app_names_for(self.game_id)
+        except Exception:
+            return []
 
     def get_prefix_path(self) -> Path | None:
         """

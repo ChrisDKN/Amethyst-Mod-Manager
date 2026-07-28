@@ -305,14 +305,18 @@ class InstalledIndex:
                 if self._exe_in_dir(game_dir, exe):
                     return True
 
+        # Declared app names are authoritative for Heroic — when set, the exe
+        # scan is skipped: generic launcher names collide across games
+        # (FalloutLauncher.exe = both Fallout 3 GOTY and classic Fallout).
         heroic_names = list(getattr(game, "heroic_app_names", []) or [])
-        if heroic_names and self._heroic_by_app_names(heroic_names):
-            return True
-
-        for exe in all_exe:
-            bare = exe.replace("\\", "/").rsplit("/", 1)[-1]
-            if bare and self._heroic_by_exe(bare):
+        if heroic_names:
+            if self._heroic_by_app_names(heroic_names):
                 return True
+        else:
+            for exe in all_exe:
+                bare = exe.replace("\\", "/").rsplit("/", 1)[-1]
+                if bare and self._heroic_by_exe(bare):
+                    return True
 
         for exe in all_exe:
             if self._lutris_by_exe(exe):

@@ -337,6 +337,71 @@ def find_heroic_game(app_names: list[str]) -> Path | None:
     return None
 
 
+def find_heroic_game_info_by_app_names(
+        app_names: list[str]) -> "tuple[Path, Path | None, str] | None":
+    """Resolve (install_path, prefix|None, app_name) from declared app names.
+
+    Same result shape as find_heroic_game_info_by_exe.  Used when a handler
+    declares heroic_app_names: those are authoritative, and the caller skips
+    exe-name matching entirely — generic launcher names collide across
+    different games (e.g. GOG Fallout 3 GOTY and classic Fallout both ship
+    FalloutLauncher.exe), so an exe scan can resolve to the wrong title.
+    """
+    app_names_lower = {n.lower() for n in app_names}
+    for heroic_root in _find_heroic_config_roots():
+        # Epic (Legendary): installed.json is keyed by appName.
+        installed = _load_epic_installed(heroic_root)
+        for app_name in app_names:
+            entry = installed.get(app_name)
+            if not isinstance(entry, dict):
+                continue
+            install_path_raw = entry.get("install_path", "")
+            if not install_path_raw:
+                continue
+            install_path = Path(install_path_raw)
+            if not install_path.is_dir():
+                continue
+            prefix_path = _find_heroic_prefix_for_app(heroic_root, app_name)
+            return (install_path, prefix_path, app_name)
+
+        # GOG: entries carry the product id in appName.
+        for entry in _load_gog_installed(heroic_root):
+            if not isinstance(entry, dict):
+                continue
+            app_id = str(entry.get("appName") or entry.get("app_name") or "")
+            if not app_id or app_id.lower() not in app_names_lower:
+                continue
+            install_path_raw = entry.get("install_path", entry.get("path", ""))
+            if not install_path_raw:
+                continue
+            install_path = Path(install_path_raw)
+            if not install_path.is_dir():
+                continue
+            prefix_path = _find_heroic_prefix_for_app(heroic_root, app_id)
+            return (install_path, prefix_path, app_id)
+
+        # Sideload: only matches a previously-saved per-game app name
+        # (Heroic generates these ids).  No install_path is stored, so
+        # derive the game root from the stored executable.
+        for entry in _load_sideload_installed(heroic_root):
+            if not isinstance(entry, dict):
+                continue
+            app_id = str(entry.get("app_name") or entry.get("appName") or "")
+            if not app_id or app_id.lower() not in app_names_lower:
+                continue
+            install = entry.get("install") or {}
+            stored_exe = install.get("executable", "") if isinstance(install, dict) else ""
+            if not stored_exe:
+                continue
+            bare = stored_exe.replace("\\", "/").rsplit("/", 1)[-1]
+            install_path = _sideload_game_root(stored_exe, bare)
+            if not install_path:
+                continue
+            prefix_path = _find_heroic_prefix_for_app(heroic_root, app_id)
+            return (install_path, prefix_path, app_id)
+    return None
+
+
 def find_heroic_launch_info(app_names: list[str]) -> "tuple[str, str] | None":
     """
     Search Heroic config for a game matching any of the given app_names.

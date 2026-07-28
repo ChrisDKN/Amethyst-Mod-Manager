@@ -861,25 +861,32 @@ class ConfigureGameView(QWidget):
             from Utils.steam_finder import (
                 find_steam_libraries, find_game_by_steam_id, find_game_in_libraries)
             from Utils.heroic_finder import (
-                find_heroic_game, find_heroic_game_info_by_exe)
+                find_heroic_game_info_by_app_names, find_heroic_game_info_by_exe)
             exe_names = [getattr(g, "exe_name", None)] + list(
                 getattr(g, "exe_name_alts", []) or [])
             exe_names = [e for e in exe_names if e]
-            app_log(f"[Configure Game] Checking Heroic (exe names: {exe_names})")
-            for exe in exe_names:
-                info = find_heroic_game_info_by_exe(exe)
+            heroic_names = _heroic_app_names(g)
+            if heroic_names:
+                # Declared app names are authoritative: generic launcher names
+                # collide across games (FalloutLauncher.exe ships with both
+                # Fallout 3 GOTY and classic Fallout on GOG), so the exe scan
+                # can resolve to the wrong title and is skipped entirely.
+                app_log(f"[Configure Game] Checking Heroic app names: {heroic_names}")
+                info = find_heroic_game_info_by_app_names(heroic_names)
                 if info:
                     found, found_prefix, heroic_app = info
                     source = "heroic"
-                    app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {found}")
-                    break
-            if not found and _heroic_app_names(g):
-                heroic_names = _heroic_app_names(g)
-                app_log(f"[Configure Game] Checking Heroic app names: {heroic_names}")
-                found = find_heroic_game(heroic_names)
-                if found:
-                    source = "heroic"
-                    app_log(f"[Configure Game] Found via Heroic app name: {found}")
+                    app_log(f"[Configure Game] Found via Heroic app name "
+                            f"({heroic_app}): {found}")
+            else:
+                app_log(f"[Configure Game] Checking Heroic (exe names: {exe_names})")
+                for exe in exe_names:
+                    info = find_heroic_game_info_by_exe(exe)
+                    if info:
+                        found, found_prefix, heroic_app = info
+                        source = "heroic"
+                        app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {found}")
+                        break
             if not found:
                 from Utils.lutris_finder import find_lutris_game_info_by_exe
                 app_log(f"[Configure Game] Checking Lutris (exe names: {exe_names})")
