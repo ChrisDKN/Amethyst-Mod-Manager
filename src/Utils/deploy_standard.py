@@ -527,6 +527,12 @@ def deploy_filemap(
     _slow_hits = 0
     # Cache mod_root Path objects — avoids 92k Path / operations for ~520 mods
     _mod_root_cache: dict[str, Path] = {}
+    # mod_index_cache mirror keyed by mod NAME so the per-line lookup hashes
+    # a str, not a Path (Path.__hash__/__eq__ dominated the loop profile).
+    # Value None = mod known to have no index; resynced after slow hits
+    # because _resolve_source builds indexes into mod_index_cache on miss.
+    _mod_index_by_name: dict = {}
+    _IDX_UNSET = object()
     # String-based caches for _resolve_root_path_str
     _deploy_dir_str = str(deploy_dir)
     _core_base_str = str(core_dir) if core_dir is not None else None
@@ -546,10 +552,16 @@ def deploy_filemap(
     # for the symlink. Keeping the resolved dst guarantees the symlink path
     # uses the same casing as the per-file tasks it replaces.
     _top_folder_sample: dict[tuple[str, str], tuple[str, str, str]] = {}
+    _mod_traversal: dict[str, bool] = {}
     for line in _tab_lines:
         rel_str, mod_name = line.split("\t", 1)
-        # Guard against path traversal in filemap entries.
-        if _has_traversal(rel_str) or _has_traversal(mod_name):
+        # Guard against path traversal in filemap entries. The mod-name
+        # verdict is cached per unique mod (~hundreds) instead of per line.
+        _bad_mod = _mod_traversal.get(mod_name)
+        if _bad_mod is None:
+            _bad_mod = _has_traversal(mod_name)
+            _mod_traversal[mod_name] = _bad_mod
+        if _bad_mod or _has_traversal(rel_str):
             _log(f"  WARN: skipping suspicious filemap entry — rel={rel_str!r} mod={mod_name!r}")
             continue
         rel_lower = rel_str.lower()
@@ -561,11 +573,12 @@ def deploy_filemap(
         line_idx += 1
 
         # --- Fast path: O(1) mod-index lookup (no syscall) ---
-        _mr = _mod_root_cache.get(mod_name)
-        if _mr is None:
+        _idx = _mod_index_by_name.get(mod_name, _IDX_UNSET)
+        if _idx is _IDX_UNSET:
             _mr = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
             _mod_root_cache[mod_name] = _mr
-        _idx = mod_index_cache.get(_mr)
+            _idx = mod_index_cache.get(_mr)
+            _mod_index_by_name[mod_name] = _idx
         src_str: str | None = None
         if _idx is not None:
             _hit = _idx.get(rel_lower)
@@ -581,6 +594,8 @@ def deploy_filemap(
             )
             if src_str is not None:
                 _slow_hits += 1
+                _mod_index_by_name[mod_name] = mod_index_cache.get(
+                    _mod_root_cache[mod_name])
         if src_str is None:
             _log(f"  WARN: source not found — {rel_str} ({mod_name})")
             continue
@@ -603,9 +618,24 @@ def deploy_filemap(
         effective_dir = _per_deploy.get(mod_name, deploy_dir)
         _core_s = _core_base_str if effective_dir is deploy_dir else None
         _eff_s = _deploy_dir_str if effective_dir is deploy_dir else str(effective_dir)
-        dst_str = _resolve_root_path_str(_eff_s, dst_rel, _dir_listing_cache,
-                                         core_base_str=_core_s,
-                                         resolved_dir_cache=_resolved_dir_cache)
+        # Inline _resolve_root_path_str's two O(1) outcomes (no dir part /
+        # resolved-dir cache hit) — most files share their parent dir, so
+        # this skips a function call per line. Must mirror its key exactly:
+        # base + "\x00" + dir-part-of-original-rel lowercased (lowercasing
+        # can change string length, so never slice the lowered rel instead).
+        _sp = dst_rel.rfind("/")
+        if _sp < 0:
+            dst_str = _eff_s + "/" + dst_rel
+        else:
+            _rd = _resolved_dir_cache.get(
+                _eff_s + "\x00" + dst_rel[:_sp].lower())
+            if _rd is not None:
+                dst_str = _rd + "/" + dst_rel[_sp + 1:]
+            else:
+                dst_str = _resolve_root_path_str(_eff_s, dst_rel,
+                                                 _dir_listing_cache,
+                                                 core_base_str=_core_s,
+                                                 resolved_dir_cache=_resolved_dir_cache)
         use_symlink = symlink_exts is not None and os.path.splitext(src_str)[1].lower() in symlink_exts
         override_mode = _per_mode.get(mod_name)
         is_custom_task = effective_dir is not deploy_dir
