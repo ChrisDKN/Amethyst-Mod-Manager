@@ -7125,7 +7125,35 @@ class MainWindow(QMainWindow):
             self._append_log(f"Play error: {exc!r}")
             for ln in traceback.format_exc().strip().splitlines():
                 self._append_log(f"Play error:   {ln}")
-            self._notify(self.tr("Play failed — see log."), "error")
+            self._play_failed(f"{exc!r}")
+
+    def _play_log(self, message: str):
+        """Play-path log line. Also remembered as the failure reason: launch
+        paths that give up do so with a log line and a bare return, so the last
+        one logged is why nothing started."""
+        self._append_log(message)
+        from Utils import launch_report
+        launch_report.note(message)
+
+    def _play_failed(self, detail: str = "", entry: str = ""):
+        """Popup for a Play click that never got anything running.
+
+        Thread-safe — the signal hop puts the card on the UI thread. The advice
+        is to deploy and start from the launcher: Steam/Heroic/Lutris own the
+        prefix and runtime, so a launch our side can't complete usually still
+        works from there, with the deployed mods active either way.
+        """
+        target = entry or (self._gs.game.name if self._gs.game is not None
+                           else self.tr("the game"))
+        body = self.tr(
+            "Amethyst could not launch {0}.\n\n"
+            "Press Deploy to apply your mods, then start the game from "
+            "Steam, Heroic or Lutris instead — the deployed mods stay "
+            "active however the game is started.").format(target)
+        if detail:
+            body += "\n\n" + self.tr("Details: {0}").format(detail)
+        self._warn_popup.emit(self.tr("The game did not launch"), body,
+                              340 if detail else 280)
 
     def _do_play(self):
         game = self._gs.game
@@ -7158,7 +7186,9 @@ class MainWindow(QMainWindow):
             is_auto = label in self._play_auto_exe_names
             can_deploy = hasattr(game, "deploy")
             if not exe_path.is_file() and not (is_auto and can_deploy):
-                self._notify(self.tr("Executable not found: {0}").format(exe_path), "warning")
+                self._play_failed(
+                    self.tr("Executable not found: {0}").format(exe_path),
+                    entry=label)
                 return
             target = (exe_launch.launch_jar if exe_launch.is_jar(exe_path)
                       else exe_launch.launch_exe_via_proton)
@@ -7177,17 +7207,26 @@ class MainWindow(QMainWindow):
                         except ValueError:
                             resolved = None
                     if resolved is None:
-                        self._notify(self.tr("Executable not found: {0}").format(run_path),
-                                     "warning")
+                        self._play_failed(
+                            self.tr("Executable not found: {0}").format(run_path),
+                            entry=label)
                         return
                     run_path = resolved
 
                 def _run(run_path=run_path):
-                    # Worker-thread exceptions otherwise vanish to stderr.
-                    try:
-                        target(run_path, game, log_fn=self._append_log)
-                    except Exception as exc:
-                        self._append_log(f"Run EXE error: {exc!r}")
+                    # Worker-thread exceptions otherwise vanish to stderr, and
+                    # most launch paths fail by logging and returning — the
+                    # report catches both, plus a process that dies instantly.
+                    from Utils import launch_report
+                    with launch_report.report(
+                            lambda d: self._play_failed(d, entry=label)) as rep:
+                        try:
+                            target(run_path, game, log_fn=self._play_log)
+                        except Exception as exc:
+                            self._append_log(f"Run EXE error: {exc!r}")
+                            rep.mark_failed(f"{exc!r}")
+                        else:
+                            rep.finish()
                 threading.Thread(target=_run, daemon=True).start()
 
             # Auto-detected script extenders must run against the CURRENT
@@ -7220,11 +7259,18 @@ class MainWindow(QMainWindow):
         # Game entry → optional deploy first, then Steam/Heroic/Proton routing.
         def _launch():
             def _run():
-                # Worker-thread exceptions otherwise vanish to stderr.
-                try:
-                    exe_launch.launch_game(game, log_fn=self._append_log)
-                except Exception as exc:
-                    self._append_log(f"Play error: {exc!r}")
+                # Worker-thread exceptions otherwise vanish to stderr, and most
+                # launch paths fail by logging and returning — the report
+                # catches both, plus a process that dies instantly.
+                from Utils import launch_report
+                with launch_report.report(self._play_failed) as rep:
+                    try:
+                        exe_launch.launch_game(game, log_fn=self._play_log)
+                    except Exception as exc:
+                        self._append_log(f"Play error: {exc!r}")
+                        rep.mark_failed(f"{exc!r}")
+                    else:
+                        rep.finish()
             threading.Thread(target=_run, daemon=True).start()
 
         if exe_launch.load_deploy_before_launch(game) and hasattr(game, "deploy"):

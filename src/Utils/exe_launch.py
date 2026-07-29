@@ -36,6 +36,7 @@ from Utils.config_paths import (
     get_game_config_path,
     get_profile_exe_args_path,
 )
+from Utils import launch_report
 from Utils.protontricks import strip_appimage_env
 from Utils.xdg import spawn_watched
 
@@ -750,6 +751,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     """
     import tempfile
     import threading
+    import time
 
     errfile = None
     try:
@@ -768,11 +770,19 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
         if errfile is not None:
             errfile.close()
         log_fn(f"{label} error: {e}")
+        launch_report.mark_failed(f"{label} could not be started — {e}")
         return
     log_fn(f"{label}: started (pid {proc.pid})")
+    # Captured here: _watch runs on its own thread, where the thread-local
+    # binding no longer applies.
+    rep = launch_report.current()
+    started = time.monotonic()
+    if rep is not None:
+        rep.mark_spawned()
 
     def _watch() -> None:
         rc = proc.wait()
+        launch_report.mark_exit(rep, started, rc, label)
         tail = ""
         if errfile is not None:
             try:
@@ -830,7 +840,9 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log) -> None:
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
-            log_fn("Play error: could not reach Steam (no working launcher).")
+            msg = "Play error: could not reach Steam (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
             return
         spawn_watched(
             candidates[idx],
@@ -872,7 +884,9 @@ def launch_via_heroic(heroic_app_names: list, log_fn=_noop_log) -> bool:
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
-            log_fn("Play error: could not reach Heroic (no working launcher).")
+            msg = "Play error: could not reach Heroic (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
             return
         spawn_watched(
             candidates[idx],
@@ -941,7 +955,9 @@ def launch_via_lutris(slugs: list, log_fn=_noop_log) -> bool:
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
-            log_fn("Play error: could not reach Lutris (no working launcher).")
+            msg = "Play error: could not reach Lutris (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
             return
         spawn_watched(
             candidates[idx],
@@ -1636,7 +1652,13 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
         )
     except OSError as exc:
         log_fn(f"{label}: failed to launch — {exc}")
+        launch_report.mark_failed(f"{label}: failed to launch — {exc}")
         raise
+    import time as _time
+    rep = launch_report.current()
+    started = _time.monotonic()
+    if rep is not None:
+        rep.mark_spawned()
 
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -1644,6 +1666,7 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
         if line:
             log_fn(f"{label}: {line}")
     rc = proc.wait()
+    launch_report.mark_exit(rep, started, rc, label)
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")
     return rc
@@ -2257,7 +2280,13 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
         )
     except Exception as e:
         log_fn(f"Run JAR error: {e}")
+        launch_report.mark_failed(f"Run JAR error: {e}")
         return
+    import time as _time
+    rep = launch_report.current()
+    started = _time.monotonic()
+    if rep is not None:
+        rep.mark_spawned()
 
     # Stream the launcher's output to the log so failures (missing java.exe in
     # the prefix, a jar that crashes on start) are visible instead of silent.
@@ -2268,6 +2297,7 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
             if line:
                 log_fn(f"Run JAR: {line}")
         rc = proc.wait()
+        launch_report.mark_exit(rep, started, rc, f"Run JAR {jar_path.name}")
         if rc != 0:
             log_fn(f"Run JAR: {jar_path.name} exited with code {rc}")
 

@@ -77,6 +77,7 @@ py.install_sources(
   'installed_collections.py',
   'installed_scan.py',
   'jre_prefix.py',
+  'launch_report.py',
   'lutris_finder.py',
   'mo2_dummy.py',
   'mod_copy.py',
