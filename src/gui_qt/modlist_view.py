@@ -281,7 +281,7 @@ class ModListView(QTreeView):
         btn.setCursor(Qt.ArrowCursor)
         btn.setFocusPolicy(Qt.NoFocus)
         btn.setAutoRaise(True)
-        btn.setToolTip(self.tr("Show / hide columns"))
+        btn.setToolTip(self.tr("Show / Hide columns"))
         # Opaque header-coloured background so it sits cleanly over the Mod Name
         # header text; hover/press come from the global QToolButton QSS.
         bg = _c(active_palette(), "BG_HEADER")

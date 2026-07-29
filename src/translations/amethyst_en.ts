@@ -6643,8 +6643,8 @@ How would you like to handle the existing mod?</translation>
 <context>
     <name>ModListView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>Show / hide columns</translation>
+        <source>Show / Hide columns</source>
+        <translation>Show / Hide columns</translation>
     </message>
     <message>
         <source>Enabled</source>
@@ -8061,8 +8061,8 @@ Drag a plugin from the left pane to add a rule.</translation>
 <context>
     <name>PluginView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>Show / hide columns</translation>
+        <source>Show / Hide columns</source>
+        <translation>Show / Hide columns</translation>
     </message>
     <message>
         <source>Filters</source>
