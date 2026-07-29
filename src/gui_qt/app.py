@@ -6945,31 +6945,23 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------- play bar
     def _refresh_play_selector(self):
-        """Repopulate the play-bar dropdown: the game + auto-detected framework
-        launchers (installed script extenders) + custom exes, restoring this
-        profile's saved selection (Tk stores the label in profile_state)."""
+        """Repopulate the play-bar dropdown: the game + custom exes, restoring
+        this profile's saved selection (Tk stores the label in profile_state)."""
+        # Script extenders are deliberately NOT auto-listed any more — a loader
+        # only shows up when the user added it themselves (Add custom EXE / from
+        # game folder), where it launches exactly as before. The auto machinery
+        # (exe_launch.detect_framework_exes, _play_auto_exe_names, hide_auto_exe,
+        # the force-deploy branch in _do_play) is left intact.
         game = self._gs.game
         if game is None:
             self._play_exe_paths = {}
             self._play_auto_exe_names = set()
             self._play_exe_selector.set_items(["—"], current="—")
             return
-        from Utils.exe_launch import detect_framework_exes, load_custom_exes
+        from Utils.exe_launch import load_custom_exes
         self._play_exe_paths = {}
         self._play_auto_exe_names = set()
         items = [game.name]
-        # Framework states from the banner detect (worker) — lets staged-but-
-        # not-deployed extenders show up too. Only when the cached map belongs
-        # to this game+profile; detection is disk-only otherwise until the
-        # banner's detect lands and re-refreshes us.
-        key = (game.name, self._gs.profile)
-        cached = getattr(self, "_framework_states", None)
-        states = cached[1] if cached is not None and cached[0] == key else None
-        for p in detect_framework_exes(game, states):
-            if p.name not in self._play_exe_paths and p.name != game.name:
-                self._play_exe_paths[p.name] = p
-                self._play_auto_exe_names.add(p.name)
-                items.append(p.name)
         for p in load_custom_exes(game):
             if p.name not in self._play_exe_paths and p.name != game.name:
                 self._play_exe_paths[p.name] = p
@@ -11967,15 +11959,8 @@ class MainWindow(QMainWindow):
         if gen != self._framework_gen or not hasattr(self, "_framework_banner"):
             return
         self._framework_banner.set_statuses(statuses)
-        # Cache {label: state} for the play-bar dropdown (staged-but-not-
-        # deployed script extenders are listed and deploy on Run). Keyed by
-        # game+profile so a stale map from before a switch is never applied;
-        # the gen guard above means the result matches the CURRENT selection.
-        key = (self._gs.game.name if self._gs.game else None, self._gs.profile)
-        states = {s.label: s.state for s in (statuses or [])}
-        if getattr(self, "_framework_states", None) != (key, states):
-            self._framework_states = (key, states)
-            self._refresh_play_selector()
+        # No play-bar refresh here: the dropdown no longer auto-lists script
+        # extenders, so framework state can't change what it shows.
 
     def _recompute_bsa_conflicts_async(self):
         """A plugin toggle/reorder changed the plugin load order. BSAs load at
@@ -12486,11 +12471,11 @@ class MainWindow(QMainWindow):
 
         # Exe selector stretches with the plugins panel: its left edge hugs the
         # splitter separator, so dragging the split resizes the dropdown while
-        # Play + gear stay fixed at the right edge. Items = the game +
-        # auto-detected framework launchers (installed script extenders) +
-        # manually added custom exes, plus pickers fed by a staging scan (mod
-        # tools + wizard tools installed under the profile) and a game-folder
-        # scan (tools that must run from the game root, incl. deployed exes).
+        # Play + gear stay fixed at the right edge. Items = the game + manually
+        # added custom exes, plus pickers fed by a staging scan (mod tools +
+        # wizard tools installed under the profile) and a game-folder scan
+        # (tools that must run from the game root, incl. deployed script
+        # extenders — those are no longer listed automatically).
         self._play_exe_selector = SelectorButton(
             items=["—"],
             current="—",
