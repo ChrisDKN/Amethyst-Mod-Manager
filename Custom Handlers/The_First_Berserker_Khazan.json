@@ -53,6 +53,20 @@
       "flatten": true
     },
     {
+      "dest": "BBQ/Content/Movies/Video/Title",
+      "folders": [
+        "Title"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "BBQ/Content/Movies",
+      "extensions": [
+        ".bk2"
+      ],
+      "flatten": true
+    },
+    {
       "dest": "BBQ/Content/Paks/~mods",
       "extensions": [
         ".pak"
@@ -60,7 +74,8 @@
       "companion_extensions": [
         ".ucas",
         ".utoc"
-      ]
+      ],
+      "flatten": true
     },
     {
       "dest": "BBQ/Binaries/Win64",
