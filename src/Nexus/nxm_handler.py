@@ -293,6 +293,32 @@ def parse_nxm_url(url: str) -> tuple[NxmLink | None, NxmCollectionLink | None]:
     raise ValueError(f"Unknown nxm:// URL format: {url!r}")
 
 
+def nxm_url_from_argv(argv: list[str] | None = None) -> str | None:
+    """Pull the nxm:// URL out of argv, with or without the --nxm flag."""
+    # Our .desktop file passes `--nxm %u`, but a browser's "choose an
+    # application" picker execs the selected binary with the bare URL as its
+    # only argument. Accepting both means picking the AppImage directly in that
+    # dialog works instead of opening the app with the link silently ignored.
+    if argv is None:
+        argv = sys.argv[1:]
+    if "--nxm" in argv:
+        idx = argv.index("--nxm")
+        # The flag may be present with no URL after it (or a stray flag);
+        # fall through to the bare-URL scan in that case.
+        if idx + 1 < len(argv) and argv[idx + 1].lower().startswith("nxm://"):
+            return argv[idx + 1]
+    for arg in argv:
+        if arg.lower().startswith("nxm://"):
+            return arg
+    return None
+
+
+def strip_nxm_argv(argv: list[str]) -> list[str]:
+    """Drop --nxm and any nxm:// URL from argv (for a clean self re-exec)."""
+    out = [a for a in argv if not a.lower().startswith("nxm://")]
+    return [a for a in out if a != "--nxm"]
+
+
 # ---------------------------------------------------------------------------
 # Protocol registration (Linux / XDG)
 # ---------------------------------------------------------------------------

@@ -2820,19 +2820,14 @@ class MainWindow(QMainWindow):
     }
 
     def _handle_nxm_argv(self):
-        """Check sys.argv for --nxm <url> and kick off a download once the
+        """Check sys.argv for an nxm:// link and kick off a download once the
         window has finished building."""
-        import sys
-        if "--nxm" not in sys.argv:
-            return
-        try:
-            idx = sys.argv.index("--nxm")
-            nxm_url = sys.argv[idx + 1]
-        except (IndexError, ValueError):
-            return
         from PySide6.QtCore import QTimer
-        from Nexus.nxm_handler import nxm_log
-        nxm_log("Fresh instance: processing --nxm link after window build")
+        from Nexus.nxm_handler import nxm_log, nxm_url_from_argv
+        nxm_url = nxm_url_from_argv()
+        if not nxm_url:
+            return
+        nxm_log("Fresh instance: processing NXM link after window build")
         QTimer.singleShot(500, lambda: self._process_nxm_link(nxm_url))
 
     def _start_nxm_ipc(self):
@@ -13457,12 +13452,14 @@ def _apply_app_identity(app) -> None:
 def run() -> int:
     import sys
     from PySide6.QtWidgets import QApplication
-    from Nexus.nxm_handler import NxmIPC, NxmHandler, nxm_log
+    from Nexus.nxm_handler import (
+        NxmIPC, NxmHandler, nxm_log, nxm_url_from_argv, strip_nxm_argv)
 
     # The browser-spawned handoff process has no GUI, so nxm_log's file sink
     # (logs/nxm.log) is the only record of this launch — log it first thing.
-    if "--nxm" in sys.argv:
-        nxm_log(f"--nxm launch: argv={sys.argv[1:]}")
+    nxm_url = nxm_url_from_argv()
+    if nxm_url or "--nxm" in sys.argv:
+        nxm_log(f"NXM launch: argv={sys.argv[1:]}")
 
     # Register as the nxm:// handler on every launch (idempotent) so "Download
     # with Manager" on Nexus routes here.
@@ -13472,22 +13469,18 @@ def run() -> int:
         import traceback
         nxm_log(f"NxmHandler.register() crashed:\n{traceback.format_exc()}")
 
-    # Single-instance: if launched with --nxm and an instance is already
-    # running, hand the link off over the IPC socket and exit — don't build a
-    # second window. Done BEFORE the QApplication so the browser-spawned
-    # process is cheap. If no instance answers, fall through and open normally.
-    if "--nxm" in sys.argv:
-        try:
-            idx = sys.argv.index("--nxm")
-            nxm_url = sys.argv[idx + 1]
-        except (IndexError, ValueError):
-            nxm_url = None
-            nxm_log("--nxm flag present but no URL argument followed it")
-        if nxm_url and NxmIPC.send_to_running(nxm_url):
+    # Single-instance: if launched with an nxm:// link and an instance is
+    # already running, hand the link off over the IPC socket and exit — don't
+    # build a second window. Done BEFORE the QApplication so the
+    # browser-spawned process is cheap. If no instance answers, fall through
+    # and open normally.
+    if nxm_url:
+        if NxmIPC.send_to_running(nxm_url):
             nxm_log("NXM link handed off to running instance — exiting")
             return 0
-        if nxm_url:
-            nxm_log("No running instance — continuing into full app launch")
+        nxm_log("No running instance — continuing into full app launch")
+    elif "--nxm" in sys.argv:
+        nxm_log("--nxm flag present but no nxm:// URL in argv")
 
     # Migrate/clean amethyst.ini BEFORE anything reads it (theme loader, GameState).
     # Wipes a pre-Qt ini (missing [meta] version=2) so everyone starts fresh.
@@ -13582,12 +13575,9 @@ def run() -> int:
     # has already run (IPC socket released, restore-on-close done); re-exec the
     # same interpreter + argv in place.
     if _RESTART_REQUESTED:
-        # Drop a one-shot "--nxm <url>" from the relaunch argv so a stale NXM
-        # link isn't reprocessed on the fresh start.
-        argv = list(sys.argv)
-        if "--nxm" in argv:
-            i = argv.index("--nxm")
-            del argv[i:i + 2]
+        # Drop a one-shot NXM link from the relaunch argv so a stale link isn't
+        # reprocessed on the fresh start.
+        argv = strip_nxm_argv(list(sys.argv))
         try:
             os.execv(sys.executable, [sys.executable] + argv)
         except Exception:
