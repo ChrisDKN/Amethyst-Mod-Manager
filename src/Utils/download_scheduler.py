@@ -141,7 +141,8 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                     sentinels) still fires exactly once.
     *download*    — ``download(mod, links)``, called on a download-worker thread
                     once per mod, exactly once, in the same smallest-first order
-                    the fetchers claimed.
+                    the fetchers claimed. May raise — the exception is swallowed
+                    so the worker (and the pipeline) keeps flowing.
     *dl_workers*  — number of download-worker threads (>=1).
     *link_workers*— number of link-fetch threads (>=1). Small (2–3) is enough to
                     stay a step ahead; keeping it low bounds how far ahead links
@@ -195,7 +196,15 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
             if item is _READY_DONE:
                 return
             mod, links = item
-            download(mod, links)
+            try:
+                download(mod, links)
+            except Exception:
+                # A dead worker wedges the whole pipeline: the fetchers block
+                # in ready.put() on the bounded queue and _closer never
+                # returns, so the caller hangs uncancellably. Drop this mod's
+                # download instead — the caller's own bookkeeping/logging is
+                # its responsibility.
+                pass
 
     if spawn is None:
         def spawn(target, name):

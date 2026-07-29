@@ -926,9 +926,18 @@ def run_collection_install(
             log(f"Collection install: download exception for '{mod.mod_name}' "
                 f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc}\n{_tb.format_exc()}")
 
+        # From here on the counters and the install-queue handoff MUST fire
+        # exactly once per mod no matter what the UI callbacks do — an escaped
+        # exception would kill this download worker and wedge the whole
+        # pipeline (fetchers block on the bounded ready queue, run_pipelined
+        # never returns, Cancel can't unblock it).
         mod_size = getattr(mod, "size_bytes", 0) or 0
-        if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
-            _progress_cb(mod_size, mod_size)
+        try:
+            if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
+                _progress_cb(mod_size, mod_size)
+        except Exception as exc:
+            log(f"Collection install: progress callback failed for "
+                f"'{mod.mod_name}': {exc}")
 
         with _dl_lock:
             _dl_done += 1
@@ -939,11 +948,16 @@ def run_collection_install(
                 _akey = str(result.file_path)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
             _inst_done = _install_counters["done"]
-        _set_status(f"Downloaded {_pre_done + done}/{total}, "
-                    f"installed {_pre_done + _inst_done}/{total}…")
-        cb.on_dl_mod_finish(mod.file_id)
-        if result and result.success and result.file_path:
-            cb.on_extract_queue(mod.file_id, mod.mod_name or mod.file_name or "")
+        try:
+            _set_status(f"Downloaded {_pre_done + done}/{total}, "
+                        f"installed {_pre_done + _inst_done}/{total}…")
+            cb.on_dl_mod_finish(mod.file_id)
+            if result and result.success and result.file_path:
+                cb.on_extract_queue(mod.file_id,
+                                    mod.mod_name or mod.file_name or "")
+        except Exception as exc:
+            log(f"Collection install: finish callback failed for "
+                f"'{mod.mod_name}': {exc}")
         # The install queue is bounded; if it ever fills (installs falling far
         # behind downloads) this put() blocks the download worker so it can't
         # start the next download. The queue is now sized generously so that

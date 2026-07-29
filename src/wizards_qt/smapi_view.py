@@ -210,24 +210,36 @@ class SmapiView(WizardViewBase):
         self._installed_mode = self._selected_mode()
         self._stack.setCurrentIndex(_PG_INSTALL)
         self._install_bar.setVisible(True)
+        if self._installed_mode == "game":
+            # A game-folder install swaps the REAL launcher, so revert to
+            # vanilla through the app's restore machinery (deploy mutex +
+            # progress popup) and abort when it can't run — never patch a
+            # still-deployed root (the swap would post-date the snapshot and
+            # be swept into overwrite/ on the next restore).
+            self._run_ctx_restore(self._run_status,
+                                  on_ok=self._start_install,
+                                  on_fail=self._on_restore_failed)
+            return
+        self._start_install()
+
+    def _start_install(self):
         self._set_status(self._run_status, self.tr("Installing SMAPI…"))
         threading.Thread(target=self._do_install, daemon=True,
                          name="smapi-install").start()
+
+    def _on_restore_failed(self):
+        self._install_bar.setVisible(False)
+        self._done_btn.setEnabled(True)
 
     def _do_install(self):
         from Utils.smapi_installer import install_smapi
         mode = self._installed_mode
         try:
-            if mode == "game":
-                safe_emit(self._install_status_sig,
-                          self.tr("Restoring the game to its vanilla state, "
-                          "then installing SMAPI…"), "")
-            else:
-                safe_emit(self._install_status_sig,
-                          self.tr("Unpacking and installing SMAPI…"), "")
+            safe_emit(self._install_status_sig,
+                      self.tr("Unpacking and installing SMAPI…"), "")
             dest_label, file_count, _mod = install_smapi(
                 self._game, self._archive_path, mode,
-                log_fn=self._log)
+                restore_first=False, log_fn=self._log)
             extra = ("" if mode == "game" else
                      self.tr("\n\nDeploy your mods to activate it."))
             safe_emit(self._install_status_sig,

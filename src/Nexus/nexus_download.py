@@ -648,6 +648,37 @@ class NexusDownloader:
             mod_id=mod_id,
             file_id=file_id,
         )
+
+        # Prefetched links can be minted a whole pipeline queue ahead of use;
+        # if the signed URLs expired before this worker got to them, every
+        # mirror fails. Retry once with freshly fetched links before giving
+        # the mod up for good.
+        if (not result.success and prefetched_links
+                and not (cancel is not None and cancel.is_set())):
+            app_log(
+                f"Prefetched links failed for file {file_id} "
+                f"({result.error}); retrying with fresh links."
+            )
+            try:
+                fresh = self._api.get_download_links(
+                    game_domain=game_domain,
+                    mod_id=mod_id,
+                    file_id=file_id,
+                )
+            except NexusAPIError as exc:
+                app_log(f"Fresh link fetch failed for file {file_id}: {exc}")
+                fresh = None
+            if fresh:
+                result = self._download_from_links(
+                    links=fresh,
+                    file_name=file_name,
+                    dest_dir=dest_dir or self._download_dir,
+                    progress_cb=progress_cb,
+                    cancel=cancel,
+                    game_domain=game_domain,
+                    mod_id=mod_id,
+                    file_id=file_id,
+                )
         return result
 
     # -- Internal -----------------------------------------------------------

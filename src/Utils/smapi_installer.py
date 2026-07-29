@@ -329,12 +329,12 @@ def install_smapi(
         dest_label = "game folder"
         if restore_first:
             # Revert to vanilla so we swap the REAL launcher, not a deployed
-            # one (mirrors the other wizards' pre-install restore).
+            # one. A failed restore must abort the install: swapping inside a
+            # deployed root leaves post-snapshot files that the next restore
+            # sweeps into overwrite/. (The Qt wizard restores via the app's
+            # restore machinery instead and passes restore_first=False.)
             log_fn("SMAPI Wizard: restoring game to vanilla state…")
-            try:
-                game.restore(log_fn=log_fn)
-            except Exception as exc:
-                log_fn(f"SMAPI Wizard: restore skipped or failed: {exc}")
+            game.restore(log_fn=log_fn)
 
     file_count = extract_smapi_payload(archive, dest, log_fn=log_fn)
     log_fn(f"SMAPI Wizard: extracted {file_count} file(s).")
