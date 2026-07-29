@@ -1,8 +1,3 @@
-try:
-    from .loot import *
-    __doc__ = loot.__doc__
-    if hasattr(loot, "__all__"):
-        __all__ = loot.__all__
-except ImportError:
-    loot = None
-    __all__ = []
+# Package marker. The native libloot extension is a TOP-LEVEL `loot` module
+# (src/loot.cpython-*.so in source/AppImage builds, site-packages in the
+# flatpak) — it does not live inside this package.

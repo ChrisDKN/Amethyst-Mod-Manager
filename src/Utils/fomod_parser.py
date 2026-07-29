@@ -114,6 +114,10 @@ class Group:
     name: str
     group_type: str   # SelectExactlyOne|SelectAtMostOne|SelectAtLeastOne|SelectAny|SelectAll
     plugins: list[Plugin] = field(default_factory=list)
+    # The author's original name when `name` was de-duplicated (see
+    # _dedupe_group_names). Empty when no rename happened — display code should
+    # use `display_name or name`.
+    display_name: str = ""
 
 
 @dataclass
@@ -413,8 +417,41 @@ def _parse_install_step(step_el: ET.Element) -> InstallStep:
         group_order = groups_el.get("order", "Explicit")  # XSD default
         parsed = [_parse_group(ge) for ge in _findall(groups_el, "group")]
         step.groups = _apply_order(parsed, group_order, lambda g: g.name)
+        _dedupe_group_names(step.groups)
 
     return step
+
+
+def _dedupe_group_names(groups: list[Group]) -> None:
+    """Make group names unique within a step, in place.
+
+    Selections, defaults and live widget state are all keyed by group NAME
+    ({step: {group_name: [plugin, ...]}} — wizard views, saved-selections JSON,
+    compute_file_installs, the rerun-dep encoder). A step with duplicate group
+    names (e.g. Embers XD's four \"Select One\" add-on groups) collapses those
+    dicts: only the LAST same-named group survives, silently dropping its
+    siblings' choices AND the condition flags they set. Renaming dupes to
+    "name (2)", "name (3)"… fixes every consumer at once; `display_name` keeps
+    the author's original for the UI."""
+    names = [g.name for g in groups]
+    if len(set(names)) == len(names):
+        return
+    taken = set(names)
+    seen: dict[str, int] = {}
+    for g in groups:
+        base = g.name
+        n = seen.get(base, 0) + 1
+        seen[base] = n
+        if n == 1:
+            continue
+        cand = f"{base} ({n})"
+        while cand in taken:   # author already used "name (2)" literally
+            n += 1
+            cand = f"{base} ({n})"
+        seen[base] = n
+        g.display_name = base
+        g.name = cand
+        taken.add(cand)
 
 
 # ---------------------------------------------------------------------------
@@ -682,24 +719,3 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
 
     _fix_group_types(config)
     return config
-
-
-def parse_mod_info(xml_path: str) -> ModInfo:
-    """
-    Parse a fomod/info.xml file.
-    Returns an empty ModInfo if the file is not found or fails to parse.
-    """
-    if not os.path.isfile(xml_path):
-        return ModInfo()
-    try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-        info = ModInfo()
-        for tag, attr in (("Name", "name"), ("Author", "author"),
-                           ("Version", "version"), ("Description", "description")):
-            el = _find(root, tag)
-            if el is not None:
-                setattr(info, attr, _text(el))
-        return info
-    except ET.ParseError:
-        return ModInfo()

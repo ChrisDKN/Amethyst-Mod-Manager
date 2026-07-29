@@ -36,6 +36,7 @@ from Utils.config_paths import (
     get_game_config_path,
     get_profile_exe_args_path,
 )
+from Utils import launch_report
 from Utils.protontricks import strip_appimage_env
 from Utils.xdg import spawn_watched
 
@@ -145,6 +146,33 @@ STAGING_EXE_SUFFIXES = (".exe", ".bat", ".jar")
 _PREFIX_DIR_NAMES = frozenset({"pfx", "drive_c"})
 
 
+def _walk_launchables(root: Path, seen: set, found: list,
+                      skip_key: "str | None" = None) -> None:
+    """os.walk *root* for launchable files, pruning prefix dirs before descent."""
+    for dirpath, dirnames, filenames in os.walk(root):
+        # Prune wine/Proton prefix trees in place so the walk never descends
+        # into them (rglob visited every Windows system exe first and only
+        # filtered them out afterwards).
+        dirnames[:] = [d for d in dirnames
+                       if d.lower() not in _PREFIX_DIR_NAMES]
+        for fname in filenames:
+            if os.path.splitext(fname)[1].lower() not in STAGING_EXE_SUFFIXES:
+                continue
+            full = os.path.join(dirpath, fname)
+            if not os.path.isfile(full):  # broken symlink / special file
+                continue
+            if skip_key is not None and full.lower() == skip_key:
+                continue
+            # Dedupe key: plain paths are already unique within a walk and
+            # across deduped roots — only a symlink can alias another entry,
+            # so resolve just those instead of stat-resolving every file.
+            key = os.path.realpath(full) if os.path.islink(full) else full
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(Path(full))
+
+
 def scan_staging_exes(game) -> list[Path]:
     """Return launchable files found under the game's staging area.
 
@@ -167,30 +195,23 @@ def scan_staging_exes(game) -> list[Path]:
         active_mods = game.get_effective_mod_staging_path()
     else:
         active_mods = shared
-    roots = [active_mods, shared, shared.parent / "Applications"]
-    seen: set[Path] = set()
+    # Dedupe roots by resolved path: without profile-specific mods the
+    # effective staging path IS the shared mods/ folder, and walking the same
+    # tree twice doubles the scan cost for nothing.
+    roots: dict[Path, Path] = {}
+    for root in (active_mods, shared, shared.parent / "Applications"):
+        try:
+            rkey = root.resolve()
+        except OSError:
+            rkey = root
+        roots.setdefault(rkey, root)
+    seen: set[str] = set()
     found: list[Path] = []
-    for root in roots:
+    for root in roots.values():
         try:
             if not root.is_dir():
                 continue
-            for p in root.rglob("*"):
-                if p.suffix.lower() not in STAGING_EXE_SUFFIXES:
-                    continue
-                # Skip anything inside a wine/Proton prefix.
-                rel_parts = {part.lower() for part in p.relative_to(root).parts}
-                if rel_parts & _PREFIX_DIR_NAMES:
-                    continue
-                if not p.is_file():
-                    continue
-                try:
-                    key = p.resolve()
-                except OSError:
-                    key = p
-                if key in seen:
-                    continue
-                seen.add(key)
-                found.append(p)
+            _walk_launchables(root, seen, found)
         except OSError:
             continue
     found.sort(key=lambda p: (p.name.lower(), str(p).lower()))
@@ -216,29 +237,12 @@ def scan_game_folder_exes(game) -> list[Path]:
     root = Path(root)
     game_exe = resolve_game_exe(game)
     game_exe_key = str(game_exe).lower() if game_exe is not None else None
-    seen: set[Path] = set()
+    seen: set[str] = set()
     found: list[Path] = []
     try:
         if not root.is_dir():
             return []
-        for p in root.rglob("*"):
-            if p.suffix.lower() not in STAGING_EXE_SUFFIXES:
-                continue
-            rel_parts = {part.lower() for part in p.relative_to(root).parts}
-            if rel_parts & _PREFIX_DIR_NAMES:
-                continue
-            if not p.is_file():
-                continue
-            if game_exe_key is not None and str(p).lower() == game_exe_key:
-                continue
-            try:
-                key = p.resolve()
-            except OSError:
-                key = p
-            if key in seen:
-                continue
-            seen.add(key)
-            found.append(p)
+        _walk_launchables(root, seen, found, skip_key=game_exe_key)
     except OSError:
         pass
     found.sort(key=lambda p: (p.name.lower(), str(p).lower()))
@@ -643,9 +647,27 @@ def game_is_steam_install(game) -> bool:
 
 
 def heroic_app_names_for_launch(game) -> list:
-    """Heroic app names for launch — detected by scanning Heroic's
-    installed.json for the game's exe, plus legacy handler/paths.json values."""
-    names: list[str] = []
+    """Heroic app names for launch — handler-declared names and the value
+    saved in paths.json at configure time are authoritative; the exe scan
+    runs only when neither is set, since generic launcher names collide
+    across games (e.g. FalloutLauncher.exe ships with both Fallout 3 GOTY
+    and classic Fallout on GOG)."""
+    names = [n for n in (getattr(game, "heroic_app_names", []) or []) if n]
+    if hasattr(game, "name"):
+        try:
+            paths_file = get_game_config_path(game.name)
+            if paths_file.is_file():
+                data = json.loads(paths_file.read_text(encoding="utf-8"))
+                saved = data.get("heroic_app_name", "").strip()
+                if saved and saved not in names:
+                    # Saved first: it records what configure actually
+                    # resolved to, so it beats the handler's declared list.
+                    names.insert(0, saved)
+        except (OSError, json.JSONDecodeError):
+            pass
+    if names:
+        return names
+
     from Utils.heroic_finder import find_heroic_app_name_by_exe
     exe_names = [getattr(game, "exe_name", None)]
     exe_names += list(getattr(game, "exe_name_alts", []) or [])
@@ -656,19 +678,6 @@ def heroic_app_names_for_launch(game) -> list:
             found = None
         if found and found not in names:
             names.append(found)
-
-    names.extend(n for n in (getattr(game, "heroic_app_names", []) or []) if n not in names)
-
-    if not names and hasattr(game, "name"):
-        try:
-            paths_file = get_game_config_path(game.name)
-            if paths_file.is_file():
-                data = json.loads(paths_file.read_text(encoding="utf-8"))
-                saved = data.get("heroic_app_name", "").strip()
-                if saved:
-                    names = [saved]
-        except (OSError, json.JSONDecodeError):
-            pass
     return names
 
 
@@ -742,6 +751,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     """
     import tempfile
     import threading
+    import time
 
     errfile = None
     try:
@@ -760,11 +770,19 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
         if errfile is not None:
             errfile.close()
         log_fn(f"{label} error: {e}")
+        launch_report.mark_failed(f"{label} could not be started — {e}")
         return
     log_fn(f"{label}: started (pid {proc.pid})")
+    # Captured here: _watch runs on its own thread, where the thread-local
+    # binding no longer applies.
+    rep = launch_report.current()
+    started = time.monotonic()
+    if rep is not None:
+        rep.mark_spawned()
 
     def _watch() -> None:
         rc = proc.wait()
+        launch_report.mark_exit(rep, started, rc, label)
         tail = ""
         if errfile is not None:
             try:
@@ -822,7 +840,9 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log) -> None:
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
-            log_fn("Play error: could not reach Steam (no working launcher).")
+            msg = "Play error: could not reach Steam (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
             return
         spawn_watched(
             candidates[idx],
@@ -864,7 +884,9 @@ def launch_via_heroic(heroic_app_names: list, log_fn=_noop_log) -> bool:
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
-            log_fn("Play error: could not reach Heroic (no working launcher).")
+            msg = "Play error: could not reach Heroic (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
             return
         spawn_watched(
             candidates[idx],
@@ -933,7 +955,9 @@ def launch_via_lutris(slugs: list, log_fn=_noop_log) -> bool:
 
     def _try(idx: int) -> None:
         if idx >= len(candidates):
-            log_fn("Play error: could not reach Lutris (no working launcher).")
+            msg = "Play error: could not reach Lutris (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
             return
         spawn_watched(
             candidates[idx],
@@ -1064,6 +1088,10 @@ def get_tool_prefix_env(
     Returns None if the Proton version can't be found. The prefix directory is
     created if missing; wineboot initialises it when brand new (synchronous,
     up to 60s — call from a worker thread).
+
+    *steam_id* is accepted for call-site symmetry but intentionally NOT used to
+    set SteamAppId — see the app-context note below (the tool env pins app 0 so
+    Steam Input doesn't apply the game's controller profile to the tool).
     """
     from Utils.steam_finder import (
         find_any_installed_proton,
@@ -1086,14 +1114,21 @@ def get_tool_prefix_env(
     env = strip_appimage_env(os.environ.copy())
     env["STEAM_COMPAT_DATA_PATH"] = str(prefix_dir)
     env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
-    # lsteamclient asserts when it tries to attach to the Steam client with no
-    # app context; tools in an isolated prefix have no AppId from Steam.
-    if steam_id:
-        env.setdefault("SteamAppId", steam_id)
-        env.setdefault("SteamGameId", steam_id)
+    # App *context* of 0 (not the game's AppId): lsteamclient asserts when it
+    # attaches with no app context at all, so it needs *some* value — but the
+    # real game AppId also makes Steam Input bind the game's controller profile
+    # to the tool (mouse-less, no on-screen keyboard, trackpad-as-mouse gone),
+    # even though "runinprefix" keeps the game from showing as Running. Tools in
+    # an isolated prefix don't need SteamAPI_Init to see the *game*, so app 0
+    # keeps lsteamclient happy while leaving the desktop/OSK input profile in
+    # place. The game's own launch path still sets the real AppId (where the
+    # profile swap is wanted).
+    env.setdefault("SteamAppId", "0")
+    env.setdefault("SteamGameId", "0")
 
     if is_new:
         try:
+            from Utils.steam_finder import steam_client_installed
             subprocess.run(
                 # Must stay on the "run" verb: it's what triggers Proton's
                 # full prefix setup (dist files, DLL overrides, tracked_files)
@@ -1102,7 +1137,10 @@ def get_tool_prefix_env(
                                    env=env),
                 env=env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                timeout=60,
+                # Steam-less systems boot the prefix through umu-run, whose
+                # first ever run downloads the Steam Linux Runtime — allow
+                # for that instead of aborting the init at 60s.
+                timeout=60 if steam_client_installed() else 600,
             )
         except Exception:
             pass
@@ -1155,6 +1193,7 @@ PREFIX_MODE_SHARED = "shared"      # wine_prefixes/shared_<Proton>/, one per Pro
 PREFIX_MODE_GAME = "game"          # reuse the game's own prefix
 
 _LAUNCH_ENV_FILE = "launch_env.json"
+_LAUNCH_ARGS_FILE = "launch_args.json"
 _ENV_VAR_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
 
 
@@ -1179,6 +1218,19 @@ def save_prefix_mode(game, exe_name: str, mode: str) -> None:
     _write_launch_mode_key(
         game, f"__prefix_mode_{exe_name}",
         mode if mode in (PREFIX_MODE_SHARED, PREFIX_MODE_GAME) else None)
+
+
+def load_winetricks_style(game, exe_name: str) -> bool:
+    """Whether exe_name should launch via plain Wine (winetricks-style)
+    instead of the proton script. Off by default; opt-in per tool."""
+    return bool(_read_launch_mode_data(game).get(
+        f"__winetricks_style_{exe_name}", False))
+
+
+def save_winetricks_style(game, exe_name: str, enabled: bool) -> None:
+    """Persist the winetricks-style launch choice (off = remove key)."""
+    _write_launch_mode_key(game, f"__winetricks_style_{exe_name}",
+                           True if enabled else None)
 
 
 def load_tool_launch_env(exe: Path | None) -> str:
@@ -1212,6 +1264,50 @@ def save_tool_launch_env(exe: Path | None, text: str) -> None:
             p.unlink()
     except OSError:
         pass
+
+
+def load_tool_launch_args(exe: Path | None) -> str:
+    """Return the saved extra launch-args string for this exe ('' if none)."""
+    if exe is None:
+        return ""
+    p = exe.parent / _LAUNCH_ARGS_FILE
+    try:
+        return json.loads(p.read_text(encoding="utf-8")).get(exe.name) or ""
+    except (OSError, ValueError):
+        return ""
+
+
+def save_tool_launch_args(exe: Path | None, text: str) -> None:
+    """Persist the extra launch-args string in launch_args.json next to the exe."""
+    if exe is None:
+        return
+    p = exe.parent / _LAUNCH_ARGS_FILE
+    try:
+        data = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+    except (OSError, ValueError):
+        data = {}
+    if text:
+        data[exe.name] = text
+    else:
+        data.pop(exe.name, None)
+    try:
+        if data:
+            p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        elif p.is_file():
+            p.unlink()
+    except OSError:
+        pass
+
+
+def parse_launch_args(text: str) -> list:
+    """Split a launch-args string into a list of tokens (shell-quoting aware)."""
+    text = (text or "").strip()
+    if not text:
+        return []
+    try:
+        return shlex.split(text)
+    except ValueError:
+        return text.split()
 
 
 def parse_env_overrides(text: str) -> dict:
@@ -1334,29 +1430,6 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     return proton_script, compat_data, env
 
 
-def force_xwayland_env(env: dict, log_fn=_noop_log) -> dict:
-    """Blank WAYLAND_DISPLAY in *env* so Wine falls back to winex11/XWayland.
-
-    Wine's native Wayland driver (winewayland.drv) has no on-screen surface for
-    embedded child GL windows: it renders them into an offscreen buffer whose
-    blit-back to visible pixels is broken on some compositor/Nvidia setups. The
-    symptom is a blank/black 3D preview pane in wizard tools like BodySlide and
-    Outfit Studio while the top-level window renders fine (traced as
-    ``client_surface_update_offscreen ... offscreen 1`` on the preview HWND).
-
-    With no WAYLAND_DISPLAY socket in the environment, winewayland.drv bails and
-    Wine uses winex11 through XWayland, where child-window compositing works.
-    This keeps the user in their Wayland desktop session — no X11 login needed —
-    and is version-agnostic (works regardless of whether PROTON_ENABLE_WAYLAND
-    was set). No-op when the host isn't a Wayland session.
-    """
-    if not env.get("WAYLAND_DISPLAY"):
-        return env
-    env["WAYLAND_DISPLAY"] = ""
-    log_fn("forcing XWayland for tool preview (blanking WAYLAND_DISPLAY)")
-    return env
-
-
 def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
                         log_fn=_noop_log, *,
                         isolated_prefix_dir: "Path | None" = None):
@@ -1394,15 +1467,17 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     if result is None:
         return None
     proton_script, compat_data, env = result
-    # Force XWayland for the tool's embedded 3D preview (BodySlide/Outfit Studio
-    # etc). Applied before saved overrides so a user who explicitly wants native
-    # Wayland can re-add WAYLAND_DISPLAY via launch_env.json.
-    force_xwayland_env(env, log_fn)
     extra = parse_env_overrides(load_tool_launch_env(exe))
     if extra:
         env.update(extra)
         log_fn("applying saved env vars: "
                + " ".join(f"{k}={v}" for k, v in extra.items()))
+    # Marker consumed by run_tool_logged: launch this tool winetricks-style
+    # (plain wine, no proton session — see run_tool_winetricks_style). Set
+    # here so every wizard honours the Proton-step checkbox without each
+    # run call having to look the setting up itself.
+    if load_winetricks_style(game, exe.name):
+        env["AMM_WINETRICKS_STYLE"] = "1"
     return proton_script, compat_data, env
 
 
@@ -1434,6 +1509,19 @@ def run_tool_logged(
     from Utils.steam_finder import proton_run_command
 
     label = label or exe.name
+
+    # Winetricks-style launch chosen on the Proton step (marker set by
+    # resolve_tool_prefix): bypass the proton script entirely and run the
+    # tool the way winetricks does. The prefix location travels in env.
+    if env.get("AMM_WINETRICKS_STYLE") == "1":
+        prefix = env.get("STEAM_COMPAT_DATA_PATH") or env.get("WINEPREFIX")
+        if prefix:
+            return run_tool_winetricks_style(
+                proton_script, exe, Path(prefix), log_fn=log_fn,
+                extra_args=extra_args, cwd=cwd, label=label)
+        log_fn(f"{label}: winetricks-style launch requested but no prefix "
+               "path in env — falling back to Proton.")
+
     # Only set WINEDEBUG when the caller hasn't chosen its own channels
     # (BodySlide sets +wgl,+opengl for its GL trace and must win).
     env.setdefault("WINEDEBUG", winedebug)
@@ -1444,7 +1532,14 @@ def run_tool_logged(
     # reachable). The shim's other services don't apply here: the prefix was
     # already created/updated by get_tool_prefix_env's wineboot step, and every
     # caller converts its path arguments to wine paths itself.
-    cmd = proton_run_command(proton_script, "runinprefix", str(exe), env=env)
+    # Run the tool from its own folder (or the caller's cwd). Pass this to
+    # proton_run_command too: inside the flatpak sandbox the portal chdirs the
+    # host process itself, and the Popen cwd below is ignored — without it a
+    # tool writing files relative to its cwd (e.g. WitcherScriptMerger's
+    # MergeInventory.xml) would land at Z:\\ (host "/", unwritable).
+    tool_cwd = str(cwd) if cwd is not None else str(exe.parent)
+    cmd = proton_run_command(proton_script, "runinprefix", str(exe), env=env,
+                             host_cwd=tool_cwd)
     if extra_args:
         cmd = cmd + list(extra_args)
 
@@ -1452,7 +1547,7 @@ def run_tool_logged(
         proc = subprocess.Popen(
             cmd,
             env=env,
-            cwd=str(cwd) if cwd is not None else str(exe.parent),
+            cwd=tool_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,
@@ -1468,6 +1563,110 @@ def run_tool_logged(
         if line:
             log_fn(f"{label}: {line}")
     rc = proc.wait()
+    if rc != 0:
+        log_fn(f"{label}: exited with code {rc}")
+    return rc
+
+
+def run_tool_winetricks_style(
+    proton_script: Path,
+    exe: Path,
+    compat_data: Path,
+    log_fn=_noop_log,
+    *,
+    extra_args: "list[str] | None" = None,
+    extra_env: "dict | None" = None,
+    cwd: "Path | None" = None,
+    label: str | None = None,
+) -> int:
+    """Launch *exe* exactly the way winetricks' "Run an arbitrary executable"
+    does: plain ``wine start.exe`` against WINEPREFIX, no ``proton`` script.
+
+    Rationale (Steam Deck): the Proton session env carries the bridge to the
+    running Steam client (STEAM_COMPAT_CLIENT_INSTALL_PATH + lsteamclient), and
+    some users report Steam Input still swapping to the game's controller
+    profile — locking the trackpad/OSK out of the tool's UI — even with
+    SteamAppId neutralised. Running an exe from the winetricks GUI never has
+    that problem, because winetricks knows nothing of Steam: it inherits the
+    desktop environment, sets WINEPREFIX, and calls the raw wine binary. This
+    helper mirrors that launch byte-for-byte (env from ``os.environ`` + \
+WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
+    deviations: ``/wait`` so the wizard flow can block until the tool exits,
+    and ``/unix`` in place of winetricks' winepath round-trip.
+
+    The prefix itself must already exist (still created/updated through the
+    proton script — only the tool launch goes bare). Saved per-exe env-var
+    overrides (launch_env.json) are merged like the Proton path does;
+    *extra_env* is applied last, a value of ``None`` removes the variable.
+    Blocking — call from a worker thread. Returns the exit code.
+    """
+    label = label or exe.name
+    script = Path(proton_script)
+    if script.name in ("wine", "wine64"):
+        # Lutris/Heroic classic-wine prefix: the runner's wine IS the script.
+        wine_bin = script
+    else:
+        wine_bin = next(
+            (script.parent / d / "bin" / "wine" for d in ("files", "dist")
+             if (script.parent / d / "bin" / "wine").is_file()),
+            None,
+        )
+    if wine_bin is None:
+        from Utils.protontricks import _get_proton_bin
+        found = _get_proton_bin()
+        wine_bin = Path(found) / "wine" if found else None
+    if wine_bin is None or not wine_bin.is_file():
+        log_fn(f"{label}: no bare wine binary found for {script.parent.name}.")
+        return 1
+    bin_dir = wine_bin.parent
+
+    pfx = Path(compat_data) / "pfx"
+    env = strip_appimage_env(os.environ.copy())
+    env["WINEPREFIX"] = str(pfx if pfx.is_dir() else Path(compat_data))
+    env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+    saved = parse_env_overrides(load_tool_launch_env(exe))
+    if saved:
+        env.update(saved)
+        log_fn(f"{label}: applying saved env vars: "
+               + " ".join(f"{k}={v}" for k, v in saved.items()))
+    for k, v in (extra_env or {}).items():
+        if v is None:
+            env.pop(k, None)
+        else:
+            env[k] = v
+
+    cmd = [str(wine_bin), "start.exe", "/wait", "/unix", str(exe)]
+    if extra_args:
+        cmd = cmd + list(extra_args)
+    log_fn(f"{label}: launching with plain Wine (winetricks-style): "
+           f"{' '.join(cmd)}")
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            env=env,
+            cwd=str(cwd) if cwd is not None else str(exe.parent),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
+            universal_newlines=True,
+        )
+    except OSError as exc:
+        log_fn(f"{label}: failed to launch — {exc}")
+        launch_report.mark_failed(f"{label}: failed to launch — {exc}")
+        raise
+    import time as _time
+    rep = launch_report.current()
+    started = _time.monotonic()
+    if rep is not None:
+        rep.mark_spawned()
+
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        line = line.rstrip("\n")
+        if line:
+            log_fn(f"{label}: {line}")
+    rc = proc.wait()
+    launch_report.mark_exit(rep, started, rc, label)
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")
     return rc
@@ -1629,6 +1828,22 @@ def launch_game(game, log_fn=_noop_log) -> None:
     launch_exe_via_proton(exe_path, game, log_fn)
 
 
+def is_framework_launch_exe(game, exe_name: str) -> bool:
+    """True when *exe_name* is a declared framework launcher (script extender).
+
+    These start the game rather than a tool, so they need the game's own
+    prefix and Steam app context — see launch_exe_via_proton.
+    """
+    if game is None or not exe_name:
+        return False
+    try:
+        declared = getattr(game, "framework_launch_exes", None) or {}
+    except Exception:
+        return False
+    target = exe_name.lower()
+    return any(Path(rel).name.lower() == target for rel in declared.values())
+
+
 def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     """Standard Proton launch path for .exe files. Call from a worker thread.
 
@@ -1653,8 +1868,18 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     )
 
     proton_override_name = load_proton_override(game, exe_path.name)
+    # Script extenders always use the game's prefix. The settings UI disables
+    # the picker for these, but an override saved before that gate existed (or
+    # edited by hand) must not resurrect the isolated-prefix path.
+    if proton_override_name and is_framework_launch_exe(game, exe_path.name):
+        log_fn(f"Run EXE: {exe_path.name} is a script extender — ignoring the "
+               f"'{proton_override_name}' override and using the game's prefix "
+               "(it launches the game, which needs the game's Steam app ID).")
+        proton_override_name = None
     lutris_env_extra = None  # set for classic lutris-wine prefixes only
     umu_bin = None  # set for Lutris umu/Proton prefixes when umu-run exists
+    prefix_path = None  # game-prefix branch only (None with a Proton override)
+    lutris_is_prefix = False
     if proton_override_name:
         # Try exact match first, then prefix match ("Proton 10" → "Proton 10.0")
         proton_script = find_any_installed_proton(proton_override_name)
@@ -1818,6 +2043,41 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         log_fn(f"Run EXE: invalid arguments — {e}")
         return
 
+    if load_winetricks_style(game, exe_path.name):
+        # Per-exe opt-in mirrored from the wizards' Proton step: bypass the
+        # Proton session and run bare `wine start.exe` against the resolved
+        # prefix (see run_tool_winetricks_style). The prefix itself is still
+        # created/updated through Proton. Env vars from Launch Options are
+        # applied; wrappers/%command% are not — there is no wrapped command.
+        extra_env, _ = parse_launch_options(
+            load_launch_options(game, exe_path.name), [])
+        pfx_root = prefix_path if lutris_is_prefix else compat_data
+        if (lutris_env_extra is None
+                and not (pfx_root / "pfx" / "user.reg").is_file()
+                and not (pfx_root / "user.reg").is_file()):
+            log_fn("Run EXE: initialising the prefix via Proton before the "
+                   "plain-Wine launch …")
+            try:
+                from Utils.steam_finder import steam_client_installed
+                subprocess.run(
+                    # "run" (not "runinprefix"): triggers Proton's full
+                    # first-time prefix setup, same as get_tool_prefix_env.
+                    proton_run_command(proton_script, "run", "wineboot",
+                                       "--init", env=env),
+                    env=env,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    # umu-run's first ever run on a Steam-less system
+                    # downloads the Steam Linux Runtime — allow for it.
+                    timeout=60 if steam_client_installed() else 600,
+                )
+            except Exception:
+                pass
+        run_tool_winetricks_style(
+            proton_script, exe_path, pfx_root, log_fn=log_fn,
+            extra_args=extra_args, extra_env=extra_env or None,
+            label=exe_path.name)
+        return
+
     runner_name = (proton_script.parent.parent.name
                    if lutris_env_extra is not None else proton_script.parent.name)
     if umu_bin is not None:
@@ -1836,19 +2096,27 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         from Utils.lutris_finder import umu_run_command
         base_cmd = umu_run_command(umu_bin, str(exe_path), env=env) + extra_args
     else:
-        # "runinprefix" skips Proton's steam.exe shim, so launching a tool
-        # doesn't register the game as "Running" with Steam — that
-        # registration also makes Steam Input swap the desktop profile
-        # (trackpad mouse) for the game's mouse-less profile on Steam Deck,
-        # locking the user out of the tool's UI. Script extenders still work:
-        # the game's own SteamAPI_Init attaches via the SteamAppId env vars
-        # when the game actually starts, which is the right moment for the
-        # input-profile switch. A never-booted prefix (fresh per-exe override
-        # prefix) still needs "run" — it performs Proton's initial prefix
-        # setup, and its env carries no SteamAppId so nothing registers with
-        # Steam anyway.
-        verb = ("runinprefix"
-                if (compat_data / "pfx" / "user.reg").is_file() else "run")
+        # Anything that starts the game needs "waitforexitandrun" (the verb
+        # Steam itself uses): it boots the steam.exe shim, without which
+        # Steam-stub DRM fails SteamAPI init even with SteamAppId in env —
+        # NVSE shows "Application load error 5:0000065434", skse64_loader
+        # exits 245. Steam Input swapping to the game's controller profile is
+        # correct here; it IS the game.
+        # Tools keep "runinprefix" — no shim, so no "Running" status and no
+        # profile swap, which on Steam Deck would lock the trackpad/OSK out of
+        # the tool's UI. A never-booted prefix still needs "run" for Proton's
+        # initial setup.
+        game_exe = resolve_game_exe(game)
+        launches_game = (
+            not proton_override_name
+            and (is_framework_launch_exe(game, exe_path.name)
+                 or (game_exe is not None
+                     and str(exe_path).lower() == str(game_exe).lower())))
+        if launches_game:
+            verb = "waitforexitandrun"
+        else:
+            verb = ("runinprefix"
+                    if (compat_data / "pfx" / "user.reg").is_file() else "run")
         base_cmd = proton_run_command(proton_script, verb, str(exe_path),
                                       env=env) + extra_args
     if not launch_opts:
@@ -1861,6 +2129,8 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
+        # App context: a missing/zero SteamAppId is what DRM load errors report.
+        "SteamAppId", "STEAM_COMPAT_INSTALL_PATH",
     )
     _env_summary = " ".join(
         f"{k}={env.get(k)}" for k in _env_keys if env.get(k) is not None
@@ -2010,7 +2280,13 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
         )
     except Exception as e:
         log_fn(f"Run JAR error: {e}")
+        launch_report.mark_failed(f"Run JAR error: {e}")
         return
+    import time as _time
+    rep = launch_report.current()
+    started = _time.monotonic()
+    if rep is not None:
+        rep.mark_spawned()
 
     # Stream the launcher's output to the log so failures (missing java.exe in
     # the prefix, a jar that crashes on start) are visible instead of silent.
@@ -2021,6 +2297,7 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
             if line:
                 log_fn(f"Run JAR: {line}")
         rc = proc.wait()
+        launch_report.mark_exit(rep, started, rc, f"Run JAR {jar_path.name}")
         if rc != 0:
             log_fn(f"Run JAR: {jar_path.name} exited with code {rc}")
 

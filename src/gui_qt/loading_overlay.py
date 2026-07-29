@@ -69,6 +69,8 @@ class LoadingOverlay(QWidget):
         self._resize_to_parent()
         self.raise_()
         self.show()
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._resize_to_parent)
 
     def hide_overlay(self) -> None:
         self.hide()
@@ -80,7 +82,8 @@ class LoadingOverlay(QWidget):
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent
-        if obj is self.parentWidget() and event.type() == QEvent.Resize \
+        if obj is self.parentWidget() \
+                and event.type() in (QEvent.Resize, QEvent.Show) \
                 and self.isVisible():
             self._resize_to_parent()
         return super().eventFilter(obj, event)

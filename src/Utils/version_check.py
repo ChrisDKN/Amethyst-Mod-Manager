@@ -5,6 +5,7 @@ Used by the app shell. No dependency on any gui modules.
 
 import os
 import re
+import shlex
 import subprocess
 
 from Utils.gh_cache import fetch_text as _gh_fetch_text
@@ -162,40 +163,6 @@ def _is_newer_version(current: str, latest: str) -> bool:
         return False
 
 
-def _major_minor(s: str) -> tuple[int, int] | None:
-    """Parse a version string and return (major, minor). Beta/pre-release suffix is ignored.
-
-    '1.3'           -> (1, 3)
-    '1.3.0'         -> (1, 3)
-    '1.3.0-beta.3'  -> (1, 3)
-    """
-    if not s:
-        return None
-    try:
-        core = s.strip().lstrip("v").split("-", 1)[0]
-        parts = core.split(".")
-        if len(parts) < 2:
-            return None
-        return (int(parts[0]), int(parts[1]))
-    except (ValueError, AttributeError):
-        return None
-
-
-def _meets_min_app_version(min_ver: str, app_ver: str) -> bool:
-    """Return True if app_ver satisfies a major.minor floor of min_ver.
-
-    Beta builds satisfy the floor for their major.minor (e.g. 1.3.0-beta.2
-    satisfies "1.3"). An empty/missing min_ver always returns True.
-    """
-    if not min_ver:
-        return True
-    floor = _major_minor(min_ver)
-    have = _major_minor(app_ver)
-    if floor is None or have is None:
-        return True  # malformed → don't block
-    return have >= floor
-
-
 def run_installer(allow_prerelease: bool = False):
     """Run the AppImage installer in a detached subprocess.
 
@@ -217,7 +184,7 @@ def run_installer(allow_prerelease: bool = False):
     cmd = (
         f"sleep 2 && "
         f"SCRIPT=$(mktemp /tmp/amethyst-installer-XXXXXX.sh) && "
-        f"curl -sSL {_APP_UPDATE_INSTALLER_URL} -o \"$SCRIPT\" && "
+        f"curl -sSL {shlex.quote(_APP_UPDATE_INSTALLER_URL)} -o \"$SCRIPT\" && "
         f"chmod +x \"$SCRIPT\" && "
         f"bash \"$SCRIPT\"{installer_args} && "
         f"rm -f \"$SCRIPT\" && "
@@ -247,13 +214,16 @@ def run_installer(allow_prerelease: bool = False):
     }
 
     try:
-        subprocess.Popen(
-            ["bash", "-c", cmd],
-            stdout=open(log_path, "w", encoding="utf-8"),
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-            env=clean_env,
-        )
+        # with-block: close OUR copy of the log fd once the child has spawned
+        # (the child keeps its own inherited duplicate).
+        with open(log_path, "w", encoding="utf-8") as log_file:
+            subprocess.Popen(
+                ["bash", "-c", cmd],
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                env=clean_env,
+            )
     except Exception:
         pass
 
@@ -306,22 +276,26 @@ def run_flatpak_installer(latest_tag: str) -> bool:
     # curl runs in-sandbox (network is granted); install/run go to the host.
     # --directory=/ avoids the portal failing on the app's sandbox-only cwd.
     host = "flatpak-spawn --host --directory=/"
+    _q_bundle = shlex.quote(bundle_path)
     cmd = (
         f"sleep 2 && "
-        f"curl -fsSL {bundle_url} -o {bundle_path!r} && "
+        f"curl -fsSL {shlex.quote(bundle_url)} -o {_q_bundle} && "
         f"{host} flatpak install --user --bundle --reinstall --noninteractive -y "
-        f"{bundle_path!r} && "
-        f"rm -f {bundle_path!r} && "
-        f"{host} flatpak run {_APP_ID} &>/dev/null &"
+        f"{_q_bundle} && "
+        f"rm -f {_q_bundle} && "
+        f"{host} flatpak run {shlex.quote(_APP_ID)} &>/dev/null &"
     )
 
     try:
-        subprocess.Popen(
-            ["bash", "-c", cmd],
-            stdout=open(log_path, "w", encoding="utf-8"),
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
+        # with-block: close OUR copy of the log fd once the child has spawned
+        # (the child keeps its own inherited duplicate).
+        with open(log_path, "w", encoding="utf-8") as log_file:
+            subprocess.Popen(
+                ["bash", "-c", cmd],
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
         return True
     except Exception:
         return False
@@ -405,11 +379,6 @@ def flatpak_installed_from_remote() -> bool:
         return False
     our_remote = _remote_name_for_our_url()
     return our_remote is not None and origin == our_remote
-
-
-def flatpak_remote_present() -> bool:
-    """True if a remote pointing at our hosted repo is configured (any name)."""
-    return _remote_name_for_our_url() is not None
 
 
 def _effective_remote_name() -> str:
@@ -535,16 +504,19 @@ def _launch_remote_reinstall(branch: str) -> str:
     cmd = (
         f"sleep 2 && "
         f"{host} flatpak install --user --reinstall --noninteractive -y "
-        f"{remote} {ref} && "
-        f"{host} flatpak run {_APP_ID} &>/dev/null &"
+        f"{shlex.quote(remote)} {shlex.quote(ref)} && "
+        f"{host} flatpak run {shlex.quote(_APP_ID)} &>/dev/null &"
     )
     try:
-        subprocess.Popen(
-            ["bash", "-c", cmd],
-            stdout=open(log_path, "w", encoding="utf-8"),
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
+        # with-block: close OUR copy of the log fd once the child has spawned
+        # (the child keeps its own inherited duplicate).
+        with open(log_path, "w", encoding="utf-8") as log_file:
+            subprocess.Popen(
+                ["bash", "-c", cmd],
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
         return "launched"
     except Exception:
         return "unavailable"

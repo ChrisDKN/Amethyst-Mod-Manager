@@ -2,8 +2,11 @@
 
 Each game class declares the frameworks it cares about via its ``frameworks``
 property → ``{display_name: relative_exe_path}`` (e.g. Skyrim SE →
-``{"Script Extender": "skse64_loader.exe"}``). This module decides, for each, one
-of four states by checking where the exe lives:
+``{"Script Extender": "skse64_loader.exe"}``). A value may also be a
+tuple/list of alternative paths where ANY present file satisfies the
+framework (e.g. BepInEx → ``("winhttp.dll", "run_bepinex.sh")`` — the native
+Linux build ships the shell script instead of the proxy dll). This module
+decides, for each, one of four states by checking where the exe lives:
 
   installed     — present in the deployed game root            (green)
   not_deployed  — staged in the modlist but not deployed yet   (orange)
@@ -30,6 +33,17 @@ class FrameworkStatus:
     label: str
     state: str        # one of the STATE_* values
     message: str      # ready-to-show banner text (with ✔/●/✘ prefix)
+
+
+def framework_exe_candidates(value) -> "tuple[str, ...]":
+    """Normalise a ``frameworks`` dict value to a tuple of candidate paths —
+    a plain string is one candidate, a tuple/list is taken as alternatives
+    where any present file satisfies the framework."""
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, (tuple, list)):
+        return tuple(v for v in value if isinstance(v, str) and v)
+    return ()
 
 
 def resolve_file_ci(base: Path, rel: Path) -> "Path | None":
@@ -162,33 +176,49 @@ def detect_frameworks(game, filemap_path, modlist_path,
     index_path = (Path(filemap_path).parent / "modindex.bin") if filemap_path else None
     disabled = disabled_basenames(modlist_path, index_path)
 
-    out: list[FrameworkStatus] = []
-    for label, exe in frameworks.items():
+    def state_for_exe(exe: str) -> str:
         exe_path = Path(exe)
-        present = game_root is not None and file_exists_ci(game_root, exe_path)
+        if game_root is not None and file_exists_ci(game_root, exe_path):
+            return STATE_INSTALLED
 
-        in_root_staging = False
-        if not present and rf_allowed and root_folder is not None:
-            in_root_staging = file_exists_ci(root_folder, exe_path)
+        in_root_staging = (rf_allowed and root_folder is not None
+                           and file_exists_ci(root_folder, exe_path))
 
+        if in_root_staging and not rf_toggle_enabled:
+            return STATE_NOT_ENABLED
+        if in_root_staging or exe_in_staged(exe, staged_keys, mods_dir):
+            return STATE_NOT_DEPLOYED
         exe_basename = exe.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if exe_basename and exe_basename in disabled:
+            return STATE_NOT_ENABLED
+        return STATE_MISSING
 
-        if present:
-            out.append(FrameworkStatus(label, STATE_INSTALLED,
+    # Any one candidate satisfies the framework — report the best state.
+    rank = {STATE_INSTALLED: 3, STATE_NOT_DEPLOYED: 2,
+            STATE_NOT_ENABLED: 1, STATE_MISSING: 0}
+    out: list[FrameworkStatus] = []
+    for label, exes in frameworks.items():
+        candidates = framework_exe_candidates(exes)
+        state = STATE_MISSING
+        for exe in candidates:
+            s = state_for_exe(exe)
+            if rank[s] > rank[state]:
+                state = s
+            if state == STATE_INSTALLED:
+                break
+
+        if state == STATE_INSTALLED:
+            out.append(FrameworkStatus(label, state,
                                        f"✔  {label} Installed"))
-        elif in_root_staging and not rf_toggle_enabled:
+        elif state == STATE_NOT_DEPLOYED:
             out.append(FrameworkStatus(
-                label, STATE_NOT_ENABLED,
-                f"●  {label} present in modlist but not enabled"))
-        elif in_root_staging or exe_in_staged(exe, staged_keys, mods_dir):
-            out.append(FrameworkStatus(
-                label, STATE_NOT_DEPLOYED,
+                label, state,
                 f"●  {label} present in modlist but not deployed"))
-        elif exe_basename and exe_basename in disabled:
+        elif state == STATE_NOT_ENABLED:
             out.append(FrameworkStatus(
-                label, STATE_NOT_ENABLED,
+                label, state,
                 f"●  {label} present in modlist but not enabled"))
         else:
-            out.append(FrameworkStatus(label, STATE_MISSING,
+            out.append(FrameworkStatus(label, state,
                                        f"✘  {label} Not Present"))
     return out

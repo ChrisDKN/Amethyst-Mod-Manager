@@ -196,6 +196,7 @@ class Fallout_3(BaseGame):
                 "dyndolod",
                 "netscriptframework",
                 "skyproc patchers",
+                "src",
                 }
 
     @property
@@ -212,7 +213,11 @@ class Fallout_3(BaseGame):
 
     @property
     def conflict_ignore_filenames(self) -> set[str]:
-        return {"info.xml","*read*.txt","*.jpg"}
+        return {"info.xml","*read*.txt","*.jpg","*.html","*.md"}
+
+    @property
+    def conflict_ignore_foldernames(self) -> set[str]:
+        return {"src"}
     
     @property
     def excluded_loose_filenames(self) -> set[str]:

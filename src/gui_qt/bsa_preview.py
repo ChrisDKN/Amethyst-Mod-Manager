@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
 )
 
+from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.icons import icon
 
@@ -333,7 +334,7 @@ class BsaPreview(QWidget):
                     codes = fn(path) or {}
                 except Exception:
                     codes = {}
-                self._conflicts_ready.emit(gen, codes)
+                safe_emit(self._conflicts_ready, gen, codes)
 
             threading.Thread(target=worker, daemon=True).start()
 

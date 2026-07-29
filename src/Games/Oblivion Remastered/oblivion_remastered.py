@@ -159,65 +159,80 @@ class OblivionRemastered(UE5Game):
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
             CustomRule(dest="Unused",
-                       folders=["wingdk", "src", "True Oblivion.ini Merger"]),
-            CustomRule(dest="Unused", filenames=["Altar.ini"], flatten=True),
-            CustomRule(dest="Binaries/Win64", filenames=["*obse64_*.*"],
-                       flatten=True),
-            CustomRule(dest="Content/Paks", folders=["LogicMods"], flatten=True),
+                        folders=["wingdk", "src", "True Oblivion.ini Merger"]),
+
+            CustomRule(dest="Unused", 
+                        filenames=["Altar.ini"],
+                        flatten=True),
+            
+            # Required as our strip prefix rules do not apply to fomods
+            CustomRule(dest="", 
+                        folders=["Content", "Binaries"], 
+                        flatten=True),
+
+            CustomRule(dest="Binaries/Win64", 
+                        filenames=["*obse64_*.*"],
+                        flatten=True),
+
+            CustomRule(dest="Content/Paks", 
+                        folders=["LogicMods"], 
+                        flatten=True),
+
             CustomRule(dest="Binaries/Win64",
-                       folders=["ue4ss", "obse", "GameSettings",
+                        folders=["ue4ss", "obse", "GameSettings",
                                 "MadConfigs", "SkipMessages"],
-                       flatten=True),
-            CustomRule(dest="Content/Paks/~mods", extensions=[".pak"],
-                       companion_extensions=[".ucas", ".utoc"],
-                       include_siblings=True),
+                        flatten=True),
+
+            CustomRule(dest="Content/Paks/~mods", 
+                        extensions=[".pak"],
+                        companion_extensions=[".ucas", ".utoc"],
+                        include_siblings=True),
+
             CustomRule(dest="Binaries/Win64/ue4ss/Mods",
-                       folders=["scripts", "dlls"], include_siblings=True),
+                        folders=["scripts", "dlls"], 
+                        include_siblings=True),
+        
             CustomRule(dest="Binaries/Win64/ue4ss/Mods",
-                       filenames=["enabled.txt"], include_siblings=True),
+                        filenames=["enabled.txt"], 
+                        include_siblings=True),
+
             CustomRule(dest="Binaries/Win64/ue4ss/Mods",
-                       filenames=["mods.txt"], flatten=True),
+                        filenames=["mods.txt"], 
+                        flatten=True),
+
             CustomRule(dest="Content/Dev/ObvData/Data",
-                       extensions=[".esm", ".esp"], flatten=True),
+                        extensions=[".esm", ".esp"], 
+                        flatten=True),
+
             CustomRule(dest="Content/Dev/ObvData/Data",
-                       folders=["MagicLoader", "bashtags","SyncMap","sound"], flatten=True),
-            CustomRule(dest="Content/Movies/Modern", extensions=[".bk2"],
-                       flatten=True),
+                        folders=["MagicLoader", "bashtags","SyncMap","sound"], 
+                        flatten=True),
+
+            CustomRule(dest="Content/Movies/Modern", 
+                        extensions=[".bk2"],
+                        flatten=True),
+
             CustomRule(dest="Binaries/Win64/ue4ss/Mods",
-                       folders=["shared", "NPCAppearanceManager"], flatten=True),
+                        folders=["shared", "NPCAppearanceManager"], 
+                        flatten=True),
+
             CustomRule(dest="Unused",
-                       extensions=[".txt"], loose_only=True),
+                        extensions=[".txt"], 
+                        loose_only=True),
         ]
 
     @property
     def _ue5_post_passthrough_rules(self) -> list[UE5Rule]:
         # Trailing UE5 fallbacks (same as Ue5CustomGame's defaults) — applied
-        # after the custom_routing_rules above and the shared binaries/content
-        # pass-through, so anything not claimed earlier still lands correctly.
+        # before the custom_routing_rules - Used to apply the ue4ss base structure
         return [
-            # Lua UE4SS scripts and companion files (config.ini, data .json,
-            # enabled.txt) → Binaries/Win64/ue4ss/Mods/
-            UE5Rule(
-                dest="Binaries/Win64/ue4ss/Mods",
-                extensions=[".lua", ".ini", ".json"],
-                filenames=["enabled.txt"],
-                strip=[
-                    "Binaries/Win64/ue4ss/Mods",
-                    "Binaries/Win64/Mods",
-                    "Binaries/Win64/ue4ss",
-                    "ue4ss/Mods",
-                    "UE4SS/Mods",
-                    "UE4SS",
-                    "ue4ss",
-                    "Mods",
-                ],
-                flatten=True,
-            ),
-            # Loose UE4SS proxy/runtime files (dwmapi.dll, UE4SS.dll, .pdb) →
-            # Binaries/Win64/
             UE5Rule(
                 dest="Binaries/Win64",
-                extensions=[".dll", ".pdb"],
+                filenames=["dwmapi.dll"],
+            ),
+            UE5Rule(
+                dest="Binaries/Win64/ue4ss",
+                filenames=["ue4ss.dll", "ue4ss.pdb", "ue4ss-settings.ini"],
             ),
         ]
 

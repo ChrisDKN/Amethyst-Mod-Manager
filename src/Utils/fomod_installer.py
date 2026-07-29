@@ -448,15 +448,6 @@ def _dep_plugin_name(dep: "Dependency") -> str:
     return (FLAG_ABSENT + name) if dep.file_state == "Missing" else name
 
 
-def _is_plugin_file_dep(dep: "Dependency") -> bool:
-    """True if *dep* is a fileDependency on a real plugin (a .esp/.esm/.esl with
-    no path separator — loose assets skipped) that would need to be PRESENT +
-    enabled (Active) for the pattern to match. Inactive/Missing gates are not
-    'present-required' so return False."""
-    name = _dep_plugin_name(dep)
-    return bool(name) and not name.startswith(FLAG_ABSENT)
-
-
 def _pattern_has_inactive_plugin(dep: "Dependency") -> bool:
     """True if *dep*'s tree references any real plugin with state="Inactive".
     The rerun-flag clause format can't represent "present but DISABLED" (only
@@ -633,49 +624,107 @@ def _dep_references_file(dep: "Dependency") -> bool:
     return False
 
 
+def _file_only_projection(dep: "Dependency") -> "Dependency | None":
+    """Reduce *dep* to just its file-referencing part, dropping flag/version
+    leaves — so a MIXED pattern like ``And(flag HD=active, file "Lux Via.esp"
+    Active, flag Lux=inactive)`` is judged on its FILE gate alone.
+
+    This exists because :func:`plugin_dep_unmet`/:func:`plugin_dep_met` run at
+    STYLE time, before any in-wizard selection has set a flag. Evaluating a
+    mixed ``And`` whole would always fail on those empty flags and falsely dim
+    an option whose file gate is actually satisfied (GH: Embers XD "Lux Via").
+    The docstrings promise "we only want to dim on FILE state" — this makes it
+    true.
+
+    Rules (semantics-preserving for dim/highlight intent):
+      * ``file`` leaf  → returned as-is.
+      * ``And``        → keep only the file-referencing sub-deps. In an AND the
+        file part is a NECESSARY condition, so "file part holds" is exactly the
+        right signal; the flag/version members are dropped.
+      * ``Or``         → project only when EVERY alternative is file-referencing.
+        If any alternative is flag/version-only, the option is satisfiable
+        without a file (e.g. ``Or(file X Active, flag Lux=active)``), so it is
+        NOT a pure file gate — return None so it is treated as non-dimmable.
+      * ``flag``/``version``/None → None (not file-driven).
+    """
+    if dep is None:
+        return None
+    if dep.dep_type == "file":
+        return dep
+    if dep.dep_type != "composite":
+        return None
+    op = (dep.operator or "And").lower()
+    if op == "or":
+        # A file gate is the sole path to satisfaction only if no alternative is
+        # a bare flag/version — otherwise the option can be reached without the
+        # file, so it must not dim.
+        projected = [_file_only_projection(s) for s in dep.sub_deps]
+        if not projected or any(p is None for p in projected):
+            return None
+        return Dependency(dep_type="composite", operator="Or",
+                          sub_deps=[p for p in projected])
+    # And (default): keep only the file-referencing members.
+    kept = [_file_only_projection(s) for s in dep.sub_deps
+            if _dep_references_file(s)]
+    kept = [k for k in kept if k is not None]
+    if not kept:
+        return None
+    if len(kept) == 1:
+        return kept[0]
+    return Dependency(dep_type="composite", operator="And", sub_deps=kept)
+
+
 def plugin_dep_unmet(plugin: "Plugin", active_files: set[str] | None,
                      installed_files: set[str] | None = None,
                      loose_files: set[str] | None = None) -> bool:
-    """True when *plugin* has a fileDependency-driven type pattern that is NOT
-    currently satisfied — used to dim (as a hint, not lock) an option whose
-    condition isn't met. Evaluates each pattern with the real
-    :func:`evaluate_dependency`, so it honours mixed conditions correctly:
-    ``And(Thaumaturgy.esp Active, gaunt.esl Missing)`` is met only when
-    Thaumaturgy is active AND gaunt is absent. Flag/version-only patterns are not
-    plugin-driven and never dim the option.
+    """True when *plugin* has a fileDependency-driven type pattern whose FILE
+    gate is NOT currently satisfied — used to dim (as a hint, not lock) an
+    option whose plugin condition isn't met.
 
-    Returns False when no pattern references a file at all, or when at least one
-    file-referencing pattern currently evaluates True.
+    Only the file part of each pattern is evaluated (see
+    :func:`_file_only_projection`): a mixed ``And(flag …, file X Active)`` is
+    judged on ``file X Active`` alone, because flags are only set by in-wizard
+    selections and are empty at style time. This honours multi-file conditions
+    correctly — ``And(Thaumaturgy.esp Active, gaunt.esl Missing)`` is met only
+    when Thaumaturgy is active AND gaunt is absent. Flag/version-only patterns
+    are not plugin-driven and never dim the option.
+
+    Returns False when no pattern has a file gate at all, or when at least one
+    file gate currently evaluates True.
     """
     active = active_files or set()
     installed = installed_files if installed_files is not None else active
     saw_file_dep = False
     for pattern_dep, _type_name in plugin.type_descriptor.patterns:
-        if not _dep_references_file(pattern_dep):
+        file_dep = _file_only_projection(pattern_dep)
+        if file_dep is None:
             continue
         saw_file_dep = True
         # version_pass=True: unknown engine/extender version gates are lenient,
         # matching resolve_plugin_type — we only want to dim on FILE state.
-        if evaluate_dependency(pattern_dep, {}, installed, active,
+        if evaluate_dependency(file_dep, {}, installed, active,
                                version_pass=True, loose_files=loose_files):
-            return False   # a file-driven pattern is satisfied → not unmet
+            return False   # a file gate is satisfied → not unmet
     return saw_file_dep
 
 
 def plugin_dep_met(plugin: "Plugin", active_files: set[str] | None,
                    installed_files: set[str] | None = None,
                    loose_files: set[str] | None = None) -> bool:
-    """True when *plugin* HAS a fileDependency-driven type pattern and it is
+    """True when *plugin* HAS a file gate in its type pattern and that gate is
     currently SATISFIED — i.e. the option is gated on a plugin and that gate is
     now met. Used to highlight options that became available since the last run
-    (blue on rerun). Options with no plugin dependency return False (they were
-    always available, not 'newly' so)."""
+    (blue on rerun). Only the file part is evaluated (see
+    :func:`_file_only_projection`) so mixed flag+file ``And`` patterns are judged
+    on their file gate, not on flags that are empty at style time. Options with
+    no file gate return False (they were always available, not 'newly' so)."""
     active = active_files or set()
     installed = installed_files if installed_files is not None else active
     for pattern_dep, _type_name in plugin.type_descriptor.patterns:
-        if not _dep_references_file(pattern_dep):
+        file_dep = _file_only_projection(pattern_dep)
+        if file_dep is None:
             continue
-        if evaluate_dependency(pattern_dep, {}, installed, active,
+        if evaluate_dependency(file_dep, {}, installed, active,
                                version_pass=True, loose_files=loose_files):
             return True
     return False

@@ -43,7 +43,7 @@ from Utils.deploy_shared import resolve_mod_dir
 from Utils.filemap import OVERWRITE_NAME
 
 try:
-    import LOOT.loot as loot
+    import loot
     _AVAILABLE = True
 except ImportError as _exc:
     loot = None
@@ -54,7 +54,12 @@ except ImportError as _exc:
     try:
         import sysconfig
         _tag = sysconfig.get_config_var("EXT_SUFFIX") or ""
-        _present = sorted(p.name for p in Path(__file__).parent.glob("loot.*.so"))
+        # The extension lives at the src/ root (top-level `import loot`);
+        # also glob this dir to flag strays from the old LOOT/-local layout.
+        _here = Path(__file__).parent
+        _present = sorted(
+            {p.name for d in (_here.parent, _here) for p in d.glob("loot.*.so")}
+        )
         _IMPORT_DETAIL = (
             "LOOT: native extension failed to import — sorting disabled. "
             f"Interpreter needs 'loot{_tag}', found {_present or 'none'}. ({_exc})"

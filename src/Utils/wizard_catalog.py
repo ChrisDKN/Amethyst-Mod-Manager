@@ -53,10 +53,10 @@ _CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
       "script_merger", "gpak"), "Patchers and Cleanup"),
     # Load order and config
     (("wrye_bash", "bethini"), "Load Order and Config"),
-    # Setup & installers (script extenders, downgraders, patches, framework installs)
+    # Setup and installers (script extenders, downgraders, patches, framework installs)
     (("install_se", "install_reshade", "install_bepinex", "install_mgexe",
       "install_mcp", "downgrade", "4gb_patch", "dtkit", "_patch"),
-     "Setup & Installers"),
+     "Setup and Installers"),
 ]
 
 

@@ -12,9 +12,12 @@ is no Save/Cancel button. A few settings (Language, Theme, UI Scale) only take
 effect on restart and say so inline.
 
 A curated subset of the Tk Settings panel (gui/status_bar.py `SettingsPanel`):
-User Interface (incl. Theme + UI Scale), Downloads & Collections, General, Paths
-— plus a Manage Caches action. Theme colour pickers are intentionally omitted
-(Qt has no colour-override system yet).
+User Interface (incl. Theme + UI Scale), Archives, Downloads, Extraction,
+General, Paths — plus a Manage Caches action. Theme colour pickers are
+intentionally omitted (Qt has no colour-override system yet).
+
+Option descriptions are tooltips (on the row and on its accent "?" marker), not
+inline labels — rows stay one line tall and nothing clips at narrow widths.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
+from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
 from Utils import ui_config as uc
 
@@ -67,8 +71,23 @@ class SettingsView(QWidget):
 
         self.setStyleSheet(self._qss())
 
+        # Collection settings — read once here; both the Downloads and the
+        # Extraction sections persist through this shared dict.
+        try:
+            cs = uc.load_collection_settings()
+        except Exception:
+            cs = {}
+        self._cs = {
+            "max_concurrent": int(cs.get("max_concurrent", uc._DEFAULT_MAX_CONCURRENT)),
+            "max_extract_workers": int(cs.get("max_extract_workers", uc._DEFAULT_MAX_EXTRACT_WORKERS)),
+            "check_download_locations": bool(cs.get("check_download_locations", True)),
+            "clear_archive_after_install": bool(cs.get("clear_archive_after_install", False)),
+        }
+
         self._build_user_interface()
+        self._build_archives()
         self._build_downloads()
+        self._build_extraction()
         self._build_general()
         self._build_paths()
         self._v.addStretch(1)
@@ -90,7 +109,7 @@ class SettingsView(QWidget):
             color: {c('TEXT_MAIN')};
             font-weight: bold;
         }}
-        QLabel#Help {{ color: {c('TEXT_DIM')}; }}
+        {help_mark_qss(self._pal)}
         QLabel#RestartNote {{ color: {c('TEXT_WARN')}; }}
         QSlider::groove:horizontal {{
             height: 4px; background: {c('BG_DEEP')}; border-radius: 2px;
@@ -122,11 +141,11 @@ class SettingsView(QWidget):
         grid.setProperty("_row", r + 1)
         return r
 
-    def _add_help(self, grid: QGridLayout, text: str) -> None:
-        lbl = QLabel(text)
-        lbl.setObjectName("Help")
-        lbl.setWordWrap(True)
-        grid.addWidget(lbl, self._next_row(grid), 0, 1, 2)
+    def _tip_text(self, text: str) -> str:
+        return tip_text(text)
+
+    def _help_marker(self, text: str) -> QLabel:
+        return make_help_marker(text)
 
     def _checkbox(self, grid: QGridLayout, label: str, load_fn, save_fn,
                   help: str | None = None, on_changed=None) -> QCheckBox:
@@ -145,9 +164,18 @@ class SettingsView(QWidget):
                     pass
 
         cb.toggled.connect(_toggled)
-        grid.addWidget(cb, self._next_row(grid), 0, 1, 2)
+        row = self._next_row(grid)
         if help:
-            self._add_help(grid, help)
+            cb.setToolTip(self._tip_text(help))
+            wrap = QHBoxLayout()
+            wrap.setContentsMargins(0, 0, 0, 0)
+            wrap.addWidget(cb)
+            wrap.addWidget(self._help_marker(help))
+            wrap.addStretch(1)
+            holder = QWidget(); holder.setLayout(wrap)
+            grid.addWidget(holder, row, 0, 1, 2)
+        else:
+            grid.addWidget(cb, row, 0, 1, 2)
         return cb
 
     def _combo(self, grid: QGridLayout, label: str,
@@ -173,10 +201,11 @@ class SettingsView(QWidget):
         return combo
 
     def _slider(self, grid: QGridLayout, label: str, lo: int, hi: int,
-                value: int, on_change) -> QSlider:
+                value: int, on_change, help: str | None = None) -> QSlider:
         """Integer slider lo..hi with a live value label. `on_change(int)`."""
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, 0)
+        lbl = QLabel(label)
+        grid.addWidget(lbl, row, 0)
         wrap = QHBoxLayout()
         sld = QSlider(Qt.Horizontal)
         sld.setMinimum(lo); sld.setMaximum(hi)
@@ -189,6 +218,11 @@ class SettingsView(QWidget):
         no_wheel(sld)
         wrap.addWidget(sld)
         wrap.addWidget(val_lbl)
+        if help:
+            tip = self._tip_text(help)
+            lbl.setToolTip(tip)
+            sld.setToolTip(tip)
+            wrap.addWidget(self._help_marker(help))
         wrap.addStretch(1)
         holder = QWidget(); holder.setLayout(wrap)
         grid.addWidget(holder, row, 1)
@@ -197,7 +231,8 @@ class SettingsView(QWidget):
     def _path_row(self, grid: QGridLayout, label: str, load_fn, save_fn,
                   help: str | None = None) -> QLineEdit:
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, 0)
+        lbl = QLabel(label)
+        grid.addWidget(lbl, row, 0)
         wrap = QHBoxLayout()
         edit = QLineEdit()
         try:
@@ -215,10 +250,13 @@ class SettingsView(QWidget):
         wrap.addWidget(edit, 1)
         wrap.addWidget(browse)
         wrap.addWidget(clear)
+        if help:
+            tip = self._tip_text(help)
+            lbl.setToolTip(tip)
+            edit.setToolTip(tip)
+            wrap.addWidget(self._help_marker(help))
         holder = QWidget(); holder.setLayout(wrap)
         grid.addWidget(holder, row, 1)
-        if help:
-            self._add_help(grid, help)
         return edit
 
     def _file_row(self, grid: QGridLayout, label: str, load_fn, save_fn,
@@ -227,7 +265,8 @@ class SettingsView(QWidget):
         """Like :meth:`_path_row` but the Browse button picks a single file
         (e.g. an AppImage) instead of a folder."""
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, 0)
+        lbl = QLabel(label)
+        grid.addWidget(lbl, row, 0)
         wrap = QHBoxLayout()
         edit = QLineEdit()
         try:
@@ -246,10 +285,13 @@ class SettingsView(QWidget):
         wrap.addWidget(edit, 1)
         wrap.addWidget(browse)
         wrap.addWidget(clear)
+        if help:
+            tip = self._tip_text(help)
+            lbl.setToolTip(tip)
+            edit.setToolTip(tip)
+            wrap.addWidget(self._help_marker(help))
         holder = QWidget(); holder.setLayout(wrap)
         grid.addWidget(holder, row, 1)
-        if help:
-            self._add_help(grid, help)
         return edit
 
     # ---- sections ---------------------------------------------------------
@@ -346,6 +388,8 @@ class SettingsView(QWidget):
         """Persist the chosen theme, then offer a restart (same pattern as UI
         scale / language) so the new palette applies on a fresh launch."""
         self._safe_save(uc.save_appearance_mode, tid)
+        from gui_qt.theme_qt import invalidate_palette_cache
+        invalidate_palette_cache()
         self._prompt_restart("theme")
 
     def _open_theme_editor(self):
@@ -379,7 +423,9 @@ class SettingsView(QWidget):
         # still tracks live via valueChanged. Pass a no-op change cb to _slider
         # so it doesn't wire its own per-tick persist.
         self._scale_slider, self._scale_val_lbl = self._slider(
-            g, self.tr("UI Scale"), 50, 200, pct, lambda _v: None)
+            g, self.tr("UI Scale"), 50, 200, pct, lambda _v: None,
+            help=self.tr("Make the whole interface bigger or smaller. "
+               "Changes take effect after a restart."))
         self._scale_slider.setSingleStep(5)
         self._scale_slider.setPageStep(10)
         self._scale_val_lbl.setText(f"{pct}%")
@@ -396,10 +442,6 @@ class SettingsView(QWidget):
         self._scale_auto_cb.setChecked(is_auto)
         self._scale_auto_cb.toggled.connect(self._on_ui_scale_auto_toggled)
         g.addWidget(self._scale_auto_cb, self._next_row(g), 0, 1, 2)
-
-        self._add_help(
-            g, self.tr("Make the whole interface bigger or smaller. "
-               "Changes take effect after a restart."))
 
     def _on_ui_scale_auto_toggled(self, on: bool):
         self._scale_slider.setEnabled(not on)
@@ -470,9 +512,12 @@ class SettingsView(QWidget):
             return
         combo.blockSignals(True)
         current = uc.load_language()
-        if getattr(self, "_lang_combo_connected", False):
-            combo.currentIndexChanged.disconnect()
-            self._lang_combo_connected = False
+        # Disconnect only our own slot — a bare disconnect() would also sever
+        # any other connection on the signal.
+        prev_slot = getattr(self, "_lang_combo_slot", None)
+        if prev_slot is not None:
+            combo.currentIndexChanged.disconnect(prev_slot)
+            self._lang_combo_slot = None
         combo.clear()
         sel = 0
         for i, (disp, code) in enumerate(available_languages()):
@@ -480,9 +525,9 @@ class SettingsView(QWidget):
             if code == current:
                 sel = i
         combo.setCurrentIndex(sel)
-        combo.currentIndexChanged.connect(
+        self._lang_combo_slot = (
             lambda i: self._on_language_changed(combo.itemData(i)))
-        self._lang_combo_connected = True
+        combo.currentIndexChanged.connect(self._lang_combo_slot)
         combo.blockSignals(False)
 
     def _on_language_changed(self, code):
@@ -505,19 +550,8 @@ class SettingsView(QWidget):
         except Exception:
             pass
 
-    def _build_downloads(self):
-        g = self._section(self.tr("Downloads & Collections"))
-        try:
-            cs = uc.load_collection_settings()
-        except Exception:
-            cs = {}
-        self._cs = {
-            "max_concurrent": int(cs.get("max_concurrent", uc._DEFAULT_MAX_CONCURRENT)),
-            "max_extract_workers": int(cs.get("max_extract_workers", uc._DEFAULT_MAX_EXTRACT_WORKERS)),
-            "check_download_locations": bool(cs.get("check_download_locations", True)),
-            "clear_archive_after_install": bool(cs.get("clear_archive_after_install", False)),
-        }
-
+    def _build_archives(self):
+        g = self._section(self.tr("Archives"))
         self._checkbox(
             g, self.tr("Clear archive after install"),
             uc.load_clear_archive_after_install,
@@ -551,48 +585,50 @@ class SettingsView(QWidget):
                  "every configured game. Checking a right-click selection of "
                  "specific mods always stays scoped to just those mods."))
 
+    def _build_downloads(self):
         # Collection settings — all persisted together via save_collection_settings.
+        g = self._section(self.tr("Downloads"))
         self._slider(
             g, self.tr("Max concurrent downloads"), 1, uc._MAX_CONCURRENT_CEILING,
             self._cs["max_concurrent"], self._save_max_concurrent)
-        self._slider(
-            g, self.tr("Max extractions"), 1, uc._MAX_EXTRACT_WORKERS_CEILING,
-            self._cs["max_extract_workers"], self._save_max_extract)
-        self._add_help(
-            g, self.tr("Extractions are gated by available memory; the effective number "
-               "may be lower than set."))
 
         # Download speed limit — global cap shared by all download threads.
         lim_sld, lim_lbl = self._slider(
             g, self.tr("Download speed limit"), 0, 250,
-            int(uc.load_download_speed_limit()), self._save_speed_limit)
+            int(uc.load_download_speed_limit()), self._save_speed_limit,
+            help=self.tr("Cap the combined download speed of all downloads "
+               "(collections, single mods, nxm links) so they don't use the "
+               "whole connection. Applies immediately, including to a running "
+               "collection install."))
         def _fmt_limit(v, _lbl=lim_lbl):
             _lbl.setText(self.tr("Unlimited") if int(v) == 0 else
                          self.tr("{0} MB/s").format(int(v)))
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
-        self._add_help(
-            g, self.tr("Cap the combined download speed of all downloads "
-               "(collections, single mods, nxm links) so they don't use the "
-               "whole connection. Applies immediately, including to a running "
-               "collection install."))
 
+    def _build_extraction(self):
         # Extraction resource limits — apply to every install (single mods,
         # Downloads tab and collections), not just collection installs.
+        g = self._section(self.tr("Extraction"))
+        self._slider(
+            g, self.tr("Max extractions"), 1, uc._MAX_EXTRACT_WORKERS_CEILING,
+            self._cs["max_extract_workers"], self._save_max_extract,
+            help=self.tr("Extractions are gated by available memory; the effective number "
+               "may be lower than set."))
+
         import os as _os
         ext = uc.load_extraction_settings()
         thr_sld, thr_lbl = self._slider(
             g, self.tr("Extraction CPU threads"), 0, _os.cpu_count() or 8,
             int(ext.get("cpu_threads", 0)),
-            lambda v: self._safe_save(uc.save_extraction_cpu_threads, v))
+            lambda v: self._safe_save(uc.save_extraction_cpu_threads, v),
+            help=self.tr("CPU threads each extraction may use. 'All' is fastest; a "
+               "lower value keeps the system responsive while large archives "
+               "extract."))
         def _fmt_threads(v, _lbl=thr_lbl):
             _lbl.setText(self.tr("All") if int(v) == 0 else str(v))
         thr_sld.valueChanged.connect(_fmt_threads)
         _fmt_threads(thr_sld.value())
-        self._add_help(
-            g, self.tr("CPU threads each extraction may use. 'All' is fastest; a "
-               "lower value keeps the system responsive while large archives "
-               "extract."))
         self._checkbox(
             g, self.tr("Low priority extractions"),
             lambda: bool(uc.load_extraction_settings().get("low_priority", False)),
@@ -625,15 +661,21 @@ class SettingsView(QWidget):
             uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
             help=self.tr("Show a rename prompt after installing a mod."))
         # Custom install-name rules — a full editor (opened as its own tab)
-        # rather than a single control, so it gets a button + help row here.
-        row = self._next_row(g)
+        # rather than a single control, so it gets a button row here.
+        patt_help = self.tr(
+            "Add your own regex search/replace rules to clean up mod names on "
+            "install — useful when a download site changes its filename format.")
         patt_btn = QPushButton(self.tr("Edit custom install-name rules…"))
         patt_btn.setCursor(Qt.PointingHandCursor)
         patt_btn.clicked.connect(self._open_install_name_patterns)
-        g.addWidget(patt_btn, row, 0, 1, 2, Qt.AlignLeft)
-        self._add_help(g, self.tr(
-            "Add your own regex search/replace rules to clean up mod names on "
-            "install — useful when a download site changes its filename format."))
+        patt_btn.setToolTip(self._tip_text(patt_help))
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.addWidget(patt_btn)
+        wrap.addWidget(self._help_marker(patt_help))
+        wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        g.addWidget(holder, self._next_row(g), 0, 1, 2)
         self._checkbox(
             g, self.tr("Restore on close"),
             uc.load_restore_on_close, uc.save_restore_on_close,
@@ -667,16 +709,22 @@ class SettingsView(QWidget):
         )
         if not is_flatpak() or flatpak_installed_from_remote():
             return
-        row = self._next_row(g)
-        btn = QPushButton(self.tr("Enable automatic updates…"))
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.clicked.connect(self._on_enroll_flatpak_remote)
-        g.addWidget(btn, row, 0, 1, 2, Qt.AlignLeft)
-        self._add_help(g, self.tr(
+        enroll_help = self.tr(
             "Switch this Flatpak to the Amethyst update remote so future "
             "updates arrive automatically through your package manager "
             "(GNOME Software / Discover) with smaller downloads. This "
-            "reinstalls the app once from the remote and relaunches it."))
+            "reinstalls the app once from the remote and relaunches it.")
+        btn = QPushButton(self.tr("Enable automatic updates…"))
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(self._on_enroll_flatpak_remote)
+        btn.setToolTip(self._tip_text(enroll_help))
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.addWidget(btn)
+        wrap.addWidget(self._help_marker(enroll_help))
+        wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        g.addWidget(holder, self._next_row(g), 0, 1, 2)
 
     def _on_enroll_flatpak_remote(self):
         """Confirm, then add the remote + reinstall-from-remote (relaunches)."""

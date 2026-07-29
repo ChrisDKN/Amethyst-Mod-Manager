@@ -145,11 +145,6 @@ def orphaned_tmp_size() -> int:
     return sum(dir_size(d) for d in orphaned_tmp_dirs())
 
 
-def total_cache_size() -> int:
-    """Size of the download cache plus every orphaned ``modmgr_*`` temp dir."""
-    return dir_size(get_download_cache_dir()) + orphaned_tmp_size()
-
-
 def clear_orphaned_tmp_dirs() -> tuple[int, list[str]]:
     """Delete every orphaned ``modmgr_*`` temp dir. Returns (cleared, errors)
     ('path: msg' strings). Best-effort — individual failures are recorded."""

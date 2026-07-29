@@ -18,14 +18,22 @@ failure, the partial temp file is removed so retries see a clean slate.
 
 from __future__ import annotations
 
+import os
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
 
 def _tmp_for(path: Path, *, suffix: str = ".tmp") -> Path:
-    """Return the temp sibling for *path* by appending *suffix* to the full
-    filename (so ``user.reg`` → ``user.reg.tmp`` rather than ``user.tmp``)."""
-    return path.with_name(path.name + suffix)
+    """Return a temp sibling for *path*, unique to this call.
+
+    Unique per call, not per destination: two threads writing the same
+    destination would otherwise share one temp file, so one's failure-path
+    unlink() deletes the other's in-progress write and an interleaved
+    truncate can rename a partial file into place. The unique part goes
+    AFTER *suffix* so cleanup globs on ``<name><suffix>*`` still match."""
+    return path.with_name(
+        f"{path.name}{suffix}-{os.getpid()}-{uuid.uuid4().hex[:8]}")
 
 
 def write_atomic(path: Path, data: bytes, *, suffix: str = ".tmp") -> None:

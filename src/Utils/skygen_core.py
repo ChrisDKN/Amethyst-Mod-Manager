@@ -3,8 +3,7 @@ GUI-neutral core of the SkyGen BOS/SkyPatcher patch generator.
 
 Moved out of wizards/skygen.py (which imports customtkinter) so the Qt wizard
 view can share it: the pure-Python plugin parser ("Frankensnoop"), the
-load-order/profile/patch-index helpers (also used by Plugin Audit via
-Utils.plugin_scan_common), and standalone scan/generate/register functions
+load-order/profile/patch-index helpers, and standalone scan/generate/register functions
 ported from the Tk wizard's methods.
 
 The scan/generate functions take explicit callbacks (progress_fn, log_fn,

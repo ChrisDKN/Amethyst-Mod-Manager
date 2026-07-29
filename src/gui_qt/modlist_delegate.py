@@ -18,7 +18,7 @@ from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
 from gui_qt.icons import icon
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, FlagsRole, HighlightRole,
-    COL_NAME, COL_FLAGS, COL_CONFLICTS,
+    COL_NAME, COL_FLAGS, COL_CONFLICTS, COL_PRIORITY,
 )
 from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
@@ -108,6 +108,7 @@ _BSA_CONFLICT_ICONS = {
     1: "archive-conflict-winner.png",
     -1: "archive-conflict-loser.png",
     2: "archive-conflict-mixed.png",
+    3: "archive-conflict-redundant.png",   # FULL — every archive file overridden
 }
 
 # Conflict code → hover tooltip (verbatim from the Tk modlist, ~5217). Loose-file
@@ -123,6 +124,7 @@ _BSA_CONFLICT_TIPS = {
     1:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Winning"),
     -1: QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Losing"),
     2:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Partial"),
+    3:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Full"),
 }
 
 def _contrasting_text_color(hex_bg: str) -> str:
@@ -374,10 +376,13 @@ class ModRowDelegate(QStyledItemDelegate):
             self._paint_deploy_badge(p, r, deploy, tx + tw + 10, collapsed)
         else:
             # Strikethrough line across the row, broken around the centred name
-            # (Tk-style — makes separators easy to distinguish).
+            # (Tk-style — makes separators easy to distinguish). The left line
+            # starts just past the collapse arrow so it doesn't run under it.
             p.setPen(QPen(self.c_border, 1))
             gap = tw // 2 + 12
-            p.drawLine(r.left() + 6, cy, cx - gap, cy)
+            left_start = a.right() + 8
+            if left_start < cx - gap:
+                p.drawLine(left_start, cy, cx - gap, cy)
             p.drawLine(cx + gap, cy, r.right() - 6, cy)
 
             # Centred name + "(N)" count over the Mod Name column.
@@ -385,8 +390,22 @@ class ModRowDelegate(QStyledItemDelegate):
             p.drawText(name_rect, Qt.AlignVCenter | Qt.AlignHCenter, label)
 
         # Grouped flags/conflicts when collapsed — each under its own column.
+        # Plus the priority range of the hidden mods in the Priority column
+        # (Tk parity — e.g. "0 - 20", dim + centred).
         if collapsed:
             self._paint_grouped_icons(p, r, model, block)
+            prio_text = (model.sep_block_priority_range(index.row())
+                         if hasattr(model, "sep_block_priority_range") else "")
+            if prio_text:
+                p.setFont(self.f_row)
+                p.setPen(self.c_text_dim)
+                # Keep the range clear of the lock box on the far right — clamp
+                # the column rect so it never runs under the lock icon.
+                pr = self._col_rect(COL_PRIORITY, r)
+                lock_left = self._lock_rect(r).left() - 8
+                if pr.right() > lock_left:
+                    pr.setRight(lock_left)
+                p.drawText(pr, Qt.AlignVCenter | Qt.AlignHCenter, prio_text)
 
         # Lock checkbox on the far right — always drawn so it reads as a
         # clickable control. Empty box when unlocked; the (gold) lock.png on a

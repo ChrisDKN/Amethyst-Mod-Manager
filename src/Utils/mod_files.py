@@ -113,14 +113,24 @@ _conflict_cache: tuple | None = None   # (key, full_index (identity), result)
 
 def build_conflict_cache(index_path: Path | None,
                          profile_dir: Path | None,
-                         full_index: dict | None = None) -> tuple[set[str], dict[str, str]]:
+                         full_index: dict | None = None,
+                         bsa_index_path: Path | None = None,
+                         ) -> tuple[set[str], dict[str, str]]:
     """Return (contested_keys, filemap_winner).
 
     contested_keys: post-strip rel_keys (lower) owned by >1 ENABLED mod.
     filemap_winner: rel_key (lower) -> winning mod name (from filemap.txt).
     Disabled mods are excluded from the contest count (they deploy nothing).
-    Results are cached by (filemap.txt mtime, modlist.txt mtime, index
-    identity); treat the returned set/dict as read-only.
+
+    When *bsa_index_path* is given (see bsa_conflict_index_path for the gate),
+    a loose key also shipped inside ANOTHER enabled mod's BSA/BA2 counts as
+    contested — the engine loads archives first and loose files on top, so
+    that loose file wins a real conflict. Archive contents never become
+    filemap_winner owners, so an excluded loose file (no filemap entry)
+    resolves to "no tint" naturally.
+
+    Results are cached by (filemap.txt stat, modlist.txt stat, bsa_index.bin
+    path+stat, index identity); treat the returned set/dict as read-only.
     """
     global _conflict_cache
     if index_path is None:
@@ -135,14 +145,21 @@ def build_conflict_cache(index_path: Path | None,
         except Exception:
             full_index = None
 
-    def _mtime(p: Path | None) -> float | None:
+    def _stat_key(p: Path | None) -> "tuple[int, int] | None":
+        # (st_mtime_ns, st_size) — a bare float mtime is too coarse on
+        # FAT/exFAT SD cards (2 s resolution); see filemap._index_stat_key.
         try:
-            return p.stat().st_mtime if p is not None else None
+            if p is None:
+                return None
+            st = p.stat()
+            return (st.st_mtime_ns, st.st_size)
         except OSError:
             return None
 
-    key = (str(index_path), _mtime(fm_path),
-           str(ml_path) if ml_path is not None else None, _mtime(ml_path))
+    key = (str(index_path), _stat_key(fm_path),
+           str(ml_path) if ml_path is not None else None, _stat_key(ml_path),
+           str(bsa_index_path) if bsa_index_path is not None else None,
+           _stat_key(bsa_index_path))
     with _conflict_cache_lock:
         cached = _conflict_cache
     # read_mod_index caches by mtime, so an unchanged index returns the SAME
@@ -174,19 +191,68 @@ def build_conflict_cache(index_path: Path | None,
                             if not e.is_separator and not e.enabled}
             except Exception:
                 disabled = set()
+        # Archive contents (path → owning enabled mods). bsa_index paths are
+        # already lowercase forward-slash, matching the loose index keys.
+        arch_owners: dict[str, set[str]] = {}
+        if bsa_index_path is not None:
+            try:
+                from Utils.bsa_filemap import read_bsa_index
+                bsa_index = read_bsa_index(bsa_index_path) or {}
+            except Exception:
+                bsa_index = {}
+            for mn, archives in bsa_index.items():
+                if mn in disabled:
+                    continue
+                for _bsa, _mt, paths in archives:
+                    for p in paths:
+                        arch_owners.setdefault(p, set()).add(mn)
         counts: dict[str, int] = {}
         for mn, (normal, root) in full_index.items():
             if mn in disabled:
                 continue
             for k in normal:
                 counts[k] = counts.get(k, 0) + 1
+                if arch_owners:
+                    ow = arch_owners.get(k)
+                    # Contested only when some OTHER mod's archive ships it —
+                    # a mod's own BSA copy of its own loose file isn't one.
+                    if ow is not None and (len(ow) > 1 or mn not in ow):
+                        contested.add(k)
+            # Root keys deploy outside Data/ and can't collide with archive
+            # contents, so they get the loose-only count.
             for k in root:
                 counts[k] = counts.get(k, 0) + 1
-        contested = {k for k, c in counts.items() if c > 1}
+        contested |= {k for k, c in counts.items() if c > 1}
     result = (contested, filemap_winner)
     with _conflict_cache_lock:
         _conflict_cache = (key, full_index, result)
     return result
+
+
+def bsa_conflict_index_path(game, index_path: Path | None) -> Path | None:
+    """bsa_index.bin path for build_conflict_cache's archive-aware contest, or
+    None when it doesn't apply: non-archive game, UE pak game (the engine never
+    loads loose assets over pak contents), "Hide BSA conflicts" on, or no index
+    on disk. Mirrors the gate in game_state._build_bsa_conflicts.
+
+    Every view feeding build_conflict_cache must go through this: the cache is
+    single-slot, so callers alternating bsa/no-bsa would thrash it."""
+    if game is None or index_path is None:
+        return None
+    exts = frozenset(getattr(game, "archive_extensions", ()) or ())
+    if not exts:
+        return None
+    try:
+        from Utils.ue_pak_reader import UE_ARCHIVE_EXTENSIONS
+        if exts & UE_ARCHIVE_EXTENSIONS:
+            return None
+        from Utils.ui_config import load_hide_bsa_conflicts
+        if load_hide_bsa_conflicts():
+            return None
+    except Exception:
+        return None
+    p = index_path.parent / "bsa_index.bin"
+    return p if p.is_file() else None
 
 
 # ---------------------------------------------------------------------------

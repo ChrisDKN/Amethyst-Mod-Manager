@@ -18,6 +18,7 @@ Usage:
 import importlib.util
 import inspect
 import os
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -215,7 +216,10 @@ def discover_games() -> dict[str, BaseGame]:
         if py_file.stem in _EXCLUDED_STEMS or py_file.parent.name in _EXCLUDED_FOLDERS:
             continue
 
-        module_name = f"Games._loaded_{py_file.stem}"
+        # Key on folder AND stem — a bare stem collides in sys.modules when two
+        # game folders ship a same-named handler file, silently dropping one.
+        _folder = re.sub(r"\W", "_", py_file.parent.name)
+        module_name = f"Games._loaded_{_folder}_{py_file.stem}"
         try:
             spec = importlib.util.spec_from_file_location(module_name, str(py_file))
             if spec is None or spec.loader is None:
@@ -242,11 +246,12 @@ def discover_games() -> dict[str, BaseGame]:
             # show up here too — they can't and shouldn't be instantiated.
             if inspect.isabstract(cls):
                 continue
-            in_this_module = (
-                cls.__module__ == module_name
-                or cls in (v for v in module.__dict__.values() if isinstance(v, type))
-            )
-            if not in_this_module:
+            # Strict __module__ match: classes IMPORTED into this file (e.g.
+            # Fallout_3 in every Bethesda subclass file) carry their defining
+            # module's name and are instantiated when THEIR file loads — the
+            # old membership fallback constructed each base once per sibling
+            # file (~13 Fallout_3 load_paths() runs per discovery).
+            if cls.__module__ != module_name:
                 continue
             try:
                 instance = cls()

@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
 import threading
 from pathlib import Path
 
@@ -67,6 +68,43 @@ def _in_flatpak_sandbox() -> bool:
     return os.path.exists("/.flatpak-info")
 
 
+def steam_client_installed() -> bool:
+    """True when any known Steam client install exists on this machine.
+
+    Heroic/Lutris-only systems (GH#320) have none: there is no Steam root to
+    use as STEAM_COMPAT_CLIENT_INSTALL_PATH and no Steam runtime for a raw
+    ``proton run``, so Proton launches on such systems are routed through
+    umu-run instead (see :func:`proton_run_command`).
+    """
+    return any((root / "steamapps").is_dir() for root in _STEAM_CANDIDATES)
+
+
+_steamless_no_umu_logged = False
+
+
+def _maybe_log_steamless_no_umu() -> None:
+    """Log once when a Steam-less system has no umu-run launcher either.
+
+    The raw ``proton <verb>`` fallback that follows needs Steam's client and
+    runtime, so it will very likely fail — point the user at the fix instead
+    of leaving only an opaque wine error.
+    """
+    global _steamless_no_umu_logged
+    if _steamless_no_umu_logged:
+        return
+    _steamless_no_umu_logged = True
+    try:
+        from Utils.app_log import app_log
+        app_log(
+            "No Steam client and no umu-run launcher were found — attempting "
+            "a raw Proton launch, which will likely fail. umu-run ships with "
+            "Heroic and Lutris (installing either, or the umu-launcher "
+            "package, provides it)."
+        )
+    except Exception:
+        pass
+
+
 def _host_python() -> str:
     """Return a *host* python3 to run the Proton script with.
 
@@ -113,6 +151,7 @@ def _host_python() -> str:
 
 def proton_run_command(
     proton_script: "Path", *args: str, env: "dict | None" = None,
+    host_cwd: "str | Path | None" = None,
 ) -> list[str]:
     """Build the command to invoke ``proton <args>`` for *proton_script*.
 
@@ -141,6 +180,16 @@ def proton_run_command(
     waitforexitandrun) have no wine equivalent and are dropped — and there is
     no python interpreter in front of the command.
     """
+    # Directory flatpak-spawn's portal chdirs the host process into. Proton's
+    # runinprefix (and bare wine) start the exe from this cwd, and Windows apps
+    # that write files relative to their working directory (e.g.
+    # WitcherScriptMerger's MergeInventory.xml) resolve them here — under Wine
+    # cwd "/" maps to "Z:\\", which is not writable, so a real host directory
+    # must be passed when the caller has one. Defaults to "/" because the app's
+    # own sandbox cwd does not exist on the host and the portal would fail to
+    # chdir into it.
+    directory = str(host_cwd) if host_cwd is not None else "/"
+
     script = Path(proton_script)
     if script.name in ("wine", "wine64"):
         payload = [a for a in map(str, args) if a not in
@@ -152,8 +201,42 @@ def proton_run_command(
                 for k, v in (env or {}).items()
                 if os.environ.get(k) != v
             ]
-            cmd = ["flatpak-spawn", "--host", *fwd, *cmd]
+            cmd = ["flatpak-spawn", "--host", f"--directory={directory}",
+                   *fwd, *cmd]
         return cmd
+
+    if not steam_client_installed():
+        # Steam-less system (Heroic/Lutris-only, GH#320): a raw
+        # ``python3 proton <verb>`` needs a Steam client for its compat
+        # plumbing and runtime, which doesn't exist here. Route the launch
+        # through umu-run — the launcher Heroic itself uses — which runs
+        # Proton inside the Steam Linux Runtime container with no Steam
+        # client at all. umu has no verbs (it always does a full Proton
+        # session) and derives its plumbing from WINEPREFIX / PROTONPATH /
+        # GAMEID; the caller's STEAM_COMPAT_* vars are overridden by umu
+        # itself, so they can stay in *env*. Mutates *env* (callers pass the
+        # same dict to Popen, and umu_run_command re-exports the diff under
+        # flatpak-spawn).
+        try:
+            from Utils.lutris_finder import find_umu_run, umu_run_command
+            umu_bin = find_umu_run()
+        except Exception:
+            umu_bin = None
+        if umu_bin is not None and env is not None:
+            payload = [a for a in map(str, args) if a not in
+                       ("run", "runinprefix", "waitforexitandrun")]
+            if not env.get("WINEPREFIX") and env.get("STEAM_COMPAT_DATA_PATH"):
+                # Proton resolves the real prefix as $WINEPREFIX/pfx, same
+                # shape as $STEAM_COMPAT_DATA_PATH/pfx (umu self-links pfx →
+                # "." when absent), so the compat-data root maps straight
+                # across.
+                env["WINEPREFIX"] = env["STEAM_COMPAT_DATA_PATH"]
+            env["PROTONPATH"] = str(script.parent)
+            env.setdefault("GAMEID", "umu-default")
+            return umu_run_command(umu_bin, *payload, env=env,
+                                   host_cwd=directory)
+        _maybe_log_steamless_no_umu()
+
     base = [_host_python(), str(proton_script), *map(str, args)]
     if not (_proton_script_in_steam_flatpak(proton_script)
             and not _own_process_in_steam_flatpak()):
@@ -163,7 +246,8 @@ def proton_run_command(
                 for k, v in (env or {}).items()
                 if os.environ.get(k) != v
             ]
-            return ["flatpak-spawn", "--host", "--directory=/", *fwd, *base]
+            return ["flatpak-spawn", "--host", f"--directory={directory}",
+                    *fwd, *base]
         return base
     # Steam-flatpak Proton runs INSIDE the sandbox, so --command=python3 uses
     # the sandbox's own interpreter (not our host resolver) — that's correct.
@@ -208,8 +292,10 @@ def _proton_sort_key(name: str) -> tuple[int, tuple[int, ...], str]:
 def list_installed_proton() -> list[Path]:
     """Return all installed Proton launcher scripts, sorted by _proton_sort_key.
 
-    Deduplicates by resolved path so symlinked Steam roots (e.g. ~/.steam/steam)
-    don't produce duplicate entries.
+    Covers the Steam roots (compatibilitytools.d + steamapps/common) and the
+    Proton builds Heroic's Wine Manager downloads (the only source on
+    Steam-less systems, GH#320). Deduplicates by resolved path so symlinked
+    Steam roots (e.g. ~/.steam/steam) don't produce duplicate entries.
     """
     seen: set[Path] = set()
     candidates: list[Path] = []
@@ -234,6 +320,24 @@ def list_installed_proton() -> list[Path]:
                     candidates.append(proton_script)
             except OSError:
                 continue
+    # Heroic-managed Proton builds. A Heroic copy whose directory name matches
+    # a Steam-provided tool is skipped — it's the same build, and the Steam
+    # copy plays nicer with the Steam runtime plumbing.
+    try:
+        from Utils.heroic_finder import list_heroic_proton_scripts
+        heroic_scripts = list_heroic_proton_scripts()
+    except Exception:
+        heroic_scripts = []
+    steam_names = {c.parent.name.lower() for c in candidates}
+    for proton_script in heroic_scripts:
+        try:
+            resolved = proton_script.resolve()
+        except OSError:
+            resolved = proton_script
+        if resolved in seen or proton_script.parent.name.lower() in steam_names:
+            continue
+        seen.add(resolved)
+        candidates.append(proton_script)
     candidates.sort(key=lambda p: _proton_sort_key(p.parent.name))
     return candidates
 
@@ -251,29 +355,7 @@ def find_any_installed_proton(preferred_name: str = "") -> Path | None:
     """
     preferred_norm = _normalize_tool_name(preferred_name) if preferred_name else ""
 
-    candidates: list[Path] = []
-    seen: set[Path] = set()
-    for steam_root in _all_proton_search_roots():
-        for search_dir in (
-            steam_root / "compatibilitytools.d",
-            steam_root / "steamapps" / "common",
-        ):
-            if not search_dir.is_dir():
-                continue
-            try:
-                for entry in search_dir.iterdir():
-                    if not entry.is_dir():
-                        continue
-                    proton_script = entry / "proton"
-                    if not proton_script.is_file():
-                        continue
-                    resolved = proton_script.resolve()
-                    if resolved in seen:
-                        continue
-                    seen.add(resolved)
-                    candidates.append(proton_script)
-            except OSError:
-                continue
+    candidates = list_installed_proton()
 
     if not candidates:
         return None
@@ -347,6 +429,15 @@ def find_steam_root_for_proton_script(proton_script: Path) -> Path | None:
     except ValueError:
         pass
 
+    # No Steam client is installed at all (Heroic/Lutris-only system, GH#320)
+    # and the tool lives outside any Steam-shaped path (e.g. Heroic's
+    # tools/proton). Return the tool's own directory as a stand-in so callers
+    # can proceed: launches on such systems are routed through umu-run
+    # (proton_run_command), which builds its own compat plumbing and
+    # overrides STEAM_COMPAT_CLIENT_INSTALL_PATH itself.
+    if not steam_client_installed():
+        return script.parent
+
     return None
 
 
@@ -354,24 +445,60 @@ def find_steam_root_for_proton_script(proton_script: Path) -> Path | None:
 # Public API
 # ---------------------------------------------------------------------------
 
+# find_steam_libraries() cache — the GUI calls it on every refresh, and a
+# full run re-reads the ini + every candidate VDF and resolves every library.
+# Validated against the (st_mtime_ns, st_size) of the source files actually
+# read, so any change to them re-parses; stat-only validation is ~free.
+_libraries_lock = threading.Lock()
+_libraries_cache: "tuple[tuple, tuple[Path, ...]] | None" = None  # (signature, libs)
+_custom_vdf_cache: "tuple[tuple | None, str] | None" = None       # (ini sig, path)
+
+
+def _stat_sig(path) -> "tuple[int, int] | None":
+    """(st_mtime_ns, st_size) for a regular file, None if absent/unreadable."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size) if stat.S_ISREG(st.st_mode) else None
+
+
+def _custom_vdf_path() -> str:
+    """User-configured libraryfolders.vdf path, cached on amethyst.ini's stat."""
+    global _custom_vdf_cache
+    try:
+        from Utils.ui_config import (
+            get_ui_config_path,
+            load_steam_libraries_vdf_path,
+        )
+        ini_sig = _stat_sig(get_ui_config_path())
+        cached = _custom_vdf_cache
+        if cached is not None and cached[0] == ini_sig:
+            return cached[1]
+        custom = load_steam_libraries_vdf_path()
+        _custom_vdf_cache = (ini_sig, custom)
+        return custom
+    except Exception:
+        return ""
+
+
 def find_steam_libraries() -> list[Path]:
     """
     Parse libraryfolders.vdf from all known Steam install locations.
     Returns a deduplicated list of existing steamapps/common/ directories.
+
+    Results are cached module-wide and revalidated by stat signature of the
+    config ini and every VDF hit, so repeated GUI-refresh calls are cheap.
+    Each call returns a fresh list, so callers can't corrupt the cache.
     """
-    seen: set[Path] = set()
-    libraries: list[Path] = []
+    global _libraries_cache
 
     vdf_candidates: list[Path] = []
 
     # User-configured VDF path takes highest priority
-    try:
-        from Utils.ui_config import load_steam_libraries_vdf_path
-        custom = load_steam_libraries_vdf_path()
-        if custom:
-            vdf_candidates.append(Path(custom))
-    except Exception:
-        pass
+    custom = _custom_vdf_path()
+    if custom:
+        vdf_candidates.append(Path(custom))
 
     # Built-in fallbacks. Steam keeps copies under both steamapps/ and the
     # root config/, and may spell the file singular or plural — try them all.
@@ -381,14 +508,32 @@ def find_steam_libraries() -> list[Path]:
             vdf_candidates.append(steam_root / "config" / name)
             vdf_candidates.append(steam_root / name)
 
+    # Stat every candidate once: the existing files (in order) plus their
+    # signatures form the cache key, so a VDF appearing, vanishing or being
+    # rewritten all invalidate the cached result.
+    hits: list[tuple[Path, tuple]] = []
     for vdf_path in vdf_candidates:
-        if vdf_path.is_file():
-            for common in parse_vdf_libraries(vdf_path):
-                resolved = common.resolve()
-                if resolved not in seen:
-                    seen.add(resolved)
-                    libraries.append(common)
+        sig = _stat_sig(vdf_path)
+        if sig is not None:
+            hits.append((vdf_path, sig))
+    signature = (custom, tuple((str(p), s) for p, s in hits))
 
+    with _libraries_lock:
+        cached = _libraries_cache
+        if cached is not None and cached[0] == signature:
+            return list(cached[1])
+
+    seen: set[Path] = set()
+    libraries: list[Path] = []
+    for vdf_path, _sig in hits:
+        for common in parse_vdf_libraries(vdf_path):
+            resolved = common.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                libraries.append(common)
+
+    with _libraries_lock:
+        _libraries_cache = (signature, tuple(libraries))
     return libraries
 
 

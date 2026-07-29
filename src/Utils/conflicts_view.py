@@ -1,9 +1,11 @@
 """Toolkit-neutral file-level conflict computation for the "Show Conflicts" view.
 
-Given a mod, produces three lists of the files it provides:
+Given a mod, produces three lists of the files it provides plus a tint set:
   - files_win        : (path, "modA, modB")  — this mod overrides those mods here
   - files_lose       : (path, winning_mod)   — this mod is overridden here
   - files_no_conflict: [path]                — no other enabled mod provides it
+  - bsa_win_paths    : {path}                — win rows beating archive contents
+                        only; the UI tints these cyan like the archive rows
 
 Ported verbatim from the Tk `gui/modlist_panel.py:_show_overwrites_dialog` worker
 (the logic is pure os/index/filemap I/O — no GUI). Both loose files and BSA/BA2
@@ -39,8 +41,9 @@ def compute_mod_conflicts(
     archive_name_ordering: bool = False,
     modlist_path: Optional[Path] = None,
     ckfn: Optional[Callable[[str], str]] = None,
-) -> "tuple[list, list, list]":
-    """Return (files_win, files_lose, files_no_conflict) for *mod_name*.
+) -> "tuple[list, list, list, set]":
+    """Return (files_win, files_lose, files_no_conflict, bsa_win_paths) for
+    *mod_name*.
 
     *beaten_mods* — the set of mod names this mod overrides (mod-level conflict
     data). *strip_prefixes* — the game-level folder strip set. *ckfn* — optional
@@ -58,23 +61,34 @@ def compute_mod_conflicts(
     per_mod = load_per_mod_strip_prefixes(profile_dir)
     strip_lower = {s.lower() for s in strip_prefixes}
 
+    # Per-mod strip data memoized once per mod (the sort + set merge used to
+    # be rebuilt on every _strip_for call, i.e. once per file walked).
+    _strip_cache: dict[str, tuple[list[tuple[str, str]], set[str]]] = {}
+
+    def _strip_data(name: str) -> "tuple[list[tuple[str, str]], set[str]]":
+        """(path prefixes longest-first with lowercase, merged segment set)."""
+        data = _strip_cache.get(name)
+        if data is None:
+            entries = per_mod.get(name, [])
+            paths = sorted((p for p in entries if "/" in p),
+                           key=len, reverse=True)
+            data = ([(p, p.lower()) for p in paths],
+                    strip_lower | {s.lower() for s in entries if "/" not in s})
+            _strip_cache[name] = data
+        return data
+
     def _strip_for(name: str, rel: str) -> str:
         """Strip prefixes the same way filemap.py does for a given mod."""
-        mod_paths = sorted(
-            (p for p in per_mod.get(name, []) if "/" in p),
-            key=lambda p: -len(p),
-        )
+        mod_paths, mod_segs = _strip_data(name)
         if mod_paths:
             rl = rel.lower()
-            for p in mod_paths:
-                pl = p.lower()
+            for p, pl in mod_paths:
                 if rl.startswith(pl + "/"):
                     rel = rel[len(p) + 1:]
                     break
                 elif rl == pl:
                     rel = ""
                     break
-        mod_segs = strip_lower | {s.lower() for s in per_mod.get(name, []) if "/" not in s}
         while "/" in rel and rel.split("/", 1)[0].lower() in mod_segs:
             rel = rel.split("/", 1)[1]
         return rel
@@ -161,12 +175,27 @@ def compute_mod_conflicts(
             for _key in root_files:
                 if _key in my_files:
                     rel_to_losers.setdefault(_key, []).append(loser_mod)
-    # Wins against BSA-only losers (engine rule: loose > BSA).
+    # Per-path losers found only inside an archive (feeds bsa_win_paths).
+    arch_loser_at: dict[str, set[str]] = {}
+    # Wins against BSA-only losers (engine rule: loose > BSA). Scans EVERY
+    # enabled mod's archives rather than *beaten_mods*, which the caller
+    # derives from cached conflict data — a stale entry there would drop these
+    # rows and misfile the paths under "no conflict". UE paks keep the
+    # beaten_mods scope: they resolve by mount order and loose assets don't
+    # blanket-override them, so only engine-reported wins are trustworthy.
     if archive_exts and bsa_index_path is not None and bsa_index_path.is_file():
         try:
             from Utils.bsa_filemap import read_bsa_index as _read_bi
             _bi = _read_bi(bsa_index_path) or {}
-            for loser_mod in beaten_mods:
+            if archive_name_ordering:
+                _arch_victims = [m for m in beaten_mods if m in _bi]
+            else:
+                from Utils.modlist import read_modlist as _read_ml
+                _enabled = {e.name for e in _read_ml(modlist_path)
+                            if not e.is_separator and e.enabled}
+                _arch_victims = [m for m in _bi
+                                 if m != mod_name and m in _enabled]
+            for loser_mod in _arch_victims:
                 archives = _bi.get(loser_mod)
                 if not archives:
                     continue
@@ -174,6 +203,9 @@ def compute_mod_conflicts(
                     for _fp in _paths:
                         if _fp in my_files and loser_mod not in rel_to_losers.get(_fp, ()):
                             rel_to_losers.setdefault(_fp, []).append(loser_mod)
+                            # Loser known only via its archive (loose losers
+                            # were recorded above) — drives the cyan tint.
+                            arch_loser_at.setdefault(_fp, set()).add(loser_mod)
         except Exception:
             pass
     if mod_index is None:
@@ -192,6 +224,13 @@ def compute_mod_conflicts(
                         key = ckfn(rel) if ckfn else rel.lower()
                         if key in my_files:
                             rel_to_losers.setdefault(key, []).append(loser_mod)
+
+    # Rows beating archive contents only — tinted cyan. Rows that also beat a
+    # loose mod keep the normal win colour: they're loose conflicts too.
+    bsa_win_paths: set[str] = {
+        k for k, losers in rel_to_losers.items()
+        if (a := arch_loser_at.get(k)) and set(losers) <= a
+    }
 
     files_i_win_final: list[tuple[str, str]] = [
         (deploy_key, beaten_str)
@@ -253,4 +292,4 @@ def compute_mod_conflicts(
         except Exception:
             pass
 
-    return files_i_win_final, files_i_lose, files_no_conflict
+    return files_i_win_final, files_i_lose, files_no_conflict, bsa_win_paths

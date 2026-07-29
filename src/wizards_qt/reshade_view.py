@@ -432,18 +432,11 @@ class ReShadeView(QWidget):
         self._dl_next_btn.setEnabled(True)
         if ok:
             self._dl_next_btn.setText(self.tr("Next →"))
-            try:
-                self._dl_next_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self._dl_next_btn.clicked.connect(lambda: self._stack.setCurrentIndex(3))
+            self._rewire(self._dl_next_btn,
+                         lambda: self._stack.setCurrentIndex(3))
         else:
             self._dl_next_btn.setText(self.tr("Retry ↺"))
-            try:
-                self._dl_next_btn.clicked.disconnect()
-            except Exception:
-                pass
-            self._dl_next_btn.clicked.connect(self._start_download)
+            self._rewire(self._dl_next_btn, self._start_download)
 
     # ---- step 4: d3dcompiler ------------------------------------------------
     def _build_step_d3d(self) -> QWidget:

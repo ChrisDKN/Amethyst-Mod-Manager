@@ -14,7 +14,9 @@ algorithms live in Utils.mod_files. The view drives saves on checkbox clicks.
 from __future__ import annotations
 
 from PySide6.QtCore import (
-    Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP)
+    Qt, QAbstractItemModel, QCoreApplication, QModelIndex, QT_TRANSLATE_NOOP)
+
+from gui_qt.theme_qt import active_palette, qc
 
 COL_NAME = 0
 COL_TOPLEVEL = 1
@@ -64,6 +66,12 @@ class ModFilesModel(QAbstractItemModel):
         self._root = _Node("", "", is_dir=True)
         # path(lower) -> node, for ancestor/folder lookups
         self._by_path: dict[str, _Node] = {}
+        # Foreground QColors cached once — data() runs per cell per repaint
+        # (mirrors modlist_delegate; theme changes take effect on restart).
+        p = active_palette()
+        self._c_dim = qc(p, "FILE_DIM")
+        self._c_win = qc(p, "FILE_WIN")
+        self._c_lose = qc(p, "FILE_LOSE")
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _Node, by_path: dict[str, _Node]):
@@ -113,9 +121,15 @@ class ModFilesModel(QAbstractItemModel):
     def columnCount(self, parent=QModelIndex()):
         return len(COLUMNS)
 
+    @classmethod
+    def column_title(cls, section: int) -> str:
+        """The translated header caption. Classmethod so the view can measure
+        it for column minimums before a model exists."""
+        return QCoreApplication.translate("ModFilesModel", COLUMNS[section])
+
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self.tr(COLUMNS[section])
+            return self.column_title(section)
         return None
 
     def flags(self, index):
@@ -151,14 +165,12 @@ class ModFilesModel(QAbstractItemModel):
                 return self._disable_state(node)
 
         if role == Qt.ForegroundRole and col == COL_NAME:
-            from gui_qt.theme_qt import active_palette, qc
-            pal = active_palette()
             if node.synthetic or self._is_greyed(node):
-                return qc(pal, "FILE_DIM")
+                return self._c_dim
             if node.conflict == 1:
-                return qc(pal, "FILE_WIN")
+                return self._c_win
             if node.conflict == -1:
-                return qc(pal, "FILE_LOSE")
+                return self._c_lose
         return None
 
     # ---- check-state helpers ---------------------------------------------

@@ -4,14 +4,15 @@ cli.py
 Command-line interface for Amethyst Mod Manager.
 
 Usage:
-    python cli.py --deploy <game_id_or_name> <profile_name>
-    python cli.py --restore <game_id_or_name>
-    python cli.py --list-games
-    python cli.py --list-profiles <game_id_or_name>
-    python cli.py --clear-credentials
+    python cli.py list-games
+    python cli.py list-profiles <game>
+    python cli.py deploy <game> <profile_name>
+    python cli.py restore <game>
+    python cli.py clear-credentials
 
-game_id_or_name can be either the game's game_id (e.g. 'skyrim_se') or its
-full display name (e.g. 'Skyrim Special Edition').  Matching is case-insensitive.
+<game> can be the game's game_id (e.g. 'skyrim_se'), its full display name
+(e.g. 'Skyrim Special Edition'), or a Steam app ID.  Matching is
+case-insensitive.
 """
 
 from __future__ import annotations
@@ -30,21 +31,21 @@ def _setup_path():
 def _find_game(games: dict, key: str):
     """Return a game instance matching key by name, game_id, or Steam app ID (case-insensitive)."""
     key_lower = key.lower()
-    # Exact name match first
+    # Single pass; name match wins over game_id, which wins over Steam ID.
+    by_game_id = None
+    by_steam_id = None
     for name, game in games.items():
         if name.lower() == key_lower:
             return game
-    # game_id match
-    for game in games.values():
-        if getattr(game, "game_id", "").lower() == key_lower:
-            return game
-    # Steam ID match (primary + alts)
-    for game in games.values():
-        sid = getattr(game, "steam_id", "")
-        alt_ids = getattr(game, "alt_steam_ids", [])
-        if key_lower == str(sid).lower() or key_lower in [str(a).lower() for a in alt_ids]:
-            return game
-    return None
+        if by_game_id is None and getattr(game, "game_id", "").lower() == key_lower:
+            by_game_id = game
+        if by_steam_id is None:
+            sid = getattr(game, "steam_id", "")
+            alt_ids = getattr(game, "alt_steam_ids", [])
+            if key_lower == str(sid).lower() or any(
+                    key_lower == str(a).lower() for a in alt_ids):
+                by_steam_id = game
+    return by_game_id if by_game_id is not None else by_steam_id
 
 
 def _log(msg: str):

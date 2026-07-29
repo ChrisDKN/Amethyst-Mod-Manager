@@ -21,12 +21,14 @@ from PySide6.QtGui import QFont
 
 from gui_qt.wheel_guard import no_wheel
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QRadioButton, QCheckBox, QButtonGroup, QComboBox,
-    QPlainTextEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+    QPushButton, QScrollArea, QFrame, QRadioButton, QCheckBox, QButtonGroup,
+    QComboBox, QPlainTextEdit, QGroupBox,
 )
 
 from gui_qt.theme_qt import active_palette, _c
+from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
+from gui_qt.collapsible_section import CollapsibleSection
 from gui_qt.icons import icon, icon_rotated
 from gui_qt.safe_emit import safe_emit
 from Games.Custom.custom_game import (
@@ -193,16 +195,39 @@ class CustomGameView(QWidget):
     def _c(self, k):
         return _c(self._p, k)
 
-    def _section_header(self, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(f"font-size:14px; font-weight:600; color:{self._c('TEXT_SEP')};")
-        return lbl
-
-    def _hint(self, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setWordWrap(True)
-        lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
-        return lbl
+    def _qss(self) -> str:
+        c = self._c
+        return f"""
+        QGroupBox {{
+            border: 1px solid {c('BORDER')};
+            border-radius: 6px;
+            margin-top: 10px;
+            padding: 10px 12px 12px 12px;
+            background: {c('BG_PANEL')};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 10px; padding: 0 5px;
+            color: {c('TEXT_MAIN')};
+            font-weight: bold;
+        }}
+        #CollapsibleSection {{
+            border: 1px solid {c('BORDER')};
+            border-radius: 6px;
+            background: {c('BG_PANEL')};
+        }}
+        QToolButton#SectionToggle {{
+            background: transparent; border: none;
+            font-weight: bold; color: {c('TEXT_MAIN')};
+            padding: 2px 0;
+        }}
+        QToolButton#SectionToggle:hover,
+        QToolButton#SectionToggle:pressed,
+        QToolButton#SectionToggle:checked {{
+            background: transparent; color: {c('TEXT_MAIN')};
+        }}
+        {help_mark_qss(self._p)}
+        """
 
     def _mono_edit(self, placeholder: str = "") -> QLineEdit:
         e = QLineEdit()
@@ -212,10 +237,83 @@ class CustomGameView(QWidget):
             e.setPlaceholderText(placeholder)
         return e
 
-    def _divider(self) -> QFrame:
-        f = QFrame(); f.setFrameShape(QFrame.HLine)
-        f.setStyleSheet(f"color:{self._c('BORDER')};")
-        return f
+    # ---- section + row builders (settings_view look) ----------------------
+    def _section(self, title: str) -> QGridLayout:
+        """Add a QGroupBox to the body and return its 2-col grid."""
+        box = QGroupBox(title.replace("&", "&&"))  # bare & = mnemonic
+        grid = self._make_grid(box)
+        grid.setContentsMargins(8, 6, 8, 6)
+        self._body_v.addWidget(box)
+        return grid
+
+    def _collapsible(self, title: str, tip: str = "") -> CollapsibleSection:
+        sec = CollapsibleSection(title, tip)
+        self._body_v.addWidget(sec)
+        return sec
+
+    def _make_grid(self, parent_widget) -> QGridLayout:
+        """The shared 2-col grid recipe (label col | stretching field col)."""
+        grid = QGridLayout(parent_widget)
+        grid.setContentsMargins(0, 2, 0, 2)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(8)
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setProperty("_row", 0)
+        return grid
+
+    def _next_row(self, grid: QGridLayout) -> int:
+        r = int(grid.property("_row") or 0)
+        grid.setProperty("_row", r + 1)
+        return r
+
+    def _field_row(self, grid: QGridLayout, label: str, field, hint: str = "",
+                   stretch: bool = True, align_top: bool = False):
+        """label | field row; `hint` becomes a tooltip + "?" marker.
+
+        Returns (label, marker) so dynamic rows (Mod Sub-folder) can retitle
+        and re-tip themselves. `stretch=False` keeps the field at its natural
+        width (combos/buttons)."""
+        row = self._next_row(grid)
+        lbl = QLabel(label)
+        if align_top:
+            grid.addWidget(lbl, row, 0, Qt.AlignTop)
+        else:
+            grid.addWidget(lbl, row, 0)
+        if isinstance(field, QLineEdit):
+            field.setMinimumWidth(180)
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.setSpacing(6)
+        wrap.addWidget(field, 1 if stretch else 0)
+        mark = None
+        if hint:
+            tip = tip_text(hint)
+            lbl.setToolTip(tip)
+            field.setToolTip(tip)
+            mark = make_help_marker(hint)
+            wrap.addWidget(mark)
+        if not stretch:
+            wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        grid.addWidget(holder, row, 1)
+        return lbl, mark
+
+    def _check_row(self, grid: QGridLayout, cb: QCheckBox, hint: str = ""):
+        """A checkbox spanning both columns, with tooltip + "?" marker."""
+        row = self._next_row(grid)
+        if hint:
+            cb.setToolTip(tip_text(hint))
+            wrap = QHBoxLayout()
+            wrap.setContentsMargins(0, 0, 0, 0)
+            wrap.setSpacing(6)
+            wrap.addWidget(cb)
+            wrap.addWidget(make_help_marker(hint))
+            wrap.addStretch(1)
+            holder = QWidget(); holder.setLayout(wrap)
+            grid.addWidget(holder, row, 0, 1, 2)
+        else:
+            grid.addWidget(cb, row, 0, 1, 2)
 
     # ---- build ------------------------------------------------------------
     def _build(self):
@@ -241,17 +339,15 @@ class CustomGameView(QWidget):
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         body = QWidget(); body.setObjectName("FormBody")
-        v = QVBoxLayout(body); v.setContentsMargins(16, 14, 16, 14); v.setSpacing(6)
+        v = QVBoxLayout(body); v.setContentsMargins(16, 14, 16, 14); v.setSpacing(14)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
+        self._body_v = v
+        self.setStyleSheet(self._qss())
 
         # --- Load preset (create mode only) ---
         if not self._existing:
-            v.addWidget(self._section_header(self.tr("Load Preset  (optional)")))
-            v.addWidget(self._hint(
-                self.tr("Prepopulate the fields below from an existing custom game "
-                "as a starting template. You still need to give the new game its "
-                "own unique name.")))
+            g = self._section(self.tr("Load Preset"))
             self._preset_combo = QComboBox()
             self._preset_combo.setMaxVisibleItems(15)
             self._preset_combo.setStyleSheet("QComboBox { combobox-popup: 0; }")
@@ -267,209 +363,207 @@ class CustomGameView(QWidget):
                     self._preset_combo.addItem(nm, userData=defn)
             no_wheel(self._preset_combo)
             self._preset_combo.currentIndexChanged.connect(self._on_preset_selected)
-            v.addWidget(self._preset_combo)
+            self._field_row(
+                g, self.tr("Preset"), self._preset_combo,
+                self.tr("Prepopulate the fields below from an existing custom game "
+                "as a starting template. You still need to give the new game its "
+                "own unique name."))
 
-            v.addWidget(self._hint(
-                self.tr("Or paste a share code exported from another custom game "
-                "to prefill every field below.")))
-            import_row = QHBoxLayout()
             import_btn = QPushButton(self.tr("Import code…"))
             import_btn.setObjectName("FormButton")
             import_btn.setCursor(Qt.PointingHandCursor)
             import_btn.clicked.connect(self._on_import_code)
-            import_row.addWidget(import_btn)
-            import_row.addStretch(1)
-            v.addLayout(import_row)
+            self._field_row(
+                g, self.tr("Share code"), import_btn,
+                self.tr("Or paste a share code exported from another custom game "
+                "to prefill every field below."), stretch=False)
 
-            v.addWidget(self._divider())
-
-        # --- Game Name ---
-        v.addWidget(self._section_header(self.tr("Game Name")))
-        v.addWidget(self._hint(self.tr("The display name shown in the game selector "
-                               "(must be unique).")))
+        # --- Basics ---
+        g = self._section(self.tr("Basics"))
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText(self.tr("e.g. My Favourite Game"))
-        v.addWidget(self._name_edit)
-        v.addWidget(self._divider())
-
-        # --- Executable Filename ---
-        v.addWidget(self._section_header(self.tr("Executable Filename")))
-        v.addWidget(self._hint(
+        self._field_row(
+            g, self.tr("Game Name"), self._name_edit,
+            self.tr("The display name shown in the game selector "
+                    "(must be unique)."))
+        self._exe_edit = self._mono_edit(self.tr("e.g. MyGame.exe or Bin/x64/MyGame.exe"))
+        self._field_row(
+            g, self.tr("Executable Filename"), self._exe_edit,
             self.tr("The .exe location from the game's root folder. e.g. bin/bg3.exe "
-            "for BG3 or SkyrimSELauncher.exe for Skyrim SE")))
-        self._exe_edit = self._mono_edit(self.tr("e.g. MyGame.exe"))
-        v.addWidget(self._exe_edit)
-        v.addWidget(self._divider())
+            "for BG3 or SkyrimSELauncher.exe for Skyrim SE"))
 
-        # --- Deploy Method ---
-        v.addWidget(self._section_header(self.tr("Deploy Method")))
+        # --- Deployment ---
+        g = self._section(self.tr("Deployment"))
         self._deploy_group = QButtonGroup(self)
         self._deploy_buttons: dict[str, QRadioButton] = {}
+        # Radios laid out horizontally on a single row, "Deploy Method"
+        # labelling the row; each radio carries its own description marker.
+        row = self._next_row(g)
+        g.addWidget(QLabel(self.tr("Deploy Method")), row, 0)
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.setSpacing(6)
         for label, value, desc in _DEPLOY_OPTIONS:
             rb = QRadioButton(self.tr(label))
-            rb.setStyleSheet("font-weight:600;")
             self._deploy_group.addButton(rb)
             self._deploy_buttons[value] = rb
             rb.toggled.connect(self._update_data_path_visibility)
-            v.addWidget(rb)
-            d = self._hint(self.tr(desc))
-            d.setContentsMargins(20, 0, 0, 4)
-            v.addWidget(d)
+            d = self.tr(desc)
+            rb.setToolTip(tip_text(d))
+            wrap.addWidget(rb)
+            wrap.addWidget(make_help_marker(d))
+            wrap.addSpacing(12)
+        wrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(wrap)
+        g.addWidget(holder, row, 1)
         self._deploy_buttons["standard"].setChecked(True)
-        v.addWidget(self._divider())
 
-        # --- Mod Sub-folder (standard / ue5; disabled for root) ---
-        self._dp_header = self._section_header(self.tr("Mod Sub-folder"))
-        v.addWidget(self._dp_header)
-        self._dp_hint = self._hint("")
-        v.addWidget(self._dp_hint)
+        # Mod Sub-folder (standard / ue5; disabled for root). Title, tooltip
+        # and placeholder are set by _update_data_path_visibility.
         self._data_path_edit = self._mono_edit()
-        v.addWidget(self._data_path_edit)
-        v.addWidget(self._divider())
+        self._dp_label, self._dp_mark = self._field_row(
+            g, self.tr("Mod Sub-folder"), self._data_path_edit,
+            self.tr("Path relative to the game root where mod files are installed. "
+            "e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. "
+            "Leave empty to target the game root directly."))
 
-        # --- Steam App ID ---
-        v.addWidget(self._section_header(self.tr("Steam App ID  (optional)")))
-        v.addWidget(self._hint(self.tr("Used to auto-detect the Proton prefix. Leave "
-                               "empty if not on Steam.")))
+        # --- Store & Artwork ---
+        g = self._section(self.tr("Store & Artwork"))
         self._steam_edit = self._mono_edit(self.tr("e.g. 377160"))
-        v.addWidget(self._steam_edit)
-        v.addWidget(self._divider())
-
-        # --- Nexus domain ---
-        v.addWidget(self._section_header(self.tr("Nexus Mods Domain  (optional)")))
-        v.addWidget(self._hint(self.tr("The game's slug on nexusmods.com. "
-                               "e.g. 'skyrimspecialedition'.")))
+        self._field_row(
+            g, self.tr("Steam App ID"), self._steam_edit,
+            self.tr("Used to auto-detect the Proton prefix. Leave "
+                    "empty if not on Steam."))
         self._nexus_edit = self._mono_edit(self.tr("e.g. myfavouritegame"))
-        v.addWidget(self._nexus_edit)
-        v.addWidget(self._divider())
-
-        # --- Banner image URL ---
-        v.addWidget(self._section_header(self.tr("Banner Image URL  (optional)")))
-        v.addWidget(self._hint(
-            self.tr("A direct URL to a PNG/JPG image shown in the game picker card. "
-            "The image is downloaded once and cached locally.")))
+        self._field_row(
+            g, self.tr("Nexus Mods Domain"), self._nexus_edit,
+            self.tr("The game's slug on nexusmods.com. "
+                    "e.g. 'skyrimspecialedition'."))
         self._image_edit = self._mono_edit(self.tr("https://example.com/banner.jpg"))
-        v.addWidget(self._image_edit)
+        self._field_row(
+            g, self.tr("Banner Image URL"), self._image_edit,
+            self.tr("A direct URL to a PNG/JPG image shown in the game picker card. "
+            "The image is downloaded once and cached locally."))
         self._image_status = QLabel("")
         self._image_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
-        v.addWidget(self._image_status)
-        v.addWidget(self._divider())
+        g.addWidget(self._image_status, self._next_row(g), 0, 1, 2)
 
-        # --- Advanced options ---
-        v.addWidget(self._section_header(self.tr("Advanced Options  (optional)")))
-        v.addWidget(self._hint(
-            self.tr("Used to change the folder structure of an installed mod to match "
-            "what is required by the manager.")))
-
-        # (key, label, hint) — key is the stored JSON key; label/hint are
-        # user-facing (wrapped for extraction, translated at render time below).
-        _adv_fields = [
-            ("mod_folder_strip_prefixes", _T("Strip Prefixes"),
-             _T("Comma-separated top-level folder names to strip from mod files "
-                "during filemap building (case-insensitive). e.g. Data, data")),
-            ("mod_install_prefix", _T("Prepend Prefix"),
-             _T("Path segment prepended to every installed file. "
-                "e.g. 'mods' so files land at mods/<ModName>/…")),
-            ("mod_required_top_level_folders", _T("Required Top-Level Folders"),
-             _T("Comma-separated folder names a mod must contain at its root. "
-                "If none match, the user is prompted to set a data directory.")),
-            ("mod_required_file_types", _T("Required File Types"),
-             _T("Comma-separated file extensions a mod must contain at its root. "
-                "e.g. .esp, .esm — works standalone or as a fallback after "
-                "Required Top-Level Folders.")),
-            ("mod_folder_strip_prefixes_post", _T("Strip Prefixes (post-install)"),
-             _T("Like Strip Prefixes but applied after Required Top-Level Folders "
-                "validation. e.g. reframework")),
-            ("conflict_ignore_filenames", _T("Conflict Ignore Filenames"),
-             _T("Comma-separated filenames excluded from conflict detection. "
-                "Supports glob patterns: *.<ext> matches any file with that "
-                "extension, <name>.* matches that name with any extension. "
-                "e.g. modinfo.ini, manifest.json, *.txt, LICENCE.*")),
-        ]
+        # --- Mod Install Tuning (collapsed) ---
         self._adv_edits: dict[str, QLineEdit] = {}
-
-        def _render_entry(key, label, hint):
-            lbl = QLabel(self.tr(label)); lbl.setStyleSheet("font-weight:600;")
-            v.addWidget(lbl)
-            v.addWidget(self._hint(self.tr(hint)))
-            e = self._mono_edit()
-            v.addWidget(e)
-            self._adv_edits[key] = e
-
         self._adv_toggles: dict[str, QCheckBox] = {}
 
-        def _render_toggle(key, label, hint, default=False):
-            lbl = QLabel(self.tr(label)); lbl.setStyleSheet("font-weight:600;")
-            v.addWidget(lbl)
-            v.addWidget(self._hint(self.tr(hint)))
-            cb = QCheckBox(self.tr("Enable"))
+        def _render_entry(grid, key, label, hint):
+            e = self._mono_edit()
+            self._field_row(grid, self.tr(label), e, self.tr(hint))
+            self._adv_edits[key] = e
+
+        def _render_toggle(grid, key, label, hint, default=False):
+            cb = QCheckBox(self.tr(label))
             cb.setChecked(default)
-            v.addWidget(cb)
+            self._check_row(grid, cb, self.tr(hint))
             self._adv_toggles[key] = cb
 
-        for key, label, hint in _adv_fields:
-            _render_entry(key, label, hint)
-            # The two Required-Top-Level decision toggles render right after
-            # Required File Types (matches the install-pipeline ordering).
-            if key == "mod_required_file_types":
-                _render_toggle(
-                    "mod_auto_strip_until_required", _T("Auto Strip Until Required"),
-                    _T("When enabled and Required Top-Level Folders is set, strip "
-                       "leading path segments automatically instead of prompting "
-                       "the user."))
-                _render_toggle(
-                    "mod_install_as_is_if_no_match", _T("Install As-Is If No Match"),
-                    _T("When enabled, if both Required Top-Level Folders and "
-                       "Required File Types checks fail, the mod is installed "
-                       "as-is without showing the prefix dialog."))
-
+        self._sec_tuning = self._collapsible(
+            self.tr("Mod Install Tuning"),
+            self.tr("Used to change the folder structure of an installed mod to match "
+            "what is required by the manager."))
+        g = self._make_grid(self._sec_tuning.body)
+        # Rows follow the install-pipeline ordering: the two Required-Top-Level
+        # decision toggles sit right after Required File Types.
+        _render_entry(
+            g, "mod_folder_strip_prefixes", _T("Strip Prefixes"),
+            _T("Comma-separated top-level folder names to strip from mod files "
+               "during filemap building (case-insensitive). e.g. Data, data"))
+        _render_entry(
+            g, "mod_install_prefix", _T("Prepend Prefix"),
+            _T("Path segment prepended to every installed file. "
+               "e.g. 'mods' so files land at mods/<ModName>/…"))
+        _render_entry(
+            g, "mod_required_top_level_folders", _T("Required Top-Level Folders"),
+            _T("Comma-separated folder names a mod must contain at its root. "
+               "If none match, the user is prompted to set a data directory."))
+        _render_entry(
+            g, "mod_required_file_types", _T("Required File Types"),
+            _T("Comma-separated file extensions a mod must contain at its root. "
+               "e.g. .esp, .esm — works standalone or as a fallback after "
+               "Required Top-Level Folders."))
         _render_toggle(
-            "restore_before_deploy", _T("Restore Before Deploy"),
+            g, "mod_auto_strip_until_required", _T("Auto Strip Until Required"),
+            _T("When enabled and Required Top-Level Folders is set, strip "
+               "leading path segments automatically instead of prompting "
+               "the user."))
+        _render_toggle(
+            g, "mod_install_as_is_if_no_match", _T("Install As-Is If No Match"),
+            _T("When enabled, if both Required Top-Level Folders and "
+               "Required File Types checks fail, the mod is installed "
+               "as-is without showing the prefix dialog."))
+        _render_entry(
+            g, "mod_folder_strip_prefixes_post", _T("Strip Prefixes (post-install)"),
+            _T("Like Strip Prefixes but applied after Required Top-Level Folders "
+               "validation. e.g. reframework"))
+
+        # --- Conflicts & Advanced Behaviour (collapsed) ---
+        self._sec_conflicts = self._collapsible(
+            self.tr("Conflicts & Advanced Behaviour"))
+        g = self._make_grid(self._sec_conflicts.body)
+        _render_entry(
+            g, "conflict_ignore_filenames", _T("Conflict Ignore Filenames"),
+            _T("Comma-separated filenames excluded from conflict detection. "
+               "Supports glob patterns: *.<ext> matches any file with that "
+               "extension, <name>.* matches that name with any extension. "
+               "e.g. modinfo.ini, manifest.json, *.txt, LICENCE.*"))
+        _render_entry(
+            g, "conflict_ignore_foldernames", _T("Conflict Ignore Folder Names"),
+            _T("Comma-separated folder names excluded from deployment and "
+               "conflict detection. A folder whose name matches (at any "
+               "depth) is skipped along with everything inside it. Supports "
+               "glob patterns. e.g. docs, screenshots, *_backup"))
+        _render_toggle(
+            g, "restore_before_deploy", _T("Restore Before Deploy"),
             _T("When enabled (default), the manager runs Restore before every "
                "Deploy to clean the game state first. Disable only if the game's "
                "deploy cycle handles its own cleanup internally."), default=True)
         _render_toggle(
-            "normalize_folder_case", _T("Normalize Folder Case"),
+            g, "normalize_folder_case", _T("Normalize Folder Case"),
             _T("When enabled (default), folder names that differ only in case "
                "across mods are unified to a single casing. Disable for "
                "Linux-native games where folder casing is significant."),
             default=True)
 
         # Filemap casing strategy.
-        lbl = QLabel(self.tr("Filemap Casing")); lbl.setStyleSheet("font-weight:600;")
-        v.addWidget(lbl)
-        v.addWidget(self._hint(
-            self.tr("How to pick canonical folder casing when mods disagree. "
-            "Only used when Normalize Folder Case is enabled.")))
         self._casing_combo = QComboBox()
         for label, val in _FILEMAP_CASING_OPTIONS:
             # Visible text translated; the stable value rides as item-data so
             # save/load never keys off the (translatable) label.
             self._casing_combo.addItem(self.tr(label), userData=val)
         no_wheel(self._casing_combo)
-        v.addWidget(self._casing_combo)
+        self._field_row(
+            g, self.tr("Filemap Casing"), self._casing_combo,
+            self.tr("How to pick canonical folder casing when mods disagree. "
+            "Only used when Normalize Folder Case is enabled."), stretch=False)
 
         # Wine DLL overrides (multi-line).
-        lbl = QLabel(self.tr("Wine DLL Overrides")); lbl.setStyleSheet("font-weight:600;")
-        v.addWidget(lbl)
-        v.addWidget(self._hint(self.tr("One override per line: dll_name=load_order  "
-                               "e.g. winhttp=native,builtin")))
         self._dll_edit = QPlainTextEdit()
         self._dll_edit.setFixedHeight(72)
         f = QFont("monospace"); f.setStyleHint(QFont.Monospace); self._dll_edit.setFont(f)
-        v.addWidget(self._dll_edit)
-        v.addWidget(self._divider())
+        self._field_row(
+            g, self.tr("Wine DLL Overrides"), self._dll_edit,
+            self.tr("One override per line: dll_name=load_order  "
+                    "e.g. winhttp=native,builtin"), align_top=True)
 
-        # --- Custom Routing Rules ---
-        v.addWidget(self._section_header(self.tr("Custom Routing Rules")))
-        v.addWidget(self._hint(
+        # --- Custom Routing Rules (collapsed) ---
+        self._sec_routing = self._collapsible(
+            self.tr("Custom Routing Rules"),
             self.tr("Route specific files to alternate destinations during deploy. "
             "Each rule maps files (by extension, folder or filename) to a "
             "game-root-relative directory. For extensions, append (.ext, .ext) "
             "to also route same-stem siblings (e.g. .asi (.ini) sends Foo.ini "
             "alongside Foo.asi). Flatten drops subfolders below the matched "
             "folder. To Prefix routes relative to the Proton/Wine prefix root "
-            "instead of the game install root.")))
+            "instead of the game install root."))
+        v = QVBoxLayout(self._sec_routing.body)
+        v.setContentsMargins(0, 2, 0, 2)
+        v.setSpacing(6)
         add_rule = QPushButton(self.tr("+ Add Rule"))
         add_rule.setObjectName("FormButton")
         add_rule.setCursor(Qt.PointingHandCursor)
@@ -496,11 +590,10 @@ class CustomGameView(QWidget):
         self._routing_header.setVisible(False)
         v.addWidget(self._routing_header)
         v.addWidget(self._routing_container)
-        v.addWidget(self._divider())
 
-        # --- Restore Whitelist ---
-        v.addWidget(self._section_header(self.tr("Restore Whitelist")))
-        v.addWidget(self._hint(
+        # --- Restore Whitelist (collapsed) ---
+        self._sec_whitelist = self._collapsible(
+            self.tr("Restore Whitelist"),
             self.tr("Protect runtime-generated files from being moved out of the "
             "game folder on restore. Each rule anchors at a path relative to "
             "the game root (empty = the game root) and matches folder names "
@@ -508,7 +601,10 @@ class CustomGameView(QWidget):
             "extensions directly at that path. Matching is case-insensitive "
             "and anchored — the same name at any other path needs its own "
             "rule. Folder and filename values accept wildcards (e.g. "
-            "ego_dlc* or *.log).")))
+            "ego_dlc* or *.log)."))
+        v = QVBoxLayout(self._sec_whitelist.body)
+        v.setContentsMargins(0, 2, 0, 2)
+        v.setSpacing(6)
         add_wl = QPushButton(self.tr("+ Add Rule"))
         add_wl.setObjectName("FormButton")
         add_wl.setCursor(Qt.PointingHandCursor)
@@ -533,14 +629,16 @@ class CustomGameView(QWidget):
         self._whitelist_header.setVisible(False)
         v.addWidget(self._whitelist_header)
         v.addWidget(self._whitelist_container)
-        v.addWidget(self._divider())
 
-        # --- Framework Detection ---
-        v.addWidget(self._section_header(self.tr("Framework Detection")))
-        v.addWidget(self._hint(
+        # --- Framework Detection (collapsed) ---
+        self._sec_frameworks = self._collapsible(
+            self.tr("Framework Detection"),
             self.tr("Display a status banner in the Plugins tab when a framework is "
             "installed. Enter the framework name on the left and its file path "
-            "relative to the game root on the right.")))
+            "relative to the game root on the right."))
+        v = QVBoxLayout(self._sec_frameworks.body)
+        v.setContentsMargins(0, 2, 0, 2)
+        v.setSpacing(6)
         add_fw = QPushButton(self.tr("+ Add Framework"))
         add_fw.setObjectName("FormButton")
         add_fw.setCursor(Qt.PointingHandCursor)
@@ -556,9 +654,9 @@ class CustomGameView(QWidget):
         self._validation = QLabel("")
         self._validation.setWordWrap(True)
         self._validation.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
-        v.addWidget(self._validation)
+        self._body_v.addWidget(self._validation)
 
-        v.addStretch(1)
+        self._body_v.addStretch(1)
 
         # --- Button bar ---
         bar = QWidget(); bar.setObjectName("BottomBar")
@@ -586,27 +684,29 @@ class CustomGameView(QWidget):
     def _update_data_path_visibility(self, *_):
         # The deploy radios' toggled signal can fire during _build() before the
         # sub-folder widgets exist; ignore until they're created.
-        if not hasattr(self, "_dp_header"):
+        if not hasattr(self, "_dp_label"):
             return
         deploy = self._current_deploy_type()
         enabled = deploy != "root"
-        self._dp_header.setEnabled(enabled)
-        self._dp_hint.setEnabled(enabled)
+        self._dp_label.setEnabled(enabled)
+        self._dp_mark.setEnabled(enabled)
         self._data_path_edit.setEnabled(enabled)
         if deploy == "ue5":
-            self._dp_header.setText(self.tr("Game Sub-folder  (optional)"))
-            self._dp_hint.setText(
-                self.tr("Location of the folder from root where deployed mods are sent "
-                "to. e.g. Phoenix for Hogwarts Legacy."))
+            self._dp_label.setText(self.tr("Game Sub-folder"))
+            t = self.tr("Location of the folder from root where deployed mods are sent "
+                "to. e.g. Phoenix for Hogwarts Legacy.")
             self._data_path_edit.setPlaceholderText(self.tr("e.g. OblivionRemastered"))
         else:
-            self._dp_header.setText(self.tr("Mod Sub-folder"))
-            self._dp_hint.setText(
-                self.tr("Path relative to the game root where mod files are installed. "
+            self._dp_label.setText(self.tr("Mod Sub-folder"))
+            t = self.tr("Path relative to the game root where mod files are installed. "
                 "e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. "
-                "Leave empty to target the game root directly."))
+                "Leave empty to target the game root directly.")
             self._data_path_edit.setPlaceholderText(
                 self.tr("e.g. Data   (leave empty for game root)"))
+        tip = tip_text(t)
+        self._dp_label.setToolTip(tip)
+        self._dp_mark.setToolTip(tip)
+        self._data_path_edit.setToolTip(tip)
 
     def _current_deploy_type(self) -> str:
         for value, rb in self._deploy_buttons.items():
@@ -940,6 +1040,8 @@ class CustomGameView(QWidget):
             _set_to_str(e.get("mod_folder_strip_prefixes_post", [])))
         self._adv_edits["conflict_ignore_filenames"].setText(
             _set_to_str(e.get("conflict_ignore_filenames", [])))
+        self._adv_edits["conflict_ignore_foldernames"].setText(
+            _set_to_str(e.get("conflict_ignore_foldernames", [])))
 
         self._adv_toggles["mod_auto_strip_until_required"].setChecked(
             bool(e.get("mod_auto_strip_until_required", False)))
@@ -992,6 +1094,37 @@ class CustomGameView(QWidget):
         if isinstance(fw, dict):
             for name, path in fw.items():
                 self._add_framework(name=name, path=path)
+
+        self._auto_expand_sections()
+
+    def _auto_expand_sections(self):
+        """Expand collapsed sections that hold non-default content, so nothing
+        a prepopulate filled in (edit mode, preset, share-code import) is
+        hidden. Expand-only — never re-collapse a section the user opened."""
+        edits = self._adv_edits
+        toggles = self._adv_toggles
+        tuning_keys = (
+            "mod_folder_strip_prefixes", "mod_install_prefix",
+            "mod_required_top_level_folders", "mod_required_file_types",
+            "mod_folder_strip_prefixes_post",
+        )
+        if (any(edits[k].text().strip() for k in tuning_keys)
+                or toggles["mod_auto_strip_until_required"].isChecked()
+                or toggles["mod_install_as_is_if_no_match"].isChecked()):
+            self._sec_tuning.expand()
+        if (edits["conflict_ignore_filenames"].text().strip()
+                or edits["conflict_ignore_foldernames"].text().strip()
+                or not toggles["restore_before_deploy"].isChecked()
+                or not toggles["normalize_folder_case"].isChecked()
+                or (self._casing_combo.currentData() or "upper") != "upper"
+                or self._dll_edit.toPlainText().strip()):
+            self._sec_conflicts.expand()
+        if self._routing_rows:
+            self._sec_routing.expand()
+        if self._whitelist_rows:
+            self._sec_whitelist.expand()
+        if self._framework_rows:
+            self._sec_frameworks.expand()
 
     # ---- validate ---------------------------------------------------------
     def _validate(self) -> str | None:
@@ -1058,6 +1191,8 @@ class CustomGameView(QWidget):
                 _str_to_list(self._adv_edits["mod_folder_strip_prefixes"].text()),
             "conflict_ignore_filenames":
                 _str_to_list(self._adv_edits["conflict_ignore_filenames"].text()),
+            "conflict_ignore_foldernames":
+                _str_to_list(self._adv_edits["conflict_ignore_foldernames"].text()),
             "mod_folder_strip_prefixes_post":
                 _str_to_list(self._adv_edits["mod_folder_strip_prefixes_post"].text()),
             "mod_install_prefix":

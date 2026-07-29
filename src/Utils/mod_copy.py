@@ -158,16 +158,17 @@ def register_mods_in_modlist(target_modlist: Path,
     a single block (dedup by name), preserving their relative order. Mirrors the
     Tk single-block prepend; do NOT call this per-mod in a loop, which reverses
     the group."""
-    from Utils.modlist import read_modlist, write_modlist, ModEntry
-    try:
-        entries = read_modlist(target_modlist) if target_modlist.exists() else []
-    except Exception:
-        entries = []
-    existing_names = {e.name for e in entries}
-    new_entries = [
-        ModEntry(name=name, enabled=enabled, locked=False)
-        for name, enabled in mods
-        if name not in existing_names
-    ]
-    if new_entries:
-        write_modlist(target_modlist, new_entries + entries)
+    from Utils.modlist import read_modlist, write_modlist, ModEntry, modlist_lock
+    with modlist_lock(target_modlist):
+        try:
+            entries = read_modlist(target_modlist) if target_modlist.exists() else []
+        except Exception:
+            entries = []
+        existing_names = {e.name for e in entries}
+        new_entries = [
+            ModEntry(name=name, enabled=enabled, locked=False)
+            for name, enabled in mods
+            if name not in existing_names
+        ]
+        if new_entries:
+            write_modlist(target_modlist, new_entries + entries)

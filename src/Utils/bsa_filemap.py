@@ -558,6 +558,7 @@ def build_bsa_conflicts(
     plugin_extensions: frozenset[str] | None = None,
     archive_name_ordering: bool = False,
     log_fn: "Callable[[str], None] | None" = None,
+    loose_filemap_path: Path | None = None,
 ) -> tuple[
     dict[str, int],
     dict[str, set[str]],
@@ -582,7 +583,14 @@ def build_bsa_conflicts(
     the Skyrim/Fallout engines load BSAs first and then apply loose files on
     top. The BSA mod is recorded as losing via the BSA conflict flag. The
     winning loose-file mod's override is returned separately so the caller
-    can fold it into the loose-file conflict flag system.
+    can fold it into the *loose-file* conflict flag — the win belongs to that
+    mod's loose file, and the winner frequently ships no archive of its own.
+
+    The loose side of that cross-check prefers loose_filemap_path
+    (filemap.txt, the resolved deploy map: honours Mod Files ▸ Disable
+    exclusions and loose-vs-loose winners) over modindex.bin, which is a raw
+    disk mirror — an excluded file never deploys, so it must not claim a BSA
+    override. The index walk is the fallback when no filemap is available.
 
     Returns
         (bsa_conflict_map, bsa_overrides, bsa_overridden_by,
@@ -647,30 +655,55 @@ def build_bsa_conflicts(
     # cross-check there — a loose file whose staged path happens to match a
     # pak-internal asset path must not fake an override.
     if loose_index_path is not None and bsa_winner and not archive_name_ordering:
-        loose_index = read_mod_index(loose_index_path)
-        if loose_index:
-            # Only paths the BSAs actually ship can possibly be overridden by
-            # loose files, so scope loose_winner to that set instead of walking
-            # every mod's entire loose file list. Root-deployed files (`root`
-            # dict) live outside Data/ and cannot conflict with a Data-side BSA
-            # entry, so we only consult the `normal` dict.
-            bsa_paths = set(bsa_winner)
-            loose_winner: dict[str, str] = {}
-            for mod_name in priority_order:
-                entry = loose_index.get(mod_name)
-                if not entry:
-                    continue
-                normal, _ = entry
-                # Iterate whichever side is smaller — typically bsa_paths is
-                # smaller than a mod with thousands of loose files.
-                if len(normal) < len(bsa_paths):
-                    for rel_key in normal:
-                        if rel_key in bsa_paths:
-                            loose_winner[rel_key] = mod_name
-                else:
-                    for rel_key in bsa_paths:
-                        if rel_key in normal:
-                            loose_winner[rel_key] = mod_name
+        # Only paths the BSAs actually ship can possibly be overridden by
+        # loose files, so scope loose_winner to that set instead of walking
+        # every mod's entire loose file list. Root-deployed files live outside
+        # Data/ and can't conflict with a Data-side BSA entry, so neither
+        # source consults them (filemap_root.txt / the `root` dict).
+        bsa_paths = set(bsa_winner)
+        loose_winner: dict[str, str] = {}
+        loose_resolved = False
+        if loose_filemap_path is not None:
+            # Preferred: the resolved deploy map (see docstring). Lines are
+            # "<rel_str>\t<mod>" in original case; BSA paths are lowercase.
+            # Mods outside the modlist ([Overwrite]) have no row to flag, so
+            # skip them — the index walk only visited priority_order too.
+            try:
+                fm_text = loose_filemap_path.read_text(encoding="utf-8")
+            except OSError:
+                fm_text = None
+            if fm_text is not None:
+                loose_resolved = True
+                enabled_set = set(priority_order)
+                for line in fm_text.splitlines():
+                    if "\t" not in line:
+                        continue
+                    rel_str, mod = line.split("\t", 1)
+                    if mod not in enabled_set:
+                        continue
+                    rel_key = rel_str.replace("\\", "/").lower()
+                    if rel_key in bsa_paths:
+                        loose_winner[rel_key] = mod
+        if not loose_resolved:
+            # Fallback: raw index walk (blind to exclusions — best effort).
+            loose_index = read_mod_index(loose_index_path)
+            if loose_index:
+                for mod_name in priority_order:
+                    entry = loose_index.get(mod_name)
+                    if not entry:
+                        continue
+                    normal, _ = entry
+                    # Iterate whichever side is smaller — typically bsa_paths
+                    # is smaller than a mod with thousands of loose files.
+                    if len(normal) < len(bsa_paths):
+                        for rel_key in normal:
+                            if rel_key in bsa_paths:
+                                loose_winner[rel_key] = mod_name
+                    else:
+                        for rel_key in bsa_paths:
+                            if rel_key in normal:
+                                loose_winner[rel_key] = mod_name
+        if loose_winner:
             for file_path, bsa_mod in bsa_winner.items():
                 loose_mod = loose_winner.get(file_path)
                 if loose_mod is None or loose_mod == bsa_mod:
@@ -678,8 +711,8 @@ def build_bsa_conflicts(
                 # BSA side: record the loss via the BSA flag.
                 win_count[bsa_mod] = win_count.get(bsa_mod, 0) - 1
                 overridden_by[bsa_mod].add(loose_mod)
-                # Loose side: returned separately so the caller can merge it
-                # into the loose-file conflict flag.
+                # Loose side: returned separately for the caller to merge into
+                # the loose-file conflict flag (see docstring).
                 loose_overrides_bsa.setdefault(loose_mod, set()).add(bsa_mod)
                 loose_overridden_by_bsa.setdefault(bsa_mod, set()).add(loose_mod)
 

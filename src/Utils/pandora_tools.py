@@ -74,7 +74,12 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
 
     *on_started* fires once the process has spawned (the UI can enable its
     Done button while Pandora runs). Shuts the prefix wineserver down after
-    exit.
+    exit. When the winetricks-style marker is in *env* (Proton-step checkbox,
+    via resolve_tool_prefix) the launch bypasses the proton script and runs
+    plain Wine the way winetricks does — handled here rather than through
+    run_tool_logged's delegation because the rebuilt environment must get
+    Pandora's .NET/renderer tweaks re-applied; prefix prep (registry seed,
+    Settings.json) still happens the same way.
     """
     from Utils.bethesda_registry import maybe_register_for_game
     from Utils.exe_args_builder import _bootstrap_pandora_settings
@@ -123,7 +128,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     env["PROTON_USE_WINED3D"] = "1"
     env["WINE_D3D_CONFIG"] = "renderer=gdi"
 
-    from Utils.exe_launch import run_tool_logged
+    from Utils.exe_launch import run_tool_logged, run_tool_winetricks_style
     log_fn(f"launching {exe} via Proton")
     log_fn(
         "  env: "
@@ -133,9 +138,24 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     )
     if on_started is not None:
         on_started()
-    rc = run_tool_logged(proton_script, exe, env, log_fn=log_fn,
-                         extra_args=[game_arg] if game_arg else None,
-                         label="Pandora")
+    if env.get("AMM_WINETRICKS_STYLE") == "1":
+        # The helper rebuilds env from the desktop environment, so re-apply
+        # the launch-critical tweaks: drop the host .NET vars and keep the
+        # WineD3D GDI renderer (bare wine has no DXVK session, so wined3d
+        # handles d3d and WINE_D3D_CONFIG applies directly).
+        rc = run_tool_winetricks_style(
+            proton_script, exe, compat_data, log_fn=log_fn,
+            extra_args=[game_arg] if game_arg else None,
+            extra_env={
+                "DOTNET_ROOT": None,
+                "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
+                "WINE_D3D_CONFIG": "renderer=gdi",
+            },
+            label="Pandora")
+    else:
+        rc = run_tool_logged(proton_script, exe, env, log_fn=log_fn,
+                             extra_args=[game_arg] if game_arg else None,
+                             label="Pandora")
     shutdown_prefix_wineserver(proton_script, compat_data, log_fn=log_fn)
     log_fn(f"Pandora exited (code {rc}).")
     return rc

@@ -1,3 +1,38 @@
+- v2.0.5
+### Game Support
+- Added Devil May Cry 5
+- Added Dragons Dogma 2
+### Additions
+- The wiki can now be viewed from within the manager
+- Added an argument field in the xedit wizards for adding additional command line arguments
+- Added an option to apply the 4gb patch to New vegas on deploy
+- Mods can now be dragged from the downloads tab to the modlist panel to install them
+- Added an option to xedit qac wizards to clean all dirty plugins automatically
+- Added an overrides tab for Baldur's Gate 3
+- Added 2 new light themes
+### Changes
+- Condensed the Nexus actions in the right click context menu into a sub menu
+- Tidied up the settings menu and define custom game menu
+- The plugins tab is no longer shown for games that do not use it
+- Mods in the "update files" category on Nexus now show up when installing from the nexus browser
+- The Smapi wizard now installs it automatically instead of needing user input
+- Updated Synthesis wizard to install .net 10 SDK
+- After checking a modlist for updates, If any updates are available a prompt will appear to auto run the quick updater
+- The xedit wizards can now not be closed while xedit is running
+- A warning is now shown when trying to deploy into an NTFS drive
+- Multiple tab types can now be viewed at once, A tab overlaying the modlist panel and a tab overlaying the plugins panel can be viewed at the same time
+### Bug Fixes
+- Fixed an issue where users with the "supporter" role could not download collections
+- Fixed an issue where fose (Fallout 3 script extender) was being installed incorrectly
+- Fixed an issue where plugins could not be disabled for older Bethesda titles
+- Fixed issues related to BSA/BA2 conflicts not displaying accurately 
+- Fixed the overwrite folder not deploying correctly for Ue5 games
+- Fixed an issue where restore could leave behind some empty folders
+- Fixed app tray icon not showing for some users
+- Fixed an issue where the loading splash in the nexus browser could become off center
+
+---
+
 - v2.0.4
 ### Additions
 - Added the option to change download speed limits

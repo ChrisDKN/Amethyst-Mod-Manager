@@ -3,8 +3,7 @@ GUI-neutral core of the Plugin Audit wizard.
 
 Moved out of wizards/plugin_audit.py (which imports customtkinter) so the Qt
 wizard view can share it: the plugin-header/new-record scanners, the
-load-order/profile/priority/patch-index helpers (shared with SkyGen via
-Utils.plugin_scan_common), the AuditEntry model, and standalone
+load-order/profile/priority/patch-index helpers, the AuditEntry model, and standalone
 scan/disable/cleanup functions ported from the Tk wizard's methods.
 """
 
@@ -375,20 +374,6 @@ def _build_patch_index(mods_path: Path) -> Tuple[Set[str], Set[str]]:
     except OSError:
         pass
     return bos_patched, sp_patched
-
-
-def _get_priority_for_plugin(plugin_name: str, mods_path: Path,
-                              priorities: Dict[str, int]) -> int:
-    """Amethyst mod priority for the plugin's owner. -1 if not found."""
-    if not mods_path or not mods_path.is_dir():
-        return -1
-    for mod_dir in mods_path.iterdir():
-        if not mod_dir.is_dir():
-            continue
-        for sub in (mod_dir, mod_dir / "Data"):
-            if (sub / plugin_name).is_file():
-                return priorities.get(mod_dir.name, -1)
-    return -1
 
 
 def _has_skygen_ini(plugin_name: str, mods_path: Optional[Path]) -> bool:

@@ -72,17 +72,37 @@ def _tinted_icon_url(name: str, color: str) -> str:
 _QT_DEFAULT_THEME = "dark"
 
 
+# Memoised active_palette() result. Model data() methods call it per cell per
+# repaint, and an uncached call rescans the theme packages + parses config each
+# time. Invalidated by apply_theme() and wherever the theme/appearance is
+# changed (settings / theme editor save paths).
+_active_palette_cache: dict | None = None
+
+
+def invalidate_palette_cache() -> None:
+    """Drop the memoised active palette (call after the theme changes)."""
+    global _active_palette_cache
+    _active_palette_cache = None
+
+
 def active_palette() -> dict:
     """Return the {KEY: hex} palette for the Qt app. Defaults to the dark palette;
     an explicit saved appearance_mode theme wins when present. (Values may be str
-    or (light,dark) tuples; _c() normalises them.)"""
+    or (light,dark) tuples; _c() normalises them.) Memoised — see
+    invalidate_palette_cache()."""
+    global _active_palette_cache
+    if _active_palette_cache is not None:
+        return _active_palette_cache
     palettes = load_palettes()
     mode = get_appearance_mode()
     if mode and mode in palettes:
-        return palettes[mode]
-    return (palettes.get(_QT_DEFAULT_THEME)
-            or palettes.get("dark")
-            or next(iter(palettes.values()), {}))
+        pal = palettes[mode]
+    else:
+        pal = (palettes.get(_QT_DEFAULT_THEME)
+               or palettes.get("dark")
+               or next(iter(palettes.values()), {}))
+    _active_palette_cache = pal
+    return pal
 
 
 def _c(pal: dict, key: str) -> str:
@@ -268,12 +288,15 @@ def build_qss(pal: dict | None = None) -> str:
     /* Close button — a clear square on the right of the tab (matches the
        mockup). Larger hit area, subtle by default, soft rounded red on hover. */
     QTabBar::close-button {{
-        image: url({_icon_url('close_white.png')});
+        image: url({_tinted_icon_url('close_white.png', c('TEXT_DIM'))});
         subcontrol-position: right;
         margin: 3px 6px 3px 4px;
         border-radius: 4px;
     }}
-    QTabBar::close-button:hover {{ background: {c('BTN_DANGER')}; }}
+    QTabBar::close-button:hover {{
+        background: {c('BTN_DANGER')};
+        image: url({_tinted_icon_url('close_white.png', ct('BTN_DANGER'))});
+    }}
 
     /* Slim modern scrollbars — applied globally (modlist, plugins, log, …) */
     QScrollBar:vertical {{
@@ -402,6 +425,9 @@ def build_qss(pal: dict | None = None) -> str:
         background: {c('BG_HEADER')};
         border-bottom: 1px solid {c('BORDER')};
     }}
+    /* Dim caption above a tab's column header (Mod Files / Data / …). Palette-
+       driven so it stays legible in light themes (was a hardcoded #aaa). */
+    #HeaderCaption {{ color: {c('TEXT_DIM')}; }}
     #GroupSep {{ background: {c('BORDER')}; border: none; }}
     #ActionButton {{
         background: {c('BG_ROW')};
@@ -785,6 +811,7 @@ def apply_theme(app) -> None:
     tab close button) + a role-based QPalette + the QSS overlay. Mirrors MO2's
     QStyle+QSS model, with QPalette added so Fusion's disabled/tooltip/frame/
     inactive states look right (MO2 leans on native styles for those)."""
+    invalidate_palette_cache()
     p = active_palette()
     base = _resolve_base_style(p)
     app.setStyle(_make_proxy_style(base))

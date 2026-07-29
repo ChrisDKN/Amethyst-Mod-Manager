@@ -101,7 +101,8 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
     {
         "id": "sdv_smapi",
         "label": "Install SMAPI",
-        "description": "Download and install SMAPI (mod loader) for Stardew Valley.",
+        "description": ("Download and install SMAPI (mod loader) for Stardew "
+                        "Valley, into the game folder or as a managed mod."),
         "game_ids": ["Stardew_Valley"],
         "all_games": False,
         "dialog_class": "wizards.sdv_smapi.SmapiWizard",

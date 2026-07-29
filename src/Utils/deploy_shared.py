@@ -972,19 +972,24 @@ def _rm_any(path: str) -> None:
 def _clear_dir(directory: Path) -> int:
     """Delete all files inside directory and remove empty subdirectories.
     Returns the number of files deleted.  The directory itself is kept.
-
-    Uses shutil.rmtree + recreate rather than per-file unlink — significantly
-    faster for large directories (avoids repeated stat/unlink/rmdir syscalls).
     """
     if not directory.is_dir():
         return 0
-    # os.walk classifies entries via readdir d_type — no stat per entry like
-    # rglob + is_file.
-    count = sum(len(fns) for _dp, _dns, fns in os.walk(str(directory)))
-    if count == 0:
-        return 0
-    shutil.rmtree(directory)
-    directory.mkdir(parents=True, exist_ok=True)
+    # Single bottom-up walk: unlink files (counting as we go) and rmdir the
+    # emptied subdirs — os.walk classifies entries via readdir d_type, so
+    # there is no stat per entry, and no second walk just to get the count.
+    count = 0
+    for dp, dns, fns in os.walk(str(directory), topdown=False):
+        for fn in fns:
+            os.unlink(os.path.join(dp, fn))
+            count += 1
+        for dn in dns:
+            sub = os.path.join(dp, dn)
+            try:
+                os.rmdir(sub)
+            except NotADirectoryError:
+                # Symlink to a dir — walk lists it in dns but never descends.
+                os.unlink(sub)
     return count
 
 
@@ -1603,7 +1608,9 @@ def _write_deploy_snapshot(
     Written atomically via a .tmp sibling then renamed.  Returns the number
     of files recorded, or 0 on error (the deploy is never aborted).
 
-    The format is one rel_path per line.  Older snapshots also recorded
+    The format is one rel_path per line; v3 also records each directory as a
+    rel_path with a trailing "/" so restore can distinguish runtime-created
+    dirs from ones present at deploy time.  Older snapshots also recorded
     `\\tmtime_ns\\tsize` columns; _load_deploy_snapshot ignores anything past
     the first tab, so the trailing columns were dead cost (one extra stat
     per file) and have been dropped.  Old snapshots remain readable.
@@ -1626,7 +1633,7 @@ def _write_deploy_snapshot(
     prefix_len = len(game_root_str) + 1          # +1 for trailing separator
     try:
         with atomic_writer(snapshot_path, "w") as fh:
-            fh.write("# deploy_snapshot v2\n")
+            fh.write("# deploy_snapshot v3\n")
             stack = [game_root_str]
             while stack:
                 cur = stack.pop()
@@ -1641,6 +1648,11 @@ def _write_deploy_snapshot(
                                             "\\", "/").lower() in excluded):
                                     continue
                                 stack.append(entry.path)
+                                # v3: record dirs too (trailing "/") so restore
+                                # can tell runtime-created dirs from ones that
+                                # existed at deploy time.
+                                fh.write(entry.path[prefix_len:])
+                                fh.write("/\n")
                             elif (entry.is_file(follow_symlinks=False)
                                   or entry.is_symlink()):
                                 fh.write(entry.path[prefix_len:])
@@ -1670,10 +1682,30 @@ def _load_deploy_snapshot(snapshot_path: Path) -> set[str]:
                 if line[0] == "#":
                     continue
                 tab = line.find("\t")
-                known.add(line[:tab].lower() if tab != -1 else line.rstrip("\n").lower())
+                rel = line[:tab] if tab != -1 else line.rstrip("\n")
+                if rel.endswith("/"):
+                    continue  # v3 directory line
+                known.add(rel.lower())
         return known
     except OSError:
         return set()
+
+
+def _load_deploy_snapshot_dirs(snapshot_path: Path) -> "set[str] | None":
+    """Return lowercased relative dir paths from a v3 snapshot, or None if the
+    snapshot is missing or predates v3 (no dir info recorded)."""
+    try:
+        with snapshot_path.open(encoding="utf-8", errors="surrogateescape") as fh:
+            if not fh.readline().startswith("# deploy_snapshot v3"):
+                return None
+            dirs: set[str] = set()
+            for line in fh:
+                rel = line.rstrip("\n")
+                if rel.endswith("/"):
+                    dirs.add(rel[:-1].lower())
+            return dirs
+    except OSError:
+        return None
 
 
 # Per-restore log written at the destination root (overwrite/ or Root_Folder/).
@@ -1727,6 +1759,9 @@ def _move_runtime_files(
     Vanilla files (present in snapshot) are left untouched.
     Symlinks are skipped entirely.
 
+    With a v3 snapshot, empty directories created since deploy are also
+    removed (they hold no files, so the move alone never touches them).
+
     exclude_dirs — must match the value passed to _write_deploy_snapshot so the
     excluded subtree is never treated as runtime-generated.
 
@@ -1761,6 +1796,7 @@ def _move_runtime_files(
     # overlap is implausibly low for a non-empty game root, the snapshot does
     # not describe this directory — bail out rather than destroy the install.
     candidate_rels: list[str] = []
+    dir_rels: list[str] = []
     matched_known = 0
     stack = [game_root_str]
     while stack:
@@ -1776,6 +1812,7 @@ def _move_runtime_files(
                                     "\\", "/").lower() in excluded):
                             continue
                         stack.append(entry.path)
+                        dir_rels.append(entry.path[prefix_len:])
                     elif entry.is_file(follow_symlinks=False):
                         rel = entry.path[prefix_len:]
                         if rel.lower() in known:
@@ -1832,6 +1869,34 @@ def _move_runtime_files(
         moved_rels.append(rel)
         moved += 1
 
+    # Sweep runtime-created directories that hold no files at restore time.
+    # Such dirs are invisible to the file move above (snapshot and move are
+    # file-based) and, left in place, block the bottom-up ancestor prune —
+    # e.g. an empty Nautilus RestrictedIDs/ keeping the whole BepInEx/ chain
+    # alive after restore.  Only v3 snapshots record dirs; on an older
+    # snapshot known_dirs is None and the sweep is skipped (a vanilla-shipped
+    # empty dir can't be told apart from a runtime one without dir info).
+    known_dirs = _load_deploy_snapshot_dirs(snapshot_path)
+    if known_dirs is not None and dir_rels:
+        swept = 0
+        for rel in sorted(dir_rels, key=lambda r: r.count("/"), reverse=True):
+            if rel.lower() in known_dirs:
+                continue
+            if restore_whitelist is not None and restore_whitelist(
+                    rel.replace("\\", "/").lower()):
+                continue  # dir sits in a whitelisted runtime area — leave it
+            try:
+                os.rmdir(game_root_str + "/" + rel)  # only succeeds if empty
+            except OSError:
+                continue
+            swept += 1
+            # Seed the ancestor prune below: the parent may itself be a
+            # now-empty deploy-created dir whose earlier prune was blocked
+            # by this runtime dir.
+            emptied_dirs.add(Path(game_root_str + "/" + rel).parent)
+        if swept:
+            _log(f"  Removed {swept} empty runtime-created folder(s).")
+
     # Prune any directories left empty after moving runtime files out
     if emptied_dirs:
         _prune_empty_dirs(emptied_dirs, stop_dirs={game_root})
@@ -1854,17 +1919,21 @@ def _path_under_root(path: Path, root: Path) -> bool:
 
     Checks the unresolved path first so that symlinks whose targets live
     outside root (e.g. symlinks into staging) are not incorrectly blocked.
+    Any ``..`` component below root is rejected outright — relative_to()
+    never collapses ``..``, so "root/a/../../x" would otherwise pass the
+    prefix check while actually pointing outside root.
     """
     try:
-        path.relative_to(root)
-        return True
+        rel = path.relative_to(root)
     except ValueError:
         pass
+    else:
+        return ".." not in rel.parts
     try:
-        path.resolve().relative_to(root.resolve())
-        return True
+        rel = path.resolve().relative_to(root.resolve())
     except ValueError:
         return False
+    return ".." not in rel.parts
 
 
 def _get_staging_source_path(

@@ -104,6 +104,15 @@ def _remove_plugins_for_mods(game, profile_dir: Path, staging_root: Path,
             for f in folder.iterdir():
                 if f.is_file() and f.suffix.lower() in plugin_exts:
                     to_remove.add(f.name.lower())
+            # Rule-routing games (Oblivion Remastered): nested plugins that
+            # deploy to the top of the data dir were synced into plugins.txt
+            # too — strip those names as well.
+            try:
+                from Utils.game_helpers import routed_mod_plugin_names
+                for n in routed_mod_plugin_names(game, folder):
+                    to_remove.add(n.lower())
+            except Exception:
+                pass
     if not to_remove:
         return
     from Utils.plugins import (

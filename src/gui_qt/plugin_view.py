@@ -468,7 +468,7 @@ class PluginView(QTreeView):
         btn.setCursor(Qt.ArrowCursor)
         btn.setFocusPolicy(Qt.NoFocus)
         btn.setAutoRaise(True)
-        btn.setToolTip(self.tr("Show / hide columns"))
+        btn.setToolTip(self.tr("Show / Hide columns"))
         bg = _c(active_palette(), "BG_HEADER")
         btn.setStyleSheet(
             f"QToolButton {{ background: {bg}; border: none; padding: 0px; }}")

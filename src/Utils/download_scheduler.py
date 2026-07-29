@@ -17,8 +17,9 @@ fetch, download, hand-off to the install queue) is the caller's `work` fn.
 
 from __future__ import annotations
 
+import queue as _queue
 import threading
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 
 def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = None
@@ -35,57 +36,6 @@ def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = Non
             return getattr(m, "size_bytes", 0) or 0
     # (0 = unknown → sort last) via a (is_unknown, size) key.
     return sorted(mods, key=lambda m: (size_key(m) <= 0, size_key(m)))
-
-
-def run_smallest_first(mods: list, work: Callable[[object], None], workers: int,
-                       *, stop: "threading.Event | None" = None,
-                       spawn: Callable[[Callable, str], object] | None = None
-                       ) -> None:
-    """Dispatch *mods* to *work* strictly smallest→largest across *workers*
-    threads, blocking until every mod is processed (or *stop* is set).
-
-    Unlike :func:`run_double_ended`, NO worker is dedicated to large mods: all
-    workers pull from the head of the (pre-sorted smallest→largest) list, so the
-    smallest remaining mod is always the next one downloaded. NB this is a
-    deliberate Qt policy, NOT Tk parity: the Tk installer honoured the
-    ``download_order`` collection setting (default "largest" = largest-first);
-    Qt ignores that legacy key and always downloads smallest-first.
-
-    *mods*  — PRE-SORTED smallest→largest (see :func:`order_by_size`).
-    *stop*  — optional cancel event; when set, workers drain the remainder
-              (feeding *work*, which is expected to short-circuit) so the
-              caller's per-mod bookkeeping still fires.
-    *spawn* — optional ``spawn(target, name) -> thread-like`` for tests.
-    """
-    n = len(mods)
-    if n == 0:
-        return
-    workers = max(1, int(workers))
-
-    lock = threading.Lock()
-    cursor = {"lo": 0, "hi": n - 1}
-
-    def _worker():
-        while True:
-            if stop is not None and stop.is_set():
-                _drain_remaining(work, cursor, lock, mods, stop)
-                return
-            with lock:
-                if cursor["lo"] > cursor["hi"]:
-                    return
-                mod = mods[cursor["lo"]]
-                cursor["lo"] += 1
-            work(mod)
-
-    if spawn is None:
-        def spawn(target, name):
-            return threading.Thread(target=target, name=name, daemon=True)
-
-    threads = [spawn(_worker, f"col-dl-{i}") for i in range(workers)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
 
 
 def run_double_ended(mods: list, work: Callable[[object], None], workers: int,
@@ -160,6 +110,125 @@ def run_double_ended(mods: list, work: Callable[[object], None], workers: int,
     for t in threads:
         t.start()
     for t in threads:
+        t.join()
+
+
+def run_pipelined(mods: list, fetch: Callable[[object], Any],
+                  download: Callable[[object, Any], None],
+                  dl_workers: int, *, link_workers: int = 2,
+                  stop: "threading.Event | None" = None,
+                  spawn: Callable[[Callable, str], object] | None = None
+                  ) -> None:
+    """Two-stage smallest-first dispatch: fetch each mod's signed CDN link on a
+    small dedicated pool AHEAD of the download workers, so a download worker
+    that just finished a tiny archive finds the next link already waiting and
+    starts transferring bytes with ZERO link-fetch latency.
+
+    Root problem this solves: with a single fetch-link→download loop per worker,
+    every worker blocks on a ``get_download_links`` round-trip between mods. For
+    tiny archives that latency is comparable to the download itself and all the
+    workers hit it in lockstep, so the pipe stutters — downloads arrive at the
+    installer in bursts of *dl_workers* with idle gaps between. Pipelining the
+    link fetch hides that latency behind other in-flight downloads.
+
+    *mods*        — PRE-SORTED smallest→largest (see :func:`order_by_size`);
+                    both stages honour that order (fetchers claim from the head).
+    *fetch*       — ``fetch(mod) -> links``, called on a link-worker thread;
+                    whatever it returns is passed straight to *download* as-is
+                    (return None/[] to let *download* fetch links itself). May
+                    raise — the mod still flows to *download* with ``links=None``
+                    so the caller's per-mod bookkeeping (counters, install-queue
+                    sentinels) still fires exactly once.
+    *download*    — ``download(mod, links)``, called on a download-worker thread
+                    once per mod, exactly once, in the same smallest-first order
+                    the fetchers claimed. May raise — the exception is swallowed
+                    so the worker (and the pipeline) keeps flowing.
+    *dl_workers*  — number of download-worker threads (>=1).
+    *link_workers*— number of link-fetch threads (>=1). Small (2–3) is enough to
+                    stay a step ahead; keeping it low bounds how far ahead links
+                    are minted so signed CDN URLs never go stale before use.
+    *stop*        — optional cancel event; when set, both stages drain the
+                    remainder (feeding *download* with ``links=None``) so every
+                    mod is still handed off once and the caller short-circuits.
+    *spawn*       — optional ``spawn(target, name) -> thread-like`` for tests.
+
+    The ready queue is bounded to ``dl_workers + link_workers`` so the fetchers
+    stay only a step ahead of consumption — enough to keep every download slot
+    fed, not so far ahead that links expire.
+    """
+    n = len(mods)
+    if n == 0:
+        return
+    dl_workers = max(1, int(dl_workers))
+    link_workers = max(1, int(link_workers))
+
+    lock = threading.Lock()
+    cursor = {"lo": 0}
+    ready: _queue.Queue = _queue.Queue(maxsize=dl_workers + link_workers)
+    _READY_DONE = object()
+
+    def _claim():
+        with lock:
+            if cursor["lo"] >= n:
+                return None, True
+            mod = mods[cursor["lo"]]
+            cursor["lo"] += 1
+            return mod, False
+
+    def _fetcher():
+        while True:
+            mod, exhausted = _claim()
+            if exhausted:
+                return
+            links = None
+            if stop is None or not stop.is_set():
+                try:
+                    links = fetch(mod)
+                except Exception:
+                    links = None
+            # Enqueue even when stopping so the downloader still hands the mod
+            # off once (caller bookkeeping) — the download fn short-circuits.
+            ready.put((mod, links))
+
+    def _downloader():
+        while True:
+            item = ready.get()
+            if item is _READY_DONE:
+                return
+            mod, links = item
+            try:
+                download(mod, links)
+            except Exception:
+                # A dead worker wedges the whole pipeline: the fetchers block
+                # in ready.put() on the bounded queue and _closer never
+                # returns, so the caller hangs uncancellably. Drop this mod's
+                # download instead — the caller's own bookkeeping/logging is
+                # its responsibility.
+                pass
+
+    if spawn is None:
+        def spawn(target, name):
+            return threading.Thread(target=target, name=name, daemon=True)
+
+    fetchers = [spawn(_fetcher, f"col-link-{i}") for i in range(link_workers)]
+    downloaders = [spawn(_downloader, f"col-dl-{i}") for i in range(dl_workers)]
+    for t in downloaders:
+        t.start()
+    for t in fetchers:
+        t.start()
+
+    # Once every fetcher has drained the mod list, no more real items will be
+    # enqueued — feed one sentinel per download worker so they exit cleanly.
+    def _closer():
+        for t in fetchers:
+            t.join()
+        for _ in downloaders:
+            ready.put(_READY_DONE)
+
+    closer = spawn(_closer, "col-link-close")
+    closer.start()
+    closer.join()
+    for t in downloaders:
         t.join()
 
 

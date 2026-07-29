@@ -48,12 +48,6 @@ def _parse_missing_req_pairs(raw: str) -> list[tuple[int, str]]:
     return pairs
 
 
-def _parse_missing_req_names(raw: str) -> list[str]:
-    """Display names for a `missing_requirements` value — the stored name, or
-    the id as a string when the name is blank (locally-seeded requirements)."""
-    return [nm or str(mid) for mid, nm in _parse_missing_req_pairs(raw)]
-
-
 def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                           ignored_reqs: frozenset[str] = frozenset(),
                           profile_dir: "Path | None" = None,

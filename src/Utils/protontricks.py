@@ -34,8 +34,7 @@ def strip_appimage_env(env: dict) -> dict:
     Proton's Vulkan GPU probe on startup.
 
     The var list and strip logic live in :mod:`Utils.appimage_env` — the
-    single source of truth shared with ``xdg.host_env`` and
-    ``smapi_installer.clean_env``.
+    single source of truth shared with ``xdg.host_env``.
     """
     if not in_appimage():
         return env
@@ -652,8 +651,3 @@ def install_vcredist(
     except Exception as exc:
         _log(f"VC++ Redistributable install error: {exc}")
         return False
-
-
-def protontricks_available() -> bool:
-    """Return True if protontricks (native or flatpak) is available on this system."""
-    return _resolve_protontricks() is not None

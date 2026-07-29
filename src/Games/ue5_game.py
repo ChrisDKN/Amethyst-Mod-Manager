@@ -48,6 +48,7 @@ Restore:
 from __future__ import annotations
 
 import fnmatch
+import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -74,6 +75,47 @@ _VANILLA_BACKUP_DIR = "Amethyst_vanilla_files"
 # Custom-dir vanilla files displaced by mod files are backed up here (inside profile root).
 # Files are stored with their full absolute path mirrored so restore can reconstruct them.
 _CUSTOM_VANILLA_BACKUP_DIR = "ue5_custom_vanilla_backup"
+
+# Sentinel mod name the filemap uses for the overwrite folder (see Utils.filemap)
+_OVERWRITE_NAME = "[Overwrite]"
+
+
+def _build_overwrite_lookup(
+    overwrite_dir: Path,
+    strip_prefixes: "set[str] | None",
+) -> dict[str, Path]:
+    """Index the overwrite folder by strip-normalised relative path.
+
+    The overwrite folder stores files in DEPLOYED layout (restore moves
+    runtime-generated files there under their game-root-relative paths), but
+    the filemap index applied ``mod_folder_strip_prefixes`` when it scanned
+    the folder — e.g. ``Binaries/Win64/ue4ss/Mods/X/a.txt`` was indexed as
+    ``ue4ss/Mods/X/a.txt``.  Re-apply the same leading-segment strip here so
+    a filemap entry can be mapped back to its real on-disk file regardless
+    of how many wrapper folders the deployed layout carries.
+    """
+    strip_set = {s.lower() for s in (strip_prefixes or ())}
+    lookup: dict[str, Path] = {}
+    stack: list[tuple[str, str]] = [("", str(overwrite_dir))]
+    while stack:
+        prefix, current = stack.pop()
+        try:
+            with os.scandir(current) as it:
+                for entry in it:
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append((prefix + entry.name + "/", entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        stripped = prefix + entry.name
+                        while "/" in stripped:
+                            first, rest = stripped.split("/", 1)
+                            if first.lower() in strip_set:
+                                stripped = rest
+                            else:
+                                break
+                        lookup[stripped.lower()] = Path(entry.path)
+        except OSError:
+            continue
+    return lookup
 
 
 # ---------------------------------------------------------------------------
@@ -1300,7 +1342,16 @@ class UE5Game(BaseGame):
                 log_fn=_log,
                 prefix_root=self.get_prefix_path(),
             )
-        overwrite_dir = staging.parent / "overwrite"
+        # get_effective_overwrite_path() (not staging.parent) — staging is a
+        # {mod_name: real_mod_dir} resolver dict for a Profile Group, which
+        # has no .parent (see the same fix in Utils/deploy_custom_rules.py).
+        overwrite_dir = self.get_effective_overwrite_path()
+        # Filemap entries for the overwrite folder carry strip-normalised
+        # paths while the folder itself holds deployed-layout paths — a
+        # direct join misses them (e.g. "ue4ss/..." vs the on-disk
+        # "Binaries/Win64/ue4ss/...").  Index it once up front.
+        overwrite_lookup = _build_overwrite_lookup(
+            overwrite_dir, self.mod_folder_strip_prefixes)
 
         manifest: list[str] = []
         vanilla_backup_dir = (self._game_path or game_path) / _VANILLA_BACKUP_DIR
@@ -1355,7 +1406,13 @@ class UE5Game(BaseGame):
                 dest_dir = (base_dir / dest_rel) if dest_rel else base_dir
                 dest_file = dest_dir / final_rel
             key = str(dest_file)
-            rank = priority_map.get(mod_name, 1 << 30)
+            # Overwrite-folder files layer user/runtime edits on top of every
+            # mod, so they must win destination collisions — without this the
+            # sentinel name (absent from modlist.txt) would rank LAST.
+            if mod_name == _OVERWRITE_NAME:
+                rank = -1
+            else:
+                rank = priority_map.get(mod_name, 1 << 30)
             existing = resolved_by_dest.get(key)
             if existing is None or rank < existing[0]:
                 resolved_by_dest[key] = (
@@ -1391,6 +1448,7 @@ class UE5Game(BaseGame):
                 per_mod_strip.get(mod_name, []),
                 overwrite_dir,
                 global_strips=self.mod_folder_strip_prefixes,
+                overwrite_lookup=overwrite_lookup,
             )
             if src is None:
                 _log(f"  WARN: source not found for {staged_rel} ({mod_name})")
@@ -1488,11 +1546,15 @@ class UE5Game(BaseGame):
         mod_strips: list[str],
         overwrite_dir: Path,
         global_strips: set[str] | None = None,
+        overwrite_lookup: dict[str, Path] | None = None,
     ) -> Path | None:
         """Locate the physical source file for a filemap entry.
 
         Tries in order:
-          1. Overwrite dir
+          1. Overwrite dir (direct join, then the strip-normalised lookup —
+             the folder holds deployed-layout paths such as
+             ``Binaries/Win64/ue4ss/...`` while the filemap entry was
+             indexed with strip prefixes applied)
           2. staging/<mod>/<staged_rel>  (direct)
           3. staging/<mod>/<global_strip>/<staged_rel>  (re-add stripped prefix)
           4. staging/<mod>/<per_mod_strip>/<staged_rel>
@@ -1505,10 +1567,20 @@ class UE5Game(BaseGame):
         if ow.is_file():
             return ow
 
+        norm = staged_rel.replace("\\", "/")
+
+        if overwrite_lookup:
+            src = overwrite_lookup.get(norm.lower())
+            if src is not None:
+                return src
+        if mod_name == _OVERWRITE_NAME:
+            # No staging folder exists for the overwrite sentinel — the
+            # lookups below would just probe staging/[Overwrite]/.
+            return None
+
         mod_root = resolve_mod_dir(staging, mod_name)
         if mod_root is None:
             return None
-        norm = staged_rel.replace("\\", "/")
 
         src = _resolve_nocase(mod_root, norm)
         if src is not None:

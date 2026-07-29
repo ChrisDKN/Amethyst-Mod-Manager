@@ -105,11 +105,16 @@ package() {
     find "$app_share" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
     find "$app_share" -type f -name '*.py' -exec chmod 0644 {} \;
 
-    # Inject the prebuilt libloot .so from CI when available.
+    # Stale extensions from older layouts/ABIs inside LOOT/ are dead weight
+    # (loot_sorter does a top-level `import loot`) — don't ship them.
+    rm -f "$app_share/LOOT"/loot.cpython-*.so
+
+    # Inject the prebuilt libloot .so from CI when available. It goes at the
+    # app root (next to run_qt.py) so `import loot` resolves via sys.path.
     if [ -n "${LIBLOOT_SO:-}" ] && [ -f "$LIBLOOT_SO" ]; then
-        install -Dm644 "$LIBLOOT_SO" "$app_share/LOOT/$(basename "$LIBLOOT_SO")"
+        install -Dm644 "$LIBLOOT_SO" "$app_share/$(basename "$LIBLOOT_SO")"
     fi
-    find "$app_share/LOOT" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' \
+    find "$app_share" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' \
         -exec strip --strip-unneeded {} + 2>/dev/null || true
 
     cp -r "$srcdir/_vendor" "$app_share/_vendor"

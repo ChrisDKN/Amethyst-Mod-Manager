@@ -16,7 +16,8 @@ show this message again"); when set, ``on_done`` is called as
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QCheckBox, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import (
+    QWidget, QCheckBox, QHBoxLayout, QLabel, QPushButton, QListWidget)
 
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, _c, contrast_text
@@ -35,7 +36,8 @@ class ConfirmOverlay(OverlayBase):
                  cancel_label=_NO_CANCEL,
                  danger: bool = True,
                  card_h: int | None = None,
-                 checkbox_label: str | None = None):
+                 checkbox_label: str | None = None,
+                 list_items: list[str] | None = None):
         self._checkbox: QCheckBox | None = None
         if checkbox_label is not None:
             # Adapt the callback shape here (rather than in _finish, which
@@ -47,6 +49,10 @@ class ConfirmOverlay(OverlayBase):
                 _user_on_done(result, self._checkbox.isChecked()
                               if self._checkbox is not None else False)
 
+        # When a long ``list_items`` is passed, the card grows and hosts a
+        # scrollable list so the item names never overflow the window.
+        if list_items and card_h is None:
+            card_h = 360
         super().__init__(host, on_done=on_done, card_h=card_h)
         p = active_palette()
 
@@ -68,7 +74,21 @@ class ConfirmOverlay(OverlayBase):
         body_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
         body_lbl.setWordWrap(True)
         v.addWidget(body_lbl)
-        v.addStretch(1)
+
+        if list_items:
+            lst = QListWidget()
+            lst.setObjectName("ConfirmList")
+            lst.addItems(list_items)
+            lst.setSelectionMode(QListWidget.NoSelection)
+            lst.setFocusPolicy(Qt.NoFocus)
+            lst.setStyleSheet(
+                f"#ConfirmList {{ background:{_c(p,'BG_LIST')};"
+                f" color:{_c(p,'TEXT_DIM')}; border:1px solid {_c(p,'BORDER')};"
+                f" border-radius:4px; font-size:12px; padding:2px; }}"
+                f" #ConfirmList::item {{ padding:2px 4px; }}")
+            v.addWidget(lst, 1)
+        else:
+            v.addStretch(1)
 
         if checkbox_label is not None:
             self._checkbox = QCheckBox(checkbox_label)

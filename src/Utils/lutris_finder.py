@@ -143,7 +143,9 @@ def find_lutris_roots() -> list[LutrisRoot]:
 _YAML_ESCAPES = {
     "n": "\n", "t": "\t", "r": "\r", "0": "\0", "a": "\a", "b": "\b",
     "f": "\f", "v": "\v", "e": "\x1b", "N": "\x85", "_": "\xa0",
-    "L": " ", "P": " ",
+    # YAML \L/\P (line/paragraph separator), written as \u escapes so no
+    # literal LS/PS characters sit in the source (editors flag those).
+    "L": "\u2028", "P": "\u2029",
 }
 _YAML_HEX_ESCAPES = {"x": 2, "u": 4, "U": 8}  # escape char → hex digit count
 
@@ -538,21 +540,6 @@ def find_lutris_slugs_by_exes(exe_names) -> list[str]:
     return slugs
 
 
-def find_lutris_prefix(slugs: list[str]) -> Path | None:
-    """Wine prefix of the first installed game matching any of *slugs*."""
-    slugs_lower = {s.lower() for s in slugs if s}
-    if not slugs_lower:
-        return None
-    for root, row, yml in _iter_games():
-        if str(row.get("slug", "") or "").lower() not in slugs_lower:
-            continue
-        exe = _resolve_game_exe(root, row, yml)
-        prefix = _resolve_game_prefix(row, yml, exe)
-        if prefix is not None:
-            return prefix
-    return None
-
-
 def find_lutris_launch_info(slugs: list[str]) -> "tuple[str, bool] | None":
     """(slug, lutris_is_flatpak) for the first installed game matching any
     of *slugs* — used to build a ``lutris:rungame/<slug>`` launch."""
@@ -678,13 +665,6 @@ def find_lutris_proton_name_for_prefix(prefix_path: "str | Path") -> str | None:
     return None
 
 
-def find_lutris_wine_bin_dir_for_prefix(prefix_path: "str | Path") -> Path | None:
-    """bin/ directory of the lutris-wine runner for *prefix_path* (winetricks
-    PATH patching). None for Proton/umu-managed games."""
-    wine_bin = find_lutris_wine_for_prefix(prefix_path)
-    return wine_bin.parent if wine_bin is not None else None
-
-
 def lutris_wine_env(wine_bin: Path, prefix_path: "str | Path",
                     arch: str = "") -> dict:
     """Env additions for running a lutris-wine binary against *prefix_path*:
@@ -759,7 +739,8 @@ def find_umu_run() -> Path | None:
 
 
 def umu_run_command(umu_bin: Path, *args: str,
-                    env: "dict | None" = None) -> list[str]:
+                    env: "dict | None" = None,
+                    host_cwd: "str | Path | None" = None) -> list[str]:
     """Build the command to invoke ``umu-run <args>``.
 
     The caller's env must carry WINEPREFIX/PROTONPATH (and optionally
@@ -768,6 +749,12 @@ def umu_run_command(umu_bin: Path, *args: str,
     (pressure-vessel can't nest inside a sandbox); flatpak-spawn doesn't
     forward the environment, so the env diff vs os.environ is re-exported
     with ``--env=`` flags — same pattern as steam_finder.proton_run_command.
+
+    *host_cwd*, when given, becomes the host process's working directory
+    under flatpak-spawn (``--directory=``). Callers whose Popen cwd is a
+    host-valid path can omit it; callers running from a sandbox-only cwd
+    (e.g. the Proton-tools plumbing) must pass one or the portal fails to
+    chdir.
     """
     cmd = [str(umu_bin), *map(str, args)]
     if Path("/.flatpak-info").exists() and shutil.which("flatpak-spawn"):
@@ -776,7 +763,8 @@ def umu_run_command(umu_bin: Path, *args: str,
             for k, v in (env or {}).items()
             if os.environ.get(k) != v
         ]
-        cmd = ["flatpak-spawn", "--host", *fwd, *cmd]
+        dir_flag = [f"--directory={host_cwd}"] if host_cwd is not None else []
+        cmd = ["flatpak-spawn", "--host", *dir_flag, *fwd, *cmd]
     return cmd
 
 
