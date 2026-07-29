@@ -13,6 +13,8 @@ never shows an opaque rectangle behind the artwork.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QRectF
@@ -117,11 +119,33 @@ class Splash(QWidget):
         p.end()
 
 
-def show_splash(message: str | None = None) -> Splash:
+def splash_disabled() -> bool:
+    """Whether the splash should be skipped for this launch."""
+    if "--no-splash" in sys.argv:
+        return True
+    if os.environ.get("AMETHYST_NO_SPLASH", "").strip().lower() in (
+            "1", "true", "yes", "on"):
+        return True
+    # Niri has no X compositing for our (XWayland) windows, so the per-pixel
+    # alpha this splash relies on renders as an opaque black rectangle (GH#328).
+    desktops = ":".join((
+        os.environ.get("XDG_CURRENT_DESKTOP", ""),
+        os.environ.get("XDG_SESSION_DESKTOP", ""),
+    )).lower()
+    if "niri" in desktops:
+        return True
+    return False
+
+
+def show_splash(message: str | None = None) -> Splash | None:
     """Build, centre and show a splash. Call after the QApplication exists.
 
     Returns the widget; the caller must keep a reference and call ``.close()``
-    (or ``finish(window)``) once the main window is up."""
+    (or ``finish(window)``) once the main window is up. Returns ``None`` when
+    the splash is disabled (``--no-splash``, ``AMETHYST_NO_SPLASH=1``, or a
+    compositor known to render it as a black rectangle)."""
+    if splash_disabled():
+        return None
     s = Splash(message)
     s.center_on_cursor()
     s.show()
