@@ -23,7 +23,8 @@
   "normalize_folder_case": true,
   "filemap_casing": "upper",
   "wine_dll_overrides": {
-    "xinput1_3.dll": "native,builtin",
+    "xinput1_3": "native,builtin",
+    "dsound": "native,builtin",
     "dxgi": "native,builtin",
     "d3d11": "native,builtin"
   },
@@ -101,6 +102,6 @@
     }
   ],
   "custom_frameworks": {},
-  "version": 1,
+  "version": 2,
   "editable": false
 }
