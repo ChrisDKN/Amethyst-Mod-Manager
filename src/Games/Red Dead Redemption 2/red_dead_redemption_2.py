@@ -102,24 +102,42 @@ class RedDeadRedemption2(BaseGame):
 
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
-        return {"dinput8": "native,builtin"}
+        return {"dinput8": "native,builtin","version": "native,builtin"}
 
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
-            CustomRule(dest="", filenames=["dinput8.dll"], flatten=True),
-            CustomRule(dest="", filenames=["ScriptHookRDR2.dll"], flatten=True),
-            # ASI plugins ship alongside same-named .ini configs that belong
-            # next to the .asi at the game root (Lenny's Mod Loader / ASI
-            # Loader convention).
-            CustomRule(dest="", extensions=[".asi"], companion_extensions=[".ini"], flatten=True),
-            CustomRule(dest="", filenames=["ModManager.Core.dll"], flatten=True),
-            CustomRule(dest="", filenames=["ModManager.NativeInterop.dll"], flatten=True),
-            CustomRule(dest="", filenames=["NLog.dll"], flatten=True),
-            CustomRule(dest="", filenames=["lml.ini"], flatten=True),
-            CustomRule(dest="", filenames=["vfs.asi"], flatten=True),
-            CustomRule(dest="", folders=["x64"], flatten=True),
-            CustomRule(dest="", folders=["RampageFiles"], flatten=True),
+            CustomRule(
+                    dest="",
+                    filenames=[
+                        "dinput8.dll",
+                        "ScriptHookRDR2.dll",
+                        "ModManager.Core.dll",
+                        "ModManager.NativeInterop.dll",
+                        "NLog.dll",
+                        "lml.ini",
+                        "vfs.asi",
+                    ], 
+                    flatten=True
+                ),
+            CustomRule(
+                    dest="", 
+                    extensions=[
+                        ".asi"
+                    ],
+                    companion_extensions=[
+                        ".ini"
+                    ],
+                    flatten=True
+                ),
+            CustomRule(
+                    dest="",
+                    folders=[
+                        "x64",
+                        "RampageFiles"
+                    ],
+                    flatten=True
+                ),
         ]
 
     @property

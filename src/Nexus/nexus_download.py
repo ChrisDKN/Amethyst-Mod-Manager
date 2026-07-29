@@ -533,6 +533,7 @@ class NexusDownloader:
         cancel: threading.Event | None = None,
         known_file_name: str = "",
         expected_size_bytes: int = 0,
+        prefetched_links: "list[NexusDownloadLink] | None" = None,
     ) -> DownloadResult:
         """
         Download a file directly (premium users only — no key needed).
@@ -553,6 +554,13 @@ class NexusDownloader:
                                (from the API).  Used to validate cached files
                                and detect partial downloads.  Pass 0 if
                                unknown.
+        prefetched_links     : Signed CDN links already fetched by the caller
+                               (via :meth:`get_download_links`) so the in-line
+                               link-fetch round-trip can be skipped — lets a
+                               caller pipeline the link fetch AHEAD of the
+                               download so a worker starts transferring bytes
+                               with zero link latency. Ignored when a complete
+                               cached archive is found (no download needed).
 
         Returns
         -------
@@ -593,19 +601,24 @@ class NexusDownloader:
                 except Exception:
                     pass
 
-        # Fetch a fresh signed CDN link (one rate-limited API call per download).
-        try:
-            links = self._api.get_download_links(
-                game_domain=game_domain,
-                mod_id=mod_id,
-                file_id=file_id,
-            )
-        except NexusAPIError as exc:
-            return DownloadResult(
-                success=False, error=str(exc),
-                game_domain=game_domain,
-                mod_id=mod_id, file_id=file_id,
-            )
+        # Use links the caller pre-fetched (pipelined ahead of the download) if
+        # provided; otherwise fetch a fresh signed CDN link now (one
+        # rate-limited API call per download). Either way it's exactly one
+        # get_download_links per downloaded mod.
+        links = prefetched_links
+        if not links:
+            try:
+                links = self._api.get_download_links(
+                    game_domain=game_domain,
+                    mod_id=mod_id,
+                    file_id=file_id,
+                )
+            except NexusAPIError as exc:
+                return DownloadResult(
+                    success=False, error=str(exc),
+                    game_domain=game_domain,
+                    mod_id=mod_id, file_id=file_id,
+                )
 
         if not links:
             return DownloadResult(
@@ -635,6 +648,37 @@ class NexusDownloader:
             mod_id=mod_id,
             file_id=file_id,
         )
+
+        # Prefetched links can be minted a whole pipeline queue ahead of use;
+        # if the signed URLs expired before this worker got to them, every
+        # mirror fails. Retry once with freshly fetched links before giving
+        # the mod up for good.
+        if (not result.success and prefetched_links
+                and not (cancel is not None and cancel.is_set())):
+            app_log(
+                f"Prefetched links failed for file {file_id} "
+                f"({result.error}); retrying with fresh links."
+            )
+            try:
+                fresh = self._api.get_download_links(
+                    game_domain=game_domain,
+                    mod_id=mod_id,
+                    file_id=file_id,
+                )
+            except NexusAPIError as exc:
+                app_log(f"Fresh link fetch failed for file {file_id}: {exc}")
+                fresh = None
+            if fresh:
+                result = self._download_from_links(
+                    links=fresh,
+                    file_name=file_name,
+                    dest_dir=dest_dir or self._download_dir,
+                    progress_cb=progress_cb,
+                    cancel=cancel,
+                    game_domain=game_domain,
+                    mod_id=mod_id,
+                    file_id=file_id,
+                )
         return result
 
     # -- Internal -----------------------------------------------------------
@@ -722,11 +766,19 @@ class NexusDownloader:
             if not _has_archive_ext:
                 cd = resp.headers.get("Content-Disposition", "")
                 if "filename=" in cd:
-                    file_name = cd.split("filename=")[-1].strip(' "\'')
+                    # Sanitise: server-controlled value must never carry path
+                    # components ("../evil", "C:\evil") or be empty/dot-only.
+                    cand = cd.split("filename=")[-1].strip(' "\'')
+                    cand = os.path.basename(cand.replace("\\", "/")).strip(' "\'')
+                    if cand and cand.strip("."):
+                        file_name = cand
             if not file_name:
                 file_name = f"{game_domain}_{mod_id}_{file_id}.zip"
 
-            total = int(resp.headers.get("Content-Length", 0))
+            try:
+                total = int(resp.headers.get("Content-Length", 0))
+            except (TypeError, ValueError):
+                total = 0
             dest = dest_dir / file_name
 
             # Don't clobber existing files — add a suffix
@@ -759,6 +811,19 @@ class NexusDownloader:
 
                     if progress_cb:
                         progress_cb(downloaded, total)
+
+        # Verify against Content-Length — a dropped connection can end the
+        # stream early without raising; a short file must not look successful.
+        if total and downloaded != total:
+            app_log(f"Incomplete download of {file_name}: got {downloaded} "
+                    f"of {total} bytes — discarding")
+            delete_archive_and_sidecar(dest)
+            return DownloadResult(
+                success=False,
+                error=f"Incomplete download: got {downloaded} of {total} bytes",
+                game_domain=game_domain,
+                mod_id=mod_id, file_id=file_id,
+            )
 
         app_log(f"Downloaded {file_name} ({downloaded} bytes) → {dest}")
         if file_id > 0:

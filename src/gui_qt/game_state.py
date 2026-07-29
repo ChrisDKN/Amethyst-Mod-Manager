@@ -23,10 +23,15 @@ from Utils.ui_config import load_last_session, save_last_session
 @dataclass
 class ConflictData:
     """Everything the modlist/plugins panels need to draw conflicts + cross-panel
-    highlights. All maps key on mod name. *_codes are 1 win / -1 lose / 2 mixed.
+    highlights. All maps key on mod name. *_codes are 1 win / -1 lose / 2 mixed /
+    3 fully-overridden.
     *_overrides[mod] = mods this mod beats; *_overridden_by[mod] = mods that beat
     it. plugin_owner maps a plugin filename (lower) → the mod that deploys it."""
     loose_codes: dict[str, int] = field(default_factory=dict)
+    # loose_codes before the _merge_loose_beats_bsa upgrade. The plugin-toggle
+    # recompute re-merges from this pristine copy so repeated toggles can't
+    # compound NONE→WINS→PARTIAL.
+    loose_codes_base: dict[str, int] | None = None
     bsa_codes: dict[str, int] = field(default_factory=dict)
     overrides: dict[str, set] = field(default_factory=dict)
     overridden_by: dict[str, set] = field(default_factory=dict)
@@ -50,6 +55,11 @@ class ConflictData:
     plugin_mods: set = field(default_factory=set)
     bsa_mods: set = field(default_factory=set)
     framework_file_mods: set = field(default_factory=set)
+    # Mods whose loose file overrides some archive's copy of it. In no other
+    # capability set (they ship no archive; the loose maps can't see archives)
+    # yet toggling one flips two icons — hence its own entry in the disable
+    # fast-path guard (see app._toggle_skips_conflict_scan).
+    loose_beats_bsa_mods: set = field(default_factory=set)
 
 
 class GameState:
@@ -163,6 +173,25 @@ class GameState:
         from gui_qt.modlist_data import display_codes_from_conflict_map
         from Utils.perftrace import span
         log = log_fn or (lambda _m: None)
+        # Flat-staging heal (Tk parity): wrap manually-copied flat mods before
+        # the index/filemap build so deploy targets Mods/<Name>/ correctly. A
+        # fix forces a full rescan — the index still has the pre-wrap layout.
+        if getattr(g, "mod_staging_requires_subdir", False):
+            try:
+                from Utils.mod_install import fix_flat_staging_folders
+                names, exts = getattr(g, "mod_staging_wrap_signals",
+                                      ({"manifest.json"}, set()))
+                guard = getattr(g, "mod_staging_already_structured_markers",
+                                set())
+                staging = self.staging_dir()
+                fixed = (fix_flat_staging_folders(staging, names, exts, guard)
+                         if staging is not None else [])
+                if fixed:
+                    rescan_index = True
+                    log(f"Auto-fixed {len(fixed)} mod(s) with flat staging "
+                        f"structure: " + ", ".join(fixed))
+            except Exception as exc:
+                log(f"Flat-staging check failed: {exc}")
         with span("_build_filemap_for_game"):
             result = _build_filemap_for_game(
                 g, self.profile, log_fn=log, rescan_index=rescan_index)
@@ -178,7 +207,12 @@ class GameState:
             )
         with span("_build_bsa_conflicts"):
             (data.bsa_codes, data.bsa_overrides,
-             data.bsa_overridden_by) = self._build_bsa_conflicts(g, log)
+             data.bsa_overridden_by, lob) = self._build_bsa_conflicts(g, log)
+        # A loose file beating a BSA is a loose-file win the filemap can't see;
+        # fold it in or the winner shows no icon. Base copy = re-merge source.
+        data.loose_codes_base = dict(data.loose_codes)
+        self._merge_loose_beats_bsa(data.loose_codes, lob)
+        data.loose_beats_bsa_mods = {m for m, b in (lob or {}).items() if b}
         with span("_build_plugin_owner"):
             data.plugin_owner = self._build_plugin_owner(g)
         with span("_build_index_flag_mods"):
@@ -221,10 +255,11 @@ class GameState:
             return _empty
         index_path = staging.parent / "modindex.bin"
         try:
-            mtime = index_path.stat().st_mtime
+            _st = index_path.stat()
+            stat_key = (_st.st_mtime_ns, _st.st_size)
         except OSError:
             return _empty
-        cache_key = (str(index_path), mtime, getattr(g, "name", None))
+        cache_key = (str(index_path), stat_key, getattr(g, "name", None))
         cached = getattr(self, "_flag_mods_cache", None)
         if cached is not None and cached[0] == cache_key:
             return cached[1]
@@ -332,15 +367,21 @@ class GameState:
 
     def _build_bsa_conflicts(self, g, log):
         """Compute BSA/BA2 archive conflicts. Returns (codes, overrides,
-        overridden_by) — codes as 1 win / -1 lose / 2 mixed; the two maps key
-        mod → set(mods). Empty triple for non-archive games or on failure.
+        overridden_by, loose_overrides_bsa) — codes as 1 win / -1 lose /
+        2 mixed / 3 fully-overridden; the maps key mod → set(mods). Empty
+        for non-archive games or on failure.
+
+        loose_overrides_bsa (loose_mod → {bsa_mod}) is handed back rather than
+        folded into ``codes``: that win belongs on the loose icon, not the
+        archive one (the winner often ships no archive). See
+        _merge_loose_beats_bsa.
 
         The "Hide BSA conflicts" setting empties the pipeline entirely (Tk
         parity) so the expensive parse is skipped and no codes are produced.
         It only applies to Bethesda BSA/BA2 games — UE pak conflicts are
         always shown (two paks touching the same asset is exactly the signal
         pak-game users need; there's no vanilla-BSA noise to hide there)."""
-        empty = ({}, {}, {})
+        empty = ({}, {}, {}, {})
         exts = frozenset(getattr(g, "archive_extensions", frozenset()) or frozenset())
         if not exts:
             return empty
@@ -381,6 +422,11 @@ class GameState:
                 # UE paks resolve by (_P boost, basename) mount order.
                 archive_name_ordering=bool(exts & UE_ARCHIVE_EXTENSIONS),
                 log_fn=log,
+                # Resolved deploy map so Mod Files ▸ Disable exclusions clear
+                # the flag (modindex.bin still lists excluded files). Fresh
+                # here: the full path rebuilds it just before this, and the
+                # plugin-toggle path doesn't touch it.
+                loose_filemap_path=out_dir / "filemap.txt",
             )
         except Exception as exc:
             log(f"BSA conflict build failed: {exc}")
@@ -394,14 +440,15 @@ class GameState:
         for name, c in bsa_map.items():
             if c == CONFLICT_WINS:
                 codes[name] = 1
-            elif c in (CONFLICT_LOSES, CONFLICT_FULL):
-                # FULL = every contested file overridden — that's a loss, not
-                # a "partial": the loser icon must match the Show Conflicts
-                # tab reporting 0 wins. (Archives have no white-dot FULL icon
-                # like loose files, so both map to the loser icon.)
+            elif c == CONFLICT_LOSES:
                 codes[name] = -1
             elif c == CONFLICT_PARTIAL:
                 codes[name] = 2
+            elif c == CONFLICT_FULL:
+                # Zero surviving paths — every file in the mod's archives is
+                # overridden (by other archives and/or loose files). Its own
+                # icon, same split as the loose codes.
+                codes[name] = 3
         # Fold loose↔BSA cross relationships so highlights match the engine's
         # "loose beats BSA" rule (lob: loose_mod→{bsa_mod}, bol: bsa_mod→{loose}).
         over = {k: set(v) for k, v in (bsa_over or {}).items()}
@@ -410,7 +457,33 @@ class GameState:
             over.setdefault(loose_mod, set()).update(bsa_mods)
         for bsa_mod, loose_mods in (bol or {}).items():
             overby.setdefault(bsa_mod, set()).update(loose_mods)
-        return codes, over, overby
+        return codes, over, overby, {k: set(v) for k, v in (lob or {}).items()}
+
+    @staticmethod
+    def _merge_loose_beats_bsa(loose_codes: dict, lob: dict) -> dict:
+        """Upgrade *loose_codes* in place for mods whose loose files override a
+        BSA (lob: loose_mod → {bsa_mod, ...}).
+
+        filemap.txt only ranks loose-vs-loose, so a mod winning solely against
+        an archive sits at NONE (no icon). Fold that win into the loose code:
+
+            NONE    → WINS      (its only conflict is over the BSA)
+            LOSES   → PARTIAL   (loses to a loose mod, but beats a BSA)
+            FULL    → PARTIAL   (fully overridden loosely, still beats a BSA —
+                                 a surviving win means it isn't redundant)
+            WINS/PARTIAL        unchanged — already showing a win."""
+        from gui_qt.modlist_data import (
+            DISP_WINS, DISP_LOSES, DISP_PARTIAL, DISP_FULL,
+        )
+        for loose_mod, bsa_mods in (lob or {}).items():
+            if not bsa_mods:
+                continue
+            cur = loose_codes.get(loose_mod)
+            if cur in (None, 0):
+                loose_codes[loose_mod] = DISP_WINS
+            elif cur in (DISP_LOSES, DISP_FULL):
+                loose_codes[loose_mod] = DISP_PARTIAL
+        return loose_codes
 
     # -- internals ----------------------------------------------------------
     def _select_profile(self, preferred: "str | None") -> "str | None":
@@ -420,9 +493,6 @@ class GameState:
         if preferred and preferred in profs:
             return preferred
         return profs[0] if profs else None
-
-    def _select_default_profile(self) -> None:
-        self.profile = self._select_profile(None)
 
     def _select_last_active_profile(self) -> None:
         """Set self.profile to this game's saved last-active profile (if it still

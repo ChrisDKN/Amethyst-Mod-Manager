@@ -38,7 +38,7 @@ from Utils.collection_reset import (
 from Utils.config_paths import get_download_cache_dir_for_game, list_all_cache_dirs
 from Utils.download_locations import (
     is_default_downloads_disabled, load_extra_download_locations)
-from Utils.download_scheduler import order_by_size, run_smallest_first
+from Utils.download_scheduler import order_by_size, run_pipelined
 from Utils.extract_budget import ExtractionMemoryBudget, get_uncompressed_size
 from Utils.mod_install import (
     install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED)
@@ -800,8 +800,55 @@ def run_collection_install(
         pref = logical or schema_name or mod.mod_name or ""
         return pref + schema_file_id_to_suffix.get(mod.file_id, "")
 
-    # ---- download producer -------------------------------------------
-    def _download_one(mod):
+    # ---- link prefetch (stage 1 of the pipeline) ----------------------
+    def _cached_archive_for(mod, mod_domain):
+        """Return a ready-to-use DownloadResult if this mod's archive is already
+        in a scanned download folder, else None. Runs in the link-fetch stage so
+        cached mods cost NO get_download_links call and no download slot."""
+        _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
+                     or getattr(mod, "size_bytes", 0) or 0)
+        for _ext_dir in _scan_dirs():
+            _ext_found, _ext_complete = _find_cached_archive(
+                _ext_dir, mod.file_name or mod.mod_name or "",
+                _exp_size, mod.mod_id, mod.file_id,
+                expected_md5=(schema_file_id_to_md5.get(mod.file_id, "")
+                              or (getattr(mod, "md5", "") or "").strip().lower()))
+            if _ext_found and _ext_complete:
+                log(f"Collection install: '{mod.mod_name}' found in {_ext_dir} — "
+                    "using local copy, skipping download")
+                with _install_lock:
+                    _external_archive_paths.add(str(_ext_found))
+                return DownloadResult(
+                    success=True, file_path=_ext_found, file_name=_ext_found.name,
+                    bytes_downloaded=_ext_found.stat().st_size, game_domain=mod_domain,
+                    mod_id=mod.mod_id, file_id=mod.file_id)
+        return None
+
+    def _fetch_link_one(mod):
+        """Stage 1: hand back either a cached-archive DownloadResult (no download
+        needed) or the mod's signed CDN links, fetched AHEAD of the download so
+        the download worker starts transferring with zero link-fetch latency.
+        Returns a ``(kind, payload)`` tuple: ("cached", DownloadResult) or
+        ("links", links|None). Never raises — a link-fetch failure yields
+        ("links", None) and download_file re-fetches (surfacing the error)."""
+        mod_domain = (getattr(mod, "domain_name", "") or "").strip() or game_domain
+        if _col_stop.is_set():
+            return ("links", None)
+        cached = _cached_archive_for(mod, mod_domain)
+        if cached is not None:
+            return ("cached", cached)
+        try:
+            links = api.get_download_links(
+                game_domain=mod_domain, mod_id=mod.mod_id, file_id=mod.file_id)
+        except Exception as exc:
+            log(f"Collection install: link prefetch failed for '{mod.mod_name}' "
+                f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc} — will "
+                "retry the fetch inline")
+            links = None
+        return ("links", links)
+
+    # ---- download producer (stage 2 of the pipeline) ------------------
+    def _download_one(mod, prefetched=None):
         nonlocal _dl_done
         mod_domain = (getattr(mod, "domain_name", "") or "").strip() or game_domain
         # Expected archive size for cache validation / partial-download detection.
@@ -851,23 +898,19 @@ def run_collection_install(
         result = None
         effective_domain = mod_domain
 
-        # Check system downloads + custom locations before downloading.
-        for _ext_dir in _scan_dirs():
-            _ext_found, _ext_complete = _find_cached_archive(
-                _ext_dir, mod.file_name or mod.mod_name or "",
-                _exp_size, mod.mod_id, mod.file_id,
-                expected_md5=(schema_file_id_to_md5.get(mod.file_id, "")
-                              or (getattr(mod, "md5", "") or "").strip().lower()))
-            if _ext_found and _ext_complete:
-                log(f"Collection install: '{mod.mod_name}' found in {_ext_dir} — "
-                    "using local copy, skipping download")
-                result = DownloadResult(
-                    success=True, file_path=_ext_found, file_name=_ext_found.name,
-                    bytes_downloaded=_ext_found.stat().st_size, game_domain=mod_domain,
-                    mod_id=mod.mod_id, file_id=mod.file_id)
-                with _install_lock:
-                    _external_archive_paths.add(str(_ext_found))
-                break
+        # Stage 1 (_fetch_link_one) already handled the cached-archive scan and
+        # link prefetch. A ("cached", result) payload means the archive is on
+        # disk — skip the download entirely; ("links", links) feeds the signed
+        # CDN links straight into download_file so it doesn't re-fetch. A bare
+        # None (e.g. non-pipelined caller) falls back to download_file's own
+        # cache check + link fetch.
+        _pref_links = None
+        if prefetched is not None:
+            _kind, _payload = prefetched
+            if _kind == "cached":
+                result = _payload
+            else:
+                _pref_links = _payload
 
         try:
             if result is None:
@@ -876,15 +919,25 @@ def run_collection_install(
                     progress_cb=_progress_cb, cancel=_col_stop,
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=_exp_size,
+                    prefetched_links=_pref_links,
                     dest_dir=get_download_cache_dir_for_game(getattr(game, "name", "") or ""))
         except Exception as exc:
             import traceback as _tb
             log(f"Collection install: download exception for '{mod.mod_name}' "
                 f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc}\n{_tb.format_exc()}")
 
+        # From here on the counters and the install-queue handoff MUST fire
+        # exactly once per mod no matter what the UI callbacks do — an escaped
+        # exception would kill this download worker and wedge the whole
+        # pipeline (fetchers block on the bounded ready queue, run_pipelined
+        # never returns, Cancel can't unblock it).
         mod_size = getattr(mod, "size_bytes", 0) or 0
-        if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
-            _progress_cb(mod_size, mod_size)
+        try:
+            if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
+                _progress_cb(mod_size, mod_size)
+        except Exception as exc:
+            log(f"Collection install: progress callback failed for "
+                f"'{mod.mod_name}': {exc}")
 
         with _dl_lock:
             _dl_done += 1
@@ -895,11 +948,16 @@ def run_collection_install(
                 _akey = str(result.file_path)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
             _inst_done = _install_counters["done"]
-        _set_status(f"Downloaded {_pre_done + done}/{total}, "
-                    f"installed {_pre_done + _inst_done}/{total}…")
-        cb.on_dl_mod_finish(mod.file_id)
-        if result and result.success and result.file_path:
-            cb.on_extract_queue(mod.file_id, mod.mod_name or mod.file_name or "")
+        try:
+            _set_status(f"Downloaded {_pre_done + done}/{total}, "
+                        f"installed {_pre_done + _inst_done}/{total}…")
+            cb.on_dl_mod_finish(mod.file_id)
+            if result and result.success and result.file_path:
+                cb.on_extract_queue(mod.file_id,
+                                    mod.mod_name or mod.file_name or "")
+        except Exception as exc:
+            log(f"Collection install: finish callback failed for "
+                f"'{mod.mod_name}': {exc}")
         # The install queue is bounded; if it ever fills (installs falling far
         # behind downloads) this put() blocks the download worker so it can't
         # start the next download. The queue is now sized generously so that
@@ -1248,8 +1306,25 @@ def run_collection_install(
                                    m.file_id, len(schema_mods))))
             _manual_produce(to_download)
         else:
-            run_smallest_first(_to_download_sorted, _download_one, _DL_WORKERS,
-                               stop=_col_stop)
+            # Two-stage pipeline: a link-fetch pool mints signed CDN links (and
+            # does the cached-archive scan) AHEAD of the download workers so a
+            # worker finishing a tiny archive finds the next link already waiting
+            # and starts transferring with zero link-fetch latency. This keeps
+            # all _DL_WORKERS slots continuously saturated instead of stuttering
+            # in bursts of _DL_WORKERS between synchronized get_download_links
+            # round-trips. Same rate-limit cost (one link fetch per downloaded
+            # mod); links are minted only ~1 step ahead so they never go stale.
+            #
+            # link_workers: for tiny archives the download finishes in ~100ms but
+            # a get_download_links round-trip is ~150ms, so a single fetch stream
+            # can't keep 8 download slots fed — throughput ends up capped by the
+            # fetch rate (2 fetchers ≈ 13 links/sec observed). Match the fetch
+            # pool to the download width so link fetches, not downloads, stop
+            # being the bottleneck; Nexus premium rate limits (~2.5k/hr) leave
+            # ample headroom (a whole collection is ~100 fetches).
+            run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
+                          _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
+                          stop=_col_stop)
 
         _dl_finished.set()
         if not manual_mode:
@@ -2324,20 +2399,22 @@ def _append_reconcile_modlist(modlist_path, install_order, pre_existing, log):
     """Re-apply the collection's load order but only reposition mods newly
     installed by this run; every pre-existing mod keeps its position + state.
     Ported from CollectionsDialog._append_reconcile_modlist."""
-    try:
-        existing = read_modlist(modlist_path) if modlist_path.is_file() else []
-    except Exception:
-        existing = []
-    _ord = [(k, f) for k, f in install_order]
-    _new_names = {f for _, f in _ord if f.lower() not in pre_existing}
-    # Keep pre-existing entries where they are; drop the freshly-installed ones
-    # so we can reinsert them in collection order.
-    kept = [e for e in existing if e.name not in _new_names]
-    new_entries = [ModEntry(name=f, enabled=True, locked=False)
-                   for _, f in sorted(_ord, key=lambda x: x[0])
-                   if f in _new_names]
-    # Insert the new mods at the top (highest priority) preserving kept order.
-    write_modlist(modlist_path, new_entries + kept)
+    from Utils.modlist import modlist_lock
+    with modlist_lock(modlist_path):
+        try:
+            existing = read_modlist(modlist_path) if modlist_path.is_file() else []
+        except Exception:
+            existing = []
+        _ord = [(k, f) for k, f in install_order]
+        _new_names = {f for _, f in _ord if f.lower() not in pre_existing}
+        # Keep pre-existing entries where they are; drop the freshly-installed
+        # ones so we can reinsert them in collection order.
+        kept = [e for e in existing if e.name not in _new_names]
+        new_entries = [ModEntry(name=f, enabled=True, locked=False)
+                       for _, f in sorted(_ord, key=lambda x: x[0])
+                       if f in _new_names]
+        # Insert the new mods at the top (highest priority) preserving kept order.
+        write_modlist(modlist_path, new_entries + kept)
     log(f"Collection append: placed {len(new_entries)} new mod(s), "
         f"preserved {len(kept)} existing entrie(s)")
 

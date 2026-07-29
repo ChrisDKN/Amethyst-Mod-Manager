@@ -203,6 +203,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "image_url": "",
         "mod_folder_strip_prefixes": ["BepInEx", "plugins"],
         "conflict_ignore_filenames": [],
+        "conflict_ignore_foldernames": [],
         "mod_folder_strip_prefixes_post": [],
         "mod_install_prefix": "",
         "mod_required_top_level_folders": [],
@@ -240,6 +241,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
             "GAMEID", "Content", "Paks", "~mods", "Binaries", "Win64",
         ],
         "conflict_ignore_filenames": ["LICENSE", "*.md"],
+        "conflict_ignore_foldernames": [],
         "mod_folder_strip_prefixes_post": [],
         "mod_install_prefix": "",
         "mod_required_top_level_folders": [],
@@ -462,6 +464,10 @@ class StandardCustomGame(BaseGame):
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return _defn_to_set(self._defn, "conflict_ignore_filenames")
+
+    @property
+    def conflict_ignore_foldernames(self) -> set[str]:
+        return _defn_to_set(self._defn, "conflict_ignore_foldernames")
 
     @property
     def normalize_folder_case(self) -> bool:
@@ -892,6 +898,10 @@ class Ue5CustomGame(UE5Game):
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return _defn_to_set(self._defn, "conflict_ignore_filenames")
+
+    @property
+    def conflict_ignore_foldernames(self) -> set[str]:
+        return _defn_to_set(self._defn, "conflict_ignore_foldernames")
 
     @property
     def normalize_folder_case(self) -> bool:

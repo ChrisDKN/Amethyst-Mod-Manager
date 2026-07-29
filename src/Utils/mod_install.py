@@ -222,14 +222,20 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn) -> None:
 def resolve_direct_files(extract_dir: str) -> list[tuple[str, str, bool]]:
     """Every file under *extract_dir* as a (src, dst, is_folder) tuple (src == dst,
     both relative to the root). A top-level ``fomod/`` folder is skipped (installer
-    metadata, not game content)."""
+    metadata, not game content), as is a root-level ``meta.ini`` — some archives
+    (e.g. re-uploaded MO2 mods) ship their own MO2 meta.ini, which would collide
+    with the one we write and, being in MO2's valueless-key format, break every
+    ConfigParser read of it (``read_meta`` etc.)."""
     result: list[tuple[str, str, bool]] = []
     root = Path(extract_dir)
     for entry in root.rglob("*"):
         if entry.is_file():
             rel = str(entry.relative_to(root))
-            first = rel.replace("\\", "/").split("/", 1)[0]
+            parts = rel.replace("\\", "/").split("/")
+            first = parts[0]
             if first.lower() == "fomod":
+                continue
+            if len(parts) == 1 and first.lower() == "meta.ini":
                 continue
             result.append((rel, rel, False))
     return result
@@ -459,7 +465,12 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
     if post_strip_prefixes and not is_root_install:
         file_list = apply_strip_prefixes_to_file_list(file_list, post_strip_prefixes)
 
-    return file_list
+    # Drop any file whose FINAL destination is the mod-root meta.ini.
+    filtered = [(s, d, f) for s, d, f in file_list
+                if d.replace("\\", "/").strip("/").lower() != "meta.ini"]
+    if len(filtered) != len(file_list):
+        log_fn("Skipped bundled meta.ini from archive (Amethyst writes its own).")
+    return filtered
 
 
 # ---------------------------------------------------------------- temp location
@@ -1233,9 +1244,143 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     return prepared
 
 
+def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
+                                  log_fn: LogFn, *, interactive: bool,
+                                  cleanup_on_cancel: bool) -> bool:
+    """Run the game's post-install hooks; returns True on user cancel.
+
+    Ported from the Tk installer (gui/install_mod.py) — the hooks (e.g. DAO's
+    normalize_dao_mod) restructure the staged tree and MUST run before the mod
+    is indexed. ``interactive`` is False for headless/collection installs so
+    hooks that pop dialogs stay silent in those modes.
+    """
+    import inspect
+    for fn in getattr(game, "additional_install_logic", None) or []:
+        try:
+            if "interactive" in inspect.signature(fn).parameters:
+                fn(dest_root, mod_name, log_fn, interactive=interactive)
+            else:
+                fn(dest_root, mod_name, log_fn)
+        except Exception as e:
+            # A wizard hook may signal a user cancellation (marker attr) —
+            # abort the whole install and clean up the staged folder rather
+            # than leaving a half-installed mod in the modlist.
+            if getattr(e, "install_cancelled", False):
+                log_fn(f"Install cancelled by user — removing '{mod_name}'.")
+                if cleanup_on_cancel:
+                    def _force_remove(func, path, _exc):
+                        os.chmod(path, 0o700)
+                        func(path)
+                    try:
+                        shutil.rmtree(dest_root, onexc=_force_remove)
+                    except OSError as rm_exc:
+                        log_fn(f"  cleanup failed: {rm_exc}")
+                return True
+            log_fn(f"Additional install logic failed: {e}")
+    return False
+
+
+def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
+                      signal_exts: "set[str]",
+                      structured_markers: "set[str]") -> bool:
+    """Wrap a flat mod folder's files one level deeper; True if restructured.
+
+    Some games (e.g. Stardew/SMAPI ``Mods/<Name>/manifest.json``, JA3
+    ``<Name>/metadata.lua``) require mods to live inside a named subfolder. A
+    common mistake is copying the mod's CONTENTS into staging, so deploy puts
+    the files straight into Mods/ instead of Mods/<Name>/. A marker file at
+    the staging-folder root (name in *signal_names* or extension in
+    *signal_exts*, both lowercase) is the definitive flat signal; a marker in
+    *structured_markers* inside any immediate subdirectory means the mod is
+    already correctly structured and must not be touched (a loose root file
+    alongside it is part of a multi-destination mod).
+    """
+    from Utils.filemap import _EXCLUDE_NAMES
+    if not mod_dir.is_dir():
+        return False
+    children = list(mod_dir.iterdir())
+    if not children:
+        return False
+    if structured_markers and any(
+        sub.is_dir() and any(
+            f.is_file() and f.name.lower() in structured_markers
+            for f in sub.iterdir()
+        )
+        for sub in children
+    ):
+        return False
+    has_signal = any(
+        c.is_file()
+        and (c.name.lower() in signal_names or c.suffix.lower() in signal_exts)
+        for c in children
+    )
+    if not has_signal:
+        return False
+    # Move everything (files and subdirs) into a new subfolder named after
+    # the staging folder so the mod loader finds <ModName>/<marker>. The
+    # manager's own metadata (meta.ini etc.) must stay at the staging root,
+    # or the mod can no longer be matched to its meta.ini after wrapping.
+    sub = mod_dir / mod_dir.name
+    sub.mkdir(exist_ok=True)
+    for child in children:
+        if child.is_file() and child.name.lower() in _EXCLUDE_NAMES:
+            continue
+        shutil.move(str(child), str(sub / child.name))
+    return True
+
+
+def _game_wrap_signals(game) -> "tuple[set[str], set[str], set[str]]":
+    """Lowercased (names, extensions, structured-markers) wrap signals."""
+    names, exts = getattr(game, "mod_staging_wrap_signals",
+                          ({"manifest.json"}, set()))
+    guard = getattr(game, "mod_staging_already_structured_markers", set())
+    return ({n.lower() for n in (names or {"manifest.json"})},
+            {e.lower() for e in (exts or set())},
+            {g.lower() for g in (guard or set())})
+
+
+def _wrap_flat_if_needed(game, dest_root: Path, log_fn: LogFn) -> None:
+    """Wrap a just-installed flat mod for games that require a subfolder."""
+    if not getattr(game, "mod_staging_requires_subdir", False):
+        return
+    try:
+        names, exts, guard = _game_wrap_signals(game)
+        if wrap_flat_mod_dir(dest_root, names, exts, guard):
+            log_fn(f"Auto-fixed flat staging structure: wrapped files into "
+                   f"'{dest_root.name}/{dest_root.name}/'.")
+    except OSError as exc:
+        log_fn(f"Flat-staging wrap failed for '{dest_root.name}': {exc}")
+
+
+def fix_flat_staging_folders(
+    staging_root: Path,
+    signal_filenames: "set[str] | None" = None,
+    signal_extensions: "set[str] | None" = None,
+    already_structured_markers: "set[str] | None" = None,
+) -> list[str]:
+    """Wrap every flat mod staging folder; returns the names restructured.
+
+    Whole-staging heal used by the Refresh/rebuild path so manually-copied
+    mods are fixed too, not just fresh installs (Tk parity: this ran at the
+    start of every full filemap rebuild for games with
+    ``mod_staging_requires_subdir``).
+    """
+    names = {n.lower() for n in (signal_filenames or {"manifest.json"})}
+    exts = {e.lower() for e in (signal_extensions or set())}
+    guard = {n.lower() for n in (already_structured_markers or set())}
+    fixed: list[str] = []
+    if not staging_root.is_dir():
+        return fixed
+    for mod_dir in staging_root.iterdir():
+        if mod_dir.is_dir() and wrap_flat_mod_dir(mod_dir, names, exts, guard):
+            fixed.append(mod_dir.name)
+    return fixed
+
+
 def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                    log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
-                   on_exists=None, bain_selections=None) -> str | None:
+                   on_exists=None, bain_selections=None,
+                   interactive: bool = True) -> str | None:
     """Stage the prepared archive. *fomod_selections* is the wizard's
     {step_idx: {group: [plugins]}} dict (or None → FOMOD defaults / plain copy).
     *bain_selections* is the BAIN picker's ``{"selected": [name, ...]}`` dict for
@@ -1463,6 +1608,14 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     if bain_selected is not None:
         _persist_bain_selection(p.game, p.mod_name, {"selected": bain_selected},
                                 profile_dir=p.profile_dir)
+    # Game post-install hooks (e.g. DAO's packages/core/override restructure)
+    # and the flat-staging wrap both reshape dest_root, so they run BEFORE the
+    # index/modlist commit below sees the layout.
+    if _run_additional_install_logic(
+            p.game, dest_root, p.mod_name, log_fn, interactive=interactive,
+            cleanup_on_cancel=not getattr(p, "_preserve_position", False)):
+        return None
+    _wrap_flat_if_needed(p.game, dest_root, log_fn)
     _pp(0, 0, "Indexing")
     with _commit_lock:
         _update_indexes(p.game, p.profile_dir, p.mod_name, dest_root, log_fn)
@@ -1486,7 +1639,8 @@ def install_archive(archive_path: str, game, profile_dir: Path, *,
                                progress_fn=progress_fn, preferred_name=preferred_name)
     if prepared is None:
         return None
-    return finish_install(prepared, None, log_fn=log_fn, progress_fn=progress_fn)
+    return finish_install(prepared, None, log_fn=log_fn, progress_fn=progress_fn,
+                          interactive=False)
 
 
 # ---------------------------------------------------------- collection installs
@@ -1919,6 +2073,13 @@ def install_collection_archive(
                         is_fomod=is_fomod_install,
                         fomod_pending_deps=fomod_pending_deps,
                         fomod_active_deps=fomod_active_deps)
+    # Post-install hooks + flat-staging wrap before the index/modlist commit
+    # (headless: dialog-popping hooks stay silent).
+    if _run_additional_install_logic(
+            game, dest_root, prepared.mod_name, log_fn, interactive=False,
+            cleanup_on_cancel=True):
+        return None
+    _wrap_flat_if_needed(game, dest_root, log_fn)
     with _commit_lock:
         if not skip_index_update:
             _pp(0, 0, "Indexing")
@@ -2578,6 +2739,7 @@ def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,
         default_enabled = not load_install_mods_disabled()
     except Exception:
         default_enabled = True
+    modlist_path = profile_dir / "modlist.txt"
     try:
         if preserve_position:
             # Replacing an existing mod — keep its load-order position and its
@@ -2585,17 +2747,28 @@ def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,
             # silently re-enable a disabled mod).
             from Utils.modlist import ensure_mod_preserving_position
             ensure_mod_preserving_position(
-                profile_dir / "modlist.txt", mod_name, enabled=default_enabled,
+                modlist_path, mod_name, enabled=default_enabled,
                 preserve_existing_state=True)
         else:
             # New mods land at the top with the configured default state; but if
             # this name already exists (reinstall without position-preservation)
             # keep its current state.
             from Utils.modlist import prepend_mod
-            prepend_mod(profile_dir / "modlist.txt", mod_name,
+            prepend_mod(modlist_path, mod_name,
                         enabled=default_enabled, preserve_existing_state=True)
     except Exception as exc:
-        log_fn(f"modlist update failed ({exc}).")
+        log_fn(f"modlist update failed for '{mod_name}' in {modlist_path} "
+               f"({exc}).")
+        return
+    # The write reported success, so a missing entry here means another writer
+    # clobbered it or we wrote a path nothing else reads. Silent when healthy.
+    try:
+        from Utils.modlist import read_modlist
+        if mod_name not in {e.name for e in read_modlist(modlist_path)}:
+            log_fn(f"WARNING: '{mod_name}' was written to {modlist_path} but "
+                   f"is not there on read-back — concurrent overwrite?")
+    except Exception:
+        pass
 
 
 def _add_plugins(game, profile_dir: Path, dest_root: Path, log_fn: LogFn) -> None:

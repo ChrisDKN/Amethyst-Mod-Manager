@@ -60,7 +60,7 @@ jobs:
         id: cache
         uses: actions/cache@v4
         with:
-          path: src/LOOT/${{ steps.detect.outputs.so-name }}
+          path: src/${{ steps.detect.outputs.so-name }}
           key: libloot-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}
 
       - name: Build extension
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: libloot-cp314
-          path: src/LOOT/loot.cpython-*-x86_64-linux-gnu.so
+          path: src/loot.cpython-*-x86_64-linux-gnu.so
           if-no-files-found: error
           retention-days: 1
 
@@ -103,7 +103,7 @@ jobs:
         id: cache
         uses: actions/cache@v4
         with:
-          path: src/LOOT/${{ steps.detect.outputs.so-name }}
+          path: src/${{ steps.detect.outputs.so-name }}
           key: libloot-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}
 
       - name: Build extension
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: libloot-cp312
-          path: src/LOOT/loot.cpython-*-x86_64-linux-gnu.so
+          path: src/loot.cpython-*-x86_64-linux-gnu.so
           if-no-files-found: error
           retention-days: 1
 
@@ -261,7 +261,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: libloot-cp314
-          path: src/LOOT/
+          path: src/
 
       - name: Disk space before build
         run: df -h && du -sh /tmp 2>/dev/null || true
@@ -284,8 +284,9 @@ jobs:
 
   # ────────────────────────────────────────────────────────────────────
   # Flatpak bundle (KDE 6.9 runtime + PySide BaseApp).
-  # Pulls the cp312 libloot from libloot-flatpak, drops it into src/LOOT/
-  # so the manifest's `cp -a src/LOOT` step picks it up.
+  # Pulls the cp312 libloot from libloot-flatpak into src/ (rebuild_libloot.sh's
+  # output location). The manifest also builds libloot itself into
+  # /app/lib/python*/site-packages, which is what the app imports.
   # ────────────────────────────────────────────────────────────────────
   flatpak:
     name: Flatpak
@@ -306,7 +307,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: libloot-cp312
-          path: src/LOOT/
+          path: src/
 
       # Sign the export commits at BUILD time (the action passes --gpg-sign to
       # flatpak-builder). Without this the bundle's commit is unsigned, and a

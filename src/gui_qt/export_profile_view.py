@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QAbstractItemView,
 )
 
+from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c, contrast_text
 from Utils import profile_export
 
@@ -402,6 +403,10 @@ class ExportProfileView(QWidget):
     # pick_save_file's callback fires on the portal WORKER thread; marshal the
     # chosen path to the GUI thread before touching any widget.
     _save_path_picked = Signal(object)
+    # (out_path, [(data_idx, size_bytes), …]) from the size-prefetch worker →
+    # UI thread, which applies the sizes to _all_rows (the worker must never
+    # mutate rows the UI thread reads/sorts) and then starts the packaging.
+    _sizes_ready = Signal(str, object)
 
     def __init__(self, window, game, api, log_fn=None):
         super().__init__()
@@ -421,6 +426,7 @@ class ExportProfileView(QWidget):
         self._export_done.connect(self._on_export_done)
         self._export_progress.connect(self._on_export_progress)
         self._save_path_picked.connect(self._on_save_path_picked)
+        self._sizes_ready.connect(self._on_sizes_ready)
         self._build()
         self._load_rows()
         self._apply_filter()
@@ -558,8 +564,11 @@ class ExportProfileView(QWidget):
         t = self._table
         t.setRowCount(0)
         t.setRowCount(len(self._rows))
+        # Identity-keyed position map — list.index() would deep-compare dicts
+        # per row (O(n²)) and pick the wrong row for structural duplicates.
+        pos = {id(r): i for i, r in enumerate(self._all_rows)}
         for i, row in enumerate(self._rows):
-            data_idx = self._all_rows.index(row)
+            data_idx = pos[id(row)]
 
             name_item = QTableWidgetItem(row["name"])
             name_item.setFlags(Qt.ItemIsEnabled)
@@ -671,7 +680,7 @@ class ExportProfileView(QWidget):
             }
             for f in sorted_files if f.file_id
         ]
-        self._versions_ready.emit(data_idx, options)
+        safe_emit(self._versions_ready, data_idx, options)
 
     def _on_versions_ready(self, data_idx: int, options):
         if not options:
@@ -777,7 +786,7 @@ class ExportProfileView(QWidget):
         from Utils.portal_filechooser import pick_save_file
         pick_save_file(
             self.tr("Export Amethyst Manifest"),
-            lambda path: self._save_path_picked.emit(path),
+            lambda path: safe_emit(self._save_path_picked, path),
             current_name=default_name,
             filters=[(self.tr("Amethyst Manifest (*.amethyst)"), ["*.amethyst"]),
                      (self.tr("All files"), ["*"])])
@@ -794,26 +803,44 @@ class ExportProfileView(QWidget):
             daemon=True, name="export-profile").start()
 
     def _export_worker(self, out_path: str):
-        try:
-            # Prefetch file sizes for nexus rows that have mod_id + file_id but no
-            # size yet (single batched GraphQL request — port of _prefetch_sizes).
-            needs_size = [
-                r for r in self._all_rows
-                if r.get("mod_id") and r.get("file_id") and not r.get("size_bytes")
-                and r.get("source", "nexus") == "nexus"
-            ]
-            if needs_size and self._api is not None:
-                pairs = [(r["mod_id"], r["file_id"]) for r in needs_size]
-                try:
-                    size_map = self._api.graphql_file_sizes_batch(
-                        self._game_domain, pairs)
-                except Exception:
-                    size_map = {}
-                for r in needs_size:
-                    sz = size_map.get((r["mod_id"], r["file_id"]), 0)
-                    if sz:
-                        r["size_bytes"] = sz
+        """Worker thread, phase 1: prefetch missing file sizes into a LOCAL
+        list — never mutating _all_rows, which the UI thread reads/sorts — and
+        post them back via _sizes_ready; the UI thread applies them and starts
+        the packaging worker."""
+        # Prefetch file sizes for nexus rows that have mod_id + file_id but no
+        # size yet (single batched GraphQL request — port of _prefetch_sizes).
+        needs_size = [
+            (i, r["mod_id"], r["file_id"])
+            for i, r in enumerate(self._all_rows)
+            if r.get("mod_id") and r.get("file_id") and not r.get("size_bytes")
+            and r.get("source", "nexus") == "nexus"
+        ]
+        updates: list[tuple[int, int]] = []
+        if needs_size and self._api is not None:
+            pairs = [(mod_id, file_id) for _i, mod_id, file_id in needs_size]
+            try:
+                size_map = self._api.graphql_file_sizes_batch(
+                    self._game_domain, pairs)
+            except Exception:
+                size_map = {}
+            for i, mod_id, file_id in needs_size:
+                sz = size_map.get((mod_id, file_id), 0)
+                if sz:
+                    updates.append((i, sz))
+        safe_emit(self._sizes_ready, out_path, updates)
 
+    def _on_sizes_ready(self, out_path: str, updates):
+        """UI thread: apply the prefetched sizes, then package off-thread."""
+        for i, sz in updates:
+            if 0 <= i < len(self._all_rows):
+                self._all_rows[i]["size_bytes"] = sz
+        threading.Thread(
+            target=self._package_worker, args=(str(out_path),),
+            daemon=True, name="export-package").start()
+
+    def _package_worker(self, out_path: str):
+        """Worker thread, phase 2: build the manifest and write the archive."""
+        try:
             try:
                 from version import __version__ as app_version
             except Exception:
@@ -837,9 +864,9 @@ class ExportProfileView(QWidget):
                 staging_root=staging_root, overwrite_root=overwrite_root,
                 profile_dir=pd, bundle_names=bundle_names,
                 progress_cb=self._make_progress_cb())
-            self._export_done.emit(True, str(final))
+            safe_emit(self._export_done, True, str(final))
         except Exception as exc:
-            self._export_done.emit(False, str(exc))
+            safe_emit(self._export_done, False, str(exc))
 
     def _make_progress_cb(self):
         """Throttled bridge from write_amethyst's per-file callback (worker
@@ -862,7 +889,7 @@ class ExportProfileView(QWidget):
                 phase = self.tr("Packing profile files…")
             else:
                 phase = self.tr("Packing…")
-            self._export_progress.emit(done, total, phase)
+            safe_emit(self._export_progress, done, total, phase)
 
         return _cb
 

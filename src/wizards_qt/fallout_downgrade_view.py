@@ -39,6 +39,7 @@ class FalloutDowngradeView(WizardViewBase):
                          title=self.tr("Downgrade Fallout 3 — {0}").format(game.name))
         self._game_root = game.get_game_path()
         self._extracted_paths: list[Path] = []
+        self._did_restore = False
 
         self._done_enable_sig.connect(self._guard(
             lambda: self._done_btn.setEnabled(True)))
@@ -74,10 +75,26 @@ class FalloutDowngradeView(WizardViewBase):
                 "or use Browse to select it manually."),
                 lambda _p: self._goto_step(_PG_RUN))
         elif idx == _PG_RUN:
-            self._set_status(self._run_status,
-                             self.tr("Extracting archive to game folder…"))
-            threading.Thread(target=self._extract_and_run, daemon=True,
-                             name="fo3-downgrade").start()
+            # The patcher downgrades the exe and writes backups into the game
+            # root. If a profile is deployed those files are absent from the
+            # deploy snapshot, so the next restore would sweep them into
+            # overwrite/ as runtime files — restore the modlist first and run
+            # the patcher against the vanilla root (Done redeploys).
+            if getattr(self._game, "get_deploy_active", lambda: False)():
+                self._log("Downgrade Wizard: modlist is deployed — restoring "
+                          "before patching (redeploys when the wizard closes).")
+                if self._run_ctx_restore(self._run_status, self._start_patch_step):
+                    self._did_restore = True
+                    return
+                # Restore couldn't start — fall through and patch the deployed
+                # root rather than dead-ending (pre-fix behaviour).
+            self._start_patch_step()
+
+    def _start_patch_step(self):
+        self._set_status(self._run_status,
+                         self.tr("Extracting archive to game folder…"))
+        threading.Thread(target=self._extract_and_run, daemon=True,
+                         name="fo3-downgrade").start()
 
     # ---- worker: extract into game root + run Patcher.exe -----------------------
     def _extract_and_run(self):
@@ -161,6 +178,18 @@ class FalloutDowngradeView(WizardViewBase):
         if self._closing:
             return
         self._cleanup_extracted()
+        # Put back the modlist the restore-first step took down. The deploy
+        # snapshot written by this deploy records the patcher's backup files,
+        # so later restores leave them in the game root.
+        if self._did_restore:
+            self._did_restore = False
+            run_deploy = getattr(self._ctx, "run_deploy", None)
+            if run_deploy is not None and run_deploy(lambda _ok: None):
+                self._log("Downgrade Wizard: redeploying the modlist that was "
+                          "restored before patching.")
+            else:
+                self._log("Downgrade Wizard: could not redeploy automatically "
+                          "— use Deploy to put your modlist back.")
         super()._finish()
 
     def _cleanup_extracted(self):

@@ -87,6 +87,88 @@ def game_data_subpath(game) -> str:
     return "" if rel == Path(".") else rel.as_posix()
 
 
+def plugins_routing_ctx(game) -> "tuple | None":
+    """(resolve_fn, data_rel_lower) for games that route staged files through
+    deploy rules (UE5-style ``_resolve_entry``) AND load plugins from a folder
+    BELOW the deploy root — e.g. Oblivion Remastered's
+    ``Content/Dev/ObvData/Data``. None for every other game.
+
+    Such games can ship a plugin anywhere inside a mod (nested under a wrapper
+    like ``OblivionRemastered/Content/Dev/ObvData/Data/x.esp``) and the deploy
+    rules still place it in the plugins dir, so "plugin at the mod root" is the
+    wrong test for what belongs in plugins.txt — the routed destination is.
+    """
+    resolve = getattr(game, "_resolve_entry", None)
+    if resolve is None:
+        return None
+    try:
+        gp = game.get_game_path()
+        dp = (game.get_vanilla_plugins_path()
+              if hasattr(game, "get_vanilla_plugins_path") else None)
+    except Exception:
+        return None
+    if not gp or not dp:
+        return None
+    try:
+        rel = Path(dp).relative_to(Path(gp))
+    except ValueError:
+        return None
+    if rel == Path("."):
+        return None
+    return resolve, rel.as_posix().lower()
+
+
+def routed_plugin_name(ctx, staged_rel: str,
+                       exts: tuple) -> "str | None":
+    """Filename if *staged_rel* (a mod-relative staging path) deploys DIRECTLY
+    into the plugins data dir per *ctx* (from plugins_routing_ctx), else None.
+    A plugin nested BELOW the data dir (e.g. ``.../Data/optional/x.esp``) is
+    not loadable and returns None."""
+    resolve, data_rel_low = ctx
+    norm = staged_rel.replace("\\", "/")
+    name = norm.rsplit("/", 1)[-1]
+    if not name.lower().endswith(tuple(exts)):
+        return None
+    try:
+        dest, final_rel = resolve(norm)
+    except Exception:
+        return None
+    full = f"{dest}/{final_rel}" if dest else final_rel
+    parent = full.rsplit("/", 1)[0] if "/" in full else ""
+    return name if parent.lower() == data_rel_low else None
+
+
+def routed_mod_plugin_names(game, mod_dir: Path) -> list[str]:
+    """Plugin files anywhere inside *mod_dir* whose routed deploy destination
+    is the top level of the game's plugins data dir. [] for games without
+    routing rules (plugins_routing_ctx is None) or on any error.
+
+    Used by plugins.txt sync (enable/disable/remove) so nested plugins —
+    which DO deploy into the data dir — get the same plugins.txt treatment
+    as mod-root ones."""
+    ctx = plugins_routing_ctx(game)
+    if ctx is None:
+        return []
+    exts = tuple(e.lower() for e in
+                 (getattr(game, "plugin_extensions", []) or []))
+    if not exts or not mod_dir.is_dir():
+        return []
+    names: list[str] = []
+    try:
+        import os
+        for root, _dirs, files in os.walk(mod_dir):
+            rel_root = Path(root).relative_to(mod_dir).as_posix()
+            for fname in files:
+                if not fname.lower().endswith(exts):
+                    continue
+                rel = f"{rel_root}/{fname}" if rel_root != "." else fname
+                if routed_plugin_name(ctx, rel, exts):
+                    names.append(fname)
+    except OSError:
+        return names
+    return names
+
+
 def _vanilla_plugins_for_game(game) -> dict[str, str]:
     """Return {lowercase_name: original_name} for vanilla plugins."""
     result: dict[str, str] = {}
@@ -346,24 +428,3 @@ def _clear_game_config(game_name: str) -> None:
     game = _GAMES.get(game_name)
     if game is not None:
         game.load_paths()
-
-
-def _handle_missing_profile_root(topbar, game_name: str) -> None:
-    """Profile/staging folder was deleted: clear game config, refresh list, switch to another game or clear last_game."""
-    _clear_game_config(game_name)
-    game_names = _load_games()
-    topbar._game_menu.configure(values=game_names)
-    if game_names and game_names[0] != "No games configured":
-        topbar._game_var.set(game_names[0])
-        if hasattr(topbar, "_profile_menu") and topbar._profile_menu is not None:
-            profiles = _profiles_for_game(game_names[0])
-            topbar._profile_menu.configure(values=profiles)
-            topbar._profile_var.set(profiles[0])
-        topbar._reload_mod_panel()
-    else:
-        get_last_game_path().unlink(missing_ok=True)
-        topbar._game_var.set("No games configured")
-        if hasattr(topbar, "_profile_menu") and topbar._profile_menu is not None:
-            topbar._profile_menu.configure(values=["default"])
-            topbar._profile_var.set("default")
-        topbar._reload_mod_panel()

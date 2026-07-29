@@ -17,6 +17,8 @@ from PySide6.QtCore import (
     Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP,
 )
 
+from gui_qt.theme_qt import active_palette, qc
+
 COL_NAME = 0
 COL_MOD = 1
 COLUMNS = ["Path", "Winning Mod"]
@@ -55,6 +57,9 @@ class DataModel(QAbstractItemModel):
         super().__init__(parent)
         self._root = _DataNode("", "", is_dir=True)
         self._highlight_mod: str | None = None
+        # Highlight QColor cached once — data() runs per cell per repaint
+        # (mirrors modlist_delegate; matches the modlist anchor tint).
+        self._c_highlight = qc(active_palette(), "CONFLICT_HL_ANCHOR")
 
     # ---- population -------------------------------------------------------
     def set_root(self, root: _DataNode):
@@ -140,7 +145,5 @@ class DataModel(QAbstractItemModel):
                 return node.mod if not node.is_dir else ""
         if role == Qt.BackgroundRole and self._highlight_mod:
             if not node.is_dir and node.mod == self._highlight_mod:
-                from PySide6.QtGui import QColor
-                from gui_qt.theme_qt import active_palette, _c
-                return QColor(_c(active_palette(), "CONFLICT_HL_ANCHOR"))  # matches modlist anchor tint
+                return self._c_highlight
         return None

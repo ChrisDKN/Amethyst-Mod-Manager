@@ -69,9 +69,12 @@ def _lutris_available(game) -> bool:
 
 
 class _ScanSignals(QObject):
-    game_found = Signal(object, str)        # (path|None, source)
+    # Scan results carry everything the worker discovered so the worker thread
+    # never writes view attributes directly (the slots run on the GUI thread).
+    game_found = Signal(object, str, object, object, object)
+    # ^ (path|None, source, prefix|None, lutris_slug|None, heroic_app|None)
     drive_scan_found = Signal(object)       # (path|None) — full-drive Scan button
-    prefix_found = Signal(object)           # (path|None)
+    prefix_found = Signal(object, object)   # (path|None, lutris_slug|None)
     # Browse (portal) picks — fired from the portal WORKER thread, so they must
     # be marshalled to the GUI thread via a Signal before touching any widget.
     game_picked = Signal(object)            # (path|None)
@@ -101,25 +104,37 @@ class ConfigureGameView(QWidget):
         self._found_path: Path | None = None
         self._found_prefix: Path | None = None
         self._found_lutris_slug: str | None = None
+        self._found_heroic_app: str | None = None
         self._custom_staging: Path | None = None
 
+        # Closing the tab deleteLater()'s the view while scan workers may still
+        # be running; the guards drop late slot runs so they never touch
+        # destroyed widgets (mirrors wizards_qt._view_base).
+        self._closing = False
+        self.destroyed.connect(lambda *_: setattr(self, "_closing", True))
+
         self._sig = _ScanSignals()
-        self._sig.game_found.connect(self._on_game_found)
-        self._sig.drive_scan_found.connect(self._on_drive_scan_found)
-        self._sig.prefix_found.connect(self._on_prefix_found)
-        self._sig.game_picked.connect(self._on_game_picked)
-        self._sig.prefix_picked.connect(self._on_prefix_picked)
-        self._sig.staging_picked.connect(self._on_staging_picked)
-        self._sig.remove_done.connect(self._on_remove_finished)
-        self._sig.clean_done.connect(self._on_clean_finished)
-        self._sig.staging_scanned.connect(self._on_staging_scanned)
-        self._sig.staging_progress.connect(self._on_staging_progress)
-        self._sig.staging_move_done.connect(self._on_staging_move_done)
+        g = self._guard
+        self._sig.game_found.connect(g(self._on_game_found))
+        self._sig.drive_scan_found.connect(g(self._on_drive_scan_found))
+        self._sig.prefix_found.connect(g(self._on_prefix_found))
+        self._sig.game_picked.connect(g(self._on_game_picked))
+        self._sig.prefix_picked.connect(g(self._on_prefix_picked))
+        self._sig.staging_picked.connect(g(self._on_staging_picked))
+        self._sig.remove_done.connect(g(self._on_remove_finished))
+        self._sig.clean_done.connect(g(self._on_clean_finished))
+        self._sig.staging_scanned.connect(g(self._on_staging_scanned))
+        self._sig.staging_progress.connect(g(self._on_staging_progress))
+        self._sig.staging_move_done.connect(g(self._on_staging_move_done))
         self._staging_popup = None
         self._destructive_busy = False
+        self.staging_migrated = False
 
         self._build()
         self._prepopulate()
+
+    def _guard(self, fn):
+        return lambda *a: None if self._closing else fn(*a)
 
     # ---- styling helpers --------------------------------------------------
     def _c(self, k):
@@ -398,6 +413,10 @@ class ConfigureGameView(QWidget):
         add_check("script_extender_swap",
                   self.tr("Swap launcher with script extender on deploy"),
                   hasattr(self._game, "script_extender_swap"))
+        add_check("auto_4gb_patch",
+                  self.tr("Apply the 4GB patch automatically (deploy patches "
+                          "the exe, restore reverts it)"),
+                  hasattr(self._game, "set_auto_4gb_patch"))
         add_check("auto_deploy",
                   self.tr("Auto deploy (deploy automatically on enable/disable/reorder)"),
                   True)
@@ -476,6 +495,7 @@ class ConfigureGameView(QWidget):
             # option values
             self._set_check("script_extender_swap",
                             getattr(g, "script_extender_swap", True))
+            self._set_check("auto_4gb_patch", getattr(g, "auto_4gb_patch", True))
             self._set_check("auto_deploy", getattr(g, "auto_deploy", False))
             self._set_check("archive_invalidation",
                             getattr(g, "archive_invalidation", True))
@@ -497,6 +517,7 @@ class ConfigureGameView(QWidget):
             # add_game_dialog: script_extender_swap/archive_invalidation start ON,
             # the rest OFF except prefix_numbering).
             self._set_check("script_extender_swap", True)
+            self._set_check("auto_4gb_patch", True)
             self._set_check("auto_deploy", False)
             self._set_check("archive_invalidation", True)
             self._set_check("profile_ini_files", False)
@@ -831,44 +852,49 @@ class ConfigureGameView(QWidget):
         g = self._game
         found = None
         source = "steam"
+        found_prefix = None
+        lutris_slug = None
+        heroic_app = None
         game_name = getattr(g, "name", repr(g))
         app_log(f"[Configure Game] Auto-detecting: {game_name}")
         try:
             from Utils.steam_finder import (
                 find_steam_libraries, find_game_by_steam_id, find_game_in_libraries)
             from Utils.heroic_finder import (
-                find_heroic_game, find_heroic_game_info_by_exe)
+                find_heroic_game_info_by_app_names, find_heroic_game_info_by_exe)
             exe_names = [getattr(g, "exe_name", None)] + list(
                 getattr(g, "exe_name_alts", []) or [])
             exe_names = [e for e in exe_names if e]
-            app_log(f"[Configure Game] Checking Heroic (exe names: {exe_names})")
-            for exe in exe_names:
-                info = find_heroic_game_info_by_exe(exe)
-                if info:
-                    found, fpfx, _app = info
-                    source = "heroic"
-                    if fpfx is not None:
-                        self._found_prefix = fpfx
-                    app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {found}")
-                    break
-            if not found and _heroic_app_names(g):
-                heroic_names = _heroic_app_names(g)
+            heroic_names = _heroic_app_names(g)
+            if heroic_names:
+                # Declared app names are authoritative: generic launcher names
+                # collide across games (FalloutLauncher.exe ships with both
+                # Fallout 3 GOTY and classic Fallout on GOG), so the exe scan
+                # can resolve to the wrong title and is skipped entirely.
                 app_log(f"[Configure Game] Checking Heroic app names: {heroic_names}")
-                found = find_heroic_game(heroic_names)
-                if found:
+                info = find_heroic_game_info_by_app_names(heroic_names)
+                if info:
+                    found, found_prefix, heroic_app = info
                     source = "heroic"
-                    app_log(f"[Configure Game] Found via Heroic app name: {found}")
+                    app_log(f"[Configure Game] Found via Heroic app name "
+                            f"({heroic_app}): {found}")
+            else:
+                app_log(f"[Configure Game] Checking Heroic (exe names: {exe_names})")
+                for exe in exe_names:
+                    info = find_heroic_game_info_by_exe(exe)
+                    if info:
+                        found, found_prefix, heroic_app = info
+                        source = "heroic"
+                        app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {found}")
+                        break
             if not found:
                 from Utils.lutris_finder import find_lutris_game_info_by_exe
                 app_log(f"[Configure Game] Checking Lutris (exe names: {exe_names})")
                 for exe in exe_names:
                     info = find_lutris_game_info_by_exe(exe)
                     if info:
-                        found, fpfx, slug = info
+                        found, found_prefix, lutris_slug = info
                         source = "lutris"
-                        if fpfx is not None:
-                            self._found_prefix = fpfx
-                        self._found_lutris_slug = slug
                         app_log(f"[Configure Game] Found via Lutris ({exe}): {found}")
                         break
             if not found:
@@ -904,13 +930,18 @@ class ConfigureGameView(QWidget):
             found = None
         if not found:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
-        self._sig.game_found.emit(found, source)
+        safe_emit(self._sig.game_found, found, source, found_prefix,
+                  lutris_slug, heroic_app)
 
-    def _on_game_found(self, found, source):
+    def _on_game_found(self, found, source, prefix, lutris_slug, heroic_app):
+        if lutris_slug:
+            self._found_lutris_slug = lutris_slug
+        if heroic_app:
+            self._found_heroic_app = heroic_app
         if found:
             self._set_game(Path(found), source=source)
-            if self._found_prefix is not None:
-                self._set_prefix(Path(self._found_prefix))
+            if prefix is not None:
+                self._set_prefix(Path(prefix))
             elif self._has_prefix_src:
                 self._start_prefix_scan()
         else:
@@ -954,7 +985,7 @@ class ConfigureGameView(QWidget):
             app_log(f"[Configure Game] Drive scan failed: {exc}\n"
                     f"{traceback.format_exc()}")
             found = None
-        self._sig.drive_scan_found.emit(found)
+        safe_emit(self._sig.drive_scan_found, found)
 
     def _on_drive_scan_found(self, found):
         self._scan_btn.setEnabled(True)
@@ -975,6 +1006,7 @@ class ConfigureGameView(QWidget):
     def _prefix_scan_worker(self):
         g = self._game
         found = None
+        lutris_slug = None
         try:
             from Utils.steam_finder import find_prefix
             from Utils.heroic_finder import find_heroic_prefix
@@ -994,13 +1026,15 @@ class ConfigureGameView(QWidget):
                     info = find_lutris_game_info_by_exe(exe)
                     if info and info[1] is not None:
                         found = info[1]
-                        self._found_lutris_slug = info[2]
+                        lutris_slug = info[2]
                         break
         except Exception:
             found = None
-        self._sig.prefix_found.emit(found)
+        safe_emit(self._sig.prefix_found, found, lutris_slug)
 
-    def _on_prefix_found(self, found):
+    def _on_prefix_found(self, found, lutris_slug):
+        if lutris_slug:
+            self._found_lutris_slug = lutris_slug
         if found:
             self._set_prefix(Path(found))
         else:
@@ -1096,12 +1130,16 @@ class ConfigureGameView(QWidget):
             g.set_prefix_path(self._found_prefix)
         if self._found_lutris_slug and hasattr(g, "set_lutris_slug"):
             g.set_lutris_slug(self._found_lutris_slug)
+        if self._found_heroic_app and hasattr(g, "set_heroic_app_name"):
+            g.set_heroic_app_name(self._found_heroic_app)
         if hasattr(g, "set_deploy_mode"):
             g.set_deploy_mode(mode)
         if hasattr(g, "set_staging_path"):
             g.set_staging_path(self._custom_staging)
         if hasattr(g, "set_script_extender_swap") and "script_extender_swap" in self._opt_checks:
             g.set_script_extender_swap(self._opt_checks["script_extender_swap"].isChecked())
+        if hasattr(g, "set_auto_4gb_patch") and "auto_4gb_patch" in self._opt_checks:
+            g.set_auto_4gb_patch(self._opt_checks["auto_4gb_patch"].isChecked())
         if "auto_deploy" in self._opt_checks:
             g.auto_deploy = self._opt_checks["auto_deploy"].isChecked()
         if "archive_invalidation" in self._opt_checks:
@@ -1223,6 +1261,8 @@ class ConfigureGameView(QWidget):
             self._staging_popup.clear()
             self._staging_popup.deleteLater()
             self._staging_popup = None
+        if moved:
+            self.staging_migrated = True
         self._finalize_save()
 
     def _install_prefix_deps(self) -> None:

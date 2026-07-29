@@ -1,16 +1,37 @@
 """Neutral (GUI-free) helpers for the SMAPI install wizard.
 
-Extracted from the Tk ``sdv_smapi`` plugin so the download / extraction /
-terminal-launch logic can be reused by the Qt view and unit-tested without a
-GUI toolkit.  No tkinter or Qt imports here.
+Extracted from the Tk ``sdv_smapi`` plugin so the download / install logic can
+be reused by the Qt view and unit-tested without a GUI toolkit.  No tkinter or
+Qt imports here.
 
 Pipeline:
   * ``fetch_latest_smapi_asset()`` — latest installer-zip URL from GitHub.
   * ``download_smapi(url, dest, reporthook)`` — HTTPS download via the app CA
     bundle.
-  * ``run_smapi_installer(archive, log_fn)`` — extract under ~/.cache, mark the
-    installer executable, build a bash wrapper, detect a terminal emulator
-    (host / flatpak-spawn / generic), run it, then clean up the temp dir.
+  * ``install_smapi(game, archive, mode, ...)`` — unattended install into the
+    game folder / Root_Folder staging / a managed root-flagged mod.
+
+Why we don't run SMAPI's own installer
+--------------------------------------
+The bundled ``internal/linux/SMAPI.Installer`` is an interactive .NET console
+app: it asks the player to pick install-vs-uninstall and confirm the game
+folder, then writes into that folder directly.  Driving it needed a terminal
+emulator (konsole/xterm/…), which is fragile from a Flatpak/AppImage sandbox,
+required user input, and can only ever target the real game folder — so it
+could not honour our Root_Folder / managed-mod destinations.
+
+Its payload, however, is just ``internal/linux/install.dat`` — a plain zip (the
+SMAPI README documents renaming it to ``.zip``).  The installer's remaining
+work is three documented steps we reproduce natively here:
+
+  1. Unpack ``install.dat`` into the game folder.
+  2. Copy ``Stardew Valley.deps.json`` → ``StardewModdingAPI.deps.json``.
+  3. Rename the launcher: ``StardewValley`` → ``StardewValley-original`` and
+     ``StardewModdingAPI`` → ``StardewValley``, so launching the game normally
+     starts SMAPI.
+
+Steps 2 and 3 touch *vanilla* game files, so they behave differently per
+destination — see :func:`install_smapi` and :func:`_write_launcher_shim`.
 """
 
 from __future__ import annotations
@@ -19,16 +40,31 @@ import json as _json
 import os
 import shutil
 import stat
-import subprocess
 import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from Games.base_game import BaseGame
 
 LogFn = Callable[[str], None]
 
 _GITHUB_API_URL = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest"
+
+#: Payload zip inside the installer archive, in preference order.  SMAPI has
+#: shipped this under both ``unix`` (older) and ``linux`` (current) folders.
+_PAYLOAD_CANDIDATES = ("internal/linux/install.dat", "internal/unix/install.dat")
+
+#: Vanilla launcher (no extension) that SMAPI displaces.
+_GAME_LAUNCHER = "StardewValley"
+_GAME_LAUNCHER_BACKUP = "StardewValley-original"
+_SMAPI_LAUNCHER = "StardewModdingAPI"
+
+#: deps.json copy — SMAPI reuses the game's dependency manifest.
+_GAME_DEPS = "Stardew Valley.deps.json"
+_SMAPI_DEPS = "StardewModdingAPI.deps.json"
 
 
 def _noop(_msg: str) -> None:
@@ -46,7 +82,8 @@ def fetch_latest_smapi_asset() -> tuple[str, str]:
         headers={"Accept": "application/vnd.github+json",
                  "User-Agent": "ModManager/1.0"},
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    from Utils.ca_bundle import get_ssl_context
+    with urllib.request.urlopen(req, timeout=15, context=get_ssl_context()) as resp:
         data = _json.loads(resp.read().decode())
     tag = data.get("tag_name", "unknown")
     assets = data.get("assets", [])
@@ -69,16 +106,8 @@ def download_smapi(url: str, dest: Path, reporthook=None) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Extraction + wrapper
+# Payload extraction
 # ---------------------------------------------------------------------------
-
-def _extract_zip(archive: Path, dest: Path) -> None:
-    if archive.name.lower().endswith(".zip"):
-        with zipfile.ZipFile(archive, "r") as zf:
-            zf.extractall(dest)
-    else:
-        raise RuntimeError(f"Unsupported archive format: {archive.name}")
-
 
 def _chmod_exec(path: Path) -> None:
     try:
@@ -88,212 +117,248 @@ def _chmod_exec(path: Path) -> None:
         pass
 
 
-def build_wrapper(script: Path, wrapper_dir: Path) -> Path:
-    """Create a bash wrapper that cd's to the installer's folder, runs it, then
-    pauses so the user can read its output."""
-    wrapper = wrapper_dir / "run_smapi_install.sh"
-    # Escape single quotes for bash single-quoted strings.
-    script_dir = str(script.parent).replace("'", "'\\''")
-    script_name = script.name.replace("'", "'\\''")
-    wrapper.write_text(
+def find_payload(installer_root: Path) -> Path:
+    """Return the Linux ``install.dat`` payload zip inside an unpacked installer.
+
+    The release zip wraps everything in a top-level ``SMAPI x.y.z installer/``
+    folder, so match on the path *suffix* rather than an exact relative path.
+    The archive also ships ``internal/windows`` and ``internal/macOS``
+    payloads — picking either of those would install the wrong platform's
+    binaries, so only the documented Linux/unix locations are accepted.
+    """
+    matches = sorted(installer_root.rglob("install.dat"))
+    for rel in _PAYLOAD_CANDIDATES:
+        for cand in matches:
+            if cand.is_file() and cand.as_posix().endswith("/" + rel):
+                return cand
+    # No wrapper dir at all (payload sitting at the root of the search path).
+    for rel in _PAYLOAD_CANDIDATES:
+        cand = installer_root / rel
+        if cand.is_file():
+            return cand
+    raise RuntimeError(
+        "Could not find 'internal/linux/install.dat' inside the SMAPI "
+        "archive — the archive may be corrupt or not a SMAPI installer.")
+
+
+def extract_smapi_payload(archive: Path, dest: Path,
+                          log_fn: LogFn = _noop) -> int:
+    """Unpack the SMAPI payload from installer *archive* into *dest*.
+
+    *archive* is the downloaded ``SMAPI-x.y.z-installer.zip``; the real files
+    live in a nested ``install.dat`` zip.  Returns the number of files written.
+    Marks the SMAPI launcher and ``unix-launcher.sh`` executable — the zip
+    stores POSIX modes but Python's zipfile drops them on extract.
+    """
+    cache_root = Path.home() / ".cache" / "amethyst-smapi"
+    cache_root.mkdir(parents=True, exist_ok=True)
+    tmp_dir = Path(tempfile.mkdtemp(prefix="smapi_", dir=str(cache_root)))
+    try:
+        if not archive.is_file():
+            raise RuntimeError("Archive not found.")
+        if not archive.name.lower().endswith(".zip"):
+            raise RuntimeError(f"Unsupported archive format: {archive.name}")
+
+        log_fn(f"SMAPI Wizard: unpacking {archive.name}")
+        with zipfile.ZipFile(archive, "r") as zf:
+            zf.extractall(tmp_dir)
+
+        payload = find_payload(tmp_dir)
+        log_fn(f"SMAPI Wizard: extracting payload {payload.name} → {dest}")
+
+        dest.mkdir(parents=True, exist_ok=True)
+        count = 0
+        with zipfile.ZipFile(payload, "r") as zf:
+            zf.extractall(dest)
+            count = sum(1 for i in zf.infolist() if not i.is_dir())
+
+        # Restore the executable bit the zip module discards.
+        for name in (_SMAPI_LAUNCHER, "unix-launcher.sh"):
+            p = dest / name
+            if p.is_file():
+                _chmod_exec(p)
+        return count
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Launcher wiring
+# ---------------------------------------------------------------------------
+
+def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
+    """Apply the in-place launcher swap inside a real *game_dir*.
+
+    Copies the game's deps.json for SMAPI, then renames the vanilla launcher
+    aside and puts SMAPI's in its place. Idempotent: re-running after SMAPI is
+    already installed will not clobber ``StardewValley-original`` with the
+    SMAPI launcher.
+    """
+    deps_src = game_dir / _GAME_DEPS
+    deps_dst = game_dir / _SMAPI_DEPS
+    if deps_src.is_file():
+        shutil.copy2(deps_src, deps_dst)
+        log_fn(f"SMAPI Wizard: copied {_GAME_DEPS} → {_SMAPI_DEPS}")
+    else:
+        log_fn(f"SMAPI Wizard: warning — {_GAME_DEPS} not found in the game "
+               "folder; SMAPI may fail to start.")
+
+    vanilla = game_dir / _GAME_LAUNCHER
+    backup = game_dir / _GAME_LAUNCHER_BACKUP
+    smapi = game_dir / _SMAPI_LAUNCHER
+
+    if not smapi.is_file():
+        raise RuntimeError(
+            f"'{_SMAPI_LAUNCHER}' is missing after extraction — "
+            "the SMAPI payload did not unpack correctly.")
+
+    if backup.is_file():
+        # Already installed once: `vanilla` is a previous SMAPI launcher, so
+        # overwrite it and leave the real backup untouched.
+        log_fn(f"SMAPI Wizard: {_GAME_LAUNCHER_BACKUP} already present — "
+               "reusing the existing vanilla backup.")
+    elif vanilla.is_file():
+        shutil.move(str(vanilla), str(backup))
+        log_fn(f"SMAPI Wizard: renamed {_GAME_LAUNCHER} → {_GAME_LAUNCHER_BACKUP}")
+    else:
+        log_fn(f"SMAPI Wizard: warning — no {_GAME_LAUNCHER} launcher found "
+               "to back up.")
+
+    shutil.copy2(smapi, vanilla)
+    _chmod_exec(vanilla)
+    log_fn(f"SMAPI Wizard: installed {_SMAPI_LAUNCHER} as {_GAME_LAUNCHER}")
+
+
+def _write_launcher_shim(dest: Path, log_fn: LogFn = _noop) -> None:
+    """Write a ``StardewValley`` launcher into a *staged* payload.
+
+    For staging destinations (Root_Folder / managed mod) we cannot rename the
+    vanilla launcher — it lives in the game folder and is restored on every
+    deploy cycle.  Instead we ship our own ``StardewValley`` script that the
+    deploy overlays on top of the vanilla one; it execs SMAPI from the same
+    folder.  Deploy backs the vanilla launcher up to the _Core folder, so the
+    original is recovered on restore.
+    """
+    shim = dest / _GAME_LAUNCHER
+    shim.write_text(
         "#!/usr/bin/env bash\n"
-        f"cd '{script_dir}' || {{ echo 'Failed to cd into installer folder'; "
-        "read -n 1; exit 1; }\n"
-        f"./'{script_name}'\n"
-        "rc=$?\n"
-        "echo\n"
-        "echo '---- SMAPI installer finished (exit code '$rc') ----'\n"
-        "echo 'Press any key to close this window...'\n"
-        "read -n 1 -s\n"
-        "exit $rc\n",
+        "# Installed by Amethyst Mod Manager — launches SMAPI instead of the\n"
+        "# vanilla game. The original launcher is preserved by the mod\n"
+        "# manager's deploy backup (Stardew Valley restore puts it back).\n"
+        'cd "$(dirname "$0")" || exit $?\n'
+        'exec ./StardewModdingAPI "$@"\n',
         encoding="utf-8",
     )
-    _chmod_exec(wrapper)
-    return wrapper
+    _chmod_exec(shim)
+    log_fn(f"SMAPI Wizard: wrote {_GAME_LAUNCHER} launcher shim into the payload.")
 
 
-# ---------------------------------------------------------------------------
-# Terminal detection
-# ---------------------------------------------------------------------------
+def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> None:
+    """Copy ``StardewModdingAPI.deps.json`` into a staged payload.
 
-def _terminal_candidates(wrapper: str) -> list[tuple[str, list[str]]]:
-    return [
-        ("konsole",        ["konsole", "--hold", "-e", "bash", wrapper]),
-        ("alacritty",      ["alacritty", "-e", "bash", wrapper]),
-        ("gnome-terminal", ["gnome-terminal", "--wait", "--", "bash", wrapper]),
-        ("xfce4-terminal", ["xfce4-terminal", "--hold", "-e", f"bash {wrapper}"]),
-        ("kitty",          ["kitty", "--hold", "bash", wrapper]),
-        ("ptyxis",         ["ptyxis", "--new-window", "--", "bash", wrapper]),
-        ("xterm",          ["xterm", "-hold", "-e", "bash", wrapper]),
-    ]
-
-
-def clean_env() -> dict:
-    """Copy of os.environ with AppImage / bundle vars removed.
-
-    AppImage exports LD_LIBRARY_PATH, QT_PLUGIN_PATH, PYTHONHOME etc. pointing
-    into its bundle. Inherited by konsole, those make it load the wrong Qt libs
-    and exit immediately. Strip them so the terminal uses host libraries.
-    The var list lives in :mod:`Utils.appimage_env` (single source of truth).
+    Sourced from the game folder's ``Stardew Valley.deps.json`` (vanilla file,
+    always present in a real install).  Staged rather than generated so the
+    deployed SMAPI sees the same manifest the official installer would create.
     """
-    from Utils.appimage_env import strip_appimage_vars
-    env = strip_appimage_vars(os.environ.copy())
-    env.setdefault("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
-    return env
-
-
-def _spawn_host_prefix() -> list[str]:
-    """flatpak-spawn invocation that starts on the host with a safe cwd.
-
-    Inside a flatpak the sandbox cwd doesn't exist on the host, so the portal
-    call fails to change directory; passing --directory=$HOME avoids it.
-    """
-    home = os.environ.get("HOME") or "/tmp"
-    return ["flatpak-spawn", "--host", f"--directory={home}"]
-
-
-def _host_has(exe: str, env: dict) -> bool:
-    """Ask the host (via flatpak-spawn) whether *exe* is on its PATH."""
-    try:
-        r = subprocess.run(
-            _spawn_host_prefix() + ["sh", "-c", f"command -v {exe}"],
-            env=env, capture_output=True, text=True, timeout=5)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
-    return r.returncode == 0 and bool(r.stdout.strip())
-
-
-def find_terminal_cmd(wrapper: str, log_fn: LogFn = _noop
-                      ) -> tuple[list[str], dict] | None:
-    """Return (argv, env) for a terminal that actually launches, or None.
-
-    Order of preference:
-      1. Host-side terminal that passes ``<bin> --version`` under a cleaned env
-         (catches AppImage library-conflict crashes).
-      2. Host terminal via flatpak-spawn --host (flatpak builds) — selected by
-         asking the host ``command -v <exe>``, not by probing.
-      3. x-terminal-emulator / xdg-terminal-exec.
-      4. Forced direct launch of a host terminal on PATH even if it failed the
-         probe.
-      5. Forced flatpak-spawn of a host terminal without host-check.
-    """
-    env = clean_env()
-    have_spawn = shutil.which("flatpak-spawn") is not None
-
-    def _probe_host(exe: str) -> bool:
-        try:
-            r = subprocess.run([exe, "--version"], env=env,
-                               capture_output=True, text=True, timeout=5)
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            log_fn(f"SMAPI Wizard: probe {exe} failed: {exc}")
-            return False
-        if r.returncode != 0:
-            log_fn(f"SMAPI Wizard: probe {exe} rc={r.returncode} "
-                   f"stderr={r.stderr.strip()[:200]}")
-            return False
-        return True
-
-    candidates = _terminal_candidates(wrapper)
-
-    # 1. Direct host invocation with a working probe.
-    for exe, argv in candidates:
-        if shutil.which(exe) and _probe_host(exe):
-            log_fn(f"SMAPI Wizard: selected host terminal: {exe}")
-            return argv, env
-
-    # 2. flatpak-spawn --host, selecting by `command -v` on the host.
-    if have_spawn:
-        for exe, argv in candidates:
-            if _host_has(exe, env):
-                log_fn(f"SMAPI Wizard: selected host terminal via flatpak-spawn: {exe}")
-                return _spawn_host_prefix() + argv, env
-
-    # 3. Generic terminal wrappers.
-    for generic in ("x-terminal-emulator", "xdg-terminal-exec"):
-        if shutil.which(generic):
-            log_fn(f"SMAPI Wizard: falling back to {generic}")
-            return [generic, "-e", "bash", wrapper], env
-
-    # 4. Host terminal on PATH that failed probe — force it.
-    for exe, argv in candidates:
-        if shutil.which(exe):
-            log_fn(f"SMAPI Wizard: no terminal passed probe, forcing {exe}")
-            return argv, env
-
-    # 5. Last-ditch for flatpak: try flatpak-spawn --host anyway.
-    if have_spawn:
-        for exe, argv in candidates:
-            log_fn(f"SMAPI Wizard: last-ditch flatpak-spawn --host {exe}")
-            return _spawn_host_prefix() + argv, env
-
-    return None
+    game_dir = game.get_game_path()
+    if game_dir is None:
+        log_fn("SMAPI Wizard: warning — game path not configured, cannot stage "
+               f"{_SMAPI_DEPS}.")
+        return
+    src = Path(game_dir) / _GAME_DEPS
+    if not src.is_file():
+        log_fn(f"SMAPI Wizard: warning — {_GAME_DEPS} not found in the game "
+               f"folder; {_SMAPI_DEPS} was not staged.")
+        return
+    shutil.copy2(src, dest / _SMAPI_DEPS)
+    log_fn(f"SMAPI Wizard: staged {_SMAPI_DEPS} from the game folder.")
 
 
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
-def run_smapi_installer(archive: Path, log_fn: LogFn = _noop) -> None:
-    """Extract *archive*, mark the installer executable, launch it in a
-    terminal and wait for it to close.  Deletes the archive on success and
-    always removes the temp extraction dir.  Raises on failure."""
-    tmp_dir: Path | None = None
-    try:
-        if archive is None or not archive.is_file():
-            raise RuntimeError("Archive not found.")
+def install_smapi(
+    game: "BaseGame",
+    archive: Path,
+    mode: str = "game",
+    *,
+    mod_name: str = "SMAPI",
+    modlist_path: "Path | None" = None,
+    restore_first: bool = True,
+    delete_archive: bool = True,
+    log_fn: LogFn = _noop,
+) -> tuple[str, int, "str | None"]:
+    """Install SMAPI from *archive* with no user interaction.
 
-        log_fn(f"SMAPI Wizard: extracting {archive.name}")
-        # Extract under ~/.cache, not /tmp: inside a flatpak /tmp is a private
-        # sandbox mount the host can't see, so flatpak-spawn --host bash
-        # /tmp/... fails. ~/.cache is shared (--filesystem=home).
-        cache_root = Path.home() / ".cache" / "amethyst-smapi"
-        cache_root.mkdir(parents=True, exist_ok=True)
-        tmp_dir = Path(tempfile.mkdtemp(prefix="smapi_install_",
-                                        dir=str(cache_root)))
-        _extract_zip(archive, tmp_dir)
+    mode — ``"game"`` (game folder, restoring to vanilla first when
+    *restore_first*), ``"root"`` (Root_Folder staging) or ``"mod"`` (a managed
+    root-flagged mod, registered in the modlist and indexed so it deploys
+    without a manual Refresh).
 
-        script: Path | None = None
-        for candidate in tmp_dir.rglob("install on Linux.sh"):
-            script = candidate
-            break
-        if script is None:
-            raise RuntimeError('Could not find "install on Linux.sh" inside '
-                               'the archive.')
+    Returns ``(dest_label, file_count, mod_name-or-None)``.  Blocking — call
+    from a worker thread; does no UI work.  The caller reloads the modlist on
+    the GUI thread when mode == "mod".
+    """
+    from Utils.install_as_mod import index_installed_mod, register_as_mod_neutral
 
-        _chmod_exec(script)
-        installer_bin = script.parent / "internal" / "linux" / "SMAPI.Installer"
-        if installer_bin.is_file():
-            _chmod_exec(installer_bin)
-        for p in script.parent.rglob("*"):
-            if p.is_file() and (p.suffix == ".sh" or "Installer" in p.name):
-                _chmod_exec(p)
+    if archive is None or not archive.is_file():
+        raise RuntimeError("Archive not found.")
 
-        wrapper = build_wrapper(script, tmp_dir)
-        log_fn("SMAPI Wizard: launching SMAPI installer in terminal")
+    installed_mod: "str | None" = None
 
-        result = find_terminal_cmd(str(wrapper), log_fn=log_fn)
-        if result is None:
-            raise RuntimeError(
-                "No terminal emulator found (tried konsole, alacritty, "
-                "gnome-terminal, xfce4-terminal, kitty, ptyxis, xterm). "
-                f"Please run the installer manually:\n  {wrapper}")
-        terminal_cmd, term_env = result
+    if mode == "mod":
+        staging = game.get_effective_mod_staging_path()
+        if staging is None:
+            raise RuntimeError("Mod staging path is not configured.")
+        installed_mod = mod_name
+        dest = Path(staging) / mod_name
+        if dest.exists():
+            shutil.rmtree(dest, ignore_errors=True)
+        dest.mkdir(parents=True, exist_ok=True)
+        dest_label = f"mod folder ({mod_name})"
+    elif mode == "root":
+        dest = game.get_effective_root_folder_path()
+        dest.mkdir(parents=True, exist_ok=True)
+        dest_label = "Root_Folder (staging)"
+    else:
+        game_dir = game.get_game_path()
+        if game_dir is None:
+            raise RuntimeError("Game path is not configured.")
+        dest = Path(game_dir)
+        dest_label = "game folder"
+        if restore_first:
+            # Revert to vanilla so we swap the REAL launcher, not a deployed
+            # one. A failed restore must abort the install: swapping inside a
+            # deployed root leaves post-snapshot files that the next restore
+            # sweeps into overwrite/. (The Qt wizard restores via the app's
+            # restore machinery instead and passes restore_first=False.)
+            log_fn("SMAPI Wizard: restoring game to vanilla state…")
+            game.restore(log_fn=log_fn)
 
-        log_fn(f"SMAPI Wizard: terminal cmd: {' '.join(terminal_cmd)}")
-        proc = subprocess.run(terminal_cmd, cwd=str(script.parent),
-                              env=term_env, capture_output=True, text=True)
-        if proc.returncode != 0:
-            log_fn(f"SMAPI Wizard: terminal exited with code {proc.returncode}")
-            stderr = (proc.stderr or "").strip()
-            if stderr:
-                log_fn(f"SMAPI Wizard: terminal stderr: {stderr[:500]}")
+    file_count = extract_smapi_payload(archive, dest, log_fn=log_fn)
+    log_fn(f"SMAPI Wizard: extracted {file_count} file(s).")
 
-        log_fn("SMAPI Wizard: SMAPI installer completed.")
+    if mode == "game":
+        wire_game_folder(dest, log_fn=log_fn)
+    else:
+        # Staged: the vanilla launcher isn't ours to rename, so ship a shim
+        # that the deploy overlays, plus SMAPI's deps.json.
+        _stage_deps_json(game, dest, log_fn=log_fn)
+        _write_launcher_shim(dest, log_fn=log_fn)
+
+    if mode == "mod" and installed_mod is not None:
+        register_as_mod_neutral(
+            game, installed_mod, archive,
+            modlist_path=modlist_path, log_fn=log_fn, root_folder=True)
+        index_installed_mod(game, installed_mod, log_fn=log_fn)
+
+    if delete_archive:
         try:
             archive.unlink()
             log_fn(f"SMAPI Wizard: deleted {archive.name} from Downloads.")
         except OSError as exc:
             log_fn(f"SMAPI Wizard: could not delete archive: {exc}")
-    finally:
-        if tmp_dir is not None:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    log_fn(f"SMAPI Wizard: SMAPI installed into the {dest_label}.")
+    return dest_label, file_count, installed_mod

@@ -28,9 +28,10 @@ from gui_qt.theme_qt import active_palette, _c, button_qss, ok_text, err_text
 from gui_qt.safe_emit import safe_emit
 from Utils.exe_launch import (
     PREFIX_MODE_GAME, PREFIX_MODE_ISOLATED, PREFIX_MODE_SHARED,
-    load_prefix_mode, load_proton_override, load_tool_launch_env,
-    save_prefix_mode, save_proton_override, save_tool_launch_env,
-    shared_prefix_dir,
+    load_prefix_mode, load_proton_override, load_tool_launch_args,
+    load_tool_launch_env, load_winetricks_style, save_prefix_mode,
+    save_proton_override, save_tool_launch_args, save_tool_launch_env,
+    save_winetricks_style, shared_prefix_dir,
 )
 
 if TYPE_CHECKING:
@@ -50,7 +51,9 @@ class ProtonStepWidget(QWidget):
                  allow_game_prefix: bool = True,
                  isolated_prefix_dir_fn=None,
                  title: str | None = None,
-                 deps_note: str | None = None):
+                 deps_note: str | None = None,
+                 show_launch_args: bool = False,
+                 default_launch_args: str = ""):
         super().__init__()
         if title is None:
             title = self.tr("Choose Proton Version")
@@ -65,6 +68,9 @@ class ProtonStepWidget(QWidget):
         self._on_continue = on_continue
         self._log = log_fn or (lambda _m: None)
         self._allow_game_prefix = allow_game_prefix
+        self._show_launch_args = show_launch_args
+        self._default_launch_args = default_launch_args
+        self._args_entry = None
         # Hosts whose exe sits somewhere a prefix shouldn't go (e.g. Creation
         # Kit in the game root) relocate the isolated prefix; the Delete
         # button must target the same dir (mirrors Tk _isolated_prefix_dir).
@@ -89,8 +95,8 @@ class ProtonStepWidget(QWidget):
         self._versions = [s.parent.name for s in list_installed_proton()]
         if not self._versions:
             err = QLabel(self.tr("No Proton versions were found.\n\n"
-                         "Install a Proton version in Steam, then reopen "
-                         "this wizard."))
+                         "Install a Proton version in Steam (or with "
+                         "Heroic's Wine Manager), then reopen this wizard."))
             err.setAlignment(Qt.AlignHCenter)
             err.setWordWrap(True)
             err.setStyleSheet(f"color:{err_text()};")
@@ -142,6 +148,19 @@ class ProtonStepWidget(QWidget):
             game_note.setContentsMargins(26, 0, 0, 0)
             v.addWidget(game_note)
 
+        # ---- winetricks-style launch ----
+        self._winetricks_chk = QCheckBox(
+            self.tr("Launch with plain Wine (winetricks-style)"))
+        self._winetricks_chk.setChecked(
+            load_winetricks_style(game, tool_exe_name))
+        v.addWidget(self._winetricks_chk)
+        wt_note = QLabel(
+            self.tr("Use Winetricks style launch"))
+        wt_note.setWordWrap(True)
+        wt_note.setStyleSheet(dim)
+        wt_note.setContentsMargins(26, 0, 0, 6)
+        v.addWidget(wt_note)
+
         # ---- proton picker row + delete ----
         row = QWidget()
         rh = QHBoxLayout(row); rh.setContentsMargins(0, 8, 0, 4); rh.setSpacing(8)
@@ -165,6 +184,27 @@ class ProtonStepWidget(QWidget):
         self._prefix_status.setWordWrap(True)
         self._prefix_status.setStyleSheet(dim)
         v.addWidget(self._prefix_status)
+
+        # ---- launch arguments ----
+        if self._show_launch_args:
+            v.addSpacing(8)
+            args_head = QLabel(self.tr("Launch Arguments (optional)"))
+            args_head.setAlignment(Qt.AlignHCenter)
+            args_head.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
+            v.addWidget(args_head)
+            args_note = QLabel(
+                self.tr("Extra command-line arguments appended when the tool "
+                "launches. Saved next to the exe and reapplied on every run."))
+            args_note.setWordWrap(True)
+            args_note.setAlignment(Qt.AlignHCenter)
+            args_note.setStyleSheet(dim)
+            v.addWidget(args_note)
+            self._args_entry = QLineEdit()
+            if self._default_launch_args:
+                self._args_entry.setPlaceholderText(self._default_launch_args)
+            saved_args = load_tool_launch_args(exe)
+            self._args_entry.setText(saved_args or self._default_launch_args)
+            v.addWidget(self._args_entry)
 
         # ---- env vars ----
         v.addSpacing(8)
@@ -257,10 +297,20 @@ class ProtonStepWidget(QWidget):
         name = self._proton_combo.currentText()
         save_proton_override(self._game, self._tool_exe_name, name)
         save_prefix_mode(self._game, self._tool_exe_name, mode)
+        wt = self._winetricks_chk.isChecked()
+        save_winetricks_style(self._game, self._tool_exe_name, wt)
+        if wt:
+            self._log(f"{self._tool_display_name} Wizard: winetricks-style "
+                      "launch enabled (plain Wine, no Proton session).")
         try:
             save_tool_launch_env(self._exe, self._env_entry.text().strip())
         except Exception:
             pass
+        if self._args_entry is not None:
+            try:
+                save_tool_launch_args(self._exe, self._args_entry.text().strip())
+            except Exception:
+                pass
         if mode == PREFIX_MODE_GAME:
             self._log(f"{self._tool_display_name} Wizard: using the game's own prefix.")
         elif mode == PREFIX_MODE_SHARED:

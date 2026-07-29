@@ -151,13 +151,15 @@ def remove_appended_collection(game, profile_dir: Path, record: dict,
     if mod_names:
         from Utils.mod_remove import remove_mods
         remove_mods(game, Path(profile_dir), list(mod_names), log_fn=log)
+        from Utils.modlist import modlist_lock
         modlist_path = Path(profile_dir) / "modlist.txt"
         removed_lower = {n.lower() for n in mod_names}
-        entries = read_modlist(modlist_path)
-        kept = [e for e in entries
-                if e.is_separator or e.name.lower() not in removed_lower]
-        if len(kept) < len(entries):
-            write_modlist(modlist_path, kept)
+        with modlist_lock(modlist_path):
+            entries = read_modlist(modlist_path)
+            kept = [e for e in entries
+                    if e.is_separator or e.name.lower() not in removed_lower]
+            if len(kept) < len(entries):
+                write_modlist(modlist_path, kept)
     path = record.get("path")
     try:
         if path:

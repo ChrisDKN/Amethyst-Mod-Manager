@@ -230,13 +230,6 @@ def read_separator_deploy_paths(profile_dir: Path, state: dict | None = None) ->
     return result
 
 
-def read_root_folder_state(profile_dir: Path, state: dict | None = None) -> bool:
-    raw = _read_key(profile_dir, state, "root_folder_state")
-    if isinstance(raw, dict):
-        return bool(raw.get("enabled", True))
-    return True
-
-
 def read_mod_strip_prefixes(profile_dir: Path, state: dict | None = None) -> dict[str, list[str]]:
     raw = _read_key(profile_dir, state, "mod_strip_prefixes")
     if isinstance(raw, dict):
@@ -374,6 +367,15 @@ def _update_key(profile_dir: Path, key: str, value) -> None:
         write_profile_state(profile_dir, state)
 
 
+def _remove_key(profile_dir: Path, key: str) -> None:
+    """Drop *key* from profile_state.json under the profile lock."""
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        if key in state:
+            state.pop(key, None)
+            write_profile_state(profile_dir, state)
+
+
 def write_collapsed_seps(profile_dir: Path, value: set[str]) -> None:
     _update_key(profile_dir, "collapsed_seps", sorted(value))
 
@@ -390,10 +392,6 @@ def write_separator_deploy_paths(profile_dir: Path, value: dict) -> None:
     _update_key(profile_dir, "separator_deploy_paths", value)
 
 
-def write_root_folder_state(profile_dir: Path, enabled: bool) -> None:
-    _update_key(profile_dir, "root_folder_state", {"enabled": enabled})
-
-
 def write_mod_strip_prefixes(profile_dir: Path, value: dict[str, list[str]]) -> None:
     _update_key(profile_dir, "mod_strip_prefixes", value)
 
@@ -408,9 +406,7 @@ def write_disabled_plugins(profile_dir: Path, value: dict[str, list[str]]) -> No
     if normalized:
         _update_key(profile_dir, "disabled_plugins", normalized)
     else:
-        state = read_profile_state(profile_dir)
-        state.pop("disabled_plugins", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "disabled_plugins")
 
 
 def write_excluded_mod_files(profile_dir: Path, value: dict[str, list[str]]) -> None:
@@ -419,9 +415,7 @@ def write_excluded_mod_files(profile_dir: Path, value: dict[str, list[str]]) -> 
     if normalized:
         _update_key(profile_dir, "excluded_mod_files", normalized)
     else:
-        state = read_profile_state(profile_dir)
-        state.pop("excluded_mod_files", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "excluded_mod_files")
 
 
 def write_mod_notes(profile_dir: Path, value: dict[str, str]) -> None:
@@ -431,9 +425,7 @@ def write_mod_notes(profile_dir: Path, value: dict[str, str]) -> None:
     if cleaned:
         _update_key(profile_dir, "mod_notes", cleaned)
     else:
-        state = read_profile_state(profile_dir)
-        state.pop("mod_notes", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "mod_notes")
 
 
 def write_profile_settings(profile_dir: Path, value: dict) -> None:
@@ -441,29 +433,35 @@ def write_profile_settings(profile_dir: Path, value: dict) -> None:
     if value:
         _update_key(profile_dir, "profile_settings", dict(value))
     else:
-        state = read_profile_state(profile_dir)
-        state.pop("profile_settings", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "profile_settings")
 
 
 def merge_profile_settings(profile_dir: Path, updates: dict) -> None:
-    """Shallow-merge *updates* into profile_settings (read from disk, then write)."""
-    cur = read_profile_settings(profile_dir, None)
-    for k, v in updates.items():
-        if v is None:
-            cur.pop(k, None)
+    """Shallow-merge *updates* into profile_settings as one locked read-modify-write."""
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        raw = state.get("profile_settings")
+        if not isinstance(raw, dict):
+            # Migration fallback (legacy profile_settings.json) via _read_key.
+            raw = _read_key(profile_dir, state, "profile_settings")
+        cur = dict(raw) if isinstance(raw, dict) else {}
+        for k, v in updates.items():
+            if v is None:
+                cur.pop(k, None)
+            else:
+                cur[k] = v
+        if cur:
+            state["profile_settings"] = cur
         else:
-            cur[k] = v
-    write_profile_settings(profile_dir, cur)
+            state.pop("profile_settings", None)
+        write_profile_state(profile_dir, state)
 
 
 def write_ignored_missing_requirements(profile_dir: Path, value: set[str]) -> None:
     if value:
         _update_key(profile_dir, "ignored_missing_requirements", sorted(value))
     else:
-        state = read_profile_state(profile_dir)
-        state.pop("ignored_missing_requirements", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "ignored_missing_requirements")
 
 
 def read_selected_exe(profile_dir: Path) -> str | None:
@@ -477,10 +475,7 @@ def write_selected_exe(profile_dir: Path, label: str | None) -> None:
     if label:
         _update_key(profile_dir, "selected_exe", label)
     else:
-        state = read_profile_state(profile_dir)
-        if "selected_exe" in state:
-            state.pop("selected_exe", None)
-            write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "selected_exe")
 
 
 def read_custom_exes(profile_dir: Path) -> list[str]:
@@ -511,9 +506,7 @@ def write_collection_optional_skipped(profile_dir: Path, skipped_fids: set[int])
     if skipped_fids:
         _update_key(profile_dir, "collection_optional_skipped_fids", sorted(skipped_fids))
     else:
-        state = read_profile_state(profile_dir)
-        state.pop("collection_optional_skipped_fids", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "collection_optional_skipped_fids")
 
 
 def read_collection_revision(profile_dir: Path) -> int | None:
@@ -533,9 +526,7 @@ def read_collection_revision(profile_dir: Path) -> int | None:
 def write_collection_revision(profile_dir: Path, revision_number: int | None) -> None:
     """Persist the installed collection revisionNumber. Pass None to clear it."""
     if revision_number is None:
-        state = read_profile_state(profile_dir)
-        state.pop("collection_revision_number", None)
-        write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "collection_revision_number")
     else:
         _update_key(profile_dir, "collection_revision_number", int(revision_number))
 
@@ -551,7 +542,4 @@ def write_collection_install_paused(profile_dir: Path, paused: bool) -> None:
     if paused:
         _update_key(profile_dir, "collection_install_paused", True)
     else:
-        state = read_profile_state(profile_dir)
-        if "collection_install_paused" in state:
-            state.pop("collection_install_paused", None)
-            write_profile_state(profile_dir, state)
+        _remove_key(profile_dir, "collection_install_paused")

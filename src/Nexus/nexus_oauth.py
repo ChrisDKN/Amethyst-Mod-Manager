@@ -151,9 +151,16 @@ def _save_tokens_file(tokens: OAuthTokens) -> None:
             "expires_at": tokens.expires_at,
         }).encode()
         os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, "wb") as f:
-            f.write(cipher.encrypt(payload))
-        os.chmod(p, 0o600)
+        # Create owner-only from the start — no chmod window with looser perms.
+        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            os.fchmod(fd, 0o600)  # tighten a pre-existing file too
+            with os.fdopen(fd, "wb") as f:
+                fd = -1
+                f.write(cipher.encrypt(payload))
+        finally:
+            if fd != -1:
+                os.close(fd)
     except Exception as exc:
         app_log(f"OAuth: failed to save tokens to file: {exc}")
         raise RuntimeError(f"Cannot save OAuth tokens: {exc}") from exc

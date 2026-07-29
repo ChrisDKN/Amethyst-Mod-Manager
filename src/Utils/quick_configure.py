@@ -79,6 +79,13 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
             getattr(game, "script_extender_swap", True),
             lambda v: game.set_script_extender_swap(v))
 
+    if hasattr(game, "set_auto_4gb_patch"):
+        add_toggle(
+            "auto_4gb_patch",
+            "Apply the 4GB patch automatically on deploy",
+            getattr(game, "auto_4gb_patch", True),
+            lambda v: game.set_auto_4gb_patch(v))
+
     val, apply = _toggle_attr(game, "auto_deploy", False)
     add_toggle("auto_deploy",
                "Auto deploy (on enable/disable/reorder)", val, apply)

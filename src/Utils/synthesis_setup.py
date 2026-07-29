@@ -65,11 +65,11 @@ _INI_PROTON_KEY = "proton"
 # Download URLs (kept in sync with .NET LTS / current releases)
 # ---------------------------------------------------------------------------
 
-_DOTNET9_SDK_URL = (
-    "https://builds.dotnet.microsoft.com/dotnet/Sdk/9.0.310/"
-    "dotnet-sdk-9.0.310-win-x64.exe"
+_DOTNET10_SDK_URL = (
+    "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.302/"
+    "dotnet-sdk-10.0.302-win-x64.exe"
 )
-_DOTNET9_SDK_FILENAME = "dotnet-sdk-9.0.310-win-x64.exe"
+_DOTNET10_SDK_FILENAME = "dotnet-sdk-10.0.302-win-x64.exe"
 
 _DOTNET10_DESKTOP_URL = (
     "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.2/"
@@ -298,14 +298,14 @@ def _ensure_prefix(pfx: Path, wine: Path, log: LogFn) -> bool:
     return True
 
 
-def _step_dotnet9_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
-    if _is_done(pfx, "dotnet9_sdk"):
-        log("  .NET 9 SDK already installed, skipping.")
+def _step_dotnet10_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
+    if _is_done(pfx, "dotnet10_sdk"):
+        log("  .NET 10 SDK already installed, skipping.")
         return True
-    installer = get_dotnet_cache_dir() / _DOTNET9_SDK_FILENAME
-    if not _download_if_missing(_DOTNET9_SDK_URL, installer, log):
+    installer = get_dotnet_cache_dir() / _DOTNET10_SDK_FILENAME
+    if not _download_if_missing(_DOTNET10_SDK_URL, installer, log):
         return False
-    log("Installing .NET 9 SDK (this can take several minutes) …")
+    log("Installing .NET 10 SDK (this can take several minutes) …")
     result = subprocess.run(
         [str(wine), str(installer), "/install", "/quiet", "/norestart"],
         env=_base_env(pfx, wine),
@@ -313,10 +313,10 @@ def _step_dotnet9_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
     )
     # exit 1 under Wine ~ already present, bundle declined to reinstall — accept it
     if result.returncode not in (0, 3010, 1):
-        log(f"  .NET 9 SDK installer exited with {result.returncode}")
+        log(f"  .NET 10 SDK installer exited with {result.returncode}")
         return False
-    _mark_done(pfx, "dotnet9_sdk")
-    log("  .NET 9 SDK installed.")
+    _mark_done(pfx, "dotnet10_sdk")
+    log("  .NET 10 SDK installed.")
     return True
 
 
@@ -935,7 +935,7 @@ def setup_synthesis_prefix(
     ok &= _step_mscoree_cleanup(pfx, wine, log_fn)
     ok &= _step_win11_version(pfx, wine, log_fn)
     ok &= _step_vcredist(pfx, wine, log_fn)
-    ok &= _step_dotnet9_sdk(pfx, wine, log_fn)
+    ok &= _step_dotnet10_sdk(pfx, wine, log_fn)
     ok &= _step_dotnet10_desktop(pfx, wine, log_fn)
     ok &= _step_dotnet8_desktop(pfx, wine, log_fn)
     ok &= _step_dotnet7_desktop(pfx, wine, log_fn)

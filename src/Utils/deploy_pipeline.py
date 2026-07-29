@@ -359,7 +359,13 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                     log_fn=log_fn,
                 )
             except Exception as idx_err:
-                log_fn(f"Index rescan warning: {idx_err}")
+                # Make the consequence explicit: a failed index write is the
+                # root cause of the whole "no conflicts / no plugins / mod
+                # missing from Data tab" symptom family, and this line is its
+                # only trace.
+                log_fn(f"WARN: modindex.bin was NOT rewritten — mods may be "
+                       f"missing from conflicts/plugins/Data tab until a "
+                       f"Refresh succeeds. Cause: {idx_err}")
         norm_case = (
             getattr(game, "normalize_folder_case", True)
             and load_normalize_folder_case()
@@ -389,6 +395,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 root_deploy_folders=game.mod_root_deploy_folders or None,
                 excluded_mod_files=exc,
                 conflict_ignore_filenames=getattr(game, "conflict_ignore_filenames", None) or None,
+                conflict_ignore_foldernames=getattr(game, "conflict_ignore_foldernames", None) or None,
                 excluded_loose_filenames=getattr(game, "excluded_loose_filenames", None) or None,
                 allowed_top_level_folders=(
                     getattr(game, "mod_required_top_level_folders", None) or None
@@ -424,6 +431,7 @@ def run_deploy_pipeline(
     progress_fn: Optional[ProgressFn] = None,
     root_folder_enabled: bool = True,
     confirm_cet: Optional[Callable[[], bool]] = None,
+    confirm_windows_fs: Optional[Callable[[], bool]] = None,
     do_backup: bool = True,
     on_pre_filemap: Optional[Callable[[], None]] = None,
 ) -> bool:
@@ -439,6 +447,11 @@ def run_deploy_pipeline(
     confirm_cet
         Optional blocking confirmation prompt (Cyberpunk CET symlink check).
         Return False to abort the deploy. None means "always proceed".
+    confirm_windows_fs
+        Optional blocking advisory when deploy folders sit on a Windows
+        filesystem (NTFS/exFAT — see Utils.fs_check; GH#307). Called before
+        any state is touched, so returning False is a clean no-op cancel.
+        None means "always proceed".
     do_backup
         If True, run `create_backup` for the profile dir before deploy.
     on_pre_filemap
@@ -454,6 +467,11 @@ def run_deploy_pipeline(
     mount_err = check_paths_mounted(game)
     if mount_err:
         log_fn(f"Deploy aborted: {mount_err}")
+        return False
+
+    if confirm_windows_fs is not None and not confirm_windows_fs():
+        log_fn("Deploy: cancelled — deploy folders are on a Windows "
+               "filesystem (NTFS/exFAT) and the warning was declined.")
         return False
 
     import time as _time
@@ -674,6 +692,11 @@ def run_deploy_pipeline(
         # Launcher swap last so SE/SKSE/etc. dlls are present first.
         if hasattr(game, "swap_launcher"):
             game.swap_launcher(log_fn)
+
+        try:
+            game.post_deploy(log_fn=log_fn)
+        except Exception as pd_err:
+            log_fn(f"post_deploy warning: {pd_err}")
 
         _tag = " (incremental)" if incr_plan is not None else ""
         log_fn(f"Deploy finished OK in {_time.perf_counter() - _t_start:.1f}s "

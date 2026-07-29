@@ -21,6 +21,13 @@ from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.modlist_model import COL_NAME
 from gui_qt.text_input_overlay import TextInputOverlay
 
+# Display-only shortcut hints shown right-aligned in the context menu. These MUST
+# match the real window-level QShortcut bindings in gui_qt/shortcuts.py — they are
+# not registered as accelerators here, only rendered as menu text.
+_SC_RENAME = "F2"
+_SC_REMOVE = "Del"
+_SC_TOGGLE = "Enter"
+
 
 def _mt(label: str) -> str:
     """Translate a modlist context-menu label. These live in module-level
@@ -78,12 +85,19 @@ def build_context_menu(view, index):
         # and clobbers that default. Wrap so the bool is always swallowed.
         action.triggered.connect(lambda _checked=False, _s=slot: _s())
 
-    def act(label, slot, enabled=True):
+    def act(label, slot, enabled=True, shortcut=None):
         # `label` is already translated by the caller (via _mt / _mtf); helpers
         # never translate, so count-templates like _mtf("… ({0})", n) work.
         a = QAction(label, menu)
         _connect(a, slot)
         a.setEnabled(enabled)
+        if shortcut:
+            # Display-only: show the matching global QShortcut (see shortcuts.py)
+            # right-aligned in the menu. We set the shortcut TEXT via a tab in the
+            # label rather than QAction.setShortcut() so no duplicate accelerator
+            # is registered (which would trigger Qt's ambiguous-shortcut warning
+            # and could steal the key from the real window-level QShortcut).
+            a.setText(f"{label}\t{shortcut}")
         menu.addAction(a)
         state["group_started"] = True
         state["any"] = True
@@ -93,18 +107,28 @@ def build_context_menu(view, index):
         # Greyed-out placeholder for an action not yet wired.
         return act(label, lambda: None, enabled=False)
 
-    def submenu(label, items, enabled=True):
+    def submenu(label, items, enabled=True, scroll_cap=0):
         """Add a nested QMenu. *items* is a list of (text, slot) pairs — one
         action each. Used for Copy/Move to profile (the profile list nests as a
-        submenu instead of opening a picker window)."""
+        submenu instead of opening a picker window).
+
+        *scroll_cap* > 0 caps the visible height at that many rows: past the cap
+        the submenu holds a single QWidgetAction wrapping a scrollable list
+        instead of plain actions (used by Move to separator). QMenu's own
+        scroller can't do this — it only engages when the popup exceeds the
+        SCREEN height, and a max-height-constrained QMenu just clips and
+        mis-positions."""
         # `label` is already translated by the caller.
         sub = QMenu(label, menu)
         sub.setEnabled(enabled)
-        for text, slot in items:
-            # Profile names in items are DATA (not translated).
-            a = QAction(text, sub)
-            _connect(a, slot)
-            sub.addAction(a)
+        if scroll_cap and len(items) > scroll_cap:
+            _fill_scroll_submenu(menu, sub, items, scroll_cap)
+        else:
+            for text, slot in items:
+                # Profile names in items are DATA (not translated).
+                a = QAction(text, sub)
+                _connect(a, slot)
+                sub.addAction(a)
         menu.addMenu(sub)
         state["group_started"] = True
         state["any"] = True
@@ -167,7 +191,8 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub, d
     act(_mt("Unlock Separator") if locked else _mt("Lock Separator"),
         lambda: _toggle_sep_lock(view, model, row))
     divider()
-    act(_mt("Rename separator"), lambda: _rename(view, model, row))
+    act(_mt("Rename separator"), lambda: _rename(view, model, row),
+        shortcut=_SC_RENAME)
     act(_mt("Separator settings…"), lambda: _open_sep_settings(view, model, row))
     act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
     act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
@@ -207,21 +232,34 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         _reinstall_multi = [nm for nm in _names
                             if _installation_archive(view, nm) is not None
                             or _can_redownload(view, nm)]
+        # Endorse/version/check/track/open-on-Nexus nest under "Nexus Actions".
+        _track_multi = [nm for nm in _names if _has_nexus_id(view, nm)]
+        _nexus_sub = []
         if _abstain_multi:
-            act(_mtf("Abstain selected ({0})", len(_abstain_multi)),
-                lambda ns=_abstain_multi: _endorse(view, ns, False))
+            _nexus_sub.append(
+                (_mtf("Abstain selected ({0})", len(_abstain_multi)),
+                 lambda ns=_abstain_multi: _endorse(view, ns, False)))
         if _check_multi:
-            act(_mtf("Check Updates ({0})", len(_check_multi)),
-                lambda ns=_check_multi: _check_updates(view, ns))
+            _nexus_sub.append(
+                (_mtf("Check Updates ({0})", len(_check_multi)),
+                 lambda ns=_check_multi: _check_updates(view, ns)))
         if _endorse_multi:
-            act(_mtf("Endorse selected ({0})", len(_endorse_multi)),
-                lambda ns=_endorse_multi: _endorse(view, ns, True))
+            _nexus_sub.append(
+                (_mtf("Endorse selected ({0})", len(_endorse_multi)),
+                 lambda ns=_endorse_multi: _endorse(view, ns, True)))
+        if _track_multi:
+            _nexus_sub.append(
+                (_mtf("Track Mod ({0})", len(_track_multi)),
+                 lambda ns=_track_multi: _track(view, ns)))
+        if _nexus_multi:
+            _nexus_sub.append(
+                (_mtf("Open on Nexus ({0})", len(_nexus_multi)),
+                 lambda ns=_nexus_multi: _open_on_nexus_multi(view, ns)))
+        if _nexus_sub:
+            submenu(_mt("Nexus Actions"), _nexus_sub)
         if _reqs_multi:
             act(_mtf("Missing Requirements ({0})", len(_reqs_multi)),
                 lambda ns=_reqs_multi: _missing_reqs(view, ns))
-        if _nexus_multi:
-            act(_mtf("Open on Nexus ({0})", len(_nexus_multi)),
-                lambda ns=_nexus_multi: _open_on_nexus_multi(view, ns))
         if _qu:
             act(_mtf("Quick Update ({0})", len(_qu)),
                 lambda ns=_qu: _quick_update(view, ns))
@@ -237,12 +275,15 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             submenu(_mtf("Move to profile ({0})", n),
                     _profile_submenu_items(view, _names, sel_mods, _others, True))
         act(_mtf("Disable selected ({0})", n),
-            lambda: _set_enabled(view, model, sel_mods, False))
+            lambda: _set_enabled(view, model, sel_mods, False),
+            shortcut=_SC_TOGGLE)
         act(_mtf("Enable selected ({0})", n),
-            lambda: _set_enabled(view, model, sel_mods, True))
+            lambda: _set_enabled(view, model, sel_mods, True),
+            shortcut=_SC_TOGGLE)
         if _separator_choices(model):
             submenu(_mtf("Move to separator ({0})", n),
-                    _separator_submenu_items(view, model, sel_mods))
+                    _separator_submenu_items(view, model, sel_mods),
+                    scroll_cap=10)
         if len(sel_mods) >= 2:
             act(_mtf("Sort Alphabetically ({0})", n),
                 lambda: _sort_selected_alphabetically(view, model, sel_mods))
@@ -256,7 +297,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         divider()
         # Group: remove
         act(_mtf("Remove mod ({0})", n),
-            lambda: _remove_mods_multi(view, model, sel_mods))
+            lambda: _remove_mods_multi(view, model, sel_mods),
+            shortcut=_SC_REMOVE)
         return
 
     locked = entry.locked
@@ -278,7 +320,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         act(_mt("Reinstall Mod"), lambda: _reinstall(view, [name]))
     elif _can_redownload(view, name):
         act(_mt("Reinstall (Redownload)"), lambda: _reinstall(view, [name]))
-    act(_mt("Rename mod"), lambda: _rename(view, model, row), enabled=not locked)
+    act(_mt("Rename mod"), lambda: _rename(view, model, row), enabled=not locked,
+        shortcut=_SC_RENAME)
     divider()
     # Group 2: files & install options
     if _staging_ok:
@@ -287,20 +330,30 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             lambda: _toggle_root_folder(view, [name], not _is_rf))
     divider()
     # Group 3: Nexus / online & updates — each item shows only when applicable.
+    # The endorse/version/check/track/open-on-Nexus items nest under a
+    # "Nexus Actions" submenu; the rest stay inline.
     _endorsed = _is_endorsed(view, name)
     _has_id = _has_nexus_id(view, name)
+    _nexus_items = []
     if _has_id:
-        act(_mt("Abstain from Endorsement") if _endorsed else _mt("Endorse Mod"),
-            lambda: _endorse(view, [name], not _endorsed))
-        act(_mt("Change Version"), lambda: _change_version(view, name))
+        _nexus_items.append(
+            (_mt("Abstain from Endorsement") if _endorsed else _mt("Endorse Mod"),
+             lambda: _endorse(view, [name], not _endorsed)))
+        _nexus_items.append(
+            (_mt("Change Version"), lambda: _change_version(view, name)))
     if _has_id or bool(_modio_url(view, name)):
-        act(_mt("Check Updates"), lambda: _check_updates(view, [name]))
-    if _has_missing_reqs(view, name):
-        act(_mt("Missing Requirements"), lambda: _missing_reqs(view, [name]))
+        _nexus_items.append(
+            (_mt("Check Updates"), lambda: _check_updates(view, [name])))
+    if _has_id:
+        _nexus_items.append(
+            (_mt("Track Mod"), lambda: _track(view, [name])))
+    if _has_nexus_page(view, name):
+        _nexus_items.append(
+            (_mt("Open on Nexus"), lambda: _open_on_nexus(view, name)))
+    if _nexus_items:
+        submenu(_mt("Nexus Actions"), _nexus_items)
     if _modio_url(view, name):
         act(_mt("Open on mod.io"), lambda: _open_on_modio(view, name))
-    if _has_nexus_page(view, name):
-        act(_mt("Open on Nexus"), lambda: _open_on_nexus(view, name))
     if _has_update_flag(view, name):
         act(_mt("Quick Update"), lambda: _quick_update(view, [name]))
     divider()
@@ -315,7 +368,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                 _profile_submenu_items(view, [name], [row], _others, True))
     if not locked and _separator_choices(model):
         submenu(_mt("Move to separator"),
-                _separator_submenu_items(view, model, [row]))
+                _separator_submenu_items(view, model, [row]),
+                scroll_cap=10)
     if not locked:
         act(_mt("Set priority…"), lambda: _set_priority(view, model, row))
     divider()
@@ -325,11 +379,54 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         lambda: _open_note_editor(view, [name]))
     if _has_conflict(model, row):
         act(_mt("Show Conflicts"), lambda: _show_conflicts(view, name))
+    if _has_missing_reqs(view, name):
+        act(_mt("Missing Requirements"), lambda: _missing_reqs(view, [name]))
     if _has_id:
         act(_mt("View Requirements"), lambda: _view_requirements(view, name))
     divider()
     # Group 6: remove
-    act(_mt("Remove mod"), lambda: _remove(view, model, row), enabled=not locked)
+    act(_mt("Remove mod"), lambda: _remove(view, model, row), enabled=not locked,
+        shortcut=_SC_REMOVE)
+
+
+def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):
+    """Fill *sub* with a single QWidgetAction wrapping a QListWidget showing
+    *items* — visible height capped at *scroll_cap* rows, real scrollbar past
+    that. Clicking a row closes the whole menu and runs its slot."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QListWidget, QWidgetAction
+    lst = QListWidget(sub)
+    lst.setFrameShape(QListWidget.Shape.NoFrame)
+    lst.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    lst.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    lst.setMouseTracking(True)
+    # Menu-like hover highlight (QListWidget only tints on selection by default).
+    lst.setStyleSheet(
+        "QListWidget { background: transparent; outline: none; }"
+        "QListWidget::item { padding: 3px 16px; }"
+        "QListWidget::item:hover, QListWidget::item:selected {"
+        " background: palette(highlight); color: palette(highlighted-text); }")
+    slots = []
+    for text, slot in items:
+        # Item texts are DATA (separator names), not translated.
+        lst.addItem(text)
+        slots.append(slot)
+    row_h = lst.sizeHintForRow(0) or 22
+    lst.setFixedHeight(row_h * scroll_cap + 4)
+    sbar_w = lst.verticalScrollBar().sizeHint().width()
+    lst.setMinimumWidth(lst.sizeHintForColumn(0) + sbar_w + 8)
+
+    def _picked(item):
+        row = lst.row(item)
+        sub.close()
+        root_menu.close()
+        if 0 <= row < len(slots):
+            slots[row]()
+
+    lst.itemClicked.connect(_picked)
+    wa = QWidgetAction(sub)
+    wa.setDefaultWidget(lst)
+    sub.addAction(wa)
 
 
 def _boundary_names():
@@ -550,12 +647,13 @@ def _separator_choices(model):
 
 def _separator_submenu_items(view, model, mod_rows):
     """(display, slot) pairs for the Move-to-separator submenu — one entry per
-    non-boundary separator (Tk lists them inline rather than in a picker window).
-    Separator display names are DATA, not translated."""
+    non-boundary separator, sorted A→Z by display name (the natural list order
+    isn't useful in a menu). Separator display names are DATA, not translated."""
+    choices = sorted(_separator_choices(model), key=lambda c: c[0].casefold())
     return [
         (display,
          lambda sep=internal: _move_to_separator(view, model, mod_rows, sep))
-        for display, internal in _separator_choices(model)
+        for display, internal in choices
     ]
 
 
@@ -770,6 +868,14 @@ def _endorse(view, names, endorse: bool):
     cb = getattr(view, "on_endorse", None)
     if cb is not None and names:
         cb(list(names), endorse)
+
+
+def _track(view, names):
+    """Start tracking the mods on Nexus — delegated to the window (needs the
+    shared Nexus API + a worker thread; see app._on_modlist_track)."""
+    cb = getattr(view, "on_track", None)
+    if cb is not None and names:
+        cb(list(names))
 
 
 # ---- Notes -----------------------------------------------------------------
@@ -1000,10 +1106,6 @@ def _show_overwrite_log(view, boundary_name=None):
              else view.tr("Files swept into Overwrite (newest restore first)"))
     from gui_qt.overwrite_log_overlay import OverwriteLogOverlay, parse_overwrite_log
     OverwriteLogOverlay.show_over(view, parse_overwrite_log(text), title=title)
-
-
-def _toggle_collapse(view, model, row):
-    view._toggle_collapse_row(row)
 
 
 def _toggle_sep_lock(view, model, row):
@@ -1266,6 +1368,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Move to profile ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Move to separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Move to separator ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Nexus Actions"),
     QT_TRANSLATE_NOOP("ModListMenu", "New name:"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open folder"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus"),
@@ -1291,6 +1394,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Priority for {0}:"),
     QT_TRANSLATE_NOOP("ModListMenu", "Show Conflicts"),
     QT_TRANSLATE_NOOP("ModListMenu", "Sort Alphabetically ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Track Mod"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Track Mod ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Unlock Separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Unlock Separators"),
     QT_TRANSLATE_NOOP("ModListMenu", "{0} ({1})"),

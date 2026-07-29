@@ -142,7 +142,7 @@ echo "  Wheel: $WHEEL"
 echo ""
 
 # ── Extract .so from wheel and place it ────────────────────────────────
-echo "=== Installing extension into LOOT ==="
+echo "=== Installing extension into src/ ==="
 TMP_EXTRACT="$(mktemp -d)"
 trap 'rm -rf "$TMP_EXTRACT"' EXIT
 unzip -q -o "$WHEEL" -d "$TMP_EXTRACT"

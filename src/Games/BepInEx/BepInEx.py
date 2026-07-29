@@ -52,8 +52,7 @@ class Subnautica(BaseGame):
 
     @property
     def default_deploy_mode(self) -> str:
-        # Symlinks don't work reliably for Subnautica's BepInEx loader.
-        return "hardlink"
+        return "symlink"
 
     def set_heroic_app_name(self, app_name: str | None) -> None:
         self._saved_heroic_app_name = app_name or None
@@ -65,7 +64,7 @@ class Subnautica(BaseGame):
 
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
-        return {"plugins", "bepinex"}
+        return {"plugins", "bepinex", "BepInExPack_Valheim"}
     
     @property
     def mods_dir(self) -> str:
@@ -88,26 +87,41 @@ class Subnautica(BaseGame):
             }
 
     @property
-    def frameworks(self) -> dict[str, str]:
-        return {"BepInEx": "winhttp.dll"}
+    def frameworks(self) -> "dict[str, tuple[str, ...]]":
+        # Windows builds proxy-load via winhttp.dll; native Linux builds ship
+        # run_bepinex.sh instead — either one means BepInEx is present.
+        return {"BepInEx": ("winhttp.dll", "run_bepinex.sh")}
 
     @property
     def custom_routing_rules(self) -> list:
         from Utils.deploy import CustomRule
         return [
-            CustomRule(dest="", filenames=["winhttp.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["version.dll"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["run_bepinex.sh"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["libdoorstop.dylib"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["doorstop_config.ini"], flatten=True, loose_only=True),
-            CustomRule(dest="BepInEx", folders=["config"], flatten=True, loose_only=True),
-            CustomRule(dest="BepInEx", folders=["core"], flatten=True, loose_only=True),
-            CustomRule(dest="BepInEx", folders=["patchers"], flatten=True, loose_only=True),
-            CustomRule(dest="BepInEx", folders=["plugins"], flatten=True, loose_only=True),
-            CustomRule(dest="BepInEx/plugins", folders=["Tobey"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["qmodmanager-config.json"], flatten=True, loose_only=True),
-            CustomRule(dest="", filenames=["qmodmanager_log*.txt"], flatten=True, loose_only=True),
-            CustomRule(dest="", folders=["qmods"], flatten=True, loose_only=True),
+            CustomRule(dest="", filenames=[
+                "winhttp.dll",
+                "version.dll",
+                "run_bepinex.sh",
+                "libdoorstop.so",
+                "libdoorstop.dylib",
+                "doorstop_config.ini",
+                "*.doorstop_version",
+                "qmodmanager-config.json",
+                "qmodmanager_log*.txt",
+                "start_game_bepinex.sh",
+                "start_server_bepinex.sh",
+            ], flatten=True, loose_only=True),
+            CustomRule(dest="BepInEx", folders=[
+                "config",
+                "core",
+                "patchers",
+                "plugins",
+            ], flatten=True, loose_only=True),
+            CustomRule(dest="BepInEx/plugins", folders=[
+                "Tobey"
+            ], flatten=True, loose_only=True),
+            CustomRule(dest="", folders=[
+                "qmods",
+                "doorstop_libs"
+            ], flatten=True, loose_only=True),
         ]
     
     @property
@@ -343,7 +357,6 @@ class TCG_Card_Shop_Simulator(Subnautica):
 
     @property
     def default_deploy_mode(self) -> str:
-        # Not yet verified for hardlink; keep the base symlink default.
         return "symlink"
 
 class Lethal_Company(Subnautica):
@@ -370,7 +383,6 @@ class Lethal_Company(Subnautica):
 
     @property
     def default_deploy_mode(self) -> str:
-        # Not yet verified for hardlink; keep the base symlink default.
         return "symlink"
 
 class Valheim(Subnautica):
@@ -384,8 +396,12 @@ class Valheim(Subnautica):
 
     @property
     def exe_name(self) -> str:
-        return "valheim.x86_64"
+        return "valheim.exe"
 
+    @property
+    def exe_name_alts(self) -> list[str]:
+        return ["valheim.x86_64"]
+    
     @property
     def steam_id(self) -> str:
         return "892970"
@@ -395,8 +411,17 @@ class Valheim(Subnautica):
         return "valheim"
 
     @property
+    def conflict_ignore_filenames(self) -> set[str]:
+        return {
+            "*.md",
+            "icon.png",
+            "manifest.json",
+            "LocalizationExample.zip",
+            "*read*.txt"
+            }
+
+    @property
     def default_deploy_mode(self) -> str:
-        # Not yet verified for hardlink; keep the base symlink default.
         return "symlink"
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
@@ -457,5 +482,4 @@ class HNSS(Subnautica):
 
     @property
     def default_deploy_mode(self) -> str:
-        # Not yet verified for hardlink; keep the base symlink default.
         return "symlink"

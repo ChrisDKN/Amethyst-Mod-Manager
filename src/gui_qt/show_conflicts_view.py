@@ -31,8 +31,8 @@ _TAG_BSA = QColor("#56d8e4")
 class ShowConflictsView(QWidget):
     """Full-tab conflict detail for one mod."""
 
-    # (win, lose, no_conflict) from the compute worker → UI thread.
-    _ready = Signal(object, object, object)
+    # (win, lose, no_conflict, bsa_win_paths) from the compute worker → UI.
+    _ready = Signal(object, object, object, object)
 
     def __init__(self, mod_name, ctx, on_close=None, log_fn=None):
         super().__init__()
@@ -129,19 +129,22 @@ class ShowConflictsView(QWidget):
             return compute_mod_conflicts(mod, **ctx)
 
         run_in_worker(compute, self._ready, name="show-conflicts",
-                      unpack=True, error_result=(None, None, None))
+                      unpack=True, error_result=(None, None, None, None))
 
-    def _on_ready(self, win, lose, none):
+    def _on_ready(self, win, lose, none, bsa_win_paths):
         if win is None and lose is None and none is None:
             self._status.setText(self.tr("Could not compute conflicts — see the log."))
             return
-        self._fill_two(self._over_pane, self._over_tree, win)
+        # bsa_paths adds the cyan tint to loose rows that beat archives only;
+        # this mod's own `archive.bsa : path` rows match BSA_ROW_RE instead.
+        self._fill_two(self._over_pane, self._over_tree, win,
+                       bsa_paths=bsa_win_paths or set())
         self._fill_two(self._under_pane, self._under_tree, lose)
         self._fill_one(self._none_pane, self._none_tree, none)
         self._status.setVisible(False)
 
     # ---- populate helpers -------------------------------------------------
-    def _fill_two(self, pane, tree, rows):
+    def _fill_two(self, pane, tree, rows, bsa_paths=frozenset()):
         rows = sorted(rows or [], key=lambda r: r[0].lower())
         tree.clear()
         pane._header.setText(self.tr("{0}  ({1})").format(pane._title, len(rows)))
@@ -152,7 +155,7 @@ class ShowConflictsView(QWidget):
             return
         for path, other in rows:
             it = QTreeWidgetItem([path, other])
-            if BSA_ROW_RE.match(path):
+            if BSA_ROW_RE.match(path) or path in bsa_paths:
                 it.setForeground(0, _TAG_BSA)
             tree.addTopLevelItem(it)
 

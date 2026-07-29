@@ -33,17 +33,20 @@ def _fmt_size_bytes(b: int) -> str:
     return f"{b}B"
 
 
-# Categories offered in the install picker (MAIN first … MISCELLANEOUS last).
-# UPDATE / OLD_VERSION are intentionally excluded — they are patches/superseded
-# archives, not standalone installs.
-_INSTALL_CATEGORIES = {"MAIN": 0, "OPTIONAL": 1, "MISCELLANEOUS": 2}
+# Categories offered in the install picker (MAIN first … MISCELLANEOUS last,
+# matching the section order on the Nexus site's Files tab).
+# OLD_VERSION / ARCHIVED / REMOVED are intentionally excluded — superseded or
+# deleted archives, not standalone installs.
+_INSTALL_CATEGORIES = {"MAIN": 0, "UPDATE": 1, "OPTIONAL": 2, "MISCELLANEOUS": 3}
 # UI strings marked for extraction with QT_TRANSLATE_NOOP (module-level, so no
 # tr() context is available here); translated at the use site via self.tr().
 _CATEGORY_LABEL = {"MAIN": QT_TRANSLATE_NOOP("NexusFileChooser", "Main"),
+                   "UPDATE": QT_TRANSLATE_NOOP("NexusFileChooser", "Update"),
                    "OPTIONAL": QT_TRANSLATE_NOOP("NexusFileChooser", "Optional"),
                    "MISCELLANEOUS": QT_TRANSLATE_NOOP("NexusFileChooser", "Misc")}
 # Section headers shown as separator rows (grouped in category order).
 _CATEGORY_HEADER = {"MAIN": QT_TRANSLATE_NOOP("NexusFileChooser", "Main files"),
+                    "UPDATE": QT_TRANSLATE_NOOP("NexusFileChooser", "Update files"),
                     "OPTIONAL": QT_TRANSLATE_NOOP("NexusFileChooser", "Optional files"),
                     "MISCELLANEOUS": QT_TRANSLATE_NOOP("NexusFileChooser", "Miscellaneous files")}
 
@@ -65,9 +68,10 @@ def _plain_text(html_or_bbcode: str) -> str:
 
 
 def installable_files(files: list) -> list:
-    """Files to offer for install: MAIN + OPTIONAL + MISCELLANEOUS, sorted by
-    category (main first) then newest-first. Falls back to every file when the
-    mod exposes none of those categories (e.g. odd/empty category metadata)."""
+    """Files to offer for install: MAIN + UPDATE + OPTIONAL + MISCELLANEOUS,
+    sorted by category (main first) then newest-first. Falls back to every file
+    when the mod exposes none of those categories (e.g. odd/empty category
+    metadata)."""
     picks = [f for f in files
              if (f.category_name or "").upper() in _INSTALL_CATEGORIES]
     picks = picks or list(files)

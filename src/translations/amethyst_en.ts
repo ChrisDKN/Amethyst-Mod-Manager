@@ -1415,6 +1415,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Swap launcher with script extender on deploy</translation>
     </message>
     <message>
+        <source>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</source>
+        <translation>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</translation>
+    </message>
+    <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>Auto deploy (deploy automatically on enable/disable/reorder)</translation>
     </message>
@@ -2136,10 +2140,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>Export code…</translation>
     </message>
     <message>
-        <source>Load Preset  (optional)</source>
-        <translation>Load Preset  (optional)</translation>
-    </message>
-    <message>
         <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
         <translation>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</translation>
     </message>
@@ -2180,20 +2180,12 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>The .exe location from the game's root folder. e.g. bin/bg3.exe for BG3 or SkyrimSELauncher.exe for Skyrim SE</translation>
     </message>
     <message>
-        <source>e.g. MyGame.exe</source>
-        <translation>e.g. MyGame.exe</translation>
-    </message>
-    <message>
         <source>Deploy Method</source>
         <translation>Deploy Method</translation>
     </message>
     <message>
         <source>Mod Sub-folder</source>
         <translation>Mod Sub-folder</translation>
-    </message>
-    <message>
-        <source>Steam App ID  (optional)</source>
-        <translation>Steam App ID  (optional)</translation>
     </message>
     <message>
         <source>Used to auto-detect the Proton prefix. Leave empty if not on Steam.</source>
@@ -2204,20 +2196,12 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>e.g. 377160</translation>
     </message>
     <message>
-        <source>Nexus Mods Domain  (optional)</source>
-        <translation>Nexus Mods Domain  (optional)</translation>
-    </message>
-    <message>
         <source>The game's slug on nexusmods.com. e.g. 'skyrimspecialedition'.</source>
         <translation>The game's slug on nexusmods.com. e.g. 'skyrimspecialedition'.</translation>
     </message>
     <message>
         <source>e.g. myfavouritegame</source>
         <translation>e.g. myfavouritegame</translation>
-    </message>
-    <message>
-        <source>Banner Image URL  (optional)</source>
-        <translation>Banner Image URL  (optional)</translation>
     </message>
     <message>
         <source>A direct URL to a PNG/JPG image shown in the game picker card. The image is downloaded once and cached locally.</source>
@@ -2228,16 +2212,8 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
-        <source>Advanced Options  (optional)</source>
-        <translation>Advanced Options  (optional)</translation>
-    </message>
-    <message>
         <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
         <translation>Used to change the folder structure of an installed mod to match what is required by the manager.</translation>
-    </message>
-    <message>
-        <source>Enable</source>
-        <translation>Enable</translation>
     </message>
     <message>
         <source>Filemap Casing</source>
@@ -2312,10 +2288,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>Cancel</translation>
     </message>
     <message>
-        <source>Game Sub-folder  (optional)</source>
-        <translation>Game Sub-folder  (optional)</translation>
-    </message>
-    <message>
         <source>Location of the folder from root where deployed mods are sent to. e.g. Phoenix for Hogwarts Legacy.</source>
         <translation>Location of the folder from root where deployed mods are sent to. e.g. Phoenix for Hogwarts Legacy.</translation>
     </message>
@@ -2326,6 +2298,58 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Path relative to the game root where mod files are installed. e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. Leave empty to target the game root directly.</source>
         <translation>Path relative to the game root where mod files are installed. e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. Leave empty to target the game root directly.</translation>
+    </message>
+    <message>
+        <source>Load Preset</source>
+        <translation>Load Preset</translation>
+    </message>
+    <message>
+        <source>Preset</source>
+        <translation>Preset</translation>
+    </message>
+    <message>
+        <source>Share code</source>
+        <translation>Share code</translation>
+    </message>
+    <message>
+        <source>Basics</source>
+        <translation>Basics</translation>
+    </message>
+    <message>
+        <source>e.g. MyGame.exe or Bin/x64/MyGame.exe</source>
+        <translation>e.g. MyGame.exe or Bin/x64/MyGame.exe</translation>
+    </message>
+    <message>
+        <source>Deployment</source>
+        <translation>Deployment</translation>
+    </message>
+    <message>
+        <source>Store &amp; Artwork</source>
+        <translation>Store &amp; Artwork</translation>
+    </message>
+    <message>
+        <source>Steam App ID</source>
+        <translation>Steam App ID</translation>
+    </message>
+    <message>
+        <source>Nexus Mods Domain</source>
+        <translation>Nexus Mods Domain</translation>
+    </message>
+    <message>
+        <source>Banner Image URL</source>
+        <translation>Banner Image URL</translation>
+    </message>
+    <message>
+        <source>Mod Install Tuning</source>
+        <translation>Mod Install Tuning</translation>
+    </message>
+    <message>
+        <source>Conflicts &amp; Advanced Behaviour</source>
+        <translation>Conflicts &amp; Advanced Behaviour</translation>
+    </message>
+    <message>
+        <source>Game Sub-folder</source>
+        <translation>Game Sub-folder</translation>
     </message>
     <message>
         <source>e.g. Data   (leave empty for game root)</source>
@@ -2582,6 +2606,13 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Size</source>
         <translation>Size</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadsView</name>
+    <message>
+        <source>{0} archives</source>
+        <translation>{0} archives</translation>
     </message>
 </context>
 <context>
@@ -3306,6 +3337,18 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
     </message>
     <message>
+        <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
+        <translation>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
+    </message>
+    <message>
+        <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
+        <translation>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</translation>
+    </message>
+    <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>Launch with plain Wine (winetricks-style)</translation>
+    </message>
+    <message>
         <source>Run EXE in prefix…</source>
         <translation>Run EXE in prefix…</translation>
     </message>
@@ -3851,12 +3894,22 @@ and loads NVSE automatically at startup.
 Under Proton this mostly silences in-game warnings from mods
 that check for the patch, but it is safe and recommended.
 
+While "Apply the 4GB patch automatically" is enabled in
+Configure Game (the default), deploy applies the patch and
+restore reverts it — disable that option to manage the patch
+manually here.
+
 The original exe is kept as {0}.</source>
         <translation>Patches FalloutNV.exe so the game can use 4 GB of memory
 and loads NVSE automatically at startup.
 
 Under Proton this mostly silences in-game warnings from mods
 that check for the patch, but it is safe and recommended.
+
+While "Apply the 4GB patch automatically" is enabled in
+Configure Game (the default), deploy applies the patch and
+restore reverts it — disable that option to manage the patch
+manually here.
 
 The original exe is kept as {0}.</translation>
     </message>
@@ -4629,14 +4682,6 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Remove archives</translation>
     </message>
     <message>
-        <source>Permanently delete {0} archive(s) from disk?
-
-</source>
-        <translation>Permanently delete {0} archive(s) from disk?
-
-</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>Delete</translation>
     </message>
@@ -4941,6 +4986,14 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Refresh Plugins</translation>
     </message>
     <message>
+        <source>↻ Refresh</source>
+        <translation>↻ Refresh</translation>
+    </message>
+    <message>
+        <source>Permanently delete {0} archive(s) from disk?</source>
+        <translation>Permanently delete {0} archive(s) from disk?</translation>
+    </message>
+    <message>
         <source>Force update handler</source>
         <translation>Force update handler</translation>
     </message>
@@ -5137,6 +5190,18 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Quick Update</translation>
     </message>
     <message>
+        <source>Updates available</source>
+        <translation>Updates available</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) have an update available.
+
+Run Quick Update on all of them now?</source>
+        <translation>{0} mod(s) have an update available.
+
+Run Quick Update on all of them now?</translation>
+    </message>
+    <message>
         <source>Quick Update: updated {0} mod(s)</source>
         <translation>Quick Update: updated {0} mod(s)</translation>
     </message>
@@ -5211,6 +5276,18 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>No mods were updated (already in that state or no Nexus id).</source>
         <translation>No mods were updated (already in that state or no Nexus id).</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s)…</source>
+        <translation>Tracking {0} mod(s)…</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s).</source>
+        <translation>Tracking {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>No mods were tracked (no Nexus id).</source>
+        <translation>No mods were tracked (no Nexus id).</translation>
     </message>
     <message>
         <source>Could not resolve target profile: {0}</source>
@@ -5383,10 +5460,6 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
         <translation>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</translation>
-    </message>
-    <message>
-        <source>Play failed — see log.</source>
-        <translation>Play failed — see log.</translation>
     </message>
     <message>
         <source>Executable not found: {0}</source>
@@ -5605,8 +5678,60 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Installed {0}</translation>
     </message>
     <message>
+        <source>the game</source>
+        <translation>the game</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</translation>
+    </message>
+    <message>
+        <source>Details: {0}</source>
+        <translation>Details: {0}</translation>
+    </message>
+    <message>
+        <source>The game did not launch</source>
+        <translation>The game did not launch</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — deploy again when it finishes.</source>
+        <translation>A mod install is in progress — deploy again when it finishes.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — try again when it finishes.</source>
+        <translation>A mod install is in progress — try again when it finishes.</translation>
+    </message>
+    <message>
         <source>Restore queued — it will run after the current install finishes.</source>
         <translation>Restore queued — it will run after the current install finishes.</translation>
+    </message>
+    <message>
+        <source>Windows filesystem detected</source>
+        <translation>Windows filesystem detected</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</translation>
     </message>
     <message>
         <source>Installed {0} mods</source>
@@ -5775,6 +5900,18 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
         <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
+    </message>
+    <message>
+        <source>Removed {0} stale plugin(s)</source>
+        <translation>Removed {0} stale plugin(s)</translation>
+    </message>
+    <message>
+        <source>Remove stale plugins</source>
+        <translation>Remove stale plugins</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</translation>
     </message>
     <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
@@ -5965,6 +6102,10 @@ Deploy anyway?</translation>
         <translation>Downloads</translation>
     </message>
     <message>
+        <source>Overrides</source>
+        <translation>Overrides</translation>
+    </message>
+    <message>
         <source>Log</source>
         <translation>Log</translation>
     </message>
@@ -5987,6 +6128,10 @@ Deploy anyway?</translation>
     <message>
         <source>Open Log Folder</source>
         <translation>Open Log Folder</translation>
+    </message>
+    <message>
+        <source>Wiki</source>
+        <translation>Wiki</translation>
     </message>
     <message>
         <source>Changelog</source>
@@ -6356,6 +6501,10 @@ How would you like to handle the existing mod?</translation>
         <translation>Move to separator ({0})</translation>
     </message>
     <message>
+        <source>Nexus Actions</source>
+        <translation>Nexus Actions</translation>
+    </message>
+    <message>
         <source>New name:</source>
         <translation>New name:</translation>
     </message>
@@ -6456,6 +6605,14 @@ How would you like to handle the existing mod?</translation>
         <translation>Sort Alphabetically ({0})</translation>
     </message>
     <message>
+        <source>Track Mod</source>
+        <translation>Track Mod</translation>
+    </message>
+    <message>
+        <source>Track Mod ({0})</source>
+        <translation>Track Mod ({0})</translation>
+    </message>
+    <message>
         <source>Unlock Separator</source>
         <translation>Unlock Separator</translation>
     </message>
@@ -6510,8 +6667,8 @@ How would you like to handle the existing mod?</translation>
 <context>
     <name>ModListView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>Show / hide columns</translation>
+        <source>Show / Hide columns</source>
+        <translation>Show / Hide columns</translation>
     </message>
     <message>
         <source>Enabled</source>
@@ -6528,6 +6685,10 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>More status filters</source>
         <translation>More status filters</translation>
+    </message>
+    <message>
+        <source>Lock Separator - Mods in this separator are attached to it</source>
+        <translation>Lock Separator - Mods in this separator are attached to it</translation>
     </message>
 </context>
 <context>
@@ -6718,6 +6879,10 @@ Click Done to close.</translation>
     <message>
         <source>Archive conflict - Partial</source>
         <translation>Archive conflict - Partial</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Full</source>
+        <translation>Archive conflict - Full</translation>
     </message>
 </context>
 <context>
@@ -6990,6 +7155,10 @@ or an encrypted file when no keyring is available).</translation>
         <translation>Main</translation>
     </message>
     <message>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
         <source>Optional</source>
         <translation>Optional</translation>
     </message>
@@ -7000,6 +7169,10 @@ or an encrypted file when no keyring is available).</translation>
     <message>
         <source>Main files</source>
         <translation>Main files</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>Update files</translation>
     </message>
     <message>
         <source>Optional files</source>
@@ -7224,6 +7397,25 @@ Each game gets its own subfolder.</translation>
     <message>
         <source>Skip</source>
         <translation>Skip</translation>
+    </message>
+</context>
+<context>
+    <name>OverridesView</name>
+    <message>
+        <source>Override paks</source>
+        <translation>Override paks</translation>
+    </message>
+    <message>
+        <source>No override paks in the enabled mods.
+
+Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</source>
+        <translation>No override paks in the enabled mods.
+
+Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</translation>
+    </message>
+    <message>
+        <source>Override paks - {0} deployed to the game's Mods folder, not in the load order</source>
+        <translation>Override paks - {0} deployed to the game's Mods folder, not in the load order</translation>
     </message>
 </context>
 <context>
@@ -7893,8 +8085,8 @@ Drag a plugin from the left pane to add a rule.</translation>
 <context>
     <name>PluginView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>Show / hide columns</translation>
+        <source>Show / Hide columns</source>
+        <translation>Show / Hide columns</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -8043,10 +8235,10 @@ Drag a plugin from the left pane to add a rule.</translation>
     <message>
         <source>No Proton versions were found.
 
-Install a Proton version in Steam, then reopen this wizard.</source>
+Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
         <translation>No Proton versions were found.
 
-Install a Proton version in Steam, then reopen this wizard.</translation>
+Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</translation>
     </message>
     <message>
         <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
@@ -8073,8 +8265,24 @@ Install a Proton version in Steam, then reopen this wizard.</translation>
         <translation>Run inside the game's own prefix. No new prefix is created and the Proton version follows the game's Steam setting.</translation>
     </message>
     <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>Launch with plain Wine (winetricks-style)</translation>
+    </message>
+    <message>
+        <source>Use Winetricks style launch</source>
+        <translation>Use Winetricks style launch</translation>
+    </message>
+    <message>
         <source>Delete Prefix</source>
         <translation>Delete Prefix</translation>
+    </message>
+    <message>
+        <source>Launch Arguments (optional)</source>
+        <translation>Launch Arguments (optional)</translation>
+    </message>
+    <message>
+        <source>Extra command-line arguments appended when the tool launches. Saved next to the exe and reapplied on every run.</source>
+        <translation>Extra command-line arguments appended when the tool launches. Saved next to the exe and reapplied on every run.</translation>
     </message>
     <message>
         <source>Environment Variables (optional)</source>
@@ -9136,10 +9344,6 @@ Merge your conflicts, then close it and click Done.</translation>
         <translation>Make the whole interface bigger or smaller. Changes take effect after a restart.</translation>
     </message>
     <message>
-        <source>Downloads &amp; Collections</source>
-        <translation>Downloads &amp; Collections</translation>
-    </message>
-    <message>
         <source>Clear archive after install</source>
         <translation>Clear archive after install</translation>
     </message>
@@ -9278,6 +9482,18 @@ Merge your conflicts, then close it and click Done.</translation>
     <message>
         <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
         <translation>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</translation>
+    </message>
+    <message>
+        <source>Archives</source>
+        <translation>Archives</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Extraction</source>
+        <translation>Extraction</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9591,6 +9807,22 @@ Output mod: {2}
         <translation>Install SMAPI — {0}</translation>
     </message>
     <message>
+        <source>Install destination</source>
+        <translation>Install destination</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>Game folder (restores to vanilla first)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root_Folder (staging)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>As a managed mod (root-flagged)</translation>
+    </message>
+    <message>
         <source>Step 1: Download SMAPI</source>
         <translation>Step 1: Download SMAPI</translation>
     </message>
@@ -9599,10 +9831,46 @@ Output mod: {2}
         <translation>Checking for the latest SMAPI release…</translation>
     </message>
     <message>
-        <source>A terminal window will open to run the installer.
-Follow its prompts, then press a key to close it.</source>
-        <translation>A terminal window will open to run the installer.
-Follow its prompts, then press a key to close it.</translation>
+        <source>SMAPI is installed automatically — no terminal window and no prompts to answer.</source>
+        <translation>SMAPI is installed automatically — no terminal window and no prompts to answer.</translation>
+    </message>
+    <message>
+        <source>Downloaded SMAPI {0}: {1}
+Choose the install destination, then click Next.</source>
+        <translation>Downloaded SMAPI {0}: {1}
+Choose the install destination, then click Next.</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Choose the install destination, then click Next.</source>
+        <translation>Selected: {0}
+Choose the install destination, then click Next.</translation>
+    </message>
+    <message>
+        <source>Installing SMAPI…</source>
+        <translation>Installing SMAPI…</translation>
+    </message>
+    <message>
+        <source>Unpacking and installing SMAPI…</source>
+        <translation>Unpacking and installing SMAPI…</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>
+
+Deploy your mods to activate it.</translation>
+    </message>
+    <message>
+        <source>SMAPI installed successfully!
+{0} file(s) installed into the {1}.{2}
+
+Click Done to close.</source>
+        <translation>SMAPI installed successfully!
+{0} file(s) installed into the {1}.{2}
+
+Click Done to close.</translation>
     </message>
     <message>
         <source>Browse…</source>
@@ -9621,10 +9889,6 @@ Follow its prompts, then press a key to close it.</translation>
         <translation>Downloading SMAPI {0}…</translation>
     </message>
     <message>
-        <source>Downloaded SMAPI {0}: {1}</source>
-        <translation>Downloaded SMAPI {0}: {1}</translation>
-    </message>
-    <message>
         <source>Download failed: {0}
 
 Use Browse to select a manually downloaded archive.</source>
@@ -9637,38 +9901,12 @@ Use Browse to select a manually downloaded archive.</translation>
         <translation>Select the SMAPI archive</translation>
     </message>
     <message>
-        <source>Selected: {0}</source>
-        <translation>Selected: {0}</translation>
-    </message>
-    <message>
         <source>Step 2: Install SMAPI</source>
         <translation>Step 2: Install SMAPI</translation>
     </message>
     <message>
         <source>Done</source>
         <translation>Done</translation>
-    </message>
-    <message>
-        <source>Extracting SMAPI archive…</source>
-        <translation>Extracting SMAPI archive…</translation>
-    </message>
-    <message>
-        <source>Launching the SMAPI installer in a terminal.
-
-Follow the on-screen prompts, then press a key to close the terminal and click Done here.</source>
-        <translation>Launching the SMAPI installer in a terminal.
-
-Follow the on-screen prompts, then press a key to close the terminal and click Done here.</translation>
-    </message>
-    <message>
-        <source>SMAPI installer finished.
-
-If it completed successfully, SMAPI is now installed.
-Click Done to close.</source>
-        <translation>SMAPI installer finished.
-
-If it completed successfully, SMAPI is now installed.
-Click Done to close.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -9703,13 +9941,6 @@ Click Done to close.</translation>
     <message>
         <source>Add</source>
         <translation>Add</translation>
-    </message>
-</context>
-<context>
-    <name>StatsBar</name>
-    <message>
-        <source>{0}: {1}</source>
-        <translation>{0}: {1}</translation>
     </message>
 </context>
 <context>
@@ -11434,6 +11665,54 @@ Latest:  {1}</translation>
     </message>
 </context>
 <context>
+    <name>WikiView</name>
+    <message>
+        <source>Refresh</source>
+        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>Open in Browser</translation>
+    </message>
+    <message>
+        <source>Loading the wiki…</source>
+        <translation>Loading the wiki…</translation>
+    </message>
+    <message>
+        <source>Could not reach the wiki.
+
+Check your connection and press Refresh — pages you have already opened stay readable offline.</source>
+        <translation>Could not reach the wiki.
+
+Check your connection and press Refresh — pages you have already opened stay readable offline.</translation>
+    </message>
+    <message>
+        <source>Could not load “{0}”.
+
+Press Refresh to try again.</source>
+        <translation>Could not load “{0}”.
+
+Press Refresh to try again.</translation>
+    </message>
+    <message>
+        <source>No change yet — GitHub caches wiki pages for up to 5 minutes.</source>
+        <translation>No change yet — GitHub caches wiki pages for up to 5 minutes.</translation>
+    </message>
+    <message>
+        <source>Updated.</source>
+        <translation>Updated.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Loading…</translation>
+    </message>
+    <message>
+        <source>Refreshing…</source>
+        <translation>Refreshing…</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -11556,6 +11835,22 @@ Reopen this wizard.</translation>
     <message>
         <source>Could not start deploy — see log.</source>
         <translation>Could not start deploy — see log.</translation>
+    </message>
+    <message>
+        <source>Restore is unavailable here.</source>
+        <translation>Restore is unavailable here.</translation>
+    </message>
+    <message>
+        <source>Restoring modlist…</source>
+        <translation>Restoring modlist…</translation>
+    </message>
+    <message>
+        <source>Restore failed — see log.</source>
+        <translation>Restore failed — see log.</translation>
+    </message>
+    <message>
+        <source>Could not start restore — see log.</source>
+        <translation>Could not start restore — see log.</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -11786,8 +12081,58 @@ Please restart the wizard and install {1} first.</translation>
         <translation>Step 6: Run {0}</translation>
     </message>
     <message>
-        <source>Done</source>
-        <translation>Done</translation>
+        <source>Launch {0}</source>
+        <translation>Launch {0}</translation>
+    </message>
+    <message>
+        <source>QAC All</source>
+        <translation>QAC All</translation>
+    </message>
+    <message>
+        <source>{0} is running — close it to continue.</source>
+        <translation>{0} is running — close it to continue.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+When you close it, your changes are restored automatically.</source>
+        <translation>{0} is running.
+When you close it, your changes are restored automatically.</translation>
+    </message>
+    <message>
+        <source>QAC All ({0})</source>
+        <translation>QAC All ({0})</translation>
+    </message>
+    <message>
+        <source>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</source>
+        <translation>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</translation>
+    </message>
+    <message>
+        <source>No plugins are flagged as dirty. Launch {0} to inspect or clean manually.</source>
+        <translation>No plugins are flagged as dirty. Launch {0} to inspect or clean manually.</translation>
+    </message>
+    <message>
+        <source>No plugins need cleaning.</source>
+        <translation>No plugins need cleaning.</translation>
+    </message>
+    <message>
+        <source>Preparing to clean {0} plugin(s)…</source>
+        <translation>Preparing to clean {0} plugin(s)…</translation>
+    </message>
+    <message>
+        <source>Cleaning {0} of {1}: {2}…</source>
+        <translation>Cleaning {0} of {1}: {2}…</translation>
+    </message>
+    <message>
+        <source>QAC All finished — cleaned {0} plugin(s).</source>
+        <translation>QAC All finished — cleaned {0} plugin(s).</translation>
+    </message>
+    <message>
+        <source>QAC All error: {0}</source>
+        <translation>QAC All error: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is cleaning plugins — please wait.</source>
+        <translation>{0} is cleaning plugins — please wait.</translation>
     </message>
     <message>
         <source>Plugins needing cleaning ({0}):</source>
@@ -11816,12 +12161,6 @@ Please restart the wizard and install {1} first.</translation>
     <message>
         <source>Launch error: {0}</source>
         <translation>Launch error: {0}</translation>
-    </message>
-    <message>
-        <source>{0} is running.
-Close it when you are done, then click Done.</source>
-        <translation>{0} is running.
-Close it when you are done, then click Done.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -11874,6 +12213,29 @@ Close it when you are done, then click Done.</translation>
     <message>
         <source>Locked profiles can't be removed</source>
         <translation>Locked profiles can't be removed</translation>
+    </message>
+</context>
+<context>
+    <name>_OverridesModel</name>
+    <message>
+        <source>Pak</source>
+        <translation>Pak</translation>
+    </message>
+    <message>
+        <source>Mod</source>
+        <translation>Mod</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>No meta.lsx</source>
+        <translation>No meta.lsx</translation>
+    </message>
+    <message>
+        <source>Override only</source>
+        <translation>Override only</translation>
     </message>
 </context>
 <context>

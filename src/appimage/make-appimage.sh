@@ -66,10 +66,11 @@ cp "${SCRIPT_DIR}/mod-manager.desktop" "$ASSETS_DIR/mod-manager.desktop"
 cp "${SCRIPT_DIR}/mod-manager.png"     "$ASSETS_DIR/mod-manager.png"
 
 # ── Locate the libloot extension (built by the separate CI job or by
-# running src/LOOT/rebuild_libloot.sh locally).
-LIBLOOT_SO="$(find "${PROJECT_DIR}/LOOT" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' 2>/dev/null | head -1 || true)"
+# running src/LOOT/rebuild_libloot.sh locally — either way it lands at
+# the src/ root, where `import loot` finds it).
+LIBLOOT_SO="$(find "${PROJECT_DIR}" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' 2>/dev/null | head -1 || true)"
 if [ -z "$LIBLOOT_SO" ]; then
-    echo "WARN: no libloot .so found in src/LOOT/ — the AppImage will lack LOOT support" >&2
+    echo "WARN: no libloot .so found in src/ — the AppImage will lack LOOT support" >&2
 fi
 
 # ── quick-sharun env ─────────────────────────────────────────────────

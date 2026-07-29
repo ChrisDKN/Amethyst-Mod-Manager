@@ -32,10 +32,6 @@ def java_exe_in_prefix(compat_data: Path) -> Path:
     return compat_data / "pfx" / _JAVA_DIR_REL / "bin" / "java.exe"
 
 
-def java_installed_in_prefix(compat_data: Path) -> bool:
-    return java_exe_in_prefix(compat_data).is_file()
-
-
 def _flatten_single_top_dir(dest: Path) -> None:
     """Liberica zips unpack into one top folder (jre8u442-full/…); move its
     contents up so bin/java.exe sits directly under *dest*."""

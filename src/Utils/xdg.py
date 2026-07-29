@@ -106,6 +106,10 @@ def spawn_watched(
     # `flatpak-spawn --host` inherits it and the spawned host process fails
     # to start with "Failed to change to directory".
     cwd = os.path.expanduser("~") if os.path.isdir(os.path.expanduser("~")) else "/"
+    # A fallback chain hops threads (the next candidate is tried from _watch),
+    # so carry the launch report across explicitly — see Utils/launch_report.
+    from Utils import launch_report
+    rep = launch_report.current()
     try:
         proc = subprocess.Popen(
             cmd,
@@ -120,8 +124,11 @@ def spawn_watched(
         if log_fn:
             log_fn(msg)
         if on_fail:
-            on_fail()
+            with launch_report.bind(rep):
+                on_fail()
         return
+    if rep is not None:
+        rep.mark_spawned()
 
     def _watch() -> None:
         _, err = proc.communicate()
@@ -133,7 +140,8 @@ def spawn_watched(
             if log_fn:
                 log_fn(msg)
             if on_fail:
-                on_fail()
+                with launch_report.bind(rep):
+                    on_fail()
         elif log_success:
             msg = f"{label}: handed off via {cmd[0]} (rc=0)"
             app_log(msg)

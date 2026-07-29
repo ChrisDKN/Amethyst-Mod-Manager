@@ -307,7 +307,9 @@ class FomodWizardView(QWidget):
         box = QFrame(); box.setObjectName("FomodGroup")
         box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         bl = QVBoxLayout(box); bl.setContentsMargins(16, 14, 16, 14); bl.setSpacing(10)
-        gl = QLabel(group.name)
+        # display_name = author's original when the parser de-duplicated a
+        # same-named sibling group (dict keys use the unique `name`).
+        gl = QLabel(group.display_name or group.name)
         gl.setObjectName("FomodGroupTitle")
         bl.addWidget(gl)
 

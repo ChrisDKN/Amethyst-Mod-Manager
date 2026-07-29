@@ -218,11 +218,26 @@ class BaseGame(ABC):
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         """
-        Lowercase filenames that are excluded from conflict detection.
+        Lowercase filename glob patterns excluded from the filemap.
 
-        Files whose name (not path) matches an entry here are counted in the
-        filemap as normal but do not contribute to a mod's conflict status.
+        Files whose name (not path) matches an entry here are dropped from
+        the filemap entirely — never deployed and never conflict-tracked.
         Useful for metadata files that many mods ship (e.g. modinfo.ini) which would otherwise cause spurious conflict markers.
+
+        Return an empty set (the default) to disable.
+        """
+        return set()
+
+    @property
+    def conflict_ignore_foldernames(self) -> set[str]:
+        """
+        Lowercase folder-name glob patterns excluded from the filemap.
+
+        A folder whose name matches an entry here — at any depth inside a
+        mod — is skipped along with its entire subtree: nothing inside it is
+        deployed or conflict-tracked.  Files remain in modindex.bin; the
+        exclusion is applied at filemap-merge time, unlike
+        ``filemap_exclude_dirs`` which removes top-level dirs at scan time.
 
         Return an empty set (the default) to disable.
         """
@@ -689,6 +704,12 @@ class BaseGame(ABC):
         Example (Skyrim SE):
             {"Script Extender": "skse64_loader.exe"}
 
+        A value may also be a tuple/list of alternative paths — the framework
+        counts as satisfied when ANY of them is found (e.g. BepInEx ships
+        winhttp.dll on Windows builds but run_bepinex.sh on native Linux
+        builds):
+            {"BepInEx": ("winhttp.dll", "run_bepinex.sh")}
+
         Return an empty dict (the default) to show no banners.
         """
         return {}
@@ -800,24 +821,23 @@ class BaseGame(ABC):
         return self.steam_id
 
     @property
-    def heroic_app_names(self) -> list[str]: # Legacy, App names are now detected automatically
+    def heroic_app_names(self) -> list[str]:
         """
-        Heroic Games Launcher app identifiers for this game.
+        Heroic Games Launcher app identifiers for this game, resolved from
+        the central registry in Games/heroic_appnames.py (keyed by game_id,
+        so it also covers custom games).  Add entries there, not here.
 
-        Used as a fallback when the game is not found in Steam libraries.
-        Heroic uses different identifiers per store:
-          - Epic Games: the 'appName' string from the Epic catalogue
-            e.g. 'Pewee' for Cyberpunk 2077
-          - GOG: the numeric product ID as a string, or the exact game title
-            e.g. '1207658924' or 'The Witcher 3: Wild Hunt'
-
-        List multiple values if the game may appear under different IDs or
-        across stores, e.g. ['Pewee', '1207658924'].
-
-        Return an empty list (the default) to disable Heroic detection for
-        this game.
+        When empty (the default), Heroic detection matches on the handler's
+        exe name(s).  When set, these names are authoritative and the exe
+        scan is skipped entirely — register games whose launcher name
+        collides with a different title (e.g. FalloutLauncher.exe ships
+        with both Fallout 3 GOTY and classic Fallout on GOG).
         """
-        return []
+        try:
+            from Games.heroic_appnames import heroic_app_names_for
+            return heroic_app_names_for(self.game_id)
+        except Exception:
+            return []
 
     def get_prefix_path(self) -> Path | None:
         """
@@ -841,6 +861,11 @@ class BaseGame(ABC):
         Subclasses override this to enable plugin panel functionality.
         """
         return []
+
+    @property
+    def has_override_pak_tab(self) -> bool:
+        """Whether the plugins panel shows the BG3-style Overrides pak tab."""
+        return False
 
     @property
     def plugins_use_star_prefix(self) -> bool:
@@ -999,9 +1024,13 @@ class BaseGame(ABC):
         users lack a working winetricks/cabextract setup, and the winetricks
         vcredist/d3dcompiler verbs are also less reliable for DLL mods.
 
-        Return an empty list (the default) to skip automatic installation.
+        Default: ``["vcredist"]`` for every game (including custom games) —
+        the VC++ x64 runtime is a near-universal requirement for Windows
+        titles and mod DLLs, and games without a Proton prefix (native Linux)
+        are skipped anyway. Games needing more override this (see
+        ``MODERN_DIRECTX_DEPS``); returning ``[]`` opts a game out entirely.
         """
-        return []
+        return ["vcredist"]
 
     @property
     def custom_routing_rules(self) -> list:
@@ -1933,6 +1962,15 @@ class BaseGame(ABC):
         ``TrueFires_v1.01/modTrueFires/content/x.xml`` into the routed path
         ``mods/modTrueFires/content/x.xml`` so the treeview and filemap both
         match the real game-root structure.
+
+        The default implementation is a no-op.
+        """
+
+    def post_deploy(self, log_fn=None) -> None:
+        """Called by run_deploy_pipeline after a successful deploy (after the
+        launcher swap). Override in game handlers that need a fix-up step on
+        the deployed game folder (e.g. Fallout NV auto-applies the 4GB patch).
+        Failures are logged by the pipeline and never fail the deploy.
 
         The default implementation is a no-op.
         """

@@ -306,10 +306,7 @@ class NxmHandler:
     with the running AmethystModManager executable, then registers it
     with ``xdg-mime``.
     """
-    
-    DE_MIMEAPPS_ALLOWED = [
-        "kde", "gnome"
-    ]
+
     @staticmethod
     def _desktop_path() -> Path:
         # Inside a Flatpak XDG_DATA_HOME is redirected to ~/.var/app/<id>/data,
@@ -423,21 +420,25 @@ class NxmHandler:
         We write to ~/.config/mimeapps.list (the user's canonical one) and,
         if already present, also update the legacy ~/.local/share/applications
         one so both are in sync.  We also include DE-specific variants
-        (e.g. kde-mimeapps.list) since xdg-open on KDE/GNOME checks those
-        first — a handler registered there by Firefox/the DE will shadow ours.
+        (e.g. kde-mimeapps.list) since xdg-open checks those first — a
+        handler registered there by Firefox/the DE will shadow ours.
+
+        Every $XDG_CURRENT_DESKTOP token is included so the cleanup path
+        can strip stale entries wherever they live; the write path never
+        *creates* a DE-specific file (#187).
         """
         paths: list[Path] = []
         xdg_cfg = os.environ.get("XDG_CONFIG_HOME")
         cfg_base = Path(xdg_cfg) if xdg_cfg else Path.home() / ".config"
         paths.append(cfg_base / "mimeapps.list")
 
-        # DE-specific mimeapps.list — xdg-open checks $XDG_CURRENT_DESKTOP
-        # variants before the generic one, so Firefox/KDE/GNOME can register
-        # handlers there that shadow ~/.config/mimeapps.list.
+        # DE-specific mimeapps.list — xdg-open checks every
+        # $XDG_CURRENT_DESKTOP variant before the generic one, so a handler
+        # registered there shadows ~/.config/mimeapps.list.
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
         for de_name in desktop.split(":"):
             de_name = de_name.strip().lower()
-            if de_name and de_name in NxmHandler.DE_MIMEAPPS_ALLOWED:
+            if de_name:
                 paths.append(cfg_base / f"{de_name}-mimeapps.list")
 
         paths.append(Path.home() / ".local" / "share" / "applications" / "mimeapps.list")
@@ -453,13 +454,21 @@ class NxmHandler:
 
         We edit the file line-by-line to preserve every other association.
         """
+        canonical = cls._mimeapps_paths()[0]
         for path in cls._mimeapps_paths():
             try:
+                # Never *create* a DE-specific mimeapps.list — most desktops
+                # (Hyprland, XFCE, sway, …) never ship one and conjuring it
+                # surprises users (#187). Patch it only where the DE already
+                # maintains it (e.g. kde-mimeapps.list on KDE).
+                if path.name != "mimeapps.list" and not path.exists():
+                    continue
+
                 if not path.parent.exists():
                     # Only touch mimeapps.list in dirs that already exist —
                     # we don't want to create ~/.local/share/applications
                     # just to drop a mimeapps.list into it.
-                    if path == cls._mimeapps_paths()[0]:
+                    if path == canonical:
                         path.parent.mkdir(parents=True, exist_ok=True)
                     else:
                         continue
@@ -637,8 +646,21 @@ class NxmHandler:
                         and (not ours_only or _DESKTOP_FILE_NAME in l)
                     )
                 ]
-                if filtered != lines:
-                    path.write_text("\n".join(filtered) + "\n")
+                if filtered == lines:
+                    continue
+                # A DE-specific file that we (or an old Amethyst) created can
+                # end up holding nothing but empty section headers once the
+                # nxm entry is gone — delete it outright rather than leave a
+                # husk the desktop never shipped (#187).
+                meaningless = all(
+                    not s or (s.startswith("[") and s.endswith("]"))
+                    for s in (l.strip() for l in filtered)
+                )
+                if path.name != "mimeapps.list" and meaningless:
+                    path.unlink()
+                    nxm_log(f"Removed now-empty {path}")
+                else:
+                    path.write_text("\n".join(filtered) + "\n", encoding="utf-8")
                     nxm_log(f"Removed nxm:// association from {path}")
             except OSError as exc:
                 nxm_log(f"Could not clean {path}: {exc}")

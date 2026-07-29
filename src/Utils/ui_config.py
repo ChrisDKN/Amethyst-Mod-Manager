@@ -6,11 +6,14 @@ Set scale=auto to use automatic scaling based on screen size.
 """
 
 import configparser
+import io
 import os
 import re as _re
 import subprocess
+import threading
 from pathlib import Path
 
+from Utils.atomic_write import write_atomic_text
 from Utils.config_paths import get_config_dir
 
 _INI_SECTION = "ui"
@@ -62,6 +65,55 @@ def _new_parser() -> "configparser.ConfigParser":
     read here raise DuplicateOptionError and break all saves. strict=False lets
     the file still load so settings can be written."""
     return configparser.ConfigParser(strict=False)
+
+
+# ---------------------------------------------------------------------------
+# Shared ini read cache + atomic writer
+# ---------------------------------------------------------------------------
+# Parsed-parser cache keyed by path, validated by (st_mtime_ns, st_size) so an
+# external edit is picked up. Read-only call sites share the cached parser via
+# _read_ini and must never mutate it; save paths build their OWN parser from a
+# fresh disk read, mutate that, and hand it to _write_ini — which writes
+# atomically and refreshes the cache with exactly what was written.
+_ini_cache: dict[str, tuple[tuple[int, int], "configparser.ConfigParser"]] = {}
+_ini_cache_lock = threading.Lock()
+
+
+def _ini_stat_key(path: Path) -> tuple[int, int]:
+    """(st_mtime_ns, st_size) cache-validity key for *path*."""
+    st = path.stat()
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _read_ini(path: Path) -> "configparser.ConfigParser":
+    """Cached parse of *path* — treat the returned parser as read-only."""
+    try:
+        key = _ini_stat_key(path)
+    except OSError:
+        return _new_parser()
+    path_str = str(path)
+    with _ini_cache_lock:
+        cached = _ini_cache.get(path_str)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+    parser = _new_parser()
+    parser.read(path)
+    with _ini_cache_lock:
+        _ini_cache[path_str] = (key, parser)
+    return parser
+
+
+def _write_ini(parser: "configparser.ConfigParser", path: Path) -> None:
+    """Serialize *parser* to *path* atomically and refresh the read cache."""
+    buf = io.StringIO()
+    parser.write(buf)
+    write_atomic_text(path, buf.getvalue())
+    path_str = str(path)
+    with _ini_cache_lock:
+        try:
+            _ini_cache[path_str] = (_ini_stat_key(path), parser)
+        except OSError:
+            _ini_cache.pop(path_str, None)
 
 
 def _get_portal_scale() -> float:
@@ -191,19 +243,6 @@ def _get_compositor_scale() -> float:
     return 1.0
 
 
-def _parse_xrandr_rects(stdout: str) -> list[tuple[int, int, int, int]]:
-    """Parse xrandr output → list of (x, y, w, h) for every connected monitor."""
-    rects: list[tuple[int, int, int, int]] = []
-    for line in stdout.splitlines():
-        if " connected " not in line:
-            continue
-        m = _re.search(r"(\d+)x(\d+)\+(\d+)\+(\d+)", line)
-        if m:
-            w, h, x, y = (int(g) for g in m.groups())
-            rects.append((x, y, w, h))
-    return rects
-
-
 def _parse_xrandr(stdout: str) -> tuple[int, int]:
     """Pick (w, h) of the 'primary' monitor from xrandr output, else first connected."""
     lines = stdout.splitlines()
@@ -218,20 +257,6 @@ def _parse_xrandr(stdout: str) -> tuple[int, int]:
             if m:
                 return int(m.group(1)), int(m.group(2))
     return 0, 0
-
-
-def _parse_wlr_randr_rects(stdout: str) -> list[tuple[int, int, int, int]]:
-    """Parse wlr-randr output → list of (x, y, w, h) for every monitor with a 'current' mode."""
-    rects: list[tuple[int, int, int, int]] = []
-    # wlr-randr blocks each monitor; pair "Position: x,y" with the first "current" mode size.
-    for block in _re.split(r"\n(?=\S)", stdout):
-        size_match = _re.search(r"(\d+)x(\d+) px.*\bcurrent\b", block)
-        pos_match = _re.search(r"Position:\s*(\d+),(\d+)", block)
-        if size_match and pos_match:
-            w, h = int(size_match.group(1)), int(size_match.group(2))
-            x, y = int(pos_match.group(1)), int(pos_match.group(2))
-            rects.append((x, y, w, h))
-    return rects
 
 
 def _parse_wlr_randr(stdout: str) -> tuple[int, int]:
@@ -252,72 +277,6 @@ def _run_capture(argv: list[str], timeout: int = 3) -> str:
     except Exception:
         pass
     return ""
-
-
-def _gdk_monitor_rects() -> list[tuple[int, int, int, int]]:
-    """Return per-monitor (x, y, w, h) via Gdk — no external binary needed.
-
-    PyGObject/Gdk is a hard dependency (the GTK splash and file portal use it),
-    so this works even on bare WMs (DWM, i3) that ship no xrandr/wlr-randr.
-    Gdk reports each monitor's *logical* geometry (the mode actually in use),
-    which is exactly what we want for window placement. Tries GTK4's
-    Display.get_monitors() first, then GTK3's get_n_monitors()/get_monitor().
-    """
-    try:
-        import gi
-        try:
-            gi.require_version("Gdk", "4.0")
-        except Exception:
-            gi.require_version("Gdk", "3.0")
-        from gi.repository import Gdk
-        display = Gdk.Display.get_default()
-        if display is None:
-            return []
-        rects: list[tuple[int, int, int, int]] = []
-        # GTK4: get_monitors() -> Gio.ListModel of Gdk.Monitor
-        if hasattr(display, "get_monitors"):
-            monitors = display.get_monitors()
-            n = monitors.get_n_items()
-            for i in range(n):
-                g = monitors.get_item(i).get_geometry()
-                rects.append((g.x, g.y, g.width, g.height))
-        # GTK3: get_n_monitors()/get_monitor(i)
-        elif hasattr(display, "get_n_monitors"):
-            for i in range(display.get_n_monitors()):
-                g = display.get_monitor(i).get_geometry()
-                rects.append((g.x, g.y, g.width, g.height))
-        return rects
-    except Exception:
-        return []
-
-
-def get_monitor_rects() -> list[tuple[int, int, int, int]]:
-    """Return list of (x, y, w, h) for every connected monitor.
-
-    Source order: Gdk (no binary needed, works on bare WMs and reports the
-    in-use mode) → xrandr (X11) → wlr-randr (wlroots Wayland). Returns [] if
-    all fail. Inside Flatpak the sandbox has no xrandr binary, so the CLI paths
-    fall through to ``flatpak-spawn --host`` with ``--directory=/`` (the
-    sandbox cwd /app/... doesn't exist on the host).
-    """
-    rects = _gdk_monitor_rects()
-    if rects:
-        return rects
-    out = _run_capture(["xrandr", "--current"])
-    if not out:
-        out = _run_capture(["flatpak-spawn", "--host", "--directory=/", "xrandr", "--current"])
-    if out:
-        rects = _parse_xrandr_rects(out)
-        if rects:
-            return rects
-    out = _run_capture(["wlr-randr"])
-    if not out:
-        out = _run_capture(["flatpak-spawn", "--host", "--directory=/", "wlr-randr"])
-    if out:
-        rects = _parse_wlr_randr_rects(out)
-        if rects:
-            return rects
-    return []
 
 
 def _get_primary_monitor_size() -> tuple[int, int]:
@@ -446,12 +405,11 @@ def load_ui_scale() -> float:
     path = get_ui_config_path()
     if not path.is_file():
         _ui_scale = detect_hidpi_scale()
-        _write_ini(path, _INI_AUTO)
+        _write_scale_ini(path, _INI_AUTO)
         _seed_first_run_defaults(path)
         return _ui_scale
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         if parser.has_section(_INI_SECTION) and parser.has_option(_INI_SECTION, _INI_OPTION):
             raw = parser.get(_INI_SECTION, _INI_OPTION).strip().lower()
             if raw == _INI_AUTO:
@@ -465,7 +423,7 @@ def load_ui_scale() -> float:
     return _ui_scale
 
 
-def _write_ini(path: Path, scale_str: str) -> None:
+def _write_scale_ini(path: Path, scale_str: str) -> None:
     """Write the [ui] scale to amethyst.ini."""
     path.parent.mkdir(parents=True, exist_ok=True)
     parser = _new_parser()
@@ -474,8 +432,7 @@ def _write_ini(path: Path, scale_str: str) -> None:
     if _INI_SECTION not in parser:
         parser[_INI_SECTION] = {}
     parser[_INI_SECTION][_INI_OPTION] = scale_str
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def _seed_first_run_defaults(path: Path) -> None:
@@ -496,8 +453,7 @@ def _seed_first_run_defaults(path: Path) -> None:
             parser[_COLUMNS_SECTION] = {}
         parser[_COLUMNS_SECTION]["hidden"] = ",".join(str(x) for x in _FIRST_RUN_HIDDEN_COLUMNS)
         parser[_COLUMNS_SECTION]["introduced"] = ",".join(str(x) for x in _FIRST_RUN_HIDDEN_COLUMNS)
-        with path.open("w", encoding="utf-8") as f:
-            parser.write(f)
+        _write_ini(parser, path)
     except Exception:
         pass
 
@@ -511,7 +467,7 @@ def save_ui_scale(scale: float | str) -> None:
     else:
         _ui_scale = _clamp(float(scale))
         scale_str = str(_ui_scale)
-    _write_ini(get_ui_config_path(), scale_str)
+    _write_scale_ini(get_ui_config_path(), scale_str)
 
 
 def get_ui_scale() -> float:
@@ -530,8 +486,7 @@ def load_ui_scale_is_auto() -> bool:
     if not path.is_file():
         return True
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         raw = parser.get(_INI_SECTION, _INI_OPTION, fallback=_INI_AUTO).strip().lower()
         return raw == _INI_AUTO
     except Exception:
@@ -545,33 +500,11 @@ def load_font_family() -> str:
     if not path.is_file():
         return _font_family
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         value = parser.get(_INI_SECTION, _INI_FONT_OPTION, fallback="").strip()
         _font_family = value if value else _DEFAULT_FONT_FAMILY
     except Exception:
         pass
-    return _font_family
-
-
-def save_font_family(family: str) -> None:
-    """Persist font_family to amethyst.ini [ui] section."""
-    global _font_family
-    _font_family = family.strip() or _DEFAULT_FONT_FAMILY
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _INI_SECTION not in parser:
-        parser[_INI_SECTION] = {}
-    parser[_INI_SECTION][_INI_FONT_OPTION] = _font_family
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-
-
-def get_font_family() -> str:
-    """Return the current font family (call load_font_family first at startup)."""
     return _font_family
 
 
@@ -586,8 +519,7 @@ def load_language() -> str:
     if not path.is_file():
         return _language
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         _language = parser.get(
             _INI_SECTION, _INI_LANGUAGE_OPTION, fallback="").strip()
     except Exception:
@@ -610,8 +542,7 @@ def save_language(code: str) -> None:
     if _INI_SECTION not in parser:
         parser[_INI_SECTION] = {}
     parser[_INI_SECTION][_INI_LANGUAGE_OPTION] = _language
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def get_language() -> str:
@@ -638,8 +569,7 @@ def get_tab_pin(key: str) -> "str | None":
     if not path.is_file():
         return None
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         val = parser.get(_TAB_PINS_SECTION, key, fallback="").strip()
         return val if val in _VALID_TAB_MODES else None
     except Exception:
@@ -659,8 +589,47 @@ def save_tab_pin(key: str, mode: str) -> None:
     if _TAB_PINS_SECTION not in parser:
         parser[_TAB_PINS_SECTION] = {}
     parser[_TAB_PINS_SECTION][key] = mode
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
+
+
+# ---------------------------------------------------------------------------
+# Windows-filesystem deploy warning acknowledgements — per-game fingerprint of
+# the drive layout the user chose to "Deploy anyway" on (see Utils.fs_check).
+# Stored so the advisory shows once per game, re-arming if the drives change.
+# ---------------------------------------------------------------------------
+_FS_WARNINGS_SECTION = "fs_warnings"
+
+
+def get_fs_warning_ack(game_name: str) -> str:
+    """Return the acknowledged fs_check fingerprint for *game_name* ("" if
+    the user has never confirmed the Windows-filesystem warning for it)."""
+    if not game_name:
+        return ""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return ""
+    try:
+        parser = _read_ini(path)
+        return parser.get(_FS_WARNINGS_SECTION, game_name, fallback="").strip()
+    except Exception:
+        return ""
+
+
+def save_fs_warning_ack(game_name: str, fingerprint: str) -> None:
+    """Persist the acknowledged Windows-filesystem fingerprint for *game_name*."""
+    if not game_name or not fingerprint:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FS_WARNINGS_SECTION not in parser:
+        parser[_FS_WARNINGS_SECTION] = {}
+    # Escape % for ConfigParser interpolation (mount paths may contain it);
+    # parser.get() on read resolves %% back to %.
+    parser[_FS_WARNINGS_SECTION][game_name] = fingerprint.replace("%", "%%")
+    _write_ini(parser, path)
 
 
 def _clamp(value: float) -> float:
@@ -707,8 +676,7 @@ def load_collection_settings() -> dict:
     if not path.is_file():
         return defaults
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         if not parser.has_section(_COLLECTIONS_SECTION):
             return defaults
         s = parser[_COLLECTIONS_SECTION]
@@ -745,8 +713,7 @@ def load_download_speed_limit() -> float:
     if not path.is_file():
         return 0.0
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         if not parser.has_section(_COLLECTIONS_SECTION):
             return 0.0
         raw = parser[_COLLECTIONS_SECTION].get(_DL_SPEED_LIMIT_KEY, "0")
@@ -766,8 +733,7 @@ def save_download_speed_limit(mbps: float) -> None:
         parser[_COLLECTIONS_SECTION] = {}
     value = max(0.0, min(_DL_SPEED_LIMIT_CEILING, float(mbps or 0)))
     parser[_COLLECTIONS_SECTION][_DL_SPEED_LIMIT_KEY] = f"{value:g}"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def save_collection_settings(max_concurrent: int,
@@ -795,8 +761,7 @@ def save_collection_settings(max_concurrent: int,
     parser[_COLLECTIONS_SECTION]["max_extract_workers"] = str(max(1, min(_MAX_EXTRACT_WORKERS_CEILING, max_extract_workers)))
     parser[_COLLECTIONS_SECTION]["check_download_locations"] = "true" if check_download_locations else "false"
     parser[_COLLECTIONS_SECTION]["clear_archive_after_install"] = "true" if clear_archive_after_install else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -824,8 +789,7 @@ def load_extraction_settings() -> dict:
     if not path.is_file():
         return defaults
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         if not parser.has_section(_EXTRACTION_SECTION):
             return defaults
         s = parser[_EXTRACTION_SECTION]
@@ -846,8 +810,7 @@ def _save_extraction_option(key: str, value: str) -> None:
     if _EXTRACTION_SECTION not in parser:
         parser[_EXTRACTION_SECTION] = {}
     parser[_EXTRACTION_SECTION][key] = value
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def save_extraction_cpu_threads(threads: int) -> None:
@@ -873,8 +836,7 @@ def load_nexus_show_adult() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_NEXUS_SECTION, "show_adult", fallback=False)
     except Exception:
         return False
@@ -889,8 +851,7 @@ def load_nexus_last_premium() -> "bool | None":
     if not path.is_file():
         return None
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         raw = parser.get(_NEXUS_SECTION, "last_known_premium", fallback="")
         if raw.strip().lower() in ("true", "false"):
             return raw.strip().lower() == "true"
@@ -909,219 +870,11 @@ def save_nexus_last_premium(value: bool) -> None:
     if _NEXUS_SECTION not in parser:
         parser[_NEXUS_SECTION] = {}
     parser[_NEXUS_SECTION]["last_known_premium"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 _COLUMNS_SECTION = "columns"
 _WINDOW_SECTION = "window"
-
-
-def load_column_widths() -> dict[int, int]:
-    """Load saved column width overrides from amethyst.ini. Returns {col_index: width}."""
-    path = get_ui_config_path()
-    if not path.is_file():
-        return {}
-    try:
-        parser = _new_parser()
-        parser.read(path)
-        if _COLUMNS_SECTION not in parser:
-            return {}
-        result = {}
-        for key, val in parser[_COLUMNS_SECTION].items():
-            try:
-                result[int(key)] = int(val)
-            except (ValueError, TypeError):
-                pass
-        return result
-    except Exception:
-        return {}
-
-
-def save_column_widths(widths: dict[int, int]) -> None:
-    """Persist column width overrides to amethyst.ini."""
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    # Preserve column order/hidden/sort keys across the section overwrite
-    existing_order = parser.get(_COLUMNS_SECTION, "order", fallback=None)
-    existing_hidden = parser.get(_COLUMNS_SECTION, "hidden", fallback=None)
-    existing_sort_col = parser.get(_COLUMNS_SECTION, "sort_column", fallback=None)
-    existing_sort_asc = parser.get(_COLUMNS_SECTION, "sort_ascending", fallback=None)
-    parser[_COLUMNS_SECTION] = {str(k): str(v) for k, v in widths.items()}
-    if existing_order:
-        parser[_COLUMNS_SECTION]["order"] = existing_order
-    if existing_hidden is not None:
-        parser[_COLUMNS_SECTION]["hidden"] = existing_hidden
-    if existing_sort_col is not None:
-        parser[_COLUMNS_SECTION]["sort_column"] = existing_sort_col
-    if existing_sort_asc is not None:
-        parser[_COLUMNS_SECTION]["sort_ascending"] = existing_sort_asc
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-
-
-_DEFAULT_COL_ORDER = [2, 3, 4, 5, 6, 7, 8]  # category, flags, conflicts, installed, priority, version, size
-
-
-def load_column_order() -> list[int]:
-    """Load saved column display order from amethyst.ini. Returns list of data col indices [2..6]."""
-    path = get_ui_config_path()
-    if not path.is_file():
-        return list(_DEFAULT_COL_ORDER)
-    try:
-        parser = _new_parser()
-        parser.read(path)
-        raw = parser.get(_COLUMNS_SECTION, "order", fallback=None)
-        if raw is None:
-            return list(_DEFAULT_COL_ORDER)
-        order = [int(x) for x in raw.split(",")]
-        # Drop unknown ids, de-dup, then append any new defaults the user hasn't seen yet.
-        seen: set[int] = set()
-        cleaned: list[int] = []
-        for x in order:
-            if x in _DEFAULT_COL_ORDER and x not in seen:
-                cleaned.append(x)
-                seen.add(x)
-        for x in _DEFAULT_COL_ORDER:
-            if x not in seen:
-                cleaned.append(x)
-                seen.add(x)
-        return cleaned if cleaned else list(_DEFAULT_COL_ORDER)
-    except Exception:
-        return list(_DEFAULT_COL_ORDER)
-
-
-def save_column_order(order: list[int]) -> None:
-    """Persist column display order to amethyst.ini."""
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _COLUMNS_SECTION not in parser:
-        parser[_COLUMNS_SECTION] = {}
-    parser[_COLUMNS_SECTION]["order"] = ",".join(str(x) for x in order)
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-
-
-def load_column_hidden() -> set[int]:
-    """Load hidden column indices from amethyst.ini. Returns set of data col indices.
-
-    Columns added after a user's first run are folded into their saved hidden set
-    once (tracked via the `introduced` key) so new optional columns like Size
-    default to hidden for existing installs too, without re-hiding columns the
-    user has since chosen to show."""
-    path = get_ui_config_path()
-    if not path.is_file():
-        return set()
-    try:
-        parser = _new_parser()
-        parser.read(path)
-        raw = parser.get(_COLUMNS_SECTION, "hidden", fallback=None)
-        if raw is None:
-            return set()
-        hidden = {int(x) for x in raw.split(",") if x.strip()}
-        # One-time migration: hide any newly-introduced default-hidden column.
-        intro_raw = parser.get(_COLUMNS_SECTION, "introduced", fallback="")
-        introduced = {int(x) for x in intro_raw.split(",") if x.strip()}
-        new_defaults = set(_FIRST_RUN_HIDDEN_COLUMNS) - introduced
-        if new_defaults:
-            hidden |= new_defaults
-            _save_columns_hidden_and_introduced(path, hidden, introduced | set(_FIRST_RUN_HIDDEN_COLUMNS))
-        return hidden
-    except Exception:
-        return set()
-
-
-def _save_columns_hidden_and_introduced(path: Path, hidden: set[int], introduced: set[int]) -> None:
-    """Persist both the hidden set and the introduced marker together."""
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _COLUMNS_SECTION not in parser:
-        parser[_COLUMNS_SECTION] = {}
-    parser[_COLUMNS_SECTION]["hidden"] = ",".join(str(x) for x in sorted(hidden))
-    parser[_COLUMNS_SECTION]["introduced"] = ",".join(str(x) for x in sorted(introduced))
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-
-
-def save_column_hidden(hidden: set[int]) -> None:
-    """Persist hidden column indices to amethyst.ini."""
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _COLUMNS_SECTION not in parser:
-        parser[_COLUMNS_SECTION] = {}
-    parser[_COLUMNS_SECTION]["hidden"] = ",".join(str(x) for x in sorted(hidden))
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-
-
-def load_sort_state() -> tuple[str | None, bool]:
-    """Load saved sort column and direction from amethyst.ini.
-    Returns (sort_column, ascending) where sort_column is None if no sort is active."""
-    path = get_ui_config_path()
-    if not path.is_file():
-        return None, True
-    try:
-        parser = _new_parser()
-        parser.read(path)
-        col = parser.get(_COLUMNS_SECTION, "sort_column", fallback=None)
-        if col == "none":
-            col = None
-        asc = parser.get(_COLUMNS_SECTION, "sort_ascending", fallback="true").lower() == "true"
-        return col, asc
-    except Exception:
-        return None, True
-
-
-def save_sort_state(sort_column: str | None, ascending: bool) -> None:
-    """Persist sort column and direction to amethyst.ini."""
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _COLUMNS_SECTION not in parser:
-        parser[_COLUMNS_SECTION] = {}
-    parser[_COLUMNS_SECTION]["sort_column"] = sort_column if sort_column is not None else "none"
-    parser[_COLUMNS_SECTION]["sort_ascending"] = "true" if ascending else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-
-
-def load_window_geometry() -> str | None:
-    """Load saved window geometry string (WxH+X+Y) from amethyst.ini."""
-    path = get_ui_config_path()
-    if not path.is_file():
-        return None
-    try:
-        parser = _new_parser()
-        parser.read(path)
-        return parser.get(_WINDOW_SECTION, "geometry", fallback=None)
-    except Exception:
-        return None
-
-
-def save_window_geometry(geometry: str) -> None:
-    """Persist window geometry string to amethyst.ini."""
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _WINDOW_SECTION not in parser:
-        parser[_WINDOW_SECTION] = {}
-    parser[_WINDOW_SECTION]["geometry"] = geometry
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
 
 
 def load_qt_window_state() -> dict:
@@ -1137,8 +890,7 @@ def load_qt_window_state() -> dict:
     if not path.is_file():
         return result
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         geo = parser.get(_WINDOW_SECTION, "qt_geometry", fallback="").strip()
         if geo:
             result["geometry"] = geo
@@ -1165,8 +917,7 @@ def save_qt_window_state(geometry_b64: str, body_split: "list[int] | None") -> N
     parser[_WINDOW_SECTION]["qt_geometry"] = geometry_b64
     if body_split and len(body_split) == 2:
         parser[_WINDOW_SECTION]["body_split"] = ",".join(str(int(s)) for s in body_split)
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1181,8 +932,7 @@ def load_dev_mode() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_DEV_SECTION, "devmode", fallback="false").strip().lower() == "true"
     except Exception:
         return False
@@ -1198,8 +948,7 @@ def load_force_manual_install() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_DEV_SECTION, "force_manual_install", fallback="false").strip().lower() == "true"
     except Exception:
         return False
@@ -1222,8 +971,7 @@ def load_suppress_i386_warning() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FLATPAK_SECTION, "suppress_i386_warning", fallback=False)
     except Exception:
         return False
@@ -1239,8 +987,7 @@ def save_suppress_i386_warning(value: bool) -> None:
     if _FLATPAK_SECTION not in parser:
         parser[_FLATPAK_SECTION] = {}
     parser[_FLATPAK_SECTION]["suppress_i386_warning"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1255,8 +1002,7 @@ def load_normalize_folder_case() -> bool:
     if not path.is_file():
         return True
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "normalize_folder_case", fallback=True)
     except Exception:
         return True
@@ -1272,8 +1018,7 @@ def save_normalize_folder_case(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["normalize_folder_case"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1288,8 +1033,7 @@ def load_allow_prerelease() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_UPDATES_SECTION, "allow_prerelease", fallback=False)
     except Exception:
         return False
@@ -1305,8 +1049,7 @@ def save_allow_prerelease(value: bool) -> None:
     if _UPDATES_SECTION not in parser:
         parser[_UPDATES_SECTION] = {}
     parser[_UPDATES_SECTION]["allow_prerelease"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_update_notifications() -> bool:
@@ -1315,8 +1058,7 @@ def load_update_notifications() -> bool:
     if not path.is_file():
         return True
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_UPDATES_SECTION, "update_notifications",
                                  fallback=True)
     except Exception:
@@ -1334,8 +1076,7 @@ def save_update_notifications(value: bool) -> None:
         parser[_UPDATES_SECTION] = {}
     parser[_UPDATES_SECTION]["update_notifications"] = ("true" if value
                                                         else "false")
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1354,8 +1095,7 @@ def load_favourite_wizards() -> set[str]:
     if not path.is_file():
         return set()
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         if _WIZARD_FAV_SECTION not in parser:
             return set()
         return {k for k, v in parser[_WIZARD_FAV_SECTION].items()
@@ -1374,8 +1114,7 @@ def save_favourite_wizards(tool_ids) -> None:
         parser.read(path)
     # Rewrite the section from scratch so unchecked tools are dropped.
     parser[_WIZARD_FAV_SECTION] = {tid: "true" for tid in sorted(set(tool_ids))}
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_clear_archive_after_install() -> bool:
@@ -1384,8 +1123,7 @@ def load_clear_archive_after_install() -> bool:
     if not path.is_file():
         return True
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "clear_archive_after_install", fallback=True)
     except Exception:
         return True
@@ -1401,8 +1139,7 @@ def save_clear_archive_after_install(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["clear_archive_after_install"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_install_mods_disabled() -> bool:
@@ -1413,8 +1150,7 @@ def load_install_mods_disabled() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "install_mods_disabled", fallback=False)
     except Exception:
         return False
@@ -1430,8 +1166,7 @@ def save_install_mods_disabled(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["install_mods_disabled"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_keep_fomod_archives() -> bool:
@@ -1444,8 +1179,7 @@ def load_keep_fomod_archives() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "keep_fomod_archives", fallback=False)
     except Exception:
         return False
@@ -1461,8 +1195,7 @@ def save_keep_fomod_archives(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["keep_fomod_archives"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_show_summary_tooltips() -> bool:
@@ -1471,8 +1204,7 @@ def load_show_summary_tooltips() -> bool:
     if not path.is_file():
         return True
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "show_summary_tooltips", fallback=True)
     except Exception:
         return True
@@ -1488,8 +1220,7 @@ def save_show_summary_tooltips(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["show_summary_tooltips"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_hide_bsa_conflicts() -> bool:
@@ -1502,8 +1233,7 @@ def load_hide_bsa_conflicts() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "hide_bsa_conflicts", fallback=False)
     except Exception:
         return False
@@ -1519,8 +1249,7 @@ def save_hide_bsa_conflicts(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["hide_bsa_conflicts"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_rename_mod_after_install() -> bool:
@@ -1532,8 +1261,7 @@ def load_rename_mod_after_install() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "rename_mod_after_install", fallback=False)
     except Exception:
         return False
@@ -1549,8 +1277,7 @@ def save_rename_mod_after_install(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["rename_mod_after_install"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_restore_on_close() -> bool:
@@ -1563,8 +1290,7 @@ def load_restore_on_close() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_FILEMAP_SECTION, "restore_on_close", fallback=False)
     except Exception:
         return False
@@ -1580,8 +1306,7 @@ def save_restore_on_close(value: bool) -> None:
     if _FILEMAP_SECTION not in parser:
         parser[_FILEMAP_SECTION] = {}
     parser[_FILEMAP_SECTION]["restore_on_close"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def save_nexus_show_adult(value: bool) -> None:
@@ -1594,8 +1319,7 @@ def save_nexus_show_adult(value: bool) -> None:
     if _NEXUS_SECTION not in parser:
         parser[_NEXUS_SECTION] = {}
     parser[_NEXUS_SECTION]["show_adult"] = "true" if value else "false"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_nexus_page_size(default: int = 30) -> int:
@@ -1604,8 +1328,7 @@ def load_nexus_page_size(default: int = 30) -> int:
     if not path.is_file():
         return default
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         val = parser.getint(_NEXUS_SECTION, "page_size", fallback=default)
         return val if val in (20, 30, 40, 50) else default
     except Exception:
@@ -1622,8 +1345,7 @@ def save_nexus_page_size(value: int) -> None:
     if _NEXUS_SECTION not in parser:
         parser[_NEXUS_SECTION] = {}
     parser[_NEXUS_SECTION]["page_size"] = str(int(value))
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1638,8 +1360,7 @@ def load_heroic_config_path() -> str:
     if not path.is_file():
         return ""
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_PATHS_SECTION, "heroic_config_path", fallback="").strip()
     except Exception:
         return ""
@@ -1655,8 +1376,7 @@ def save_heroic_config_path(value: str) -> None:
     if _PATHS_SECTION not in parser:
         parser[_PATHS_SECTION] = {}
     parser[_PATHS_SECTION]["heroic_config_path"] = value.strip()
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_lutris_data_path() -> str:
@@ -1665,8 +1385,7 @@ def load_lutris_data_path() -> str:
     if not path.is_file():
         return ""
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_PATHS_SECTION, "lutris_data_path", fallback="").strip()
     except Exception:
         return ""
@@ -1682,8 +1401,7 @@ def save_lutris_data_path(value: str) -> None:
     if _PATHS_SECTION not in parser:
         parser[_PATHS_SECTION] = {}
     parser[_PATHS_SECTION]["lutris_data_path"] = value.strip()
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_lutris_appimage_path() -> str:
@@ -1692,8 +1410,7 @@ def load_lutris_appimage_path() -> str:
     if not path.is_file():
         return ""
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_PATHS_SECTION, "lutris_appimage_path", fallback="").strip()
     except Exception:
         return ""
@@ -1709,8 +1426,7 @@ def save_lutris_appimage_path(value: str) -> None:
     if _PATHS_SECTION not in parser:
         parser[_PATHS_SECTION] = {}
     parser[_PATHS_SECTION]["lutris_appimage_path"] = value.strip()
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_steam_libraries_vdf_path() -> str:
@@ -1719,8 +1435,7 @@ def load_steam_libraries_vdf_path() -> str:
     if not path.is_file():
         return ""
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_PATHS_SECTION, "steam_libraries_vdf", fallback="").strip()
     except Exception:
         return ""
@@ -1736,8 +1451,7 @@ def save_steam_libraries_vdf_path(value: str) -> None:
     if _PATHS_SECTION not in parser:
         parser[_PATHS_SECTION] = {}
     parser[_PATHS_SECTION]["steam_libraries_vdf"] = value.strip()
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_default_staging_path() -> str:
@@ -1750,8 +1464,7 @@ def load_default_staging_path() -> str:
     if not path.is_file():
         return ""
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_PATHS_SECTION, "default_staging_path", fallback="").strip()
     except Exception:
         return ""
@@ -1767,8 +1480,7 @@ def save_default_staging_path(value: str) -> None:
     if _PATHS_SECTION not in parser:
         parser[_PATHS_SECTION] = {}
     parser[_PATHS_SECTION]["default_staging_path"] = value.strip()
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_download_cache_path() -> str:
@@ -1782,8 +1494,7 @@ def load_download_cache_path() -> str:
     if not path.is_file():
         return ""
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.get(_PATHS_SECTION, "download_cache_path", fallback="").strip()
     except Exception:
         return ""
@@ -1799,8 +1510,7 @@ def save_download_cache_path(value: str) -> None:
     if _PATHS_SECTION not in parser:
         parser[_PATHS_SECTION] = {}
     parser[_PATHS_SECTION]["download_cache_path"] = value.strip()
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 def load_onboarding_complete() -> bool:
@@ -1813,8 +1523,7 @@ def load_onboarding_complete() -> bool:
     if not path.is_file():
         return False
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         return parser.getboolean(_ONBOARDING_SECTION, "complete", fallback=False)
     except Exception:
         return False
@@ -1830,8 +1539,7 @@ def save_onboarding_complete(value: bool) -> None:
     if _ONBOARDING_SECTION not in parser:
         parser[_ONBOARDING_SECTION] = {}
     parser[_ONBOARDING_SECTION]["complete"] = "1" if value else "0"
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1915,8 +1623,7 @@ def load_install_name_patterns() -> list[dict]:
     except Exception:
         defaults = []
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         rules = _read_install_name_patterns_raw(parser)
         already_seeded = parser.getboolean(
             _NAME_PATTERNS_SECTION, _NAME_PATTERNS_SEEDED_OPTION, fallback=False)
@@ -2030,8 +1737,7 @@ def save_install_name_patterns(rules: list[dict]) -> None:
     }
     parser[_NAME_PATTERNS_SECTION][_NAME_PATTERNS_INTRODUCED_OPTION] = \
         ",".join(sorted(prior_intro | default_ids))
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -2124,8 +1830,7 @@ def load_theme_colors() -> dict[str, str]:
     path = get_ui_config_path()
     if path.is_file():
         try:
-            parser = _new_parser()
-            parser.read(path)
+            parser = _read_ini(path)
             if parser.has_section(_THEME_SECTION):
                 for key in THEME_DEFAULTS:
                     raw = parser.get(_THEME_SECTION, key, fallback="").strip()
@@ -2139,32 +1844,6 @@ def load_theme_colors() -> dict[str, str]:
             pass
     _theme_colors = result
     return _theme_colors
-
-
-def save_theme_color(key: str, value: str) -> None:
-    """Persist a single theme colour under [theme] in amethyst.ini.
-
-    Silently ignores unknown keys or invalid hex values to prevent corruption.
-    """
-    if key not in THEME_DEFAULTS or not _valid_hex(value):
-        return
-    value = value.strip()
-    path = get_ui_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    parser = _new_parser()
-    if path.is_file():
-        parser.read(path)
-    if _THEME_SECTION not in parser:
-        parser[_THEME_SECTION] = {}
-    parser[_THEME_SECTION][key] = value
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
-    _theme_colors[key] = value
-
-
-def get_theme_color(key: str) -> str:
-    """Return the current cached value for *key*, or its default if unknown."""
-    return _theme_colors.get(key, THEME_DEFAULTS.get(key, "#000000"))
 
 
 # ---------------------------------------------------------------------------
@@ -2188,8 +1867,7 @@ def get_appearance_mode() -> str:
     if not path.is_file():
         return _APPEARANCE_DEFAULT
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         raw = parser.get(_INI_SECTION, _APPEARANCE_OPTION, fallback=_APPEARANCE_DEFAULT).strip().lower()
         return raw if _APPEARANCE_ID_RE.match(raw) else _APPEARANCE_DEFAULT
     except Exception:
@@ -2211,8 +1889,7 @@ def save_appearance_mode(mode: str) -> None:
     if _INI_SECTION not in parser:
         parser[_INI_SECTION] = {}
     parser[_INI_SECTION][_APPEARANCE_OPTION] = mode
-    with path.open("w", encoding="utf-8") as f:
-        parser.write(f)
+    _write_ini(parser, path)
 
 
 # ---------------------------------------------------------------------------
@@ -2225,8 +1902,7 @@ def load_last_session() -> "tuple[str | None, str | None]":
     if not path.is_file():
         return (None, None)
     try:
-        parser = _new_parser()
-        parser.read(path)
+        parser = _read_ini(path)
         g = parser.get(_SESSION_SECTION, "last_game", fallback="") or ""
         p = parser.get(_SESSION_SECTION, "last_profile", fallback="") or ""
         return (g or None, p or None)
@@ -2246,8 +1922,7 @@ def save_last_session(game: "str | None", profile: "str | None") -> None:
             parser[_SESSION_SECTION] = {}
         parser[_SESSION_SECTION]["last_game"] = game or ""
         parser[_SESSION_SECTION]["last_profile"] = profile or ""
-        with path.open("w", encoding="utf-8") as f:
-            parser.write(f)
+        _write_ini(parser, path)
     except Exception:
         pass
 
@@ -2290,8 +1965,7 @@ def ensure_ini_version() -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             parser = _new_parser()
             parser[_META_SECTION] = {"version": str(_APP_INI_VERSION)}
-            with path.open("w", encoding="utf-8") as f:
-                parser.write(f)
+            _write_ini(parser, path)
         else:
             # File is current but make sure the version key is present/correct.
             parser = _new_parser()
@@ -2302,14 +1976,12 @@ def ensure_ini_version() -> None:
                 if _META_SECTION not in parser:
                     parser[_META_SECTION] = {}
                 parser[_META_SECTION]["version"] = str(_APP_INI_VERSION)
-                with path.open("w", encoding="utf-8") as f:
-                    parser.write(f)
+                _write_ini(parser, path)
     except Exception:
         # Last resort: try a clean rewrite; swallow anything so startup proceeds.
         try:
             parser = _new_parser()
             parser[_META_SECTION] = {"version": str(_APP_INI_VERSION)}
-            with path.open("w", encoding="utf-8") as f:
-                parser.write(f)
+            _write_ini(parser, path)
         except Exception:
             pass

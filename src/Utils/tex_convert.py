@@ -35,12 +35,6 @@ _MIP_HEADER = struct.Struct("<Q I I")  # 16 bytes
 _OLD_FORMAT_EXTENSIONS = {8, 10, 11, 190820018}
 
 
-def is_tex_file(path: Path | str) -> bool:
-    """Return True if the path looks like a .tex.NN file."""
-    name = str(path).lower()
-    return ".tex." in name
-
-
 def tex_needs_conversion(src: Path | str, target_extension: int = 34) -> bool:
     """Check if a TEX file uses the old format and needs conversion to target."""
     src = Path(src)
