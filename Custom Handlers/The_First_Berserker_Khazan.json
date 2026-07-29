@@ -1,0 +1,86 @@
+{
+  "name": "The First Berserker: Khazan",
+  "game_id": "The_First_Berserker_Khazan",
+  "exe_name": "BBQ/Binaries/Win64/BBQ-Win64-Shipping.exe",
+  "deploy_type": "root",
+  "mod_data_path": "",
+  "steam_id": "2680010",
+  "nexus_game_domain": "thefirstberserkerkhazan",
+  "image_url": "",
+  "mod_folder_strip_prefixes": [
+    "BBQ",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64"
+  ],
+  "conflict_ignore_filenames": [
+    "*.txt",
+    "*.md",
+    "LICENSE"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [
+    ".pak",
+    ".dll"
+  ],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {
+    "dwmapi": "native,builtin",
+    "dinput8": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "BBQ/Binaries/Win64",
+      "filenames": [
+        "dwmapi.dll",
+        "UE4SS.dll",
+        "UE4SS-settings.ini"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "BBQ/Binaries/Win64",
+      "folders": [
+        "Mods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "BBQ/Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ]
+    },
+    {
+      "dest": "BBQ/Binaries/Win64",
+      "filenames": [
+        "dinput8.dll"
+      ],
+      "loose_only": true,
+      "flatten": true
+    },
+    {
+      "dest": "BBQ/Binaries/Win64/PluginMods",
+      "extensions": [
+        ".dll"
+      ],
+      "loose_only": true,
+      "flatten": true
+    }
+  ],
+  "custom_frameworks": {
+    "UE4SS": "BBQ/Binaries/Win64/dwmapi.dll",
+    "Khazan Simple Loader": "BBQ/Binaries/Win64/dinput8.dll"
+  }
+}
