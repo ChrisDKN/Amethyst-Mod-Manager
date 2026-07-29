@@ -95,6 +95,11 @@ class ModListModel(QAbstractTableModel):
         # always writes from _natural.
         self._natural: list[ModEntry] = entries or []
         self._entries: list[ModEntry] = self._natural
+        # Mod names as of the last load from disk. save() needs it to tell a
+        # user removal (was in baseline, now gone → drop) from an entry an
+        # install worker added after we loaded (in neither → keep).
+        self._baseline_names: set[str] = {
+            e.name for e in self._natural if not e.is_separator}
         # Active column sort ("name"/"category"/…/"priority") + direction.
         self._sort_key: str | None = None
         self._sort_ascending: bool = True
@@ -188,6 +193,8 @@ class ModListModel(QAbstractTableModel):
         self._natural = self._with_boundaries(entries)
         self._entries = self._derive_display()
         self._sep_hl_cache.clear()
+        self._baseline_names = {
+            e.name for e in entries if not e.is_separator}
         self.endResetModel()
 
     # ---- column sorting -----------------------------------------------------
@@ -929,14 +936,28 @@ class ModListModel(QAbstractTableModel):
         # Every structural edit (drag, remove, add-separator, set_priority…)
         # funnels through here — row→block mapping may have changed.
         self._sep_hl_cache.clear()
-        from Utils.modlist import write_modlist
+        from Utils.modlist import read_modlist, write_modlist, modlist_lock
         from Utils.perftrace import span
         # ALWAYS write the natural order — the display list may be a sorted /
         # inverted permutation (and contains the divider in reverse mode).
         body = [e for e in self._natural if e.name not in _PINNED_NAMES]
         try:
-            with span("modlist.write_modlist"):
-                write_modlist(self.modlist_path, body)
+            # This model can be a stale snapshot — a background install writes
+            # its new entry before our _reload_modlist lands — so writing body
+            # verbatim would erase it. Take prepend_mod's lock and keep any
+            # on-disk mod we've never seen; entries known at load but gone from
+            # body were removed by the user and stay removed.
+            with span("modlist.write_modlist"), modlist_lock(self.modlist_path):
+                body_names = {e.name for e in body}
+                known = body_names | self._baseline_names
+                external = [e for e in read_modlist(self.modlist_path)
+                            if not e.is_separator and e.name not in known]
+                if external:
+                    print(f"[gui_qt] modlist save: preserving "
+                          f"{len(external)} externally added entr(y/ies): "
+                          f"{', '.join(e.name for e in external[:5])}",
+                          flush=True)
+                write_modlist(self.modlist_path, external + body)
         except Exception as exc:
             print(f"[gui_qt] modlist save failed: {exc}", flush=True)
             self.save_failed.emit(f"Modlist save failed: {exc}")

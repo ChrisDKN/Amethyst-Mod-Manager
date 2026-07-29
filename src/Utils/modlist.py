@@ -15,6 +15,7 @@ Separators do not count toward priority numbering.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,6 +23,27 @@ from Utils.app_log import app_log
 from Utils.atomic_write import write_atomic_text
 
 _SEPARATOR_SUFFIX = "_separator"
+
+# Serializes read-modify-write cycles per modlist.txt: two overlapping
+# writers (install worker prepending, GUI thread saving a reorder) otherwise
+# read the same pre-edit snapshot and the second write discards the first's
+# change. In-process only — two app instances still race, as with modindex.bin.
+_modlist_locks: dict[str, threading.Lock] = {}
+_modlist_locks_guard = threading.Lock()
+
+
+def modlist_lock(modlist_path: Path) -> threading.Lock:
+    """The lock to hold around ANY read → modify → write of *modlist_path*."""
+    try:
+        key = str(Path(modlist_path).resolve())
+    except OSError:
+        key = str(modlist_path)
+    with _modlist_locks_guard:
+        lock = _modlist_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _modlist_locks[key] = lock
+        return lock
 
 
 @dataclass
@@ -136,17 +158,18 @@ def prepend_mod(modlist_path: Path, mod_name: str, enabled: bool = True,
     or updating a disabled mod does not silently re-enable it). ``enabled`` is
     only used for brand-new entries in that case.
     """
-    entries = read_modlist(modlist_path)
-    existing = next((e for e in entries if e.name == mod_name), None)
-    # Remove any existing entry with the same name
-    entries = [e for e in entries if e.name != mod_name]
-    if preserve_existing_state and existing is not None:
-        new_entry = ModEntry(name=mod_name, enabled=existing.enabled,
-                             locked=existing.locked)
-    else:
-        new_entry = ModEntry(name=mod_name, enabled=enabled, locked=False)
-    entries.insert(0, new_entry)
-    write_modlist(modlist_path, entries)
+    with modlist_lock(modlist_path):
+        entries = read_modlist(modlist_path)
+        existing = next((e for e in entries if e.name == mod_name), None)
+        # Remove any existing entry with the same name
+        entries = [e for e in entries if e.name != mod_name]
+        if preserve_existing_state and existing is not None:
+            new_entry = ModEntry(name=mod_name, enabled=existing.enabled,
+                                 locked=existing.locked)
+        else:
+            new_entry = ModEntry(name=mod_name, enabled=enabled, locked=False)
+        entries.insert(0, new_entry)
+        write_modlist(modlist_path, entries)
 
 
 def ensure_mod_preserving_position(
@@ -165,17 +188,18 @@ def ensure_mod_preserving_position(
     set to ``enabled``. If no entry exists, the mod is added at the top (highest
     priority), matching prepend_mod's behaviour for new mods.
     """
-    entries = read_modlist(modlist_path)
-    for e in entries:
-        if e.name == mod_name:
-            if not preserve_existing_state:
-                e.enabled = enabled
-            write_modlist(modlist_path, entries)
-            return
+    with modlist_lock(modlist_path):
+        entries = read_modlist(modlist_path)
+        for e in entries:
+            if e.name == mod_name:
+                if not preserve_existing_state:
+                    e.enabled = enabled
+                write_modlist(modlist_path, entries)
+                return
 
-    # If not already present, add as a new top-priority entry.
-    entries.insert(0, ModEntry(name=mod_name, enabled=enabled, locked=False))
-    write_modlist(modlist_path, entries)
+        # If not already present, add as a new top-priority entry.
+        entries.insert(0, ModEntry(name=mod_name, enabled=enabled, locked=False))
+        write_modlist(modlist_path, entries)
 
 
 def move_mods_to_anchor(
@@ -201,25 +225,26 @@ def move_mods_to_anchor(
     names = [n for n in mod_names if n]
     if not names or (anchor is None and not at_end):
         return False
-    entries = read_modlist(modlist_path)
-    moving = set(names)
-    block = [e for e in entries if e.name in moving]
-    if not block:
-        return False
-    # Keep the caller's order for the block where possible (install order).
-    order = {n: i for i, n in enumerate(names)}
-    block.sort(key=lambda e: order.get(e.name, len(order)))
-    rest = [e for e in entries if e.name not in moving]
-    if at_end:
-        idx = len(rest)
-    else:
-        idx = next((i for i, e in enumerate(rest) if e.name == anchor), None)
-        if idx is None:
+    with modlist_lock(modlist_path):
+        entries = read_modlist(modlist_path)
+        moving = set(names)
+        block = [e for e in entries if e.name in moving]
+        if not block:
             return False
-        if after:
-            idx += 1
-    write_modlist(modlist_path, rest[:idx] + block + rest[idx:])
-    return True
+        # Keep the caller's order for the block where possible (install order).
+        order = {n: i for i, n in enumerate(names)}
+        block.sort(key=lambda e: order.get(e.name, len(order)))
+        rest = [e for e in entries if e.name not in moving]
+        if at_end:
+            idx = len(rest)
+        else:
+            idx = next((i for i, e in enumerate(rest) if e.name == anchor), None)
+            if idx is None:
+                return False
+            if after:
+                idx += 1
+        write_modlist(modlist_path, rest[:idx] + block + rest[idx:])
+        return True
 
 
 # Profile-root infrastructure folder names. If one of these turns up *inside*
@@ -300,54 +325,72 @@ def sync_modlist_with_mods_folder(modlist_path: Path, mods_dir: Path) -> None:
         and d.name.lower() not in _RESERVED_STAGING_NAMES
     }
 
-    # Parse existing modlist lines, dropping entries whose folder is gone.
-    existing_lines: list[str] = []
-    existing_names: set[str] = set()
-    dropped: list[str] = []
-    if modlist_path.exists():
-        for line in modlist_path.read_text(
-                encoding="utf-8", errors="surrogateescape").splitlines():
-            stripped = line.rstrip("\r\n")
-            if not stripped.strip():
-                continue
-            if stripped[0] in ("+", "-", "*"):
-                name = stripped[1:]
-                # Keep separators always; only keep mods that exist on disk.
-                if name.endswith("_separator") or name in on_disk:
-                    existing_lines.append(stripped)
-                    existing_names.add(name)
+    with modlist_lock(modlist_path):
+        # Parse existing modlist lines, dropping entries whose folder is gone.
+        existing_lines: list[str] = []
+        existing_names: set[str] = set()
+        dropped: list[str] = []
+        if modlist_path.exists():
+            for line in modlist_path.read_text(
+                    encoding="utf-8", errors="surrogateescape").splitlines():
+                stripped = line.rstrip("\r\n")
+                if not stripped.strip():
+                    continue
+                if stripped[0] in ("+", "-", "*"):
+                    name = stripped[1:]
+                    # Keep separators always; only keep mods that exist on disk.
+                    if name.endswith("_separator") or name in on_disk:
+                        existing_lines.append(stripped)
+                        existing_names.add(name)
+                    else:
+                        dropped.append(name)
                 else:
-                    dropped.append(name)
-            else:
-                existing_lines.append(stripped)
+                    existing_lines.append(stripped)
 
-    # Safety: dropping an entry also loses its enabled bit — unrecoverable. A
-    # few missing folders is a real manual delete; MOST of the modlist missing
-    # from mods_dir means mods_dir itself resolved to the wrong folder (e.g.
-    # the shared mods/ while a profile-specific-mods profile is active,
-    # because a background worker left game._active_profile_dir stale). Never
-    # rewrite the modlist from a view of the wrong staging folder.
-    existing_mod_count = len(dropped) + sum(
-        1 for l in existing_lines
-        if l[0] in ("+", "-", "*") and not l[1:].endswith("_separator"))
-    if len(dropped) >= 5 and len(dropped) * 2 >= existing_mod_count:
-        app_log(f"Modlist sync ABORTED: {len(dropped)} of {existing_mod_count} "
-                f"mod entr(y/ies) have no folder under '{mods_dir}' — staging "
-                f"path desync suspected; modlist.txt left untouched.")
-        return
+        # Safety: dropping an entry also loses its enabled bit — unrecoverable.
+        # A few missing folders is a real manual delete; MOST of the modlist
+        # missing from mods_dir means mods_dir itself resolved to the wrong
+        # folder (e.g. the shared mods/ while a profile-specific-mods profile
+        # is active, because a background worker left game._active_profile_dir
+        # stale). Never rewrite the modlist from a view of the wrong staging
+        # folder.
+        existing_mod_count = len(dropped) + sum(
+            1 for l in existing_lines
+            if l[0] in ("+", "-", "*") and not l[1:].endswith("_separator"))
+        if len(dropped) >= 5 and len(dropped) * 2 >= existing_mod_count:
+            app_log(f"Modlist sync ABORTED: {len(dropped)} of {existing_mod_count} "
+                    f"mod entr(y/ies) have no folder under '{mods_dir}' — staging "
+                    f"path desync suspected; modlist.txt left untouched.")
+            return
 
-    new_mods = sorted(on_disk - existing_names)
-    new_lines = [f"-{name}" for name in new_mods]
+        new_mods = sorted(on_disk - existing_names)
+        new_lines = [f"-{name}" for name in new_mods]
 
-    if new_mods or dropped:
-        _added_names = (f" +[{', '.join(new_mods[:5])}"
-                        + ("…]" if len(new_mods) > 5 else "]")) if new_mods else ""
-        _dropped_names = (f" -[{', '.join(dropped[:5])}"
-                          + ("…]" if len(dropped) > 5 else "]")) if dropped else ""
-        app_log(f"Modlist sync: +{len(new_mods)} added (disabled), "
-                f"-{len(dropped)} removed{_added_names}{_dropped_names}")
+        if new_mods or dropped:
+            _added_names = (f" +[{', '.join(new_mods[:5])}"
+                            + ("…]" if len(new_mods) > 5 else "]")) if new_mods else ""
+            _dropped_names = (f" -[{', '.join(dropped[:5])}"
+                              + ("…]" if len(dropped) > 5 else "]")) if dropped else ""
+            app_log(f"Modlist sync: +{len(new_mods)} added (disabled), "
+                    f"-{len(dropped)} removed{_added_names}{_dropped_names}")
 
-    all_lines = new_lines + existing_lines
-    write_atomic_text(modlist_path,
-                      "\n".join(all_lines) + ("\n" if all_lines else ""),
-                      errors="surrogateescape")
+        all_lines = new_lines + existing_lines
+        write_atomic_text(modlist_path,
+                          "\n".join(all_lines) + ("\n" if all_lines else ""),
+                          errors="surrogateescape")
+
+    # Sweep temp strays a crash mid-write left behind (temp names are unique
+    # per write, so nothing else reclaims them). Runs on Refresh/profile load,
+    # never on the hot save path. Age gate: a live in-flight temp is
+    # milliseconds old, and deleting one would fail that writer's rename.
+    try:
+        import time
+        cutoff = time.time() - 3600
+        for stray in modlist_path.parent.glob(modlist_path.name + ".tmp*"):
+            try:
+                if stray.stat().st_mtime < cutoff:
+                    stray.unlink()
+            except OSError:
+                pass
+    except OSError:
+        pass

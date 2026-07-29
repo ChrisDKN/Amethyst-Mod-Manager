@@ -2399,20 +2399,22 @@ def _append_reconcile_modlist(modlist_path, install_order, pre_existing, log):
     """Re-apply the collection's load order but only reposition mods newly
     installed by this run; every pre-existing mod keeps its position + state.
     Ported from CollectionsDialog._append_reconcile_modlist."""
-    try:
-        existing = read_modlist(modlist_path) if modlist_path.is_file() else []
-    except Exception:
-        existing = []
-    _ord = [(k, f) for k, f in install_order]
-    _new_names = {f for _, f in _ord if f.lower() not in pre_existing}
-    # Keep pre-existing entries where they are; drop the freshly-installed ones
-    # so we can reinsert them in collection order.
-    kept = [e for e in existing if e.name not in _new_names]
-    new_entries = [ModEntry(name=f, enabled=True, locked=False)
-                   for _, f in sorted(_ord, key=lambda x: x[0])
-                   if f in _new_names]
-    # Insert the new mods at the top (highest priority) preserving kept order.
-    write_modlist(modlist_path, new_entries + kept)
+    from Utils.modlist import modlist_lock
+    with modlist_lock(modlist_path):
+        try:
+            existing = read_modlist(modlist_path) if modlist_path.is_file() else []
+        except Exception:
+            existing = []
+        _ord = [(k, f) for k, f in install_order]
+        _new_names = {f for _, f in _ord if f.lower() not in pre_existing}
+        # Keep pre-existing entries where they are; drop the freshly-installed
+        # ones so we can reinsert them in collection order.
+        kept = [e for e in existing if e.name not in _new_names]
+        new_entries = [ModEntry(name=f, enabled=True, locked=False)
+                       for _, f in sorted(_ord, key=lambda x: x[0])
+                       if f in _new_names]
+        # Insert the new mods at the top (highest priority) preserving kept order.
+        write_modlist(modlist_path, new_entries + kept)
     log(f"Collection append: placed {len(new_entries)} new mod(s), "
         f"preserved {len(kept)} existing entrie(s)")
 
