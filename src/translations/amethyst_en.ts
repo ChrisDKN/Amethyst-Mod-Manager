@@ -5462,10 +5462,6 @@ Run Quick Update on all of them now?</translation>
         <translation>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</translation>
     </message>
     <message>
-        <source>Play failed — see log.</source>
-        <translation>Play failed — see log.</translation>
-    </message>
-    <message>
         <source>Executable not found: {0}</source>
         <translation>Executable not found: {0}</translation>
     </message>
@@ -5680,6 +5676,34 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Installed {0}</source>
         <translation>Installed {0}</translation>
+    </message>
+    <message>
+        <source>the game</source>
+        <translation>the game</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</translation>
+    </message>
+    <message>
+        <source>Details: {0}</source>
+        <translation>Details: {0}</translation>
+    </message>
+    <message>
+        <source>The game did not launch</source>
+        <translation>The game did not launch</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — deploy again when it finishes.</source>
+        <translation>A mod install is in progress — deploy again when it finishes.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — try again when it finishes.</source>
+        <translation>A mod install is in progress — try again when it finishes.</translation>
     </message>
     <message>
         <source>Restore queued — it will run after the current install finishes.</source>
@@ -9827,10 +9851,6 @@ Choose the install destination, then click Next.</translation>
         <translation>Installing SMAPI…</translation>
     </message>
     <message>
-        <source>Restoring the game to its vanilla state, then installing SMAPI…</source>
-        <translation>Restoring the game to its vanilla state, then installing SMAPI…</translation>
-    </message>
-    <message>
         <source>Unpacking and installing SMAPI…</source>
         <translation>Unpacking and installing SMAPI…</translation>
     </message>
@@ -11676,8 +11696,20 @@ Press Refresh to try again.</source>
 Press Refresh to try again.</translation>
     </message>
     <message>
+        <source>No change yet — GitHub caches wiki pages for up to 5 minutes.</source>
+        <translation>No change yet — GitHub caches wiki pages for up to 5 minutes.</translation>
+    </message>
+    <message>
+        <source>Updated.</source>
+        <translation>Updated.</translation>
+    </message>
+    <message>
         <source>Loading…</source>
         <translation>Loading…</translation>
+    </message>
+    <message>
+        <source>Refreshing…</source>
+        <translation>Refreshing…</translation>
     </message>
 </context>
 <context>

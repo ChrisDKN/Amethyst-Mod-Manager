@@ -7397,6 +7397,19 @@ class MainWindow(QMainWindow):
             if b is not None:
                 b.setEnabled(enabled)
 
+    @property
+    def _col_install_running(self) -> bool:
+        return getattr(self, "_col_install_flag", False)
+
+    @_col_install_running.setter
+    def _col_install_running(self, value):
+        self._col_install_flag = bool(value)
+        if value:
+            self._set_deploy_buttons_enabled(False)
+        elif not (getattr(self, "_deploy_running", False)
+                  or getattr(self, "_install_running", False)):
+            self._set_deploy_buttons_enabled(True)
+
     def _prompt_mewgenics_deploy(self, game):
         """Ask whether to generate a Steam launch command or repack the gpak,
         then act on the choice (Tk parity: gui/mewgenics_dialogs.py)."""
@@ -7431,6 +7444,12 @@ class MainWindow(QMainWindow):
         if self._deploy_running:
             self._deploy_rerun_pending = True
             self._auto_deploy_in_progress = False
+            return
+        if getattr(self, "_install_running", False) or self._col_install_running:
+            self._auto_deploy_in_progress = False
+            if not silent:
+                self._notify(self.tr("A mod install is in progress — deploy "
+                                     "again when it finishes."), "warning")
             return
         # A detached-wizard staging job mutates the shared game (staging root +
         # active profile) — a deploy started now could resolve the wrong profile
@@ -7599,6 +7618,10 @@ class MainWindow(QMainWindow):
         if self._deploy_running:
             self._notify(self.tr("A deploy is in progress — try again shortly."), "warning")
             return
+        if getattr(self, "_install_running", False) or self._col_install_running:
+            self._notify(self.tr("A mod install is in progress — try again "
+                                 "when it finishes."), "warning")
+            return
         # Defer behind a detached-wizard staging job (shared game mutation) — it
         # re-runs once the staged queue drains (_on_wizard_finish_done). Coalesce
         # duplicate restore requests.
@@ -7697,7 +7720,9 @@ class MainWindow(QMainWindow):
     def _on_op_done(self, kind: str, success: bool, warnings):
         self._deploy_running = False
         self._op_silent = False
-        self._set_deploy_buttons_enabled(True)
+        if not (getattr(self, "_install_running", False)
+                or self._col_install_running):
+            self._set_deploy_buttons_enabled(True)
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         # Any deploy (manual OR auto) is followed by a modlist reload → conflict
@@ -8364,9 +8389,11 @@ class MainWindow(QMainWindow):
         """Start a deploy for a wizard step through the normal deploy path
         (mutex/coalesce + progress popup). *on_done(ok)* fires on the UI
         thread after the final deploy completes. Returns False when a deploy
-        can't be started (unconfigured game)."""
+        can't be started (unconfigured game or an install in progress)."""
         game = self._gs.game
         if game is None or not game.is_configured() or not hasattr(game, "deploy"):
+            return False
+        if getattr(self, "_install_running", False) or self._col_install_running:
             return False
         self._deploy_done_hooks.append(on_done)
         self._on_deploy()
@@ -8377,11 +8404,15 @@ class MainWindow(QMainWindow):
         restore path (progress popup + last-deployed-profile handling).
         *on_done(ok)* fires on the UI thread after the restore completes.
         Returns False when a restore can't be started (unconfigured game or
-        a deploy/restore already running)."""
+        a deploy/restore/install already running)."""
         game = self._gs.game
         if game is None or not game.is_configured() or not hasattr(game, "restore"):
             return False
         if self._deploy_running:
+            return False
+        # Same lingering-hook hazard as _wizard_run_deploy: _on_restore
+        # refuses while an install owns the shared game.
+        if getattr(self, "_install_running", False) or self._col_install_running:
             return False
         self._restore_done_hooks.append(on_done)
         self._on_restore()
@@ -8485,6 +8516,9 @@ class MainWindow(QMainWindow):
         self._op_title = "Installing"
         if hasattr(self, "_install_btn"):
             self._install_btn.setEnabled(False)
+        # Deploy/Restore/Play mutate the same shared game object the install
+        # worker is using — lock them until _on_install_done re-enables.
+        self._set_deploy_buttons_enabled(False)
         self._ensure_feedback()
         # Process archives ONE AT A TIME so a FOMOD can pause for the wizard.
         self._install_queue = list(paths)
@@ -9445,6 +9479,8 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, self._run_staged_finish)
         if hasattr(self, "_install_btn"):
             self._install_btn.setEnabled(True)
+        if not (self._deploy_running or self._col_install_running):
+            self._set_deploy_buttons_enabled(True)
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         # Drag-install from the Downloads tab: move the freshly installed mods
@@ -12497,6 +12533,7 @@ class MainWindow(QMainWindow):
                     # and races the install worker's path resolution. The
                     # install's own _on_install_done reload re-triggers this.
                     and not getattr(self, "_install_running", False)
+                    and not self._col_install_running
                     # Same hazard for a detached-wizard staging job in flight —
                     # _on_wizard_finish_done's reload re-triggers this.
                     and not getattr(self, "_staged_finish_running", False)
