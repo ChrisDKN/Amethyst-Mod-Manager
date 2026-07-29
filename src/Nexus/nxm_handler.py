@@ -306,7 +306,10 @@ class NxmHandler:
     with the running AmethystModManager executable, then registers it
     with ``xdg-mime``.
     """
-
+    
+    DE_MIMEAPPS_ALLOWED = [
+        "kde", "gnome"
+    ]
     @staticmethod
     def _desktop_path() -> Path:
         # Inside a Flatpak XDG_DATA_HOME is redirected to ~/.var/app/<id>/data,
@@ -434,7 +437,7 @@ class NxmHandler:
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
         for de_name in desktop.split(":"):
             de_name = de_name.strip().lower()
-            if de_name:
+            if de_name and de_name in NxmHandler.DE_MIMEAPPS_ALLOWED:
                 paths.append(cfg_base / f"{de_name}-mimeapps.list")
 
         paths.append(Path.home() / ".local" / "share" / "applications" / "mimeapps.list")
