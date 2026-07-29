@@ -6,7 +6,7 @@
   "mod_data_path": "",
   "steam_id": "2680010",
   "nexus_game_domain": "thefirstberserkerkhazan",
-  "image_url": "",
+  "image_url": "https://cdn2.steamgriddb.com/icon_thumb/84bac0d19371a626d1ec02e402b1496c.png",
   "mod_folder_strip_prefixes": [
     "BBQ",
     "Content",
@@ -48,12 +48,13 @@
     {
       "dest": "BBQ/Binaries/Win64",
       "folders": [
-        "Mods"
+        "Mods",
+        "ue4ss_signatures"
       ],
       "flatten": true
     },
     {
-      "dest": "BBQ/Content/Movies/Video/Title",
+      "dest": "BBQ/Content/Movies/Video",
       "folders": [
         "Title"
       ],
@@ -97,5 +98,7 @@
   "custom_frameworks": {
     "UE4SS": "BBQ/Binaries/Win64/dwmapi.dll",
     "Khazan Simple Loader": "BBQ/Binaries/Win64/dinput8.dll"
-  }
+  },
+  "version": 1,
+  "editable": false
 }
