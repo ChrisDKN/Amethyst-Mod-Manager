@@ -1421,6 +1421,10 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
         <translation>Swap launcher met script extender op implementatie</translation>
     </message>
     <message>
+        <source>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</source>
+        <translation>De 4GB patch automatisch toepassen (demp patches de exe, herstel keert terug)</translation>
+    </message>
+    <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>Automatisch inzetten (automatisch inschakelen bij inschakelen/deactiveren/herschikken)</translation>
     </message>
@@ -2142,10 +2146,6 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
         <translation>Code exporteren..</translation>
     </message>
     <message>
-        <source>Load Preset  (optional)</source>
-        <translation>Voorinstelling laden (facultatief)</translation>
-    </message>
-    <message>
         <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
         <translation>Prepopuleer de velden hieronder van een bestaand aangepast spel als een startsjabloon. Je moet nog steeds om het nieuwe spel zijn eigen unieke naam te geven.</translation>
     </message>
@@ -2186,20 +2186,12 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
         <translation>De locatie van het .exe-bestand in de hoofdmap van het spel. Bijvoorbeeld bin/bg3.exe voor BG3 of SkyrimSELauncher.exe voor Skyrim SE</translation>
     </message>
     <message>
-        <source>e.g. MyGame.exe</source>
-        <translation>bijv. MyGame.exe</translation>
-    </message>
-    <message>
         <source>Deploy Method</source>
         <translation>Implementatiemethode</translation>
     </message>
     <message>
         <source>Mod Sub-folder</source>
         <translation>Submap ‘Mod’</translation>
-    </message>
-    <message>
-        <source>Steam App ID  (optional)</source>
-        <translation>Steam-app-ID  (optioneel)</translation>
     </message>
     <message>
         <source>Used to auto-detect the Proton prefix. Leave empty if not on Steam.</source>
@@ -2210,20 +2202,12 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
         <translation>bijv. 377160</translation>
     </message>
     <message>
-        <source>Nexus Mods Domain  (optional)</source>
-        <translation>Nexus Mods-domein  (optioneel)</translation>
-    </message>
-    <message>
         <source>The game's slug on nexusmods.com. e.g. 'skyrimspecialedition'.</source>
         <translation>De naam van de mod op nexusmods.com. Bijvoorbeeld 'skyrimspecialedition'.</translation>
     </message>
     <message>
         <source>e.g. myfavouritegame</source>
         <translation>bijv. mijnfavorietespel</translation>
-    </message>
-    <message>
-        <source>Banner Image URL  (optional)</source>
-        <translation>URL van de bannerafbeelding  (optioneel)</translation>
     </message>
     <message>
         <source>A direct URL to a PNG/JPG image shown in the game picker card. The image is downloaded once and cached locally.</source>
@@ -2234,16 +2218,8 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
         <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
-        <source>Advanced Options  (optional)</source>
-        <translation>Geavanceerde opties  (optioneel)</translation>
-    </message>
-    <message>
         <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
         <translation>Wordt gebruikt om de mappenstructuur van een geïnstalleerde mod aan te passen aan de vereisten van de manager.</translation>
-    </message>
-    <message>
-        <source>Enable</source>
-        <translation>Inschakelen</translation>
     </message>
     <message>
         <source>Filemap Casing</source>
@@ -2318,10 +2294,6 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
         <translation>Annuleren</translation>
     </message>
     <message>
-        <source>Game Sub-folder  (optional)</source>
-        <translation>Submap ‘Game’  (optioneel)</translation>
-    </message>
-    <message>
         <source>Location of the folder from root where deployed mods are sent to. e.g. Phoenix for Hogwarts Legacy.</source>
         <translation>Locatie van de map vanaf de hoofdmap waar geïmplementeerde mods naartoe worden gestuurd. Bijvoorbeeld Phoenix voor Hogwarts Legacy.</translation>
     </message>
@@ -2332,6 +2304,58 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
     <message>
         <source>Path relative to the game root where mod files are installed. e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. Leave empty to target the game root directly.</source>
         <translation>Pad ten opzichte van de hoofdmap van het spel waar de mod-bestanden zijn geïnstalleerd. Bijvoorbeeld 'Data' voor Bethesda-spellen, 'BepInEx/plugins' voor BepInEx. Laat dit veld leeg om rechtstreeks naar de hoofdmap van het spel te verwijzen.</translation>
+    </message>
+    <message>
+        <source>Load Preset</source>
+        <translation>Voorinstelling laden</translation>
+    </message>
+    <message>
+        <source>Preset</source>
+        <translation>Voorinstelling</translation>
+    </message>
+    <message>
+        <source>Share code</source>
+        <translation>Deelcode</translation>
+    </message>
+    <message>
+        <source>Basics</source>
+        <translation>Basis</translation>
+    </message>
+    <message>
+        <source>e.g. MyGame.exe or Bin/x64/MyGame.exe</source>
+        <translation>bv. MyGame.exe of Bin/x64/MyGame.exe</translation>
+    </message>
+    <message>
+        <source>Deployment</source>
+        <translation>Inzet</translation>
+    </message>
+    <message>
+        <source>Store &amp; Artwork</source>
+        <translation>&amp; Kunstwerk opslaan</translation>
+    </message>
+    <message>
+        <source>Steam App ID</source>
+        <translation>Steam-app-ID</translation>
+    </message>
+    <message>
+        <source>Nexus Mods Domain</source>
+        <translation>Nexus Mods Domein</translation>
+    </message>
+    <message>
+        <source>Banner Image URL</source>
+        <translation>AfbeeldingsURL verbannen</translation>
+    </message>
+    <message>
+        <source>Mod Install Tuning</source>
+        <translation>Mod Tuning installeren</translation>
+    </message>
+    <message>
+        <source>Conflicts &amp; Advanced Behaviour</source>
+        <translation>Conflicten &amp; gevorderd gedrag</translation>
+    </message>
+    <message>
+        <source>Game Sub-folder</source>
+        <translation>Spel submap</translation>
     </message>
     <message>
         <source>e.g. Data   (leave empty for game root)</source>
@@ -2588,6 +2612,13 @@ Als het voltooid is, schakelt de app over naar het nieuwe profiel en drukt u op 
     <message>
         <source>Size</source>
         <translation>Afmetingen</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadsView</name>
+    <message>
+        <source>{0} archives</source>
+        <translation>{0} archieven</translation>
     </message>
 </context>
 <context>
@@ -3312,6 +3343,18 @@ Proton-voorvoegsel: klik eens op 'Installeer Java in prefix' en dan draait het a
         <translation>Gebruik een specifieke Proton versie met een geïsoleerd voorvoegsel naast de exe, in plaats van de spelvoorvoegsel. Handig voor tools die niet werken met de game's Proton versie. Voor Bethesda spellen worden het spelpad (registry), plugins.txt en My Games INI's automatisch ingesteld in het voorvoegsel bij de lancering.</translation>
     </message>
     <message>
+        <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
+        <translation>Script extenders draaien altijd in de game's eigen prefix met de game's Proton versie: ze starten het spel zelf, die de game's Steam-app ID en zijn INI's, slaat en mod DLL's nodig heeft. Wijzig de Proton versie van het spel in de spelinstellingen.</translation>
+    </message>
+    <message>
+        <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
+        <translation>Voer deze exe met blote Wine uit tegen hetzelfde voorvoegsel in plaats van een Proton sessie, dus Steam Input houdt de desktop controls (trackpad / on-screen keyboard). Het voorvoegsel wordt nog steeds gemaakt en bijgewerkt via Proton. Env vars in Startopties zijn nog steeds van toepassing; wrappers en %command% worden in deze modus overgeslagen.</translation>
+    </message>
+    <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>Lanceren met gewone wijn (wijnricks-stijl)</translation>
+    </message>
+    <message>
         <source>Run EXE in prefix…</source>
         <translation>EXE uitvoeren in voorvoegsel..</translation>
     </message>
@@ -3857,14 +3900,24 @@ and loads NVSE automatically at startup.
 Under Proton this mostly silences in-game warnings from mods
 that check for the patch, but it is safe and recommended.
 
+While "Apply the 4GB patch automatically" is enabled in
+Configure Game (the default), deploy applies the patch and
+restore reverts it — disable that option to manage the patch
+manually here.
+
 The original exe is kept as {0}.</source>
-        <translation>Brengt een patch aan op FalloutNV.exe, zodat het spel 4 GB geheugen kan gebruiken
+        <translation>Patches FalloutNV.exe zodat het spel 4 GB geheugen kan gebruiken
 en laadt NVSE automatisch bij het opstarten.
 
-Onder Proton worden hierdoor de waarschuwingen in het spel van mods die controleren of de patch aanwezig is, grotendeels onderdrukt,
-maar het is veilig en wordt aanbevolen.
+Onder Proton stilt dit meestal in-game waarschuwingen van mods
+die controle op de pleister, maar het is veilig en aanbevolen.
 
-Het originele exe-bestand blijft bewaard als {0}.</translation>
+Terwijl "De 4GB patch automatisch toepassen" is ingeschakeld in
+Spel configureren (de standaard), toepassing past de patch en
+herstellen keert het terug en schakel die optie uit om de patch te beheren
+Hier handmatig.
+
+De originele exe wordt bewaard als {0}.</translation>
     </message>
     <message>
         <source>Restore Backup</source>
@@ -4635,14 +4688,6 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>Archieven verwijderen</translation>
     </message>
     <message>
-        <source>Permanently delete {0} archive(s) from disk?
-
-</source>
-        <translation>{0}-archief(s) permanent van schijf verwijderen?
-
-?</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>Verwijderen</translation>
     </message>
@@ -4947,6 +4992,14 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Plugins vernieuwen</translation>
     </message>
     <message>
+        <source>↻ Refresh</source>
+        <translation>Verversen</translation>
+    </message>
+    <message>
+        <source>Permanently delete {0} archive(s) from disk?</source>
+        <translation>{0}-archief(s) permanent van schijf verwijderen?</translation>
+    </message>
+    <message>
         <source>Force update handler</source>
         <translation>Updateafhandeling forceren</translation>
     </message>
@@ -5143,6 +5196,18 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Korte update</translation>
     </message>
     <message>
+        <source>Updates available</source>
+        <translation>Beschikbare updates</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) have an update available.
+
+Run Quick Update on all of them now?</source>
+        <translation>{0} mod(s) hebben een update beschikbaar.
+
+Snelle update uitvoeren op alle van hen nu?</translation>
+    </message>
+    <message>
         <source>Quick Update: updated {0} mod(s)</source>
         <translation>Korte update: de mod(s) voor {0} zijn bijgewerkt</translation>
     </message>
@@ -5217,6 +5282,18 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>No mods were updated (already in that state or no Nexus id).</source>
         <translation>Er zijn geen mods bijgewerkt (ze waren al in die staat of hadden geen Nexus-ID).</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s)…</source>
+        <translation>{0} mod(s) volgen..</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s).</source>
+        <translation>{0} mod(s) volgen.</translation>
+    </message>
+    <message>
+        <source>No mods were tracked (no Nexus id).</source>
+        <translation>Er werden geen mods gevolgd (geen Nexus id).</translation>
     </message>
     <message>
         <source>Could not resolve target profile: {0}</source>
@@ -5389,10 +5466,6 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
         <translation>Controleer de uitvoerbare bestanden om toe te voegen aan het menu Uitvoeren. Deze worden uitgevoerd vanaf hun locatie in de game map met inbegrip van bestanden die daar door mods.</translation>
-    </message>
-    <message>
-        <source>Play failed — see log.</source>
-        <translation>Afspelen is mislukt, zie log.</translation>
     </message>
     <message>
         <source>Executable not found: {0}</source>
@@ -5611,8 +5684,60 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>{0} geïnstalleerd</translation>
     </message>
     <message>
+        <source>the game</source>
+        <translation>het spel</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
+        <translation>Amethist kon {0} niet starten.
+
+Druk op Deploy om uw mods toe te passen, dan start het spel van Steam, Heroic of Lutris in plaats daarvan . . de geïmplementeerde mods blijven actief hoe het spel wordt gestart.</translation>
+    </message>
+    <message>
+        <source>Details: {0}</source>
+        <translation>Details: {0}</translation>
+    </message>
+    <message>
+        <source>The game did not launch</source>
+        <translation>Het spel is niet gestart</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — deploy again when it finishes.</source>
+        <translation>Een mod install is in uitvoering en zet opnieuw in wanneer het klaar is.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — try again when it finishes.</source>
+        <translation>Een mod installatie is aan de gang Probeer het opnieuw als het klaar is.</translation>
+    </message>
+    <message>
         <source>Restore queued — it will run after the current install finishes.</source>
         <translation>Terugzetten in de wachtrij wordt uitgevoerd nadat de huidige installatie is voltooid.</translation>
+    </message>
+    <message>
+        <source>Windows filesystem detected</source>
+        <translation>Windows-bestandssysteem gedetecteerd</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>Deze mappen staan op een Windows-bestandssysteem:
+
+{0}
+
+NTFS en exFAT drives hebben zwakke schrijfgaranties op Linux: een onreine unmount, stroomuitval, of een dual-boot Windows met Fast Startup ingeschakeld kan stilletjes bestanden afkappen naar 0 KB 
+
+Een Linux bestandssysteem (ext4/btrfs) wordt aanbevolen voor zowel het spel als de mod staging map.
+
+Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de schijven veranderen.</translation>
     </message>
     <message>
         <source>Installed {0} mods</source>
@@ -5781,6 +5906,18 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
         <translation>{0} plug-ins ({1} ESL, {2} niet-ESL)</translation>
+    </message>
+    <message>
+        <source>Removed {0} stale plugin(s)</source>
+        <translation>Verwijderde {0}-plate plugin(s)</translation>
+    </message>
+    <message>
+        <source>Remove stale plugins</source>
+        <translation>File-plugins verwijderen</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>{0} plugins in dit profiel hebben geen bestand in zijn mods, overschrijven, of game map  Haal ze uit de ladingsorder? Mod-bestanden worden niet aangeraakt.</translation>
     </message>
     <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
@@ -5971,6 +6108,10 @@ Toch inzetten?</translation>
         <translation>Downloads</translation>
     </message>
     <message>
+        <source>Overrides</source>
+        <translation>Overschrijft</translation>
+    </message>
+    <message>
         <source>Log</source>
         <translation>Logboek</translation>
     </message>
@@ -5993,6 +6134,10 @@ Toch inzetten?</translation>
     <message>
         <source>Open Log Folder</source>
         <translation>Map met logbestanden openen</translation>
+    </message>
+    <message>
+        <source>Wiki</source>
+        <translation>Wiki</translation>
     </message>
     <message>
         <source>Changelog</source>
@@ -6362,6 +6507,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
         <translation>Ga naar de scheidingsteken ({0})</translation>
     </message>
     <message>
+        <source>Nexus Actions</source>
+        <translation>Nexus-acties</translation>
+    </message>
+    <message>
         <source>New name:</source>
         <translation>Nieuwe naam:</translation>
     </message>
@@ -6462,6 +6611,14 @@ Hoe wil je omgaan met de bestaande mod?</translation>
         <translation>Alfabetisch sorteren ({0})</translation>
     </message>
     <message>
+        <source>Track Mod</source>
+        <translation>Nummermodus</translation>
+    </message>
+    <message>
+        <source>Track Mod ({0})</source>
+        <translation>Nummermod ({0})</translation>
+    </message>
+    <message>
         <source>Unlock Separator</source>
         <translation>Scheidingsteken ontgrendelen</translation>
     </message>
@@ -6516,8 +6673,8 @@ Hoe wil je omgaan met de bestaande mod?</translation>
 <context>
     <name>ModListView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>Kolommen weergeven / verbergen</translation>
+        <source>Show / Hide columns</source>
+        <translation>Tonen / Kolommen verbergen</translation>
     </message>
     <message>
         <source>Enabled</source>
@@ -6534,6 +6691,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
         <source>More status filters</source>
         <translation>Meer statusfilters</translation>
+    </message>
+    <message>
+        <source>Lock Separator - Mods in this separator are attached to it</source>
+        <translation>Scheidingsteken vergrendelen - Mods in dit scheidingsteken zijn eraan bevestigd</translation>
     </message>
 </context>
 <context>
@@ -6724,6 +6885,10 @@ Klik op Gereed om te sluiten.</translation>
     <message>
         <source>Archive conflict - Partial</source>
         <translation>Archiefconflict - gedeeltelijk</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Full</source>
+        <translation>Archiefconflict - volledig</translation>
     </message>
 </context>
 <context>
@@ -6996,6 +7161,10 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
         <translation>Hoofd</translation>
     </message>
     <message>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
         <source>Optional</source>
         <translation>Optioneel</translation>
     </message>
@@ -7006,6 +7175,10 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
     <message>
         <source>Main files</source>
         <translation>Voornaamste bestanden</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>Bestanden bijwerken</translation>
     </message>
     <message>
         <source>Optional files</source>
@@ -7230,6 +7403,25 @@ Elke game krijgt een eigen submap.</translation>
     <message>
         <source>Skip</source>
         <translation>Overslaan</translation>
+    </message>
+</context>
+<context>
+    <name>OverridesView</name>
+    <message>
+        <source>Override paks</source>
+        <translation>Paks overschrijven</translation>
+    </message>
+    <message>
+        <source>No override paks in the enabled mods.
+
+Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</source>
+        <translation>Geen override paks in de actieve mods.
+
+Override paks (geen meta.lsx, of alleen het overschrijven van de eigen modules van het spel) implementeren naar de game Mods map, maar zijn geen onderdeel van de load order.</translation>
+    </message>
+    <message>
+        <source>Override paks - {0} deployed to the game's Mods folder, not in the load order</source>
+        <translation>Override paks - {0} ingezet in de map Mods van het spel, niet in de laadvolgorde</translation>
     </message>
 </context>
 <context>
@@ -7899,8 +8091,8 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
 <context>
     <name>PluginView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>Kolommen weergeven / verbergen</translation>
+        <source>Show / Hide columns</source>
+        <translation>Tonen / Kolommen verbergen</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -8049,10 +8241,10 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     <message>
         <source>No Proton versions were found.
 
-Install a Proton version in Steam, then reopen this wizard.</source>
-        <translation>Er zijn geen Proton-versies gevonden.
+Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
+        <translation>Er werden geen Proton versies gevonden.
 
-Installeer een Proton-versie in Steam en open deze wizard vervolgens opnieuw.</translation>
+Installeer een Proton versie in Steam (of met Heroic's Wine Manager), dan heropenen deze wizard.</translation>
     </message>
     <message>
         <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
@@ -8079,8 +8271,24 @@ Installeer een Proton-versie in Steam en open deze wizard vervolgens opnieuw.</t
         <translation>Wordt uitgevoerd binnen het eigen prefix van de game. Er wordt geen nieuw prefix aangemaakt en de Proton-versie volgt de Steam-instelling van de game.</translation>
     </message>
     <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>Lanceren met gewone wijn (wijnricks-stijl)</translation>
+    </message>
+    <message>
+        <source>Use Winetricks style launch</source>
+        <translation>Starten met Winetricks-stijl gebruiken</translation>
+    </message>
+    <message>
         <source>Delete Prefix</source>
         <translation>Voorvoegsel verwijderen</translation>
+    </message>
+    <message>
+        <source>Launch Arguments (optional)</source>
+        <translation>Argumenten starten (facultatief)</translation>
+    </message>
+    <message>
+        <source>Extra command-line arguments appended when the tool launches. Saved next to the exe and reapplied on every run.</source>
+        <translation>Extra commandoregel argumenten toegevoegd bij het opstarten van het gereedschap. Opgeslagen naast de exe en opnieuw toegepast op elke run.</translation>
     </message>
     <message>
         <source>Environment Variables (optional)</source>
@@ -9144,10 +9352,6 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Maak de hele interface groter of kleiner. De wijzigingen worden pas van kracht na een herstart.</translation>
     </message>
     <message>
-        <source>Downloads &amp; Collections</source>
-        <translation>Downloads en verzamelingen</translation>
-    </message>
-    <message>
         <source>Clear archive after install</source>
         <translation>Archief na installatie wissen</translation>
     </message>
@@ -9286,6 +9490,18 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
     <message>
         <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
         <translation>Schakel deze Flatpak naar de Amethyst update op afstand zodat toekomstige updates automatisch via uw pakketbeheerder (GNOME Software / Discover) met kleinere downloads arriveren. Dit herinstalleert de app eenmaal van de remote en herstart het.</translation>
+    </message>
+    <message>
+        <source>Archives</source>
+        <translation>Archieven</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Extraction</source>
+        <translation>Extractie</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9602,6 +9818,22 @@ Uitvoer-mod:{2}
         <translation>Installeer SMAPI {0}</translation>
     </message>
     <message>
+        <source>Install destination</source>
+        <translation>Installatielocatie</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>Spelmap (eerste herstelt naar vanille)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Rootmap (staging)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>Als een beheerde mod (root-vlagged)</translation>
+    </message>
+    <message>
         <source>Step 1: Download SMAPI</source>
         <translation>Stap 1: SMAPI downloaden</translation>
     </message>
@@ -9610,10 +9842,44 @@ Uitvoer-mod:{2}
         <translation>Wordt gecontroleerd of er een nieuwere versie van SMAPI beschikbaar is…</translation>
     </message>
     <message>
-        <source>A terminal window will open to run the installer.
-Follow its prompts, then press a key to close it.</source>
-        <translation>Er wordt een terminalvenster geopend om het installatieprogramma uit te voeren.
-Volg de instructies en druk vervolgens op een toets om het venster te sluiten.</translation>
+        <source>SMAPI is installed automatically — no terminal window and no prompts to answer.</source>
+        <translation>SMAPI wordt automatisch geïnstalleerd, geen terminalvenster en geen aanwijzingen om te antwoorden.</translation>
+    </message>
+    <message>
+        <source>Downloaded SMAPI {0}: {1}
+Choose the install destination, then click Next.</source>
+        <translation>Gedownloade SMAPI {0}: {1}
+Kies de installatiebestemming en klik vervolgens op Volgende.</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Choose the install destination, then click Next.</source>
+        <translation>Geselecteerd: {0}
+Kies de installatiebestemming en klik vervolgens op Volgende.</translation>
+    </message>
+    <message>
+        <source>Installing SMAPI…</source>
+        <translation>SMAPI installeren..</translation>
+    </message>
+    <message>
+        <source>Unpacking and installing SMAPI…</source>
+        <translation>Uitpakken en installeren van SMAPI..</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>Zet je mods in om het te activeren.</translation>
+    </message>
+    <message>
+        <source>SMAPI installed successfully!
+{0} file(s) installed into the {1}.{2}
+
+Click Done to close.</source>
+        <translation>SMAPI met succes geïnstalleerd!
+{0} bestand(s) geïnstalleerd in de {1}.{2}
+
+Klik op Gereed om te sluiten.</translation>
     </message>
     <message>
         <source>Browse…</source>
@@ -9632,10 +9898,6 @@ Volg de instructies en druk vervolgens op een toets om het venster te sluiten.</
         <translation>SMAPI {0} wordt gedownload..</translation>
     </message>
     <message>
-        <source>Downloaded SMAPI {0}: {1}</source>
-        <translation>Gedownloade SMAPI {0}: {1}</translation>
-    </message>
-    <message>
         <source>Download failed: {0}
 
 Use Browse to select a manually downloaded archive.</source>
@@ -9648,38 +9910,12 @@ Gebruik Bladeren om een handmatig gedownload archief te selecteren.</translation
         <translation>Selecteer het SMAPI archief</translation>
     </message>
     <message>
-        <source>Selected: {0}</source>
-        <translation>Geselecteerd: {0}</translation>
-    </message>
-    <message>
         <source>Step 2: Install SMAPI</source>
         <translation>Stap 2: SMAPI installeren</translation>
     </message>
     <message>
         <source>Done</source>
         <translation>Klaar</translation>
-    </message>
-    <message>
-        <source>Extracting SMAPI archive…</source>
-        <translation>SMAPI-archief wordt uitgepakt…</translation>
-    </message>
-    <message>
-        <source>Launching the SMAPI installer in a terminal.
-
-Follow the on-screen prompts, then press a key to close the terminal and click Done here.</source>
-        <translation>Start de SMAPI installatie in een terminal.
-
-Volg de aanwijzingen op het scherm, druk vervolgens op een toets om de terminal te sluiten en klik hier op Klaar.</translation>
-    </message>
-    <message>
-        <source>SMAPI installer finished.
-
-If it completed successfully, SMAPI is now installed.
-Click Done to close.</source>
-        <translation>SMAPI installateur klaar.
-
-Als het succesvol is voltooid, is SMAPI nu geïnstalleerd.
-Klik op Gereed om te sluiten.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -9714,13 +9950,6 @@ Klik op Gereed om te sluiten.</translation>
     <message>
         <source>Add</source>
         <translation>Toevoegen</translation>
-    </message>
-</context>
-<context>
-    <name>StatsBar</name>
-    <message>
-        <source>{0}: {1}</source>
-        <translation>{0}: {1}</translation>
     </message>
 </context>
 <context>
@@ -11447,6 +11676,54 @@ Nieuwste versie:  {1}</translation>
     </message>
 </context>
 <context>
+    <name>WikiView</name>
+    <message>
+        <source>Refresh</source>
+        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <translation>Vernieuwen</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>Openen in browser</translation>
+    </message>
+    <message>
+        <source>Loading the wiki…</source>
+        <translation>Wiki laden..</translation>
+    </message>
+    <message>
+        <source>Could not reach the wiki.
+
+Check your connection and press Refresh — pages you have already opened stay readable offline.</source>
+        <translation>Kon de wiki niet bereiken.
+
+Controleer uw verbinding en druk op Refresh .</translation>
+    </message>
+    <message>
+        <source>Could not load “{0}”.
+
+Press Refresh to try again.</source>
+        <translation>Kon de {0} niet laden.
+
+Druk op Refresh om het opnieuw te proberen.</translation>
+    </message>
+    <message>
+        <source>No change yet — GitHub caches wiki pages for up to 5 minutes.</source>
+        <translation>Nog geen wijziging .</translation>
+    </message>
+    <message>
+        <source>Updated.</source>
+        <translation>Bijgewerkt.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Bezig met laden…</translation>
+    </message>
+    <message>
+        <source>Refreshing…</source>
+        <translation>Verversen..</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -11569,6 +11846,22 @@ Open deze tovenaar.</translation>
     <message>
         <source>Could not start deploy — see log.</source>
         <translation>De implementatie kon niet worden gestart — zie het logboek.</translation>
+    </message>
+    <message>
+        <source>Restore is unavailable here.</source>
+        <translation>Herstellen is hier niet beschikbaar.</translation>
+    </message>
+    <message>
+        <source>Restoring modlist…</source>
+        <translation>Modlist wordt hersteld..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see log.</source>
+        <translation>Herstel is mislukt — zie logboek.</translation>
+    </message>
+    <message>
+        <source>Could not start restore — see log.</source>
+        <translation>Kon niet starten met herstellen .</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -11799,8 +12092,58 @@ Start de wizard opnieuw en installeer eerst {1}.</translation>
         <translation>Stap 6: Voer het commando `{0}` uit</translation>
     </message>
     <message>
-        <source>Done</source>
-        <translation>Klaar</translation>
+        <source>Launch {0}</source>
+        <translation>{0} starten</translation>
+    </message>
+    <message>
+        <source>QAC All</source>
+        <translation>QAC Alle</translation>
+    </message>
+    <message>
+        <source>{0} is running — close it to continue.</source>
+        <translation>{0} draait .</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+When you close it, your changes are restored automatically.</source>
+        <translation>{0} draait.
+Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
+    </message>
+    <message>
+        <source>QAC All ({0})</source>
+        <translation>QAC All ({0})</translation>
+    </message>
+    <message>
+        <source>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</source>
+        <translation>Start {0} om plugins een voor een schoon te maken, of QAC All om alle {1} gemarkeerde plugin(s) automatisch schoon te maken.</translation>
+    </message>
+    <message>
+        <source>No plugins are flagged as dirty. Launch {0} to inspect or clean manually.</source>
+        <translation>Geen plugins zijn gemarkeerd als vuil. Start {0} om handmatig te inspecteren of schoon te maken.</translation>
+    </message>
+    <message>
+        <source>No plugins need cleaning.</source>
+        <translation>Geen plugins hoeven te worden schoongemaakt.</translation>
+    </message>
+    <message>
+        <source>Preparing to clean {0} plugin(s)…</source>
+        <translation>Voorbereiden om {0}-plugin(s) schoon te maken..</translation>
+    </message>
+    <message>
+        <source>Cleaning {0} of {1}: {2}…</source>
+        <translation>Reiniging {0} van {1}: {2}..</translation>
+    </message>
+    <message>
+        <source>QAC All finished — cleaned {0} plugin(s).</source>
+        <translation>QAC All finished .</translation>
+    </message>
+    <message>
+        <source>QAC All error: {0}</source>
+        <translation>QAC Alle fout: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is cleaning plugins — please wait.</source>
+        <translation>{0} is het schoonmaken van plugins .</translation>
     </message>
     <message>
         <source>Plugins needing cleaning ({0}):</source>
@@ -11829,12 +12172,6 @@ Start de wizard opnieuw en installeer eerst {1}.</translation>
     <message>
         <source>Launch error: {0}</source>
         <translation>Startfout: {0}</translation>
-    </message>
-    <message>
-        <source>{0} is running.
-Close it when you are done, then click Done.</source>
-        <translation>{0} is actief.
-Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -11887,6 +12224,29 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     <message>
         <source>Locked profiles can't be removed</source>
         <translation>Vergrendelde profielen kunnen niet worden verwijderd</translation>
+    </message>
+</context>
+<context>
+    <name>_OverridesModel</name>
+    <message>
+        <source>Pak</source>
+        <translation>Pak</translation>
+    </message>
+    <message>
+        <source>Mod</source>
+        <translation>Mod</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>No meta.lsx</source>
+        <translation>Geen meta.lsx</translation>
+    </message>
+    <message>
+        <source>Override only</source>
+        <translation>Alleen overschrijven</translation>
     </message>
 </context>
 <context>

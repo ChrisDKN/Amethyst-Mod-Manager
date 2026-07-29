@@ -1421,6 +1421,10 @@ MD5キャッシュは保持されます。アーカイブは必要に応じて�
         <translation>スワップランチャーとスクリプトエクステンダーをデプロイ</translation>
     </message>
     <message>
+        <source>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</source>
+        <translation>4GB パッチを自動的に適用して下さい(deploy はそれを逆転させます)</translation>
+    </message>
+    <message>
         <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
         <translation>自動デプロイ(有効/無効/予約時に自動デプロイ)</translation>
     </message>
@@ -2142,10 +2146,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>コードをエクスポート…</translation>
     </message>
     <message>
-        <source>Load Preset  (optional)</source>
-        <translation>負荷事前調整(任意)</translation>
-    </message>
-    <message>
         <source>Prepopulate the fields below from an existing custom game as a starting template. You still need to give the new game its own unique name.</source>
         <translation>既存のカスタムゲームから下のフィールドを先頭テンプレートとして表示します。 新しいゲームに独自の名前を付ける必要があります.</translation>
     </message>
@@ -2186,20 +2186,12 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>ゲームのルートフォルダにある.exeファイルの場所。例：BG3の場合はbin/bg3.exe、Skyrim SEの場合はSkyrimSELauncher.exe</translation>
     </message>
     <message>
-        <source>e.g. MyGame.exe</source>
-        <translation>例：MyGame.exe</translation>
-    </message>
-    <message>
         <source>Deploy Method</source>
         <translation>デプロイ方法</translation>
     </message>
     <message>
         <source>Mod Sub-folder</source>
         <translation>Mod サブフォルダ</translation>
-    </message>
-    <message>
-        <source>Steam App ID  (optional)</source>
-        <translation>SteamアプリID  （任意）</translation>
     </message>
     <message>
         <source>Used to auto-detect the Proton prefix. Leave empty if not on Steam.</source>
@@ -2210,20 +2202,12 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>例：377160</translation>
     </message>
     <message>
-        <source>Nexus Mods Domain  (optional)</source>
-        <translation>Nexus Mods ドメイン  （任意）</translation>
-    </message>
-    <message>
         <source>The game's slug on nexusmods.com. e.g. 'skyrimspecialedition'.</source>
         <translation>nexusmods.com におけるこのゲームのスラグ。例：「skyrimspecialedition」。</translation>
     </message>
     <message>
         <source>e.g. myfavouritegame</source>
         <translation>例：myfavouritegame</translation>
-    </message>
-    <message>
-        <source>Banner Image URL  (optional)</source>
-        <translation>バナー画像のURL  （任意）</translation>
     </message>
     <message>
         <source>A direct URL to a PNG/JPG image shown in the game picker card. The image is downloaded once and cached locally.</source>
@@ -2234,16 +2218,8 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>https://example.com/banner.jpg</translation>
     </message>
     <message>
-        <source>Advanced Options  (optional)</source>
-        <translation>詳細設定  （任意）</translation>
-    </message>
-    <message>
         <source>Used to change the folder structure of an installed mod to match what is required by the manager.</source>
         <translation>インストール済みのMODのフォルダ構造を、マネージャーが要求する形式に合わせて変更するために使用します。</translation>
-    </message>
-    <message>
-        <source>Enable</source>
-        <translation>有効にする</translation>
     </message>
     <message>
         <source>Filemap Casing</source>
@@ -2318,10 +2294,6 @@ When it completes, the app switches to the new profile — then come back here a
         <translation>キャンセル</translation>
     </message>
     <message>
-        <source>Game Sub-folder  (optional)</source>
-        <translation>ゲームのサブフォルダ  （任意）</translation>
-    </message>
-    <message>
         <source>Location of the folder from root where deployed mods are sent to. e.g. Phoenix for Hogwarts Legacy.</source>
         <translation>ルートディレクトリから、展開されたMODが保存されるフォルダの場所。例：『Hogwarts Legacy』の「Phoenix」。</translation>
     </message>
@@ -2332,6 +2304,58 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Path relative to the game root where mod files are installed. e.g. 'Data' for Bethesda games, 'BepInEx/plugins' for BepInEx. Leave empty to target the game root directly.</source>
         <translation>MODファイルがインストールされているゲームのルートディレクトリからの相対パス。例：Bethesdaのゲームの場合は「Data」、BepInExの場合は「BepInEx/plugins」。ゲームのルートディレクトリを直接指定する場合は、空欄のままにしてください。</translation>
+    </message>
+    <message>
+        <source>Load Preset</source>
+        <translation>ロードプリセット</translation>
+    </message>
+    <message>
+        <source>Preset</source>
+        <translation>プリセット</translation>
+    </message>
+    <message>
+        <source>Share code</source>
+        <translation>共有コード</translation>
+    </message>
+    <message>
+        <source>Basics</source>
+        <translation>基本情報</translation>
+    </message>
+    <message>
+        <source>e.g. MyGame.exe or Bin/x64/MyGame.exe</source>
+        <translation>例:MyGame.exe または Bin/x64/MyGame.exe</translation>
+    </message>
+    <message>
+        <source>Deployment</source>
+        <translation>導入事例</translation>
+    </message>
+    <message>
+        <source>Store &amp; Artwork</source>
+        <translation>店舗・アートワーク</translation>
+    </message>
+    <message>
+        <source>Steam App ID</source>
+        <translation>スチームアプリID</translation>
+    </message>
+    <message>
+        <source>Nexus Mods Domain</source>
+        <translation>Nexus Mods ドメイン</translation>
+    </message>
+    <message>
+        <source>Banner Image URL</source>
+        <translation>バナーイメージURL</translation>
+    </message>
+    <message>
+        <source>Mod Install Tuning</source>
+        <translation>Mod は調整を取付けます</translation>
+    </message>
+    <message>
+        <source>Conflicts &amp; Advanced Behaviour</source>
+        <translation>紛争と高度な行動</translation>
+    </message>
+    <message>
+        <source>Game Sub-folder</source>
+        <translation>ゲーム サブフォルダ</translation>
     </message>
     <message>
         <source>e.g. Data   (leave empty for game root)</source>
@@ -2588,6 +2612,13 @@ When it completes, the app switches to the new profile — then come back here a
     <message>
         <source>Size</source>
         <translation>サイズ</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadsView</name>
+    <message>
+        <source>{0} archives</source>
+        <translation>{0} アーカイブ</translation>
     </message>
 </context>
 <context>
@@ -3312,6 +3343,18 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
         <translation>ゲームのプレフィックスの代わりに、exeの横にある独立したプレフィックスで特定のProtonバージョンを使用します。 ゲームのProtonバージョンで動作しないツールに便利です。 Bethesdaゲームでは、ゲームパス(Registry)、プラグイン.txt、My Games INIsが起動時に自動的にプレフィックスで設定されます.</translation>
     </message>
     <message>
+        <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
+        <translation>スクリプトエクステンダーは、ゲームのProtonバージョンとゲームの独自のプレフィックスで常に実行します。ゲームのSteamアプリIDとINIs、保存、MOD DLLを必要とします。 代わりにゲームのProtonバージョンを変更します.</translation>
+    </message>
+    <message>
+        <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
+        <translation>Proton セッションではなく、同じプレフィックスに対して bare Wine でこの exe を実行します。Steam クライアントのアタッチがないので、Steam Input はデスクトップ コントロール (trackpad / 画面上のキーボード) を保持します。 プレフィックスは Proton によって作成され、更新されます。 起動オプションの Env vars がまだ適用されます。このモードでは、ラッパーと %command% がスキップされます.</translation>
+    </message>
+    <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>プレーンワイン(ウィネトリックススタイル)で発売</translation>
+    </message>
+    <message>
         <source>Run EXE in prefix…</source>
         <translation>プレフィックスでEXEを実行..</translation>
     </message>
@@ -3857,14 +3900,24 @@ and loads NVSE automatically at startup.
 Under Proton this mostly silences in-game warnings from mods
 that check for the patch, but it is safe and recommended.
 
+While "Apply the 4GB patch automatically" is enabled in
+Configure Game (the default), deploy applies the patch and
+restore reverts it — disable that option to manage the patch
+manually here.
+
 The original exe is kept as {0}.</source>
-        <translation>FalloutNV.exe にパッチを適用し、ゲームが 4 GB のメモリを使用できるようにするとともに、
-起動時に NVSE を自動的に読み込むようにします。
+        <translation>FalloutNV.exe をパッチするので、ゲームは 4 GB のメモリを使用することができます
+起動時に自動的にNVSEをロードします。
 
-Proton 環境下では、このパッチの有無を確認する MOD によるゲーム内の警告が
-ほぼ表示されなくなりますが、このパッチは安全であり、適用することをお勧めします。
+Proton では、主に mods からゲーム内警告をサイレンスします。
+パッチをチェックしますが、安全でお勧めです。
 
-元の実行ファイルは、{0} として保存されます。</translation>
+「自動的に4GBパッチ適用」が有効になっていますが、
+ゲームの設定(デフォルト)、デプロイはパッチを適用し、
+それを逆転させる復元 — そのオプションを無効にしてパッチを管理する
+マニュアルはこちら
+
+元のexeは{0}として保存されます.</translation>
     </message>
     <message>
         <source>Restore Backup</source>
@@ -4635,14 +4688,6 @@ SHA-1:{1}
         <translation>アーカイブを削除</translation>
     </message>
     <message>
-        <source>Permanently delete {0} archive(s) from disk?
-
-</source>
-        <translation>ディスクから{0}アーカイブを永久に削除しますか?
-
-?</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>削除</translation>
     </message>
@@ -4947,6 +4992,14 @@ Download and install them manually — the links are in the collection page's "O
         <translation>プラグインをリフレッシュ</translation>
     </message>
     <message>
+        <source>↻ Refresh</source>
+        <translation>最近の投稿</translation>
+    </message>
+    <message>
+        <source>Permanently delete {0} archive(s) from disk?</source>
+        <translation>ディスクから{0}アーカイブを永久に削除しますか?</translation>
+    </message>
+    <message>
         <source>Force update handler</source>
         <translation>強制更新ハンドラ</translation>
     </message>
@@ -5143,6 +5196,18 @@ Download and install them manually — the links are in the collection page's "O
         <translation>最新情報</translation>
     </message>
     <message>
+        <source>Updates available</source>
+        <translation>更新可能</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) have an update available.
+
+Run Quick Update on all of them now?</source>
+        <translation>{0} mod(s) には、アップデートが使用可能です。
+
+今すぐクイックアップデートを実行しますか?</translation>
+    </message>
+    <message>
         <source>Quick Update: updated {0} mod(s)</source>
         <translation>最新情報：{0}のMODを更新しました</translation>
     </message>
@@ -5217,6 +5282,18 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>No mods were updated (already in that state or no Nexus id).</source>
         <translation>更新されたMODはありませんでした（すでにその状態だったか、Nexus IDがないため）。</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s)…</source>
+        <translation>{0} mod(s) の追跡</translation>
+    </message>
+    <message>
+        <source>Tracking {0} mod(s).</source>
+        <translation>{0} モジュールの追跡.</translation>
+    </message>
+    <message>
+        <source>No mods were tracked (no Nexus id).</source>
+        <translation>Mod が追跡されていない (Nexus id なし).</translation>
     </message>
     <message>
         <source>Could not resolve target profile: {0}</source>
@@ -5389,10 +5466,6 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
         <translation>実行可能値をチェックして実行メニューに追加します。 これらは、mods によって配置されたファイルを含む、ゲームフォルダ内の場所から実行されます.</translation>
-    </message>
-    <message>
-        <source>Play failed — see log.</source>
-        <translation>失敗した再生 — ログを参照してください.</translation>
     </message>
     <message>
         <source>Executable not found: {0}</source>
@@ -5611,8 +5684,60 @@ Download and install them manually — the links are in the collection page's "O
         <translation>{0} をインストールしました</translation>
     </message>
     <message>
+        <source>the game</source>
+        <translation>ゲーム</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
+        <translation>Amethystは{0}を起動できませんでした。
+
+[デプロイ] を押して、MOD を適用し、Steam や Heroic や Lutris からゲームを起動します。デプロイされた mods は、ゲームが起動します.</translation>
+    </message>
+    <message>
+        <source>Details: {0}</source>
+        <translation>詳細: {0}</translation>
+    </message>
+    <message>
+        <source>The game did not launch</source>
+        <translation>ゲームが起動しなかった</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — deploy again when it finishes.</source>
+        <translation>Mod install は進行中です.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress — try again when it finishes.</source>
+        <translation>Mod install は進行中です.</translation>
+    </message>
+    <message>
         <source>Restore queued — it will run after the current install finishes.</source>
         <translation>キューを復元 — 現在のインストールが完了すると実行されます.</translation>
+    </message>
+    <message>
+        <source>Windows filesystem detected</source>
+        <translation>検出されたWindowsのファイルシステム</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>これらのフォルダは、Windowsファイルシステム上にあります。
+
+{0}の
+
+NTFS と exFAT ドライブは Linux の書き込み保証が弱い: クリーンなアンマウント、電源損失、または Fast Startup のデュアル ブート Windows は、デプロイされた mod ファイルと mod ステージング ライブラリを含む 0 KB にファイルをサイレントにトランクすることができます。
+
+Linuxファイルシステム(ext4/btrfs)は、ゲームとMODのステージングフォルダの両方で推奨されます。
+
+続行すると、ドライブが変更されない限り、この警告は{1}のために再び表示されません.</translation>
     </message>
     <message>
         <source>Installed {0} mods</source>
@@ -5781,6 +5906,18 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
         <translation>{0} プラグイン（{1} ESL、{2} 非ESL）</translation>
+    </message>
+    <message>
+        <source>Removed {0} stale plugin(s)</source>
+        <translation>削除された{0}の屋台プラグイン(s)</translation>
+    </message>
+    <message>
+        <source>Remove stale plugins</source>
+        <translation>ステープルプラグインを削除します</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>このプロファイルにリストされている{0}プラグインは、そのMOD、上書き、またはゲームフォルダにファイルがありません。通常、削除されたMODまたは別のプロファイルのロードオーダーから残ります。 読み込み順から削除しますか? Mod ファイルがタッチされていない.</translation>
     </message>
     <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
@@ -5971,6 +6108,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
         <translation>ダウンロード</translation>
     </message>
     <message>
+        <source>Overrides</source>
+        <translation>オーバーライド</translation>
+    </message>
+    <message>
         <source>Log</source>
         <translation>ログ</translation>
     </message>
@@ -5993,6 +6134,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
         <source>Open Log Folder</source>
         <translation>ログフォルダを開く</translation>
+    </message>
+    <message>
+        <source>Wiki</source>
+        <translation>メニュー</translation>
     </message>
     <message>
         <source>Changelog</source>
@@ -6362,6 +6507,10 @@ How would you like to handle the existing mod?</source>
         <translation>区切り文字の位置に移動（{0}）</translation>
     </message>
     <message>
+        <source>Nexus Actions</source>
+        <translation>Nexus アクション</translation>
+    </message>
+    <message>
         <source>New name:</source>
         <translation>新しい名前:</translation>
     </message>
@@ -6462,6 +6611,14 @@ How would you like to handle the existing mod?</source>
         <translation>アルファベット順に並べ替え（{0}）</translation>
     </message>
     <message>
+        <source>Track Mod</source>
+        <translation>Mod を追跡する</translation>
+    </message>
+    <message>
+        <source>Track Mod ({0})</source>
+        <translation>Mod を追跡して下さい({0})</translation>
+    </message>
+    <message>
         <source>Unlock Separator</source>
         <translation>区切り記号のロック解除</translation>
     </message>
@@ -6516,8 +6673,8 @@ How would you like to handle the existing mod?</source>
 <context>
     <name>ModListView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>列の表示／非表示</translation>
+        <source>Show / Hide columns</source>
+        <translation>ショー / 列を隠す</translation>
     </message>
     <message>
         <source>Enabled</source>
@@ -6534,6 +6691,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>More status filters</source>
         <translation>ステータスフィルタ</translation>
+    </message>
+    <message>
+        <source>Lock Separator - Mods in this separator are attached to it</source>
+        <translation>ロックセパレータ - このセパレータのモッズはそれに付されます</translation>
     </message>
 </context>
 <context>
@@ -6724,6 +6885,10 @@ Done をクリックして閉じます.</translation>
     <message>
         <source>Archive conflict - Partial</source>
         <translation>アーカイブの競合 - 部分</translation>
+    </message>
+    <message>
+        <source>Archive conflict - Full</source>
+        <translation>アーカイブの競合 - 完全</translation>
     </message>
 </context>
 <context>
@@ -6996,6 +7161,10 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
         <translation>メインページ</translation>
     </message>
     <message>
+        <source>Update</source>
+        <translation>更新</translation>
+    </message>
+    <message>
         <source>Optional</source>
         <translation>任意</translation>
     </message>
@@ -7006,6 +7175,10 @@ mod.ioの読み取り専用APIキーを貼り付けてください。
     <message>
         <source>Main files</source>
         <translation>メインファイル</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>ファイルの更新</translation>
     </message>
     <message>
         <source>Optional files</source>
@@ -7230,6 +7403,25 @@ Each game gets its own subfolder.</source>
     <message>
         <source>Skip</source>
         <translation>スキップ</translation>
+    </message>
+</context>
+<context>
+    <name>OverridesView</name>
+    <message>
+        <source>Override paks</source>
+        <translation>オーバーライドパック</translation>
+    </message>
+    <message>
+        <source>No override paks in the enabled mods.
+
+Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</source>
+        <translation>有効なMODのオーバーライドパックはありません。
+
+ゲームのModsフォルダにパクをオーバーライド(メタ.lsx ではなく、ゲーム自身のモジュールを上書きする)が、ロードオーダーの一部ではありません.</translation>
+    </message>
+    <message>
+        <source>Override paks - {0} deployed to the game's Mods folder, not in the load order</source>
+        <translation>オーバーライドパック - {0}は、ロードオーダーではなく、ゲームのModsフォルダに展開</translation>
     </message>
 </context>
 <context>
@@ -7899,8 +8091,8 @@ Drag a plugin from the left pane to add a rule.</source>
 <context>
     <name>PluginView</name>
     <message>
-        <source>Show / hide columns</source>
-        <translation>列の表示／非表示</translation>
+        <source>Show / Hide columns</source>
+        <translation>ショー / 列を隠す</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -8049,10 +8241,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>No Proton versions were found.
 
-Install a Proton version in Steam, then reopen this wizard.</source>
-        <translation>Protonバージョンは見つかりませんでした。
+Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
+        <translation>Protonバージョンが見つかりませんでした。
 
-SteamにProtonバージョンをインストールしてから、このウィザードを再度開いてください。</translation>
+Steam(またはHermic's Wine Manager)にProtonバージョンをインストールし、このウィザードを再オープンします.</translation>
     </message>
     <message>
         <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
@@ -8079,8 +8271,24 @@ SteamにProtonバージョンをインストールしてから、このウィザ
         <translation>ゲーム独自のプレフィックス内で実行されます。新しいプレフィックスは作成されず、ProtonのバージョンはゲームのSteam設定に従います。</translation>
     </message>
     <message>
+        <source>Launch with plain Wine (winetricks-style)</source>
+        <translation>プレーンワイン(ウィネトリックススタイル)で発売</translation>
+    </message>
+    <message>
+        <source>Use Winetricks style launch</source>
+        <translation>Winetricksスタイルの起動を使用する</translation>
+    </message>
+    <message>
         <source>Delete Prefix</source>
         <translation>接頭辞を削除</translation>
+    </message>
+    <message>
+        <source>Launch Arguments (optional)</source>
+        <translation>開始の引数(任意)</translation>
+    </message>
+    <message>
+        <source>Extra command-line arguments appended when the tool launches. Saved next to the exe and reapplied on every run.</source>
+        <translation>ツールが起動したときに追加コマンド ライン 引数が追加されます。 実行の横に保存され、実行ごとに再適用されます.</translation>
     </message>
     <message>
         <source>Environment Variables (optional)</source>
@@ -9144,10 +9352,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>インターフェース全体を拡大または縮小します。変更は再起動後に反映されます。</translation>
     </message>
     <message>
-        <source>Downloads &amp; Collections</source>
-        <translation>ダウンロードとコレクション</translation>
-    </message>
-    <message>
         <source>Clear archive after install</source>
         <translation>インストール後にアーカイブを削除する</translation>
     </message>
@@ -9286,6 +9490,18 @@ Merge your conflicts, then close it and click Done.</source>
     <message>
         <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
         <translation>このFlatpakをAmethystの更新リモートに切り替えるので、将来のアップデートはパッケージマネージャ(GNOME Software / Discover)によって自動的により小さいダウンロードで到着します。 これは、リモートから一度アプリを再インストールし、それを再起動します.</translation>
+    </message>
+    <message>
+        <source>Archives</source>
+        <translation>アーカイブ</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>ダウンロード</translation>
+    </message>
+    <message>
+        <source>Extraction</source>
+        <translation>抽出物</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9602,6 +9818,22 @@ Output mod: {2}
         <translation>SMAPIのインストール — {0}</translation>
     </message>
     <message>
+        <source>Install destination</source>
+        <translation>インストール先</translation>
+    </message>
+    <message>
+        <source>Game folder (restores to vanilla first)</source>
+        <translation>ゲームフォルダ(最初にバニラに復元)</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root Folder(ステージング)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>管理されたMODとして(root-flagged)</translation>
+    </message>
+    <message>
         <source>Step 1: Download SMAPI</source>
         <translation>手順 1：SMAPI をダウンロードする</translation>
     </message>
@@ -9610,10 +9842,44 @@ Output mod: {2}
         <translation>SMAPIの最新リリースを確認中…</translation>
     </message>
     <message>
-        <source>A terminal window will open to run the installer.
-Follow its prompts, then press a key to close it.</source>
-        <translation>インストーラを実行するためのターミナルウィンドウが開きます。
-画面の指示に従い、その後、任意のキーを押してウィンドウを閉じてください。</translation>
+        <source>SMAPI is installed automatically — no terminal window and no prompts to answer.</source>
+        <translation>SMAPIは自動的にインストールされます。端末ウィンドウと応答のプロンプトはありません.</translation>
+    </message>
+    <message>
+        <source>Downloaded SMAPI {0}: {1}
+Choose the install destination, then click Next.</source>
+        <translation>ダウンロード SMAPI {0}: {1}
+インストール先を選択し、[次へ] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Selected: {0}
+Choose the install destination, then click Next.</source>
+        <translation>選択: {0}
+インストール先を選択し、[次へ] をクリックします.</translation>
+    </message>
+    <message>
+        <source>Installing SMAPI…</source>
+        <translation>SMAPIのインストール..</translation>
+    </message>
+    <message>
+        <source>Unpacking and installing SMAPI…</source>
+        <translation>SMAPIの解凍とインストール</translation>
+    </message>
+    <message>
+        <source>
+
+Deploy your mods to activate it.</source>
+        <translation>Mod をデプロイしてアクティブにします.</translation>
+    </message>
+    <message>
+        <source>SMAPI installed successfully!
+{0} file(s) installed into the {1}.{2}
+
+Click Done to close.</source>
+        <translation>SMAPIが正常にインストールされました!
+{1}.{2} にインストールされている {0} ファイル
+
+Done をクリックして閉じます.</translation>
     </message>
     <message>
         <source>Browse…</source>
@@ -9632,10 +9898,6 @@ Follow its prompts, then press a key to close it.</source>
         <translation>SMAPI {0}をダウンロード..</translation>
     </message>
     <message>
-        <source>Downloaded SMAPI {0}: {1}</source>
-        <translation>ダウンロード SMAPI {0}: {1}</translation>
-    </message>
-    <message>
         <source>Download failed: {0}
 
 Use Browse to select a manually downloaded archive.</source>
@@ -9648,38 +9910,12 @@ Use Browse to select a manually downloaded archive.</source>
         <translation>SMAPI アーカイブを選択</translation>
     </message>
     <message>
-        <source>Selected: {0}</source>
-        <translation>選択済み：{0}</translation>
-    </message>
-    <message>
         <source>Step 2: Install SMAPI</source>
         <translation>ステップ 2: SMAPI をインストールする</translation>
     </message>
     <message>
         <source>Done</source>
         <translation>完了</translation>
-    </message>
-    <message>
-        <source>Extracting SMAPI archive…</source>
-        <translation>SMAPIアーカイブの抽出中…</translation>
-    </message>
-    <message>
-        <source>Launching the SMAPI installer in a terminal.
-
-Follow the on-screen prompts, then press a key to close the terminal and click Done here.</source>
-        <translation>SMAPIインストーラをターミナルで起動します。
-
-画面上のプロンプトに従って、キーを押してターミナルを閉じて、ここにDoneをクリックします.</translation>
-    </message>
-    <message>
-        <source>SMAPI installer finished.
-
-If it completed successfully, SMAPI is now installed.
-Click Done to close.</source>
-        <translation>SMAPIインストーラが完成しました。
-
-正常に完了したら、SMAPIをインストールします。
-Done をクリックして閉じます.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -9714,13 +9950,6 @@ Done をクリックして閉じます.</translation>
     <message>
         <source>Add</source>
         <translation>追加</translation>
-    </message>
-</context>
-<context>
-    <name>StatsBar</name>
-    <message>
-        <source>{0}: {1}</source>
-        <translation>{0}: {1}</translation>
     </message>
 </context>
 <context>
@@ -11447,6 +11676,54 @@ Latest:  {1}</source>
     </message>
 </context>
 <context>
+    <name>WikiView</name>
+    <message>
+        <source>Refresh</source>
+        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <translation>更新</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>ブラウザで開く</translation>
+    </message>
+    <message>
+        <source>Loading the wiki…</source>
+        <translation>Wikiをロードする..</translation>
+    </message>
+    <message>
+        <source>Could not reach the wiki.
+
+Check your connection and press Refresh — pages you have already opened stay readable offline.</source>
+        <translation>Wikiにアクセスできません。
+
+接続をチェックし、リフレッシュを押してください — 既に開いているページはオフラインで読みやすくなります.</translation>
+    </message>
+    <message>
+        <source>Could not load “{0}”.
+
+Press Refresh to try again.</source>
+        <translation>「{0}」をロードできませんでした。
+
+プレスは、再び試してみてください.</translation>
+    </message>
+    <message>
+        <source>No change yet — GitHub caches wiki pages for up to 5 minutes.</source>
+        <translation>GitHub は wiki ページを最大 5 分間キャッシュしません.</translation>
+    </message>
+    <message>
+        <source>Updated.</source>
+        <translation>更新情報.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>読み込み中…</translation>
+    </message>
+    <message>
+        <source>Refreshing…</source>
+        <translation>リフレッシュ..</translation>
+    </message>
+</context>
+<context>
     <name>WizardViewBase</name>
     <message>
         <source>✕ Close</source>
@@ -11569,6 +11846,22 @@ Reopen this wizard.</source>
     <message>
         <source>Could not start deploy — see log.</source>
         <translation>デプロイを開始できませんでした — ログを参照してください。</translation>
+    </message>
+    <message>
+        <source>Restore is unavailable here.</source>
+        <translation>再店舗はご利用いただけません.</translation>
+    </message>
+    <message>
+        <source>Restoring modlist…</source>
+        <translation>改造リストの復元..</translation>
+    </message>
+    <message>
+        <source>Restore failed — see log.</source>
+        <translation>復元に失敗しました — ログを参照してください。</translation>
+    </message>
+    <message>
+        <source>Could not start restore — see log.</source>
+        <translation>復元を開始できません — ログを参照してください.</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -11799,8 +12092,58 @@ Please restart the wizard and install {1} first.</source>
         <translation>手順 6：{0} を実行する</translation>
     </message>
     <message>
-        <source>Done</source>
-        <translation>完了</translation>
+        <source>Launch {0}</source>
+        <translation>{0}を起動する</translation>
+    </message>
+    <message>
+        <source>QAC All</source>
+        <translation>QAC すべて</translation>
+    </message>
+    <message>
+        <source>{0} is running — close it to continue.</source>
+        <translation>{0} は実行中です.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+When you close it, your changes are restored automatically.</source>
+        <translation>{0} を実行しています。
+閉じると、変更は自動的に復元されます.</translation>
+    </message>
+    <message>
+        <source>QAC All ({0})</source>
+        <translation>QAC すべて({0})</translation>
+    </message>
+    <message>
+        <source>Launch {0} to clean plugins one at a time, or QAC All to clean all {1} flagged plugin(s) automatically.</source>
+        <translation>{0}を起動し、プラグインを一度に1つクリーンにする、またはQAC Allを起動して、すべての{1}フラグドプラグインを自動的に消去します.</translation>
+    </message>
+    <message>
+        <source>No plugins are flagged as dirty. Launch {0} to inspect or clean manually.</source>
+        <translation>プラグインは汚れたものとしてフラグが付けられません。 {0}を起動し、手動で検査または清掃します.</translation>
+    </message>
+    <message>
+        <source>No plugins need cleaning.</source>
+        <translation>プラグインはクリーニングを必要としません.</translation>
+    </message>
+    <message>
+        <source>Preparing to clean {0} plugin(s)…</source>
+        <translation>{0}プラグインをクリーンにする準備..</translation>
+    </message>
+    <message>
+        <source>Cleaning {0} of {1}: {2}…</source>
+        <translation>{1}の{0}のクリーニング:{2} ..</translation>
+    </message>
+    <message>
+        <source>QAC All finished — cleaned {0} plugin(s).</source>
+        <translation>QAC 完了 — {0} プラグインのクリーニング.</translation>
+    </message>
+    <message>
+        <source>QAC All error: {0}</source>
+        <translation>QAC すべてのエラー: {0}</translation>
+    </message>
+    <message>
+        <source>{0} is cleaning plugins — please wait.</source>
+        <translation>{0}はクリーニングプラグインです.</translation>
     </message>
     <message>
         <source>Plugins needing cleaning ({0}):</source>
@@ -11829,12 +12172,6 @@ Please restart the wizard and install {1} first.</source>
     <message>
         <source>Launch error: {0}</source>
         <translation>起動エラー: {0}</translation>
-    </message>
-    <message>
-        <source>{0} is running.
-Close it when you are done, then click Done.</source>
-        <translation>{0} 実行中です。
-作業が終わったらこれを閉じ、[完了] をクリックしてください。</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -11887,6 +12224,29 @@ Close it when you are done, then click Done.</source>
     <message>
         <source>Locked profiles can't be removed</source>
         <translation>ロックされたプロフィールは削除できません</translation>
+    </message>
+</context>
+<context>
+    <name>_OverridesModel</name>
+    <message>
+        <source>Pak</source>
+        <translation>パク</translation>
+    </message>
+    <message>
+        <source>Mod</source>
+        <translation>パスワード</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>ステータス</translation>
+    </message>
+    <message>
+        <source>No meta.lsx</source>
+        <translation>メタ.lsx なし</translation>
+    </message>
+    <message>
+        <source>Override only</source>
+        <translation>オーバーライドのみ</translation>
     </message>
 </context>
 <context>
