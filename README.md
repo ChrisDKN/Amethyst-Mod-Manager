@@ -104,15 +104,16 @@ flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08 org.f
 <tr><td>FF XII: The Zodiac Age</td><td></td><td>Stalker 2</td><td></td></tr>
 <tr><td>Gothic 1 Remake</td><td></td><td>Stardew Valley</td><td></td></tr>
 <tr><td>Green Hell</td><td></td><td>Starfield</td><td></td></tr>
-<tr><td>Hogwarts Legacy</td><td></td><td>StarRupture</td><td></td></tr>
-<tr><td>Hollow Knight: Silksong</td><td></td><td>Stellar Blade</td><td></td></tr>
-<tr><td>Jagged Alliance 3</td><td></td><td>Street Fighter 6</td><td></td></tr>
-<tr><td>Kingdom Come Deliverance</td><td>1 and 2</td><td>Subnautica</td><td></td></tr>
-<tr><td>Kingdom Hearts 3</td><td></td><td>Subnautica 2</td><td></td></tr>
-<tr><td>Lethal Company</td><td></td><td>Subnautica Below Zero</td><td></td></tr>
-<tr><td>Marvel Rivals</td><td></td><td>Supermarket Simulator</td><td></td></tr>
-<tr><td>MechWarrior 5: Mercenaries</td><td></td><td>SW: Jedi Fallen Order</td><td></td></tr>
-<tr><td>Mewgenics</td><td></td><td>TCG Card Shop Simulator</td><td></td></tr>
+<tr><td>Halo: Campaign Evolved</td><td></td><td>StarRupture</td><td></td></tr>
+<tr><td>Hogwarts Legacy</td><td></td><td>Stellar Blade</td><td></td></tr>
+<tr><td>Hollow Knight: Silksong</td><td></td><td>Street Fighter 6</td><td></td></tr>
+<tr><td>Jagged Alliance 3</td><td></td><td>Subnautica</td><td></td></tr>
+<tr><td>Kingdom Come Deliverance</td><td>1 and 2</td><td>Subnautica 2</td><td></td></tr>
+<tr><td>Kingdom Hearts 3</td><td></td><td>Subnautica Below Zero</td><td></td></tr>
+<tr><td>Lethal Company</td><td></td><td>Supermarket Simulator</td><td></td></tr>
+<tr><td>Marvel Rivals</td><td></td><td>SW: Jedi Fallen Order</td><td></td></tr>
+<tr><td>MechWarrior 5: Mercenaries</td><td></td><td>TCG Card Shop Simulator</td><td></td></tr>
+<tr><td>Mewgenics</td><td></td><td>The First Berserker: Khazan</td><td></td></tr>
 <tr><td>Monster Hunter Rise</td><td></td><td>The Last Caretaker</td><td></td></tr>
 <tr><td>Monster Hunter Wilds</td><td></td><td>The Sims 4</td><td></td></tr>
 <tr><td>Monster Hunter World</td><td></td><td>Valheim</td><td></td></tr>
