@@ -14,6 +14,7 @@ py.install_sources(
   'bandwidth_limit.py',
   'bethesda_registry.py',
   'bg3_import.py',
+  'bodyslide_linux.py',
   'bodyslide_tools.py',
   'bsa_decompressor_tools.py',
   'bsa_extract.py',

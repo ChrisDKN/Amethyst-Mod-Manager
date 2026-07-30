@@ -235,6 +235,20 @@ class SkyrimSE(Fallout_3):
                 description="Deploy mods and run Outfit Studio from the Data folder.",
                 dialog_class_path="wizards.bodyslide.OutfitStudioWizard",
             ))
+        # Native Linux builds — always listed: the wizard downloads the
+        # AppImage itself, so there is no staged exe to gate on.
+        pandora_tools.append(WizardTool(
+            id="run_bodyslide_linux_skyrimse",
+            label="Run BodySlide (Linux)",
+            description="Download and run the native Linux BodySlide, no Proton prefix needed.",
+            dialog_class_path="wizards.bodyslide_linux.BodySlideLinuxWizard",
+        ))
+        pandora_tools.append(WizardTool(
+            id="run_outfitstudio_linux_skyrimse",
+            label="Run Outfit Studio (Linux)",
+            description="Download and run the native Linux Outfit Studio, no Proton prefix needed.",
+            dialog_class_path="wizards.bodyslide_linux.OutfitStudioLinuxWizard",
+        ))
         return self._base_wizard_tools() + pandora_tools + [
             WizardTool(
                 id="install_se_skyrimse",

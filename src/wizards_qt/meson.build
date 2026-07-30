@@ -6,6 +6,7 @@ py.install_sources(
   'bethesda_register_view.py',
   'bethini_view.py',
   'bg3_import_view.py',
+  'bodyslide_linux_view.py',
   'bodyslide_view.py',
   'bsa_decompressor_view.py',
   'creationkit_view.py',

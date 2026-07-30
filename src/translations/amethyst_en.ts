@@ -578,6 +578,139 @@ Configure your INI settings, then close it and click Done.</translation>
     </message>
 </context>
 <context>
+    <name>BodySlideLinuxView</name>
+    <message>
+        <source>{0} (Linux) — {1}</source>
+        <translation>{0} (Linux) — {1}</translation>
+    </message>
+    <message>
+        <source>Step 3: Run {0}</source>
+        <translation>Step 3: Run {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install {0} for Linux</source>
+        <translation>Step 1: Install {0} for Linux</translation>
+    </message>
+    <message>
+        <source>A native Linux build of BodySlide and Outfit Studio, downloaded as a single AppImage and shared by every game.
+
+No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
+        <translation>A native Linux build of BodySlide and Outfit Studio, downloaded as a single AppImage and shared by every game.
+
+No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Next →</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Checking for updates…</source>
+        <translation>Installed: {0}. Checking for updates…</translation>
+    </message>
+    <message>
+        <source>Not installed. Checking GitHub for the latest release…</source>
+        <translation>Not installed. Checking GitHub for the latest release…</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
+        <translation>Installed: {0}. Could not reach GitHub to check for updates — see log.</translation>
+    </message>
+    <message>
+        <source>Could not reach GitHub to fetch the release — see log.</source>
+        <translation>Could not reach GitHub to fetch the release — see log.</translation>
+    </message>
+    <message>
+        <source>Download {0}</source>
+        <translation>Download {0}</translation>
+    </message>
+    <message>
+        <source>Latest release: {0}.</source>
+        <translation>Latest release: {0}.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>Update to {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} — {1} is available.</source>
+        <translation>Installed: {0} — {1} is available.</translation>
+    </message>
+    <message>
+        <source>Reinstall {0}</source>
+        <translation>Reinstall {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} (up to date).</source>
+        <translation>Installed: {0} (up to date).</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Downloading {0}…</translation>
+    </message>
+    <message>
+        <source>Installed {0}.</source>
+        <translation>Installed {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>Step 2: Deploy Modlist</translation>
+    </message>
+    <message>
+        <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
+
+Built meshes are written to the output mod below, which is added to your mod list.</source>
+        <translation>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
+
+Built meshes are written to the output mod below, which is added to your mod list.</translation>
+    </message>
+    <message>
+        <source>Output mod name:</source>
+        <translation>Output mod name:</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Skip</translation>
+    </message>
+    <message>
+        <source>Deploy</source>
+        <translation>Deploy</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Launching {0}…</translation>
+    </message>
+    <message>
+        <source>The {0} AppImage is not installed.
+
+Go back and download it first.</source>
+        <translation>The {0} AppImage is not installed.
+
+Go back and download it first.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} is running.
+Close it when you are done, then click Done.</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} finished.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Launch error: {0}</translation>
+    </message>
+</context>
+<context>
     <name>BodySlideView</name>
     <message>
         <source>{0} — {1}</source>

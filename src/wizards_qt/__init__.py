@@ -199,6 +199,13 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_param("wizards_qt.bodyslide_view", "BodySlideView", tool="bodyslide")),
     "wizards.bodyslide.OutfitStudioWizard":
         QtWizardSpec(_param("wizards_qt.bodyslide_view", "BodySlideView", tool="outfitstudio")),
+    # Native-Linux AppImage fork — Qt-only, no Tk counterpart ever existed.
+    "wizards.bodyslide_linux.BodySlideLinuxWizard":
+        QtWizardSpec(_param("wizards_qt.bodyslide_linux_view",
+                            "BodySlideLinuxView", tool="bodyslide")),
+    "wizards.bodyslide_linux.OutfitStudioLinuxWizard":
+        QtWizardSpec(_param("wizards_qt.bodyslide_linux_view",
+                            "BodySlideLinuxView", tool="outfitstudio")),
     "wizards.script_merger_tw3.ScriptMergerWizard":
         QtWizardSpec(_simple("wizards_qt.script_merger_view", "ScriptMergerView")),
     "wizards.vramr.VRAMrWizard":
