@@ -1,0 +1,98 @@
+{
+  "name": "Grounded 2",
+  "game_id": "Grounded_2",
+  "exe_name": "Augusta/Binaries/Win64/Grounded2-WinGRTS-Shipping.exe",
+  "deploy_type": "root",
+  "mod_data_path": "",
+  "steam_id": "2661300",
+  "nexus_game_domain": "grounded2",
+  "image_url": "https://cdn2.steamgriddb.com/icon_thumb/abf9ed77748555bb680de0dfd1a2ca71.png",
+  "mod_folder_strip_prefixes": [
+    "Augusta",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64",
+    "ue4ss",
+    "Mods"
+  ],
+  "conflict_ignore_filenames": [
+    "*.txt",
+    "*.md",
+    "LICENSE"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [
+    ".pak",
+    ".dll"
+  ],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {
+    "dwmapi": "native,builtin",
+    "dinput8": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Augusta/Binaries/Win64",
+      "filenames": [
+        "dwmapi.dll",
+        "UE4SS.dll",
+        "UE4SS-settings.ini"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Augusta/Binaries/Win64",
+      "folders": [
+        "ue4ss_signatures"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Augusta/Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "Main.lua",
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Augusta/Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "Scripts",
+        "Shared"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Augusta/Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Augusta/Binaries/Win64/PluginMods",
+      "extensions": [
+        ".dll"
+      ],
+      "loose_only": true,
+      "flatten": true
+    }
+  ],
+  "custom_frameworks": {
+    "UE4SS": "Augusta/Binaries/Win64/dwmapi.dll"
+  },
+  "version": 1,
+  "editable": false
+}
