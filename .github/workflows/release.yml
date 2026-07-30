@@ -111,13 +111,25 @@ jobs:
               # already uses "- " as a bullet marker, so just pass through.
               cat raw-notes.md
               echo
-              echo "##"
+              echo "## Flatpak"
+              echo
+              echo "Run the following command to install or download the bundle directly"
+              echo
+              echo '```bash'
+              echo 'flatpak install --user https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakref'
+              echo '```'
+              echo
+              echo "Updates will be shown in manager and in the discover store/package manager"
+              echo
+              echo "## Appimage"
               echo
               echo "Run the following command to install/Update. Or download the appimage directly."
               echo
               echo '```bash'
               echo 'curl -sSL https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/appimage/Amethyst-MM-installer.sh | bash'
               echo '```'
+              echo
+              echo "Updates will be shown in the manager and can be downloaded from there"
             } > release-notes.md
             rm -f raw-notes.md
           fi
