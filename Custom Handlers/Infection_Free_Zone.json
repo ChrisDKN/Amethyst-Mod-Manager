@@ -1,0 +1,41 @@
+{
+  "name": "Infection Free Zone",
+  "game_id": "Infection_Free_Zone",
+  "exe_name": "Infection Free Zone.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "BepInEx/plugins",
+  "steam_id": "1465460",
+  "nexus_game_domain": "infectionfreezone",
+  "image_url": "https://cdn2.steamgriddb.com/icon/f3c936dccb258fc91e72a50b5c69d2ae/32/256x256.png",
+  "mod_folder_strip_prefixes": [
+    "BepInEx",
+    "plugins"
+  ],
+  "conflict_ignore_filenames": [
+    "*.md",
+    "manifest.json"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "wine_dll_overrides": {
+    "winhttp": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "",
+      "folders": [
+        "plugins"
+      ],
+      "flatten": true
+    }
+  ],
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
+}
