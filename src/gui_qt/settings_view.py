@@ -180,10 +180,11 @@ class SettingsView(QWidget):
 
     def _combo(self, grid: QGridLayout, label: str,
                pairs: list[tuple[str, str]], current_value: str, save_fn,
-               restart_note: bool = False) -> QComboBox:
+               restart_note: bool = False, help: str | None = None) -> QComboBox:
         """`pairs` = [(display, value), ...]; selecting saves the value."""
         row = self._next_row(grid)
-        grid.addWidget(QLabel(label), row, 0)
+        lbl = QLabel(label)
+        grid.addWidget(lbl, row, 0)
         combo = QComboBox()
         values = [v for _d, v in pairs]
         for disp, _v in pairs:
@@ -193,7 +194,19 @@ class SettingsView(QWidget):
         combo.currentIndexChanged.connect(
             lambda i: self._safe_save(save_fn, values[i]))
         no_wheel(combo)
-        grid.addWidget(combo, row, 1, Qt.AlignLeft)
+        if help:
+            tip = self._tip_text(help)
+            lbl.setToolTip(tip)
+            combo.setToolTip(tip)
+            wrap = QHBoxLayout()
+            wrap.setContentsMargins(0, 0, 0, 0)
+            wrap.addWidget(combo)
+            wrap.addWidget(self._help_marker(help))
+            wrap.addStretch(1)
+            holder = QWidget(); holder.setLayout(wrap)
+            grid.addWidget(holder, row, 1, Qt.AlignLeft)
+        else:
+            grid.addWidget(combo, row, 1, Qt.AlignLeft)
         if restart_note:
             note = QLabel(self.tr("Changes take effect after restart."))
             note.setObjectName("RestartNote")
@@ -577,9 +590,8 @@ class SettingsView(QWidget):
             [(self.tr("Current profile only"), "profile"),
              (self.tr("All profiles (this game)"), "game"),
              (self.tr("All profiles (every game)"), "all")],
-            uc.load_check_updates_scope(), uc.save_check_updates_scope)
-        self._add_help(
-            g, self.tr("How much \"Check Updates\" (the footer button, with no mods "
+            uc.load_check_updates_scope(), uc.save_check_updates_scope,
+            help=self.tr("How much \"Check Updates\" (the footer button, with no mods "
                  "selected) scans in one pass: just the active profile's own "
                  "mods, every profile of the current game, or every profile of "
                  "every configured game. Checking a right-click selection of "
