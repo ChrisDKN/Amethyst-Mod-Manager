@@ -131,6 +131,7 @@ py.install_sources(
   'tree_str.py',
   'ttw_tools.py',
   'tw3_filelist.py',
+  'ue_logicmods_detect.py',
   'ue_pak_reader.py',
   'ui_config.py',
   'ui_hooks.py',

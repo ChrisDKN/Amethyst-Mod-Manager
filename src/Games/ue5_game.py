@@ -702,6 +702,14 @@ class UE5Game(BaseGame):
         lands at ``dest/<container_name>/<filename>``); resolving the
         sibling drag requires the full filemap and is handled by
         ``_resolve_filemap_entries``.
+
+        Content-based LogicMods detection is likewise not applied here: it
+        needs the owning mod name to find the archive on disk, and groups a
+        pak with its same-stem .utoc/.ucas. Rule-based routing alone is what
+        this returns, so a blueprint pak resolves to ``~mods`` here while
+        ``_resolve_filemap_entries`` puts it in ``LogicMods``. Every consumer
+        that decides real destinations (deploy, conflict keys, the Data tab)
+        uses the whole-filemap resolver; this one is for single-path queries.
         """
         match = self._match_rule(rel_str)
         if match is not None:
@@ -868,6 +876,16 @@ class UE5Game(BaseGame):
                     per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                     claimed.add(i)
 
+        # Keep IoStore sets together and promote detected blueprint mods.
+        # Runs after the rule loop so it can see where the rules actually sent
+        # each file, and before the prefix append below so indices still line
+        # up with core_entries.
+        try:
+            self._apply_logicmods_grouping(core_entries, per_entry)
+        except Exception:
+            # Advisory — any failure leaves the rules' own resolution alone.
+            pass
+
         if prefix_handled:
             for sr, mn in entries:
                 if sr.replace("\\", "/").lower() in prefix_handled:
@@ -876,6 +894,133 @@ class UE5Game(BaseGame):
                     )
 
         return self._apply_companion_routing(entries, per_entry)
+
+    def _logicmods_staging_root(self, core_entries) -> "Path | None":
+        """Staging root the entries in *core_entries* actually live under.
+
+        Profiles with ``profile_specific_mods`` keep their mods in
+        ``<profile_dir>/mods`` rather than the shared ``mods/`` next to
+        ``profiles/``, so ``get_mod_staging_path`` alone points at an empty
+        folder and every content probe would silently miss. Prefer the
+        profile-aware path the deploy pipeline itself uses, then sanity-check it
+        against a real mod name and fall back to the shared path.
+        """
+        candidates = []
+        for getter in ("get_effective_mod_staging_path", "get_mod_staging_path"):
+            fn = getattr(self, getter, None)
+            if fn is None:
+                continue
+            try:
+                p = fn()
+            except Exception:
+                continue
+            if p:
+                p = Path(p)
+                if p not in candidates:
+                    candidates.append(p)
+        if not candidates:
+            return None
+        mod_names = {mn for _sr, mn in core_entries}
+        for root in candidates:
+            if any((root / mn).is_dir() for mn in mod_names):
+                return root
+        return candidates[0]
+
+    def _apply_logicmods_grouping(self, core_entries, per_entry) -> None:
+        """Fix up ``.pak``/``.utoc``/``.ucas`` placement in ``per_entry``.
+
+        Two related corrections, both keyed on the *stem group* — same-folder
+        same-stem archive files, which for an IoStore mod are one container set
+        that must never be split across destinations:
+
+        1. **Cohesion.** If any member of a group resolved into a LogicMods
+           path, the rest follow it. Several UE handlers declare a
+           ``.pak → Content/Paks/LogicMods`` rule listing no
+           ``companion_extensions``, which sends the ``.pak`` to LogicMods and
+           leaves its ``.utoc``/``.ucas`` to fall through to ``~mods`` — the mod
+           then has a loader entry with no data behind it.
+        2. **Promotion.** A group that landed outside LogicMods is probed:
+           if it contains ``Mods/<Name>/ModActor`` it is a UE4SS blueprint mod
+           and only runs from ``Content/Paks/LogicMods``, because
+           BPModLoaderMod discovers mods solely by listing that one directory.
+           See ``Utils.ue_logicmods_detect``.
+
+        Cohesion is preferred over promotion so a group the rules already
+        placed correctly keeps the layout they chose — flattening
+        ``LogicMods/<Mod>/x.pak`` to the LogicMods root would strand a
+        ``config.lua`` sitting beside it, which BPModLoaderMod reads from the
+        mod's own subfolder.
+        """
+        from Utils.ue_logicmods_detect import logic_mod_entries, stem_groups
+
+        by_mod: dict[str, list[tuple[int, str]]] = {}
+        for i, (staged_rel, mod_name) in enumerate(core_entries):
+            by_mod.setdefault(mod_name, []).append((i, staged_rel))
+
+        def deploy_path(i: int) -> str:
+            _sr, _mn, dest, final = per_entry[i]
+            joined = (dest + "/" + final) if dest else final
+            return joined.replace("\\", "/")
+
+        def in_logicmods(i: int) -> bool:
+            return "logicmods" in deploy_path(i).lower().split("/")
+
+        promote: set[int] | None = None
+        for mod_name, items in by_mod.items():
+            index_of = {rel: i for i, rel in items}
+            for members in stem_groups(rel for _i, rel in items).values():
+                idxs = [index_of[m] for m in members if m in index_of]
+                if len(idxs) < 1:
+                    continue
+
+                anchors = [i for i in idxs if in_logicmods(i)]
+                if anchors:
+                    if len(anchors) == len(idxs):
+                        continue  # already consistent
+                    # Prefer the .pak as anchor — it is what BPModLoaderMod
+                    # enumerates, so its placement is the one to match.
+                    anchor = next(
+                        (i for i in anchors
+                         if deploy_path(i).lower().endswith(".pak")),
+                        anchors[0],
+                    )
+                    a_dest, a_final = per_entry[anchor][2], per_entry[anchor][3]
+                    a_stem = a_final.replace("\\", "/").rsplit(".", 1)[0]
+                    for i in idxs:
+                        if i in anchors:
+                            continue
+                        staged_rel, mn, _d, _f = per_entry[i]
+                        name = staged_rel.replace("\\", "/").rsplit("/", 1)[-1]
+                        ext = name[name.rfind("."):] if "." in name else ""
+                        per_entry[i] = (staged_rel, mn, a_dest, a_stem + ext)
+                    continue
+
+                if promote is None:
+                    promote = logic_mod_entries(
+                        self._logicmods_staging_root(core_entries), core_entries)
+                if not promote or not all(i in promote for i in idxs):
+                    continue
+                # Archives inside a named subfolder that also holds other files
+                # are a deliberate layout (a config.lua that BPModLoaderMod
+                # reads from the mod's own subfolder, say); lifting just the
+                # archives out of it would strand the rest, so leave the whole
+                # folder to the rules — together and unpromoted beats split.
+                # Files loose at the mod root carry no such grouping: a readme
+                # or .modconfig.json beside a pak is routed on its own merits,
+                # so those still promote.
+                parent = members[0].replace("\\", "/").rpartition("/")[0].lower()
+                if parent and any(
+                    rel.replace("\\", "/").rpartition("/")[0].lower() == parent
+                    and index_of.get(rel) not in idxs
+                    for _i, rel in items
+                ):
+                    continue
+                for i in idxs:
+                    staged_rel, mn, _d, _f = per_entry[i]
+                    per_entry[i] = (
+                        staged_rel, mn, "Content/Paks/LogicMods",
+                        Path(staged_rel.replace("\\", "/")).name,
+                    )
 
     def _apply_companion_routing(self, entries, resolved):
         """Re-route same-folder same-stem siblings to ride along with a primary
