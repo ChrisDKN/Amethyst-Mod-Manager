@@ -6,7 +6,7 @@
   "mod_data_path": "BepInEx/plugins",
   "steam_id": "1465460",
   "nexus_game_domain": "infectionfreezone",
-  "image_url": "https://cdn2.steamgriddb.com/icon/f3c936dccb258fc91e72a50b5c69d2ae/32/256x256.png",
+  "image_url": "",
   "mod_folder_strip_prefixes": [
     "BepInEx",
     "plugins"
