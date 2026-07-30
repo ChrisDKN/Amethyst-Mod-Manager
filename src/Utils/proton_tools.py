@@ -220,7 +220,11 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
 
     steam_root = find_steam_root_for_proton_script(proton_script)
     if steam_root is None:
-        log_fn("Proton Tools: could not determine Steam root for the selected Proton tool.")
+        from Utils.steam_finder import steamless_launch_error
+        reason = steamless_launch_error()
+        log_fn(f"Proton Tools: {reason}" if reason else
+               "Proton Tools: could not determine Steam root for the "
+               "selected Proton tool.")
         return None, None
 
     from Utils.protontricks import strip_appimage_env

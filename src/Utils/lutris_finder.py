@@ -712,12 +712,27 @@ def find_umu_run() -> Path | None:
     # Heroic: a downloaded copy under its tools dir, or the build bundled
     # next to legendary/gogdl (resources/app.asar.unpacked/build/bin/...;
     # globbed since the arch/platform nesting has moved between releases).
+    # Current Heroic downloads umu to tools/runtimes/umu/ (alongside the EAC
+    # and BattlEye runtimes); older releases used tools/umu/. Missing the
+    # current path was GH#320's second failure: with no Steam and no Lutris,
+    # Heroic's copy is the only umu on the box, so not finding it dropped
+    # every launch onto a raw Proton call that cannot work without Steam.
     heroic_flatpak = _HOME / ".var" / "app" / "com.heroicgameslauncher.hgl"
     for config_dir in (_XDG_CONFIG, _HOME / ".config",
                        heroic_flatpak / "config"):
-        p = config_dir / "heroic" / "tools" / "umu" / "umu-run"
-        if p.is_file():
-            return p
+        tools = config_dir / "heroic" / "tools"
+        for rel in (("runtimes", "umu", "umu-run"), ("umu", "umu-run")):
+            p = tools.joinpath(*rel)
+            if p.is_file():
+                return p
+        # Future-proofing: any other nesting Heroic may move umu to.
+        try:
+            hit = next((h for h in tools.glob("*/umu/umu-run") if h.is_file()),
+                       None)
+        except OSError:
+            hit = None
+        if hit is not None:
+            return hit
     for app_root in (
         Path("/opt/Heroic"),
         Path("/var/lib/flatpak/app/com.heroicgameslauncher.hgl/current"

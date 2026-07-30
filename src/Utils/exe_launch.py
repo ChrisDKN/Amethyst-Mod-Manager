@@ -1164,7 +1164,10 @@ def prepare_tool_prefix(exe_path: Path, proton_name: str, game,
         exe_path, proton_name, steam_id=effective_steam_id(game),
     )
     if result is None:
-        log_fn(f"Prefix tools: could not find Proton '{proton_name}'.")
+        from Utils.steam_finder import steamless_launch_error
+        reason = steamless_launch_error()
+        log_fn(f"Prefix tools: {reason}" if reason else
+               f"Prefix tools: could not find Proton '{proton_name}'.")
         return None
     proton_script, prefix_dir, env = result
     if getattr(game, "synthesis_registry_name", None):
@@ -1465,6 +1468,13 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
             steam_id=effective_steam_id(game),
         )
     if result is None:
+        # A Steam-less box with no umu-run has no viable launcher at all; say
+        # so instead of leaving the caller's vague "could not find Proton"
+        # (GH#320 — the reporter's SSEEdit run failed here).
+        from Utils.steam_finder import steamless_launch_error
+        reason = steamless_launch_error()
+        if reason:
+            log_fn(reason)
         return None
     proton_script, compat_data, env = result
     extra = parse_env_overrides(load_tool_launch_env(exe))

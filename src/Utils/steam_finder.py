@@ -79,6 +79,35 @@ def steam_client_installed() -> bool:
     return any((root / "steamapps").is_dir() for root in _STEAM_CANDIDATES)
 
 
+STEAMLESS_NO_UMU_MESSAGE = (
+    "no Steam client and no umu-run launcher were found. Proton needs one of "
+    "the two: without Steam's runtime a raw Proton call runs Wine bare, which "
+    "fails with missing-FreeType / \"no driver could be loaded\" errors. "
+    "umu-run ships with Heroic (Wine Manager) and Lutris, or install the "
+    "umu-launcher package."
+)
+
+
+def steamless_launch_error() -> str:
+    """Explanation for why a Proton launch can't work, or "" if it can.
+
+    Non-empty only on a Steam-less system with no umu-run: the combination
+    that has no viable launch path at all. Callers use it in place of their
+    generic "could not determine Steam root" message, which misdescribes the
+    problem on a Heroic-only box (GH#320 — the reporter got a wall of Wine
+    errors instead of a cause).
+    """
+    if steam_client_installed():
+        return ""
+    try:
+        from Utils.lutris_finder import find_umu_run
+        if find_umu_run() is not None:
+            return ""
+    except Exception:
+        pass
+    return STEAMLESS_NO_UMU_MESSAGE
+
+
 _steamless_no_umu_logged = False
 
 
@@ -95,12 +124,7 @@ def _maybe_log_steamless_no_umu() -> None:
     _steamless_no_umu_logged = True
     try:
         from Utils.app_log import app_log
-        app_log(
-            "No Steam client and no umu-run launcher were found — attempting "
-            "a raw Proton launch, which will likely fail. umu-run ships with "
-            "Heroic and Lutris (installing either, or the umu-launcher "
-            "package, provides it)."
-        )
+        app_log(f"Proton: {STEAMLESS_NO_UMU_MESSAGE}")
     except Exception:
         pass
 
@@ -211,20 +235,18 @@ def proton_run_command(
         # plumbing and runtime, which doesn't exist here. Route the launch
         # through umu-run — the launcher Heroic itself uses — which runs
         # Proton inside the Steam Linux Runtime container with no Steam
-        # client at all. umu has no verbs (it always does a full Proton
-        # session) and derives its plumbing from WINEPREFIX / PROTONPATH /
-        # GAMEID; the caller's STEAM_COMPAT_* vars are overridden by umu
-        # itself, so they can stay in *env*. Mutates *env* (callers pass the
-        # same dict to Popen, and umu_run_command re-exports the diff under
-        # flatpak-spawn).
+        # client at all. umu derives its plumbing from WINEPREFIX /
+        # PROTONPATH / GAMEID and rebuilds every STEAM_COMPAT_* var itself
+        # (umu_run.py sets STEAM_COMPAT_CLIENT_INSTALL_PATH=""), so whatever
+        # the caller put there is ignored and can stay in *env*. Mutates
+        # *env* (callers pass the same dict to Popen, and umu_run_command
+        # re-exports the diff under flatpak-spawn).
         try:
             from Utils.lutris_finder import find_umu_run, umu_run_command
             umu_bin = find_umu_run()
         except Exception:
             umu_bin = None
         if umu_bin is not None and env is not None:
-            payload = [a for a in map(str, args) if a not in
-                       ("run", "runinprefix", "waitforexitandrun")]
             if not env.get("WINEPREFIX") and env.get("STEAM_COMPAT_DATA_PATH"):
                 # Proton resolves the real prefix as $WINEPREFIX/pfx, same
                 # shape as $STEAM_COMPAT_DATA_PATH/pfx (umu self-links pfx →
@@ -233,7 +255,12 @@ def proton_run_command(
                 env["WINEPREFIX"] = env["STEAM_COMPAT_DATA_PATH"]
             env["PROTONPATH"] = str(script.parent)
             env.setdefault("GAMEID", "umu-default")
-            return umu_run_command(umu_bin, *payload, env=env,
+            # The Proton verb is passed straight through: umu treats a leading
+            # run / runinprefix / waitforexitandrun as PROTON_VERB (see
+            # umu_consts.PROTON_VERBS). Keeping it preserves the distinction
+            # the callers rely on — "runinprefix" must NOT boot the steam.exe
+            # shim, which would start explorer/tabtip/xalia around every tool.
+            return umu_run_command(umu_bin, *map(str, args), env=env,
                                    host_cwd=directory)
         _maybe_log_steamless_no_umu()
 
@@ -435,7 +462,12 @@ def find_steam_root_for_proton_script(proton_script: Path) -> Path | None:
     # can proceed: launches on such systems are routed through umu-run
     # (proton_run_command), which builds its own compat plumbing and
     # overrides STEAM_COMPAT_CLIENT_INSTALL_PATH itself.
-    if not steam_client_installed():
+    #
+    # Gated on umu actually being present: without it the reroute can't happen
+    # and the stand-in would only buy a doomed bare-Wine launch (GH#320's
+    # second round — a 200-line Wine error wall and meaningless exit codes).
+    # Returning None instead makes callers stop and report the real cause.
+    if not steam_client_installed() and not steamless_launch_error():
         return script.parent
 
     return None
