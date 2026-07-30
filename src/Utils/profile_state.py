@@ -230,6 +230,13 @@ def read_separator_deploy_paths(profile_dir: Path, state: dict | None = None) ->
     return result
 
 
+def read_root_folder_state(profile_dir: Path, state: dict | None = None) -> bool:
+    raw = _read_key(profile_dir, state, "root_folder_state")
+    if isinstance(raw, dict):
+        return bool(raw.get("enabled", True))
+    return True
+
+
 def read_mod_strip_prefixes(profile_dir: Path, state: dict | None = None) -> dict[str, list[str]]:
     raw = _read_key(profile_dir, state, "mod_strip_prefixes")
     if isinstance(raw, dict):
@@ -390,6 +397,10 @@ def write_separator_colors(profile_dir: Path, value: dict) -> None:
 
 def write_separator_deploy_paths(profile_dir: Path, value: dict) -> None:
     _update_key(profile_dir, "separator_deploy_paths", value)
+
+
+def write_root_folder_state(profile_dir: Path, enabled: bool) -> None:
+    _update_key(profile_dir, "root_folder_state", {"enabled": enabled})
 
 
 def write_mod_strip_prefixes(profile_dir: Path, value: dict[str, list[str]]) -> None:
