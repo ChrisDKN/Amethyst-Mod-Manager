@@ -73,6 +73,6 @@
   "custom_frameworks": {
     "SuperBLT": "wsock32.dll"
   },
-  "version": 1,
+  "version": 2,
   "editable": false
 }
