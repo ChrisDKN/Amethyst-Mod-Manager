@@ -6885,8 +6885,11 @@ class MainWindow(QMainWindow):
         the collection icon and listed LAST, split from plain profiles by a
         separator, so merged profiles read as their own section."""
         profs = list(profs)
-        icons = None
-        seps = set()
+        # Always a REAL dict/set — set_items keeps the previous icon map when
+        # passed None, so a deleted group's badge would stick to any later
+        # profile reusing its name.
+        icons: dict = {}
+        seps: set = set()
         try:
             from Utils.profile_groups import list_groups
             g = self._gs.game
@@ -6900,9 +6903,9 @@ class MainWindow(QMainWindow):
                         seps = {grouped[0]}
                     from gui_qt.icons import icon
                     ico = icon("collection.png", 16)
-                    icons = {n: ico for n in grouped} or None
+                    icons = {n: ico for n in grouped}
         except Exception:
-            icons = None
+            icons = {}
             seps = set()
         self._profile_selector.set_items(profs, current=current,
                                          item_icons=icons,
