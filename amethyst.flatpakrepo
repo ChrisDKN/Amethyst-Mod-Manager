@@ -1,6 +1,7 @@
 [Flatpak Repo]
 Title=Amethyst Mod Manager
 Url=https://chrisdkn.github.io/Amethyst-Mod-Manager/repo/
+DefaultBranch=stable
 Homepage=https://github.com/ChrisDKN/Amethyst-Mod-Manager
 Comment=Auto-update remote for Amethyst Mod Manager (stable + beta)
 Description=Adds the Amethyst Mod Manager Flatpak remote so updates arrive via your package manager.
