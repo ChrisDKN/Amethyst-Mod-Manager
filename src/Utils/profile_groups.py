@@ -15,15 +15,20 @@ Members must themselves be profile-specific (a shared-pool member's modlist
 carries the whole synced pool — see Utils/profile_convert.py to convert).
 
 Merge semantics — "adopt once, reconcile thereafter":
-  - Identity = Nexus mod ID from meta.ini, else folder name; persisted per
-    entry in "group_identity_map" so champion folder renames (and nexus/name
-    identity flips) rename the group entry IN PLACE, keeping its position.
+  - Identity = Nexus mod ID + version-stripped install name (one Nexus page
+    can host several DISTINCT files under one mod ID — see
+    _mod_identity_and_version), else folder name; persisted per entry in
+    "group_identity_map" so champion folder renames (and identity flips)
+    rename the group entry IN PLACE, keeping its position.
   - First adoption: enabled = OR across members; the champion (whose files
     win) is the highest-priority ENABLING member, overtaken only by a
     strictly newer version. Afterwards the group's own order/enabled/locked
     state is authoritative and never re-flipped by member changes.
   - Vanished mods drop (entry, link, index, state, plugins); new member mods
-    append at the END. Member separators import once (a name several members
+    append at the END. A REAL (non-link) folder in the group's mods/ is a
+    group-LOCAL mod — wizard output installed while the group was active
+    (SMAPI, generated patches) — kept as-is with its index entry; group
+    removal deletes it like a normal profile's mod. Member separators import once (a name several members
     use is qualified per source profile so each member's section survives,
     with colour/lock/collapse/deploy state carried over); the group owns its
     separators after that.
@@ -45,6 +50,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import threading
 from pathlib import Path
@@ -407,19 +413,44 @@ def _adopted_separators(group_dir: Path) -> bool:
 # Merge (read-only over members)
 # ---------------------------------------------------------------------------
 
+# Trailing version-ish tokens ("2.5.17", "v1.15.11", "(1.2)", "1-15-11"),
+# stripped repeatedly so "Mod 1.2 (3)" collapses too.
+_VERSION_TOKEN_RE = re.compile(
+    r"[\s\-_.]*[\(\[]?v?\d+(?:[.\-_]\d+)*[a-z]?[\)\]]?$", re.IGNORECASE)
+
+
+def _stripped_mod_name(folder: str) -> str:
+    """Folder name with trailing version tokens removed, casefolded — the
+    stable part of a Nexus-file-derived install name across versions."""
+    s = folder.casefold().strip()
+    while True:
+        t = _VERSION_TOKEN_RE.sub("", s).strip(" -_.")
+        if not t or t == s:
+            break
+        s = t
+    return s or folder.casefold()
+
+
 def _mod_identity_and_version(member_mods_dir: Path, folder: str) -> "tuple[str, str]":
-    """Dedup identity + version for one member's mod folder: Nexus mod ID and
-    version from meta.ini when resolvable, else the bare folder name with no
-    version. fileId is deliberately NOT part of the identity: two members
-    holding different downloaded versions of one mod are still the same mod —
-    the version then picks whose copy wins (see _merge_members)."""
+    """Dedup identity + version for one member's mod folder.
+
+    Nexus mods key on ``nexus:<mod_id>:<version-stripped folder name>``:
+    the mod ID alone is NOT enough — one Nexus page can host several
+    DISTINCT files (Stardew Valley Expanded and Frontier Farm share
+    modid 3753), and file_id can't help because different VERSIONS of the
+    same file also differ in file_id. The version-stripped install name
+    separates the two: same file across versions strips identically
+    ("Ridgeside Village 2.5.17" → "ridgeside village", still deduped),
+    different files on one page keep different names and stay distinct.
+    No meta.ini → the bare folder name, no version."""
     try:
         from Nexus.nexus_meta import read_meta
         meta_path = member_mods_dir / folder / "meta.ini"
         if meta_path.is_file():
             meta = read_meta(meta_path)
             if meta.mod_id:
-                return f"nexus:{meta.mod_id}", (meta.version or "")
+                return (f"nexus:{meta.mod_id}:{_stripped_mod_name(folder)}",
+                        meta.version or "")
     except Exception:
         pass
     return f"name:{folder}", ""
@@ -504,7 +535,7 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
         else:
             reason = "member priority order"
         log_fn(f"Profile Group: {', '.join(sorted(names))} are the same Nexus "
-               f"mod (id {key.split(':', 1)[1]}) under different names across "
+               f"mod (id {key.split(':', 2)[1]}) under different names across "
                f"members — using '{winner_member}'s copy ({reason}).")
 
     # Same folder name in several members with no Nexus ID: indistinguishable,
@@ -672,10 +703,13 @@ def _desired_link_target(profiles_dir: Path, group_mods: Path,
 
 
 def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
-                    log_fn) -> "tuple[set[str], set[str]]":
+                    log_fn, local_mods: "set[str] | None" = None
+                    ) -> "tuple[set[str], set[str]]":
     """Make the farm contain exactly one symlink per *owners* entry, pointing
     at the owning member's mod dir. Idempotent; returns (changed, removed).
-    A REAL directory found in the farm is reported, never deleted."""
+    Real directories in *local_mods* are group-LOCAL mods (wizard output) and
+    are left alone silently; any OTHER real directory is reported, never
+    deleted."""
     profiles_dir = group_dir.parent
     group_mods = group_dir / "mods"
     group_mods.mkdir(exist_ok=True)
@@ -692,8 +726,9 @@ def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
                f"links left unchanged.")
         return changed, removed
 
+    local = local_mods or set()
     for name, entry in existing.items():
-        if name in owners:
+        if name in owners or name in local:
             continue
         if entry.is_symlink():
             try:
@@ -702,10 +737,10 @@ def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
             except OSError as exc:
                 log_fn(f"Profile Group: could not remove stale link '{name}': {exc}")
         else:
-            log_fn(f"Profile Group: '{name}' in {group_mods} is a REAL "
-                   f"folder, not a link — left untouched (a group's mods "
-                   f"folder should contain only links; move it to a member "
-                   f"profile).")
+            # A real folder with no modlist entry: freshly installed (the
+            # modlist sync adopts it right after materialize) or stray.
+            log_fn(f"Profile Group: '{name}' is a real folder with no group "
+                   f"entry — left for the modlist sync to adopt.")
 
     for name, (member, folder) in owners.items():
         want = _desired_link_target(profiles_dir, group_mods, member, folder)
@@ -867,17 +902,31 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             # Falling back to a folder-name match keeps the entry in place
             # instead of drop+re-append (which would lose position/state).
             by_folder = {rec["folder"]: rec for rec in by_key.values()}
+            group_mods = profile_dir / "mods"
+            local_mods: set[str] = set()
+            taken: set[str] = set()
             rename_enabled: dict[str, bool] = {}
             for e in current:
                 if e.is_separator:
                     final.append(e)
+                    continue
+                # A REAL (non-link) folder is a group-LOCAL mod — wizard
+                # output installed while the group was active (SMAPI, script
+                # extenders, generated patches). It belongs to the group
+                # itself: keep it exactly as-is. Checked FIRST — a member
+                # record must never claim a local dir via the name fallback.
+                p = group_mods / e.name
+                if p.is_dir() and not p.is_symlink():
+                    final.append(e)
+                    local_mods.add(e.name)
+                    taken.add(e.name)
                     continue
                 key = identity_map.get(e.name, f"name:{e.name}")
                 rec = by_key.get(key) or by_folder.get(e.name)
                 if rec is None or rec["key"] in seen_keys:
                     drops.append(e.name)
                     continue
-                if rec["folder"] != e.name and rec["folder"] in owners:
+                if rec["folder"] != e.name and rec["folder"] in taken:
                     # Champion flipped to a folder name another entry already
                     # claims — unrepresentable in a name-keyed farm; drop.
                     drops.append(e.name)
@@ -890,6 +939,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                                  locked=e.locked)
                 final.append(e)
                 owners[e.name] = (rec["member"], rec["folder"])
+                taken.add(e.name)
 
             sep_adopt: list[dict] = []
             for rtype, rec in records:
@@ -900,7 +950,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                     continue
                 if rec["key"] in seen_keys:
                     continue
-                if rec["folder"] in owners:
+                if rec["folder"] in taken:
                     _log(f"Profile Group: new arrival '{rec['folder']}' from "
                          f"'{rec['member']}' collides with an existing group "
                          f"entry of the same folder name — skipped (rename "
@@ -911,6 +961,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                                  locked=rec["locked"] if rec["enabled"] else False)
                 final.append(entry)
                 owners[entry.name] = (rec["member"], rec["folder"])
+                taken.add(entry.name)
                 adds.append(rec)
 
             # 1. Plugin removal FIRST — dropped mods' plugins resolve from the
@@ -945,8 +996,8 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             _adopt_profile_inis(game, profile_dir, profiles_dir, members, _log)
             _adopt_runtime_dirs(profile_dir, profiles_dir, members, _log)
 
-            # 3. Link farm.
-            _sync_link_farm(profile_dir, owners, _log)
+            # 3. Link farm (group-local real dirs are left alone).
+            _sync_link_farm(profile_dir, owners, _log, local_mods)
 
             # 4. Index maintenance: drop removed/renamed-away entries, then
             # (re)scan entries whose member copy changed since last time.
@@ -1535,8 +1586,13 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             for name in mod_names:
                 owner = owner_of(group_dir, name)
                 if owner is None:
-                    log(f"Profile Group: no owning member found for '{name}' "
-                        f"— removing the group entry only.")
+                    _p = staging / name
+                    if _p.is_dir() and not _p.is_symlink():
+                        log(f"Profile Group: '{name}' is a group-local mod — "
+                            f"removing it from the group only.")
+                    else:
+                        log(f"Profile Group: no owning member found for "
+                            f"'{name}' — removing the group entry only.")
                     continue
                 key = identity_map.get(name, f"name:{name}")
                 removed_pairs = {owner}
@@ -1557,14 +1613,17 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                             _member_side_remove(game, profiles_dir, member,
                                                 e.name, log)
 
-        # 4. Group-side cleanup: links, index rows, adopted per-mod state.
+        # 4. Group-side cleanup: links (or the real folder, for a group-LOCAL
+        # mod like wizard-installed SMAPI), index rows, adopted per-mod state.
         for name in mod_names:
             link = staging / name
             try:
                 if link.is_symlink():
                     link.unlink()
+                elif link.is_dir() and delete_member_copies:
+                    shutil.rmtree(link)
             except OSError as exc:
-                log(f"could not remove group link '{name}': {exc}")
+                log(f"could not remove group entry '{name}': {exc}")
         try:
             from Utils.filemap import remove_from_mod_index
             remove_from_mod_index(index_path, list(mod_names))

@@ -2,6 +2,7 @@
 - Added Logicmod detection for UE4/5 pak files. Pak files are automatically routed to the logicmods folder even when loose
 - Added a Wizard tool to run a Linux native version of Bodyslide and Outfit studio
 - Added an option to group profiles together. Grouped profiles use mods from other profile but behave as their own.
+- Fixed mods that shipped with multiple folder with the same name but different caseing not merging correctly
 
 - v2.0.5
 ### Game Support
