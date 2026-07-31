@@ -8426,6 +8426,14 @@ Drag a plugin from the left pane to add a rule.</translation>
         <translation>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</translation>
     </message>
     <message>
+        <source>Merge overwrite / Root Folder files from:</source>
+        <translation>Merge overwrite / Root Folder files from:</translation>
+    </message>
+    <message>
+        <source>These profiles have runtime-generated files (overwrite / Root Folder). Checked profiles' files are copied into the group; conflicts use the higher-priority member's copy.</source>
+        <translation>These profiles have runtime-generated files (overwrite / Root Folder). Checked profiles' files are copied into the group; conflicts use the higher-priority member's copy.</translation>
+    </message>
+    <message>
         <source>Create group</source>
         <translation>Create group</translation>
     </message>

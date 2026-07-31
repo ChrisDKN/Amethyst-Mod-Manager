@@ -315,6 +315,30 @@ class ProfileGroupsView(QWidget):
         pl.addWidget(self._create_order_preview)
         self._update_order_preview()
 
+        # Overwrite/Root_Folder merge choice: profiles with runtime files get
+        # an include-checkbox (default on). Applied to checked MEMBERS only.
+        self._ow_checks: dict[str, QCheckBox] = {}
+        try:
+            contributors = pg.runtime_dir_contributors(
+                self._profiles_dir(), eligible)
+        except Exception:
+            contributors = []
+        if contributors:
+            lbl2 = QLabel(self.tr("Merge overwrite / Root Folder files from:"))
+            lbl2.setObjectName("PGSection")
+            pl.addWidget(lbl2)
+            hint2 = QLabel(self.tr(
+                "These profiles have runtime-generated files (overwrite / "
+                "Root Folder). Checked profiles' files are copied into the "
+                "group; conflicts use the higher-priority member's copy."))
+            hint2.setObjectName("PGHint"); hint2.setWordWrap(True)
+            pl.addWidget(hint2)
+            for name in contributors:
+                cb = QCheckBox(name)
+                cb.setChecked(True)
+                self._ow_checks[name] = cb
+                pl.addWidget(cb)
+
         row = QHBoxLayout(); row.addStretch(1)
         create = QPushButton(self.tr("Create group"))
         create.setObjectName("PrimaryButton")
@@ -421,9 +445,15 @@ class ProfileGroupsView(QWidget):
         self._do_create_group(name)
 
     def _do_create_group(self, name: str, ini_source: "str | None" = None):
+        # Unchecked "merge overwrite from" boxes → exclusions (members only).
+        excluded = [m for m in self._create_order
+                    if m in self._ow_checks
+                    and not self._ow_checks[m].isChecked()]
         try:
             pg.create_group(self._game, name, list(self._create_order),
-                            ini_source=ini_source, log_fn=self._log)
+                            ini_source=ini_source,
+                            overwrite_excluded=excluded or None,
+                            log_fn=self._log)
         except GroupValidationError as exc:
             self._notify(str(exc), "warning")
             return

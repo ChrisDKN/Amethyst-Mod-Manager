@@ -31,6 +31,10 @@ Merge semantics — "adopt once, reconcile thereafter":
     "group_adopted_inis", so late-gained INIs still adopt while group edits
     and deletions stick); same-named INIs resolve via the creation-time
     "group_ini_source" choice, else member priority.
+  - Members' overwrite/ + Root_Folder/ files are COPY-merged the same way
+    (once per FILE via "group_adopted_runtime", conflicts by member
+    priority); the creation-time "group_overwrite_excluded" list opts
+    members out.
 
 materialize_group() is idempotent and O(mod count); it runs only on switch
 to the group, Refresh, deploy start, group edits, and install/remove into an
@@ -237,13 +241,18 @@ def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
 
 
 def create_group(game, group_name: str, members: list[str], *,
-                 ini_source: "str | None" = None, log_fn=None) -> Path:
+                 ini_source: "str | None" = None,
+                 overwrite_excluded: "list[str] | None" = None,
+                 log_fn=None) -> Path:
     """Create a Profile Group named *group_name* combining *members* (priority
     order, index 0 = highest) and materialize it. Raises GroupValidationError.
 
     *ini_source* — when several members provide a same-named profile INI (see
     profile_ini_conflicts), the member whose copy wins; default is the
-    highest-priority contributor."""
+    highest-priority contributor.
+    *overwrite_excluded* — members whose overwrite/Root_Folder files should
+    NOT be merged into the group (creation-time choice; default = none, i.e.
+    every member's files are adopted)."""
     profiles_dir = _profiles_root(game)
     group_dir = profiles_dir / group_name
     if group_dir.exists():
@@ -253,6 +262,10 @@ def create_group(game, group_name: str, members: list[str], *,
     if ini_source is not None and ini_source not in members:
         raise GroupValidationError(
             f"INI source '{ini_source}' is not a member of this group.")
+    if overwrite_excluded and (bad := [m for m in overwrite_excluded
+                                       if m not in members]):
+        raise GroupValidationError(
+            f"Overwrite exclusion(s) not in the member list: {', '.join(bad)}")
     seen: set[str] = set()
     for m in members:
         if m in seen:
@@ -274,6 +287,8 @@ def create_group(game, group_name: str, members: list[str], *,
     }
     if ini_source is not None:
         settings["group_ini_source"] = ini_source
+    if overwrite_excluded:
+        settings["group_overwrite_excluded"] = list(overwrite_excluded)
     write_profile_settings(group_dir, settings)
     try:
         materialize_group(game, group_dir, log_fn=log_fn)
@@ -924,10 +939,11 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             _reconcile_mod_state(profile_dir, profiles_dir, renames, drops,
                                  adds)
             _adopt_separator_state(profile_dir, profiles_dir, sep_adopt)
-            # INI adoption is once-per-FILE (not per group) — see
-            # _adopt_profile_inis — so it runs every materialize and picks up
-            # members that gained INIs after the group was created.
+            # INI + overwrite/Root_Folder adoption is once-per-FILE (not per
+            # group), so both run every materialize and pick up files members
+            # gained after the group was created.
             _adopt_profile_inis(game, profile_dir, profiles_dir, members, _log)
+            _adopt_runtime_dirs(profile_dir, profiles_dir, members, _log)
 
             # 3. Link farm.
             _sync_link_farm(profile_dir, owners, _log)
@@ -1305,6 +1321,93 @@ def _adopt_profile_inis(game, group_dir: Path, profiles_dir: Path,
     log_fn(f"Profile Group: adopted {len(copied_from)} profile INI file(s) "
            f"({', '.join(f'{n} from {m}' for m, n in by_member.items())}) — "
            f"profile-specific INIs enabled for the group.")
+
+
+# ---------------------------------------------------------------------------
+# Member overwrite/ + Root_Folder/ adoption
+# ---------------------------------------------------------------------------
+
+_RUNTIME_DIRS = ("overwrite", "Root_Folder")
+
+
+def runtime_dir_contributors(profiles_dir: Path,
+                             members: list[str]) -> list[str]:
+    """Members (priority order) with any file in overwrite/ or Root_Folder/."""
+    out: list[str] = []
+    for member in members:
+        member_dir = profiles_dir / member
+        if not member_dir.is_dir():
+            continue
+        for sub in _RUNTIME_DIRS:
+            root = member_dir / sub
+            if root.is_dir() and any(
+                    fns for _dp, _dns, fns in os.walk(root)):
+                out.append(member)
+                break
+    return out
+
+
+def _adopt_runtime_dirs(group_dir: Path, profiles_dir: Path,
+                        members: list[str], log_fn) -> None:
+    """COPY members' overwrite/ + Root_Folder/ contents into the group's own
+    dirs (never link — overwrite holds runtime-rewritten files, and a link
+    would write through into the member).
+
+    Adopt-once PER FILE ("group_adopted_runtime"), evaluated every
+    materialize: late-gained files still adopt, group edits and deletions
+    stick, and a rel-path several members provide comes from the highest-
+    priority one. Members listed in profile_settings
+    "group_overwrite_excluded" (creation-time choice) contribute nothing."""
+    pset = read_profile_settings(group_dir, None)
+    excluded = {m for m in (pset.get("group_overwrite_excluded") or [])
+                if isinstance(m, str)}
+    raw = _read_key(group_dir, None, "group_adopted_runtime")
+    adopted: set[str] = ({s for s in raw if isinstance(s, str)}
+                         if isinstance(raw, list) else set())
+    seen_before = set(adopted)
+
+    copied = 0
+    by_member: dict[str, int] = {}
+    for sub in _RUNTIME_DIRS:
+        dest_root = group_dir / sub
+        # Files already in the group count as owned — never overwrite them.
+        if dest_root.is_dir():
+            for dp, _dns, fns in os.walk(dest_root):
+                base = os.path.relpath(dp, dest_root)
+                for fn in fns:
+                    rel = fn if base == "." else f"{base}/{fn}"
+                    adopted.add(f"{sub}/{rel}".lower())
+        for member in members:
+            if member in excluded:
+                continue
+            src_root = profiles_dir / member / sub
+            if not src_root.is_dir():
+                continue
+            for dp, _dns, fns in os.walk(src_root):
+                base = os.path.relpath(dp, src_root)
+                for fn in fns:
+                    rel = fn if base == "." else f"{base}/{fn}"
+                    key = f"{sub}/{rel}".lower()
+                    if key in adopted:
+                        continue
+                    src = Path(dp) / fn
+                    if src.is_symlink():
+                        continue
+                    dst = dest_root / rel
+                    try:
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(src), str(dst))
+                        adopted.add(key)
+                        copied += 1
+                        by_member[member] = by_member.get(member, 0) + 1
+                    except OSError as exc:
+                        log_fn(f"Profile Group: could not copy "
+                               f"{sub}/{rel} from '{member}': {exc}")
+    if adopted != seen_before:
+        _update_key(group_dir, "group_adopted_runtime", sorted(adopted))
+    if copied:
+        log_fn(f"Profile Group: adopted {copied} overwrite/Root_Folder "
+               f"file(s) ({', '.join(f'{n} from {m}' for m, n in by_member.items())}).")
 
 
 def _adopt_first_plugins(game, group_dir: Path, profiles_dir: Path,
