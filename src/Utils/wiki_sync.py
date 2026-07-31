@@ -11,7 +11,12 @@ without auth:
   pairs in the order GitHub lists them. This is plain github.com HTML, not the
   REST API, so it does not consume the 60 requests/hour unauthenticated quota.
 * ``raw.githubusercontent.com/wiki/<owner>/<repo>/<slug>.md`` — the raw
-  markdown source of a page.
+  markdown source of a page, ``_Sidebar.md`` included.
+
+The navigation shown in the app is the wiki's own ``_Sidebar.md`` when it has
+one — same grouping, order and wording as github.com — with ``_pages`` used to
+append anything the sidebar does not link to, and as the whole list if there is
+no sidebar.
 
 Everything goes through :mod:`Utils.gh_cache`, which adds ETag conditional
 requests (a 304 is free) plus a per-URL throttle, and keeps the last body on
@@ -43,6 +48,7 @@ _WEB_BASE = f"https://github.com/{WIKI_REPO}/wiki/"
 # whose bytes never change, so they are effectively fetched once.
 _LIST_INTERVAL = 300.0
 _PAGE_INTERVAL = 300.0
+_SIDEBAR_INTERVAL = 300.0
 _IMAGE_INTERVAL = 30 * 24 * 3600.0
 
 # <a href="/owner/repo/wiki/<slug>">Title</a> — the shape of every entry in
@@ -69,9 +75,27 @@ _IMAGE_HOSTS = frozenset({
     "avatars.githubusercontent.com",
 })
 
-# The wiki has no _Sidebar.md and GitHub omits Home from _pages, so it is
-# synthesised as the first entry.
+# GitHub omits Home from _pages, so it is synthesised as the first entry.
 _HOME_SLUG = "Home"
+
+#: The wiki's own navigation page, if it has one.
+_SIDEBAR_SLUG = "_Sidebar"
+
+#: Row kinds returned by :func:`nav_rows`. Headers carry no slug;
+#: ``SIDEBAR_OTHER`` heads the pages the sidebar itself does not link to, and
+#: its label is left to the caller so it can be translated.
+SIDEBAR_PAGE = "page"
+SIDEBAR_HEADER = "header"
+SIDEBAR_OTHER = "other"
+
+#: Sidebar syntax: a bullet/numbered item, a heading, an inline link, and the
+#: emphasis runs a label may be wrapped in.
+_SIDEBAR_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
+_SIDEBAR_HEADING_RE = re.compile(r"^#{1,6}\s+(.*)$")
+_MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(\s*<?([^)\s>]*)>?(?:\s+\"[^\"]*\")?\s*\)")
+_EMPHASIS_EDGE_RE = re.compile(r"^(?:\*{1,3}|_{1,3}|`)+|(?:\*{1,3}|_{1,3}|`)+$")
+#: A horizontal rule / decorative divider — nothing to show in a list.
+_RULE_LINE_RE = re.compile(r"^[-*_ ]+$")
 
 # [[Target]] / [[Label|Target]] — MediaWiki-style links GitHub renders but
 # markdown does not.
@@ -129,6 +153,24 @@ _MD_PREFIX_RE = re.compile(r"^(\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)?)(.*)$"
 #: as ordinary left-aligned prose.
 CENTER_MARK = "⁢"
 
+#: URL scheme the profile share codes printed in wiki pages are rewritten to,
+#: so the viewer can offer to import one on a click. The link target is an
+#: index into the list :func:`to_display_markdown` fills in — a code is a
+#: kilobyte of base64, far too long to carry in a link.
+SHARE_CODE_SCHEME = "ammshare"
+
+#: A share code as it appears in a page: the ``AMMCODE<n>:`` tag from
+#: :mod:`Utils.profile_export` followed by its urlsafe-base64 payload. The
+#: length floor keeps a bare mention of the format from matching, and the
+#: optional backticks let an inline-code span be swallowed whole — a markdown
+#: link inside one would render as its own literal text.
+_SHARE_CODE_RE = re.compile(r"AMMCODE\d+:[A-Za-z0-9_-]{24,}={0,2}")
+_SHARE_CODE_INLINE_RE = re.compile("`?(" + _SHARE_CODE_RE.pattern + ")`?")
+
+#: How much of a code the link shows: enough to recognise it as the one the
+#: page is talking about, short of a screenful of base64.
+_CODE_LABEL_CHARS = 40
+
 
 def page_web_url(slug: str) -> str:
     """Return the github.com URL for a wiki page slug."""
@@ -177,6 +219,86 @@ def list_pages(*, force: bool = False) -> List[Tuple[str, str]]:
     if _HOME_SLUG not in seen:
         pages.insert(0, (_HOME_SLUG, "Home"))
     return pages
+
+
+def fetch_sidebar(*, force: bool = False) -> Optional[str]:
+    """Return the wiki's ``_Sidebar.md`` source, or None if it has none."""
+    return fetch_text(
+        _RAW_BASE + _SIDEBAR_SLUG + ".md",
+        accept="text/plain",
+        min_interval=0.0 if force else _SIDEBAR_INTERVAL,
+        force=force,
+    )
+
+
+def _label(text: str) -> str:
+    """Reduce one sidebar cell to plain text — tags, emphasis and entities out."""
+    text = _ANY_TAG_RE.sub("", text).strip()
+    text = _EMPHASIS_EDGE_RE.sub("", text).strip()
+    return html.unescape(text)
+
+
+def parse_sidebar(text: Optional[str]) -> List[Tuple[str, str, Optional[str]]]:
+    """Parse ``_Sidebar.md`` into ``[(kind, label, slug), ...]`` rows.
+
+    A bullet or heading holding a wiki link becomes a page row keeping the
+    sidebar's own wording; any other non-blank line becomes a header row, which
+    is how the sidebar's ``**Getting started**``-style group titles survive.
+    Lines whose only link points off the wiki — the GitHub/Nexus footer — are
+    dropped, since this list navigates pages.
+    """
+    if not text:
+        return []
+    text = _COMMENT_RE.sub("", text)
+    text = _WIKILINK_RE.sub(_wikilink, text)
+
+    rows: List[Tuple[str, str, Optional[str]]] = []
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if not line or _RULE_LINE_RE.match(line):
+            continue
+        item = _SIDEBAR_ITEM_RE.match(line)
+        if item:
+            line = item.group(1).strip()
+        heading = _SIDEBAR_HEADING_RE.match(line)
+        if heading:
+            line = heading.group(1).strip()
+        link = _MD_LINK_RE.search(line)
+        if link:
+            slug = resolve_link(html.unescape(link.group(2)))
+            if slug:
+                rows.append((SIDEBAR_PAGE, _label(link.group(1)) or slug, slug))
+            continue
+        label = _label(line)
+        if label:
+            rows.append((SIDEBAR_HEADER, label, None))
+    return rows
+
+
+def nav_rows(*, force: bool = False) -> List[Tuple[str, str, Optional[str]]]:
+    """Return the navigation rows to show in the app's page list.
+
+    The wiki's own sidebar when it has one, otherwise the flat ``_pages``
+    index. Either way every page ends up reachable: pages the sidebar does not
+    link to are appended under a :data:`SIDEBAR_OTHER` header, so a page added
+    on GitHub — or one the sidebar links to under a mistyped slug — never goes
+    missing from the app.
+    """
+    rows = parse_sidebar(fetch_sidebar(force=force))
+    pages = list_pages(force=force)
+    if not rows:
+        return [(SIDEBAR_PAGE, title, slug) for slug, title in pages]
+
+    listed = {slug for kind, _label_, slug in rows if kind == SIDEBAR_PAGE}
+    if _HOME_SLUG not in listed:
+        rows.insert(0, (SIDEBAR_PAGE, "Home", _HOME_SLUG))
+        listed.add(_HOME_SLUG)
+    extra = [(SIDEBAR_PAGE, title, slug)
+             for slug, title in pages if slug not in listed]
+    if extra:
+        rows.append((SIDEBAR_OTHER, "", None))
+        rows.extend(extra)
+    return rows
 
 
 def fetch_page(slug: str, *, force: bool = False) -> Optional[str]:
@@ -261,6 +383,43 @@ def _img_markdown(tag: str) -> str:
     return "![{0}]({1})".format(alt, src)
 
 
+def _code_link(code: str, codes: List[str]) -> str:
+    """Register *code* and return the markdown link standing in for it.
+
+    The label is the code itself, truncated — no words, since this module is
+    not translated and the viewer supplies the wording around it.
+    """
+    codes.append(code)
+    label = (code if len(code) <= _CODE_LABEL_CHARS
+             else code[:_CODE_LABEL_CHARS] + "…")
+    return "[▶ {0}]({1}:{2})".format(label, SHARE_CODE_SCHEME, len(codes) - 1)
+
+
+def _link_codes(text: str, codes: Optional[List[str]]) -> str:
+    """Rewrite every share code in *text* as a clickable link, if asked to."""
+    if codes is None or "AMMCODE" not in text:
+        return text
+    return _SHARE_CODE_INLINE_RE.sub(lambda m: _code_link(m.group(1), codes), text)
+
+
+def _rewrite_code_fence(chunk: str, codes: Optional[List[str]]) -> str:
+    """Turn a fenced block that is nothing but a share code into a link.
+
+    Only that shape is touched: a link inside a fence renders as its own
+    literal text, so the fence has to go — and a fence carrying anything else
+    is a genuine code sample that must survive verbatim.
+    """
+    if codes is None or "AMMCODE" not in chunk:
+        return chunk
+    body = [line for line in chunk.split("\n") if not _FENCE_RE.match(line)]
+    # Rejoined rather than matched line by line, so a code the author wrapped
+    # over several lines is still recognised as the one code it is.
+    joined = "".join("".join(line.split()) for line in body)
+    if not _SHARE_CODE_RE.fullmatch(joined):
+        return chunk
+    return "\n\n{0}\n\n".format(_code_link(joined, codes))
+
+
 def _split_fences(text: str) -> List[Tuple[bool, str]]:
     """Split *text* into (is_code, chunk) runs, ``is_code`` for fenced blocks.
 
@@ -340,7 +499,7 @@ def _html_to_markdown(region: str) -> str:
     return region
 
 
-def _rewrite_prose(text: str) -> str:
+def _rewrite_prose(text: str, codes: Optional[List[str]] = None) -> str:
     """Apply the display rewrites to one non-code chunk of a wiki page."""
     text = _COMMENT_RE.sub("", text)
     text = _WIKILINK_RE.sub(_wikilink, text)
@@ -351,8 +510,11 @@ def _rewrite_prose(text: str) -> str:
 
     def close_region() -> None:
         if region:
+            # A verbatim region is a <table>, handed to Qt as HTML: a markdown
+            # link written into one would show as its own literal text.
             out.append("\n".join(region) if verbatim
-                       else _html_to_markdown("\n".join(region)))
+                       else _html_to_markdown(
+                           _link_codes("\n".join(region), codes)))
             region.clear()
 
     for line in text.split("\n"):
@@ -373,13 +535,20 @@ def _rewrite_prose(text: str) -> str:
             verbatim = bool(_TABLE_RE.match(line))
             region.append(line)
             continue
-        out.append(line)
+        out.append(_link_codes(line, codes))
     close_region()
     return _BLANKS_RE.sub("\n\n", "\n".join(out))
 
 
-def to_display_markdown(text: str) -> str:
+def to_display_markdown(text: str,
+                        *, share_codes: Optional[List[str]] = None) -> str:
     """Adapt raw wiki markdown for rendering in a QTextBrowser.
+
+    Pass a list as *share_codes* to also make profile share codes clickable:
+    each ``AMMCODE…`` found is appended to it and replaced by a truncated
+    :data:`SHARE_CODE_SCHEME` link whose target is its index in that list, so
+    the viewer can offer to import the code the reader clicked. Left out, the
+    codes render as the plain text they are.
 
     Four adjustments, none of which touches the wiki itself:
 
@@ -402,6 +571,7 @@ def to_display_markdown(text: str) -> str:
     (the Home page's game list is four columns of ``<td>``).
     """
     return "".join(
-        chunk if is_code else _rewrite_prose(chunk)
+        _rewrite_code_fence(chunk, share_codes) if is_code
+        else _rewrite_prose(chunk, share_codes)
         for is_code, chunk in _split_fences(text)
     )

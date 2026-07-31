@@ -2,7 +2,9 @@
 
 A detachable tab: page list on the left, rendered markdown on the right. Pages
 and images come from :mod:`Utils.wiki_sync`, so editing the wiki on GitHub is
-reflected here on the next fetch — nothing is bundled with the app.
+reflected here on the next fetch — nothing is bundled with the app. The list
+mirrors the wiki's own ``_Sidebar.md``, group headings included, so the app's
+navigation is edited on GitHub alongside the pages.
 
 Remote images need a QTextBrowser subclass: Qt never fetches ``https://``
 image resources itself, so :class:`_WikiBrowser` returns a placeholder from
@@ -15,7 +17,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QUrl, QTimer
+from PySide6.QtCore import Qt, Signal, QSize, QUrl, QTimer
 from PySide6.QtGui import (
     QColor, QDesktopServices, QImage, QTextCursor, QTextDocument,
     QTextFrameFormat, QTextLength, QTextTable,
@@ -30,11 +32,14 @@ from gui_qt.theme_qt import active_palette, _c
 from gui_qt.worker import run_in_worker
 from Utils import wiki_sync
 
-#: Slug carried on each page-list row.
+#: Slug carried on each page-list row (absent on the sidebar's group headers).
 _SLUG_ROLE = Qt.UserRole
 
 #: Horizontal room left for the scrollbar/margins when scaling an image.
 _IMAGE_MARGIN = 28
+
+#: Extra height above a sidebar group header, to set its group apart.
+_HEADER_GAP = 10
 
 
 class _WikiBrowser(QTextBrowser):
@@ -113,7 +118,12 @@ class _WikiBrowser(QTextBrowser):
 class WikiView(QWidget):
     """The wiki tab: page list plus the rendered page."""
 
-    _pages_ready = Signal(object)
+    # A profile share code printed in the page was clicked. Whoever opened the
+    # tab connects this to the manager's import-code flow. Plain "#", not "#:":
+    # lupdate reads a "#:" comment as a note to translators.
+    import_code_requested = Signal(str)
+
+    _rows_ready = Signal(object)
     _page_ready = Signal(str, object)
     _image_ready = Signal(str, object)
 
@@ -123,6 +133,7 @@ class WikiView(QWidget):
         self._current_slug: Optional[str] = None
         self._page_text: dict[str, str] = {}
         self._awaiting_refresh = False
+        self._share_codes: list[str] = []
         self._pal = active_palette()
 
         root = QVBoxLayout(self)
@@ -135,6 +146,7 @@ class WikiView(QWidget):
         self._list = QListWidget()
         self._list.setObjectName("WikiPageList")
         self._list.setMinimumWidth(170)
+        self._list.setStyleSheet("#WikiPageList::item{padding:2px 6px;}")
         self._list.currentItemChanged.connect(self._on_row_changed)
         split.addWidget(self._list)
 
@@ -188,7 +200,7 @@ class WikiView(QWidget):
         split.setStretchFactor(1, 1)
         split.setSizes([220, 780])
 
-        self._pages_ready.connect(self._on_pages_ready)
+        self._rows_ready.connect(self._on_rows_ready)
         self._page_ready.connect(self._on_page_ready)
         self._image_ready.connect(self._on_image_ready)
 
@@ -207,8 +219,8 @@ class WikiView(QWidget):
     # ---------------------------------------------------------------- fetching
 
     def _start_list_fetch(self, *, force: bool) -> None:
-        run_in_worker(lambda: wiki_sync.list_pages(force=force),
-                      self._pages_ready, name="wiki-pages", error_result=None)
+        run_in_worker(lambda: wiki_sync.nav_rows(force=force),
+                      self._rows_ready, name="wiki-pages", error_result=None)
 
     def _start_page_fetch(self, slug: str, *, force: bool) -> None:
         run_in_worker(lambda: (slug, wiki_sync.fetch_page(slug, force=force)),
@@ -228,29 +240,73 @@ class WikiView(QWidget):
 
     # ----------------------------------------------------------------- results
 
-    def _on_pages_ready(self, pages) -> None:
+    def _on_rows_ready(self, rows) -> None:
         if self._closing:
             return
-        if not pages:
+        if not rows:
             self._set_message(self.tr(
                 "Could not reach the wiki.\n\nCheck your connection and press "
                 "Refresh — pages you have already opened stay readable offline."))
             return
         self._list.blockSignals(True)
         self._list.clear()
-        for slug, title in pages:
-            item = QListWidgetItem(title)
-            item.setData(_SLUG_ROLE, slug)
+        for kind, label, slug in rows:
+            if kind == wiki_sync.SIDEBAR_PAGE:
+                item = QListWidgetItem(label)
+                item.setData(_SLUG_ROLE, slug)
+            else:
+                if self._list.count():
+                    self._list.addItem(self._spacer_item())
+                item = self._header_item(
+                    self.tr("Other pages")
+                    if kind == wiki_sync.SIDEBAR_OTHER else label)
             self._list.addItem(item)
         self._list.blockSignals(False)
-        # Restore the page being read across a Refresh; otherwise start at Home.
-        row = 0
+        # Restore the page being read across a Refresh; otherwise open the
+        # first page in the sidebar, skipping any group header above it.
+        row = self._first_page_row()
         if self._current_slug:
             for i in range(self._list.count()):
                 if self._list.item(i).data(_SLUG_ROLE) == self._current_slug:
                     row = i
                     break
-        self._list.setCurrentRow(row)
+        if row >= 0:
+            self._list.setCurrentRow(row)
+
+    def _header_item(self, label: str) -> QListWidgetItem:
+        """Build a sidebar group header: bold, tinted and not selectable."""
+        item = QListWidgetItem(label)
+        item.setFlags(Qt.ItemIsEnabled)   # enabled, so it keeps its colour
+        font = self._list.font()
+        font.setBold(True)
+        item.setFont(font)
+        # TONE_BLUE, not TEXT_DIM: a dimmed header reads as a disabled page,
+        # while the tint reads as a label. It is a light blue in every built-in
+        # theme (cyan under cyberpunk, deeper on the light ones so it keeps its
+        # contrast on white); ACCENT covers a custom theme that omits it.
+        key = "TONE_BLUE" if self._pal.get("TONE_BLUE") else "ACCENT"
+        item.setForeground(QColor(_c(self._pal, key)))
+        return item
+
+    @staticmethod
+    def _spacer_item() -> QListWidgetItem:
+        """Blank, inert row setting one sidebar group apart from the last.
+
+        A size hint rather than a taller header: an item's own hint has to
+        supply the width too, and an empty row is the one place where getting
+        that width wrong cannot clip anything.
+        """
+        item = QListWidgetItem("")
+        item.setFlags(Qt.NoItemFlags)
+        item.setSizeHint(QSize(0, _HEADER_GAP))
+        return item
+
+    def _first_page_row(self) -> int:
+        """Row of the first selectable page, or -1 if the list holds none."""
+        for i in range(self._list.count()):
+            if self._list.item(i).data(_SLUG_ROLE):
+                return i
+        return -1
 
     def _on_page_ready(self, slug, text) -> None:
         if self._closing or slug != self._current_slug:
@@ -267,7 +323,10 @@ class WikiView(QWidget):
         self._view.reset_images(drop_cached=was_refresh)
         # QTextEdit.setMarkdown takes no dialect argument — it always uses
         # MarkdownDialectGitHub, which is what the wiki is authored in.
-        self._view.setMarkdown(wiki_sync.to_display_markdown(text))
+        codes: list[str] = []
+        self._view.setMarkdown(
+            wiki_sync.to_display_markdown(text, share_codes=codes))
+        self._share_codes = codes
         self._space_blocks()
         self._style_tables()
         self._view.moveCursor(QTextCursor.Start)
@@ -279,6 +338,10 @@ class WikiView(QWidget):
             self._set_status(self.tr(
                 "No change yet — GitHub caches wiki pages for up to 5 minutes."
             ) if unchanged else self.tr("Updated."))
+        if self._share_codes:
+            # Said last so it wins over a Refresh note: the codes are the one
+            # thing on a page that does something when clicked.
+            self._set_status(self.tr("Click an import code to load it."))
 
     def _space_blocks(self) -> None:
         """Add paragraph spacing to the rendered page.
@@ -379,6 +442,8 @@ class WikiView(QWidget):
         if current is None:
             return
         slug = current.data(_SLUG_ROLE)
+        if not slug:
+            return   # a group header, not a page
         if slug != self._current_slug:
             self._awaiting_refresh = False   # a Refresh result is no longer wanted
         self._current_slug = slug
@@ -400,12 +465,28 @@ class WikiView(QWidget):
 
     def _on_link(self, url: QUrl) -> None:
         """Follow wiki-internal links in place; send everything else to a browser."""
+        if url.scheme() == wiki_sync.SHARE_CODE_SCHEME:
+            self._request_import(url)
+            return
         href = url.toString()
         slug = wiki_sync.resolve_link(href)
         if slug:
             self._load_slug(slug)
         elif url.scheme() in ("http", "https"):
             QDesktopServices.openUrl(url)
+
+    def _request_import(self, url: QUrl) -> None:
+        """Hand the clicked share code to the manager's import-code flow.
+
+        The link only carries the code's index on the page — the code itself is
+        a kilobyte of base64 — so a stale link (one clicked after the page was
+        re-rendered) is simply ignored rather than importing the wrong thing.
+        """
+        try:
+            code = self._share_codes[int(url.path())]
+        except (ValueError, IndexError):
+            return
+        self.import_code_requested.emit(code)
 
     def _refresh(self) -> None:
         self._set_status(self.tr("Refreshing…"))
@@ -426,6 +507,7 @@ class WikiView(QWidget):
     # ------------------------------------------------------------------ helpers
 
     def _set_message(self, text: str) -> None:
+        self._share_codes = []
         self._view.setMarkdown(text)
 
     def closeEvent(self, event):

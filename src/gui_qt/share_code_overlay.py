@@ -108,9 +108,14 @@ class ShareCodeExportOverlay(_CodeOverlayBase):
 
 class ShareCodeImportOverlay(_CodeOverlayBase):
     """A multi-line paste box for importing a share code. ``on_done(code)`` on
-    Import, ``on_done(None)`` on Cancel / Esc / backdrop click."""
+    Import, ``on_done(None)`` on Cancel / Esc / backdrop click.
 
-    def __init__(self, host: QWidget, on_done):
+    *initial_code* prefills the box — used when the code came from somewhere in
+    the app (a code clicked in the wiki tab) rather than the user's clipboard.
+    The overlay is still shown, so the preview says what is about to be
+    imported before anything is built."""
+
+    def __init__(self, host: QWidget, on_done, initial_code: str = ""):
         super().__init__(host, on_done=on_done)
 
         self._v.addWidget(self._title(self.tr("Import code")))
@@ -127,12 +132,15 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         self._preview = self._sub("")
         self._v.addWidget(self._preview)
         self._area.textChanged.connect(self._update_preview)
+        if initial_code:
+            self._area.setPlainText(initial_code)
 
-        # Offer to paste the clipboard contents in one tap.
+        # Offer to paste the clipboard contents in one tap — pointless once the
+        # box is already filled in.
         cb = QGuiApplication.clipboard()
         clip = cb.text() if cb is not None else ""
         bar = QHBoxLayout()
-        if clip and clip.strip().startswith("AMMCODE"):
+        if clip and clip.strip().startswith("AMMCODE") and not initial_code:
             paste = QPushButton(self.tr("Paste from clipboard"))
             paste.setObjectName("FormButton")
             paste.setCursor(Qt.PointingHandCursor)

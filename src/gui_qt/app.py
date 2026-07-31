@@ -6761,9 +6761,13 @@ class MainWindow(QMainWindow):
         ShareCodeExportOverlay(self.window(), code, mod_count)
         self._append_log(f"[export-code] built code for {mod_count} mod(s).")
 
-    def _import_profile_code(self):
+    def _import_profile_code(self, code: str = ""):
         """Prompt for a pasted share code, decode it, then reuse the manifest
-        import pipeline to build a new profile from it."""
+        import pipeline to build a new profile from it.
+
+        *code* prefills the paste box — how a share code clicked in the wiki tab
+        gets here. The overlay still opens either way, so its preview shows what
+        the code holds before a profile is built from it."""
         game = self._gs.game
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
@@ -6795,7 +6799,7 @@ class MainWindow(QMainWindow):
                 manifest, f"{src_name}_code", bundle_zip="", allow_append=True)
 
         from gui_qt.share_code_overlay import ShareCodeImportOverlay
-        ShareCodeImportOverlay(self.window(), _got)
+        ShareCodeImportOverlay(self.window(), _got, initial_code=code or "")
 
     def _open_profile_settings_tab(self):
         """Open the Profile Settings panel scoped over the MODLIST panel (like the
@@ -13280,7 +13284,11 @@ class MainWindow(QMainWindow):
             self._tabs.focus_key("wiki")
             return
         from gui_qt.wiki_view import WikiView
-        self._tabs.open_tab(WikiView(), self.tr("Wiki"), key="wiki")
+        view = WikiView()
+        # Share codes printed in a wiki page are clickable — route one straight
+        # into the same import flow as Profile ▸ Import code.
+        view.import_code_requested.connect(self._import_profile_code)
+        self._tabs.open_tab(view, self.tr("Wiki"), key="wiki")
 
     def _open_changelog_tab(self):
         """Open the bundled Changelog.txt as a read-only detachable tab."""

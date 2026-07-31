@@ -11801,7 +11801,7 @@ Latest:  {1}</translation>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
-        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <extracomment>Slug carried on each page-list row (absent on the sidebar's group headers). Horizontal room left for the scrollbar/margins when scaling an image. Extra height above a sidebar group header, to set its group apart.</extracomment>
         <translation>Refresh</translation>
     </message>
     <message>
@@ -11821,6 +11821,10 @@ Check your connection and press Refresh — pages you have already opened stay r
 Check your connection and press Refresh — pages you have already opened stay readable offline.</translation>
     </message>
     <message>
+        <source>Other pages</source>
+        <translation>Other pages</translation>
+    </message>
+    <message>
         <source>Could not load “{0}”.
 
 Press Refresh to try again.</source>
@@ -11835,6 +11839,10 @@ Press Refresh to try again.</translation>
     <message>
         <source>Updated.</source>
         <translation>Updated.</translation>
+    </message>
+    <message>
+        <source>Click an import code to load it.</source>
+        <translation>Click an import code to load it.</translation>
     </message>
     <message>
         <source>Loading…</source>
