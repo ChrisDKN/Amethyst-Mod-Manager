@@ -7058,6 +7058,16 @@ class MainWindow(QMainWindow):
         # rebuild the pinned actions so Remove hides on the locked default.
         self._refresh_profile_actions()
         self._update_deployed_profile_highlight()
+        # The removed profile may have been a group (or a group member) — the
+        # Profile Groups tab lists both, so refresh it in place if open.
+        if self._tabs.has_key("profile_groups"):
+            v = getattr(self, "_profile_groups_view", None)
+            if v is not None:
+                try:
+                    v.set_current_profile(self._gs.profile)
+                    v._populate()
+                except Exception:
+                    pass
 
     def _on_new_profile_create(self, name: str, profile_specific_mods: bool):
         """Create a new profile for the active game and switch to it. Mirrors the

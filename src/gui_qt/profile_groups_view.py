@@ -445,38 +445,30 @@ class ProfileGroupsView(QWidget):
         def done(ok: bool):
             if not ok:
                 return
-            gdir = self._profiles_dir() / name
-            if self._edits_blocked(name):
-                return
-            was_active = (name == self._current_profile)
-            import shutil
-            try:
-                shutil.rmtree(gdir)
-            except OSError as exc:
-                self._notify(self.tr("Could not remove group: {0}").format(exc),
-                             "error")
-                return
-            self._log(f"Profile Group '{name}' removed.")
             if self._expanded == name:
                 self._expanded = None
-            if was_active:
-                # Deleting the ACTIVE group: fall back to another profile via
-                # the app's removal handler (selector + GameState + reload) —
-                # _on_groups_changed alone would leave GameState pointing at
-                # the deleted dir.
-                cb = getattr(self._window, "_on_profile_removed", None)
-                if callable(cb):
-                    cb(name)
-                self._current_profile = getattr(self._window._gs, "profile",
-                                                self._current_profile)
-            self._populate()
-            self._on_groups_changed()
+            # Delegate to the Profile Settings removal worker: it restores
+            # the game first when this group is the deployed profile, shows
+            # the progress popup, and its finish callback runs the app's
+            # _on_profile_removed (active-profile fallback + selector), which
+            # also repopulates this tab.
+            view = self._window._make_profile_settings_view()
+            self._window._profile_remove_helper = view   # keep alive (async)
+            is_deployed = False
+            try:
+                is_deployed = bool(
+                    self._game.get_deploy_active()
+                    and self._game.get_last_deployed_profile() == name)
+            except Exception:
+                pass
+            view._start_remove_worker(name, is_deployed)
 
         ConfirmOverlay.show_over(
             self._overlay_host(), self.tr("Remove Group"),
             self.tr("Remove the profile group '{0}'?\n\nOnly the group itself "
                     "is deleted — its member profiles and their mods are "
-                    "untouched.").format(name),
+                    "untouched. The game will be restored first if this group "
+                    "is deployed.").format(name),
             on_done=done, confirm_label=self.tr("Remove"))
 
     def _add_member(self, group: str, member: str):

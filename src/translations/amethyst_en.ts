@@ -8472,20 +8472,16 @@ Which profile's INI files should the group use for those?</translation>
         <translation>Could not create group: {0}</translation>
     </message>
     <message>
-        <source>Could not remove group: {0}</source>
-        <translation>Could not remove group: {0}</translation>
+        <source>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
+        <translation>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</translation>
     </message>
     <message>
         <source>Remove Group</source>
         <translation>Remove Group</translation>
-    </message>
-    <message>
-        <source>Remove the profile group '{0}'?
-
-Only the group itself is deleted — its member profiles and their mods are untouched.</source>
-        <translation>Remove the profile group '{0}'?
-
-Only the group itself is deleted — its member profiles and their mods are untouched.</translation>
     </message>
     <message>
         <source>Convert Profile</source>
