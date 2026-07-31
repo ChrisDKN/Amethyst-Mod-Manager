@@ -357,6 +357,8 @@ def get_screen_info() -> tuple[int, int, float]:
     if compositor > 1.0:
         scale = round(min(_AUTO_MAX_SCALE, compositor) * 20) / 20
         return w, h, scale
+    if on_wayland:
+        return w, h, 1.0
 
     # On multi-monitor setups winfo_screenwidth/height is the combined virtual
     # desktop — use xrandr to get just the primary monitor's physical size.

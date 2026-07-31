@@ -405,7 +405,16 @@ class MainWindow(QMainWindow):
             self.tr("Amethyst Mod Manager - v{0}").format(_mm_version) if _mm_version
             else self.tr("Amethyst Mod Manager")
         )
-        self.setMinimumSize(1280, 800)   # Steam Deck is the floor
+        want_w, want_h = 1280, 800
+        try:
+            scr = (app or QApplication.instance()).primaryScreen()
+            if scr is not None:
+                ag = scr.availableGeometry()
+                want_w = min(want_w, max(640, ag.width() - 40))
+                want_h = min(want_h, max(480, ag.height() - 80))
+        except Exception:
+            pass
+        self.setMinimumSize(want_w, want_h)
         # Debounced as-you-go persistence of the window geometry + body
         # splitter, so the state survives exits that never reach closeEvent
         # (Ctrl+C in the launching terminal, SIGKILL, crashes).
@@ -413,7 +422,7 @@ class MainWindow(QMainWindow):
         self._win_state_timer.setSingleShot(True)
         self._win_state_timer.setInterval(1000)
         self._win_state_timer.timeout.connect(self._save_window_state)
-        self.resize(1280, 800)
+        self.resize(want_w, want_h)
         # Restore the last-session window position/size/maximized state.
         # restoreGeometry() validates the saved rect against the current screen
         # layout (a since-unplugged monitor falls back on-screen), so a stale
@@ -437,7 +446,8 @@ class MainWindow(QMainWindow):
                 scr = (app or QApplication.instance()).primaryScreen()
                 if scr is not None:
                     ag = scr.availableGeometry()
-                    self.move(ag.center().x() - 640, ag.center().y() - 400)
+                    self.move(ag.center().x() - want_w // 2,
+                              ag.center().y() - want_h // 2)
             except Exception:
                 pass
 
