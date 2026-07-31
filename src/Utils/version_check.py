@@ -238,7 +238,7 @@ def run_flatpak_installer(latest_tag: str) -> bool:
 
     Flow, run detached so it survives our own shutdown:
       1. curl the release's ``AmethystModManager.flatpak`` bundle to a temp file.
-      2. ``flatpak install --user --bundle --reinstall -y`` it on the host.
+      2. ``flatpak install <scope> --bundle --reinstall -y`` it on the host.
       3. relaunch ``flatpak run <app-id>`` and clean up the temp bundle.
 
     Output is logged to $XDG_CONFIG_HOME/amethyst-update.log (same as AppImage;
@@ -277,10 +277,13 @@ def run_flatpak_installer(latest_tag: str) -> bool:
     # --directory=/ avoids the portal failing on the app's sandbox-only cwd.
     host = "flatpak-spawn --host --directory=/"
     _q_bundle = shlex.quote(bundle_path)
+    # Install into whichever installation already holds us — a hardcoded --user
+    # would fork a second copy alongside a system-wide install.
+    scope = _install_scope()
     cmd = (
         f"sleep 2 && "
         f"curl -fsSL {shlex.quote(bundle_url)} -o {_q_bundle} && "
-        f"{host} flatpak install --user --bundle --reinstall --noninteractive -y "
+        f"{host} flatpak install {scope} --bundle --reinstall --noninteractive -y "
         f"{_q_bundle} && "
         f"rm -f {_q_bundle} && "
         f"{host} flatpak run {shlex.quote(_APP_ID)} &>/dev/null &"
@@ -333,8 +336,57 @@ def _host_flatpak(*args: str, timeout: int = 60):
         return None
 
 
-def _remote_name_for_our_url() -> str | None:
-    """Name of the configured remote pointing at our hosted repo, or None.
+_install_scope_cache: str | None = None
+
+
+def _install_scope() -> str:
+    """"--user" or "--system": which flatpak installation holds our app.
+
+    `flatpak remote-add` / `install` default to --system when run without a
+    scope flag (which is what the documented remote-add one-liner does), so a
+    system-wide install with a system-wide remote is a perfectly normal setup —
+    but every remote query has to be made in the SAME scope or flatpak answers
+    "Remote not found in the user installation" and we misread that as "channel
+    not published". Parsed from `flatpak info`'s "Installation:" line; defaults
+    to --user (the historical assumption) when undeterminable.
+
+    Memoised: this feeds several helpers per update check and each call is a
+    portal round-trip. `_reset_scope_cache()` clears it after an enroll.
+    """
+    global _install_scope_cache
+    if _install_scope_cache is not None:
+        return _install_scope_cache
+    scope = "--user"
+    cp = _host_flatpak("info", _APP_ID)
+    if cp is not None and cp.returncode == 0:
+        for line in cp.stdout.splitlines():
+            k, _, v = line.partition(":")
+            if k.strip().lower() == "installation":
+                scope = "--system" if v.strip().lower().startswith("system") \
+                    else "--user"
+                break
+    _install_scope_cache = scope
+    return scope
+
+
+def _reset_scope_cache() -> None:
+    """Forget the memoised installation scope (call after enroll/reinstall)."""
+    global _install_scope_cache
+    _install_scope_cache = None
+
+
+def _flatpak_scopes() -> tuple[str, str]:
+    """Scopes to probe, our own installation's scope first.
+
+    Order matters when the same repo URL is configured in both scopes: the
+    remote we should be talking to is the one in the scope our app lives in.
+    """
+    inst = _install_scope()
+    return (inst, "--system" if inst == "--user" else "--user")
+
+
+def _remote_for_our_url() -> tuple[str, str] | None:
+    """(name, scope) of the configured remote pointing at our hosted repo.
 
     Matched by URL, NOT by name: a bundle installed with --repo-url gets an
     auto-created origin named "<app>-origin" (e.g. modmanager-origin), while a
@@ -344,10 +396,11 @@ def _remote_name_for_our_url() -> str | None:
     Queries BOTH scopes and includes --show-disabled: bundle-created origins
     are flagged `no-enumerate` (and can be disabled by a duplicate-URL clash),
     so a plain `flatpak remotes` hides them. Scope also matters — a user bundle
-    install lands in the --user list, which the default (system) query omits.
+    install lands in the --user list, which the default (system) query omits,
+    and a `flatpak remote-add` without a scope flag lands in --system.
     """
     want = _FLATPAK_REMOTE_REPO_URL.rstrip("/")
-    for scope in ("--user", "--system"):
+    for scope in _flatpak_scopes():
         cp = _host_flatpak("remotes", scope, "--show-disabled",
                            "--columns=name,url")
         if cp is None or cp.returncode != 0:
@@ -358,8 +411,14 @@ def _remote_name_for_our_url() -> str | None:
                 continue
             name, url = parts[0].strip(), parts[1].strip().rstrip("/")
             if url == want:
-                return name
+                return name, scope
     return None
+
+
+def _remote_name_for_our_url() -> str | None:
+    """Name of the configured remote pointing at our hosted repo, or None."""
+    found = _remote_for_our_url()
+    return found[0] if found else None
 
 
 def flatpak_installed_from_remote() -> bool:
@@ -381,14 +440,15 @@ def flatpak_installed_from_remote() -> bool:
     return our_remote is not None and origin == our_remote
 
 
-def _effective_remote_name() -> str:
-    """The remote name to target for install/update queries.
+def _effective_remote() -> tuple[str, str]:
+    """(name, scope) to target for remote queries and the reinstall.
 
     Prefers the actually-configured remote for our URL (which may be the
     auto-created "<app>-origin" on a --repo-url bundle install), falling back
-    to the canonical name (_FLATPAK_REMOTE_NAME) when none is configured yet.
+    to the canonical name in our own installation's scope when none is
+    configured yet (the enroll path is about to create it there).
     """
-    return _remote_name_for_our_url() or _FLATPAK_REMOTE_NAME
+    return _remote_for_our_url() or (_FLATPAK_REMOTE_NAME, _install_scope())
 
 
 def polish_flatpak_origin() -> None:
@@ -401,11 +461,20 @@ def polish_flatpak_origin() -> None:
     has no appstream version). Flip the flag and set a proper title so update
     entries read "2.0.4-beta.4 → 2.0.4-beta.5" instead. No-op when the remote
     is absent, already enumerable, or the host can't be reached.
+
+    Deliberately limited to --user remotes: `remote-modify --system` writes to
+    /var/lib/flatpak and needs polkit, and this runs unattended at startup — a
+    surprise auth prompt every launch would be far worse than a cosmetic
+    Discover label. System remotes added from our .flatpakrepo are enumerable
+    anyway, so there is nothing to heal there.
     """
-    name = _remote_name_for_our_url()
-    if not name:
+    found = _remote_for_our_url()
+    if not found:
         return
-    cp = _host_flatpak("remotes", "--user", "--show-disabled",
+    name, scope = found
+    if scope != "--user":
+        return
+    cp = _host_flatpak("remotes", scope, "--show-disabled",
                        "--columns=name,options")
     if cp is None or cp.returncode != 0:
         return
@@ -413,7 +482,7 @@ def polish_flatpak_origin() -> None:
         parts = line.split("\t")
         if parts and parts[0].strip() == name:
             if "no-enumerate" in (parts[1] if len(parts) > 1 else ""):
-                _host_flatpak("remote-modify", "--user", name, "--enumerate",
+                _host_flatpak("remote-modify", scope, name, "--enumerate",
                               "--title=Amethyst Mod Manager")
             break
 
@@ -426,14 +495,18 @@ def flatpak_remote_branch_available(branch: str) -> bool:
     branch would fail silently in the detached child. Callers use this to
     surface "channel not published yet" instead.
     """
-    cp = _host_flatpak("remote-info", "--user", _effective_remote_name(),
-                       f"{_APP_ID}//{branch}")
+    name, scope = _effective_remote()
+    cp = _host_flatpak("remote-info", scope, name, f"{_APP_ID}//{branch}")
     return cp is not None and cp.returncode == 0
 
 
 def _installed_flatpak_state() -> tuple[str, str] | None:
-    """(branch, commit) of the installed app, or None if undeterminable."""
-    cp = _host_flatpak("info", "--user", _APP_ID)
+    """(branch, commit) of the installed app, or None if undeterminable.
+
+    Scope-free `flatpak info` — the app exists in exactly one installation and
+    hardcoding --user made this return None for system-wide installs.
+    """
+    cp = _host_flatpak("info", _APP_ID)
     if cp is None or cp.returncode != 0:
         return None
     branch = commit = ""
@@ -459,8 +532,8 @@ def flatpak_remote_update_ready(branch: str) -> bool | None:
     """
     if not flatpak_remote_branch_available(branch):
         return False  # nothing installable on that channel
-    cp = _host_flatpak("remote-info", "--user", _effective_remote_name(),
-                       f"{_APP_ID}//{branch}")
+    name, scope = _effective_remote()
+    cp = _host_flatpak("remote-info", scope, name, f"{_APP_ID}//{branch}")
     if cp is None or cp.returncode != 0:
         return None
     remote_commit = ""
@@ -500,10 +573,15 @@ def _launch_remote_reinstall(branch: str) -> str:
     # resolves to that same name; for an update it's whatever the
     # user has. Reinstall pins the branch (handles same-branch update AND
     # channel switch — `flatpak update` won't cross branches).
-    remote = _effective_remote_name()
+    #
+    # The scope must be the remote's own: --user against a system-wide remote
+    # fails with "Remote not found in the user installation". A --system
+    # reinstall goes through polkit, so the desktop's auth agent prompts — that
+    # is fine here because this only ever runs from an explicit Update click.
+    remote, scope = _effective_remote()
     cmd = (
         f"sleep 2 && "
-        f"{host} flatpak install --user --reinstall --noninteractive -y "
+        f"{host} flatpak install {scope} --reinstall --noninteractive -y "
         f"{shlex.quote(remote)} {shlex.quote(ref)} && "
         f"{host} flatpak run {shlex.quote(_APP_ID)} &>/dev/null &"
     )
@@ -541,11 +619,18 @@ def enroll_flatpak_remote(*, allow_prerelease: bool = False) -> str:
         return "unavailable"
 
     branch = "beta" if allow_prerelease else "stable"
-    cp = _host_flatpak("remote-add", "--user", "--if-not-exists",
-                       _FLATPAK_REMOTE_NAME, _FLATPAK_REMOTE_FILE_URL,
-                       timeout=120)
-    if cp is None or cp.returncode != 0:
-        return "unavailable"
+    # Only add when nothing already points at our repo. Adding a --user remote
+    # while a --system one carries the same URL makes flatpak disable one of
+    # them ("Can't fetch summary from disabled remote"), which breaks updates
+    # for a user who followed the documented remote-add one-liner.
+    if _remote_for_our_url() is None:
+        # Add it in the scope our app lives in, so the reinstall below can
+        # target the existing installation instead of forking a second one.
+        cp = _host_flatpak("remote-add", _install_scope(), "--if-not-exists",
+                           _FLATPAK_REMOTE_NAME, _FLATPAK_REMOTE_FILE_URL,
+                           timeout=120)
+        if cp is None or cp.returncode != 0:
+            return "unavailable"
     if not flatpak_remote_branch_available(branch):
         return "no-branch"
     return _launch_remote_reinstall(branch)
