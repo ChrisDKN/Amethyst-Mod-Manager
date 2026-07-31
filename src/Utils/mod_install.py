@@ -1035,7 +1035,11 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if not archive.is_file():
         log_fn(f"Install: archive not found: {archive_path}")
         return None
-    staging_root = game.get_effective_mod_staging_path()
+    # Resolve staging from the TARGET profile dir, not the game's mutable
+    # active-profile state: installs into a non-active profile (Profile Group
+    # member picker) land in that profile's own mods folder.
+    from Utils.mod_copy import resolve_target_staging
+    staging_root = resolve_target_staging(game, profile_dir)
     if staging_root is None:
         log_fn("Install: no staging folder configured.")
         return None
@@ -1372,6 +1376,10 @@ def fix_flat_staging_folders(
     if not staging_root.is_dir():
         return fixed
     for mod_dir in staging_root.iterdir():
+        # Never restructure through a symlinked mod dir (Profile Group link
+        # farm) — the member profile heals its own real folder.
+        if mod_dir.is_symlink():
+            continue
         if mod_dir.is_dir() and wrap_flat_mod_dir(mod_dir, names, exts, guard):
             fixed.append(mod_dir.name)
     return fixed
@@ -1396,7 +1404,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     *on_exists* is None the existing folder is silently replaced (collection /
     quick-update path)."""
     p = prepared
-    staging_root = Path(p.game.get_effective_mod_staging_path())
+    from Utils.mod_copy import resolve_target_staging
+    staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
     dest_root = staging_root / p.mod_name
 
@@ -1625,7 +1634,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     # Stamp missing-requirements + endorsed flags now (one GraphQL call, no
     # rate-limit cost) so the modlist flags appear immediately without pressing
     # "Check updates".
-    _check_nexus_flags_after_install(p.game, p.mod_name, log_fn)
+    _check_nexus_flags_after_install(p.game, p.mod_name, log_fn,
+                                     profile_dir=p.profile_dir)
     log_fn(f"Installed '{p.mod_name}'.")
     return p.mod_name
 
@@ -1779,7 +1789,8 @@ def install_collection_archive(
     if not archive.is_file():
         log_fn(f"Collection install: archive not found: {archive_path}")
         return None
-    staging_root = game.get_effective_mod_staging_path()
+    from Utils.mod_copy import resolve_target_staging
+    staging_root = resolve_target_staging(game, profile_dir)
     if staging_root is None:
         log_fn("Collection install: no staging folder configured.")
         return None
@@ -2459,7 +2470,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
     own meta/index/modlist row (Tk parity). Existing same-named folders are
     silently replaced. Returns the first installed name (None if nothing
     staged)."""
-    staging_root = Path(p.game.get_effective_mod_staging_path())
+    from Utils.mod_copy import resolve_target_staging
+    staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
     installed: list[str] = []
     try:
@@ -2488,7 +2500,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
     if not installed:
         log_fn(f"Install failed: nothing was staged for '{p.mod_name}'.")
         return None
-    _check_nexus_flags_after_install(p.game, installed, log_fn)
+    _check_nexus_flags_after_install(p.game, installed, log_fn,
+                                     profile_dir=p.profile_dir)
     log_fn(f"Installed {len(installed)} mod(s) from archive.")
     return installed[0]
 
@@ -2598,7 +2611,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
         log_fn(f"meta.ini write skipped ({exc}).")
 
 
-def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn) -> None:
+def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
+                                     profile_dir: "Path | None" = None) -> None:
     """Stamp the freshly installed mod(s)' missing requirements + endorsed flag.
 
     Both come from a SINGLE Nexus GraphQL v2 request (``modRequirements`` +
@@ -2627,7 +2641,10 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn) -> None:
         if not domain:
             return
         try:
-            staging_root = Path(game.get_effective_mod_staging_path())
+            from Utils.mod_copy import resolve_target_staging
+            staging_root = (Path(resolve_target_staging(game, profile_dir))
+                            if profile_dir is not None
+                            else Path(game.get_effective_mod_staging_path()))
         except Exception:
             return
         from Nexus.nexus_meta import scan_installed_mods, read_meta, write_meta

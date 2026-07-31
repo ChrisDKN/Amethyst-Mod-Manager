@@ -1916,6 +1916,7 @@ def rebuild_mod_index(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
+    follow_toplevel_links_under: "Path | None" = None,
 ) -> None:
     """Scan every mod folder under staging_root and rewrite the full index.
 
@@ -1929,6 +1930,12 @@ def rebuild_mod_index(
     ``Data``) must NOT be applied: a SKSE-style mod ships ``Data/Scripts/...``
     plus loose ``.exe`` files at top level; stripping ``Data/`` would dump the
     Scripts subtree at the game root instead of inside ``<game>/Data/``.
+
+    follow_toplevel_links_under — when set, a top-level symlinked mod dir is
+    followed IF its resolved target lives under this root (callers pass the
+    game's profiles/ dir so Profile Group links resolve); anything else keeps
+    the historical skip+WARN. _scan_dir never follows nested symlinks, so a
+    link smuggled inside a mod (malicious archive) stays un-indexed.
     """
     _strip = frozenset(s.lower() for s in strip_prefixes) if strip_prefixes else frozenset()
     _per_mod = per_mod_strip_prefixes or {}
@@ -1958,12 +1965,29 @@ def rebuild_mod_index(
                         continue
                     scan_targets.append((entry.name, entry.path))
                 elif entry.is_dir(follow_symlinks=True):
-                    # A SYMLINK pointing at a directory: the modlist sync adopts
-                    # it (pathlib is_dir follows links), but this index scan skips
-                    # it (follow_symlinks=False) — so the mod appears in the list
-                    # yet deploys nothing. This is the top-suspect cause of
-                    # "copied mod is invisible / has no plugins". Record + warn.
-                    skipped_nondir.append(entry.name)
+                    # A SYMLINK pointing at a directory. Followed only when the
+                    # caller passed follow_toplevel_links_under AND the resolved
+                    # target is contained in it (Profile Group links into member
+                    # profiles). Otherwise: the modlist sync adopts it (pathlib
+                    # is_dir follows links) but this index scan skips it — so
+                    # the mod appears in the list yet deploys nothing. Record +
+                    # warn in that case.
+                    followed = False
+                    if follow_toplevel_links_under is not None:
+                        if not _is_utf8_safe(entry.name):
+                            skipped_badname.append(entry.name)
+                            continue
+                        try:
+                            resolved = Path(entry.path).resolve(strict=True)
+                            resolved.relative_to(
+                                Path(follow_toplevel_links_under).resolve())
+                        except (OSError, ValueError, RuntimeError):
+                            pass
+                        else:
+                            scan_targets.append((entry.name, entry.path))
+                            followed = True
+                    if not followed:
+                        skipped_nondir.append(entry.name)
     except OSError as scan_err:
         # Staging root unreadable (unmounted SD card, permission loss).
         # Writing an index from this state would WIPE every mod's entry —
@@ -2403,6 +2427,7 @@ def build_filemap(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
+    follow_toplevel_links_under: "Path | None" = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -2479,6 +2504,7 @@ def build_filemap(
             exclude_dirs=exclude_dirs,
             log_fn=log_fn,
             root_folder_mods=root_folder_mods,
+            follow_toplevel_links_under=follow_toplevel_links_under,
         )
         index = read_mod_index(index_path) or {}
 

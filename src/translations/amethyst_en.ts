@@ -5563,6 +5563,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Profile Settings</translation>
     </message>
     <message>
+        <source>Profile Groups aren't supported for this game.</source>
+        <translation>Profile Groups aren't supported for this game.</translation>
+    </message>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Profile Groups</translation>
+    </message>
+    <message>
         <source>Profile '{0}' already exists.</source>
         <translation>Profile '{0}' already exists.</translation>
     </message>
@@ -5847,6 +5855,36 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutri
         <translation>Restore queued — it will run after the current install finishes.</translation>
     </message>
     <message>
+        <source>Profile groups…</source>
+        <translation>Profile groups…</translation>
+    </message>
+    <message>
+        <source>Install queued — waiting for the current member choice.</source>
+        <translation>Install queued — waiting for the current member choice.</translation>
+    </message>
+    <message>
+        <source>This group has no member profiles — add one first.</source>
+        <translation>This group has no member profiles — add one first.</translation>
+    </message>
+    <message>
+        <source>Install cancelled.</source>
+        <translation>Install cancelled.</translation>
+    </message>
+    <message>
+        <source>Install queued — it will run after the current operation finishes.</source>
+        <translation>Install queued — it will run after the current operation finishes.</translation>
+    </message>
+    <message>
+        <source>Install into which member profile?
+('{0}' is a profile group — the mod will be installed there and appear in the group.)</source>
+        <translation>Install into which member profile?
+('{0}' is a profile group — the mod will be installed there and appear in the group.)</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+    <message>
         <source>Windows filesystem detected</source>
         <translation>Windows filesystem detected</translation>
     </message>
@@ -5869,6 +5907,10 @@ NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, p
 A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
 
 If you continue, this warning won't be shown again for {1} unless the drives change.</translation>
+    </message>
+    <message>
+        <source>'{0}' belongs to the member profile '{1}' — switch to that profile to rename it.</source>
+        <translation>'{0}' belongs to the member profile '{1}' — switch to that profile to rename it.</translation>
     </message>
     <message>
         <source>Installed {0} mods</source>
@@ -8306,6 +8348,171 @@ Drag a plugin from the left pane to add a rule.</translation>
     </message>
 </context>
 <context>
+    <name>ProfileGroupsView</name>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Profile Groups</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>Groups</translation>
+    </message>
+    <message>
+        <source>No profile groups yet. A group combines several profiles and deploys them together as one merged profile.</source>
+        <translation>No profile groups yet. A group combines several profiles and deploys them together as one merged profile.</translation>
+    </message>
+    <message>
+        <source>Not eligible (shared mod pool)</source>
+        <translation>Not eligible (shared mod pool)</translation>
+    </message>
+    <message>
+        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
+        <translation>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</translation>
+    </message>
+    <message>
+        <source>{0} member(s)</source>
+        <translation>{0} member(s)</translation>
+    </message>
+    <message>
+        <source>Hide members</source>
+        <translation>Hide members</translation>
+    </message>
+    <message>
+        <source>Members</source>
+        <translation>Members</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <source>  (missing)</source>
+        <translation>  (missing)</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>Move up</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>Move down</translation>
+    </message>
+    <message>
+        <source>1 = highest priority (its mods win conflicts)</source>
+        <translation>1 = highest priority (its mods win conflicts)</translation>
+    </message>
+    <message>
+        <source>+ Add member</source>
+        <translation>+ Add member</translation>
+    </message>
+    <message>
+        <source>New group</source>
+        <translation>New group</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>Name:</translation>
+    </message>
+    <message>
+        <source>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</source>
+        <translation>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</translation>
+    </message>
+    <message>
+        <source>Create group</source>
+        <translation>Create group</translation>
+    </message>
+    <message>
+        <source>Converting…</source>
+        <translation>Converting…</translation>
+    </message>
+    <message>
+        <source>Convert to profile-specific…</source>
+        <translation>Convert to profile-specific…</translation>
+    </message>
+    <message>
+        <source>Priority (check order): {0}</source>
+        <translation>Priority (check order): {0}</translation>
+    </message>
+    <message>
+        <source>Check member profiles in priority order (first checked = highest priority).</source>
+        <translation>Check member profiles in priority order (first checked = highest priority).</translation>
+    </message>
+    <message>
+        <source>An install or deploy is in progress — try again shortly.</source>
+        <translation>An install or deploy is in progress — try again shortly.</translation>
+    </message>
+    <message>
+        <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
+        <translation>'{0}' is currently deployed — restore the game first, then edit the group.</translation>
+    </message>
+    <message>
+        <source>Enter a group name.</source>
+        <translation>Enter a group name.</translation>
+    </message>
+    <message>
+        <source>Check at least one member profile.</source>
+        <translation>Check at least one member profile.</translation>
+    </message>
+    <message>
+        <source>Group creation cancelled.</source>
+        <translation>Group creation cancelled.</translation>
+    </message>
+    <message>
+        <source>Several members have profile-specific INIs with the same name ({0}).
+Which profile's INI files should the group use for those?</source>
+        <translation>Several members have profile-specific INIs with the same name ({0}).
+Which profile's INI files should the group use for those?</translation>
+    </message>
+    <message>
+        <source>Use these INIs</source>
+        <translation>Use these INIs</translation>
+    </message>
+    <message>
+        <source>Could not create group: {0}</source>
+        <translation>Could not create group: {0}</translation>
+    </message>
+    <message>
+        <source>Could not remove group: {0}</source>
+        <translation>Could not remove group: {0}</translation>
+    </message>
+    <message>
+        <source>Remove Group</source>
+        <translation>Remove Group</translation>
+    </message>
+    <message>
+        <source>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched.</source>
+        <translation>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched.</translation>
+    </message>
+    <message>
+        <source>Convert Profile</source>
+        <translation>Convert Profile</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' to profile-specific mods?
+
+Its listed mods are copied into the profile's own mods folder (hardlinked where possible). The shared pool and other profiles are not changed.</source>
+        <translation>Convert '{0}' to profile-specific mods?
+
+Its listed mods are copied into the profile's own mods folder (hardlinked where possible). The shared pool and other profiles are not changed.</translation>
+    </message>
+    <message>
+        <source>Convert</source>
+        <translation>Convert</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' converted — it can now join groups.</source>
+        <translation>Profile '{0}' converted — it can now join groups.</translation>
+    </message>
+    <message>
+        <source>Convert of '{0}' failed — see the log.</source>
+        <translation>Convert of '{0}' failed — see the log.</translation>
+    </message>
+</context>
+<context>
     <name>ProfileSettingsView</name>
     <message>
         <source>Profile Settings</source>
@@ -8334,6 +8541,10 @@ Drag a plugin from the left pane to add a rule.</translation>
     <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</source>
+        <translation>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>

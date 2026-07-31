@@ -92,6 +92,7 @@ class SelectorButton(QToolButton):
         self._item_icon_px = icon_px
         self._current = current or (self._items[0] if self._items else "")
         self._highlighted: str | None = None   # green "active/deployed" item
+        self._item_separators: set = set()     # labels with a separator before
         self.setObjectName("ActionButton")   # share the flat toolbar styling
         self.setProperty("split", True)       # gets the arrow-room padding
         # Split button: a text section + a separate arrow section on the right
@@ -142,10 +143,16 @@ class SelectorButton(QToolButton):
         self.style().polish(self)
 
     # -- public API ---------------------------------------------------------
-    def set_items(self, items, current=None, item_icons=None):
+    def set_items(self, items, current=None, item_icons=None,
+                  separator_before=None):
+        """*separator_before* — labels that get a menu separator inserted
+        BEFORE them (e.g. the first Profile Group, splitting groups from
+        plain profiles). None keeps the previous set."""
         self._items = list(items)
         if item_icons is not None:
             self._item_icons = dict(item_icons)
+        if separator_before is not None:
+            self._item_separators = set(separator_before)
         if current is not None:
             self._current = current
         elif self._current not in self._items and self._items:
@@ -202,8 +209,11 @@ class SelectorButton(QToolButton):
         self.setProperty("deployed", self._highlighted is not None
                          and self._current == self._highlighted)
         self.style().unpolish(self); self.style().polish(self)
-        # Enlarge the menu-entry icons to match the bigger face icon (Qt draws
-        # action icons at PM_SmallIconSize = 16px otherwise, which reads tiny).
+        # Item icons replace the radio indicator in their rows (Qt draws the
+        # action icon in the check column). icon_px=16 matches the styled
+        # indicator geometry (theme_qt QMenu::indicator) so icon rows align
+        # with radio rows — the profile selector uses that; the play bar
+        # deliberately uses larger icons.
         self._menu.setStyleSheet(
             f"QMenu {{ icon-size: {self._item_icon_px}px; }}"
             if self._item_icons else "")
@@ -212,6 +222,8 @@ class SelectorButton(QToolButton):
         self._group = QActionGroup(self._menu)
         self._group.setExclusive(True)
         for label in self._items:
+            if label in self._item_separators:
+                self._menu.addSeparator()
             a = self._menu.addAction(label)
             a.setCheckable(True)
             a.setChecked(label == self._current)
@@ -288,9 +300,11 @@ class SelectorButton(QToolButton):
 
     def paintEvent(self, event):
         # Let the base class paint the (centred) text + chrome, then draw the
-        # current item's icon ourselves pinned to the LEFT edge of the button —
-        # the label stays centred (QToolButton's own icon slot would left-align
-        # the icon+text group together instead).
+        # current item's icon ourselves just LEFT of the centred label — the
+        # label stays centred (QToolButton's own icon slot would left-align
+        # the icon+text group together instead). Anchoring to the text (not
+        # the button edge) keeps the icon clear of the rounded corner, and it
+        # is skipped when a long label leaves no room, instead of clipping.
         super().paintEvent(event)
         if self._icon is not None:
             return
@@ -300,7 +314,13 @@ class SelectorButton(QToolButton):
         from PySide6.QtGui import QPainter
         from PySide6.QtCore import QRect
         px = self._item_icon_px
-        x = 8   # left-edge inset
+        # 28px = the split arrow section (QSS padding); the label centres in
+        # the remaining body, so mirror that when locating its left edge.
+        body_w = self.width() - (28 if self.property("split") else 0)
+        text_w = self.fontMetrics().horizontalAdvance(self.text())
+        x = (body_w - text_w) // 2 - px - 6
+        if x < 4:
+            return   # no room — draw nothing rather than a clipped icon
         y = (self.height() - px) // 2
         p = QPainter(self)
         face.paint(p, QRect(x, y, px, px))

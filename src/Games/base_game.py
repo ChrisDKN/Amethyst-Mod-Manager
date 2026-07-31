@@ -134,6 +134,13 @@ class BaseGame(ABC):
     )
     profile_overridable_paths_extras: tuple[str, ...] = ()
 
+    # Profile Groups (Utils/profile_groups.py): merged deploy of several
+    # profiles. A group is an ordinary profile-specific profile whose mods/
+    # is a per-mod symlink farm, so any handler that deploys from filemap.txt
+    # + the mod index supports it unchanged. Set False only for a handler
+    # that cannot (none currently do).
+    profile_groups_supported: bool = True
+
     # -----------------------------------------------------------------------
     # Identity
     # -----------------------------------------------------------------------

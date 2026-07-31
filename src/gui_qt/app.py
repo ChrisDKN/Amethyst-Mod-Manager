@@ -776,7 +776,7 @@ class MainWindow(QMainWindow):
         self._refresh_game_actions()
         profs = gs.profiles()
         if profs:
-            self._profile_selector.set_items(profs, current=gs.profile)
+            self._set_profile_selector_items(profs, current=gs.profile)
         self._refresh_profile_actions()
 
     # ---------------------------------------------------------- header row
@@ -1829,11 +1829,14 @@ class MainWindow(QMainWindow):
         h.addWidget(self._game_selector)
 
         # Profile selector — "Profile:" prefix baked into the button text.
+        # icon_px=16 pins the group badge to the menu's radio-indicator
+        # geometry so icon rows align with radio rows.
         self._profile_selector = SelectorButton(
             items=["default"],
             current="default",
             prefix=self.tr("Profile: "),
             min_width=150,
+            icon_px=16,
             actions=self._profile_actions(),
             on_select=self._on_profile_changed,
         )
@@ -1971,6 +1974,10 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("profile_settings"):
             self._tabs.close_tab("profile_settings")
             self._profile_settings_view = None
+        # The Profile Groups tab caches the previous game object — close it.
+        if self._tabs.has_key("profile_groups"):
+            self._tabs.close_tab("profile_groups")
+            self._profile_groups_view = None
         # The Wine DLL overrides tab is game-scoped too — close it.
         if self._tabs.has_key("dll_overrides"):
             self._tabs.close_tab("dll_overrides")
@@ -1992,7 +1999,7 @@ class MainWindow(QMainWindow):
         # Reflect the new game's profiles + keep both game selectors in sync.
         profs = self._gs.profiles()
         if profs:
-            self._profile_selector.set_items(profs, current=self._gs.profile)
+            self._set_profile_selector_items(profs, current=self._gs.profile)
         # The Open submenu depends on the new game's profile-specific settings.
         self._refresh_profile_actions()
         self._game_selector.set_current(name)
@@ -2116,6 +2123,10 @@ class MainWindow(QMainWindow):
         # Keep the Profile Settings ★ marker in sync if that tab is open.
         if self._tabs.has_key("profile_settings"):
             v = getattr(self, "_profile_settings_view", None)
+            if v is not None:
+                v.set_current_profile(name)
+        if self._tabs.has_key("profile_groups"):
+            v = getattr(self, "_profile_groups_view", None)
             if v is not None:
                 v.set_current_profile(name)
         # Configure-Game tab tracks the active profile too — refresh its form +
@@ -3407,6 +3418,14 @@ class MainWindow(QMainWindow):
                 profiles = _profiles_for_game(game.name)
             except Exception:
                 profiles = []
+            # Profile Groups can't take a collection append — a group is a
+            # merged view of its members; append into a member instead.
+            try:
+                from Utils.profile_groups import is_group
+                _pr = game.get_profile_root() / "profiles"
+                profiles = [p for p in profiles if not is_group(_pr / p)]
+            except Exception:
+                pass
             # Manifest rule (collectionConfig.recommendNewProfile) → disable Append.
             force_new = bool(info.get("recommend_new"))
             ModeOverlay.show_over(self, profiles, _done, force_new_profile=force_new)
@@ -4258,7 +4277,7 @@ class MainWindow(QMainWindow):
         rebuild (needed after an import extracts bundle mods straight to disk)."""
         try:
             profs = self._gs.profiles()
-            self._profile_selector.set_items(profs, current=profile_name)
+            self._set_profile_selector_items(profs, current=profile_name)
             self._gs.set_profile(profile_name)
             self._profile_selector.set_current(profile_name)
             # Rebuild pinned actions so "Remove current profile…" shows for the
@@ -6106,7 +6125,9 @@ class MainWindow(QMainWindow):
         self._op_progress.emit(0, total, f"to '{target_profile}'")
 
         def _worker():
+            import os as _os
             copied = []
+            detached = []   # group→owning-member: files identical, no copy
             # `plan` is ordered highest-priority-first (row 0 = top of the source
             # modlist). Register the whole copied block in ONE prepend after the
             # loop — prepending each mod individually would reverse the group.
@@ -6114,10 +6135,23 @@ class MainWindow(QMainWindow):
             for done, (nm, dest_name) in enumerate(plan.items()):
                 self._op_progress.emit(done, total, nm)
                 try:
+                    src_folder = Path(src_staging) / nm
+                    dest_folder = Path(target_staging) / (dest_name or nm)
+                    # Copying OUT of a group into the member that owns the mod:
+                    # source (through the link) and destination are the SAME
+                    # real folder. A Replace rmtree here would destroy the only
+                    # copy; there is nothing to transfer — treat as done.
+                    if dest_folder.exists() and _os.path.realpath(
+                            src_folder) == _os.path.realpath(dest_folder):
+                        copied.append(nm)
+                        detached.append(nm)
+                        self._op_log.emit(
+                            f"'{nm}' already lives in the target profile "
+                            f"(it owns the group's copy) — nothing to copy.")
+                        continue
                     if nm in replace_set:
                         import shutil
-                        shutil.rmtree(target_staging / (dest_name or nm),
-                                      ignore_errors=True)
+                        shutil.rmtree(dest_folder, ignore_errors=True)
                     out = mod_copy.copy_mod_to_profile(
                         Path(src_staging), Path(src_profile_dir),
                         Path(target_staging), Path(target_profile_dir),
@@ -6138,9 +6172,27 @@ class MainWindow(QMainWindow):
             removed = False
             if move and copied:
                 try:
-                    from Utils.mod_remove import remove_mods
-                    remove_mods(game, Path(src_profile_dir), copied,
-                                log_fn=lambda m: self._op_log.emit(str(m)))
+                    from Utils.profile_groups import (is_group,
+                                                      remove_mods_from_group)
+                    _log_cb = lambda m: self._op_log.emit(str(m))  # noqa: E731
+                    if is_group(Path(src_profile_dir)):
+                        # Moving OUT of a group removes the mod from its
+                        # owning member too — EXCEPT when the target IS the
+                        # owner (detached): the member keeps its files and
+                        # only the group entry/link goes.
+                        full = [n for n in copied if n not in detached]
+                        if full:
+                            remove_mods_from_group(
+                                game, Path(src_profile_dir), full,
+                                log_fn=_log_cb)
+                        if detached:
+                            remove_mods_from_group(
+                                game, Path(src_profile_dir), detached,
+                                log_fn=_log_cb, delete_member_copies=False)
+                    else:
+                        from Utils.mod_remove import remove_mods
+                        remove_mods(game, Path(src_profile_dir), copied,
+                                    log_fn=_log_cb)
                     removed = True
                 except Exception as exc:
                     self._op_log.emit(f"Move: could not remove sources: {exc}")
@@ -6179,7 +6231,16 @@ class MainWindow(QMainWindow):
                 model.remove_row(r, save=False)
             if rows:
                 model.save()  # single save → one filemap rebuild for the batch
-        if payload.get("removed"):
+        # Copy target may be a MEMBER of the active group — reconcile so the
+        # new arrival shows up without a manual Refresh.
+        reconciled = False
+        try:
+            from Utils.profile_groups import materialize_if_group
+            reconciled = materialize_if_group(
+                self._gs.game, self._gs.profile_dir(), log_fn=self._append_log)
+        except Exception:
+            pass
+        if payload.get("removed") or reconciled:
             self._reload_modlist()
 
     # ---- install a Nexus mod by id (used by Missing Requirements cards) ----
@@ -6566,6 +6627,8 @@ class MainWindow(QMainWindow):
             self._remove_current_profile()
         elif which == "settings":
             self._open_profile_settings_tab()
+        elif which == "groups":
+            self._open_profile_groups_tab()
         elif which == "export":
             self._open_export_profile_tab()
         elif which == "import":
@@ -6817,6 +6880,75 @@ class MainWindow(QMainWindow):
             view, self.tr("Profile Settings"), self._modlist_panel_stack,
             key="profile_settings")
 
+    def _set_profile_selector_items(self, profs, current=None):
+        """set_items on the profile selector: Profile Groups are badged with
+        the collection icon and listed LAST, split from plain profiles by a
+        separator, so merged profiles read as their own section."""
+        profs = list(profs)
+        icons = None
+        seps = set()
+        try:
+            from Utils.profile_groups import list_groups
+            g = self._gs.game
+            if g is not None:
+                groups = set(list_groups(g))
+                if groups:
+                    plain = [n for n in profs if n not in groups]
+                    grouped = [n for n in profs if n in groups]
+                    profs = plain + grouped
+                    if plain and grouped:
+                        seps = {grouped[0]}
+                    from gui_qt.icons import icon
+                    ico = icon("collection.png", 16)
+                    icons = {n: ico for n in grouped} or None
+        except Exception:
+            icons = None
+            seps = set()
+        self._profile_selector.set_items(profs, current=current,
+                                         item_icons=icons,
+                                         separator_before=seps)
+
+    def _open_profile_groups_tab(self):
+        """Open the Profile Groups panel scoped over the MODLIST panel (like
+        Profile Settings): create/manage groups, reorder members, convert
+        shared-pool profiles to profile-specific."""
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        if not getattr(game, "profile_groups_supported", True):
+            self._notify(self.tr("Profile Groups aren't supported for this "
+                                 "game."), "warning")
+            return
+        if self._tabs.has_key("profile_groups"):
+            self._tabs.focus_key("profile_groups")
+            return
+        from gui_qt.profile_groups_view import ProfileGroupsView
+        view = ProfileGroupsView(
+            self, game, self._gs.profile,
+            on_groups_changed=self._on_groups_changed,
+            log_fn=self._append_log,
+        )
+        self._profile_groups_view = view
+        self._tabs.open_scoped_tab(
+            view, self.tr("Profile Groups"), self._modlist_panel_stack,
+            key="profile_groups")
+
+    def _on_groups_changed(self):
+        """A group was created/edited/removed (or a profile converted). The
+        profile list may have gained/lost entries, and if the ACTIVE profile
+        is a group its modlist was just re-materialized — reload it."""
+        self._set_profile_selector_items(self._gs.profiles(),
+                                         current=self._gs.profile)
+        self._refresh_profile_actions()
+        try:
+            from Utils.profile_groups import is_group
+            if is_group(self._gs.profile_dir()):
+                self._reload_modlist()
+                self._reload_plugins()
+        except Exception as exc:
+            print(f"[gui_qt] group-change reload failed: {exc}", flush=True)
+
     def _make_profile_settings_view(self):
         """Build a ProfileSettingsView wired to the app's selector/reload
         callbacks. Used both by the scoped tab and the dropdown's Remove action."""
@@ -6863,7 +6995,7 @@ class MainWindow(QMainWindow):
     def _on_profiles_lock_changed(self):
         """A profile's lock toggled — the active profile is unchanged, so just
         refresh the selector list (Remove-eligibility, etc.)."""
-        self._profile_selector.set_items(self._gs.profiles(),
+        self._set_profile_selector_items(self._gs.profiles(),
                                          current=self._gs.profile)
         # Lock state feeds the "Remove current profile…" gate — rebuild the
         # pinned actions so unlocking the active profile reveals Remove (and
@@ -6871,32 +7003,54 @@ class MainWindow(QMainWindow):
         self._refresh_profile_actions()
 
     def _on_profile_renamed(self, old: str, new: str):
+        # A renamed profile may be a Profile Group member — update every
+        # group's member list and retarget their links.
+        try:
+            from Utils.profile_groups import rename_profile_everywhere
+            updated = rename_profile_everywhere(self._gs.game, old, new,
+                                                log_fn=self._append_log)
+            if updated:
+                self._append_log(
+                    f"Profile Groups updated for rename: {', '.join(updated)}")
+        except Exception as exc:
+            print(f"[gui_qt] group rename propagation failed: {exc}", flush=True)
         profs = self._gs.profiles()
         if self._gs.profile == old:
             # The active profile was renamed → switch GameState + reload.
             self._gs.set_profile(new)
-            self._profile_selector.set_items(profs, current=new)
+            self._set_profile_selector_items(profs, current=new)
             self._reload_modlist()
             self._reload_plugins()
         else:
-            self._profile_selector.set_items(profs, current=self._gs.profile)
+            self._set_profile_selector_items(profs, current=self._gs.profile)
         # The active profile (or its name) may have changed — rebuild the pinned
         # actions so Remove-eligibility tracks the current profile.
         self._refresh_profile_actions()
         self._update_deployed_profile_highlight()
 
     def _on_profile_removed(self, name: str):
+        # Prune the deleted profile from every group's member list; affected
+        # groups re-materialize (their entries/links for it are dropped).
+        try:
+            from Utils.profile_groups import remove_profile_everywhere
+            affected = remove_profile_everywhere(self._gs.game, name,
+                                                 log_fn=self._append_log)
+            if affected:
+                self._append_log(
+                    f"Removed '{name}' from Profile Group(s): {', '.join(affected)}")
+        except Exception as exc:
+            print(f"[gui_qt] group remove propagation failed: {exc}", flush=True)
         profs = self._gs.profiles()
         if self._gs.profile == name:
             # The active profile was removed → fall back like the view did.
             target = "default" if "default" in profs else (
                 profs[0] if profs else "default")
             self._gs.set_profile(target)
-            self._profile_selector.set_items(profs, current=target)
+            self._set_profile_selector_items(profs, current=target)
             self._reload_modlist()
             self._reload_plugins()
         else:
-            self._profile_selector.set_items(profs, current=self._gs.profile)
+            self._set_profile_selector_items(profs, current=self._gs.profile)
         # Fall-back to default (or any other switch) changes Remove-eligibility —
         # rebuild the pinned actions so Remove hides on the locked default.
         self._refresh_profile_actions()
@@ -6931,7 +7085,7 @@ class MainWindow(QMainWindow):
                             else ""))
         # Refresh the profile selector, select the new profile, and load it.
         profs = self._gs.profiles()
-        self._profile_selector.set_items(profs, current=name)
+        self._set_profile_selector_items(profs, current=name)
         self._gs.set_profile(name)
         self._profile_selector.set_current(name)
         # Rebuild the pinned actions so "Remove current profile…" appears now
@@ -7907,10 +8061,18 @@ class MainWindow(QMainWindow):
         quick = self._quick_configure_submenu(game)
         if quick:
             actions.append((self.tr("Quick configure"), quick))
-        # Profile settings, then the export/import group (profile + code together).
+        # Profile settings + groups, then the export/import group.
+        actions.append(
+            (self.tr("Profile settings…"),
+             lambda: self._on_profile_action("settings"),
+             {} if getattr(game, "profile_groups_supported", True)
+             else {"separator_after": True}))
+        if getattr(game, "profile_groups_supported", True):
+            actions.append(
+                (self.tr("Profile groups…"),
+                 lambda: self._on_profile_action("groups"),
+                 {"separator_after": True}))
         actions.extend([
-            (self.tr("Profile settings…"), lambda: self._on_profile_action("settings"),
-             {"separator_after": True}),
             (self.tr("Export profile…"), lambda: self._on_profile_action("export")),
             (self.tr("Import profile…"), lambda: self._on_profile_action("import")),
             (self.tr("Export code…"), lambda: self._on_profile_action("export_code")),
@@ -8524,6 +8686,83 @@ class MainWindow(QMainWindow):
         if profile_dir is None:
             self._notify(self.tr("No active profile."), "warning")
             return
+        # Installing while a Profile Group is active: ask which member profile
+        # should own the new mod(s), then install into that member.
+        try:
+            from Utils.profile_groups import get_members, is_group
+            if is_group(profile_dir):
+                def _queue_batch(note):
+                    self._pending_install_batches.append({
+                        "paths": list(paths), "metas": metas,
+                        "previous_mod_name": previous_mod_name,
+                        "preferred_names": preferred_names,
+                        "on_all_done": on_all_done,
+                        "clear_archives": clear_archives, "place": place})
+                    self._notify(note, "info")
+
+                # One picker at a time — a second batch queues and replays
+                # (re-prompting) when the current work drains.
+                if getattr(self, "_member_picker_open", False):
+                    _queue_batch(self.tr(
+                        "Install queued — waiting for the current member "
+                        "choice."))
+                    return
+                members = [m for m in get_members(profile_dir)
+                           if (profile_dir.parent / m).is_dir()]
+                if not members:
+                    self._notify(self.tr(
+                        "This group has no member profiles — add one first."),
+                        "warning")
+                    return
+                from gui_qt.list_picker_overlay import ListPickerOverlay
+
+                def picked(member):
+                    self._member_picker_open = False
+                    if not member:
+                        self._notify(self.tr("Install cancelled."), "info")
+                        return
+                    # The picker held no busy flag — a deploy/auto-deploy or
+                    # another install may have started while it was open.
+                    # Re-check and queue instead of racing it.
+                    if getattr(self, "_install_running", False) \
+                            or getattr(self, "_deploy_running", False) \
+                            or getattr(self, "_staged_finish_running", False) \
+                            or self._staged_finish_queue:
+                        _queue_batch(self.tr(
+                            "Install queued — it will run after the current "
+                            "operation finishes."))
+                        return
+                    self._start_install_batch(
+                        paths, game, profile_dir.parent / member,
+                        metas=metas, previous_mod_name=previous_mod_name,
+                        preferred_names=preferred_names,
+                        on_all_done=on_all_done,
+                        clear_archives=clear_archives, place=place)
+
+                self._member_picker_open = True
+                ListPickerOverlay(
+                    self,
+                    self.tr("Install into which member profile?\n"
+                            "('{0}' is a profile group — the mod will be "
+                            "installed there and appear in the group.)")
+                    .format(profile_dir.name),
+                    [(m, m) for m in members], picked,
+                    select_label=self.tr("Install"))
+                return
+        except Exception as exc:
+            self._member_picker_open = False
+            print(f"[gui_qt] group install picker failed: {exc}", flush=True)
+        self._start_install_batch(
+            paths, game, profile_dir, metas=metas,
+            previous_mod_name=previous_mod_name,
+            preferred_names=preferred_names, on_all_done=on_all_done,
+            clear_archives=clear_archives, place=place)
+
+    def _start_install_batch(self, paths, game, profile_dir, *, metas,
+                             previous_mod_name, preferred_names, on_all_done,
+                             clear_archives, place):
+        """Arm the install queue against *profile_dir* (the active profile, or
+        a group member chosen in the picker) and start the batch."""
         self._install_running = True
         self._op_is_restore = False
         self._op_title = "Installing"
@@ -9225,6 +9464,16 @@ class MainWindow(QMainWindow):
                         self._append_log(f"[install] deferred action error: {exc}")
 
         def _after_named(final):
+            # A wizard install may have landed in a group MEMBER while the
+            # group is active — reconcile before the reload (mirrors
+            # _on_install_done) or the mod is invisible until a Refresh.
+            try:
+                from Utils.profile_groups import materialize_if_group
+                materialize_if_group(self._gs.game, self._gs.profile_dir(),
+                                     log_fn=self._append_log)
+            except Exception as exc:
+                print(f"[gui_qt] group reconcile after wizard failed: {exc}",
+                      flush=True)
             # Drag-install placement captured when this wizard opened.
             if place:
                 self._apply_install_placement(
@@ -9396,6 +9645,21 @@ class MainWindow(QMainWindow):
         new_name = sanitize_mod_folder_name(new_name)
         if not old_name or not new_name or old_name == new_name:
             return None
+        # In a group the staging entry is a symlink and the folder name comes
+        # from the OWNING MEMBER — renaming the link would just be fought by
+        # the next reconcile. Rename it in the member profile instead.
+        try:
+            from Utils.profile_groups import is_group, owner_of
+            pdir = self._gs.profile_dir()
+            if pdir is not None and is_group(pdir):
+                owner = owner_of(pdir, old_name)
+                self._notify(self.tr(
+                    "'{0}' belongs to the member profile '{1}' — switch to "
+                    "that profile to rename it.").format(
+                        old_name, owner[0] if owner else "?"), "warning")
+                return None
+        except Exception:
+            pass
         staging = self._gs.staging_dir()
         if staging is None:
             return None
@@ -9521,6 +9785,16 @@ class MainWindow(QMainWindow):
         # to the drop position BEFORE the reload so the modlist appears with
         # them already in place. Wizard handoffs position themselves later
         # (_on_wizard_finish_done) with the same captured placement.
+        # Install landed in a group MEMBER while the group is active —
+        # reconcile so the new mod's entry/link/index exist before the reload
+        # (and before any drop-position placement references it).
+        try:
+            from Utils.profile_groups import materialize_if_group
+            materialize_if_group(self._gs.game, self._gs.profile_dir(),
+                                 log_fn=self._append_log)
+        except Exception as exc:
+            print(f"[gui_qt] group reconcile after install failed: {exc}",
+                  flush=True)
         place = getattr(self, "_install_place", None)
         self._install_place = None
         if place and names:
@@ -9572,6 +9846,16 @@ class MainWindow(QMainWindow):
         shifted since the drop; a vanished anchor leaves the mods at the top,
         the normal install position."""
         pd = profile_dir or getattr(self, "_install_profile_dir", None)
+        # The drop anchor names a row in the VIEWED modlist. For an install
+        # routed into a group member, that is the GROUP's list (the entries
+        # exist there post-reconcile), not the member's.
+        try:
+            from Utils.profile_groups import is_group
+            active = self._gs.profile_dir()
+            if active is not None and is_group(active):
+                pd = active
+        except Exception:
+            pass
         if pd is None:
             return
         try:
@@ -10336,6 +10620,14 @@ class MainWindow(QMainWindow):
         force a full index rescan (picks up files added/removed inside mods)."""
         from Utils.modlist import sync_modlist_with_mods_folder
         self._reassert_profile_paths()
+        # Refresh doubles as the user's "reconcile my group now" button; must
+        # run before the folder sync (which drops entries with missing dirs).
+        try:
+            from Utils.profile_groups import materialize_if_group
+            materialize_if_group(self._gs.game, self._gs.profile_dir(),
+                                 log_fn=self._append_log)
+        except Exception as exc:
+            print(f"[gui_qt] group reconcile on refresh failed: {exc}", flush=True)
         ml = self._gs.modlist_path()
         staging = self._gs.staging_dir()
         if ml is not None and staging is not None:

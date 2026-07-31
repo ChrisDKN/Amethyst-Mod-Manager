@@ -692,15 +692,21 @@ def _move_to_separator(view, model, mod_rows, sep_name):
 
 # ---- Copy / Move to profile ------------------------------------------------
 def _other_profiles(view):
-    """Profile names for this game, excluding the current one ([] if none)."""
+    """Profile names for this game, excluding the current one and Profile
+    Groups ([] if none). Groups are excluded as TARGETS: 'copy into a group'
+    is ill-defined (which member would own it?) — copy into a member and the
+    group reconciles it in."""
     game = getattr(view, "game", None)
     pdir = getattr(view, "profile_dir", None)
     if game is None or pdir is None:
         return []
     try:
         from Utils.game_helpers import _profiles_for_game
+        from Utils.profile_groups import is_group
         cur = pdir.name
-        return [p for p in _profiles_for_game(game.name) if p != cur]
+        profiles_dir = pdir.parent
+        return [p for p in _profiles_for_game(game.name)
+                if p != cur and not is_group(profiles_dir / p)]
     except Exception:
         return []
 
@@ -1178,13 +1184,49 @@ def _notify_mods_removed(view):
             print(f"[gui_qt] on_mods_removed failed: {exc}", flush=True)
 
 
+def _group_owners(view, names):
+    """{mod_name: member} when the active profile is a Profile Group, else
+    None. Used to route removal member-side and name owners in the confirm."""
+    profile_dir = getattr(view, "profile_dir", None)
+    if profile_dir is None:
+        return None
+    try:
+        from Utils.profile_groups import is_group, owner_of
+        if not is_group(profile_dir):
+            return None
+        owners = {}
+        for n in names:
+            o = owner_of(profile_dir, n)
+            owners[n] = o[0] if o else None
+        return owners
+    except Exception:
+        return None
+
+
+def _run_remove(view, game, profile_dir, names, owners):
+    """Dispatch the file-side removal: group-aware when *owners* is set."""
+    log = lambda m: print(f"[remove] {m}", flush=True)  # noqa: E731
+    try:
+        if owners is not None:
+            from Utils.profile_groups import remove_mods_from_group
+            remove_mods_from_group(game, profile_dir, names, log_fn=log)
+        else:
+            from Utils.mod_remove import remove_mods
+            remove_mods(game, profile_dir, names, log_fn=log)
+    except Exception as exc:
+        print(f"[gui_qt] mod removal failed: {exc}", flush=True)
+
+
 def _remove(view, model, row):
     """Fully remove a mod: undeploy its files, delete its staging folder, drop
     its index/BSA/plugins entries, then remove the modlist row. (Not just the
-    list line — that left the files on disk so the mod still read as installed.)"""
+    list line — that left the files on disk so the mod still read as installed.)
+    On a Profile Group the mod is removed from the OWNING MEMBER profile too —
+    the confirm names it."""
     e = model.entry(row)
     if e is None or e.is_separator:
         return
+    owners = _group_owners(view, [e.name])
 
     def _confirmed(ok):
         if not ok:
@@ -1193,19 +1235,21 @@ def _remove(view, model, row):
         game = getattr(view, "game", None)
         profile_dir = getattr(view, "profile_dir", None)
         if game is not None and profile_dir is not None:
-            try:
-                from Utils.mod_remove import remove_mods
-                remove_mods(game, profile_dir, [name],
-                            log_fn=lambda m: print(f"[remove] {m}", flush=True))
-            except Exception as exc:
-                print(f"[gui_qt] mod removal failed: {exc}", flush=True)
+            _run_remove(view, game, profile_dir, [name], owners)
         model.remove_row(row)
         _notify_mods_removed(view)
 
-    ConfirmOverlay.show_over(
-        view, "Remove mod",
-        f"Remove '{e.display_name}'?\n\nThis deletes the mod folder and "
-        "cannot be undone.", _confirmed)
+    if owners is not None:
+        owner = owners.get(e.name)
+        where = (f"the member profile '{owner}' and this group" if owner
+                 else "this group")
+        msg = (f"Remove '{e.display_name}'?\n\nThis is a profile group — the "
+               f"mod is removed from {where}, deleting its folder. This "
+               f"cannot be undone.")
+    else:
+        msg = (f"Remove '{e.display_name}'?\n\nThis deletes the mod folder "
+               "and cannot be undone.")
+    ConfirmOverlay.show_over(view, "Remove mod", msg, _confirmed)
 
 
 def _open_sep_settings(view, model, row):
@@ -1294,13 +1338,15 @@ def _set_sep_locks_multi(view, model, sep_rows, lock):
 
 
 def _remove_mods_multi(view, model, mod_rows):
-    """Fully remove every selected mod (one confirm), then drop the rows."""
+    """Fully remove every selected mod (one confirm), then drop the rows.
+    On a Profile Group each mod is removed from its owning member too."""
     rows = [r for r in mod_rows
             if (e := model.entry(r)) is not None
             and not e.is_separator and not e.locked]
     if not rows:
         return
     names = [model.entry(r).name for r in rows]
+    owners = _group_owners(view, names)
 
     def _confirmed(ok):
         if not ok:
@@ -1308,21 +1354,22 @@ def _remove_mods_multi(view, model, mod_rows):
         game = getattr(view, "game", None)
         profile_dir = getattr(view, "profile_dir", None)
         if game is not None and profile_dir is not None:
-            try:
-                from Utils.mod_remove import remove_mods
-                remove_mods(game, profile_dir, names,
-                            log_fn=lambda m: print(f"[remove] {m}", flush=True))
-            except Exception as exc:
-                print(f"[gui_qt] mod removal failed: {exc}", flush=True)
+            _run_remove(view, game, profile_dir, names, owners)
         for r in sorted(rows, reverse=True):
             model.remove_row(r, save=False)
         model.save()  # single save → one filemap rebuild for the whole batch
         _notify_mods_removed(view)
 
-    ConfirmOverlay.show_over(
-        view, "Remove mods",
-        f"Remove {len(names)} mod(s)?\n\nThis deletes their folders and "
-        "cannot be undone.", _confirmed)
+    if owners is not None:
+        members = sorted({m for m in owners.values() if m})
+        msg = (f"Remove {len(names)} mod(s)?\n\nThis is a profile group — "
+               f"the mods are removed from their member profile(s) "
+               f"({', '.join(members) if members else 'none found'}) and "
+               "this group, deleting their folders. This cannot be undone.")
+    else:
+        msg = (f"Remove {len(names)} mod(s)?\n\nThis deletes their folders "
+               "and cannot be undone.")
+    ConfirmOverlay.show_over(view, "Remove mods", msg, _confirmed)
 
 
 # lupdate extraction anchors: every _mt/_mtf label above is translated at

@@ -281,9 +281,23 @@ def _wanted_roots(staging: Optional[Path],
 
     The shared staging path is `<staging_root>/mods`; granting its parent
     also covers siblings like overwrite/.  Never widen to $HOME itself.
+
+    Profile Group: the group's staging is a per-mod symlink farm resolving
+    into MEMBER profile dirs — granting only the group dir would leave every
+    deployed symlink dangling inside the sandbox. Widen to the profiles/
+    root (still far narrower than $HOME) so all members are covered.
     """
+    candidates = [staging, profile_dir]
+    try:
+        if profile_dir is not None:
+            from Utils.profile_groups import is_group
+            pdir = Path(profile_dir).expanduser()
+            if is_group(pdir) and pdir.parent.name == "profiles":
+                candidates.append(pdir.parent)
+    except Exception:
+        pass
     wanted: list[Path] = []
-    for p in (staging, profile_dir):
+    for p in candidates:
         if not p:
             continue
         p = Path(p).expanduser()

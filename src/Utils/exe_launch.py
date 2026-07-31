@@ -147,8 +147,27 @@ _PREFIX_DIR_NAMES = frozenset({"pfx", "drive_c"})
 
 
 def _walk_launchables(root: Path, seen: set, found: list,
-                      skip_key: "str | None" = None) -> None:
-    """os.walk *root* for launchable files, pruning prefix dirs before descent."""
+                      skip_key: "str | None" = None,
+                      expand_links: bool = False) -> None:
+    """os.walk *root* for launchable files, pruning prefix dirs before descent.
+
+    *expand_links* — STAGING roots only: a Profile Group's mods/ is a farm of
+    per-mod symlinks os.walk won't descend into, so expand them to their real
+    targets (identity for a normal staging folder). Kept off for the game
+    folder — a symlinked game subdir shouldn't widen that scan."""
+    bases = [Path(root)]
+    if expand_links:
+        try:
+            from Utils.profile_groups import staging_walk_roots
+            bases = staging_walk_roots(Path(root))
+        except Exception:
+            pass
+    for base in bases:
+        _walk_one_launchable_root(base, seen, found, skip_key)
+
+
+def _walk_one_launchable_root(root: Path, seen: set, found: list,
+                              skip_key: "str | None" = None) -> None:
     for dirpath, dirnames, filenames in os.walk(root):
         # Prune wine/Proton prefix trees in place so the walk never descends
         # into them (rglob visited every Windows system exe first and only
@@ -211,7 +230,7 @@ def scan_staging_exes(game) -> list[Path]:
         try:
             if not root.is_dir():
                 continue
-            _walk_launchables(root, seen, found)
+            _walk_launchables(root, seen, found, expand_links=True)
         except OSError:
             continue
     found.sort(key=lambda p: (p.name.lower(), str(p).lower()))

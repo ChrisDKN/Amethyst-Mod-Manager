@@ -66,10 +66,17 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
     except Exception as exc:
         log(f"plugin cleanup during remove failed: {exc}")
 
-    # 3. Delete staging folders.
+    # 3. Delete staging folders. A symlinked mod dir (Profile Group link
+    #    farm) is unlinked, never rmtree'd — rmtree on a dir symlink raises,
+    #    and following it would delete the member profile's real files.
     for name in mod_names:
         folder = staging_root / name
-        if folder.is_dir():
+        if folder.is_symlink():
+            try:
+                folder.unlink()
+            except OSError as exc:
+                log(f"could not remove staging link for '{name}': {exc}")
+        elif folder.is_dir():
             try:
                 shutil.rmtree(folder)
             except OSError as exc:

@@ -225,11 +225,17 @@ def rebuild_bsa_index(
     staging_root: Path,
     archive_extensions: frozenset[str],
     log_fn: "Callable[[str], None] | None" = None,
+    follow_toplevel_links_under: "Path | None" = None,
 ) -> None:
     """Scan all mod folders for BSA files and write bsa_index.bin.
 
     Uses the existing BSA index for incremental updates: only re-parses
     BSAs whose mtime has changed since the last scan.
+
+    follow_toplevel_links_under — same bounded symlink allowance as
+    filemap.rebuild_mod_index: a top-level entry that is a symlink to a
+    directory is scanned only when its resolved target lives under this root
+    (Profile Group links into member profiles).
     """
     if not staging_root.is_dir():
         return
@@ -246,6 +252,15 @@ def rebuild_bsa_index(
         with os.scandir(str(staging_root)) as it:
             for entry in it:
                 if entry.is_dir(follow_symlinks=False):
+                    mod_dirs.append((entry.name, entry.path))
+                elif (follow_toplevel_links_under is not None
+                      and entry.is_dir(follow_symlinks=True)):
+                    try:
+                        resolved = Path(entry.path).resolve(strict=True)
+                        resolved.relative_to(
+                            Path(follow_toplevel_links_under).resolve())
+                    except (OSError, ValueError, RuntimeError):
+                        continue
                     mod_dirs.append((entry.name, entry.path))
     except OSError:
         return

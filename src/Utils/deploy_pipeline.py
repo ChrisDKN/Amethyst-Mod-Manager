@@ -357,6 +357,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                     allowed_extensions=set(game.mod_install_extensions or ()) or None,
                     root_folder_mods=set(rf_mods or ()) or None,
                     log_fn=log_fn,
+                    follow_toplevel_links_under=game.get_profile_root() / "profiles",
                 )
             except Exception as idx_err:
                 # Make the consequence explicit: a failed index write is the
@@ -408,6 +409,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 filemap_casing_pins=getattr(game, "filemap_casing_pins", None),
                 conflict_key_fn=conflict_key_fn,
                 root_folder_mods=rf_mods or None,
+                follow_toplevel_links_under=game.get_profile_root() / "profiles",
             )
         # Game-specific filemap rewrite (e.g. Witcher 3 routes staging paths
         # like TrueFires_v1.01/modTrueFires/… to mods/modTrueFires/… so the
@@ -492,6 +494,18 @@ def run_deploy_pipeline(
             # last-deployed profile may target a different game folder/prefix).
             game.load_paths()
             game_root = game.get_game_path()
+
+        # Profile Group target: reconcile it against its members' current
+        # state BEFORE the incremental probe / filemap build so both see the
+        # post-reconcile modlist, links and index. Explicit-dir based — the
+        # active profile still points at last_deployed for the restore.
+        try:
+            from Utils.profile_groups import materialize_if_group
+            materialize_if_group(
+                game, game.get_profile_root() / "profiles" / profile,
+                log_fn=log_fn)
+        except Exception as _pg_err:
+            log_fn(f"Profile Group reconcile warning: {_pg_err}")
 
         # Incremental fast path: redeploying the profile that is already
         # deployed with the same link mode → skip the restore and let the

@@ -118,13 +118,24 @@ def _iter_manifests(search_root: Path, subdir: str):
     want = subdir.casefold()
     if not search_root.is_dir():
         return
-    for dirpath, _dn, fns in os.walk(search_root):
-        for fn in fns:
-            if fn.casefold() != "manifest.xml":
-                continue
-            parts = [p.casefold() for p in Path(dirpath).parts]
-            if want in parts:
-                yield Path(dirpath) / fn
+    # A Profile Group's staging is a farm of per-mod symlinks; os.walk never
+    # descends into those, so expand them to their real targets first.
+    from Utils.profile_groups import staging_walk_roots
+    seen: set[str] = set()
+    for base in staging_walk_roots(search_root):
+        for dirpath, _dn, fns in os.walk(base):
+            for fn in fns:
+                if fn.casefold() != "manifest.xml":
+                    continue
+                parts = [p.casefold() for p in Path(dirpath).parts]
+                if want not in parts:
+                    continue
+                found = Path(dirpath) / fn
+                key = str(found)
+                if key in seen:
+                    continue
+                seen.add(key)
+                yield found
 
 
 def _baseline_items(out_path: Path, subdir: str, item_tag: str, list_tag: str,

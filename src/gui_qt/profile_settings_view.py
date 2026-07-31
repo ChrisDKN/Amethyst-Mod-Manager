@@ -392,13 +392,31 @@ class ProfileSettingsView(QWidget):
         if self._is_original_default(profile) or self._is_profile_locked(profile):
             return
         from gui_qt.confirm_overlay import ConfirmOverlay
+        from Utils.game_helpers import _GAMES
+        game = _GAMES.get(self._game_name)
+
+        # Deleting a MEMBER of a group that is currently deployed would leave
+        # the game full of dangling links — require a restore first.
+        try:
+            from Utils.profile_groups import is_group, member_of_groups
+            target_is_group = is_group(self._get_profile_dir(profile))
+            if game is not None and not target_is_group:
+                groups = member_of_groups(game, profile)
+                if groups and game.get_deploy_active() \
+                        and game.get_last_deployed_profile() in groups:
+                    self._notify(self.tr(
+                        "'{0}' is a member of the deployed group '{1}' — "
+                        "restore the game first, then remove it.").format(
+                            profile, game.get_last_deployed_profile()),
+                        "warning")
+                    return
+        except Exception:
+            target_is_group = False
 
         def after_first(ok: bool):
             if not ok:
                 return
             profile_dir = self._get_profile_dir(profile)
-            from Utils.game_helpers import _GAMES
-            game = _GAMES.get(self._game_name)
             is_deployed = bool(
                 game is not None and game.is_configured()
                 and game.get_deploy_active()
@@ -407,7 +425,17 @@ class ProfileSettingsView(QWidget):
             def proceed():
                 self._start_remove_worker(profile, is_deployed)
 
-            if profile_dir.is_dir() and profile_uses_specific_mods(profile_dir):
+            if target_is_group:
+                # A group's mods/ holds only symlinks — deleting it never
+                # touches member profiles' files, so no scary second confirm.
+                ConfirmOverlay.show_over(
+                    self._overlay_host(), "Remove Group",
+                    f"'{profile}' is a profile group.\n\n"
+                    "Only the group itself is removed — its member profiles "
+                    "and their mods are untouched. Continue?",
+                    on_done=lambda ok2: proceed() if ok2 else None,
+                    confirm_label=self.tr("Remove"))
+            elif profile_dir.is_dir() and profile_uses_specific_mods(profile_dir):
                 ConfirmOverlay.show_over(
                     self._overlay_host(), "Remove Profile",
                     f"The '{profile}' profile has profile-specific mods.\n\n"
