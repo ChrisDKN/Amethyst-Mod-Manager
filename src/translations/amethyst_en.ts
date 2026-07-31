@@ -592,10 +592,10 @@ Configure your INI settings, then close it and click Done.</translation>
         <translation>Step 1: Install {0} for Linux</translation>
     </message>
     <message>
-        <source>A native Linux build of BodySlide and Outfit Studio, downloaded as a single AppImage and shared by every game.
+        <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
 
 No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
-        <translation>A native Linux build of BodySlide and Outfit Studio, downloaded as a single AppImage and shared by every game.
+        <translation>A native Linux build of BodySlide and Outfit Studio, shared by every game.
 
 No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</translation>
     </message>
@@ -652,6 +652,10 @@ No Proton prefix is used — the game, its Data folder and the output folder are
         <translation>Downloading {0}…</translation>
     </message>
     <message>
+        <source>Extracting…</source>
+        <translation>Extracting…</translation>
+    </message>
+    <message>
         <source>Installed {0}.</source>
         <translation>Installed {0}.</translation>
     </message>
@@ -688,10 +692,10 @@ Built meshes are written to the output mod below, which is added to your mod lis
         <translation>Launching {0}…</translation>
     </message>
     <message>
-        <source>The {0} AppImage is not installed.
+        <source>{0} is not installed.
 
 Go back and download it first.</source>
-        <translation>The {0} AppImage is not installed.
+        <translation>{0} is not installed.
 
 Go back and download it first.</translation>
     </message>

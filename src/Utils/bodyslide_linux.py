@@ -5,9 +5,16 @@ Unlike the Proton wizard (Utils/bodyslide_tools.py) this runs a Linux build
 straight on the host, so there is no prefix, no registry seeding and no
 Config.xml rewriting: the fork exposes BSOS_* environment variables that win
 over the stored configuration on every launch, so the wizard just downloads
-the AppImage, deploys, and runs it with the right env.
+the build, deploys, and runs it with the right env.
 
-Fork: https://github.com/ChrisDKN/BodySlide-and-Outfit-Studio
+Fork: https://github.com/ChrisDKN/BodySlide-and-Outfit-Studio-Appimage
+
+We ship the **portable tarball**, not the AppImage. The tarball is a plain
+relocatable directory with its own bundled loader and libc, so it needs no
+FUSE mount and — unlike an AppImage — runs unchanged inside our own flatpak
+sandbox, with no flatpak-spawn --host hop. The tarball also carries a launcher
+script per program (``<root>/BodySlide``, ``<root>/OutfitStudio``) that sets up
+sharun, PATH and BSOS_BINDIR.
 
 The variables the fork reads (see its GameUtil::ApplyEnvironmentOverrides and
 ProjectUtil::GetDataDir):
@@ -20,8 +27,6 @@ ProjectUtil::GetDataDir):
                          mod in staging, so the build lands in the mod list
                          instead of loose in the game folder.
   BSOS_APPDIR            writable data dir holding Config.xml / *.xml / logs.
-                         The AppImage's AppRun seeds it from its own defaults
-                         on first run and symlinks res/ + lang/ into it.
 
 Slider data is NOT passed in: with BSOS_APPDIR holding no SliderSets folder,
 the fork's GetProjectPath() falls back to <GameData>/CalienteTools/BodySlide,
@@ -43,17 +48,21 @@ if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
 GITHUB_API_URL = (
-    "https://api.github.com/repos/ChrisDKN/BodySlide-and-Outfit-Studio"
+    "https://api.github.com/repos/ChrisDKN/BodySlide-and-Outfit-Studio-Appimage"
     "/releases/latest"
 )
-REPO_URL = "https://github.com/ChrisDKN/BodySlide-and-Outfit-Studio"
-APPIMAGE_NAME = "BodySlide-and-Outfit-Studio-x86_64.AppImage"
+REPO_URL = "https://github.com/ChrisDKN/BodySlide-and-Outfit-Studio-Appimage"
 
-# tool key → (display name, AppRun program argument, default output mod name)
+# tool key → (display name, launcher basename, default output mod name)
 TOOLS: dict[str, tuple[str, str, str]] = {
     "bodyslide":    ("BodySlide", "BodySlide", "BodySlide_files"),
     "outfitstudio": ("Outfit Studio", "OutfitStudio", "OutfitStudio_files"),
 }
+
+# Seeded into a per-profile BSOS_APPDIR on first use — see seed_data_dir().
+_SEED_XML = ("Config.xml", "BodySlide.xml", "OutfitStudio.xml",
+             "BuildSelection.xml", "RefTemplates.xml")
+_SEED_LINKS = ("res", "lang")
 
 
 def _noop(_msg: str) -> None:
@@ -64,10 +73,9 @@ def _noop(_msg: str) -> None:
 # Install location
 # ---------------------------------------------------------------------------
 #
-# Shared across games rather than per-game Applications/: the AppImage is a
-# ~46 MB self-contained binary with no per-game state (all of that travels in
-# BSOS_APPDIR), so a copy per game would only duplicate downloads and update
-# checks.
+# Shared across games rather than per-game Applications/: the tree is a
+# self-contained ~170 MB bundle with no per-game state (all of that travels in
+# BSOS_APPDIR), so a copy per game would only duplicate downloads and updates.
 
 def tools_dir() -> Path:
     """~/.config/AmethystModManager/Tools/BodySlide-Linux/"""
@@ -75,22 +83,28 @@ def tools_dir() -> Path:
     return get_config_dir() / "Tools" / "BodySlide-Linux"
 
 
-def appimage_path() -> Path:
-    return tools_dir() / APPIMAGE_NAME
+def install_root() -> Path:
+    """The extracted tarball tree."""
+    return tools_dir() / "current"
 
 
 def version_file() -> Path:
     return tools_dir() / "version.txt"
 
 
+def launcher_path(program: str) -> Path:
+    """The tarball's launcher script for *program* ("BodySlide"/"OutfitStudio")."""
+    return install_root() / program
+
+
 def is_installed() -> bool:
-    p = appimage_path()
-    return p.is_file() and os.access(p, os.X_OK)
+    return all(os.access(launcher_path(p), os.X_OK)
+               for _n, p, _o in TOOLS.values())
 
 
 def installed_version() -> str | None:
-    """Release tag of the installed AppImage, or None when not installed."""
-    if not appimage_path().is_file():
+    """Release tag of the installed build, or None when not installed."""
+    if not is_installed():
         return None
     try:
         tag = version_file().read_text(encoding="utf-8").strip()
@@ -104,11 +118,11 @@ def installed_version() -> str | None:
 # ---------------------------------------------------------------------------
 
 def fetch_latest_release() -> tuple[str, str]:
-    """Return (tag, download_url) for the newest x86_64 AppImage asset.
+    """Return (tag, download_url) for the newest x86_64 portable tarball.
 
     Deliberately not Utils.wizard_archives.fetch_latest_github_asset: that one
-    only accepts ARCHIVE_EXTS (.zip/.7z/…), and the asset here is a bare
-    AppImage. The .zsync sidecar published alongside it must be skipped.
+    only accepts ARCHIVE_EXTS (.zip/.7z/…), and would also have to be taught to
+    skip the AppImage and .zsync assets published alongside the tarball.
     """
     import json
     import urllib.request
@@ -126,33 +140,67 @@ def fetch_latest_release() -> tuple[str, str]:
 
     tag = data.get("tag_name", "unknown")
     for asset in data.get("assets", []):
-        name = asset.get("name", "")
-        if name.lower().endswith(".appimage") and "x86_64" in name.lower():
+        name = asset.get("name", "").lower()
+        if name.endswith(".tar.zst") and "x86_64" in name:
             return tag, asset["browser_download_url"]
     raise RuntimeError(
-        f"No x86_64 AppImage asset in the latest release ({tag}).")
+        f"No x86_64 .tar.zst asset in the latest release ({tag}).")
 
 
-def download_appimage(url: str, tag: str, *, reporthook=None,
-                      log_fn: Callable[[str], None] = _noop) -> Path:
-    """Download *url* to :func:`appimage_path`, make it executable and record
-    *tag*. Downloads to a temp name and renames, so a failed download never
-    leaves a half-written AppImage in place of a working one."""
+def install_release(url: str, tag: str, *, reporthook=None,
+                    log_fn: Callable[[str], None] = _noop) -> Path:
+    """Download and extract *url*, replacing any existing install.
+
+    Extraction goes to a staging directory that only replaces the live tree
+    once it is complete, so a failed download or extraction never leaves a
+    half-populated bundle behind. The old tree is removed rather than merged:
+    a new release renames libraries, and leftovers from the previous version
+    would sit in lib/ shadowing nothing but wasting space at best.
+    """
+    import tempfile
+
     from Utils.ca_bundle import download_file
+    from Utils.wizard_archives import extract_to_dir
 
-    dest = appimage_path()
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    staged = dest.with_name(dest.name + ".new")
+    root = install_root()
+    root.parent.mkdir(parents=True, exist_ok=True)
+    staging = root.with_name(root.name + ".new")
+    old = root.with_name(root.name + ".old")
+    shutil.rmtree(staging, ignore_errors=True)
+    shutil.rmtree(old, ignore_errors=True)
 
-    download_file(url, staged, reporthook=reporthook)
-    staged.chmod(0o755)
-    staged.replace(dest)
+    with tempfile.TemporaryDirectory(dir=str(root.parent)) as tmpdir:
+        archive = Path(tmpdir) / "bodyslide.tar.zst"
+        download_file(url, archive, reporthook=reporthook)
+        log_fn(f"extracting {archive.name}…")
+        unpacked = Path(tmpdir) / "x"
+        unpacked.mkdir()
+        extract_to_dir(archive, unpacked)
+
+        # The tarball wraps everything in one versioned directory; move that
+        # up so the launcher always lives at a stable path.
+        entries = [e for e in unpacked.iterdir() if e.name != "__MACOSX"]
+        src = entries[0] if len(entries) == 1 and entries[0].is_dir() else unpacked
+        src.rename(staging)
+
+    missing = [p for _n, p, _o in TOOLS.values()
+               if not os.access(staging / p, os.X_OK)]
+    if missing:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise RuntimeError(
+            "Launcher(s) missing from the archive: " + ", ".join(missing))
+
+    if root.exists():
+        root.rename(old)
+    staging.rename(root)
+    shutil.rmtree(old, ignore_errors=True)
+
     try:
         version_file().write_text(tag + "\n", encoding="utf-8")
     except OSError as exc:
         log_fn(f"could not record version ({exc})")
-    log_fn(f"installed {tag} → {dest}")
-    return dest
+    log_fn(f"installed {tag} → {root}")
+    return root
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +233,49 @@ def data_dir(game: "BaseGame", profile: str) -> Path:
     return applications_dir(game, "BodySlide-Linux") / f"data_{safe_name(profile)}"
 
 
+def seed_data_dir(app_dir: Path, root: Path,
+                  log_fn: Callable[[str], None] = _noop) -> None:
+    """Make *app_dir* usable as BSOS_APPDIR for the install at *root*.
+
+    The tarball's own launcher only defaults BSOS_APPDIR to the tarball root,
+    which is already populated; it does nothing when a caller points the
+    variable elsewhere. But the programs resolve res/ and lang/ RELATIVE TO
+    the data dir — wx loads res/xrc/BodySlide.xrc from there — so an
+    un-seeded data dir fails at startup with "Cannot open resources file".
+    The AppImage's AppRun does this seeding; for the tarball it is ours to do.
+
+    res/ and lang/ are symlinked (never copied) so an update to *root* is
+    picked up immediately; the XML defaults are copied once and then owned by
+    the program, which rewrites them on exit.
+    """
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    for name in _SEED_LINKS:
+        link, target = app_dir / name, root / name
+        if not target.exists():
+            log_fn(f"WARNING: {target} missing from the install.")
+            continue
+        # Refresh dangling/stale links (the install path can change across
+        # updates); a real directory in their place is assumed deliberate.
+        if link.is_symlink():
+            if os.readlink(link) == str(target):
+                continue
+            link.unlink()
+        elif link.exists():
+            continue
+        link.symlink_to(target)
+
+    for name in _SEED_XML:
+        dst, src = app_dir / name, root / name
+        if dst.exists() or not src.is_file():
+            continue
+        try:
+            shutil.copy2(src, dst)
+            dst.chmod(dst.stat().st_mode | 0o200)
+        except OSError as exc:
+            log_fn(f"could not seed {name} ({exc})")
+
+
 def build_env(game: "BaseGame", profile: str, output_dir: Path, *,
               base: "dict | None" = None,
               log_fn: Callable[[str], None] = _noop) -> dict:
@@ -199,7 +290,7 @@ def build_env(game: "BaseGame", profile: str, output_dir: Path, *,
     env = dict(base) if base is not None else host_env()
 
     app_dir = data_dir(game, profile)
-    app_dir.mkdir(parents=True, exist_ok=True)
+    seed_data_dir(app_dir, install_root(), log_fn=log_fn)
     # An empty SliderSets here would make GetProjectPath() return this folder
     # and stop looking, so the tool would list no outfits at all. It should
     # never exist, but a stray one is cheap to catch and impossible to debug
@@ -228,84 +319,31 @@ def build_env(game: "BaseGame", profile: str, output_dir: Path, *,
 # Launch
 # ---------------------------------------------------------------------------
 
-def _in_flatpak() -> bool:
-    return os.path.exists("/.flatpak-info")
-
-
-def _fuse_available() -> bool:
-    return bool(shutil.which("fusermount3") or shutil.which("fusermount"))
-
-
-def launch_command(appimage: Path, program: str, env: dict,
-                   host_cwd: str) -> list[str]:
-    """Command that runs *program* out of the AppImage.
-
-    The AppRun takes the program name as its first argument (BodySlide is the
-    default; "OutfitStudio" selects the other one).
-
-    Inside our own flatpak sandbox the AppImage cannot be mounted (no FUSE in
-    the runtime), so the launch is forwarded to the host — flatpak-spawn does
-    not inherit the environment, so every var that differs from our own is
-    re-exported with --env=, the same way Utils/steam_finder does it for
-    Proton.
-    """
-    cmd = [str(appimage), program]
-    if _in_flatpak() and shutil.which("flatpak-spawn"):
-        fwd = [f"--env={k}={v}" for k, v in env.items()
-               if os.environ.get(k) != v]
-        cmd = ["flatpak-spawn", "--host", f"--directory={host_cwd}",
-               *fwd, *cmd]
-    return cmd
-
-
-_FUSE_HINT = re.compile(r"fuse|dlopen|libfuse|mount", re.IGNORECASE)
-
 # GTK chatter the tool emits by the dozen per window resize ("Negative content
 # width …", host desktop modules the bundled GTK can't load). It says nothing
-# about BodySlide and would bury the lines that matter in the app log, so it is
-# dropped there — the retry buffer still sees it.
+# about BodySlide and would bury the lines that matter in the app log.
 _GTK_NOISE = re.compile(r"\b(Gtk|Gdk|GLib|GLib-GObject)-(WARNING|Message|CRITICAL)\b")
 
 
-def run_logged(appimage: Path, program: str, env: dict, *,
+def run_logged(program: str, env: dict, *,
                log_fn: Callable[[str], None] = _noop,
                label: str = "BodySlide") -> int:
-    """Run the AppImage, streaming its output to *log_fn*; returns the exit
-    code. Blocks until the tool exits — call from a worker thread.
+    """Run the tarball launcher for *program*, streaming output to *log_fn*.
 
-    Retries once with APPIMAGE_EXTRACT_AND_RUN=1 when the runtime could not
-    mount itself: a host without FUSE (or a restricted sandbox) fails before
-    the program ever starts, and self-extraction is the documented fallback.
+    Blocks until the tool exits — call from a worker thread. No flatpak-spawn
+    hop: the bundle carries its own loader and libc, so it runs inside our
+    sandbox as-is.
     """
+    launcher = launcher_path(program)
     home = os.path.expanduser("~")
-    host_cwd = home if os.path.isdir(home) else "/"
+    cwd = home if os.path.isdir(home) else "/"
 
-    run_env = dict(env)
-    if not _fuse_available():
-        log_fn("no fusermount on PATH — running the AppImage self-extracted.")
-        run_env["APPIMAGE_EXTRACT_AND_RUN"] = "1"
-
-    rc, output = _run_once(appimage, program, run_env, host_cwd,
-                           log_fn=log_fn, label=label)
-    if rc != 0 and "APPIMAGE_EXTRACT_AND_RUN" not in run_env \
-            and _FUSE_HINT.search(output):
-        log_fn(f"{label}: AppImage could not be mounted — retrying "
-               "self-extracted.")
-        run_env["APPIMAGE_EXTRACT_AND_RUN"] = "1"
-        rc, _ = _run_once(appimage, program, run_env, host_cwd,
-                          log_fn=log_fn, label=label)
-    return rc
-
-
-def _run_once(appimage: Path, program: str, env: dict, host_cwd: str, *,
-              log_fn: Callable[[str], None], label: str) -> tuple[int, str]:
-    cmd = launch_command(appimage, program, env, host_cwd)
-    log_fn(f"{label}: launching {' '.join(cmd[-2:])}")
+    log_fn(f"{label}: launching {launcher}")
     try:
         proc = subprocess.Popen(
-            cmd,
+            [str(launcher)],
             env=env,
-            cwd=host_cwd,
+            cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,
@@ -316,7 +354,6 @@ def _run_once(appimage: Path, program: str, env: dict, host_cwd: str, *,
         raise
 
     assert proc.stdout is not None
-    tail: list[str] = []
     suppressed = 0
     for line in proc.stdout:
         line = line.rstrip("\n")
@@ -326,14 +363,9 @@ def _run_once(appimage: Path, program: str, env: dict, host_cwd: str, *,
             suppressed += 1
         else:
             log_fn(f"{label}: {line}")
-        tail.append(line)
-        # Only the retry decision needs the text; keep the window small so a
-        # chatty GL driver can't grow this without bound.
-        if len(tail) > 40:
-            del tail[0]
     rc = proc.wait()
     if suppressed:
         log_fn(f"{label}: suppressed {suppressed} GTK warning line(s).")
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")
-    return rc, "\n".join(tail)
+    return rc

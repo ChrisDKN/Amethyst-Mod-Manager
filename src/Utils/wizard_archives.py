@@ -139,11 +139,82 @@ def extract_to_dir(archive: Path, dest: Path) -> None:
             with py7zr.SevenZipFile(archive, "r") as zf:
                 zf.extractall(dest)
 
+    elif name_lower.endswith((".tar.zst", ".tzst")):
+        _extract_tar_zst(archive, dest)
+
     elif name_lower.endswith((".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz")):
         with tarfile.open(archive, "r:*") as tf:
             tf.extractall(dest, filter="data")
     else:
         raise RuntimeError(f"Unsupported archive format: {archive.name}")
+
+
+def _zstd_module():
+    """Return a module exposing ``open(path, "rb")`` for zstd, or None.
+
+    ``compression.zstd`` is stdlib from 3.14; ``backports.zstd`` is the
+    same API on older interpreters and is already vendored (it ships in the
+    AppImage and the flatpak), so this is the portable path — unlike bsdtar
+    or 7z, it needs nothing on PATH.
+    """
+    try:
+        from compression import zstd            # Python 3.14+
+        return zstd
+    except ImportError:
+        pass
+    try:
+        from backports import zstd              # vendored backport
+        return zstd
+    except ImportError:
+        return None
+
+
+def _extract_tar_zst(archive: Path, dest: Path) -> None:
+    """Extract a zstd-compressed tar into *dest*.
+
+    Python's ``tarfile`` gained no zstd support of its own, so the stream is
+    decompressed first. Falls back to bsdtar (bundled in the AppImage,
+    libarchive links libzstd) and then to 7-Zip, which only unwraps the
+    ``.zst`` container and needs a second pass over the inner ``.tar``.
+    """
+    zstd = _zstd_module()
+    if zstd is not None:
+        # Streaming mode ("r|"): a zstd stream isn't seekable, and the whole
+        # tar is walked once anyway.
+        with zstd.open(archive, "rb") as zf, \
+                tarfile.open(fileobj=zf, mode="r|") as tf:
+            tf.extractall(dest, filter="data")
+        return
+
+    bsdtar = shutil.which("bsdtar")
+    if bsdtar:
+        result = subprocess.run(
+            [bsdtar, "-xf", str(archive), "-C", str(dest)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+        )
+        if result.returncode == 0:
+            return
+
+    _7z_bin = (shutil.which("7zzs") or shutil.which("7zz")
+               or shutil.which("7z") or shutil.which("7za"))
+    if _7z_bin:
+        import tempfile
+        with tempfile.TemporaryDirectory() as stage:
+            # 7z treats .tar.zst as a zstd container around a .tar, so the
+            # first pass yields the tar and the second unpacks it.
+            r1 = subprocess.run(
+                [_7z_bin, "x", str(archive), f"-o{stage}", "-y"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+            )
+            inner = [p for p in Path(stage).iterdir() if p.is_file()]
+            if r1.returncode == 0 and inner:
+                with tarfile.open(inner[0], "r:") as tf:
+                    tf.extractall(dest, filter="data")
+                return
+
+    raise RuntimeError(
+        "Cannot extract .tar.zst: no zstd module (compression.zstd / "
+        "backports.zstd) and neither bsdtar nor 7z is available.")
 
 
 def _strip_single_top_dir(tmp: Path) -> Path:

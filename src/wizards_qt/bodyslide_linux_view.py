@@ -1,11 +1,12 @@
 """Native-Linux BodySlide / Outfit Studio wizard.
 
-Runs the ChrisDKN AppImage fork on the host instead of the Windows build under
-Proton, so there is no prefix step and nothing to configure: the fork reads
-BSOS_TARGET_GAME / BSOS_GAME_DATA_PATH / BSOS_OUTPUT_DATA_PATH / BSOS_APPDIR
-and those win over its stored config on every launch (Utils/bodyslide_linux).
+Runs the ChrisDKN portable-tarball fork on the host instead of the Windows
+build under Proton, so there is no prefix step and nothing to configure: the
+fork reads BSOS_TARGET_GAME / BSOS_GAME_DATA_PATH / BSOS_OUTPUT_DATA_PATH /
+BSOS_APPDIR and those win over its stored config on every launch
+(Utils/bodyslide_linux).
 
-Flow: install-or-update the AppImage (shared across games) → deploy, with an
+Flow: install-or-update the build (shared across games) → deploy, with an
 output-mod-name entry so builds land in the mod list → run.
 """
 
@@ -31,7 +32,7 @@ _PG_INSTALL, _PG_DEPLOY, _PG_RUN = range(3)
 
 
 class BodySlideLinuxView(WizardViewBase):
-    """Download the Linux AppImage, deploy, and run it against the game."""
+    """Download the Linux build, deploy, and run it against the game."""
 
     _inst_status_sig = Signal(str, str)
     _inst_progress_sig = Signal(int)
@@ -71,10 +72,9 @@ class BodySlideLinuxView(WizardViewBase):
         page, lay = self._step_page(self.tr("Step 1: Install {0} for Linux")
                                     .format(self._name))
         self._make_note(lay, self.tr(
-            "A native Linux build of BodySlide and Outfit Studio, downloaded "
-            "as a single AppImage and shared by every game.\n\nNo Proton "
-            "prefix is used — the game, its Data folder and the output folder "
-            "are passed to the tool directly."))
+            "A native Linux build of BodySlide and Outfit Studio, shared by "
+            "every game.\n\nNo Proton prefix is used — the game, its Data "
+            "folder and the output folder are passed to the tool directly."))
 
         self._inst_status = self._make_status(lay)
         self._inst_bar = QProgressBar()
@@ -176,21 +176,26 @@ class BodySlideLinuxView(WizardViewBase):
                          self.tr("Downloading {0}…").format(tag))
 
         def worker():
-            from Utils.bodyslide_linux import download_appimage
+            from Utils.bodyslide_linux import install_release
             last = [-1]
 
             def hook(block_num, block_size, total_size):
                 if total_size <= 0:
                     return
                 pct = min(100, int(block_num * block_size * 100 / total_size))
-                if pct != last[0]:
-                    last[0] = pct
-                    safe_emit(self._inst_progress_sig, pct)
+                if pct == last[0]:
+                    return
+                last[0] = pct
+                safe_emit(self._inst_progress_sig, pct)
+                if pct == 100:
+                    # Unpacking a ~170 MB tree takes a beat; without this the
+                    # bar sits full and the wizard looks hung.
+                    safe_emit(self._inst_status_sig, self.tr("Extracting…"), "")
 
             try:
                 self._log_tool(f"downloading {tag} from {url}")
-                download_appimage(url, tag, reporthook=hook,
-                                  log_fn=self._log_tool)
+                install_release(url, tag, reporthook=hook,
+                                log_fn=self._log_tool)
                 safe_emit(self._inst_progress_sig, 100)
                 safe_emit(self._inst_status_sig,
                           self.tr("Installed {0}.").format(tag), ok_text())
@@ -301,17 +306,16 @@ class BodySlideLinuxView(WizardViewBase):
             self._start_run()
 
     def _start_run(self):
-        from Utils.bodyslide_linux import appimage_path, is_installed
+        from Utils.bodyslide_linux import is_installed
 
         if not is_installed():
             self._set_status(
                 self._run_status,
-                self.tr("The {0} AppImage is not installed.\n\nGo back and "
-                        "download it first.").format(self._name), err_text())
+                self.tr("{0} is not installed.\n\nGo back and download it "
+                        "first.").format(self._name), err_text())
             return
 
-        game, name = self._game, self._name
-        program, appimage = self._program, appimage_path()
+        game, name, program = self._game, self._name, self._program
         profile, output_mod_name = self._profile(), self._output_mod_name
         output_dir = game.get_effective_mod_staging_path() / output_mod_name
 
@@ -330,8 +334,7 @@ class BodySlideLinuxView(WizardViewBase):
                           self.tr("{0} is running.\nClose it when you are "
                                   "done, then click Done.").format(name), "")
                 safe_emit(self._run_started_sig)
-                run_logged(appimage, program, env,
-                           log_fn=self._log_tool, label=name)
+                run_logged(program, env, log_fn=self._log_tool, label=name)
                 self._log_tool(f"{name} closed.")
                 safe_emit(self._run_status_sig,
                           self.tr("{0} finished.").format(name), ok_text())
