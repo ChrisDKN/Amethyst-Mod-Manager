@@ -48,11 +48,35 @@ def get_load_failures() -> list[tuple[str, str]]:
     return list(_load_failures)
 
 
-def _find_games_dir() -> Path | None:
-    """Return the Games directory (containing base_game.py and game subfolders)."""
+def _foreign_appimage_mount(cand: Path) -> bool:
+    """True when *cand* lives in an AppImage mount that is not the one we run from.
+
+    A previous AppImage's /tmp/.mount_* can still be mounted when a new instance
+    starts (self-update relaunch, second instance) and its MOD_MANAGER_GAMES is
+    inherited. Loading handlers from it works right up until that mount goes
+    away, then every single import dies with ENOENT (GH#340).
+    """
+    try:
+        if not str(cand).startswith("/tmp/.mount_"):
+            return False
+        appdir = os.environ.get("APPDIR", "")
+        if not appdir:
+            return True          # not in a bundle at all → any mount is foreign
+        return not cand.resolve().is_relative_to(Path(appdir).resolve())
+    except Exception:
+        return True
+
+
+def _find_games_dir(exclude: Path | None = None) -> Path | None:
+    """Return the Games directory (containing base_game.py and game subfolders).
+
+    *exclude* skips a candidate that already proved unusable (see discover_games).
+    """
     global _games_dir_cache
 
     def _valid_games_dir(cand: Path) -> bool:
+        if exclude is not None and cand == exclude:
+            return False
         return cand.is_dir() and bool(list(cand.glob("*/*.py")))
 
     # Use cache if still valid (cwd can change later, e.g. during mod install)
@@ -64,7 +88,7 @@ def _find_games_dir() -> Path | None:
     if env_games:
         try:
             cand = Path(env_games).resolve()
-            if _valid_games_dir(cand):
+            if _valid_games_dir(cand) and not _foreign_appimage_mount(cand):
                 _games_dir_cache = cand
                 return cand
         except Exception:
@@ -200,21 +224,13 @@ def _record_load_failure(py_file: Path, games_dir: Path, exc: Exception) -> None
         pass
 
 
-def discover_games() -> dict[str, BaseGame]:
-    """
-    Scan Games/<GameFolder>/*.py, load each module from its file path, find
-    BaseGame subclasses, instantiate them, and return {game.name: instance}.
-    Also loads user-defined custom games from the config directory.
-    """
-    games: dict[str, BaseGame] = {}
-    _load_failures.clear()
-    games_dir = _find_games_dir()
-    if games_dir is None:
-        return games
-
+def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame]) -> int:
+    """Load every handler under *games_dir* into *games*; return the file count."""
+    n_files = 0
     for py_file in sorted(games_dir.glob("*/*.py")):
         if py_file.stem in _EXCLUDED_STEMS or py_file.parent.name in _EXCLUDED_FOLDERS:
             continue
+        n_files += 1
 
         # Key on folder AND stem — a bare stem collides in sys.modules when two
         # game folders ship a same-named handler file, silently dropping one.
@@ -268,6 +284,42 @@ def discover_games() -> dict[str, BaseGame]:
                     )
                 except Exception:
                     pass
+
+    return n_files
+
+
+def discover_games() -> dict[str, BaseGame]:
+    """
+    Scan Games/<GameFolder>/*.py, load each module from its file path, find
+    BaseGame subclasses, instantiate them, and return {game.name: instance}.
+    Also loads user-defined custom games from the config directory.
+    """
+    global _games_dir_cache
+
+    games: dict[str, BaseGame] = {}
+    _load_failures.clear()
+    games_dir = _find_games_dir()
+    if games_dir is not None:
+        n_files = _scan_games_dir(games_dir, games)
+
+        # EVERY handler failing is never 50 broken handlers — it's a bad root
+        # (a dying AppImage mount that was still listable when we globbed it,
+        # GH#340). Drop that root and retry once from the next candidate rather
+        # than starting the app with no games at all.
+        if n_files and not games and len(_load_failures) == n_files:
+            try:
+                print(
+                    f"[game_loader] all {n_files} handlers failed under "
+                    f"{games_dir} — retrying from another location",
+                    file=sys.stderr,
+                )
+            except Exception:
+                pass
+            _games_dir_cache = None
+            alt = _find_games_dir(exclude=games_dir)
+            if alt is not None:
+                _load_failures.clear()
+                _scan_games_dir(alt, games)
 
     # Merge user-defined custom games (JSON files in ~/.config/.../custom_games/)
     try:

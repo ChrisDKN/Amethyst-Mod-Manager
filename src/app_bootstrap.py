@@ -31,9 +31,20 @@ def setup_environment() -> None:
             sys.path.insert(0, str(vendor))
 
     # Drop a stale MOD_MANAGER_GAMES pointing at /tmp/.mount_* (same leak path).
+    # "Stale" is NOT just "gone": a previous AppImage's mount can still be alive
+    # when we start (self-update relaunch, second instance), and inheriting it
+    # made every handler load from a mount that vanished mid-discovery (GH#340).
+    # Any /tmp/.mount_* path that isn't inside OUR $APPDIR is someone else's.
     mmg = os.environ.get("MOD_MANAGER_GAMES", "")
-    if mmg.startswith("/tmp/.mount_") and not Path(mmg).is_dir():
-        os.environ.pop("MOD_MANAGER_GAMES", None)
+    if mmg.startswith("/tmp/.mount_"):
+        appdir = os.environ.get("APPDIR", "")
+        try:
+            ours = bool(appdir) and Path(mmg).resolve().is_relative_to(
+                Path(appdir).resolve())
+        except Exception:
+            ours = False
+        if not ours or not Path(mmg).is_dir():
+            os.environ.pop("MOD_MANAGER_GAMES", None)
     # Set MOD_MANAGER_GAMES so game_loader can find the Games/ directory.
     if not os.environ.get("MOD_MANAGER_GAMES"):
         games_dir = src / "Games"

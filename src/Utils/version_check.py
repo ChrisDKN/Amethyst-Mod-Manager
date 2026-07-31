@@ -193,25 +193,13 @@ def run_installer(allow_prerelease: bool = False):
 
     # Build a clean environment: start from the current env then strip every
     # variable that the AppImage runtime injects and that would be invalid once
-    # the mount is gone.
-    _APPIMAGE_ENV_PREFIXES = (
-        "APPDIR", "APPIMAGE", "OWD",
-        "SSL_CERT_FILE", "SSL_CERT_DIR",
-        "CURL_CA_BUNDLE",
-        "LD_LIBRARY_PATH",
-        "LD_PRELOAD",
-        "PYTHONHOME", "PYTHONPATH",
-        "GDK_PIXBUF_MODULEDIR", "GDK_PIXBUF_MODULE_FILE",
-        "GIO_MODULE_DIR",
-        "GSETTINGS_SCHEMA_DIR",
-        "GTK_PATH", "GTK_IM_MODULE_FILE",
-        "QT_PLUGIN_PATH",
-        "PERLLIB", "PERL5LIB",
-    )
-    clean_env = {
-        k: v for k, v in os.environ.items()
-        if not any(k.startswith(p) for p in _APPIMAGE_ENV_PREFIXES)
-    }
+    # the mount is gone. This env is also what the relaunched AppImage inherits
+    # (the command above nohups it), so a missed var poisons the NEW process:
+    # a leftover MOD_MANAGER_GAMES pointing at the old mount made game_loader
+    # scan the dying mount and every handler fail with ENOENT (GH#340). Use the
+    # shared list — a local copy here is exactly how that drift happened.
+    from Utils.appimage_env import strip_appimage_vars
+    clean_env = strip_appimage_vars(os.environ.copy())
 
     try:
         # with-block: close OUR copy of the log fd once the child has spawned
