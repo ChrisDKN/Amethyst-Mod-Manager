@@ -511,6 +511,23 @@ def _pattern_dep_groups(dep: "Dependency") -> list[list[str]]:
     return [c for c in combos if c]
 
 
+def _option_is_file_gated(plugin: "Plugin") -> bool:
+    """True when *plugin* is UNUSABLE unless a fileDependency holds — the only
+    shape for which "the dep went away → the patch is orphaned" is true.
+
+    Both authoring styles count:
+      * ``defaultType="NotUsable"`` flipped usable by a pattern, and
+      * a usable default plus a file-driven ``NotUsable`` pattern (the mirror).
+    A plain ``Optional``/``Recommended`` default with no NotUsable anywhere is a
+    standalone option whose patterns are only pre-check hints.
+    """
+    td = plugin.type_descriptor
+    if td.default_type == "NotUsable":
+        return True
+    return any(t == "NotUsable" and _dep_references_file(dep)
+               for dep, t in td.patterns)
+
+
 def _collect_dep_plugin_clauses(config: ModuleConfig, all_selections: dict,
                                 want_selected: bool) -> list[str]:
     """Shared walk for the two dep collectors. Returns one string PER OPTION-CONDITION
@@ -551,6 +568,15 @@ def _collect_dep_plugin_clauses(config: ModuleConfig, all_selections: dict,
                 if is_selected:
                     flag_state.update(plugin.condition_flags)
                 if is_selected != want_selected:
+                    continue
+                # On the SELECTED side the flag means "this patch is now orphaned",
+                # which only makes sense for an option that is UNUSABLE without its
+                # deps. An option that is usable on its own and merely gets promoted
+                # to Recommended/Required when some plugin is around (defaultType
+                # "Optional" + a Recommended pattern — e.g. CACO's main file vs
+                # WACCF) is NOT gated: losing that plugin orphans nothing, so
+                # recording it would fire the flag on a perfectly valid install.
+                if want_selected and not _option_is_file_gated(plugin):
                     continue
                 # Collect the OR-of-AND clauses from this plugin's type patterns
                 # that make the option USABLE/relevant. A "NotUsable" pattern marks

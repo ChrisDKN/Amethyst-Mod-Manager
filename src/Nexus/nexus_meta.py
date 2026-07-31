@@ -76,6 +76,7 @@ class NexusModMeta:
     xedit_modified_plugins: str = ""   # semicolon-separated plugin names edited in xEdit (set on restore)
     fomod_pending_deps: str = ""       # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user did NOT select; flags a rerun when a clause becomes fully present in the load order
     fomod_active_deps: str = ""        # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user DID select; flags a rerun when a clause is no longer fully present (its mod was removed)
+    fomod_active_deps_seen: str = ""   # subset of fomod_active_deps observed SATISFIED at least once; the "orphaned patch" flag only fires for these, so a clause that was never satisfied (a hint pattern recorded by an older installer) can't fire it
 
     @property
     def nexus_page_url(self) -> str:
@@ -162,6 +163,7 @@ _KEY_MAP: dict[str, str] = {
     "xeditModifiedPlugins": "xedit_modified_plugins",
     "fomodPendingDeps":  "fomod_pending_deps",
     "fomodActiveDeps":   "fomod_active_deps",
+    "fomodActiveDepsSeen": "fomod_active_deps_seen",
 }
 
 # Attributes that are ints
@@ -277,8 +279,11 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # unselected deps, so it never needs to write an empty value here.
             if attr == "fomod_pending_deps" and not value:
                 continue
-            # Same for the FOMOD active-deps list (selected options' deps).
-            if attr == "fomod_active_deps" and not value:
+            # Same for the FOMOD active-deps list (selected options' deps) and
+            # its observed-satisfied subset (maintained by the modlist flag
+            # refresh, not the installer).
+            if attr in ("fomod_active_deps",
+                        "fomod_active_deps_seen") and not value:
                 continue
             # Same for the archive size: stamped once at install time; callers
             # that build a fresh NexusModMeta must not zero it.
@@ -295,6 +300,26 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
         cp.write(f)
 
     app_log(f"Wrote meta.ini: {meta_ini_path}")
+
+
+def set_meta_key(meta_ini_path: Path, ini_key: str, value: str) -> None:
+    """Set one key in a meta.ini's [General] section, leaving the rest untouched.
+
+    Cheaper and safer than a read/modify/write_meta round-trip for callers that
+    only maintain a single bookkeeping key.
+    """
+    if not meta_ini_path.is_file():
+        return
+    cp = configparser.ConfigParser(allow_no_value=True, strict=False)
+    try:
+        cp.read(str(meta_ini_path), encoding="utf-8")
+    except configparser.Error:
+        return
+    if not cp.has_section(_SECTION):
+        cp.add_section(_SECTION)
+    cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
+    with open(meta_ini_path, "w", encoding="utf-8") as f:
+        cp.write(f)
 
 
 def ensure_installed_stamp(meta_ini_path: Path) -> bool:

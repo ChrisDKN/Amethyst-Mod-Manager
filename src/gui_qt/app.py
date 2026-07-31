@@ -10912,7 +10912,11 @@ class MainWindow(QMainWindow):
             becomes FULLY present — a patch you skipped is now relevant.
           • `fomodActiveDeps` (SELECTED options' deps): flag when an AND-clause is
             NO LONGER fully present — a patch you installed is now orphaned (its
-            required mod was removed/disabled).
+            required mod was removed/disabled). Gated on `fomodActiveDepsSeen`:
+            only a clause we have OBSERVED satisfied can go on to be "orphaned".
+            A clause that was never satisfied was never a real gate (older
+            installers recorded merely-Recommended patterns too), so it can't
+            fire the flag on a mod whose dep mod was never installed at all.
 
         See FLAG_RERUN_FOMOD."""
         if not hasattr(self, "_modlist_model") or not hasattr(self, "_plugin_model"):
@@ -10964,12 +10968,13 @@ class MainWindow(QMainWindow):
 
         def _option_conditions(raw: str):
             # Each option-group is ONE option's condition, an OR-of-ANDs. Yield the
-            # list of member-lists (the OR alternatives).
+            # raw condition string (its identity in the seen-list) and the list of
+            # member-lists (the OR alternatives).
             for cond in (raw or "").split(FLAG_OPT_SEP):
                 alts = [_and_clause(c) for c in cond.split(FLAG_OR_SEP)]
                 alts = [a for a in alts if a]
                 if alts:
-                    yield alts
+                    yield cond.strip(), alts
 
         def _option_met(alts) -> bool:
             # OR: the option's condition holds if ANY alternative clause holds.
@@ -10988,18 +10993,47 @@ class MainWindow(QMainWindow):
             # member across the option (a non-"!" literal) so a condition that only
             # needs something ABSENT — true almost always — doesn't fire constantly.
             if any(_option_met(alts) and _has_present_member(alts)
-                   for alts in _option_conditions(
+                   for _cond, alts in _option_conditions(
                        getattr(meta, "fomod_pending_deps", ""))):
                 out.add(name)
                 continue
             # Active: a SELECTED option's condition is no longer satisfied (NONE of
             # its OR alternatives hold) → rerun to drop the now-orphaned patch. For
             # an OR option, having ONE of its plugins is still valid — don't fire.
-            if any(not _option_met(alts)
-                   for alts in _option_conditions(
-                       getattr(meta, "fomod_active_deps", ""))):
+            # Only clauses recorded in fomodActiveDepsSeen — ones we have actually
+            # watched hold — can be "no longer" satisfied; anything else was never
+            # a gate, so its absence is the status quo, not a change.
+            active_raw = getattr(meta, "fomod_active_deps", "") or ""
+            if not active_raw:
+                continue
+            seen_list = [c.strip() for c in (
+                getattr(meta, "fomod_active_deps_seen", "") or ""
+            ).split(FLAG_OPT_SEP) if c.strip()]
+            seen = {c.lower() for c in seen_list}
+            fire = False
+            newly_seen = False
+            for cond, alts in _option_conditions(active_raw):
+                if _option_met(alts):
+                    if cond.lower() not in seen:
+                        seen.add(cond.lower())
+                        seen_list.append(cond)
+                        newly_seen = True
+                elif cond.lower() in seen:
+                    fire = True
+            if newly_seen:
+                self._persist_active_deps_seen(staging / name / "meta.ini",
+                                               FLAG_OPT_SEP.join(seen_list))
+            if fire:
                 out.add(name)
         return out
+
+    def _persist_active_deps_seen(self, meta_path, value: str) -> None:
+        """Record which fomodActiveDeps clauses have been observed satisfied."""
+        try:
+            from Nexus.nexus_meta import set_meta_key
+            set_meta_key(meta_path, "fomodActiveDepsSeen", value)
+        except Exception:
+            pass
 
     def _refresh_rerun_fomod_flags(self) -> None:
         """Recompute + push the rerun-FOMOD overlay onto the modlist model."""
