@@ -12,9 +12,12 @@ import json
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import tarfile
+import tempfile
+import time
 import urllib.request
 from pathlib import Path
 from typing import Callable
@@ -523,6 +526,166 @@ def install_d3dcompiler_47(
     return False
 
 
+# --- shared silent-installer runner ----------------------------------------
+# Silent in-prefix installers run under ``proton runinprefix``, which never
+# returns if wine wedges — the app then sits on a dead progress bar forever
+# (GH#333). Cap them: on a healthy prefix these finish in seconds, so two
+# minutes is already generous.
+PREFIX_INSTALLER_TIMEOUT_S = 120
+_HEARTBEAT_S = 20
+
+
+def _kill_installer(proc: "subprocess.Popen") -> None:
+    """Kill a wedged installer's whole process group — Proton spawns children."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except OSError:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def run_prefix_installer(
+    cmd: list[str],
+    env: dict,
+    cwd: "str | Path",
+    *,
+    label: str,
+    log_fn: Callable[[str], None] | None = None,
+    timeout: int = PREFIX_INSTALLER_TIMEOUT_S,
+    proton_script: "Path | str | None" = None,
+    compat_data: "Path | str | None" = None,
+) -> "tuple[int | None, str]":
+    """Run a silent in-prefix installer under a hard timeout.
+
+    Returns ``(exit_code, captured_output)``, or ``(None, output)`` when
+    *timeout* elapsed — in that case the process group is killed and the
+    prefix's wineserver shut down, so a wedged run can't block the next
+    attempt. Wine's chatter is captured rather than leaking into the app's
+    stdout; callers log the tail when the exit code says something went wrong.
+    A heartbeat line every :data:`_HEARTBEAT_S` keeps a slow-but-working
+    install from looking dead in the log.
+    """
+    _log = _safe_log(log_fn)
+    # NamedTemporaryFile, NOT TemporaryFile: the latter is an anonymous
+    # O_TMPFILE fd on Linux, and 32-bit wine startup segfaults (exit 245, NULL
+    # read in host libc) when its stdout is a nameless fd — verified against
+    # GE-Proton10-33. Any *named* file works.
+    out = tempfile.NamedTemporaryFile(
+        mode="w+", encoding="utf-8", errors="replace", prefix="amm-installer-")
+    try:
+        proc = subprocess.Popen(
+            cmd, env=env, cwd=str(cwd), stdin=subprocess.DEVNULL,
+            stdout=out, stderr=subprocess.STDOUT, start_new_session=True,
+        )
+        started = time.monotonic()
+        next_beat = started + _HEARTBEAT_S
+        rc: "int | None" = None
+        while True:
+            try:
+                rc = proc.wait(timeout=2)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            now = time.monotonic()
+            if now - started >= timeout:
+                break
+            if now >= next_beat:
+                next_beat = now + _HEARTBEAT_S
+                _log(f"{label}: still working ({int(now - started)}s elapsed) …")
+        if rc is None:
+            _log(f"{label}: no response after {timeout}s — aborting and shutting "
+                 "down the prefix's wine processes.")
+            _kill_installer(proc)
+            if proton_script is not None and compat_data is not None:
+                try:
+                    from Utils.exe_launch import shutdown_prefix_wineserver
+                    shutdown_prefix_wineserver(Path(proton_script), Path(compat_data))
+                except Exception:
+                    pass
+        out.seek(0)
+        return rc, out.read()[-4000:].strip()
+    finally:
+        out.close()
+
+
+# --- prefix / Proton version mismatch preflight ----------------------------
+_PREFIX_VER_RE = re.compile(r'^CURRENT_PREFIX_VERSION\s*=\s*"([^"]+)"', re.M)
+
+
+def _proton_prefix_version(proton_script: "Path | str") -> "str | None":
+    """The ``CURRENT_PREFIX_VERSION`` *proton_script* declares, e.g. '9.0-203'."""
+    script = Path(proton_script)
+    if script.name in ("wine", "wine64"):
+        return None                     # classic lutris-wine: no proton script
+    try:
+        text = script.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    m = _PREFIX_VER_RE.search(text)
+    return m.group(1) if m else None
+
+
+def _numeric_prefix_version(ver: str) -> "tuple[int, int] | None":
+    """``(major, minor)`` of a stock Proton prefix version ('9.0-203' → (9, 0)).
+
+    None for GE-Proton-style versions ('GE-Proton10-33'), which Proton's own
+    ``upgrade_pfx`` cannot order either — those skip the mismatch check.
+    """
+    head, sep, _build = ver.partition("-")
+    if not sep or "." not in head:
+        return None
+    maj, _, minor = head.partition(".")
+    try:
+        return int(maj), int(minor)
+    except ValueError:
+        return None
+
+
+def prefix_downgrade_warning(
+    proton_script: "Path | str", compat_data: "Path | str | None",
+) -> "str | None":
+    """Explain why a silent install would hang here, or None when it's safe.
+
+    ``proton runinprefix`` is dispatched with ``init_session(False)``, and that
+    flag is the only thing gating ``setup_prefix()`` — the sole caller of
+    ``upgrade_pfx()``. So when a prefix built by a NEWER Proton is driven by an
+    OLDER one, the "Removing newer prefix" downgrade Proton normally performs
+    on a version change never runs for our silent installers, and the old wine
+    executes against the newer build's drive_c and registry. That combination
+    hangs forever instead of failing (GH#333: Proton 9.0-4 on a Proton 10
+    prefix). Launching the game once under the older Proton does the downgrade.
+    """
+    if not compat_data:
+        return None
+    try:
+        old_ver = (Path(compat_data) / "version").read_text(
+            encoding="utf-8", errors="replace").splitlines()[0].strip()
+    except (OSError, IndexError):
+        return None
+    new_ver = _proton_prefix_version(proton_script)
+    if not new_ver or old_ver == new_ver:
+        return None
+    old = _numeric_prefix_version(old_ver)
+    new = _numeric_prefix_version(new_ver)
+    if old is None or new is None or new >= old:
+        return None
+    # Report the major only — Proton's minor is an internal prefix-schema
+    # number ("10.1000"), meaningless to users; the raw strings disambiguate.
+    return (
+        f"this prefix was built by Proton {old[0]} ({old_ver}) but the game is "
+        f"set to Proton {new[0]} ({new_ver}). Proton only downgrades a prefix "
+        "when the game itself launches, so a silent install here would hang. "
+        f"Launch the game once under Proton {new[0]} (or reset the prefix), "
+        "then run this again."
+    )
+
+
 _VCREDIST_URL = "https://aka.ms/vc14/vc_redist.x64.exe"
 
 
@@ -623,6 +786,14 @@ def install_vcredist(
         _log(f"VC++ Redistributable: {i386_err}")
         return False
 
+    # Older Proton driving a newer prefix hangs under runinprefix — refuse with
+    # the fix instead of sitting on a dead progress bar (GH#333).
+    compat_data = env.get("STEAM_COMPAT_DATA_PATH")
+    stale_prefix = prefix_downgrade_warning(proton_script, compat_data)
+    if stale_prefix:
+        _log(f"VC++ Redistributable: {stale_prefix}")
+        return False
+
     cache_path = get_vcredist_cache_path()
     try:
         if not cache_path.is_file():
@@ -634,19 +805,25 @@ def install_vcredist(
             _log("Using cached VC++ Redistributable installer.")
         _log("Installing VC++ Redistributable in game prefix (silent) — please wait …")
         from Utils.steam_finder import proton_run_command
-        proc = subprocess.run(
+        rc, output = run_prefix_installer(
             proton_run_command(proton_script, "runinprefix",
              str(cache_path), "/install", "/quiet", "/norestart",
              env=env),
-            env=env, cwd=cache_path.parent,
+            env, cache_path.parent,
+            label="VC++ Redistributable", log_fn=_log,
+            proton_script=proton_script, compat_data=compat_data,
         )
+        if rc is None:
+            return False                # run_prefix_installer logged the abort
         # 0 = success, 1638 = already installed, 3010 = reboot required, 1641 = reboot initiated
-        if proc.returncode in {0, 1638, 3010, 1641}:
-            _log(f"VC++ Redistributable installed (exit {proc.returncode}).")
+        if rc in {0, 1638, 3010, 1641}:
+            _log(f"VC++ Redistributable installed (exit {rc}).")
             if prefix_path and Path(prefix_path).is_dir():
                 mark_dep_installed(Path(prefix_path), VCREDIST_DEP_KEY)
             return True
-        _log(f"VC++ Redistributable installer exited with code {proc.returncode}.")
+        _log(f"VC++ Redistributable installer exited with code {rc}.")
+        if output:
+            _log(f"VC++ Redistributable output:\n{output}")
         return False
     except Exception as exc:
         _log(f"VC++ Redistributable install error: {exc}")

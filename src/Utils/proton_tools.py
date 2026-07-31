@@ -73,13 +73,25 @@ def install_dotnet_runtime(
     """
     from Utils.ca_bundle import download_file
     from Utils.config_paths import get_dotnet_cache_dir
-    from Utils.protontricks import dotnet_dep_key, mark_dep_installed
+    from Utils.protontricks import (
+        dotnet_dep_key, mark_dep_installed, prefix_downgrade_warning,
+        run_prefix_installer,
+    )
 
     _status = status_fn or (lambda _m: None)
 
     dl_url = DOTNET_URLS.get(version)
     if dl_url is None:
         log_fn(f"no download URL known for .NET {version}.")
+        return False
+
+    # Older Proton driving a newer prefix hangs under runinprefix — refuse with
+    # the fix instead of sitting on a dead progress bar (GH#333).
+    compat_data = env.get("STEAM_COMPAT_DATA_PATH")
+    stale_prefix = prefix_downgrade_warning(proton_script, compat_data)
+    if stale_prefix:
+        _status(f".NET {version}: prefix needs a downgrade first.")
+        log_fn(f".NET {version}: {stale_prefix}")
         return False
 
     cache_path = get_dotnet_cache_dir() / f"windowsdesktop-runtime-{version}-win-x64.exe"
@@ -91,29 +103,36 @@ def install_dotnet_runtime(
     else:
         log_fn(f"using cached .NET {version} installer.")
 
-    _status(f"Installing .NET {version} (silent)…\n(this may take a few minutes)")
+    _status(f"Installing .NET {version} (silent)…\n(this can take a minute or two)")
     log_fn(f"installing .NET {version} in prefix (silent) …")
-    proc = subprocess.run(
+    rc, output = run_prefix_installer(
         # runinprefix: no steam.exe shim, so the silent install doesn't show
         # the game as "Running" in Steam (the prefix already exists here).
         proton_run_command(proton_script, "runinprefix",
                            str(cache_path), "/quiet", "/norestart",
                            env=env),
-        env=env, cwd=str(cache_path.parent),
+        env, cache_path.parent,
+        label=f".NET {version}", log_fn=log_fn,
+        proton_script=proton_script, compat_data=compat_data,
     )
-    if proc.returncode not in DOTNET_OK_CODES:
-        log_fn(f".NET {version} installer exited with code {proc.returncode}.")
+    if rc is None:
+        _status(f".NET {version} install timed out — see log.")
+        return False                    # run_prefix_installer logged the abort
+    if rc not in DOTNET_OK_CODES:
+        log_fn(f".NET {version} installer exited with code {rc}.")
+        if output:
+            log_fn(f".NET {version} output:\n{output}")
         return False
 
     if prefix_path and Path(prefix_path).is_dir():
         mark_dep_installed(Path(prefix_path), dep_key or dotnet_dep_key(version))
 
-    if proc.returncode == 1:
+    if rc == 1:
         _status(f".NET {version} already installed — continuing.")
         log_fn(f".NET {version} already installed (installer exit 1) — marking done.")
     else:
         _status(f".NET {version} installed successfully.")
-        log_fn(f".NET {version} installed (exit {proc.returncode}).")
+        log_fn(f".NET {version} installed (exit {rc}).")
     return True
 
 

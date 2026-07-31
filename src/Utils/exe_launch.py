@@ -762,11 +762,17 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     umu error) indistinguishable from a successful launch — the log ended at
     "launching …" and the Play button looked like it did nothing.
 
-    stderr goes to an unlinked temp *file* (not a pipe: a pipe would EPIPE the
-    game if our app exits first, and a full pipe buffer could block it); a
-    daemon thread waits for the exit and logs the code plus a stderr tail.
-    The exit line also fires on a normal quit hours later — that's fine, it
-    confirms the lifecycle in the session log.
+    stderr goes to a temp *file* (not a pipe: a pipe would EPIPE the game if
+    our app exits first, and a full pipe buffer could block it); a daemon
+    thread waits for the exit and logs the code plus a stderr tail. The exit
+    line also fires on a normal quit hours later — that's fine, it confirms
+    the lifecycle in the session log.
+
+    Must be a NAMED temp file: ``tempfile.TemporaryFile`` is an anonymous
+    O_TMPFILE fd on Linux, and 32-bit wine cold-boot segfaults (exit 245,
+    NULL read in host libc) when a std handle is a nameless fd — the cause
+    of the intermittent skse64_loader 245 crashes (fresh wineserver = crash,
+    warm = survives). Verified against GE-Proton10-33.
     """
     import tempfile
     import threading
@@ -774,7 +780,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
 
     errfile = None
     try:
-        errfile = tempfile.TemporaryFile()
+        errfile = tempfile.NamedTemporaryFile(prefix="amm-launch-stderr-")
     except Exception:
         pass
     try:
