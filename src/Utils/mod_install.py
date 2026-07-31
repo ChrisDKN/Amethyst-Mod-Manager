@@ -295,7 +295,9 @@ def try_auto_strip_top_level(
     max_strip_depth: int = 20,
 ) -> tuple[list[tuple[str, str, bool]], bool]:
     """Strip leading path segments until at least one file's top-level folder is in
-    *required*. Returns (new_list, True) on success, else (original, False)."""
+    *required*. Files shallower than the strip depth sit outside the wrapper and are
+    kept at the root rather than dropped. Returns (new_list, True) on success, else
+    (original, False)."""
     required_lower = {r.lower() for r in required}
     if check_mod_top_level(file_list, required_lower):
         return (file_list, True)
@@ -305,6 +307,7 @@ def try_auto_strip_top_level(
         for src_rel, dst_rel, is_folder in file_list:
             parts = dst_rel.replace("\\", "/").strip("/").split("/")
             if len(parts) <= strip_depth:
+                new_list.append((src_rel, parts[-1], is_folder))
                 continue
             new_dst = "/".join(parts[strip_depth:])
             top = parts[strip_depth].lower()
@@ -338,7 +341,8 @@ def try_auto_strip_for_file_types(
     required_exts: set[str],
     max_strip_depth: int = 20,
 ) -> tuple[list[tuple[str, str, bool]], bool]:
-    """Strip leading segments until a top-level file has a required ext. Returns
+    """Strip leading segments until a top-level file has a required ext. Files
+    shallower than the strip depth are kept at the root rather than dropped. Returns
     (new_list, True) on success, else (original, False)."""
     if check_mod_top_level_file_types(file_list, required_exts):
         return (file_list, True)
@@ -349,6 +353,7 @@ def try_auto_strip_for_file_types(
         for src_rel, dst_rel, is_folder in file_list:
             parts = dst_rel.replace("\\", "/").strip("/").split("/")
             if len(parts) <= strip_depth:
+                new_list.append((src_rel, parts[-1], is_folder))
                 continue
             new_dst = "/".join(parts[strip_depth:])
             if not is_folder and len(parts) == strip_depth + 1:
@@ -416,7 +421,16 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
     did_auto_strip = False
 
     if required and not check_mod_top_level(file_list, required):
-        if auto_strip:
+        root_marker_exts = {e.lower() for e in required_file_types} & {
+            e.lower() for e in
+            (list(getattr(game, "plugin_extensions", []) or [])
+             + list(getattr(game, "archive_extensions", []) or []))
+        }
+        if root_marker_exts and check_mod_top_level_file_types(
+                file_list, root_marker_exts):
+            did_auto_strip = True
+            log_fn("Mod has a plugin/archive at its root — archive root is already the mod root.")
+        if not did_auto_strip and auto_strip:
             file_list, did_auto_strip = try_auto_strip_top_level(file_list, required)
             if did_auto_strip:
                 log_fn("Auto-stripped top-level folder(s) so mod matches expected structure.")
