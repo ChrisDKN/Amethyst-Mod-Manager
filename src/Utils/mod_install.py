@@ -52,43 +52,87 @@ _commit_lock = threading.Lock()
 # sensitive Linux) filesystem and dedup by destination — the accumulated fixes
 # for "wrong files installed" / duplicate-cased folders. gui/install_mod.py
 # imports them back so there is ONE implementation.
+def _case_candidates(current: Path, part: str,
+                     _cache: "dict[Path, dict[str, list[str]]]") -> "list[str]":
+    """Real on-disk names in *current* matching *part* case-insensitively, exact
+    case first. A dir can hold SEVERAL case variants of one name (mods ship both
+    ``meshes/`` and ``Meshes/``), so the sibling map keeps EVERY variant — folding
+    them to one name silently loses whole subtrees. Sorted for determinism."""
+    if current not in _cache:
+        entries: "dict[str, list[str]]" = {}
+        try:
+            for p in current.iterdir():
+                entries.setdefault(p.name.lower(), []).append(p.name)
+        except OSError:
+            pass
+        for names in entries.values():
+            names.sort()
+        _cache[current] = entries
+    names = _cache[current].get(part.lower())
+    if not names:
+        return [part]
+    if part in names:
+        return [part] + [n for n in names if n != part]
+    return list(names)
+
+
 def _resolve_src_case(src_root: Path, src_rel: str,
-                      _cache: "dict[Path, dict[str, str]] | None" = None) -> Path:
-    """src_root / src_rel with each component resolved case-insensitively against
-    what exists on disk (FOMOD XML is Windows-cased)."""
+                      _cache: "dict[Path, dict[str, list[str]]] | None" = None) -> Path:
+    """src_root / src_rel, resolved case-insensitively against what exists on disk
+    (FOMOD XML is Windows-cased) — but ONLY as a fallback.
+
+    The literal path is tried first: the direct-install list feeds REAL on-disk
+    paths, and case-folding those is destructive, not corrective. A mod shipping
+    case-variant sibling folders (Relics of Hyrule: 147 such groups, nested 6 deep)
+    had every file under the "losing" variant rewritten to a path that does not
+    exist, failing the ``src.is_file()`` guard in ``_copy_file_list`` and vanishing
+    with no log — 2490 of 7597 files.
+
+    When the literal path misses, walk the components case-insensitively and
+    BACKTRACK: with both ``meshes/`` and ``Meshes/`` on disk, a mis-cased XML path
+    must be able to try the other variant instead of dead-ending in the first."""
     if _cache is None:
         _cache = {}
-    current = src_root
-    for part in src_rel.replace("\\", "/").strip("/").split("/"):
-        if not part:
-            continue
-        if current not in _cache:
-            try:
-                _cache[current] = {p.name.lower(): p.name
-                                   for p in current.iterdir() if current.is_dir()}
-            except OSError:
-                _cache[current] = {}
-        current = current / _cache[current].get(part.lower(), part)
-    return current
+    parts = [p for p in src_rel.replace("\\", "/").strip("/").split("/") if p]
+    if not parts:
+        return src_root
+    literal = src_root.joinpath(*parts)
+    if literal.exists():
+        return literal
+
+    def _walk(current: Path, idx: int) -> "Path | None":
+        if idx == len(parts):
+            return current
+        for cand in _case_candidates(current, parts[idx], _cache):
+            nxt = current / cand
+            if not nxt.exists():
+                continue
+            hit = _walk(nxt, idx + 1)
+            if hit is not None:
+                return hit
+        return None
+
+    found = _walk(src_root, 0)
+    # Nothing matched: hand back the literal path so the caller's is_file() check
+    # fails as before (and any error message names the path actually asked for).
+    return found if found is not None else literal
 
 
 def _resolve_dst_case(dest_root: Path, dst_rel: str,
-                      _cache: "dict[Path, dict[str, str]] | None" = None) -> Path:
+                      _cache: "dict[Path, dict[str, list[str]]] | None" = None) -> Path:
     """dest_root / dst_rel with each component resolved case-insensitively so a
-    FOMOD install doesn't create duplicate folders differing only in case."""
+    FOMOD install doesn't create duplicate folders differing only in case.
+
+    Folding IS wanted here (merge into whatever casing the destination already
+    has), but an exact-case hit wins over a variant — otherwise, once a mod folder
+    legitimately holds two case variants, which one a file lands in is arbitrary."""
     if _cache is None:
         _cache = {}
     current = dest_root
     for part in dst_rel.replace("\\", "/").split("/"):
         if not part:
             continue
-        if current not in _cache:
-            try:
-                _cache[current] = {p.name.lower(): p.name
-                                   for p in current.iterdir() if current.is_dir()}
-            except OSError:
-                _cache[current] = {}
-        current = current / _cache[current].get(part.lower(), part)
+        current = current / _case_candidates(current, part, _cache)[0]
     return current
 
 
@@ -141,11 +185,83 @@ def _copytree_case_insensitive(src: Path, dst: Path) -> int:
     return copied
 
 
-def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn) -> None:
+def _merge_case_variant_dirs(file_list, game, log_fn):
+    """Unify one mod's case-variant folders (``meshes/`` + ``Meshes/``) onto a
+    single casing — the same pick the filemap makes at deploy time.
+
+    Windows-authored mods routinely ship both; on case-insensitive NTFS they ARE
+    one folder, so splitting them in staging shows duplicate folders no Windows
+    manager would, and disagrees with the merged view the Data tab renders.
+
+    Lossless by construction: ``_copy_file_list`` already dedups on the
+    LOWERCASED destination, so folding folder casing cannot change which files
+    survive — only which folder they land in.
+
+    Skipped when the game (or the global setting) turns folder-case
+    normalization off — for Stardew Valley on Linux ``Music/`` and ``music/``
+    really are different directories. Only file entries are rewritten; folder
+    entries already merge via ``_copytree_case_insensitive``.
+    """
+    if game is None or not getattr(game, "normalize_folder_case", True):
+        return file_list
+    try:
+        from Utils.ui_config import load_normalize_folder_case
+        if not load_normalize_folder_case():
+            return file_list
+        from Utils.filemap import canonicalize_dir_casing
+    except Exception:
+        return file_list
+
+    # A trailing slash marks a DIRECTORY destination ("copy as src.name") —
+    # canonicalize treats a path's last segment as a filename and leaves it
+    # alone, so dir destinations get a sentinel filename appended: every real
+    # segment then counts as (and merges as) a folder.
+    _SENTINEL = "\x00"
+    rels: list[str] = []
+    for _s, d, is_folder in file_list:
+        if is_folder:
+            continue
+        key = d.replace("\\", "/").strip("/")
+        if key and (d.endswith("/") or d.endswith("\\")):
+            key += "/" + _SENTINEL
+        rels.append(key)
+    if not rels:
+        return file_list
+    mapping = canonicalize_dir_casing(
+        rels,
+        getattr(game, "filemap_casing", "upper") or "upper",
+        getattr(game, "filemap_casing_pins", None))
+    merged = {r.rsplit("/", 1)[0] for r, n in mapping.items() if r != n and "/" in r}
+    if not merged:
+        return file_list
+
+    out = []
+    for src_rel, dst_rel, is_folder in file_list:
+        if is_folder:
+            out.append((src_rel, dst_rel, is_folder))
+            continue
+        key = dst_rel.replace("\\", "/").strip("/")
+        if dst_rel.endswith("/") or dst_rel.endswith("\\"):
+            # Keep the trailing-slash marker _copy_file_list keys on; losing
+            # it would write the file AT the directory path.
+            new = mapping.get(key + "/" + _SENTINEL) if key else None
+            new = new[:-2] if new else key
+            out.append((src_rel, new + "/", is_folder))
+        else:
+            out.append((src_rel, mapping.get(key, key), is_folder))
+    log_fn(f"Unified {len(merged)} case-variant folder(s) to one casing.")
+    return out
+
+
+def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
+                    game=None) -> None:
     """Copy each (src_rel, dst_rel, is_folder) from src_root → dest_root with
     case-insensitive resolution + destination dedup (later wins = FOMOD priority).
-    Folders via the recursive copytree; files in parallel."""
+    Folders via the recursive copytree; files in parallel. *game* enables the
+    case-variant folder merge (None → leave each mod's casing exactly as shipped)."""
     from concurrent.futures import ThreadPoolExecutor
+
+    file_list = _merge_case_variant_dirs(file_list, game, log_fn)
 
     folder_copied = 0
     file_entries: list = []
@@ -1510,7 +1626,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                                          profile_dir=p.profile_dir)
             ok = _install_fomod(p.fomod_base, p.fomod_config, dest_root,
                                 fomod_selections, log_fn, _pp,
-                                context=p.fomod_context)
+                                context=p.fomod_context, game=p.game)
             if not ok:
                 log_fn("FOMOD resolve failed — installing all files verbatim.")
                 _copy_tree(p.src_root, dest_root, log_fn, _pp)
@@ -1530,7 +1646,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             log_fn(f"BAIN: {len(bain_selected)} sub-package(s), "
                    f"{len(file_list)} file(s) to install.")
             dest_root.mkdir(parents=True, exist_ok=True)
-            _copy_file_list(file_list, p.bain_root, dest_root, log_fn)
+            _copy_file_list(file_list, p.bain_root, dest_root, log_fn, game=p.game)
         elif p.is_bundle():
             # RE / Fluffy bundle: installs as ONE normal mod. The original
             # option folders are tucked into a hidden <mod>/.mm_bundle/ library
@@ -1556,7 +1672,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             for child in sorted(Path(p.bundle_root).iterdir()):
                 if child.is_dir():
                     _copy_file_list(resolve_direct_files(str(child)),
-                                    str(child), lib_dir / child.name, log_fn)
+                                    str(child), lib_dir / child.name, log_fn,
+                                    game=p.game)
             # Persist the spec + materialise the selection. _write_install_meta
             # below preserves the [Bundle] section (write_meta keeps foreign
             # sections intact).
@@ -1584,7 +1701,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 cancelled = True
             else:
                 dest_root.mkdir(parents=True, exist_ok=True)
-                _copy_file_list(file_list, stage_root, dest_root, log_fn)
+                _copy_file_list(file_list, stage_root, dest_root, log_fn, game=p.game)
     finally:
         p.cleanup()
 
@@ -2015,7 +2132,7 @@ def install_collection_archive(
         if file_list is not None:
             # FOMOD / BAIN produced an explicit src→dst list.
             dest_root.mkdir(parents=True, exist_ok=True)
-            _copy_file_list(file_list, stage_src_root, dest_root, log_fn)
+            _copy_file_list(file_list, stage_src_root, dest_root, log_fn, game=game)
         elif prepared.is_bundle():
             # RE / Fluffy bundle: installs as ONE normal mod, same as
             # finish_install — option folders stashed in <mod>/.mm_bundle/,
@@ -2037,7 +2154,8 @@ def install_collection_archive(
             for child in sorted(Path(prepared.bundle_root).iterdir()):
                 if child.is_dir():
                     _copy_file_list(resolve_direct_files(str(child)),
-                                    str(child), lib_dir / child.name, log_fn)
+                                    str(child), lib_dir / child.name, log_fn,
+                                    game=game)
             write_bundle_spec(dest_root / "meta.ini", spec)
             materialize_selection(dest_root, spec)
             log_fn(f"Bundle: {len(spec.selected_folders())} of "
@@ -2077,7 +2195,7 @@ def install_collection_archive(
                     log_fn(f"Collection install: '{prepared.mod_name}' — "
                            f"stage_file_list produced an EMPTY file list "
                            f"(0 files to copy).")
-                _copy_file_list(staged, stage_src_root, dest_root, log_fn)
+                _copy_file_list(staged, stage_src_root, dest_root, log_fn, game=game)
     finally:
         prepared.cleanup()
 
@@ -2426,7 +2544,8 @@ def _copy_tree(src_root: Path, dest_root: Path, log_fn: LogFn, _p) -> None:
 
 def _install_fomod(fomod_base: Path, config, dest_root: Path,
                    selections, log_fn: LogFn, _p,
-                   context: "tuple[set, set, set] | None" = None) -> bool:
+                   context: "tuple[set, set, set] | None" = None,
+                   game=None) -> bool:
     """Stage a FOMOD's files. *selections* is the wizard's
     {step_idx_str: {group_name: [plugin_names]}} dict; None → the FOMOD's own
     default selections. *context* is the (installed, active, loose) file sets
@@ -2465,7 +2584,7 @@ def _install_fomod(fomod_base: Path, config, dest_root: Path,
     # Use the SHARED, proven copier (case-insensitive resolution + dst dedup +
     # priority "later wins"). fomod_base is the src root; resolve_files already
     # produced the src→dst mapping.
-    _copy_file_list(files, str(fomod_base), dest_root, log_fn)
+    _copy_file_list(files, str(fomod_base), dest_root, log_fn, game=game)
     return any(dest_root.iterdir())
 
 
@@ -2500,7 +2619,7 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
                 log_fn(f"Replacing existing mod folder: {m_name}")
                 shutil.rmtree(m_dest, ignore_errors=True)
             m_dest.mkdir(parents=True, exist_ok=True)
-            _copy_file_list(file_list, m_path, m_dest, log_fn)
+            _copy_file_list(file_list, m_path, m_dest, log_fn, game=p.game)
             _write_install_meta(m_dest, p.archive, p.game, log_fn,
                                 prebuilt_meta=getattr(p, "prebuilt_meta", None))
             with _commit_lock:

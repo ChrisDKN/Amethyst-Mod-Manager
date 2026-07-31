@@ -1643,6 +1643,45 @@ def _pin_rel_str(rel_str: str, pins: dict[str, str]) -> str:
     return "/".join(parts) if changed else rel_str
 
 
+def canonicalize_dir_casing(
+    rel_paths: "list[str]",
+    strategy: str = FILEMAP_CASING_UPPER,
+    pins: "dict[str, str] | None" = None,
+) -> "dict[str, str]":
+    """Map each rel path to the same path with case-variant FOLDER segments
+    unified to one canonical casing. Filenames are never touched.
+
+    Exposed so the installer can merge ONE mod's ``meshes/`` + ``Meshes/`` in
+    staging using exactly the pick the filemap makes at deploy time — otherwise
+    staging and the Data tab would disagree about which casing won.
+    force_lower/force_upper collapse to their picking direction here: staging
+    only merges variants, it never renames files.
+    """
+    if strategy == FILEMAP_CASING_FORCE_LOWER:
+        strategy = FILEMAP_CASING_LOWER
+    elif strategy == FILEMAP_CASING_FORCE_UPPER:
+        strategy = FILEMAP_CASING_UPPER
+    elif strategy not in _VALID_FILEMAP_CASINGS:
+        strategy = FILEMAP_CASING_UPPER
+    unique_dirs: dict[str, None] = {}
+    for rel in rel_paths:
+        slash = rel.rfind("/")
+        if slash >= 0:
+            unique_dirs[rel[:slash]] = None
+    dir_rewrite = _apply_canonical(
+        _collect_canonical(unique_dirs, strategy), unique_dirs)
+    out: dict[str, str] = {}
+    for rel in rel_paths:
+        new = rel
+        slash = rel.rfind("/")
+        if slash >= 0:
+            nd = dir_rewrite.get(rel[:slash])
+            if nd is not None:
+                new = nd + rel[slash:]
+        out[rel] = _pin_rel_str(new, pins) if pins else new
+    return out
+
+
 def _apply_casing_pins_tuplemap(
     pins: dict[str, str],
     *tuple_maps: dict[str, tuple[str, str]],
