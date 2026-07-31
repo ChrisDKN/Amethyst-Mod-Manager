@@ -118,9 +118,9 @@ jobs:
             ostree --repo=site/repo prune --delete-commit="$BROKEN"
           fi
 
-          # Regenerate summary + deltas so clients see the new head.
           flatpak build-update-repo \
             --generate-static-deltas \
+            --default-branch=stable \
             --prune --prune-depth=20 \
             $SIGN \
             site/repo
