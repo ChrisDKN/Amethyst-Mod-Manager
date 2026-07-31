@@ -169,6 +169,50 @@ def owner_of(group_dir: Path, entry_name: str) -> "tuple[str, str] | None":
     return None
 
 
+def profile_is_locked(profile_dir: Path) -> bool:
+    """True when a profile is lock-protected (Profile Settings lock, or the
+    original default) — same rule the Profile Settings rows use."""
+    pset = read_profile_settings(profile_dir, None)
+    return bool(pset.get("profile_locked") or pset.get("original_default"))
+
+
+def _members_providing(group_dir: Path, name: str) -> list[str]:
+    """Every member that provides the group entry *name* (its link owner plus
+    any member listing the same identity)."""
+    profiles_dir = group_dir.parent
+    key = _read_identity_map(group_dir).get(name, f"name:{name}")
+    out: list[str] = []
+    owner = owner_of(group_dir, name)
+    if owner is not None:
+        out.append(owner[0])
+    for member in get_members(group_dir):
+        member_dir = profiles_dir / member
+        if member in out or not member_dir.is_dir():
+            continue
+        for e in read_modlist(member_dir / "modlist.txt"):
+            if e.is_separator:
+                continue
+            k, _v = _mod_identity_and_version(member_dir / "mods", e.name)
+            if k == key:
+                out.append(member)
+                break
+    return out
+
+
+def locked_owners(group_dir: Path, mod_names: list[str]) -> dict[str, str]:
+    """{mod_name: locked member} for entries whose files live in — or are also
+    provided by — a LOCKED member. Removing through the group would delete
+    that profile's mod, which is exactly what the lock protects against."""
+    profiles_dir = group_dir.parent
+    blocked: dict[str, str] = {}
+    for name in mod_names:
+        for member in _members_providing(group_dir, name):
+            if profile_is_locked(profiles_dir / member):
+                blocked[name] = member
+                break
+    return blocked
+
+
 def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
     if not getattr(game, "profile_groups_supported", True):
         raise GroupValidationError(
@@ -1324,16 +1368,27 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
 
 def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                            log_fn=None, *,
-                           delete_member_copies: bool = True) -> None:
+                           delete_member_copies: bool = True) -> list[str]:
     """Fully remove *mod_names* from a group: undeploy via the group index,
     strip plugins group-side, delete EVERY member copy of each identity (a
     second lister would otherwise resurrect it next materialize), then the
     group link/index/adopted state. delete_member_copies=False = DETACH
-    (move-to-owning-member): members keep their files. Does NOT touch the
-    group's modlist.txt — the caller removes the rows (remove_mods contract)."""
+    (move-to-owning-member): members keep their files, so a locked member
+    doesn't block it. Does NOT touch the group's modlist.txt — the caller
+    removes the rows (remove_mods contract) for the names RETURNED."""
     log = log_fn or app_log
     if game is None or not mod_names:
-        return
+        return []
+    if delete_member_copies:
+        blocked = locked_owners(group_dir, mod_names)
+        if blocked:
+            for _n, _m in blocked.items():
+                log(f"Profile Group: '{_n}' belongs to the LOCKED profile "
+                    f"'{_m}' — not removed. Switch to that profile to remove "
+                    f"it there, or unlock it.")
+            mod_names = [n for n in mod_names if n not in blocked]
+            if not mod_names:
+                return []
     with group_build_lock(group_dir):
         profiles_dir = group_dir.parent
         staging = group_dir / "mods"
@@ -1425,3 +1480,4 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             fingerprints.pop(name, None)
         _write_identity_map(group_dir, identity_map)
         _write_index_fingerprints(group_dir, fingerprints)
+    return list(mod_names)

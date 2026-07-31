@@ -6179,16 +6179,25 @@ class MainWindow(QMainWindow):
                         # Moving OUT of a group removes the mod from its
                         # owning member too — EXCEPT when the target IS the
                         # owner (detached): the member keeps its files and
-                        # only the group entry/link goes.
+                        # only the group entry/link goes. A locked member's
+                        # mods are refused by remove_mods_from_group, which
+                        # returns only what it actually removed.
                         full = [n for n in copied if n not in detached]
+                        done = []
                         if full:
-                            remove_mods_from_group(
+                            done += remove_mods_from_group(
                                 game, Path(src_profile_dir), full,
                                 log_fn=_log_cb)
                         if detached:
-                            remove_mods_from_group(
+                            done += remove_mods_from_group(
                                 game, Path(src_profile_dir), detached,
                                 log_fn=_log_cb, delete_member_copies=False)
+                        blocked = [n for n in copied if n not in done]
+                        if blocked:
+                            self._op_log.emit(
+                                f"Kept in the group (locked profile): "
+                                f"{', '.join(blocked)}")
+                        copied = done
                     else:
                         from Utils.mod_remove import remove_mods
                         remove_mods(game, Path(src_profile_dir), copied,

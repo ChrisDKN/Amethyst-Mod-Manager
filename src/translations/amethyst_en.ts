@@ -6636,6 +6636,14 @@ How would you like to handle the existing mod?</translation>
         <translation>Endorse selected ({0})</translation>
     </message>
     <message>
+        <source>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</source>
+        <translation>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) skipped — they belong to locked profile(s): {1}.</source>
+        <translation>{0} mod(s) skipped — they belong to locked profile(s): {1}.</translation>
+    </message>
+    <message>
         <source>Lock Separator</source>
         <translation>Lock Separator</translation>
     </message>

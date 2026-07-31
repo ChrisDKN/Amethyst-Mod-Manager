@@ -209,44 +209,25 @@ def _toggle_selected(win):
 
 
 def _delete_selected(win):
-    """Remove the selected mods after ONE batch confirm (per user decision)."""
+    """Remove the selected mods after ONE batch confirm (per user decision).
+
+    Delegates to the context menu's remove handlers so the keyboard path gets
+    the SAME guards: Profile Group entries route through the group-aware
+    removal (which also deletes the owning member's copy — a plain remove
+    would only drop the group's link and the mod would return on the next
+    reconcile), and mods owned by a LOCKED member profile are refused."""
     view = getattr(win, "_modlist_view", None)
     if view is None:
         return
     rows = _toggleable_rows(view)
     if not rows:
         return
+    from gui_qt.modlist_menu import _remove, _remove_mods_multi
     m = view.model()
-    names = [m.entry(r).name for r in rows]
-    n = len(names)
-    prompt = (f"Remove '{m.entry(rows[0]).display_name}'?" if n == 1
-              else f"Remove {n} mods?")
-
-    def _confirmed(ok):
-        if not ok:
-            return
-        game = getattr(view, "game", None)
-        profile_dir = getattr(view, "profile_dir", None)
-        if game is not None and profile_dir is not None:
-            try:
-                from Utils.mod_remove import remove_mods
-                remove_mods(game, profile_dir, names,
-                            log_fn=lambda msg: print(f"[remove] {msg}",
-                                                     flush=True))
-            except Exception as exc:
-                print(f"[gui_qt] mod removal failed: {exc}", flush=True)
-        # Drop the rows high-to-low so indices stay stable, saving once at the
-        # end (per-row save fires a full filemap rebuild each time).
-        for r in sorted(rows, reverse=True):
-            m.remove_row(r, save=False)
-        if rows:
-            m.save()
-
-    from gui_qt.confirm_overlay import ConfirmOverlay
-    ConfirmOverlay.show_over(
-        view, "Remove mod" if n == 1 else "Remove mods",
-        prompt + "\n\nThis deletes the mod folder(s) and cannot be undone.",
-        _confirmed)
+    if len(rows) == 1:
+        _remove(view, m, rows[0])
+    else:
+        _remove_mods_multi(view, m, rows)
 
 
 def _scroll_top(win):

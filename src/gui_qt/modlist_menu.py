@@ -1203,18 +1203,44 @@ def _group_owners(view, names):
         return None
 
 
-def _run_remove(view, game, profile_dir, names, owners):
-    """Dispatch the file-side removal: group-aware when *owners* is set."""
+def _locked_group_mods(view, names):
+    """{mod_name: locked member} for group entries owned by a locked profile
+    (removal must be refused), else {}."""
+    profile_dir = getattr(view, "profile_dir", None)
+    if profile_dir is None:
+        return {}
+    try:
+        from Utils.profile_groups import is_group, locked_owners
+        if not is_group(profile_dir):
+            return {}
+        return locked_owners(profile_dir, list(names))
+    except Exception:
+        return {}
+
+
+def _notify(view, text, state="warning"):
+    win = getattr(view, "window", lambda: None)()
+    cb = getattr(win, "_notify", None)
+    if callable(cb):
+        cb(text, state)
+    else:
+        print(f"[gui_qt] {text}", flush=True)
+
+
+def _run_remove(view, game, profile_dir, names, owners) -> list:
+    """Dispatch the file-side removal: group-aware when *owners* is set.
+    Returns the names actually removed (a group skips locked members')."""
     log = lambda m: print(f"[remove] {m}", flush=True)  # noqa: E731
     try:
         if owners is not None:
             from Utils.profile_groups import remove_mods_from_group
-            remove_mods_from_group(game, profile_dir, names, log_fn=log)
-        else:
-            from Utils.mod_remove import remove_mods
-            remove_mods(game, profile_dir, names, log_fn=log)
+            return remove_mods_from_group(game, profile_dir, names, log_fn=log)
+        from Utils.mod_remove import remove_mods
+        remove_mods(game, profile_dir, names, log_fn=log)
+        return list(names)
     except Exception as exc:
         print(f"[gui_qt] mod removal failed: {exc}", flush=True)
+        return []
 
 
 def _remove(view, model, row):
@@ -1226,6 +1252,15 @@ def _remove(view, model, row):
     e = model.entry(row)
     if e is None or e.is_separator:
         return
+    # A mod belonging to a LOCKED member profile can't be removed through the
+    # group (the lock protects that profile's mods); it can still be removed
+    # from the member profile itself.
+    locked = _locked_group_mods(view, [e.name])
+    if locked:
+        _notify(view, _mt("'{0}' belongs to the locked profile '{1}' — switch "
+                          "to that profile to remove it, or unlock it.")
+                .format(e.display_name, locked[e.name]))
+        return
     owners = _group_owners(view, [e.name])
 
     def _confirmed(ok):
@@ -1234,9 +1269,11 @@ def _remove(view, model, row):
         name = e.name
         game = getattr(view, "game", None)
         profile_dir = getattr(view, "profile_dir", None)
+        removed = [name]
         if game is not None and profile_dir is not None:
-            _run_remove(view, game, profile_dir, [name], owners)
-        model.remove_row(row)
+            removed = _run_remove(view, game, profile_dir, [name], owners)
+        if removed:
+            model.remove_row(row)
         _notify_mods_removed(view)
 
     if owners is not None:
@@ -1345,6 +1382,16 @@ def _remove_mods_multi(view, model, mod_rows):
             and not e.is_separator and not e.locked]
     if not rows:
         return
+    # Drop mods owned by a LOCKED member profile — they stay removable from
+    # that profile itself, just not through the group.
+    locked = _locked_group_mods(view, [model.entry(r).name for r in rows])
+    if locked:
+        rows = [r for r in rows if model.entry(r).name not in locked]
+        _notify(view, _mt("{0} mod(s) skipped — they belong to locked "
+                          "profile(s): {1}.")
+                .format(len(locked), ", ".join(sorted(set(locked.values())))))
+        if not rows:
+            return
     names = [model.entry(r).name for r in rows]
     owners = _group_owners(view, names)
 
@@ -1353,11 +1400,14 @@ def _remove_mods_multi(view, model, mod_rows):
             return
         game = getattr(view, "game", None)
         profile_dir = getattr(view, "profile_dir", None)
+        removed = set(names)
         if game is not None and profile_dir is not None:
-            _run_remove(view, game, profile_dir, names, owners)
-        for r in sorted(rows, reverse=True):
+            removed = set(_run_remove(view, game, profile_dir, names, owners))
+        gone = [r for r in rows if model.entry(r).name in removed]
+        for r in sorted(gone, reverse=True):
             model.remove_row(r, save=False)
-        model.save()  # single save → one filemap rebuild for the whole batch
+        if gone:
+            model.save()  # single save → one filemap rebuild for the batch
         _notify_mods_removed(view)
 
     if owners is not None:
@@ -1404,6 +1454,11 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Enable selected ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse Mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse selected ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "'{0}' belongs to the locked profile "
+                      "'{1}' — switch to that profile to remove it, or "
+                      "unlock it."),
+    QT_TRANSLATE_NOOP("ModListMenu", "{0} mod(s) skipped — they belong to "
+                      "locked profile(s): {1}."),
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separators"),
     QT_TRANSLATE_NOOP("ModListMenu", "Log"),
