@@ -1018,7 +1018,7 @@ class UE5Game(BaseGame):
         return name, val == "1"
 
     def _collect_ue4ss_disabled_consensus(
-        self, staging: Path, mod_names: list[str],
+        self, staging: "Path | Mapping[str, Path]", mod_names: list[str],
         index: dict[str, tuple[dict[str, str], dict[str, str]]] | None = None,
     ) -> set[str]:
         """Scan staged mod folders for ``mods.txt`` files and return the set
@@ -1064,7 +1064,10 @@ class UE5Game(BaseGame):
                 for rel_key, rel_str in normal_files.items():
                     if not (rel_key.endswith("/mods/mods.txt") or rel_key == "mods/mods.txt"):
                         continue
-                    src = staging / mod_name / rel_str
+                    mod_dir = resolve_mod_dir(staging, mod_name)
+                    if mod_dir is None:
+                        continue
+                    src = mod_dir / rel_str
                     try:
                         _ingest(src.read_text(encoding="utf-8", errors="replace"))
                     except OSError:
@@ -1074,8 +1077,8 @@ class UE5Game(BaseGame):
             # Fallback: rglob each mod root. Slower; only used when the
             # modindex.bin isn't available.
             for mod_name in mod_names:
-                mod_root = staging / mod_name
-                if not mod_root.is_dir():
+                mod_root = resolve_mod_dir(staging, mod_name)
+                if mod_root is None or not mod_root.is_dir():
                     continue
                 try:
                     for p in mod_root.rglob("mods.txt"):

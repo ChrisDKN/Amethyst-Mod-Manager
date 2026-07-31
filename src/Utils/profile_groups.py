@@ -315,14 +315,27 @@ def _mod_identity_and_version(profiles_dir: Path, member_name: str,
     never produce. fileId is deliberately NOT part of the identity: two
     members installing different downloaded versions of the same mod are
     still the same mod for merge purposes — see _merge_modlist for how the
-    version is then used to pick which copy's files actually win."""
+    version is then used to pick which copy's files actually win.
+
+    mod_id ALONE is not enough, though: a single Nexus mod page can bundle
+    several genuinely distinct downloads as separate files under one page ID
+    (e.g. Stardew Valley Expanded, id 3753, offers multiple alternate farm
+    maps as OPTIONAL files on its own MAIN file's page) — collapsing those
+    by mod_id would silently drop one of two mods the user deliberately
+    installed side by side. file_category ("MAIN"/"OPTIONAL"/...) is stable
+    across re-downloads and version bumps of the SAME file (unlike fileId),
+    so folding it into the identity still merges the Ridgeside Village case
+    (both curators' copies are the page's MAIN file) while keeping distinct
+    optional files on the same page apart."""
     try:
         from Nexus.nexus_meta import read_meta
         meta_path = profiles_dir / member_name / "mods" / mod_name / "meta.ini"
         if meta_path.is_file():
             meta = read_meta(meta_path)
             if meta.mod_id:
-                return f"nexus:{meta.mod_id}", (meta.version or "")
+                category = (meta.file_category or "").strip().upper()
+                suffix = f":{category}" if category else ""
+                return f"nexus:{meta.mod_id}{suffix}", (meta.version or "")
     except Exception:
         pass
     return f"name:{mod_name}", ""
@@ -420,7 +433,7 @@ def _merge_modlist(profiles_dir: Path, members: list[str],
         else:
             reason = "member priority order"
         log_fn(f"Profile Group: {', '.join(sorted(names))} are the same "
-               f"Nexus mod (id {key.split(':', 1)[1]}) under different "
+               f"Nexus mod (id {key.split(':')[1]}) under different "
                f"names across members — using '{winner}'s copy ({reason}).")
 
     # Pass 2: walk members in priority order, flat (no separator headers),

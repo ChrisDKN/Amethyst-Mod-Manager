@@ -12,9 +12,14 @@ Mod structure:
 import json
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Mapping
 
 from Games.base_game import BaseGame, WizardTool
 from Utils.deploy import LinkMode, deploy_core, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, cleanup_custom_deploy_dirs, move_to_core, restore_data_core
+from Utils.deploy_shared import resolve_mod_dir
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
@@ -219,7 +224,7 @@ class StardewValley(BaseGame):
         # Capture runtime files generated outside Mods/ on the next restore.
         self.snapshot_root_for_runtime_capture(log_fn=_log)
 
-    def _fix_alt_textures_casing(self, filemap: Path, staging: Path) -> int:
+    def _fix_alt_textures_casing(self, filemap: Path, staging: "Path | Mapping[str, Path]") -> int:
         """Canonicalise Alternative Textures content pack casing in the filemap.
 
         Alternative Textures uses raw .NET filesystem calls (bypassing SMAPI's
@@ -253,7 +258,10 @@ class StardewValley(BaseGame):
             rel_str, mod_name = line.split("\t", 1)
             if rel_str.rsplit("/", 1)[-1].lower() != "manifest.json":
                 continue
-            mod_src = staging / mod_name / rel_str
+            mod_dir = resolve_mod_dir(staging, mod_name)
+            if mod_dir is None:
+                continue
+            mod_src = mod_dir / rel_str
             try:
                 data = json.loads(mod_src.read_text(encoding="utf-8-sig"))
             except (OSError, ValueError):

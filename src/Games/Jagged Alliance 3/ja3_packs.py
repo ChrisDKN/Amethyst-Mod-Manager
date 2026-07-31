@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from Utils.deploy_shared import LinkMode, _do_link, _restore_backup_dir
+if TYPE_CHECKING:
+    from typing import Mapping
+
+from Utils.deploy_shared import LinkMode, _do_link, _restore_backup_dir, resolve_mod_dir
 
 _PACKS_DIR = "Packs"
 _BACKUP_DIR_NAME = "packs_backup"
@@ -39,7 +43,7 @@ def _vanilla_hpk_index(game_root: Path) -> dict[str, Path]:
     return index
 
 
-def _iter_loose_hpks(filemap_path: Path, staging: Path):
+def _iter_loose_hpks(filemap_path: Path, staging: "Path | Mapping[str, Path]"):
     """Yield (mod_name, rel_str, src_path) for every routable loose .hpk.
 
     "Loose" here means a .hpk that is not ModContent.hpk; its position inside
@@ -57,14 +61,17 @@ def _iter_loose_hpks(filemap_path: Path, staging: Path):
             continue
         if name.lower() == _SKIP_NAME:
             continue
-        src = staging / mod_name / rel_str
+        mod_dir = resolve_mod_dir(staging, mod_name)
+        if mod_dir is None:
+            continue
+        src = mod_dir / rel_str
         if src.is_file():
             yield mod_name, rel_str, src
 
 
 def deploy_packs(
     filemap_path: Path,
-    staging: Path,
+    staging: "Path | Mapping[str, Path]",
     game_root: Path,
     mode: LinkMode = LinkMode.HARDLINK,
     log_fn=None,
