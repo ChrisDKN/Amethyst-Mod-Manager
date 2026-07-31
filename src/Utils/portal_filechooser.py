@@ -42,7 +42,7 @@ def set_main_thread_dispatcher(fn: "Callable[[Callable[[], None]], None]") -> No
 # Expected callables (return Path/None or list[Path]):
 #   folder(title)                     -> Path | None
 #   file(title, filters)              -> Path | None
-#   files(title)                      -> list[Path]
+#   files(title, filters)             -> list[Path]
 #   save(title, current_name, filters)-> Path | None
 _toolkit_pickers: "dict[str, Callable]" = {}
 
@@ -699,13 +699,17 @@ def _kdialog_files(title: str) -> "list[Path] | object | None":
     return None
 
 
-def _tkinter_files(title: str) -> "list[Path]":
+def _tkinter_files(
+    title: str, filters: "list[tuple[str, list[str]]] | None" = None
+) -> "list[Path]":
     """Last-resort multi-file picker via the registered GUI-toolkit picker."""
     picker = _toolkit_pickers.get("files")
     if picker is None:
         _debug_log("toolkit multi-file picker unavailable: none registered")
         return []
-    return _tkinter_dispatch(lambda: picker(title), "multi-file", [])
+    if filters is None:
+        filters = _MOD_ARCHIVE_FILTERS
+    return _tkinter_dispatch(lambda: picker(title, filters), "multi-file", [])
 
 
 def _run_file_picker_worker_multi(title: str, filters: list[tuple[str, list[str]]], cb: "Callable[[list[Path]], None]") -> None:
@@ -713,7 +717,7 @@ def _run_file_picker_worker_multi(title: str, filters: list[tuple[str, list[str]
     # tkinter fallback returns [] (never None), which the waterfall treats
     # as "unavailable" — so wrap it to keep the empty-list semantics intact.
     def _tkinter_step() -> "list[Path] | None":
-        result = _tkinter_files(title)
+        result = _tkinter_files(title, filters)
         return result if result else None
 
     chosen = _run_waterfall(

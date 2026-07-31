@@ -31,9 +31,14 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
         done.append(f"app_log FAILED: {e!r}")
 
     # 2. main-thread dispatcher (portal_filechooser, generic worker→UI hops).
+    #    This is always called FROM the picker worker thread, so the timer needs
+    #    an explicit context object: the receiver-less singleShot overload
+    #    creates its timer in the *calling* thread, which has no event loop, so
+    #    the callback would never fire and the worker would block forever
+    #    waiting on it.
     try:
         from Utils.portal_filechooser import set_main_thread_dispatcher
-        set_main_thread_dispatcher(lambda fn: QTimer.singleShot(0, fn))
+        set_main_thread_dispatcher(lambda fn: QTimer.singleShot(0, app, fn))
         done.append("main_thread_dispatcher")
     except Exception as e:
         done.append(f"dispatcher FAILED: {e!r}")

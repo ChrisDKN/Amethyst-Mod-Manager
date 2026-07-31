@@ -485,12 +485,16 @@ class MainWindow(QMainWindow):
         outer.addWidget(self._build_log_bar())   # fixed control bar
         self.setCentralWidget(central)
 
+        from gui_qt.file_pickers import build_pickers
         wired = glue.register_all(
             app, log=self._append_log, parent_window=self,
             # Backend warnings (ui_hooks.warn) become an OK-only popup; the
             # signal hop makes the call safe from any worker thread.
             warn=lambda title, message, height=None, **kw: self._warn_popup.emit(
                 str(title), str(message), height),
+            # Last-resort QFileDialog pickers, so hosts with no portal
+            # FileChooser backend (Sway et al.) still get a usable browser.
+            file_pickers=build_pickers(self),
         )
         print("[gui_qt] glue wired:", ", ".join(wired))
 
