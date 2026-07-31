@@ -327,6 +327,7 @@ jobs:
           # full trees, on update.
           flatpak build-update-repo \
             --generate-static-deltas \
+            --default-branch=stable \
             --prune --prune-depth=20 \
             $SIGN \
             site/repo
@@ -348,6 +349,7 @@ jobs:
           [Flatpak Repo]
           Title=Amethyst Mod Manager
           Url=${PAGES_URL}/repo/
+          DefaultBranch=stable
           Homepage=https://github.com/ChrisDKN/Amethyst-Mod-Manager
           Comment=Auto-update remote for Amethyst Mod Manager (stable + beta)
           Description=Adds the Amethyst Mod Manager Flatpak remote so updates arrive via your package manager.

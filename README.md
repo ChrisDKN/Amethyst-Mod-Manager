@@ -53,8 +53,11 @@ flatpak install --user https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.
 The remote can also be added manually where you can then install from the app store/discover store
 
 ```bash
-flatpak remote-add --if-not-exists modmanager-origin https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo
+flatpak remote-add --user --if-not-exists modmanager-origin https://chrisdkn.github.io/Amethyst-Mod-Manager/amethyst.flatpakrepo
+flatpak install --user modmanager-origin io.github.Amethyst.ModManager//stable
 ```
+
+The repo carries two branches, `stable` and `beta`, so name the one you want.
 
 Updates will be shown in your package manager
 
@@ -63,6 +66,8 @@ Manually swap to the beta branch
 ```bash
 flatpak install --user --reinstall modmanager-origin io.github.Amethyst.ModManager//beta
 ```
+
+(swap `--user` for `--system` if that's where you installed it)
 
 Installing from a bundle skips the 32-bit compat extensions that running Windows tools (Proton/wine) requires - The app installs them automatically on first launch, or you can add them yourself:
 
