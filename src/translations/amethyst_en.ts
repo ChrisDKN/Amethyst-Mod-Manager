@@ -4815,6 +4815,14 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Search mods… (try !update, !fomod, !.dds)</translation>
     </message>
     <message>
+        <source>Reset</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
+        <translation>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</translation>
+    </message>
+    <message>
         <source>Search files… (try !.dds)</source>
         <translation>Search files… (try !.dds)</translation>
     </message>
@@ -5937,6 +5945,18 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Unpack {0}</translation>
     </message>
     <message>
+        <source>Reset Mod Files changes for {0}</source>
+        <translation>Reset Mod Files changes for {0}</translation>
+    </message>
+    <message>
+        <source>Reset Mod Files changes</source>
+        <translation>Reset Mod Files changes</translation>
+    </message>
+    <message>
+        <source>Undo every Mod Files change for "{0}" — Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</source>
+        <translation>Undo every Mod Files change for "{0}" — Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</translation>
+    </message>
+    <message>
         <source>An archive operation is already running.</source>
         <translation>An archive operation is already running.</translation>
     </message>
@@ -6510,6 +6530,10 @@ How would you like to handle the existing mod?</translation>
     <message>
         <source>Top Level</source>
         <translation>Top Level</translation>
+    </message>
+    <message>
+        <source>Root</source>
+        <translation>Root</translation>
     </message>
     <message>
         <source>Disable</source>

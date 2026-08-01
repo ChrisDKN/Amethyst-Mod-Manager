@@ -1,11 +1,12 @@
 """Qt tree model for the Mod Files tab.
 
 A QAbstractItemModel over a folder/file hierarchy built from a mod's raw file
-listing (Utils.mod_files.build_tree). Three columns:
+listing (Utils.mod_files.build_tree). Four columns:
 
   0  File name  — the tree (folder/file names)
   1  Top Level  — checkbox: is this path promoted to deploy at the game root
-  2  Disable    — checkbox: is this file excluded from deploy (folders = tri-state)
+  2  Root       — checkbox: deploy this file to the game root folder (tri-state)
+  3  Disable    — checkbox: is this file excluded from deploy (folders = tri-state)
 
 The model is display-only state; all persistence + the strip/exclusion
 algorithms live in Utils.mod_files. The view drives saves on checkbox clicks.
@@ -20,11 +21,13 @@ from gui_qt.theme_qt import active_palette, qc
 
 COL_NAME = 0
 COL_TOPLEVEL = 1
-COL_DISABLE = 2
+COL_ROOT = 2
+COL_DISABLE = 3
 # Translated at display time in headerData; register literals for lupdate.
 COLUMNS = [
     QT_TRANSLATE_NOOP("ModFilesModel", "File name"),
     QT_TRANSLATE_NOOP("ModFilesModel", "Top Level"),
+    QT_TRANSLATE_NOOP("ModFilesModel", "Root"),
     QT_TRANSLATE_NOOP("ModFilesModel", "Disable"),
 ]
 
@@ -34,15 +37,15 @@ ConflictRole = Qt.UserRole + 2   # 0 none, 1 win (green), -1 lose (red)
 
 
 class _Node:
-    __slots__ = ("name", "path", "rel_key", "rel_str", "is_dir", "children",
-                 "parent", "checked", "conflict", "top_level", "synthetic",
-                 "stripped", "meta")
+    __slots__ = ("name", "path", "raw_key", "rel_str", "is_dir",
+                 "children", "parent", "checked", "conflict", "top_level",
+                 "root_tag", "synthetic", "stripped", "meta")
 
     def __init__(self, name, path, *, is_dir, parent=None,
-                 rel_key=None, rel_str=None):
+                 rel_str=None, raw_key=None):
         self.name = name
         self.path = path            # canonical rel path (orig case)
-        self.rel_key = rel_key      # post-strip key (files only)
+        self.raw_key = raw_key      # raw on-disk key (files only) — the state key
         self.rel_str = rel_str      # raw on-disk path (files only)
         self.is_dir = is_dir
         self.children: list[_Node] = []
@@ -50,6 +53,7 @@ class _Node:
         self.checked = True         # Disable column: True = included
         self.conflict = 0           # -1 lose, 0 none, 1 win
         self.top_level = False      # Top Level column checked
+        self.root_tag = False       # Root column: deploy to game root (files)
         self.synthetic = False      # greyed strip placeholder
         self.stripped = False       # this path is itself stripped (greyed)
         self.meta = False           # the mod's meta.ini row (view/edit only)
@@ -137,10 +141,10 @@ class ModFilesModel(QAbstractItemModel):
             return Qt.NoItemFlags
         f = Qt.ItemIsEnabled | Qt.ItemIsSelectable
         node: _Node = index.internalPointer()
-        # The meta.ini row is view/edit-only — it deploys nothing, so no
-        # Top Level / Disable checkboxes.
+        # The meta.ini row is view/edit-only — it deploys nothing, so it gets
+        # no checkboxes.
         if not getattr(node, "meta", False) and \
-                index.column() in (COL_TOPLEVEL, COL_DISABLE):
+                index.column() in (COL_TOPLEVEL, COL_ROOT, COL_DISABLE):
             f |= Qt.ItemIsUserCheckable
         return f
 
@@ -161,6 +165,8 @@ class ModFilesModel(QAbstractItemModel):
         if role == Qt.CheckStateRole and not node.meta:
             if col == COL_TOPLEVEL:
                 return Qt.Checked if node.top_level else Qt.Unchecked
+            if col == COL_ROOT:
+                return self._root_state(node)
             if col == COL_DISABLE:
                 return self._disable_state(node)
 
@@ -183,6 +189,21 @@ class ModFilesModel(QAbstractItemModel):
         if not leaves:
             return Qt.Checked
         on = sum(1 for l in leaves if l.checked)
+        if on == len(leaves):
+            return Qt.Checked
+        if on == 0:
+            return Qt.Unchecked
+        return Qt.PartiallyChecked
+
+    def _root_state(self, node: _Node):
+        """Root column: files checked when routed to the game root.
+        Folders: tri-state from their leaves."""
+        if not node.is_dir:
+            return Qt.Checked if node.root_tag else Qt.Unchecked
+        leaves = self._leaves(node)
+        if not leaves:
+            return Qt.Unchecked
+        on = sum(1 for l in leaves if l.root_tag)
         if on == len(leaves):
             return Qt.Checked
         if on == 0:
@@ -234,6 +255,19 @@ class ModFilesModel(QAbstractItemModel):
 
     def set_disabled(self, node: _Node, included: bool):
         node.checked = included
+        self._emit_subtree_and_ancestors(node)
+
+    def set_root_subtree(self, node: _Node, tagged: bool):
+        """Set the Root state for a node + all descendants (folder toggle)."""
+        if node.is_dir:
+            for leaf in self._leaves(node):
+                leaf.root_tag = tagged
+        else:
+            node.root_tag = tagged
+        self._emit_subtree_and_ancestors(node)
+
+    def set_root_tag(self, node: _Node, tagged: bool):
+        node.root_tag = tagged
         self._emit_subtree_and_ancestors(node)
 
     def _emit_subtree_and_ancestors(self, node: _Node):

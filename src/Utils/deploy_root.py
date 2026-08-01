@@ -162,6 +162,7 @@ def deploy_root_flagged_mods(
     mode: LinkMode = LinkMode.HARDLINK,
     strip_prefixes: "set[str] | None" = None,
     per_mod_strip_prefixes: "dict[str, list[str]] | None" = None,
+    excluded_raw: "dict[str, set[str]] | None" = None,
     log_fn=None,
 ) -> int:
     """Deploy files from root-flagged mods (filemap_root.txt) directly into game_root.
@@ -172,6 +173,8 @@ def deploy_root_flagged_mods(
     mode                   — HARDLINK / SYMLINK / COPY
     strip_prefixes         — shared top-level folder names stripped during staging
     per_mod_strip_prefixes — per-mod overrides for strip_prefixes (same as deploy_filemap)
+    excluded_raw           — per-mod RAW excluded keys; skipped as sources, so a
+                             collision deploys the variant the user kept
 
     Files are appended to the same root_folder_deployed.txt log and Root_Backup/ directory
     used by deploy_root_folder(), so restore_root_folder() undoes everything in one pass.
@@ -219,20 +222,38 @@ def deploy_root_flagged_mods(
     _top_seen: dict[str, bool] = {}
     tasks: list[tuple[Path, Path, str]] = []  # (src, dst, rel_posix)
 
+    _excluded_raw = excluded_raw or {}
+
+    def _usable(candidate: Path, rel_raw: str, exc) -> bool:
+        """A real file the user has not disabled."""
+        if exc and rel_raw.lower().replace("\\", "/") in exc:
+            return False
+        return candidate.is_file()
+
     for rel_str, mod_name in entries:
-        # Locate source in staging, trying per-mod then shared strip prefixes.
+        # Locate source in staging: bare path, then per-mod / shared strip
+        # prefixes. Disabled variants are skipped so the kept one is used.
+        _exc = _excluded_raw.get(mod_name)
         src = staging_root / mod_name / rel_str
-        if not src.is_file():
+        if not _usable(src, rel_str, _exc):
+            src = None
             _mod_prefixes = (per_mod_strip_prefixes or {}).get(mod_name)
             _candidates = list(_mod_prefixes) if _mod_prefixes else []
             if strip_prefixes:
                 _candidates.extend(strip_prefixes)
+                # Stacked strips: a per-mod Top Level strip followed by a
+                # shared strip (e.g. "MyPreset" then "Data") — try the combo.
+                if _mod_prefixes:
+                    _candidates.extend(
+                        f"{mp}/{sp}"
+                        for mp in _mod_prefixes for sp in strip_prefixes
+                    )
             for prefix in _candidates:
                 candidate = staging_root / mod_name / prefix / rel_str
-                if candidate.is_file():
+                if _usable(candidate, f"{prefix}/{rel_str}", _exc):
                     src = candidate
                     break
-        if not src.is_file():
+        if src is None or not src.is_file():
             _log(f"  WARN: source not found for root-flagged file: {mod_name}/{rel_str}")
             continue
 

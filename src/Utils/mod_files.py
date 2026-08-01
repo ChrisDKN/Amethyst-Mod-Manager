@@ -1,29 +1,27 @@
-"""Toolkit-neutral logic for the Mod Files tab (Tk + Qt share this).
+"""Toolkit-neutral logic for the Mod Files tab (Qt view drives this).
 
-The Mod Files tab shows a per-mod file tree with two checkbox columns:
+Columns: **Top Level** promotes a path by adding strip-prefix entries
+(``mod_strip_prefixes``); **Root** routes files to the game root
+(``root_mod_files``); **Disable** drops them from deploy
+(``excluded_mod_files``).
 
-  * **Top Level** — promotes/demotes a path as the deploy "top level" by adding
-    / removing strip-prefix entries (``mod_strip_prefixes`` in profile_state).
-    Checking a nested row strips every ancestor segment so the row deploys at
-    the game root; unchecking reclaims the parent.
-  * **Disable** — excludes individual files from deploy (``excluded_mod_files``).
-
-All the fiddly bits — the strip-prefix promotion/demotion algorithm, the
-exclusion save-merge that preserves filtered-out rows, conflict tagging, and the
-raw file listing (with index fast-path + disk-scan fallback) — live here so both
-the Tk mixin (gui/plugin_panel_mod_files.py) and the Qt view
-(gui_qt/mod_files_view.py) drive identical behaviour. Pure stdlib + Utils.* —
-no GUI toolkit imported.
+Both per-file stores key on the RAW on-disk path (lowercase, forward-slash).
+Post-strip keys can't: they collide when a promoted folder holds a same-named
+file, and they rename on every Top Level edit. The engine works in index-key
+space — translate at its boundaries via ``translate_exclusions_for_engine`` and
+``filemap.index_keys_for_mod``. Pure stdlib + Utils.* — no GUI toolkit.
 """
 
 from __future__ import annotations
 
 import threading
 from pathlib import Path
+from typing import NamedTuple
 
 from Utils.profile_state import (
     read_excluded_mod_files, write_excluded_mod_files,
     read_mod_strip_prefixes, write_mod_strip_prefixes,
+    read_root_mod_files, write_root_mod_files,
 )
 from Utils.filemap import OVERWRITE_NAME
 
@@ -111,32 +109,104 @@ _conflict_cache_lock = threading.Lock()
 _conflict_cache: tuple | None = None   # (key, full_index (identity), result)
 
 
+class ConflictCache(NamedTuple):
+    """Contest data split by deploy namespace — ask status(), not the fields.
+
+    Root-routed files (whole-mod rootFolder mods + Root-column tags) land in
+    the game root, so they contest each other and never a Data-bound namesake.
+    """
+    contested: set[str]                    # Data namespace, >1 enabled provider
+    winner: dict[str, str]                 # from filemap.txt
+    contested_root: set[str]               # game-root namespace
+    winner_root: dict[str, str]            # from filemap_root.txt
+    root_mods: frozenset                   # whole-mod root-flagged
+    root_tags: dict[str, frozenset]        # mod -> per-file root-tagged keys
+
+    def is_root(self, mod_name: str, rel_key: str) -> bool:
+        """True when this mod's file deploys to the game root, not Data/."""
+        if mod_name in self.root_mods:
+            return True
+        tags = self.root_tags.get(mod_name)
+        return tags is not None and rel_key in tags
+
+    def status(self, mod_name: str, rel_key: str) -> int:
+        """1 this mod wins, -1 it loses, 0 no conflict — in its own namespace."""
+        if self.is_root(mod_name, rel_key):
+            contested, winner = self.contested_root, self.winner_root
+        else:
+            contested, winner = self.contested, self.winner
+        if rel_key not in contested:
+            return 0
+        w = winner.get(rel_key)
+        if w is None:
+            return 0
+        return 1 if w == mod_name else -1
+
+    @property
+    def all_contested(self) -> set[str]:
+        """Contested keys across both namespaces (for views that merge them)."""
+        return self.contested | self.contested_root
+
+
+def conflict_root_context(game, profile_dir: Path | None) -> tuple:
+    """(root_flagged_mods, root-tagged keys in index space) for the split.
+
+    Every build_conflict_cache caller must pass this — the cache is single-slot,
+    so callers that disagree thrash it (same rule as bsa_conflict_index_path)."""
+    if game is None or profile_dir is None:
+        return frozenset(), {}
+    modlist_path = profile_dir / "modlist.txt"
+    root_mods: frozenset = frozenset()
+    if modlist_path.is_file():
+        try:
+            from Nexus.nexus_meta import collect_root_flagged_mods
+            staging = Path(game.get_effective_mod_staging_path())
+            root_mods = frozenset(
+                collect_root_flagged_mods(modlist_path, staging) or ())
+        except Exception:
+            root_mods = frozenset()
+    try:
+        from Utils.filemap import index_keys_for_mod
+        raw_tags = read_root_mod_files(profile_dir, None)
+        per_mod = read_mod_strip_prefixes(profile_dir, None)
+        global_strips = getattr(game, "mod_folder_strip_prefixes", None)
+        tags = {
+            m: frozenset(index_keys_for_mod(v, m, global_strips, per_mod,
+                                            root_mods))
+            for m, v in raw_tags.items() if v
+        }
+    except Exception:
+        tags = {}
+    return root_mods, tags
+
+
 def build_conflict_cache(index_path: Path | None,
                          profile_dir: Path | None,
                          full_index: dict | None = None,
                          bsa_index_path: Path | None = None,
-                         ) -> tuple[set[str], dict[str, str]]:
-    """Return (contested_keys, filemap_winner).
+                         root_ctx: tuple | None = None,
+                         ) -> ConflictCache:
+    """Return the per-namespace contest data (see :class:`ConflictCache`).
 
-    contested_keys: post-strip rel_keys (lower) owned by >1 ENABLED mod.
-    filemap_winner: rel_key (lower) -> winning mod name (from filemap.txt).
-    Disabled mods are excluded from the contest count (they deploy nothing).
+    Keys are index-space rel_keys (lower); disabled mods never count. Root-routed
+    files contest in their own namespace (filemap_root.txt) — pass *root_ctx*
+    from conflict_root_context.
 
-    When *bsa_index_path* is given (see bsa_conflict_index_path for the gate),
-    a loose key also shipped inside ANOTHER enabled mod's BSA/BA2 counts as
-    contested — the engine loads archives first and loose files on top, so
-    that loose file wins a real conflict. Archive contents never become
-    filemap_winner owners, so an excluded loose file (no filemap entry)
-    resolves to "no tint" naturally.
+    With *bsa_index_path* (see bsa_conflict_index_path for the gate) a loose key
+    also shipped in ANOTHER enabled mod's archive counts as contested: the engine
+    loads archives first, so the loose file wins a real conflict.
 
-    Results are cached by (filemap.txt stat, modlist.txt stat, bsa_index.bin
-    path+stat, index identity); treat the returned set/dict as read-only.
+    Cached by the inputs' stats + root_ctx + index identity; treat the returned
+    sets/dicts as read-only.
     """
     global _conflict_cache
+    root_mods, root_tags = root_ctx or (frozenset(), {})
     if index_path is None:
-        return set(), {}
+        return ConflictCache(set(), {}, set(), {}, root_mods, root_tags)
     fm_path = index_path.parent / "filemap.txt"
+    fmr_path = index_path.parent / "filemap_root.txt"
     ml_path = (profile_dir / "modlist.txt") if profile_dir is not None else None
+    ps_path = (profile_dir / "profile_state.json") if profile_dir is not None else None
 
     if full_index is None:
         try:
@@ -156,10 +226,12 @@ def build_conflict_cache(index_path: Path | None,
         except OSError:
             return None
 
-    key = (str(index_path), _stat_key(fm_path),
+    key = (str(index_path), _stat_key(fm_path), _stat_key(fmr_path),
            str(ml_path) if ml_path is not None else None, _stat_key(ml_path),
+           _stat_key(ps_path),
            str(bsa_index_path) if bsa_index_path is not None else None,
-           _stat_key(bsa_index_path))
+           _stat_key(bsa_index_path), root_mods,
+           tuple(sorted((m, v) for m, v in root_tags.items())))
     with _conflict_cache_lock:
         cached = _conflict_cache
     # read_mod_index caches by mtime, so an unchanged index returns the SAME
@@ -167,21 +239,28 @@ def build_conflict_cache(index_path: Path | None,
     if cached is not None and cached[0] == key and cached[1] is full_index:
         return cached[2]
 
-    filemap_winner: dict[str, str] = {}
-    if fm_path.is_file():
+    def _read_winners(path: Path) -> dict[str, str]:
+        # surrogateescape: filemap rel paths derive from on-disk filenames
+        # whose non-UTF-8 bytes decode to surrogate code points; a plain utf-8
+        # read would raise on them.
+        out: dict[str, str] = {}
+        if not path.is_file():
+            return out
         try:
-            # surrogateescape: filemap.txt rel paths derive from on-disk
-            # filenames whose non-UTF-8 bytes decode to surrogate code points;
-            # a plain utf-8 read would raise on them.
-            for line in fm_path.read_text(
+            for line in path.read_text(
                     encoding="utf-8", errors="surrogateescape").splitlines():
                 if "\t" in line:
                     rk, mn = line.split("\t", 1)
-                    filemap_winner[rk.lower()] = mn
+                    out[rk.lower()] = mn
         except Exception:
             pass
+        return out
+
+    filemap_winner = _read_winners(fm_path)
+    filemap_root_winner = _read_winners(fmr_path)
 
     contested: set[str] = set()
+    contested_root: set[str] = set()
     if full_index:
         disabled: set[str] = set()
         if ml_path is not None and ml_path.is_file():
@@ -207,10 +286,18 @@ def build_conflict_cache(index_path: Path | None,
                     for p in paths:
                         arch_owners.setdefault(p, set()).add(mn)
         counts: dict[str, int] = {}
+        counts_root: dict[str, int] = {}
         for mn, (normal, root) in full_index.items():
             if mn in disabled:
                 continue
+            # Root-routed files land in the game root, so they contest only
+            # each other — count them in their own namespace.
+            whole_root = mn in root_mods
+            tags = root_tags.get(mn)
             for k in normal:
+                if whole_root or (tags is not None and k in tags):
+                    counts_root[k] = counts_root.get(k, 0) + 1
+                    continue
                 counts[k] = counts.get(k, 0) + 1
                 if arch_owners:
                     ow = arch_owners.get(k)
@@ -218,12 +305,17 @@ def build_conflict_cache(index_path: Path | None,
                     # a mod's own BSA copy of its own loose file isn't one.
                     if ow is not None and (len(ow) > 1 or mn not in ow):
                         contested.add(k)
-            # Root keys deploy outside Data/ and can't collide with archive
-            # contents, so they get the loose-only count.
+            # Legacy root keys deploy outside Data/ and can't collide with
+            # archive contents, so they get the loose-only count.
             for k in root:
-                counts[k] = counts.get(k, 0) + 1
+                if whole_root:
+                    counts_root[k] = counts_root.get(k, 0) + 1
+                else:
+                    counts[k] = counts.get(k, 0) + 1
         contested |= {k for k, c in counts.items() if c > 1}
-    result = (contested, filemap_winner)
+        contested_root |= {k for k, c in counts_root.items() if c > 1}
+    result = ConflictCache(contested, filemap_winner, contested_root,
+                           filemap_root_winner, root_mods, root_tags)
     with _conflict_cache_lock:
         _conflict_cache = (key, full_index, result)
     return result
@@ -397,10 +489,8 @@ def save_strip_prefixes(profile_dir: Path, mod_name: str,
 # ---------------------------------------------------------------------------
 def save_exclusions(profile_dir: Path, mod_name: str,
                     visible_keys: set[str], excluded_visible: set[str]) -> set[str]:
-    """Persist exclusions for *mod_name*. *visible_keys* are the post-strip keys
-    currently shown (filters may hide others); *excluded_visible* the subset
-    that's unchecked. Exclusions for hidden files are preserved untouched.
-    Returns the full new excluded set for this mod."""
+    """Persist exclusions for *mod_name* (RAW keys), keeping entries for rows
+    the active filter hides. Returns the full new excluded set."""
     all_excluded = read_excluded_mod_files(profile_dir, None)
     preserved = {k for k in all_excluded.get(mod_name, set())
                  if k not in visible_keys}
@@ -414,10 +504,217 @@ def save_exclusions(profile_dir: Path, mod_name: str,
 
 
 def read_exclusions(profile_dir: Path, mod_name: str) -> set[str]:
-    """Saved excluded post-strip keys for *mod_name* (empty set if none)."""
+    """Saved excluded RAW keys for *mod_name* (empty set if none)."""
     if profile_dir is None:
         return set()
     return set(read_excluded_mod_files(profile_dir, None).get(mod_name, set()))
+
+
+def save_root_tags(profile_dir: Path, mod_name: str,
+                   visible_keys: set[str], tagged_visible: set[str]) -> set[str]:
+    """Persist root tags for *mod_name* (RAW keys), keeping tags on rows the
+    active filter hides. Returns the full new tagged set."""
+    all_tags = read_root_mod_files(profile_dir, None)
+    preserved = {k for k in all_tags.get(mod_name, set())
+                 if k not in visible_keys}
+    tagged = preserved | tagged_visible
+    if tagged:
+        all_tags[mod_name] = sorted(tagged)
+    else:
+        all_tags.pop(mod_name, None)
+    write_root_mod_files(profile_dir, all_tags)
+    return tagged
+
+
+def read_root_tags(profile_dir: Path, mod_name: str) -> set[str]:
+    """Saved root-tagged RAW keys for *mod_name* (empty set if none)."""
+    if profile_dir is None:
+        return set()
+    return set(read_root_mod_files(profile_dir, None).get(mod_name, set()))
+
+
+def _migrate_keys_to_raw(reader, writer, profile_dir: Path, mod_name: str,
+                         raw_keys, stripped: set[str],
+                         keep_unmatched: bool) -> bool:
+    """Convert one mod's stored keys from legacy post-strip to raw.
+
+    A key that is some file's post-strip key becomes that file — all of them
+    when several collapse onto it, preserving the ticks the user sees."""
+    data = reader(profile_dir, None)
+    cur = data.get(mod_name)
+    if not cur:
+        return False
+    raw_set = set(raw_keys)
+    by_old: dict[str, list[str]] = {}
+    for raw in raw_keys:
+        by_old.setdefault(rel_key_after_strip(raw, stripped), []).append(raw)
+    converted: set[str] = set()
+    for k in cur:
+        if k in raw_set:
+            converted.add(k)
+        elif k in by_old:
+            converted.update(by_old[k])
+        elif keep_unmatched:
+            converted.add(k)
+    if converted == set(cur):
+        return False
+    if converted:
+        data[mod_name] = sorted(converted)
+    else:
+        data.pop(mod_name, None)
+    writer(profile_dir, data)
+    return True
+
+
+def migrate_root_tags_to_raw(profile_dir: Path | None, mod_name: str | None,
+                             raw_keys, stripped: set[str]) -> bool:
+    """Convert a mod's root tags from legacy post-strip keys to raw paths.
+    No-op for mods with no strip prefixes — the two spaces are identical."""
+    if profile_dir is None or not mod_name or not stripped or not raw_keys:
+        return False
+    return _migrate_keys_to_raw(read_root_mod_files, write_root_mod_files,
+                                profile_dir, mod_name, raw_keys, stripped,
+                                keep_unmatched=False)
+
+
+def migrate_exclusions_to_raw(profile_dir: Path | None, mod_name: str | None,
+                              raw_keys, stripped: set[str]) -> bool:
+    """Convert a mod's exclusions to raw paths, keeping keys that match no file
+    — BSA pack excludes loose files it then deletes, and unpack needs those."""
+    if profile_dir is None or not mod_name or not stripped or not raw_keys:
+        return False
+    return _migrate_keys_to_raw(read_excluded_mod_files,
+                                write_excluded_mod_files,
+                                profile_dir, mod_name, raw_keys, stripped,
+                                keep_unmatched=True)
+
+
+def translate_exclusions_for_engine(
+        profile_dir: Path | None, staging_root: Path | None,
+        strip_prefixes=None, per_mod_strip_prefixes: dict | None = None,
+        root_folder_mods=None) -> dict[str, set[str]]:
+    """Stored (raw-keyed) exclusions → engine/index key space, collision-safe.
+
+    An index key is excluded only when EVERY raw file collapsing onto it is —
+    a partial exclusion means the user picked a variant, so the key survives and
+    the deploy source resolver skips the excluded ones. Keys matching no file
+    pass through (BSA-packed entries whose loose files were deleted)."""
+    if profile_dir is None:
+        return {}
+    from Utils.filemap import mod_strip_args, index_key_for_raw, _scan_dir
+    raw_exc = read_excluded_mod_files(profile_dir, None)
+    out: dict[str, set[str]] = {}
+    for mod, keys in raw_exc.items():
+        kset = {k.lower() for k in keys if k}
+        if not kset:
+            continue
+        strips, paths = mod_strip_args(mod, strip_prefixes,
+                                       per_mod_strip_prefixes, root_folder_mods)
+        if not strips and not paths:
+            out[mod] = kset          # raw space == index space
+            continue
+        mod_dir = staging_root / mod if staging_root is not None else None
+        if mod_dir is None or not mod_dir.is_dir():
+            out[mod] = kset          # can't verify — mod deploys nothing anyway
+            continue
+        try:
+            _n, raw_files, _r, _i = _scan_dir(mod, str(mod_dir))
+        except Exception:
+            out[mod] = kset
+            continue
+        groups: dict[str, list[str]] = {}
+        for raw in raw_files:
+            groups.setdefault(
+                index_key_for_raw(raw, strips, paths), []).append(raw)
+        translated = {k for k in kset if k not in raw_files}   # passthrough
+        translated |= {ik for ik, members in groups.items()
+                       if all(m in kset for m in members)}
+        if translated:
+            out[mod] = translated
+    return out
+
+
+def index_keys_to_raw(mod_dir: Path | None, mod_name: str, index_keys,
+                      strip_prefixes=None,
+                      per_mod_strip_prefixes: dict | None = None,
+                      root_folder_mods=None) -> set[str]:
+    """Raw keys under *mod_dir* whose index key is in *index_keys*.
+
+    The inverse of index_keys_for_mod, for callers that work in raw space (BSA
+    packing walks the mod folder). Returns the input untouched when the mod has
+    no strips or the folder can't be scanned — there the spaces are the same."""
+    keys = {k.lower() for k in index_keys if k}
+    if not keys:
+        return set()
+    from Utils.filemap import mod_strip_args, index_key_for_raw, _scan_dir
+    strips, paths = mod_strip_args(mod_name, strip_prefixes,
+                                   per_mod_strip_prefixes, root_folder_mods)
+    if not strips and not paths:
+        return keys
+    if mod_dir is None or not mod_dir.is_dir():
+        return keys
+    try:
+        _n, raw_files, _r, _i = _scan_dir(mod_name, str(mod_dir))
+    except Exception:
+        return keys
+    return {raw for raw in raw_files
+            if index_key_for_raw(raw, strips, paths) in keys}
+
+
+def excluded_raw_by_mod(profile_dir: Path | None) -> dict[str, set[str]]:
+    """Per-mod raw excluded keys (lowercase) for deploy source resolution."""
+    if profile_dir is None:
+        return {}
+    return {m: {k.lower() for k in v if k}
+            for m, v in read_excluded_mod_files(profile_dir, None).items() if v}
+
+
+def prune_orphan_root_tags(profile_dir: Path | None, mod_name: str | None,
+                           valid_keys: set[str]) -> bool:
+    """Drop root tags matching no current file. No-op on an empty file list —
+    an unreadable/symlinked mod folder scans empty and must not wipe tags."""
+    if profile_dir is None or not mod_name or not valid_keys:
+        return False
+    tags = read_root_mod_files(profile_dir, None)
+    cur = tags.get(mod_name)
+    if not cur:
+        return False
+    kept = [k for k in cur if k in valid_keys]
+    if len(kept) == len(cur):
+        return False
+    if kept:
+        tags[mod_name] = kept
+    else:
+        tags.pop(mod_name, None)
+    write_root_mod_files(profile_dir, tags)
+    return True
+
+
+def mod_has_changes(profile_dir: Path | None, mod_name: str | None) -> bool:
+    """True when *mod_name* has any Mod Files tab state (strip / root / exclude)."""
+    if profile_dir is None or not mod_name:
+        return False
+    try:
+        return bool(read_mod_strip_prefixes(profile_dir, None).get(mod_name)
+                    or read_root_mod_files(profile_dir, None).get(mod_name)
+                    or read_excluded_mod_files(profile_dir, None).get(mod_name))
+    except Exception:
+        return False
+
+
+def reset_mod_state(profile_dir: Path | None, mod_name: str | None) -> bool:
+    """Drop every Mod Files edit for *mod_name*; True if anything was cleared."""
+    if profile_dir is None or not mod_name:
+        return False
+    changed = False
+    for reader, writer in ((read_mod_strip_prefixes, write_mod_strip_prefixes),
+                           (read_root_mod_files, write_root_mod_files),
+                           (read_excluded_mod_files, write_excluded_mod_files)):
+        data = reader(profile_dir, None)
+        if data.pop(mod_name, None):
+            writer(profile_dir, data)
+            changed = True
+    return changed
 
 
 def read_strip_prefixes(profile_dir: Path, mod_name: str) -> set[str]:

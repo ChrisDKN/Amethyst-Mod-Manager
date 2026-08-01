@@ -208,6 +208,7 @@ def plan_pack(
 
 def compute_skip_winners(
     index_path: Path | None, profile_dir: Path | None, mod_name: str,
+    root_ctx: tuple | None = None,
 ) -> set[str]:
     """rel_keys this mod currently *wins a real conflict on* (post-strip, lower).
 
@@ -218,10 +219,11 @@ def compute_skip_winners(
     """
     from Utils.mod_files import build_conflict_cache
 
-    contested_keys, filemap_winner = build_conflict_cache(index_path, profile_dir)
+    # Data-namespace only: root-routed files never go into a BSA.
+    cc = build_conflict_cache(index_path, profile_dir, root_ctx=root_ctx)
     return {
-        rk for rk, owner in filemap_winner.items()
-        if owner == mod_name and rk in contested_keys
+        rk for rk, owner in cc.winner.items()
+        if owner == mod_name and rk in cc.contested
     }
 
 

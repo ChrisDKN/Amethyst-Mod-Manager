@@ -24,7 +24,7 @@ from Utils.deploy import (
 from Utils.deploy_shared import _FILEMAP_SNAPSHOT_NAME
 from Utils.filemap import build_filemap
 from Utils.profile_backup import create_backup
-from Utils.profile_state import read_excluded_mod_files
+from Utils.profile_state import read_root_mod_files
 from Utils.ui_config import load_normalize_folder_case
 from Utils.wine_dll_config import deploy_game_wine_dll_overrides
 
@@ -306,10 +306,25 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
 
         from Utils.perftrace import span
 
-        exc_raw = read_excluded_mod_files(modlist_path.parent, None)
-        exc = {k: set(v) for k, v in exc_raw.items()} if exc_raw else None
         with span("collect_root_flagged_mods"):
             rf_mods = collect_root_flagged_mods(modlist_path, staging, log_fn=log_fn)
+
+        # Per-file state is stored against RAW paths; the merge loop matches
+        # index keys, so translate at this boundary.
+        _pm_strips = load_per_mod_strip_prefixes(modlist_path.parent)
+        from Utils.mod_files import translate_exclusions_for_engine
+        exc = translate_exclusions_for_engine(
+            modlist_path.parent, staging, game.mod_folder_strip_prefixes,
+            _pm_strips, rf_mods) or None
+        rt_raw = read_root_mod_files(modlist_path.parent, None)
+        rt = None
+        if rt_raw:
+            from Utils.filemap import index_keys_for_mod
+            rt = {
+                m: index_keys_for_mod(v, m, game.mod_folder_strip_prefixes,
+                                      _pm_strips, rf_mods)
+                for m, v in rt_raw.items() if v
+            } or None
 
         if rescan_index:
             # Sweep stray Tk-era per-profile indexes. The old Tk install path
@@ -409,6 +424,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 filemap_casing_pins=getattr(game, "filemap_casing_pins", None),
                 conflict_key_fn=conflict_key_fn,
                 root_folder_mods=rf_mods or None,
+                root_mod_files=rt,
                 follow_toplevel_links_under=game.get_profile_root() / "profiles",
             )
         # Game-specific filemap rewrite (e.g. Witcher 3 routes staging paths
@@ -620,12 +636,19 @@ def run_deploy_pipeline(
             else:
                 game.deploy(log_fn=log_fn, profile=profile, mode=deploy_mode)
 
+        from Utils.mod_files import excluded_raw_by_mod
+        from Utils.deploy_shared import set_deploy_excluded_raw
+
         # Defer the handler's end-of-deploy game-root snapshot: the pipeline
         # writes it once after the root-folder files land (below), instead of
         # the handler walking the game root now and the pipeline walking it
         # again for the refresh.
         game.begin_deferred_runtime_snapshot()
         try:
+            # Source resolution must never pick a disabled variant when two
+            # staged files collapse onto one filemap key. Set inside the try so
+            # the finally always clears it — a leak would follow into restore.
+            set_deploy_excluded_raw(excluded_raw_by_mod(profile_dir) or None)
             if incr_plan is not None:
                 _incr.activate(incr_plan)
                 try:
@@ -651,6 +674,7 @@ def run_deploy_pipeline(
             else:
                 _run_game_deploy()
         finally:
+            set_deploy_excluded_raw(None)
             snapshot_requested = game.end_deferred_runtime_snapshot()
 
         pfx = game.get_prefix_path()
@@ -684,6 +708,7 @@ def run_deploy_pipeline(
                 filemap_root_path, game_root, staging,
                 mode=deploy_mode, strip_prefixes=strip,
                 per_mod_strip_prefixes=per_mod_strip or None,
+                excluded_raw=excluded_raw_by_mod(profile_dir) or None,
                 log_fn=log_fn,
             )
             if rf_count:

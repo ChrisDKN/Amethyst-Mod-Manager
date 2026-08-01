@@ -67,11 +67,13 @@ from Utils.profile_state import (
     read_mod_notes,
     read_mod_strip_prefixes,
     read_profile_settings,
+    read_root_mod_files,
     write_disabled_plugins,
     write_excluded_mod_files,
     write_mod_notes,
     write_mod_strip_prefixes,
     write_profile_settings,
+    write_root_mod_files,
 )
 
 
@@ -1147,6 +1149,7 @@ def _reconcile_mod_state(group_dir: Path, profiles_dir: Path,
     for reader, writer in (
         (read_disabled_plugins, write_disabled_plugins),
         (read_excluded_mod_files, write_excluded_mod_files),
+        (read_root_mod_files, write_root_mod_files),
         (read_mod_notes, write_mod_notes),
         (read_mod_strip_prefixes, write_mod_strip_prefixes),
     ):

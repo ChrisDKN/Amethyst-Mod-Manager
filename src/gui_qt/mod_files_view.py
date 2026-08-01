@@ -1,4 +1,4 @@
-"""Qt Mod Files tab — per-mod file tree with Top Level + Disable checkbox columns.
+"""Qt Mod Files tab — per-mod file tree with Top Level + Root + Disable checkbox columns.
 
 Reuses Utils.mod_files for every bit of logic (file listing, conflict cache, the
 strip-prefix promotion/demotion algorithm, the exclusion save-merge) so it stays
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 import Utils.mod_files as mflogic
 from gui_qt.mod_files_model import (
-    ModFilesModel, _Node, COL_NAME, COL_TOPLEVEL, COL_DISABLE,
+    ModFilesModel, _Node, COL_NAME, COL_TOPLEVEL, COL_ROOT, COL_DISABLE,
 )
 
 
@@ -51,6 +51,16 @@ class ModFilesView(QWidget):
         self.game = game
         self.profile_dir = profile_dir
         self.index_path = index_path
+        # The Root column is meaningless when the normal deploy already targets
+        # the game root (no Data subfolder) — hide it for those games.
+        hide_root = True
+        if game is not None:
+            try:
+                from Utils.game_helpers import game_data_subpath
+                hide_root = not game_data_subpath(game)
+            except Exception:
+                hide_root = True
+        self._tree.setColumnHidden(COL_ROOT, hide_root)
 
     # -- construction -------------------------------------------------------
     def _build(self):
@@ -96,9 +106,11 @@ class ModFilesView(QWidget):
         col_mins = {
             COL_NAME: 120,
             COL_TOPLEVEL: self._header_min(COL_TOPLEVEL, 60),
+            COL_ROOT: self._header_min(COL_ROOT, 50),
             COL_DISABLE: self._header_min(COL_DISABLE, 55),
         }
         col_defaults = {COL_TOPLEVEL: max(70, col_mins[COL_TOPLEVEL]),
+                        COL_ROOT: max(60, col_mins[COL_ROOT]),
                         COL_DISABLE: max(60, col_mins[COL_DISABLE])}
         hdr = TkStyleHeader(self._tree, col_mins, col_defaults)
         self._tree.setHeader(hdr)
@@ -137,6 +149,7 @@ class ModFilesView(QWidget):
         if vp <= 0:
             return
         others = (self._tree.columnWidth(COL_TOPLEVEL)
+                  + self._tree.columnWidth(COL_ROOT)
                   + self._tree.columnWidth(COL_DISABLE))
         target = vp - others
         if target >= self._name_min and target != self._tree.columnWidth(COL_NAME):
@@ -241,23 +254,30 @@ class ModFilesView(QWidget):
         # file (legacy corruption — e.g. a path saved without its parent prefix).
         # These would otherwise show as un-removable orphan rows.
         self._prune_orphan_strips(files)
+        # One-time conversion of state written in the old post-strip key space.
+        # Only root tags are pruned — BSA pack needs exclusions for the loose
+        # files it deletes, which no longer exist on disk.
+        mflogic.migrate_root_tags_to_raw(self.profile_dir, mod_name,
+                                         files, self._stripped)
+        mflogic.migrate_exclusions_to_raw(self.profile_dir, mod_name,
+                                          files, self._stripped)
+        mflogic.prune_orphan_root_tags(self.profile_dir, mod_name, set(files))
 
         excluded = mflogic.read_exclusions(self.profile_dir, mod_name)
-        contested, winner = mflogic.build_conflict_cache(
+        root_tags = mflogic.read_root_tags(self.profile_dir, mod_name)
+        conflicts = mflogic.build_conflict_cache(
             self.index_path, self.profile_dir, full_index,
             # Archive-aware: a loose file contesting another mod's BSA copy
             # tints like any other conflict (see data_view for the shared gate).
             bsa_index_path=mflogic.bsa_conflict_index_path(
-                self.game, self.index_path))
+                self.game, self.index_path),
+            root_ctx=mflogic.conflict_root_context(self.game, self.profile_dir))
 
         def conflict_of(rel_key: str) -> int:
+            # status() picks the file's own namespace, so a root-tagged file is
+            # judged only against other root-bound files.
             key = mflogic.rel_key_after_strip(rel_key, self._stripped)
-            if key not in contested:
-                return 0
-            w = winner.get(key.lower())
-            if w is None:
-                return 0
-            return 1 if w == mod_name else -1
+            return conflicts.status(mod_name, key.lower())
 
         def keep(rel_key: str, rel_str: str) -> bool:
             if not self._ext_ok(rel_key):
@@ -285,11 +305,13 @@ class ModFilesView(QWidget):
                 by_path[fpath.lower()] = fn
                 add_nodes(fn, subtree[folder], fpath)
             for fname, rel_key, rel_str in sorted(subtree.get("__files__", [])):
-                post_key = mflogic.rel_key_after_strip(rel_key, self._stripped)
                 fpath = f"{parent_path}/{fname}" if parent_path else fname
                 leaf = _Node(fname, fpath, is_dir=False, parent=parent,
-                             rel_key=post_key, rel_str=rel_str)
-                leaf.checked = post_key not in excluded
+                             rel_str=rel_str, raw_key=rel_key)
+                # Both stores key on the RAW path, so two files that collapse
+                # to one post-strip key still tick independently.
+                leaf.checked = rel_key not in excluded
+                leaf.root_tag = rel_key in root_tags
                 leaf.conflict = conflict_of(rel_key)
                 parent.children.append(leaf)
                 by_path[fpath.lower()] = leaf
@@ -471,6 +493,8 @@ class ModFilesView(QWidget):
         col = index.column()
         if col == COL_DISABLE:
             self._toggle_disable(node)
+        elif col == COL_ROOT:
+            self._toggle_root(node)
         elif col == COL_TOPLEVEL:
             self._toggle_top_level(node)
         elif col == COL_NAME and node.is_dir and self._model.rowCount(index) > 0:
@@ -543,6 +567,45 @@ class ModFilesView(QWidget):
             self._model.set_disabled(node, not node.checked)
         self._save_exclusions()
 
+    def _toggle_root(self, node: _Node):
+        if node.synthetic or node.meta:
+            return
+        from Utils.filemap import ROOT_FOLDER_NAME
+        if self._mod_name == ROOT_FOLDER_NAME:
+            return   # [Root_Folder] already deploys to the game root
+        if node.is_dir:
+            leaves = self._model.leaves(node)
+            if not leaves:
+                return
+            all_on = all(l.root_tag for l in leaves)
+            self._model.set_root_subtree(node, not all_on)
+        else:
+            self._model.set_root_tag(node, not node.root_tag)
+        self._save_root_tags()
+
+    def _save_root_tags(self):
+        if self.profile_dir is None or self._mod_name is None:
+            return
+        leaves = self._model.leaves(self._model._root)
+        visible = {l.raw_key for l in leaves if l.raw_key is not None}
+        tagged = {l.raw_key for l in leaves
+                  if l.raw_key is not None and l.root_tag}
+        mflogic.save_root_tags(self.profile_dir, self._mod_name, visible, tagged)
+        self.changed.emit()
+
+    def has_changes(self) -> bool:
+        """True when the shown mod has any saved Mod Files edits (gates Reset)."""
+        return mflogic.mod_has_changes(self.profile_dir, self._mod_name)
+
+    def reset_mod(self) -> bool:
+        """Clear every Mod Files edit for the shown mod and rebuild the tree."""
+        if not mflogic.reset_mod_state(self.profile_dir, self._mod_name):
+            return False
+        self._stripped = set()
+        self._repopulate()
+        self.changed.emit()
+        return True
+
     def _toggle_top_level(self, node: _Node):
         if self.profile_dir is None or self._mod_name is None or not node.path:
             return
@@ -563,9 +626,9 @@ class ModFilesView(QWidget):
         if self.profile_dir is None or self._mod_name is None:
             return
         leaves = self._model.leaves(self._model._root)
-        visible = {l.rel_key for l in leaves if l.rel_key is not None}
-        excluded = {l.rel_key for l in leaves
-                    if l.rel_key is not None and not l.checked}
+        visible = {l.raw_key for l in leaves if l.raw_key is not None}
+        excluded = {l.raw_key for l in leaves
+                    if l.raw_key is not None and not l.checked}
         mflogic.save_exclusions(self.profile_dir, self._mod_name, visible, excluded)
         self.changed.emit()
 
@@ -576,5 +639,5 @@ class ModFilesView(QWidget):
         pass  # wired in a later step
 
     def has_mod(self) -> bool:
-        """True when a real mod is shown (the app gates Pack/Unpack on this)."""
+        """True when a real mod is shown (gates Pack/Unpack + Reset)."""
         return self._mod_name is not None

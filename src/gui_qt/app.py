@@ -1179,8 +1179,8 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Saved"), "success")
 
     def _on_mod_files_changed(self):
-        """A Top Level / Disable edit changed deploy state — force a full index
-        rescan (strip prefixes apply at scan time) + rebuild conflicts."""
+        """A Top Level / Root / Disable edit changed deploy state — force a full
+        index rescan (strip prefixes apply at scan time) + rebuild conflicts."""
         # Instant feedback: update the modlist "modified in Mod Files" eye flag
         # now (the async rescan below refreshes the rest a moment later).
         if hasattr(self, "_modlist_model"):
@@ -1451,8 +1451,16 @@ class MainWindow(QMainWindow):
         self._mf_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
         self._mf_expand_btn.setFixedHeight(self._FOOT_BTN_H)
         self._mf_expand_btn.clicked.connect(self._on_mf_expand_clicked)
+        self._mf_reset_btn = self._text_button(self.tr("Reset"), compact=True)
+        self._mf_reset_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._mf_reset_btn.setEnabled(False)
+        self._mf_reset_btn.setToolTip(
+            self.tr("Undo this mod's Mod Files changes (Top Level, Root, "
+                    "Disable). Mod files themselves are not touched."))
+        self._mf_reset_btn.clicked.connect(self._on_mf_reset_clicked)
         self._equalize_button_widths(self._mf_pack_btn, self._mf_unpack_btn)
         btns.addWidget(self._mf_expand_btn)
+        btns.addWidget(self._mf_reset_btn)
         btns.addWidget(self._mf_pack_btn)
         btns.addWidget(self._mf_unpack_btn)
         v.addLayout(btns)
@@ -10288,6 +10296,11 @@ class MainWindow(QMainWindow):
         if pack_btn is None or unpack_btn is None:
             return
         mv = self._mod_files_view
+        # Reset first — it applies to every game, including ones we can't
+        # pack for (which return early below).
+        reset_btn = getattr(self, "_mf_reset_btn", None)
+        if reset_btn is not None:
+            reset_btn.setEnabled(mv.has_mod() and mv.has_changes())
         kind = ops.archive_kind_for_game(getattr(mv, "game", None))
         # Hide both buttons entirely on games we can't pack for (Tk parity).
         if kind is None:
@@ -10312,6 +10325,32 @@ class MainWindow(QMainWindow):
         expanded = self._mod_files_view._toggle_expand_all()
         self._mf_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
                                     else self.tr("⊞ Expand all"))
+
+    def _on_mf_reset_clicked(self):
+        """Undo every Mod Files edit for the shown mod (files are untouched)."""
+        mv = self._mod_files_view
+        mod_name = getattr(mv, "_mod_name", None)
+        if not mod_name or not mv.has_changes():
+            return
+
+        def _confirmed(ok):
+            if not ok:
+                return
+            if getattr(mv, "_mod_name", None) != mod_name:
+                return   # selection moved on while the confirm was up
+            if mv.reset_mod():
+                self._notify(
+                    self.tr("Reset Mod Files changes for {0}").format(mod_name),
+                    "info")
+                self._update_mf_footer_buttons()
+
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Reset Mod Files changes"),
+            self.tr("Undo every Mod Files change for \"{0}\" — Top Level "
+                    "promotions, Root folder tags and disabled files? The "
+                    "mod's own files are not touched.").format(mod_name),
+            _confirmed, confirm_label=self.tr("Reset"))
 
     # -- BSA / BA2 pack + unpack -------------------------------------------
     def _bsa_mod_dir(self):
@@ -10382,7 +10421,19 @@ class MainWindow(QMainWindow):
 
         excluded = ops.read_excluded_for_mod(profile_dir, mod_name)
         if skip_winners:
-            excluded |= ops.compute_skip_winners(index_path, profile_dir, mod_name)
+            # compute_skip_winners answers in index-key space; the archive
+            # writers walk the mod folder, so translate back to raw paths or
+            # the winners silently pack on any mod with a Top Level strip.
+            import Utils.mod_files as _mf
+            from Utils.profile_state import read_mod_strip_prefixes
+            game = getattr(mv, "game", None)
+            winners = ops.compute_skip_winners(
+                index_path, profile_dir, mod_name,
+                root_ctx=_mf.conflict_root_context(game, profile_dir))
+            excluded |= _mf.index_keys_to_raw(
+                self._bsa_mod_dir(), mod_name, winners,
+                getattr(game, "mod_folder_strip_prefixes", None),
+                read_mod_strip_prefixes(profile_dir) if profile_dir else None)
         excluded_now = frozenset(excluded)
 
         self._bsa_op_running = True
@@ -10894,16 +10945,20 @@ class MainWindow(QMainWindow):
             self._apply_modlist_search()
 
     def _build_modified_mf_mods(self) -> set:
-        """Mods with Mod Files tab modifications — any excluded file OR a strip
-        prefix (Tk `_mod_is_modified_in_mf`)."""
+        """Mods with Mod Files tab modifications — any excluded file, root-tagged
+        file, OR a strip prefix (Tk `_mod_is_modified_in_mf`)."""
         pdir = self._gs.profile_dir()
         if pdir is None:
             return set()
         out: set[str] = set()
         try:
             from Utils.profile_state import (
-                read_excluded_mod_files, read_mod_strip_prefixes)
+                read_excluded_mod_files, read_mod_strip_prefixes,
+                read_root_mod_files)
             for mod, keys in (read_excluded_mod_files(pdir, None) or {}).items():
+                if keys:
+                    out.add(mod)
+            for mod, keys in (read_root_mod_files(pdir, None) or {}).items():
                 if keys:
                     out.add(mod)
             for mod, prefixes in (read_mod_strip_prefixes(pdir, None) or {}).items():

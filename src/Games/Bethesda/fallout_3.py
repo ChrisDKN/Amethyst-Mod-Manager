@@ -209,10 +209,6 @@ class Fallout_3(BaseGame):
         return {"src"}
     
     @property
-    def excluded_loose_filenames(self) -> set[str]:
-        return {"*.txt"}
-
-    @property
     def archive_extensions(self) -> frozenset[str]:
         # Older Bethesda games use BSA archives. Fallout 4 / Fallout 4 VR /
         # Starfield / Fallout 76 use BA2 and override this further.

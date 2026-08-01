@@ -348,6 +348,7 @@ def _build_incr_fingerprint(
     filemap_casing_pins,
     conflict_key_fn,
     root_folder_mods,
+    root_mod_files,
     utf8_bad: frozenset,
 ) -> tuple:
     """Everything (besides the modlist itself) that the merge output depends on.
@@ -378,6 +379,10 @@ def _build_incr_fingerprint(
         tuple(sorted((filemap_casing_pins or {}).items())),
         conflict_key_fn is None,
         frozenset(root_folder_mods or ()),
+        tuple(sorted(
+            (m, frozenset(v))
+            for m, v in (root_mod_files or {}).items()
+        )),
         utf8_bad,
     )
 
@@ -728,6 +733,7 @@ def _try_incremental(
     pf: _PathFilters,
     utf8_bad: frozenset,
     root_folder_mods,
+    root_mod_files: dict[str, frozenset[str]],
     disabled_lower: dict[str, frozenset[str]],
     disabled_frozen: frozenset,
     output_path: Path,
@@ -761,7 +767,8 @@ def _try_incremental(
             "excluded_loose_filenames", "allowed_top_level_folders",
             "excluded_mod_files", "normalize_folder_case", "filemap_casing",
             "filemap_casing_pins",
-            "no_conflict_key_fn", "root_folder_mods", "utf8_bad",
+            "no_conflict_key_fn", "root_folder_mods", "root_mod_files",
+            "utf8_bad",
         )
         _bad = [
             _fp_names[i] if i < len(_fp_names) else str(i)
@@ -843,12 +850,14 @@ def _try_incremental(
                 st.files_count.pop(m, None)
                 continue
             is_root = m in root_set
-            prov_ns = st.providers_root if is_root else st.providers
-            cont_ns = st.contested_root if is_root else st.contested
-            t_ns = touched_root if is_root else touched
+            rfm = None if is_root else root_mod_files.get(m)
             for rel_key in entry[0]:
                 if not pf.accepts(m, rel_key):
                     continue
+                entry_root = is_root or (rfm is not None and rel_key in rfm)
+                prov_ns = st.providers_root if entry_root else st.providers
+                cont_ns = st.contested_root if entry_root else st.contested
+                t_ns = touched_root if entry_root else touched
                 stack = prov_ns.get(rel_key)
                 if stack is None:
                     raise _IncrFallback(f"missing provider stack for {rel_key!r}")
@@ -893,13 +902,15 @@ def _try_incremental(
                            f"check for a symlinked/unreadable folder or Refresh")
                 continue
             is_root = m in root_set
-            prov_ns = st.providers_root if is_root else st.providers
-            cont_ns = st.contested_root if is_root else st.contested
-            t_ns = touched_root if is_root else touched
+            rfm = None if is_root else root_mod_files.get(m)
             acc = 0
             for rel_key in entry[0]:
                 if not pf.accepts(m, rel_key):
                     continue
+                entry_root = is_root or (rfm is not None and rel_key in rfm)
+                prov_ns = st.providers_root if entry_root else st.providers
+                cont_ns = st.contested_root if entry_root else st.contested
+                t_ns = touched_root if entry_root else touched
                 acc += 1
                 stack = prov_ns.get(rel_key)
                 if stack is None:
@@ -1109,6 +1120,54 @@ def _try_incremental(
     finally:
         if not dry_run:
             st0.lock.release()
+
+
+def index_key_for_raw(raw_key: str,
+                      strip_prefixes=None,
+                      strip_path_prefixes: "list[str] | None" = None) -> str:
+    """Index key for a mod-relative RAW path — the one translation between the
+    tab's raw-keyed state and index space. Keep in step with _scan_dir."""
+    rel = raw_key.replace("\\", "/")
+    if strip_path_prefixes:
+        rel_lower = rel.lower()
+        for p in sorted(strip_path_prefixes, key=len, reverse=True):
+            p_lower = p.lower()
+            if rel_lower == p_lower or rel_lower.startswith(p_lower + "/"):
+                rel = rel[len(p):].lstrip("/")
+                break
+    if strip_prefixes and "/" in rel:
+        strips = {s.lower() for s in strip_prefixes}
+        while "/" in rel:
+            first_seg, remainder = rel.split("/", 1)
+            if first_seg.lower() in strips:
+                rel = remainder
+            else:
+                break
+    return rel.lower()
+
+
+def mod_strip_args(mod_name: str, strip_prefixes=None,
+                   per_mod_strip_prefixes: dict | None = None,
+                   root_folder_mods=None) -> tuple:
+    """(strip_prefixes, strip_path_prefixes) for one mod — mirrors the
+    _strip_for_mod / _path_prefixes_for_mod pair. Root mods get none."""
+    if root_folder_mods and mod_name in root_folder_mods:
+        return frozenset(), []
+    base = frozenset(s.lower() for s in (strip_prefixes or ()))
+    mod_strip = (per_mod_strip_prefixes or {}).get(mod_name)
+    if not mod_strip:
+        return base, []
+    segments = frozenset(s.lower() for s in mod_strip if "/" not in s)
+    return base | segments, [s for s in mod_strip if "/" in s]
+
+
+def index_keys_for_mod(raw_keys, mod_name: str, strip_prefixes=None,
+                       per_mod_strip_prefixes: dict | None = None,
+                       root_folder_mods=None) -> set[str]:
+    """Translate a mod's RAW per-file keys into index/filemap key space."""
+    strips, paths = mod_strip_args(mod_name, strip_prefixes,
+                                   per_mod_strip_prefixes, root_folder_mods)
+    return {index_key_for_raw(k, strips, paths) for k in raw_keys}
 
 
 def _scan_dir(
@@ -2466,6 +2525,7 @@ def build_filemap(
     exclude_dirs: frozenset[str] | None = None,
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
+    root_mod_files: dict[str, set[str]] | None = None,
     follow_toplevel_links_under: "Path | None" = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
@@ -2509,6 +2569,10 @@ def build_filemap(
     files are treated as if the mod does not have them, so the next
     lower-priority mod that has the same file wins instead.
 
+    root_mod_files — per-mod index keys routed to the game-root namespace
+    (filemap_root.txt) instead of the Data one.  Exclusions win over root tags;
+    whole-mod root flags make per-file tags redundant.
+
     Returns:
         (count, conflict_map, overrides, overridden_by)
     """
@@ -2517,6 +2581,11 @@ def build_filemap(
         {k.lower(): v for k, v in filemap_casing_pins.items()}
         if filemap_casing_pins else {}
     )
+
+    # Per-mod root-tagged rel_keys — frozen once for O(1) merge-loop membership.
+    _root_files: dict[str, frozenset[str]] = {
+        m: frozenset(v) for m, v in (root_mod_files or {}).items() if v
+    }
 
     entries = read_modlist(modlist_path)
 
@@ -2570,7 +2639,8 @@ def build_filemap(
                 conflict_ignore_foldernames,
                 excluded_loose_filenames, allowed_top_level_folders,
                 excluded_mod_files, normalize_folder_case, filemap_casing,
-                _pins, conflict_key_fn, root_folder_mods, _utf8_bad,
+                _pins, conflict_key_fn, root_folder_mods, _root_files,
+                _utf8_bad,
             )
     if not _incr_on:
         _drop_incr_state(_output_key)
@@ -2622,7 +2692,7 @@ def build_filemap(
         with perftrace.span("filemap: incremental fast path"):
             _fast = _try_incremental(
                 _output_key, _incr_fp, priority_order, index, _pf, _utf8_bad,
-                root_folder_mods, _disabled_lower, _disabled_frozen,
+                root_folder_mods, _root_files, _disabled_lower, _disabled_frozen,
                 output_path, normalize_folder_case, filemap_casing,
                 log_fn, dry_run=_verify,
             )
@@ -2737,6 +2807,7 @@ def build_filemap(
         had_file = False
         _acc = 0
         _is_root_mod = bool(root_folder_mods and name in root_folder_mods)
+        _rf = None if _is_root_mod else _root_files.get(name)
         # Pick which namespace this mod writes into.
         _winner_ns = filemap_root_winner if _is_root_mod else filemap_winner
         _map_ns    = filemap_root        if _is_root_mod else filemap
@@ -2754,6 +2825,15 @@ def build_filemap(
             if _has_folder_ignore and _dir_ignored(rel_key):
                 continue
             had_file = True
+            if _rf is not None:
+                # Per-file root tags: rebind the namespaces per entry (same
+                # switch as whole-mod root flags). Only mods with tags pay.
+                if rel_key in _rf:
+                    _winner_ns, _map_ns = filemap_root_winner, filemap_root
+                    _prov_ns, _cont_ns = _prov_root, _contested_root
+                else:
+                    _winner_ns, _map_ns = filemap_winner, filemap
+                    _prov_ns, _cont_ns = _prov, _contested
             if _incr_on:
                 _stack = _prov_ns.get(rel_key)
                 if _stack is None:
@@ -2779,8 +2859,10 @@ def build_filemap(
             _map_ns[rel_key] = (rel_str, name)
             win_count[name] = win_count.get(name, 0) + 1
             # Effective-deploy-path conflict detection only applies to normal mods.
-            # Root-flagged mods deploy verbatim to game_root, no conflict_key_fn transform.
-            if not _is_root_mod and conflict_key_fn is not None:
+            # Root-flagged mods and root-tagged files deploy verbatim to
+            # game_root, no conflict_key_fn transform.
+            if (not _is_root_mod and conflict_key_fn is not None
+                    and (_rf is None or rel_key not in _rf)):
                 ck = conflict_key_fn(name, rel_key).lower()
                 prev_ck = conflict_winner.get(ck)
                 if prev_ck is not None and prev_ck != name:

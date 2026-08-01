@@ -11,7 +11,8 @@ consolidates all small per-profile JSON/text state files:
   mod_strip_prefixes          dict[str, list[str]]
   plugin_locks                dict[str, ...]
   disabled_plugins            dict[str, list[str]]  (mod_name -> [plugin, ...])
-  excluded_mod_files          dict[str, list[str]]  (mod_name -> [rel_key_lower, ...])
+  excluded_mod_files          dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
+  root_mod_files              dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
   profile_settings            dict  (profile_specific_mods, collection_url, original_default, …)
   ignored_missing_requirements list[str]
   custom_exes                 list[str]  (per-profile Run-menu exe paths)
@@ -272,11 +273,23 @@ def read_disabled_plugins(profile_dir: Path, state: dict | None = None) -> dict[
 
 
 def read_excluded_mod_files(profile_dir: Path, state: dict | None = None) -> dict[str, list[str]]:
-    """Read excluded_mod_files. Returns {} if absent or corrupt. Falls back to legacy file.
-
-    Format: {mod_name: [rel_key_lower, ...]}
-    """
+    """Read excluded_mod_files ({mod: [raw_key_lower, ...]}), {} if absent."""
     raw = _read_key(profile_dir, state, "excluded_mod_files")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for k, v in raw.items():
+        if not isinstance(k, str):
+            continue
+        norm = _normalize_mod_child_str_list(v)
+        if norm:
+            out[k] = norm
+    return out
+
+
+def read_root_mod_files(profile_dir: Path, state: dict | None = None) -> dict[str, list[str]]:
+    """Read root_mod_files ({mod: [raw_key_lower, ...]} routed to the game root)."""
+    raw = _read_key(profile_dir, state, "root_mod_files")
     if not isinstance(raw, dict):
         return {}
     out: dict[str, list[str]] = {}
@@ -416,6 +429,15 @@ def write_excluded_mod_files(profile_dir: Path, value: dict[str, list[str]]) -> 
         _update_key(profile_dir, "excluded_mod_files", normalized)
     else:
         _remove_key(profile_dir, "excluded_mod_files")
+
+
+def write_root_mod_files(profile_dir: Path, value: dict[str, list[str]]) -> None:
+    """Persist root_mod_files to profile_state.json. Values are stored sorted per mod."""
+    normalized = {k: sorted(v) for k, v in value.items() if v}
+    if normalized:
+        _update_key(profile_dir, "root_mod_files", normalized)
+    else:
+        _remove_key(profile_dir, "root_mod_files")
 
 
 def write_mod_notes(profile_dir: Path, value: dict[str, str]) -> None:

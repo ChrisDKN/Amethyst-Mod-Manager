@@ -1,6 +1,6 @@
 """Delegate for the Mod Files tree — draws modlist-style checkboxes (blue, 17px,
-centred in the Top Level / Disable columns) and uses the separator arrow assets
-(arrow.png / right.png) for the expand/collapse indicator, matching the modlist.
+centred in the Top Level / Root / Disable columns) and uses the separator arrow
+assets (arrow.png / right.png) for the expand/collapse indicator.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QStyledItemDelegate
 
 from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
 from gui_qt.icons import icon
-from gui_qt.mod_files_model import COL_NAME, COL_TOPLEVEL, COL_DISABLE
+from gui_qt.mod_files_model import COL_NAME, COL_TOPLEVEL, COL_ROOT, COL_DISABLE
 
 CHECK_BOX = 17        # same as the modlist checkbox
 ARROW_SZ = 20         # same as the modlist separator arrow
@@ -51,12 +51,12 @@ class ModFilesDelegate(QStyledItemDelegate):
         if col == COL_NAME:
             self._paint_name(p, r, index, node)
         elif node.meta:
-            # meta.ini deploys nothing → no Top Level / Disable checkboxes.
+            # meta.ini deploys nothing → no Top Level / Root / Disable checkboxes.
             return
         elif col == COL_TOPLEVEL:
             self._paint_check(p, r, Qt.Checked if node.top_level else Qt.Unchecked,
                               greyed=node.synthetic)
-        elif col == COL_DISABLE:
+        elif col in (COL_ROOT, COL_DISABLE):
             state = model.data(index, Qt.CheckStateRole)
             self._paint_check(p, r, state, greyed=node.synthetic)
 

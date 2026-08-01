@@ -241,7 +241,7 @@ class OverridesView(QWidget):
                         and ml_path.is_file():
                     names = [e.name for e in read_modlist(ml_path)
                              if e.enabled and not e.is_separator]
-                    rows = scan_override_paks(staging, names, profile_dir)
+                    rows = scan_override_paks(staging, names)
                 if profile_dir is not None:
                     excluded = {m: set(v) for m, v in
                                 read_excluded_mod_files(profile_dir).items()}

@@ -46,8 +46,6 @@ from Games.base_game import BaseGame
 from Utils.deploy import LinkMode
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
-from Utils.profile_state import read_excluded_mod_files
-
 _PROFILES_DIR = get_profiles_dir()
 
 # Zero-padding width for the priority prefix (``0001_Foo``).  Four digits is
@@ -263,26 +261,21 @@ class SevenDaysToDie(BaseGame):
         # reuses the SAME filter chain the filemap is built from:
         #   * per-mod "Disable" exclusions (Mod Files tab), and
         #   * conflict_ignore_filenames (drops readme/changelog/*.txt etc.).
-        # Keys are post-strip rel_keys relative to the staged mod root
-        # (lowercase, forward-slash).
+        # Per-mod strip prefixes ("Top Level" promotions from the Mod Files
+        # tab). Exclusions are stored as RAW keys but the keep-filter offset
+        # below has these prefixes peeled off, so translate into that same
+        # space — otherwise "Disable" silently misses and the files deploy.
         from Utils.filemap import _build_path_filters
-        excluded_by_mod = {
-            m: {k.lower() for k in keys}
-            for m, keys in read_excluded_mod_files(profile_dir).items()
-        }
+        from Utils.mod_files import translate_exclusions_for_engine
+        from Utils.profile_state import read_mod_strip_prefixes
+        per_mod_prefs = read_mod_strip_prefixes(profile_dir)
+        excluded_by_mod = translate_exclusions_for_engine(
+            profile_dir, staging, None, per_mod_prefs)
         path_filters = _build_path_filters(
             self.conflict_ignore_filenames, None, None, excluded_by_mod)
-
-        # Per-mod strip prefixes ("Top Level" promotions from the Mod Files
-        # tab).  The tab writes exclusion/filemap keys in the *post-strip* key
-        # space (wrapper folders removed), but our classifier walks the raw
-        # disk tree — so the keep-filter offset must have these prefixes peeled
-        # off to line up with the stored keys, or per-mod "Disable" exclusions
-        # silently miss and disabled folders deploy anyway.
-        from Utils.profile_state import read_mod_strip_prefixes
         strip_map = {
             m: {p.lower() for p in prefs}
-            for m, prefs in read_mod_strip_prefixes(profile_dir).items()
+            for m, prefs in per_mod_prefs.items()
         }
 
         # Walk each enabled staging folder and split its *contents* into:
@@ -737,8 +730,8 @@ def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
     walked root; ``offset`` re-bases it onto the staged-root key space.
 
     ``strip`` is an optional set of lowercase strip prefixes (the mod's "Top
-    Level" promotions).  The stored exclusion/filemap keys live in the
-    post-strip key space, so any wrapper prefix is peeled off the combined
+    Level" promotions).  The keys in *path_filters* were translated into the
+    post-strip space, so any wrapper prefix is peeled off the combined
     ``offset + rel_key`` before testing — otherwise "Disable" exclusions on
     wrapped content never match and the files deploy anyway."""
     if strip:

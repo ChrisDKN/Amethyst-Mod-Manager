@@ -994,6 +994,30 @@ def _clear_dir(directory: Path) -> int:
 
 _OVERWRITE_NAME = "[Overwrite]"
 
+# Deploy-scoped per-mod RAW excluded keys, set by run_deploy_pipeline around
+# the handler's deploy: when two staged files collapse onto one filemap key,
+# source resolution must pick the variant the user did NOT disable. Deploys are
+# serialized by the app's deploy mutex, so a module global is safe; callers
+# outside the pipeline see {} and behave exactly as before.
+_DEPLOY_EXCLUDED_RAW: dict[str, set[str]] = {}
+
+
+def set_deploy_excluded_raw(value: "dict[str, set[str]] | None") -> None:
+    """Install (or clear, with None) the deploy-scoped raw exclusions."""
+    global _DEPLOY_EXCLUDED_RAW
+    _DEPLOY_EXCLUDED_RAW = value or {}
+
+
+def _build_mod_index_deploy(mod_root: "Path", mod_name: str):
+    """_build_mod_index minus the deploy-scoped excluded keys — deploy_filemap
+    reads these maps directly, so a miss must fall through to _resolve_source."""
+    built = _build_mod_index(mod_root)
+    exc = _DEPLOY_EXCLUDED_RAW.get(mod_name)
+    if exc:
+        for k in exc:
+            built.pop(k, None)
+    return built
+
 
 def _resolve_source(
     mod_name: str,
@@ -1012,37 +1036,52 @@ def _resolve_source(
 
     Returns the source path as a string, or None if not found.
     Tries (in order): direct stat, mod-index O(1) lookup, case-insensitive
-    walk, strip-prefix combinations, per-mod strip prefixes.
+    walk, strip-prefix combinations, per-mod strip prefixes. Candidates in
+    _DEPLOY_EXCLUDED_RAW are skipped so a surviving variant can be found.
     """
     _isfile = os.path.isfile
+    exc = _DEPLOY_EXCLUDED_RAW.get(mod_name)
 
     # Fast path: direct string join + stat
     if mod_name == _OVERWRITE_NAME:
         candidate = overwrite_str + "/" + rel_str
     else:
         candidate = staging_str + "/" + mod_name + "/" + rel_str
-    if _isfile(candidate):
+    if (exc is None or rel_lower not in exc) and _isfile(candidate):
         return candidate
 
     # Slow path
     mod_root = overwrite_dir if mod_name == _OVERWRITE_NAME else staging_root / mod_name
+    _mr_plen = len(str(mod_root)) + 1
     src: Path | None = None
+
+    def _keep(p) -> bool:
+        """False when the deploy-scoped exclusions cover this resolved path."""
+        if exc is None:
+            return True
+        return str(p)[_mr_plen:].replace("\\", "/").lower() not in exc
 
     if mod_index_cache is not None:
         if mod_root not in mod_index_cache:
-            mod_index_cache[mod_root] = _build_mod_index(mod_root)
+            mod_index_cache[mod_root] = _build_mod_index_deploy(mod_root, mod_name)
         src = mod_index_cache[mod_root].get(rel_lower)
+        if src is not None and not _keep(src):
+            src = None
 
-    if src is None:
+    if src is None and (exc is None or rel_lower not in exc):
         src = _resolve_nocase(mod_root, rel_str, cache=nocase_cache)
 
     if src is None and sorted_strip:
         for p1 in sorted_strip:
             src = _resolve_nocase(mod_root, p1 + "/" + rel_str, cache=nocase_cache)
+            if src is not None and not _keep(src):
+                src = None
             if src is not None:
                 break
             for p2 in sorted_strip:
                 src = _resolve_nocase(mod_root, p1 + "/" + p2 + "/" + rel_str, cache=nocase_cache)
+                if src is not None and not _keep(src):
+                    src = None
                 if src is not None:
                     break
             if src is not None:
@@ -1054,6 +1093,8 @@ def _resolve_source(
             path_prefixes = [p for p in mod_strip if "/" in p]
             for p in path_prefixes:
                 src = _resolve_nocase(mod_root, p + "/" + rel_str, cache=nocase_cache)
+                if src is not None and not _keep(src):
+                    src = None
                 if src is not None:
                     break
             if src is None:
@@ -1062,6 +1103,8 @@ def _resolve_source(
                 for seg in segment_list:
                     prefix_path = prefix_path + seg + "/" if prefix_path else seg + "/"
                     src = _resolve_nocase(mod_root, prefix_path + rel_str, cache=nocase_cache)
+                    if src is not None and not _keep(src):
+                        src = None
                     if src is not None:
                         break
 
@@ -1303,13 +1346,16 @@ def _prebuild_mod_indexes(
         per_mod_list = _per_mod.get(mn) or []
 
         if entry is None or any("/" in p for p in per_mod_list):
-            walk_targets.append(mr)
+            walk_targets.append((mn, mr))
             continue
 
         normal, root = entry
         mr_str = str(mr)
         strip_set = _global_strip | {s.lower() for s in per_mod_list}
         built: dict[str, str] = {}
+        # Leave disabled variants unmapped so the (also exclusion-aware)
+        # per-file resolver picks the surviving one.
+        _exc = _DEPLOY_EXCLUDED_RAW.get(mn)
 
         chains = _wrapper_chains(mr_str, strip_set) if strip_set else []
         if len(chains) <= 1:
@@ -1328,10 +1374,14 @@ def _prebuild_mod_indexes(
             # so the per-file isfile() is cheap; real mods keep the fast path.
             _verify = (mn == _OVERWRITE_NAME)
             for rel_lower, rel_str in normal.items():
+                if _exc and rel_lower in _exc:
+                    continue
                 _p = mr_str + "/" + rel_str
                 if not _verify or _isfile(_p):
                     built[rel_lower] = _p
             for rel_lower, rel_str in root.items():
+                if _exc and rel_lower in _exc:
+                    continue
                 _p = mr_str + "/" + rel_str
                 if not _verify or _isfile(_p):
                     built[rel_lower] = _p
@@ -1343,6 +1393,10 @@ def _prebuild_mod_indexes(
                 slash = rel_str.find("/")
                 seg = (rel_str[:slash] if slash > 0 else rel_str).lower()
                 hits = [chain for chain, names in chains if seg in names]
+                if _exc:
+                    hits = [c for c in hits
+                            if ((c.lower() + "/" + rel_lower) if c
+                                else rel_lower) not in _exc]
                 if not hits:
                     continue  # stale entry — per-file fallback handles it
                 if len(hits) == 1:
@@ -1367,12 +1421,16 @@ def _prebuild_mod_indexes(
     if not walk_targets:
         return
     if len(walk_targets) == 1:
-        mod_index_cache[walk_targets[0]] = _build_mod_index(walk_targets[0])
+        mn, mr = walk_targets[0]
+        mod_index_cache[mr] = _build_mod_index_deploy(mr, mn)
         return
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=min(_deploy_workers(), len(walk_targets))
     ) as pool:
-        for mr, built_idx in zip(walk_targets, pool.map(_build_mod_index, walk_targets)):
+        for (mn, mr), built_idx in zip(
+                walk_targets,
+                pool.map(lambda t: _build_mod_index_deploy(t[1], t[0]),
+                         walk_targets)):
             mod_index_cache[mr] = built_idx
 
 
@@ -2063,6 +2121,8 @@ __all__ = [
     "_path_under_root",
     "_get_staging_source_path",
     "_build_mod_index",
+    "_build_mod_index_deploy",
+    "set_deploy_excluded_raw",
     "_resolve_nocase",
     # Re-exported stdlib/project imports used by other deploy_* modules
     "_safe_log",

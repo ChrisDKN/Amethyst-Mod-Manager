@@ -210,12 +210,16 @@ class DataView(QWidget):
         # Same gate as the Mod Files tab: both views share one single-slot
         # conflict cache, so they must pass the same argument or thrash it.
         bsa_index_path = mflogic.bsa_conflict_index_path(self.game, index_path)
+        root_ctx = mflogic.conflict_root_context(self.game, profile_dir)
 
         def worker():
             try:
                 entries = self._resolved_entries()
-                contested, _winner = mflogic.build_conflict_cache(
-                    index_path, profile_dir, bsa_index_path=bsa_index_path)
+                # Merged view of both deploy namespaces — a key contested in
+                # either one tints here.
+                contested = mflogic.build_conflict_cache(
+                    index_path, profile_dir, bsa_index_path=bsa_index_path,
+                    root_ctx=root_ctx).all_contested
             except Exception:
                 safe_emit(self._data_ready, gen, [], set())
                 return
