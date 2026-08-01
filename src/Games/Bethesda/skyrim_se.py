@@ -187,6 +187,40 @@ class SkyrimSE(Fallout_3):
             self._saves_routing_rule([".ess"]),
         ]
 
+    # -----------------------------------------------------------------------
+    # ENB
+    # -----------------------------------------------------------------------
+
+    @property
+    def additional_install_logic(self) -> list:
+        return super().additional_install_logic + [self._patch_enblocal_linux_version]
+
+    def _patch_enblocal_linux_version(self, dest_root: Path, mod_name: str,
+                                      log_fn=None) -> None:
+        """Force [GLOBAL] LinuxVersion=true in any staged enblocal.ini.
+
+        ENB needs this to take the Wine/Proton code path; without it the binary
+        assumes Windows and the game hangs or renders without effects. Patching
+        at install time (not deploy) keeps the staged mod the master copy, so it
+        survives redeploys and is never written through a hardlink into staging.
+        """
+        _log = log_fn or (lambda _m: None)
+        from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
+        for ini_path in dest_root.rglob("*"):
+            if not ini_path.is_file() or ini_path.name.lower() != "enblocal.ini":
+                continue
+            try:
+                current = _read_ini_key(ini_path, "GLOBAL", "LinuxVersion",
+                                        case_insensitive=True)
+                if (current or "").strip().lower() == "true":
+                    continue
+                _set_ini_key(ini_path, "GLOBAL", "LinuxVersion", "true",
+                             case_insensitive=True)
+                _log(f"ENB: set [GLOBAL] LinuxVersion=true in "
+                     f"{ini_path.relative_to(dest_root)}.")
+            except OSError as exc:
+                _log(f"WARN: could not patch {ini_path.name} for Linux: {exc}")
+
     @property
     def wizard_tools(self) -> list[WizardTool]:
         from Utils.pandora_tools import find_pandora_exe

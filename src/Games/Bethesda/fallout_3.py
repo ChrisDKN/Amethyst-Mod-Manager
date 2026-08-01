@@ -202,7 +202,7 @@ class Fallout_3(BaseGame):
 
     @property
     def conflict_ignore_filenames(self) -> set[str]:
-        return {"info.xml","*read*.txt","*.jpg","*.html","*.md"}
+        return {"info.xml","*read*.txt","*.jpg","*.html","*.md","*.url","*.zip"}
 
     @property
     def conflict_ignore_foldernames(self) -> set[str]:
