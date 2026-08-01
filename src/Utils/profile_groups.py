@@ -994,6 +994,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 base_anchor.setdefault(rec.get("base", rec["key"]), e.name)
 
             sep_adopt: list[dict] = []
+            new_block: list[ModEntry] = []
             for rtype, rec in records:
                 if rtype == "sep":
                     if first:
@@ -1014,16 +1015,20 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 anchor = base_anchor.get(rec.get("base", rec["key"]))
                 at = next((i for i, x in enumerate(final)
                            if x.name == anchor), None) if anchor else None
-                if at is None:
-                    final.append(entry)
-                else:
+                if at is not None:
                     # A second copy of a mod already in the group: keep the two
                     # together rather than dropping the arrival to the bottom.
                     final.insert(at + 1, entry)
+                elif first:
+                    final.append(entry)
+                else:
+                    new_block.append(entry)
                 owners[entry.name] = (rec["member"], rec["folder"])
                 taken.add(entry.name)
                 base_anchor.setdefault(rec.get("base", rec["key"]), entry.name)
                 adds.append(rec)
+            if new_block:
+                final[:0] = new_block
 
             # 1. Plugin removal FIRST — dropped mods' plugins resolve from the
             # group's still-present index entries / links. Renames are NOT
