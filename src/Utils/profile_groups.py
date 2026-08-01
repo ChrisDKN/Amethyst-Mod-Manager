@@ -181,6 +181,29 @@ def owner_of(group_dir: Path, entry_name: str) -> "tuple[str, str] | None":
     return None
 
 
+def entry_owner_profile(group_dir: Path, entry_name: str
+                        ) -> "tuple[Path, str] | None":
+    """(profile dir, folder name) holding the real files behind group entry
+    *entry_name*: the owning member for a farm link, the group itself for a
+    group-LOCAL mod. None when the entry isn't in the group at all.
+
+    Updating an installed mod (Quick Update / Change Version / Reinstall) uses
+    this to install straight back into the source profile."""
+    if not entry_name:
+        return None
+    owner = owner_of(group_dir, entry_name)
+    if owner is not None:
+        member_dir = group_dir.parent / owner[0]
+        return (member_dir, owner[1]) if member_dir.is_dir() else None
+    local = group_dir / "mods" / entry_name
+    try:
+        if local.is_dir() and not local.is_symlink():
+            return group_dir, entry_name
+    except OSError:
+        pass
+    return None
+
+
 def profile_is_locked(profile_dir: Path) -> bool:
     """True when a profile is lock-protected (Profile Settings lock, or the
     original default) — same rule the Profile Settings rows use."""
@@ -482,15 +505,31 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
             member_entries.append((member_name, entries))
 
     identity: dict[tuple[str, str], str] = {}
+    base_of: dict[str, str] = {}
     version_of: dict[tuple[str, str], str] = {}
     names_by_key: dict[str, set[str]] = {}
     members_by_key: dict[str, list[str]] = {}
     for member_name, entries in member_entries:
         mods_dir = profiles_dir / member_name / "mods"
+        seen_in_member: dict[str, str] = {}
         for e in entries:
             if e.is_separator:
                 continue
             key, version = _mod_identity_and_version(mods_dir, e.name)
+            base = key
+            if key in seen_in_member:
+                # ONE profile listing the same mod twice is a deliberate
+                # duplicate — Change Version ▸ Keep leaves the old version
+                # beside the new one, and that profile shows both rows on its
+                # own, so the group must too. Dedup is for the SAME mod
+                # installed in DIFFERENT members; collapsing here would make
+                # one of the two silently vanish from the group.
+                key = f"{key}#{e.name}"
+                log_fn(f"Profile Group: '{member_name}' lists '{e.name}' and "
+                       f"'{seen_in_member[base]}' as the same mod — keeping "
+                       f"both as separate group entries.")
+            seen_in_member[base] = e.name
+            base_of[key] = base
             identity[(member_name, e.name)] = key
             version_of[(member_name, e.name)] = version
             names_by_key.setdefault(key, set()).add(e.name)
@@ -514,8 +553,13 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
             first_enabler.setdefault(key, member_name)
             parsed = _parse_version(version_of[(member_name, e.name)])
             champ = champions.get(key)
-            if champ is None or (parsed is not None and champ["version"] is not None
-                                 and parsed > champ["version"]):
+            # A readable version always beats an incumbent whose version can't
+            # be read (missing/garbled meta.ini): otherwise an unversioned copy
+            # in a higher-priority member pins the group to the OLD mod and the
+            # freshly installed one never appears.
+            if champ is None or (parsed is not None
+                                 and (champ["version"] is None
+                                      or parsed > champ["version"])):
                 champions[key] = {"member": member_name, "folder": e.name,
                                   "version": parsed,
                                   "version_str": version_of[(member_name, e.name)],
@@ -600,7 +644,8 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
                 continue
             seen_keys.add(key)
             seen_folders.add(e.name)
-            rec = {"key": key, "folder": e.name, "member": member_name,
+            rec = {"key": key, "base": base_of.get(key, key),
+                   "folder": e.name, "member": member_name,
                    "enabled": enabled_union.get(key, e.enabled),
                    "locked": champions.get(key, {}).get("locked", False)}
             records.append(("mod", rec))
@@ -908,6 +953,10 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             local_mods: set[str] = set()
             taken: set[str] = set()
             rename_enabled: dict[str, bool] = {}
+            # base identity → the entry name already holding it, so a second
+            # copy of the same mod (Change Version ▸ Keep) lands NEXT TO its
+            # sibling instead of at the bottom of the load order.
+            base_anchor: dict[str, str] = {}
             for e in current:
                 if e.is_separator:
                     final.append(e)
@@ -942,6 +991,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 final.append(e)
                 owners[e.name] = (rec["member"], rec["folder"])
                 taken.add(e.name)
+                base_anchor.setdefault(rec.get("base", rec["key"]), e.name)
 
             sep_adopt: list[dict] = []
             for rtype, rec in records:
@@ -961,9 +1011,18 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 seen_keys.add(rec["key"])
                 entry = ModEntry(name=rec["folder"], enabled=rec["enabled"],
                                  locked=rec["locked"] if rec["enabled"] else False)
-                final.append(entry)
+                anchor = base_anchor.get(rec.get("base", rec["key"]))
+                at = next((i for i, x in enumerate(final)
+                           if x.name == anchor), None) if anchor else None
+                if at is None:
+                    final.append(entry)
+                else:
+                    # A second copy of a mod already in the group: keep the two
+                    # together rather than dropping the arrival to the bottom.
+                    final.insert(at + 1, entry)
                 owners[entry.name] = (rec["member"], rec["folder"])
                 taken.add(entry.name)
+                base_anchor.setdefault(rec.get("base", rec["key"]), entry.name)
                 adds.append(rec)
 
             # 1. Plugin removal FIRST — dropped mods' plugins resolve from the
@@ -1521,6 +1580,22 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
         remove_from_bsa_index(member_dir / "bsa_index.bin", [folder])
     except Exception:
         pass
+
+
+def remove_member_mod(game, member_dir: Path, folder: str, *,
+                      log_fn=None) -> None:
+    """Delete ONE member profile's copy of a mod — files, plugins, modlist row,
+    index rows — without touching the group.
+
+    For when the group has already moved on from that folder: a Change Version
+    update whose reconcile renamed the group entry to the newly installed
+    version (same identity, newer) leaves only the member's stale old copy to
+    clean up. Going through remove_mods there would resolve staging against the
+    ACTIVE profile (the group) and delete nothing."""
+    log = log_fn or app_log
+    if game is None or not folder:
+        return
+    _member_side_remove(game, member_dir.parent, member_dir.name, folder, log)
 
 
 def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],

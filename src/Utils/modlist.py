@@ -202,6 +202,37 @@ def ensure_mod_preserving_position(
         write_modlist(modlist_path, entries)
 
 
+def replace_mod_in_place(modlist_path: Path, old_name: str,
+                         new_name: str) -> bool:
+    """Give *new_name* the slot + enabled state of *old_name* and drop
+    *old_name*'s row. Change Version uses this when the new version installed
+    under a different folder name and the user chose to remove the old one.
+
+    BOTH rows must exist: with no *old_name* row there is no slot to inherit,
+    and repositioning the new mod anyway would dump it at the TOP of the list.
+    That is exactly what happens in a Profile Group, where the reconcile has
+    usually already renamed the entry in place (same identity, newer version)
+    by the time the user answers the prompt. Returns True if the file was
+    rewritten."""
+    if not old_name or not new_name or old_name == new_name:
+        return False
+    with modlist_lock(modlist_path):
+        entries = read_modlist(modlist_path)
+        old_e = next((e for e in entries if e.name == old_name), None)
+        new_e = next((e for e in entries if e.name == new_name), None)
+        if old_e is None or new_e is None:
+            return False
+        new_e.enabled = old_e.enabled
+        # Pull the new entry out first, THEN locate old's slot in what remains,
+        # drop old, and insert new exactly there.
+        rest = [e for e in entries if e.name != new_name]
+        idx = next((i for i, e in enumerate(rest) if e.name == old_name), 0)
+        rest = [e for e in rest if e.name != old_name]
+        rest.insert(min(idx, len(rest)), new_e)
+        write_modlist(modlist_path, rest)
+        return True
+
+
 def move_mods_to_anchor(
     modlist_path: Path,
     mod_names: list[str],

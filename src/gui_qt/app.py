@@ -8653,7 +8653,8 @@ class MainWindow(QMainWindow):
                        previous_mod_name: str | None = None,
                        preferred_names: dict | None = None,
                        on_all_done=None, clear_archives: bool = True,
-                       place: dict | None = None):
+                       place: dict | None = None,
+                       target_profile_dir: Path | None = None):
         """Queue + install a list of archive paths (shared by the Install Mod
         button and the Downloads tab). FOMODs pause for the wizard mid-queue.
         *metas* optionally maps an archive path → a prebuilt NexusModMeta (the
@@ -8673,7 +8674,11 @@ class MainWindow(QMainWindow):
         *place* — optional modlist placement for the installed mods (drag-drop
         from the Downloads tab): {"anchor": name|None, "after": bool,
         "at_end": bool}. Applied in _on_install_done just before the reload
-        (and per-wizard for detached FOMOD/BAIN handoffs)."""
+        (and per-wizard for detached FOMOD/BAIN handoffs).
+        *target_profile_dir* — install into THIS profile instead of the active
+        one, skipping the Profile Group member picker (set by the group update
+        routing below when a batch is split across the members that own the
+        mods being updated)."""
         if not paths:
             return
         game = self._gs.game
@@ -8699,7 +8704,8 @@ class MainWindow(QMainWindow):
                 "preferred_names": preferred_names,
                 "on_all_done": on_all_done,
                 "clear_archives": clear_archives,
-                "place": place})
+                "place": place,
+                "target_profile_dir": target_profile_dir})
             _busy = self.tr("install") if getattr(self, "_install_running", False) \
                 else (self.tr("deploy") if getattr(self, "_deploy_running", False)
                       else self.tr("install"))
@@ -8717,8 +8723,38 @@ class MainWindow(QMainWindow):
         if profile_dir is None:
             self._notify(self.tr("No active profile."), "warning")
             return
-        # Installing while a Profile Group is active: ask which member profile
-        # should own the new mod(s), then install into that member.
+        if target_profile_dir is not None:
+            # Pre-routed (group update split, see _group_update_routes) —
+            # no picker, install exactly where the caller said.
+            self._start_install_batch(
+                paths, game, Path(target_profile_dir), metas=metas,
+                previous_mod_name=previous_mod_name,
+                preferred_names=preferred_names, on_all_done=on_all_done,
+                clear_archives=clear_archives, place=place)
+            return
+        # Updating mods that are ALREADY in an active Profile Group (Quick
+        # Update / Change Version / Reinstall): each new version goes straight
+        # back to the profile the mod came from — no member question. Kept out
+        # of the picker's try/except so a failure there can never fall through
+        # to a second, group-wide install of the same archives.
+        try:
+            from Utils.profile_groups import is_group as _is_group
+            _in_group = _is_group(profile_dir)
+        except Exception as exc:
+            print(f"[gui_qt] group check failed: {exc}", flush=True)
+            _in_group = False
+        if _in_group:
+            routes, unrouted = self._group_update_routes(
+                profile_dir, paths, preferred_names, previous_mod_name)
+            if routes:
+                self._start_group_routed_installs(
+                    game, routes, unrouted, metas=metas,
+                    previous_mod_name=previous_mod_name,
+                    preferred_names=preferred_names, on_all_done=on_all_done,
+                    clear_archives=clear_archives, place=place)
+                return
+        # Installing a NEW mod while a Profile Group is active: ask which member
+        # profile should own it, then install into that member.
         try:
             from Utils.profile_groups import get_members, is_group
             if is_group(profile_dir):
@@ -8728,7 +8764,8 @@ class MainWindow(QMainWindow):
                         "previous_mod_name": previous_mod_name,
                         "preferred_names": preferred_names,
                         "on_all_done": on_all_done,
-                        "clear_archives": clear_archives, "place": place})
+                        "clear_archives": clear_archives, "place": place,
+                        "target_profile_dir": None})
                     self._notify(note, "info")
 
                 # One picker at a time — a second batch queues and replays
@@ -8788,6 +8825,99 @@ class MainWindow(QMainWindow):
             previous_mod_name=previous_mod_name,
             preferred_names=preferred_names, on_all_done=on_all_done,
             clear_archives=clear_archives, place=place)
+
+    def _group_update_routes(self, profile_dir, paths, preferred_names,
+                             previous_mod_name):
+        """Split an install batch by the profile that already owns each mod.
+
+        Updating a mod that is already in an active Profile Group (Quick
+        Update, Change Version, Reinstall) must land back in the member profile
+        the mod came from — asking which member would both be noise and let the
+        same mod fork into a second profile. Returns (routes, unrouted): each
+        route is {dir, paths, preferred, prev} for one owning profile, and
+        *unrouted* holds the archives with no owner (genuinely new mods, which
+        still get the member picker)."""
+        try:
+            from Utils.profile_groups import entry_owner_profile
+        except Exception as exc:
+            print(f"[gui_qt] group update routing failed: {exc}", flush=True)
+            return [], list(paths)
+        prefer = dict(preferred_names or {})
+        # Change Version passes the mod's name separately, for a single archive.
+        prev_path = paths[0] if (previous_mod_name and len(paths) == 1) else None
+        routes: dict[str, dict] = {}
+        unrouted: list[str] = []
+        for p in paths:
+            entry = prefer.get(p) or (previous_mod_name if p == prev_path else None)
+            try:
+                owner = entry_owner_profile(profile_dir, entry) if entry else None
+            except Exception:
+                owner = None
+            if owner is None:
+                unrouted.append(p)
+                continue
+            target, folder = owner
+            r = routes.setdefault(str(target), {
+                "dir": target, "paths": [], "preferred": {}, "prev": None})
+            r["paths"].append(p)
+            if p in prefer:
+                # A group entry can carry a different name than the member
+                # folder it links to — install into the MEMBER's folder.
+                r["preferred"][p] = folder
+            if p == prev_path:
+                r["prev"] = previous_mod_name
+        return list(routes.values()), unrouted
+
+    def _start_group_routed_installs(self, game, routes, unrouted, *, metas,
+                                     previous_mod_name, preferred_names,
+                                     on_all_done, clear_archives, place):
+        """Run one install batch per owning profile (first now, the rest
+        queued behind it — installs are serialized). Archives with no owner are
+        queued as a plain batch so they re-enter _install_paths and get the
+        member picker."""
+        metas = dict(metas or {})
+        agg = None
+        if on_all_done is not None:
+            # A split batch reports once, with the whole batch's tally (Quick
+            # Update's summary). The unrouted remainder can be cancelled at the
+            # picker, so it never counts toward the aggregate.
+            state = {"left": len(routes), "ok": 0, "total": 0, "names": []}
+
+            def agg(ok, total, names):
+                state["ok"] += int(ok or 0)
+                state["total"] += int(total or 0)
+                state["names"].extend(list(names or []))
+                state["left"] -= 1
+                if state["left"] <= 0:
+                    on_all_done(state["ok"], state["total"], state["names"])
+
+        for i, r in enumerate(routes):
+            sub_metas = {p: metas[p] for p in r["paths"] if p in metas}
+            self._append_log(
+                f"[install] {len(r['paths'])} update(s) → source profile "
+                f"'{Path(r['dir']).name}'.")
+            if i == 0:
+                self._start_install_batch(
+                    list(r["paths"]), game, Path(r["dir"]), metas=sub_metas,
+                    previous_mod_name=r["prev"],
+                    preferred_names=r["preferred"], on_all_done=agg,
+                    clear_archives=clear_archives, place=place)
+                continue
+            self._pending_install_batches.append({
+                "paths": list(r["paths"]), "metas": sub_metas,
+                "previous_mod_name": r["prev"],
+                "preferred_names": r["preferred"], "on_all_done": agg,
+                "clear_archives": clear_archives, "place": place,
+                "target_profile_dir": Path(r["dir"])})
+        if unrouted:
+            self._pending_install_batches.append({
+                "paths": list(unrouted), "metas":
+                    {p: metas[p] for p in unrouted if p in metas},
+                "previous_mod_name": None,
+                "preferred_names": {p: n for p, n in (preferred_names or {}).items()
+                                    if p in unrouted},
+                "on_all_done": None, "clear_archives": clear_archives,
+                "place": place, "target_profile_dir": None})
 
     def _start_install_batch(self, paths, game, profile_dir, *, metas,
                              previous_mod_name, preferred_names, on_all_done,
@@ -9584,57 +9714,129 @@ class MainWindow(QMainWindow):
             self._maybe_prompt_remove_previous(prev, name)
         self._install_next()   # continue the queue
 
+    def _prev_version_profile(self, old_name: str):
+        """(profile dir, old folder name) a Change Version 'remove previous'
+        must act on. Inside a Profile Group both versions really live in a
+        MEMBER profile — the group's copy is only a link — so the swap happens
+        there and materialize rebuilds the group."""
+        pdir = self._gs.profile_dir()
+        if pdir is None:
+            return None, old_name
+        try:
+            from Utils.profile_groups import entry_owner_profile, is_group
+            if is_group(pdir):
+                owner = entry_owner_profile(pdir, old_name)
+                if owner is not None:
+                    return owner[0], owner[1]
+        except Exception as exc:
+            print(f"[gui_qt] group remove-previous lookup failed: {exc}",
+                  flush=True)
+        return pdir, old_name
+
     def _maybe_prompt_remove_previous(self, old_name: str, new_name: str):
         """Show the borderless 'Remove previous version?' overlay if both the old
         and new mods exist. Remove → the new mod inherits the old one's modlist
         position + enabled state, then the old mod is removed."""
-        staging = self._gs.staging_dir()
-        if staging is None:
+        from Utils.mod_copy import resolve_target_staging
+        game = self._gs.game
+        old_dir, old_folder = self._prev_version_profile(old_name)
+        new_dir = getattr(self, "_install_profile_dir", None) \
+            or self._gs.profile_dir()
+        if game is None or old_dir is None or new_dir is None:
             return
-        if not (staging / old_name).is_dir() or not (staging / new_name).is_dir():
+        # In a group these are two DIFFERENT profiles' staging roots (the new
+        # version was just installed into a member; the group only links to it).
+        try:
+            old_staging = Path(resolve_target_staging(game, Path(old_dir)))
+            new_staging = Path(resolve_target_staging(game, Path(new_dir)))
+        except Exception:
+            return
+        if not (old_staging / old_folder).is_dir() \
+                or not (new_staging / new_name).is_dir():
             return
         from gui_qt.remove_previous_overlay import RemovePreviousOverlay
 
         def _done(result):
             if result == "remove":
-                self._remove_previous_version(old_name, new_name)
+                # Resolved NOW, not when the user answers: the install's
+                # group reconcile runs first and renames the group entry to
+                # the new version in place (same identity, newer version), so
+                # a late lookup of the old name would find nothing and fall
+                # back to the group — where the old row no longer exists and
+                # the new mod would be repositioned to the top.
+                self._remove_previous_version(
+                    old_name, new_name, profile_dir=old_dir,
+                    old_folder=old_folder)
 
         RemovePreviousOverlay.show_over(self, old_name, new_name, _done)
 
-    def _remove_previous_version(self, old_name: str, new_name: str):
-        """New mod inherits old's modlist slot + enabled state; old is removed."""
+    def _remove_previous_version(self, old_name: str, new_name: str, *,
+                                 profile_dir: Path | None = None,
+                                 old_folder: str | None = None):
+        """New mod inherits old's modlist slot + enabled state; old is removed.
+        In a Profile Group the files live in a MEMBER profile
+        (*profile_dir*/*old_folder*, captured when the prompt was raised), so
+        the removal goes through the group's own removal path — going through
+        remove_mods there resolves staging against the ACTIVE profile and would
+        unlink the farm entry while the member kept the mod."""
         try:
-            from Utils.modlist import read_modlist, write_modlist
             from Utils.mod_remove import remove_mods
-            pdir = self._gs.profile_dir()
+            from Utils.modlist import read_modlist, replace_mod_in_place
+            if profile_dir is None:
+                profile_dir, old_folder = self._prev_version_profile(old_name)
             game = self._gs.game
+            pdir = Path(profile_dir) if profile_dir is not None else None
+            old_folder = old_folder or old_name
             if pdir is None or game is None:
                 return
-            ml = pdir / "modlist.txt"
-            entries = read_modlist(ml)
-            old_e = next((e for e in entries if e.name == old_name), None)
-            new_e = next((e for e in entries if e.name == new_name), None)
-            if new_e is not None:
-                # New inherits old's enabled state + position, and the OLD entry
-                # is dropped here (remove_mods intentionally does NOT touch
-                # modlist.txt — it leaves the row for the caller to remove).
-                if old_e is not None:
-                    new_e.enabled = old_e.enabled
-                # Pull the new entry out first, THEN locate old's slot in the
-                # remaining list, drop old, and insert new there (so new lands
-                # exactly where old was).
-                rest = [e for e in entries if e.name != new_name]
-                idx = next((i for i, e in enumerate(rest)
-                            if e.name == old_name), 0)
-                rest = [e for e in rest if e.name != old_name]
-                rest.insert(min(idx, len(rest)), new_e)
-                write_modlist(ml, rest)
-            # Delete the old mod's files/plugins/index (NOT its modlist row —
-            # already dropped above).
-            remove_mods(game, pdir, [old_name],
-                        log_fn=lambda m: self._append_log(f"[remove] {m}"))
+            log = lambda m: self._append_log(f"[remove] {m}")   # noqa: E731
+            active = self._gs.profile_dir()
+            group_dir = None
+            try:
+                from Utils.profile_groups import is_group
+                if active is not None and is_group(active) \
+                        and Path(active) != pdir:
+                    group_dir = Path(active)
+            except Exception as exc:
+                print(f"[gui_qt] remove-previous group check failed: {exc}",
+                      flush=True)
+            # New inherits old's enabled state + position in the profile that
+            # owns the files, and the OLD row is dropped there (remove_mods
+            # intentionally does NOT touch modlist.txt).
+            replace_mod_in_place(pdir / "modlist.txt", old_folder, new_name)
+            if group_dir is None:
+                # Delete the old mod's files/plugins/index (NOT its modlist row
+                # — already dropped above).
+                remove_mods(game, pdir, [old_folder], log_fn=log)
+            else:
+                from Utils.profile_groups import (remove_member_mod,
+                                                  remove_mods_from_group)
+                gml = group_dir / "modlist.txt"
+                listed = any(e.name == old_folder and not e.is_separator
+                             for e in read_modlist(gml))
+                if listed:
+                    # Both versions are group entries: undeploy + drop the old
+                    # one properly, and give the new one its slot. A locked
+                    # member vetoes the removal — then the row stays too.
+                    if remove_mods_from_group(game, group_dir, [old_folder],
+                                              log_fn=log):
+                        replace_mod_in_place(gml, old_folder, new_name)
+                else:
+                    # The group's reconcile already renamed its entry to the
+                    # new version — only the member's stale copy is left.
+                    remove_member_mod(game, pdir, old_folder, log_fn=log)
         except Exception as exc:
             self._append_log(f"[install] remove-previous failed: {exc}")
+        # The swap happened member-side when a group is active — rebuild the
+        # group so the reload sees the new version in the old one's slot
+        # (same identity → the reconcile migrates the entry in place).
+        try:
+            from Utils.profile_groups import materialize_if_group
+            materialize_if_group(self._gs.game, self._gs.profile_dir(),
+                                 log_fn=self._append_log)
+        except Exception as exc:
+            print(f"[gui_qt] group reconcile after remove-previous failed: "
+                  f"{exc}", flush=True)
         self._reload_modlist()
         self._rebuild_conflicts_async()
 
@@ -9916,7 +10118,8 @@ class MainWindow(QMainWindow):
                             preferred_names=b["preferred_names"],
                             on_all_done=b["on_all_done"],
                             clear_archives=b.get("clear_archives", True),
-                            place=b.get("place"))
+                            place=b.get("place"),
+                            target_profile_dir=b.get("target_profile_dir"))
 
     def _build_modlist(self) -> QWidget:
         self._modlist_model = ModListModel([])
