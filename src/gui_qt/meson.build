@@ -92,6 +92,8 @@ py.install_sources(
   'remove_previous_overlay.py',
   'requirements_view.py',
   'safe_emit.py',
+  'save_preview.py',
+  'saves_view.py',
   'selector_button.py',
   'separator_settings_view.py',
   'set_prefix_overlay.py',

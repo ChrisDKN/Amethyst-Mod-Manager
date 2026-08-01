@@ -393,6 +393,21 @@ def get_languages_dir() -> Path:
     return d
 
 
+def get_ludusavi_manifest_path() -> Path:
+    """Return the path of the downloaded Ludusavi save-path data file.
+
+    Synced from the Resources branch (see Utils.gh_sync) so save locations for
+    new games can ship without an app update. The built-in copy under
+    ``src/Games/`` is the offline fallback; whichever of the two carries the
+    later ``generated`` date wins (see Utils.ludusavi_manifest).
+
+    Result: ~/.config/AmethystModManager/ludusavi/ludusavi_saves.json
+    """
+    d = get_config_dir() / "ludusavi"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "ludusavi_saves.json"
+
+
 def get_download_locations_path() -> Path:
     """Return the path to the extra download scan locations config file.
 

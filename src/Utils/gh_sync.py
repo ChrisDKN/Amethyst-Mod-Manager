@@ -28,6 +28,7 @@ from typing import Callable, Optional
 
 from Utils.config_paths import (
     get_custom_games_dir, get_plugins_dir, get_languages_dir,
+    get_ludusavi_manifest_path,
 )
 from Utils.gh_cache import fetch, fetch_text
 from Utils.ui_config import load_dev_mode
@@ -48,6 +49,14 @@ _PLUGINS_API_URL = (
 _LANGUAGES_API_URL = (
     "https://api.github.com/repos/ChrisDKN/Amethyst-Mod-Manager/contents/"
     "Localisation?ref=Resources"
+)
+
+# Ludusavi save-path data. A single known file name, so this one is fetched
+# straight from raw.githubusercontent (ETag-conditional) instead of listing a
+# folder through the rate-limited contents API.
+_LUDUSAVI_RAW_URL = (
+    "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/"
+    "Resources/Ludusavi/ludusavi_saves.json"
 )
 
 
@@ -333,5 +342,67 @@ def sync_languages(on_changed: Optional[Callable[[], None]] = None,
                 on_changed()
         except Exception as exc:
             _log_sync("sync_languages", f"sync failed: {exc}")
+
+    threading.Thread(target=_do, daemon=True).start()
+
+
+def sync_ludusavi_manifest(on_changed: Optional[Callable[[], None]] = None,
+                           *, force: bool = False) -> None:
+    """Background-download the Ludusavi save-path data from the Resources branch.
+
+    Lets save locations for new games ship without an app release: the file
+    lands in the config folder and Utils.ludusavi_manifest prefers whichever
+    copy (this one or the bundled one) has the later ``generated`` date.
+
+    The download is rejected unless it parses as JSON, declares a schema
+    version this build understands, and is not older than what we already use
+    — a corrupt or rolled-back publish must never replace working data.
+
+    Checked daily (``force=True`` for a manual press bypasses the throttle and
+    the dev-mode skip). ``on_changed`` fires on the worker thread.
+    """
+    if load_dev_mode() and not force:
+        return
+
+    def _do():
+        try:
+            from Utils.ludusavi_manifest import (
+                SCHEMA_VERSION, data_info, peek_header, reload,
+            )
+            raw = fetch(
+                _LUDUSAVI_RAW_URL, accept="*/*", timeout=30,
+                min_interval=(0 if force else 86400), force=force,
+            )
+            if raw is None:
+                return
+            try:
+                blob = json.loads(raw.decode("utf-8"))
+            except Exception as exc:
+                _log_sync("sync_ludusavi_manifest", f"not valid JSON: {exc}")
+                return
+            version = blob.get("v")
+            if version != SCHEMA_VERSION:
+                _log_sync("sync_ludusavi_manifest",
+                          f"skipped: schema v{version} != v{SCHEMA_VERSION}")
+                return
+            if not isinstance(blob.get("games"), dict) or not blob["games"]:
+                _log_sync("sync_ludusavi_manifest", "skipped: no games in payload")
+                return
+            generated = str(blob.get("generated", ""))
+            if generated < data_info()[1]:
+                _log_sync("sync_ludusavi_manifest",
+                          f"skipped: {generated} is older than the copy in use")
+                return
+            dest = get_ludusavi_manifest_path()
+            before = peek_header(dest)
+            if not _write_bytes_if_changed(dest, raw):
+                return
+            _log_sync("sync_ludusavi_manifest",
+                      f"updated {before[1] if before else 'none'} -> {generated}")
+            reload()
+            if on_changed is not None:
+                on_changed()
+        except Exception as exc:
+            _log_sync("sync_ludusavi_manifest", f"sync failed: {exc}")
 
     threading.Thread(target=_do, daemon=True).start()

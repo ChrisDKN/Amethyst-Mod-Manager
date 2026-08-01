@@ -4827,6 +4827,22 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Search files… (try !.dds)</translation>
     </message>
     <message>
+        <source>Open folder</source>
+        <translation>Open folder</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Export</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <source>Search saves… (try !.ess)</source>
+        <translation>Search saves… (try !.ess)</translation>
+    </message>
+    <message>
         <source>Remove archives</source>
         <translation>Remove archives</translation>
     </message>
@@ -4853,6 +4869,10 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     <message>
         <source>Install XACT audio (XAudio2)</source>
         <translation>Install XACT audio (XAudio2)</translation>
+    </message>
+    <message>
+        <source>Install LAV Filters (radio/music codecs)</source>
+        <translation>Install LAV Filters (radio/music codecs)</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -5843,6 +5863,10 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris 
         <translation>Installed {0}</translation>
     </message>
     <message>
+        <source>Saves</source>
+        <translation>Saves</translation>
+    </message>
+    <message>
         <source>the game</source>
         <translation>the game</translation>
     </message>
@@ -5869,6 +5893,10 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris 
     <message>
         <source>Profile groups…</source>
         <translation>Profile groups…</translation>
+    </message>
+    <message>
+        <source>Installing LAV Filters</source>
+        <translation>Installing LAV Filters</translation>
     </message>
     <message>
         <source>Install queued — waiting for the current member choice.</source>
@@ -9236,6 +9264,231 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>Select the SRML archive</source>
         <translation>Select the SRML archive</translation>
+    </message>
+</context>
+<context>
+    <name>SavePreviewPane</name>
+    <message>
+        <source>This file could not be read as a save.</source>
+        <translation>This file could not be read as a save.</translation>
+    </message>
+    <message>
+        <source>No screenshot</source>
+        <translation>No screenshot</translation>
+    </message>
+    <message>
+        <source>Click to open full size</source>
+        <translation>Click to open full size</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>Screenshot</translation>
+    </message>
+    <message>
+        <source>Character</source>
+        <translation>Character</translation>
+    </message>
+    <message>
+        <source>Level</source>
+        <translation>Level</translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation>Location</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>Play time</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Title</translation>
+    </message>
+    <message>
+        <source>Race</source>
+        <translation>Race</translation>
+    </message>
+    <message>
+        <source>Sex</source>
+        <translation>Sex</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>Saved</translation>
+    </message>
+    <message>
+        <source>Save number</source>
+        <translation>Save number</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Game</translation>
+    </message>
+    <message>
+        <source>Only part of this save could be read.</source>
+        <translation>Only part of this save could be read.</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Plugins</translation>
+    </message>
+    <message>
+        <source>Not recorded in this save.</source>
+        <translation>Not recorded in this save.</translation>
+    </message>
+    <message>
+        <source>Could not be read.</source>
+        <translation>Could not be read.</translation>
+    </message>
+    <message>
+        <source>Plugins ({0} · {1} ESL)</source>
+        <translation>Plugins ({0} · {1} ESL)</translation>
+    </message>
+    <message>
+        <source>Plugins ({0})</source>
+        <translation>Plugins ({0})</translation>
+    </message>
+    <message>
+        <source>Not in this profile's load order.</source>
+        <translation>Not in this profile's load order.</translation>
+    </message>
+</context>
+<context>
+    <name>SavesView</name>
+    <message>
+        <source>Name</source>
+        <extracomment>One expanded folder's listing, from the worker that read it. Footer summary text ("2 location(s) · 41 entries · 1.2 GB"). True when a row is selected, so the footer's Open folder button syncs. False while an export/import runs, so the footer disables its buttons. (ok, message) from an export/import worker → UI thread. The pickers' callbacks fire on a portal WORKER thread; marshal the chosen path to the GUI thread before touching any widget. Transient one-line notice for the footer (progress / result). A parsed save header for the details pane, from the parse worker. The listed file types changed, so the Filters panel can restock its list.</extracomment>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Modified</source>
+        <translation>Modified</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>No configured game selected.</translation>
+    </message>
+    <message>
+        <source>Looking for save folders…</source>
+        <translation>Looking for save folders…</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Reading…</translation>
+    </message>
+    <message>
+        <source>(not created yet — the game saves here)</source>
+        <translation>(not created yet — the game saves here)</translation>
+    </message>
+    <message>
+        <source>No save folders found for this game. Either it keeps its saves somewhere the Ludusavi manifest does not know about, it stores them in the cloud, or it has not been played yet.</source>
+        <translation>No save folders found for this game. Either it keeps its saves somewhere the Ludusavi manifest does not know about, it stores them in the cloud, or it has not been played yet.</translation>
+    </message>
+    <message>
+        <source>{0} save locations</source>
+        <translation>{0} save locations</translation>
+    </message>
+    <message>
+        <source>(no ext)</source>
+        <translation>(no ext)</translation>
+    </message>
+    <message>
+        <source>{0} of {1} entries shown</source>
+        <translation>{0} of {1} entries shown</translation>
+    </message>
+    <message>
+        <source>Reading save…</source>
+        <translation>Reading save…</translation>
+    </message>
+    <message>
+        <source>Export saves</source>
+        <translation>Export saves</translation>
+    </message>
+    <message>
+        <source>Zip archives (*.zip)</source>
+        <translation>Zip archives (*.zip)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>All files</translation>
+    </message>
+    <message>
+        <source>Packing saves…</source>
+        <translation>Packing saves…</translation>
+    </message>
+    <message>
+        <source>Export failed.</source>
+        <translation>Export failed.</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>Export failed: {0}</translation>
+    </message>
+    <message>
+        <source>Exported {0} file(s) ({1}) to {2}</source>
+        <translation>Exported {0} file(s) ({1}) to {2}</translation>
+    </message>
+    <message>
+        <source>Import saves</source>
+        <translation>Import saves</translation>
+    </message>
+    <message>
+        <source>Import saves?</source>
+        <translation>Import saves?</translation>
+    </message>
+    <message>
+        <source>Extract {0} into
+{1}
+
+The current contents are moved aside to a "{2}" folder first, so nothing is lost.</source>
+        <translation>Extract {0} into
+{1}
+
+The current contents are moved aside to a "{2}" folder first, so nothing is lost.</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <source>Extracting saves…</source>
+        <translation>Extracting saves…</translation>
+    </message>
+    <message>
+        <source>Import failed.</source>
+        <translation>Import failed.</translation>
+    </message>
+    <message>
+        <source>Import failed: {0}</source>
+        <translation>Import failed: {0}</translation>
+    </message>
+    <message>
+        <source>Imported {0} file(s) ({1}).</source>
+        <translation>Imported {0} file(s) ({1}).</translation>
+    </message>
+    <message>
+        <source>{0}   [profile saves — {1}]</source>
+        <translation>{0}   [profile saves — {1}]</translation>
+    </message>
+    <message>
+        <source>{0}   [in prefix]</source>
+        <translation>{0}   [in prefix]</translation>
+    </message>
+    <message>
+        <source>… only the first {0} entries are shown</source>
+        <translation>… only the first {0} entries are shown</translation>
+    </message>
+    <message>
+        <source>(empty)</source>
+        <translation>(empty)</translation>
+    </message>
+    <message>
+        <source>{0} location(s) · {1} entries · {2}</source>
+        <translation>{0} location(s) · {1} entries · {2}</translation>
     </message>
 </context>
 <context>
@@ -12794,6 +13047,17 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Files swept into Overwrite (newest restore first)</source>
         <translation>Files swept into Overwrite (newest restore first)</translation>
+    </message>
+</context>
+<context>
+    <name>widget</name>
+    <message>
+        <source>Male</source>
+        <translation>Male</translation>
+    </message>
+    <message>
+        <source>Female</source>
+        <translation>Female</translation>
     </message>
 </context>
 </TS>

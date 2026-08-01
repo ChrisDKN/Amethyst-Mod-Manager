@@ -303,6 +303,8 @@ class MainWindow(QMainWindow):
     _handler_force_updated = Signal(str, str)
     # Language (.qm) background sync worker → UI thread (translations updated).
     _languages_synced = Signal()
+    # Ludusavi save-path data sync worker → UI thread (newer data adopted).
+    _ludusavi_synced = Signal()
     # Flatpak 32-bit extension repair worker → UI thread (install succeeded?).
     _i386_repair_done = Signal(bool)
     # NXM link received from a second instance via the IPC socket (fires on a
@@ -601,6 +603,7 @@ class MainWindow(QMainWindow):
         self._handlers_synced.connect(self._on_handlers_synced)
         self._handler_force_updated.connect(self._on_handler_force_updated)
         self._languages_synced.connect(self._on_languages_synced)
+        self._ludusavi_synced.connect(self._on_ludusavi_synced)
         try:
             from Utils.gh_cache import clear_if_version_changed
             clear_if_version_changed(_mm_version)
@@ -810,7 +813,8 @@ class MainWindow(QMainWindow):
         self._plugin_footer_stack = _CurrentPageStack()
         for _page in (self._plugins_footer(), self._mod_files_footer(),
                       self._data_footer(), self._downloads_footer(),
-                      self._text_files_footer(), self._overrides_footer()):
+                      self._text_files_footer(), self._overrides_footer(),
+                      self._saves_footer()):
             self._enable_height_for_width(_page)
             self._plugin_footer_stack.addWidget(_page)
         # The stack must also report height via heightForWidth so its parent
@@ -1534,6 +1538,84 @@ class MainWindow(QMainWindow):
         btns.addWidget(refresh)
         v.addLayout(btns)
         return bar
+
+    def _saves_footer(self) -> QWidget:
+        """Refresh / Open folder + a location summary, Filters and search, shown
+        under the plugins column when the Saves sub-tab is active."""
+        bar = QWidget()
+        bar.setObjectName("HeaderBar")
+        v = QVBoxLayout(bar)
+        v.setContentsMargins(8, 6, 8, 6)
+        v.setSpacing(6)
+        btns = FlowLayout(spacing=4)
+        refresh = self._text_button(self.tr("↻ Refresh"), compact=True)
+        refresh.setFixedHeight(self._FOOT_BTN_H)
+        refresh.clicked.connect(lambda: self._saves_view.mark_dirty())
+        btns.addWidget(refresh)
+        self._saves_open_btn = self._color_button(
+            self.tr("Open folder"), _c(self._pal, "BTN_PURPLE"), compact=True)
+        self._saves_open_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._saves_open_btn.setEnabled(False)
+        self._saves_open_btn.clicked.connect(lambda: self._saves_view.open_folder())
+        btns.addWidget(self._saves_open_btn)
+        # Export packs the save folder into a zip; Import puts one back (after
+        # moving the current contents aside).
+        self._saves_export_btn = self._color_button(
+            self.tr("Export"), _c(self._pal, "BTN_SUCCESS"), compact=True)
+        self._saves_export_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._saves_export_btn.setEnabled(False)
+        self._saves_export_btn.clicked.connect(lambda: self._saves_view.start_export())
+        btns.addWidget(self._saves_export_btn)
+        self._saves_import_btn = self._color_button(
+            self.tr("Import"), _c(self._pal, "BTN_WARN_ORANGE"), compact=True)
+        self._saves_import_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._saves_import_btn.setEnabled(False)
+        self._saves_import_btn.clicked.connect(lambda: self._saves_view.start_import())
+        btns.addWidget(self._saves_import_btn)
+        self._saves_status = QLabel("")
+        self._saves_status.setStyleSheet(f"color:{_c(self._pal,'TEXT_DIM')};")
+        btns.addWidget(self._saves_status)
+        v.addLayout(btns)
+
+        self._saves_filters_btn = self._color_button(
+            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
+        self._saves_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._saves_filters_btn.clicked.connect(self._toggle_saves_filters)
+        search_row = QHBoxLayout()
+        search_row.setContentsMargins(0, 0, 0, 0)
+        search_row.setSpacing(6)
+        search_row.addWidget(self._saves_filters_btn)
+        search_row.addWidget(self._search_icon_label())
+        search = QLineEdit()
+        search.setPlaceholderText(self.tr("Search saves… (try !.ess)"))
+        search.setClearButtonEnabled(True)
+        search.textChanged.connect(lambda t: self._saves_view._on_search(t))
+        search_row.addWidget(search, 1)
+        v.addLayout(search_row)
+        self._saves_search = search
+
+        self._saves_view.status_changed.connect(self._saves_status.setText)
+        # Open folder falls back to the save location itself, and Export/Import
+        # need a single unambiguous folder — so all three follow the view's
+        # state rather than the selection alone (and never run mid-transfer).
+        for sig in (self._saves_view.selection_changed,
+                    self._saves_view.busy_changed):
+            sig.connect(lambda *_: self._sync_saves_buttons())
+        self._saves_view.notify.connect(self._on_saves_notify)
+        return bar
+
+    def _sync_saves_buttons(self):
+        """Sync the Saves footer buttons to what the tab can currently do."""
+        can = self._saves_view.can_transfer()
+        self._saves_export_btn.setEnabled(can)
+        self._saves_import_btn.setEnabled(can)
+        self._saves_open_btn.setEnabled(self._saves_view.can_open())
+
+    def _on_saves_notify(self, message: str, kind: str):
+        """Progress/result line from a save export or import."""
+        self._saves_status.setText(message)
+        if kind in ("success", "error"):
+            self._notify(message, kind)
 
     def _downloads_footer(self) -> QWidget:
         """Install Selected / Remove Selected / Locations / Filters + search,
@@ -2392,6 +2474,7 @@ class MainWindow(QMainWindow):
         from gui_qt.safe_emit import safe_emit
         from Utils.gh_sync import (
             sync_custom_handlers, sync_plugins, sync_languages,
+            sync_ludusavi_manifest,
         )
         # Handler downloads land on a worker thread; marshal the "refresh games"
         # signal to the UI thread. Plugin sync only touches the plugin cache
@@ -2402,6 +2485,10 @@ class MainWindow(QMainWindow):
         # UI translations (.qm) → config languages/ folder. New/updated ones
         # apply on next launch (Qt can't hot-swap installed translators safely).
         sync_languages(on_changed=lambda: safe_emit(self._languages_synced))
+        # Ludusavi save-path data → config ludusavi/ folder. It reloads itself
+        # in place, so refresh the Saves tab (and its per-game visibility) once
+        # newer data lands.
+        sync_ludusavi_manifest(on_changed=lambda: safe_emit(self._ludusavi_synced))
 
     def _sweep_deploy_trash_startup(self):
         """Remove leftover restore-trash dirs for every configured game.
@@ -2705,6 +2792,18 @@ class MainWindow(QMainWindow):
                 pass
         # Now that the definitions are on disk, download their banner images.
         self._download_custom_game_images(view)
+
+    def _on_ludusavi_synced(self):
+        """Newer Ludusavi save-path data landed — the module already reloaded
+        itself, so re-evaluate which games get a Saves tab and rescan an open
+        one (a game that had no entry before may have one now)."""
+        try:
+            self._apply_plugins_supported()
+        except Exception:
+            pass
+        view = getattr(self, "_saves_view", None)
+        if view is not None:
+            view.mark_dirty()
 
     def _on_languages_synced(self):
         """A background/manual language sync wrote new/updated .qm files into the
@@ -10276,6 +10375,10 @@ class MainWindow(QMainWindow):
         self._text_files_filter_panel = self._build_text_files_filter_panel()
         self._text_files_filter_panel.setVisible(False)
         h.addWidget(self._text_files_filter_panel)
+        # The Saves filter panel shares the slot too.
+        self._saves_filter_panel = self._build_saves_filter_panel()
+        self._saves_filter_panel.setVisible(False)
+        h.addWidget(self._saves_filter_panel)
         # The Plugins filter panel shares the slot too.
         self._plugin_filter_panel = self._build_plugin_filter_panel()
         self._plugin_filter_panel.setVisible(False)
@@ -10300,6 +10403,7 @@ class MainWindow(QMainWindow):
             self._mod_files_filter_panel.setVisible(False)
             self._data_filter_panel.setVisible(False)
             self._downloads_filter_panel.setVisible(False)
+            self._saves_filter_panel.setVisible(False)
             self._plugin_filter_panel.setVisible(False)
             panel.setVisible(True)
             self._sync_text_files_filter_list()
@@ -10334,7 +10438,7 @@ class MainWindow(QMainWindow):
             self._data_filter_panel.setVisible(False)
             self._downloads_filter_panel.setVisible(False)
             self._text_files_filter_panel.setVisible(False)
-            self._plugin_filter_panel.setVisible(False)
+            self._saves_filter_panel.setVisible(False)
             panel.setVisible(True)
             self._apply_plugin_filters()
         else:
@@ -10398,6 +10502,44 @@ class MainWindow(QMainWindow):
         self._text_files_filter_panel.set_dynamic_items(
             "filetypes", self._text_files_view.filetype_items())
 
+    def _build_saves_filter_panel(self):
+        from gui_qt.filter_panel import FilterSidePanel
+        from gui_qt.saves_view import SavesView
+        panel = FilterSidePanel(SavesView.filter_spec(), title=self.tr("Filters"))
+        panel.changed.connect(self._on_saves_filter_changed)
+        panel.close_requested.connect(self._toggle_saves_filters)
+        self._saves_view.filetypes_changed.connect(self._sync_saves_filter_list)
+        return panel
+
+    def _toggle_saves_filters(self):
+        panel = self._saves_filter_panel
+        show = not panel.isVisible()
+        if show:
+            self._modlist_filter_panel.setVisible(False)
+            self._mod_files_filter_panel.setVisible(False)
+            self._data_filter_panel.setVisible(False)
+            self._downloads_filter_panel.setVisible(False)
+            self._text_files_filter_panel.setVisible(False)
+            self._plugin_filter_panel.setVisible(False)
+            panel.setVisible(True)
+            self._sync_saves_filter_list()
+        else:
+            panel.setVisible(False)
+
+    def _on_saves_filter_changed(self, state: dict):
+        self._saves_view.apply_filter_state(state)
+        active = self._saves_filter_panel.any_active()
+        b = getattr(self, "_saves_filters_btn", None)
+        if b is not None:
+            b.setProperty("active", active)
+            b.style().unpolish(b); b.style().polish(b)
+
+    def _sync_saves_filter_list(self):
+        if not self._saves_filter_panel.isVisible():
+            return
+        self._saves_filter_panel.set_dynamic_items(
+            "filetypes", self._saves_view.filetype_items())
+
     def _build_downloads_filter_panel(self):
         from gui_qt.filter_panel import FilterSidePanel
         panel = FilterSidePanel(self._downloads_view.filter_spec(), title=self.tr("Filters"))
@@ -10415,6 +10557,7 @@ class MainWindow(QMainWindow):
             self._mod_files_filter_panel.setVisible(False)
             self._data_filter_panel.setVisible(False)
             self._text_files_filter_panel.setVisible(False)
+            self._saves_filter_panel.setVisible(False)
             self._plugin_filter_panel.setVisible(False)
             panel.setVisible(True)
             self._sync_downloads_filter_list()
@@ -10456,6 +10599,7 @@ class MainWindow(QMainWindow):
             self._mod_files_filter_panel.setVisible(False)
             self._downloads_filter_panel.setVisible(False)
             self._text_files_filter_panel.setVisible(False)
+            self._saves_filter_panel.setVisible(False)
             self._plugin_filter_panel.setVisible(False)
             panel.setVisible(True)
             self._sync_data_filter_list()
@@ -10500,6 +10644,7 @@ class MainWindow(QMainWindow):
             self._data_filter_panel.setVisible(False)
             self._downloads_filter_panel.setVisible(False)
             self._text_files_filter_panel.setVisible(False)
+            self._saves_filter_panel.setVisible(False)
             self._plugin_filter_panel.setVisible(False)
             panel.setVisible(True)
             self._sync_mod_files_filter_list()
@@ -10875,6 +11020,9 @@ class MainWindow(QMainWindow):
             tffp = getattr(self, "_text_files_filter_panel", None)
             if tffp is not None and tffp.isVisible():
                 self._toggle_text_files_filters()
+            svfp = getattr(self, "_saves_filter_panel", None)
+            if svfp is not None and svfp.isVisible():
+                self._toggle_saves_filters()
             self._filter_plugins_was_visible = bool(
                 right is not None and right.isVisible())
             panel.setVisible(True)
@@ -11584,6 +11732,9 @@ class MainWindow(QMainWindow):
             fm3 = (staging.parent / "filemap.txt") if staging is not None else None
             self._text_files_view.configure(
                 self._gs.game, self._gs.profile_dir(), fm3, staging)
+        # Point the Saves tab at this game/profile (saves can be per-profile).
+        if hasattr(self, "_saves_view"):
+            self._saves_view.configure(self._gs.game, self._gs.profile or "")
         self._refresh_footer_toggle_labels()
         # Re-apply an active search + filters against the fresh row indices.
         # set_entries fired modelReset, which dropped the view's applied-hidden
@@ -11996,6 +12147,10 @@ class MainWindow(QMainWindow):
         self._plugin_view.game = self._gs.game
         self._plugin_view.profile_dir = self._gs.profile_dir()
         self._plugin_view.on_plugins_changed = self._reload_plugins
+        # The Saves details pane flags plugins a save was made with that are no
+        # longer in the load order — reuse the list we just loaded.
+        if hasattr(self, "_saves_view"):
+            self._saves_view.set_known_plugins([r.name for r in rows])
         self._apply_plugin_search()
         # Persistent red marker-strip ticks for plugins with missing masters
         # (Tk parity) — recomputed from the freshly-loaded PF_MISSING flags.
@@ -12634,6 +12789,22 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         return bool(getattr(game, "plugin_extensions", None)) if game else True
 
+    def _saves_supported(self) -> bool:
+        """Whether the Saves tab has anything to show for the active game: the
+        Ludusavi manifest knows it, or it keeps profile-specific saves. Games
+        with server-side saves (Fallout 76, Darktide…) have neither."""
+        game = self._gs.game
+        if game is None:
+            return False
+        if getattr(game, "profile_saves", False):
+            return True
+        from Utils.ludusavi_manifest import lookup
+        try:
+            steam_id = game.effective_steam_id() or game.steam_id
+        except Exception:
+            steam_id = getattr(game, "steam_id", "") or ""
+        return lookup(str(steam_id or ""), getattr(game, "name", "") or "") is not None
+
     def _apply_plugins_supported(self):
         """Hide the plugins column header + footer for games without plugins.
         Called on game/profile change (via _reload_plugins)."""
@@ -12663,6 +12834,18 @@ class MainWindow(QMainWindow):
                 self._plugin_stack.currentIndex() == self._OVERRIDES_TAB_IDX):
             # BG3 → another plugin-less game: leave the now-hidden tab.
             self._select_plugin_tab(self._DOWNLOADS_TAB_IDX)
+        # The Saves tab only shows for games with somewhere to look — hidden
+        # for titles the Ludusavi manifest doesn't know (server-side saves).
+        saves = self._saves_supported()
+        self._plugin_tab_labels[self._SAVES_TAB_IDX].setVisible(saves)
+        if not saves and self._plugin_stack.currentIndex() == self._SAVES_TAB_IDX:
+            self._select_plugin_tab(0)
+        if not saves:
+            # The Saves filter panel sits in the shared window-left slot — a
+            # game without a Saves tab must not leave it docked there.
+            svfp = getattr(self, "_saves_filter_panel", None)
+            if svfp is not None and svfp.isVisible():
+                svfp.setVisible(False)
         # Footer (page 0 of the swap stack = the plugin tools) is hidden only
         # while the Plugins sub-tab is active; other tabs keep their own footer.
         self._refresh_plugin_footer_visibility()
@@ -13286,7 +13469,8 @@ class MainWindow(QMainWindow):
         # Sub-tab strip — switches the stacked pages below.
         self._plugin_tab_names = [self.tr("Plugins"), self.tr("Mod Files"),
                                   self.tr("Text Files"), self.tr("Data"),
-                                  self.tr("Downloads"), self.tr("Overrides")]
+                                  self.tr("Downloads"), self.tr("Overrides"),
+                                  self.tr("Saves")]
         self._plugin_stack = QStackedWidget()
 
         # Page 0: the real Plugins view, with a framework-status banner above the
@@ -13343,10 +13527,15 @@ class MainWindow(QMainWindow):
         # strip (same anchor-highlight path the Plugins/Data tabs use).
         self._overrides_view.on_select_mod = self._on_data_select_mod
         self._plugin_stack.addWidget(self._overrides_view)
+        # Page 6: the Saves view (Ludusavi-resolved save folders, read-only).
+        from gui_qt.saves_view import SavesView
+        self._saves_view = SavesView(log_fn=self._append_log)
+        self._plugin_stack.addWidget(self._saves_view)
         self._TEXT_FILES_TAB_IDX = 2
         self._DATA_TAB_IDX = 3
         self._DOWNLOADS_TAB_IDX = 4
         self._OVERRIDES_TAB_IDX = 5
+        self._SAVES_TAB_IDX = 6
 
         tabs = QHBoxLayout()
         tabs.setSpacing(2)
@@ -13359,14 +13548,15 @@ class MainWindow(QMainWindow):
             lbl.mousePressEvent = lambda _e, idx=i: self._select_plugin_tab(idx)
             self._plugin_tab_labels.append(lbl)
         # Layout in display order: the Overrides label leads the strip (where
-        # Plugins sits — the two are never visible together). Its list index
-        # stays 5 so the click closure, styling loop and stack page all keep
-        # their numbering.
-        ov = self._OVERRIDES_TAB_IDX
-        for i in [ov] + [i for i in range(len(self._plugin_tab_labels))
-                         if i != ov]:
+        # Plugins sits — the two are never visible together), and Saves sits
+        # next to Text Files rather than at the end. List indices are unchanged
+        # so the click closures, styling loop and stack pages keep their
+        # numbering; only the visual order differs.
+        for i in [self._OVERRIDES_TAB_IDX, 0, 1, self._TEXT_FILES_TAB_IDX,
+                  self._SAVES_TAB_IDX, self._DATA_TAB_IDX,
+                  self._DOWNLOADS_TAB_IDX]:
             tabs.addWidget(self._plugin_tab_labels[i])
-        self._plugin_tab_labels[ov].setVisible(False)
+        self._plugin_tab_labels[self._OVERRIDES_TAB_IDX].setVisible(False)
         tabs.addStretch(1)
         # Framework-status banner ABOVE the tabs so it's visible on every
         # sub-tab (one colored row per framework the game declares).
@@ -13392,11 +13582,12 @@ class MainWindow(QMainWindow):
         data_idx = getattr(self, "_DATA_TAB_IDX", 3)
         dl_idx = getattr(self, "_DOWNLOADS_TAB_IDX", 4)
         ov_idx = getattr(self, "_OVERRIDES_TAB_IDX", 5)
+        sv_idx = getattr(self, "_SAVES_TAB_IDX", 6)
         if fstack is not None:
             fstack.setCurrentIndex(
                 1 if idx == 1 else 2 if idx == data_idx
                 else 3 if idx == dl_idx else 4 if idx == tf_idx
-                else 5 if idx == ov_idx else 0)
+                else 5 if idx == ov_idx else 6 if idx == sv_idx else 0)
             # Plugin-less games hide the plugin tools footer on the Plugins tab.
             self._refresh_plugin_footer_visibility()
         # Deferred build: only (re)build a tab's contents when it's shown.
@@ -13414,6 +13605,9 @@ class MainWindow(QMainWindow):
         ovv = getattr(self, "_overrides_view", None)
         if ovv is not None:
             ovv.set_visible_tab(idx == ov_idx)
+        svv = getattr(self, "_saves_view", None)
+        if svv is not None:
+            svv.set_visible_tab(idx == sv_idx)
         for i, lbl in enumerate(self._plugin_tab_labels):
             sel = i == idx
             # Theme foreground (dim when unselected) so the tab strip reads on
