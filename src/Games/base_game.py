@@ -1715,11 +1715,15 @@ class BaseGame(ABC):
         install matching the handler's exe name, then a Faugus install the
         same way. Subclasses with other non-Steam prefix sources
         (Heroic-only games, etc.) can override.
+
+        The game path is passed through so the Steam lookup can tell which
+        library owns the app — without it a stale compatdata in another
+        library can win.
         """
         for sid in [self.steam_id, *self.alt_steam_ids]:
             if not sid:
                 continue
-            found = _find_steam_prefix(sid)
+            found = _find_steam_prefix(sid, getattr(self, "_game_path", None))
             if found:
                 return found
         try:
@@ -1789,6 +1793,8 @@ class BaseGame(ABC):
                     # deliberate per-profile choice, so persist it globally rather
                     # than as a spurious override on a non-default profile.
                     self._save_global_prefix(found)
+            else:
+                self._heal_wrong_library_prefix()
             _ensure_lutris_prefix_compat(self._prefix_path)
             return bool(self._game_path)
         except (json.JSONDecodeError, OSError):
@@ -1796,6 +1802,53 @@ class BaseGame(ABC):
         self._game_path = None
         self._prefix_path = None
         return False
+
+    def _profile_overrides_prefix(self) -> bool:
+        """True when the active non-default profile pins its own prefix_path."""
+        if self._is_default_profile():
+            return False
+        try:
+            from Utils.profile_state import read_profile_settings
+            pset = read_profile_settings(self._active_profile_dir)
+        except Exception:
+            return False
+        return bool(isinstance(pset.get("prefix_path"), str) and pset["prefix_path"])
+
+    def _heal_wrong_library_prefix(self) -> None:
+        """Repoint a saved Steam prefix that lives in the wrong library.
+
+        Multi-library users who moved a game between drives can end up with a
+        stale ``compatdata/<id>`` in the old library. It is a real directory, so
+        load_paths() keeps it forever — auto-detection only runs when the saved
+        prefix is missing. Only Steam compatdata paths whose owning library is
+        known and different are touched; everything else is left alone.
+        """
+        prefix = self._prefix_path
+        if prefix is None:
+            return
+        if self._profile_overrides_prefix():
+            # A per-profile prefix is a deliberate choice — never second-guess it.
+            return
+        try:
+            from Utils.steam_finder import (prefix_is_in_wrong_library,
+                                            find_prefix as _fp)
+            for sid in [self.steam_id, *self.alt_steam_ids]:
+                if not sid:
+                    continue
+                game_path = getattr(self, "_game_path", None)
+                if not prefix_is_in_wrong_library(prefix, sid, game_path):
+                    continue
+                found = _fp(sid, game_path)
+                if not found or found == prefix:
+                    continue
+                from Utils.app_log import app_log
+                app_log(f"[{self.name}] Proton prefix {prefix} is in a Steam "
+                        f"library that does not own app {sid}; switching to {found}")
+                self._prefix_path = found
+                self._save_global_prefix(found)
+                return
+        except Exception:
+            pass
 
     def _save_global_prefix(self, prefix: Path) -> None:
         """Write an auto-located prefix into the global paths.json.

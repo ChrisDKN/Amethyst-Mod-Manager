@@ -672,56 +672,170 @@ def _all_proton_search_roots() -> list[Path]:
     return roots
 
 
-def find_prefix(steam_id: str) -> Path | None:
+def _compatdata_prefix(compatdata: Path) -> Path | None:
+    """Return the prefix dir for a compatdata/<id> folder, or None.
+
+    Classic layout keeps the prefix in ``pfx/``; the flat umu/Proton layout
+    puts ``drive_c`` straight into the compatdata folder.
     """
-    Locate the Steam compatibility prefix directory for a given App ID.
+    pfx = compatdata / "pfx"
+    if pfx.is_dir():
+        return pfx
+    if (compatdata / "drive_c").is_dir():
+        return compatdata
+    return None
 
-    Steam stores per-game Proton prefixes under:
-        <steam_root>/steamapps/compatdata/<steam_id>/pfx/
 
-    Searches every known Steam root candidate first, then falls back to
-    extra library folders parsed from libraryfolders.vdf (e.g. SD card or
-    secondary drive libraries), since compatdata lives alongside the game.
+def all_steamapps_dirs() -> list[Path]:
+    """Every ``steamapps/`` directory Steam may use, deduplicated by real path.
 
-    Args:
-        steam_id: The Steam App ID as a string, e.g. '377160' for Fallout 4.
+    The known client roots come first, then the extra libraries listed in
+    libraryfolders.vdf (SD card, second drive, NAS). ``~/.steam/steam`` is
+    usually a symlink to the standard root, hence the resolve()-based dedup.
     """
-    if not steam_id:
-        return None
-
-    def _check_compatdata(compatdata: Path) -> Path | None:
-        """Return the prefix dir for a compatdata/<id> folder, or None."""
-        pfx = compatdata / "pfx"
-        if pfx.is_dir():
-            return pfx
-        if (compatdata / "drive_c").is_dir():
-            return compatdata
-        return None
-
-    # Primary: check known Steam root candidates
-    for steam_root in _STEAM_CANDIDATES:
-        result = _check_compatdata(steam_root / "steamapps" / "compatdata" / steam_id)
-        if result:
-            return result
-
-    # Secondary: check extra library folders (SD card, secondary drives, etc.)
-    # parse_vdf_libraries returns steamapps/common paths; parent is steamapps/
+    dirs: list[Path] = []
     seen: set[Path] = set()
+
+    def _add(steamapps: Path) -> None:
+        try:
+            resolved = steamapps.resolve()
+        except Exception:
+            resolved = steamapps
+        if resolved not in seen:
+            seen.add(resolved)
+            dirs.append(steamapps)
+
+    for steam_root in _STEAM_CANDIDATES:
+        _add(steam_root / "steamapps")
+
     for steam_root in _STEAM_CANDIDATES:
         vdf_path = steam_root / "steamapps" / _VDF_FILENAME
         if not vdf_path.is_file():
             continue
         for common in parse_vdf_libraries(vdf_path):
-            steamapps = common.parent
-            resolved = steamapps.resolve()
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            result = _check_compatdata(steamapps / "compatdata" / steam_id)
-            if result:
-                return result
+            # common is .../steamapps/common; its parent is the steamapps dir
+            _add(common.parent)
+
+    return dirs
+
+
+def _steamapps_dir_of(game_path: "Path | str | None") -> Path | None:
+    """Return the ``steamapps/`` dir a game install sits under, or None.
+
+    Steam games live at ``<library>/steamapps/common/<installdir>``, so the
+    library that owns the game is an ancestor lookup away. Non-Steam installs
+    (Heroic, GOG, a manual copy) have no such ancestor and yield None.
+    """
+    if not game_path:
+        return None
+    try:
+        path = Path(game_path)
+        for parent in path.parents:
+            if parent.name.lower() == "steamapps":
+                return parent
+    except Exception:
+        pass
+    return None
+
+
+def owning_steamapps_dir(steam_id: str, game_path: "Path | str | None" = None) -> Path | None:
+    """Return the ``steamapps/`` dir of the library that owns *steam_id*.
+
+    Steam creates compatdata in the same library the game is installed in, so
+    ownership — not search order — decides which prefix is the live one. A user
+    with two libraries can easily have a stale compatdata left behind in the
+    home library after moving the game to another drive; searching by location
+    would keep finding that dead prefix (GH: second-library prefix mismatch).
+
+    Ownership is established from the configured *game_path* when we have one,
+    otherwise from the ``appmanifest_<id>.acf`` that Steam writes into the
+    owning library. Returns None when neither signal is available.
+    """
+    if not steam_id:
+        return None
+
+    from_game = _steamapps_dir_of(game_path)
+    if from_game is not None and (from_game / f"appmanifest_{steam_id}.acf").is_file():
+        return from_game
+
+    for steamapps in all_steamapps_dirs():
+        if (steamapps / f"appmanifest_{steam_id}.acf").is_file():
+            return steamapps
+
+    # No manifest anywhere (game uninstalled from Steam's view, or a manual
+    # copy into a library folder) — trust the game path's library if we have one.
+    return from_game
+
+
+def find_prefix(steam_id: str, game_path: "Path | str | None" = None) -> Path | None:
+    """
+    Locate the Steam compatibility prefix directory for a given App ID.
+
+    Steam stores per-game Proton prefixes under:
+        <library>/steamapps/compatdata/<steam_id>/pfx/
+
+    The library that actually owns the app is checked first, so a stale
+    compatdata in a different library never shadows the live prefix. Falls back
+    to scanning every known Steam root and then every library listed in
+    libraryfolders.vdf, which still covers a game installed in one library but
+    never launched there.
+
+    Args:
+        steam_id: The Steam App ID as a string, e.g. '377160' for Fallout 4.
+        game_path: The game's install directory when known. Used to identify
+            the owning library without reading any appmanifest.
+    """
+    if not steam_id:
+        return None
+
+    # Primary: the library that owns this App ID.
+    owner = owning_steamapps_dir(steam_id, game_path)
+    if owner is not None:
+        result = _compatdata_prefix(owner / "compatdata" / steam_id)
+        if result:
+            return result
+
+    # Fallback: known Steam roots first, then the extra libraries from the VDF.
+    for steamapps in all_steamapps_dirs():
+        result = _compatdata_prefix(steamapps / "compatdata" / steam_id)
+        if result:
+            return result
 
     return None
+
+
+def prefix_is_in_wrong_library(prefix: "Path | str | None", steam_id: str,
+                               game_path: "Path | str | None" = None) -> bool:
+    """True when *prefix* is a Steam compatdata prefix in a library that does
+    not own *steam_id*, and the owning library has a usable prefix instead.
+
+    Deliberately narrow: it only fires for Steam-shaped compatdata paths whose
+    owning library is known and demonstrably different, so a hand-picked
+    Heroic/Lutris/Faugus prefix or a custom path is never second-guessed.
+    """
+    if not prefix or not steam_id:
+        return False
+    try:
+        path = Path(prefix)
+    except Exception:
+        return False
+
+    # Only Steam compatdata layouts: .../steamapps/compatdata/<id>[/pfx]
+    compatdata = path if path.name == steam_id else path.parent
+    if compatdata.name != steam_id or compatdata.parent.name.lower() != "compatdata":
+        return False
+    current = compatdata.parent.parent  # the steamapps dir holding it
+
+    owner = owning_steamapps_dir(steam_id, game_path)
+    if owner is None:
+        return False
+    try:
+        if owner.resolve() == current.resolve():
+            return False
+    except Exception:
+        return False
+
+    return _compatdata_prefix(owner / "compatdata" / steam_id) is not None
 
 
 def game_steam_id(game) -> str:

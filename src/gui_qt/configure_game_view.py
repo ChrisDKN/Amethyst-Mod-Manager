@@ -1033,9 +1033,18 @@ class ConfigureGameView(QWidget):
     def _start_prefix_scan(self):
         self._prefix_status.setText(self.tr("Scanning for Proton prefix…"))
         self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
-        threading.Thread(target=self._prefix_scan_worker, daemon=True).start()
+        # Read the game path here, on the main thread, so the Steam lookup can
+        # tell which library owns the app (a stale compatdata in another library
+        # would otherwise win).
+        try:
+            game_path = self._found_path or (self._game.get_game_path()
+                                             if self._game else None)
+        except Exception:
+            game_path = None
+        threading.Thread(target=self._prefix_scan_worker, args=(game_path,),
+                         daemon=True).start()
 
-    def _prefix_scan_worker(self):
+    def _prefix_scan_worker(self, game_path=None):
         g = self._game
         found = None
         lutris_slug = None
@@ -1046,7 +1055,7 @@ class ConfigureGameView(QWidget):
             sid = getattr(g, "steam_id", None)
             ids = [sid] + [str(s) for s in getattr(g, "alt_steam_ids", []) or [] if s]
             for s in [x for x in ids if x]:
-                found = find_prefix(s)
+                found = find_prefix(s, game_path)
                 if found:
                     break
             if not found and _heroic_app_names(g):
