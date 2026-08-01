@@ -1712,8 +1712,9 @@ class BaseGame(ABC):
         """Locate a Proton prefix for this game during load_paths().
 
         Tries ``steam_id`` first, then any ``alt_steam_ids``, then a Lutris
-        install matching the handler's exe name. Subclasses with other
-        non-Steam prefix sources (Heroic-only games, etc.) can override.
+        install matching the handler's exe name, then a Faugus install the
+        same way. Subclasses with other non-Steam prefix sources
+        (Heroic-only games, etc.) can override.
         """
         for sid in [self.steam_id, *self.alt_steam_ids]:
             if not sid:
@@ -1728,6 +1729,17 @@ class BaseGame(ABC):
                 if not exe:
                     continue
                 info = find_lutris_game_info_by_exe(exe)
+                if info is not None and info[1] is not None:
+                    return info[1]
+        except Exception:
+            pass
+        try:
+            from Utils.faugus_finder import find_faugus_game_info_by_exe
+            for exe in [getattr(self, "exe_name", None),
+                        *(getattr(self, "exe_name_alts", []) or [])]:
+                if not exe:
+                    continue
+                info = find_faugus_game_info_by_exe(exe)
                 if info is not None and info[1] is not None:
                     return info[1]
         except Exception:
@@ -1913,6 +1925,28 @@ class BaseGame(ABC):
             if self._paths_file.is_file():
                 data = json.loads(self._paths_file.read_text(encoding="utf-8")) or {}
             data["lutris_slug"] = slug or ""
+            self._paths_file.parent.mkdir(parents=True, exist_ok=True)
+            self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    def set_faugus_gameid(self, gameid: str | None) -> None:
+        """Persist a discovered Faugus gameid into paths.json.
+
+        Written when the Configure-Game scan resolves the game via Faugus.
+        Launch code still prefers live detection against games.json, so
+        this field is an informational fallback rather than the source of
+        truth.
+        """
+        try:
+            self.save_paths()
+        except Exception:
+            pass
+        try:
+            data: dict = {}
+            if self._paths_file.is_file():
+                data = json.loads(self._paths_file.read_text(encoding="utf-8")) or {}
+            data["faugus_gameid"] = gameid or ""
             self._paths_file.parent.mkdir(parents=True, exist_ok=True)
             self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except (OSError, json.JSONDecodeError):

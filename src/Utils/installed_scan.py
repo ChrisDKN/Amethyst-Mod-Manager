@@ -58,6 +58,7 @@ class InstalledIndex:
         self._build_steam()
         self._build_heroic()
         self._build_lutris()
+        self._build_faugus()
 
     # ------------------------------------------------------------------
     # Steam
@@ -283,12 +284,44 @@ class InstalledIndex:
         return False
 
     # ------------------------------------------------------------------
+    # Faugus
+    # ------------------------------------------------------------------
+
+    def _build_faugus(self) -> None:
+        # Per Faugus game: lowercase path segments of its configured exe,
+        # read from games.json in a single pass (same shape as the Lutris
+        # index above).
+        self._faugus_exes: list[list[str]] = []
+        try:
+            from Utils.faugus_finder import build_installed_exe_index
+            self._faugus_exes = build_installed_exe_index()
+        except Exception as exc:
+            self._log(f"faugus index build failed, continuing with none: {exc}")
+            self._faugus_exes = []
+
+    def _faugus_by_exe(self, exe_name: str) -> bool:
+        """True if any Faugus game's exe tail matches exe_name (same rules
+        as _lutris_by_exe)."""
+        rel_parts = _exe_parts(exe_name)
+        if not rel_parts:
+            return False
+        for stored_parts in self._faugus_exes:
+            if len(rel_parts) > 1:
+                if (len(stored_parts) >= len(rel_parts)
+                        and stored_parts[-len(rel_parts):] == rel_parts):
+                    return True
+            elif stored_parts and stored_parts[-1] == rel_parts[0]:
+                return True
+        return False
+
+    # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def game_installed(self, game) -> bool:
-        """True if *game* (a handler object) appears installed via Steam or
-        Heroic. Same detection order as the old per-game finder calls."""
+        """True if *game* (a handler object) appears installed via Steam,
+        Heroic, Lutris or Faugus. Same detection order as the old per-game
+        finder calls."""
         exe_name = getattr(game, "exe_name", "") or ""
         all_exe = [e for e in
                    ([exe_name] + list(getattr(game, "exe_name_alts", []) or []))
@@ -320,6 +353,10 @@ class InstalledIndex:
 
         for exe in all_exe:
             if self._lutris_by_exe(exe):
+                return True
+
+        for exe in all_exe:
+            if self._faugus_by_exe(exe):
                 return True
 
         return False

@@ -68,13 +68,27 @@ def _lutris_available(game) -> bool:
         return False
 
 
+def _faugus_available(game) -> bool:
+    """True when a Faugus install exists and the game has an exe to match
+    against it (same exe-name-keyed detection as Lutris)."""
+    if not getattr(game, "exe_name", None):
+        return False
+    try:
+        from Utils.faugus_finder import find_faugus_roots
+        return bool(find_faugus_roots())
+    except Exception:
+        return False
+
+
 class _ScanSignals(QObject):
     # Scan results carry everything the worker discovered so the worker thread
     # never writes view attributes directly (the slots run on the GUI thread).
-    game_found = Signal(object, str, object, object, object)
-    # ^ (path|None, source, prefix|None, lutris_slug|None, heroic_app|None)
+    game_found = Signal(object, str, object, object, object, object)
+    # ^ (path|None, source, prefix|None, lutris_slug|None, heroic_app|None,
+    #    faugus_gameid|None)
     drive_scan_found = Signal(object)       # (path|None) — full-drive Scan button
-    prefix_found = Signal(object, object)   # (path|None, lutris_slug|None)
+    prefix_found = Signal(object, object, object)
+    # ^ (path|None, lutris_slug|None, faugus_gameid|None)
     # Browse (portal) picks — fired from the portal WORKER thread, so they must
     # be marshalled to the GUI thread via a Signal before touching any widget.
     game_picked = Signal(object)            # (path|None)
@@ -105,6 +119,7 @@ class ConfigureGameView(QWidget):
         self._found_prefix: Path | None = None
         self._found_lutris_slug: str | None = None
         self._found_heroic_app: str | None = None
+        self._found_faugus_gameid: str | None = None
         self._custom_staging: Path | None = None
 
         # Closing the tab deleteLater()'s the view while scan workers may still
@@ -316,7 +331,8 @@ class ConfigureGameView(QWidget):
         v.addWidget(self._section_header(self.tr("Proton Prefix (compatdata/pfx)")))
         has_prefix_src = bool(getattr(g, "steam_id", None)
                               or _heroic_app_names(g)
-                              or _lutris_available(g))
+                              or _lutris_available(g)
+                              or _faugus_available(g))
         self._prefix_status = self._status(
             self.tr("Scanning for prefix…") if has_prefix_src
             else self.tr("No launcher ID — prefix not applicable."),
@@ -693,18 +709,20 @@ class ConfigureGameView(QWidget):
     def _set_game(self, path: Path, configured=False, source="steam"):
         self._found_path = path
         self._game_edit.setText(str(path))
-        # Steam/Heroic/Lutris library detection already verified the exe lives
-        # here, so trust those sources. For manual browse / drive-scan / typed
+        # Steam/Heroic/Lutris/Faugus library detection already verified the exe
+        # lives here, so trust those sources. For manual browse / drive-scan / typed
         # paths the folder is whatever the user picked — verify the exe is
         # actually inside and warn (rather than silently claiming "Found") if
         # it isn't.
-        if source in ("steam", "heroic", "lutris") or configured:
+        if source in ("steam", "heroic", "lutris", "faugus") or configured:
             if configured:
                 msg, tone = "Game already configured. You can update the path below.", "TEXT_OK"
             elif source == "heroic":
                 msg, tone = "Found via Heroic Games Launcher.", "TEXT_OK"
             elif source == "lutris":
                 msg, tone = self.tr("Found via Lutris."), "TEXT_OK"
+            elif source == "faugus":
+                msg, tone = self.tr("Found via Faugus Launcher."), "TEXT_OK"
             else:
                 msg, tone = "Found via Steam libraries.", "TEXT_OK"
         else:
@@ -855,6 +873,7 @@ class ConfigureGameView(QWidget):
         found_prefix = None
         lutris_slug = None
         heroic_app = None
+        faugus_gameid = None
         game_name = getattr(g, "name", repr(g))
         app_log(f"[Configure Game] Auto-detecting: {game_name}")
         try:
@@ -898,6 +917,16 @@ class ConfigureGameView(QWidget):
                         app_log(f"[Configure Game] Found via Lutris ({exe}): {found}")
                         break
             if not found:
+                from Utils.faugus_finder import find_faugus_game_info_by_exe
+                app_log(f"[Configure Game] Checking Faugus (exe names: {exe_names})")
+                for exe in exe_names:
+                    info = find_faugus_game_info_by_exe(exe)
+                    if info:
+                        found, found_prefix, faugus_gameid = info
+                        source = "faugus"
+                        app_log(f"[Configure Game] Found via Faugus ({exe}): {found}")
+                        break
+            if not found:
                 libs = find_steam_libraries()
                 app_log(f"[Configure Game] Steam libraries found: "
                         f"{libs if libs else 'none'}")
@@ -931,13 +960,16 @@ class ConfigureGameView(QWidget):
         if not found:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
         safe_emit(self._sig.game_found, found, source, found_prefix,
-                  lutris_slug, heroic_app)
+                  lutris_slug, heroic_app, faugus_gameid)
 
-    def _on_game_found(self, found, source, prefix, lutris_slug, heroic_app):
+    def _on_game_found(self, found, source, prefix, lutris_slug, heroic_app,
+                       faugus_gameid):
         if lutris_slug:
             self._found_lutris_slug = lutris_slug
         if heroic_app:
             self._found_heroic_app = heroic_app
+        if faugus_gameid:
+            self._found_faugus_gameid = faugus_gameid
         if found:
             self._set_game(Path(found), source=source)
             if prefix is not None:
@@ -1007,6 +1039,7 @@ class ConfigureGameView(QWidget):
         g = self._game
         found = None
         lutris_slug = None
+        faugus_gameid = None
         try:
             from Utils.steam_finder import find_prefix
             from Utils.heroic_finder import find_heroic_prefix
@@ -1018,23 +1051,34 @@ class ConfigureGameView(QWidget):
                     break
             if not found and _heroic_app_names(g):
                 found = find_heroic_prefix(_heroic_app_names(g))
+            exe_names = [getattr(g, "exe_name", None)] + list(
+                getattr(g, "exe_name_alts", []) or [])
+            exe_names = [e for e in exe_names if e]
             if not found:
                 from Utils.lutris_finder import find_lutris_game_info_by_exe
-                exe_names = [getattr(g, "exe_name", None)] + list(
-                    getattr(g, "exe_name_alts", []) or [])
-                for exe in [e for e in exe_names if e]:
+                for exe in exe_names:
                     info = find_lutris_game_info_by_exe(exe)
                     if info and info[1] is not None:
                         found = info[1]
                         lutris_slug = info[2]
                         break
+            if not found:
+                from Utils.faugus_finder import find_faugus_game_info_by_exe
+                for exe in exe_names:
+                    info = find_faugus_game_info_by_exe(exe)
+                    if info and info[1] is not None:
+                        found = info[1]
+                        faugus_gameid = info[2]
+                        break
         except Exception:
             found = None
-        safe_emit(self._sig.prefix_found, found, lutris_slug)
+        safe_emit(self._sig.prefix_found, found, lutris_slug, faugus_gameid)
 
-    def _on_prefix_found(self, found, lutris_slug):
+    def _on_prefix_found(self, found, lutris_slug, faugus_gameid):
         if lutris_slug:
             self._found_lutris_slug = lutris_slug
+        if faugus_gameid:
+            self._found_faugus_gameid = faugus_gameid
         if found:
             self._set_prefix(Path(found))
         else:
@@ -1132,6 +1176,8 @@ class ConfigureGameView(QWidget):
             g.set_lutris_slug(self._found_lutris_slug)
         if self._found_heroic_app and hasattr(g, "set_heroic_app_name"):
             g.set_heroic_app_name(self._found_heroic_app)
+        if self._found_faugus_gameid and hasattr(g, "set_faugus_gameid"):
+            g.set_faugus_gameid(self._found_faugus_gameid)
         if hasattr(g, "set_deploy_mode"):
             g.set_deploy_mode(mode)
         if hasattr(g, "set_staging_path"):

@@ -694,8 +694,9 @@ def find_umu_run() -> Path | None:
 
     Preference: a system install on PATH (umu-launcher package), then the
     copy Lutris downloads into its runtime (native install, then Flatpak
-    Lutris's data dir), then Heroic's copy (modern Heroic launches Proton
-    games through umu too). The launcher copies are self-contained zipapps
+    Lutris's data dir), then Faugus's downloaded copy, then Heroic's copy
+    (modern Heroic and Faugus launch Proton games through umu too). The
+    launcher copies are self-contained zipapps
     with a ``python3`` shebang, so they run fine outside their launcher.
     """
     cand = shutil.which("umu-run")
@@ -707,6 +708,14 @@ def find_umu_run() -> Path | None:
     for data_dir in (_XDG_DATA, _HOME / ".local" / "share",
                      _FLATPAK_APP / "data"):
         p = data_dir / "lutris" / "runtime" / "umu" / "umu-run"
+        if p.is_file():
+            return p
+    # Faugus downloads its own copy into its data dir (host-visible for both
+    # the native and flatpak flavors).
+    for data_dir in (_XDG_DATA, _HOME / ".local" / "share",
+                     _HOME / ".var" / "app" / "io.github.Faugus.faugus-launcher"
+                     / "data"):
+        p = data_dir / "faugus-launcher" / "umu-run"
         if p.is_file():
             return p
     # Heroic: a downloaded copy under its tools dir, or the build bundled

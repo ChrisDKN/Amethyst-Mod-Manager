@@ -19,7 +19,11 @@ def resolve_compat_data(prefix_path: Path) -> Path:
     itself (config_info lives alongside the pfx symlink, not one level up).
     Lutris layout: the prefix root IS the compat data — marked by lutris.json
     (present even before the first run writes config_info), or by the same
-    self-referencing pfx symlink umu creates."""
+    self-referencing pfx symlink umu creates.
+    Faugus layout: umu-made like Lutris's, but with no marker file at all —
+    a fresh, never-launched prefix has neither config_info nor the pfx
+    symlink, so it is identified by its games.json entry instead (checked
+    last; the common cases short-circuit without reading games.json)."""
     if (prefix_path / "config_info").is_file():
         return prefix_path
     parent = prefix_path.parent
@@ -32,6 +36,12 @@ def resolve_compat_data(prefix_path: Path) -> Path:
         if pfx.is_symlink() and pfx.resolve() == prefix_path.resolve():
             return prefix_path
     except OSError:
+        pass
+    try:
+        from Utils.faugus_finder import is_faugus_prefix
+        if is_faugus_prefix(prefix_path):
+            return prefix_path
+    except Exception:
         pass
     return parent
 

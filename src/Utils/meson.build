@@ -59,6 +59,7 @@ py.install_sources(
   'exe_icon.py',
   'exe_launch.py',
   'extract_budget.py',
+  'faugus_finder.py',
   'file_search.py',
   'filemap.py',
   'flatpak_i386.py',

@@ -16,9 +16,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# ~/.var/app is excluded from --filesystem=home; these two are granted
+# ~/.var/app is excluded from --filesystem=home; these are granted
 # explicitly in the manifest.
-_GRANTED_VAR_APPS = ("com.valvesoftware.Steam", "com.heroicgameslauncher.hgl")
+_GRANTED_VAR_APPS = ("com.valvesoftware.Steam", "com.heroicgameslauncher.hgl",
+                     "net.lutris.Lutris", "io.github.Faugus.faugus-launcher")
 
 # Non-home trees granted in the manifest.
 _GRANTED_ROOTS = ("/run/media", "/media", "/mnt")

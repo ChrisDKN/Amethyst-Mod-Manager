@@ -1,7 +1,8 @@
 """Tracks whether a Play click actually got a process running.
 
-A launch can fail in a dozen places — no Proton found, no Steam/Heroic/Lutris
-route matched, the xdg-open handler chain exhausted, the spawned process dying
+A launch can fail in a dozen places — no Proton found, no
+Steam/Heroic/Lutris/Faugus route matched, the xdg-open handler chain
+exhausted, the spawned process dying
 instantly — and several of them only find out from a watcher thread long after
 the launch call returned. Rather than thread a callback through every one of
 those paths, the Play handler opens a report for the duration of the launch:

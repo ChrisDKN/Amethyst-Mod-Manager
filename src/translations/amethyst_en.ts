@@ -1624,6 +1624,10 @@ The default profile's settings are not affected.</translation>
         <translation>Found via Lutris.</translation>
     </message>
     <message>
+        <source>Found via Faugus Launcher.</source>
+        <translation>Found via Faugus Launcher.</translation>
+    </message>
+    <message>
         <source>Executable ({0}) not found in this folder — double-check the path.</source>
         <translation>Executable ({0}) not found in this folder — double-check the path.</translation>
     </message>
@@ -4339,8 +4343,8 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Launch via</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -5607,6 +5611,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</translation>
     </message>
     <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead — the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead — the deployed mods stay active however the game is started.</translation>
+    </message>
+    <message>
         <source>Executable not found: {0}</source>
         <translation>Executable not found: {0}</translation>
     </message>
@@ -5825,14 +5837,6 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>the game</source>
         <translation>the game</translation>
-    </message>
-    <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
-        <translation>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</translation>
     </message>
     <message>
         <source>Details: {0}</source>
@@ -9946,6 +9950,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</source>
         <translation>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</translation>
+    </message>
+    <message>
+        <source>Faugus Data Location</source>
+        <translation>Faugus Data Location</translation>
+    </message>
+    <message>
+        <source>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</source>
+        <translation>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</translation>
+    </message>
+    <message>
+        <source>Faugus AppImage</source>
+        <translation>Faugus AppImage</translation>
+    </message>
+    <message>
+        <source>Path to the Faugus Launcher AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Faugus.</source>
+        <translation>Path to the Faugus Launcher AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Faugus.</translation>
     </message>
     <message>
         <source>Steam libraryfolders.vdf</source>

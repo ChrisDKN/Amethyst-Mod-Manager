@@ -791,6 +791,18 @@ class SettingsView(QWidget):
                  "directly. Only needed for AppImage installs — leave blank for "
                  "Flatpak or native Lutris."))
         self._path_row(
+            g, self.tr("Faugus Data Location"),
+            uc.load_faugus_data_path, uc.save_faugus_data_path,
+            help=self.tr("Folder containing Faugus Launcher's games.json. "
+                 "Blank = auto-detect (Flatpak and native locations)."))
+        self._file_row(
+            g, self.tr("Faugus AppImage"),
+            uc.load_faugus_appimage_path, uc.save_faugus_appimage_path,
+            filters=[("AppImage", ["*.AppImage", "*.appimage"]), ("All files", ["*"])],
+            help=self.tr("Path to the Faugus Launcher AppImage, so Play can "
+                 "launch it directly. Only needed for AppImage installs — leave "
+                 "blank for Flatpak or native Faugus."))
+        self._path_row(
             g, self.tr("Steam libraryfolders.vdf"),
             uc.load_steam_libraries_vdf_path, uc.save_steam_libraries_vdf_path,
             help=self.tr("Path to libraryfolders.vdf (or its folder). Blank = auto-detect "

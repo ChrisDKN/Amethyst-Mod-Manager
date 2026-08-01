@@ -83,8 +83,8 @@ STEAMLESS_NO_UMU_MESSAGE = (
     "no Steam client and no umu-run launcher were found. Proton needs one of "
     "the two: without Steam's runtime a raw Proton call runs Wine bare, which "
     "fails with missing-FreeType / \"no driver could be loaded\" errors. "
-    "umu-run ships with Heroic (Wine Manager) and Lutris, or install the "
-    "umu-launcher package."
+    "umu-run ships with Heroic (Wine Manager), Lutris and Faugus, or install "
+    "the umu-launcher package."
 )
 
 

@@ -225,6 +225,17 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
                        f"{proton_script.parent.name}.")
 
     if proton_script is None:
+        # Faugus records the game's runner in games.json.
+        try:
+            from Utils.faugus_finder import find_faugus_proton_for_prefix
+            proton_script = find_faugus_proton_for_prefix(prefix_path)
+        except Exception:
+            proton_script = None
+        if proton_script is not None:
+            log_fn(f"Proton Tools: using Faugus-configured Proton "
+                   f"{proton_script.parent.name}.")
+
+    if proton_script is None:
         preferred_runner = read_prefix_runner(compat_data)
         proton_script = find_any_installed_proton(preferred_runner)
         if proton_script is None:

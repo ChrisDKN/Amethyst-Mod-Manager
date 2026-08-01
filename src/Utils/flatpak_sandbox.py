@@ -31,12 +31,14 @@ LogFn = Callable[[str], None]
 HEROIC_FLATPAK_ID = "com.heroicgameslauncher.hgl"
 STEAM_FLATPAK_ID = "com.valvesoftware.Steam"
 LUTRIS_FLATPAK_ID = "net.lutris.Lutris"
+FAUGUS_FLATPAK_ID = "io.github.Faugus.faugus-launcher"
 
 # Friendly launcher names for user-facing messages.
 _APP_NAMES = {
     HEROIC_FLATPAK_ID: "Heroic",
     STEAM_FLATPAK_ID: "Steam",
     LUTRIS_FLATPAK_ID: "Lutris",
+    FAUGUS_FLATPAK_ID: "Faugus",
 }
 
 _HOME = Path.home()
@@ -104,8 +106,9 @@ def sandbox_app_for_game(game, game_root: Optional[Path]) -> Optional[str]:
         read straight off the path;
       * it sits in one of the flatpak Steam's EXTERNAL libraries (SD card /
         second drive) — files outside ~/.var/app, process still sandboxed;
-      * it is a Heroic- or Lutris-managed install and that launcher's
-        flatpak exists — same shape as the Steam external-library case.
+      * it is a Heroic-, Lutris- or Faugus-managed install and that
+        launcher's flatpak exists — same shape as the Steam external-library
+        case.
     If the user also has the native launcher installed and that one actually
     starts the game, the extra override is harmless.
     """
@@ -131,6 +134,13 @@ def sandbox_app_for_game(game, game_root: Optional[Path]) -> Optional[str]:
             from Utils.exe_launch import game_is_lutris_install
             if game_is_lutris_install(game):
                 return LUTRIS_FLATPAK_ID
+        except Exception:
+            pass
+    if (_HOME / ".var" / "app" / FAUGUS_FLATPAK_ID).is_dir():
+        try:
+            from Utils.exe_launch import game_is_faugus_install
+            if game_is_faugus_install(game):
+                return FAUGUS_FLATPAK_ID
         except Exception:
             pass
     return None

@@ -1431,6 +1431,56 @@ def save_lutris_appimage_path(value: str) -> None:
     _write_ini(parser, path)
 
 
+def load_faugus_data_path() -> str:
+    """Return the user-configured Faugus data directory path, or '' if unset."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return ""
+    try:
+        parser = _read_ini(path)
+        return parser.get(_PATHS_SECTION, "faugus_data_path", fallback="").strip()
+    except Exception:
+        return ""
+
+
+def save_faugus_data_path(value: str) -> None:
+    """Persist the Faugus data directory path to amethyst.ini. Pass '' to clear."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _PATHS_SECTION not in parser:
+        parser[_PATHS_SECTION] = {}
+    parser[_PATHS_SECTION]["faugus_data_path"] = value.strip()
+    _write_ini(parser, path)
+
+
+def load_faugus_appimage_path() -> str:
+    """Return the user-configured Faugus AppImage path, or '' if unset."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return ""
+    try:
+        parser = _read_ini(path)
+        return parser.get(_PATHS_SECTION, "faugus_appimage_path", fallback="").strip()
+    except Exception:
+        return ""
+
+
+def save_faugus_appimage_path(value: str) -> None:
+    """Persist the Faugus AppImage path to amethyst.ini. Pass '' to clear."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _PATHS_SECTION not in parser:
+        parser[_PATHS_SECTION] = {}
+    parser[_PATHS_SECTION]["faugus_appimage_path"] = value.strip()
+    _write_ini(parser, path)
+
+
 def load_steam_libraries_vdf_path() -> str:
     """Return the user-configured path to Steam's libraryfolders.vdf, or '' if unset."""
     path = get_ui_config_path()

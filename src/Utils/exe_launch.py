@@ -365,7 +365,7 @@ def _write_launch_mode_key(game, key: str, value) -> None:
 
 def load_launch_mode(game, exe_name: str) -> str:
     """Saved launch mode for exe_name: 'auto' | 'steam' | 'heroic' |
-    'lutris' | 'none'."""
+    'lutris' | 'faugus' | 'none'."""
     return _read_launch_mode_data(game).get(exe_name, "auto")
 
 
@@ -749,8 +749,44 @@ def game_is_lutris_install(game) -> bool:
         return False
 
 
+def faugus_gameids_for_launch(game) -> list:
+    """Faugus gameids for launch — detected by matching the game's exe
+    against Faugus's games.json, plus the saved paths.json value (written
+    when the game was configured via Faugus detection)."""
+    from Utils.faugus_finder import find_faugus_gameids_by_exes
+    exe_names = [getattr(game, "exe_name", None)]
+    exe_names += list(getattr(game, "exe_name_alts", []) or [])
+    try:
+        gameids = find_faugus_gameids_by_exes([e for e in exe_names if e])
+    except Exception:
+        gameids = []
+
+    if not gameids and hasattr(game, "name"):
+        try:
+            paths_file = get_game_config_path(game.name)
+            if paths_file.is_file():
+                data = json.loads(paths_file.read_text(encoding="utf-8"))
+                saved = data.get("faugus_gameid", "").strip()
+                if saved:
+                    gameids = [saved]
+        except (OSError, json.JSONDecodeError):
+            pass
+    return gameids
+
+
+def game_is_faugus_install(game) -> bool:
+    gameids = faugus_gameids_for_launch(game)
+    if not gameids:
+        return False
+    from Utils.faugus_finder import find_faugus_launch_info
+    try:
+        return find_faugus_launch_info(gameids) is not None
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
-# Steam / Heroic / Lutris launch
+# Steam / Heroic / Lutris / Faugus launch
 # ---------------------------------------------------------------------------
 
 def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
@@ -987,6 +1023,61 @@ def launch_via_lutris(slugs: list, log_fn=_noop_log) -> bool:
         spawn_watched(
             candidates[idx],
             f"Play lutris:{slug}",
+            log_fn,
+            on_fail=lambda: _try(idx + 1),
+            log_success=True,
+        )
+
+    _try(0)
+    return True
+
+
+def launch_via_faugus(gameids: list, log_fn=_noop_log) -> bool:
+    """Launch through Faugus (faugus-launcher --game <gameid>). Returns False
+    if the game isn't in a Faugus library (caller may fall through to Proton).
+
+    Faugus runs the game itself — its configured runner, env, MangoHud etc. —
+    via umu. There is no URL scheme, so the flatpak is invoked with
+    ``flatpak run`` and native installs by command; an AppImage install has
+    no binary on PATH, so when the user has pointed us at the AppImage file
+    it is tried first (same chain-on-failure pattern as launch_via_lutris)."""
+    from Utils.faugus_finder import FAUGUS_FLATPAK_ID, find_faugus_launch_info
+    try:
+        info = find_faugus_launch_info(gameids)
+    except Exception:
+        info = None
+    if info is None:
+        log_fn("Play: game not found in Faugus library.")
+        return False
+    gameid, faugus_is_flatpak = info
+    log_fn(f"Play: launching via Faugus ({gameid}"
+           f"{', flatpak' if faugus_is_flatpak else ''}) ...")
+
+    in_flatpak = Path("/.flatpak-info").exists()
+    host = (["flatpak-spawn", "--host"]
+            if in_flatpak and shutil.which("flatpak-spawn") else [])
+    if faugus_is_flatpak:
+        candidates = [
+            [*host, "flatpak", "run", FAUGUS_FLATPAK_ID, "--game", gameid],
+        ]
+    else:
+        candidates = [
+            [*host, "faugus-launcher", "--game", gameid],
+        ]
+        from Utils.ui_config import load_faugus_appimage_path
+        appimage = load_faugus_appimage_path()
+        if appimage and Path(appimage).is_file():
+            candidates.insert(0, [*host, appimage, "--game", gameid])
+
+    def _try(idx: int) -> None:
+        if idx >= len(candidates):
+            msg = "Play error: could not reach Faugus (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
+            return
+        spawn_watched(
+            candidates[idx],
+            f"Play faugus:{gameid}",
             log_fn,
             on_fail=lambda: _try(idx + 1),
             log_success=True,
@@ -1435,6 +1526,16 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
                 preferred_runner = find_lutris_proton_name_for_prefix(Path(pfx)) or ""
             except Exception:
                 preferred_runner = ""
+        if not preferred_runner:
+            # Faugus records the runner in games.json (resolved through its
+            # own "<family> Latest" name matching).
+            try:
+                from Utils.faugus_finder import find_faugus_proton_for_prefix
+                faugus_script = find_faugus_proton_for_prefix(Path(pfx))
+                if faugus_script is not None:
+                    preferred_runner = faugus_script.parent.name
+            except Exception:
+                pass
         proton_script = find_any_installed_proton(preferred_runner)
         if proton_script is not None:
             log_fn(f"using fallback Proton tool {proton_script.parent.name} "
@@ -1830,6 +1931,14 @@ def launch_game(game, log_fn=_noop_log) -> None:
             log_fn("Play: launch mode is Lutris but the game was not found in Lutris.")
         return
 
+    if mode == "faugus":
+        gameids = faugus_gameids_for_launch(game)
+        if gameids:
+            launch_via_faugus(gameids, log_fn)
+        else:
+            log_fn("Play: launch mode is Faugus but the game was not found in Faugus.")
+        return
+
     if mode != "none":  # "auto"
         if steam_id and is_steam:
             launch_via_steam(steam_id, log_fn)
@@ -1837,14 +1946,18 @@ def launch_game(game, log_fn=_noop_log) -> None:
         if heroic_app_names and game_is_heroic_install(game):
             if launch_via_heroic(heroic_app_names, log_fn):
                 return
-        # Lutris last among launchers (computed lazily — the scan reads
-        # Lutris's sqlite DB + yml configs).
+        # Lutris/Faugus last among launchers (computed lazily — the scans
+        # read Lutris's sqlite DB + yml configs / Faugus's games.json).
         lutris_slugs = lutris_slugs_for_launch(game)
         if lutris_slugs:
             if launch_via_lutris(lutris_slugs, log_fn):
                 return
-        log_fn("Play: no Steam/Heroic/Lutris route matched — launching the "
-               "game executable directly.")
+        faugus_gameids = faugus_gameids_for_launch(game)
+        if faugus_gameids:
+            if launch_via_faugus(faugus_gameids, log_fn):
+                return
+        log_fn("Play: no Steam/Heroic/Lutris/Faugus route matched — launching "
+               "the game executable directly.")
 
     exe_path = resolve_game_exe(game)
     if exe_path is None:
@@ -1973,6 +2086,17 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
                 if proton_script is not None:
                     log_fn(f"Run EXE: using Lutris-configured Proton "
                            f"{proton_script.parent.name}.")
+        if proton_script is None:
+            # Faugus records the game's runner in games.json — using it keeps
+            # tool launches on the same Proton Faugus itself uses.
+            try:
+                from Utils.faugus_finder import find_faugus_proton_for_prefix
+                proton_script = find_faugus_proton_for_prefix(prefix_path)
+            except Exception:
+                proton_script = None
+            if proton_script is not None:
+                log_fn(f"Run EXE: using Faugus-configured Proton "
+                       f"{proton_script.parent.name}.")
         if proton_script is None:
             # Heroic records the game's runner in its GamesConfig — using it
             # keeps tool launches on the same Proton Heroic itself uses.

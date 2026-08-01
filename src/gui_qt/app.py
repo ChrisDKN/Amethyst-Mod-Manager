@@ -7328,17 +7328,18 @@ class MainWindow(QMainWindow):
         """Popup for a Play click that never got anything running.
 
         Thread-safe — the signal hop puts the card on the UI thread. The advice
-        is to deploy and start from the launcher: Steam/Heroic/Lutris own the
-        prefix and runtime, so a launch our side can't complete usually still
-        works from there, with the deployed mods active either way.
+        is to deploy and start from the launcher: Steam/Heroic/Lutris/Faugus
+        own the prefix and runtime, so a launch our side can't complete
+        usually still works from there, with the deployed mods active either
+        way.
         """
         target = entry or (self._gs.game.name if self._gs.game is not None
                            else self.tr("the game"))
         body = self.tr(
             "Amethyst could not launch {0}.\n\n"
             "Press Deploy to apply your mods, then start the game from "
-            "Steam, Heroic or Lutris instead — the deployed mods stay "
-            "active however the game is started.").format(target)
+            "Steam, Heroic, Lutris or Faugus instead — the deployed mods "
+            "stay active however the game is started.").format(target)
         if detail:
             body += "\n\n" + self.tr("Details: {0}").format(detail)
         self._warn_popup.emit(self.tr("The game did not launch"), body,

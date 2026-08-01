@@ -740,6 +740,13 @@ def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
             proton_script = find_any_installed_proton(lutris_runner)
 
     if proton_script is None:
+        try:
+            from Utils.faugus_finder import find_faugus_proton_for_prefix
+            proton_script = find_faugus_proton_for_prefix(prefix_path)
+        except Exception:
+            proton_script = None
+
+    if proton_script is None:
         proton_script = find_any_installed_proton(_read_prefix_runner(compat_data))
         if proton_script is None:
             return None, None

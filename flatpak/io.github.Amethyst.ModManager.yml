@@ -48,6 +48,7 @@ build-options:
 # - ~/.var/app/com.valvesoftware.Steam: Steam Flatpak data (home excludes ~/.var/app)
 # - ~/.var/app/com.heroicgameslauncher.hgl: Heroic Flatpak
 # - ~/.var/app/net.lutris.Lutris: Lutris Flatpak (pga.db, game configs, wine runners)
+# - ~/.var/app/io.github.Faugus.faugus-launcher: Faugus Flatpak (games.json, config.json)
 # - talk-name=org.freedesktop.secrets: keyring (Nexus API key storage and retrieval)
 finish-args:
   - --share=network
@@ -62,6 +63,7 @@ finish-args:
   - --filesystem=~/.var/app/com.valvesoftware.Steam
   - --filesystem=~/.var/app/com.heroicgameslauncher.hgl
   - --filesystem=~/.var/app/net.lutris.Lutris
+  - --filesystem=~/.var/app/io.github.Faugus.faugus-launcher
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.freedesktop.Flatpak
   # Wine (Synthesis prefix setup) installs its own seccomp filter and runs
