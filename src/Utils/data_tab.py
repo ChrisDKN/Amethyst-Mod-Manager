@@ -259,7 +259,9 @@ def resolve_data_entries(game, entries: list[tuple[str, str]],
     def _routes_to_root(rule) -> bool:
         return _subfolder_deploy and not getattr(rule, "to_prefix", False) and not rule.dest
 
-    from Utils.deploy_custom_rules import _sibling_container
+    from Utils.deploy_custom_rules import (
+        _sibling_container, canonicalize_declared_folders,
+    )
     claimed: set[int] = set()
     for rule, folders, exts, filenames in _rules:
         new_primary_idxs: list[int] = []
@@ -363,16 +365,18 @@ def resolve_data_entries(game, entries: list[tuple[str, str]],
             dest = rule.dest
             override = sibling_overrides.get(idx)
             if override is not None:
-                full_path = dest + "/" + override if dest else override
+                tail = override
             elif rule.flatten:
                 if strip_len >= 0:
-                    kept = rel_norm[strip_len:].lstrip("/")
-                    full_path = dest + "/" + kept if dest else kept
+                    tail = rel_norm[strip_len:].lstrip("/")
                 else:
-                    basename = rel_norm.split("/")[-1]
-                    full_path = dest + "/" + basename if dest else basename
+                    tail = rel_norm.split("/")[-1]
             else:
-                full_path = dest + "/" + rel_norm if dest else rel_norm
+                tail = rel_norm
+            # Same canonicalisation the deploy applies, so the tree shows the
+            # folder the files actually land in.
+            tail = canonicalize_declared_folders(tail, tuple(rule.folders))
+            full_path = dest + "/" + tail if dest else tail
             _mods_dir = getattr(game, "mods_dir", None)
             if _mods_dir:
                 _prefix = _mods_dir.rstrip("/") + "/"

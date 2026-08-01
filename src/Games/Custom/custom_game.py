@@ -114,6 +114,11 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
 
     Each entry is a dict with keys ``dest``, and optionally ``extensions``,
     ``folders``, and/or ``filenames``.
+
+    ``folders`` keeps the casing the definition spelled — matching lowercases
+    it everywhere, but the deploy uses it as the canonical casing for the
+    folder it names, so mods shipping ``~Mods`` and ``~mods`` land in one
+    folder (see ``canonicalize_declared_folders``).
     """
     raw = defn.get("custom_routing_rules", [])
     if not isinstance(raw, list):
@@ -124,7 +129,7 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
             continue
         dest = entry.get("dest", "")
         extensions = [s.strip().lower() for s in entry.get("extensions", []) if s.strip()]
-        folders = [s.strip().lower() for s in entry.get("folders", []) if s.strip()]
+        folders = [s.strip() for s in entry.get("folders", []) if s.strip()]
         filenames = [s.strip().lower() for s in entry.get("filenames", []) if s.strip()]
         loose_only = bool(entry.get("loose_only", False))
         flatten = bool(entry.get("flatten", False))

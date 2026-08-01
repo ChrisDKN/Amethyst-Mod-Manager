@@ -55,7 +55,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame
 from Utils.deploy import LinkMode, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_raw_deploy, expand_separator_link_modes, _resolve_nocase, _write_deploy_snapshot, _move_runtime_files, _FILEMAP_SNAPSHOT_NAME
-from Utils.deploy_custom_rules import deploy_custom_rules, restore_custom_rules, compute_prefix_handled
+from Utils.deploy_custom_rules import deploy_custom_rules, restore_custom_rules, compute_prefix_handled, canonicalize_declared_folders
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
@@ -168,6 +168,11 @@ class UE5Rule:
     flatten: bool = False
     loose_only: bool = False
     include_siblings: bool = False
+
+
+def _declared_folders(rule: UE5Rule) -> tuple[str, ...]:
+    """Folder names *rule* spells out, for casing canonicalisation."""
+    return tuple(n for n in (rule.prefix, rule.folder, rule.folder_anywhere) if n)
 
 
 # ---------------------------------------------------------------------------
@@ -740,6 +745,8 @@ class UE5Game(BaseGame):
             else:
                 # Preserve the full mod-relative path under dest.
                 final_rel = norm
+            final_rel = canonicalize_declared_folders(
+                final_rel, _declared_folders(rule))
         else:
             dest = self.ue5_default_dest
             final_rel = rel_str.replace("\\", "/")
@@ -813,6 +820,7 @@ class UE5Game(BaseGame):
                     continue
                 dyn_strip, is_folder_match = hit
                 norm = staged_rel.replace("\\", "/")
+                declared = _declared_folders(rule)
                 # Compute placement for this primary.
                 if rule.include_siblings:
                     info = self._sibling_container(norm, dyn_strip, is_folder_match, mod_name)
@@ -823,6 +831,7 @@ class UE5Game(BaseGame):
                         else:
                             tail = norm
                         final_rel = (cname + "/" + tail) if cname else tail
+                        final_rel = canonicalize_declared_folders(final_rel, declared)
                         per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                         claimed.add(i)
                         new_primaries.append((i, dyn_strip, is_folder_match))
@@ -835,6 +844,7 @@ class UE5Game(BaseGame):
                         final_rel = Path(norm).name
                 else:
                     final_rel = norm
+                final_rel = canonicalize_declared_folders(final_rel, declared)
                 per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                 claimed.add(i)
             # Drag siblings for include_siblings primaries.
@@ -873,6 +883,8 @@ class UE5Game(BaseGame):
                             continue
                         rel_in_container = norm[len(cont_lower) + 1:]
                     final_rel = (cname + "/" + rel_in_container) if cname else rel_in_container
+                    final_rel = canonicalize_declared_folders(
+                        final_rel, _declared_folders(rule))
                     per_entry[i] = (staged_rel, mod_name, rule.dest, final_rel)
                     claimed.add(i)
 

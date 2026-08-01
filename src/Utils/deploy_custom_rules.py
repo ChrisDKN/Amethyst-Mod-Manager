@@ -12,6 +12,7 @@ import fnmatch
 import os
 import re
 import shutil
+from functools import lru_cache
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
@@ -54,6 +55,42 @@ def _name_match(filename: str, names: set[str]) -> bool:
         elif filename == n:
             return True
     return False
+
+
+@lru_cache(maxsize=512)
+def _declared_segment_casing(declared: tuple[str, ...]) -> dict[str, str]:
+    """Map lowercase folder-segment name -> the casing the rule spelled it with."""
+    out: dict[str, str] = {}
+    for name in declared:
+        for seg in name.replace("\\", "/").strip("/").split("/"):
+            if seg:
+                out.setdefault(seg.lower(), seg)
+    return out
+
+
+def canonicalize_declared_folders(tail: str, declared: tuple[str, ...]) -> str:
+    """Force folder segments a rule names to the casing that rule declared.
+
+    Folder matching is case-insensitive, so two mods shipping ``~Mods`` and
+    ``~mods`` both hit the same rule — but each would otherwise deploy its own
+    casing and create two sibling folders on a case-sensitive filesystem, where
+    the engine only reads one of them. The rule names the folder, so the rule's
+    spelling is the canonical one. Filenames (the last segment) are never
+    touched; unnamed folders keep the mod's casing.
+    """
+    if "/" not in tail or not declared:
+        return tail
+    casing = _declared_segment_casing(declared)
+    if not casing:
+        return tail
+    parts = tail.split("/")
+    changed = False
+    for i in range(len(parts) - 1):  # skip the filename
+        canon = casing.get(parts[i].lower())
+        if canon is not None and canon != parts[i]:
+            parts[i] = canon
+            changed = True
+    return "/".join(parts) if changed else tail
 
 
 def _match_single_rule(
@@ -532,6 +569,8 @@ def deploy_custom_rules(
                 tail = src.name
         else:
             tail = rel_str
+        tail = canonicalize_declared_folders(
+            tail.replace("\\", "/"), tuple(rule.folders))
         for dest_base in _rule_dest_bases(rule):
             tasks.append((src, dest_base / tail if tail else dest_base, mod_name))
         handled_lower.add(rel_lower)
