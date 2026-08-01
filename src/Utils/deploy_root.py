@@ -23,6 +23,7 @@ from Utils.deploy_shared import (
     _move_crash_safe,
     _path_under_root,
     _prune_empty_dirs,
+    _resolve_nocase,
     _resolve_root_path,
     _restore_backup_dir,
 )
@@ -223,6 +224,7 @@ def deploy_root_flagged_mods(
     tasks: list[tuple[Path, Path, str]] = []  # (src, dst, rel_posix)
 
     _excluded_raw = excluded_raw or {}
+    _nocase_cache: dict = {}
 
     def _usable(candidate: Path, rel_raw: str, exc) -> bool:
         """A real file the user has not disabled."""
@@ -231,26 +233,42 @@ def deploy_root_flagged_mods(
         return candidate.is_file()
 
     for rel_str, mod_name in entries:
-        # Locate source in staging: bare path, then per-mod / shared strip
-        # prefixes. Disabled variants are skipped so the kept one is used.
         _exc = _excluded_raw.get(mod_name)
-        src = staging_root / mod_name / rel_str
-        if not _usable(src, rel_str, _exc):
-            src = None
-            _mod_prefixes = (per_mod_strip_prefixes or {}).get(mod_name)
-            _candidates = list(_mod_prefixes) if _mod_prefixes else []
-            if strip_prefixes:
-                _candidates.extend(strip_prefixes)
-                # Stacked strips: a per-mod Top Level strip followed by a
-                # shared strip (e.g. "MyPreset" then "Data") — try the combo.
-                if _mod_prefixes:
-                    _candidates.extend(
-                        f"{mp}/{sp}"
-                        for mp in _mod_prefixes for sp in strip_prefixes
-                    )
-            for prefix in _candidates:
-                candidate = staging_root / mod_name / prefix / rel_str
-                if _usable(candidate, f"{prefix}/{rel_str}", _exc):
+        mod_root = staging_root / mod_name
+        # Candidate mod-relative paths: the bare path, then each strip prefix
+        # the scan peeled off (per-mod, shared, and the stacked combination —
+        # e.g. a "MyPreset" Top Level strip followed by "Data").
+        _mod_prefixes = (per_mod_strip_prefixes or {}).get(mod_name)
+        _prefixes = list(_mod_prefixes) if _mod_prefixes else []
+        if strip_prefixes:
+            _prefixes.extend(strip_prefixes)
+            if _mod_prefixes:
+                _prefixes.extend(f"{mp}/{sp}"
+                                 for mp in _mod_prefixes for sp in strip_prefixes)
+        _rels = [rel_str] + [f"{p}/{rel_str}" for p in _prefixes]
+
+        src = None
+        for cand_rel in _rels:
+            candidate = mod_root / cand_rel
+            if _usable(candidate, cand_rel, _exc):
+                src = candidate
+                break
+        if src is None:
+            # filemap casing is canonicalised across ALL mods, so a mod whose
+            # folder is `sound` gets listed as `Sound` when another mod spells
+            # it that way — on a case-sensitive FS the literal path above then
+            # misses and the file silently never deploys. Resolve the real
+            # on-disk casing instead.
+            for cand_rel in _rels:
+                candidate = _resolve_nocase(mod_root, cand_rel,
+                                            cache=_nocase_cache)
+                if candidate is None:
+                    continue
+                try:
+                    _rel_real = candidate.relative_to(mod_root).as_posix()
+                except ValueError:
+                    _rel_real = cand_rel
+                if _usable(candidate, _rel_real, _exc):
                     src = candidate
                     break
         if src is None or not src.is_file():
