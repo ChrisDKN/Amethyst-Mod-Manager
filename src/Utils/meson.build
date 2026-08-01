@@ -123,6 +123,7 @@ py.install_sources(
   'script_merger_inventory.py',
   'sdt_config.py',
   'skygen_core.py',
+  'sleep_inhibit.py',
   'smapi_installer.py',
   'staging_migrate.py',
   'stderr_capture.py',

@@ -38,6 +38,7 @@ from Utils.config_paths import (
 )
 from Utils import launch_report
 from Utils.protontricks import strip_appimage_env
+from Utils.sleep_inhibit import inhibit_sleep
 from Utils.xdg import spawn_watched
 
 _LAUNCH_MODE_FILE = "exe_launch_mode.json"
@@ -1693,12 +1694,15 @@ def run_tool_logged(
         log_fn(f"{label}: failed to launch — {exc}")
         raise
 
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        line = line.rstrip("\n")
-        if line:
-            log_fn(f"{label}: {line}")
-    rc = proc.wait()
+    # A patcher can run for an hour with no input; without this the Deck
+    # autosuspends mid-build and Wine rarely survives the resume.
+    with inhibit_sleep(f"{label} is running", lambda m: log_fn(f"{label}: {m}")):
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            if line:
+                log_fn(f"{label}: {line}")
+        rc = proc.wait()
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")
     return rc
@@ -1796,12 +1800,13 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     if rep is not None:
         rep.mark_spawned()
 
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        line = line.rstrip("\n")
-        if line:
-            log_fn(f"{label}: {line}")
-    rc = proc.wait()
+    with inhibit_sleep(f"{label} is running", lambda m: log_fn(f"{label}: {m}")):
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            if line:
+                log_fn(f"{label}: {line}")
+        rc = proc.wait()
     launch_report.mark_exit(rep, started, rc, label)
     if rc != 0:
         log_fn(f"{label}: exited with code {rc}")
