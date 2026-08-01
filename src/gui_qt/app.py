@@ -1903,6 +1903,9 @@ class MainWindow(QMainWindow):
                 (self.tr("Install VC++ Redistributable"), self._proton_install_vcredist),
                 (self.tr("Install d3dcompiler_47"), self._proton_install_d3dcompiler),
                 (self.tr("Install XACT audio (XAudio2)"), self._proton_install_xact),
+                # Hidden unless the current game declares it
+                (self.tr("Install LAV Filters (radio/music codecs)"),
+                 self._proton_install_lavfilters, "lavfilters"),
                 (self.tr(".NET runtime"), [
                     (self.tr(".NET {0}").format(v), (lambda v=v: self._proton_install_dotnet(v)))
                     for v in DOTNET_VERSIONS
@@ -1937,6 +1940,11 @@ class MainWindow(QMainWindow):
             if label == "Wizard":
                 self._wizard_btn = b
                 b._menu.aboutToShow.connect(self._rebuild_wizard_menu)
+            elif label == "Proton":
+                # Static menu, but a couple of entries are game-specific —
+                # re-evaluate their visibility each time it opens so game
+                # switches are handled for free.
+                b._menu.aboutToShow.connect(self._sync_proton_menu)
             self._action_buttons.append(b)
             h.addWidget(b)
 
@@ -8387,6 +8395,26 @@ class MainWindow(QMainWindow):
             self.tr("Installing XACT audio (XAudio2)"),
             lambda plog: install_xact(self._gs.game, log_fn=plog))
 
+    def _proton_install_lavfilters(self):
+        from Utils.proton_tools import install_lavfilters
+        self._run_proton_installer(
+            self.tr("Installing LAV Filters"),
+            lambda plog: install_lavfilters(self._gs.game, log_fn=plog))
+
+    def _sync_proton_menu(self):
+        """Show/hide the game-specific entries in the Proton menu.
+
+        LAV Filters only fixes games that stream audio through DirectShow
+        (Fallout 3 / New Vegas), so it is hidden elsewhere rather than offered
+        as a no-op. The handler's auto_install_deps is the single source of
+        truth — no game names are hardcoded here."""
+        act = getattr(self, "_menu_actions", {}).get("lavfilters")
+        if act is None:
+            return
+        game = self._gs.game
+        deps = list(getattr(game, "auto_install_deps", []) or []) if game else []
+        act.setVisible("lavfilters" in deps)
+
     def _proton_install_dotnet(self, version: str):
         from Utils.proton_tools import install_dotnet
         self._run_proton_installer(
@@ -13416,20 +13444,29 @@ class MainWindow(QMainWindow):
     def _populate_menu(self, menu: "QMenu", items: "list[tuple]") -> None:
         """Fill *menu* from *items*. Each entry is None (separator) or
         (label, callback) — where callback may be a list of (label, callback)
-        pairs, which becomes a submenu."""
+        pairs, which becomes a submenu. An optional third element is a stable
+        key; the created QAction is recorded under it in ``_menu_actions`` so
+        entries that come and go per game can be toggled later without having
+        to match on their translated label."""
         for entry in items:
             if entry is None:
                 menu.addSeparator()
                 continue
-            label, cb = entry
+            label, cb = entry[0], entry[1]
+            key = entry[2] if len(entry) > 2 else None
             if isinstance(cb, list):
                 sub = menu.addMenu(label)
                 self._populate_menu(sub, cb)
+                act = sub.menuAction()
             elif cb is not None:
                 act = menu.addAction(label)
                 act.triggered.connect(lambda _=False, c=cb: c())
             else:
-                menu.addAction(label)   # inert label (placeholder)
+                act = menu.addAction(label)   # inert label (placeholder)
+            if key:
+                if not hasattr(self, "_menu_actions"):
+                    self._menu_actions = {}
+                self._menu_actions[key] = act
 
     def _menu_action_button(self, text: str, icon_name: str,
                             items: "list[tuple]",

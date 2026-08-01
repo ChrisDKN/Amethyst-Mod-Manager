@@ -1343,7 +1343,9 @@ class ConfigureGameView(QWidget):
                 install_d3dcompiler_47,
                 install_vcredist,
                 is_dep_installed,
+                winetricks_verb_dep_key,
             )
+            from Utils.proton_tools import install_lavfilters
             from Utils.steam_finder import game_steam_id
 
             _proton: tuple = ()
@@ -1383,6 +1385,16 @@ class ConfigureGameView(QWidget):
                     ok = install_d3dcompiler_47(
                         game_steam_id(game), log_fn=app_log, prefix_path=prefix)
                     (installed if ok else failed).append("d3dcompiler_47")
+                elif dep == "lavfilters":
+                    # Same installer the Proton Tools menu entry uses, so a
+                    # manual install and this one share the skip marker.
+                    if is_dep_installed(prefix, winetricks_verb_dep_key("lavfilters")):
+                        app_log(f"{game.name}: LAV Filters already installed — skipping.")
+                        skipped.append("lavfilters")
+                        continue
+                    app_log(f"{game.name}: auto-installing LAV Filters (radio/music codecs) …")
+                    ok = install_lavfilters(game, log_fn=app_log)
+                    (installed if ok else failed).append("lavfilters")
                 else:
                     app_log(f"{game.name}: unknown auto_install dep '{dep}' — skipping.")
                     skipped.append(dep)

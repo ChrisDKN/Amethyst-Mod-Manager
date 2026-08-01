@@ -447,6 +447,18 @@ def install_xact(game, log_fn: LogFn = _noop) -> bool:
     return ok
 
 
+def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
+    """Install LAV Filters (winetricks ``lavfilters``) into the game's prefix.
+
+    Registers real DirectShow decoders so games that stream their radio/music
+    through DirectShow (Fallout 3 / New Vegas) play it instead of running
+    silent. Unattended and skip-if-recorded, so re-running is instant.
+    The verb runs a Windows installer under Wine — allow it longer than the
+    300 s default the DLL-drop verbs get."""
+    from Utils.protontricks import install_winetricks_verb
+    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=60)
+
+
 def install_dotnet(game, version: str, log_fn: LogFn = _noop) -> bool:
     """Download (cached) + silently install the .NET desktop runtime *version*
     into the game's prefix. Mirrors the Tk panel's ``_run_install_dotnet``
