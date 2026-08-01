@@ -5,11 +5,15 @@
 - Fixed mods that shipped with multiple folder with the same name but different caseing not merging correctly
 - Added support for detecting and launching games added to Faugus launcher
 - Added a root column to the mod files tab to send individual folders or files to the games root
+- Added a saves tab, Using the Ludasavi manifest for the source of save locations
+- Fixed an issue where folders routed via custom routing rules were not having their names normalised
 
 - v2.0.5
 ### Game Support
 - Added Devil May Cry 5
 - Added Dragons Dogma 2
+- Added Halo: Campaign Evolved
+- Added The First Berserker: Khazan 
 ### Additions
 - The wiki can now be viewed from within the manager
 - Added an argument field in the xedit wizards for adding additional command line arguments
