@@ -1215,6 +1215,11 @@ def get_tool_prefix_env(
         find_steam_root_for_proton_script,
         proton_run_command,
     )
+    # Steam-less box with no umu anywhere: fetch one before resolving, or the
+    # steam-root lookup below has to fail (there is no viable launcher).
+    from Utils.umu_launcher import ensure_umu_run
+    ensure_umu_run()
+
     proton_script = find_any_installed_proton(proton_name)
     if proton_script is None:
         return None
@@ -1498,6 +1503,9 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     from Utils.steam_finder import (
         find_proton_for_game, find_steam_root_for_proton_script,
     )
+    from Utils.umu_launcher import ensure_umu_run
+    ensure_umu_run(log_fn)
+
     pfx = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
     if pfx is None or not Path(pfx).is_dir():
         log_fn("game prefix not found — deploy/launch the game once, or pick "
@@ -2019,6 +2027,8 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         list_installed_proton,
         proton_run_command,
     )
+    from Utils.umu_launcher import ensure_umu_run
+    ensure_umu_run(log_fn)
 
     proton_override_name = load_proton_override(game, exe_path.name)
     # Script extenders always use the game's prefix. The settings UI disables

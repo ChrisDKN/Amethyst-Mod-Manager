@@ -244,6 +244,20 @@ def get_custom_game_images_dir() -> Path:
     return d
 
 
+def get_tools_dir() -> Path:
+    """Return the directory holding helper binaries we download on demand.
+
+    winetricks, cabextract and umu-run live here. In the app config (not the
+    download cache) so "Clear Cache" never removes them, and host-visible so a
+    flatpak-spawn'd launch can execute them.
+
+    Result: ~/.config/AmethystModManager/tools/
+    """
+    d = get_config_dir() / "tools"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 _CACHE_ROOT_RESERVED: set[str] = set()
 
 

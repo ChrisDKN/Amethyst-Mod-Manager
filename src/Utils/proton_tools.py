@@ -182,6 +182,8 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
         game_steam_id,
         find_steam_root_for_proton_script,
     )
+    from Utils.umu_launcher import ensure_umu_run
+    ensure_umu_run(log_fn)
 
     prefix_path = game.get_prefix_path()
     if prefix_path is None or not prefix_path.is_dir():

@@ -759,7 +759,14 @@ def find_umu_run() -> Path | None:
                 hit = None
             if hit is not None:
                 return hit
-    return None
+    # Our own on-demand copy, last: whatever Heroic/Lutris/the distro package
+    # maintains is that owner's to keep current, so prefer theirs over ours.
+    try:
+        from Utils.umu_launcher import bundled_umu_run
+        ours = bundled_umu_run()
+    except Exception:
+        return None
+    return ours if ours.is_file() else None
 
 
 def umu_run_command(umu_bin: Path, *args: str,

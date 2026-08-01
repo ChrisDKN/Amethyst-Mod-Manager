@@ -103,10 +103,8 @@ def mark_dep_installed(prefix_path: Path, key: str) -> None:
 
 
 def _get_tools_dir() -> Path:
-    from Utils.config_paths import get_config_dir
-    d = get_config_dir() / "tools"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    from Utils.config_paths import get_tools_dir
+    return get_tools_dir()
 
 
 def _bundled_winetricks() -> Path:
