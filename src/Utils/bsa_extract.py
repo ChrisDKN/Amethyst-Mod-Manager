@@ -107,13 +107,65 @@ def extract_bsa(
 # Internal: parse + write
 # ---------------------------------------------------------------------------
 
-def _extract(
-    f,
-    dest_dir: Path,
-    overwrite: bool,
-    progress: ProgressCb | None,
-    cancel: CancelCb | None,
-) -> tuple[int, list[str]]:
+def index_bsa(bsa_path: Path | str) -> tuple[dict, dict[str, tuple[int, int]]]:
+    """Map an archive's contents without reading any file data.
+
+    Returns ``(info, entries)`` where *entries* maps the lowercase
+    forward-slash internal path to ``(size_field, data_offset)``. Pass both
+    back to :func:`read_bsa_entry` to pull a single file out.
+    """
+    with open(bsa_path, "rb") as f:
+        info, flat = _parse_toc(f)
+    return info, {rel: (sz, off) for rel, sz, off in flat}
+
+
+def read_bsa_entry(bsa_path: Path | str, info: dict,
+                   entry: tuple[int, int]) -> bytes:
+    """Read and decompress one file, seeking straight to it."""
+    size_field, data_offset = entry
+    try:
+        with open(bsa_path, "rb") as f:
+            return _decode_entry(f, info, size_field, data_offset)
+    except (OSError, struct.error, ValueError, zlib.error,
+            lz4.frame.LZ4FrameError) as exc:
+        raise BsaExtractError(f"failed to read from {bsa_path}: {exc}") from exc
+
+
+def _decode_entry(f, info: dict, size_field: int, data_offset: int,
+                  rel: str = "") -> bytes:
+    """Pull one file's bytes: seek, strip any embedded name, decompress."""
+    on_disk_size = size_field & _FILE_SIZE_MASK
+    invert = bool(size_field & _FILE_COMPRESS_INVERT)
+    file_compressed = info["archive_compressed"] ^ invert
+
+    f.seek(data_offset)
+    block = f.read(on_disk_size)
+    if len(block) < on_disk_size:
+        raise BsaExtractError(f"short read for {rel}")
+
+    # Strip embedded filename prefix if the archive uses it.
+    if info["embed_filenames"]:
+        if not block:
+            raise BsaExtractError(f"empty embedded-filename block for {rel}")
+        n = block[0]
+        if 1 + n > len(block):
+            raise BsaExtractError(f"bad embedded-filename length for {rel}")
+        block = block[1 + n:]
+
+    if not file_compressed:
+        return block
+    if len(block) < 4:
+        raise BsaExtractError(f"compressed file too small for {rel}")
+    # 4-byte original-size prefix precedes the compressed stream.
+    body = block[4:]
+    if info["version"] == 105:
+        return lz4.frame.decompress(body)
+    return zlib.decompress(body)
+
+
+def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
+    """Walk the header + TOC, returning archive info and every file's
+    ``(rel_path_lower, size_field, data_offset)`` in stored order."""
     magic = f.read(4)
     if magic != b"BSA\x00":
         raise BsaExtractError(f"not a BSA archive (magic={magic!r})")
@@ -185,7 +237,10 @@ def _extract(
         raise BsaExtractError("truncated file-name block")
     names_text = name_block.decode("latin-1").lower()
     file_names = names_text.split("\x00")
-    if file_names and file_names[-1] == "":
+    # Some shipped archives pad the name block with extra nulls (vanilla
+    # MarketplaceTextures.bsa carries ten), so drop every trailing empty, not
+    # just the one terminator.
+    while file_names and file_names[-1] == "":
         file_names.pop()
 
     # Pair names with file records.
@@ -213,6 +268,23 @@ def _extract(
             f"file count drift: header={file_count} computed={len(flat)}"
         )
 
+    info = {
+        "version": version,
+        "archive_compressed": archive_compressed,
+        "embed_filenames": embed_filenames,
+    }
+    return info, flat
+
+
+def _extract(
+    f,
+    dest_dir: Path,
+    overwrite: bool,
+    progress: ProgressCb | None,
+    cancel: CancelCb | None,
+) -> tuple[int, list[str]]:
+    info, flat = _parse_toc(f)
+
     # --- Extract each file ---
     written: list[str] = []
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -222,35 +294,7 @@ def _extract(
         if cancel is not None and cancel():
             raise BsaExtractError("cancelled")
 
-        on_disk_size = size_field & _FILE_SIZE_MASK
-        invert = bool(size_field & _FILE_COMPRESS_INVERT)
-        file_compressed = archive_compressed ^ invert
-
-        f.seek(data_offset)
-        block = f.read(on_disk_size)
-        if len(block) < on_disk_size:
-            raise BsaExtractError(f"short read for {rel}")
-
-        # Strip embedded filename prefix if the archive uses it.
-        if embed_filenames:
-            if not block:
-                raise BsaExtractError(f"empty embedded-filename block for {rel}")
-            n = block[0]
-            if 1 + n > len(block):
-                raise BsaExtractError(f"bad embedded-filename length for {rel}")
-            block = block[1 + n:]
-
-        if file_compressed:
-            if len(block) < 4:
-                raise BsaExtractError(f"compressed file too small for {rel}")
-            # 4-byte original-size prefix precedes the compressed stream.
-            body = block[4:]
-            if version == 105:
-                data = lz4.frame.decompress(body)
-            else:
-                data = zlib.decompress(body)
-        else:
-            data = block
+        data = _decode_entry(f, info, size_field, data_offset, rel)
 
         # Write to disk under dest_dir / rel.
         out_path = dest_dir / rel

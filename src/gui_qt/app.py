@@ -1030,41 +1030,119 @@ class MainWindow(QMainWindow):
             widget, name, self._modlist_panel_stack, key="mf_image_preview")
 
     def _open_nif_preview_tab(self, path, rel_str):
-        """Open a .nif mesh in the 3D viewer as a MODLIST-PANEL-SCOPED tab: it
-        shows in the modlist region (in the shared top tab bar) while the Mod
-        Files tree in the plugins panel stays live. Reuses one preview tab —
-        clicking another mesh swaps it in place, like the image preview."""
+        """Open a .nif in the 3D viewer as a modlist-panel-scoped tab (reused)."""
         from pathlib import Path as _P
         from gui_qt.nif_preview import NifPreview
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         roots = self._nif_texture_roots(_P(path))
+        archives = self._nif_archive_roots(_P(path))
+        resolver = self._nif_asset_resolver()
         existing = getattr(self, "_nif_preview_widget", None)
         if existing is not None and self._tabs.has_key("mf_nif_preview"):
-            existing.set_nif(_P(path), name, roots)
+            existing.set_nif(_P(path), name, roots, archives, resolver)
             self._tabs.focus_key("mf_nif_preview")
             self._tabs.set_tab_title("mf_nif_preview", name)
             return
-        widget = NifPreview(_P(path), name, roots)
+        widget = NifPreview(_P(path), name, roots, archives, resolver)
         self._nif_preview_widget = widget
         self._tabs.open_scoped_tab(
             widget, name, self._modlist_panel_stack, key="mf_nif_preview")
 
     def _nif_texture_roots(self, path):
-        """Folders to search for a mesh's loose textures: the mod's own staging
-        root first, then the game's data folder so vanilla textures resolve."""
+        """Loose-texture roots: mod's own staging root, then the data folder."""
         from gui_qt.nif_preview import default_texture_roots
         roots = default_texture_roots(path)
+        data = self._nif_game_data_dir()
+        if data is not None and data not in roots:
+            roots.append(data)
+        return roots
+
+    def _open_nif_from_archive(self, archive_path, inner_path):
+        """Preview a .nif stored inside a BSA/BA2 without unpacking it."""
+        from pathlib import Path as _P
+        from gui_qt.nif_preview import NifPreview
+        archive = _P(archive_path)
+        name = inner_path.replace("\\", "/").rsplit("/", 1)[-1]
+        try:
+            data = self._read_archive_member(archive, inner_path)
+        except Exception as exc:
+            self._append_log(self.tr("Could not read {0} from {1}: {2}").format(
+                inner_path, archive.name, exc))
+            return
+        if not data:
+            self._append_log(self.tr("Could not read {0} from {1}").format(
+                inner_path, archive.name))
+            return
+
+        from Utils.archive_lookup import ArchiveLookup, find_archives
+        from gui_qt.nif_preview import ASSET_PREFIXES
+        archives = ArchiveLookup(find_archives([archive.parent]),
+                                 keep_prefix=ASSET_PREFIXES)
+        resolver = self._nif_asset_resolver()
+        existing = getattr(self, "_nif_preview_widget", None)
+        if existing is not None and self._tabs.has_key("mf_nif_preview"):
+            existing.set_nif_data(data, name, resolver, archives)
+            self._tabs.focus_key("mf_nif_preview")
+            self._tabs.set_tab_title("mf_nif_preview", name)
+            return
+        widget = NifPreview(None, name, resolver=resolver)
+        widget.set_nif_data(data, name, resolver, archives)
+        self._nif_preview_widget = widget
+        self._tabs.open_scoped_tab(
+            widget, name, self._modlist_panel_stack, key="mf_nif_preview")
+
+    def _read_archive_member(self, archive, inner_path):
+        """Return one member's bytes from a BSA/BA2, or None if absent."""
+        key = inner_path.replace("\\", "/").lower()
+        if archive.suffix.lower() == ".ba2":
+            from Utils.ba2_extract import index_ba2, read_ba2_entry
+            rec = index_ba2(archive).get(key)
+            return read_ba2_entry(archive, rec) if rec else None
+        from Utils.bsa_extract import index_bsa, read_bsa_entry
+        info, entries = index_bsa(archive)
+        entry = entries.get(key)
+        return read_bsa_entry(archive, info, entry) if entry else None
+
+    def _nif_asset_resolver(self):
+        """Resolver for what the GAME would load; None without a profile."""
+        try:
+            from Utils.asset_resolver import AssetResolver
+            from gui_qt.nif_preview import ASSET_PREFIXES
+            staging = self._gs.staging_dir()
+            if staging is None:
+                return None
+            return AssetResolver(
+                staging_dir=staging,
+                modlist_path=self._gs.modlist_path(),
+                profile_dir=self._gs.profile_dir(),
+                data_dir=self._nif_game_data_dir(),
+                game=getattr(self._gs, "game", None),
+                keep_prefix=ASSET_PREFIXES,
+            )
+        except Exception:
+            return None
+
+    def _nif_archive_roots(self, path):
+        """Archive roots: every staged mod (own first), then the data folder."""
+        from gui_qt.nif_preview import default_archive_roots
+        roots = default_archive_roots(path)
+        data = self._nif_game_data_dir()
+        if data is not None and data not in roots:
+            roots.append(data)
+        return roots
+
+    def _nif_game_data_dir(self):
+        """The configured game's data folder, or None when unavailable."""
         try:
             game = getattr(self._gs, "game", None)
             data = game.get_mod_data_path() if game is not None else None
         except Exception:
-            data = None
-        if data:
-            from pathlib import Path as _P
-            d = _P(data)
-            if d.is_dir() and d not in roots:
-                roots.append(d)
-        return roots
+            return None
+        if not data:
+            return None
+        from pathlib import Path as _P
+        d = _P(data)
+        return d if d.is_dir() else None
 
     def _open_bsa_preview_tab(self, path, rel_str):
         """Open a BSA/BA2 archive's contents as a MODLIST-PANEL-SCOPED tab: it
@@ -1083,6 +1161,7 @@ class MainWindow(QMainWindow):
             return
         widget = BsaPreview(_P(path), name,
                             conflict_fn=self._bsa_preview_conflicts)
+        widget.on_open_nif = self._open_nif_from_archive
         widget.close_requested.connect(
             lambda: self._tabs.close_tab("mf_bsa_preview"))
         self._bsa_preview_widget = widget
@@ -14524,6 +14603,9 @@ def run() -> int:
     except Exception:
         pass
 
+    # Share GL contexts so the nif viewport survives tab detach/re-pin
+    # reparenting. Must be set before the QApplication exists.
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv)
     _apply_app_identity(app)
     # Install UI translators before any widget is built (Qt only translates
@@ -14564,6 +14646,21 @@ def run() -> int:
     # opacity so nothing is visibly rendered behind the splash while it loads.
     # _dismiss_splash restores opacity once the plugin panel — the last render
     # step — is populated, so the window appears fully drawn, not mid-render.
+    # GL warmup: the FIRST QOpenGLWidget added to a shown window forces Qt to
+    # recreate the native window as a GL-composited surface — a full-window
+    # flash that reads as an app restart. Parking a 1px GL child before show()
+    # makes composition start that way, so opening the first nif is seamless.
+    try:
+        from PySide6.QtOpenGLWidgets import QOpenGLWidget
+        _glwarm = QOpenGLWidget(win)
+        _glwarm.setFixedSize(1, 1)
+        _glwarm.move(-4, -4)
+        _glwarm.setAttribute(Qt.WA_TransparentForMouseEvents)
+        _glwarm.lower()
+        _glwarm.show()
+        win._gl_warmup = _glwarm
+    except Exception:
+        pass
     if _splash is not None:
         win.setWindowOpacity(0.0)
     win.show()

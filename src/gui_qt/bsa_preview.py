@@ -58,6 +58,16 @@ class _Node:
         return self.parent.children.index(self)
 
 
+def _node_path(node: "_Node") -> str:
+    """Rebuild a node's archive-internal path by walking up to the root."""
+    parts = []
+    cur = node
+    while cur is not None and cur.parent is not None:
+        parts.append(cur.name)
+        cur = cur.parent
+    return "/".join(reversed(parts))
+
+
 def _build_tree(paths: list[str]) -> tuple[_Node, dict[str, _Node]]:
     """Turn flat 'a/b/c.dds' paths into a folder/file _Node hierarchy.
 
@@ -230,6 +240,7 @@ class BsaPreview(QWidget):
         self.setObjectName("BsaPreview")
         self._conflict_fn = conflict_fn
         self._gen = 0
+        self._path: "Path | None" = None
         self._paths: list[str] = []
         self._codes: dict[str, int] = {}
         self._file_nodes: dict[str, "_Node"] = {}
@@ -289,12 +300,28 @@ class BsaPreview(QWidget):
 
     def _on_clicked(self, index):
         node = self._model.node(index)
-        if node is not None and node.is_dir and self._model.rowCount(index) > 0:
+        if node is None:
+            return
+        if node.is_dir and self._model.rowCount(index) > 0:
             self._tree.setExpanded(index, not self._tree.isExpanded(index))
+            return
+        if not node.is_dir:
+            self._open_file_node(node)
+
+    def _open_file_node(self, node):
+        """Hand a previewable entry to the host, identified by its inner path."""
+        from gui_qt.nif_preview import PREVIEW_EXTS as NIF_EXTS
+        rel = _node_path(node)
+        ext = ("." + rel.rsplit(".", 1)[-1].lower()) if "." in rel else ""
+        if ext in NIF_EXTS:
+            cb = getattr(self, "on_open_nif", None)
+            if cb is not None and self._path is not None:
+                cb(self._path, rel)
 
     def set_archive(self, path: Path, display_name: str = ""):
         """Load (or swap) the previewed archive in place."""
         self._header.setText(display_name or path.name)
+        self._path = path
         self._gen += 1
         self._codes = {}
         self._only_conflicts.blockSignals(True)

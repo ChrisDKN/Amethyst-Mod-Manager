@@ -201,6 +201,28 @@ def extract_ba2(
 # Internal: parse + write
 # ---------------------------------------------------------------------------
 
+def index_ba2(ba2_path: Path | str) -> dict[str, dict]:
+    """Map an archive's contents without reading any file data.
+
+    Returns a mapping of lowercase forward-slash internal path to the record
+    dict that :func:`read_ba2_entry` consumes.
+    """
+    with open(ba2_path, "rb") as f:
+        records, names = _parse_records(f)
+    return dict(zip(names, records))
+
+
+def read_ba2_entry(ba2_path: Path | str, rec: dict) -> bytes:
+    """Read one file, decompressing (GNRL) or rebuilding its DDS (DX10)."""
+    try:
+        with open(ba2_path, "rb") as f:
+            if rec["type"] == "GNRL":
+                return _read_gnrl(f, rec)
+            return _read_dx10(f, rec)
+    except (OSError, struct.error, ValueError, zlib.error) as exc:
+        raise Ba2ExtractError(f"failed to read from {ba2_path}: {exc}") from exc
+
+
 def _extract(
     f,
     dest_dir: Path,
@@ -208,6 +230,41 @@ def _extract(
     progress: ProgressCb | None,
     cancel: CancelCb | None,
 ) -> tuple[int, list[str]]:
+    records, names = _parse_records(f)
+
+    # --- Extract each file ---
+    written: list[str] = []
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    total = len(records)
+
+    for done, (rec, rel) in enumerate(zip(records, names), start=1):
+        if cancel is not None and cancel():
+            raise Ba2ExtractError("cancelled")
+
+        out_path = dest_dir / rel
+        if not overwrite and out_path.exists():
+            if progress is not None:
+                progress(done, total, rel)
+            continue
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if rec["type"] == "GNRL":
+            data = _read_gnrl(f, rec)
+        else:
+            data = _read_dx10(f, rec)
+
+        with out_path.open("wb") as out:
+            out.write(data)
+        written.append(rel)
+
+        if progress is not None:
+            progress(done, total, rel)
+
+    return len(written), written
+
+
+def _parse_records(f) -> tuple[list[dict], list[str]]:
+    """Walk the header, file records and name table; read no file data."""
     magic = f.read(4)
     if magic != b"BTDX":
         raise Ba2ExtractError(f"not a BA2 archive (magic={magic!r})")
@@ -284,35 +341,7 @@ def _extract(
         # lowercase to match what the loader actually consumes.
         names.append(nb.decode("latin-1").replace("\\", "/").lower())
 
-    # --- Extract each file ---
-    written: list[str] = []
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    total = len(records)
-
-    for done, (rec, rel) in enumerate(zip(records, names), start=1):
-        if cancel is not None and cancel():
-            raise Ba2ExtractError("cancelled")
-
-        out_path = dest_dir / rel
-        if not overwrite and out_path.exists():
-            if progress is not None:
-                progress(done, total, rel)
-            continue
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if rec["type"] == "GNRL":
-            data = _read_gnrl(f, rec)
-        else:
-            data = _read_dx10(f, rec)
-
-        with out_path.open("wb") as out:
-            out.write(data)
-        written.append(rel)
-
-        if progress is not None:
-            progress(done, total, rel)
-
-    return len(written), written
+    return records, names
 
 
 def _read_gnrl(f, rec: dict) -> bytes:

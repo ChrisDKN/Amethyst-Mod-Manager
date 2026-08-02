@@ -998,6 +998,62 @@ def save_suppress_i386_warning(value: bool) -> None:
 _FILEMAP_SECTION = "filemap"
 
 
+# ---------------------------------------------------------------------------
+# .nif preview settings
+# ---------------------------------------------------------------------------
+_NIF_SECTION = "nif_preview"
+
+
+def load_nif_background() -> str:
+    """Return the .nif viewer background preset key (default "light")."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return "light"
+    try:
+        parser = _read_ini(path)
+        return parser.get(_NIF_SECTION, "background", fallback="light")
+    except Exception:
+        return "light"
+
+
+def load_nif_invert_mouse() -> bool:
+    """Return whether the .nif viewer inverts orbit/pan (default True)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return True
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_NIF_SECTION, "invert_mouse", fallback=True)
+    except Exception:
+        return True
+
+
+def save_nif_invert_mouse(value: bool) -> None:
+    """Persist the .nif viewer mouse-inversion setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _NIF_SECTION not in parser:
+        parser[_NIF_SECTION] = {}
+    parser[_NIF_SECTION]["invert_mouse"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
+def save_nif_background(key: str) -> None:
+    """Persist the .nif viewer background preset to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _NIF_SECTION not in parser:
+        parser[_NIF_SECTION] = {}
+    parser[_NIF_SECTION]["background"] = str(key)
+    _write_ini(parser, path)
+
+
 def load_normalize_folder_case() -> bool:
     """Return the global normalize_folder_case setting (default True)."""
     path = get_ui_config_path()

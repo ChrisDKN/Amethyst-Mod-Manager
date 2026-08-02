@@ -520,6 +520,15 @@ class ModFilesView(QWidget):
             if cb is not None:
                 cb(target, node.rel_str)
             return
+        from gui_qt.nif_preview import PREVIEW_EXTS as NIF_EXTS
+        if ext in NIF_EXTS:
+            target = self._disk_path_for(node)
+            if target is None or not target.is_file():
+                return
+            cb = getattr(self, "on_open_nif", None)
+            if cb is not None:
+                cb(target, node.rel_str)
+            return
         from gui_qt.image_preview import PREVIEW_EXTS
         if ext in PREVIEW_EXTS:
             target = self._disk_path_for(node)
