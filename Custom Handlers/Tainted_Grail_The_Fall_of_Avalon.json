@@ -1,0 +1,104 @@
+{
+  "name": "Tainted Grail: The Fall of Avalon",
+  "game_id": "Tainted_Grail_The_Fall_of_Avalon",
+  "exe_name": "Fall of Avalon.exe",
+  "deploy_type": "standard",
+  "mod_data_path": "BepInEx/plugins",
+  "steam_id": "1466060",
+  "nexus_game_domain": "taintedgrailthefallofavalon",
+  "image_url": "https://cdn2.steamgriddb.com/icon/b1567d68a6fe1ae7e868527d88195eae/32/256x256.png",
+  "mod_folder_strip_prefixes": [
+    "BepInEx",
+    "plugins"
+  ],
+  "conflict_ignore_filenames": [],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "restore_whitelist": [],
+  "wine_dll_overrides": {
+    "winhttp": "native,builtin",
+    "version": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "",
+      "filenames": [
+        "winhttp.dll"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "",
+      "filenames": [
+        "version.dll"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "",
+      "filenames": [
+        "run_bepinex.sh"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "",
+      "filenames": [
+        "libdoorstop.dylib"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "",
+      "filenames": [
+        "doorstop_config.ini"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "BepInEx",
+      "folders": [
+        "config"
+      ],
+      "loose_only": true,
+      "flatten": true
+    },
+    {
+      "dest": "BepInEx",
+      "folders": [
+        "core"
+      ],
+      "loose_only": true,
+      "flatten": true
+    },
+    {
+      "dest": "BepInEx",
+      "folders": [
+        "patchers"
+      ],
+      "loose_only": true,
+      "flatten": true
+    },
+    {
+      "dest": "BepInEx",
+      "folders": [
+        "plugins"
+      ],
+      "loose_only": true,
+      "flatten": true
+    }
+  ],
+  "custom_frameworks": {
+    "BepInEx": "winhttp.dll"
+  },
+  "version": 1,
+  "editable": false
+}
