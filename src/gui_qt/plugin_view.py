@@ -75,6 +75,22 @@ NAME_MIN = COL_MINS[COL_NAME]
 # everything else shows by default.
 _FIRST_RUN_HIDDEN = {COL_GAME_INDEX}
 
+# Header column → sort key (persisted by name via column_state's sort_col,
+# which stores the COLUMNS display name). The Lock column is icon-only and not
+# sortable, so it keeps TkStyleHeader's centred-icon painting.
+_COL_TO_SORTKEY = {
+    COL_NAME: "name", COL_FLAGS: "flags",
+    COL_PRIORITY: "priority", COL_GAME_INDEX: "index",
+}
+_SORTKEY_TO_COL = {k: c for c, k in _COL_TO_SORTKEY.items()}
+
+# The order columns (P / Index) are a 2-click toggle between the load order and
+# its reverse — modlist Priority-column parity. Ascending is what the panel
+# already shows, so applying it on the first click would read as a dead click;
+# one click flips the list, the next returns to the load order (sort cleared).
+# Name/Flags keep the modlist's asc → desc → clear cycle.
+_TWO_STATE_KEYS = {"priority", "index"}
+
 
 class PluginDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -410,9 +426,21 @@ class PluginView(QTreeView):
         # no overflow). Plugin Name (col 0) is the fill column.
         h = TkStyleHeader(self, COL_MINS, COL_DEFAULTS)
         self.setHeader(h)
+        # QTreeView.setHeader() resets clickable to follow setSortingEnabled
+        # (off — we drive the sort by hand), so re-enable it AFTER installing or
+        # sectionClicked never fires.
         h.setSectionsClickable(True)
         h.setMinimumSectionSize(min(COL_MINS.values()))
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # Column sorting is driven by hand (NOT setSortingEnabled): the model
+        # keeps the load order as its natural list and derives a sorted DISPLAY
+        # list from it, so sorting never rewrites plugins.txt. The native
+        # indicator stays hidden — TkStyleHeader paints a triangle on every
+        # sortable column via sort_triangle_spec; setSortIndicator still tracks
+        # the state for persistence.
+        h.setSortIndicatorShown(False)
+        h.setSortIndicator(-1, Qt.AscendingOrder)
+        h.sectionClicked.connect(self._on_header_sort_clicked)
         for col, w in COL_DEFAULTS.items():
             self.setColumnWidth(col, w)
 
@@ -426,6 +454,7 @@ class PluginView(QTreeView):
         self._save_timer.timeout.connect(self._save_column_state)
         h.sectionResized.connect(lambda *a: self._schedule_save())
         h.sectionMoved.connect(self._on_section_moved)
+        h.sortIndicatorChanged.connect(lambda *a: self._schedule_save())
         self._build_column_menu_button(h)
         self._restore_column_state()
 
@@ -455,6 +484,47 @@ class PluginView(QTreeView):
     def _reposition_marker_strip(self):
         from gui_qt.marker_strip import reposition_marker_strip
         reposition_marker_strip(self)
+
+    # ---- column-sort header clicks ----------------------------------------
+    def _on_header_sort_clicked(self, logical: int):
+        """Name/Flags follow the modlist cycle (ascending → descending → clear);
+        the order columns (P / Index) are a 2-click toggle: first click reverses
+        the list, second returns to the load order."""
+        key = _COL_TO_SORTKEY.get(logical)
+        if key is None:
+            return
+        cur, asc = self.model().sort_state()
+        if key in _TWO_STATE_KEYS:
+            new = (None, True) if (cur == key and not asc) else (key, False)
+        elif cur == key:
+            new = (key, False) if asc else (None, True)
+        else:
+            new = (key, True)
+        self._apply_sort(logical, *new)
+
+    def _apply_sort(self, logical: int, key: str | None, ascending: bool):
+        m = self.model()
+        m.set_sort(key, ascending)
+        h = self.header()
+        if key is None:
+            h.setSortIndicator(-1, Qt.AscendingOrder)
+        else:
+            h.setSortIndicator(logical, Qt.AscendingOrder if ascending
+                               else Qt.DescendingOrder)
+        h.viewport().update()   # repaint the custom sort triangles
+        self._schedule_save()
+
+    def sort_triangle_spec(self, logical: int):
+        """TkStyleHeader hook: (active, ascending) for the sort triangle on
+        *logical*, or None for a non-sortable section (the Lock column, which
+        keeps its centred icon). Inactive columns show a dim ascending hint."""
+        key = _COL_TO_SORTKEY.get(logical)
+        if key is None:
+            return None
+        cur, asc = self.model().sort_state()
+        if cur == key:
+            return (True, asc)
+        return (False, True)
 
     # ---- column show/hide menu (eye button, over the checkboxes) ----------
     def _build_column_menu_button(self, header):
@@ -571,14 +641,19 @@ class PluginView(QTreeView):
         widths.pop("", None)
         hidden.discard("")
         order = [n for n in order if n]
-        column_state.save_state(widths, order, hidden, None, True,
-                                section="qt_columns_plugins")
+        key, ascending = self.model().sort_state()
+        sort_col = _SORTKEY_TO_COL.get(key)
+        column_state.save_state(
+            widths, order, hidden,
+            COLUMNS[sort_col] if sort_col is not None else None, ascending,
+            section="qt_columns_plugins")
 
     def _restore_column_state(self):
         st = column_state.load_state(section="qt_columns_plugins", columns=COLUMNS)
         self._restoring = True
         try:
-            if not (st["widths"] or st["order"] or st["hidden"]):
+            if not (st["widths"] or st["order"] or st["hidden"]
+                    or st["sort_col"]):
                 # Fresh INI: hide only the game-index column; show the rest.
                 for col in _FIRST_RUN_HIDDEN:
                     self.setColumnHidden(col, True)
@@ -596,6 +671,14 @@ class PluginView(QTreeView):
                     cur = h.visualIndex(name_to_col[name])
                     if cur != -1 and cur != visual:
                         h.moveSection(cur, visual)
+            # Restore the live sort. The model is empty at this point — the
+            # first set_rows() re-derives the display with this sort.
+            col = name_to_col.get(st["sort_col"])
+            key = _COL_TO_SORTKEY.get(col) if col is not None else None
+            if key:
+                h.setSortIndicator(col, Qt.AscendingOrder if st["ascending"]
+                                   else Qt.DescendingOrder)
+                self.model().set_sort(key, st["ascending"])
         finally:
             self._restoring = False
 
@@ -782,6 +865,23 @@ class PluginView(QTreeView):
                     event.position().toPoint() - self._press_pos
             ).manhattanLength() < self._DRAG_THRESHOLD:
                 return
+            m = self.model()
+            key, _asc = m.sort_state()
+            if key and not m.display_is_natural:
+                # Display rows aren't load-order rows under a column sort, so a
+                # drag would move the wrong plugins. Modlist parity: clear the
+                # sort first (the list snaps back to load order), then drag —
+                # re-anchoring the press to the row's new position. P ascending
+                # already IS the load order, so it drags without clearing.
+                pressed = (m.row(self._press_row)
+                           if 0 <= self._press_row < m.rowCount() else None)
+                self._apply_sort(-1, None, True)
+                row = next((r for r in range(m.rowCount())
+                            if m.row(r) is pressed), -1)
+                if row < 0:
+                    self._press_row = -1
+                    return
+                self._press_row = row
             block = self._drag_block_for(self._press_row)
             if block is None:
                 self._press_row = -1

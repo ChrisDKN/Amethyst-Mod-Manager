@@ -6004,7 +6004,9 @@ class MainWindow(QMainWindow):
         # engine's (_P boost, basename) mount order instead (empty plugin
         # order + archive_name_ordering below select that path).
         if getattr(game, "archive_plugin_ordering", True):
-            plugin_order = [r.name for r in getattr(self._plugin_model, "_rows", [])
+            # Load order, NOT the panel's display order (a column sort must not
+            # change which BSA wins).
+            plugin_order = [r.name for r in self._plugin_model.natural_rows()
                             if getattr(r, "enabled", False)]
         else:
             plugin_order = []
@@ -10472,6 +10474,12 @@ class MainWindow(QMainWindow):
             self._plugin_filter_state[key] = state
             self._apply_plugin_filters()
 
+    def _on_plugin_layout_changed(self, *_a):
+        if not hasattr(self, "_plugin_view"):
+            return
+        self._apply_plugin_search()
+        self._apply_plugin_filters()
+
     def _apply_plugin_filters(self):
         """Push the filter-hidden row set to the plugin view (composes with the
         plugin search via the view's search/filter union)."""
@@ -12306,6 +12314,7 @@ class MainWindow(QMainWindow):
         m.dataChanged.emit(m.index(0, COL_FLAGS),
                            m.index(len(m._rows) - 1, COL_FLAGS),
                            [PFlagsRole, Qt.ToolTipRole])
+        m.flags_changed()   # re-sort if the Flags column drives the display
         # The ESL-safe/unsafe filters read these bits — reapply if active.
         if getattr(self, "_plugin_filter_panel", None) is not None:
             self._apply_plugin_filters()
@@ -12342,6 +12351,7 @@ class MainWindow(QMainWindow):
             m.dataChanged.emit(m.index(0, COL_FLAGS),
                                m.index(len(m._rows) - 1, COL_FLAGS),
                                [PFlagsRole, Qt.ToolTipRole])
+            m.flags_changed()   # re-sort if the Flags column drives the display
 
     def _on_userlist_bar_saved(self, message: str):
         """An inline bar (Add to userlist / Add to group) wrote userlist.yaml."""
@@ -12393,7 +12403,7 @@ class MainWindow(QMainWindow):
             return
         if self._tabs.has_key("plugin_rules"):
             self._tabs.close_tab("plugin_rules")
-        plugin_names = [r.name for r in self._plugin_model._rows]
+        plugin_names = [r.name for r in self._plugin_model.natural_rows()]
         sel_rows = self._plugin_view.selectionModel().selectedRows()
         sel_name = (self._plugin_model.row(sel_rows[0].row()).name
                     if sel_rows else "")
@@ -12501,9 +12511,14 @@ class MainWindow(QMainWindow):
         if self._userlist_path() is None:
             self._notify(self.tr("No active profile — cannot edit userlist."), "warning")
             return
-        rows = self._plugin_model._rows
-        after_plugin = rows[row - 1].name if row > 0 else ""
-        before_plugin = rows[row + 1].name if row + 1 < len(rows) else ""
+        # Neighbours come from the LOAD order — *row* is a display row, which a
+        # column sort detaches from the load order.
+        rows = self._plugin_model.natural_rows()
+        pos = self._plugin_model.natural_index(plugin_name)
+        if pos < 0:
+            pos = row
+        after_plugin = rows[pos - 1].name if pos > 0 else ""
+        before_plugin = rows[pos + 1].name if pos + 1 < len(rows) else ""
         self._ul_bar.open_for(plugin_name, after_plugin, before_plugin)
 
     def _on_group_add(self, plugin_names: list):
@@ -12555,7 +12570,7 @@ class MainWindow(QMainWindow):
         if not getattr(game, "loot_sort_enabled", False):
             self._notify(self.tr("LOOT sorting isn't supported for this game."), "warning")
             return
-        rows = list(self._plugin_model._rows)
+        rows = list(self._plugin_model.natural_rows())
         if not rows:
             self._notify(self.tr("No plugins to sort."), "warning")
             return
@@ -12565,8 +12580,9 @@ class MainWindow(QMainWindow):
 
         # Locked plugins stay put; LOOT sorts the rest. (Qt model already carries
         # vanilla rows pinned at the top, so — unlike Tk — we don't inject them.)
+        # Indices are LOAD-order positions, so look locks up by name.
         locked_indices = {i: r for i, r in enumerate(rows)
-                          if self._plugin_model.is_locked(i)}
+                          if self._plugin_model.is_locked_name(r.name)}
         unlocked = [r for i, r in enumerate(rows) if i not in locked_indices]
         plugin_names = [r.name for r in unlocked]
         enabled_set = {r.name for r in unlocked if r.enabled}
@@ -12674,7 +12690,7 @@ class MainWindow(QMainWindow):
 
         game, profile = ctx.get("game"), ctx.get("profile")
         if game is not None and profile:
-            self._plugin_model._rows = new_rows
+            self._plugin_model.set_natural_rows(new_rows)
             try:
                 save_plugins(game, profile, new_rows)
             except Exception as exc:
@@ -12714,7 +12730,7 @@ class MainWindow(QMainWindow):
         if not getattr(game, "loot_sort_enabled", False):
             self._notify(self.tr("LOOT sorting isn't supported for this game."), "warning")
             return
-        rows = list(self._plugin_model._rows)
+        rows = list(self._plugin_model.natural_rows())
         if not rows:
             return
         if getattr(self, "_overlap_running", False):
@@ -13488,6 +13504,15 @@ class MainWindow(QMainWindow):
         self._plugin_model.save_failed.connect(
             lambda msg: self._notify(msg, "error"))
         self._plugin_view = PluginView(self._plugin_model)
+        # Search/filter hidden sets are row-indexed, so a column sort (or any
+        # reorder) leaves them misaligned — the view's own handler only
+        # re-applies the STALE indices. Recompute both from the current display
+        # order. modelReset is covered by _reload_plugins' explicit reapply.
+        for sig in (self._plugin_model.layoutChanged,
+                    self._plugin_model.rowsMoved,
+                    self._plugin_model.rowsInserted,
+                    self._plugin_model.rowsRemoved):
+            sig.connect(self._on_plugin_layout_changed)
         from gui_qt.framework_banner import FrameworkBanner
         self._framework_banner = FrameworkBanner()
         self._plugin_stack.addWidget(self._plugin_view)
