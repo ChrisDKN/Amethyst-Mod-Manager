@@ -172,6 +172,20 @@ class _CurrentPageStack(QStackedWidget):
         self.clamp_to_current()
 
 
+class _HeaderBar(QWidget):
+    """The top bar. Reports its own resizes so the action buttons can collapse
+    to icon-only when the window is too narrow for their labels (tiling the
+    manager beside another window) — see MainWindow._sync_header_compact."""
+
+    def __init__(self, on_resize):
+        super().__init__()
+        self._on_resize = on_resize
+
+    def resizeEvent(self, e):               # noqa: N802
+        super().resizeEvent(e)
+        self._on_resize()
+
+
 class MainWindow(QMainWindow):
     # Carries (generation, ConflictData) from a worker thread to the UI thread
     # (queued connection — thread-safe). See _rebuild_conflicts_async.
@@ -1014,6 +1028,43 @@ class MainWindow(QMainWindow):
         self._image_preview_widget = widget
         self._tabs.open_scoped_tab(
             widget, name, self._modlist_panel_stack, key="mf_image_preview")
+
+    def _open_nif_preview_tab(self, path, rel_str):
+        """Open a .nif mesh in the 3D viewer as a MODLIST-PANEL-SCOPED tab: it
+        shows in the modlist region (in the shared top tab bar) while the Mod
+        Files tree in the plugins panel stays live. Reuses one preview tab —
+        clicking another mesh swaps it in place, like the image preview."""
+        from pathlib import Path as _P
+        from gui_qt.nif_preview import NifPreview
+        name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
+        roots = self._nif_texture_roots(_P(path))
+        existing = getattr(self, "_nif_preview_widget", None)
+        if existing is not None and self._tabs.has_key("mf_nif_preview"):
+            existing.set_nif(_P(path), name, roots)
+            self._tabs.focus_key("mf_nif_preview")
+            self._tabs.set_tab_title("mf_nif_preview", name)
+            return
+        widget = NifPreview(_P(path), name, roots)
+        self._nif_preview_widget = widget
+        self._tabs.open_scoped_tab(
+            widget, name, self._modlist_panel_stack, key="mf_nif_preview")
+
+    def _nif_texture_roots(self, path):
+        """Folders to search for a mesh's loose textures: the mod's own staging
+        root first, then the game's data folder so vanilla textures resolve."""
+        from gui_qt.nif_preview import default_texture_roots
+        roots = default_texture_roots(path)
+        try:
+            game = getattr(self._gs, "game", None)
+            data = game.get_mod_data_path() if game is not None else None
+        except Exception:
+            data = None
+        if data:
+            from pathlib import Path as _P
+            d = _P(data)
+            if d.is_dir() and d not in roots:
+                roots.append(d)
+        return roots
 
     def _open_bsa_preview_tab(self, path, rel_str):
         """Open a BSA/BA2 archive's contents as a MODLIST-PANEL-SCOPED tab: it
@@ -1900,7 +1951,7 @@ class MainWindow(QMainWindow):
 
     def _left_header(self) -> QWidget:
         # Single row: game/profile selectors, then the mod-action buttons.
-        header = QWidget()
+        header = _HeaderBar(self._sync_header_compact)
         header.setObjectName("HeaderBar")
         h = QHBoxLayout(header)
         h.setContentsMargins(8, 6, 8, 6)
@@ -1941,8 +1992,10 @@ class MainWindow(QMainWindow):
 
         h.addWidget(self._group_sep())
 
-        # Plain mod-action buttons.
+        # Plain mod-action buttons. They drop to icon-only when the bar gets
+        # too narrow for the labels (_sync_header_compact).
         self._action_buttons = []
+        self._header_compact = False
         _handlers = {"Install Mod": self._on_install_mod,
                      # drop QPushButton.clicked's `bool checked` arg — it would
                      # otherwise land in _on_deploy's `silent` parameter.
@@ -2059,9 +2112,77 @@ class MainWindow(QMainWindow):
             b.setToolTip(tooltip)
         return b
 
-    # The action buttons always show text+icon: the full-width top bar has room
-    # for them even at the 1280 minimum, so the old icon-only collapse (with its
-    # threshold/flicker tuning) is no longer needed.
+    # ---- narrow top bar: icon-only action buttons ---------------------------
+    # Extra width the bar must have BEYOND what the labels need before they come
+    # back. Without this dead band the two states chase each other: restoring the
+    # labels makes the bar want more room than it has, which collapses them again
+    # on the very next resize event.
+    _HEADER_HYST_PX = 24
+    # Width past which a selector's own label stops counting towards "the bar is
+    # too narrow". A long game name (Oblivion Remastered…) would otherwise claim
+    # enough of the bar's preferred width to collapse the buttons at a perfectly
+    # normal window size; eliding the name is the better trade there.
+    _HEADER_SEL_CAP_PX = 200
+
+    def _measure_action_buttons(self) -> None:
+        """Cache each action button's text+icon and icon-only widths (once)."""
+        # Deferred to the first resize rather than done at build time: the theme
+        # stylesheet (which supplies the paddings) is applied after the widgets
+        # are created, so widths measured in _left_header would be unstyled.
+        if getattr(self, "_action_btn_widths", False):
+            return
+        # The mode flips below re-lay-out the bar, so a resize landing mid-measure
+        # would run _sync_header_compact against half-filled widths.
+        self._measuring_buttons = True
+        try:
+            for b in self._action_buttons:
+                b.ensurePolished()
+                b._full_w = b.sizeHint().width()
+            # Flip to icon-only just long enough to read the collapsed widths back.
+            self._set_header_compact(True)
+            for b in self._action_buttons:
+                b._icon_w = b.sizeHint().width()
+            self._set_header_compact(False)
+            self._action_btn_widths = True
+        finally:
+            self._measuring_buttons = False
+
+    def _set_header_compact(self, on: bool) -> None:
+        """Show the action buttons as icon-only (*on*) or icon+label."""
+        # The tooltips already carry the labels, so collapsed stays discoverable.
+        self._header_compact = on
+        for b in self._action_buttons:
+            b.setToolButtonStyle(Qt.ToolButtonIconOnly if on
+                                 else Qt.ToolButtonTextBesideIcon)
+            # QSS trims the label padding (and the split arrow room) via this
+            # property so the collapsed buttons are near-square, not just short.
+            b.setProperty("compact", on)
+            b.style().unpolish(b); b.style().polish(b)
+
+    def _sync_header_compact(self) -> None:
+        """Collapse the action buttons to icon-only when the bar is too narrow
+        for their labels; restore them when it grows back."""
+        # The game/profile selectors keep their text either way — an icon can't
+        # stand in for which game or profile you're looking at.
+        hdr = getattr(self, "_left_header_widget", None)
+        if (hdr is None or not getattr(self, "_action_buttons", None)
+                or getattr(self, "_measuring_buttons", False)):
+            return
+        self._measure_action_buttons()
+        extra = sum(b._full_w - b._icon_w for b in self._action_buttons)
+        if extra <= 0:
+            return
+        # sizeHint reflects the CURRENT mode, so add the labels back in when
+        # collapsed to get what the expanded row would ask for, less whatever an
+        # over-long selector label is asking for on top of its cap.
+        over = sum(max(0, sel.sizeHint().width() - self._HEADER_SEL_CAP_PX)
+                   for sel in (self._game_selector, self._profile_selector))
+        needed = hdr.sizeHint().width() + (extra if self._header_compact else 0) - over
+        if self._header_compact:
+            if hdr.width() >= needed + self._HEADER_HYST_PX:
+                self._set_header_compact(False)
+        elif hdr.width() < needed:
+            self._set_header_compact(True)
 
     # ---- selector handlers -------------------------------------------------
     def _on_game_changed(self, name):
@@ -13522,6 +13643,7 @@ class MainWindow(QMainWindow):
         self._mod_files_view.changed.connect(self._on_mod_files_changed)
         self._mod_files_view.on_open_image = self._open_image_preview_tab
         self._mod_files_view.on_open_archive = self._open_bsa_preview_tab
+        self._mod_files_view.on_open_nif = self._open_nif_preview_tab
         self._mod_files_view.on_open_text = self._open_text_editor_tab
         self._plugin_stack.addWidget(self._mod_files_view)
         # Page 2: the real Text Files view.

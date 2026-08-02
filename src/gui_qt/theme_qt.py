@@ -435,6 +435,11 @@ def build_qss(pal: dict | None = None) -> str:
     /* Split buttons (with a dropdown arrow) need extra right padding so the
        label never runs under the 22px arrow section. */
     #ActionButton[split="true"] {{ padding: 6px 28px 6px 12px; }}
+    /* Icon-only mode (narrow top bar, see MainWindow._sync_header_compact):
+       drop the label padding so the button is a near-square glyph. Split
+       buttons still reserve the arrow section on the right. */
+    #ActionButton[compact="true"] {{ padding: 6px; }}
+    #ActionButton[compact="true"][split="true"] {{ padding: 6px 24px 6px 6px; }}
     /* Deployed profile: only the TEXT goes green when the current selection is
        the deployed one (button chrome stays normal). */
     #ActionButton[deployed="true"] {{ color: {c('TEXT_OK_BRIGHT')}; }}
