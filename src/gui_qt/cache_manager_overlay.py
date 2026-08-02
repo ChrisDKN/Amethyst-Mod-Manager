@@ -41,7 +41,8 @@ class CacheManagerOverlay(OverlayBase):
     # worker -> UI thread (queued, thread-safe). Guard .emit() for a destroyed
     # widget (daemon threads outlive a quick close). Payloads typed `object`
     # so PySide6 marshals the plain dict/list across the thread boundary.
-    _sizes_ready = Signal(object)        # {name: bytes} (+ _ORPHANS)
+    _sizes_ready = Signal(object)        # {name: bytes} (per-game only)
+    _orphans_ready = Signal(int, "qlonglong")   # dir count, total bytes
     _clear_done = Signal(int, object)    # cleared_count, errors
 
     def __init__(self, host: QWidget, active_game_name: str = "",
@@ -52,9 +53,13 @@ class CacheManagerOverlay(OverlayBase):
         self._pal = active_palette()
         self._checks: dict[str, QCheckBox] = {}
         self._size_lbls: dict[str, QLabel] = {}
+        self._sizes: dict[str, int] = {}     # key -> bytes, reused by Clear
+        self._empty_lbl: QLabel | None = None
+        self._orphan_scan_done = False
         self._total = 0
 
         self._sizes_ready.connect(self._on_sizes)
+        self._orphans_ready.connect(self._on_orphans)
         self._clear_done.connect(self._on_clear_done)
 
         # Only style the card itself — the buttons inherit the global QSS
@@ -70,8 +75,9 @@ class CacheManagerOverlay(OverlayBase):
         self._build_actions(outer)
 
         self._present()
-        # Populating the list walks staging roots (orphaned_tmp_dirs) which can
-        # be slow on disk — defer it a tick so the overlay paints instantly.
+        # Even the cheap cache-root listdir can stall on a cold/network disk —
+        # defer it a tick so the overlay paints instantly. Everything costlier
+        # (sizes, the staging-root orphan sweep) runs on the scan thread.
         self._total_lbl.setText(self.tr("Total: calculating…"))
         QTimer.singleShot(0, self._populate)
 
@@ -180,7 +186,12 @@ class CacheManagerOverlay(OverlayBase):
         self._start_size_scan()
 
     def _repaint(self):
-        from Utils.cache_tools import enumerate_game_caches, orphaned_tmp_dirs
+        """Per-game rows only — one listdir of the cache root, no tree walks.
+
+        The leftover-temp row needs a sweep of every staging root, so it's
+        appended later by :meth:`_on_orphans` off the scan thread.
+        """
+        from Utils.cache_tools import enumerate_game_caches
         # Clear existing rows (keep the trailing stretch).
         while self._rows_v.count() > 1:
             item = self._rows_v.takeAt(0)
@@ -189,31 +200,26 @@ class CacheManagerOverlay(OverlayBase):
                 w.deleteLater()
         self._checks.clear()
         self._size_lbls.clear()
+        self._sizes.clear()
+        self._empty_lbl = None
+        self._orphan_scan_done = False
 
         p = self._pal
         games = enumerate_game_caches()
-        n_orphans = len(orphaned_tmp_dirs())
 
-        if not games and not n_orphans:
-            lbl = QLabel(self.tr("No per-game caches found."))
-            lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; padding:12px;")
-            self._rows_v.insertWidget(0, lbl)
+        if not games:
+            self._empty_lbl = QLabel(self.tr("No per-game caches found."))
+            self._empty_lbl.setStyleSheet(
+                f"color:{_c(p,'TEXT_DIM')}; padding:12px;")
+            self._rows_v.insertWidget(0, self._empty_lbl)
             return
 
-        idx = 0
-        for game_dir in games:
+        for idx, game_dir in enumerate(games):
             name = game_dir.name
             active = (name == self._active)
             label = self.tr("{0}  (active)").format(name) if active else name
             color = _c(p, "TEXT_OK_BRIGHT") if active else _c(p, "TEXT_MAIN")
             self._add_row(idx, name, label, color)
-            idx += 1
-
-        if n_orphans:
-            self._add_row(
-                idx, _ORPHANS,
-                self.tr("Leftover temp folders  ({0})").format(n_orphans),
-                _c(p, "TEXT_DIM"))
 
     def _add_row(self, idx: int, key: str, label_text: str, color: str):
         p = self._pal
@@ -237,35 +243,64 @@ class CacheManagerOverlay(OverlayBase):
 
     # ---- size scan (daemon -> Signal) --------------------------------------
     def _start_size_scan(self):
+        """Size the per-game caches, then sweep for orphans — two emits, so the
+        (fast) cache sizes land without waiting on the (slower) staging walk."""
         names = [k for k in self._size_lbls if k != _ORPHANS]
-        want_orphans = _ORPHANS in self._size_lbls
 
         def worker():
-            sizes: dict = {}
             try:
-                from Utils.cache_tools import game_cache_sizes, orphaned_tmp_size
+                from Utils.cache_tools import game_cache_sizes
                 sizes = dict(game_cache_sizes(names))
-                if want_orphans:
-                    sizes[_ORPHANS] = orphaned_tmp_size()
             except Exception:
                 sizes = {}
             try:
                 self._sizes_ready.emit(sizes)
             except (RuntimeError, TypeError):
-                pass   # widget destroyed mid-scan (signal C++ object gone)
+                return   # widget destroyed mid-scan (signal C++ object gone)
+            try:
+                from Utils.cache_tools import orphaned_tmp_scan
+                dirs, nbytes = orphaned_tmp_scan()
+            except Exception:
+                dirs, nbytes = [], 0
+            try:
+                self._orphans_ready.emit(len(dirs), nbytes)
+            except (RuntimeError, TypeError):
+                pass
 
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_sizes(self, sizes: dict):
         from Utils.cache_tools import format_size
-        total = 0
         for name, sz in sizes.items():
-            total += sz
+            self._sizes[name] = sz
             lbl = self._size_lbls.get(name)
             if lbl is not None:
                 lbl.setText(format_size(sz))
-        self._total = total
-        self._total_lbl.setText(self.tr("Total: {0}").format(format_size(total)))
+        self._refresh_total()
+
+    def _on_orphans(self, count: int, nbytes: int):
+        """Append the leftover-temp row once the staging sweep finishes."""
+        from Utils.cache_tools import format_size
+        self._orphan_scan_done = True
+        if not count or _ORPHANS in self._checks:
+            return
+        if self._empty_lbl is not None:
+            self._rows_v.removeWidget(self._empty_lbl)
+            self._empty_lbl.deleteLater()
+            self._empty_lbl = None
+        self._add_row(
+            max(self._rows_v.count() - 1, 0), _ORPHANS,
+            self.tr("Leftover temp folders  ({0})").format(count),
+            _c(self._pal, "TEXT_DIM"))
+        self._sizes[_ORPHANS] = nbytes
+        self._size_lbls[_ORPHANS].setText(format_size(nbytes))
+        self._refresh_total()
+
+    def _refresh_total(self):
+        from Utils.cache_tools import format_size
+        self._total = sum(self._sizes.values())
+        self._total_lbl.setText(
+            self.tr("Total: {0}").format(format_size(self._total)))
 
     # ---- selection ---------------------------------------------------------
     def _select_all(self):
@@ -281,12 +316,17 @@ class CacheManagerOverlay(OverlayBase):
 
     # ---- clear actions -----------------------------------------------------
     def _selection_size(self, keys: list[str]) -> int:
-        from Utils.cache_tools import game_cache_sizes, orphaned_tmp_size
-        games = [k for k in keys if k != _ORPHANS]
-        total = sum(game_cache_sizes(games).values())
-        if _ORPHANS in keys:
-            total += orphaned_tmp_size()
-        return total
+        """Sum the already-scanned sizes; only re-walk keys the scan missed
+        (it's still running, or it failed) so the confirm prompt is instant."""
+        missing = [k for k in keys
+                   if k not in self._sizes and k != _ORPHANS]
+        if missing:
+            from Utils.cache_tools import game_cache_sizes
+            self._sizes.update(game_cache_sizes(missing))
+        if _ORPHANS in keys and _ORPHANS not in self._sizes:
+            from Utils.cache_tools import orphaned_tmp_size
+            self._sizes[_ORPHANS] = orphaned_tmp_size()
+        return sum(self._sizes.get(k, 0) for k in keys)
 
     def _label_for(self, key: str) -> str:
         return "Leftover temp folders" if key == _ORPHANS else key
@@ -314,6 +354,12 @@ class CacheManagerOverlay(OverlayBase):
             danger=True)
 
     def _on_clear_all(self):
+        # The orphan row lands asynchronously; if the sweep hasn't reported yet
+        # finish it here so "Clear All" can't silently skip leftover temp dirs.
+        if not self._orphan_scan_done:
+            from Utils.cache_tools import orphaned_tmp_scan
+            dirs, nbytes = orphaned_tmp_scan()
+            self._on_orphans(len(dirs), nbytes)
         keys = list(self._checks.keys())
         if not keys:
             self._set_status(self.tr("Cache is empty."), "dim")

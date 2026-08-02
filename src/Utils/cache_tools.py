@@ -16,7 +16,9 @@ staging path — :func:`orphaned_tmp_dirs` finds them and
 from __future__ import annotations
 
 import json
+import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from Utils.config_paths import (
@@ -27,6 +29,12 @@ from Utils.config_paths import (
 # "Clear All" (moved here from gui/cache_manager_overlay.py so both toolkits
 # share one definition).
 CLEAR_ALL_PRESERVE: frozenset[str] = frozenset({"md5_cache.json"})
+
+# How far below a staging root the modmgr_* sweep descends. Aborted extractions
+# dropped their temp dir at the root (or one level in, beside a mod folder), so
+# a shallow sweep finds every real orphan — while an unbounded rglob walked the
+# whole mod library (100k+ dirents) and made "Manage Caches" take seconds.
+ORPHAN_SCAN_MAX_DEPTH = 3
 
 
 def format_size(n_bytes: int) -> str:
@@ -40,19 +48,26 @@ def format_size(n_bytes: int) -> str:
 
 
 def dir_size(path: Path) -> int:
-    """Total size in bytes of every regular file under *path* (0 if missing)."""
-    if not path.is_dir():
-        return 0
+    """Total size in bytes of every regular file under *path* (0 if missing).
+
+    scandir-based: the dirent already carries the file/dir type, so this costs
+    one stat per file instead of rglob's stat-per-is_file plus stat-per-size.
+    """
     total = 0
-    try:
-        for p in path.rglob("*"):
-            if p.is_file():
-                try:
-                    total += p.stat().st_size
-                except OSError:
-                    pass
-    except OSError:
-        pass
+    stack = [str(path)]
+    while stack:
+        try:
+            with os.scandir(stack.pop()) as it:
+                for entry in it:
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                        elif entry.is_file(follow_symlinks=False):
+                            total += entry.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        pass
+        except OSError:
+            pass
     return total
 
 
@@ -74,9 +89,20 @@ def enumerate_game_caches() -> list[Path]:
 
 
 def game_cache_sizes(names: list[str]) -> dict[str, int]:
-    """Map each per-game cache name -> total byte size (reuses dir_size)."""
+    """Map each per-game cache name -> total byte size (reuses dir_size).
+
+    The per-cache walks run on a small thread pool — they're pure I/O wait, so
+    overlapping them cuts the wall clock on a multi-game cache roughly by the
+    worker count.
+    """
     root = get_download_cache_dir()
-    return {name: dir_size(root / name) for name in names}
+    if not names:
+        return {}
+    if len(names) == 1:
+        return {names[0]: dir_size(root / names[0])}
+    with ThreadPoolExecutor(max_workers=min(8, len(names))) as pool:
+        sizes = pool.map(lambda n: dir_size(root / n), names)
+    return dict(zip(names, sizes))
 
 
 def clear_game_caches(names: list[str]) -> tuple[int, list[str]]:
@@ -131,13 +157,50 @@ def orphaned_tmp_dirs() -> list[Path]:
         if root in seen or not root.is_dir():
             continue
         seen.add(root)
-        try:
-            for tmp_dir in root.rglob("modmgr_*"):
-                if tmp_dir.is_dir():
-                    found.append(tmp_dir)
-        except Exception:
-            pass
+        found.extend(_scan_for_orphans(root))
     return found
+
+
+def _scan_for_orphans(root: Path) -> list[Path]:
+    """``modmgr_*`` dirs at most ORPHAN_SCAN_MAX_DEPTH levels below *root*.
+
+    Never descends through a symlink (staging trees are full of deploy symlinks
+    pointing back into the game dir) nor into a matched dir — its children are
+    already covered by the rmtree that removes it.
+    """
+    found: list[Path] = []
+    level = [str(root)]
+    for _ in range(ORPHAN_SCAN_MAX_DEPTH):
+        nxt: list[str] = []
+        for d in level:
+            try:
+                with os.scandir(d) as it:
+                    for entry in it:
+                        try:
+                            if not entry.is_dir(follow_symlinks=False):
+                                continue
+                        except OSError:
+                            continue
+                        if entry.name.startswith("modmgr_"):
+                            found.append(Path(entry.path))
+                        else:
+                            nxt.append(entry.path)
+            except OSError:
+                pass
+        if not nxt:
+            break
+        level = nxt
+    return found
+
+
+def orphaned_tmp_scan() -> tuple[list[Path], int]:
+    """(orphaned ``modmgr_*`` dirs, their total bytes) in one sweep.
+
+    Callers that need both must use this — ``orphaned_tmp_dirs`` +
+    ``orphaned_tmp_size`` walks the staging roots twice.
+    """
+    dirs = orphaned_tmp_dirs()
+    return dirs, sum(dir_size(d) for d in dirs)
 
 
 def orphaned_tmp_size() -> int:
