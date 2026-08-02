@@ -201,6 +201,15 @@ class AssetResolver:
                                           keep_prefix=self.keep_prefix)
         return self._vanilla
 
+    # -- enumeration --------------------------------------------------------
+    def loose_winners(self) -> dict[str, str]:
+        """rel_key -> mod whose LOOSE copy wins (the resolved deploy map)."""
+        return self._loose_map()
+
+    def archive_winners(self) -> dict[str, str]:
+        """rel_key -> mod whose ARCHIVED copy wins, once loose files are out."""
+        return self._archive_winner()
+
     # -- resolution ---------------------------------------------------------
     def loose_path(self, rel: str) -> Path | None:
         """The loose file the game would load, or None if it is archived only."""

@@ -89,6 +89,17 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "category": "Patchers and Cleanup",
     },
     {
+        "id": "nif_viewer",
+        "label": "NIF Viewer",
+        "description": ("Browse every mesh in this profile and the vanilla game "
+                        "— loose files and BSA/BA2 contents — and preview it in 3D."),
+        "game_ids": _BETHESDA_GAME_IDS,
+        "all_games": False,
+        # Qt-only tool: no Tk class exists behind this path, it is a registry key.
+        "dialog_class": "wizards.nif_viewer.NifViewerWizard",
+        "category": "Other",
+    },
+    {
         "id": "bg3_import_modlist_json",
         "label": "Import BG3MM Load Order (.json)",
         "description": ("Convert a BG3 Mod Manager modlist.json into this "

@@ -35,7 +35,8 @@ class QtWizardSpec:
     """One ported wizard: how to build its view and which panel it scopes to."""
     # (game, log_fn=..., on_close=..., ctx=QtWizardContext, **extra) -> QWidget
     view_factory: Callable[..., "QWidget"]
-    panel: str = "plugins"                  # "plugins" | "modlist"
+    # "plugins" | "modlist" take over one panel; "full" opens a full-UI tab.
+    panel: str = "plugins"
 
 
 @dataclass(frozen=True)
@@ -240,6 +241,11 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.skygen_view", "SkyGenView"), panel="modlist"),
     "wizards.plugin_audit.PluginAuditWizard":
         QtWizardSpec(_simple("wizards_qt.plugin_audit_view", "PluginAuditView"), panel="modlist"),
+
+    # -- full-UI tools (tree + 3D viewport needs the whole window) --
+    "wizards.nif_viewer.NifViewerWizard":
+        QtWizardSpec(_simple("wizards_qt.nif_viewer_view", "NifViewerView"),
+                     panel="full"),
 
     # -- ported former external plugins (attached per game_id via
     #    Utils.plugin_loader.BUILTIN_WIZARD_TOOLS) --

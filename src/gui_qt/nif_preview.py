@@ -25,11 +25,12 @@ from PySide6.QtOpenGL import (
 )
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout,
-    QWidget,
+    QCheckBox, QComboBox, QLabel, QVBoxLayout, QWidget,
 )
 
 from Utils.asset_resolver import DirCache as _DirCache
+from gui_qt.eliding_label import ElidingLabel
+from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 
@@ -168,7 +169,8 @@ def _qimage_from_bytes(data: bytes):
     try:
         import io
         from PIL import Image as PilImage
-        with PilImage.open(io.BytesIO(data)) as im:
+        from Utils.dds_compat import sanitise_dds
+        with PilImage.open(io.BytesIO(sanitise_dds(data))) as im:
             # Reduce BEFORE convert so the full-size RGBA never hits the heap.
             big = max(im.width, im.height)
             if big > TEXTURE_MAX_DIM:
@@ -181,15 +183,19 @@ def _qimage_from_bytes(data: bytes):
         return None
 
 
-def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None):
+def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None,
+                         override=None):
     """Return ``shape -> QImage|None``; resolver first, then roots/archives.
 
     FO4/Starfield shapes name a material file whose textures override the
-    mesh's own (usually empty) texture set.
+    mesh's own (usually empty) texture set. *override* (``rel -> bytes|None``)
+    is consulted before everything else; requested paths are recorded on
+    ``load.requested``.
     """
     cache = _DirCache()
     seen: dict[str, object] = {}
     materials: dict[str, object] = {}
+    requested: list[str] = []
 
     def fetch(rel: str):
         """Raw bytes for a data-relative path; retries with textures/ prefix."""
@@ -204,6 +210,10 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         return None
 
     def _fetch_exact(rel: str):
+        if override is not None:
+            blob = override(rel)
+            if blob:
+                return blob
         if resolver is not None:
             blob = resolver.read(rel)
             if blob:
@@ -237,8 +247,12 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             rel = shape.diffuse
         if not rel:
             return None
-        key = rel.lower()
-        if key in seen:
+        key = rel.replace("\\", "/").lower()
+        if not key.startswith(("textures/", "materials/", "data/")):
+            key = "textures/" + key          # what fetch() ends up asking for
+        if key not in seen:
+            requested.append(key)
+        else:
             return seen[key]
         blob = fetch(rel)
         image = _qimage_from_bytes(blob) if blob else None
@@ -249,6 +263,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         return image
 
     load.fetch = fetch
+    load.requested = requested
     return load
 
 
@@ -334,10 +349,34 @@ def _build_meshes(model, load_texture):
     return meshes, bounds
 
 
+def _neutralise_meshes(meshes) -> None:
+    """Sever GL wrappers whose context is gone: QOpenGLTexture's destructor
+    dereferences its creation context (areSharing), so letting GC run it after
+    the context died segfaults. invalidate() leaks the tiny C++ shell instead;
+    the GPU memory goes with the context's share group."""
+    import shiboken6
+    for m in meshes:
+        for obj in (m.vao, m.vbo, m.ibo, m.texture):
+            if obj is not None:
+                try:
+                    shiboken6.invalidate(obj)
+                except Exception:                        # noqa: BLE001
+                    pass
+        m.vao = m.vbo = m.ibo = m.texture = None
+
+
+def _neutralise_view(view) -> None:
+    """Last-resort orphan cleanup when a context dies (Python attrs only —
+    the widget's C++ half may already be mid-destruction)."""
+    _neutralise_meshes(list(view._meshes) + list(view._pending or ()))
+    view._meshes = []
+    view._pending = None
+
+
 class _Viewport(QOpenGLWidget):
     """The GL canvas: orbit/pan/zoom camera over the parsed shapes."""
 
-    loaded = Signal(object, object, int)     # meshes, bounds, generation
+    loaded = Signal(object, object, int, object)  # meshes, bounds, gen, tex paths
     failed = Signal(str, int)
 
     def __init__(self, parent=None):
@@ -359,7 +398,7 @@ class _Viewport(QOpenGLWidget):
         self._generation = 0
         self._reload_args = None
         self._needs_reload = False
-        self._tex_graveyard: list = []
+        self._keep_view = False
 
         self._yaw = math.radians(-60.0)
         self._pitch = math.radians(22.0)
@@ -380,16 +419,19 @@ class _Viewport(QOpenGLWidget):
 
     # -- loading ------------------------------------------------------------
     def load(self, source, texture_roots: list[Path], archive_roots=None,
-             resolver=None, archives=None):
+             resolver=None, archives=None, tex_override=None,
+             keep_view: bool = False):
         """Parse and build *source* (path or raw bytes) off-thread, then swap.
 
         *archives* lets a mesh read from inside a BSA find its own textures.
         """
         self._generation += 1
         gen = self._generation
+        # keep_view: same mesh, new textures — don't snap the camera back.
+        self._keep_view = bool(keep_view)
         # Kept so the mesh can be rebuilt after a context loss (tab detach).
         self._reload_args = (source, texture_roots, archive_roots,
-                             resolver, archives)
+                             resolver, archives, tex_override)
         self._discard_pending()
 
         def work():
@@ -400,7 +442,8 @@ class _Viewport(QOpenGLWidget):
                     from Utils.archive_lookup import ArchiveLookup, find_archives
                     extra = ArchiveLookup(find_archives(archive_roots),
                                           keep_prefix=ASSET_PREFIXES)
-                loader = _make_texture_loader(texture_roots, extra, resolver)
+                loader = _make_texture_loader(texture_roots, extra, resolver,
+                                              tex_override)
                 model = read_nif(source)
                 # Starfield keeps geometry in external .mesh files.
                 if any(s.mesh_path for s in model.shapes):
@@ -409,14 +452,15 @@ class _Viewport(QOpenGLWidget):
             except Exception as e:                       # noqa: BLE001
                 safe_emit(self.failed, str(e), gen)
                 return
-            safe_emit(self.loaded, meshes, bounds, gen)
+            safe_emit(self.loaded, meshes, bounds, gen,
+                      list(dict.fromkeys(loader.requested)))
 
         threading.Thread(target=work, daemon=True).start()
 
     def _discard_pending(self):
         self._pending = None
 
-    def _on_loaded(self, meshes, bounds, gen):
+    def _on_loaded(self, meshes, bounds, gen, _tex_paths=None):
         if gen != self._generation:
             return                                   # a newer file won the race
         # GL deletes need the context current or the driver keeps the objects.
@@ -425,11 +469,13 @@ class _Viewport(QOpenGLWidget):
             self._release_gpu()
             self.doneCurrent()
         else:
+            _neutralise_meshes(self._meshes)
             self._meshes = []
         self._pending = meshes
         self._uploaded = False
-        if bounds is not None:
+        if bounds is not None and not self._keep_view:
             self._frame(bounds)
+        self._keep_view = False
         self.update()
 
     def _frame(self, bounds):
@@ -471,18 +517,16 @@ class _Viewport(QOpenGLWidget):
         # uploaded to it. Free while it is still current, then rebuild from
         # the kept load args when the new context initialises.
         ctx.aboutToBeDestroyed.connect(self._on_context_lost)
-        # Free textures orphaned by a context loss, now that the shared new
-        # context is current.
-        for tex in self._tex_graveyard:
-            try:
-                tex.destroy()
-            except Exception:                            # noqa: BLE001
-                pass
-        self._tex_graveyard.clear()
+        # Safety net for hosts that delete this widget as a CHILD: their
+        # DeferredDelete never reaches us and the bound connection above is
+        # dropped mid-destruction — but a receiver-less lambda still fires,
+        # and it touches only Python-side state.
+        ctx.aboutToBeDestroyed.connect(lambda v=self: _neutralise_view(v))
         if self._needs_reload:
             self._needs_reload = False
             if self._reload_args is not None:
-                self.load(*self._reload_args)
+                # A context-loss rebuild is a recovery: keep the camera.
+                self.load(*self._reload_args, keep_view=True)
 
     def _on_context_lost(self):
         from PySide6.QtGui import QOpenGLContext
@@ -494,13 +538,11 @@ class _Viewport(QOpenGLWidget):
             self._release_gpu()
             self.doneCurrent()
         else:
-            # No current context: destroy() would only warn. Contexts are
-            # shared (AA_ShareOpenGLContexts), so park the textures and free
-            # them under the NEW context in initializeGL.
-            for m in self._meshes:
-                if m.texture is not None:
-                    self._tex_graveyard.append(m.texture)
-                m.vao = m.vbo = m.ibo = m.texture = None
+            # No current context to free under — and once the creation context
+            # is gone even a later destroy() crashes (it derefs the stored
+            # context in areSharing; seen as a GC-time SIGSEGV). Sever the
+            # wrappers instead; the share group reclaims the GPU side.
+            _neutralise_meshes(self._meshes)
             self._meshes = []
         self._pending = None
         self._uploaded = False
@@ -516,12 +558,6 @@ class _Viewport(QOpenGLWidget):
         except RuntimeError:
             return
         self._release_gpu()
-        for tex in self._tex_graveyard:
-            try:
-                tex.destroy()
-            except Exception:                            # noqa: BLE001
-                pass
-        self._tex_graveyard.clear()
         self._pending = None
         self._uploaded = False
         self.doneCurrent()
@@ -702,6 +738,11 @@ class _Viewport(QOpenGLWidget):
 class NifPreview(QWidget):
     """A panel-scoped .nif viewer: header + stats, view toggles, GL viewport."""
 
+    # Texture paths the last-loaded mesh asked for (drives the source picker).
+    textures_seen = Signal(object)
+    # A texture source was picked: its opaque data, None = as the game loads.
+    texture_source_changed = Signal(object)
+
     def __init__(self, path: "Path | None", display_name: str = "",
                  texture_roots: list[Path] | None = None,
                  archive_roots: list[Path] | None = None,
@@ -716,18 +757,18 @@ class NifPreview(QWidget):
         pal = active_palette()
         bar = QWidget()
         bar.setStyleSheet(f"background:{_c(pal, 'BG_HEADER')};")
-        row = QHBoxLayout(bar)
+        # FlowLayout, not QHBoxLayout: an un-wrappable title+controls row set a
+        # minimum width under the pane and jammed the host splitter.
+        row = FlowLayout(bar, spacing=12)
         row.setContentsMargins(10, 6, 10, 6)
-        row.setSpacing(12)
+        enable_height_for_width(bar)
 
-        self._header = QLabel(display_name or path.name)
+        # ElidingLabel tooltips the full title; the drag hint moved to the
+        # viewport, where the dragging happens.
+        self._header = ElidingLabel(display_name or path.name)
         self._header.setStyleSheet(
             f"color:{_c(pal, 'TEXT_MAIN')}; font-weight:600;")
-        self._header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._header.setToolTip(self.tr(
-            "Drag to orbit · right-drag to pan · scroll to zoom · "
-            "double-click to reframe"))
-        row.addWidget(self._header, 1)
+        row.addWidget(self._header)
 
         self._stats = QLabel("")
         self._stats.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
@@ -750,6 +791,13 @@ class NifPreview(QWidget):
         self._cb_invert.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
         row.addWidget(self._cb_invert)
 
+        self._tex_box = QComboBox()
+        self._tex_box.setToolTip(self.tr(
+            "Preview this mesh with another mod's copy of its textures"))
+        self._tex_box.hide()          # shown once a host offers alternatives
+        self._tex_box.activated.connect(self._on_texture_source)
+        row.addWidget(self._tex_box)
+
         self._bg_box = QComboBox()
         self._bg_box.setToolTip(self.tr("Viewport background"))
         for key, label in (("light", self.tr("Light")),
@@ -762,6 +810,9 @@ class NifPreview(QWidget):
         v.addWidget(bar)
 
         self._view = _Viewport()
+        self._view.setToolTip(self.tr(
+            "Drag to orbit · right-drag to pan · scroll to zoom · "
+            "double-click to reframe"))
         self._view.loaded.connect(self._on_loaded)
         self._view.failed.connect(self._on_failed)
         v.addWidget(self._view, 1)
@@ -797,23 +848,55 @@ class NifPreview(QWidget):
 
     def set_nif(self, path: Path, display_name: str = "",
                 texture_roots: list[Path] | None = None,
-                archive_roots: list[Path] | None = None, resolver=None):
-        """Swap the previewed mesh in place (browsing between files)."""
+                archive_roots: list[Path] | None = None, resolver=None,
+                tex_override=None, keep_view: bool = False):
+        """Swap the previewed mesh in place; *keep_view* skips re-framing."""
         self._header.setText(display_name or path.name)
         self._stats.setText(self.tr("Loading…"))
         self._view.load(path,
                         texture_roots or default_texture_roots(path),
                         archive_roots or default_archive_roots(path),
-                        resolver)
+                        resolver, None, tex_override, keep_view)
+
+    def set_texture_sources(self, items, current=None):
+        """Fill the texture-source picker: [(label, data), …]; empty hides it."""
+        self._tex_box.blockSignals(True)
+        self._tex_box.clear()
+        for label, data in items or ():
+            self._tex_box.addItem(label, data)
+        idx = self._tex_box.findData(current) if items else -1
+        self._tex_box.setCurrentIndex(max(0, idx))
+        self._tex_box.blockSignals(False)
+        self._tex_box.setVisible(bool(items))
+
+    def texture_source(self):
+        """Data of the picked source, or None for 'as the game loads'."""
+        return self._tex_box.currentData() if self._tex_box.isVisible() else None
+
+    def _on_texture_source(self, _index):
+        self.texture_source_changed.emit(self._tex_box.currentData())
+
+    def set_title(self, display_name: str, status: str = ""):
+        """Retitle without loading — a browser showing what it is about to read."""
+        self._header.setText(display_name)
+        self._stats.setText(status)
 
     def set_nif_data(self, data: bytes, display_name: str,
-                     resolver=None, archives=None):
-        """Preview a mesh held in memory — one read straight out of a BSA/BA2."""
+                     resolver=None, archives=None, tex_override=None,
+                     keep_view: bool = False):
+        """Preview in-memory bytes (a BSA/BA2 member); *keep_view* skips
+        re-framing."""
         self._header.setText(display_name)
         self._stats.setText(self.tr("Loading…"))
-        self._view.load(data, [], None, resolver, archives)
+        self._view.load(data, [], None, resolver, archives, tex_override,
+                        keep_view)
 
-    def _on_loaded(self, meshes, bounds, gen):
+    def _on_loaded(self, meshes, bounds, gen, tex_paths=None):
+        if gen != self._view._generation:
+            return          # a stale load must not retitle or repopulate the picker
+        # Emitted even for a geometry-less mesh: the host's texture picker is
+        # driven by which paths were REQUESTED, not by what resolved.
+        safe_emit(self.textures_seen, list(tex_paths or ()))
         if not meshes:
             self._stats.setText(self.tr("no drawable geometry"))
             return
@@ -826,6 +909,8 @@ class NifPreview(QWidget):
         self._stats.setText(" · ".join(parts))
 
     def _on_failed(self, message, gen):
+        if gen != self._view._generation:
+            return
         self._stats.setText(self.tr("failed: {0}").format(message))
 
     def _on_textured(self, on):

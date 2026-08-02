@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-__all__ = ["ArchiveLookup", "find_archives"]
+__all__ = ["ArchiveLookup", "find_archives", "index_archive"]
 
 # (path, mtime, size, keep_prefix) -> {rel_lower: (kind, record)}
 _INDEX_CACHE: dict[tuple, dict] = {}
@@ -56,6 +56,13 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
 
     _INDEX_CACHE[key] = out
     return out
+
+
+def index_archive(path: Path, keep_prefix: str = "") -> dict:
+    """{rel_lower: (kind, record)} for one archive — TOC only, cached by
+    (path, mtime, size, keep_prefix); ArchiveLookup collapses to the first
+    holder, this exposes each archive whole."""
+    return _index_one(Path(path), keep_prefix)
 
 
 def find_archives(roots) -> list[Path]:

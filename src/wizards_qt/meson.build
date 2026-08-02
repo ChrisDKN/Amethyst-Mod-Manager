@@ -21,6 +21,7 @@ py.install_sources(
   'gpak_view.py',
   'modio_settings_view.py',
   'mscloader_view.py',
+  'nif_viewer_view.py',
   'pandora_view.py',
   'pgpatcher_view.py',
   'plugin_audit_view.py',

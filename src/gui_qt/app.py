@@ -1038,15 +1038,23 @@ class MainWindow(QMainWindow):
         archives = self._nif_archive_roots(_P(path))
         resolver = self._nif_asset_resolver()
         existing = getattr(self, "_nif_preview_widget", None)
-        if existing is not None and self._tabs.has_key("mf_nif_preview"):
-            existing.set_nif(_P(path), name, roots, archives, resolver)
+        if existing is None or not self._tabs.has_key("mf_nif_preview"):
+            existing = NifPreview(None, name, resolver=resolver)
+            self._nif_preview_widget = existing
+            self._tabs.open_scoped_tab(
+                existing, name, self._modlist_panel_stack, key="mf_nif_preview")
+        else:
             self._tabs.focus_key("mf_nif_preview")
             self._tabs.set_tab_title("mf_nif_preview", name)
-            return
-        widget = NifPreview(_P(path), name, roots, archives, resolver)
-        self._nif_preview_widget = widget
-        self._tabs.open_scoped_tab(
-            widget, name, self._modlist_panel_stack, key="mf_nif_preview")
+
+        def _load(override=None, keep_view=False):
+            existing.set_nif(_P(path), name, roots, archives, resolver,
+                             override, keep_view)
+
+        # A texture swap keeps the camera; only opening the mesh frames it.
+        self._nif_texture_controller(resolver).arm(
+            str(path), lambda ov: _load(ov, keep_view=True))
+        _load()
 
     def _nif_texture_roots(self, path):
         """Loose-texture roots: mod's own staging root, then the data folder."""
@@ -1080,16 +1088,35 @@ class MainWindow(QMainWindow):
                                  keep_prefix=ASSET_PREFIXES)
         resolver = self._nif_asset_resolver()
         existing = getattr(self, "_nif_preview_widget", None)
-        if existing is not None and self._tabs.has_key("mf_nif_preview"):
-            existing.set_nif_data(data, name, resolver, archives)
+        if existing is None or not self._tabs.has_key("mf_nif_preview"):
+            existing = NifPreview(None, name, resolver=resolver)
+            self._nif_preview_widget = existing
+            self._tabs.open_scoped_tab(
+                existing, name, self._modlist_panel_stack, key="mf_nif_preview")
+        else:
             self._tabs.focus_key("mf_nif_preview")
             self._tabs.set_tab_title("mf_nif_preview", name)
-            return
-        widget = NifPreview(None, name, resolver=resolver)
-        widget.set_nif_data(data, name, resolver, archives)
-        self._nif_preview_widget = widget
-        self._tabs.open_scoped_tab(
-            widget, name, self._modlist_panel_stack, key="mf_nif_preview")
+
+        def _load(override=None, keep_view=False):
+            existing.set_nif_data(data, name, resolver, archives, override,
+                                  keep_view)
+
+        self._nif_texture_controller(resolver).arm(
+            f"{archive}::{inner_path}", lambda ov: _load(ov, keep_view=True))
+        _load()
+
+    def _nif_texture_controller(self, resolver):
+        """Texture-source picker (shared with the NIF Viewer tab), built once
+        per preview widget and re-pointed at the current game/profile."""
+        widget = self._nif_preview_widget
+        ctl = getattr(widget, "_tex_source_ctl", None)
+        if ctl is None:
+            from gui_qt.nif_texture_sources import TextureSourceController
+            ctl = TextureSourceController(widget, self._append_log)
+            widget._tex_source_ctl = ctl
+        ctl.configure(self._gs.staging_dir(), self._gs.modlist_path(),
+                      self._nif_game_data_dir(), resolver)
+        return ctl
 
     def _read_archive_member(self, archive, inner_path):
         """Return one member's bytes from a BSA/BA2, or None if absent."""
@@ -8880,7 +8907,8 @@ class MainWindow(QMainWindow):
     def _open_wizard_tool(self, tool):
         """Open a ported wizard tool as a panel-scoped tab (plugins panel for
         most tools; modlist panel for the wide ones that were full-width
-        overlays in Tk). Re-opening an already-open tool refocuses its tab."""
+        overlays in Tk), or as a full-UI tab when the spec says panel="full".
+        Re-opening an already-open tool refocuses its tab."""
         game = self._gs.game
         if game is None:
             return
@@ -8896,6 +8924,7 @@ class MainWindow(QMainWindow):
         # replaces it); the rest of extra is forwarded to the view.
         extra = {k: v for k, v in (tool.extra or {}).items()
                  if k != "_full_width_overlay"}
+        full = spec.panel == "full"
         stack = (self._modlist_panel_stack if spec.panel == "modlist"
                  else self._plugins_panel_stack)
         from wizards_qt import QtWizardContext
@@ -8918,7 +8947,10 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._append_log(f"Wizards: failed to open {tool.label}: {exc}")
             return
-        self._tabs.open_scoped_tab(view, tool.label, stack, key=key)
+        if full:
+            self._tabs.open_tab(view, tool.label, key=key)
+        else:
+            self._tabs.open_scoped_tab(view, tool.label, stack, key=key)
 
     def _wizard_run_deploy(self, on_done) -> bool:
         """Start a deploy for a wizard step through the normal deploy path
@@ -14606,6 +14638,11 @@ def run() -> int:
     # Share GL contexts so the nif viewport survives tab detach/re-pin
     # reparenting. Must be set before the QApplication exists.
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+    # GL over EGL, not GLX: with a QOpenGLWidget in the window, Qt's GLX/DRI3
+    # swap can hang forever in xcb_wait_for_special_event when the window is
+    # resized mid-swap (dragging the NIF viewer's splitter froze the app). EGL
+    # has no such wait; only the xcb platform plugin reads this variable.
+    _os.environ.setdefault("QT_XCB_GL_INTEGRATION", "xcb_egl")
     app = QApplication(sys.argv)
     _apply_app_identity(app)
     # Install UI translators before any widget is built (Qt only translates
