@@ -1,7 +1,7 @@
 {
  "v": 1,
- "generated": "2026-08-01",
- "etag": "",
+ "generated": "2026-08-02",
+ "etags": {"ludusavi": "546a54df0be0e3d2ac675f75ee136482cfd1f10a99d085e0b31760d0a2cefad9", "bloodshed-extra": "7e00208a78fe1ea3a8f73f45cc28996b621724ee64e358a5f3a0e2385ccd28d8"},
  "games": {
   "!Anyway!": {
    "f": [
@@ -65,6 +65,12 @@
     ["<winAppData>/0RBITALIS", "windows", ""]
    ],
    "s": "278440"
+  },
+  "1 Million Zombies": {
+   "f": [
+    ["<base>/Data/*.daz", "windows", ""]
+   ],
+   "s": "2331220"
   },
   "1 Moment of Time: Silentville": {
    "f": [
@@ -1288,6 +1294,12 @@
    ],
    "s": "1702130"
   },
+  "AColony": {
+   "f": [
+    ["<base>/saves", "windows", ""]
+   ],
+   "s": "1200570"
+  },
   "ADOM: Ancient Domains of Mystery": {
    "f": [
     ["<winDocuments>/ADOM/adom_steam/savedg/*.svg", "windows", "steam"]
@@ -1299,6 +1311,11 @@
     ["<winLocalAppData>/ADR1FT/Saved/SaveGames", "windows", ""]
    ],
    "s": "300060"
+  },
+  "ADVANCED V.G. Saturn Tribute": {
+   "f": [
+    ["<home>/Saved Games/ADVANCED V.G. Saturn Tribute/*.bin", "windows", ""]
+   ]
   },
   "AEW Fight Forever": {
    "f": [
@@ -1776,6 +1793,11 @@
     ["<winAppData>/RenPy/ActingLessonsGOG-1523296524", "windows", ""]
    ],
    "s": "1045520"
+  },
+  "Action Ball": {
+   "f": [
+    ["<winLocalAppData>/rionix/actionball/*.dat", "windows", ""]
+   ]
   },
   "Action Girlz Racing": {
    "f": [
@@ -3232,6 +3254,11 @@
    "s": "3657210",
    "x": ["4082520"]
   },
+  "Amarillo's Butt Slapper": {
+   "f": [
+    ["<home>/AppData/LocalLow/AmarilloArts/Amarillo's Butt Slapper", "windows", ""]
+   ]
+  },
   "Amatsutsumi": {
    "f": [
     ["<base>/save/*.bak", "windows", ""],
@@ -3440,7 +3467,8 @@
     ["<home>/AppData/LocalLow/Krillbite Studio/Among The Sleep", "windows", ""],
     ["<xdgConfig>/unity3d/Krillbite Studio/Among The Sleep/*/profile.json", "linux", ""]
    ],
-   "s": "250620"
+   "s": "250620",
+   "x": ["332210"]
   },
   "Amorous": {
    "f": [
@@ -3868,6 +3896,17 @@
    "s": "877810",
    "x": ["1103230"]
   },
+  "Anomalous Coffee Machine": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Anomalous Coffee Machine/*.dat", "windows", ""]
+   ]
+  },
+  "Anomalous Coffee Machine 2": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Anomalous Coffee Machine 2/*.dat", "windows", ""]
+   ],
+   "s": "3797340"
+  },
   "Anomaly 2": {
    "f": [
     ["<home>/.Anomaly 2", "linux", ""],
@@ -3883,6 +3922,11 @@
     ["<winAppData>/11bitstudios/Anomaly Defenders", "windows", ""]
    ],
    "s": "294750"
+  },
+  "Anomaly Evolution": {
+   "f": [
+    ["<winAppData>/godot/app_userdata/Anomaly Evolution/*.dat", "windows", ""]
+   ]
   },
   "Anomaly Korea": {
    "f": [
@@ -5112,6 +5156,11 @@
    ],
    "s": "1261520"
   },
+  "Asterix & Obelix: Heroes": {
+   "f": [
+    ["<home>/AppData/LocalLow/gameXcite/Hero_Asterix/Steam", "windows", ""]
+   ]
+  },
   "Asterix & Obelix: Slap Them All!": {
    "f": [
     ["<home>/AppData/LocalLow/Microids/gameslots.000", "windows", ""]
@@ -5465,6 +5514,12 @@
    "f": [
     ["<base>/Save.cdf", "windows", ""]
    ]
+  },
+  "Atomcraft": {
+   "f": [
+    ["<winAppData>/godot/app_userdata/Atomcraft", "windows", ""]
+   ],
+   "s": "2803490"
   },
   "Atomfall": {
    "f": [
@@ -5983,7 +6038,8 @@
   },
   "Back to the Future: The Game": {
    "f": [
-    ["<winDocuments>/Telltale Games/Back to the Future 104/*.save", "windows", ""]
+    ["<winDocuments>/Telltale Games/Back to the Future 104/*.save", "windows", ""],
+    ["<winDocuments>/Telltale Games/Episode */*.save", "windows", ""]
    ],
    "s": "31290",
    "x": ["94500", "94510", "94520", "94530"]
@@ -6136,6 +6192,11 @@
    ],
    "s": "269670",
    "x": ["367210"]
+  },
+  "Badlands Crew": {
+   "f": [
+    ["<home>/AppData/LocalLow/Runner Duck/BadlandsCrew", "windows", ""]
+   ]
   },
   "Baionlenja": {
    "f": [
@@ -7038,6 +7099,13 @@
     ["<home>/AppData/LocalLow/Vodeo Games/Beast Breaker/Saves", "windows", ""]
    ]
   },
+  "Beastieball": {
+   "f": [
+    ["<winLocalAppData>/beastieball/save", "windows", ""]
+   ],
+   "s": "1864950",
+   "x": ["4011760"]
+  },
   "Beasts and Bumpkins": {
    "f": [
     ["<base>/savegam0.sav", "windows", ""]
@@ -7781,6 +7849,11 @@
    ],
    "s": "3689520"
   },
+  "Bioweaver": {
+   "f": [
+    ["<home>/AppData/LocalLow/EmpromGame/Bioweaver/219858", "windows", ""]
+   ]
+  },
   "Biped": {
    "f": [
     ["<home>/AppData/LocalLow/NExTStudios/Biped", "windows", ""],
@@ -7868,6 +7941,11 @@
     ["<winLocalAppData>/BIT.TRIP VOID", "windows", ""]
    ],
    "s": "205070"
+  },
+  "Bits & Bops": {
+   "f": [
+    ["<home>/AppData/LocalLow/Tempo Lab Games/Bits _ Bops/save1.dat", "windows", ""]
+   ]
   },
   "Björk Vulnicura Virtual Reality Album": {
    "f": [
@@ -8708,6 +8786,11 @@
     ["<winAppData>/Blossom Tales/*.txt", "windows", ""]
    ],
    "s": "446810"
+  },
+  "Blossom: The Seed Of Life": {
+   "f": [
+    ["<home>/AppData/LocalLow/Pebbledust Games/Blossom The Seed Of Life", "windows", ""]
+   ]
   },
   "Blossoms Bloom Brightest": {
    "f": [
@@ -15418,6 +15501,12 @@
     ["<base>/saves", "windows", ""]
    ]
   },
+  "D.O.T. Defence": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/DOTDefence/*_progress.cfg", "windows", ""],
+    ["<winAppData>/Godot/app_userdata/DOTDefence/*.save", "windows", ""]
+   ]
+  },
   "D.R.O.N.E. The Game": {
    "f": [
     ["<root>/steamapps/common/D.R.O.N.E. The Game/branches/stable/D.R.O.N.E. The Game_Data/Drones", "windows", "steam"]
@@ -15516,6 +15605,12 @@
    ],
    "s": "1216060"
   },
+  "DOSMan: Space Aliens in Space!": {
+   "f": [
+    ["<base>/Saves", "windows", ""]
+   ],
+   "s": "2937330"
+  },
   "DREAMM": {
    "f": [
     ["<home>/.local/share/Aaron Giles/DREAMM/gamedata", "linux", ""],
@@ -15607,6 +15702,11 @@
   "Daemonica": {
    "f": [
     ["<base>/Data/savedgames", "windows", ""]
+   ]
+  },
+  "Daggerfall Unity": {
+   "f": [
+    ["<home>/AppData/LocalLow/Daggerfall Workshop/Daggerfall Unity", "windows", ""]
    ]
   },
   "Dagon: by H. P. Lovecraft": {
@@ -15759,6 +15859,14 @@
     ["<root>/userdata/<storeUserId>/225360/remote/savegames", "windows", "steam"]
    ],
    "s": "225360"
+  },
+  "Dark Arena": {
+   "f": [
+    ["<base>/res/0*", "windows", ""],
+    ["<base>/res/1*", "windows", ""],
+    ["<base>/res/2*", "windows", ""]
+   ],
+   "s": "1150700"
   },
   "Dark Colony": {
    "f": [
@@ -17450,6 +17558,12 @@
     ["C:/Users/[User]/AppData/Roaming/Nitroplus", "windows", ""]
    ]
   },
+  "Demonic Mahjong": {
+   "f": [
+    ["<home>/AppData/LocalLow/Boxed Lightning Games/Demonic Mahjong/Save/*", "windows", ""]
+   ],
+   "s": "3444020"
+  },
   "Demonicon": {
    "f": [
     ["<root>/userdata/<storeUserId>/215630/remote", "", "steam"],
@@ -17590,6 +17704,11 @@
     ["<base>/save", "windows", ""]
    ]
   },
+  "Desktop Defender": {
+   "f": [
+    ["<home>/AppData/LocalLow/Conradical Games/Desktop Defender/*.sav", "windows", ""]
+   ]
+  },
   "Desktop Dungeons": {
    "f": [
     ["<base>/DesktopDungeons_Data/Saves", "windows", ""],
@@ -17605,6 +17724,11 @@
    ],
    "s": "1976950",
    "x": ["2162230", "2232060", "2393120", "2393121", "2393122"]
+  },
+  "Desktop Survivors 98": {
+   "f": [
+    ["<winAppData>/Desktop Survivors 98", "windows", ""]
+   ]
   },
   "Desolate": {
    "f": [
@@ -17948,6 +18072,11 @@
     ["<home>/AppData/LocalLow/Trunka/Devilated/Save/*.devilsave", "windows", ""]
    ],
    "s": "570950"
+  },
+  "DevilutionX - Diablo 1 port": {
+   "f": [
+    ["<winAppData>/diasurgical/devilution", "windows", ""]
+   ]
   },
   "Devoid of Shadows": {
    "f": [
@@ -19122,6 +19251,11 @@
    ],
    "s": "2300"
   },
+  "Doom II RPG (Mobile)": {
+   "f": [
+    ["<base>/Doom2rpg.app", "windows", ""]
+   ]
+  },
   "Doom II: Hell on Earth": {
    "f": [
     ["<base>/Doom II for Windows 95", "windows", ""],
@@ -19130,6 +19264,12 @@
    ],
    "s": "2300",
    "x": ["9160", "1906620"]
+  },
+  "Doom RPG (Mobile)": {
+   "f": [
+    ["<base>/Player*", "windows", ""],
+    ["<base>/World", "windows", ""]
+   ]
   },
   "Doom VFR": {
    "f": [
@@ -19336,6 +19476,11 @@
    ],
    "s": "742170"
   },
+  "Dr. Mario 64": {
+   "f": [
+    ["<winLocalAppData>/drmario64_recomp", "windows", ""]
+   ]
+  },
   "Dr. Robotnik's Mean Bean Machine": {
    "f": [
     ["<winDocuments>/SEGA Genesis Classics/0014", "windows", ""],
@@ -19481,6 +19626,12 @@
     ["<home>/AppData/LocalLow/Meta Interaction/Dragon Cliff", "windows", ""]
    ],
    "s": "758190"
+  },
+  "Dragon Dragon Fire Fire Deluxe": {
+   "f": [
+    ["<winAppData>/Dragon Dragon Fire Fire Deluxe/*.json", "windows", ""]
+   ],
+   "s": "4177670"
   },
   "Dragon Is Dead": {
    "f": [
@@ -20309,6 +20460,11 @@
    ],
    "s": "1996630"
   },
+  "Dungeon Keeper (KeeperFX)": {
+   "f": [
+    ["<base>/save", "windows", ""]
+   ]
+  },
   "Dungeon Keeper 2": {
    "f": [
     ["<base>/Data/Save", "windows", ""]
@@ -20609,6 +20765,11 @@
    ],
    "s": "532750",
    "x": ["1251720"]
+  },
+  "Dwelvers": {
+   "f": [
+    ["<winAppData>/Dwelvers", "windows", ""]
+   ]
   },
   "Dyad": {
    "f": [
@@ -22136,6 +22297,11 @@
     ["<base>/*.DAT", "windows", ""]
    ]
   },
+  "Entropy Survivors": {
+   "f": [
+    ["<winLocalAppData>/EntropySurvivors/Saved/SaveGames/*.sav", "windows", ""]
+   ]
+  },
   "Entropy: Zero": {
    "f": [
     ["<base>/EntropyZero/cfg/config.cfg", "windows", ""],
@@ -22245,6 +22411,11 @@
    ],
    "s": "1522160",
    "x": ["2791920"]
+  },
+  "Epilogue Playback": {
+   "f": [
+    ["<winLocalAppData>/Epilogue/Playback/vault", "windows", ""]
+   ]
   },
   "Epistory - Typing Chronicles": {
    "f": [
@@ -22624,6 +22795,13 @@
     ["<xdgData>/EufloriaHD/ProgressData.bin", "linux", ""]
    ],
    "s": "41210"
+  },
+  "Eufloria Classic": {
+   "f": [
+    ["<winProgramData>/Omni Systems/Eufloria", "windows", ""],
+    ["<winProgramData>/Omni Systems/Eufloria", "linux", ""]
+   ],
+   "s": "3254570"
   },
   "Eufloria HD": {
    "f": [
@@ -25629,6 +25807,11 @@
    "s": "3219010",
    "x": ["3350900"]
   },
+  "Folklands": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Folklands/*.sav", "windows", ""]
+   ]
+  },
   "Food Girls: Civil War": {
    "f": [
     ["<home>/AppData/LocalLow/Storia/Eatery/Utage/SaveEatery", "windows", ""]
@@ -27730,6 +27913,11 @@
    ],
    "s": "6200"
   },
+  "Ghost Master: Resurrection": {
+   "f": [
+    ["<winLocalAppData>/GhostMasterRemake/Saved/SaveGames", "windows", ""]
+   ]
+  },
   "Ghost Song": {
    "f": [
     ["<home>/AppData/LocalLow/Old Moon/GhostSong", "windows", ""]
@@ -28850,6 +29038,11 @@
    ],
    "s": "330390"
   },
+  "Granvir": {
+   "f": [
+    ["<home>/AppData/LocalLow/Airborne Games/Granvir/Progress/*.txt", "windows", ""]
+   ]
+  },
   "Grapple Force Rena": {
    "f": [
     ["<home>/AppData/LocalLow/GrappleForceRena/User Data", "windows", ""]
@@ -29496,6 +29689,11 @@
    ],
    "s": "1630110"
   },
+  "Gunhouse": {
+   "f": [
+    ["<home>/AppData/LocalLow/Necrosoft Games/Gunhouse/*.sav", "windows", ""]
+   ]
+  },
   "Gunlocked": {
    "f": [
     ["<base>/Cloud", "windows", ""]
@@ -29630,6 +29828,11 @@
     ["<home>/AppData/LocalLow/blingame/haak/Luxko.Serde", "windows", ""]
    ],
    "s": "1352930"
+  },
+  "HOLE": {
+   "f": [
+    ["<winLocalAppData>/HOLE/Saved/SaveGames", "windows", ""]
+   ]
   },
   "HOT FIT!": {
    "f": [
@@ -31870,6 +32073,12 @@
    ],
    "s": "418040"
   },
+  "Hocus Pocus": {
+   "f": [
+    ["<base>/Hocus Pocus/HOCUS.SAV", "windows", ""]
+   ],
+   "s": "358290"
+  },
   "Hogwarts Legacy": {
    "f": [
     ["<winLocalAppData>/Hogwarts Legacy/Saved/SaveGames/<storeUserId>", "windows", ""],
@@ -32472,6 +32681,11 @@
    ],
    "s": "383270",
    "x": ["517450"]
+  },
+  "Hugo Troll Race": {
+   "f": [
+    ["<winAppData>/ImageAndForm/HugoTrollRace/save", "windows", ""]
+   ]
   },
   "Human Resource Machine": {
    "f": [
@@ -33133,6 +33347,11 @@
    ],
    "s": "448370",
    "x": ["451330"]
+  },
+  "ITGmania": {
+   "f": [
+    ["<base>/Save", "windows", ""]
+   ]
   },
   "IXION": {
    "f": [
@@ -34049,6 +34268,12 @@
    ],
    "s": "237760"
   },
+  "Interdimensional Vending Machine": {
+   "f": [
+    ["<winAppData>/godot/app_userdata/Interdimensional Vending Machine", "windows", ""]
+   ],
+   "s": "3857430"
+  },
   "Interea": {
    "f": [
     ["<home>/.renpy/AdastraInterea-1614811255", "linux", ""],
@@ -34399,6 +34624,11 @@
    ],
    "s": "1924140"
   },
+  "Isekai Janken Hero": {
+   "f": [
+    ["<home>/AppData/LocalLow/BFGS/Isekai Janken Hero/SaveData", "windows", ""]
+   ]
+  },
   "Isekai Quest": {
    "f": [
     ["<home>/AppData/LocalLow/Studio Ginkgo/ISEKAI QUEST/*.sav", "windows", ""]
@@ -34529,6 +34759,11 @@
    ],
    "s": "1426210",
    "x": ["1504980", "2995920", "4110940"]
+  },
+  "It's Only Money": {
+   "f": [
+    ["<winLocalAppData>/CrimeRP/Saved/SaveGames", "windows", ""]
+   ]
   },
   "Itorah": {
    "f": [
@@ -34682,7 +34917,8 @@
    "f": [
     ["<home>/.var/app/dev.opengoal.OpenGOAL/config/OpenGOAL/jak1/saves/<storeUserId>", "linux", ""],
     ["<winAppData>/OpenGOAL/jak1/saves/<storeUserId>", "windows", ""],
-    ["<xdgConfig>/OpenGOAL/jak1/saves/<storeUserId>", "linux", ""]
+    ["<xdgConfig>/OpenGOAL/jak1/saves/<storeUserId>", "linux", ""],
+    ["<winAppData>/OpenGOAL/jak1/saves", "windows", ""]
    ]
   },
   "Jalopy": {
@@ -35425,6 +35661,12 @@
   "Kajko i Kokosz: Twierdza Czarnoksiężnika": {
    "f": [
     ["<base>/saves", "windows", ""]
+   ]
+  },
+  "Kajun-chan's Lucid Room": {
+   "f": [
+    ["<winLocalAppData>/Iseika/Saved/SaveGames", "windows", ""],
+    ["<winLocalAppData>/Iseika/Saved/Screenshots", "windows", ""]
    ]
   },
   "Kami": {
@@ -37967,6 +38209,12 @@
    "s": "328270",
    "x": ["452470", "503990"]
   },
+  "Lewd Gym": {
+   "f": [
+    ["<base>/www/save/*.rpgsave", "windows", ""]
+   ],
+   "s": "2019680"
+  },
   "Lexica": {
    "f": [
     ["<base>/lexica.sav", "windows", ""]
@@ -39755,6 +40003,12 @@
     ["<home>/AppData/LocalLow/Eggcode/Mad Games Tycoon 2", "windows", ""]
    ],
    "s": "1342330"
+  },
+  "Mad Island": {
+   "f": [
+    ["<base>/Mad Island_Data/StreamingAssets/XML", "windows", ""]
+   ],
+   "s": "2739590"
   },
   "Mad Max": {
    "f": [
@@ -41682,6 +41936,11 @@
    ],
    "s": "975680"
   },
+  "Metal Thunder": {
+   "f": [
+    ["<home>/AppData/LocalLow/Dumbbell Games/Metal Thunder", "windows", ""]
+   ]
+  },
   "Metal Unit": {
    "f": [
     ["<home>/AppData/LocalLow/JellySnow/MetalUnit/<storeUserId>/data.jly", "windows", ""]
@@ -42251,6 +42510,12 @@
    "s": "280140",
    "x": ["306100", "368410"]
   },
+  "Milling Machine Simulator": {
+   "f": [
+    ["<home>/AppData/LocalLow/UI-Games/Milling machine 3D/*.txt", "windows", ""],
+    ["<home>/AppData/LocalLow/UI-Games/Milling machine 3D/*/*.txt", "windows", ""]
+   ]
+  },
   "Million Arthur: Arcana Blood": {
    "f": [
     ["<winDocuments>/My Games/Million Arthur Arcana Blood/<storeUserId>/SaveData", "windows", "steam"]
@@ -42382,6 +42647,11 @@
    ],
    "s": "223430"
   },
+  "Mineral Defense": {
+   "f": [
+    ["<winLocalAppData>/DangerTower/Saved/SaveGames/*/*.json", "windows", ""]
+   ]
+  },
   "Minerva: Metastasis": {
    "f": [
     ["<base>/metastasis/save", "windows", ""]
@@ -42422,6 +42692,11 @@
    ],
    "s": "35000",
    "x": ["35050"]
+  },
+  "Mini Settlers": {
+   "f": [
+    ["<home>/AppData/LocalLow/Knight Owl Games/Mini Settlers/*/", "windows", ""]
+   ]
   },
   "MiniDoom 2": {
    "f": [
@@ -44027,6 +44302,11 @@
    ],
    "s": "457530"
   },
+  "My Little Life": {
+   "f": [
+    ["<winLocalAppData>/My_Little_Life/FULL/SAVES", "windows", ""]
+   ]
+  },
   "My Little Pony: A Maretime Bay Adventure": {
    "f": [
     ["<home>/AppData/LocalLow/Melbot Studios/MLP", "windows", ""]
@@ -44893,6 +45173,11 @@
    ],
    "s": "2277320",
    "x": ["2337020", "2676910"]
+  },
+  "Need For Speed II SE (wrapper)": {
+   "f": [
+    ["<winAppData>/.nfs2se", "windows", ""]
+   ]
   },
   "Need For Speed Mobile": {
    "f": [
@@ -47174,6 +47459,11 @@
    "s": "1465550",
    "x": ["2240770", "2475630"]
   },
+  "One Military Camp": {
+   "f": [
+    ["<home>/AppData/LocalLow/Abylight Barcelona/One Military Camp", "windows", ""]
+   ]
+  },
   "One Must Fall: Battlegrounds": {
    "f": [
     ["<base>/Data/PhoenixRegistry.DEObjects", "windows", ""]
@@ -47455,7 +47745,8 @@
   },
   "OpenLoco": {
    "f": [
-    ["<base>/save", "windows", ""]
+    ["<base>/save", "windows", ""],
+    ["<winAppData>/OpenLoco", "windows", ""]
    ]
   },
   "OpenRA": {
@@ -47994,11 +48285,21 @@
    ],
    "s": "559620"
   },
+  "Outlaws + A Handful of Missions (DREAMM)": {
+   "f": [
+    ["<winAppData>/Aaron Giles/DREAMM/gamedelta/lec-outlaws", "windows", ""]
+   ]
+  },
   "Outlaws + Handful of Missions: Remaster": {
    "f": [
     ["<home>/Saved Games/Nightdive Studios/Outlaws EX/save/*.OEXSG", "windows", ""]
    ],
    "s": "3366780"
+  },
+  "Outlive 25": {
+   "f": [
+    ["<winAppData>/Continuum/Outlive25/Players", "windows", ""]
+   ]
   },
   "Outpost 2: Divided Destiny": {
    "f": [
@@ -49473,6 +49774,11 @@
    ],
    "s": "1144030"
   },
+  "Pesticide Not Required": {
+   "f": [
+    ["<home>/AppData/LocalLow/Jampacked Games/Pesticide Not Required/*.balls", "windows", ""]
+   ]
+  },
   "Pet Hotel Tycoon": {
    "f": [
     ["<base>/Profiles", "windows", ""]
@@ -49911,6 +50217,11 @@
    ],
    "s": "2058340"
   },
+  "Pingus": {
+   "f": [
+    ["<winAppData>/Pingus", "windows", ""]
+   ]
+  },
   "Pink Heaven": {
    "f": [
     ["<base>/rsc_p/profile", "windows", ""]
@@ -50280,6 +50591,13 @@
    ],
    "s": "289420"
   },
+  "Planet Alcatraz 2": {
+   "f": [
+    ["<winDocuments>/Planet Alcatraz 2/Autosave", "windows", ""],
+    ["<winDocuments>/Planet Alcatraz 2/Save", "windows", ""]
+   ],
+   "s": "389250"
+  },
   "Planet Alpha": {
    "f": [
     ["<winLocalAppData>/PlanetAlpha/Saved/SaveGames", "windows", ""]
@@ -50466,6 +50784,11 @@
     ["<winLocalAppData>/Platform8/Saved/SaveGames", "windows", ""]
    ],
    "s": "2903560"
+  },
+  "Platypus Reclayed": {
+   "f": [
+    ["<home>/AppData/LocalLow/Claymatic Games/Platypus Reclayed/Store/", "windows", ""]
+   ]
   },
   "Playboy: The Mansion": {
    "f": [
@@ -53825,6 +54148,11 @@
    "s": "1856750",
    "x": ["2141960", "2141961", "2141970", "2141971", "2141972", "2141973", "2141974", "2141975", "2141976", "2141977", "2141978", "2141979", "2141980", "2141981", "2141982", "2141983", "2141984", "2141985", "2142360"]
   },
+  "Relentless Frontier": {
+   "f": [
+    ["<home>/Saved Games/Relentless Frontier/Relentless Frontier", "windows", ""]
+   ]
+  },
   "Relic Hunters Zero": {
    "f": [
     ["<winLocalAppData>/RelicHuntersZero", "windows", ""]
@@ -54520,6 +54848,11 @@
    ],
    "s": "774181"
   },
+  "Rhythm Fighter": {
+   "f": [
+    ["<home>/AppData/LocalLow/EchoGames/Rhythm Fighter/rf_steam/played.dat", "windows", ""]
+   ]
+  },
   "Rhythm Sprout": {
    "f": [
     ["<home>/AppData/LocalLow/SURT/RHYTHM SPROUT/*SAVE", "windows", ""]
@@ -54809,6 +55142,11 @@
   "Rise and Fall: Civilizations at War": {
    "f": [
     ["<base>/Data/Saved Games", "windows", ""]
+   ]
+  },
+  "Rise of Gun": {
+   "f": [
+    ["<winLocalAppData>/RiseOfGun/Saved/SaveGames", "windows", ""]
    ]
   },
   "Rise of Industry": {
@@ -55539,6 +55877,11 @@
    ],
    "s": "363150",
    "x": ["412352", "428500", "428501", "430341", "430342", "430343", "430344", "430345", "430346", "430347", "430348", "430349", "430350", "430351"]
+  },
+  "Romancelvania": {
+   "f": [
+    ["<winLocalAppData>/Romancelvania/Saved/SaveGames", "windows", ""]
+   ]
   },
   "Romancing SaGa 2: Revenge of the Seven": {
    "f": [
@@ -59662,6 +60005,12 @@
    "s": "1069160",
    "x": ["1609100", "2902180", "2902190"]
   },
+  "Skarab": {
+   "f": [
+    ["<base>/Saves", "windows", ""]
+   ],
+   "s": "3557830"
+  },
   "Skate": {
    "f": [
     ["<winLocalAppData>/Skate", "windows", ""]
@@ -59728,6 +60077,11 @@
   "SkiFree": {
    "f": [
     ["<winDir>/entpack.ini", "windows", ""]
+   ]
+  },
+  "Skies above the Great War": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Skies above the Great War/Savegames", "windows", ""]
    ]
   },
   "Skin Deep": {
@@ -59894,6 +60248,11 @@
    ],
    "s": "369070",
    "x": ["457120"]
+  },
+  "Slam Tilt": {
+   "f": [
+    ["<base>/DAT/SLAMTILT.CFG", "windows", ""]
+   ]
   },
   "Slap City": {
    "f": [
@@ -60141,6 +60500,11 @@
    ],
    "s": "1740300"
   },
+  "Smutty Scrolls": {
+   "f": [
+    ["<winAppData>/Smutty Scrolls/Local Storage/leveldb", "windows", ""]
+   ]
+  },
   "Snake Eyes Dungeon": {
    "f": [
     ["<winLocalAppData>/Snake_Eyes_Dungeon", "windows", ""]
@@ -60337,6 +60701,11 @@
     ["<home>/AppData/LocalLow/DefaultCompany/Snow_Battle_Princess_SAYUKI", "windows", ""]
    ],
    "s": "1028760"
+  },
+  "Snow Bros. Wonderland": {
+   "f": [
+    ["<home>/AppData/LocalLow/TATSUJIN/SBW/Steam/Save/*/*.dat", "windows", ""]
+   ]
   },
   "Snow Daze: The Music of Winter Special Edition": {
    "f": [
@@ -61800,6 +62169,11 @@
    ],
    "s": "39540"
   },
+  "Spellbound Beauties": {
+   "f": [
+    ["<home>/AppData/LocalLow/Lunar Kiss Games/Spellbound Beauties/*.es3", "windows", ""]
+   ]
+  },
   "Spellbreak": {
    "f": [
     ["<winLocalAppData>/g3", "windows", ""]
@@ -62760,6 +63134,11 @@
     ["<base>/<storeUserId>.tfr", "windows", ""]
    ],
    "s": "355250"
+  },
+  "Star Wars: TIE Fighter (DREAMM)": {
+   "f": [
+    ["<winAppData>/Aaron Giles/DREAMM/gamedelta/lec-tie", "windows", ""]
+   ]
   },
   "Star Wars: The Clone Wars - Republic Heroes": {
    "f": [
@@ -64828,6 +65207,11 @@
     ["<xdgData>/sm64ex/sm64_save_file.bin", "linux", ""]
    ]
   },
+  "Super Mario 64 Plus": {
+   "f": [
+    ["<winLocalAppData>/SM64Plus", "windows", ""]
+   ]
+  },
   "Super Mario Bros. Remastered": {
    "f": [
     ["<winAppData>/SMB1R/saves", "windows", ""]
@@ -65395,6 +65779,11 @@
   "Swedish Touring Car Championship 2": {
    "f": [
     ["<base>/SavedGames", "windows", ""]
+   ]
+  },
+  "Sweet Transit": {
+   "f": [
+    ["<winAppData>/Sweet Transit", "windows", ""]
    ]
   },
   "Sweetest Monster": {
@@ -66249,6 +66638,11 @@
     ["<winLocalAppData>/TAMASHII/savedata.sav", "windows", ""]
    ],
    "s": "1026400"
+  },
+  "Tamer Vale": {
+   "f": [
+    ["<home>/AppData/LocalLow/PixelBee/TamerVale", "windows", ""]
+   ]
   },
   "Tandem: A Tale of Shadows": {
    "f": [
@@ -74450,6 +74844,11 @@
    ],
    "s": "457890"
   },
+  "Tumblebugs": {
+   "f": [
+    ["<winAppData>/Wildfire", "windows", ""]
+   ]
+  },
   "Tumblestone": {
    "f": [
     ["<home>/AppData/LocalLow/The Quantum Astrophysicists Guild/Tumblestone", "windows", ""],
@@ -74729,6 +75128,11 @@
     ["<base>/users", "windows", ""]
    ],
    "s": "3450"
+  },
+  "Typing Land": {
+   "f": [
+    ["<home>/AppData/LocalLow/higopage/TypingLand/*.txt", "windows", ""]
+   ]
   },
   "Tyranny": {
    "f": [
@@ -75980,6 +76384,11 @@
    "s": "378610",
    "x": ["494420"]
   },
+  "Valley Peaks": {
+   "f": [
+    ["<home>/AppData/LocalLow/TubClub/ValleyPeaks/QuickSave", "windows", ""]
+   ]
+  },
   "Vambrace: Cold Soul": {
    "f": [
     ["<home>/.config/unity3d/DevespressoGames/VambraceColdSoul/Vambrace.save", "linux", ""],
@@ -76945,6 +77354,11 @@
     ["<winDocuments>/WSC Real 09/Saves", "windows", ""]
    ]
   },
+  "WW2 Rebuilder": {
+   "f": [
+    ["<winLocalAppData>/WW2_Rebuilder/Saved/SaveGames/*.sav", "windows", ""]
+   ]
+  },
   "WWE 2K Battlegrounds": {
    "f": [
     ["<winLocalAppData>/WWEPlaygrounds/Saved/SaveGames", "windows", ""]
@@ -77395,6 +77809,11 @@
     ["<base>/Data/Saves/FW.dat", "windows", ""]
    ],
    "s": "4280930"
+  },
+  "Warhammer 40,000: Freeblade": {
+   "f": [
+    ["<winLocalAppData>/Packages/PixelToys.Warhammer40000Freeblade_7092mkm8rcvy0/LocalState", "windows", ""]
+   ]
   },
   "Warhammer 40,000: Gladius - Relics of War": {
    "f": [
@@ -78696,6 +79115,11 @@
     ["<base>/Media/Saved", "windows", ""]
    ]
   },
+  "WipeOut Phantom Edition": {
+   "f": [
+    ["<base>/highscores.dat", "windows", ""]
+   ]
+  },
   "Wipeout": {
    "f": [
     ["<base>/*.WSF", "windows", ""]
@@ -78917,6 +79341,11 @@
    ],
    "s": "612880",
    "x": ["624620", "624621", "624622", "624740", "650410", "650500", "754730"]
+  },
+  "Wolfenstein RPG": {
+   "f": [
+    ["<base>/WolfensteinRPG.app", "windows", ""]
+   ]
   },
   "Wolfenstein: Cyberpilot": {
    "f": [
@@ -80560,6 +80989,11 @@
     ["<home>/AppData/LocalLow/AntKarlovGames/Zombotron/Saves", "windows", ""]
    ],
    "s": "664830"
+  },
+  "Zompiercer": {
+   "f": [
+    ["<home>/AppData/LocalLow/DDDimanN/Zompiercer/Saves", "windows", ""]
+   ]
   },
   "Zone of the Enders: The 2nd Runner MARS": {
    "f": [
