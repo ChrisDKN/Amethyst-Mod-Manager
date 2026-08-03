@@ -129,6 +129,100 @@ def _maybe_log_steamless_no_umu() -> None:
         pass
 
 
+_RUNTIME_ENTRY_POINT = "_v2-entry-point"
+
+# Steam Linux Runtime app ID → install dir, used only when the runtime's
+# appmanifest is missing (hand-copied runtime): appmanifest_<appid>.acf is the
+# authoritative mapping and is tried first.
+_KNOWN_RUNTIME_DIRS = {
+    "1070560": "SteamLinuxRuntime",           # 1.0 (scout)
+    "1391110": "SteamLinuxRuntime_soldier",   # 2.0
+    "1628350": "SteamLinuxRuntime_sniper",    # 3.0
+    "4183110": "SteamLinuxRuntime_4",         # 4.0
+}
+
+
+def _require_tool_appid(proton_script: "Path") -> str:
+    """The runtime app ID a Proton tool declares in its toolmanifest.vdf, or ""."""
+    try:
+        text = (Path(proton_script).parent / "toolmanifest.vdf").read_text(
+            encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    m = re.search(r'"require_tool_appid"\s+"(\d+)"', text)
+    return m.group(1) if m else ""
+
+
+def find_steam_runtime_entry_point(proton_script: "Path") -> "Path | None":
+    """Locate the ``_v2-entry-point`` of the runtime *proton_script* requires.
+
+    None when the tool declares no runtime or it isn't installed — the caller
+    then keeps the bare Proton call.
+    """
+    appid = _require_tool_appid(proton_script)
+    if not appid:
+        return None
+    names: list[str] = []
+    for steamapps in all_steamapps_dirs():
+        acf = steamapps / f"appmanifest_{appid}.acf"
+        try:
+            m = re.search(r'"installdir"\s+"([^"]+)"',
+                          acf.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            m = None
+        if m and m.group(1) not in names:
+            names.append(m.group(1))
+    known = _KNOWN_RUNTIME_DIRS.get(appid)
+    if known and known not in names:
+        names.append(known)
+    for steamapps in all_steamapps_dirs():
+        for name in names:
+            entry = steamapps / "common" / name / _RUNTIME_ENTRY_POINT
+            if os.access(entry, os.X_OK):
+                return entry
+    return None
+
+
+def _wrap_in_steam_runtime(cmd: list[str], proton_script: "Path",
+                           args: "tuple[str, ...]",
+                           env: "dict | None") -> list[str]:
+    """Prefix *cmd* with the Steam Linux Runtime entry point for game launches.
+
+    Steam never runs Proton bare: it wraps the call in
+    ``SteamLinuxRuntime_*/_v2-entry-point``, whose pressure-vessel container
+    supplies the library stack Proton was built against. A bare
+    ``python3 proton waitforexitandrun`` (launch mode "None", or Play with no
+    launcher route) runs against the host's libraries instead — the breakage
+    (missing audio, missing libs) that sent non-Steam prefixes to umu-run,
+    which builds this very container itself.
+
+    Only game launches on a Steam-managed prefix are wrapped: tool verbs keep
+    the bare call they have always used, and non-Steam prefixes never get here
+    (the caller routes those to umu). ``AMM_STEAM_RUNTIME=0`` disables it.
+    Mutates *env*, like the umu branch.
+    """
+    if os.environ.get("AMM_STEAM_RUNTIME") == "0":
+        return cmd
+    verb = str(args[0]) if args else ""
+    if verb != "waitforexitandrun":
+        return cmd
+    # Steam-managed prefixes always live at steamapps/compatdata/<appid>;
+    # anything else is a non-Steam prefix whose launch belongs to umu.
+    compat_data = (env or {}).get("STEAM_COMPAT_DATA_PATH")
+    if not compat_data or Path(compat_data).parent.name.lower() != "compatdata":
+        return cmd
+    entry = find_steam_runtime_entry_point(proton_script)
+    if entry is None:
+        return cmd
+    if env is not None:
+        # Steam passes both the Proton build and the runtime here; without it
+        # pressure-vessel need not bind a Proton that lives outside $HOME
+        # (a compatibilitytools.d on a second drive).
+        env.setdefault("STEAM_COMPAT_TOOL_PATHS",
+                       f"{proton_script.parent}:{entry.parent}")
+    return [str(entry), f"--verb={verb}", "--", *cmd]
+
+
 def _host_python() -> str:
     """Return a *host* python3 to run the Proton script with.
 
@@ -267,6 +361,13 @@ def proton_run_command(
     base = [_host_python(), str(proton_script), *map(str, args)]
     if not (_proton_script_in_steam_flatpak(proton_script)
             and not _own_process_in_steam_flatpak()):
+        # Game launches go through Steam's own runtime container (see
+        # _wrap_in_steam_runtime). Done before the flatpak-spawn wrap so the
+        # entry point runs on the host and the env diff below still sees the
+        # STEAM_COMPAT_TOOL_PATHS it adds. The Steam-flatpak branch below is
+        # left bare: that Proton already runs inside Steam's own sandbox,
+        # where its runtime and libraries are the ones it expects.
+        base = _wrap_in_steam_runtime(base, proton_script, args, env)
         if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
             fwd = [
                 f"--env={k}={v}"

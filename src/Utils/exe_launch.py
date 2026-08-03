@@ -2005,6 +2005,54 @@ def is_framework_launch_exe(game, exe_name: str) -> bool:
     return any(Path(rel).name.lower() == target for rel in declared.values())
 
 
+def steam_compat_mounts(game, exe_path: Path) -> dict:
+    """Extra paths a Steam Linux Runtime launch must see, as env vars.
+
+    pressure-vessel exposes $HOME, the game install and whatever Steam names
+    explicitly, so a deployed mod that symlinks into a staging tree elsewhere
+    (SD card, second drive) would dangle inside the container.
+    STEAM_COMPAT_MOUNTS is Steam's channel for that; a bare Proton call
+    ignores it.
+    """
+    paths: list[str] = []
+
+    def _add(candidate) -> None:
+        if candidate is None:
+            return
+        try:
+            p = Path(candidate)
+            if not p.is_dir():
+                return
+            real = str(p.resolve())
+        except OSError:
+            return
+        # A ":" in the path would split into two bogus entries — drop it
+        # rather than corrupt the list.
+        if ":" in real or real in paths:
+            return
+        paths.append(real)
+
+    for getter in ("get_effective_mod_staging_path", "get_mod_staging_path"):
+        fn = getattr(game, getter, None)
+        if fn is None:
+            continue
+        try:
+            staging = fn()
+        except Exception:
+            continue
+        _add(staging)
+        # The staging root itself covers the sibling Applications/ (wizard
+        # tools) and profiles/ trees a launch may reach into.
+        if staging is not None:
+            _add(Path(staging).parent)
+    _add(exe_path.parent)
+    try:
+        _add(exe_path.resolve().parent)
+    except OSError:
+        pass
+    return {"STEAM_COMPAT_MOUNTS": ":".join(paths)} if paths else {}
+
+
 def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     """Standard Proton launch path for .exe files. Call from a worker thread.
 
@@ -2193,6 +2241,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
             if steam_id:
                 env.setdefault("SteamAppId", steam_id)
                 env.setdefault("SteamGameId", steam_id)
+                env.setdefault("STEAM_COMPAT_APP_ID", steam_id)
+        for key, value in steam_compat_mounts(game, exe_path).items():
+            env.setdefault(key, value)
 
     if proton_override_name:
         # Bethesda games: mirror the wizard-prefix setup so tools in the
@@ -2293,6 +2344,16 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
                     if (compat_data / "pfx" / "user.reg").is_file() else "run")
         base_cmd = proton_run_command(proton_script, verb, str(exe_path),
                                       env=env) + extra_args
+        # proton_run_command routes game launches through Steam's runtime
+        # container (as Steam does). Name it in the log: a container failure
+        # looks nothing like a Proton failure, and the escape hatch has to be
+        # discoverable from the session log.
+        runtime_dir = next((Path(a).parent.name for a in base_cmd
+                            if a.endswith("_v2-entry-point")), "")
+        if runtime_dir:
+            log_fn(f"Run EXE: using the Steam Linux Runtime container "
+                   f"({runtime_dir}) — set AMM_STEAM_RUNTIME=0 to launch "
+                   "Proton bare instead.")
     if not launch_opts:
         final_cmd = base_cmd
     else:
@@ -2304,7 +2365,7 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
         # App context: a missing/zero SteamAppId is what DRM load errors report.
-        "SteamAppId", "STEAM_COMPAT_INSTALL_PATH",
+        "SteamAppId", "STEAM_COMPAT_INSTALL_PATH", "STEAM_COMPAT_MOUNTS",
     )
     _env_summary = " ".join(
         f"{k}={env.get(k)}" for k in _env_keys if env.get(k) is not None
