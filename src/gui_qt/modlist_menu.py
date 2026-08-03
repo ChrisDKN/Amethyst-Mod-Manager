@@ -377,6 +377,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     _has_note = bool(_mod_note(view, name))
     act(_mt("Edit note") if _has_note else _mt("Add note"),
         lambda: _open_note_editor(view, [name]))
+    if _nif_viewer_available(view) and _has_meshes(view, name):
+        act(_mt("Open in NIF Viewer"), lambda: _open_nif_viewer(view, name))
     if _has_conflict(model, row):
         act(_mt("Show Conflicts"), lambda: _show_conflicts(view, name))
     if _has_missing_reqs(view, name):
@@ -570,6 +572,40 @@ def _show_conflicts(view, name):
     """Open the Show Conflicts tab for *name* (window installs the callback in
     _reload_modlist). No-op if it isn't wired (e.g. headless)."""
     cb = getattr(view, "on_show_conflicts", None)
+    if cb is not None and name:
+        cb(name)
+
+
+def _nif_viewer_available(view) -> bool:
+    """True when the active game ships the NIF Viewer tool (the Bethesda
+    titles). Asked of the tool registry so the two can't drift apart."""
+    game_id = getattr(getattr(view, "game", None), "game_id", "") or ""
+    if not game_id:
+        return False
+    try:
+        from Utils.plugin_loader import get_builtin_wizard_tools_for_game
+        return any(t.id == "nif_viewer"
+                   for t in get_builtin_wizard_tools_for_game(game_id))
+    except Exception:
+        return False
+
+
+def _has_meshes(view, name: str) -> bool:
+    """True if the mod ships at least one .nif (loose or in its own BSA/BA2)."""
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return False
+    try:
+        from Utils.mesh_catalog import mod_has_assets
+        return mod_has_assets(staging, name)
+    except Exception:
+        return False
+
+
+def _open_nif_viewer(view, name):
+    """Open the NIF Viewer tab scoped to *name* (the window installs the
+    callback in _reload_modlist). No-op if it isn't wired (e.g. headless)."""
+    cb = getattr(view, "on_open_nif_viewer", None)
     if cb is not None and name:
         cb(name)
 
@@ -1473,6 +1509,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Nexus Actions"),
     QT_TRANSLATE_NOOP("ModListMenu", "New name:"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open folder"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Open in NIF Viewer"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on mod.io"),

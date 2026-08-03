@@ -75,6 +75,19 @@ def install_stderr_file(log_dir=None) -> bool:
         _file_installed = True
         return True
 
+    # The AppImage's own debug mode (APPIMAGE_DEBUG=1 in AppRun.sh) redirects
+    # the whole process's stderr to a log beside the AppImage and turns on
+    # LD_DEBUG / EGL_LOG_LEVEL / LIBGL_DEBUG. Taking fd 2 away from it would
+    # capture exactly the Qt/EGL messages that mode exists to collect — GH#350
+    # came back with a debug log that stopped at interpreter startup. Leave fd
+    # 2 alone whenever a loader/GL trace is being collected.
+    if (os.environ.get("APPIMAGE_DEBUG") == "1"
+            or os.environ.get("LD_DEBUG")
+            or os.environ.get("EGL_LOG_LEVEL")
+            or os.environ.get("LIBGL_DEBUG")):
+        _file_installed = True
+        return True
+
     try:
         if log_dir is None:
             from Utils.config_paths import get_config_dir

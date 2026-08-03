@@ -1098,8 +1098,11 @@ class MainWindow(QMainWindow):
             self._tabs.set_tab_title("mf_nif_preview", name)
 
         def _load(override=None, keep_view=False):
+            # inner_path lets plugin TXST overrides apply; the ESPs sit next
+            # to the archive in the mod folder.
             existing.set_nif_data(data, name, resolver, archives, override,
-                                  keep_view)
+                                  keep_view, mesh_rel=inner_path,
+                                  plugin_dirs=[archive.parent])
 
         self._nif_texture_controller(resolver).arm(
             f"{archive}::{inner_path}", lambda ov: _load(ov, keep_view=True))
@@ -8904,11 +8907,16 @@ class MainWindow(QMainWindow):
             view, self.tr("Manage Prefixes"), self._plugins_panel_stack,
             key="prefix_manager")
 
-    def _open_wizard_tool(self, tool):
+    def _open_wizard_tool(self, tool, *, extra_kwargs=None, key_suffix="",
+                          label=None):
         """Open a ported wizard tool as a panel-scoped tab (plugins panel for
         most tools; modlist panel for the wide ones that were full-width
         overlays in Tk), or as a full-UI tab when the spec says panel="full".
-        Re-opening an already-open tool refocuses its tab."""
+        Re-opening an already-open tool refocuses its tab.
+
+        *extra_kwargs* / *key_suffix* / *label* open a PARAMETERISED instance of
+        a tool (right-click ▸ Open in NIF Viewer scopes it to one mod), which
+        needs its own tab key so it can't refocus a differently-scoped tab."""
         game = self._gs.game
         if game is None:
             return
@@ -8916,7 +8924,7 @@ class MainWindow(QMainWindow):
         spec = get_spec(tool.dialog_class_path)
         if spec is None:
             return
-        key = f"wizard:{tool.id}"
+        key = f"wizard:{tool.id}{key_suffix}"
         if self._tabs.has_key(key):
             self._tabs.focus_key(key)
             return
@@ -8924,6 +8932,7 @@ class MainWindow(QMainWindow):
         # replaces it); the rest of extra is forwarded to the view.
         extra = {k: v for k, v in (tool.extra or {}).items()
                  if k != "_full_width_overlay"}
+        extra.update(extra_kwargs or {})
         full = spec.panel == "full"
         stack = (self._modlist_panel_stack if spec.panel == "modlist"
                  else self._plugins_panel_stack)
@@ -8947,10 +8956,31 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._append_log(f"Wizards: failed to open {tool.label}: {exc}")
             return
+        title = label or tool.label
         if full:
-            self._tabs.open_tab(view, tool.label, key=key)
+            self._tabs.open_tab(view, title, key=key)
         else:
-            self._tabs.open_scoped_tab(view, tool.label, stack, key=key)
+            self._tabs.open_scoped_tab(view, title, stack, key=key)
+
+    def _open_nif_viewer_for_mod(self, mod_name: str):
+        """Right-click ▸ Open in NIF Viewer: the mesh browser scoped to one
+        mod's meshes. One tab per mod, but still under the wizard: key prefix
+        so a game switch closes it with the rest."""
+        game = self._gs.game
+        if game is None or not mod_name:
+            return
+        from Utils.plugin_loader import get_builtin_wizard_tools_for_game
+        tool = next((t for t in get_builtin_wizard_tools_for_game(game.game_id)
+                     if t.id == "nif_viewer"), None)
+        if tool is None:
+            return
+        # Tab titles sit in a shared bar — a 60-character mod name would push
+        # every other tab off it, so the label (not the key) is capped.
+        short = mod_name if len(mod_name) <= 28 else mod_name[:27] + "…"
+        self._open_wizard_tool(
+            tool, extra_kwargs={"mod": mod_name},
+            key_suffix=f":mod:{mod_name}",
+            label=self.tr("NIF Viewer — {0}").format(short))
 
     def _wizard_run_deploy(self, on_done) -> bool:
         """Start a deploy for a wizard step through the normal deploy path
@@ -11903,6 +11933,8 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_reinstall = self._reinstall_mods
         # Show Conflicts: right-click item.
         self._modlist_view.on_show_conflicts = self._open_show_conflicts_tab
+        # Open in NIF Viewer: right-click item on a Bethesda mod with meshes.
+        self._modlist_view.on_open_nif_viewer = self._open_nif_viewer_for_mod
         # Mod removal strips plugins from plugins.txt/loadorder.txt — reload the
         # plugin panel so the removed plugins disappear without a manual refresh.
         self._modlist_view.on_mods_removed = self._on_mods_removed
@@ -14638,11 +14670,16 @@ def run() -> int:
     # Share GL contexts so the nif viewport survives tab detach/re-pin
     # reparenting. Must be set before the QApplication exists.
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
-    # GL over EGL, not GLX: with a QOpenGLWidget in the window, Qt's GLX/DRI3
-    # swap can hang forever in xcb_wait_for_special_event when the window is
-    # resized mid-swap (dragging the NIF viewer's splitter froze the app). EGL
-    # has no such wait; only the xcb platform plugin reads this variable.
-    _os.environ.setdefault("QT_XCB_GL_INTEGRATION", "xcb_egl")
+    # We used to force QT_XCB_GL_INTEGRATION=xcb_egl here, to dodge a GLX/DRI3
+    # swap that can hang forever in xcb_wait_for_special_event when the window
+    # is resized mid-swap (dragging the NIF viewer's splitter froze the app).
+    # That traded a viewer-only freeze for a startup-wide black window: under
+    # Xwayland the EGL path rendered nothing at all, and since a QOpenGLWidget
+    # composites the WHOLE window, the entire UI went black (GH#350 — the
+    # reporter confirmed xcb_glx fixes it). Qt's default is used now; the swap
+    # hang is handled where it happens instead, by holding off viewport repaints
+    # mid-resize (see _Viewport.resizeEvent). Users can still opt in by exporting
+    # QT_XCB_GL_INTEGRATION themselves — Qt reads it without our help.
     app = QApplication(sys.argv)
     _apply_app_identity(app)
     # Install UI translators before any widget is built (Qt only translates
@@ -14687,17 +14724,27 @@ def run() -> int:
     # recreate the native window as a GL-composited surface — a full-window
     # flash that reads as an app restart. Parking a 1px GL child before show()
     # makes composition start that way, so opening the first nif is seamless.
-    try:
-        from PySide6.QtOpenGLWidgets import QOpenGLWidget
-        _glwarm = QOpenGLWidget(win)
-        _glwarm.setFixedSize(1, 1)
-        _glwarm.move(-4, -4)
-        _glwarm.setAttribute(Qt.WA_TransparentForMouseEvents)
-        _glwarm.lower()
-        _glwarm.show()
-        win._gl_warmup = _glwarm
-    except Exception:
-        pass
+    #
+    # Only ever do this once gl_support says the GL path works: that same
+    # window-wide switch to GL composition renders the ENTIRE window black
+    # when GL is broken (GH#350), and this warmup would inflict that on every
+    # user at startup — including the ones who never open a mesh.
+    from gui_qt.gl_support import gl_status
+    _gl_ok, _gl_why = gl_status()
+    if _gl_ok:
+        try:
+            from PySide6.QtOpenGLWidgets import QOpenGLWidget
+            _glwarm = QOpenGLWidget(win)
+            _glwarm.setFixedSize(1, 1)
+            _glwarm.move(-4, -4)
+            _glwarm.setAttribute(Qt.WA_TransparentForMouseEvents)
+            _glwarm.lower()
+            _glwarm.show()
+            win._gl_warmup = _glwarm
+        except Exception:
+            pass
+    else:
+        print(f"3D preview disabled: {_gl_why}", file=sys.stderr)
     if _splash is not None:
         win.setWindowOpacity(0.0)
     win.show()

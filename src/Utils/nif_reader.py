@@ -210,7 +210,13 @@ class NifShape:
     block_type: str
     vertices: list[tuple[float, float, float]] = field(default_factory=list)
     normals: list[tuple[float, float, float]] = field(default_factory=list)
+    tangents: list[tuple[float, float, float]] = field(default_factory=list)
     uvs: list[tuple[float, float]] = field(default_factory=list)
+    # RGBA 0-1. Only modulates the diffuse when `vertex_colors` is set, which
+    # is the engine's rule (SLSF2_Vertex_Colors); meshes routinely carry a
+    # stale colour array with the flag off.
+    colors: list[tuple[float, float, float, float]] = field(default_factory=list)
+    vertex_colors: bool = False
     triangles: list[tuple[int, int, int]] = field(default_factory=list)
     # Vertex count as declared by the block, even when no geometry was decoded.
     num_vertices: int = 0
@@ -224,6 +230,23 @@ class NifShape:
     material: str = ""
     # Starfield external geometry path (under geometries/, no suffix).
     mesh_path: str = ""
+    # BSLightingShaderProperty specular material (Skyrim/SSE; defaults else).
+    spec_enabled: bool = True
+    spec_color: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    spec_strength: float = 1.0
+    glossiness: float = 80.0
+    # Non-zero only for environment-mapped shaders (type 1): the cubemap in
+    # texture slot 4 is added at this strength, masked by slot 5.
+    env_map_scale: float = 0.0
+    # Community Shaders TruePBR (PGPatcher output). The classic specular and
+    # texture-slot meanings do NOT apply to these.
+    pbr: bool = False
+    # Runtime colour multiply, filled in by callers (see Utils/facegen_tint).
+    tint: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    # NiAlphaProperty: cut-out fur/hair/foliage need the test, glass the blend.
+    alpha_test: bool = False
+    alpha_blend: bool = False
+    alpha_threshold: int = 128
 
     @property
     def diffuse(self) -> str:
@@ -370,7 +393,7 @@ def _decode_bstrishape(c: _Cur, h: NifHeader, av: dict, shape: NifShape,
         c.skip(24)                                 # bound min/max (Fallout 76)
     shape._skin_ref = c.i32()                      # type: ignore[attr-defined]
     shape._shader_ref = c.i32()                    # type: ignore[attr-defined]
-    c.i32()                                        # alpha property
+    shape._alpha_ref = c.i32()                     # type: ignore[attr-defined]
     desc = c.u64()
 
     num_tris = c.u32() if h.bs_version >= 130 else c.u16()
@@ -424,6 +447,8 @@ def _decode_vertex_buffer(vbuf: bytes, desc: int, count: int, bpv: int,
     flags = (desc >> 44) & 0xFFF
     off_uv = ((desc >> 8) & 0xF) * 4
     off_norm = ((desc >> 16) & 0xF) * 4
+    off_tan = ((desc >> 20) & 0xF) * 4
+    off_col = ((desc >> 24) & 0xF) * 4
 
     if flags & VF_VERTEX:
         shape.vertices = _strided(vbuf, 0, bpv, count,
@@ -431,12 +456,26 @@ def _decode_vertex_buffer(vbuf: bytes, desc: int, count: int, bpv: int,
     if flags & VF_UV:
         shape.uvs = _strided(vbuf, off_uv, bpv, count, "<2e")
     if flags & VF_NORMAL:
-        norms = []
-        for o in range(off_norm, off_norm + bpv * count, bpv):
-            norms.append((vbuf[o] / 127.5 - 1.0,
-                          vbuf[o + 1] / 127.5 - 1.0,
-                          vbuf[o + 2] / 127.5 - 1.0))
-        shape.normals = norms
+        shape.normals = _signed_bytes(vbuf, off_norm, bpv, count)
+    if flags & VF_TANGENT:
+        # Needed to apply tangent-space normal maps.
+        shape.tangents = _signed_bytes(vbuf, off_tan, bpv, count)
+    if flags & VF_COLORS:
+        # One RGBA byte quad per vertex, unlike NiTriShapeData's floats.
+        shape.colors = [
+            (vbuf[o] / 255.0, vbuf[o + 1] / 255.0,
+             vbuf[o + 2] / 255.0, vbuf[o + 3] / 255.0)
+            for o in range(off_col, off_col + bpv * count, bpv)]
+
+
+def _signed_bytes(vbuf: bytes, offset: int, stride: int, count: int) -> list:
+    """Unpack a normalised 3-byte vector per vertex."""
+    out = []
+    for o in range(offset, offset + stride * count, stride):
+        out.append((vbuf[o] / 127.5 - 1.0,
+                    vbuf[o + 1] / 127.5 - 1.0,
+                    vbuf[o + 2] / 127.5 - 1.0))
+    return out
 
 
 def _decode_bsgeometry(c: _Cur, h: NifHeader, shape: NifShape) -> None:
@@ -445,7 +484,7 @@ def _decode_bsgeometry(c: _Cur, h: NifHeader, shape: NifShape) -> None:
     c.skip(24)                                     # bound min/max
     shape._skin_ref = c.i32()                      # type: ignore[attr-defined]
     shape._shader_ref = c.i32()                    # type: ignore[attr-defined]
-    c.i32()                                        # alpha property
+    shape._alpha_ref = c.i32()                     # type: ignore[attr-defined]
     for _ in range(c.u8()):
         c.u32()                                    # index count
         vertex_count = c.u32()
@@ -519,7 +558,8 @@ def _strided(buf: bytes, offset: int, stride: int, count: int, fmt: str) -> list
 
 def _decode_geometry_data(c: _Cur, h: NifHeader, block_type: str) -> dict:
     """Decode NiTriShapeData / NiTriStripsData into vertices/normals/uvs/tris."""
-    out: dict = {"vertices": [], "normals": [], "uvs": [], "triangles": []}
+    out: dict = {"vertices": [], "normals": [], "uvs": [], "triangles": [],
+                 "tangents": [], "colors": []}
 
     # Bethesda 20.2.0.7 files use BSGeometryDataFlags, where only bit 0 counts
     # UV sets; everyone else packs the count into the low 6 bits.
@@ -544,12 +584,15 @@ def _decode_geometry_data(c: _Cur, h: NifHeader, block_type: str) -> dict:
         raw = c.take(num_verts * 12)
         out["normals"] = list(struct.iter_unpack("<3f", raw))
         if data_flags & 0x1000:
-            c.skip(num_verts * 24)                 # tangents + bitangents
+            raw = c.take(num_verts * 12)
+            out["tangents"] = list(struct.iter_unpack("<3f", raw))
+            c.skip(num_verts * 12)                 # bitangents (derived instead)
 
     c.skip(16)                                     # bounding sphere
     has_colors = c.u8()
     if has_colors and num_verts:
-        c.skip(num_verts * 16)
+        raw = c.take(num_verts * 16)
+        out["colors"] = list(struct.iter_unpack("<4f", raw))
 
     num_uv_sets = (data_flags & 1) if bs202 else (data_flags & 0x3F)
     if num_uv_sets and num_verts:
@@ -606,14 +649,32 @@ def _decode_texture_set(c: _Cur) -> list[str]:
     return [c.sized_str() for _ in range(n)]
 
 
+def _decode_alpha_property(c: _Cur, h: NifHeader) -> "tuple[bool, bool, int]":
+    """Return ``(test, blend, threshold)`` from a NiAlphaProperty block.
+
+    Flags bit 0 enables blending, bit 9 alpha testing; the threshold byte
+    follows. Cut-out foliage/fur/hair set testing and render as opaque cards
+    without it.
+    """
+    if h.version >= 0x14010003:
+        c.u32()                                    # name index
+    c.refs()                                       # extra data
+    c.i32()                                        # controller
+    flags = c.u16()
+    return bool(flags & 0x200), bool(flags & 0x1), c.u8()
+
+
 def _decode_shader(c: _Cur, h: NifHeader,
-                   block_type: str) -> "tuple[int, int, str]":
-    """Return ``(texture_set_ref, name_string_index, source_texture)``.
+                   block_type: str) -> "tuple[int, int, str, tuple | None]":
+    """Return ``(texture_set_ref, name_string_index, source_texture, spec)``.
 
     On Fallout 4 the name is the path to a .bgsm/.bgem material file, and THAT
     is where the real textures live — the block's own texture set is often
     stale, so callers should prefer the material. BSEffectShaderProperty has no
     texture set at all; it names its texture inline instead.
+
+    *spec* is ``(enabled, color, strength, glossiness)`` from Skyrim/SSE
+    BSLightingShaderProperty blocks, None elsewhere.
     """
     if block_type == "BSEffectShaderProperty":
         name_idx = c.u32() if h.version >= 0x14010003 else -1
@@ -627,23 +688,53 @@ def _decode_shader(c: _Cur, h: NifHeader,
                 c.skip(4 * c.u32())                # SF2 CRCs
         c.skip(8)                                  # uv offset
         c.skip(8)                                  # uv scale
-        return -1, name_idx, c.sized_str()         # source texture
+        return -1, name_idx, c.sized_str(), None   # source texture
     if block_type == "BSLightingShaderProperty":
+        shader_type = 0
         if 83 <= h.bs_version <= 130:
-            c.u32()                                # shader type
+            shader_type = c.u32()
         name_idx = c.u32() if h.version >= 0x14010003 else -1
         # The name (FO4/Starfield material path) must survive a failed decode
         # of the rest — Starfield adds fields this reader does not model.
         try:
             c.refs()                               # extra data
             c.i32()                                # controller
-            c.u32()                                # shader flags 1
-            c.u32()                                # shader flags 2
+            flags1 = c.u32()                       # shader flags 1
+            flags2 = c.u32()                       # shader flags 2
             c.skip(8)                              # uv offset
             c.skip(8)                              # uv scale
-            return c.i32(), name_idx, ""          # texture set
+            tref = c.i32()                         # texture set
         except (NifError, struct.error):
-            return -1, name_idx, ""
+            return -1, name_idx, "", None
+        spec = None
+        if h.bs_version <= 100:
+            # Skyrim/SSE only: FO4 inserts a wet-material ref here and swaps
+            # glossiness for 0-1 smoothness (its values come from .bgsm).
+            try:
+                c.skip(12)                         # emissive color
+                c.f32()                            # emissive multiple
+                c.u32()                            # texture clamp mode
+                c.f32()                            # alpha
+                c.f32()                            # refraction strength
+                gloss = c.f32()
+                color = (c.f32(), c.f32(), c.f32())
+                strength = c.f32()
+                env = 0.0
+                if shader_type == 1:               # environment map
+                    c.f32()                        # lighting effect 1
+                    c.f32()                        # lighting effect 2
+                    env = c.f32()
+                # Flags 2 bit 23 is nominally SLSF2_Unused01; Community
+                # Shaders' TruePBR claims it, and PGPatcher stamps it on
+                # every mesh it converts.
+                pbr = bool(flags2 & 0x00800000)
+                # Bit 0 of flags 1 is SLSF1_Specular, bit 5 of flags 2 is
+                # SLSF2_Vertex_Colors.
+                spec = (bool(flags1 & 1), color, strength, gloss, env, pbr,
+                        bool(flags2 & 0x20))
+            except (NifError, struct.error):
+                pass
+        return tref, name_idx, "", spec
     if block_type == "BSShaderPPLightingProperty":
         c.u32()                                    # name
         c.refs()                                   # extra data
@@ -654,8 +745,8 @@ def _decode_shader(c: _Cur, h: NifHeader,
         c.u32()                                    # shader flags 2
         c.f32()                                    # env map scale
         c.u32()                                    # texture clamp mode
-        return c.i32(), -1, ""                    # texture set
-    return -1, -1, ""
+        return c.i32(), -1, "", None              # texture set
+    return -1, -1, "", None
 
 
 def read_nif(source: "str | Path | bytes", *,
@@ -680,6 +771,7 @@ def read_nif(source: "str | Path | bytes", *,
     tex_of_shader: dict[int, list[str]] = {}
     material_of_shader: dict[int, str] = {}
     source_of_shader: dict[int, str] = {}
+    spec_of_shader: dict[int, tuple] = {}
     shader_of_block: dict[int, int] = {}
     data_of_shape: dict[int, int] = {}
 
@@ -710,6 +802,7 @@ def read_nif(source: "str | Path | bytes", *,
                         c.skip(32)
                     sh._skin_ref = c.i32()         # type: ignore[attr-defined]
                     sh._shader_ref = c.i32()       # type: ignore[attr-defined]
+                    sh._alpha_ref = c.i32()        # type: ignore[attr-defined]
                 shader_of_block[i] = getattr(sh, "_shader_ref", -1)
                 shapes.append(sh)
             elif bt == "BSGeometry":
@@ -736,21 +829,27 @@ def read_nif(source: "str | Path | bytes", *,
                         c.u8()                     # material needs update
                 if h.bs_version > 34:
                     shader_of_block[i] = c.i32()
-                    c.i32()                        # alpha property
+                    sh._alpha_ref = c.i32()        # alpha property
                 else:
-                    # Pre-Skyrim: shader hangs off the properties array.
+                    # Pre-Skyrim: shader and alpha hang off the properties array.
                     for pref in av["properties"]:
-                        if 0 <= pref < n and h.type_of(pref) in _SHADER_TYPES:
+                        if not 0 <= pref < n:
+                            continue
+                        pt = h.type_of(pref)
+                        if pt in _SHADER_TYPES and i not in shader_of_block:
                             shader_of_block[i] = pref
-                            break
+                        elif pt == "NiAlphaProperty":
+                            sh._alpha_ref = pref
                 data_of_shape[i] = data_ref
                 shapes.append(sh)
             elif bt == "BSShaderTextureSet":
                 tex_of_shader[i] = _decode_texture_set(_Cur(blob))
             elif bt in _SHADER_TYPES:
-                ref, name_idx, src_tex = _decode_shader(_Cur(blob), h, bt)
+                ref, name_idx, src_tex, spec = _decode_shader(_Cur(blob), h, bt)
                 if src_tex:
                     source_of_shader[i] = src_tex
+                if spec is not None:
+                    spec_of_shader[i] = spec
                 if ref >= 0:
                     shader_of_block[-1000 - i] = ref
                 name = h.string(name_idx)
@@ -779,8 +878,10 @@ def read_nif(source: "str | Path | bytes", *,
                 continue
             sh.vertices = got["vertices"]
             sh.normals = got["normals"]
+            sh.tangents = got["tangents"]
             sh.uvs = got["uvs"]
             sh.triangles = got["triangles"]
+            sh.colors = got["colors"]
 
     # Pass 3: skinned shapes — follow skin instance to the NiSkinPartition.
     if want_geometry:
@@ -808,6 +909,21 @@ def read_nif(source: "str | Path | bytes", *,
                 model.skipped["NiSkinPartition"] = (
                     model.skipped.get("NiSkinPartition", 0) + 1)
 
+    # Resolve each shape's alpha property (cut-out fur/hair/foliage).
+    for sh in shapes:
+        aref = getattr(sh, "_alpha_ref", -1)
+        if aref is None or not 0 <= aref < n:
+            continue
+        if h.type_of(aref) != "NiAlphaProperty":
+            continue
+        try:
+            sh.alpha_test, sh.alpha_blend, sh.alpha_threshold = (
+                _decode_alpha_property(
+                    _Cur(data[offs[aref]:offs[aref] + h.block_sizes[aref]]), h))
+        except (NifError, struct.error):
+            model.skipped["NiAlphaProperty"] = (
+                model.skipped.get("NiAlphaProperty", 0) + 1)
+
     # Resolve shader -> texture set for each shape.
     for sh in shapes:
         sref = shader_of_block.get(sh.block_index, -1)
@@ -815,6 +931,10 @@ def read_nif(source: "str | Path | bytes", *,
             continue
         sh.shader_type = h.type_of(sref)
         sh.material = material_of_shader.get(sref, "")
+        if sref in spec_of_shader:
+            (sh.spec_enabled, sh.spec_color, sh.spec_strength,
+             sh.glossiness, sh.env_map_scale, sh.pbr,
+             sh.vertex_colors) = spec_of_shader[sref]
         tref = shader_of_block.get(-1000 - sref, -1)
         if tref >= 0:
             sh.textures = tex_of_shader.get(tref, [])

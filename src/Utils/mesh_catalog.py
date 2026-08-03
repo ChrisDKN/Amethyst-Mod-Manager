@@ -17,7 +17,8 @@ from pathlib import Path
 from Utils.asset_resolver import normalise
 
 __all__ = [
-    "MeshEntry", "build_catalog", "find_copies", "read_entry", "source_label",
+    "MeshEntry", "build_catalog", "find_copies", "mod_has_assets",
+    "read_entry", "source_label",
     "MOD_LOOSE", "DATA_LOOSE", "MOD_ARCHIVE", "DATA_ARCHIVE",
     "DEFAULT_PREFIX", "DEFAULT_EXTS",
 ]
@@ -88,19 +89,24 @@ def _walk_ext(root: Path, prefix: str, exts: tuple[str, ...]) -> list[str]:
 
 def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
                   data_dir: Path | None, *, prefix: str = DEFAULT_PREFIX,
-                  exts: tuple[str, ...] = DEFAULT_EXTS,
+                  exts: tuple[str, ...] = DEFAULT_EXTS, extra_mods=(),
                   cancel=None) -> list[MeshEntry]:
     """Every copy of every matching asset, winner-flagged, sorted by path.
 
     *resolver* is an AssetResolver whose keep_prefix covers *prefix* (its winner
-    tables decide the flags). *cancel* is an optional callable polled between
-    sources so a view can abandon a stale scan.
+    tables decide the flags). *extra_mods* are listed even when the modlist
+    doesn't enable them (browsing one disabled mod's meshes), ranked last so
+    they never displace a real winner. *cancel* is an optional callable polled
+    between sources so a view can abandon a stale scan.
     """
     staging = Path(staging) if staging else None
     data_dir = Path(data_dir) if data_dir else None
     entries: list[MeshEntry] = []
 
     prio = _enabled_mods(modlist_path)
+    for mod in extra_mods or ():
+        if mod and mod not in prio:
+            prio.append(mod)
     prio_rank = {name: i for i, name in enumerate(prio)}
 
     def stop() -> bool:
@@ -199,6 +205,45 @@ def find_copies(rel_keys, resolver, staging: Path | None,
     for e in _flag_winners(entries, resolver, prio_rank):
         grouped.setdefault(e.rel_key, []).append(e)
     return grouped
+
+
+def mod_has_assets(staging: Path | None, mod: str, *,
+                   prefix: str = DEFAULT_PREFIX,
+                   exts: tuple[str, ...] = DEFAULT_EXTS) -> bool:
+    """True if *mod* ships at least one matching asset, loose or in its own
+    BSA/BA2 — the right-click gate for "is there anything to view here".
+
+    Reads the cached modindex/bsa_index (no disk walk) when they exist, so it
+    is cheap enough to run while a context menu is being built.
+    """
+    if staging is None or not mod:
+        return False
+    staging = Path(staging)
+
+    index = None
+    try:
+        from Utils.filemap import read_mod_index
+        index = read_mod_index(staging.parent / "modindex.bin")
+    except Exception:                                    # noqa: BLE001
+        index = None
+    if index is not None:
+        got = index.get(mod)
+        for key in (got[0] if got else ()):
+            if key.startswith(prefix) and _ext_ok(key, exts):
+                return True
+    elif _walk_ext(staging / mod, prefix, exts):
+        return True
+
+    try:
+        from Utils.bsa_filemap import read_bsa_index
+        bsa = read_bsa_index(staging.parent / "bsa_index.bin") or {}
+    except Exception:                                    # noqa: BLE001
+        bsa = {}
+    for _archive_name, _mtime, paths in bsa.get(mod, ()):
+        for key in paths:
+            if key.startswith(prefix) and _ext_ok(key, exts):
+                return True
+    return False
 
 
 def _data_archive_copies(data_dir: Path, wanted: set, keep_prefix) -> list:

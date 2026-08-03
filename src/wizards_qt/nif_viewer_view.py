@@ -42,6 +42,8 @@ if TYPE_CHECKING:
 BROWSE_PREFIXES = ASSET_PREFIXES + (DEFAULT_PREFIX,)
 
 _SRC_ALL, _SRC_MODS, _SRC_VANILLA = "all", "mods", "vanilla"
+# Paths a mod-scoped open expands automatically (see _on_tree_ready).
+_AUTO_EXPAND_MAX = 400
 _MOD_KINDS = (MOD_LOOSE, MOD_ARCHIVE)
 _VANILLA_KINDS = (DATA_LOOSE, DATA_ARCHIVE)
 
@@ -55,13 +57,16 @@ class NifViewerView(QWidget):
     _mesh_ready = Signal(int, object, object, object)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
-                 **_extra):
+                 mod: str = "", **_extra):
         super().__init__()
         self.setObjectName("NifViewerView")
         self._game = game
         self._log = log_fn or (lambda _m: None)
         self._on_close_cb = on_close or (lambda: None)
         self._ctx = ctx
+        # Opened from a mod's right-click menu: scan includes the mod even when
+        # it is disabled, and the list starts filtered to what it provides.
+        self._mod = (mod or "").strip()
         self._closing = False
         self._gen = 0
         self._open_gen = 0
@@ -88,8 +93,10 @@ class NifViewerView(QWidget):
         hb.setContentsMargins(12, 8, 8, 8)
         enable_height_for_width(bar)
 
-        head = ElidingLabel(self.tr("NIF Viewer — {0}").format(game.name),
-                            max_width=340)
+        title = (self.tr("NIF Viewer — {0} ▸ {1}").format(game.name, self._mod)
+                 if self._mod else
+                 self.tr("NIF Viewer — {0}").format(game.name))
+        head = ElidingLabel(title, max_width=340)
         head.setStyleSheet(f"color:{_c(pal,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(head)
 
@@ -123,6 +130,18 @@ class NifViewerView(QWidget):
             "Show only meshes provided by more than one source"))
         self._only_overridden.clicked.connect(lambda _on: self._rebuild_tree())
         hb.addWidget(self._only_overridden)
+
+        # Scoped open: on by default, but unticking it opens the whole
+        # catalogue rather than forcing a second tab from the Wizard menu.
+        self._only_mod = QCheckBox(self.tr("Only this mod"))
+        self._only_mod.setToolTip(self.tr(
+            "Show only meshes {0} provides, alongside the copies they "
+            "compete with").format(self._mod))
+        self._only_mod.setChecked(True)
+        self._only_mod.clicked.connect(lambda _on: self._rebuild_tree())
+        self._only_mod.setVisible(bool(self._mod))
+        if self._mod:
+            hb.addWidget(self._only_mod)
 
         close = QPushButton(self.tr("✕ Close"))
         close.setCursor(Qt.PointingHandCursor)
@@ -237,6 +256,7 @@ class NifViewerView(QWidget):
             try:
                 entries = build_catalog(
                     self._resolver, self._staging, self._modlist, self._data,
+                    extra_mods=(self._mod,) if self._mod else (),
                     cancel=lambda: gen != self._gen)
             except Exception as exc:                     # noqa: BLE001
                 self._log(f"NIF Viewer: scan failed: {exc}")
@@ -259,12 +279,13 @@ class NifViewerView(QWidget):
         query = self._search.text().strip().lower()
         source = self._src_box.currentData() or _SRC_ALL
         overridden_only = self._only_overridden.isChecked()
+        mod = self._mod if self._mod and self._only_mod.isChecked() else ""
         entries = list(self._entries)
 
         def worker():
             try:
                 root, count = _build_catalog_tree(
-                    entries, query, source, overridden_only)
+                    entries, query, source, overridden_only, mod)
             except Exception as exc:                     # noqa: BLE001
                 self._log(f"NIF Viewer: could not build the tree: {exc}")
                 root, count = Node("", is_dir=True), 0
@@ -277,6 +298,11 @@ class NifViewerView(QWidget):
             return
         self._model.set_root(root)
         self._count.setText(self.tr("{0} meshes").format(f"{count:,}"))
+        # A scoped open lands on one mod's handful of meshes: expand so they
+        # are on screen instead of hidden under a collapsed 'meshes' root.
+        # (expandAll is ~1 s on the full 22.7k-path vanilla tree — hence the cap.)
+        if self._mod and 0 < count <= _AUTO_EXPAND_MAX:
+            self._tree.expandAll()
 
     def _expand_all(self):
         # ~1 s on a full vanilla Skyrim tree (22.7k paths) — busy cursor so an
@@ -352,8 +378,18 @@ class NifViewerView(QWidget):
                                          keep_prefix=ASSET_PREFIXES)
             except Exception:                            # noqa: BLE001
                 archives = None
+        # Plugin TXST overrides: the copy's own mod folder first, then the
+        # data folder (its big vanilla masters are size-capped away).
+        dirs = []
+        if entry.mod and self._staging is not None:
+            dirs.append(Path(self._staging) / entry.mod)
+        elif entry.archive is not None:
+            dirs.append(Path(entry.archive).parent)
+        if self._data is not None:
+            dirs.append(Path(self._data))
         self._preview.set_nif_data(data, title, self._resolver, archives,
-                                   tex_override, keep_view)
+                                   tex_override, keep_view,
+                                   mesh_rel=entry.rel_key, plugin_dirs=dirs)
 
 
 # ---- helpers ---------------------------------------------------------------
@@ -403,7 +439,8 @@ def _keep(entry, source: str) -> bool:
 
 
 def _build_catalog_tree(entries: list, query: str, source: str,
-                        overridden_only: bool) -> tuple[Node, int]:
+                        overridden_only: bool,
+                        mod: str = "") -> tuple[Node, int]:
     """Unified meshes/… tree; contested paths expand into one row per copy."""
     groups: dict[str, list] = {}
     for e in entries:
@@ -411,6 +448,11 @@ def _build_catalog_tree(entries: list, query: str, source: str,
             continue
         groups.setdefault(e.rel_key, []).append(e)
 
+    if mod:
+        # Same rule as the provider search: keep the WHOLE group so the mod's
+        # meshes appear next to whatever they override or lose to.
+        groups = {k: g for k, g in groups.items()
+                  if any(e.mod == mod for e in g)}
     if query:
         # Match the path OR any provider, and keep the WHOLE group — a mod-name
         # search is only useful next to the copies that mod competes with.

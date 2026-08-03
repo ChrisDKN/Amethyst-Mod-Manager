@@ -16,21 +16,35 @@ import threading
 from pathlib import Path
 from shiboken6 import VoidPtr
 
-from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QColor, QMatrix4x4, QSurfaceFormat, QVector3D
-from PySide6.QtOpenGL import (
-    QOpenGLBuffer, QOpenGLShader, QOpenGLShaderProgram, QOpenGLTexture,
-    QOpenGLVersionFunctionsFactory, QOpenGLVersionProfile,
-    QOpenGLVertexArrayObject,
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QActionGroup, QColor, QMatrix4x4, QSurfaceFormat, QVector3D,
 )
-from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QLabel, QVBoxLayout, QWidget,
+    QComboBox, QLabel, QMenu, QSlider, QToolButton, QVBoxLayout, QWidget,
 )
+
+# The QtOpenGL* modules need libQt6OpenGL/libQt6OpenGLWidgets, which not every
+# host has. Import must not be fatal: gl_status() decides whether any of this
+# is usable, and the preview falls back to _NoGLViewport when it is not — the
+# class bodies below are only ever *executed* when gl_status() says yes.
+try:
+    from PySide6.QtOpenGL import (
+        QOpenGLBuffer, QOpenGLShader, QOpenGLShaderProgram, QOpenGLTexture,
+        QOpenGLVersionFunctionsFactory, QOpenGLVersionProfile,
+        QOpenGLVertexArrayObject,
+    )
+    from PySide6.QtOpenGLWidgets import QOpenGLWidget
+except Exception:                                        # noqa: BLE001
+    QOpenGLBuffer = QOpenGLShader = QOpenGLShaderProgram = None
+    QOpenGLTexture = QOpenGLVersionFunctionsFactory = None
+    QOpenGLVersionProfile = QOpenGLVertexArrayObject = None
+    QOpenGLWidget = QWidget
 
 from Utils.asset_resolver import DirCache as _DirCache
 from gui_qt.eliding_label import ElidingLabel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
+from gui_qt.gl_support import gl_status
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 
@@ -53,6 +67,17 @@ BACKGROUNDS = {
 }
 BACKGROUND_ORDER = ["light", "grey", "dark", "black"]
 
+# Brightness is a gamma lift: 1.0 neutral, higher raises shadows. Stored as an
+# int percent so it round-trips through the ini and the slider unchanged.
+BRIGHTNESS_MIN, BRIGHTNESS_MAX, BRIGHTNESS_DEFAULT = 60, 260, 100
+
+# Wireframe: off, lines over the solid render, or lines only.
+WIRE_OFF, WIRE_OVERLAY, WIRE_ONLY = "off", "overlay", "only"
+
+# Texture slots that mean the same thing in Bethesda texture sets, FO4 .bgsm
+# and Starfield .mat. Later slots differ per source, so they are not offered.
+TEXTURE_SLOTS = (("diffuse", 0), ("normal", 1))
+
 # PySide6 exposes no GL constant module; these are the standard values.
 _GL_TRIANGLES = 0x0004
 _GL_DEPTH_BUFFER_BIT = 0x0100
@@ -62,7 +87,13 @@ _GL_UNSIGNED_INT = 0x1405
 _GL_FLOAT = 0x1406
 _GL_LINE = 0x1B01
 _GL_FILL = 0x1B02
+_GL_BACK = 0x0405
+_GL_CULL_FACE = 0x0B44
+_GL_POLYGON_OFFSET_LINE = 0x2A02
 _GL_COLOR_BUFFER_BIT = 0x4000
+_GL_BLEND = 0x0BE2
+_GL_SRC_ALPHA = 0x0302
+_GL_ONE_MINUS_SRC_ALPHA = 0x0303
 
 # PySide6 binds glDrawElements' `indices` as a real pointer, so an integer 0 is
 # rejected; with an element buffer bound it must be a null VoidPtr offset.
@@ -72,11 +103,19 @@ _VERT_SRC = """#version 330 core
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aUV;
+layout(location = 3) in vec3 aTangent;
+layout(location = 4) in vec4 aColor;
 uniform mat4 uMVP;
 out vec3 vNormal;
 out vec2 vUV;
+out vec3 vTangent;
+out vec3 vWorld;
+out vec4 vColor;
 void main() {
     vNormal = aNormal;
+    vTangent = aTangent;
+    vColor = aColor;
+    vWorld = aPos;          // positions are already baked to world space
     // NO V flip: QOpenGLTexture(QImage) already mirrors on upload; flipping
     // again samples the wrong atlas island.
     vUV = aUV;
@@ -87,20 +126,130 @@ void main() {
 _FRAG_SRC = """#version 330 core
 in vec3 vNormal;
 in vec2 vUV;
+in vec3 vTangent;
+in vec3 vWorld;
+in vec4 vColor;
+// Only 1 where the mesh HAS colours and SLSF2_Vertex_Colors is set — plenty
+// of meshes carry a stale colour array the engine ignores.
+uniform float uHasVColor;
+// Runtime colour multiply (FaceGen hair). White for everything else.
+uniform vec3 uTint;
 // uHasTex is a float: PySide6 setUniformValue silently misses int uniforms.
 uniform sampler2D uTex;
+uniform sampler2D uNormTex;
 uniform float uHasTex;
+uniform float uHasNorm;      // 0 none, 1 tangent-space, 2 model-space (_msn)
+uniform float uSpecular;
 uniform vec3 uBaseColor;
+uniform vec3 uEye;
+uniform float uGamma;
+uniform float uFlat;
+// Cut-out geometry (fur, hair, foliage): < 0 disables the test entirely.
+uniform float uAlphaThreshold;
+// 1 on the blended pass, so the diffuse map's alpha reaches the framebuffer.
+uniform float uBlend;
 out vec4 FragColor;
+
+// BodySlide's rig (GLSurface::InitLighting): three directional lights plus a
+// camera-locked frontal one, each adding its own share of ambient. BodySlide
+// states the directions in ITS world — Y-up, +Z toward the default camera —
+// so they are camera coordinates in all but name. Python rotates them onto
+// the current camera basis each frame (uLd*), keeping the rig attached to
+// the viewer; dropping them into our Z-up model world put the two front
+// lights overhead and the backlight underneath.
+const float AMBIENT = 0.2;
+uniform vec3 uLd0;
+uniform vec3 uLd1;
+uniform vec3 uLd2;
+uniform vec3 uCamRight;
+uniform vec3 uCamUp;
+
+// Environment map (Skyrim shader type 1). BodySlide samples a cubemap with
+// the reflection vector; ours samples one face through a sphere-map lookup —
+// chrome env maps are soft gradients, so the difference is not visible.
+uniform sampler2D uEnvTex;
+uniform sampler2D uMaskTex;
+uniform float uEnvScale;
+uniform float uHasMask;
+
+// Per-mesh material, from the NIF's BSLightingShaderProperty.
+uniform vec3 uSpecColor;
+uniform float uSpecStrength;
+uniform float uShininess;
+
+// Uncharted-2 filmic curve, applied exactly as BodySlide applies it.
+vec3 tonemap(vec3 x) {
+    const float A = 0.15, B = 0.50, C = 0.10, D = 0.20, E = 0.02, F = 0.30;
+    return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+}
+
+void addLight(vec3 dir, float diffuse, vec3 n, vec3 v, float gloss,
+              inout vec3 lit, inout vec3 spec) {
+    float ndl = max(dot(n, dir), 0.0);
+    float ndh = max(dot(n, normalize(dir + v)), 0.0);
+    lit += AMBIENT + ndl * diffuse;
+    spec += clamp(uSpecColor * uSpecStrength * gloss
+                  * pow(ndh, uShininess), 0.0, 1.0) * diffuse;
+}
+
 void main() {
+    // Wireframe overlay pass: unlit, ungraded, so lines stay legible.
+    if (uFlat > 0.5) { FragColor = vec4(uBaseColor, 1.0); return; }
+
+    // Cut out before any shading work: discarded fragments write no depth,
+    // so alpha-TESTED meshes need no sorting.
+    vec4 texel = uHasTex > 0.5 ? texture(uTex, vUV) : vec4(uBaseColor, 1.0);
+    // BodySlide multiplies the vertex colour into BOTH albedo and alpha, and
+    // the engine alpha-tests the combined value.
+    if (uHasVColor > 0.5) texel *= vColor;
+    if (uAlphaThreshold >= 0.0 && texel.a <= uAlphaThreshold) discard;
+
     vec3 n = normalize(vNormal);
-    vec3 key = normalize(vec3(0.35, 0.55, 0.75));
-    // Two-sided: unlit backfaces read as holes on mod meshes.
-    float d = abs(dot(n, key));
-    float fill = 0.25 * abs(dot(n, normalize(vec3(-0.6, -0.3, 0.2))));
-    vec3 base = uHasTex > 0.5 ? texture(uTex, vUV).rgb : uBaseColor;
-    // Generous ambient: readability over physical fidelity.
-    FragColor = vec4(base * (0.55 + 0.60 * d + fill), 1.0);
+    float gloss = 0.0;
+    if (uHasNorm > 1.5) {
+        // Model-space map: the texel IS the normal, no tangent basis. Red is
+        // inverted (as in BodySlide's shader), and gloss comes from the
+        // dedicated specular map packed into alpha, never the map's own alpha.
+        vec4 nm = texture(uNormTex, vUV);
+        n = normalize(nm.rgb * 2.0 - 1.0);
+        n.r = -n.r;
+        gloss = nm.a;
+    } else if (uHasNorm > 0.5) {
+        vec4 nm = texture(uNormTex, vUV);
+        vec3 t = vTangent - n * dot(n, vTangent);   // Gram-Schmidt
+        if (length(t) > 1e-4) {
+            t = normalize(t);
+            mat3 tbn = mat3(t, cross(n, t), n);
+            n = normalize(tbn * (nm.rgb * 2.0 - 1.0));
+        }
+        // Skyrim keeps its gloss/spec mask in the normal map's ALPHA.
+        gloss = nm.a;
+    }
+    gloss *= uSpecular;
+
+    vec3 v = normalize(uEye - vWorld);
+    vec3 albedo = texel.rgb * uTint;
+
+    if (uEnvScale > 0.0) {
+        vec3 rfl = reflect(-v, n);
+        vec2 suv = vec2(dot(rfl, uCamRight), -dot(rfl, uCamUp)) * 0.5 + 0.5;
+        // No env mask -> fall back to the spec factor, as BodySlide does.
+        float m = uHasMask > 0.5 ? texture(uMaskTex, vUV).r : gloss;
+        albedo += texture(uEnvTex, suv).rgb * uEnvScale * m;
+    }
+
+    vec3 lit = vec3(0.0);
+    vec3 spec = vec3(0.0);
+    addLight(v, 0.20, n, v, gloss, lit, spec);
+    addLight(uLd0, 0.60, n, v, gloss, lit, spec);
+    addLight(uLd1, 0.60, n, v, gloss, lit, spec);
+    addLight(uLd2, 0.85, n, v, gloss, lit, spec);
+
+    vec3 col = tonemap(albedo * lit + spec) / tonemap(vec3(1.0));
+    // Gamma lift, not a multiply: raises shadows (near-black leather/metal)
+    // without blowing highlights to white.
+    FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / uGamma)),
+                     mix(1.0, texel.a, uBlend));
 }
 """
 
@@ -109,17 +258,43 @@ class _Mesh:
     """One shape's CPU-side buffers, built off-thread and uploaded on demand."""
 
     __slots__ = ("name", "verts", "indices", "image", "has_image", "tri_count",
-                 "vao", "vbo", "ibo", "texture")
+                 "normal_image", "model_space_normals", "spec",
+                 "env_image", "mask_image", "env_scale",
+                 "alpha_threshold", "alpha_blend", "center", "has_colors",
+                 "tint",
+                 "vao", "vbo", "ibo", "texture", "normal_tex",
+                 "env_tex", "mask_tex")
 
-    def __init__(self, name, verts, indices, image, tri_count):
+    def __init__(self, name, verts, indices, image, tri_count,
+                 normal_image=None, model_space_normals=False, spec=None,
+                 env_image=None, mask_image=None, env_scale=0.0,
+                 alpha_threshold=-1.0, alpha_blend=False, center=(0.0, 0.0, 0.0),
+                 has_colors=False, tint=(1.0, 1.0, 1.0)):
         self.name = name
         self.verts = verts
         self.indices = indices
         self.image = image
         # Kept because `image` is dropped once the texture is on the GPU.
         self.has_image = image is not None
+        self.normal_image = normal_image
+        self.model_space_normals = model_space_normals
+        # (r, g, b, strength, shininess) for the shader's specular term.
+        self.spec = spec or (1.0, 1.0, 1.0, 1.0, 80.0)
+        self.env_image = env_image
+        self.mask_image = mask_image
+        self.env_scale = env_scale
+        # < 0 = no alpha test. Blended meshes draw last, back to front.
+        self.alpha_threshold = alpha_threshold
+        self.alpha_blend = alpha_blend
+        self.center = center
+        # Widens the vertex from 11 floats to 15; only meshes that use it pay.
+        self.has_colors = has_colors
+        # Runtime colour multiply (FaceGen hair); white otherwise.
+        self.tint = tint
         self.tri_count = tri_count
-        self.vao = self.vbo = self.ibo = self.texture = None
+        self.vao = self.vbo = self.ibo = None
+        self.texture = self.normal_tex = None
+        self.env_tex = self.mask_tex = None
 
 
 def _face_normals(verts: list, tris: list) -> list:
@@ -160,6 +335,65 @@ def _fit_texture(img):
         Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
 
+def _model_space_normal(nrm_blob, spec_blob):
+    """Decode an _msn normal map, packing a separate spec map into its alpha.
+
+    A model-space map's alpha is NOT a gloss mask (it is usually solid 255).
+    Skyrim keeps skin gloss in a dedicated specular map (texture slot 7) and
+    uses its RED channel, per BodySlide's own shader. Packing that into alpha
+    lets the shader read gloss from one sampler for both map types; with no
+    spec map the alpha is zeroed, so skin renders matte rather than glossy.
+    """
+    try:
+        import io
+        from PIL import Image as PilImage
+        from PySide6.QtGui import QImage
+        from Utils.dds_compat import sanitise_dds
+        with PilImage.open(io.BytesIO(sanitise_dds(nrm_blob))) as im:
+            big = max(im.width, im.height)
+            if big > TEXTURE_MAX_DIM:
+                im = im.reduce(max(1, big // TEXTURE_MAX_DIM))
+            rgb = im.convert("RGB")
+        if spec_blob:
+            with PilImage.open(io.BytesIO(sanitise_dds(spec_blob))) as sp:
+                gloss = sp.convert("RGB").split()[0]        # red channel
+                if gloss.size != rgb.size:
+                    gloss = gloss.resize(rgb.size)
+        else:
+            gloss = PilImage.new("L", rgb.size, 0)
+        rgb.putalpha(gloss)
+        raw = rgb.tobytes("raw", "RGBA")
+        return QImage(raw, rgb.width, rgb.height,
+                      QImage.Format_RGBA8888).copy()
+    except Exception:                                    # noqa: BLE001
+        return None
+
+
+def _make_gl_texture(img):
+    """Upload *img* explicitly rather than via QOpenGLTexture(QImage).
+
+    The convenience constructor PREMULTIPLIES by alpha, which silently scales
+    RGB down. That ruins any texture whose alpha is meaningful — Skyrim keeps
+    its gloss mask in the normal map's alpha, so a normal map came back ~5x too
+    dark and the surface barely responded to lighting.
+    """
+    if img is None or img.isNull():
+        return None
+    from PySide6.QtGui import QImage
+    src = img.convertToFormat(QImage.Format_RGBA8888)
+    tex = QOpenGLTexture(QOpenGLTexture.Target2D)
+    tex.setSize(src.width(), src.height())
+    tex.setFormat(QOpenGLTexture.RGBA8_UNorm)
+    tex.setMipLevels(tex.maximumMipLevels())
+    tex.allocateStorage()
+    tex.setData(QOpenGLTexture.RGBA, QOpenGLTexture.UInt8, src.constBits())
+    tex.generateMipMaps()
+    tex.setMinificationFilter(QOpenGLTexture.LinearMipMapLinear)
+    tex.setMagnificationFilter(QOpenGLTexture.Linear)
+    tex.setWrapMode(QOpenGLTexture.Repeat)
+    return tex
+
+
 def _qimage_from_bytes(data: bytes):
     """Decode texture bytes pulled from an archive (DDS goes via Pillow)."""
     from PySide6.QtGui import QImage
@@ -184,7 +418,7 @@ def _qimage_from_bytes(data: bytes):
 
 
 def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None,
-                         override=None):
+                         override=None, slot: int = 0):
     """Return ``shape -> QImage|None``; resolver first, then roots/archives.
 
     FO4/Starfield shapes name a material file whose textures override the
@@ -232,19 +466,85 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             return archives.read(rel)
         return None
 
-    def material_diffuse(rel: str) -> str:
+    def material_slot(rel: str) -> str:
         key = rel.lower()
         if key not in materials:
             from Utils.bgsm_reader import read_material
             blob = fetch(rel)
             materials[key] = read_material(blob) if blob else None
         mat = materials[key]
-        return mat.diffuse if mat is not None else ""
+        if mat is None:
+            return ""
+        if slot == 0:
+            return mat.diffuse          # skips leading empty slots
+        return mat.paths[slot] if slot < len(mat.paths) else ""
+
+    def shape_slot(shape) -> str:
+        if slot == 0:
+            return shape.diffuse
+        return shape.textures[slot] if slot < len(shape.textures) else ""
+
+    def normal_map(shape):
+        """(QImage|None, model_space) for the shape's normal map (slot 1)."""
+        rel = ""
+        if shape.material:
+            mat = materials.get(shape.material.lower())
+            if mat is None:
+                material_slot(shape.material)      # populates the cache
+                mat = materials.get(shape.material.lower())
+            if mat is not None and len(mat.paths) > 1:
+                rel = mat.paths[1]
+        if not rel and len(shape.textures) > 1:
+            rel = shape.textures[1]
+        if not rel:
+            return None, False
+        # Bethesda body maps are MODEL space (_msn); they must not be run
+        # through a tangent basis.
+        model_space = rel.replace("\\", "/").lower().endswith("msn.dds")
+        key = "N:" + rel.lower()
+        if key in seen:
+            return seen[key], model_space
+        blob = fetch(rel)
+        if blob and model_space:
+            # Skyrim slot 7 is the dedicated specular map for skin.
+            spec_rel = shape.textures[7] if len(shape.textures) > 7 else ""
+            img = _model_space_normal(blob, fetch(spec_rel) if spec_rel else None)
+        else:
+            img = _qimage_from_bytes(blob) if blob else None
+        if img is not None and img.isNull():
+            img = None
+        img = _fit_texture(img)
+        seen[key] = img
+        return img, model_space
+
+    def env_maps(shape):
+        """(env QImage|None, mask QImage|None) for an env-mapped shape.
+
+        Slot 4 is a cubemap; Pillow decodes its first face, which is enough
+        for the sphere-map approximation the shader uses. Slot 5 masks it.
+        """
+        if shape.env_map_scale <= 0.0 or len(shape.textures) <= 4:
+            return None, None
+        out = []
+        for idx in (4, 5):
+            rel = shape.textures[idx] if idx < len(shape.textures) else ""
+            if not rel:
+                out.append(None)
+                continue
+            key = "E:" + rel.lower()
+            if key not in seen:
+                blob = fetch(rel)
+                img = _qimage_from_bytes(blob) if blob else None
+                if img is not None and img.isNull():
+                    img = None
+                seen[key] = _fit_texture(img)
+            out.append(seen[key])
+        return out[0], out[1]
 
     def load(shape):
-        rel = material_diffuse(shape.material) if shape.material else ""
+        rel = material_slot(shape.material) if shape.material else ""
         if not rel:
-            rel = shape.diffuse
+            rel = shape_slot(shape)
         if not rel:
             return None
         key = rel.replace("\\", "/").lower()
@@ -264,6 +564,8 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
 
     load.fetch = fetch
     load.requested = requested
+    load.normal_map = normal_map
+    load.env_maps = env_maps
     return load
 
 
@@ -304,13 +606,26 @@ def _build_meshes(model, load_texture):
         uvs = shape.uvs
         if len(uvs) != len(verts):
             uvs = [(0.0, 0.0)] * len(verts)
+        # No tangents (Skyrim LE data blocks, Starfield, unskinned bodies) just
+        # means no normal mapping for that shape; the shader falls back.
+        tangents = shape.tangents
+        if len(tangents) != len(verts):
+            tangents = [(0.0, 0.0, 0.0)] * len(verts)
+        # The engine ignores the colour array unless SLSF2_Vertex_Colors is
+        # set, and 405 shapes in one real load order carry a stale one.
+        use_colors = shape.vertex_colors and len(shape.colors) == len(verts)
+        colors = shape.colors if use_colors else None
 
         tx, ty, tz = shape.translation
         r = shape.rotation
         s = shape.scale
         flat = array.array("f")
         push = flat.extend
-        for (x, y, z), (nx, ny, nz), (u, v) in zip(verts, normals, uvs):
+        # Per-shape bounds too: the centroid orders the blended pass.
+        mlo = [float("inf")] * 3
+        mhi = [float("-inf")] * 3
+        for i, ((x, y, z), (nx, ny, nz), (u, v), (gx, gy, gz)) in enumerate(zip(
+                verts, normals, uvs, tangents)):
             wx = tx + s * (r[0] * x + r[1] * y + r[2] * z)
             wy = ty + s * (r[3] * x + r[4] * y + r[5] * z)
             wz = tz + s * (r[6] * x + r[7] * y + r[8] * z)
@@ -318,7 +633,12 @@ def _build_meshes(model, load_texture):
                   r[0] * nx + r[1] * ny + r[2] * nz,
                   r[3] * nx + r[4] * ny + r[5] * nz,
                   r[6] * nx + r[7] * ny + r[8] * nz,
-                  u, v))
+                  u, v,
+                  r[0] * gx + r[1] * gy + r[2] * gz,
+                  r[3] * gx + r[4] * gy + r[5] * gz,
+                  r[6] * gx + r[7] * gy + r[8] * gz))
+            if colors is not None:
+                push(colors[i])
             if wx < lo[0]:
                 lo[0] = wx
             if wy < lo[1]:
@@ -331,6 +651,18 @@ def _build_meshes(model, load_texture):
                 hi[1] = wy
             if wz > hi[2]:
                 hi[2] = wz
+            if wx < mlo[0]:
+                mlo[0] = wx
+            if wy < mlo[1]:
+                mlo[1] = wy
+            if wz < mlo[2]:
+                mlo[2] = wz
+            if wx > mhi[0]:
+                mhi[0] = wx
+            if wy > mhi[1]:
+                mhi[1] = wy
+            if wz > mhi[2]:
+                mhi[2] = wz
 
         nv = len(verts)
         idx = array.array("I")
@@ -341,7 +673,33 @@ def _build_meshes(model, load_texture):
             continue
 
         image = load_texture(shape)
-        meshes.append(_Mesh(shape.name, flat, idx, image, len(idx) // 3))
+        nrm_img, model_space = (load_texture.normal_map(shape)
+                                if hasattr(load_texture, "normal_map")
+                                else (None, False))
+        # BodySlide drives its highlight from these material fields; a mesh
+        # with SLSF1_Specular off renders matte (strength 0).
+        strength = shape.spec_strength if shape.spec_enabled else 0.0
+        # TruePBR repurposes the whole block: glossiness reads 0, the normal
+        # map's alpha is not a gloss mask, and slot 5 is _rmaos rather than an
+        # env mask. We do not implement PBR, so shade those diffuse-only
+        # instead of feeding junk into the Blinn-Phong lobe.
+        if shape.pbr or shape.glossiness < 1.0:
+            strength = 0.0
+        spec = (*shape.spec_color, strength, max(1.0, shape.glossiness))
+        env_img, mask_img = (load_texture.env_maps(shape)
+                             if hasattr(load_texture, "env_maps") and not shape.pbr
+                             else (None, None))
+        # NiAlphaProperty thresholds are 0-255; GL compares against 0-1.
+        # Only useful with a texture — an untextured shape has alpha 1.
+        thr = (shape.alpha_threshold / 255.0
+               if shape.alpha_test and image is not None else -1.0)
+        centre = tuple((mlo[k] + mhi[k]) * 0.5 for k in range(3))
+        meshes.append(_Mesh(shape.name, flat, idx, image, len(idx) // 3,
+                            nrm_img, model_space, spec,
+                            env_img, mask_img,
+                            shape.env_map_scale if env_img else 0.0,
+                            thr, shape.alpha_blend and image is not None,
+                            centre, colors is not None, shape.tint))
 
     if not meshes:
         return [], None
@@ -390,7 +748,15 @@ class _Viewport(QOpenGLWidget):
 
         self._program: QOpenGLShaderProgram | None = None
         self._core = None
-        self._u_mvp = self._u_hastex = self._u_base = -1
+        self._u_mvp = self._u_hastex = self._u_base = self._u_gamma = -1
+        self._u_flat = self._u_hasnorm = self._u_spec = self._u_eye = -1
+        self._u_tex = self._u_normtex = -1
+        self._u_speccol = self._u_specstr = self._u_shine = -1
+        self._u_ld = (-1, -1, -1)
+        self._u_envtex = self._u_masktex = self._u_envscale = -1
+        self._u_hasmask = self._u_camright = self._u_camup = -1
+        self._u_athresh = self._u_blend = self._u_hasvcol = -1
+        self._u_tint = -1
         self._meshes: list[_Mesh] = []
         self._pending: list[_Mesh] | None = None
         self._uploaded = False
@@ -399,6 +765,8 @@ class _Viewport(QOpenGLWidget):
         self._reload_args = None
         self._needs_reload = False
         self._keep_view = False
+        # Built on the first resize; see resizeEvent for why paints pause.
+        self._resize_hold = None
 
         self._yaw = math.radians(-60.0)
         self._pitch = math.radians(22.0)
@@ -407,11 +775,15 @@ class _Viewport(QOpenGLWidget):
         self._home = (self._yaw, self._pitch, self._distance, QVector3D(0, 0, 0))
         self._last_pos = None
         self._last_buttons = Qt.NoButton
-        self.wireframe = False
+        self.wireframe = WIRE_OFF
+        self.cull_backfaces = False
         self.textured = True
+        self.texture_slot = 0
+        self.detail = True          # normal maps + specular
         self.invert_mouse = True
         self._bg = QColor(BACKGROUNDS["light"])
         self._base = (0.40, 0.39, 0.37)
+        self._gamma = 1.0
 
         self.setMinimumSize(1, 1)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -420,10 +792,13 @@ class _Viewport(QOpenGLWidget):
     # -- loading ------------------------------------------------------------
     def load(self, source, texture_roots: list[Path], archive_roots=None,
              resolver=None, archives=None, tex_override=None,
+             mesh_rel: str = "", plugin_dirs=None,
              keep_view: bool = False):
         """Parse and build *source* (path or raw bytes) off-thread, then swap.
 
         *archives* lets a mesh read from inside a BSA find its own textures.
+        *mesh_rel* (the mesh's data-relative path) enables plugin TXST
+        overrides, scanned from *plugin_dirs* (default: the texture roots).
         """
         self._generation += 1
         gen = self._generation
@@ -431,7 +806,8 @@ class _Viewport(QOpenGLWidget):
         self._keep_view = bool(keep_view)
         # Kept so the mesh can be rebuilt after a context loss (tab detach).
         self._reload_args = (source, texture_roots, archive_roots,
-                             resolver, archives, tex_override)
+                             resolver, archives, tex_override,
+                             mesh_rel, plugin_dirs)
         self._discard_pending()
 
         def work():
@@ -443,8 +819,24 @@ class _Viewport(QOpenGLWidget):
                     extra = ArchiveLookup(find_archives(archive_roots),
                                           keep_prefix=ASSET_PREFIXES)
                 loader = _make_texture_loader(texture_roots, extra, resolver,
-                                              tex_override)
+                                              tex_override, self.texture_slot)
                 model = read_nif(source)
+                if mesh_rel:
+                    # The game may swap the baked texture set via plugin
+                    # records; without this such meshes preview as white clay.
+                    from Utils.txst_lookup import apply_alt_textures
+                    dirs = plugin_dirs or texture_roots
+                    try:
+                        apply_alt_textures(model, mesh_rel, dirs)
+                    except Exception:                    # noqa: BLE001
+                        pass
+                    # Skyrim ships hair textures greyscale and tints them from
+                    # the NPC record, so FaceGen hair is white without this.
+                    try:
+                        from Utils.facegen_tint import apply_hair_tint
+                        apply_hair_tint(model, mesh_rel, dirs)
+                    except Exception:                    # noqa: BLE001
+                        pass
                 # Starfield keeps geometry in external .mesh files.
                 if any(s.mesh_path for s in model.shapes):
                     _load_external_geometry(model, loader.fetch)
@@ -456,6 +848,11 @@ class _Viewport(QOpenGLWidget):
                       list(dict.fromkeys(loader.requested)))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def reload(self, keep_view: bool = True):
+        """Re-run the last load (e.g. after switching texture map)."""
+        if self._reload_args is not None:
+            self.load(*self._reload_args, keep_view=keep_view)
 
     def _discard_pending(self):
         self._pending = None
@@ -503,6 +900,27 @@ class _Viewport(QOpenGLWidget):
         self._u_mvp = prog.uniformLocation("uMVP")
         self._u_hastex = prog.uniformLocation("uHasTex")
         self._u_base = prog.uniformLocation("uBaseColor")
+        self._u_gamma = prog.uniformLocation("uGamma")
+        self._u_flat = prog.uniformLocation("uFlat")
+        self._u_hasnorm = prog.uniformLocation("uHasNorm")
+        self._u_spec = prog.uniformLocation("uSpecular")
+        self._u_eye = prog.uniformLocation("uEye")
+        self._u_tex = prog.uniformLocation("uTex")
+        self._u_normtex = prog.uniformLocation("uNormTex")
+        self._u_speccol = prog.uniformLocation("uSpecColor")
+        self._u_specstr = prog.uniformLocation("uSpecStrength")
+        self._u_shine = prog.uniformLocation("uShininess")
+        self._u_ld = tuple(prog.uniformLocation(f"uLd{i}") for i in range(3))
+        self._u_envtex = prog.uniformLocation("uEnvTex")
+        self._u_masktex = prog.uniformLocation("uMaskTex")
+        self._u_envscale = prog.uniformLocation("uEnvScale")
+        self._u_hasmask = prog.uniformLocation("uHasMask")
+        self._u_camright = prog.uniformLocation("uCamRight")
+        self._u_camup = prog.uniformLocation("uCamUp")
+        self._u_athresh = prog.uniformLocation("uAlphaThreshold")
+        self._u_blend = prog.uniformLocation("uBlend")
+        self._u_hasvcol = prog.uniformLocation("uHasVColor")
+        self._u_tint = prog.uniformLocation("uTint")
         ctx = self.context()
         ctx.functions().glEnable(_GL_DEPTH_TEST)
         # glPolygonMode (wireframe) needs the 3.3 core functions object.
@@ -569,13 +987,15 @@ class _Viewport(QOpenGLWidget):
 
     def _release_gpu(self):
         for m in self._meshes:
-            for obj in (m.vao, m.vbo, m.ibo, m.texture):
+            for obj in (m.vao, m.vbo, m.ibo, m.texture, m.normal_tex,
+                        m.env_tex, m.mask_tex):
                 if obj is not None:
                     try:
                         obj.destroy()
                     except RuntimeError:
                         pass
-            m.vao = m.vbo = m.ibo = m.texture = None
+            m.vao = m.vbo = m.ibo = m.texture = m.normal_tex = None
+            m.env_tex = m.mask_tex = None
         self._meshes = []
 
     def _upload(self):
@@ -591,13 +1011,20 @@ class _Viewport(QOpenGLWidget):
             data = m.verts.tobytes()
             m.vbo.allocate(data, len(data))
 
-            stride = 8 * 4
+            # Colours widen the vertex; the enable state is captured by this
+            # mesh's VAO, so meshes without them never read attribute 4.
+            stride = (15 if m.has_colors else 11) * 4
             prog.enableAttributeArray(0)
             prog.setAttributeBuffer(0, _GL_FLOAT, 0, 3, stride)
             prog.enableAttributeArray(1)
             prog.setAttributeBuffer(1, _GL_FLOAT, 3 * 4, 3, stride)
             prog.enableAttributeArray(2)
             prog.setAttributeBuffer(2, _GL_FLOAT, 6 * 4, 2, stride)
+            prog.enableAttributeArray(3)
+            prog.setAttributeBuffer(3, _GL_FLOAT, 8 * 4, 3, stride)
+            if m.has_colors:
+                prog.enableAttributeArray(4)
+                prog.setAttributeBuffer(4, _GL_FLOAT, 11 * 4, 4, stride)
 
             m.ibo = QOpenGLBuffer(QOpenGLBuffer.IndexBuffer)
             m.ibo.create()
@@ -609,11 +1036,14 @@ class _Viewport(QOpenGLWidget):
             m.vbo.release()
             m.ibo.release()
 
-            if m.image is not None:
-                m.texture = QOpenGLTexture(m.image)
-                m.texture.setMinificationFilter(QOpenGLTexture.LinearMipMapLinear)
-                m.texture.setMagnificationFilter(QOpenGLTexture.Linear)
-                m.texture.setWrapMode(QOpenGLTexture.Repeat)
+            for attr, img in (("texture", m.image),
+                              ("normal_tex", m.normal_image),
+                              ("env_tex", m.env_image),
+                              ("mask_tex", m.mask_image)):
+                tex = _make_gl_texture(img)
+                if tex is not None:
+                    setattr(m, attr, tex)
+            m.normal_image = m.env_image = m.mask_image = None
             # Free both CPU copies now the GPU owns the data.
             m.verts = array.array("f")
             m.image = None
@@ -634,45 +1064,204 @@ class _Viewport(QOpenGLWidget):
             return
 
         f.glEnable(_GL_DEPTH_TEST)
-        wire = self.wireframe and self._core is not None
-        if wire:
-            self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_LINE)
+        if self.cull_backfaces:
+            f.glEnable(_GL_CULL_FACE)
+            f.glCullFace(_GL_BACK)
+        else:
+            f.glDisable(_GL_CULL_FACE)
 
+        # glPolygonMode is core-profile only; without it, fall back to solid.
+        wire = self.wireframe if self._core is not None else WIRE_OFF
         prog = self._program
         prog.bind()
         prog.setUniformValue(self._u_mvp, self._mvp())
         # glUniform* directly: setUniformValue silently drops plain scalars.
-        f.glUniform3f(self._u_base, *self._base)
+        f.glUniform1f(self._u_gamma, self._gamma)
+        # Sampler units, set per frame: assigning them once at link time did
+        # not stick, leaving uNormTex on unit 0 (i.e. sampling the diffuse).
+        f.glUniform1i(self._u_tex, 0)
+        f.glUniform1i(self._u_normtex, 1)
+        eye = self._eye()
+        f.glUniform3f(self._u_eye, eye.x(), eye.y(), eye.z())
+        for loc, d in zip(self._u_ld, self._light_dirs()):
+            f.glUniform3f(loc, d.x(), d.y(), d.z())
+        right, up, _fwd = self._camera_basis()
+        f.glUniform3f(self._u_camright, right.x(), right.y(), right.z())
+        f.glUniform3f(self._u_camup, up.x(), up.y(), up.z())
+        f.glUniform1i(self._u_envtex, 2)
+        f.glUniform1i(self._u_masktex, 3)
+        # BodySlide's default specularStrength.
+        f.glUniform1f(self._u_spec, 1.0 if self.detail else 0.0)
 
-        for m in self._meshes:
+        if wire != WIRE_ONLY:
+            f.glUniform1f(self._u_flat, 0.0)
+            f.glUniform3f(self._u_base, *self._base)
+            # Alpha-TESTED meshes stay in the opaque pass: a discarded
+            # fragment writes no depth, so they need no ordering. Only truly
+            # BLENDED ones must come last, back to front, without depth
+            # writes — per mesh, so surfaces inside one shape can still
+            # order wrong (BodySlide has the same limit).
+            blended = [m for m in self._meshes
+                       if m.alpha_blend and self.textured
+                       and m.texture is not None]
+            if blended:
+                opaque = [m for m in self._meshes if m not in blended]
+                self._draw_meshes(f, solid=True, meshes=opaque)
+                eye = self._eye()
+                blended.sort(
+                    key=lambda m: -((m.center[0] - eye.x()) ** 2
+                                    + (m.center[1] - eye.y()) ** 2
+                                    + (m.center[2] - eye.z()) ** 2))
+                f.glEnable(_GL_BLEND)
+                f.glBlendFunc(_GL_SRC_ALPHA, _GL_ONE_MINUS_SRC_ALPHA)
+                f.glDepthMask(False)
+                self._draw_meshes(f, solid=True, meshes=blended)
+                f.glDepthMask(True)
+                f.glDisable(_GL_BLEND)
+            else:
+                self._draw_meshes(f, solid=True)
+
+        if wire != WIRE_OFF:
+            self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_LINE)
+            if wire == WIRE_OVERLAY:
+                # Nudge the lines toward the viewer so they do not z-fight the
+                # surface they sit on.
+                f.glEnable(_GL_POLYGON_OFFSET_LINE)
+                f.glPolygonOffset(-1.0, -1.0)
+            f.glUniform1f(self._u_flat, 1.0)
+            f.glUniform3f(self._u_base, *self._wire_color())
+            self._draw_meshes(f, solid=False)
+            if wire == WIRE_OVERLAY:
+                f.glDisable(_GL_POLYGON_OFFSET_LINE)
+            self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_FILL)
+
+        prog.release()
+
+    def _wire_color(self):
+        """Line colour that reads against the current backdrop."""
+        lum = (0.299 * self._bg.redF() + 0.587 * self._bg.greenF()
+               + 0.114 * self._bg.blueF())
+        return (0.10, 0.10, 0.12) if lum > 0.5 else (0.85, 0.88, 0.92)
+
+    def _draw_meshes(self, f, solid: bool, meshes=None):
+        for m in self._meshes if meshes is None else meshes:
             m.vao.bind()
             m.ibo.bind()
-            use_tex = self.textured and m.texture is not None and not wire
+            use_tex = solid and self.textured and m.texture is not None
             if use_tex:
                 m.texture.bind(0)
             f.glUniform1f(self._u_hastex, 1.0 if use_tex else 0.0)
+            # The cut-out needs the texture's alpha, so it only applies where
+            # the diffuse map is actually bound.
+            f.glUniform1f(self._u_athresh,
+                          m.alpha_threshold if use_tex else -1.0)
+            f.glUniform1f(self._u_blend,
+                          1.0 if (use_tex and m.alpha_blend) else 0.0)
+            f.glUniform1f(self._u_hasvcol,
+                          1.0 if (solid and m.has_colors) else 0.0)
+            f.glUniform3f(self._u_tint, *(m.tint if solid else (1.0, 1.0, 1.0)))
+            sr, sg, sb, sstr, shine = m.spec
+            f.glUniform3f(self._u_speccol, sr, sg, sb)
+            f.glUniform1f(self._u_specstr, sstr)
+            f.glUniform1f(self._u_shine, shine)
+            # The env sheen is part of "shine": off with the detail toggle.
+            use_env = (solid and self.detail and m.env_tex is not None
+                       and self.texture_slot == 0)
+            if use_env:
+                m.env_tex.bind(2)
+                if m.mask_tex is not None:
+                    m.mask_tex.bind(3)
+                f.glUniform1f(self._u_hasmask,
+                              1.0 if m.mask_tex is not None else 0.0)
+            f.glUniform1f(self._u_envscale, m.env_scale if use_env else 0.0)
+            # Normal maps only make sense on the lit pass, and only when the
+            # base colour is the diffuse map (slot 1 shown raw is the map).
+            use_norm = (solid and self.detail and m.normal_tex is not None
+                        and self.texture_slot == 0)
+            if use_norm:
+                m.normal_tex.bind(1)
+                f.glUniform1f(self._u_hasnorm,
+                              2.0 if m.model_space_normals else 1.0)
+            else:
+                f.glUniform1f(self._u_hasnorm, 0.0)
             f.glDrawElements(_GL_TRIANGLES, len(m.indices),
                              _GL_UNSIGNED_INT, _NULL_OFFSET)
+            if use_env:
+                m.env_tex.release(2)
+                if m.mask_tex is not None:
+                    m.mask_tex.release(3)
+            if use_norm:
+                m.normal_tex.release(1)
             if use_tex:
                 m.texture.release(0)
             m.ibo.release()
             m.vao.release()
-        prog.release()
-        if wire:
-            self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_FILL)
 
     def resizeGL(self, w, h):
         self.context().functions().glViewport(0, 0, max(1, w), max(1, h))
+
+    def resizeEvent(self, e):
+        """Stop painting until a resize drag settles.
+
+        On GLX/DRI3 a buffer swap that lands mid-resize can block forever in
+        xcb_wait_for_special_event — dragging a splitter across the viewport
+        froze the whole app. No repaint during the drag means no swap in
+        flight, so the hang has no window to happen in. This replaces the old
+        app-wide QT_XCB_GL_INTEGRATION=xcb_egl, which fixed the freeze by
+        moving every user onto the EGL path and blacked out the entire UI
+        where that path does not render (GH#350).
+        """
+        super().resizeEvent(e)
+        if self._resize_hold is None:
+            self._resize_hold = QTimer(self)
+            self._resize_hold.setSingleShot(True)
+            self._resize_hold.setInterval(120)
+            self._resize_hold.timeout.connect(self._end_resize_hold)
+        self.setUpdatesEnabled(False)
+        self._resize_hold.start()
+
+    def _end_resize_hold(self):
+        self.setUpdatesEnabled(True)
+        self.update()
+
+    # BodySlide's directional lights, in camera coordinates (x right, y up,
+    # z toward the viewer): two front keys and one backlight.
+    _RIG = (
+        (-0.90, 0.10, 1.00),
+        (0.70, 0.10, 1.00),
+        (0.30, 0.20, -1.00),
+    )
+
+    def _camera_basis(self):
+        """(right, up, forward) unit vectors of the current camera."""
+        eye = self._eye()
+        fwd = (self._target - eye).normalized()
+        right = QVector3D.crossProduct(fwd, QVector3D(0, 0, 1))
+        if right.lengthSquared() < 1e-6:            # looking straight down/up
+            right = QVector3D(math.cos(self._yaw + math.pi / 2),
+                              math.sin(self._yaw + math.pi / 2), 0)
+        right = right.normalized()
+        return right, QVector3D.crossProduct(right, fwd), fwd
+
+    def _light_dirs(self):
+        """The rig rotated onto the current camera basis, in world space."""
+        right, up, fwd = self._camera_basis()
+        return [(right * x + up * y - fwd * z).normalized()
+                for x, y, z in self._RIG]
+
+    def _eye(self) -> QVector3D:
+        d = max(self._distance, 1e-3)
+        return QVector3D(
+            self._target.x() + d * math.cos(self._pitch) * math.cos(self._yaw),
+            self._target.y() + d * math.cos(self._pitch) * math.sin(self._yaw),
+            self._target.z() + d * math.sin(self._pitch),
+        )
 
     def _mvp(self) -> QMatrix4x4:
         w = max(1, self.width())
         h = max(1, self.height())
         d = max(self._distance, 1e-3)
-        eye = QVector3D(
-            self._target.x() + d * math.cos(self._pitch) * math.cos(self._yaw),
-            self._target.y() + d * math.cos(self._pitch) * math.sin(self._yaw),
-            self._target.z() + d * math.sin(self._pitch),
-        )
+        eye = self._eye()
         proj = QMatrix4x4()
         proj.perspective(45.0, w / h, max(d * 0.001, 1e-3), d * 50.0)
         view = QMatrix4x4()
@@ -720,6 +1309,12 @@ class _Viewport(QOpenGLWidget):
             self._distance = max(1e-3, self._distance * (0.85 ** steps))
             self.update()
 
+    def set_brightness(self, percent: int):
+        """Set the gamma lift from an int percent (100 = neutral)."""
+        pct = max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, int(percent)))
+        self._gamma = pct / 100.0
+        self.update()
+
     def set_background(self, key: str):
         """Swap the backdrop preset; clay colour flips to keep the silhouette."""
         self._bg = QColor(BACKGROUNDS.get(key, BACKGROUNDS["light"]))
@@ -733,6 +1328,61 @@ class _Viewport(QOpenGLWidget):
         self._yaw, self._pitch, self._distance, target = self._home
         self._target = QVector3D(target)
         self.update()
+
+
+class _NoGLViewport(QWidget):
+    """Stand-in canvas for machines where Qt's GL path is unusable.
+
+    Creating a real QOpenGLWidget there does not just fail to draw the mesh —
+    it turns the whole window black (GH#350), so we never build one. This
+    keeps the surrounding preview UI intact and explains itself instead.
+    """
+
+    loaded = Signal(object, object, int, object)
+    failed = Signal(str, int)
+
+    def __init__(self, reason: str = "", parent=None):
+        super().__init__(parent)
+        self._reason = reason
+        pal = active_palette()
+        self.setStyleSheet(f"background:{BACKGROUNDS['dark']};")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 24, 24, 24)
+        text = self.tr("3D preview is unavailable on this system.")
+        if reason:
+            text += "\n\n" + reason
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
+        lay.addWidget(label)
+
+        # The attributes NifPreview's toggles write straight through.
+        self.invert_mouse = True
+        self.cull_backfaces = False
+        self.textured = True
+        self.detail = True
+        self.wireframe = WIRE_OFF
+        self.texture_slot = 0
+        self._generation = 0
+
+    def load(self, *_a, **_kw):
+        # Report through the normal channel so the header stops at a reason
+        # instead of sitting on "Loading…" forever.
+        self._generation += 1
+        safe_emit(self.failed, self.tr("no OpenGL"), self._generation)
+
+    def reload(self, *_a, **_kw):
+        self.load()
+
+    def set_brightness(self, *_a):
+        pass
+
+    def set_background(self, *_a):
+        pass
+
+    def release_gl(self, *_a):
+        pass
 
 
 class NifPreview(QWidget):
@@ -757,76 +1407,161 @@ class NifPreview(QWidget):
         pal = active_palette()
         bar = QWidget()
         bar.setStyleSheet(f"background:{_c(pal, 'BG_HEADER')};")
-        # FlowLayout, not QHBoxLayout: an un-wrappable title+controls row set a
-        # minimum width under the pane and jammed the host splitter.
-        row = FlowLayout(bar, spacing=12)
-        row.setContentsMargins(10, 6, 10, 6)
-        enable_height_for_width(bar)
+        bar_col = QVBoxLayout(bar)
+        bar_col.setContentsMargins(10, 6, 10, 6)
+        bar_col.setSpacing(4)
 
-        # ElidingLabel tooltips the full title; the drag hint moved to the
-        # viewport, where the dragging happens.
+        # Two rows: identity above, controls below. Both FlowLayouts, so a
+        # narrow pane wraps instead of forcing a minimum width on the splitter.
+        title_host = QWidget()
+        title_row = FlowLayout(title_host, spacing=12)
+        title_row.setContentsMargins(0, 0, 0, 0)
+        enable_height_for_width(title_host)
+
+        # ElidingLabel tooltips the full title; the drag hint is on the viewport.
         self._header = ElidingLabel(display_name or path.name)
         self._header.setStyleSheet(
             f"color:{_c(pal, 'TEXT_MAIN')}; font-weight:600;")
-        row.addWidget(self._header)
+        title_row.addWidget(self._header)
 
         self._stats = QLabel("")
         self._stats.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
-        row.addWidget(self._stats)
+        title_row.addWidget(self._stats)
+        bar_col.addWidget(title_host)
 
-        self._cb_tex = QCheckBox(self.tr("Textures"))
-        self._cb_tex.setChecked(True)
-        self._cb_tex.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
-        self._cb_tex.toggled.connect(self._on_textured)
-        row.addWidget(self._cb_tex)
+        ctl_host = QWidget()
+        ctl_row = FlowLayout(ctl_host, spacing=12)
+        ctl_row.setContentsMargins(0, 0, 0, 0)
+        enable_height_for_width(ctl_host)
 
-        self._cb_wire = QCheckBox(self.tr("Wireframe"))
-        self._cb_wire.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
-        self._cb_wire.toggled.connect(self._on_wireframe)
-        row.addWidget(self._cb_wire)
+        # Everything discrete lives in one menu; only the continuous control
+        # (brightness) and the contextual texture-source picker stay on the bar.
+        self._view_btn = QToolButton()
+        self._view_btn.setText(self.tr("View"))
+        self._view_btn.setPopupMode(QToolButton.InstantPopup)
+        self._view_btn.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
+        self._menu = QMenu(self._view_btn)
+        self._view_btn.setMenu(self._menu)
+        ctl_row.addWidget(self._view_btn)
 
-        self._cb_invert = QCheckBox(self.tr("Invert mouse"))
-        self._cb_invert.setToolTip(self.tr(
+        self._act_tex = self._menu.addAction(self.tr("Textures"))
+        self._act_tex.setCheckable(True)
+        self._act_tex.setChecked(True)
+        self._act_tex.triggered.connect(self._on_textured)
+
+        self._act_detail = self._menu.addAction(self.tr("Normal maps + shine"))
+        self._act_detail.setCheckable(True)
+        self._act_detail.setChecked(True)
+        self._act_detail.setToolTip(self.tr(
+            "Apply the mesh's normal map and its gloss mask"))
+        self._act_detail.triggered.connect(self._on_detail)
+
+        self._act_cull = self._menu.addAction(self.tr("Cull backfaces"))
+        self._act_cull.setCheckable(True)
+        self._act_cull.setToolTip(self.tr(
+            "Hide inward-facing triangles — reveals inside-out normals"))
+        self._act_cull.triggered.connect(self._on_cull)
+
+        wire_menu = self._menu.addMenu(self.tr("Wireframe"))
+        self._wire_group = QActionGroup(self)
+        for key, label in ((WIRE_OFF, self.tr("Off")),
+                           (WIRE_OVERLAY, self.tr("Overlay")),
+                           (WIRE_ONLY, self.tr("Lines only"))):
+            act = wire_menu.addAction(label)
+            act.setCheckable(True)
+            act.setData(key)
+            act.setChecked(key == WIRE_OFF)
+            self._wire_group.addAction(act)
+        self._wire_group.triggered.connect(self._on_wireframe)
+
+        slot_menu = self._menu.addMenu(self.tr("Texture map"))
+        self._slot_group = QActionGroup(self)
+        for key, index in TEXTURE_SLOTS:
+            act = slot_menu.addAction(
+                self.tr("Diffuse") if key == "diffuse" else self.tr("Normal"))
+            act.setCheckable(True)
+            act.setData(index)
+            act.setChecked(index == 0)
+            self._slot_group.addAction(act)
+        self._slot_group.triggered.connect(self._on_texture_slot)
+
+        bg_menu = self._menu.addMenu(self.tr("Background"))
+        self._bg_group = QActionGroup(self)
+        for key, label in (("light", self.tr("Light")), ("grey", self.tr("Grey")),
+                           ("dark", self.tr("Dark")), ("black", self.tr("Black"))):
+            act = bg_menu.addAction(label)
+            act.setCheckable(True)
+            act.setData(key)
+            self._bg_group.addAction(act)
+        self._bg_group.triggered.connect(self._on_background)
+
+        self._menu.addSeparator()
+        self._act_invert = self._menu.addAction(self.tr("Invert mouse"))
+        self._act_invert.setCheckable(True)
+        self._act_invert.setToolTip(self.tr(
             "Reverse the drag direction for orbiting and panning"))
-        self._cb_invert.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
-        row.addWidget(self._cb_invert)
+        self._act_invert.triggered.connect(self._on_invert_mouse)
+
+        self._bright = QSlider(Qt.Horizontal)
+        self._bright.setRange(BRIGHTNESS_MIN, BRIGHTNESS_MAX)
+        self._bright.setFixedWidth(90)
+        self._bright.setToolTip(self.tr(
+            "Brightness — lifts dark textures without blowing out highlights; "
+            "double-click to reset"))
+        self._bright.installEventFilter(self)
+        ctl_row.addWidget(QLabel("\u2600"))
+        ctl_row.addWidget(self._bright)
 
         self._tex_box = QComboBox()
         self._tex_box.setToolTip(self.tr(
             "Preview this mesh with another mod's copy of its textures"))
         self._tex_box.hide()          # shown once a host offers alternatives
         self._tex_box.activated.connect(self._on_texture_source)
-        row.addWidget(self._tex_box)
-
-        self._bg_box = QComboBox()
-        self._bg_box.setToolTip(self.tr("Viewport background"))
-        for key, label in (("light", self.tr("Light")),
-                           ("grey", self.tr("Grey")),
-                           ("dark", self.tr("Dark")),
-                           ("black", self.tr("Black"))):
-            self._bg_box.addItem(label, key)
-        row.addWidget(self._bg_box)
+        ctl_row.addWidget(self._tex_box)
+        bar_col.addWidget(ctl_host)
 
         v.addWidget(bar)
 
-        self._view = _Viewport()
-        self._view.setToolTip(self.tr(
-            "Drag to orbit · right-drag to pan · scroll to zoom · "
-            "double-click to reframe"))
+        gl_ok, gl_why = gl_status()
+        if gl_ok:
+            self._view = _Viewport()
+            self._view.setToolTip(self.tr(
+                "Drag to orbit · right-drag to pan · scroll to zoom · "
+                "double-click to reframe"))
+        else:
+            self._view = _NoGLViewport(gl_why)
         self._view.loaded.connect(self._on_loaded)
         self._view.failed.connect(self._on_failed)
         v.addWidget(self._view, 1)
 
-        # Restore prefs, then connect user-only signals (clicked/activated)
-        # so restoring state never rewrites the config.
+        # Restore prefs. QAction.triggered and QSlider.sliderReleased are
+        # user-only, so setting state here can never rewrite the config.
         try:
             from Utils.ui_config import load_nif_invert_mouse
             inverted = load_nif_invert_mouse()
         except Exception:
             inverted = True
         self._view.invert_mouse = bool(inverted)
-        self._cb_invert.setChecked(bool(inverted))
-        self._cb_invert.clicked.connect(self._on_invert_mouse)
+        self._act_invert.setChecked(bool(inverted))
+
+        try:
+            from Utils.ui_config import load_nif_cull_backfaces
+            cull = load_nif_cull_backfaces()
+        except Exception:
+            cull = False
+        self._view.cull_backfaces = bool(cull)
+        self._act_cull.setChecked(bool(cull))
+
+        try:
+            from Utils.ui_config import load_nif_brightness
+            bright = load_nif_brightness()
+        except Exception:
+            bright = BRIGHTNESS_DEFAULT
+        self._view.set_brightness(bright)
+        self._bright.setValue(max(BRIGHTNESS_MIN, min(BRIGHTNESS_MAX, bright)))
+        self._bright.valueChanged.connect(self._on_brightness)
+        # Save on release only: user-only, and avoids a write per drag pixel.
+        self._bright.sliderReleased.connect(self._save_brightness)
 
         try:
             from Utils.ui_config import load_nif_background
@@ -836,9 +1571,8 @@ class NifPreview(QWidget):
         if saved not in BACKGROUNDS:
             saved = "light"
         self._view.set_background(saved)
-        idx = self._bg_box.findData(saved)
-        self._bg_box.setCurrentIndex(idx if idx >= 0 else 0)
-        self._bg_box.activated.connect(self._on_background)
+        for act in self._bg_group.actions():
+            act.setChecked(act.data() == saved)
 
         if path is not None:
             self.set_nif(path, display_name, texture_roots, archive_roots,
@@ -856,7 +1590,8 @@ class NifPreview(QWidget):
         self._view.load(path,
                         texture_roots or default_texture_roots(path),
                         archive_roots or default_archive_roots(path),
-                        resolver, None, tex_override, keep_view)
+                        resolver, None, tex_override,
+                        mesh_rel=_mesh_rel_of(path), keep_view=keep_view)
 
     def set_texture_sources(self, items, current=None):
         """Fill the texture-source picker: [(label, data), …]; empty hides it."""
@@ -868,6 +1603,11 @@ class NifPreview(QWidget):
         self._tex_box.setCurrentIndex(max(0, idx))
         self._tex_box.blockSignals(False)
         self._tex_box.setVisible(bool(items))
+
+    def reload_textures(self):
+        """Re-resolve textures, keeping the camera where it is."""
+        self._stats.setText(self.tr("Loading…"))
+        self._view.reload(keep_view=True)
 
     def texture_source(self):
         """Data of the picked source, or None for 'as the game loads'."""
@@ -883,13 +1623,15 @@ class NifPreview(QWidget):
 
     def set_nif_data(self, data: bytes, display_name: str,
                      resolver=None, archives=None, tex_override=None,
-                     keep_view: bool = False):
+                     keep_view: bool = False, mesh_rel: str = "",
+                     plugin_dirs=None):
         """Preview in-memory bytes (a BSA/BA2 member); *keep_view* skips
         re-framing."""
         self._header.setText(display_name)
         self._stats.setText(self.tr("Loading…"))
         self._view.load(data, [], None, resolver, archives, tex_override,
-                        keep_view)
+                        mesh_rel=mesh_rel, plugin_dirs=plugin_dirs,
+                        keep_view=keep_view)
 
     def _on_loaded(self, meshes, bounds, gen, tex_paths=None):
         if gen != self._view._generation:
@@ -917,9 +1659,27 @@ class NifPreview(QWidget):
         self._view.textured = bool(on)
         self._view.update()
 
-    def _on_wireframe(self, on):
-        self._view.wireframe = bool(on)
+    def _on_wireframe(self, act):
+        self._view.wireframe = act.data()
         self._view.update()
+
+    def _on_detail(self, on):
+        self._view.detail = bool(on)
+        self._view.update()
+
+    def _on_cull(self, on):
+        self._view.cull_backfaces = bool(on)
+        self._view.update()
+        try:
+            from Utils.ui_config import save_nif_cull_backfaces
+            save_nif_cull_backfaces(bool(on))
+        except Exception:
+            pass
+
+    def _on_texture_slot(self, act):
+        """Re-resolve textures for the chosen map; geometry is untouched."""
+        self._view.texture_slot = int(act.data())
+        self.reload_textures()
 
     def _on_invert_mouse(self, on):
         self._view.invert_mouse = bool(on)
@@ -929,8 +1689,27 @@ class NifPreview(QWidget):
         except Exception:
             pass
 
-    def _on_background(self, _index):
-        key = self._bg_box.currentData() or "light"
+    def eventFilter(self, obj, e):
+        # Double-click the brightness slider to snap back to neutral.
+        if obj is self._bright and e.type() == QEvent.MouseButtonDblClick:
+            self._bright.setValue(BRIGHTNESS_DEFAULT)
+            self._view.set_brightness(BRIGHTNESS_DEFAULT)
+            self._save_brightness()
+            return True
+        return super().eventFilter(obj, e)
+
+    def _on_brightness(self, value):
+        self._view.set_brightness(value)
+
+    def _save_brightness(self):
+        try:
+            from Utils.ui_config import save_nif_brightness
+            save_nif_brightness(int(self._bright.value()))
+        except Exception:
+            pass
+
+    def _on_background(self, act):
+        key = act.data() or "light"
         self._view.set_background(key)
         try:
             from Utils.ui_config import save_nif_background
@@ -943,6 +1722,15 @@ class NifPreview(QWidget):
         if e.type() == QEvent.DeferredDelete:
             self._view.release_gl()
         return super().event(e)
+
+
+def _mesh_rel_of(path) -> str:
+    """The mesh's data-relative path ('meshes/...'), or '' if underivable."""
+    parts = [p.lower() for p in Path(path).parts]
+    if "meshes" not in parts:
+        return ""
+    idx = len(parts) - 1 - parts[::-1].index("meshes")
+    return "/".join(Path(path).parts[idx:])
 
 
 def default_texture_roots(nif_path: Path) -> list[Path]:

@@ -1016,6 +1016,56 @@ def load_nif_background() -> str:
         return "light"
 
 
+def load_nif_brightness() -> int:
+    """Return the .nif viewer brightness percent (default 100 = neutral)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return 100
+    try:
+        parser = _read_ini(path)
+        return parser.getint(_NIF_SECTION, "brightness", fallback=100)
+    except Exception:
+        return 100
+
+
+def save_nif_brightness(percent: int) -> None:
+    """Persist the .nif viewer brightness percent to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _NIF_SECTION not in parser:
+        parser[_NIF_SECTION] = {}
+    parser[_NIF_SECTION]["brightness"] = str(int(percent))
+    _write_ini(parser, path)
+
+
+def load_nif_cull_backfaces() -> bool:
+    """Return whether the .nif viewer culls backfaces (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_NIF_SECTION, "cull_backfaces", fallback=False)
+    except Exception:
+        return False
+
+
+def save_nif_cull_backfaces(value: bool) -> None:
+    """Persist the .nif viewer backface-culling setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _NIF_SECTION not in parser:
+        parser[_NIF_SECTION] = {}
+    parser[_NIF_SECTION]["cull_backfaces"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_nif_invert_mouse() -> bool:
     """Return whether the .nif viewer inverts orbit/pan (default True)."""
     path = get_ui_config_path()
