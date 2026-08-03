@@ -279,7 +279,44 @@ jobs:
           path: src/appimage/dist/*
           if-no-files-found: error
 
+      # quick-sharun --test runs the AppImage under xvfb-run for 12s and fails
+      # if it exits early. app_bootstrap dup2()s fd 2 into the config dir's
+      # run-qt-stderr.log the moment it starts, so a startup failure here shows
+      # up as a completely blank CI log — AMM_STDERR_TEED tells that capture to
+      # stand down and leave fd 2 pointing at the job log.
       - name: Smoke test AppImage
+        env:
+          AMM_STDERR_TEED: "1"
+        run: quick-sharun --test src/appimage/dist/*.AppImage
+
+      # Belt and braces: the app writes native-crash traces (faulthandler) and
+      # the nxm log to files regardless of where fd 2 points, and an earlier
+      # instance may still have redirected stderr. Dump anything it left behind.
+      - name: Dump app logs (smoke-test failure)
+        if: failure()
+        run: |
+          cfg="${XDG_CONFIG_HOME:-$HOME/.config}/AmethystModManager"
+          echo "=== $cfg ==="
+          ls -laR "$cfg" 2>/dev/null || echo "(no config dir — app never started)"
+          for f in "$cfg"/run-qt-stderr.log "$cfg"/run-qt-stderr.log.old \
+                   "$cfg"/logs/*.log; do
+              [ -f "$f" ] || continue
+              echo "───────── $f ─────────"
+              cat "$f"
+          done
+
+      # Bisect the failure in the same run: GL is the only startup path that
+      # changed between the last green build (beta.8, which forced xcb_egl and
+      # did not bundle libQt6OpenGLWidgets) and this one. If the app survives
+      # with the OpenGL widget path switched off, the fault is in the GL stack —
+      # the probe in gui_qt/gl_support.py or the startup warmup widget — not in
+      # the bundle at large. Informational: the job stays red either way.
+      - name: Smoke test AppImage (GL disabled)
+        if: failure()
+        continue-on-error: true
+        env:
+          AMM_STDERR_TEED: "1"
+          AMM_DISABLE_GL: "1"
         run: quick-sharun --test src/appimage/dist/*.AppImage
 
   # ────────────────────────────────────────────────────────────────────
