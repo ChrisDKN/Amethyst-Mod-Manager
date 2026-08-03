@@ -34,6 +34,7 @@ py.install_sources(
   'downloads_delegate.py',
   'downloads_model.py',
   'downloads_view.py',
+  'env_vars_view.py',
   'exe_settings_view.py',
   'export_profile_view.py',
   'favourite_wizards_overlay.py',

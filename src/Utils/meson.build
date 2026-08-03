@@ -4,6 +4,7 @@ py.install_sources(
   '__init__.py',
   '_ba2_writer_selftest.py',
   '_bsa_writer_selftest.py',
+  'app_env.py',
   'app_log.py',
   'appimage_env.py',
   'archive_lookup.py',

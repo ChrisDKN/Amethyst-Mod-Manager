@@ -51,7 +51,17 @@ def setup_environment() -> None:
         if games_dir.is_dir():
             os.environ["MOD_MANAGER_GAMES"] = str(games_dir)
 
-    # Capture stderr to a file as early as possible — BEFORE any GUI/Qt import —
+    # Apply the user's own env vars (Settings ▸ Advanced) before anything reads
+    # one - that includes Qt, which latches QT_QPA_PLATFORM / QT_XCB_GL_INTEGRATION
+    # when the QApplication is built. Runs after the sys.path setup above (it
+    # imports Utils) and after MOD_MANAGER_GAMES, which it isn't allowed to set.
+    try:
+        from Utils.app_env import apply_saved_env
+        apply_saved_env()
+    except Exception:
+        pass
+
+    # Capture stderr to a file as early as possible - BEFORE any GUI/Qt import -
     # so a crash during startup leaves a trace on disk even when launched from a
     # desktop icon / AppImage with no terminal. This is the in-Python equivalent
     # of run_qt.sh's `2> >(tee …)`, which the AppImage/flatpak builds never run.

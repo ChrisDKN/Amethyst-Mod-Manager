@@ -20,7 +20,7 @@ _INI_SECTION = "ui"
 
 # Bumped when amethyst.ini's schema changes incompatibly. On startup,
 # ensure_ini_version() wipes a file whose [meta] version differs (or is absent)
-# so the Qt build starts from a clean ini — this clears Tk-era ini files when
+# so the Qt build starts from a clean ini - this clears Tk-era ini files when
 # users move over.
 _META_SECTION = "meta"
 _APP_INI_VERSION = 2
@@ -73,7 +73,7 @@ def _new_parser() -> "configparser.ConfigParser":
 # Parsed-parser cache keyed by path, validated by (st_mtime_ns, st_size) so an
 # external edit is picked up. Read-only call sites share the cached parser via
 # _read_ini and must never mutate it; save paths build their OWN parser from a
-# fresh disk read, mutate that, and hand it to _write_ini — which writes
+# fresh disk read, mutate that, and hand it to _write_ini - which writes
 # atomically and refreshes the cache with exactly what was written.
 _ini_cache: dict[str, tuple[tuple[int, int], "configparser.ConfigParser"]] = {}
 _ini_cache_lock = threading.Lock()
@@ -86,7 +86,7 @@ def _ini_stat_key(path: Path) -> tuple[int, int]:
 
 
 def _read_ini(path: Path) -> "configparser.ConfigParser":
-    """Cached parse of *path* — treat the returned parser as read-only."""
+    """Cached parse of *path* - treat the returned parser as read-only."""
     try:
         key = _ini_stat_key(path)
     except OSError:
@@ -127,7 +127,7 @@ def _get_portal_scale() -> float:
     portal is unreachable.
     """
     def _read(key: str) -> str:
-        # Use gdbus if available, fall back to dbus-send — one of the two
+        # Use gdbus if available, fall back to dbus-send - one of the two
         # ships with essentially every Linux distro and Flatpak runtime.
         for cmd in (
             ["gdbus", "call", "--session",
@@ -178,8 +178,8 @@ def _get_compositor_scale() -> float:
 
     Tries, in order:
       1. XDG Settings portal (Flatpak-safe, works on Wayland & fractional)
-      2. kscreen-doctor  (KDE Plasma 6 — per-output scale from compositor)
-      3. gsettings       (GNOME — integer scaling-factor)
+      2. kscreen-doctor  (KDE Plasma 6 - per-output scale from compositor)
+      3. gsettings       (GNOME - integer scaling-factor)
       4. GDK_SCALE / QT_SCALE_FACTOR / GDK_DPI_SCALE environment variables
 
     Returns 1.0 if nothing is detected or all sources fail.
@@ -204,7 +204,7 @@ def _get_compositor_scale() -> float:
 
     # GNOME: integer scaling-factor (fractional scaling is not exposed here,
     # but integer scaling is still better than nothing).  Output looks like
-    # "uint32 2" — anchor on the type prefix so the regex doesn't match the
+    # "uint32 2" - anchor on the type prefix so the regex doesn't match the
     # "32" inside "uint32".  Inside Flatpak, sandboxed gsettings reads default
     # (empty) dconf, so ask the host when the sandbox copy reports nothing.
     for argv in (
@@ -288,7 +288,7 @@ def _get_primary_monitor_size() -> tuple[int, int]:
     neither binary is in the runtime, so each call is also retried via
     ``flatpak-spawn --host`` so the host's binaries can answer instead.
     """
-    # xrandr — sandbox first, then host (--directory=/ because the sandbox
+    # xrandr - sandbox first, then host (--directory=/ because the sandbox
     # cwd /app/... doesn't exist on the host, and the portal Spawn inherits cwd).
     out = _run_capture(["xrandr", "--current"])
     if not out:
@@ -298,7 +298,7 @@ def _get_primary_monitor_size() -> tuple[int, int]:
         if wh != (0, 0):
             return wh
 
-    # wlr-randr — sandbox first, then host
+    # wlr-randr - sandbox first, then host
     out = _run_capture(["wlr-randr"])
     if not out:
         out = _run_capture(["flatpak-spawn", "--host", "--directory=/", "wlr-randr"])
@@ -352,7 +352,7 @@ def get_screen_info() -> tuple[int, int, float]:
     # XDG Settings portal / compositor gives an authoritative scale on every
     # backend that supports fractional scaling (GNOME/KDE/wlroots). When it
     # reports a value, trust it and skip the brittle "derive from monitor
-    # height" path — that exists only for setups that don't tell us their
+    # height" path - that exists only for setups that don't tell us their
     # scale.
     if compositor > 1.0:
         scale = round(min(_AUTO_MAX_SCALE, compositor) * 20) / 20
@@ -361,7 +361,7 @@ def get_screen_info() -> tuple[int, int, float]:
         return w, h, 1.0
 
     # On multi-monitor setups winfo_screenwidth/height is the combined virtual
-    # desktop — use xrandr to get just the primary monitor's physical size.
+    # desktop - use xrandr to get just the primary monitor's physical size.
     # xrandr reports unscaled physical pixels, so we divide by de_scale.
     # When xrandr is unavailable (e.g. Flatpak sandbox without host xrandr),
     # Tk's winfo_screenheight on Wayland/XWayland typically reports the
@@ -372,8 +372,8 @@ def get_screen_info() -> tuple[int, int, float]:
         physical_h = h / de_scale if de_scale > 1.0 else h
     else:
         physical_h = h
-    # Resolution-only fallback. A bare resolution is a weak scaling signal —
-    # a 27" 1440p desktop monitor at 100% DE scale wants 1.0 — so only kick
+    # Resolution-only fallback. A bare resolution is a weak scaling signal -
+    # a 27" 1440p desktop monitor at 100% DE scale wants 1.0 - so only kick
     # in above 1600p (e.g. 4K), capped at _AUTO_MAX_SCALE. Never auto-scale
     # below 1.0: detection is unreliable enough on Wayland / Flatpak /
     # multi-monitor that a sub-1.0 result is almost always wrong.
@@ -553,7 +553,7 @@ def get_language() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Tab pins — per-view preferred presentation mode (full / modlist / plugins).
+# Tab pins - per-view preferred presentation mode (full / modlist / plugins).
 # A view is identified by its tab `key` (e.g. "change_version", "nexus_browser").
 # When a user re-pins a tab we remember the choice here so the same view reopens
 # in that mode next time. Section is [tab_pins]; value is one of the mode names.
@@ -595,7 +595,7 @@ def save_tab_pin(key: str, mode: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Windows-filesystem deploy warning acknowledgements — per-game fingerprint of
+# Windows-filesystem deploy warning acknowledgements - per-game fingerprint of
 # the drive layout the user chose to "Deploy anyway" on (see Utils.fs_check).
 # Stored so the advisory shows once per game, re-arming if the drives change.
 # ---------------------------------------------------------------------------
@@ -643,7 +643,7 @@ def _clamp(value: float) -> float:
 # ---------------------------------------------------------------------------
 _COLLECTIONS_SECTION = "collections"
 
-# Download order is no longer configurable — collection downloads always run
+# Download order is no longer configurable - collection downloads always run
 # strictly smallest→largest (unknown-size mods last). Defaults are 8/8: more
 # concurrency past this gives little practical benefit on typical hardware.
 _DEFAULT_MAX_CONCURRENT = 8
@@ -653,7 +653,7 @@ _DEFAULT_MAX_EXTRACT_WORKERS = 8
 _MAX_CONCURRENT_CEILING = 12
 _MAX_EXTRACT_WORKERS_CEILING = 8
 
-# First-run defaults — written to the INI only when it is being created for
+# First-run defaults - written to the INI only when it is being created for
 # the first time (see load_ui_scale). Existing installs keep whatever defaults
 # they had even if they have never saved these settings explicitly.
 _FIRST_RUN_MAX_CONCURRENT = 8
@@ -665,7 +665,7 @@ def load_collection_settings() -> dict:
     """Return collection settings dict with keys: max_concurrent, max_extract_workers, check_download_locations, clear_archive_after_install, download_order.
 
     NB *download_order* is retained ONLY for the legacy Tk settings dialog
-    (gui/status_bar.py) — the Qt download scheduler ignores it (downloads always
+    (gui/status_bar.py) - the Qt download scheduler ignores it (downloads always
     use the double-ended big-first + small-first policy)."""
     path = get_ui_config_path()
     defaults = {
@@ -746,7 +746,7 @@ def save_collection_settings(max_concurrent: int,
     """Persist collection settings to amethyst.ini.
 
     *download_order* is accepted for backward-compatibility (the Tk settings
-    dialog still passes it) but the Qt download scheduler ignores it — downloads
+    dialog still passes it) but the Qt download scheduler ignores it - downloads
     always use the double-ended (big-first + small-first) policy. When given, it
     is still written through so the Tk UI round-trips.
     """
@@ -770,7 +770,7 @@ def save_collection_settings(max_concurrent: int,
 # Extraction resource limits
 # ---------------------------------------------------------------------------
 # Applies to EVERY archive extraction (single installs, Downloads tab and
-# collection installs) — unlike [collections] max_extract_workers, which only
+# collection installs) - unlike [collections] max_extract_workers, which only
 # caps how many extractions run at once during a collection install.
 _EXTRACTION_SECTION = "extraction"
 
@@ -781,9 +781,9 @@ _EXTRACTION_THREADS_CEILING = 128
 def load_extraction_settings() -> dict:
     """Return extraction resource settings with keys:
 
-    * ``cpu_threads`` — int; max CPU threads per extractor process
+    * ``cpu_threads`` - int; max CPU threads per extractor process
       (0 = use all cores).
-    * ``low_priority`` — bool; run extractor processes at low CPU + disk
+    * ``low_priority`` - bool; run extractor processes at low CPU + disk
       priority so foreground applications stay responsive.
     """
     path = get_ui_config_path()
@@ -847,7 +847,7 @@ def load_nexus_show_adult() -> bool:
 def load_nexus_last_premium() -> "bool | None":
     """Last successfully-validated Nexus premium status, or None if never
     recorded. Fallback for the collection-install premium gate when a live
-    validate() errors (network hiccup / rate limit) — a transient failure must
+    validate() errors (network hiccup / rate limit) - a transient failure must
     not silently demote a premium user to manual mode (GH#278)."""
     path = get_ui_config_path()
     if not path.is_file():
@@ -882,9 +882,9 @@ _WINDOW_SECTION = "window"
 def load_qt_window_state() -> dict:
     """Return the saved Qt main-window state from amethyst.ini [window]:
 
-    * ``geometry`` — base64 str of QMainWindow.saveGeometry() (position, size
+    * ``geometry`` - base64 str of QMainWindow.saveGeometry() (position, size
       and maximized flag), or None if never saved.
-    * ``body_split`` — [left, right] pixel sizes of the modlist ║ plugins
+    * ``body_split`` - [left, right] pixel sizes of the modlist ║ plugins
       splitter, or None if never saved / unparseable.
     """
     result = {"geometry": None, "body_split": None}
@@ -966,7 +966,7 @@ def load_suppress_i386_warning() -> bool:
     """Return True if the user has dismissed the missing-32-bit-support warning.
 
     Set when the user chose "Don't show again" on the failed-auto-install
-    notice — they've opted to handle it themselves (or don't run Windows tools),
+    notice - they've opted to handle it themselves (or don't run Windows tools),
     so the startup self-heal stays silent.
     """
     path = get_ui_config_path()
@@ -1191,7 +1191,7 @@ def save_update_notifications(value: bool) -> None:
 # Favourite wizard tools (global, shown at the top of the Wizard header menu)
 # ---------------------------------------------------------------------------
 # Stored as one key per favourited tool id under [wizard_favourites] (value is
-# ignored, presence = favourited). Global across games — a tool id is unique
+# ignored, presence = favourited). Global across games - a tool id is unique
 # per tool, and the Wizard menu only lists tools applicable to the active game
 # anyway, so unrelated ids simply never match.
 _WIZARD_FAV_SECTION = "wizard_favourites"
@@ -1718,7 +1718,7 @@ _NAME_PATTERNS_OPTION = "patterns"
 _NAME_PATTERNS_SEEDED_OPTION = "seeded"
 # Comma-separated ids of the default rules already introduced to this config.
 # A default id not in this list is injected once (at its canonical position) so a
-# NEW built-in rule shipped in an update reaches users who were seeded earlier —
+# NEW built-in rule shipped in an update reaches users who were seeded earlier -
 # without re-adding a default the user deliberately deleted (its id is recorded
 # here from the first seed, so it won't come back).
 _NAME_PATTERNS_INTRODUCED_OPTION = "introduced"
@@ -1768,7 +1768,7 @@ def load_install_name_patterns() -> list[dict]:
     """
     path = get_ui_config_path()
     if not path.is_file():
-        # Config not created yet — return defaults without writing (the ini is
+        # Config not created yet - return defaults without writing (the ini is
         # written on first save/seed once load_ui_scale has created the file).
         try:
             from Utils.mod_name_utils import default_install_name_rules
@@ -1880,7 +1880,7 @@ def save_install_name_patterns(rules: list[dict]) -> None:
     parser[_NAME_PATTERNS_SECTION][_NAME_PATTERNS_OPTION] = json.dumps(cleaned)
     parser[_NAME_PATTERNS_SECTION][_NAME_PATTERNS_SEEDED_OPTION] = "true"
     # Record every shipped default id as "introduced" (union with what's already
-    # there), so a default remains introduced even after the user deletes it —
+    # there), so a default remains introduced even after the user deletes it -
     # it won't be re-added by the load-time migration.
     try:
         from Utils.mod_name_utils import default_install_name_rules
@@ -1895,6 +1895,90 @@ def save_install_name_patterns(rules: list[dict]) -> None:
     }
     parser[_NAME_PATTERNS_SECTION][_NAME_PATTERNS_INTRODUCED_OPTION] = \
         ",".join(sorted(prior_intro | default_ids))
+    _write_ini(parser, path)
+
+
+# ---------------------------------------------------------------------------
+# App environment variables (Settings ▸ Advanced) - applied to our OWN process
+# at startup by Utils.app_env.apply_saved_env, so a change needs a restart.
+#
+# Stored as a JSON list under one option rather than one option per variable:
+# configparser lower-cases option names, which would mangle PATH-style names,
+# and JSON keeps order + the enabled flag. `%` is escaped to `%%` on write so
+# BasicInterpolation round-trips a literal percent (a Wine-style value like
+# %USERPROFILE% otherwise raises on save).
+# ---------------------------------------------------------------------------
+_APP_ENV_SECTION = "app_env"
+_APP_ENV_OPTION = "vars"
+
+
+def load_app_env_vars() -> list[dict]:
+    """Return the saved app environment variables in order.
+
+    Each item is ``{"name": str, "value": str, "enabled": bool}``. Returns []
+    when nothing is configured or the config is unreadable.
+    """
+    import json
+    path = get_ui_config_path()
+    if not path.is_file():
+        return []
+    try:
+        parser = _read_ini(path)
+        raw = parser.get(_APP_ENV_SECTION, _APP_ENV_OPTION, fallback="").strip()
+    except Exception:
+        return []
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", "")).strip()
+        if not name:
+            continue
+        out.append({
+            "name": name,
+            "value": str(item.get("value", "")),
+            "enabled": bool(item.get("enabled", True)),
+        })
+    return out
+
+
+def save_app_env_vars(entries: list[dict]) -> None:
+    """Persist the app environment variables. Unnamed entries are dropped; a
+    repeated name keeps its last occurrence (the environment can only hold one
+    value per name, and that's what apply_saved_env would end up with)."""
+    import json
+    cleaned: list[dict] = []
+    seen: dict[str, int] = {}
+    for e in entries or []:
+        name = str(e.get("name", "")).strip()
+        if not name:
+            continue
+        item = {
+            "name": name,
+            "value": str(e.get("value", "")),
+            "enabled": bool(e.get("enabled", True)),
+        }
+        if name in seen:
+            cleaned[seen[name]] = item
+        else:
+            seen[name] = len(cleaned)
+            cleaned.append(item)
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _APP_ENV_SECTION not in parser:
+        parser[_APP_ENV_SECTION] = {}
+    parser[_APP_ENV_SECTION][_APP_ENV_OPTION] = json.dumps(cleaned).replace("%", "%%")
     _write_ini(parser, path)
 
 
@@ -1917,7 +2001,7 @@ THEME_DEFAULTS: dict[str, str] = {
 # theme file (src/gui/themes/<mode>.py); ui_config loads them lazily so the
 # Utils package doesn't import the gui package at import time.
 #
-# User overrides in [theme] of amethyst.ini always win — except when a
+# User overrides in [theme] of amethyst.ini always win - except when a
 # saved value exactly matches the dark default for a key that the current
 # theme overrides; that's treated as legacy/uncustomised so existing ini
 # files don't strand users with dark separators on a light or cyberpunk UI.
@@ -1974,7 +2058,7 @@ def load_theme_colors() -> dict[str, str]:
 
     Theme-aware: the active theme (from get_appearance_mode()) can declare
     THEME_DEFAULTS_OVERRIDE in its theme file to replace defaults for
-    user-customisable keys. User overrides in [theme] always win — except
+    user-customisable keys. User overrides in [theme] always win - except
     when a saved value exactly matches the original dark default for a key
     the current theme overrides; that's treated as legacy/uncustomised, so
     existing ini files don't strand users with dark separators on a non-dark
@@ -2005,7 +2089,7 @@ def load_theme_colors() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Appearance mode — applied at startup, requires restart.
+# Appearance mode - applied at startup, requires restart.
 #
 # Valid values are theme IDs (filenames) under src/gui/themes/ (e.g. "dark",
 # "light"). ui_config doesn't validate against that list to avoid importing
@@ -2051,7 +2135,7 @@ def save_appearance_mode(mode: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Last session (game + profile) — restored at startup
+# Last session (game + profile) - restored at startup
 # ---------------------------------------------------------------------------
 
 def load_last_session() -> "tuple[str | None, str | None]":
@@ -2094,7 +2178,7 @@ def ensure_ini_version() -> None:
 
     If the file exists but its ``[meta] version`` is missing or != _APP_INI_VERSION
     (an old Tk-era ini), DELETE it so the Qt build starts fresh. Then make sure a
-    file exists stamping the current version. amethyst.ini only — other config
+    file exists stamping the current version. amethyst.ini only - other config
     (last_game.json, games/, profiles, caches) is left untouched.
 
     Call this ONCE at the very start of startup, before anything reads the ini.

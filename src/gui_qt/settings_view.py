@@ -1,23 +1,23 @@
-"""Settings view — a panel-scoped tab that overlays the Modlist panel.
+"""Settings view - a panel-scoped tab that overlays the Modlist panel.
 
 Opened from the top-bar gear button (app.py `_open_settings_tab`) via
 `DetachableTabWidget.open_scoped_tab(..., self._modlist_panel_stack, key="settings")`
-— the same modlist-scoped mechanism as the image preview / text editor. The
+- the same modlist-scoped mechanism as the image preview / text editor. The
 modlist content is swapped out for this widget while the rest of the UI (plugins
 panel, headers, footers) stays live; closing the tab restores the modlist.
 
 Save-on-change: every control writes straight to amethyst.ini through the
-toolkit-free `Utils.ui_config` load_*/save_* helpers the moment it changes — there
+toolkit-free `Utils.ui_config` load_*/save_* helpers the moment it changes - there
 is no Save/Cancel button. A few settings (Language, Theme, UI Scale) only take
 effect on restart and say so inline.
 
 A curated subset of the Tk Settings panel (gui/status_bar.py `SettingsPanel`):
 User Interface (incl. Theme + UI Scale), Archives, Downloads, Extraction,
-General, Paths — plus a Manage Caches action. Theme colour pickers are
+General, Paths - plus a Manage Caches action. Theme colour pickers are
 intentionally omitted (Qt has no colour-override system yet).
 
 Option descriptions are tooltips (on the row and on its accent "?" marker), not
-inline labels — rows stay one line tall and nothing clips at narrow widths.
+inline labels - rows stay one line tall and nothing clips at narrow widths.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class SettingsView(QWidget):
 
     def __init__(self, window):
         super().__init__()
-        self._window = window          # main window — for _notify, threads
+        self._window = window          # main window - for _notify, threads
         self._pal = active_palette()
         self.setObjectName("SettingsView")
         self._folder_picked.connect(self._on_folder_picked)
@@ -71,7 +71,7 @@ class SettingsView(QWidget):
 
         self.setStyleSheet(self._qss())
 
-        # Collection settings — read once here; both the Downloads and the
+        # Collection settings - read once here; both the Downloads and the
         # Extraction sections persist through this shared dict.
         try:
             cs = uc.load_collection_settings()
@@ -90,6 +90,7 @@ class SettingsView(QWidget):
         self._build_extraction()
         self._build_general()
         self._build_paths()
+        self._build_advanced()
         self._v.addStretch(1)
 
     # ---- styling ----------------------------------------------------------
@@ -111,6 +112,7 @@ class SettingsView(QWidget):
         }}
         {help_mark_qss(self._pal)}
         QLabel#RestartNote {{ color: {c('TEXT_WARN')}; }}
+        QLabel#Help {{ color: {c('TEXT_DIM')}; }}
         QSlider::groove:horizontal {{
             height: 4px; background: {c('BG_DEEP')}; border-radius: 2px;
         }}
@@ -336,7 +338,7 @@ class SettingsView(QWidget):
             on_changed=lambda _v: self._rebuild_conflicts())
 
         # Read live by the modlist view on each hover, so persisting the value
-        # is enough — no rebuild/refresh needed.
+        # is enough - no rebuild/refresh needed.
         self._checkbox(
             g, self.tr("Show mod description tooltips"),
             uc.load_show_summary_tooltips, uc.save_show_summary_tooltips,
@@ -345,7 +347,7 @@ class SettingsView(QWidget):
 
     def _build_theme(self, g):
         """Theme picker (formerly its own Appearance section). Takes effect on
-        restart, like Language / UI Scale — selecting a new theme persists it and
+        restart, like Language / UI Scale - selecting a new theme persists it and
         offers a self-restart via the window's theme restart prompt. The
         "Edit / Create Theme…" button sits to the right of the dropdown (mirrors
         the Language row's combo + sync button layout)."""
@@ -404,6 +406,12 @@ class SettingsView(QWidget):
         if callable(opener):
             opener()
 
+    def _open_env_vars(self):
+        """Open the app environment-variable editor tab via the main window."""
+        opener = getattr(self._window, "_open_env_vars_tab", None)
+        if callable(opener):
+            opener()
+
     def _build_ui_scale(self, g):
         """Add the UI Scale row: an Auto checkbox + a 50–200% slider.
 
@@ -418,7 +426,7 @@ class SettingsView(QWidget):
 
         # Percent slider. Persisting + the restart prompt fire only when the
         # user finishes the gesture (sliderReleased / keyboard / click), never
-        # on every 1% valueChanged tick while dragging — otherwise the restart
+        # on every 1% valueChanged tick while dragging - otherwise the restart
         # overlay would reappear on every intermediate value. The value label
         # still tracks live via valueChanged. Pass a no-op change cb to _slider
         # so it doesn't wire its own per-tick persist.
@@ -429,7 +437,7 @@ class SettingsView(QWidget):
         self._scale_slider.setSingleStep(5)
         self._scale_slider.setPageStep(10)
         self._scale_val_lbl.setText(f"{pct}%")
-        # valueChanged fires on every tick — while dragging (isSliderDown()) it
+        # valueChanged fires on every tick - while dragging (isSliderDown()) it
         # only updates the label; a change that lands with the handle NOT held
         # down (arrow keys, groove click, page step) commits immediately.
         # sliderReleased then commits the final value at the end of a drag.
@@ -437,7 +445,7 @@ class SettingsView(QWidget):
         self._scale_slider.sliderReleased.connect(self._commit_ui_scale)
         self._scale_slider.setEnabled(not is_auto)
 
-        # Auto checkbox — sits below the slider; ticking it disables the slider.
+        # Auto checkbox - sits below the slider; ticking it disables the slider.
         self._scale_auto_cb = QCheckBox(self.tr("Auto (match display)"))
         self._scale_auto_cb.setChecked(is_auto)
         self._scale_auto_cb.toggled.connect(self._on_ui_scale_auto_toggled)
@@ -447,7 +455,7 @@ class SettingsView(QWidget):
         self._scale_slider.setEnabled(not on)
         if on:
             # Enabling auto switches to the detected scale, which differs from
-            # whatever manual value is applied — needs a restart to take effect.
+            # whatever manual value is applied - needs a restart to take effect.
             self._safe_save(uc.save_ui_scale, "auto")
             self._prompt_scale_restart()
         else:
@@ -512,7 +520,7 @@ class SettingsView(QWidget):
             return
         combo.blockSignals(True)
         current = uc.load_language()
-        # Disconnect only our own slot — a bare disconnect() would also sever
+        # Disconnect only our own slot - a bare disconnect() would also sever
         # any other connection on the signal.
         prev_slot = getattr(self, "_lang_combo_slot", None)
         if prev_slot is not None:
@@ -537,7 +545,7 @@ class SettingsView(QWidget):
         self._prompt_restart("language")
 
     def refresh_language_options(self):
-        """Called when a background sync adds new .qm files — refresh the picker
+        """Called when a background sync adds new .qm files - refresh the picker
         so newly-downloaded languages appear without reopening Settings."""
         self._populate_language_combo()
 
@@ -557,7 +565,7 @@ class SettingsView(QWidget):
             uc.load_clear_archive_after_install,
             uc.save_clear_archive_after_install,
             help=self.tr("Delete a mod's downloaded archive after it is extracted. "
-                 "Only applies to archives Amethyst downloaded itself — installs "
+                 "Only applies to archives Amethyst downloaded itself - installs "
                  "from the Install Mod button or the Downloads tab keep their "
                  "archive."))
         self._checkbox(
@@ -573,13 +581,13 @@ class SettingsView(QWidget):
                  "installs."))
 
     def _build_downloads(self):
-        # Collection settings — all persisted together via save_collection_settings.
+        # Collection settings - all persisted together via save_collection_settings.
         g = self._section(self.tr("Downloads"))
         self._slider(
             g, self.tr("Max concurrent downloads"), 1, uc._MAX_CONCURRENT_CEILING,
             self._cs["max_concurrent"], self._save_max_concurrent)
 
-        # Download speed limit — global cap shared by all download threads.
+        # Download speed limit - global cap shared by all download threads.
         lim_sld, lim_lbl = self._slider(
             g, self.tr("Download speed limit"), 0, 250,
             int(uc.load_download_speed_limit()), self._save_speed_limit,
@@ -594,7 +602,7 @@ class SettingsView(QWidget):
         _fmt_limit(lim_sld.value())
 
     def _build_extraction(self):
-        # Extraction resource limits — apply to every install (single mods,
+        # Extraction resource limits - apply to every install (single mods,
         # Downloads tab and collections), not just collection installs.
         g = self._section(self.tr("Extraction"))
         self._slider(
@@ -647,11 +655,11 @@ class SettingsView(QWidget):
             g, self.tr("Rename mod after install"),
             uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
             help=self.tr("Show a rename prompt after installing a mod."))
-        # Custom install-name rules — a full editor (opened as its own tab)
+        # Custom install-name rules - a full editor (opened as its own tab)
         # rather than a single control, so it gets a button row here.
         patt_help = self.tr(
             "Add your own regex search/replace rules to clean up mod names on "
-            "install — useful when a download site changes its filename format.")
+            "install - useful when a download site changes its filename format.")
         patt_btn = QPushButton(self.tr("Edit custom install-name rules…"))
         patt_btn.setCursor(Qt.PointingHandCursor)
         patt_btn.clicked.connect(self._open_install_name_patterns)
@@ -678,7 +686,7 @@ class SettingsView(QWidget):
             uc.load_update_notifications, uc.save_update_notifications,
             help=self.tr("Show a notification when a new version of Amethyst "
                  "is available. Turning this off only mutes the notification "
-                 "— you can still update via your package manager or by "
+                 "- you can still update via your package manager or by "
                  "toggling the pre-release setting."))
 
         self._maybe_add_flatpak_enroll(g)
@@ -788,7 +796,7 @@ class SettingsView(QWidget):
             uc.load_lutris_appimage_path, uc.save_lutris_appimage_path,
             filters=[("AppImage", ["*.AppImage", "*.appimage"]), ("All files", ["*"])],
             help=self.tr("Path to the Lutris AppImage, so Play can launch it "
-                 "directly. Only needed for AppImage installs — leave blank for "
+                 "directly. Only needed for AppImage installs - leave blank for "
                  "Flatpak or native Lutris."))
         self._path_row(
             g, self.tr("Faugus Data Location"),
@@ -800,13 +808,42 @@ class SettingsView(QWidget):
             uc.load_faugus_appimage_path, uc.save_faugus_appimage_path,
             filters=[("AppImage", ["*.AppImage", "*.appimage"]), ("All files", ["*"])],
             help=self.tr("Path to the Faugus Launcher AppImage, so Play can "
-                 "launch it directly. Only needed for AppImage installs — leave "
+                 "launch it directly. Only needed for AppImage installs - leave "
                  "blank for Flatpak or native Faugus."))
         self._path_row(
             g, self.tr("Steam libraryfolders.vdf"),
             uc.load_steam_libraries_vdf_path, uc.save_steam_libraries_vdf_path,
             help=self.tr("Path to libraryfolders.vdf (or its folder). Blank = auto-detect "
                  "(standard, Flatpak and Snap locations)."))
+
+    def _build_advanced(self):
+        g = self._section(self.tr("Advanced"))
+        env_help = self.tr(
+            "Set environment variables that Amethyst applies to itself every "
+            "time it starts - kill switches, diagnostics and graphics options "
+            "that otherwise need a terminal launch. Pick from the supported "
+            "list or add your own.")
+        env_btn = QPushButton(self.tr("Edit environment variables…"))
+        env_btn.setCursor(Qt.PointingHandCursor)
+        env_btn.clicked.connect(self._open_env_vars)
+        env_btn.setToolTip(self._tip_text(env_help))
+        # Summarise what's already set so the section isn't a blind door.
+        try:
+            active = [e["name"] for e in uc.load_app_env_vars() if e.get("enabled")]
+        except Exception:
+            active = []
+        summary = QLabel(
+            self.tr("{0} set: {1}").format(len(active), ", ".join(active))
+            if active else self.tr("None set"))
+        summary.setObjectName("Help")
+        summary.setWordWrap(True)
+        wrap = QHBoxLayout()
+        wrap.setContentsMargins(0, 0, 0, 0)
+        wrap.addWidget(env_btn)
+        wrap.addWidget(self._help_marker(env_help))
+        wrap.addWidget(summary, 1)
+        holder = QWidget(); holder.setLayout(wrap)
+        g.addWidget(holder, self._next_row(g), 0, 1, 2)
 
     # ---- collection setting handlers (all persist the whole group) --------
     def _persist_collection(self):
@@ -840,7 +877,7 @@ class SettingsView(QWidget):
 
     def _browse_file_into(self, edit: QLineEdit, save_fn, title: str,
                           filters=None):
-        # Reuse the folder-picked signal/slot — the payload shape is identical
+        # Reuse the folder-picked signal/slot - the payload shape is identical
         # (edit, save_fn, path); pick_file just returns a file Path.
         from Utils.portal_filechooser import pick_file
         pick_file(f"Select {title}",
@@ -870,7 +907,7 @@ class SettingsView(QWidget):
 
         When *unticking* (opting out), pass force_downgrade_prompt=True so the
         user is offered a switch to the latest stable even if it's older than
-        the pre-release they're currently running. When *ticking*, no force —
+        the pre-release they're currently running. When *ticking*, no force -
         the normal upgrade check already handles "is there a newer build?".
         """
         check = getattr(self._window, "_check_for_app_update", None)
