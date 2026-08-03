@@ -20,12 +20,22 @@ Two things can break it:
 * **No usable GL driver.** Bare VMs, remote sessions, a container without
   ``/dev/dri`` and without llvmpipe.
 
-``AMM_DISABLE_GL=1`` forces the answer to "no" as a user-facing escape hatch.
+The probe itself runs in a **child process**, and that is not optional: when
+GLX cannot supply an FBConfig for the requested format, Qt does not return an
+error — ``QOpenGLContext::create()`` reaches ``qFatal("Could not initialize
+GLX")`` and aborts the process from C, where no Python ``try`` can intercept
+it. Probing in-process therefore killed the very app the check exists to
+protect (it aborted the AppImage smoke test under Xvfb on the first run after
+the check was added). A child that aborts costs us a wait and a return code.
+
+``AMM_DISABLE_GL=1`` forces the answer to "no" as a user-facing escape hatch;
+``AMM_FORCE_GL=1`` skips the probe and trusts the machine.
 """
 
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 
 # (ok, reason) — computed once, on the GUI thread, after QApplication exists.
@@ -95,33 +105,108 @@ def _foreign_gl_libs() -> list[str]:
     return foreign
 
 
+# Run in a child interpreter by _probe_context(). Creates exactly the context
+# the viewport will ask for (3.3 core — the shaders are GLSL 330) and reports
+# through the exit code, because anything it prints may be drowned out by Qt's
+# own warnings. A qFatal in here takes the child down and nothing else.
+_PROBE_SRC = r'''
+import os, sys
+_p = os.environ.get("_AMM_GL_PROBE_SYSPATH", "")
+if _p:
+    sys.path[:0] = [x for x in _p.split(os.pathsep) if x]
+try:
+    from PySide6.QtGui import (QGuiApplication, QOffscreenSurface,
+                               QOpenGLContext, QSurfaceFormat)
+except Exception as exc:
+    print(exc, file=sys.stderr)
+    raise SystemExit(5)
+app = QGuiApplication(sys.argv)
+fmt = QSurfaceFormat()
+fmt.setVersion(3, 3)
+fmt.setProfile(QSurfaceFormat.CoreProfile)
+ctx = QOpenGLContext()
+ctx.setFormat(fmt)
+if not ctx.create():
+    raise SystemExit(2)
+surface = QOffscreenSurface()
+surface.setFormat(ctx.format())
+surface.create()
+if not surface.isValid():
+    raise SystemExit(3)
+if not ctx.makeCurrent(surface):
+    raise SystemExit(4)
+ctx.doneCurrent()
+raise SystemExit(0)
+'''
+
+_PROBE_CODES = {
+    2: "OpenGL context creation failed",
+    3: "offscreen GL surface unavailable",
+    4: "OpenGL context could not be made current",
+    5: "the OpenGL probe could not load PySide6",
+}
+
+
 def _probe_context() -> tuple[bool, str]:
-    """Create a throwaway offscreen GL context to see if the driver works."""
-    from PySide6.QtGui import QOffscreenSurface, QOpenGLContext, QSurfaceFormat
-    fmt = QSurfaceFormat()
-    fmt.setVersion(3, 3)
-    fmt.setProfile(QSurfaceFormat.CoreProfile)
-    ctx = QOpenGLContext()
-    ctx.setFormat(fmt)
-    if not ctx.create():
-        return False, "OpenGL context creation failed"
-    surface = QOffscreenSurface()
-    surface.setFormat(ctx.format())
-    surface.create()
-    if not surface.isValid():
-        return False, "offscreen GL surface unavailable"
-    if not ctx.makeCurrent(surface):
-        return False, "OpenGL context could not be made current"
-    ctx.doneCurrent()
-    return True, ""
+    """Create a throwaway offscreen GL context — in a child process — to see if
+    the driver works.
+
+    Anything other than a clean exit 0 means "no": a non-zero code from the
+    checks above, a signal (Qt's qFatal aborts), a timeout, or a child that
+    would not start at all. Assuming "yes" when we cannot tell would put the
+    abort back in this process, so an unusable probe disables the GL path and
+    ``AMM_FORCE_GL=1`` remains the way to overrule it.
+    """
+    if not sys.executable:
+        return False, "no interpreter available to run the OpenGL probe"
+    env = dict(os.environ)
+    # The child must talk to the same window system we do, and must be able to
+    # import PySide6 from wherever this process found it (the AppImage's bundled
+    # site-packages, a venv, /app in the flatpak). Passed as our own variable
+    # rather than PYTHONPATH so it cannot leak into anything else we launch.
+    env["_AMM_GL_PROBE_SYSPATH"] = os.pathsep.join(p for p in sys.path if p)
+    try:
+        from PySide6.QtGui import QGuiApplication
+        platform = QGuiApplication.platformName()
+        if platform:
+            env["QT_QPA_PLATFORM"] = platform
+    except Exception:                                     # noqa: BLE001
+        pass
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", _PROBE_SRC], env=env, timeout=30,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    except subprocess.TimeoutExpired:
+        return False, "the OpenGL probe timed out"
+    except Exception as exc:                              # noqa: BLE001
+        return False, f"the OpenGL probe could not run ({exc})"
+    if proc.returncode == 0:
+        return True, ""
+    if proc.returncode < 0:
+        # Killed by a signal — qFatal("Could not initialize GLX") and friends.
+        detail = (proc.stderr or b"").decode("utf-8", "replace").strip()
+        last = detail.splitlines()[-1] if detail else ""
+        why = f"the OpenGL driver aborted the probe (signal {-proc.returncode})"
+        return False, f"{why}: {last}" if last else why
+    return False, _PROBE_CODES.get(
+        proc.returncode, f"the OpenGL probe failed (exit {proc.returncode})")
 
 
 def gl_status() -> tuple[bool, str]:
-    """(usable, reason-if-not) for the OpenGL widget path. Cached."""
+    """(usable, reason-if-not) for the OpenGL widget path. Cached.
+
+    Call this lazily, right before a QOpenGLWidget would be built — never at
+    startup. The answer costs a child process, and a machine that never opens a
+    mesh should never pay for it or switch its window to GL composition.
+    """
     global _status
     if _status is not None:
         return _status
     _status = _compute_status()
+    if not _status[0]:
+        # stderr_capture tees this into the log panel and run-qt-stderr.log, so
+        # "the 3D preview is a grey box" comes with its reason attached.
+        print(f"3D preview disabled: {_status[1]}", file=sys.stderr)
     return _status
 
 

@@ -14720,31 +14720,16 @@ def run() -> int:
     # opacity so nothing is visibly rendered behind the splash while it loads.
     # _dismiss_splash restores opacity once the plugin panel — the last render
     # step — is populated, so the window appears fully drawn, not mid-render.
-    # GL warmup: the FIRST QOpenGLWidget added to a shown window forces Qt to
-    # recreate the native window as a GL-composited surface — a full-window
-    # flash that reads as an app restart. Parking a 1px GL child before show()
-    # makes composition start that way, so opening the first nif is seamless.
-    #
-    # Only ever do this once gl_support says the GL path works: that same
-    # window-wide switch to GL composition renders the ENTIRE window black
-    # when GL is broken (GH#350), and this warmup would inflict that on every
-    # user at startup — including the ones who never open a mesh.
-    from gui_qt.gl_support import gl_status
-    _gl_ok, _gl_why = gl_status()
-    if _gl_ok:
-        try:
-            from PySide6.QtOpenGLWidgets import QOpenGLWidget
-            _glwarm = QOpenGLWidget(win)
-            _glwarm.setFixedSize(1, 1)
-            _glwarm.move(-4, -4)
-            _glwarm.setAttribute(Qt.WA_TransparentForMouseEvents)
-            _glwarm.lower()
-            _glwarm.show()
-            win._gl_warmup = _glwarm
-        except Exception:
-            pass
-    else:
-        print(f"3D preview disabled: {_gl_why}", file=sys.stderr)
+    # NOTHING GL HAPPENS AT STARTUP. We used to park a 1px QOpenGLWidget here to
+    # pre-warm GL composition (the first one added to a shown window makes Qt
+    # recreate the native window, a full-window flash on opening the first nif),
+    # gated on gl_support.gl_status(). Both halves were startup hazards: the
+    # widget turns the WHOLE window black wherever GL is broken (GH#350), and
+    # the gate's own probe aborted the process outright on a GLX stack with no
+    # matching FBConfig — qFatal from C, uncatchable, which is exactly how the
+    # AppImage died under Xvfb. gl_status() is asked lazily now, by the preview
+    # itself (gui_qt/nif_preview.py), and probes out of process. The cost is the
+    # composition flash the first time a mesh is opened in a session.
     if _splash is not None:
         win.setWindowOpacity(0.0)
     win.show()
