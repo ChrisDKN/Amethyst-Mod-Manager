@@ -194,7 +194,7 @@ class NifViewerView(QWidget):
         split.addWidget(left)
 
         self._preview = NifPreview(None, self.tr("Select a mesh"),
-                                   resolver=None)
+                                   resolver=None, log_fn=self._log)
         self._preview.setMinimumWidth(160)
         self._tex_sources = TextureSourceController(self._preview, self._log)
         split.addWidget(self._preview)

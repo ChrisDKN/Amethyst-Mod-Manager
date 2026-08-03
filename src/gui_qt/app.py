@@ -1115,7 +1115,8 @@ class MainWindow(QMainWindow):
         resolver = self._nif_asset_resolver()
         existing = getattr(self, "_nif_preview_widget", None)
         if existing is None or not self._tabs.has_key("mf_nif_preview"):
-            existing = NifPreview(None, name, resolver=resolver)
+            existing = NifPreview(None, name, resolver=resolver,
+                                  log_fn=self._append_log)
             self._nif_preview_widget = existing
             self._tabs.open_scoped_tab(
                 existing, name, self._modlist_panel_stack, key="mf_nif_preview")
@@ -1165,7 +1166,8 @@ class MainWindow(QMainWindow):
         resolver = self._nif_asset_resolver()
         existing = getattr(self, "_nif_preview_widget", None)
         if existing is None or not self._tabs.has_key("mf_nif_preview"):
-            existing = NifPreview(None, name, resolver=resolver)
+            existing = NifPreview(None, name, resolver=resolver,
+                                  log_fn=self._append_log)
             self._nif_preview_widget = existing
             self._tabs.open_scoped_tab(
                 existing, name, self._modlist_panel_stack, key="mf_nif_preview")

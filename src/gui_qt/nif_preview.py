@@ -355,7 +355,7 @@ def _fit_texture(img):
         Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
 
-def _model_space_normal(nrm_blob, spec_blob):
+def _model_space_normal(nrm_blob, spec_blob, log=None):
     """Decode an _msn normal map, packing a separate spec map into its alpha.
 
     A model-space map's alpha is NOT a gloss mask (it is usually solid 255).
@@ -385,7 +385,8 @@ def _model_space_normal(nrm_blob, spec_blob):
         raw = rgb.tobytes("raw", "RGBA")
         return QImage(raw, rgb.width, rgb.height,
                       QImage.Format_RGBA8888).copy()
-    except Exception:                                    # noqa: BLE001
+    except Exception as exc:                             # noqa: BLE001
+        _log(log, f"      ! model-space normal decode failed: {exc!r}")
         return None
 
 
@@ -414,7 +415,7 @@ def _make_gl_texture(img):
     return tex
 
 
-def _qimage_from_bytes(data: bytes):
+def _qimage_from_bytes(data: bytes, log=None):
     """Decode texture bytes pulled from an archive (DDS goes via Pillow)."""
     from PySide6.QtGui import QImage
     img = QImage()
@@ -433,12 +434,13 @@ def _qimage_from_bytes(data: bytes):
             raw = im.tobytes("raw", "RGBA")
             return QImage(raw, im.width, im.height,
                           QImage.Format_RGBA8888).copy()
-    except Exception:                                    # noqa: BLE001
+    except Exception as exc:                             # noqa: BLE001
+        _log(log, f"      ! image decode failed ({_fmt_bytes(len(data))}): {exc!r}")
         return None
 
 
 def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None,
-                         override=None, slot: int = 0):
+                         override=None, slot: int = 0, log=None):
     """Return ``shape -> QImage|None``; resolver first, then roots/archives.
 
     FO4/Starfield shapes name a material file whose textures override the
@@ -452,6 +454,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     srgb_albedo: dict[str, bool] = {}
     materials: dict[str, object] = {}
     requested: list[str] = []
+    missing: list[str] = []
 
     def fetch(rel: str):
         """Raw bytes for a data-relative path; retries with textures/ prefix."""
@@ -462,17 +465,31 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             return blob
         low = rel.replace("\\", "/").lower()
         if not low.startswith(("textures/", "materials/", "data/")):
-            return _fetch_exact("textures/" + rel)
+            blob = _fetch_exact("textures/" + rel)
+            if blob is not None:
+                return blob
+        # Recorded so the build summary can list exactly what went unfound —
+        # the usual reason a mesh previews as untextured clay.
+        if rel not in missing:
+            missing.append(rel)
+            _log(log, f"      MISS {rel.replace(chr(92), '/')} (searched: "
+                      f"{'override, ' if override else ''}"
+                      f"{'resolver' if resolver else f'{len(texture_roots)} loose root(s)'}"
+                      f"{', archives' if archives is not None else ''})")
         return None
 
     def _fetch_exact(rel: str):
         if override is not None:
             blob = override(rel)
             if blob:
+                _log(log, f"      hit  {rel.replace(chr(92), '/')} <- source override "
+                          f"({_fmt_bytes(len(blob))})")
                 return blob
         if resolver is not None:
             blob = resolver.read(rel)
             if blob:
+                _log(log, f"      hit  {rel.replace(chr(92), '/')} <- resolver "
+                          f"({_fmt_bytes(len(blob))})")
                 return blob
         else:
             # Loose files win over archives, matching what the engine loads.
@@ -480,12 +497,21 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                 found = cache.resolve(root, rel)
                 if found is not None:
                     try:
-                        return found.read_bytes()
-                    except OSError:
+                        data = found.read_bytes()
+                    except OSError as exc:
+                        _log(log, f"      ! {rel.replace(chr(92), '/')} found at {found} but "
+                                  f"unreadable: {exc}")
                         return None
+                    _log(log, f"      hit  {rel.replace(chr(92), '/')} <- {found} "
+                              f"({_fmt_bytes(len(data))})")
+                    return data
         if archives is not None:
             # Only source for a mesh previewed out of an uninstalled mod's archive.
-            return archives.read(rel)
+            blob = archives.read(rel)
+            if blob:
+                _log(log, f"      hit  {rel.replace(chr(92), '/')} <- archive "
+                          f"({_fmt_bytes(len(blob))})")
+            return blob
         return None
 
     def material_slot(rel: str) -> str:
@@ -530,11 +556,16 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         if blob and model_space:
             # Skyrim slot 7 is the dedicated specular map for skin.
             spec_rel = shape.textures[7] if len(shape.textures) > 7 else ""
-            img = _model_space_normal(blob, fetch(spec_rel) if spec_rel else None)
+            img = _model_space_normal(blob, fetch(spec_rel) if spec_rel else None, log)
         else:
-            img = _qimage_from_bytes(blob) if blob else None
+            img = _qimage_from_bytes(blob, log) if blob else None
         if img is not None and img.isNull():
             img = None
+        if blob and img is None:
+            _log(log, f"      ! normal map {rel.replace(chr(92), '/')} found but not decodable")
+        elif img is not None:
+            _log(log, f"      normal {img.width()}x{img.height()}"
+                      f"{' model-space (_msn)' if model_space else ' tangent-space'}")
         img = _fit_texture(img)
         seen[key] = img
         return img, model_space
@@ -556,7 +587,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             key = "E:" + rel.lower()
             if key not in seen:
                 blob = fetch(rel)
-                img = _qimage_from_bytes(blob) if blob else None
+                img = _qimage_from_bytes(blob, log) if blob else None
                 if img is not None and img.isNull():
                     img = None
                 seen[key] = _fit_texture(img)
@@ -578,7 +609,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         key = "AO:" + rel.lower()
         if key not in seen:
             blob = fetch(rel)
-            img = _qimage_from_bytes(blob) if blob else None
+            img = _qimage_from_bytes(blob, log) if blob else None
             if img is not None and img.isNull():
                 img = None
             seen[key] = _fit_texture(img)
@@ -608,13 +639,23 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         else:
             return seen[key]
         blob = fetch(rel)
-        image = _qimage_from_bytes(blob) if blob else None
+        image = _qimage_from_bytes(blob, log) if blob else None
         if image is not None and image.isNull():
             image = None
+        if blob and image is None:
+            _log(log, f"      ! {rel.replace(chr(92), '/')} was found but could NOT be decoded "
+                      f"({_fmt_bytes(len(blob))}) — unsupported DDS format?")
+        pre = (image.width(), image.height()) if image is not None else None
         image = _fit_texture(image)
         if blob:
             from Utils.dds_compat import is_srgb_dds
             srgb_albedo[key] = is_srgb_dds(blob)
+            if image is not None:
+                shrunk = ("" if pre == (image.width(), image.height())
+                          else f" (downscaled from {pre[0]}x{pre[1]})")
+                _log(log, f"      diffuse {image.width()}x{image.height()}"
+                          f"{shrunk}"
+                          f"{' sRGB' if srgb_albedo[key] else ''}")
         seen[key] = image
         return image
 
@@ -624,6 +665,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     load.env_maps = env_maps
     load.ao_map = ao_map
     load.is_srgb = lambda shape: srgb_albedo.get(diffuse_key(shape), False)
+    load.missing = missing
     return load
 
 
@@ -785,6 +827,103 @@ def _neutralise_meshes(meshes) -> None:
         m.vao = m.vbo = m.ibo = m.texture = None
 
 
+def _log(fn, message: str) -> None:
+    """Emit one diagnostic line, tagged so the viewer's chatter is filterable.
+
+    Logging must never break a preview, and this is called from the parse
+    worker as well as the GUI thread.
+    """
+    if fn is None:
+        return
+    try:
+        fn(f"NIF: {message}")
+    except Exception:                                    # noqa: BLE001
+        pass
+
+
+def _fmt_bytes(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f}{unit}" if unit == "B" else f"{n:.1f}{unit}"
+        n /= 1024.0
+    return f"{n:.1f}GB"
+
+
+def _log_model(log, model) -> None:
+    """Report the parsed NIF: header, shapes and anything skipped."""
+    h = model.header
+    _log(log, f"  header: version 0x{h.version:08X} bs_version {h.bs_version}"
+              f" · {h.num_blocks} blocks · {len(h.block_types)} block types"
+              f" · {len(model.shapes)} shape(s)")
+    if model.skipped:
+        worst = sorted(model.skipped.items(), key=lambda kv: -kv[1])
+        _log(log, "  block types not read (normal for skin/collision/"
+                  "animation data): "
+                  + ", ".join(f"{k} x{v}" for k, v in worst[:8]))
+    if not model.shapes:
+        _log(log, "  ! no shapes — nothing to draw. Either the file has no"
+                  " renderable geometry or its block layout is unsupported.")
+    for s in model.shapes:
+        flags = []
+        if s.pbr:
+            flags.append("PBR")
+        if s.vertex_colors:
+            flags.append("vcolor" if s.colors else "vcolor-flag-no-data")
+        elif s.colors:
+            flags.append("vcolor-data-ignored")
+        if s.alpha_test:
+            flags.append(f"alpha-test>{s.alpha_threshold}")
+        if s.alpha_blend:
+            flags.append("alpha-blend")
+        if s.env_map_scale:
+            flags.append(f"envmap x{s.env_map_scale:.2f}")
+        if s.material:
+            flags.append(f"material={s.material}")
+        if s.mesh_path:
+            flags.append(f"geom={s.mesh_path}")
+        _log(log, f"    shape {s.name!r} [{s.block_type}] "
+                  f"{len(s.vertices)}v/{len(s.triangles)}t"
+                  f" · gloss {s.glossiness:.0f} spec {s.spec_strength:.2f}"
+                  f"{' ' + ' '.join(flags) if flags else ''}")
+        if s.vertices and not s.triangles:
+            _log(log, f"      ! {s.name!r} has vertices but no triangles")
+        if not s.vertices and not s.mesh_path:
+            _log(log, f"      ! {s.name!r} has no geometry "
+                      f"(declared {s.num_vertices} vertices)")
+        for i, t in enumerate(s.textures):
+            if t:
+                _log(log, f"      slot {i}: {t.replace(chr(92), '/')}")
+
+
+def _log_build(log, meshes, bounds, loader) -> None:
+    """Report what actually reached the GPU-bound buffers."""
+    if not meshes:
+        _log(log, "  ! nothing drawable was built")
+        return
+    tris = sum(m.tri_count for m in meshes)
+    textured = sum(1 for m in meshes if m.has_image)
+    normals = sum(1 for m in meshes if m.normal_image is not None)
+    vcols = sum(1 for m in meshes if m.has_colors)
+    aos = sum(1 for m in meshes if m.ao_image is not None)
+    srgb = sum(1 for m in meshes if m.srgb_albedo)
+    envs = sum(1 for m in meshes if m.env_image is not None)
+    _log(log, f"  totals: {tris} triangles · {textured}/{len(meshes)} textured"
+              f" · {normals} normal-mapped · {vcols} vertex-coloured"
+              f" · {aos} with AO · {srgb} sRGB-decoded · {envs} env-mapped")
+    if bounds:
+        lo, hi = bounds
+        size = tuple(round(hi[i] - lo[i], 1) for i in range(3))
+        _log(log, f"  bounds: {size[0]} x {size[1]} x {size[2]} units")
+    missed = getattr(loader, "missing", None)
+    if missed:
+        _log(log, f"  ! {len(missed)} texture(s) NOT found — these are why a"
+                  f" mesh renders as untextured clay:")
+        for rel in list(missed)[:20]:
+            _log(log, f"      missing: {rel.replace(chr(92), '/')}")
+        if len(missed) > 20:
+            _log(log, f"      … and {len(missed) - 20} more")
+
+
 def _neutralise_view(view) -> None:
     """Last-resort orphan cleanup when a context dies (Python attrs only —
     the widget's C++ half may already be mid-destruction)."""
@@ -799,8 +938,11 @@ class _Viewport(QOpenGLWidget):
     loaded = Signal(object, object, int, object)  # meshes, bounds, gen, tex paths
     failed = Signal(str, int)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, log_fn=None):
         super().__init__(parent)
+        # Host's log sink. The parse/build runs off-thread, so this must stay
+        # thread-safe — app.py's _append_log marshals to the GUI thread.
+        self.log_fn = log_fn
         fmt = QSurfaceFormat()
         fmt.setVersion(3, 3)
         fmt.setProfile(QSurfaceFormat.CoreProfile)
@@ -871,41 +1013,94 @@ class _Viewport(QOpenGLWidget):
                              resolver, archives, tex_override,
                              mesh_rel, plugin_dirs)
         self._discard_pending()
+        log = self.log_fn
+
+        src_desc = (f"{_fmt_bytes(len(source))} of data"
+                    if isinstance(source, (bytes, bytearray))
+                    else str(source))
+        _log(log, f"--- load #{gen}: {src_desc}")
+        _log(log, f"  texture roots ({len(texture_roots or ())}): "
+                  f"{', '.join(str(r) for r in (texture_roots or ())) or 'none'}")
+        _log(log, f"  archive roots: "
+                  f"{len(archive_roots or ()) if archive_roots else 0}"
+                  f" · resolver: {'yes' if resolver else 'no'}"
+                  f" · archive index: {'yes' if archives else 'no'}"
+                  f" · texture slot: {self.texture_slot}"
+                  f" · override: {'yes' if tex_override else 'no'}")
+        if mesh_rel:
+            _log(log, f"  data-relative path: {mesh_rel}")
 
         def work():
+            import time
             from Utils.nif_reader import read_nif
+            t_start = time.monotonic()
             try:
                 extra = archives
                 if extra is None and resolver is None and archive_roots:
                     from Utils.archive_lookup import ArchiveLookup, find_archives
-                    extra = ArchiveLookup(find_archives(archive_roots),
-                                          keep_prefix=ASSET_PREFIXES)
+                    found = find_archives(archive_roots)
+                    _log(log, f"  scanned {len(archive_roots)} archive root(s):"
+                              f" {len(found)} archive(s) indexed")
+                    extra = ArchiveLookup(found, keep_prefix=ASSET_PREFIXES)
                 loader = _make_texture_loader(texture_roots, extra, resolver,
-                                              tex_override, self.texture_slot)
+                                              tex_override, self.texture_slot,
+                                              log)
+                t0 = time.monotonic()
                 model = read_nif(source)
+                _log(log, f"  parsed in {(time.monotonic() - t0) * 1000:.0f}ms")
+                _log_model(log, model)
                 if mesh_rel:
                     # The game may swap the baked texture set via plugin
                     # records; without this such meshes preview as white clay.
                     from Utils.txst_lookup import apply_alt_textures
                     dirs = plugin_dirs or texture_roots
+                    _log(log, "  plugin scan dirs: "
+                              + (", ".join(str(d) for d in dirs) or "none"))
                     try:
-                        apply_alt_textures(model, mesh_rel, dirs)
-                    except Exception:                    # noqa: BLE001
-                        pass
+                        t0 = time.monotonic()
+                        n = apply_alt_textures(model, mesh_rel, dirs)
+                        _log(log, f"  plugin texture-set overrides: {n} shape(s)"
+                                  f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
+                    except Exception as exc:             # noqa: BLE001
+                        _log(log, f"  ! texture-set override scan failed: {exc!r}")
                     # Skyrim ships hair textures greyscale and tints them from
                     # the NPC record, so FaceGen hair is white without this.
                     try:
                         from Utils.facegen_tint import apply_hair_tint
-                        apply_hair_tint(model, mesh_rel, dirs)
-                    except Exception:                    # noqa: BLE001
-                        pass
+                        t0 = time.monotonic()
+                        n = apply_hair_tint(model, mesh_rel, dirs)
+                        if n:
+                            tint = next((s.tint for s in model.shapes
+                                         if s.tint != (1.0, 1.0, 1.0)), None)
+                            rgb = (tuple(round(c * 255) for c in tint)
+                                   if tint else "?")
+                            _log(log, f"  hair tint {rgb} applied to {n} shape(s)"
+                                      f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
+                    except Exception as exc:             # noqa: BLE001
+                        _log(log, f"  ! hair tint lookup failed: {exc!r}")
                 # Starfield keeps geometry in external .mesh files.
-                if any(s.mesh_path for s in model.shapes):
+                external = [s for s in model.shapes if s.mesh_path]
+                if external:
+                    _log(log, f"  {len(external)} shape(s) use external "
+                              f".mesh geometry (Starfield)")
                     _load_external_geometry(model, loader.fetch)
+                    filled = sum(1 for s in external if s.vertices)
+                    _log(log, f"  external geometry resolved for "
+                              f"{filled}/{len(external)}")
+                t0 = time.monotonic()
                 meshes, bounds = _build_meshes(model, loader)
+                _log(log, f"  built {len(meshes)} drawable mesh(es) in "
+                          f"{(time.monotonic() - t0) * 1000:.0f}ms")
             except Exception as e:                       # noqa: BLE001
+                import traceback
+                _log(log, f"  !! load failed: {e!r}")
+                for line in traceback.format_exc().strip().splitlines()[-4:]:
+                    _log(log, f"     {line.strip()}")
                 safe_emit(self.failed, str(e), gen)
                 return
+            _log_build(log, meshes, bounds, loader)
+            _log(log, f"  load #{gen} done in "
+                      f"{(time.monotonic() - t_start) * 1000:.0f}ms")
             safe_emit(self.loaded, meshes, bounds, gen,
                       list(dict.fromkeys(loader.requested)))
 
@@ -950,14 +1145,41 @@ class _Viewport(QOpenGLWidget):
 
     # -- GL -----------------------------------------------------------------
     def initializeGL(self):
+        log = self.log_fn
+        ctx0 = self.context()
+        try:
+            f0 = ctx0.functions()
+            fmt = ctx0.format()
+            _log(log, "GL context: "
+                      f"{f0.glGetString(0x1F01)} {f0.glGetString(0x1F00)}"
+                      f" · GL {f0.glGetString(0x1F02)}"
+                      f" · GLSL {f0.glGetString(0x8B8C)}")
+            _log(log, f"  surface: {fmt.majorVersion()}.{fmt.minorVersion()}"
+                      f" {'core' if fmt.profile() == QSurfaceFormat.CoreProfile else 'compat'}"
+                      f" · depth {fmt.depthBufferSize()}"
+                      f" · samples {fmt.samples()}"
+                      f" · {'sw' if ctx0.isOpenGLES() else 'hw'}")
+        except Exception as exc:                         # noqa: BLE001
+            _log(log, f"GL context: could not be queried ({exc!r})")
+
         prog = QOpenGLShaderProgram(self)
         ok = prog.addShaderFromSourceCode(QOpenGLShader.Vertex, _VERT_SRC)
-        ok = prog.addShaderFromSourceCode(QOpenGLShader.Fragment, _FRAG_SRC) and ok
-        ok = prog.link() and ok
+        if not ok:
+            _log(log, f"! vertex shader failed: {prog.log()}")
+        frag_ok = prog.addShaderFromSourceCode(QOpenGLShader.Fragment, _FRAG_SRC)
+        if not frag_ok:
+            _log(log, f"! fragment shader failed: {prog.log()}")
+        ok = frag_ok and ok
+        linked = prog.link()
+        if not linked:
+            _log(log, f"! shader link failed: {prog.log()}")
+        ok = linked and ok
         if not ok:
             self._gl_error = prog.log() or "shader compilation failed"
+            _log(log, "!! the viewport cannot draw — shaders did not build")
             self._program = None
             return
+        _log(log, "  shaders compiled and linked")
         self._program = prog
         self._u_mvp = prog.uniformLocation("uMVP")
         self._u_hastex = prog.uniformLocation("uHasTex")
@@ -986,6 +1208,26 @@ class _Viewport(QOpenGLWidget):
         self._u_aotex = prog.uniformLocation("uAoTex")
         self._u_hasao = prog.uniformLocation("uHasAo")
         self._u_srgb = prog.uniformLocation("uSrgbAlbedo")
+        # A -1 means the name is missing or the compiler dropped it as unused.
+        # Setting one is a silent no-op, which has cost real debugging time.
+        unresolved = [n for n, loc in (
+            ("uMVP", self._u_mvp), ("uHasTex", self._u_hastex),
+            ("uBaseColor", self._u_base), ("uGamma", self._u_gamma),
+            ("uFlat", self._u_flat), ("uHasNorm", self._u_hasnorm),
+            ("uSpecular", self._u_spec), ("uEye", self._u_eye),
+            ("uTex", self._u_tex), ("uNormTex", self._u_normtex),
+            ("uSpecColor", self._u_speccol), ("uSpecStrength", self._u_specstr),
+            ("uShininess", self._u_shine), ("uEnvTex", self._u_envtex),
+            ("uMaskTex", self._u_masktex), ("uEnvScale", self._u_envscale),
+            ("uHasMask", self._u_hasmask), ("uCamRight", self._u_camright),
+            ("uCamUp", self._u_camup), ("uAlphaThreshold", self._u_athresh),
+            ("uBlend", self._u_blend), ("uHasVColor", self._u_hasvcol),
+            ("uTint", self._u_tint), ("uAoTex", self._u_aotex),
+            ("uHasAo", self._u_hasao), ("uSrgbAlbedo", self._u_srgb),
+        ) if loc < 0]
+        if unresolved:
+            _log(log, "  ! uniforms not resolved (writes to these do nothing): "
+                      + ", ".join(unresolved))
         ctx = self.context()
         ctx.functions().glEnable(_GL_DEPTH_TEST)
         # glPolygonMode (wireframe) needs the 3.3 core functions object.
@@ -994,8 +1236,10 @@ class _Viewport(QOpenGLWidget):
         profile.setProfile(QSurfaceFormat.CoreProfile)
         try:
             self._core = QOpenGLVersionFunctionsFactory.get(profile, ctx)
-        except Exception:                                # noqa: BLE001
+        except Exception as exc:                         # noqa: BLE001
             self._core = None
+            _log(log, f"  ! GL 3.3 core functions unavailable ({exc!r}) — "
+                      f"wireframe modes will fall back to solid")
         # Reparenting (tab detach/re-pin) destroys the context and everything
         # uploaded to it. Free while it is still current, then rebuild from
         # the kept load args when the new context initialises.
@@ -1013,10 +1257,12 @@ class _Viewport(QOpenGLWidget):
 
     def _on_context_lost(self):
         from PySide6.QtGui import QOpenGLContext
+        _log(self.log_fn, "GL context destroyed (tab detach/re-pin?) — "
+                          "freeing buffers, mesh will be rebuilt")
         try:
             self.makeCurrent()
-        except Exception:                                # noqa: BLE001
-            pass
+        except Exception as exc:                         # noqa: BLE001
+            _log(self.log_fn, f"  makeCurrent during teardown failed: {exc!r}")
         if QOpenGLContext.currentContext() is not None:
             self._release_gpu()
             self.doneCurrent()
@@ -1065,6 +1311,7 @@ class _Viewport(QOpenGLWidget):
 
     def _upload(self):
         prog = self._program
+        vram = tex_count = 0
         for m in self._pending or []:
             m.vao = QOpenGLVertexArrayObject()
             m.vao.create()
@@ -1101,6 +1348,7 @@ class _Viewport(QOpenGLWidget):
             m.vbo.release()
             m.ibo.release()
 
+            vram += len(data) + len(idata)
             for attr, img in (("texture", m.image),
                               ("normal_tex", m.normal_image),
                               ("env_tex", m.env_image),
@@ -1109,14 +1357,23 @@ class _Viewport(QOpenGLWidget):
                 tex = _make_gl_texture(img)
                 if tex is not None:
                     setattr(m, attr, tex)
+                    tex_count += 1
+                    vram += img.width() * img.height() * 4
+                elif img is not None:
+                    _log(self.log_fn, f"  ! {m.name!r}: {attr} failed to "
+                                      f"upload to the GPU")
             m.normal_image = m.env_image = m.mask_image = None
             m.ao_image = None
             # Free both CPU copies now the GPU owns the data.
             m.verts = array.array("f")
             m.image = None
+        n = len(self._pending or [])
         self._meshes = self._pending or []
         self._pending = None
         self._uploaded = True
+        if n:
+            _log(self.log_fn, f"  uploaded {n} mesh(es) and {tex_count} "
+                              f"texture(s) to the GPU (~{_fmt_bytes(vram)})")
 
     def paintGL(self):
         f = self.context().functions()
@@ -1475,9 +1732,10 @@ class NifPreview(QWidget):
     def __init__(self, path: "Path | None", display_name: str = "",
                  texture_roots: list[Path] | None = None,
                  archive_roots: list[Path] | None = None,
-                 resolver=None, parent=None):
+                 resolver=None, parent=None, log_fn=None):
         # path None = caller feeds bytes via set_nif_data() (archive member).
         super().__init__(parent)
+        self.log_fn = log_fn
         self.setObjectName("NifPreview")
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -1602,8 +1860,10 @@ class NifPreview(QWidget):
         v.addWidget(bar)
 
         gl_ok, gl_why = gl_status()
+        _log(log_fn, f"viewer opening · OpenGL {'available' if gl_ok else 'UNAVAILABLE'}"
+                     + (f" ({gl_why})" if not gl_ok else ""))
         if gl_ok:
-            self._view = _Viewport()
+            self._view = _Viewport(log_fn=log_fn)
             self._view.setToolTip(self.tr(
                 "Drag to orbit · right-drag to pan · scroll to zoom · "
                 "double-click to reframe"))
@@ -1693,6 +1953,8 @@ class NifPreview(QWidget):
         return self._tex_box.currentData() if self._tex_box.isVisible() else None
 
     def _on_texture_source(self, _index):
+        _log(self.log_fn,
+             f"option: texture source = {self._tex_box.currentText()!r}")
         self.texture_source_changed.emit(self._tex_box.currentData())
 
     def set_title(self, display_name: str, status: str = ""):
@@ -1719,6 +1981,7 @@ class NifPreview(QWidget):
         # driven by which paths were REQUESTED, not by what resolved.
         safe_emit(self.textures_seen, list(tex_paths or ()))
         if not meshes:
+            _log(self.log_fn, "displayed: no drawable geometry")
             self._stats.setText(self.tr("no drawable geometry"))
             return
         tris = sum(m.tri_count for m in meshes)
@@ -1732,41 +1995,50 @@ class NifPreview(QWidget):
     def _on_failed(self, message, gen):
         if gen != self._view._generation:
             return
+        _log(self.log_fn, f"preview failed: {message}")
         self._stats.setText(self.tr("failed: {0}").format(message))
 
     def _on_textured(self, on):
+        _log(self.log_fn, f"option: textures {'on' if on else 'off'}")
         self._view.textured = bool(on)
         self._view.update()
 
     def _on_wireframe(self, act):
+        _log(self.log_fn, f"option: wireframe = {act.data()}")
         self._view.wireframe = act.data()
         self._view.update()
 
     def _on_detail(self, on):
+        _log(self.log_fn,
+             f"option: normal maps + shine {'on' if on else 'off'}")
         self._view.detail = bool(on)
         self._view.update()
 
     def _on_cull(self, on):
+        _log(self.log_fn, f"option: cull backfaces {'on' if on else 'off'}")
         self._view.cull_backfaces = bool(on)
         self._view.update()
         try:
             from Utils.ui_config import save_nif_cull_backfaces
             save_nif_cull_backfaces(bool(on))
-        except Exception:
-            pass
+        except Exception as exc:
+            _log(self.log_fn, f"! could not save cull setting: {exc!r}")
 
     def _on_texture_slot(self, act):
         """Re-resolve textures for the chosen map; geometry is untouched."""
+        _log(self.log_fn, f"option: showing texture slot {act.data()}"
+                          f" (0 = diffuse, 1 = normal) — re-resolving")
         self._view.texture_slot = int(act.data())
         self.reload_textures()
 
     def _on_invert_mouse(self, on):
+        _log(self.log_fn, f"option: invert mouse {'on' if on else 'off'}")
         self._view.invert_mouse = bool(on)
         try:
             from Utils.ui_config import save_nif_invert_mouse
             save_nif_invert_mouse(bool(on))
-        except Exception:
-            pass
+        except Exception as exc:
+            _log(self.log_fn, f"! could not save invert setting: {exc!r}")
 
     def eventFilter(self, obj, e):
         # Double-click the brightness slider to snap back to neutral.
@@ -1781,20 +2053,22 @@ class NifPreview(QWidget):
         self._view.set_brightness(value)
 
     def _save_brightness(self):
+        _log(self.log_fn, f"option: brightness {self._bright.value()}%")
         try:
             from Utils.ui_config import save_nif_brightness
             save_nif_brightness(int(self._bright.value()))
-        except Exception:
-            pass
+        except Exception as exc:
+            _log(self.log_fn, f"! could not save brightness: {exc!r}")
 
     def _on_background(self, act):
         key = act.data() or "light"
+        _log(self.log_fn, f"option: background = {key}")
         self._view.set_background(key)
         try:
             from Utils.ui_config import save_nif_background
             save_nif_background(key)
-        except Exception:
-            pass
+        except Exception as exc:
+            _log(self.log_fn, f"! could not save background: {exc!r}")
 
     def event(self, e):
         # Scoped tabs close via deleteLater(); closeEvent never fires.
