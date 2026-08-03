@@ -8,6 +8,7 @@
 - Added a saves tab, Using the Ludasavi manifest for the source of save locations
 - Fixed an issue where folders routed via custom routing rules were not having their names normalised
 - Added a nif viewer for previewing meshes in a 3D viewer. Accessible via the Wizard > Other menu or clicking a nif file in the mod files tab
+- Added Daggerfall Unity (Game detection is not possible with this and the root folder of the game must be added manually)
 
 - v2.0.5
 ### Game Support
