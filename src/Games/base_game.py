@@ -134,6 +134,13 @@ class BaseGame(ABC):
     )
     profile_overridable_paths_extras: tuple[str, ...] = ()
 
+    # User-set save folder, persisted in paths.json as "save_path_override".
+    # The Saves tab resolves locations from the Ludusavi manifest, which can
+    # miss a game entirely or list only a Windows path for a game with a native
+    # Linux build (Daggerfall Unity). A class-level default keeps this working
+    # for handlers whose __init__ does not chain to BaseGame.
+    _save_path_override: "Path | None" = None
+
     # Profile Groups (Utils/profile_groups.py): merged deploy of several
     # profiles. A group is an ordinary profile-specific profile whose mods/
     # is a per-mod symlink farm, so any handler that deploys from filemap.txt
@@ -1343,6 +1350,15 @@ class BaseGame(ABC):
                 pass
         return self.get_mod_staging_path()
 
+    def get_save_path_override(self) -> "Path | None":
+        """Return the user's manual save folder, or None to use the manifest."""
+        return self._save_path_override
+
+    def set_save_path_override(self, path: "Path | str | None") -> None:
+        """Set (or clear with None) the manual save folder and persist it."""
+        self._save_path_override = Path(path) if path else None
+        self.save_paths()
+
     def get_effective_overwrite_path(self) -> Path:
         """Return the overwrite directory for the active profile.
 
@@ -1779,6 +1795,8 @@ class BaseGame(ABC):
             raw_staging = data.get("staging_path", "")
             if raw_staging:
                 self._staging_path = Path(raw_staging)
+            raw_saves = data.get("save_path_override", "")
+            self._save_path_override = Path(raw_saves) if raw_saves else None
             self._load_paths_extra(data)
             self._validate_staging()
             # Overlay any per-profile overrides on top of the default's values
@@ -1892,6 +1910,8 @@ class BaseGame(ABC):
                 "prefix_path":  str(self._prefix_path)  if self._prefix_path  else "",
                 "deploy_mode":  mode_str,
                 "staging_path": str(self._staging_path) if self._staging_path else "",
+                "save_path_override": (str(self._save_path_override)
+                                       if self._save_path_override else ""),
             }
             data.update(self._save_paths_extra())
             self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -1931,6 +1951,10 @@ class BaseGame(ABC):
         }
         data = self._read_global_paths()
         data["staging_path"] = str(self._staging_path) if self._staging_path else ""
+        # Saves live where the game puts them, not where a profile says — the
+        # override stays global rather than joining the per-profile pins.
+        data["save_path_override"] = (str(self._save_path_override)
+                                      if self._save_path_override else "")
         data.update(global_extras)
         self._paths_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 

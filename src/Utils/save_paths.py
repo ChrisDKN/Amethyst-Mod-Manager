@@ -254,6 +254,24 @@ def _matches(candidate: str, existing_only: bool) -> list[str]:
     return [] if existing_only else [candidate]
 
 
+def save_path_override_for_game(game) -> "SaveLocation | None":
+    """Return the user's manual save folder as a location, or None if unset.
+
+    Always returned regardless of *existing_only*: the user typed this path, so
+    it belongs in the tab even before the game has written its first save —
+    seeing it there is how they know the setting took.
+    """
+    try:
+        override = game.get_save_path_override()
+    except Exception:
+        override = None
+    if not override:
+        return None
+    path = Path(override)
+    return SaveLocation(path=path, token_path=str(path), in_prefix=False,
+                        store="", exists=path.exists())
+
+
 def save_paths_for_game(game, existing_only: bool = True) -> list[SaveLocation]:
     """Resolve save locations for a loaded game handler."""
     try:
@@ -268,10 +286,18 @@ def save_paths_for_game(game, existing_only: bool = True) -> list[SaveLocation]:
         prefix_path = game.get_prefix_path()
     except Exception:
         prefix_path = None
-    return resolve_save_paths(
+    found = resolve_save_paths(
         steam_id=str(steam_id or ""),
         game_name=getattr(game, "name", "") or "",
         game_path=game_path,
         prefix_path=prefix_path,
         existing_only=existing_only,
     )
+    override = save_path_override_for_game(game)
+    if override is None:
+        return found
+    # The override leads — it is the answer the user gave when the manifest got
+    # it wrong — and drops any manifest hit that resolved to the same folder.
+    key = os.path.realpath(override.path)
+    return [override] + [loc for loc in found
+                         if os.path.realpath(loc.path) != key]

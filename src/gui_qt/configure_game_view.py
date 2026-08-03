@@ -94,6 +94,7 @@ class _ScanSignals(QObject):
     game_picked = Signal(object)            # (path|None)
     prefix_picked = Signal(object)          # (path|None)
     staging_picked = Signal(object)         # (path|None)
+    saves_picked = Signal(object)           # (path|None)
     # Remove-instance / clean-game-folder workers → GUI thread. Both do heavy
     # disk work (restore + rmtree / full game-dir scan) that used to freeze
     # the UI when run in the click handler.
@@ -121,6 +122,7 @@ class ConfigureGameView(QWidget):
         self._found_heroic_app: str | None = None
         self._found_faugus_gameid: str | None = None
         self._custom_staging: Path | None = None
+        self._custom_saves: Path | None = None
 
         # Closing the tab deleteLater()'s the view while scan workers may still
         # be running; the guards drop late slot runs so they never touch
@@ -136,6 +138,7 @@ class ConfigureGameView(QWidget):
         self._sig.game_picked.connect(g(self._on_game_picked))
         self._sig.prefix_picked.connect(g(self._on_prefix_picked))
         self._sig.staging_picked.connect(g(self._on_staging_picked))
+        self._sig.saves_picked.connect(g(self._on_saves_picked))
         self._sig.remove_done.connect(g(self._on_remove_finished))
         self._sig.clean_done.connect(g(self._on_clean_finished))
         self._sig.staging_scanned.connect(g(self._on_staging_scanned))
@@ -367,6 +370,26 @@ class ConfigureGameView(QWidget):
         row.addWidget(self._small_btn(self.tr("Reset to default"), self._reset_staging))
         row.addStretch(1)
         v.addLayout(row)
+        v.addWidget(self._divider())
+
+        # --- Saves folder override -------------------------------------------
+        # The Saves tab normally locates saves from the Ludusavi manifest. Games
+        # it does not cover, or covers with a Windows-only path while running a
+        # native Linux build, need to be told where to look.
+        v.addWidget(self._section_header(self.tr("Saves Folder (optional)")))
+        self._saves_status = self._status(
+            self.tr("Detected automatically."), "TEXT_DIM")
+        v.addWidget(self._saves_status)
+        self._saves_edit = self._path_edit()
+        self._saves_edit.editingFinished.connect(self._on_saves_typed)
+        v.addWidget(self._saves_edit)
+        row = QHBoxLayout()
+        row.addWidget(self._small_btn(self.tr("Browse manually…"), self._browse_saves))
+        row.addWidget(self._small_btn(self.tr("Open"), lambda: self._open_path(
+            Path(self._saves_edit.text()) if self._saves_edit.text() else None)))
+        row.addWidget(self._small_btn(self.tr("Clear"), self._clear_saves))
+        row.addStretch(1)
+        v.addLayout(row)
         v.addStretch(1)
         return frame
 
@@ -508,6 +531,13 @@ class ConfigureGameView(QWidget):
                 self._staging_status.setText(self.tr("Custom staging folder configured."))
             else:
                 self._staging_edit.setText(str(g.get_mod_staging_path()))
+            saves_override = (g.get_save_path_override()
+                              if hasattr(g, "get_save_path_override") else None)
+            if saves_override:
+                self._custom_saves = Path(saves_override)
+                self._saves_edit.setText(str(saves_override))
+                self._saves_status.setText(self.tr("Custom saves folder configured."))
+                self._saves_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
             # option values
             self._set_check("script_extender_swap",
                             getattr(g, "script_extender_swap", True))
@@ -774,6 +804,10 @@ class ConfigureGameView(QWidget):
         text = self._staging_edit.text().strip()
         self._custom_staging = Path(text) if text else None
 
+    def _on_saves_typed(self):
+        text = self._saves_edit.text().strip()
+        self._custom_saves = Path(text) if text else None
+
     # ---- browse / open ----------------------------------------------------
     def _browse_game(self):
         # pick_folder's callback fires on the portal WORKER thread — marshal to
@@ -800,6 +834,26 @@ class ConfigureGameView(QWidget):
         from Utils.portal_filechooser import pick_folder
         pick_folder("Select mod staging folder",
                     lambda path: self._sig.staging_picked.emit(path))
+
+    def _browse_saves(self):
+        # Same worker-thread caveat as _browse_game — marshal via the signal.
+        from Utils.portal_filechooser import pick_folder
+        pick_folder("Select saves folder",
+                    lambda path: self._sig.saves_picked.emit(path))
+
+    def _on_saves_picked(self, path):
+        if not path:
+            return
+        self._custom_saves = Path(path)
+        self._saves_edit.setText(str(path))
+        self._saves_status.setText(self.tr("Custom saves folder selected."))
+        self._saves_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+
+    def _clear_saves(self):
+        self._custom_saves = None
+        self._saves_edit.clear()
+        self._saves_status.setText(self.tr("Detected automatically."))
+        self._saves_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
 
     def _on_staging_picked(self, path):
         if not path:
@@ -1191,6 +1245,8 @@ class ConfigureGameView(QWidget):
             g.set_deploy_mode(mode)
         if hasattr(g, "set_staging_path"):
             g.set_staging_path(self._custom_staging)
+        if hasattr(g, "set_save_path_override"):
+            g.set_save_path_override(self._custom_saves)
         if hasattr(g, "set_script_extender_swap") and "script_extender_swap" in self._opt_checks:
             g.set_script_extender_swap(self._opt_checks["script_extender_swap"].isChecked())
         if hasattr(g, "set_auto_4gb_patch") and "auto_4gb_patch" in self._opt_checks:

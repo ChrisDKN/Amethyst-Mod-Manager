@@ -13188,6 +13188,13 @@ class MainWindow(QMainWindow):
             return False
         if getattr(game, "profile_saves", False):
             return True
+        # A manual override is the escape hatch for games the manifest gets
+        # wrong, so it has to be able to turn the tab back on by itself.
+        try:
+            if game.get_save_path_override():
+                return True
+        except Exception:
+            pass
         from Utils.ludusavi_manifest import lookup
         try:
             steam_id = game.effective_steam_id() or game.steam_id
