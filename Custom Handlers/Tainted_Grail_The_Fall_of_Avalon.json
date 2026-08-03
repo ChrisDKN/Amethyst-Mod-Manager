@@ -7,22 +7,28 @@
   "steam_id": "1466060",
   "nexus_game_domain": "taintedgrailthefallofavalon",
   "image_url": "https://cdn2.steamgriddb.com/icon/b1567d68a6fe1ae7e868527d88195eae/32/256x256.png",
-  "mod_folder_strip_prefixes": [
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.md",
+    "*read*.txt",
+    "*changelog*.txt"
+  ],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [
     "BepInEx",
     "plugins"
   ],
-  "conflict_ignore_filenames": [],
-  "conflict_ignore_foldernames": [],
-  "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
-  "mod_required_top_level_folders": [],
-  "mod_auto_strip_until_required": false,
+  "mod_required_top_level_folders": [
+    "BepInEx",
+    "plugins"
+  ],
+  "mod_auto_strip_until_required": true,
   "mod_required_file_types": [],
-  "mod_install_as_is_if_no_match": false,
+  "mod_install_as_is_if_no_match": true,
   "restore_before_deploy": true,
   "normalize_folder_case": true,
   "filemap_casing": "upper",
-  "restore_whitelist": [],
   "wine_dll_overrides": {
     "winhttp": "native,builtin",
     "version": "native,builtin"
@@ -31,71 +37,30 @@
     {
       "dest": "",
       "filenames": [
-        "winhttp.dll"
-      ],
-      "flatten": true
-    },
-    {
-      "dest": "",
-      "filenames": [
-        "version.dll"
-      ],
-      "flatten": true
-    },
-    {
-      "dest": "",
-      "filenames": [
-        "run_bepinex.sh"
-      ],
-      "flatten": true
-    },
-    {
-      "dest": "",
-      "filenames": [
-        "libdoorstop.dylib"
-      ],
-      "flatten": true
-    },
-    {
-      "dest": "",
-      "filenames": [
-        "doorstop_config.ini"
+        "winhttp.dll",
+        "version.dll",
+        "run_bepinex.sh",
+        "libdoorstop.dylib",
+        "doorstop_config.ini",
+        "d3d11.dll",
+        "dxgi.dll",
+        "dxvk.conf"
       ],
       "flatten": true
     },
     {
       "dest": "BepInEx",
       "folders": [
-        "config"
-      ],
-      "loose_only": true,
-      "flatten": true
-    },
-    {
-      "dest": "BepInEx",
-      "folders": [
-        "core"
-      ],
-      "loose_only": true,
-      "flatten": true
-    },
-    {
-      "dest": "BepInEx",
-      "folders": [
-        "patchers"
-      ],
-      "loose_only": true,
-      "flatten": true
-    },
-    {
-      "dest": "BepInEx",
-      "folders": [
+        "config",
+        "core",
+        "patchers",
         "plugins"
       ],
       "loose_only": true,
       "flatten": true
     }
   ],
+  "restore_whitelist": [],
   "custom_frameworks": {
     "BepInEx": "winhttp.dll"
   },
