@@ -230,6 +230,8 @@ class MainWindow(QMainWindow):
     _confirm_windows_fs = Signal(object)       # (dict with holder/event/hits/fp/game_name)
     # Proton-tools installer worker → UI thread.
     _proton_done = Signal(str, bool)           # (title, success)
+    # GL capability probe worker → UI thread (see _start_gl_warmup).
+    _gl_probe_done = Signal(bool)              # (OpenGL widget path usable)
     # Nexus validate() worker → UI thread (username or None).
     _nexus_validated = Signal(object)          # (username str | None)
     # LOOT Sort Plugins worker → UI thread (SortResult | None on error).
@@ -341,6 +343,8 @@ class MainWindow(QMainWindow):
         # A watchdog closes it anyway if that signal never arrives.
         self._splash = splash
         self._splash_dismissed = False
+        self._gl_warmup = None            # 1px QOpenGLWidget, see _start_gl_warmup
+        self._gl_probing = False
         self._pal = active_palette()
         self._gs = GameState()
         self._gs.load()
@@ -681,6 +685,78 @@ class MainWindow(QMainWindow):
                 pass
         self.raise_()
         self.activateWindow()
+
+    def _start_gl_warmup(self):
+        """Probe the OpenGL path on a worker thread and, if the answer lands
+        before the window is drawn, park a 1px QOpenGLWidget on it.
+
+        The FIRST QOpenGLWidget added to a shown window makes Qt recreate the
+        native window as a GL-composited surface — a full-window flash that
+        reads as an app restart. Doing it while the splash still covers a
+        zero-opacity window hides it, so opening the first mesh is seamless.
+
+        Three rules keep the launch path out of harm's way:
+
+        * The probe runs a child interpreter (see gui_qt/gl_support) and can
+          take a second or more, so it never runs on the GUI thread. It cannot
+          run *in* this process at all: a GLX stack with no matching FBConfig
+          makes Qt qFatal, which killed the app when the probe was inline.
+        * A verdict that arrives after the window is on screen is dropped —
+          the flash would then be visible for no reason, and nif_preview pays
+          it only if a mesh is actually opened.
+        * Only games that ship the NIF Viewer start any of this, so nobody
+          else's launch spawns a probe or composites through GL (a broken GL
+          stack blacks out the whole window — GH#350).
+        """
+        if self._gl_warmup is not None or self._gl_probing:
+            return
+        game = getattr(getattr(self, "_gs", None), "game", None)
+        game_id = getattr(game, "game_id", "") or ""
+        if not game_id:
+            return
+        try:
+            from Utils.plugin_loader import get_builtin_wizard_tools_for_game
+            if not any(t.id == "nif_viewer"
+                       for t in get_builtin_wizard_tools_for_game(game_id)):
+                return
+        except Exception:
+            return
+        from gui_qt.gl_support import prime_platform
+        prime_platform()      # GUI thread: the worker must not ask Qt itself
+        self._gl_probing = True
+        self._gl_probe_done.connect(self._on_gl_probe_done)
+
+        def _run():
+            from gui_qt.safe_emit import safe_emit
+            from gui_qt.gl_support import gl_status
+            try:
+                ok = gl_status()[0]
+            except Exception:
+                ok = False
+            safe_emit(self._gl_probe_done, ok)
+
+        import threading
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _on_gl_probe_done(self, ok: bool):
+        """UI thread: the GL probe answered. Warm composition up only while it
+        is still free to do so — see _start_gl_warmup."""
+        self._gl_probing = False
+        if not ok or self._gl_warmup is not None:
+            return
+        if self.isVisible() and self.windowOpacity() > 0.01:
+            return                    # on screen already: the flash would show
+        try:
+            from PySide6.QtOpenGLWidgets import QOpenGLWidget
+            warm = QOpenGLWidget(self)
+            warm.setFixedSize(1, 1)
+            warm.move(-4, -4)
+            warm.setAttribute(Qt.WA_TransparentForMouseEvents)
+            warm.lower()
+            warm.show()
+            self._gl_warmup = warm
+        except Exception:
+            pass
 
     def _warn_handler_load_failures(self):
         """If any game handler failed to load during discovery, log each one and
@@ -14720,16 +14796,12 @@ def run() -> int:
     # opacity so nothing is visibly rendered behind the splash while it loads.
     # _dismiss_splash restores opacity once the plugin panel — the last render
     # step — is populated, so the window appears fully drawn, not mid-render.
-    # NOTHING GL HAPPENS AT STARTUP. We used to park a 1px QOpenGLWidget here to
-    # pre-warm GL composition (the first one added to a shown window makes Qt
-    # recreate the native window, a full-window flash on opening the first nif),
-    # gated on gl_support.gl_status(). Both halves were startup hazards: the
-    # widget turns the WHOLE window black wherever GL is broken (GH#350), and
-    # the gate's own probe aborted the process outright on a GLX stack with no
-    # matching FBConfig — qFatal from C, uncatchable, which is exactly how the
-    # AppImage died under Xvfb. gl_status() is asked lazily now, by the preview
-    # itself (gui_qt/nif_preview.py), and probes out of process. The cost is the
-    # composition flash the first time a mesh is opened in a session.
+    # Nothing GL runs on this thread. The warmup that pre-empts the first-mesh
+    # composition flash now waits on an out-of-process probe handed to a worker
+    # thread, and only lands if it beats the window onto the screen; the inline
+    # version of that probe aborted the process on GLX stacks that can't serve
+    # the format (qFatal, uncatchable — it took the AppImage down under Xvfb).
+    win._start_gl_warmup()
     if _splash is not None:
         win.setWindowOpacity(0.0)
     win.show()
