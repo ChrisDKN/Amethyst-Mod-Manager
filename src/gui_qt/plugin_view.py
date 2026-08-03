@@ -550,6 +550,10 @@ class PluginView(QTreeView):
         # check marks. (Mirrors the modlist column-menu quick filters.)
         self.on_quick_filter = None
         self.quick_filter_state = None
+        # filters_active() -> bool and on_clear_filters() back the menu's
+        # "Clear all filters" entry (both wired by the window).
+        self.filters_active = None
+        self.on_clear_filters = None
         self._position_column_menu_button()
         btn.show()
 
@@ -594,6 +598,12 @@ class PluginView(QTreeView):
             a.toggled.connect(lambda checked, k=key: self._on_quick_filter(k, checked))
             filters.addAction(a)
         menu.addMenu(filters)
+        # Same escape hatch the Filters panel header offers — reachable without
+        # opening the panel. Greyed while nothing is filtered.
+        clear = QAction(self.tr("Clear all filters"), menu)
+        clear.setEnabled(callable(self.filters_active) and self.filters_active())
+        clear.triggered.connect(self._on_clear_filters)
+        menu.addAction(clear)
         btn = self._col_menu_btn
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
@@ -601,6 +611,11 @@ class PluginView(QTreeView):
         cb = getattr(self, "on_quick_filter", None)
         if callable(cb):
             cb(key, 1 if on else 0)
+
+    def _on_clear_filters(self):
+        cb = getattr(self, "on_clear_filters", None)
+        if callable(cb):
+            cb()
 
     def _set_column_visible(self, col: int, visible: bool):
         self.setColumnHidden(col, not visible)

@@ -52,6 +52,13 @@ class TkStyleHeader(QHeaderView):
     # points ▲/▼ with the direction. Views without the hook (plugins list,
     # Mod Files tree) are untouched.
     def paintSection(self, painter, rect, logicalIndex):
+        # Views that pin a widget over the header's left edge (the tabs' eye
+        # filter button) set `header_left_pad` on the view: the FIRST visual
+        # section is then painted that many px in, so its label isn't hidden.
+        # The bare strip that leaves is exactly what the opaque button covers.
+        pad = getattr(self._view, "header_left_pad", 0)
+        if pad and self.visualIndex(logicalIndex) == 0:
+            rect = rect.adjusted(pad, 0, 0, 0)
         spec_fn = getattr(self._view, "sort_triangle_spec", None)
         spec = spec_fn(logicalIndex) if callable(spec_fn) else None
         if spec is None:

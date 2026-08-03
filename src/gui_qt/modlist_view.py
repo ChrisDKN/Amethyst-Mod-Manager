@@ -296,6 +296,10 @@ class ModListView(QTreeView):
         # current tri-state so the menu shows the right check marks.
         self.on_quick_filter = None
         self.quick_filter_state = None
+        # filters_active() -> bool and on_clear_filters() back the menu's
+        # "Clear all filters" entry (both wired by the window).
+        self.filters_active = None
+        self.on_clear_filters = None
         self._position_column_menu_button()
         btn.show()
 
@@ -364,8 +368,19 @@ class ModListView(QTreeView):
             self._add_quick_filter_action(
                 more, key, QCoreApplication.translate("FilterSidePanel", label))
         menu.addMenu(more)
+        # Same escape hatch the Filters panel header offers — reachable without
+        # opening the panel. Greyed while nothing is filtered.
+        clear = QAction(self.tr("Clear all filters"), menu)
+        clear.setEnabled(callable(self.filters_active) and self.filters_active())
+        clear.triggered.connect(self._on_clear_filters)
+        menu.addAction(clear)
         btn = self._col_menu_btn
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+
+    def _on_clear_filters(self):
+        cb = getattr(self, "on_clear_filters", None)
+        if callable(cb):
+            cb()
 
     def _on_quick_filter(self, key: str, on: bool):
         # State 1 = include-mode (show only matching); 0 = off. Hide-separators

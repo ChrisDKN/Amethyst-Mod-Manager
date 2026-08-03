@@ -335,6 +335,18 @@ class MainWindow(QMainWindow):
     _FOOT_BTN_H = 28     # compact height for footer tool buttons
     _FOOT_ICON_PX = 16   # footer button icon size
 
+    #: Filters footer button attr -> (filter-panel attr, search-box attr).
+    #: _sync_filters_btn reads both to decide whether the button lights up.
+    _FILTER_BTN_SOURCES = {
+        "_modlist_filters_btn": ("_modlist_filter_panel",    "_modlist_search"),
+        "_plugin_filters_btn":  ("_plugin_filter_panel",     "_plugins_search"),
+        "_mf_filters_btn":      ("_mod_files_filter_panel",  "_mod_files_search"),
+        "_data_filters_btn":    ("_data_filter_panel",       "_data_search"),
+        "_saves_filters_btn":   ("_saves_filter_panel",      "_saves_search"),
+        "_dl_filters_btn":      ("_downloads_filter_panel",  "_dl_search"),
+        "_tf_filters_btn":      ("_text_files_filter_panel", "_tf_search"),
+    }
+
     def __init__(self, app, splash=None):
         super().__init__()
         self._app = app
@@ -1587,10 +1599,7 @@ class MainWindow(QMainWindow):
 
         # Filters button - blue, to the left of the search icon (mirrors the
         # plugins footer). Toggles the modlist filter side-panel.
-        self._modlist_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._modlist_filters_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._modlist_filters_btn.setProperty("active", False)
+        self._modlist_filters_btn = self._filters_button()
         self._modlist_filters_btn.clicked.connect(self._toggle_modlist_filters)
         self._modlist_footer_btns.append(self._modlist_filters_btn)
         search_row.addWidget(self._modlist_filters_btn)
@@ -1608,6 +1617,10 @@ class MainWindow(QMainWindow):
         search.setClearButtonEnabled(True)
         search.textChanged.connect(self._on_modlist_search)
         self._modlist_search = search
+        # A search query narrows the list just like a panel filter, so it
+        # lights the Filters button too (see _sync_filters_btn).
+        search.textChanged.connect(
+            lambda _t, a="_modlist_filters_btn": self._sync_filters_btn(a))
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         self._enable_height_for_width(bar)
@@ -1640,9 +1653,7 @@ class MainWindow(QMainWindow):
         self._plugin_refresh_btn = _made["Refresh Plugins"]
         self._plugin_groups_btn = _made["Groups"]
         self._plugin_rules_btn = _made["Plugin Rules"]
-        self._plugin_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._plugin_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._plugin_filters_btn = self._filters_button()
         self._plugin_footer_btns.append(self._plugin_filters_btn)
         self._plugin_sort_btn.clicked.connect(self._on_sort_plugins)
         self._plugin_refresh_btn.clicked.connect(self._on_refresh_plugins)
@@ -1674,6 +1685,8 @@ class MainWindow(QMainWindow):
         search.setClearButtonEnabled(True)
         search.textChanged.connect(self._on_plugin_search)
         self._plugins_search = search
+        search.textChanged.connect(
+            lambda _t, a="_plugin_filters_btn": self._sync_filters_btn(a))
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         return bar
@@ -1698,9 +1711,7 @@ class MainWindow(QMainWindow):
         self._mf_unpack_btn.setFixedHeight(self._FOOT_BTN_H)
         self._mf_unpack_btn.setEnabled(False)
         self._mf_unpack_btn.clicked.connect(self._on_unpack_bsa)
-        self._mf_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._mf_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._mf_filters_btn = self._filters_button()
         self._mf_filters_btn.clicked.connect(self._toggle_mod_files_filters)
         self._mf_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
         self._mf_expand_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -1732,6 +1743,8 @@ class MainWindow(QMainWindow):
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         self._mod_files_search = search
+        search.textChanged.connect(
+            lambda _t, a="_mf_filters_btn": self._sync_filters_btn(a))
         return bar
 
     def _data_footer(self) -> QWidget:
@@ -1744,9 +1757,7 @@ class MainWindow(QMainWindow):
         v.setSpacing(6)
 
         btns = FlowLayout(spacing=4)
-        self._data_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._data_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._data_filters_btn = self._filters_button()
         self._data_filters_btn.clicked.connect(self._toggle_data_filters)
         self._data_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
         self._data_expand_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -1766,6 +1777,8 @@ class MainWindow(QMainWindow):
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         self._data_search = search
+        search.textChanged.connect(
+            lambda _t, a="_data_filters_btn": self._sync_filters_btn(a))
         return bar
 
     def _on_data_expand_clicked(self):
@@ -1827,9 +1840,7 @@ class MainWindow(QMainWindow):
         btns.addWidget(self._saves_status)
         v.addLayout(btns)
 
-        self._saves_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._saves_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._saves_filters_btn = self._filters_button()
         self._saves_filters_btn.clicked.connect(self._toggle_saves_filters)
         search_row = QHBoxLayout()
         search_row.setContentsMargins(0, 0, 0, 0)
@@ -1843,6 +1854,8 @@ class MainWindow(QMainWindow):
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         self._saves_search = search
+        search.textChanged.connect(
+            lambda _t, a="_saves_filters_btn": self._sync_filters_btn(a))
 
         self._saves_view.status_changed.connect(self._saves_status.setText)
         # Open folder falls back to the save location itself, and Export/Import
@@ -1897,9 +1910,7 @@ class MainWindow(QMainWindow):
             self.tr("Locations"), _c(self._pal, "BTN_INFO"), compact=True)
         self._dl_locations_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_locations_btn.clicked.connect(self._on_downloads_locations)
-        self._dl_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._dl_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._dl_filters_btn = self._filters_button()
         self._dl_filters_btn.clicked.connect(self._toggle_downloads_filters)
         self._equalize_button_widths(
             self._dl_install_btn, self._dl_move_btn, self._dl_remove_btn)
@@ -1921,6 +1932,8 @@ class MainWindow(QMainWindow):
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         self._dl_search = search
+        search.textChanged.connect(
+            lambda _t, a="_dl_filters_btn": self._sync_filters_btn(a))
         return bar
 
     def _update_downloads_footer(self):
@@ -2067,9 +2080,7 @@ class MainWindow(QMainWindow):
             self.tr("Search Content"), _c(self._pal, "BTN_INFO"), compact=True)
         self._tf_content_btn.setFixedHeight(self._FOOT_BTN_H)
         self._tf_content_btn.clicked.connect(self._on_text_files_content_search)
-        self._tf_filters_btn = self._color_button(
-            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True)
-        self._tf_filters_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._tf_filters_btn = self._filters_button()
         self._tf_filters_btn.clicked.connect(self._toggle_text_files_filters)
         self._tf_expand_btn = self._text_button(
             self.tr("⊞ Expand all"), compact=True)
@@ -2098,6 +2109,8 @@ class MainWindow(QMainWindow):
         search_row.addWidget(search, 1)
         v.addLayout(search_row)
         self._tf_search = search
+        search.textChanged.connect(
+            lambda _t, a="_tf_filters_btn": self._sync_filters_btn(a))
         return bar
 
     def _set_tf_content_bar_visible(self, visible: bool):
@@ -10758,7 +10771,103 @@ class MainWindow(QMainWindow):
         self._plugin_filter_panel.setVisible(False)
         h.addWidget(self._plugin_filter_panel)
         h.addWidget(col, 1)
+        self._install_tab_filter_menus()
         return area
+
+    # -- header filter menus (the tabs' eye button) -------------------------
+    def _install_tab_filter_menus(self):
+        """Pin an eye button to the left of each simpler tab's column header,
+        opening that tab's filters as a menu with one submenu per category.
+        (The modlist + plugins views grow their own — theirs also carries the
+        column show/hide list.) Every button drives the tab's filter side
+        panel, so menu and panel are always the same state."""
+        from gui_qt.mod_files_view import ModFilesView
+        from gui_qt.data_view import DataView
+        from gui_qt.saves_view import SavesView
+        mf, tf, sv, dv, dl = (self._mod_files_view, self._text_files_view,
+                              self._saves_view, self._data_view,
+                              self._downloads_view)
+        for view, panel, spec, dyn, sync in (
+            (mf, self._mod_files_filter_panel, ModFilesView.filter_spec(),
+             {"filetypes": mf.filetype_items},
+             self._sync_mod_files_filter_list),
+            (tf, self._text_files_filter_panel, tf.filter_spec(),
+             {"filetypes": tf.filetype_items},
+             self._sync_text_files_filter_list),
+            (sv, self._saves_filter_panel, SavesView.filter_spec(),
+             {"filetypes": sv.filetype_items},
+             self._sync_saves_filter_list),
+            (dv, self._data_filter_panel, DataView.filter_spec(),
+             {"filetypes": dv.filetype_items},
+             self._sync_data_filter_list),
+            (dl, self._downloads_filter_panel, dl.filter_spec(),
+             {"filetypes": dl.filetype_items, "locations": dl.location_items},
+             self._sync_downloads_filter_list),
+        ):
+            self._install_filter_menu_button(view._tree, panel, spec, dyn, sync)
+
+    def _install_filter_menu_button(self, tree, panel, spec, dyn_fns, sync):
+        from gui_qt.filter_menu_button import FilterMenuButton, BTN_W
+        # Paint the first column's label clear of the button; the button's
+        # opaque background covers the strip that leaves bare.
+        tree.header_left_pad = BTN_W
+        btn = FilterMenuButton(tree)
+        btn.sections_fn = lambda: self._filter_menu_sections(
+            panel, spec, dyn_fns, sync)
+        btn.on_toggle = lambda key, on: self._on_filter_menu_toggle(
+            panel, key, on)
+        btn.on_clear = panel.clear_all
+        btn.any_active = panel.any_active
+        return btn
+
+    def _filter_menu_sections(self, panel, spec, dyn_fns, sync):
+        """Resolve a filter spec into menu sections (one submenu per category),
+        reading the live tri-states off the tab's filter panel."""
+        from PySide6.QtCore import QCoreApplication
+        # Spec labels/titles are canonical English registered for translation
+        # under the FilterSidePanel context (see filter_panel._TR_MARKERS).
+        tr = lambda s: QCoreApplication.translate("FilterSidePanel", s) if s else ""
+        # Dynamic lists are only refreshed while the panel is open — force one
+        # now so the menu (and the panel behind it) has the current items.
+        sync(force=True)
+        sections = []
+        for sec in spec:
+            if sec.get("type", "checks") == "dynamic":
+                sec_id = sec["id"]
+                fn = dyn_fns.get(sec_id)
+                entries = [
+                    ((sec_id, key),
+                     f"{label}  ({count:,})" if count is not None else label,
+                     panel.dynamic_state(sec_id, key))
+                    for key, label, count in (fn() if fn else [])]
+            else:
+                entries = [((None, key), tr(label), panel.check_state(key))
+                           for key, label, _enabled in sec.get("items", [])]
+            sections.append({"title": tr(sec.get("title", "")),
+                             "entries": entries})
+        return sections
+
+    def _panel_filters_active(self, attr: str) -> bool:
+        """Whether the named filter side panel has anything applied (greys the
+        column menus' "Clear all filters"). Tolerates the panel not built yet."""
+        panel = getattr(self, attr, None)
+        return bool(panel is not None and panel.any_active())
+
+    def _clear_panel_filters(self, attr: str):
+        panel = getattr(self, attr, None)
+        if panel is not None:
+            panel.clear_all()   # emits changed -> re-filter + footer tint
+
+    def _on_filter_menu_toggle(self, panel, key, on: bool):
+        """Apply a filter picked from a header menu by driving the tab's filter
+        panel, so the panel stays in sync and the normal pipeline (re-filter +
+        footer-button tint) runs."""
+        sec_id, item = key
+        state = 1 if on else 0
+        if sec_id is None:
+            panel.set_check(item, state)
+        else:
+            panel.set_dynamic_check(sec_id, item, state)
 
     def _build_text_files_filter_panel(self):
         from gui_qt.filter_panel import FilterSidePanel
@@ -10786,11 +10895,7 @@ class MainWindow(QMainWindow):
 
     def _on_text_files_filter_changed(self, state: dict):
         self._text_files_view.apply_filter_state(state)
-        active = self._text_files_filter_panel.any_active()
-        b = getattr(self, "_tf_filters_btn", None)
-        if b is not None:
-            b.setProperty("active", active)
-            b.style().unpolish(b); b.style().polish(b)
+        self._sync_filters_btn("_tf_filters_btn")
 
     def _build_plugin_filter_panel(self):
         from gui_qt.filter_panel import FilterSidePanel
@@ -10821,11 +10926,7 @@ class MainWindow(QMainWindow):
     def _on_plugin_filter_changed(self, state: dict):
         self._plugin_filter_state = state
         self._apply_plugin_filters()
-        active = self._plugin_filter_panel.any_active()
-        b = getattr(self, "_plugin_filters_btn", None)
-        if b is not None:
-            b.setProperty("active", active)
-            b.style().unpolish(b); b.style().polish(b)
+        self._sync_filters_btn("_plugin_filters_btn")
 
     def _quick_plugin_filter_state(self, key: str) -> int:
         """Current tri-state for a plugin status filter (for the column-menu
@@ -10876,8 +10977,10 @@ class MainWindow(QMainWindow):
         except Exception:
             return set()
 
-    def _sync_text_files_filter_list(self):
-        if not self._text_files_filter_panel.isVisible():
+    def _sync_text_files_filter_list(self, *, force: bool = False):
+        # force: the header filter menu needs the list even while the panel is
+        # closed (it reads/drives the panel's checkboxes).
+        if not force and not self._text_files_filter_panel.isVisible():
             return
         self._text_files_filter_panel.set_dynamic_items(
             "filetypes", self._text_files_view.filetype_items())
@@ -10908,14 +11011,10 @@ class MainWindow(QMainWindow):
 
     def _on_saves_filter_changed(self, state: dict):
         self._saves_view.apply_filter_state(state)
-        active = self._saves_filter_panel.any_active()
-        b = getattr(self, "_saves_filters_btn", None)
-        if b is not None:
-            b.setProperty("active", active)
-            b.style().unpolish(b); b.style().polish(b)
+        self._sync_filters_btn("_saves_filters_btn")
 
-    def _sync_saves_filter_list(self):
-        if not self._saves_filter_panel.isVisible():
+    def _sync_saves_filter_list(self, *, force: bool = False):
+        if not force and not self._saves_filter_panel.isVisible():
             return
         self._saves_filter_panel.set_dynamic_items(
             "filetypes", self._saves_view.filetype_items())
@@ -10946,14 +11045,10 @@ class MainWindow(QMainWindow):
 
     def _on_downloads_filter_changed(self, state: dict):
         self._downloads_view.apply_filter_state(state)
-        active = self._downloads_filter_panel.any_active()
-        b = getattr(self, "_dl_filters_btn", None)
-        if b is not None:
-            b.setProperty("active", active)
-            b.style().unpolish(b); b.style().polish(b)
+        self._sync_filters_btn("_dl_filters_btn")
 
-    def _sync_downloads_filter_list(self):
-        if not self._downloads_filter_panel.isVisible():
+    def _sync_downloads_filter_list(self, *, force: bool = False):
+        if not force and not self._downloads_filter_panel.isVisible():
             return
         self._downloads_filter_panel.set_dynamic_items(
             "filetypes", self._downloads_view.filetype_items())
@@ -10988,14 +11083,10 @@ class MainWindow(QMainWindow):
 
     def _on_data_filter_changed(self, state: dict):
         self._data_view.apply_filter_state(state)
-        active = self._data_filter_panel.any_active()
-        b = getattr(self, "_data_filters_btn", None)
-        if b is not None:
-            b.setProperty("active", active)
-            b.style().unpolish(b); b.style().polish(b)
+        self._sync_filters_btn("_data_filters_btn")
 
-    def _sync_data_filter_list(self):
-        if not self._data_filter_panel.isVisible():
+    def _sync_data_filter_list(self, *, force: bool = False):
+        if not force and not self._data_filter_panel.isVisible():
             return
         self._data_filter_panel.set_dynamic_items(
             "filetypes", self._data_view.filetype_items())
@@ -11033,14 +11124,10 @@ class MainWindow(QMainWindow):
 
     def _on_mod_files_filter_changed(self, state: dict):
         self._mod_files_view.apply_filter_state(state)
-        active = self._mod_files_filter_panel.any_active()
-        b = getattr(self, "_mf_filters_btn", None)
-        if b is not None:
-            b.setProperty("active", active)
-            b.style().unpolish(b); b.style().polish(b)
+        self._sync_filters_btn("_mf_filters_btn")
 
-    def _sync_mod_files_filter_list(self):
-        if not self._mod_files_filter_panel.isVisible():
+    def _sync_mod_files_filter_list(self, *, force: bool = False):
+        if not force and not self._mod_files_filter_panel.isVisible():
             return
         self._mod_files_filter_panel.set_dynamic_items(
             "filetypes", self._mod_files_view.filetype_items())
@@ -11597,12 +11684,28 @@ class MainWindow(QMainWindow):
         self._modlist_view.set_filter_hidden(hide)
 
     def _update_filters_btn_active(self):
-        """Tint the Filters footer button when any filter is active (Tk parity)."""
-        btn = getattr(self, "_modlist_filters_btn", None)
-        panel = getattr(self, "_modlist_filter_panel", None)
-        if btn is None or panel is None:
+        """Tint the modlist Filters footer button when a filter is active."""
+        self._sync_filters_btn("_modlist_filters_btn")
+
+    def _sync_filters_btn(self, btn_attr: str):
+        """Light a Filters footer button purple while that panel is filtered.
+
+        "Filtered" covers both routes to a narrowed list: a checkbox set in the
+        Filters side panel, and a non-empty search box - the button is the only
+        persistent hint that the list isn't showing everything, so it has to
+        follow both. Re-polish is skipped when the state hasn't changed."""
+        btn = getattr(self, btn_attr, None)
+        entry = self._FILTER_BTN_SOURCES.get(btn_attr)
+        if btn is None or entry is None:
             return
-        btn.setProperty("active", panel.any_active())
+        panel_attr, search_attr = entry
+        panel = getattr(self, panel_attr, None)
+        search = getattr(self, search_attr, None)
+        active = bool(panel is not None and panel.any_active()) or bool(
+            search is not None and search.text().strip())
+        if bool(btn.property("active")) == active:
+            return
+        btn.setProperty("active", active)
         btn.style().unpolish(btn)
         btn.style().polish(btn)
 
@@ -12075,6 +12178,10 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_sizes_requested = self._apply_modlist_sizes
         self._modlist_view.on_quick_filter = self._on_quick_modlist_filter
         self._modlist_view.quick_filter_state = self._quick_modlist_filter_state
+        self._modlist_view.filters_active = lambda: self._panel_filters_active(
+            "_modlist_filter_panel")
+        self._modlist_view.on_clear_filters = lambda: self._clear_panel_filters(
+            "_modlist_filter_panel")
         self._modlist_model._sizes = {}
         if not self._modlist_view.isColumnHidden(COL_SIZE):
             self._apply_modlist_sizes()
@@ -12570,6 +12677,10 @@ class MainWindow(QMainWindow):
         self._plugin_view.on_show_overlapping = self._on_show_overlapping_plugins
         self._plugin_view.on_quick_filter = self._on_quick_plugin_filter
         self._plugin_view.quick_filter_state = self._quick_plugin_filter_state
+        self._plugin_view.filters_active = lambda: self._panel_filters_active(
+            "_plugin_filter_panel")
+        self._plugin_view.on_clear_filters = lambda: self._clear_panel_filters(
+            "_plugin_filter_panel")
         print(f"[gui_qt] plugins: {len(rows)} entries")
         from Utils import perftrace
         perftrace.mark("on_plugins_loaded(apply)",
@@ -14119,18 +14230,43 @@ class MainWindow(QMainWindow):
         return b
 
     def _color_button(self, text: str, color: str,
-                      compact: bool = False) -> QPushButton:
-        """Solid colored button (plugin tools, matching the Tk app)."""
+                      compact: bool = False,
+                      active_color: str | None = None) -> QPushButton:
+        """Solid colored button (plugin tools, matching the Tk app).
+
+        *active_color* adds an ``[active="true"]`` fill so the button can light
+        up in a second colour (the Filters footer buttons use it)."""
         pad = "4px 10px" if compact else "6px 14px"
         fs = "12px" if compact else "14px"
         fg = contrast_text(color)   # black or white - whichever reads on the fill
         b = QPushButton(text)
         b.setCursor(Qt.PointingHandCursor)
-        b.setStyleSheet(
+        sheet = (
             f"QPushButton{{background:{color}; color:{fg}; border:none;"
             f" padding:{pad}; border-radius:4px; font-size:{fs};"
             f" font-weight:600;}}"
             f"QPushButton:hover{{background:{color};}}")
+        if active_color:
+            # The :hover rule above also matches while active, so the active
+            # fill needs its own hover rule to win (equal specificity, later).
+            afg = contrast_text(active_color)
+            sheet += (
+                f'QPushButton[active="true"]{{background:{active_color};'
+                f' color:{afg};}}'
+                f'QPushButton[active="true"]:hover{{background:{active_color};'
+                f' color:{afg};}}')
+        b.setStyleSheet(sheet)
+        return b
+
+    def _filters_button(self) -> QPushButton:
+        """A footer "Filters" button: blue at rest, theme purple (BTN_PURPLE)
+        while that panel has a filter set or its search box holds a query.
+        _sync_filters_btn flips the `active` property that swaps the fill."""
+        b = self._color_button(
+            self.tr("Filters"), _c(self._pal, "BTN_INFO"), compact=True,
+            active_color=_c(self._pal, "BTN_PURPLE"))
+        b.setFixedHeight(self._FOOT_BTN_H)
+        b.setProperty("active", False)
         return b
 
     def _equalize_button_widths(self, *buttons) -> None:

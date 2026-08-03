@@ -39,6 +39,7 @@ py.install_sources(
   'export_profile_view.py',
   'favourite_wizards_overlay.py',
   'file_pickers.py',
+  'filter_menu_button.py',
   'filter_panel.py',
   'flow_layout.py',
   'fomod_wizard_view.py',

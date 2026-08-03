@@ -89,6 +89,13 @@ _TR_MARKERS = (
     # --- downloads / mod-files panels ---
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show only installed"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Show only not installed"),
+    # --- data panel ---
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Only conflicts"),
+    # --- text files panel (source checks) ---
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Mod folders"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Profile"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Game folder"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "My Games"),
 )
 
 
@@ -251,6 +258,26 @@ class FilterSidePanel(QWidget):
     def check_state(self, key: str) -> int:
         cb = self._checks.get(key)
         return cb.state() if cb is not None else STATE_OFF
+
+    def dynamic_state(self, sec_id: str, key: str) -> int:
+        """Tri-state of one dynamic item (used by the header filter menu's
+        check marks). Unknown ids/keys read as OFF."""
+        entry = self._dynamic.get(sec_id)
+        if entry is None:
+            return STATE_OFF
+        cb = entry[1].get(key)
+        return cb.state() if cb is not None else STATE_OFF
+
+    def set_dynamic_check(self, sec_id: str, key: str, state: int, *,
+                          emit: bool = True) -> None:
+        """Set one dynamic item's tri-state. The item must already exist (the
+        host repopulates the section before driving it)."""
+        entry = self._dynamic.get(sec_id)
+        if entry is None:
+            return
+        cb = entry[1].get(key)
+        if cb is not None:
+            cb.set_state(state, emit=emit)
 
     def set_check_enabled(self, key: str, enabled: bool) -> None:
         cb = self._checks.get(key)

@@ -531,7 +531,9 @@ def build_qss(pal: dict | None = None) -> str:
     }}
     #FooterButton:hover {{ background: {c('BG_ROW_HOVER')}; }}
     #FooterButton:pressed {{ background: {c('ACCENT')}; color: {ct('ACCENT')}; }}
-    /* Filters footer button lights up while any filter is active. */
+    /* Generic "this footer button is latched on" state. (The Filters buttons
+       are _color_button/QPushButton, not #FooterButton - they carry their own
+       active fill; see MainWindow._filters_button.) */
     #FooterButton[active="true"] {{
         background: {c('ACCENT')};
         color: {ct('ACCENT')};
