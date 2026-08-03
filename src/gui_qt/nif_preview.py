@@ -5,7 +5,9 @@ Panel-scoped 3D preview for .nif meshes (QOpenGLWidget, no new deps).
 Parses off-thread via Utils.nif_reader, bakes world transforms into vertices,
 and resolves textures through Utils.asset_resolver (what the game would load)
 with archive/loose fallbacks. Starfield geometry is fetched from external
-.mesh files. Meshes are Z-up; the camera orbits +Z.
+.mesh files. Meshes are Z-up; dragging turns the asset about +Z like a
+turntable - the camera and lights stay put, so highlights sweep across the
+surface as it spins.
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ from PySide6.QtWidgets import (
 
 # The QtOpenGL* modules need libQt6OpenGL/libQt6OpenGLWidgets, which not every
 # host has. Import must not be fatal: gl_status() decides whether any of this
-# is usable, and the preview falls back to _NoGLViewport when it is not — the
+# is usable, and the preview falls back to _NoGLViewport when it is not - the
 # class bodies below are only ever *executed* when gl_status() says yes.
 try:
     from PySide6.QtOpenGL import (
@@ -70,6 +72,10 @@ BACKGROUND_ORDER = ["light", "grey", "dark", "black"]
 # Brightness is a gamma lift: 1.0 neutral, higher raises shadows. Stored as an
 # int percent so it round-trips through the ini and the slider unchanged.
 BRIGHTNESS_MIN, BRIGHTNESS_MAX, BRIGHTNESS_DEFAULT = 60, 260, 100
+
+# The fixed camera's angles; also where the light rig is anchored.
+_HOME_YAW = math.radians(-60.0)
+_HOME_PITCH = math.radians(22.0)
 
 # Wireframe: off, lines over the solid render, or lines only.
 WIRE_OFF, WIRE_OVERLAY, WIRE_ONLY = "off", "overlay", "only"
@@ -129,19 +135,19 @@ in vec2 vUV;
 in vec3 vTangent;
 in vec3 vWorld;
 in vec4 vColor;
-// Only 1 where the mesh HAS colours and SLSF2_Vertex_Colors is set — plenty
+// Only 1 where the mesh HAS colours and SLSF2_Vertex_Colors is set - plenty
 // of meshes carry a stale colour array the engine ignores.
 uniform float uHasVColor;
 // Runtime colour multiply (FaceGen hair). White for everything else.
 uniform vec3 uTint;
-// TruePBR ambient occlusion — blue channel of the _rmaos map. We do not
+// TruePBR ambient occlusion - blue channel of the _rmaos map. We do not
 // implement PBR shading, but AO is a plain multiply and without it recessed
 // detail (roof shingles, beam joints) washes out.
 uniform sampler2D uAoTex;
 uniform float uHasAo;
 // 1 when the diffuse DDS declared an sRGB format (PBR packs do; legacy
 // Skyrim textures never declare one). Those meshes get a colour-managed
-// path — decode to linear, light, tonemap, re-encode — which is why their
+// path - decode to linear, light, tonemap, re-encode - which is why their
 // mid-tones stop washing out. Legacy meshes keep the BodySlide behaviour.
 uniform float uSrgbAlbedo;
 // uHasTex is a float: PySide6 setUniformValue silently misses int uniforms.
@@ -162,11 +168,12 @@ out vec4 FragColor;
 
 // BodySlide's rig (GLSurface::InitLighting): three directional lights plus a
 // camera-locked frontal one, each adding its own share of ambient. BodySlide
-// states the directions in ITS world — Y-up, +Z toward the default camera —
+// states the directions in ITS world - Y-up, +Z toward the default camera -
 // so they are camera coordinates in all but name. Python rotates them onto
-// the current camera basis each frame (uLd*), keeping the rig attached to
-// the viewer; dropping them into our Z-up model world put the two front
-// lights overhead and the backlight underneath.
+// the HOME camera basis (uLd*), then leaves them fixed in the world: the
+// drag reads as the asset turning under still lights, not the viewer flying
+// around it. Dropping them into our Z-up model world unrotated put the two
+// front lights overhead and the backlight underneath.
 const float AMBIENT = 0.2;
 uniform vec3 uLd0;
 uniform vec3 uLd1;
@@ -175,7 +182,7 @@ uniform vec3 uCamRight;
 uniform vec3 uCamUp;
 
 // Environment map (Skyrim shader type 1). BodySlide samples a cubemap with
-// the reflection vector; ours samples one face through a sphere-map lookup —
+// the reflection vector; ours samples one face through a sphere-map lookup -
 // chrome env maps are soft gradients, so the difference is not visible.
 uniform sampler2D uEnvTex;
 uniform sampler2D uMaskTex;
@@ -394,7 +401,7 @@ def _make_gl_texture(img):
     """Upload *img* explicitly rather than via QOpenGLTexture(QImage).
 
     The convenience constructor PREMULTIPLIES by alpha, which silently scales
-    RGB down. That ruins any texture whose alpha is meaningful — Skyrim keeps
+    RGB down. That ruins any texture whose alpha is meaningful - Skyrim keeps
     its gloss mask in the normal map's alpha, so a normal map came back ~5x too
     dark and the surface barely responded to lighting.
     """
@@ -468,7 +475,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             blob = _fetch_exact("textures/" + rel)
             if blob is not None:
                 return blob
-        # Recorded so the build summary can list exactly what went unfound —
+        # Recorded so the build summary can list exactly what went unfound -
         # the usual reason a mesh previews as untextured clay.
         if rel not in missing:
             missing.append(rel)
@@ -616,7 +623,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         return seen[key]
 
     def diffuse_key(shape) -> str:
-        """The cache key for a shape's diffuse — what fetch() ends up asking."""
+        """The cache key for a shape's diffuse - what fetch() ends up asking."""
         rel = material_slot(shape.material) if shape.material else ""
         if not rel:
             rel = shape_slot(shape)
@@ -644,7 +651,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             image = None
         if blob and image is None:
             _log(log, f"      ! {rel.replace(chr(92), '/')} was found but could NOT be decoded "
-                      f"({_fmt_bytes(len(blob))}) — unsupported DDS format?")
+                      f"({_fmt_bytes(len(blob))}) - unsupported DDS format?")
         pre = (image.width(), image.height()) if image is not None else None
         image = _fit_texture(image)
         if blob:
@@ -790,7 +797,7 @@ def _build_meshes(model, load_texture):
                              if hasattr(load_texture, "env_maps") and not shape.pbr
                              else (None, None))
         # NiAlphaProperty thresholds are 0-255; GL compares against 0-1.
-        # Only useful with a texture — an untextured shape has alpha 1.
+        # Only useful with a texture - an untextured shape has alpha 1.
         thr = (shape.alpha_threshold / 255.0
                if shape.alpha_test and image is not None else -1.0)
         centre = tuple((mlo[k] + mhi[k]) * 0.5 for k in range(3))
@@ -861,7 +868,7 @@ def _log_model(log, model) -> None:
                   "animation data): "
                   + ", ".join(f"{k} x{v}" for k, v in worst[:8]))
     if not model.shapes:
-        _log(log, "  ! no shapes — nothing to draw. Either the file has no"
+        _log(log, "  ! no shapes - nothing to draw. Either the file has no"
                   " renderable geometry or its block layout is unsupported.")
     for s in model.shapes:
         flags = []
@@ -916,7 +923,7 @@ def _log_build(log, meshes, bounds, loader) -> None:
         _log(log, f"  bounds: {size[0]} x {size[1]} x {size[2]} units")
     missed = getattr(loader, "missing", None)
     if missed:
-        _log(log, f"  ! {len(missed)} texture(s) NOT found — these are why a"
+        _log(log, f"  ! {len(missed)} texture(s) NOT found - these are why a"
                   f" mesh renders as untextured clay:")
         for rel in list(missed)[:20]:
             _log(log, f"      missing: {rel.replace(chr(92), '/')}")
@@ -925,7 +932,7 @@ def _log_build(log, meshes, bounds, loader) -> None:
 
 
 def _neutralise_view(view) -> None:
-    """Last-resort orphan cleanup when a context dies (Python attrs only —
+    """Last-resort orphan cleanup when a context dies (Python attrs only -
     the widget's C++ half may already be mid-destruction)."""
     _neutralise_meshes(list(view._meshes) + list(view._pending or ()))
     view._meshes = []
@@ -933,7 +940,7 @@ def _neutralise_view(view) -> None:
 
 
 class _Viewport(QOpenGLWidget):
-    """The GL canvas: orbit/pan/zoom camera over the parsed shapes."""
+    """The GL canvas: turntable rotate/pan/zoom over the parsed shapes."""
 
     loaded = Signal(object, object, int, object)  # meshes, bounds, gen, tex paths
     failed = Signal(str, int)
@@ -941,7 +948,7 @@ class _Viewport(QOpenGLWidget):
     def __init__(self, parent=None, log_fn=None):
         super().__init__(parent)
         # Host's log sink. The parse/build runs off-thread, so this must stay
-        # thread-safe — app.py's _append_log marshals to the GUI thread.
+        # thread-safe - app.py's _append_log marshals to the GUI thread.
         self.log_fn = log_fn
         fmt = QSurfaceFormat()
         fmt.setVersion(3, 3)
@@ -972,10 +979,14 @@ class _Viewport(QOpenGLWidget):
         # Built on the first resize; see resizeEvent for why paints pause.
         self._resize_hold = None
 
-        self._yaw = math.radians(-60.0)
-        self._pitch = math.radians(22.0)
+        self._yaw = _HOME_YAW
+        self._pitch = _HOME_PITCH
         self._distance = 100.0
-        self._target = QVector3D(0, 0, 0)
+        self._center = QVector3D(0, 0, 0)    # rotation pivot: the mesh centre
+        # Pan lives in view-plane coordinates, not world space: rotation then
+        # always spins the asset about its own centre instead of arcing a
+        # panned view across the screen.
+        self._pan = [0.0, 0.0]
         self._home = (self._yaw, self._pitch, self._distance, QVector3D(0, 0, 0))
         self._last_pos = None
         self._last_buttons = Qt.NoButton
@@ -1006,7 +1017,7 @@ class _Viewport(QOpenGLWidget):
         """
         self._generation += 1
         gen = self._generation
-        # keep_view: same mesh, new textures — don't snap the camera back.
+        # keep_view: same mesh, new textures - don't snap the camera back.
         self._keep_view = bool(keep_view)
         # Kept so the mesh can be rebuilt after a context loss (tab detach).
         self._reload_args = (source, texture_roots, archive_roots,
@@ -1136,10 +1147,11 @@ class _Viewport(QOpenGLWidget):
         (lx, ly, lz), (hx, hy, hz) = bounds
         cx, cy, cz = (lx + hx) / 2, (ly + hy) / 2, (lz + hz) / 2
         radius = max(hx - lx, hy - ly, hz - lz, 1e-3) * 0.5
-        self._target = QVector3D(cx, cy, cz)
+        self._center = QVector3D(cx, cy, cz)
+        self._pan = [0.0, 0.0]
         self._distance = radius * 3.0
-        self._yaw = math.radians(-60.0)
-        self._pitch = math.radians(22.0)
+        self._yaw = _HOME_YAW
+        self._pitch = _HOME_PITCH
         self._home = (self._yaw, self._pitch, self._distance,
                       QVector3D(cx, cy, cz))
 
@@ -1176,7 +1188,7 @@ class _Viewport(QOpenGLWidget):
         ok = linked and ok
         if not ok:
             self._gl_error = prog.log() or "shader compilation failed"
-            _log(log, "!! the viewport cannot draw — shaders did not build")
+            _log(log, "!! the viewport cannot draw - shaders did not build")
             self._program = None
             return
         _log(log, "  shaders compiled and linked")
@@ -1238,7 +1250,7 @@ class _Viewport(QOpenGLWidget):
             self._core = QOpenGLVersionFunctionsFactory.get(profile, ctx)
         except Exception as exc:                         # noqa: BLE001
             self._core = None
-            _log(log, f"  ! GL 3.3 core functions unavailable ({exc!r}) — "
+            _log(log, f"  ! GL 3.3 core functions unavailable ({exc!r}) - "
                       f"wireframe modes will fall back to solid")
         # Reparenting (tab detach/re-pin) destroys the context and everything
         # uploaded to it. Free while it is still current, then rebuild from
@@ -1246,7 +1258,7 @@ class _Viewport(QOpenGLWidget):
         ctx.aboutToBeDestroyed.connect(self._on_context_lost)
         # Safety net for hosts that delete this widget as a CHILD: their
         # DeferredDelete never reaches us and the bound connection above is
-        # dropped mid-destruction — but a receiver-less lambda still fires,
+        # dropped mid-destruction - but a receiver-less lambda still fires,
         # and it touches only Python-side state.
         ctx.aboutToBeDestroyed.connect(lambda v=self: _neutralise_view(v))
         if self._needs_reload:
@@ -1257,7 +1269,7 @@ class _Viewport(QOpenGLWidget):
 
     def _on_context_lost(self):
         from PySide6.QtGui import QOpenGLContext
-        _log(self.log_fn, "GL context destroyed (tab detach/re-pin?) — "
+        _log(self.log_fn, "GL context destroyed (tab detach/re-pin?) - "
                           "freeing buffers, mesh will be rebuilt")
         try:
             self.makeCurrent()
@@ -1267,7 +1279,7 @@ class _Viewport(QOpenGLWidget):
             self._release_gpu()
             self.doneCurrent()
         else:
-            # No current context to free under — and once the creation context
+            # No current context to free under - and once the creation context
             # is gone even a later destroy() crashes (it derefs the stored
             # context in areSharing; seen as a GC-time SIGSEGV). Sever the
             # wrappers instead; the share group reclaims the GPU side.
@@ -1279,7 +1291,7 @@ class _Viewport(QOpenGLWidget):
 
     def release_gl(self):
         """Free GL objects while the context lives (called on DeferredDelete;
-        aboutToBeDestroyed fires too late — Qt has dropped our connections)."""
+        aboutToBeDestroyed fires too late - Qt has dropped our connections)."""
         if self.context() is None:
             return
         try:
@@ -1424,7 +1436,7 @@ class _Viewport(QOpenGLWidget):
             # Alpha-TESTED meshes stay in the opaque pass: a discarded
             # fragment writes no depth, so they need no ordering. Only truly
             # BLENDED ones must come last, back to front, without depth
-            # writes — per mesh, so surfaces inside one shape can still
+            # writes - per mesh, so surfaces inside one shape can still
             # order wrong (BodySlide has the same limit).
             blended = [m for m in self._meshes
                        if m.alpha_blend and self.textured
@@ -1540,7 +1552,7 @@ class _Viewport(QOpenGLWidget):
         """Stop painting until a resize drag settles.
 
         On GLX/DRI3 a buffer swap that lands mid-resize can block forever in
-        xcb_wait_for_special_event — dragging a splitter across the viewport
+        xcb_wait_for_special_event - dragging a splitter across the viewport
         froze the whole app. No repaint during the drag means no swap in
         flight, so the hang has no window to happen in. This replaces the old
         app-wide QT_XCB_GL_INTEGRATION=xcb_egl, which fixed the freeze by
@@ -1568,29 +1580,54 @@ class _Viewport(QOpenGLWidget):
         (0.30, 0.20, -1.00),
     )
 
-    def _camera_basis(self):
-        """(right, up, forward) unit vectors of the current camera."""
-        eye = self._eye()
-        fwd = (self._target - eye).normalized()
+    @staticmethod
+    def _basis_for(yaw: float, pitch: float):
+        """(right, up, forward) unit vectors of a camera at these angles."""
+        fwd = QVector3D(-math.cos(pitch) * math.cos(yaw),
+                        -math.cos(pitch) * math.sin(yaw),
+                        -math.sin(pitch))
         right = QVector3D.crossProduct(fwd, QVector3D(0, 0, 1))
         if right.lengthSquared() < 1e-6:            # looking straight down/up
-            right = QVector3D(math.cos(self._yaw + math.pi / 2),
-                              math.sin(self._yaw + math.pi / 2), 0)
+            right = QVector3D(math.cos(yaw + math.pi / 2),
+                              math.sin(yaw + math.pi / 2), 0)
         right = right.normalized()
         return right, QVector3D.crossProduct(right, fwd), fwd
 
+    def _camera_basis(self):
+        """(right, up, forward) unit vectors of the current camera."""
+        return self._basis_for(self._yaw, self._pitch)
+
     def _light_dirs(self):
-        """The rig rotated onto the current camera basis, in world space."""
-        right, up, fwd = self._camera_basis()
+        """The rig on the home basis - fixed in the world, not the viewer."""
+        # Anchoring the lights while yaw/pitch change is what turns the orbit
+        # into a turntable: the same relative motion now reads as the asset
+        # rotating under still lights, with highlights sweeping across it.
+        right, up, fwd = self._basis_for(_HOME_YAW, _HOME_PITCH)
         return [(right * x + up * y - fwd * z).normalized()
                 for x, y, z in self._RIG]
 
+    def _pan_axes(self):
+        """(right, up) drag axes of the view plane at the current angles."""
+        right = QVector3D(math.sin(self._yaw), -math.cos(self._yaw), 0.0)
+        up = QVector3D(
+            -math.sin(self._pitch) * math.cos(self._yaw),
+            -math.sin(self._pitch) * math.sin(self._yaw),
+            math.cos(self._pitch),
+        )
+        return right, up
+
+    def _look_target(self) -> QVector3D:
+        """The look-at point: the mesh centre pushed by the pan offset."""
+        right, up = self._pan_axes()
+        return self._center + right * self._pan[0] + up * self._pan[1]
+
     def _eye(self) -> QVector3D:
         d = max(self._distance, 1e-3)
+        t = self._look_target()
         return QVector3D(
-            self._target.x() + d * math.cos(self._pitch) * math.cos(self._yaw),
-            self._target.y() + d * math.cos(self._pitch) * math.sin(self._yaw),
-            self._target.z() + d * math.sin(self._pitch),
+            t.x() + d * math.cos(self._pitch) * math.cos(self._yaw),
+            t.y() + d * math.cos(self._pitch) * math.sin(self._yaw),
+            t.z() + d * math.sin(self._pitch),
         )
 
     def _mvp(self) -> QMatrix4x4:
@@ -1601,7 +1638,7 @@ class _Viewport(QOpenGLWidget):
         proj = QMatrix4x4()
         proj.perspective(45.0, w / h, max(d * 0.001, 1e-3), d * 50.0)
         view = QMatrix4x4()
-        view.lookAt(eye, self._target, QVector3D(0, 0, 1))
+        view.lookAt(eye, self._look_target(), QVector3D(0, 0, 1))
         return proj * view
 
     # -- interaction --------------------------------------------------------
@@ -1614,24 +1651,18 @@ class _Viewport(QOpenGLWidget):
             return
         delta = e.position() - self._last_pos
         self._last_pos = e.position()
-        # Orbit and pan are deliberately mirrored; the toggle flips both.
-        orbit_sign = -1.0 if self.invert_mouse else 1.0
-        pan_sign = -orbit_sign
+        # Rotate and pan are deliberately mirrored; the toggle flips both.
+        rot_sign = -1.0 if self.invert_mouse else 1.0
+        pan_sign = -rot_sign
         if e.buttons() & Qt.LeftButton:
-            self._yaw += orbit_sign * delta.x() * 0.01
+            self._yaw += rot_sign * delta.x() * 0.01
             self._pitch = max(-1.5533, min(
-                1.5533, self._pitch - orbit_sign * delta.y() * 0.01))
+                1.5533, self._pitch - rot_sign * delta.y() * 0.01))
         elif e.buttons() & (Qt.RightButton | Qt.MiddleButton):
             # Pan across the view plane, scaled so the drag tracks the cursor.
             scale = self._distance * 0.0022 * pan_sign
-            right = QVector3D(math.sin(self._yaw), -math.cos(self._yaw), 0.0)
-            up = QVector3D(
-                -math.sin(self._pitch) * math.cos(self._yaw),
-                -math.sin(self._pitch) * math.sin(self._yaw),
-                math.cos(self._pitch),
-            )
-            self._target += right * (delta.x() * scale)
-            self._target += up * (delta.y() * scale)
+            self._pan[0] += delta.x() * scale
+            self._pan[1] += delta.y() * scale
         else:
             return
         self.update()
@@ -1661,15 +1692,16 @@ class _Viewport(QOpenGLWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e):
-        self._yaw, self._pitch, self._distance, target = self._home
-        self._target = QVector3D(target)
+        self._yaw, self._pitch, self._distance, center = self._home
+        self._center = QVector3D(center)
+        self._pan = [0.0, 0.0]
         self.update()
 
 
 class _NoGLViewport(QWidget):
     """Stand-in canvas for machines where Qt's GL path is unusable.
 
-    Creating a real QOpenGLWidget there does not just fail to draw the mesh —
+    Creating a real QOpenGLWidget there does not just fail to draw the mesh -
     it turns the whole window black (GH#350), so we never build one. This
     keeps the surrounding preview UI intact and explains itself instead.
     """
@@ -1796,7 +1828,7 @@ class NifPreview(QWidget):
         self._act_cull = self._menu.addAction(self.tr("Cull backfaces"))
         self._act_cull.setCheckable(True)
         self._act_cull.setToolTip(self.tr(
-            "Hide inward-facing triangles — reveals inside-out normals"))
+            "Hide inward-facing triangles - reveals inside-out normals"))
         self._act_cull.triggered.connect(self._on_cull)
 
         wire_menu = self._menu.addMenu(self.tr("Wireframe"))
@@ -1836,14 +1868,14 @@ class NifPreview(QWidget):
         self._act_invert = self._menu.addAction(self.tr("Invert mouse"))
         self._act_invert.setCheckable(True)
         self._act_invert.setToolTip(self.tr(
-            "Reverse the drag direction for orbiting and panning"))
+            "Reverse the drag direction for rotating and panning"))
         self._act_invert.triggered.connect(self._on_invert_mouse)
 
         self._bright = QSlider(Qt.Horizontal)
         self._bright.setRange(BRIGHTNESS_MIN, BRIGHTNESS_MAX)
         self._bright.setFixedWidth(90)
         self._bright.setToolTip(self.tr(
-            "Brightness — lifts dark textures without blowing out highlights; "
+            "Brightness - lifts dark textures without blowing out highlights; "
             "double-click to reset"))
         self._bright.installEventFilter(self)
         ctl_row.addWidget(QLabel("\u2600"))
@@ -1865,7 +1897,7 @@ class NifPreview(QWidget):
         if gl_ok:
             self._view = _Viewport(log_fn=log_fn)
             self._view.setToolTip(self.tr(
-                "Drag to orbit · right-drag to pan · scroll to zoom · "
+                "Drag to rotate · right-drag to pan · scroll to zoom · "
                 "double-click to reframe"))
         else:
             self._view = _NoGLViewport(gl_why)
@@ -1958,7 +1990,7 @@ class NifPreview(QWidget):
         self.texture_source_changed.emit(self._tex_box.currentData())
 
     def set_title(self, display_name: str, status: str = ""):
-        """Retitle without loading — a browser showing what it is about to read."""
+        """Retitle without loading - a browser showing what it is about to read."""
         self._header.setText(display_name)
         self._stats.setText(status)
 
@@ -2027,7 +2059,7 @@ class NifPreview(QWidget):
     def _on_texture_slot(self, act):
         """Re-resolve textures for the chosen map; geometry is untouched."""
         _log(self.log_fn, f"option: showing texture slot {act.data()}"
-                          f" (0 = diffuse, 1 = normal) — re-resolving")
+                          f" (0 = diffuse, 1 = normal) - re-resolving")
         self._view.texture_slot = int(act.data())
         self.reload_textures()
 
