@@ -6,36 +6,64 @@
   "mod_data_path": "BepInEx/plugins",
   "steam_id": "1465460",
   "nexus_game_domain": "infectionfreezone",
-  "image_url": "",
-  "mod_folder_strip_prefixes": [
+  "image_url": "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/1465460/6dd2cdf8e734305c8e26ebe06702c73199770fa4.ico",
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*.md",
+    "*read*.txt",
+    "*changelog*.txt"
+  ],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [
     "BepInEx",
     "plugins"
   ],
-  "conflict_ignore_filenames": [
-    "*.md",
-    "manifest.json"
-  ],
-  "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
-  "mod_required_top_level_folders": [],
+  "mod_required_top_level_folders": [
+    "BepInEx",
+    "plugins"
+  ],
   "mod_auto_strip_until_required": true,
   "mod_required_file_types": [],
   "mod_install_as_is_if_no_match": true,
   "restore_before_deploy": true,
   "normalize_folder_case": true,
+  "filemap_casing": "upper",
   "wine_dll_overrides": {
+    "version": "native,builtin",
     "winhttp": "native,builtin"
   },
   "custom_routing_rules": [
     {
       "dest": "",
+      "filenames": [
+        "winhttp.dll",
+        "version.dll",
+        "run_bepinex.sh",
+        "libdoorstop.dylib",
+        "doorstop_config.ini",
+        "d3d11.dll",
+        "dxgi.dll",
+        "dxvk.conf"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "BepInEx",
       "folders": [
+        "config",
+        "core",
+        "patchers",
         "plugins"
       ],
+      "loose_only": true,
       "flatten": true
     }
   ],
-  "custom_frameworks": {},
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "BepInEx": "winhttp.dll"
+  },
   "version": 1,
   "editable": false
 }
