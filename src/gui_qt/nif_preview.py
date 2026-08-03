@@ -870,6 +870,12 @@ def _log_model(log, model) -> None:
     if not model.shapes:
         _log(log, "  ! no shapes - nothing to draw. Either the file has no"
                   " renderable geometry or its block layout is unsupported.")
+        # Files older than 20.2.0.5 are walked block by block against nif.xml;
+        # say where that stopped rather than just "unsupported". Reporting must
+        # never be what breaks the viewer, so tolerate a model without it.
+        walk_error = getattr(model, "walk_error", "")
+        if walk_error:
+            _log(log, f"  ! block walk failed: {walk_error}")
     for s in model.shapes:
         flags = []
         if s.pbr:

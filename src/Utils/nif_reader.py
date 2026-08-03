@@ -35,12 +35,12 @@ by offset. Geometry, by era:
     bits 0-3 vertex size /4, 8-11 UV offset /4, 16-19 normal, 20-23 tangent,
     24-27 colour, 44-55 VF_* flags. SSE positions are float32; FO4+ half
     unless VF_FULLPREC. Data Size = (desc&0xF)*verts*4 + tris*6, but is derived
-    and sometimes stale — recomputed here. SKINNED SSE meshes (bodies, armour,
+    and sometimes stale - recomputed here. SKINNED SSE meshes (bodies, armour,
     hair, facegen) leave the shape empty; geometry is in the NiSkinPartition
     reached via the skin instance.
   - NiTriShape/NiTriStrips (LE and earlier): separate float32 data block;
     strips are converted to triangles.
-  - BSGeometry (Starfield, bsver 172/173): no geometry in the nif at all —
+  - BSGeometry (Starfield, bsver 172/173): no geometry in the nif at all -
     the block names geometries/<path>.mesh (see Utils.sf_mesh_reader).
 
 Textures: BSShaderTextureSet slot 0 = diffuse, 1 = normal. Pre-Skyrim shaders
@@ -263,6 +263,8 @@ class NifModel:
     shapes: list[NifShape] = field(default_factory=list)
     # Block indices this reader recognised but could not decode, by type name.
     skipped: dict[str, int] = field(default_factory=dict)
+    # Why a size-table-less file yielded no shapes, for the preview's log.
+    walk_error: str = ""
 
     @property
     def tri_count(self) -> int:
@@ -294,11 +296,23 @@ def _parse_header(data: bytes) -> NifHeader:
         endian = c.u8()
         if endian != 1:
             raise NifError("big-endian NIF files are not supported")
-    user_version = c.u32() if version >= 0x0A000108 else 0
+    user_version = c.u32() if version >= 0x0A010000 else 0
     num_blocks = c.u32()
 
     bs_version = 0
-    if user_version >= 11:
+    if version == 0x0A000102:
+        # 10.0.1.2 carries the export info block alone, prefixed by a spare
+        # int, with no user version fields at all.
+        c.u32()                            # unknown int
+        c.short_str()                      # author
+        c.short_str()                      # process script
+        c.short_str()                      # export script
+    elif version >= 0x0A010000 and (
+            user_version >= 10
+            or (user_version == 1 and version != 0x0A020000)):
+        # This is nif.xml's own gate for "User Version 2" and the export
+        # strings. Testing user_version >= 11 instead misses 10.2.0.0 meshes
+        # written at user version 10, which do carry both.
         bs_version = c.u32()
         c.short_str()                      # author
         if bs_version > 130:
@@ -329,6 +343,14 @@ def _parse_header(data: bytes) -> NifHeader:
     if version >= 0x05000006:
         num_groups = c.u32()
         c.skip(4 * num_groups)
+
+    # Empirical, not derived: 10.0.1.0 up to (not including) 10.2.0.0 puts one
+    # more word here before the first block. Every such mesh vanilla Oblivion
+    # ships (154 of them) has this word and the group count above both zero, so
+    # the data cannot say which spec field is which - only that one more is
+    # there. Without it block 0 starts 4 bytes early and the whole walk desyncs.
+    if 0x0A000100 <= version < 0x0A020000:
+        c.u32()
 
     return NifHeader(
         version=version, user_version=user_version, bs_version=bs_version,
@@ -669,7 +691,7 @@ def _decode_shader(c: _Cur, h: NifHeader,
     """Return ``(texture_set_ref, name_string_index, source_texture, spec)``.
 
     On Fallout 4 the name is the path to a .bgsm/.bgem material file, and THAT
-    is where the real textures live — the block's own texture set is often
+    is where the real textures live - the block's own texture set is often
     stale, so callers should prefer the material. BSEffectShaderProperty has no
     texture set at all; it names its texture inline instead.
 
@@ -695,7 +717,7 @@ def _decode_shader(c: _Cur, h: NifHeader,
             shader_type = c.u32()
         name_idx = c.u32() if h.version >= 0x14010003 else -1
         # The name (FO4/Starfield material path) must survive a failed decode
-        # of the rest — Starfield adds fields this reader does not model.
+        # of the rest - Starfield adds fields this reader does not model.
         try:
             c.refs()                               # extra data
             c.i32()                                # controller
@@ -749,6 +771,209 @@ def _decode_shader(c: _Cur, h: NifHeader,
     return -1, -1, "", None
 
 
+# Block types the pre-20.2.0.5 walk keeps array contents for. Everything else
+# is stepped over for its size alone.
+_SPEC_WANT = _NODE_TYPES | {
+    "NiTriShape", "NiTriStrips", "NiTriShapeData", "NiTriStripsData",
+    "NiTexturingProperty", "NiSourceTexture", "NiMaterialProperty",
+    "NiAlphaProperty", "NiVertexColorProperty",
+}
+
+_SPEC_DATA_TYPES = ("NiTriShapeData", "NiTriStripsData")
+
+
+def _spec_str(val, h: NifHeader) -> str:
+    """Flatten nif.xml's `string` compound (inline text or a table index)."""
+    if isinstance(val, dict):
+        inner = val.get("String")
+        if isinstance(inner, dict):
+            return inner.get("Value", "") or ""
+        if isinstance(inner, str):
+            return inner
+        idx = val.get("Index")
+        if isinstance(idx, int):
+            return h.string(idx)
+    return ""
+
+
+def _spec_vec3(val) -> tuple[float, float, float]:
+    if isinstance(val, dict):
+        return (val.get("x", 0.0), val.get("y", 0.0), val.get("z", 0.0))
+    if isinstance(val, (list, tuple)) and len(val) >= 3:
+        return tuple(val[:3])                       # type: ignore[return-value]
+    return (0.0, 0.0, 0.0)
+
+
+def _spec_mat33(val) -> tuple[float, ...]:
+    if isinstance(val, dict):
+        return tuple(val.get(f"m{r}{c}", 1.0 if r == c else 0.0)
+                     for r in (1, 2, 3) for c in (1, 2, 3))
+    return (1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0)
+
+
+def _spec_normal_map(diffuse: str) -> str:
+    """Oblivion's implicit normal map: the '_n' sibling of the diffuse."""
+    if not diffuse:
+        return ""
+    stem, dot, ext = diffuse.rpartition(".")
+    return f"{stem}_n{dot}{ext}" if dot else ""
+
+
+def _spec_fill_geometry(sh: NifShape, gv: dict, block_type: str) -> None:
+    """Copy vertices/normals/uvs/colours/triangles out of a decoded data block."""
+    sh.num_vertices = gv.get("Num Vertices", 0) or 0
+    verts = gv.get("Vertices")
+    if isinstance(verts, list):
+        sh.vertices = verts
+    norms = gv.get("Normals")
+    if isinstance(norms, list):
+        sh.normals = norms
+    cols = gv.get("Vertex Colors")
+    if isinstance(cols, list):
+        sh.colors = cols
+    # UV Sets is a 2-D array: one row per set, each Num Vertices long.
+    uv_sets = gv.get("UV Sets")
+    if isinstance(uv_sets, list) and uv_sets and isinstance(uv_sets[0], list):
+        sh.uvs = uv_sets[0]
+
+    if block_type == "NiTriShapeData":
+        tris = gv.get("Triangles")
+        if isinstance(tris, list):
+            sh.triangles = [t for t in tris if isinstance(t, tuple)]
+        return
+
+    # NiTriStripsData stores one strip per row; stitch them into triangles.
+    tris: list[tuple[int, int, int]] = []
+    for strip in gv.get("Points") or []:
+        if isinstance(strip, list) and len(strip) >= 3:
+            tris.extend(_strip_to_tris(strip))
+    sh.triangles = tris
+
+
+def _read_nif_spec_walk(data: bytes, h: NifHeader,
+                        want_geometry: bool) -> NifModel:
+    """Build a NifModel from a nif.xml-driven walk (no block size table).
+
+    Raises when the walk does not land exactly on a valid footer - a desync
+    anywhere would otherwise surface as convincing but wrong geometry.
+    """
+    from Utils.nif_xml import load_spec
+
+    spec = load_spec()
+    model = NifModel(header=h)
+
+    blocks: dict[int, dict] = {}
+    end = h.body_offset
+    for idx, offset, size, values in spec.walk(data, h, want=_SPEC_WANT):
+        blocks[idx] = values
+        end = offset + size
+
+    # Integrity gate: the last block must abut the footer, and the footer must
+    # account for the rest of the file exactly.
+    if end + 4 > len(data):
+        raise NifError("walk ran past the end of the file")
+    num_roots = struct.unpack_from("<I", data, end)[0]
+    if num_roots > h.num_blocks or end + 4 + 4 * num_roots != len(data):
+        raise NifError(
+            f"walk ended at {end} but the footer does not close the file")
+
+    n = h.num_blocks
+    local: dict[int, dict] = {}
+    parent: dict[int, int] = {}
+    shapes: list[NifShape] = []
+
+    def refs(values: dict, key: str) -> list[int]:
+        got = values.get(key)
+        return [r for r in got if isinstance(r, int)] if isinstance(got, list) else []
+
+    for idx, values in blocks.items():
+        bt = h.type_of(idx)
+        if bt not in _NODE_TYPES and bt not in ("NiTriShape", "NiTriStrips"):
+            continue
+        local[idx] = {
+            "translation": _spec_vec3(values.get("Translation")),
+            "rotation": _spec_mat33(values.get("Rotation")),
+            "scale": values.get("Scale", 1.0) or 1.0,
+        }
+        if bt in _NODE_TYPES:
+            for child in refs(values, "Children"):
+                if child >= 0:
+                    parent[child] = idx
+            continue
+
+        sh = NifShape(name=_spec_str(values.get("Name"), h),
+                      block_index=idx, block_type=bt)
+        _spec_fill_shape(sh, values, blocks, h, n, want_geometry)
+        shapes.append(sh)
+
+    for sh in shapes:
+        sh.translation, sh.rotation, sh.scale = _world_transform(
+            sh.block_index, local, parent)
+
+    model.shapes = shapes
+    return model
+
+
+def _spec_fill_shape(sh: NifShape, values: dict, blocks: dict, h: NifHeader,
+                     n: int, want_geometry: bool) -> None:
+    """Attach geometry and Oblivion-era shading to one NiTriShape/NiTriStrips."""
+    if want_geometry:
+        dref = values.get("Data", -1)
+        if isinstance(dref, int) and 0 <= dref < n and dref in blocks:
+            if h.type_of(dref) in _SPEC_DATA_TYPES:
+                _spec_fill_geometry(sh, blocks[dref], h.type_of(dref))
+
+    # Pre-Skyrim shading hangs off the NiAVObject properties array.
+    props = values.get("Properties")
+    if not isinstance(props, list):
+        return
+    has_vertex_colour_prop = False
+    for pref in props:
+        if not isinstance(pref, int) or not 0 <= pref < n or pref not in blocks:
+            continue
+        pt = h.type_of(pref)
+        pv = blocks[pref]
+        if pt == "NiTexturingProperty":
+            sh.shader_type = pt
+            _spec_fill_textures(sh, pv, blocks, h, n)
+        elif pt == "NiMaterialProperty":
+            sh.spec_color = _spec_vec3(pv.get("Specular Color"))
+            sh.glossiness = pv.get("Glossiness", 80.0) or 80.0
+        elif pt == "NiAlphaProperty":
+            flags = pv.get("Flags", 0) or 0
+            sh.alpha_blend = bool(flags & 0x1)
+            sh.alpha_test = bool(flags & 0x200)
+            sh.alpha_threshold = pv.get("Threshold", 128)
+        elif pt == "NiVertexColorProperty":
+            has_vertex_colour_prop = True
+    # Oblivion only modulates by vertex colour when the property is present.
+    sh.vertex_colors = has_vertex_colour_prop and bool(sh.colors)
+
+
+def _spec_fill_textures(sh: NifShape, prop: dict, blocks: dict, h: NifHeader,
+                        n: int) -> None:
+    """Resolve NiTexturingProperty slots to their NiSourceTexture paths."""
+
+    def slot(name: str) -> str:
+        desc = prop.get(name)
+        if not isinstance(desc, dict):
+            return ""
+        src = desc.get("Source")
+        if not isinstance(src, int) or not 0 <= src < n or src not in blocks:
+            return ""
+        if h.type_of(src) != "NiSourceTexture":
+            return ""
+        return _spec_str(blocks[src].get("File Name"), h).replace("\\", "/")
+
+    diffuse = slot("Base Texture")
+    # Oblivion has no normal-map slot: the engine loads the '_n' sibling.
+    normal = slot("Bump Map Texture") or _spec_normal_map(diffuse)
+    sh.textures = [diffuse, normal]
+    glow = slot("Glow Texture")
+    if glow:
+        sh.textures += ["", glow]
+
+
 def read_nif(source: "str | Path | bytes", *,
              want_geometry: bool = True) -> NifModel:
     """Parse *source* (path or raw bytes) into a NifModel of world-space shapes."""
@@ -757,9 +982,16 @@ def read_nif(source: "str | Path | bytes", *,
     model = NifModel(header=h)
 
     if not h.block_sizes:
-        # Pre-20.2.0.5 files have no size table; sequential parsing of unknown
-        # blocks is not safe, so report the header only.
-        return model
+        # Pre-20.2.0.5 files (Oblivion and older) have no size table, so every
+        # block has to be stepped over by its real layout - see Utils.nif_xml.
+        try:
+            return _read_nif_spec_walk(data, h, want_geometry)
+        except Exception as exc:                             # noqa: BLE001
+            # Never guess: a desynced walk would render as garbage geometry.
+            # Report the header alone, as this reader always has.
+            model.skipped["<unwalkable>"] = 1
+            model.walk_error = str(exc)
+            return model
 
     offs = _block_offsets(h)
     n = min(len(offs), h.num_blocks)
@@ -883,7 +1115,7 @@ def read_nif(source: "str | Path | bytes", *,
             sh.triangles = got["triangles"]
             sh.colors = got["colors"]
 
-    # Pass 3: skinned shapes — follow skin instance to the NiSkinPartition.
+    # Pass 3: skinned shapes - follow skin instance to the NiSkinPartition.
     if want_geometry:
         for sh in shapes:
             if sh.vertices and sh.triangles:

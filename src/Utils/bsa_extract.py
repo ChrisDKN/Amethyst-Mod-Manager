@@ -1,6 +1,6 @@
 """
 bsa_extract.py
-Pure-Python BSA v104 / v105 extractor.
+Pure-Python BSA v103 / v104 / v105 extractor.
 
 Sister to bsa_reader.py (TOC-only) and bsa_writer.py (encoder). Walks the
 TOC the same way as bsa_reader, then for each file seeks to its data
@@ -10,15 +10,19 @@ folder under the original folder/file path.
     extract_bsa(bsa_path, dest_dir, ...)
 
 Compression algorithm matches what we use on write:
-    v104 — zlib (deflate)
-    v105 — LZ4 frame format
+    v103 - zlib (deflate)   (Oblivion)
+    v104 - zlib (deflate)
+    v105 - LZ4 frame format
 A compressed entry stores a 4-byte uncompressed-size prefix followed by
 the compressed payload.
 
 archive_flags bit 0x100 (embed_filename) is honoured: when set, each
 file's data block is prefixed by a 1-byte length and the full backslash
 path before the actual file payload. We strip that prefix before
-decompressing / writing.
+decompressing / writing. Oblivion (v103) predates that feature and reuses
+the bit for something else - most vanilla archives set it - so it is only
+read from v104 up. Honouring it on v103 shifts every read by one bogus
+prefix and corrupts all 8032 meshes in Oblivion - Meshes.bsa.
 
 Output paths: the archive's stored folder + filename (already lowercase
 forward-slash) is written directly under *dest_dir*. We do not preserve
@@ -75,14 +79,14 @@ def extract_bsa(
                    (lowercase, forward-slash).
         overwrite: If True (default), existing loose files at the same
                    path are overwritten. If False, existing files are
-                   skipped — useful when a user wants the BSA to seed a
+                   skipped - useful when a user wants the BSA to seed a
                    mod folder without clobbering edits.
         progress:  Optional callback ``(done, total, current_path)``.
         cancel:    Optional callback returning True to abort. Already-
                    written files remain on disk.
 
     Returns:
-        (file_count_written, list_of_rel_paths) — list_of_rel_paths is
+        (file_count_written, list_of_rel_paths) - list_of_rel_paths is
         every file actually placed on disk (skipped files excluded).
 
     Raises:
@@ -184,16 +188,17 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
         _file_flags,
     ) = struct.unpack("<IIIIIIII", header)
 
-    if version not in (104, 105):
+    if version not in (103, 104, 105):
         raise BsaExtractError(f"unsupported BSA version {version}")
 
     has_dir_names = bool(archive_flags & _AF_HAS_DIR_NAMES)
     has_file_names = bool(archive_flags & _AF_HAS_FILE_NAMES)
     archive_compressed = bool(archive_flags & _AF_COMPRESSED_DEF)
-    embed_filenames = bool(archive_flags & _AF_EMBED_FILE_NAMES)
+    # v103 has no embedded filenames; it reuses bit 0x100 for something else.
+    embed_filenames = version >= 104 and bool(archive_flags & _AF_EMBED_FILE_NAMES)
 
     if not has_dir_names or not has_file_names:
-        raise BsaExtractError("archive lacks folder or file names — cannot extract")
+        raise BsaExtractError("archive lacks folder or file names - cannot extract")
 
     # --- Folder records ---
     f.seek(folder_offset)
@@ -250,7 +255,7 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
         )
 
     # Pair files with their folder. file_specs is in the same order as
-    # file_names — folder N's *count* file records, in turn.
+    # file_names - folder N's *count* file records, in turn.
     flat: list[tuple[str, int, int]] = []   # (rel_path_lower, size_field, data_offset)
     idx = 0
     for folder_idx, count in enumerate(folder_records):
@@ -299,14 +304,14 @@ def _extract(
         # Write to disk under dest_dir / rel.
         out_path = dest_dir / rel
         if not overwrite and out_path.exists():
-            # Skip silently — caller chose not to clobber.
+            # Skip silently - caller chose not to clobber.
             if progress is not None:
                 progress(done, total, rel)
             continue
         out_path.parent.mkdir(parents=True, exist_ok=True)
         # Atomic-ish write: temp file + rename.  We don't cross-link with
         # atomic_writer because dest may not be writable for the .tmp
-        # sibling (e.g. read-only mounts) — a plain write is fine here
+        # sibling (e.g. read-only mounts) - a plain write is fine here
         # since extraction is recoverable: rerun the unpack.
         with out_path.open("wb") as out:
             out.write(data)

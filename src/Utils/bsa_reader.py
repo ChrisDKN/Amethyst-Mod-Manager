@@ -3,7 +3,7 @@ bsa_reader.py
 Read file lists from Bethesda BSA / BA2 archives (table-of-contents only).
 
 Extracts the complete list of file paths stored inside a .bsa or .ba2
-archive without decompressing any file data — only the TOC headers are read.
+archive without decompressing any file data - only the TOC headers are read.
 
 BSA v104 (Oblivion / Skyrim LE) header layout (36 bytes):
      4B  magic           "BSA\x00" (0x00415342 LE)
@@ -42,8 +42,9 @@ After all folder+file-record blocks, the file name block:
      concatenated null-terminated file names, one per file record,
      in the same order as the file records were encountered.
 
-BSA v103 (Morrowind) is a completely different flat format and is
-not yet implemented (returns an empty list).
+BSA v103 (Oblivion) has the same TOC layout as v104 and is read by the
+same parser. Morrowind's BSA is a different flat format, but it carries a
+different magic entirely so it never reaches here.
 
 BA2 (Fallout 4 / Starfield, magic "BTDX") header layout (24 bytes):
      4B  magic              "BTDX"
@@ -53,7 +54,7 @@ BA2 (Fallout 4 / Starfield, magic "BTDX") header layout (24 bytes):
      8B  name_table_offset  byte offset to the file-name table
 
 After the header come *file_count* file records (variable size depending
-on type_tag) — those are skipped here since we only need the names.
+on type_tag) - those are skipped here since we only need the names.
 
 The name table at name_table_offset is a flat list of *file_count* entries:
      2B  name_length
@@ -76,7 +77,7 @@ def read_bsa_file_list(bsa_path: Path | str) -> list[str]:
 
     Dispatches to the correct parser based on the magic / version field.
     Returns an empty list on unrecognised formats or I/O errors.
-    Never decompresses file data — only reads the TOC.
+    Never decompresses file data - only reads the TOC.
     """
     try:
         bsa_path = Path(bsa_path)
@@ -108,10 +109,7 @@ def _read_bsa_v104_v105(f) -> list[str]:
         file_flags,
     ) = struct.unpack_from("<IIIIIIII", header, 0)
 
-    if version == 103:
-        return []  # Morrowind — not yet implemented
-
-    if version not in (104, 105):
+    if version not in (103, 104, 105):
         return []
 
     has_dir_names = bool(archive_flags & 0x1)
@@ -206,7 +204,7 @@ def _read_bsa_v104_v105(f) -> list[str]:
 def _read_ba2(f) -> list[str]:
     """Parse a BA2 (BTDX) name table and return file path list.
 
-    Skips file records entirely — only the trailing name table is needed.
+    Skips file records entirely - only the trailing name table is needed.
     Both GNRL (general) and DX10 (textures) BA2 variants share the same
     name-table format, so the type_tag is not consulted here.
     """

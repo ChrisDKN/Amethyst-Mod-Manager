@@ -1,3 +1,4 @@
+subdir('nifxml')
 subdir('themes')
 
 py.install_sources(
@@ -101,6 +102,7 @@ py.install_sources(
   'modsettings.py',
   'mpi_auto_fetch.py',
   'nif_reader.py',
+  'nif_xml.py',
   'override_scan.py',
   'pak_reader.py',
   'pandora_tools.py',
