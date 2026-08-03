@@ -134,6 +134,16 @@ in vec4 vColor;
 uniform float uHasVColor;
 // Runtime colour multiply (FaceGen hair). White for everything else.
 uniform vec3 uTint;
+// TruePBR ambient occlusion — blue channel of the _rmaos map. We do not
+// implement PBR shading, but AO is a plain multiply and without it recessed
+// detail (roof shingles, beam joints) washes out.
+uniform sampler2D uAoTex;
+uniform float uHasAo;
+// 1 when the diffuse DDS declared an sRGB format (PBR packs do; legacy
+// Skyrim textures never declare one). Those meshes get a colour-managed
+// path — decode to linear, light, tonemap, re-encode — which is why their
+// mid-tones stop washing out. Legacy meshes keep the BodySlide behaviour.
+uniform float uSrgbAlbedo;
 // uHasTex is a float: PySide6 setUniformValue silently misses int uniforms.
 uniform sampler2D uTex;
 uniform sampler2D uNormTex;
@@ -228,7 +238,10 @@ void main() {
     gloss *= uSpecular;
 
     vec3 v = normalize(uEye - vWorld);
-    vec3 albedo = texel.rgb * uTint;
+    vec3 albedo = texel.rgb;
+    if (uSrgbAlbedo > 0.5) albedo = pow(albedo, vec3(2.2));
+    albedo *= uTint;
+    if (uHasAo > 0.5) albedo *= texture(uAoTex, vUV).b;
 
     if (uEnvScale > 0.0) {
         vec3 rfl = reflect(-v, n);
@@ -246,6 +259,7 @@ void main() {
     addLight(uLd2, 0.85, n, v, gloss, lit, spec);
 
     vec3 col = tonemap(albedo * lit + spec) / tonemap(vec3(1.0));
+    if (uSrgbAlbedo > 0.5) col = pow(max(col, 0.0), vec3(1.0 / 2.2));
     // Gamma lift, not a multiply: raises shadows (near-black leather/metal)
     // without blowing highlights to white.
     FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / uGamma)),
@@ -261,7 +275,7 @@ class _Mesh:
                  "normal_image", "model_space_normals", "spec",
                  "env_image", "mask_image", "env_scale",
                  "alpha_threshold", "alpha_blend", "center", "has_colors",
-                 "tint",
+                 "tint", "ao_image", "ao_tex", "srgb_albedo",
                  "vao", "vbo", "ibo", "texture", "normal_tex",
                  "env_tex", "mask_tex")
 
@@ -269,7 +283,8 @@ class _Mesh:
                  normal_image=None, model_space_normals=False, spec=None,
                  env_image=None, mask_image=None, env_scale=0.0,
                  alpha_threshold=-1.0, alpha_blend=False, center=(0.0, 0.0, 0.0),
-                 has_colors=False, tint=(1.0, 1.0, 1.0)):
+                 has_colors=False, tint=(1.0, 1.0, 1.0), ao_image=None,
+                 srgb_albedo=False):
         self.name = name
         self.verts = verts
         self.indices = indices
@@ -291,6 +306,11 @@ class _Mesh:
         self.has_colors = has_colors
         # Runtime colour multiply (FaceGen hair); white otherwise.
         self.tint = tint
+        self.ao_image = ao_image
+        self.ao_tex = None
+        # The DDS declared an sRGB format, so its values need
+        # linearising before lighting. Legacy files never say.
+        self.srgb_albedo = srgb_albedo
         self.tri_count = tri_count
         self.vao = self.vbo = self.ibo = None
         self.texture = self.normal_tex = None
@@ -428,6 +448,8 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     """
     cache = _DirCache()
     seen: dict[str, object] = {}
+    # Which diffuse maps DECLARE an sRGB DXGI format (PBR packs do).
+    srgb_albedo: dict[str, bool] = {}
     materials: dict[str, object] = {}
     requested: list[str] = []
 
@@ -541,15 +563,46 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             out.append(seen[key])
         return out[0], out[1]
 
+    def ao_map(shape):
+        """TruePBR ambient occlusion: the BLUE channel of slot 5's _rmaos.
+
+        Roughness/metallic/subsurface in the other channels need real PBR
+        shading, but AO is a plain multiply and it is what keeps recessed
+        detail (roof shingles, beam joints) from washing out.
+        """
+        if not shape.pbr or len(shape.textures) <= 5:
+            return None
+        rel = shape.textures[5]
+        if not rel:
+            return None
+        key = "AO:" + rel.lower()
+        if key not in seen:
+            blob = fetch(rel)
+            img = _qimage_from_bytes(blob) if blob else None
+            if img is not None and img.isNull():
+                img = None
+            seen[key] = _fit_texture(img)
+        return seen[key]
+
+    def diffuse_key(shape) -> str:
+        """The cache key for a shape's diffuse — what fetch() ends up asking."""
+        rel = material_slot(shape.material) if shape.material else ""
+        if not rel:
+            rel = shape_slot(shape)
+        if not rel:
+            return ""
+        key = rel.replace("\\", "/").lower()
+        if not key.startswith(("textures/", "materials/", "data/")):
+            key = "textures/" + key
+        return key
+
     def load(shape):
         rel = material_slot(shape.material) if shape.material else ""
         if not rel:
             rel = shape_slot(shape)
         if not rel:
             return None
-        key = rel.replace("\\", "/").lower()
-        if not key.startswith(("textures/", "materials/", "data/")):
-            key = "textures/" + key          # what fetch() ends up asking for
+        key = diffuse_key(shape)
         if key not in seen:
             requested.append(key)
         else:
@@ -559,6 +612,9 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         if image is not None and image.isNull():
             image = None
         image = _fit_texture(image)
+        if blob:
+            from Utils.dds_compat import is_srgb_dds
+            srgb_albedo[key] = is_srgb_dds(blob)
         seen[key] = image
         return image
 
@@ -566,6 +622,8 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     load.requested = requested
     load.normal_map = normal_map
     load.env_maps = env_maps
+    load.ao_map = ao_map
+    load.is_srgb = lambda shape: srgb_albedo.get(diffuse_key(shape), False)
     return load
 
 
@@ -699,7 +757,11 @@ def _build_meshes(model, load_texture):
                             env_img, mask_img,
                             shape.env_map_scale if env_img else 0.0,
                             thr, shape.alpha_blend and image is not None,
-                            centre, colors is not None, shape.tint))
+                            centre, colors is not None, shape.tint,
+                            load_texture.ao_map(shape)
+                            if hasattr(load_texture, 'ao_map') else None,
+                            bool(load_texture.is_srgb(shape))
+                            if hasattr(load_texture, 'is_srgb') else False))
 
     if not meshes:
         return [], None
@@ -756,7 +818,7 @@ class _Viewport(QOpenGLWidget):
         self._u_envtex = self._u_masktex = self._u_envscale = -1
         self._u_hasmask = self._u_camright = self._u_camup = -1
         self._u_athresh = self._u_blend = self._u_hasvcol = -1
-        self._u_tint = -1
+        self._u_tint = self._u_aotex = self._u_hasao = self._u_srgb = -1
         self._meshes: list[_Mesh] = []
         self._pending: list[_Mesh] | None = None
         self._uploaded = False
@@ -921,6 +983,9 @@ class _Viewport(QOpenGLWidget):
         self._u_blend = prog.uniformLocation("uBlend")
         self._u_hasvcol = prog.uniformLocation("uHasVColor")
         self._u_tint = prog.uniformLocation("uTint")
+        self._u_aotex = prog.uniformLocation("uAoTex")
+        self._u_hasao = prog.uniformLocation("uHasAo")
+        self._u_srgb = prog.uniformLocation("uSrgbAlbedo")
         ctx = self.context()
         ctx.functions().glEnable(_GL_DEPTH_TEST)
         # glPolygonMode (wireframe) needs the 3.3 core functions object.
@@ -988,14 +1053,14 @@ class _Viewport(QOpenGLWidget):
     def _release_gpu(self):
         for m in self._meshes:
             for obj in (m.vao, m.vbo, m.ibo, m.texture, m.normal_tex,
-                        m.env_tex, m.mask_tex):
+                        m.env_tex, m.mask_tex, m.ao_tex):
                 if obj is not None:
                     try:
                         obj.destroy()
                     except RuntimeError:
                         pass
             m.vao = m.vbo = m.ibo = m.texture = m.normal_tex = None
-            m.env_tex = m.mask_tex = None
+            m.env_tex = m.mask_tex = m.ao_tex = None
         self._meshes = []
 
     def _upload(self):
@@ -1039,11 +1104,13 @@ class _Viewport(QOpenGLWidget):
             for attr, img in (("texture", m.image),
                               ("normal_tex", m.normal_image),
                               ("env_tex", m.env_image),
-                              ("mask_tex", m.mask_image)):
+                              ("mask_tex", m.mask_image),
+                              ("ao_tex", m.ao_image)):
                 tex = _make_gl_texture(img)
                 if tex is not None:
                     setattr(m, attr, tex)
             m.normal_image = m.env_image = m.mask_image = None
+            m.ao_image = None
             # Free both CPU copies now the GPU owns the data.
             m.verts = array.array("f")
             m.image = None
@@ -1090,6 +1157,7 @@ class _Viewport(QOpenGLWidget):
         f.glUniform3f(self._u_camup, up.x(), up.y(), up.z())
         f.glUniform1i(self._u_envtex, 2)
         f.glUniform1i(self._u_masktex, 3)
+        f.glUniform1i(self._u_aotex, 4)
         # BodySlide's default specularStrength.
         f.glUniform1f(self._u_spec, 1.0 if self.detail else 0.0)
 
@@ -1160,6 +1228,15 @@ class _Viewport(QOpenGLWidget):
             f.glUniform1f(self._u_hasvcol,
                           1.0 if (solid and m.has_colors) else 0.0)
             f.glUniform3f(self._u_tint, *(m.tint if solid else (1.0, 1.0, 1.0)))
+            # AO rides with the diffuse, not the "shine" toggle: it is part of
+            # the base colour, not a lighting effect.
+            use_ao = (solid and self.textured and m.ao_tex is not None
+                      and self.texture_slot == 0)
+            if use_ao:
+                m.ao_tex.bind(4)
+            f.glUniform1f(self._u_hasao, 1.0 if use_ao else 0.0)
+            f.glUniform1f(self._u_srgb,
+                          1.0 if (use_tex and m.srgb_albedo) else 0.0)
             sr, sg, sb, sstr, shine = m.spec
             f.glUniform3f(self._u_speccol, sr, sg, sb)
             f.glUniform1f(self._u_specstr, sstr)
@@ -1186,6 +1263,8 @@ class _Viewport(QOpenGLWidget):
                 f.glUniform1f(self._u_hasnorm, 0.0)
             f.glDrawElements(_GL_TRIANGLES, len(m.indices),
                              _GL_UNSIGNED_INT, _NULL_OFFSET)
+            if use_ao:
+                m.ao_tex.release(4)
             if use_env:
                 m.env_tex.release(2)
                 if m.mask_tex is not None:
