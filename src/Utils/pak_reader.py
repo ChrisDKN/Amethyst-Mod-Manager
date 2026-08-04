@@ -310,6 +310,40 @@ def read_pak_info(pak_path: Path | str) -> PakInfo:
     return info
 
 
+def is_lspk_file(pak_path: Path | str) -> bool:
+    """True when *pak_path* starts with the LSPK signature (a BG3 pak)."""
+    try:
+        with Path(pak_path).open("rb") as f:
+            return f.read(4) == b"LSPK"
+    except OSError:
+        return False
+
+
+def read_lspk_file_list(pak_path: Path | str) -> list[str]:
+    """Return every file path inside a BG3 .pak as forward-slash strings.
+
+    TOC only - no entry data is decompressed (the file list itself is LZ4
+    compressed, so the ``lz4`` package is still needed). Names keep their
+    stored casing. Entries living in secondary archive parts are listed too.
+    Returns an empty list on unrecognised formats, missing dependencies or
+    I/O errors, mirroring bsa_reader.read_bsa_file_list.
+    """
+    try:
+        _require_lz4()
+        pak_path = Path(pak_path)
+        with pak_path.open("rb") as f:
+            entries = _read_entries(f, pak_path)
+    except (OSError, struct.error, ValueError, OverflowError, MemoryError,
+            ImportError):
+        return []
+    names: set[str] = set()
+    for entry in entries:
+        name = entry[0].replace("\\", "/").lstrip("/")
+        if name:
+            names.add(name)
+    return sorted(names)
+
+
 def extract_meta_lsx(pak_path: Path | str) -> str | None:
     """Open a BG3 .pak and return the contents of meta.lsx as a string.
 
