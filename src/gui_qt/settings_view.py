@@ -601,6 +601,18 @@ class SettingsView(QWidget):
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
 
+        # Manage Caches action.
+        row = self._next_row(g)
+        g.addWidget(QLabel(self.tr("Caches")), row, 0)
+        self._cache_btn = QPushButton(self.tr("Manage Caches…"))
+        self._cache_btn.setCursor(Qt.PointingHandCursor)
+        self._cache_btn.clicked.connect(self._on_manage_caches)
+        cwrap = QHBoxLayout()
+        cwrap.addWidget(self._cache_btn)
+        cwrap.addStretch(1)
+        holder = QWidget(); holder.setLayout(cwrap)
+        g.addWidget(holder, row, 1)
+
     def _build_extraction(self):
         # Extraction resource limits - apply to every install (single mods,
         # Downloads tab and collections), not just collection installs.
@@ -631,18 +643,6 @@ class SettingsView(QWidget):
             help=self.tr("Run extractions at low CPU and disk priority so they yield "
                  "to other applications instead of slowing them down. Extraction "
                  "speed is unaffected while the system is otherwise idle."))
-
-        # Manage Caches action.
-        row = self._next_row(g)
-        g.addWidget(QLabel(self.tr("Caches")), row, 0)
-        self._cache_btn = QPushButton(self.tr("Manage Caches…"))
-        self._cache_btn.setCursor(Qt.PointingHandCursor)
-        self._cache_btn.clicked.connect(self._on_manage_caches)
-        cwrap = QHBoxLayout()
-        cwrap.addWidget(self._cache_btn)
-        cwrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(cwrap)
-        g.addWidget(holder, row, 1)
 
     def _build_general(self):
         g = self._section(self.tr("General"))
