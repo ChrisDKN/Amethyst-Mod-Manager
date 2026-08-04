@@ -7970,19 +7970,27 @@ class MainWindow(QMainWindow):
         from gui_qt.launcher_settings_overlay import LauncherSettingsOverlay
         exe_key = exe_launch.game_exe_key(game)
 
-        def _done(mode, deploy):
+        def _done(mode, deploy, args, options):
             if mode is None:
                 return
             exe_launch.save_launch_mode(game, exe_key, mode)
             exe_launch.save_deploy_before_launch(game, deploy)
+            # Same keys the direct-launch path reads, so these apply to every
+            # launch we make ourselves (Steam's own options are the fallback).
+            exe_launch.save_exe_args(game, exe_key, args)
+            exe_launch.save_launch_options(game, exe_key, options)
             self._append_log(f"[play] launch settings saved (via={mode}, "
-                             f"deploy-before-launch={'on' if deploy else 'off'})")
+                             f"deploy-before-launch={'on' if deploy else 'off'}"
+                             f"{', args' if args else ''}"
+                             f"{', options' if options else ''})")
 
         LauncherSettingsOverlay.show_over(
             self.centralWidget() or self,
             game_name=game.name,
             mode=exe_launch.load_launch_mode(game, exe_key),
             deploy=exe_launch.load_deploy_before_launch(game),
+            args=exe_launch.load_exe_args(game, exe_key),
+            options=exe_launch.load_launch_options(game, exe_key),
             on_done=_done,
         )
 
@@ -10778,7 +10786,7 @@ class MainWindow(QMainWindow):
     def _install_tab_filter_menus(self):
         """Pin an eye button to the left of each simpler tab's column header,
         opening that tab's filters as a menu with one submenu per category.
-        (The modlist + plugins views grow their own — theirs also carries the
+        (The modlist + plugins views grow their own - theirs also carries the
         column show/hide list.) Every button drives the tab's filter side
         panel, so menu and panel are always the same state."""
         from gui_qt.mod_files_view import ModFilesView
@@ -10827,7 +10835,7 @@ class MainWindow(QMainWindow):
         # Spec labels/titles are canonical English registered for translation
         # under the FilterSidePanel context (see filter_panel._TR_MARKERS).
         tr = lambda s: QCoreApplication.translate("FilterSidePanel", s) if s else ""
-        # Dynamic lists are only refreshed while the panel is open — force one
+        # Dynamic lists are only refreshed while the panel is open - force one
         # now so the menu (and the panel behind it) has the current items.
         sync(force=True)
         sections = []
