@@ -33,6 +33,7 @@ py.install_sources(
   'minus.png',
   'nexus.png',
   'note.png',
+  'notification.png',
   'plus.png',
   'proton.png',
   'radio_dot.png',

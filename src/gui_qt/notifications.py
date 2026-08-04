@@ -289,6 +289,10 @@ class ToastHandle:
                 t.style().unpolish(t)
                 t.style().polish(t)
             t._label.setText(text)
+            # Morphed final text never passes through MainWindow._notify, so
+            # record it here for the notification-history dropdown.
+            if callable(getattr(self._manager, "on_record", None)):
+                self._manager.on_record(text, state or t.property("state"))
             self._manager._restack()
             ms = auto_dismiss_ms or 3200
             QTimer.singleShot(ms, t._dismiss)
@@ -301,6 +305,7 @@ class NotificationManager:
     def __init__(self, host: QWidget):
         self._host = host
         self._toasts: list[_Toast] = []
+        self.on_record = None   # optional (text, state) hook for history
         host.installEventFilter(self._Filter(self))
 
     class _Filter(QWidget):

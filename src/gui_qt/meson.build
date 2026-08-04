@@ -81,6 +81,7 @@ py.install_sources(
   'nif_texture_sources.py',
   'note_editor_overlay.py',
   'override_view.py',
+  'notification_center.py',
   'notifications.py',
   'onboarding_view.py',
   'overlay_base.py',

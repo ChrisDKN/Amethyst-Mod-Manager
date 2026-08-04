@@ -27,6 +27,7 @@ from gui_qt.selector_button import SelectorButton, SplitPressHighlighter
 from gui_qt.flow_layout import FlowLayout
 from gui_qt.game_state import GameState
 from gui_qt.detachable_tabs import DetachableTabWidget
+from gui_qt.notification_center import NotificationHistory, NotificationButton
 from gui_qt import glue
 from Utils.proton_tools import DOTNET_VERSIONS
 # Diagnostic prints here run on worker threads and use flush=True. Under
@@ -379,6 +380,7 @@ class MainWindow(QMainWindow):
         self._restore_done_hooks: list = []  # wizard on_done(ok) one-shots
         self._progress_popup = None
         self._notifier = None
+        self._notif_history = NotificationHistory(self)
         self._op_progress.connect(self._on_op_progress)
         self._op_log.connect(self._append_log)
         self._op_done.connect(self._on_op_done)
@@ -2296,6 +2298,11 @@ class MainWindow(QMainWindow):
             h.addWidget(b)
 
         h.addStretch(1)
+
+        # Notifications - unread dot + dropdown history of recent toasts.
+        self._notif_button = NotificationButton(
+            self._notif_history, btn_h=self._BTN_H, icon_px=self._ICON_PX)
+        h.addWidget(self._notif_button)
 
         # Settings - icon-only square button on the far right. Opens a Settings
         # tab scoped over the Plugins panel.
@@ -8044,12 +8051,14 @@ class MainWindow(QMainWindow):
             host = self.centralWidget() or self
             self._progress_popup = ProgressStack(host)
             self._notifier = NotificationManager(host)
+            self._notifier.on_record = self._notif_history.add
 
     def _notify(self, text: str, state: str = "info", sticky: bool = False):
         """Show a toast. When *sticky* is True the toast stays on screen until
         its returned handle is dismissed (used for long-running operations like
         the update check) - otherwise it auto-dismisses after a few seconds."""
         self._ensure_feedback()
+        self._notif_history.add(text, state)
         return self._notifier.notify(text, state, sticky=sticky)
 
     def _show_warn_popup(self, title: str, message: str, card_h):
