@@ -7,9 +7,10 @@ game's Wine prefix or against the real XDG dirs. Toolkit-neutral.
 
 from __future__ import annotations
 
+import fnmatch
 import glob
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from Utils.ludusavi_manifest import lookup
@@ -24,10 +25,34 @@ class SaveLocation:
     store: str           # store constraint from the manifest ("" = any)
     exists: bool = True  # False = expected: parent folder exists, this doesn't
                          # yet (the game hasn't written its first save there)
+    # Name globs claiming this folder's saves ("*.sav"), from a manifest path
+    # like "<home>/Saved Games/.../Quake/*.sav". Empty = the whole folder is
+    # saves. Anything acting on the folder (listing, export, the import backup)
+    # must respect these -the folder can hold files that are not the game's.
+    patterns: tuple[str, ...] = ()
 
     @property
     def is_dir(self) -> bool:
         return self.path.is_dir()
+
+
+_GLOB_CHARS = "*?["
+
+
+def _has_glob(text: str) -> bool:
+    return any(ch in text for ch in _GLOB_CHARS)
+
+
+def matches_patterns(name: str, patterns) -> bool:
+    """Whether a directory entry is one the location's patterns claim.
+
+    No patterns means the whole folder counts. Matching is case-insensitive:
+    a Wine prefix spells names however the game wrote them.
+    """
+    if not patterns:
+        return True
+    low = name.lower()
+    return any(fnmatch.fnmatchcase(low, p.lower()) for p in patterns)
 
 
 # Tokens that land inside the Wine prefix. <base>/<root>/<xdg*> resolve
@@ -78,12 +103,12 @@ def _steam_roots() -> list[Path]:
     return roots
 
 
-#: SteamID64 of account 0 — the offset between the two ID forms.
+#: SteamID64 of account 0 -the offset between the two ID forms.
 _STEAM_ID64_BASE = 76561197960265728
 
 
 def _store_user_ids(roots: list[Path]) -> list[str]:
-    """Steam user IDs from userdata/ in both forms — the folders use the
+    """Steam user IDs from userdata/ in both forms -the folders use the
     32-bit account ID, but a game may name its own saves with the SteamID64
     (Slay the Spire 2 does)."""
     ids: list[str] = []
@@ -198,7 +223,24 @@ def resolve_save_paths(
 
     prefix_table, native_table = _token_tables(game_path, prefix_path)
     results: list[SaveLocation] = []
-    seen: set[str] = set()
+    index: dict[str, int] = {}
+
+    def add(location: SaveLocation) -> None:
+        """Append, or fold into the location already found at that path."""
+        key = os.path.realpath(location.path)
+        seat = index.get(key)
+        if seat is None:
+            index[key] = len(results)
+            results.append(location)
+            return
+        # Two manifest entries can name one folder with different globs
+        # ("Saves/*.ess" and "Saves/*.skse"); keeping only the first would hide
+        # the rest of the saves. One of them claiming the whole folder wins.
+        old = results[seat]
+        merged = () if not (old.patterns and location.patterns) \
+            else tuple(dict.fromkeys(old.patterns + location.patterns))
+        if merged != old.patterns:
+            results[seat] = replace(old, patterns=merged)
 
     for token_path, os_name, store_constraint in entry.paths:
         if store and store_constraint and store_constraint != store:
@@ -216,34 +258,70 @@ def resolve_save_paths(
         for table, used_prefix_table in tables:
             in_prefix = used_prefix_table and token_path.startswith(_PREFIX_TOKENS)
             for candidate in _expand(token_path, table):
-                hits = _matches(candidate, existing_only)
-                # "Expected": absent, but its immediate parent exists — the
-                # game made its vendor dirs and will save here on first write
-                # (Subnautica on Epic). Listed so the tab points at the right
-                # place from day one.
-                expected = (not hits and existing_only
-                            and not any(ch in candidate for ch in "*?[")
-                            and os.path.isdir(os.path.dirname(candidate)))
-                if expected:
-                    hits = [candidate]
-                for resolved in hits:
-                    key = os.path.realpath(resolved)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    results.append(SaveLocation(
+                for resolved, exists, patterns in _candidate_locations(
+                        candidate, existing_only):
+                    add(SaveLocation(
                         path=Path(resolved),
                         token_path=token_path,
                         in_prefix=in_prefix,
                         store=store_constraint,
-                        exists=not expected and os.path.exists(resolved),
+                        exists=exists,
+                        patterns=patterns,
                     ))
     return results
 
 
+def _candidate_locations(candidate: str,
+                         existing_only: bool) -> list[tuple[str, bool, tuple[str, ...]]]:
+    """(path, exists, patterns) for one fully-expanded candidate path."""
+    head, _sep, leaf = candidate.rpartition("/")
+    if head and _has_glob(leaf):
+        return _leaf_glob_locations(candidate, head, leaf, existing_only)
+
+    hits = _matches(candidate, existing_only)
+    if hits:
+        return [(hit, os.path.exists(hit), ()) for hit in hits]
+    # "Expected": absent, but its immediate parent exists -the game made its
+    # vendor dirs and will save here on first write (Subnautica on Epic).
+    # Listed so the tab points at the right place from day one.
+    if (existing_only and not _has_glob(candidate)
+            and os.path.isdir(os.path.dirname(candidate))):
+        return [(candidate, False, ())]
+    return []
+
+
+def _leaf_glob_locations(candidate: str, head: str, leaf: str,
+                         existing_only: bool) -> list[tuple[str, bool, tuple[str, ...]]]:
+    """Locations for a candidate whose LAST component is a glob.
+
+    The save folder is the parent; the glob only says which of its entries are
+    saves (``.../Nightdive Studios/Quake/*.sav``). Returning one location per
+    matched file -the first cut -made every save its own unreadable "folder",
+    showed nothing at all until the first save was written, and left Export /
+    Import pointed at a file instead of a folder.
+    """
+    hits = sorted(glob.glob(candidate))
+    if hits and all(os.path.isdir(hit) for hit in hits):
+        # A folder-shaped glob ("<base>/save*"): the matches ARE the locations,
+        # and their parent is usually the game folder -never claim that.
+        return [(hit, True, ()) for hit in hits]
+
+    patterns = (leaf,)
+    if _has_glob(head):
+        return [(folder, True, patterns)
+                for folder in sorted(glob.glob(head)) if os.path.isdir(folder)]
+
+    folder = _ci_resolve(Path(head))
+    if folder is not None and folder.is_dir():
+        return [(str(folder), True, patterns)]
+    if not existing_only or os.path.isdir(os.path.dirname(head)):
+        return [(head, False, patterns)]
+    return []
+
+
 def _matches(candidate: str, existing_only: bool) -> list[str]:
     """Expand wildcards / fix casing, returning the paths that exist."""
-    if any(ch in candidate for ch in "*?["):
+    if _has_glob(candidate):
         hits = sorted(glob.glob(candidate))
         return hits if (hits or existing_only) else [candidate]
     if os.path.exists(candidate):
@@ -296,8 +374,8 @@ def save_paths_for_game(game, existing_only: bool = True) -> list[SaveLocation]:
     override = save_path_override_for_game(game)
     if override is None:
         return found
-    # The override leads — it is the answer the user gave when the manifest got
-    # it wrong — and drops any manifest hit that resolved to the same folder.
+    # The override leads -it is the answer the user gave when the manifest got
+    # it wrong -and drops any manifest hit that resolved to the same folder.
     key = os.path.realpath(override.path)
     return [override] + [loc for loc in found
                          if os.path.realpath(loc.path) != key]

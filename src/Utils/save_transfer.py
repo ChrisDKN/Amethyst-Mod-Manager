@@ -3,7 +3,7 @@
 Archives are flat-rooted (names relative to the save folder), so one is
 portable between machines whose prefixes live in different places. Import
 refuses any member that would escape the destination. ``progress_fn(done,
-total, phase)`` counts bytes, not files — one 30 MB save dwarfs a hundred
+total, phase)`` counts bytes, not files -one 30 MB save dwarfs a hundred
 small ones.
 """
 
@@ -15,11 +15,13 @@ import time
 import zipfile
 from pathlib import Path
 
+from Utils.save_paths import matches_patterns
+
 #: Files never worth carrying between machines.
 _SKIP_NAMES = {".DS_Store", "Thumbs.db", "desktop.ini"}
 
 #: Ceiling on what an import will write. A compression-ratio bomb guard would
-#: reject our OWN exports — save data beats 200:1 — so free space plus this cap
+#: reject our OWN exports -save data beats 200:1 -so free space plus this cap
 #: covers the real harm (filling the disk) instead.
 _MAX_UNCOMPRESSED = 64 * 1024 ** 3
 #: Leave this much headroom rather than filling the volume exactly.
@@ -30,14 +32,22 @@ class SaveTransferError(Exception):
     """Export/import failed for a reason worth showing the user verbatim."""
 
 
-def _walk_files(root: Path) -> "list[tuple[Path, str, int]]":
+def _walk_files(root: Path, patterns=()) -> "list[tuple[Path, str, int]]":
     """(absolute path, archive name, size) under *root*. Symlinks are skipped
-    — a prefix save dir can hold dosdevices links to the whole filesystem."""
+    -a prefix save dir can hold dosdevices links to the whole filesystem.
+
+    *patterns* limits the TOP level to the location's save files (see
+    Utils.save_paths.SaveLocation.patterns); a matching folder is taken whole."""
     out: list[tuple[Path, str, int]] = []
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+    top = str(root)
+    for dirpath, dirnames, filenames in os.walk(top, followlinks=False):
         dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
+        if patterns and dirpath == top:
+            dirnames[:] = [d for d in dirnames if matches_patterns(d, patterns)]
         for name in filenames:
             if name in _SKIP_NAMES:
+                continue
+            if patterns and dirpath == top and not matches_patterns(name, patterns):
                 continue
             full = Path(dirpath) / name
             if full.is_symlink():
@@ -50,7 +60,8 @@ def _walk_files(root: Path) -> "list[tuple[Path, str, int]]":
     return out
 
 
-def export_saves(source: Path, dest_zip: Path, progress_fn=None) -> tuple[int, int]:
+def export_saves(source: Path, dest_zip: Path, progress_fn=None,
+                 patterns=()) -> tuple[int, int]:
     """Zip *source* into *dest_zip*, returning (files, bytes). Writes a temp
     file and renames, so a failed run leaves no half-written archive."""
     source = Path(source)
@@ -58,9 +69,11 @@ def export_saves(source: Path, dest_zip: Path, progress_fn=None) -> tuple[int, i
     if not source.is_dir():
         raise SaveTransferError(f"Save folder not found: {source}")
 
-    files = _walk_files(source)
+    files = _walk_files(source, patterns)
     if not files:
-        raise SaveTransferError(f"Nothing to export — {source} is empty.")
+        raise SaveTransferError(
+            f"Nothing to export -no saves in {source}." if patterns
+            else f"Nothing to export -{source} is empty.")
     total = sum(size for _f, _n, size in files)
 
     dest_zip.parent.mkdir(parents=True, exist_ok=True)
@@ -124,11 +137,18 @@ def _free_space(path: Path) -> "int | None":
         return None
 
 
-def backup_saves(location: Path) -> "Path | None":
+def backup_saves(location: Path, patterns=()) -> "Path | None":
     """Move the save folder aside before an import, returning its new path.
-    A rename is atomic and free even on a multi-GB folder."""
+    A rename is atomic and free even on a multi-GB folder.
+
+    With *patterns*, only the entries they claim move into a fresh backup
+    folder -the location is then shared with files that are not saves (the
+    game's own data), and moving the whole thing would take those too."""
     location = Path(location)
-    if not location.is_dir() or not any(location.iterdir()):
+    if not location.is_dir():
+        return None
+    doomed = [e for e in location.iterdir() if matches_patterns(e.name, patterns)]
+    if not doomed:
         return None
     stamp = time.strftime("%Y%m%d-%H%M%S")
     backup = location.with_name(f"{location.name}.before-import-{stamp}")
@@ -136,15 +156,43 @@ def backup_saves(location: Path) -> "Path | None":
     while backup.exists():
         n += 1
         backup = location.with_name(f"{location.name}.before-import-{stamp}-{n}")
-    os.replace(location, backup)
-    location.mkdir(parents=True, exist_ok=True)
+    if not patterns:
+        os.replace(location, backup)
+        location.mkdir(parents=True, exist_ok=True)
+        return backup
+    backup.mkdir(parents=True)
+    for entry in doomed:
+        os.replace(entry, backup / entry.name)
     return backup
 
 
+def _restore_backup(location: Path, backup: Path, patterns, created) -> None:
+    """Undo a failed import: bin what was extracted, put the originals back."""
+    if not patterns:
+        shutil.rmtree(location, ignore_errors=True)
+        os.replace(backup, location)
+        return
+    for name in created:
+        target = location / name
+        try:
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target, ignore_errors=True)
+            else:
+                target.unlink(missing_ok=True)
+        except OSError:
+            pass
+    for entry in list(backup.iterdir()):
+        os.replace(entry, location / entry.name)
+    try:
+        backup.rmdir()
+    except OSError:
+        pass
+
+
 def import_saves(src_zip: Path, location: Path, progress_fn=None,
-                 backup: bool = True) -> tuple[int, int, "Path | None"]:
+                 backup: bool = True, patterns=()) -> tuple[int, int, "Path | None"]:
     """Extract *src_zip* into *location*, returning (files, bytes, backup).
-    The old folder is moved aside (unless *backup* is False) and restored if
+    The old saves are moved aside (unless *backup* is False) and restored if
     extraction fails, so a bad archive can't cost the user saves."""
     src_zip = Path(src_zip)
     location = Path(location)
@@ -154,10 +202,11 @@ def import_saves(src_zip: Path, location: Path, progress_fn=None,
     with zipfile.ZipFile(src_zip, "r") as zf:
         members = _safe_members(zf, location)
         total = sum(m.file_size for m in members)
-        moved = backup_saves(location) if backup else None
+        moved = backup_saves(location, patterns) if backup else None
         location.mkdir(parents=True, exist_ok=True)
         root = location.resolve()
         done = 0
+        created: list[str] = []
         try:
             for info in members:
                 if progress_fn is not None:
@@ -165,20 +214,23 @@ def import_saves(src_zip: Path, location: Path, progress_fn=None,
                 parts = [p for p in info.filename.replace("\\", "/").split("/") if p]
                 dest = location.joinpath(*parts)
                 # Re-check after joining: a symlink among the parents can still
-                # land outside. is_relative_to, not a string prefix — that would
+                # land outside. is_relative_to, not a string prefix -that would
                 # accept a sibling "Saves2" next to "Saves".
                 if not dest.resolve().is_relative_to(root):
                     raise SaveTransferError(
                         f"Refusing archive member outside the save folder: {info.filename}")
                 dest.parent.mkdir(parents=True, exist_ok=True)
+                # Noted BEFORE the write: a member that fails halfway still
+                # left a partial file for the rollback to clear.
+                if parts[0] not in created:
+                    created.append(parts[0])
                 with zf.open(info) as srcf, open(dest, "wb") as dstf:
                     shutil.copyfileobj(srcf, dstf)
                 done += info.file_size
         except BaseException:
-            # Put the originals back — the half-extracted folder is worthless.
+            # Put the originals back -the half-extracted folder is worthless.
             if moved is not None:
-                shutil.rmtree(location, ignore_errors=True)
-                os.replace(moved, location)
+                _restore_backup(location, moved, patterns, created)
             raise
     if progress_fn is not None:
         progress_fn(total, total, "")

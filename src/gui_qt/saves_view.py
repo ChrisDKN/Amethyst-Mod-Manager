@@ -1,4 +1,4 @@
-"""Saves — the plugins-panel sub-tab listing the game's save folders.
+"""Saves -the plugins-panel sub-tab listing the game's save folders.
 
 Locations come from the Ludusavi manifest (Utils.save_paths); a Bethesda
 profile-saves folder is listed alongside them. Read-only.
@@ -27,11 +27,11 @@ from gui_qt.icons import icon
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.worker import run_in_worker
 from Utils.prefix_manager import fmt_size, get_dir_size
-from Utils.save_paths import save_paths_for_game
+from Utils.save_paths import matches_patterns, save_paths_for_game
 from Utils.xdg import xdg_open
 
 # Entries listed per folder. A folder with more than this many children is
-# truncated — some games keep thousands of autosaves and the tree would stall
+# truncated -some games keep thousands of autosaves and the tree would stall
 # the UI thread building rows nobody scrolls to.
 _MAX_ENTRIES = 500
 
@@ -41,7 +41,7 @@ _DATE_FMT = "%d %b %Y  %H:%M"
 # screenshot plus a handful of metadata rows without swallowing the list.
 _PREVIEW_H = 230
 
-# Expand-arrow size — same as the Data / Mod Files / Text Files delegates.
+# Expand-arrow size -same as the Data / Mod Files / Text Files delegates.
 _ARROW_SZ = 20
 
 _COL_NAME, _COL_SIZE, _COL_DATE = 0, 1, 2
@@ -72,9 +72,13 @@ def _ext_of(name: str) -> str:
     return Path(name).suffix.lower() or "(none)"
 
 
-def _list_dir(path, log=None) -> tuple[list, bool]:
+def _list_dir(path, log=None, patterns=()) -> tuple[list, bool]:
     """One folder's ``(name, is_dir, size, mtime)`` entries, newest first (so a
-    truncated listing keeps the saves that matter), plus whether it truncated."""
+    truncated listing keeps the saves that matter), plus whether it truncated.
+
+    *patterns* (a location's name globs, e.g. ``*.sav``) filters this folder to
+    the entries the manifest calls saves; folders opened underneath it are
+    listed whole."""
     try:
         children = list(os.scandir(path))
     except OSError as exc:
@@ -84,6 +88,8 @@ def _list_dir(path, log=None) -> tuple[list, bool]:
 
     listing = []
     for entry in children:
+        if not matches_patterns(entry.name, patterns):
+            continue
         try:
             listing.append((entry.name, entry.is_dir(follow_symlinks=False),
                             entry.stat(follow_symlinks=False).st_mtime, entry.path))
@@ -192,7 +198,7 @@ class SavesView(QWidget):
         self.export_path_picked.connect(self._on_export_path_picked)
         self.import_path_picked.connect(self._on_import_path_picked)
         self.transfer_done.connect(self._on_transfer_done)
-        # Warm the manifest off-thread — app.py's _saves_supported() would
+        # Warm the manifest off-thread -app.py's _saves_supported() would
         # otherwise pay the ~70 ms first load on the UI thread mid game-switch.
         from Utils.ludusavi_manifest import data_info
         run_in_worker(data_info, None, name="ludusavi-warm")
@@ -240,7 +246,7 @@ class SavesView(QWidget):
         self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         # TkStyleHeader gives the modlist's drag-resize (one side grows, the
         # other shrinks, total constant). Size/Modified size to their content,
-        # Name takes the rest — no dead space trailing the date.
+        # Name takes the rest -no dead space trailing the date.
         from gui_qt.modlist_header import TkStyleHeader
         fm = self._tree.fontMetrics()
         date_w = fm.horizontalAdvance(time.strftime(_DATE_FMT, time.localtime())) + 24
@@ -258,9 +264,9 @@ class SavesView(QWidget):
         self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         self._tree.itemSelectionChanged.connect(self._on_selection_changed)
         # Click anywhere on a row to expand/collapse, like a modlist separator
-        # — but the row stays selectable, since Export/Import key off it.
+        # -but the row stays selectable, since Export/Import key off it.
         self._tree.itemClicked.connect(self._on_item_clicked)
-        # Qt's branch indicator doesn't match the other tabs — carry their
+        # Qt's branch indicator doesn't match the other tabs -carry their
         # arrow.png/right.png as the row icon and swap it on toggle.
         self._tree.itemExpanded.connect(self._on_item_expanded)
         self._tree.itemCollapsed.connect(self._sync_arrow)
@@ -272,7 +278,7 @@ class SavesView(QWidget):
             "QTreeWidget::item { height: 33px; }"
             "QTreeWidget::branch { image: none; border-image: none; }")
 
-        # Details pane stays hidden until a save is selected — on an 800px
+        # Details pane stays hidden until a save is selected -on an 800px
         # Deck screen an empty one is pure loss.
         from gui_qt.save_preview import SavePreviewPane
         self._preview = SavePreviewPane()
@@ -327,18 +333,18 @@ class SavesView(QWidget):
 
     def _locations(self) -> list:
         """Manifest-resolved locations plus the profile saves folder, deduped."""
-        locations = [(loc.path, loc.in_prefix, False, loc.exists)
+        locations = [(loc.path, loc.in_prefix, False, loc.exists, loc.patterns)
                      for loc in save_paths_for_game(self._game)]
         profile_dir = self._profile_saves_dir()
         if profile_dir is not None:
-            locations.insert(0, (profile_dir, False, True, True))
+            locations.insert(0, (profile_dir, False, True, True, ()))
         out, seen = [], set()
-        for path, in_prefix, is_profile, exists in locations:
+        for path, in_prefix, is_profile, exists, patterns in locations:
             key = os.path.realpath(path)
             if key in seen:
                 continue
             seen.add(key)
-            out.append((path, in_prefix, is_profile, exists))
+            out.append((path, in_prefix, is_profile, exists, patterns))
         return out
 
     def _profile_saves_dir(self) -> "Path | None":
@@ -358,13 +364,15 @@ class SavesView(QWidget):
         """Worker: list each location's top level. Subfolders wait until the
         user expands them (_on_item_expanded)."""
         result = []
-        for path, in_prefix, is_profile, exists in self._locations():
-            entries, truncated = _list_dir(path, self._log) if exists else ([], False)
+        for path, in_prefix, is_profile, exists, patterns in self._locations():
+            entries, truncated = _list_dir(path, self._log, patterns) if exists \
+                else ([], False)
             result.append({
                 "path": path,
                 "in_prefix": in_prefix,
                 "is_profile": is_profile,
                 "exists": exists,
+                "patterns": patterns,
                 "entries": entries,
                 "truncated": truncated,
                 "total": sum(e[2] for e in entries),
@@ -379,7 +387,7 @@ class SavesView(QWidget):
 
     def _on_item_double_clicked(self, _item, _column):
         """Open the folder. A double-click's two clicks toggle the row twice,
-        so it lands back where it started — this is purely 'open'."""
+        so it lands back where it started -this is purely 'open'."""
         self.open_folder()
 
     def _on_item_expanded(self, item):
@@ -441,7 +449,11 @@ class SavesView(QWidget):
         if path.startswith(home + os.sep):
             path = "~" + path[len(home):]
         if loc["is_profile"]:
-            return self.tr("{0}   [profile saves — {1}]").format(path, self._profile_name)
+            return self.tr("{0}   [profile saves -{1}]").format(path, self._profile_name)
+        # Say which files are the saves -otherwise a folder shared with other
+        # data looks like it is hiding entries.
+        if loc.get("patterns"):
+            path = self.tr("{0}   ({1})").format(path, ", ".join(loc["patterns"]))
         if loc["in_prefix"]:
             return self.tr("{0}   [in prefix]").format(path)
         return path
@@ -459,7 +471,7 @@ class SavesView(QWidget):
             row.setText(2, time.strftime(_DATE_FMT, time.localtime(mtime)))
             row.setData(0, _PATH_ROLE, str(Path(loc["path"]) / name))
             if is_dir:
-                # Claim an arrow before the folder is read — children only
+                # Claim an arrow before the folder is read -children only
                 # arrive once the row is opened.
                 row.setData(0, _DIR_ROLE, True)
                 row.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
@@ -477,9 +489,17 @@ class SavesView(QWidget):
             row.setIcon(0, _spacer_icon())
             row.setData(0, _INFO_ROLE, True)
         if not loc["entries"]:
+            if not loc.get("exists", True):
+                text = self.tr("(not created yet -the game saves here)")
+            elif loc.get("patterns"):
+                # "(empty)" would be a lie: the folder can be full of files
+                # that simply are not this game's saves.
+                text = self.tr("(no {0} saves here yet)").format(
+                    ", ".join(loc["patterns"]))
+            else:
+                text = self.tr("(empty)")
             row = make()
-            row.setText(0, self.tr("(empty)") if loc.get("exists", True)
-                        else self.tr("(not created yet — the game saves here)"))
+            row.setText(0, text)
             row.setForeground(0, self._brush(_c(p, "TEXT_DIM")))
             row.setIcon(0, _spacer_icon())
             row.setData(0, _INFO_ROLE, True)
@@ -612,7 +632,7 @@ class SavesView(QWidget):
             if item.data(0, _INFO_ROLE):
                 item.setHidden(active)
                 continue
-            # Folder rows always stay — one is only listed once opened, so
+            # Folder rows always stay -one is only listed once opened, so
             # hiding it would hide saves nobody has scanned yet.
             if item.data(0, _DIR_ROLE) or item.childCount():
                 item.setHidden(False)
@@ -621,7 +641,7 @@ class SavesView(QWidget):
             keep = not active or self._row_matches(item)
             item.setHidden(not keep)
             shown += int(keep)
-        # A hidden row must not stay selected — Export/Import and the details
+        # A hidden row must not stay selected -Export/Import and the details
         # pane both key off it.
         current = self._tree.currentItem()
         if current is not None and current.isHidden():
@@ -652,7 +672,7 @@ class SavesView(QWidget):
         if path is None or (item is not None and item.data(0, _DIR_ROLE)):
             self._hide_preview()
             return
-        # Extension only — the magic-byte check opens the file, and arrowing
+        # Extension only -the magic-byte check opens the file, and arrowing
         # down a list would then do a read per row on the UI thread. The worker
         # does the real check and hands back None if it isn't a save.
         from Utils.save_header import SAVE_EXTS
@@ -675,14 +695,14 @@ class SavesView(QWidget):
             mtime = os.stat(path).st_mtime
         except OSError:
             mtime = 0.0
-        # FO3/NV carry no timestamp of their own — mtime is the fallback.
+        # FO3/NV carry no timestamp of their own -mtime is the fallback.
         return {"gen": gen, "header": parse_save(path), "mtime": mtime,
                 "path": path}
 
     def _on_preview_done(self, payload):
         if payload.get("gen") != self._preview_gen:
             return              # superseded by a newer selection
-        # A None header means the extension lied — say so rather than
+        # A None header means the extension lied -say so rather than
         # collapsing the pane out from under the row just clicked.
         self._preview.set_header(payload.get("header"),
                                  path=payload.get("path"),
@@ -716,11 +736,11 @@ class SavesView(QWidget):
         return Path(raw) if raw else None
 
     def can_open(self) -> bool:
-        """Whether Open folder has something to open — a row or the location."""
+        """Whether Open folder has something to open -a row or the location."""
         return self.selected_path() is not None or self.target_location() is not None
 
     def open_folder(self):
-        """Open the selected entry's folder, or — with nothing selected — the
+        """Open the selected entry's folder, or -with nothing selected -the
         save location itself."""
         path = self.selected_path() or self.target_location()
         if path is None:
@@ -729,20 +749,25 @@ class SavesView(QWidget):
         xdg_open(target, self._log)
 
     # ---- export / import --------------------------------------------------
-    def target_location(self) -> "Path | None":
-        """The folder export/import act on: the only location, or the one
-        owning the selected row when a game has several."""
+    def _target_loc(self) -> "dict | None":
+        """The location export/import act on: the only one, or the one owning
+        the selected row when a game has several."""
         if not self._scanned:
             return None
         if len(self._scanned) == 1:
-            return Path(self._scanned[0]["path"])
+            return self._scanned[0]
         selected = self.selected_path()
         if selected is not None:
             for loc in self._scanned:
                 root = Path(loc["path"])
                 if selected == root or root in selected.parents:
-                    return root
+                    return loc
         return None
+
+    def target_location(self) -> "Path | None":
+        """The folder export/import act on."""
+        loc = self._target_loc()
+        return Path(loc["path"]) if loc is not None else None
 
     def can_transfer(self) -> bool:
         """Whether Export/Import have an unambiguous folder to work on."""
@@ -772,22 +797,23 @@ class SavesView(QWidget):
                      (self.tr("All files"), ["*"])])
 
     def _on_export_path_picked(self, path):
-        source = self.target_location()
-        if not path or source is None:
+        loc = self._target_loc()
+        if not path or loc is None:
             return
+        source, patterns = Path(loc["path"]), loc.get("patterns", ())
         dest = Path(path)
         if dest.suffix.lower() != ".zip":
             dest = dest.with_name(dest.name + ".zip")
         self._set_busy(True)
         self.notify.emit(self.tr("Packing saves…"), "info")
-        run_in_worker(lambda: self._export_worker(source, dest),
+        run_in_worker(lambda: self._export_worker(source, dest, patterns),
                       self.transfer_done, name="saves-export", unpack=True,
                       error_result=(False, self.tr("Export failed.")))
 
-    def _export_worker(self, source: Path, dest: Path) -> tuple[bool, str]:
+    def _export_worker(self, source: Path, dest: Path, patterns=()) -> tuple[bool, str]:
         from Utils.save_transfer import SaveTransferError, export_saves
         try:
-            count, size = export_saves(source, dest, self._progress)
+            count, size = export_saves(source, dest, self._progress, patterns)
         except SaveTransferError as exc:
             return False, str(exc)
         except OSError as exc:
@@ -809,32 +835,41 @@ class SavesView(QWidget):
                      (self.tr("All files"), ["*"])])
 
     def _on_import_path_picked(self, path):
-        location = self.target_location()
-        if not path or location is None:
+        loc = self._target_loc()
+        if not path or loc is None:
             return
+        location, patterns = Path(loc["path"]), loc.get("patterns", ())
         src = Path(path)
-        # Importing replaces the folder's contents — say so first.
+        # Importing replaces the folder's contents -say so first.
+        moved = self.tr("The current contents are moved aside to a \"{0}\" "
+                        "folder first, so nothing is lost.").format(
+            location.name + ".before-import-…")
+        if patterns:
+            # Only the save files move; the rest of the folder is left alone,
+            # which matters when the game keeps its saves beside its own data.
+            moved = self.tr("The current {0} files are moved aside to a \"{1}\" "
+                            "folder first, so nothing is lost.").format(
+                ", ".join(patterns), location.name + ".before-import-…")
         from gui_qt.confirm_overlay import ConfirmOverlay
         ConfirmOverlay.show_over(
             self,
             self.tr("Import saves?"),
-            self.tr("Extract {0} into\n{1}\n\nThe current contents are moved "
-                    "aside to a \"{2}\" folder first, so nothing is lost.")
-            .format(src.name, location, location.name + ".before-import-…"),
-            lambda ok: self._do_import(src, location) if ok else None,
+            self.tr("Extract {0} into\n{1}\n\n{2}").format(src.name, location, moved),
+            lambda ok: self._do_import(src, location, patterns) if ok else None,
             confirm_label=self.tr("Import"))
 
-    def _do_import(self, src: Path, location: Path):
+    def _do_import(self, src: Path, location: Path, patterns=()):
         self._set_busy(True)
         self.notify.emit(self.tr("Extracting saves…"), "info")
-        run_in_worker(lambda: self._import_worker(src, location),
+        run_in_worker(lambda: self._import_worker(src, location, patterns),
                       self.transfer_done, name="saves-import", unpack=True,
                       error_result=(False, self.tr("Import failed.")))
 
-    def _import_worker(self, src: Path, location: Path) -> tuple[bool, str]:
+    def _import_worker(self, src: Path, location: Path, patterns=()) -> tuple[bool, str]:
         from Utils.save_transfer import SaveTransferError, import_saves
         try:
-            count, size, backup = import_saves(src, location, self._progress)
+            count, size, backup = import_saves(src, location, self._progress,
+                                               patterns=patterns)
         except SaveTransferError as exc:
             return False, str(exc)
         except OSError as exc:
