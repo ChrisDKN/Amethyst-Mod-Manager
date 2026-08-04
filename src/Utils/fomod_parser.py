@@ -221,26 +221,30 @@ def _parse_files(files_el: ET.Element) -> list[FileInstall]:
             source = child.get("source", "")
             destination = child.get("destination")
             is_folder = (tag == "folder")
-            # Empty/absent `destination` has DIFFERENT meaning per element type:
-            #   <file>   → install the file to the destination ROOT under its
-            #              basename (so <file source="main file\X.esp"
-            #              destination=""/> lands at X.esp, NOT nested under
-            #              main file/). FOMOD authors who want a subpath give an
-            #              explicit destination; an empty one means "root". This
-            #              is what MO2's installerFomod does — earlier we wrongly
-            #              preserved the full source path, which buried CACO's
-            #              main .esp/.bsa under a "main file/" folder so the game
-            #              never saw the plugin.
-            #   <folder> → copy the folder's *contents* to the destination root,
-            #              stripping the source wrapper (so
-            #              <folder source="Base" destination=""/> puts Base/SKSE/…
-            #              at SKSE/…). This MUST stay empty so the copier's
-            #              "no dst_rel → dest_root" path does the stripping.
-            # MO2 treats absent and empty identically within each element type.
-            if not is_folder and (destination is None or destination == ""):
+            # An ABSENT `destination` is not the same as an EMPTY one — the
+            # FOMOD schema says a missing destination installs to the source's
+            # own path, while an explicit destination="" means the destination
+            # root. Conflating the two stripped the wrapper off every
+            # <folder source="meshes"/> / <folder source="textures"/>, dumping
+            # the folder's contents at the mod root so the game never saw them.
+            #   absent      → same as `source` (<folder source="meshes"/> keeps
+            #                 meshes/… at meshes/…; a <file> keeps its subpath).
+            #   empty ("")  → the destination ROOT:
+            #                 <file>   lands under its basename (so
+            #                          <file source="main file\X.esp"
+            #                          destination=""/> gives X.esp, NOT
+            #                          main file/X.esp — this is what buried
+            #                          CACO's main .esp/.bsa).
+            #                 <folder> copies its *contents* to the root,
+            #                          stripping the wrapper (so
+            #                          <folder source="Base" destination=""/>
+            #                          puts Base/SKSE/… at SKSE/…). This MUST
+            #                          stay empty so the copier's "no dst_rel →
+            #                          dest_root" path does the stripping.
+            if destination is None:
+                destination = source
+            elif destination == "" and not is_folder:
                 destination = os.path.basename(source.replace("\\", "/"))
-            elif destination is None:
-                destination = ""
             result.append(FileInstall(
                 source=source,
                 destination=destination,
