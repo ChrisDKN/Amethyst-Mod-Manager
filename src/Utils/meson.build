@@ -104,6 +104,7 @@ py.install_sources(
   'nif_reader.py',
   'nif_xml.py',
   'override_scan.py',
+  'pak_identity.py',
   'pak_reader.py',
   'pandora_tools.py',
   'path_utils.py',

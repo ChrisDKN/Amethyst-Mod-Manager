@@ -597,6 +597,21 @@ class BaseGame(ABC):
         return _normalise
 
     @property
+    def pak_uuid_conflicts(self) -> bool:
+        """True when .pak files contest by the module UUID inside them (BG3)."""
+        return False
+
+    def make_filemap_conflict_key_fn(self, staging: "Path", index_path: "Path",
+                                     log_fn=None, fallback=None):
+        """Return a (mod_name, rel_key) -> conflict key callable, or None.
+
+        For games whose conflict identity lives inside the file (BG3 pak UUIDs).
+        Implementations MUST delegate unclaimed files to *fallback*, the
+        path-based key fn the pipeline would otherwise use.
+        """
+        return None
+
+    @property
     def normalize_folder_case(self) -> bool:
         """
         When True (the default), folder segments that differ only in case across

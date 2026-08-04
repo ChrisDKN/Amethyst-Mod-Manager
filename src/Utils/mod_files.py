@@ -121,6 +121,10 @@ class ConflictCache(NamedTuple):
     winner_root: dict[str, str]            # from filemap_root.txt
     root_mods: frozenset                   # whole-mod root-flagged
     root_tags: dict[str, frozenset]        # mod -> per-file root-tagged keys
+    # (mod, rel_key) -> UUID for BG3 paks whose module is shipped by more than
+    # one enabled mod. They contest by identity, so the path-keyed sets above
+    # can't see them — the loser isn't even in filemap.txt.
+    pak_uuid: dict = {}
 
     def is_root(self, mod_name: str, rel_key: str) -> bool:
         """True when this mod's file deploys to the game root, not Data/."""
@@ -131,6 +135,10 @@ class ConflictCache(NamedTuple):
 
     def status(self, mod_name: str, rel_key: str) -> int:
         """1 this mod wins, -1 it loses, 0 no conflict — in its own namespace."""
+        if self.pak_uuid and (mod_name, rel_key) in self.pak_uuid:
+            # Identity conflict: only one pak per module survives into
+            # filemap.txt — that one wins, every other copy loses.
+            return 1 if self.winner.get(rel_key) == mod_name else -1
         if self.is_root(mod_name, rel_key):
             contested, winner = self.contested_root, self.winner_root
         else:
@@ -180,11 +188,62 @@ def conflict_root_context(game, profile_dir: Path | None) -> tuple:
     return root_mods, tags
 
 
+def _pak_uuid_contests(index_path: Path, full_index: dict, disabled: set,
+                       pak_ctx: tuple) -> dict:
+    """{(mod, rel_key): uuid} for .pak modules shipped by >1 enabled pak."""
+    staging_root, overwrite_dir = pak_ctx
+    try:
+        from Utils.pak_identity import CACHE_NAME, OVERWRITE_NAME, PakUuidCache
+    except Exception:
+        return {}
+    # Read-only: the filemap build owns this cache (and may be writing it on
+    # another thread). A cold miss just costs this call one archive read.
+    cache = PakUuidCache(index_path.parent / CACHE_NAME, readonly=True)
+    counts: dict[str, int] = {}
+    found: list[tuple[str, str, str]] = []
+    for mn, (normal, _root) in full_index.items():
+        if mn in disabled:
+            continue
+        mod_root = overwrite_dir if mn == OVERWRITE_NAME else staging_root / mn
+        for k, rel_str in normal.items():
+            if not k.endswith(".pak"):
+                continue
+            uuid = cache.uuid_for(mod_root / rel_str)
+            if not uuid:
+                continue
+            counts[uuid] = counts.get(uuid, 0) + 1
+            found.append((mn, k, uuid))
+    # Count paks, not mods: two copies inside ONE mod folder (or the overwrite
+    # folder) contest too — only one of them deploys.
+    return {(mn, k): uuid for mn, k, uuid in found if counts[uuid] > 1}
+
+
+def pak_uuid_context(game, index_path: Path | None) -> tuple | None:
+    """(staging_root, overwrite_dir) for identity-keyed .pak contests, or None.
+
+    BG3 only. Every view feeding build_conflict_cache must pass this — the cache
+    is single-slot, so callers that disagree thrash it (as bsa_conflict_index_path).
+    """
+    if game is None or index_path is None:
+        return None
+    if not getattr(game, "pak_uuid_conflicts", False):
+        return None
+    try:
+        from Utils.pak_identity import uuid_conflicts_enabled
+        if not uuid_conflicts_enabled():
+            return None
+        return (Path(game.get_effective_mod_staging_path()),
+                Path(game.get_effective_overwrite_path()))
+    except Exception:
+        return None
+
+
 def build_conflict_cache(index_path: Path | None,
                          profile_dir: Path | None,
                          full_index: dict | None = None,
                          bsa_index_path: Path | None = None,
                          root_ctx: tuple | None = None,
+                         pak_ctx: tuple | None = None,
                          ) -> ConflictCache:
     """Return the per-namespace contest data (see :class:`ConflictCache`).
 
@@ -231,7 +290,8 @@ def build_conflict_cache(index_path: Path | None,
            _stat_key(ps_path),
            str(bsa_index_path) if bsa_index_path is not None else None,
            _stat_key(bsa_index_path), root_mods,
-           tuple(sorted((m, v) for m, v in root_tags.items())))
+           tuple(sorted((m, v) for m, v in root_tags.items())),
+           tuple(str(p) for p in (pak_ctx or ())))
     with _conflict_cache_lock:
         cached = _conflict_cache
     # read_mod_index caches by mtime, so an unchanged index returns the SAME
@@ -261,6 +321,7 @@ def build_conflict_cache(index_path: Path | None,
 
     contested: set[str] = set()
     contested_root: set[str] = set()
+    pak_uuid: dict = {}
     if full_index:
         disabled: set[str] = set()
         if ml_path is not None and ml_path.is_file():
@@ -314,8 +375,11 @@ def build_conflict_cache(index_path: Path | None,
                     counts[k] = counts.get(k, 0) + 1
         contested |= {k for k, c in counts.items() if c > 1}
         contested_root |= {k for k, c in counts_root.items() if c > 1}
+        if pak_ctx is not None:
+            pak_uuid = _pak_uuid_contests(index_path, full_index, disabled,
+                                          pak_ctx)
     result = ConflictCache(contested, filemap_winner, contested_root,
-                           filemap_root_winner, root_mods, root_tags)
+                           filemap_root_winner, root_mods, root_tags, pak_uuid)
     with _conflict_cache_lock:
         _conflict_cache = (key, full_index, result)
     return result

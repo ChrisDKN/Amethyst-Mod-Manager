@@ -33,6 +33,9 @@ class ConflictData:
     # compound NONE→WINS→PARTIAL.
     loose_codes_base: dict[str, int] | None = None
     bsa_codes: dict[str, int] = field(default_factory=dict)
+    # BG3 mods whose .pak duplicates another mod's module UUID — its own icon,
+    # kept out of loose_codes so an identity clash doesn't light up two.
+    uuid_codes: dict[str, int] = field(default_factory=dict)
     overrides: dict[str, set] = field(default_factory=dict)
     overridden_by: dict[str, set] = field(default_factory=dict)
     bsa_overrides: dict[str, set] = field(default_factory=dict)
@@ -226,6 +229,7 @@ class GameState:
                 loose_codes=display_codes_from_conflict_map(_conflict_map),
                 overrides={k: set(v) for k, v in (overrides or {}).items()},
                 overridden_by={k: set(v) for k, v in (overridden_by or {}).items()},
+                uuid_codes=dict(getattr(result, "uuid_codes", None) or {}),
             )
         with span("_build_bsa_conflicts"):
             (data.bsa_codes, data.bsa_overrides,

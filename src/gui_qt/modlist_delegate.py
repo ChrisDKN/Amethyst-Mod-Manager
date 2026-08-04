@@ -17,7 +17,8 @@ from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
 from gui_qt.icons import icon
 from gui_qt.modlist_model import (
-    EntryRole, ConflictRole, BsaConflictRole, FlagsRole, HighlightRole,
+    EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
+    HighlightRole,
     COL_NAME, COL_FLAGS, COL_CONFLICTS, COL_PRIORITY,
 )
 from gui_qt.modlist_data import (
@@ -111,6 +112,17 @@ _BSA_CONFLICT_ICONS = {
     3: "archive-conflict-redundant.png",   # FULL — every archive file overridden
 }
 
+# BG3 module-UUID conflicts: two mods shipping the same .pak module under
+# different file names. Own icon set — "partial" means a mod with several paks
+# won some UUIDs and lost others. There is no redundant/FULL variant: a mod that
+# loses every one of its paks is still just a loser.
+_UUID_CONFLICT_ICONS = {
+    1: "UUID_Winner.png",
+    -1: "UUID_Loser.png",
+    2: "UUID_Partial.png",
+    3: "UUID_Loser.png",
+}
+
 # Conflict code → hover tooltip (verbatim from the Tk modlist, ~5217). Loose-file
 # and BSA conflicts each get their own text; static so lupdate can extract them
 # (wrapped in self.tr() at show time — see _conflict_tip).
@@ -125,6 +137,10 @@ _BSA_CONFLICT_TIPS = {
     -1: QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Losing"),
     2:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Partial"),
     3:  QT_TRANSLATE_NOOP("ModRowDelegate", "Archive conflict - Full"),
+}
+_UUID_CONFLICT_TIPS = {
+    c: QT_TRANSLATE_NOOP("ModRowDelegate", "UUID Conflict")
+    for c in (1, -1, 2, 3)
 }
 
 def _contrasting_text_color(hex_bg: str) -> str:
@@ -285,7 +301,8 @@ class ModRowDelegate(QStyledItemDelegate):
             self._paint_icons(p, r, self._flag_icons(index.data(FlagsRole) or 0))
         elif index.column() == COL_CONFLICTS:
             self._paint_conflicts(p, r, index.data(ConflictRole) or 0,
-                                  index.data(BsaConflictRole) or 0)
+                                  index.data(BsaConflictRole) or 0,
+                                  index.data(UuidConflictRole) or 0)
         else:
             # Plain columns (Installed/Version/Priority): centred to match the
             # centred headers + the icon columns.
@@ -457,7 +474,8 @@ class ModRowDelegate(QStyledItemDelegate):
         """Collapsed-separator summary: union of the block's flag icons painted
         in the Flags column, and its conflict icons in the Conflicts column —
         each kept under the relevant header."""
-        bits, conflicts, bsa_conflicts = model.sep_block_summary(block)
+        bits, conflicts, bsa_conflicts, uuid_conflicts = \
+            model.sep_block_summary(block)
 
         def _summarise(codes, icons):
             # Both winners + losers (or any mixed) → one mixed icon, else lone.
@@ -474,7 +492,8 @@ class ModRowDelegate(QStyledItemDelegate):
             return []
 
         conflict_icons = (_summarise(conflicts, _CONFLICT_ICONS)
-                          + _summarise(bsa_conflicts, _BSA_CONFLICT_ICONS))
+                          + _summarise(bsa_conflicts, _BSA_CONFLICT_ICONS)
+                          + _summarise(uuid_conflicts, _UUID_CONFLICT_ICONS))
         self._paint_icons(p, self._col_rect(COL_FLAGS, r), self._flag_icons(bits))
         self._paint_icons(p, self._col_rect(COL_CONFLICTS, r), conflict_icons)
 
@@ -513,15 +532,21 @@ class ModRowDelegate(QStyledItemDelegate):
                                       name_rect.width())
         p.drawText(name_rect, Qt.AlignVCenter | Qt.AlignLeft, elided)
 
-    def _paint_conflicts(self, p, r, loose, bsa):
+    def _paint_conflicts(self, p, r, loose, bsa, uuid=0):
         """Conflicts cell: loose-file conflict icon on the left, BSA/BA2 archive
-        conflict icon on the right (Tk parity). Either may be absent; a lone icon
-        is centred, both pair up around the cell centre."""
-        loose_ico = _CONFLICT_ICONS.get(loose)
-        bsa_ico = _BSA_CONFLICT_ICONS.get(bsa)
-        names = [n for n in (loose_ico, bsa_ico) if n]
+        conflict icon next (Tk parity), then the BG3 module-UUID icon. Any may be
+        absent; a lone icon is centred, several are laid out around the centre."""
+        names = self._conflict_icon_names(loose, bsa, uuid)
         if names:
             self._paint_icons(p, r, names)
+
+    @staticmethod
+    def _conflict_icon_names(loose, bsa, uuid):
+        """Icon file names for the Conflicts cell, in paint order. Single source
+        of truth for painting, hit-testing and tooltips — they must agree."""
+        return [n for n in (_CONFLICT_ICONS.get(loose),
+                            _BSA_CONFLICT_ICONS.get(bsa),
+                            _UUID_CONFLICT_ICONS.get(uuid)) if n]
 
     @staticmethod
     def _effective_flag_bits(bits):
@@ -567,10 +592,9 @@ class ModRowDelegate(QStyledItemDelegate):
         """True if *pos* lands on a conflict icon in the Conflicts cell rect *r*.
         Recomputes the same centred geometry as _paint_conflicts/_paint_icons so
         the hit area matches the painted icons."""
-        loose = index.data(ConflictRole) or 0
-        bsa = index.data(BsaConflictRole) or 0
-        names = [n for n in (_CONFLICT_ICONS.get(loose),
-                             _BSA_CONFLICT_ICONS.get(bsa)) if n]
+        names = self._conflict_icon_names(index.data(ConflictRole) or 0,
+                                          index.data(BsaConflictRole) or 0,
+                                          index.data(UuidConflictRole) or 0)
         if not names:
             return False
         sz, gap = ICON_SZ, 3
@@ -589,6 +613,7 @@ class ModRowDelegate(QStyledItemDelegate):
         None when *pos* is not over a conflict icon."""
         loose = index.data(ConflictRole) or 0
         bsa = index.data(BsaConflictRole) or 0
+        uuid = index.data(UuidConflictRole) or 0
         # Rebuild the same left-to-right layout as _paint_icons, tagging each
         # slot with the text it should show. Full strings kept static (not
         # composed) so lupdate can extract them.
@@ -597,6 +622,8 @@ class ModRowDelegate(QStyledItemDelegate):
             slots.append(_LOOSE_CONFLICT_TIPS.get(loose))
         if _BSA_CONFLICT_ICONS.get(bsa):
             slots.append(_BSA_CONFLICT_TIPS.get(bsa))
+        if _UUID_CONFLICT_ICONS.get(uuid):
+            slots.append(_UUID_CONFLICT_TIPS.get(uuid))
         if not slots:
             return None
         sz, gap = ICON_SZ, 3

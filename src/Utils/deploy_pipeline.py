@@ -276,6 +276,15 @@ def _make_custom_routing_conflict_key_fn(game):
     return _ck
 
 
+class _FilemapResult(tuple):
+    """build_filemap's 4-tuple plus extras, read via getattr by callers wanting them.
+
+    A tuple subclass so every existing 4-way unpack keeps working. No __slots__ —
+    CPython rejects a non-empty one on a tuple subtype.
+    """
+    uuid_codes: "dict | None" = None
+
+
 def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                             rescan_index: bool = False):
     """Rebuild filemap.txt + filemap_root.txt for *profile* of *game*.
@@ -401,7 +410,25 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 # different staged prefixes are flagged (e.g. FF12 gamedata/
                 # vs ff12data/gamedata/).
                 conflict_key_fn = _make_custom_routing_conflict_key_fn(game)
+            # Games whose conflict identity lives inside the file (BG3 pak
+            # UUIDs) WRAP the path-based keying above and delegate every file
+            # they don't claim back to it.
+            _maker = getattr(game, "make_filemap_conflict_key_fn", None)
+            if _maker is not None:
+                try:
+                    _content_ck = _maker(
+                        staging, filemap_out.parent / "modindex.bin",
+                        log_fn=log_fn, fallback=conflict_key_fn)
+                except Exception as _ck_err:
+                    log_fn(f"Conflict-key setup warning: {_ck_err}")
+                    _content_ck = None
+                if _content_ck is not None:
+                    conflict_key_fn = _content_ck
 
+        # Identity conflicts have their own icon, so ask for a conflict map
+        # that excludes them (see build_filemap's conflict_extras).
+        _ident_pfx = getattr(conflict_key_fn, "identity_key_prefix", None)
+        _extras: dict = {}
         with span("build_filemap"):
             result = build_filemap(
                 modlist_path, staging, filemap_out,
@@ -426,7 +453,25 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 root_folder_mods=rf_mods or None,
                 root_mod_files=rt,
                 follow_toplevel_links_under=game.get_profile_root() / "profiles",
+                identity_ck_prefix=_ident_pfx,
+                conflict_extras=_extras if _ident_pfx else None,
             )
+        # Persist the UUIDs the callback read (so the next build doesn't reopen
+        # every archive) and carry its per-mod codes out for the UUID icon.
+        _save_ck = getattr(conflict_key_fn, "save_cache", None)
+        if _save_ck is not None:
+            _save_ck()
+        _uuid_codes_fn = getattr(conflict_key_fn, "uuid_conflict_codes", None)
+        if _uuid_codes_fn is not None and result is not None:
+            try:
+                _path_map = _extras.get("path_conflict_map")
+                _count, _cmap, _ov, _obv = result
+                result = _FilemapResult(
+                    (_count, _path_map if _path_map is not None else _cmap,
+                     _ov, _obv))
+                result.uuid_codes = _uuid_codes_fn()
+            except Exception as _uc_err:
+                log_fn(f"UUID conflict summary warning: {_uc_err}")
         # Game-specific filemap rewrite (e.g. Witcher 3 routes staging paths
         # like TrueFires_v1.01/modTrueFires/… to mods/modTrueFires/… so the
         # Data tab and conflicts match the deployed game-root layout).

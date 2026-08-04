@@ -211,6 +211,7 @@ class DataView(QWidget):
         # conflict cache, so they must pass the same argument or thrash it.
         bsa_index_path = mflogic.bsa_conflict_index_path(self.game, index_path)
         root_ctx = mflogic.conflict_root_context(self.game, profile_dir)
+        pak_ctx = mflogic.pak_uuid_context(self.game, index_path)
 
         def worker():
             try:
@@ -219,7 +220,7 @@ class DataView(QWidget):
                 # either one tints here.
                 contested = mflogic.build_conflict_cache(
                     index_path, profile_dir, bsa_index_path=bsa_index_path,
-                    root_ctx=root_ctx).all_contested
+                    root_ctx=root_ctx, pak_ctx=pak_ctx).all_contested
             except Exception:
                 safe_emit(self._data_ready, gen, [], set())
                 return

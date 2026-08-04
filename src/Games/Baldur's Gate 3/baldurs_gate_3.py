@@ -200,6 +200,29 @@ class BaldursGate3(BaseGame):
     def wine_dll_overrides(self) -> dict[str, str]:
         return {"DWrite": "native,builtin"}
 
+    @property
+    def pak_uuid_conflicts(self) -> bool:
+        return True
+
+    def make_filemap_conflict_key_fn(self, staging: Path, index_path: Path,
+                                     log_fn=None, fallback=None):
+        """Key .pak conflicts by module UUID, not by pak file name."""
+        from Utils.pak_identity import (make_pak_uuid_conflict_key_fn,
+                                        uuid_conflicts_enabled)
+        if not uuid_conflicts_enabled():
+            return None
+        # Paks under a custom-routed folder (data/, bin/, …) are game-Data
+        # paks, not Mods-folder paks — keep those keyed by path.
+        routed: set[str] = set()
+        for rule in self.custom_routing_rules:
+            if ".pak" in {e.lower() for e in (rule.exclude_extensions or ())}:
+                continue
+            routed.update(f.lower() for f in (rule.folders or ()))
+        return make_pak_uuid_conflict_key_fn(
+            staging, self.get_effective_overwrite_path(), index_path,
+            log_fn=log_fn, fallback=fallback, skip_top_level=routed,
+        )
+
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # Custom rules route loose mods into Data/ (undone via restore_custom_rules)
         # and the .pak Mods folder lives outside the game root, so only capture
@@ -428,7 +451,8 @@ class BaldursGate3(BaseGame):
                                       game_data_path=game_data,
                                       patch_version=self._patch_version,
                                       manifest_load_order=manifest_lo,
-                                      script_extender_dll=se_dll)
+                                      script_extender_dll=se_dll,
+                                      overwrite_root=self.get_effective_overwrite_path())
 
         _suppress_launcher_mod_warnings(larian_root, log_fn=_log)
 

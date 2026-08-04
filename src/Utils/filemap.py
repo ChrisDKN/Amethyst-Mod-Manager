@@ -2527,6 +2527,8 @@ def build_filemap(
     root_folder_mods: set[str] | None = None,
     root_mod_files: dict[str, set[str]] | None = None,
     follow_toplevel_links_under: "Path | None" = None,
+    identity_ck_prefix: str | None = None,
+    conflict_extras: dict | None = None,
 ) -> tuple[int, dict[str, int], dict[str, set[str]], dict[str, set[str]]]:
     """
     Build filemap.txt from the current modlist.
@@ -2732,6 +2734,17 @@ def build_filemap(
     # Parallel index ck → staged rel_key for the current winner. Avoids an O(n)
     # scan of filemap_winner per conflicting file in UE5 builds.
     conflict_staged: dict[str, str] = {}
+    # Identity-key bookkeeping (BG3 pak UUIDs). _path_pairs holds every
+    # (loser, winner) relation that came from a real path collision, so the
+    # identity-only ones can be subtracted exactly — a pair that conflicts BOTH
+    # ways keeps its loose-file status.
+    # Identity keys (BG3 pak UUIDs): _path_pairs records every (loser, winner)
+    # from a REAL path collision so identity-only ones can be subtracted exactly
+    # — a pair conflicting both ways keeps its loose-file status.
+    _ident_on = bool(identity_ck_prefix) and conflict_key_fn is not None
+    _ident_pfx = identity_ck_prefix or ""
+    _path_pairs: set[tuple[str, str]] = set()
+    _ident_pops: dict[str, int] = {}
 
     # Hoist feature-flags out of the per-file hot loop. When a feature is
     # unused (the common case) we skip its function call entirely on each of
@@ -2849,6 +2862,8 @@ def build_filemap(
                 win_count[prev] = win_count.get(prev, 0) - 1
                 overrides[name].add(prev)
                 overridden_by[prev].add(name)
+                if _ident_on:
+                    _path_pairs.add((prev, name))
                 if _incr_on:
                     # Each overwrite event IS one consecutive pair — the same
                     # relation the incremental pair refcounts maintain.
@@ -2865,7 +2880,13 @@ def build_filemap(
                     and (_rf is None or rel_key not in _rf)):
                 ck = conflict_key_fn(name, rel_key).lower()
                 prev_ck = conflict_winner.get(ck)
-                if prev_ck is not None and prev_ck != name:
+                _is_ident = (prev_ck is not None and _ident_on
+                             and ck.startswith(_ident_pfx))
+                # An identity key drops the earlier file even when the SAME mod
+                # owns it (two paks of one module in a mod folder — or in the
+                # overwrite folder, which is one pseudo-mod). Path keys keep the
+                # historical mod != mod rule.
+                if prev_ck is not None and (prev_ck != name or _is_ident):
                     prev_staged = conflict_staged.get(ck)
                     if (prev_staged is not None
                             and prev_staged != rel_key
@@ -2873,8 +2894,15 @@ def build_filemap(
                         filemap_winner.pop(prev_staged, None)
                         filemap.pop(prev_staged, None)
                         win_count[prev_ck] = win_count.get(prev_ck, 0) - 1
-                    overrides[name].add(prev_ck)
-                    overridden_by[prev_ck].add(name)
+                        if _is_ident:
+                            # Losing an identity contest isn't a file conflict —
+                            # give the win back when scoring path-only status.
+                            _ident_pops[prev_ck] = _ident_pops.get(prev_ck, 0) + 1
+                    if prev_ck != name:
+                        overrides[name].add(prev_ck)
+                        overridden_by[prev_ck].add(name)
+                        if _ident_on and not _is_ident:
+                            _path_pairs.add((prev_ck, name))
                 conflict_winner[ck] = name
                 conflict_staged[ck] = rel_key
         if had_file:
@@ -2887,6 +2915,21 @@ def build_filemap(
         conflict_map = _compute_conflict_status(
             priority_order, overrides, overridden_by, win_count, mods_with_files,
         )
+        if _ident_on and conflict_extras is not None:
+            # Same classification minus identity-only relations (and the wins
+            # they cost) — the caller paints THIS as the loose-file icon, so an
+            # identity clash doesn't light up two icons. overrides/overridden_by
+            # stay whole, so cross-panel highlights still link the mods.
+            _p_over = {n: {o for o in s if (o, n) in _path_pairs}
+                       for n, s in overrides.items()}
+            _p_overby = {n: {o for o in s if (n, o) in _path_pairs}
+                         for n, s in overridden_by.items()}
+            _p_wins = dict(win_count)
+            for _m, _c in _ident_pops.items():
+                _p_wins[_m] = _p_wins.get(_m, 0) + _c
+            conflict_extras["path_conflict_map"] = _compute_conflict_status(
+                priority_order, _p_over, _p_overby, _p_wins, mods_with_files,
+            )
 
     # Normalize folder casing across the merged filemap so that two mods which
     # ship the same logical path with different casings (e.g. "archive/pc/Mod"

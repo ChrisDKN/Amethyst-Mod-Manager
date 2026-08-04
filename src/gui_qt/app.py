@@ -12254,7 +12254,7 @@ class MainWindow(QMainWindow):
         # (The meta worker itself starts at the END of this reload - see
         # below - so its disk work doesn't contend with the sync UI section.)
         if not preserve_overlays:
-            self._modlist_model.set_conflicts({}, {})   # clear stale; recomputed async
+            self._modlist_model.set_conflicts({}, {}, {})   # clear stale; recomputed async
         # Persist edits back to this modlist; rebuild conflicts after each save
         # (pure reorders that can't change the filemap skip the rebuild).
         self._modlist_model.modlist_path = ml_path
@@ -13996,7 +13996,8 @@ class MainWindow(QMainWindow):
                 self._modlist_model.set_filemap_results(
                     data.loose_codes, data.bsa_codes,
                     getattr(data, "prertx_mods", set()),
-                    getattr(data, "root_rule_mods", set()))
+                    getattr(data, "root_rule_mods", set()),
+                    uuid_conflicts=getattr(data, "uuid_codes", None))
             # Cross-panel highlighting needs the override + owner maps.
             with span("view.set_conflict_maps"):
                 self._modlist_view.set_conflict_maps(

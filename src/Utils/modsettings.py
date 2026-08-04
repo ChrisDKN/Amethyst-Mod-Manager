@@ -24,6 +24,7 @@ from pathlib import Path
 from Utils.modlist import ModEntry, read_modlist
 from Utils.pak_reader import extract_meta_lsx, read_pak_info
 from Utils.app_log import app_log, safe_log as _safe_log
+from Utils.filemap import OVERWRITE_NAME as _OVERWRITE_NAME
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -362,6 +363,7 @@ def scan_mod_paks(
     enabled_mods: list[ModEntry],
     no_metadata: list[str] | None = None,
     excluded: dict[str, set[str]] | None = None,
+    extra_dirs: dict[str, Path] | None = None,
 ) -> dict[str, BG3ModInfo]:
     """Scan .pak files for all enabled mods and return {uuid: BG3ModInfo}.
 
@@ -376,12 +378,17 @@ def scan_mod_paks(
     *excluded* — optional {mod_name: {rel_path_lower, ...}} of files the user
     excluded in the Mod Files tab; those paks are not deployed, so they must
     not get a modsettings entry either.
+
+    *extra_dirs* — {mod_name: folder} for pseudo-mods outside *staging_root*
+    (the overwrite folder). Duplicate UUIDs: last scanned wins, and callers pass
+    *enabled_mods* lowest-priority-first, so that matches what deploy picks.
     """
     by_uuid: dict[str, BG3ModInfo] = {}
     _excluded = excluded or {}
+    _extra = extra_dirs or {}
 
     for entry in enabled_mods:
-        mod_dir = staging_root / entry.name
+        mod_dir = _extra.get(entry.name) or (staging_root / entry.name)
         if not mod_dir.is_dir():
             continue
         paks = list(mod_dir.rglob("*.pak"))
@@ -734,6 +741,7 @@ def write_modsettings(
     patch_version: int = 8,
     manifest_load_order: list[dict] | None = None,
     script_extender_dll: Path | None = None,
+    overwrite_root: Path | None = None,
 ) -> int:
     """End-to-end: scan paks, resolve order, write modsettings.lsx.
 
@@ -757,6 +765,9 @@ def write_modsettings(
     e.g. load-order divider packs — which the default folder-walk order
     destroys). Paks installed but not in the manifest are appended.
 
+    *overwrite_root* — paks the in-game mod manager wrote there deploy at the
+    highest priority, so they need load-order entries too (else they never load).
+
     Returns the number of mod entries written (excluding the campaign entry).
     """
     _log = _safe_log(log_fn)
@@ -766,6 +777,11 @@ def write_modsettings(
     # modlist.txt is highest-priority-first; modsettings.lsx needs
     # lowest-priority-first (later entries override earlier ones in BG3).
     enabled = list(reversed(enabled))
+    extra_dirs: dict[str, Path] = {}
+    if overwrite_root is not None and overwrite_root.is_dir():
+        # Overwrite outranks every staged mod — append it last (= highest).
+        enabled.append(ModEntry(name=_OVERWRITE_NAME, enabled=True, locked=False))
+        extra_dirs[_OVERWRITE_NAME] = overwrite_root
 
     _log(f"Scanning .pak files for mod metadata (patch {patch_version}) ...")
     no_metadata: list[str] = []
@@ -776,7 +792,7 @@ def write_modsettings(
     except Exception:
         excluded = {}
     mod_infos = scan_mod_paks(staging_root, enabled, no_metadata=no_metadata,
-                              excluded=excluded)
+                              excluded=excluded, extra_dirs=extra_dirs or None)
     _log(f"  Found metadata for {len(mod_infos)} mod(s).")
     if no_metadata:
         _log(f"  {len(no_metadata)} enabled mod(s) had .pak files but no "

@@ -271,7 +271,11 @@ class ModFilesView(QWidget):
             # tints like any other conflict (see data_view for the shared gate).
             bsa_index_path=mflogic.bsa_conflict_index_path(
                 self.game, self.index_path),
-            root_ctx=mflogic.conflict_root_context(self.game, self.profile_dir))
+            root_ctx=mflogic.conflict_root_context(self.game, self.profile_dir),
+            # BG3: two paks with different names but one module UUID contest by
+            # identity — the loser never reaches filemap.txt, so without this it
+            # would show as unconflicted here.
+            pak_ctx=mflogic.pak_uuid_context(self.game, self.index_path))
 
         def conflict_of(rel_key: str) -> int:
             # status() picks the file's own namespace, so a root-tagged file is
