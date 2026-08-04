@@ -333,7 +333,12 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setFont(self.f_bold)
             cy = r.center().y()
             nr = self._col_rect(COL_NAME, r)
-            tw = p.fontMetrics().horizontalAdvance(e.display_name)
+            # These rows own a folder, not a block of mods — the "(N)" counts
+            # the files in it (blank until the async walk lands).
+            n = (model.boundary_file_count(e.name)
+                 if hasattr(model, "boundary_file_count") else None)
+            label = e.display_name if n is None else f"{e.display_name}   ({n})"
+            tw = p.fontMetrics().horizontalAdvance(label)
             cx = nr.center().x(); gap = tw // 2 + 12
             p.setPen(QPen(self.c_border, 1))
             p.drawLine(r.left() + 6, cy, cx - gap, cy)
@@ -342,7 +347,7 @@ class ModRowDelegate(QStyledItemDelegate):
                    else self.c_root_text if e.name == ROOT_FOLDER_NAME
                    else self.c_sep_text)
             p.setPen(txt)
-            p.drawText(nr, Qt.AlignVCenter | Qt.AlignHCenter, e.display_name)
+            p.drawText(nr, Qt.AlignVCenter | Qt.AlignHCenter, label)
             return
 
         name = e.display_name

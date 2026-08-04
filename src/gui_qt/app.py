@@ -248,6 +248,8 @@ class MainWindow(QMainWindow):
     _esl_elig_ready = Signal(int, object)
     # Size-column disk walk worker → UI thread (gen, sizes, size_bytes).
     _sizes_ready = Signal(int, object, object)
+    # Overwrite / Root Folder file-count walk → UI thread (gen, counts dict).
+    _boundary_counts_ready = Signal(int, object)
     # Modlist meta.ini read worker → UI thread (gen, payload dict).
     _modlist_meta_ready = Signal(int, object)
     # Filter-data disk scan worker → UI thread (gen, payload dict | None).
@@ -427,6 +429,8 @@ class MainWindow(QMainWindow):
         self._esl_elig_ready.connect(self._on_esl_elig_ready)
         self._sizes_gen = 0
         self._sizes_ready.connect(self._on_sizes_ready)
+        self._boundary_counts_gen = 0
+        self._boundary_counts_ready.connect(self._on_boundary_counts_ready)
         self._modlist_meta_gen = 0
         self._modlist_meta_ready.connect(self._on_modlist_meta_ready)
         self._filter_data_gen = 0
@@ -12329,6 +12333,8 @@ class MainWindow(QMainWindow):
             self._apply_modlist_search()
             self._apply_modlist_filters()
         self._refresh_modlist_stats()
+        # File counts for the pinned Overwrite / Root Folder rows (async walk).
+        self._refresh_boundary_counts(clear=not preserve_overlays)
         print(f"[gui_qt] modlist: {ml_path} ({len(entries)} entries)")
 
         # The Downloads tab reflects the active profile's STAGING folder (which
@@ -12493,6 +12499,45 @@ class MainWindow(QMainWindow):
         if gen != getattr(self, "_sizes_gen", 0):
             return   # superseded - a newer scan is in flight
         self._modlist_model.set_sizes(sizes, size_bytes)
+
+    def _refresh_boundary_counts(self, clear: bool = False):
+        """Count the files in the Overwrite / Root Folder folders and push them
+        to the model, which paints them as the "(N)" on those separator rows.
+
+        Both folders are usually small, but the game writes into overwrite/ at
+        will, so the walk runs on a worker with a generation guard (a profile
+        switch or a newer walk drops the stale result). *clear* blanks the old
+        counts first - they belong to the game/profile we just left."""
+        if clear:
+            self._modlist_model.set_boundary_counts({})
+        game = self._gs.game
+        if game is None:
+            return
+        try:
+            overwrite = Path(game.get_effective_overwrite_path())
+            root_folder = Path(game.get_effective_root_folder_path())
+        except Exception:
+            return
+        self._boundary_counts_gen = getattr(self, "_boundary_counts_gen", 0) + 1
+        gen = self._boundary_counts_gen
+
+        from gui_qt.worker import run_in_worker, NO_EMIT
+        from Utils.filemap import OVERWRITE_NAME, ROOT_FOLDER_NAME
+
+        def scan():
+            from gui_qt.modlist_data import count_files_in
+            return gen, {OVERWRITE_NAME: count_files_in(overwrite),
+                         ROOT_FOLDER_NAME: count_files_in(root_folder)}
+
+        run_in_worker(scan, self._boundary_counts_ready,
+                      name="modlist-boundary-counts", unpack=True,
+                      error_result=NO_EMIT)
+
+    def _on_boundary_counts_ready(self, gen, counts):
+        if gen != getattr(self, "_boundary_counts_gen", 0):
+            return   # superseded - a newer walk is in flight
+        self._modlist_model.set_boundary_counts(counts)
+        self._modlist_view.viewport().update()
 
     def _refresh_modlist_stats(self):
         """Update the modlist footer count label: enabled / total mod counts.
@@ -13956,6 +14001,9 @@ class MainWindow(QMainWindow):
             # stale (token-guarded, so overlapping walks coalesce).
             with span("refresh_modlist_stats"):
                 self._refresh_modlist_stats()
+            # A deploy/restore/install writes into overwrite/ (and Root_Folder)
+            # without a modlist reload → re-count for the boundary rows' "(N)".
+            self._refresh_boundary_counts()
             # The filemap is now fresh → reload the Plugins tab so ESL/master flags
             # resolve against the winning (e.g. patcher-provided light) copies and
             # plugins still deployed by another enabled mod are recovered. Tk parity:

@@ -173,6 +173,11 @@ class ModListModel(QAbstractTableModel):
         # Per-row memo for _separator_highlight (block walk is O(block size)
         # and data() asks per paint). Cleared on highlight/collapse/entry edits.
         self._sep_hl_cache: dict[int, int] = {}
+        # File counts for the pinned Overwrite / Root Folder boundary rows —
+        # they own a folder rather than a block of mods, so the "(N)" they show
+        # counts files on disk. Filled by an async walk (see the app's
+        # _refresh_boundary_counts); empty until it lands.
+        self._boundary_counts: dict[str, int] = {}
 
     # ---- loading ----------------------------------------------------------
     @classmethod
@@ -761,6 +766,14 @@ class ModListModel(QAbstractTableModel):
             self._sep_colors[sep_name] = color
         else:
             self._sep_colors.pop(sep_name, None)
+
+    def set_boundary_counts(self, counts: dict[str, int] | None) -> None:
+        """Set the on-disk file counts for the Overwrite / Root Folder rows."""
+        self._boundary_counts = dict(counts or {})
+
+    def boundary_file_count(self, sep_name: str) -> int | None:
+        """File count for a boundary separator's folder, or None if unknown."""
+        return self._boundary_counts.get(sep_name)
 
     def sep_deploy_info(self, sep_name: str) -> dict:
         """Deployment override ({"path","raw","mode","merge"}) for a separator,

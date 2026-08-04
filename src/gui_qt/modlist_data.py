@@ -232,6 +232,25 @@ def _dir_size_bytes(path: Path) -> int:
     return total
 
 
+def count_files_in(path: Path) -> int:
+    """Recursively count files under path (symlinks count as files, they're
+    what a deployed mod leaves behind). Safe to run in a thread."""
+    total = 0
+    try:
+        with os.scandir(path) as it:
+            for entry in it:
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        total += count_files_in(Path(entry.path))
+                    else:
+                        total += 1
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return total
+
+
 def _format_size(num_bytes: int) -> str:
     """Format a byte count as a short KB/MB/GB string."""
     if num_bytes <= 0:
