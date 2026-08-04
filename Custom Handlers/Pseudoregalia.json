@@ -1,14 +1,26 @@
 {
   "name": "Pseudoregalia",
   "game_id": "Pseudoregalia",
-  "exe_name": "pseudoregalia.exe",
+  "exe_name": "pseudoregalia/Binaries/Win64/pseudoregalia-Win64-Shipping.exe",
   "deploy_type": "ue5",
-  "mod_data_path": "pseudoregalia",
+  "mod_data_path": "Pseudoregalia",
   "steam_id": "2365810",
   "nexus_game_domain": "pseudoregalia",
   "image_url": "https://shared.steamstatic.com/store_item_assets/steam/apps/2365810/library_600x900_2x.jpg",
-  "mod_folder_strip_prefixes": [],
-  "conflict_ignore_filenames": [],
+  "mod_folder_strip_prefixes": [
+    "Pseudoregalia",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64"
+  ],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*read*.txt",
+    "*.exe"
+  ],
   "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
@@ -19,8 +31,89 @@
   "restore_before_deploy": true,
   "normalize_folder_case": true,
   "filemap_casing": "upper",
-  "wine_dll_overrides": {},
-  "custom_routing_rules": [],
+  "wine_dll_overrides": {
+    "dwmpapi": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Content/Splash",
+      "filenames": [
+        "Splash.bmp"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Movies",
+      "extensions": [
+        ".mp4"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks",
+      "folders": [
+        "LogicMods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "scripts"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "dlls"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "mods.txt"
+      ],
+      "flatten": true
+    }
+  ],
   "restore_whitelist": [],
-  "custom_frameworks": {}
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
 }
