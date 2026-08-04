@@ -3339,7 +3339,11 @@ class MainWindow(QMainWindow):
     def _start_nxm_ipc(self):
         """Start the IPC server so this (running) instance receives NXM links
         handed off by later instances. The callback fires on a worker thread,
-        so it emits _nxm_received to marshal onto the UI thread."""
+        so it emits _nxm_received to marshal onto the UI thread. A periodic
+        self-heal re-binds our sockets if another instance or a /tmp cleaner
+        removed them - otherwise every later 'Download with Mod Manager' click
+        would open a new window instead of reaching us."""
+        from PySide6.QtCore import QTimer
         from Nexus.nxm_handler import NxmIPC
         from gui_qt.safe_emit import safe_emit
 
@@ -3348,12 +3352,43 @@ class MainWindow(QMainWindow):
 
         NxmIPC.start_server(_on_nxm)
 
+        def _heal():
+            # Worker thread: ensure_bound probes sockets (blocking I/O) and is
+            # internally locked against concurrent runs + shutdown.
+            import threading
+            threading.Thread(
+                target=NxmIPC.ensure_bound, daemon=True, name="nxm-ipc-heal"
+            ).start()
+
+        self._nxm_ipc_timer = QTimer(self)
+        self._nxm_ipc_timer.setInterval(30_000)
+        self._nxm_ipc_timer.timeout.connect(_heal)
+        self._nxm_ipc_timer.start()
+
     def _receive_nxm(self, nxm_url: str):
         """UI thread: handle an NXM link (from --nxm at startup or delivered via
         IPC from a second instance). Raise the window so the user sees it."""
         from Nexus.nxm_handler import nxm_log
         nxm_log("NXM link reached UI thread of running instance")
         self._append_log("[nexus] received NXM link from browser")
+        # The click may have been routed here by a *different install
+        # variant's* sender (stale .desktop registration). Re-register
+        # ourselves - once per session, in the background (it shells out to
+        # xdg-mime & co) - so the instance that actually handles downloads
+        # owns the nxm:// handler and the next click launches this variant's
+        # sender directly.
+        if not getattr(self, "_nxm_reregistered", False):
+            self._nxm_reregistered = True
+            import threading
+
+            def _rereg():
+                from Nexus.nxm_handler import NxmHandler, nxm_log
+                try:
+                    NxmHandler.register()
+                except Exception as exc:
+                    nxm_log(f"Re-register after IPC receive failed: {exc}")
+
+            threading.Thread(target=_rereg, daemon=True, name="nxm-rereg").start()
         try:
             self.setWindowState(
                 self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
@@ -15005,19 +15040,14 @@ def run() -> int:
     if nxm_url or "--nxm" in sys.argv:
         nxm_log(f"NXM launch: argv={sys.argv[1:]}")
 
-    # Register as the nxm:// handler on every launch (idempotent) so "Download
-    # with Manager" on Nexus routes here.
-    try:
-        NxmHandler.register()
-    except Exception:
-        import traceback
-        nxm_log(f"NxmHandler.register() crashed:\n{traceback.format_exc()}")
-
     # Single-instance: if launched with an nxm:// link and an instance is
     # already running, hand the link off over the IPC socket and exit - don't
-    # build a second window. Done BEFORE the QApplication so the
-    # browser-spawned process is cheap. If no instance answers, fall through
-    # and open normally.
+    # build a second window. Done FIRST — before registration and the
+    # QApplication — so the browser-spawned process is cheap, and so a stale
+    # .desktop pointing at a different install variant can't re-assert its own
+    # registration on every click while another variant is the one actually
+    # running (the receiving instance re-registers itself instead, so the
+    # install the user really uses ends up owning the handler).
     if nxm_url:
         if NxmIPC.send_to_running(nxm_url):
             nxm_log("NXM link handed off to running instance - exiting")
@@ -15025,6 +15055,14 @@ def run() -> int:
         nxm_log("No running instance - continuing into full app launch")
     elif "--nxm" in sys.argv:
         nxm_log("--nxm flag present but no nxm:// URL in argv")
+
+    # Register as the nxm:// handler on every full launch (idempotent) so
+    # "Download with Manager" on Nexus routes here.
+    try:
+        NxmHandler.register()
+    except Exception:
+        import traceback
+        nxm_log(f"NxmHandler.register() crashed:\n{traceback.format_exc()}")
 
     # Migrate/clean amethyst.ini BEFORE anything reads it (theme loader, GameState).
     # Wipes a pre-Qt ini (missing [meta] version=2) so everyone starts fresh.

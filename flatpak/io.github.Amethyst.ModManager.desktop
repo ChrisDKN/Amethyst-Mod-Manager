@@ -2,7 +2,7 @@
 Type=Application
 Name=Amethyst Mod Manager
 Comment=Linux Mod Manager
-Exec=amethyst-mod-manager
+Exec=amethyst-mod-manager %u
 Icon=io.github.Amethyst.ModManager
 Categories=Game;Utility;
 Terminal=false

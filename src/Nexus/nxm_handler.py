@@ -97,14 +97,35 @@ def _resolve_socket_path() -> Path:
     return Path(f"/tmp/amethyst-mod-manager-{uid}.sock")
 
 
+# Our Flatpak app id — hard-coded so a *native/AppImage* sender can still try
+# the Flatpak per-app runtime dir (the host sees it at the same path) even
+# though FLATPAK_ID isn't in its environment.
+_FLATPAK_APP_ID = "io.github.Amethyst.ModManager"
+
+
+def _home_socket_path() -> Path:
+    """Env-independent socket path in the real home directory.
+
+    Under Flatpak both /tmp and XDG_RUNTIME_DIR are private to the sandbox, so
+    a Flatpak instance and a native/AppImage instance can never meet on either
+    — a click routed to the wrong install variant then opens a second window
+    instead of handing the link off. The real home IS shared (the sandbox has
+    --filesystem=home and HOME is not redirected), so a socket here is the one
+    path every install variant can reach.
+    """
+    return (Path.home() / ".local" / "share" / "AmethystModManager"
+            / "amethyst-mod-manager.sock")
+
+
 # Every socket path the app *might* use across launch contexts.
 #
 # The single-instance handoff fails when the browser-spawned `--nxm` process
 # resolves a different socket path than the long-running instance — which
 # happens whenever the two launches see different environments (e.g. a Flatpak
-# browser, or a browser launched without XDG_RUNTIME_DIR). To make handoff
+# browser, or a browser launched without XDG_RUNTIME_DIR) or the two processes
+# are different install variants (Flatpak vs AppImage/native). To make handoff
 # robust, the sender tries *all* of these and the server listens on the
-# always-available /tmp fallback in addition to its primary path, so the two
+# env-independent fallbacks in addition to its primary path, so the two
 # processes meet on at least one common path regardless of env.
 def _candidate_socket_paths() -> list[Path]:
     uid = os.getuid()
@@ -119,8 +140,17 @@ def _candidate_socket_paths() -> list[Path]:
     if xdg:
         paths.append(Path(xdg) / "amethyst-mod-manager.sock")
 
-    # Always-available, env-independent fallback. Both sender and server use
-    # this as a common meeting point when env-derived paths diverge.
+    # Cross-variant meeting point in the real home (see _home_socket_path).
+    paths.append(_home_socket_path())
+
+    # A native/AppImage sender reaching a *Flatpak* instance: the Flatpak's
+    # primary socket lives in its per-app runtime dir, which the host sees at
+    # this same path.
+    paths.append(
+        Path(f"/run/user/{uid}/app/{_FLATPAK_APP_ID}") / "amethyst-mod-manager.sock")
+
+    # Env-independent /tmp fallback. NOTE: under Flatpak /tmp is sandbox-
+    # private, so this only ever connects same-variant instances.
     paths.append(Path(f"/tmp/amethyst-mod-manager-{uid}.sock"))
 
     # Deduplicate while preserving order.
@@ -873,18 +903,24 @@ class NxmIPC:
         app.mainloop()
     """
 
-    _server_sockets: list[socket.socket] = []
+    _servers: dict[Path, socket.socket] = {}
     _threads: list[threading.Thread] = []
+    _callback: Optional[Callable[[str], None]] = None
+    # Serializes ensure_bound() against itself and shutdown() — ensure_bound
+    # runs on a worker thread while shutdown comes from the UI thread.
+    _lock = threading.Lock()
 
     @classmethod
     def send_to_running(cls, nxm_url: str) -> bool:
         """
         Try to send *nxm_url* to an already-running instance.
 
-        Tries every candidate socket path (env-derived + the /tmp fallback)
-        so the handoff still works when the browser-spawned process resolves a
-        different path than the long-running instance. Returns True as soon as
-        one delivery succeeds, False if no instance was reachable on any path.
+        Tries every candidate socket path (env-derived + the home and /tmp
+        fallbacks) so the handoff still works when the browser-spawned process
+        resolves a different path than the long-running instance — including a
+        *different install variant* (Flatpak vs AppImage/native). Returns True
+        as soon as one delivery succeeds, False if no instance was reachable
+        on any path.
         """
         candidates = _candidate_socket_paths()
         payload = json.dumps({"nxm_url": nxm_url}).encode("utf-8")
@@ -902,10 +938,25 @@ class NxmIPC:
                 sock.close()
                 nxm_log(f"Sent NXM link to running instance via {path}")
                 return True
-            except (ConnectionRefusedError, FileNotFoundError, OSError) as exc:
+            except socket.timeout as exc:
+                # An instance is listening but didn't answer in time (busy /
+                # backlog full). Do NOT delete the socket — it is live, and
+                # unlinking it would permanently orphan the running instance:
+                # every later click would open a new window.
+                tried.append(f"{path} (timeout: {exc})")
+            except ConnectionRefusedError as exc:
+                # Nobody is listening on this inode — genuinely stale leftover
+                # from a crashed instance. Safe to clean up.
                 tried.append(f"{path} ({exc})")
-                # Stale socket — clean up so future launches don't retry it.
-                path.unlink(missing_ok=True)
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            except OSError as exc:
+                # Permission problems, vanished mid-connect, etc. — leave the
+                # file alone; we can't tell whether it belongs to a live
+                # instance.
+                tried.append(f"{path} ({exc})")
 
         nxm_log(
             "NXM handoff: no running instance reachable "
@@ -916,61 +967,98 @@ class NxmIPC:
         return False
 
     @classmethod
+    def _bind_targets(cls) -> set[Path]:
+        """Paths this server should hold: primary + env-independent fallbacks."""
+        return {_SOCKET_PATH, _FALLBACK_SOCKET_PATH, _home_socket_path()}
+
+    @staticmethod
+    def _is_live(path: Path) -> bool:
+        """True if a live listener currently answers on *path*.
+
+        The probe connect is harmless to the listener: its accept loop reads
+        zero bytes and just closes the connection.
+        """
+        try:
+            probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            probe.settimeout(0.5)
+            probe.connect(str(path))
+            probe.close()
+            return True
+        except OSError:
+            return False
+
+    @classmethod
+    def _accept_loop(cls, srv: socket.socket) -> None:
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                break  # socket closed → shutting down
+            try:
+                data = conn.recv(4096)
+                if data:
+                    msg = json.loads(data.decode("utf-8"))
+                    url = msg.get("nxm_url", "")
+                    cb = cls._callback
+                    if url and cb is not None:
+                        nxm_log(f"Received NXM link from new instance: {url}")
+                        cb(url)
+            except Exception as exc:
+                nxm_log(f"Error handling IPC message: {exc}")
+            finally:
+                conn.close()
+
+    @classmethod
+    def _bind_path(cls, path: Path) -> bool:
+        """Bind *path* and start an accept thread on it.
+
+        Never steals a live socket: if another running instance answers on
+        the path, that instance keeps it. (Blindly unlinking here is what used
+        to orphan the first instance whenever a second full instance launched
+        — after which no click could reach either.)
+        """
+        try:
+            if path.exists():
+                if cls._is_live(path):
+                    nxm_log(
+                        f"NXM IPC: {path} is held by another live instance — leaving it")
+                    return False
+                path.unlink(missing_ok=True)  # dead leftover — safe to replace
+            path.parent.mkdir(parents=True, exist_ok=True)
+            srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            srv.bind(str(path))
+            srv.listen(4)
+            cls._servers[path] = srv
+            t = threading.Thread(
+                target=cls._accept_loop, args=(srv,), daemon=True, name="nxm-ipc"
+            )
+            t.start()
+            cls._threads.append(t)
+            return True
+        except OSError as exc:
+            nxm_log(f"NXM IPC: could not bind {path}: {exc}")
+            return False
+
+    @classmethod
     def start_server(cls, callback: Callable[[str], None]) -> None:
         """
         Start listening for NXM links from new instances.
 
         *callback* is called (from a background thread) with the nxm:// URL
-        string whenever another instance sends one.  The callback should use
-        ``app.after()`` to schedule work on the main thread.
+        string whenever another instance sends one; it must marshal any UI
+        work onto the main thread itself.
 
-        Binds the primary env-derived path *and* the env-independent /tmp
-        fallback so a browser-spawned sender that lost XDG_RUNTIME_DIR (or runs
-        under a different sandbox) can still reach us on a common path.
+        Binds the primary env-derived path *and* the env-independent home +
+        /tmp fallbacks so a browser-spawned sender that lost XDG_RUNTIME_DIR,
+        runs under a different sandbox, or is a different install variant can
+        still reach us on a common path.
         """
-        def _accept_loop(srv: socket.socket):
-            while True:
-                try:
-                    conn, _ = srv.accept()
-                except OSError:
-                    break  # socket closed → shutting down
-                try:
-                    data = conn.recv(4096)
-                    if data:
-                        msg = json.loads(data.decode("utf-8"))
-                        url = msg.get("nxm_url", "")
-                        if url:
-                            nxm_log(f"Received NXM link from new instance: {url}")
-                            callback(url)
-                except Exception as exc:
-                    nxm_log(f"Error handling IPC message: {exc}")
-                finally:
-                    conn.close()
-
         # Tear down any previous server state so a re-start (without an
-        # intervening shutdown) doesn't leak the old sockets/threads or append
-        # to a stale list.
+        # intervening shutdown) doesn't leak the old sockets/threads.
         cls.shutdown()
 
-        bound: list[str] = []
-        # Bind every distinct path so senders meet us on at least one of them.
-        for path in {_SOCKET_PATH, _FALLBACK_SOCKET_PATH}:
-            try:
-                path.unlink(missing_ok=True)  # clean stale socket
-                path.parent.mkdir(parents=True, exist_ok=True)
-                srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                srv.bind(str(path))
-                srv.listen(4)
-                cls._server_sockets.append(srv)
-                t = threading.Thread(
-                    target=_accept_loop, args=(srv,), daemon=True, name="nxm-ipc"
-                )
-                t.start()
-                cls._threads.append(t)
-                bound.append(str(path))
-            except OSError as exc:
-                nxm_log(f"NXM IPC: could not bind {path}: {exc}")
-
+        cls._callback = callback
+        bound = [str(p) for p in sorted(cls._bind_targets()) if cls._bind_path(p)]
         nxm_log(
             f"NXM IPC server listening on {bound} "
             f"(FLATPAK_ID={os.environ.get('FLATPAK_ID', '')!r}, "
@@ -978,14 +1066,82 @@ class NxmIPC:
         )
 
     @classmethod
+    def ensure_bound(cls) -> None:
+        """Self-heal the IPC sockets (called periodically by the running app).
+
+        Another instance (an older build blindly unlinks our paths on its own
+        startup/shutdown) or a /tmp cleaner can remove our socket files while
+        we run — after that, no sender can reach us and every 'Download with
+        Mod Manager' click opens a new window. Re-bind any of our paths whose
+        socket file has vanished, and pick up paths that a now-exited instance
+        used to hold. Safe to call from a worker thread; no-op if the server
+        was never started.
+        """
+        if cls._callback is None:
+            return
+        if not cls._lock.acquire(blocking=False):
+            return  # a previous ensure_bound is still running
+        try:
+            if cls._callback is None:
+                return  # shut down while we waited
+            cls._threads = [t for t in cls._threads if t.is_alive()]
+            for path in cls._bind_targets():
+                srv = cls._servers.get(path)
+                if srv is not None and path.exists():
+                    continue  # bound and still on disk — healthy
+                if srv is None and path.exists() and cls._is_live(path):
+                    continue  # another live instance legitimately holds it
+                if srv is not None:
+                    # Our socket file vanished — the fd is orphaned (clients
+                    # connect by path, not inode). Drop it and bind fresh.
+                    # shutdown() first: close() alone doesn't release the
+                    # listener while the accept thread is blocked in accept().
+                    try:
+                        srv.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+                    try:
+                        srv.close()
+                    except OSError:
+                        pass
+                    cls._servers.pop(path, None)
+                if cls._bind_path(path):
+                    nxm_log(f"NXM IPC: (re-)bound {path}")
+        finally:
+            cls._lock.release()
+
+    @classmethod
     def shutdown(cls) -> None:
-        """Close every IPC socket and clean up."""
-        for srv in cls._server_sockets:
-            try:
-                srv.close()
-            except OSError:
-                pass
-        cls._server_sockets = []
-        cls._threads = []
-        for path in {_SOCKET_PATH, _FALLBACK_SOCKET_PATH}:
-            path.unlink(missing_ok=True)
+        """Close every IPC socket we bound and remove only OUR socket files.
+
+        Never unlink a path another instance holds — that would orphan a
+        still-running instance and route every future click to a new window.
+        """
+        with cls._lock:
+            cls._callback = None
+            servers = dict(cls._servers)
+            cls._servers = {}
+            for srv in servers.values():
+                # shutdown() wakes the accept thread; close() alone leaves the
+                # listener alive (the blocked accept() holds the kernel-side
+                # open file description) and the liveness probe below would
+                # then mistake our own dying socket for another instance's.
+                try:
+                    srv.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                try:
+                    srv.close()
+                except OSError:
+                    pass
+            for t in cls._threads:
+                t.join(timeout=1)
+            cls._threads = []
+            for path in servers:
+                # With our server gone, a live answer on the path means
+                # another instance has re-bound it — leave their file alone.
+                if not cls._is_live(path):
+                    try:
+                        path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
