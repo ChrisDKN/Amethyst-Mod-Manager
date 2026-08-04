@@ -927,33 +927,42 @@ def save_qt_window_state(geometry_b64: str, body_split: "list[int] | None") -> N
 # ---------------------------------------------------------------------------
 _DEV_SECTION = "dev"
 
+DEV_MODE_ENV = "AMM_DEV_MODE"
+FORCE_MANUAL_INSTALL_ENV = "AMM_FORCE_MANUAL_INSTALL"
 
-def load_dev_mode() -> bool:
-    """Return True if [dev] devmode = true is set in amethyst.ini."""
+
+def _env_flag(name: str) -> "bool | None":
+    """Read *name* as a boolean, or None when it isn't set."""
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return None
+    return raw in ("1", "true", "yes", "on")
+
+
+def _dev_flag(key: str, env_name: str) -> bool:
+    """True if *env_name* is set truthy, else [dev] *key* = true in the ini."""
+    override = _env_flag(env_name)
+    if override is not None:
+        return override
     path = get_ui_config_path()
     if not path.is_file():
         return False
     try:
         parser = _read_ini(path)
-        return parser.get(_DEV_SECTION, "devmode", fallback="false").strip().lower() == "true"
+        return parser.get(_DEV_SECTION, key, fallback="false").strip().lower() == "true"
     except Exception:
         return False
+
+
+def load_dev_mode() -> bool:
+    """True with AMM_DEV_MODE=1 or [dev] devmode = true in amethyst.ini."""
+    return _dev_flag("devmode", DEV_MODE_ENV)
 
 
 def load_force_manual_install() -> bool:
-    """Return True if [dev] force_manual_install = true is set in amethyst.ini.
-
-    When True, collection installs use the non-premium manual-download flow
-    regardless of the user's actual Nexus premium status.
-    """
-    path = get_ui_config_path()
-    if not path.is_file():
-        return False
-    try:
-        parser = _read_ini(path)
-        return parser.get(_DEV_SECTION, "force_manual_install", fallback="false").strip().lower() == "true"
-    except Exception:
-        return False
+    """True with AMM_FORCE_MANUAL_INSTALL=1 or [dev] force_manual_install = true;
+    Nexus installs then use the non-premium manual-download flow."""
+    return _dev_flag("force_manual_install", FORCE_MANUAL_INSTALL_ENV)
 
 
 # ---------------------------------------------------------------------------

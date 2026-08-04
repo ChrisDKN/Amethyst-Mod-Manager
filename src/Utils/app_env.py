@@ -214,6 +214,28 @@ KNOWN_VARS: list[dict] = [
             "to game/staging folders outside home. 0 means you grant them "
             "yourself with flatpak override / Flatseal."),
     },
+    # --- development --------------------------------------------------------
+    {
+        "name": "AMM_DEV_MODE",
+        "group": "Development",
+        "values": _ONOFF,
+        "default": "1",
+        "summary": (
+            "Developer mode. Stops the startup sync from overwriting your "
+            "local custom handlers, wizard plugins and translations with the "
+            "copies published on GitHub. Same switch as [dev] devmode in "
+            "amethyst.ini, and it wins over it."),
+    },
+    {
+        "name": "AMM_FORCE_MANUAL_INSTALL",
+        "group": "Development",
+        "values": _ONOFF,
+        "default": "1",
+        "summary": (
+            "Always use the non-premium browser-download install flow, even "
+            "with a Nexus premium account. For testing what non-premium users "
+            "get. Same switch as [dev] force_manual_install in amethyst.ini."),
+    },
 ]
 
 KNOWN_BY_NAME = {v["name"]: v for v in KNOWN_VARS}
