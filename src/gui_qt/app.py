@@ -1006,6 +1006,8 @@ class MainWindow(QMainWindow):
         try:
             mv, pv = self._modlist_view, self._plugin_view
             names = mv.selected_mod_names()
+            # Change Version tab (if visible) follows the selection.
+            self._follow_selection_change_version()
             if self._req_tab_active():
                 # View Requirements mode: conflict highlights are disabled -
                 # the panel retargets to the selection (multiple mods pool
@@ -5906,6 +5908,65 @@ class MainWindow(QMainWindow):
             return
         self._refresh_modlist_flags()
 
+    def _sync_change_version_after_install(self, final_name: str):
+        """Retarget the open Change Version tab at *final_name* once an install
+        it kicked off has landed — the tab stays open across installs, so its
+        title, Ignore-Update state and highlights must track the fresh meta.ini.
+        Also the swap after 'Remove previous version' renames the target. Reads
+        meta from the profile the install actually landed in (a group member's
+        staging when a Profile Group is active — the group link may not exist
+        yet at this point)."""
+        view = getattr(self, "_change_version_view", None)
+        if view is None:
+            return
+        game = self._gs.game
+        pdir = getattr(self, "_install_profile_dir", None) or self._gs.profile_dir()
+        if game is None or pdir is None:
+            return
+        try:
+            from Utils.mod_copy import resolve_target_staging
+            staging = Path(resolve_target_staging(game, Path(pdir)))
+        except Exception:
+            return
+        if not (staging / final_name).is_dir():
+            return
+        from Nexus.nexus_meta import read_meta
+        view.retarget(final_name, read_meta(staging / final_name / "meta.ini"))
+
+    def _follow_selection_change_version(self):
+        """Change Version tab follows the modlist selection: while the tab is
+        visible, selecting a single Nexus mod retargets it. Debounced so
+        keyboard-scrolling the list doesn't fire an API fetch per row."""
+        view = getattr(self, "_change_version_view", None)
+        if view is None or not view.isVisible() or view.busy():
+            return
+        t = getattr(self, "_chv_follow_timer", None)
+        if t is None:
+            t = QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self._retarget_change_version_to_selection)
+            self._chv_follow_timer = t
+        t.start(300)
+
+    def _retarget_change_version_to_selection(self):
+        view = getattr(self, "_change_version_view", None)
+        if view is None or not view.isVisible() or view.busy():
+            return
+        rows = self._modlist_view.selectionModel().selectedRows()
+        if len(rows) != 1:
+            return
+        e = self._modlist_model.entry(rows[0].row())
+        if e.is_separator or e.name == view.current_mod_name():
+            return
+        staging = self._gs.staging_dir()
+        if staging is None or not (staging / e.name).is_dir():
+            return
+        from Nexus.nexus_meta import read_meta
+        meta = read_meta(staging / e.name / "meta.ini")
+        if int(getattr(meta, "mod_id", 0) or 0) <= 0:
+            return    # not a Nexus mod — keep showing the current one
+        view.retarget(e.name, meta)
+
     # ---- Bundle options (plugins-panel-scoped overlay) --------------------
 
     def _open_bundle_tab(self, mod_name: str):
@@ -10178,6 +10239,9 @@ class MainWindow(QMainWindow):
             if not getattr(self, "_reload_had_entries", False):
                 self._reload_plugins()
             self._notify(self.tr("Installed {0}").format(final), "success")
+            # Change Version tab stays open — refresh its highlights.
+            if prev_name:
+                self._sync_change_version_after_install(final)
             # Change Version landed a different-named version → offer to remove
             # the previous version (Tk parity with _finish_one_install).
             if prev_name and final != prev_name:
@@ -10240,6 +10304,10 @@ class MainWindow(QMainWindow):
         # Change Version landed a different-named version → offer to remove
         # the previous version (Tk parity). One-shot per queue.
         prev = getattr(self, "_install_prev_name", None)
+        if prev:
+            # The Change Version tab stays open — repoint it at the installed
+            # mod so the installed-version highlight is accurate.
+            self._sync_change_version_after_install(name)
         if prev and name != prev:
             self._install_prev_name = None   # don't re-prompt for later items
             self._maybe_prompt_remove_previous(prev, name)
@@ -10370,6 +10438,9 @@ class MainWindow(QMainWindow):
                   f"{exc}", flush=True)
         self._reload_modlist()
         self._rebuild_conflicts_async()
+        # The Change Version tab may still be open on the mod that was just
+        # removed — swap it to the version that replaced it.
+        self._sync_change_version_after_install(new_name)
 
     def _maybe_prompt_rename(self, name: str, on_done):
         """If 'Rename mod after install' is on, prompt for a new name and rename
@@ -10577,6 +10648,11 @@ class MainWindow(QMainWindow):
         # Re-flag Reinstall in the Downloads tab now that meta.ini changed.
         if hasattr(self, "_downloads_view"):
             self._downloads_view.mark_dirty()
+        # A failed Change Version install never reaches the per-item retarget —
+        # don't leave the tab's "Installing…" notice up forever.
+        chv = getattr(self, "_change_version_view", None)
+        if chv is not None:
+            chv.clear_install_status()
         # A batch owner (Quick Update) reports its own summary; skip the generic
         # install toast and hand control back to it.
         cb = getattr(self, "_install_all_done_cb", None)
