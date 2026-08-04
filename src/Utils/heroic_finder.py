@@ -438,6 +438,100 @@ def find_heroic_launch_info(app_names: list[str]) -> "tuple[str, str] | None":
     return None
 
 
+# ---------------------------------------------------------------------------
+# Epic auth arguments (legendary)
+# ---------------------------------------------------------------------------
+
+_HEROIC_FLATPAK_ID = "com.heroicgameslauncher.hgl"
+# Path inside every Heroic install (flatpak, native and AppImage share it).
+_LEGENDARY_REL = "resources/app.asar.unpacked/build/bin/x64/linux/legendary"
+_NATIVE_HEROIC_DIRS = ("/opt/Heroic", "/usr/lib/heroic", "/usr/share/heroic")
+
+
+def _legendary_commands(heroic_root: Path) -> list[list[str]]:
+    """Ways to run legendary against *heroic_root*'s config, best first."""
+    cfg = str(heroic_root / "legendaryConfig" / "legendary")
+    cmds: list[list[str]] = []
+    on_path = shutil.which("legendary")
+    if on_path:
+        cmds.append(["env", f"LEGENDARY_CONFIG_PATH={cfg}", on_path])
+    for base in _NATIVE_HEROIC_DIRS:
+        binary = Path(base) / _LEGENDARY_REL
+        if os.access(binary, os.X_OK):
+            cmds.append(["env", f"LEGENDARY_CONFIG_PATH={cfg}", str(binary)])
+    if shutil.which("flatpak"):
+        # The flatpak's legendary only exists inside the sandbox, so the config
+        # path must be the sandbox's own ($XDG_CONFIG_HOME), not the host path.
+        cmds.append([
+            "flatpak", "run", "--command=sh", _HEROIC_FLATPAK_ID, "-c",
+            'LEGENDARY_CONFIG_PATH=$XDG_CONFIG_HOME/heroic/legendaryConfig/legendary '
+            f'exec /app/bin/heroic/{_LEGENDARY_REL} "$@"', "sh",
+        ])
+    return cmds
+
+
+def epic_launch_args(app_name: str, log_fn=None, timeout: int = 90) -> list[str]:
+    """Epic auth/portal arguments legendary passes when launching *app_name*.
+
+    Epic builds that use the EOS SDK need these to reach their main menu — the
+    game otherwise logs "Missing platform services" and dies (Subnautica).
+    Heroic gets them from legendary on every launch; the exchange code inside
+    is single-use, so this must run per launch and can't be cached. Returns []
+    when legendary can't be reached or the game isn't an installed Epic title.
+    """
+    import subprocess
+
+    def _log(msg: str) -> None:
+        if log_fn is not None:
+            log_fn(msg)
+
+    if os.environ.get("AMM_EPIC_AUTH") == "0":
+        return []
+    for heroic_root in _find_heroic_config_roots():
+        if app_name not in _load_epic_installed(heroic_root):
+            continue
+        for cmd in _legendary_commands(heroic_root):
+            argv = [*cmd, "launch", app_name, "--dry-run", "--json"]
+            if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
+                argv = ["flatpak-spawn", "--host", "--directory=/", *argv]
+            try:
+                proc = subprocess.run(argv, capture_output=True, text=True,
+                                      timeout=timeout)
+            except Exception as e:
+                _log(f"Epic auth: legendary failed to run — {e}")
+                continue
+            try:
+                info = json.loads(proc.stdout.strip().splitlines()[-1])
+            except Exception:
+                err = (proc.stderr or proc.stdout or "").strip().splitlines()
+                _log("Epic auth: legendary returned no launch data"
+                     + (f" — {err[-1]}" if err else ""))
+                continue
+            args = [str(a) for a in (list(info.get("game_parameters") or [])
+                                     + list(info.get("egl_parameters") or [])
+                                     + list(info.get("user_parameters") or []))]
+            if args:
+                _log(f"Epic auth: got {len(args)} Epic launch argument(s) from "
+                     "legendary (Epic Online Services login).")
+            return args
+        _log("Epic auth: this is an Epic game but legendary could not be run — "
+             "the game may fail without its Epic login arguments. Launch via "
+             "Heroic instead, or set AMM_EPIC_AUTH=0 to stop trying.")
+        return []
+    return []
+
+
+def redact_epic_args(args: "list[str]") -> list[str]:
+    """Mask the single-use Epic exchange code so logs stay shareable."""
+    return [a.split("=", 1)[0] + "=***" if a.startswith("-AUTH_PASSWORD=") else a
+            for a in args]
+
+
+def _in_flatpak_sandbox() -> bool:
+    """True when this process runs inside any Flatpak sandbox."""
+    return os.path.exists("/.flatpak-info")
+
+
 def find_heroic_app_name_by_exe(exe_name: str) -> str | None:
     """
     Search Heroic's installed.json for a game whose executable matches exe_name.

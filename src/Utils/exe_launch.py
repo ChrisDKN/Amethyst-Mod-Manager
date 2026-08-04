@@ -2005,6 +2005,22 @@ def is_framework_launch_exe(game, exe_name: str) -> bool:
     return any(Path(rel).name.lower() == target for rel in declared.values())
 
 
+def epic_args_for_game(game, log_fn=_noop_log) -> list:
+    """Epic (EOS) login arguments for a Heroic-managed Epic game, else []."""
+    app_names = heroic_app_names_for_launch(game)
+    if not app_names:
+        return []
+    try:
+        from Utils.heroic_finder import epic_launch_args, find_heroic_launch_info
+        info = find_heroic_launch_info(app_names)
+        if info is None or info[0] != "legendary":
+            return []
+        return epic_launch_args(info[1], lambda m: log_fn(f"Run EXE: {m}"))
+    except Exception as e:
+        log_fn(f"Run EXE: could not fetch Epic launch arguments — {e}")
+        return []
+
+
 def steam_compat_mounts(game, exe_path: Path) -> dict:
     """Extra paths a Steam Linux Runtime launch must see, as env vars.
 
@@ -2317,6 +2333,18 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     if env_updates:
         env.update(env_updates)
 
+    game_exe = resolve_game_exe(game)
+    launches_game = (
+        not proton_override_name
+        and (is_framework_launch_exe(game, exe_path.name)
+             or (game_exe is not None
+                 and str(exe_path).lower() == str(game_exe).lower())))
+    # Epic builds need their EOS login arguments or they die at the main menu
+    # ("Missing platform services") — Heroic passes them, so a direct launch
+    # must too. Only when we ARE the launcher: mode=heroic never gets here.
+    epic_args = epic_args_for_game(game, log_fn) if launches_game else []
+    extra_args = extra_args + epic_args
+
     if umu_bin is not None:
         from Utils.lutris_finder import umu_run_command
         base_cmd = umu_run_command(umu_bin, str(exe_path), env=env) + extra_args
@@ -2331,12 +2359,6 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         # profile swap, which on Steam Deck would lock the trackpad/OSK out of
         # the tool's UI. A never-booted prefix still needs "run" for Proton's
         # initial setup.
-        game_exe = resolve_game_exe(game)
-        launches_game = (
-            not proton_override_name
-            and (is_framework_launch_exe(game, exe_path.name)
-                 or (game_exe is not None
-                     and str(exe_path).lower() == str(game_exe).lower())))
         if launches_game:
             verb = "waitforexitandrun"
         else:
@@ -2359,7 +2381,10 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     else:
         _, final_cmd = parse_launch_options(launch_opts, base_cmd)
 
-    log_fn(f"Run EXE:   cmd: {' '.join(final_cmd)}")
+    # The Epic exchange code is a live credential — never write it to a log the
+    # user may attach to a bug report.
+    from Utils.heroic_finder import redact_epic_args
+    log_fn(f"Run EXE:   cmd: {' '.join(redact_epic_args(final_cmd))}")
     _env_keys = (
         "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
