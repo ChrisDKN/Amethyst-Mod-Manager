@@ -1298,17 +1298,43 @@ def scan_drives_for_exe(exe_names: list[str],
     (document portal, gvfs) are excluded so the scan never returns a
     /run/user/…/doc alias for a real path. Matching is on the bare filename
     (case-sensitive, to match the Tk behaviour); *exe_names* entries with
-    sub-paths are matched on their final component. Returns the directory
-    holding the exe, or None.
+    sub-paths are matched on their final component, and the declared sub-path
+    is then stripped from the result so the game root comes back (parity with
+    find_game_in_libraries). Returns the game root directory, or None.
 
     Pass *stop_event* to allow an external caller (e.g. a closing dialog) to
     abort the walk early.
     """
     import concurrent.futures
 
-    names = {Path(e.replace("\\", "/")).name for e in exe_names if e}
+    # Map bare filename → declared parent sub-paths (lowercased), so a match
+    # can be walked back up to the game root: a handler exe of
+    # "Binaries/Win64/game.exe" matching at …/Icarus/Binaries/Win64 must
+    # return …/Icarus, matching what find_game_in_libraries returns. The
+    # strip is case-insensitive (Linux copies of Windows games vary in
+    # casing); longest declared sub-path wins.
+    name_parents: dict[str, list[tuple[str, ...]]] = {}
+    for e in exe_names:
+        if not e:
+            continue
+        rel = Path(e.replace("\\", "/"))
+        parents = tuple(p.lower() for p in rel.parent.parts if p != ".")
+        name_parents.setdefault(rel.name, []).append(parents)
+    for subpaths in name_parents.values():
+        subpaths.sort(key=len, reverse=True)
+    names = set(name_parents)
     if not names:
         return None
+
+    def _match_root(dirpath, matched: str) -> Path:
+        """Strip the matched exe's declared sub-path off its directory."""
+        d = Path(dirpath)
+        lower = tuple(p.lower() for p in d.parts)
+        for parents in name_parents[matched]:
+            n = len(parents)
+            if n and len(lower) > n and lower[-n:] == parents:
+                return Path(*d.parts[:-n])
+        return d
 
     # fuse.portal is the xdg document portal: it mirrors folders the user
     # previously picked in a portal file dialog under /run/user/<uid>/doc/…,
@@ -1385,7 +1411,7 @@ def scan_drives_for_exe(exe_names: list[str],
                                         and entry.path not in all_mounts):
                                     queue.append(entry.path)
                             elif entry.name in names:
-                                return Path(dirpath)
+                                return _match_root(dirpath, entry.name)
                         except OSError:
                             continue
             except OSError:
@@ -1407,7 +1433,7 @@ def scan_drives_for_exe(exe_names: list[str],
                                 and entry.path not in all_mounts):
                             subs.append(Path(entry.path))
                     elif entry.name in names:
-                        return d, []
+                        return _match_root(d, entry.name), []
         except OSError:
             pass
         return None, subs
