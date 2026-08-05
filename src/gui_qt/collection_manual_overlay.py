@@ -213,6 +213,8 @@ class CollectionManualOverlay(QWidget):
         self._pause_btn.setObjectName("FormButton")
         self._pause_btn.setCursor(Qt.PointingHandCursor)
         self._pause_btn.clicked.connect(self._pause_clicked)
+        # No on_pause → the run can't be resumed (download-only has no profile).
+        self._pause_btn.setVisible(self._on_pause is not None)
         bottom.addWidget(self._pause_btn)
         self._cancel_btn = QPushButton(self.tr("Cancel"), self._card)
         self._cancel_btn.setObjectName("DangerButton")

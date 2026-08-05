@@ -601,6 +601,16 @@ class SettingsView(QWidget):
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
 
+        self._checkbox(
+            g, self.tr("Download only (don't install)"),
+            uc.load_download_only, uc.save_download_only,
+            help=self.tr("Downloads are saved to the cache but not installed. Applies "
+                 "to nxm:// links, the Nexus browser, Change Version, collection "
+                 "installs, requirement downloads and update/reinstall redownloads "
+                 "- their Install buttons become Download. Install them yourself "
+                 "from the Downloads tab or the Install Mod button."),
+            on_changed=self._on_download_only_changed)
+
         # Manage Caches action.
         row = self._next_row(g)
         g.addWidget(QLabel(self.tr("Caches")), row, 0)
@@ -867,6 +877,23 @@ class SettingsView(QWidget):
         from Utils import bandwidth_limit
         bandwidth_limit.set_limit_mbps(float(value))
         self._safe_save(uc.save_download_speed_limit, float(value))
+
+    def _on_download_only_changed(self, _value):
+        """Relabel Install/Download on any tab open alongside Settings."""
+        # _checkbox persists before calling here, so the views re-read the new value.
+        w = self._window
+        for attr in ("_nexus_view", "_change_version_view", "_missing_reqs_view"):
+            view = getattr(w, attr, None)
+            if view is None:
+                continue
+            try:
+                view.refresh_install_labels()
+            except Exception:
+                pass
+        try:
+            w._refresh_open_collection_buttons()
+        except Exception:
+            pass
 
 
     # ---- path browse / clear ----------------------------------------------

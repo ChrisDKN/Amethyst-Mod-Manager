@@ -3525,7 +3525,7 @@ class MainWindow(QMainWindow):
 
         path = str(result.file_path)
         metas = {path: meta} if meta is not None else None
-        self._install_paths([path], metas=metas)
+        self._deliver_download([path], metas=metas)
 
     def _process_nxm_collection_link(self, coll_link):
         """Switch to the matching game and open the collection's detail tab."""
@@ -3592,7 +3592,7 @@ class MainWindow(QMainWindow):
             return
         from gui_qt.nexus_browser_view import NexusBrowserView
         view = NexusBrowserView(api, domain, game,
-                                install_fn=self._install_paths,
+                                install_fn=self._deliver_download,
                                 log_fn=self._append_log,
                                 progress_fn=self._nexus_download_progress)
         self._nexus_view = view
@@ -3812,6 +3812,11 @@ class MainWindow(QMainWindow):
         if api is None:
             self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."), "warning")
             return
+        # Latched ONCE for the whole run. Re-reading it later would let a toggle
+        # mid-flight mix the two modes — worst case an Update that has already
+        # removed the outgoing mods then downloads their replacements instead of
+        # installing them, leaving the profile gutted.
+        self._col_download_only = self._download_only_active()
         dl_path = getattr(detail_view, "download_link_path", "") or ""
         revision_number = getattr(detail_view, "_revision_number", None)
         if revision_number is None and hasattr(detail_view, "_resolved_viewing_revision"):
@@ -4148,15 +4153,23 @@ class MainWindow(QMainWindow):
         self._start_collection_pipeline(info)
 
     def _refresh_open_collection_buttons(self):
-        """Refresh the Install/Update/Resume button on any open collection detail
-        tab (after a pause/resume state change)."""
+        """Refresh the Install/Update/Resume/Download button on every open
+        collection detail tab, detached windows included."""
         try:
             from gui_qt.collection_detail_view import CollectionDetailView
-            for view in self.findChildren(CollectionDetailView):
-                try:
-                    view._update_install_btn_state()
-                except Exception:
-                    pass
+            from PySide6.QtWidgets import QApplication
+            seen = set()
+            # A detached tab lives in its own top-level window, so findChildren
+            # on the main window alone would miss it.
+            for root in [self, *QApplication.topLevelWidgets()]:
+                for view in root.findChildren(CollectionDetailView):
+                    if id(view) in seen:
+                        continue
+                    seen.add(id(view))
+                    try:
+                        view._update_install_btn_state()
+                    except Exception:
+                        pass
         except Exception:
             pass
 
@@ -4195,7 +4208,15 @@ class MainWindow(QMainWindow):
         overwrite_existing = None
         skip_existing_arg = False
 
-        if mode == "new":
+        # Download only: no profile is created, stamped or touched. _create_profile
+        # is never called, so there is nothing for a cancel to delete either.
+        dl_only = bool(getattr(self, "_col_download_only", False))
+        if dl_only:
+            profile_dir = None
+            self._col_created_profile = False
+            self._col_profile_name = ""
+            update_context = None
+        elif mode == "new":
             raw = collection.name or slug or "Collection"
             base = _re.sub(r"[^\w\s\-]", "", raw).strip().replace(" ", "_") or "Collection"
             profile_name = (f"{base}_Rev{revision_number}"[:64]
@@ -4239,8 +4260,9 @@ class MainWindow(QMainWindow):
         # GH#278: a cancelled install may delete the profile ONLY when this
         # run created it (new mode). Continue/append/resume/update target a
         # pre-existing profile that must survive a cancel.
-        self._col_created_profile = (mode == "new")
-        self._col_profile_name = profile_dir.name
+        if not dl_only:
+            self._col_created_profile = (mode == "new")
+            self._col_profile_name = profile_dir.name
 
         # Card display fields for the appended-collections record
         # (installed_collections/<slug>.json - see Utils.installed_collections).
@@ -4267,18 +4289,24 @@ class MainWindow(QMainWindow):
         control = CollectionInstallControl()
         self._col_install_control = control
         manual_mode = bool(info.get("manual"))
-        title = f"Installing collection: {collection.name or slug}"
+        title = (f"Downloading collection: {collection.name or slug}" if dl_only
+                 else f"Installing collection: {collection.name or slug}")
+        # A download-only run has no profile to record a resume point in, so it
+        # offers Cancel only (which keeps the archives) instead of a Pause that
+        # could never be resumed.
+        _on_pause = None if dl_only else self._on_col_pause_clicked
         if manual_mode:
             from gui_qt.collection_manual_overlay import CollectionManualOverlay
             self._col_install_overlay = CollectionManualOverlay.show_over(
-                self, collection.name or slug, profile_dir.name, len(mods),
-                control.manual_queue, on_pause=self._on_col_pause_clicked,
+                self, collection.name or slug,
+                "" if dl_only else profile_dir.name, len(mods),
+                control.manual_queue, on_pause=_on_pause,
                 on_cancel=self._on_col_cancel_clicked)
         else:
             from gui_qt.collection_install_overlay import CollectionInstallOverlay
             from Utils.ui_config import load_download_speed_limit
             self._col_install_overlay = CollectionInstallOverlay.show_over(
-                self, title, on_pause=self._on_col_pause_clicked,
+                self, title, on_pause=_on_pause,
                 on_cancel=self._on_col_cancel_clicked,
                 limit_mbps=load_download_speed_limit(),
                 on_limit_change=self._on_col_limit_changed)
@@ -4301,14 +4329,16 @@ class MainWindow(QMainWindow):
                     skipped_mods=skipped_mods, overwrite_existing=overwrite_existing,
                     skip_existing=skip_existing_arg, update_context=update_context,
                     collection_schema_cache=local_manifest,
-                    manual_mode=manual_mode,
+                    manual_mode=manual_mode, download_only=dl_only,
                     append_card_info=append_card_info,
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 import traceback
                 self._op_log.emit(f"[collection] install error: {exc}\n"
                                   f"{traceback.format_exc()}")
-                self._col_finished.emit("cancelled", {"profile_dir": str(profile_dir)})
+                self._col_finished.emit(
+                    "cancelled",
+                    {"profile_dir": str(profile_dir) if profile_dir else ""})
 
         threading.Thread(target=_worker, daemon=True, name="col-install").start()
 
@@ -4357,7 +4387,10 @@ class MainWindow(QMainWindow):
             on_log=lambda m: self._op_log.emit(str(m)),
             on_done=lambda i, s, t, p: self._col_finished.emit("done", (i, s, t, p)),
             on_paused=lambda i, p: self._col_finished.emit("paused", (i, p)),
-            on_cancelled=lambda pd: self._col_finished.emit("cancelled", {"profile_dir": str(pd)}),
+            # str(None) would be the truthy "None" — every download-only guard
+            # downstream keys on profile_dir being falsy.
+            on_cancelled=lambda pd: self._col_finished.emit(
+                "cancelled", {"profile_dir": str(pd) if pd else ""}),
             resolve_fomod=self._make_col_fomod_cb(),
             resolve_bain=self._make_col_bain_cb(),
         )
@@ -4572,15 +4605,25 @@ class MainWindow(QMainWindow):
                 self._col_install_overlay.set_status(self.tr("Cancelling…"))
 
         pname = getattr(self, "_col_profile_name", "") or ""
-        if getattr(self, "_col_created_profile", False):
+        if not pname:
+            # Download only: no profile was ever created.
+            title = self.tr("Cancel download?")
+            msg = self.tr("This will stop the download. Archives already "
+                          "downloaded are kept in the Downloads tab.")
+            confirm = self.tr("Cancel Download")
+        elif getattr(self, "_col_created_profile", False):
+            title = self.tr("Cancel install?")
             msg = self.tr("This will stop the install and delete the new "
                           "profile '{0}'.").format(pname)
+            confirm = self.tr("Cancel Install")
         else:
+            title = self.tr("Cancel install?")
             msg = self.tr("This will stop the install. Profile '{0}' and its "
                           "already-installed mods will be kept.").format(pname)
+            confirm = self.tr("Cancel Install")
         ConfirmOverlay.show_over(
-            self, self.tr("Cancel install?"), msg,
-            _done, confirm_label=self.tr("Cancel Install"),
+            self, title, msg,
+            _done, confirm_label=confirm,
             cancel_label=self.tr("Keep Going"))
 
     # ---- completion ------------------------------------------------------
@@ -4593,6 +4636,14 @@ class MainWindow(QMainWindow):
                 # producer replace the automatic download pool.
                 self._notify(self.tr("Nexus Premium not detected - manual download "
                              "mode."), "info")
+            # Download only: every intent collapses to "fetch every archive".
+            # Not cosmetic - 'update' routes to _run_collection_update, which
+            # REMOVES mods from a real profile, and 'resume' needs a paused one.
+            if getattr(self, "_col_download_only", False):
+                payload["mode_result"] = ("new", None, False, False)
+                payload["update_context"] = None
+                self._start_collection_pipeline(payload)
+                return
             # Route by intent (identical for premium and manual).
             intent = payload.get("intent", "install")
             if intent == "update":
@@ -4630,12 +4681,16 @@ class MainWindow(QMainWindow):
                     cleanup_cancelled_install(
                         game, Path(pd) if pd else None,
                         delete_profile=delete_profile,
-                        clear_cache=bool(load_clear_archive_after_install()),
+                        # No profile → download-only run: the cache holds
+                        # everything it just fetched, so never wipe it.
+                        clear_cache=(bool(load_clear_archive_after_install())
+                                     if pd else False),
                         log_fn=lambda m: self._op_log.emit(str(m)))
                 except Exception as exc:
                     self._op_log.emit(f"[collection] cancel cleanup failed: {exc}")
                 self._col_finished.emit("_cancel_cleaned", {
                     "deleted": delete_profile,
+                    "no_profile": not pd,
                     "profile": Path(pd).name if pd else ""})
 
             threading.Thread(target=_cleanup_worker, daemon=True,
@@ -4646,6 +4701,14 @@ class MainWindow(QMainWindow):
             if ov is not None:
                 ov.dismiss()
                 self._col_install_overlay = None
+            if isinstance(payload, dict) and payload.get("no_profile"):
+                # Download-only: the switch below would yank the active profile.
+                if hasattr(self, "_downloads_view"):
+                    self._downloads_view.mark_dirty()
+                self._notify(self.tr("Collection download cancelled - the archives "
+                                     "already fetched are in the Downloads tab."),
+                             "info")
+                return
             # cleanup_cancelled_install left game._active_profile_dir = None;
             # re-assert now because the switch below early-returns when the
             # target profile is already the active one.
@@ -4687,6 +4750,25 @@ class MainWindow(QMainWindow):
 
         # done
         installed, skipped_n, total, profile_name = payload
+        if not profile_name:
+            # Download only: nothing installed, no profile to select.
+            self._col_bundle_zip = ""
+            if ov is not None:
+                ov.finish(self.tr("Downloaded {0}/{1} - nothing installed.").format(
+                    installed, total))
+                QTimer.singleShot(1500, self._dismiss_col_overlay)
+            if hasattr(self, "_downloads_view"):
+                self._downloads_view.mark_dirty()
+            msg = self.tr("Collection downloaded - {0}/{1} archive(s). Install them "
+                          "from the Downloads tab.").format(installed, total)
+            if skipped_n:
+                self._notify(
+                    msg + self.tr(" ({0} couldn't be downloaded - see the log)").format(
+                        skipped_n), "warning")
+            else:
+                self._notify(msg, "success")
+            self._show_offsite_reminder()
+            return
         # Local-manifest import: extract bundled mods + profile files from the
         # .amethyst over the freshly-installed profile, then reload. Handled on a
         # worker (unzipping can be sizeable) → reload marshaled back via a Signal.
@@ -5238,11 +5320,19 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No install archive found for the selected mod(s)."),
                          "warning")
             return
-        if missing:
-            self._notify(
-                self.tr("Reinstalling {0} mod(s); {1} skipped "
-                "(no archive found).").format(
-                    len(paths) + len(redownload), len(missing)), "info")
+        # With 'Download only' on, mods that still have their archive are
+        # reinstalled from it; the rest are only redownloaded to the cache.
+        _split = bool(redownload) and self._download_only_active()
+        if missing or _split:
+            if _split:
+                msg = self.tr("Reinstalling {0} mod(s), redownloading {1}; "
+                              "{2} skipped.").format(
+                                  len(paths), len(redownload), len(missing))
+            else:
+                msg = self.tr("Reinstalling {0} mod(s); {1} skipped "
+                              "(no archive found).").format(
+                                  len(paths) + len(redownload), len(missing))
+            self._notify(msg, "info")
 
         # Redownload-only reinstalls go through the Nexus path (premium download
         # or browser fallback). If some mods still have their archive, install
@@ -5495,10 +5585,13 @@ class MainWindow(QMainWindow):
                 opened += 1
 
         if opened:
-            self._notify(
-                self.tr("Premium required to redownload. Opened {0} download "
-                "page(s) - they'll reinstall automatically once downloaded.")
-                .format(opened), "info")
+            tmpl = (self.tr("Premium required to redownload. Opened {0} download "
+                            "page(s) - they'll land in the Downloads tab.")
+                    if self._download_only_active() else
+                    self.tr("Premium required to redownload. Opened {0} download "
+                            "page(s) - they'll reinstall automatically once "
+                            "downloaded."))
+            self._notify(tmpl.format(opened), "info")
 
     def cancel_app_manual_watch(self, mod_id: int):
         """Stop a pending app-level browser-download watch (reinstall or
@@ -5534,11 +5627,11 @@ class MainWindow(QMainWindow):
         self._nexus_download_progress(dl_key, "", 0, -1)   # clear the card
         if not archive:
             return
-        self._append_log(f"[reinstall] {nm} - reinstalling {archive}…")
+        self._append_log(f"[reinstall] {nm} - redownloaded {archive}")
         metas = {archive: meta} if meta is not None else None
         # clear_archives=False: keep the archive so it can be reinstalled again.
-        self._install_paths([archive], metas=metas,
-                            preferred_names={archive: nm}, clear_archives=False)
+        self._deliver_download([archive], metas=metas,
+                               preferred_names={archive: nm}, clear_archives=False)
 
     def _on_reinstall_dl_progress(self, cur: int, tot: int):
         """UI thread: drive the shared reinstall redownload progress card."""
@@ -5571,8 +5664,12 @@ class MainWindow(QMainWindow):
                     len(dl_items), len(failed)), "warning")
         # clear_archives=False: keep the freshly downloaded archive so the mod
         # can be reinstalled again without another download.
-        self._install_paths(paths, metas=metas, preferred_names=preferred,
-                            clear_archives=False)
+        # notify=False: the diverted path wants reinstall-specific wording.
+        queued = self._deliver_download(paths, metas=metas, preferred_names=preferred,
+                                        clear_archives=False, notify=False)
+        if not queued:
+            self._notify(self.tr("Redownloaded {0} mod(s) - reinstall them from the "
+                                 "Downloads tab.").format(len(dl_items)), "success")
 
     def _quick_update_mods(self, mod_names):
         """Auto-install the latest name-matched version for each update-flagged
@@ -5789,6 +5886,33 @@ class MainWindow(QMainWindow):
         if not dl_items:
             self._qu_finish(0, failed, skipped)
             return
+        if self._download_only_active():
+            # Not _deliver_download: _qu_finish only runs from on_all_done, so a
+            # divert would leave _quick_updating set (blocking every later Quick
+            # Update) and report "N install failed". No _reload_modlist either -
+            # nothing changed on disk, so the update flags correctly stay set.
+            for _n, p, _m in dl_items:
+                self._append_log(f"[download-only] kept '{Path(p).name}' in the "
+                                 f"cache - update install skipped.")
+            if hasattr(self, "_downloads_view"):
+                self._downloads_view.mark_dirty()
+            self._quick_updating = False
+            self._qu_skipped = []
+            self._append_log(
+                f"[nexus] Quick Update (download only) - {len(dl_items)} downloaded, "
+                f"{len(skipped)} skipped (no name match), {len(failed)} failed.")
+            for name, reason in failed:
+                self._append_log(f"[nexus] Quick Update - {name}: {reason}")
+            self._notify(self.tr("Quick Update: downloaded {0} update(s) - install "
+                                 "them from the Downloads tab.").format(len(dl_items)),
+                         "success")
+            problems = len(skipped) + len(failed)
+            if problems:
+                self._notify(self.tr("Quick Update: {0} mod(s) couldn't be "
+                                     "downloaded - see the log.").format(problems),
+                             "warning")
+            return
+
         paths = [p for _n, p, _m in dl_items]
         metas = {p: m for _n, p, m in dl_items if m is not None}
         preferred = {p: n for n, p, _m in dl_items}
@@ -5919,7 +6043,7 @@ class MainWindow(QMainWindow):
         from gui_qt.change_version_view import ChangeVersionView
         view = ChangeVersionView(
             api, game, mod_name, meta,
-            install_fn=self._install_paths,
+            install_fn=self._deliver_download,
             on_close=self._close_change_version_tab,
             log_fn=self._append_log,
             progress_fn=self._nexus_download_progress)
@@ -7064,9 +7188,9 @@ class MainWindow(QMainWindow):
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this download's card
         if not archive:
             return
-        self._append_log(f"[nexus] downloaded → {archive}; installing…")
-        self._install_paths([archive],
-                            {archive: meta} if meta is not None else None)
+        self._append_log(f"[nexus] downloaded → {archive}")
+        self._deliver_download([archive],
+                               {archive: meta} if meta is not None else None)
 
     def _on_modlist_flag_clicked(self, row: int, flag: int):
         """A flag icon in the modlist Flags column was clicked → its action
@@ -9279,6 +9403,41 @@ class MainWindow(QMainWindow):
         for key in [k for k in list(self._tabs._keys)
                     if k.startswith("wizard:") or k == "prefix_manager"]:
             self._tabs.close_tab(key)
+
+    def _download_only_active(self) -> bool:
+        """The 'Download only' setting."""
+        from Utils.ui_config import load_download_only
+        try:
+            return bool(load_download_only())
+        except Exception:
+            return False
+
+    def _deliver_download(self, paths, metas: dict | None = None,
+                          *, notify: bool = True, **install_kw) -> bool:
+        """Install archives the APP downloaded, or leave them cached; True = queued."""
+        # The gate for nxm / Nexus browser / Change Version / requirements /
+        # update+reinstall redownloads. Archives the USER supplied (Install Mod
+        # button, Downloads tab, drag-drop) call _install_paths directly.
+        if not paths:
+            return False
+        if not self._download_only_active():
+            self._install_paths(list(paths), metas=metas, **install_kw)
+            return True
+        names = [Path(p).name for p in paths]
+        for n in names:
+            self._append_log(
+                f"[download-only] kept '{n}' in the cache - install skipped.")
+        if hasattr(self, "_downloads_view"):
+            self._downloads_view.mark_dirty()
+        if notify:
+            if len(names) == 1:
+                self._notify(self.tr("Downloaded '{0}' - install it from the "
+                                     "Downloads tab.").format(names[0]), "success")
+            else:
+                self._notify(self.tr("Downloaded {0} archives - install them from "
+                                     "the Downloads tab.").format(len(names)),
+                             "success")
+        return False
 
     def _install_paths(self, paths: list[str], metas: dict | None = None,
                        previous_mod_name: str | None = None,

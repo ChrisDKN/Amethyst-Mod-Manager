@@ -864,10 +864,12 @@ class NexusBrowserView(QWidget):
             c.setParent(None)
         self._cards.clear()
         installed = self._installed_ids()
+        dl_only = self._download_only()      # one ini read for the whole grid, not per card
         for e in self._visible_entries():
             card = NexusModCard(e, self._on_view, self._on_install,
                                 on_context=self._show_card_menu,
-                                is_installed=e.mod_id in installed)
+                                is_installed=e.mod_id in installed,
+                                download_only=dl_only)
             if e.mod_id in self._manual_watchers:
                 card.set_watching(True)
             self._cards.append(card)
@@ -881,6 +883,21 @@ class NexusBrowserView(QWidget):
         installed = self._installed_ids()
         for card in self._cards:
             card.set_installed(card.entry.mod_id in installed)
+
+    @staticmethod
+    def _download_only() -> bool:
+        from Utils.ui_config import load_download_only
+        try:
+            return bool(load_download_only())
+        except Exception:
+            return False
+
+    def refresh_install_labels(self):
+        """Re-read 'Download only' and relabel the card buttons."""
+        # The right-click menu is rebuilt per click, so it needs nothing here.
+        flag = self._download_only()
+        for card in self._cards:
+            card.set_download_only(flag)
 
     def _cols_for_width(self) -> int:
         vp = self._scroll.viewport().width()
@@ -933,9 +950,11 @@ class NexusBrowserView(QWidget):
         menu.addAction(self.tr("Open on Nexus"), lambda: self._on_view(entry))
         # _on_install toggles: while a browser-download watch is pending for
         # this mod, the same action cancels it instead.
+        _act = (self.tr("Download") if self._download_only()
+                else self.tr("Install"))
         menu.addAction(
             self.tr("Cancel download detection")
-            if entry.mod_id in self._manual_watchers else self.tr("Install"),
+            if entry.mod_id in self._manual_watchers else _act,
             lambda: self._on_install(entry))
         # Browse by the uploader's stable account id (reliable — survives a
         # rename and can't be spoofed via the free-text `author` field). Fall
@@ -1262,5 +1281,6 @@ class NexusBrowserView(QWidget):
         self._progress_fn(dl_key, "", 0, -1)
         if not archive:
             return
-        self._log(f"Nexus: downloaded → {archive}; installing…")
+        self._log(f"Nexus: downloaded → {archive}"
+                  f"{'' if self._download_only() else '; installing…'}")
         self._install_fn([archive], {archive: meta} if meta is not None else None)

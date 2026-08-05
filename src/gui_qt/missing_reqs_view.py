@@ -106,12 +106,27 @@ class _ReqCard(QFrame):
 
         # Install is only meaningful for Nexus-hosted requirements (external
         # ones have no mod page to download from).
+        self._install_btn = None
         if not is_external:
-            inst = QPushButton(self.tr("Install"))
+            inst = QPushButton(self._install_label())
             inst.setCursor(Qt.PointingHandCursor)
             inst.setStyleSheet(button_qss("BTN_SUCCESS", padding="5px 14px"))
             inst.clicked.connect(lambda _=False, r=req: on_install(r))
             h.addWidget(inst, 0, Qt.AlignTop)
+            self._install_btn = inst
+
+    def _install_label(self) -> str:
+        """Install, or Download while 'Download only' is on."""
+        from Utils.ui_config import load_download_only
+        try:
+            dl_only = bool(load_download_only())
+        except Exception:
+            dl_only = False
+        return self.tr("Download") if dl_only else self.tr("Install")
+
+    def refresh_install_label(self):
+        if self._install_btn is not None:
+            self._install_btn.setText(self._install_label())
 
 
 class MissingReqsView(QWidget):
@@ -306,6 +321,14 @@ class MissingReqsView(QWidget):
             self._cards_layout.insertWidget(insert_at, card)
             insert_at += 1
             self._cards[int(r.mod_id)] = card
+
+    def refresh_install_labels(self):
+        """Re-read 'Download only' and relabel the per-card buttons."""
+        for card in list(self._cards.values()):
+            try:
+                card.refresh_install_label()
+            except RuntimeError:
+                pass        # card already destroyed
 
     def prune_installed(self, installed_ids):
         """Remove the cards for any requirement whose mod_id is now installed

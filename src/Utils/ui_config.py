@@ -738,6 +738,34 @@ def save_download_speed_limit(mbps: float) -> None:
     _write_ini(parser, path)
 
 
+_DOWNLOADS_SECTION = "downloads"
+
+
+def load_download_only() -> bool:
+    """True = archives the app downloads are kept in the cache, not installed."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_DOWNLOADS_SECTION, "download_only", fallback=False)
+    except Exception:
+        return False
+
+
+def save_download_only(value: bool) -> None:
+    """Persist download_only to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _DOWNLOADS_SECTION not in parser:
+        parser[_DOWNLOADS_SECTION] = {}
+    parser[_DOWNLOADS_SECTION]["download_only"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def save_collection_settings(max_concurrent: int,
                               check_download_locations: bool = True,
                               clear_archive_after_install: bool = False,

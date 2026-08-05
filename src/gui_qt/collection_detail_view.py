@@ -540,6 +540,16 @@ class CollectionDetailView(QWidget):
         btn = getattr(self, "_install_btn", None)
         if btn is None:
             return
+        from Utils.ui_config import load_download_only
+        try:
+            dl_only = bool(load_download_only())
+        except Exception:
+            dl_only = False
+        if dl_only:
+            # Resume/update both need a profile a download-only run never creates.
+            self._install_intent = "install"
+            btn.setText(self.tr("Download collection"))
+            return
         if self._is_paused():
             self._install_intent = "resume"
             btn.setText(self.tr("Resume Install"))

@@ -262,7 +262,8 @@ class NexusModCard(QFrame):
     """
 
     def __init__(self, entry, on_view, on_install, on_context=None,
-                 is_installed: bool = False, parent=None):
+                 is_installed: bool = False, download_only: bool = False,
+                 parent=None):
         super().__init__(parent)
         self.setObjectName("GameCard")
         self.setFixedSize(CARD_W, CARD_H)
@@ -270,6 +271,7 @@ class NexusModCard(QFrame):
         self._on_context = on_context
         self._installed = bool(is_installed)
         self._watching = False
+        self._download_only = bool(download_only)
         p = active_palette()
         self._pal = p
         dim = _c(p, "TEXT_DIM")
@@ -375,6 +377,13 @@ class NexusModCard(QFrame):
         self._installed = bool(installed)
         self._apply_install_style()
 
+    def set_download_only(self, on: bool) -> None:
+        """Install/Reinstall become Download/Redownload."""
+        if bool(on) == self._download_only:
+            return
+        self._download_only = bool(on)
+        self._apply_install_style()
+
     def set_watching(self, watching: bool) -> None:
         """A non-premium install is waiting for this mod's browser download —
         the Install button becomes a red Cancel (the click toggles the watch)."""
@@ -394,14 +403,16 @@ class NexusModCard(QFrame):
         elif self._installed:
             # Reinstall — orange (BTN_WARN), like the Downloads tab.
             warn = _c(self._pal, "BTN_WARN")
-            self._install_btn.setText(self.tr("Reinstall"))
+            self._install_btn.setText(self.tr("Redownload") if self._download_only
+                                      else self.tr("Reinstall"))
             self._install_btn.setStyleSheet(
                 f"QPushButton{{background:{warn}; color:{contrast_text(warn)}; font-weight:600;"
                 f" border:none; border-radius:4px; padding:5px 0;}}"
                 f"QPushButton:hover{{background:{warn};}}")
         else:
             # Install — clear the inline style so the green #GameSelectBtn QSS shows.
-            self._install_btn.setText(self.tr("Install"))
+            self._install_btn.setText(self.tr("Download") if self._download_only
+                                      else self.tr("Install"))
             self._install_btn.setStyleSheet("")
 
     def set_thumbnail(self, pm: QPixmap) -> None:
