@@ -5,7 +5,8 @@ the port of the Tk ``_show_manual_install_overlay`` card. Free Nexus users
 can't auto-download, so the orchestrator walks the collection one mod at a
 time: this card shows the CURRENT mod (name, size, Required/Optional badge,
 expected filename) with buttons to open its Nexus download page, batch-open
-the next few, pick an already-downloaded file, or skip (optional mods only).
+the next few, pick an already-downloaded file, or skip it (required mods ask
+for a second confirming click).
 The orchestrator polls the download folders and auto-detects the archive; the
 overlay's only channel back to it is ``manual_queue`` (a str path or None).
 
@@ -67,6 +68,8 @@ class CollectionManualOverlay(QWidget):
         self._upcoming: list[tuple[str, str]] = []
         self._seen_first = False
         self._finished = False
+        self._cur_optional = False
+        self._skip_armed = False
 
         self.setObjectName("OverlayBackdrop")
         self.setStyleSheet("#OverlayBackdrop { background: rgba(0,0,0,150); }")
@@ -249,7 +252,18 @@ class CollectionManualOverlay(QWidget):
         pick_file("Select downloaded mod archive", _on_picked)
 
     def _skip_clicked(self):
+        # Required mods take two clicks: the first arms the button so a
+        # stray click can't silently drop a mod the collection depends on.
+        if not self._cur_optional and not self._skip_armed:
+            self._skip_armed = True
+            self._skip_btn.setText(self.tr("Skip anyway?"))
+            return
+        self._reset_skip()
         self._queue.put(None)
+
+    def _reset_skip(self):
+        self._skip_armed = False
+        self._skip_btn.setText(self.tr("Skip"))
 
     def _pause_clicked(self):
         self._pause_btn.setEnabled(False)
@@ -274,7 +288,9 @@ class CollectionManualOverlay(QWidget):
             " color:#ffffff; font-weight:600; font-size:10px;"
             " padding:1px 6px; border-radius:3px;")
         self._badge_lbl.show()
-        self._skip_btn.setVisible(optional)
+        self._cur_optional = optional
+        self._reset_skip()
+        self._skip_btn.setVisible(True)
         fname = payload.get("file_name") or ""
         self._hint_lbl.setText(self.tr("Expected file: {0}").format(fname) if fname else "")
         self._instr_lbl.setText(

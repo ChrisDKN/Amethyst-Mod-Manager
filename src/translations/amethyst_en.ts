@@ -1331,6 +1331,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Cancel</translation>
     </message>
     <message>
+        <source>Skip anyway?</source>
+        <translation>Skip anyway?</translation>
+    </message>
+    <message>
         <source>Pausing…</source>
         <translation>Pausing…</translation>
     </message>

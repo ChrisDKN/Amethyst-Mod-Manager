@@ -48,8 +48,8 @@ from Utils.ui_config import (
     load_collection_settings, load_clear_archive_after_install,
     load_keep_fomod_archives)
 from Nexus.nexus_download import (
-    DownloadResult, _find_cached_archive, delete_archive_and_sidecar,
-    _get_downloads_dir)
+    DownloadResult, _find_cached_archive, _clean_nexus_stem,
+    delete_archive_and_sidecar, _get_downloads_dir)
 from Nexus.nexus_meta import build_meta_from_download
 
 
@@ -1220,32 +1220,69 @@ def run_collection_install(
         return (f"https://www.nexusmods.com/{_manual_domain(mod)}/mods/{_mid}"
                 f"?tab=files&file_id={mod.file_id}")
 
+    # file_id → (real archive filename, size_bytes) from the Nexus files API.
+    # The manifest's file_name/logicalFilename is display-quality only (a
+    # share-code export writes the staging FOLDER name there), so it neither
+    # shows the user the archive they're about to download nor reliably
+    # matches it on disk. Best-effort: ("", 0) when offline/unresolvable.
+    _manual_real_file: dict[int, tuple[str, int]] = {}
+
+    def _resolve_manual_file(mod) -> "tuple[str, int]":
+        cached = _manual_real_file.get(mod.file_id)
+        if cached is not None:
+            return cached
+        real_name, real_size = "", 0
+        _mid = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+        try:
+            if api is not None and _mid and mod.file_id:
+                files = api.get_mod_files(_manual_domain(mod), _mid)
+                for f in files.files:
+                    if f.file_id == mod.file_id:
+                        fn = (f.file_name or "").strip()
+                        if fn and "/" not in fn:
+                            real_name = fn
+                        real_size = int(f.size_in_bytes
+                                        or (f.size_kb or 0) * 1024 or 0)
+                        break
+        except Exception as exc:
+            log(f"Manual install: file lookup failed for mod {_mid} "
+                f"file {mod.file_id} — {exc}")
+        _manual_real_file[mod.file_id] = (real_name, real_size)
+        return real_name, real_size
+
     def _wait_for_manual_file(mod) -> "Path | None":
         """Poll download folders until the mod's archive appears, or the user
-        picks a file / skips (optional mods only) / pauses / cancels."""
+        picks a file / skips / pauses / cancels."""
         scan_dirs = _scan_dirs(include_all=True)
         _eff_mod_id = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+        _real_name, _real_size = _resolve_manual_file(mod)
         _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
-                     or getattr(mod, "size_bytes", 0) or 0)
+                     or getattr(mod, "size_bytes", 0) or 0
+                     or _real_size)
         _exp_md5 = (schema_file_id_to_md5.get(mod.file_id, "")
                     or (getattr(mod, "md5", "") or "").strip().lower())
+        # Match on the real upload's display stem when known — the manifest
+        # name may be a mod-page or staging-folder label that shares no stem
+        # with the archive the browser actually saves.
+        _match_name = (_clean_nexus_stem(
+                           Path(_real_name).stem,
+                           str(_eff_mod_id) if _eff_mod_id else "")
+                       if _real_name else (mod.file_name or mod.mod_name or ""))
         while not _col_stop.is_set():
             try:
                 item = ctl.manual_queue.get_nowait()
                 if item is None:
-                    if getattr(mod, "optional", False):
-                        return None  # skip
-                else:
-                    p = Path(item)
-                    if p.is_file():
-                        return p
+                    return None  # skip
+                p = Path(item)
+                if p.is_file():
+                    return p
             except _queue.Empty:
                 pass
             for folder in scan_dirs:
                 if not folder.is_dir():
                     continue
                 found, is_complete = _find_cached_archive(
-                    folder, mod.file_name or mod.mod_name or "",
+                    folder, _match_name,
                     _exp_size, _eff_mod_id, mod.file_id,
                     expected_md5=_exp_md5)
                 if found and is_complete:
@@ -1274,6 +1311,7 @@ def run_collection_install(
                     f"phase {_current_phase} → {_this_phase}")
             _current_phase = _this_phase
 
+            _real_name, _real_size = _resolve_manual_file(mod)
             cb.on_manual_mod({
                 "idx": _pre_done + i + 1,
                 "total": total,
@@ -1281,8 +1319,9 @@ def run_collection_install(
                 "installed_base": installed,
                 "name": mod.mod_name or f"Mod {mod.mod_id}",
                 "size": (schema_file_id_to_size.get(mod.file_id, 0)
-                         or getattr(mod, "size_bytes", 0) or 0),
-                "file_name": mod.file_name or "",
+                         or getattr(mod, "size_bytes", 0) or 0
+                         or _real_size),
+                "file_name": _real_name or mod.file_name or "",
                 "optional": bool(getattr(mod, "optional", False)),
                 "url": _manual_url(mod),
                 "upcoming": [(m.mod_name or f"Mod {m.mod_id}", _manual_url(m))
