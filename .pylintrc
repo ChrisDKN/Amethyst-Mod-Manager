@@ -1,0 +1,74 @@
+[MAIN]
+
+# lz4 and gi (GObject Introspection — used by the XDG portal file chooser in
+# Utils/portal_filechooser.py) are compiled/dynamically-generated bindings
+# that pylint's static analyzer (astroid) cannot introspect from source
+# alone. Allow-listing them makes pylint actually import and inspect the
+# *real* module at analysis time instead of guessing from source — this
+# eliminates false positives like "DBusProxyFlags" having "no member", while
+# still correctly catching genuine mistakes (it still flags
+# Utils/bsa_extract.py's reference to the nonexistent
+# lz4.frame.LZ4FrameError, which is a real bug, not a tooling gap).
+#
+# PySide6 is deliberately NOT here: dynamically introspecting it trades the
+# import-resolution false positives for a worse one — pylint can't model
+# per-instance bound Signal objects, so every `widget.clicked.connect(...)`
+# gets flagged as "Method '<no-name>' has no 'connect' member". Trusting it
+# via ignored-modules below (no introspection at all) avoids both problems.
+extension-pkg-allow-list=lz4,gi
+
+# Utils/deploy.py is a façade that re-exports ~3000 lines' worth of names
+# from six sibling modules via `from X import *` (see that file's own
+# docstring). astroid can't trace multi-hop wildcard re-exports, so it
+# reports every name imported from it as missing even though all of them
+# resolve fine at runtime (verified directly — see PR discussion).
+#
+# PySide6 is here (not extension-pkg-allow-list — see above) purely so
+# `from PySide6.QtCore import Qt, Signal` etc. stop being reported as
+# missing; pylint just trusts the import without inspecting members.
+ignored-modules=Utils.deploy,PySide6
+
+
+[MESSAGES CONTROL]
+
+disable=
+    # --- Deliberate, pervasive project conventions — not defects ---
+    import-outside-toplevel,
+    broad-exception-caught,
+    missing-module-docstring,
+    missing-function-docstring,
+    missing-class-docstring,
+    protected-access,
+    invalid-name,
+    line-too-long,
+    duplicate-code,
+    unnecessary-lambda-assignment,
+    unnecessary-lambda,
+    disallowed-name,
+    global-statement,
+    multiple-statements,
+    attribute-defined-outside-init,
+    redefined-builtin,   # gui_qt/app.py deliberately shadows print with a crash-proof wrapper
+                         # (Utils.app_log.safe_print) — documented at its import site.
+
+    # --- Design/complexity thresholds tuned for small modules — this is a
+    # single large-window desktop app (gui_qt/app.py is one MainWindow class
+    # by design; wizard/view classes follow the same builder-method pattern) ---
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-instance-attributes,
+    too-many-nested-blocks,
+    too-many-return-statements,
+    too-many-public-methods,
+    too-many-lines,
+    too-few-public-methods,
+
+# Deliberately NOT disabled, despite showing up in the noise:
+#   unused-argument — mostly game-handler interface methods (deploy/restore
+#   signatures shared across every Games/*.py handler) that don't need every
+#   parameter; genuinely unused params are already exempted when prefixed
+#   with "_" (pylint's default dummy-variables-rgx). Left enabled since it
+#   still catches real accidental-unused-parameter mistakes elsewhere.
