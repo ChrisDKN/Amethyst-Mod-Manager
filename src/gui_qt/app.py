@@ -3924,7 +3924,7 @@ class MainWindow(QMainWindow):
 
         def _done(result):
             if result is None:
-                self._col_install_running = False
+                self._col_install_finished()
                 self._notify(self.tr("Collection install cancelled."), "info")
                 return
             info["mode_result"] = result
@@ -3963,7 +3963,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pname = None
         if not pname:
-            self._col_install_running = False
+            self._col_install_finished()
             self._notify(self.tr("Could not find the paused profile."), "error")
             return
         profile_dir = game.get_profile_root() / "profiles" / pname
@@ -3992,7 +3992,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pname = None
         if not pname:
-            self._col_install_running = False
+            self._col_install_finished()
             self._notify(self.tr("Could not find the installed collection profile."), "error")
             return
         profile_dir = game.get_profile_root() / "profiles" / pname
@@ -4001,7 +4001,7 @@ class MainWindow(QMainWindow):
         # removal is out of scope, matching Tk).
         active = getattr(game, "_active_profile_dir", None)
         if active is None or Path(active).resolve() != profile_dir.resolve():
-            self._col_install_running = False
+            self._col_install_finished()
             self._notify(self.tr("Switch to profile '{0}' first, then Update.").format(pname),
                          "warning")
             return
@@ -4036,7 +4036,7 @@ class MainWindow(QMainWindow):
                 installed_names_lower=installed_names_lower,
                 collection_slug=slug)
         except Exception as exc:
-            self._col_install_running = False
+            self._col_install_finished()
             self._notify(self.tr("Could not compute update diff: {0}").format(exc), "error")
             return
 
@@ -4054,7 +4054,7 @@ class MainWindow(QMainWindow):
 
         def _done(apply_it):
             if not apply_it:
-                self._col_install_running = False
+                self._col_install_finished()
                 self._notify(self.tr("Collection update cancelled."), "info")
                 return
             self._apply_collection_update(info, profile_dir, pname, slug, diff)
@@ -4140,7 +4140,7 @@ class MainWindow(QMainWindow):
                         log_fn=lambda m: self._append_log(str(m)))
                     removed_lower = {n.lower() for n in to_remove_names}
                 except Exception as exc:
-                    self._col_install_running = False
+                    self._col_install_finished()
                     self._notify(self.tr("Update failed during removal: {0}").format(exc), "error")
                     return
 
@@ -4232,7 +4232,7 @@ class MainWindow(QMainWindow):
                 profile_dir = Path(_create_profile(
                     game.name, profile_name, profile_specific_mods=True))
             except Exception as exc:
-                self._col_install_running = False
+                self._col_install_finished()
                 self._notify(self.tr("Could not create profile: {0}").format(exc), "error")
                 return
             # New/continue claim the collection: record URL + revision.
@@ -4242,7 +4242,7 @@ class MainWindow(QMainWindow):
             # append / continue → install into an existing profile.
             profile_dir = game.get_profile_root() / "profiles" / append_profile_name
             if not profile_dir.is_dir():
-                self._col_install_running = False
+                self._col_install_finished()
                 self._notify(self.tr("Profile '{0}' not found.").format(append_profile_name), "error")
                 return
             if mode == "append":
@@ -4656,13 +4656,13 @@ class MainWindow(QMainWindow):
                 self._choose_collection_mode(payload)
             return
 
-        # Terminal states.
-        self._col_install_running = False
+        # Terminal states. _col_install_running is NOT dropped here wholesale:
+        # "cancelled" still has an async cleanup worker mutating the shared
+        # game (profile delete, _active_profile_dir=None) and a bundle-import
+        # "done" still extracts over the profile - each leaf releases the flag
+        # via _col_install_finished() only once the install is truly over, so
+        # auto-deploy stays suppressed for the whole run (premium AND manual).
         self._col_install_control = None
-        # A detached-wizard staging job may have been held off while this
-        # collection install ran (see _run_staged_finish guard) - drain it now.
-        if self._staged_finish_queue:
-            QTimer.singleShot(0, self._run_staged_finish)
         ov = self._col_install_overlay
 
         if kind == "cancelled":
@@ -4698,6 +4698,7 @@ class MainWindow(QMainWindow):
             return
 
         if kind == "_cancel_cleaned":
+            self._col_install_finished()
             if ov is not None:
                 ov.dismiss()
                 self._col_install_overlay = None
@@ -4720,20 +4721,28 @@ class MainWindow(QMainWindow):
                     and payload.get("profile"))
             try:
                 profs = self._gs.profiles()
-                if kept and kept in profs:
-                    self._on_profile_changed(kept)
-                elif profs:
-                    self._on_profile_changed(profs[0])
+                target = (kept if kept and kept in profs
+                          else (profs[0] if profs else None))
+                if target:
+                    # A cancel is not "install finished" - the teardown's own
+                    # reload/rebuild must not fire an auto-deploy. The flag is
+                    # consumed by the next _maybe_auto_deploy.
+                    self._auto_deploy_in_progress = True
+                    self._on_profile_changed(target)
             except Exception:
                 pass
             self._notify(self.tr("Collection install cancelled."), "info")
             return
 
         if kind == "paused":
+            self._col_install_finished()
             installed, profile_name = payload
             if ov is not None:
                 ov.finish(self.tr("Paused - {0} installed.").format(installed))
                 QTimer.singleShot(1500, self._dismiss_col_overlay)
+            # A pause is not "install finished" - the switch's reload/rebuild
+            # must not auto-deploy a half-installed collection profile.
+            self._auto_deploy_in_progress = True
             self._select_installed_collection_profile(profile_name)
             # Register the paused slug + refresh any open detail view so its
             # button flips to "Resume" (Tk parity - _PAUSED_INSTALLS).
@@ -4752,6 +4761,7 @@ class MainWindow(QMainWindow):
         installed, skipped_n, total, profile_name = payload
         if not profile_name:
             # Download only: nothing installed, no profile to select.
+            self._col_install_finished()
             self._col_bundle_zip = ""
             if ov is not None:
                 ov.finish(self.tr("Downloaded {0}/{1} - nothing installed.").format(
@@ -4775,9 +4785,14 @@ class MainWindow(QMainWindow):
         bundle_zip = getattr(self, "_col_bundle_zip", "") or ""
         self._col_bundle_zip = ""
         if bundle_zip and Path(bundle_zip).is_file():
+            # Flag stays held - the bundle worker still writes into the profile;
+            # _on_import_bundle_done releases it.
             self._finish_import_bundle(bundle_zip, profile_name, ov,
                                        installed, total, skipped_n)
             return
+        # Fully finished: auto-deploy is live again, so the switch's rebuild
+        # may (deliberately) deploy the freshly-installed collection.
+        self._col_install_finished()
         if ov is not None:
             ov.finish(self.tr("Done - {0}/{1} installed.").format(installed, total))
             QTimer.singleShot(1500, self._dismiss_col_overlay)
@@ -4794,6 +4809,7 @@ class MainWindow(QMainWindow):
         import threading
         game = self._gs.game
         if game is None:
+            self._col_install_finished()
             self._select_installed_collection_profile(profile_name)
             return
         profile_dir = game.get_profile_root() / "profiles" / profile_name
@@ -4830,6 +4846,7 @@ class MainWindow(QMainWindow):
         threading.Thread(target=_worker, daemon=True, name="import-bundle").start()
 
     def _on_import_bundle_done(self, payload):
+        self._col_install_finished()
         profile_name, installed, total, skipped_n = payload
         ov = self._col_install_overlay
         if ov is not None:
@@ -8310,6 +8327,16 @@ class MainWindow(QMainWindow):
         elif not (getattr(self, "_deploy_running", False)
                   or getattr(self, "_install_running", False)):
             self._set_deploy_buttons_enabled(True)
+
+    def _col_install_finished(self):
+        """The collection install is truly over - including any async cancel
+        cleanup or bundle extraction that outlives the pipeline's terminal
+        signal. Only now may auto-deploy (and manual deploy/restore) run
+        again; also drain a detached-wizard staging job that was held off
+        while the install ran (see _run_staged_finish guard)."""
+        self._col_install_running = False
+        if self._staged_finish_queue:
+            QTimer.singleShot(0, self._run_staged_finish)
 
     def _prompt_mewgenics_deploy(self, game):
         """Ask whether to generate a Steam launch command or repack the gpak,
