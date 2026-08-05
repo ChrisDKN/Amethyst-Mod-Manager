@@ -578,6 +578,143 @@ Configure your INI settings, then close it and click Done.</source>
     </message>
 </context>
 <context>
+    <name>BodySlideLinuxView</name>
+    <message>
+        <source>{0} (Linux) — {1}</source>
+        <translation>{0} (Linux) — {1}</translation>
+    </message>
+    <message>
+        <source>Step 3: Run {0}</source>
+        <translation>Шаг 3: Запуск {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install {0} for Linux</source>
+        <translation>Шаг 1: Установите {0} для Linux</translation>
+    </message>
+    <message>
+        <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
+
+No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
+        <translation>Нативная сборка Linux BodySlide и Outfit Studio, разделяемая каждой игрой.
+
+Префикс Proton не используется — игра, папка Data и выходная папка передаются инструменту напрямую.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Далее →</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Checking for updates…</source>
+        <translation>Установлено: {0}. Проверка обновлений..</translation>
+    </message>
+    <message>
+        <source>Not installed. Checking GitHub for the latest release…</source>
+        <translation>Не установлен. Проверка GitHub на последний релиз</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
+        <translation>Установлено: {0}. Не удалось связаться с GitHub, чтобы проверить наличие обновлений — см. журнал.</translation>
+    </message>
+    <message>
+        <source>Could not reach GitHub to fetch the release — see log.</source>
+        <translation>Не удалось добраться до GitHub, чтобы получить релиз — см.</translation>
+    </message>
+    <message>
+        <source>Download {0}</source>
+        <translation>Скачать {0}</translation>
+    </message>
+    <message>
+        <source>Latest release: {0}.</source>
+        <translation>Последний релиз: {0}.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>Обновление {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} — {1} is available.</source>
+        <translation>Установка: {0} — {1} доступна.</translation>
+    </message>
+    <message>
+        <source>Reinstall {0}</source>
+        <translation>Установить {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} (up to date).</source>
+        <translation>Установка: {0} (на сегодняшний день).</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Загрузка файла «{0}»…</translation>
+    </message>
+    <message>
+        <source>Extracting…</source>
+        <translation>Извлечение…</translation>
+    </message>
+    <message>
+        <source>Installed {0}.</source>
+        <translation>Установка {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Ошибка: {0}</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>Шаг 2: Разверните список модов</translation>
+    </message>
+    <message>
+        <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
+
+Built meshes are written to the output mod below, which is added to your mod list.</source>
+        <translation>{0} считывает свои ползунки и формы из развернутой папки «Данные», поэтому сначала разверните свой модуль.
+
+Построенные сетки записываются в мод вывода ниже, который добавляется в ваш список модов.</translation>
+    </message>
+    <message>
+        <source>Output mod name:</source>
+        <translation>Название модуля вывода:</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Пропустить</translation>
+    </message>
+    <message>
+        <source>Deploy</source>
+        <translation>Развернуть</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Запуск {0}…</translation>
+    </message>
+    <message>
+        <source>{0} is not installed.
+
+Go back and download it first.</source>
+        <translation>{0} не устанавливается.
+
+Вернитесь и скачайте сначала.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} запущено.
+Закройте его по завершении работы, а затем нажмите «Готово».</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} закончился.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Ошибка запуска: {0}</translation>
+    </message>
+</context>
+<context>
     <name>BodySlideView</name>
     <message>
         <source>{0} — {1}</source>
@@ -948,8 +1085,20 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Файлы не найдены.</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
+    </message>
+    <message>
         <source>View</source>
         <translation>Просмотр</translation>
+    </message>
+    <message>
+        <source>Downloaded — install it from the Downloads tab.</source>
+        <translation>Downloaded — установить его со вкладки Downloads.</translation>
+    </message>
+    <message>
+        <source>Installing — the list will refresh when it finishes.</source>
+        <translation>Установка — список будет обновляться, когда он закончится.</translation>
     </message>
     <message>
         <source>Install</source>
@@ -1052,6 +1201,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
         <source>Could not load.</source>
         <translation>Не удалось загрузить.</translation>
+    </message>
+    <message>
+        <source>Download collection</source>
+        <translation>Скачать сборник</translation>
     </message>
     <message>
         <source>Resume Install</source>
@@ -1182,6 +1335,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
     <message>
         <source>Cancel</source>
         <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>Skip anyway?</source>
+        <translation>Скип в любом случае?</translation>
     </message>
     <message>
         <source>Pausing…</source>
@@ -1393,6 +1550,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Сброс на настройки по умолчанию</translation>
     </message>
     <message>
+        <source>Saves Folder (optional)</source>
+        <translation>Saves Folder (необязательно)</translation>
+    </message>
+    <message>
+        <source>Detected automatically.</source>
+        <translation>Обнаружен автоматически.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
         <source>Options</source>
         <translation>Параметры</translation>
     </message>
@@ -1461,6 +1630,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</source>
         <translation>Настроена пользовательская папка для промежуточного хранения.</translation>
     </message>
     <message>
+        <source>Custom saves folder configured.</source>
+        <translation>Custom сохраняет конфигурированную папку.</translation>
+    </message>
+    <message>
         <source>Cannot reset to shared settings while mods are deployed. Restore the game first.</source>
         <translation>Невозможно восстановить общие настройки, пока установлены модификации. Сначала восстановите игру.</translation>
     </message>
@@ -1493,12 +1666,20 @@ The default profile's settings are not affected.</source>
         <translation>Найдено через Лутрис.</translation>
     </message>
     <message>
+        <source>Found via Faugus Launcher.</source>
+        <translation>Об этом сообщает Faugus Launcher.</translation>
+    </message>
+    <message>
         <source>Executable ({0}) not found in this folder — double-check the path.</source>
         <translation>Исполняемый ({0}) не найден в этой папке — дважды проверьте путь.</translation>
     </message>
     <message>
         <source>Executable found.</source>
         <translation>Исполняемый найден.</translation>
+    </message>
+    <message>
+        <source>Custom saves folder selected.</source>
+        <translation>Custom сохраняет выбранную папку.</translation>
     </message>
     <message>
         <source>Custom staging folder selected.</source>
@@ -3289,6 +3470,57 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
 </context>
 <context>
+    <name>EnvVarsView</name>
+    <message>
+        <source>Environment variables</source>
+        <translation>Переменные окружающей среды</translation>
+    </message>
+    <message>
+        <source>Variables set here are applied to Amethyst itself every time it starts, so you don't have to launch it from a terminal to use one. Pick a variable Amethyst understands from the dropdown, or add any other one by hand - those are passed on to the tools and games Amethyst launches too.
+
+Changes take effect on the next launch. If a variable ever stops the app from starting, launch it once with AMM_NO_ENV_OVERRIDES=1 to skip them all and fix it here.</source>
+        <translation>Переменные, установленные здесь, применяются к самому аметисту каждый раз, когда он начинается, поэтому вам не нужно запускать его с терминала, чтобы использовать его. Выберите переменную, которую Amethyst понимает из выпадающего списка, или добавьте любую другую вручную - они передаются на инструменты и игры, которые запускает Amethyst.
+
+Изменения вступают в силу при следующем запуске. Если переменная когда-либо останавливает запуск приложения, запустите его один раз с помощью AMM NO ENV OVERRIDES=1, чтобы пропустить их все и исправить это здесь.</translation>
+    </message>
+    <message>
+        <source>Variables</source>
+        <translation>Переменные</translation>
+    </message>
+    <message>
+        <source>No variables set - add one below.</source>
+        <translation>Никаких переменных - добавьте одну ниже.</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Добавить</translation>
+    </message>
+    <message>
+        <source>Add custom variable</source>
+        <translation>Добавить пользовательские переменные</translation>
+    </message>
+    <message>
+        <source>Add a variable Amethyst doesn't know about - anything your system or a launched tool reads.</source>
+        <translation>Добавьте переменную, о которой Amethyst не знает, - что бы ни читала ваша система или запущенный инструмент.</translation>
+    </message>
+    <message>
+        <source>Changes take effect after a restart.</source>
+        <translation>Изменения вступают в силу после перезапуска.</translation>
+    </message>
+    <message>
+        <source>Restart now</source>
+        <translation>Перезапустить сейчас</translation>
+    </message>
+    <message>
+        <source>All supported variables are already listed</source>
+        <translation>Все поддерживаемые переменные уже перечислены</translation>
+    </message>
+    <message>
+        <source>Failed to save environment variables: {0}</source>
+        <translation>Не удалось сохранить переменные среды: {0}</translation>
+    </message>
+</context>
+<context>
     <name>ExeSettingsView</name>
     <message>
         <source>Install Java into prefix</source>
@@ -3693,6 +3925,21 @@ Click Done to clean up the extracted files and close.</source>
     </message>
 </context>
 <context>
+    <name>FilterMenuButton</name>
+    <message>
+        <source>Filters</source>
+        <translation>Фильтры</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(нет)</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Очистить все фильтры</translation>
+    </message>
+</context>
+<context>
     <name>FilterSidePanel</name>
     <message>
         <source>By status</source>
@@ -3869,6 +4116,26 @@ Click Done to clean up the extracted files and close.</source>
     <message>
         <source>Show only not installed</source>
         <translation>Показать только неустановленные</translation>
+    </message>
+    <message>
+        <source>Only conflicts</source>
+        <translation>Только конфликты</translation>
+    </message>
+    <message>
+        <source>Mod folders</source>
+        <translation>Модные папки</translation>
+    </message>
+    <message>
+        <source>Profile</source>
+        <translation>Профиль</translation>
+    </message>
+    <message>
+        <source>Game folder</source>
+        <translation>Папка с игрой</translation>
+    </message>
+    <message>
+        <source>My Games</source>
+        <translation>Мои игры</translation>
     </message>
     <message>
         <source>Clear all</source>
@@ -4200,16 +4467,36 @@ SHA-1: {1}
 <context>
     <name>LauncherSettingsOverlay</name>
     <message>
-        <source>Launch settings — {0}</source>
-        <translation>Параметры запуска — {0}</translation>
+        <source>Launch settings - {0}</source>
+        <translation>Настройки запуска - {0}</translation>
     </message>
     <message>
         <source>Launch via</source>
         <translation>Запустить через</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Обнаружено владение Steam/Heroic/Lutris. Принудить конкретную пусковую установку или не всегда запускать exe непосредственно через Proton.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>Автообнаруживает принадлежность Steam/Heroic/Lutris/Faugus. Принудить конкретную пусковую установку или не всегда запускать exe непосредственно через Proton.</translation>
+    </message>
+    <message>
+        <source>Launch arguments</source>
+        <translation>Запуск аргументов</translation>
+    </message>
+    <message>
+        <source>Arguments passed to the game exe</source>
+        <translation>Аргументы перешли в игру exe</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>Запуск опций</translation>
+    </message>
+    <message>
+        <source>e.g. SteamDeck=0 gamemoderun %command%</source>
+        <translation>например, SteamDeck=0 gamemoderun %command%</translation>
+    </message>
+    <message>
+        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
+        <translation>Синтаксис Steam. Пусто: используются собственные параметры игры в Steam.</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -4269,6 +4556,7 @@ SHA-1: {1}
     <name>MainWindow</name>
     <message>
         <source>Amethyst Mod Manager - v{0}</source>
+        <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
         <translation>Amethyst Mod Manager — версия {0}</translation>
     </message>
     <message>
@@ -4302,6 +4590,120 @@ SHA-1: {1}
     <message>
         <source>Check Updates</source>
         <translation>Проверить наличие обновлений</translation>
+    </message>
+    <message>
+        <source>{0} game - {1}</source>
+        <translation>Игра {0} - {1}</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
+        <translation>Проверьте исполняемые файлы, чтобы добавить в меню Run. Они выполняются из их местоположения в папке игры, включая файлы, развернутые там модами.</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst не смог запустить {0}
+
+Нажмите Deploy, чтобы применить свои моды, а затем начните игру из Steam, Heroic, Lutris или Faugus - развернутые моды остаются активными, как только игра запущена.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - deploy again when it finishes.</source>
+        <translation>Установка модов продолжается - развертывайте снова, когда она закончится.</translation>
+    </message>
+    <message>
+        <source>A deploy is in progress - try again shortly.</source>
+        <translation>Развертывание продолжается - попробуйте еще раз в ближайшее время.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - try again when it finishes.</source>
+        <translation>Установка модов продолжается - попробуйте снова, когда она закончится.</translation>
+    </message>
+    <message>
+        <source>Restore queued - it will run after the current install finishes.</source>
+        <translation>Восстановите очередь - она будет работать после окончания текущей установки.</translation>
+    </message>
+    <message>
+        <source>Deploy failed - see log.</source>
+        <translation>Развернуть не удалось - см. журнал.</translation>
+    </message>
+    <message>
+        <source>Restore failed - see log.</source>
+        <translation>Восстановить не удалось - см. журнал.</translation>
+    </message>
+    <message>
+        <source>{0} - done.</source>
+        <translation>{0} - готово.</translation>
+    </message>
+    <message>
+        <source>{0} - failed (see log).</source>
+        <translation>{0} - не удалось (см. журнал).</translation>
+    </message>
+    <message>
+        <source>NIF Viewer - {0}</source>
+        <translation>NIF Viewer - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded '{0}' - install it from the Downloads tab.</source>
+        <translation>Скачать «{0}» - установить его со вкладки «Загрузки».</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} archives - install them from the Downloads tab.</source>
+        <translation>Загруженные архивы {0} - установите их со вкладки Downloads.</translation>
+    </message>
+    <message>
+        <source>Install queued - {0} will install after the current {1} finishes.</source>
+        <translation>Установка в очередь - {0} будет установлен после текущей отделки {1}.</translation>
+    </message>
+    <message>
+        <source>Install queued - waiting for the current member choice.</source>
+        <translation>Установка в очередь - ожидание текущего выбора участника.</translation>
+    </message>
+    <message>
+        <source>This group has no member profiles - add one first.</source>
+        <translation>В этой группе нет профилей участников - сначала добавьте один.</translation>
+    </message>
+    <message>
+        <source>Install queued - it will run after the current operation finishes.</source>
+        <translation>Установите очередь - она будет работать после окончания текущей операции.</translation>
+    </message>
+    <message>
+        <source>Install into which member profile?
+('{0}' is a profile group - the mod will be installed there and appear in the group.)</source>
+        <translation>Установите в какой профиль участника?
+('{0}' - группа профилей - мод будет установлен там и появится в группе.)</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB - including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>Эти папки находятся в файловой системе Windows:
+
+{0}X
+
+Накопители NTFS и exFAT имеют слабые гарантии записи на Linux: нечистая установка, потеря питания или двойная загрузка Windows с включенным Fast Startup могут незаметно сокращать файлы до 0 КБ, включая развернутые файлы модов и библиотеку постановки модов.
+
+Файловая система Linux (ext4/btrfs) рекомендуется как для игры, так и для размещения модов.
+
+Если вы продолжите, это предупреждение не будет показано снова для {1}, если диски не изменятся.</translation>
+    </message>
+    <message>
+        <source>'{0}' belongs to the member profile '{1}' - switch to that profile to rename it.</source>
+        <translation>"{0}" относится к профилю участника "{1}" - переключитесь на этот профиль, чтобы переименовать его.</translation>
+    </message>
+    <message>
+        <source>Installed {0} of {1} mods - see log for failures.</source>
+        <translation>Установка {0} модов {1} - см. журнал для сбоев.</translation>
+    </message>
+    <message>
+        <source>Install failed - see log.</source>
+        <translation>Установить не удалось - см. журнал.</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -4656,16 +5058,8 @@ SHA-1: {1}
         <translation>{0} и {1} больше</translation>
     </message>
     <message>
-        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
-        <translation>Обработчик не смог загрузить игру ({0}). Пострадавшие игры скрыты, но ваши моды в безопасности — смотрите журнал.</translation>
-    </message>
-    <message>
         <source>Installing 32-bit support (needed to run Windows tools) …</source>
         <translation>Установка 32-разрядной поддержки (необходимой для запуска инструментов Windows)</translation>
-    </message>
-    <message>
-        <source>32-bit support installed — restart the app before running Windows tools.</source>
-        <translation>Установлена 32-разрядная поддержка — перезагрузите приложение перед запуском инструментов Windows.</translation>
     </message>
     <message>
         <source>Install-name Rules</source>
@@ -4680,8 +5074,32 @@ SHA-1: {1}
         <translation>Поиск модов... (попробуйте !update, !fomod, !.dds)</translation>
     </message>
     <message>
+        <source>Reset</source>
+        <translation>Сброс</translation>
+    </message>
+    <message>
+        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
+        <translation>Отмените изменения в файлах модов (Top Level, Root, Disable). Сами мод-файлы не затрагиваются.</translation>
+    </message>
+    <message>
         <source>Search files… (try !.dds)</source>
         <translation>Поисковые файлы (попробуйте!.dds)</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Открыть папку</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Экспорт</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Импорт</translation>
+    </message>
+    <message>
+        <source>Search saves… (try !.ess)</source>
+        <translation>Поиск сейвов (попробуй!.ess)</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -4710,6 +5128,10 @@ SHA-1: {1}
     <message>
         <source>Install XACT audio (XAudio2)</source>
         <translation>Установка аудио XACT (XAudio2)</translation>
+    </message>
+    <message>
+        <source>Install LAV Filters (radio/music codecs)</source>
+        <translation>Установите фильтры LAV (радио/музыкальные кодеки)</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -4744,14 +5166,6 @@ SHA-1: {1}
         <translation>Синхронизация языковых файлов…</translation>
     </message>
     <message>
-        <source>Language files updated — restart to apply.</source>
-        <translation>Языковые файлы обновлены — для применения изменений необходимо перезапустить программу.</translation>
-    </message>
-    <message>
-        <source>Your Nexus session expired — please log in again (Nexus ▸ Login to Nexus).</source>
-        <translation>Срок действия сеанса Nexus истек — пожалуйста, войдите снова (Nexus 😉 Логин в Nexus).</translation>
-    </message>
-    <message>
         <source>Welcome</source>
         <translation>Добро пожаловать</translation>
     </message>
@@ -4768,14 +5182,6 @@ SHA-1: {1}
         <translation>Загрузка мода с Nexus…</translation>
     </message>
     <message>
-        <source>Nexus download failed — {0}</source>
-        <translation>Ошибка загрузки Nexus — {0}</translation>
-    </message>
-    <message>
-        <source>Downloaded — no game selected; see Downloads tab.</source>
-        <translation>Загружено — игра не выбрана; см. вкладку «Загрузки».</translation>
-    </message>
-    <message>
         <source>No configured game for Nexus domain '{0}'.</source>
         <translation>Для домена Nexus «{0}» не настроена ни одна игра.</translation>
     </message>
@@ -4790,22 +5196,6 @@ SHA-1: {1}
     <message>
         <source>'{0}' has no Nexus Mods page.</source>
         <translation>У игры «{0}» нет страницы на сайте Nexus Mods.</translation>
-    </message>
-    <message>
-        <source>A deploy or removal is already running — try again when it finishes.</source>
-        <translation>В данный момент выполняется развертывание или удаление — попробуйте повторить операцию после его завершения.</translation>
-    </message>
-    <message>
-        <source>A collection install is running — try again when it finishes.</source>
-        <translation>В настоящее время выполняется установка коллекции — попробуйте позже, когда она завершится.</translation>
-    </message>
-    <message>
-        <source>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder — this cannot be undone.</source>
-        <translation>Удалить «{0}» и его модификации {1} из этого профиля?
-
-Их файлы будут удалены из папки «staging» — это действие нельзя отменить.</translation>
     </message>
     <message>
         <source>No installed mods from '{0}' were found in this profile.
@@ -4826,10 +5216,6 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Removed appended collection '{0}'.</source>
         <translation>Удалена присоединённая коллекция «{0}».</translation>
-    </message>
-    <message>
-        <source>Could not remove '{0}' — see the log.</source>
-        <translation>Не удалось удалить файл «{0}» — см. журнал.</translation>
     </message>
     <message>
         <source>The active profile isn't a collection profile.</source>
@@ -4912,26 +5298,6 @@ Remove the appended-collection entry?</source>
         <translation>Продолжай идти</translation>
     </message>
     <message>
-        <source>Nexus Premium not detected — manual download mode.</source>
-        <translation>Nexus Premium не обнаружен — ручной режим загрузки.</translation>
-    </message>
-    <message>
-        <source>Paused — {0} installed.</source>
-        <translation>Пауза — установлен {0}.</translation>
-    </message>
-    <message>
-        <source>Install paused — {0} mod(s) installed.</source>
-        <translation>Установка приостановлена — установлено {0} модификаций.</translation>
-    </message>
-    <message>
-        <source>Done — {0}/{1} installed.</source>
-        <translation>Выполнено — {0}/{1} установлен.</translation>
-    </message>
-    <message>
-        <source>Collection installed — {0}/{1} mod(s)</source>
-        <translation>Установленная коллекция — мод (модули) {0}/{1}</translation>
-    </message>
-    <message>
         <source> ({0} skipped)</source>
         <translation>({0} пропущен)</translation>
     </message>
@@ -4940,32 +5306,12 @@ Remove the appended-collection entry?</source>
         <translation>Восстановление пакетных модов + файлы профиля..</translation>
     </message>
     <message>
-        <source>Imported — {0}/{1} installed.</source>
-        <translation>Импорт — установлен {0}/{1}.</translation>
-    </message>
-    <message>
-        <source>Profile imported — {0}/{1} mod(s)</source>
-        <translation>Импортный профиль — {0}/{1} mod(s)</translation>
-    </message>
-    <message>
         <source>…and {0} more</source>
         <translation>и {0} больше</translation>
     </message>
     <message>
         <source>Off-site mods to install</source>
         <translation>Моды Off-site для установки</translation>
-    </message>
-    <message>
-        <source>This collection includes {0} off-site mod(s) the installer could not download:
-
-{1}
-
-Download and install them manually — the links are in the collection page's "Off-site mods" panel.</source>
-        <translation>Эта коллекция включает в себя мод (ы) вне сайта {0}, который установщик не мог загрузить:
-
-{1}X
-
-Скачайте и установите их вручную — ссылки находятся в панели «Моды вне сайта».</translation>
     </message>
     <message>
         <source>OK</source>
@@ -5008,10 +5354,6 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Обновление ручки..</translation>
     </message>
     <message>
-        <source>Handler update failed — check your connection.</source>
-        <translation>Обновление Handler не удалось — проверьте соединение.</translation>
-    </message>
-    <message>
         <source>Handler not found on the Resources branch.</source>
         <translation>Хендлера не нашли в отделении Ресурсов.</translation>
     </message>
@@ -5030,14 +5372,6 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>stable</source>
         <translation>стабильный</translation>
-    </message>
-    <message>
-        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
-        <translation>Канал {0} еще не опубликован на пульте обновления — попробуйте еще раз после следующего выпуска {0}.</translation>
-    </message>
-    <message>
-        <source>An install is finishing — try the collection again in a moment.</source>
-        <translation>Установка завершается — попробуйте коллекцию снова через мгновение.</translation>
     </message>
     <message>
         <source>This will stop the install and delete the new profile '{0}'.</source>
@@ -5076,10 +5410,6 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Сначала запустите «Вход через SSO», а затем вставьте код.</translation>
     </message>
     <message>
-        <source>The login session has ended — start 'Login via SSO' again.</source>
-        <translation>Сеанс авторизации завершился — запустите функцию «Вход через SSO» заново.</translation>
-    </message>
-    <message>
         <source>Submit</source>
         <translation>Представить</translation>
     </message>
@@ -5094,10 +5424,6 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>NXM handler registered.</source>
         <translation>Обработчик NXM зарегистрирован.</translation>
-    </message>
-    <message>
-        <source>Failed to register — xdg-mime not found?</source>
-        <translation>Не удалось зарегистрировать — xdg-mime не найден?</translation>
     </message>
     <message>
         <source>NXM handler error: {0}</source>
@@ -5132,10 +5458,6 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Проверка наличия обновлений ({0})…</translation>
     </message>
     <message>
-        <source>Update check failed — see the log.</source>
-        <translation>Ошибка проверки обновлений — см. журнал.</translation>
-    </message>
-    <message>
         <source>All mods are up to date.</source>
         <translation>Все модификации обновлены.</translation>
     </message>
@@ -5152,24 +5474,12 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Повторная установка модификаций «{0}»; установка «{1}» пропущена (архив не найден).</translation>
     </message>
     <message>
-        <source>Reinstall — redownloading {0} mod(s)…</source>
-        <translation>Reinstall — перезагрузка {0} mod(s)</translation>
-    </message>
-    <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>Перезагрузка {0} mod(s)</translation>
     </message>
     <message>
         <source>Reinstall</source>
         <translation>Переустановить</translation>
-    </message>
-    <message>
-        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
-        <translation>Reinstall: {0} mod(s) не может быть перезагружен — см. журнал.</translation>
-    </message>
-    <message>
-        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
-        <translation>Redownloaded {0} mod(s); {1} failed — см. журнал.</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -5180,20 +5490,168 @@ Download and install them manually — the links are in the collection page's "O
         <translation>Не устанавливайте модификации, для которых ожидается обновление через Quick-Update.</translation>
     </message>
     <message>
-        <source>Quick Update — checking {0} mod(s)…</source>
-        <translation>Краткое обновление — проверка модификаций для {0}…</translation>
-    </message>
-    <message>
-        <source>Quick Update — downloading {0} mod(s)…</source>
-        <translation>Краткое обновление — загрузка модификаций для игры «{0}»…</translation>
-    </message>
-    <message>
         <source>Downloading {0} mod(s)…</source>
         <translation>Загрузка модификаций для игры «{0}»…</translation>
     </message>
     <message>
         <source>Quick Update</source>
         <translation>Краткое обновление</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
+        <translation>Обработчик не смог загрузить игру ({0}). Пострадавшие игры скрыты, но ваши моды в безопасности - смотрите журнал.</translation>
+    </message>
+    <message>
+        <source>32-bit support installed - restart the app before running Windows tools.</source>
+        <translation>Установлена 32-разрядная поддержка — перезагрузите приложение перед запуском инструментов Windows.</translation>
+    </message>
+    <message>
+        <source>Environment Variables</source>
+        <translation>Переменные среды</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}: {2}</source>
+        <translation>Не удалось прочитать {0} из {1}: {2}</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}</source>
+        <translation>Не удалось прочитать {0} из {1}</translation>
+    </message>
+    <message>
+        <source>Handler update failed - check your connection.</source>
+        <translation>Обновление Handler не удалось - проверьте соединение.</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet - try again after the next {0} release.</source>
+        <translation>Канал {0} еще не опубликован на пульте обновления - попробуйте еще раз после следующего выпуска {0}.</translation>
+    </message>
+    <message>
+        <source>Restart to apply environment variables?</source>
+        <translation>Перезагрузка для применения переменных среды?</translation>
+    </message>
+    <message>
+        <source>Environment variables are applied when Amethyst starts. Restart now?</source>
+        <translation>Переменные среды применяются при запуске аметиста. Перезапустить сейчас?</translation>
+    </message>
+    <message>
+        <source>Language files updated - restart to apply.</source>
+        <translation>Обновление языковых файлов - перезагрузка для применения.</translation>
+    </message>
+    <message>
+        <source>Your Nexus session expired - please log in again (Nexus ▸ Login to Nexus).</source>
+        <translation>Срок действия сеанса Nexus истек - пожалуйста, войдите снова (Nexus 😉 Логин в Nexus).</translation>
+    </message>
+    <message>
+        <source>Nexus download failed - {0}</source>
+        <translation>Загрузка Nexus не удалась - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded - no game selected; see Downloads tab.</source>
+        <translation>Downloaded - игра не выбрана; см. вкладку Downloads.</translation>
+    </message>
+    <message>
+        <source>A deploy or removal is already running - try again when it finishes.</source>
+        <translation>Развертывание или удаление уже запущено - попробуйте снова, когда оно закончится.</translation>
+    </message>
+    <message>
+        <source>A collection install is running - try again when it finishes.</source>
+        <translation>Установка коллекции запущена - попробуйте снова, когда она закончится.</translation>
+    </message>
+    <message>
+        <source>Remove '{0}' and its {1} mod(s) from this profile?
+
+Their files are deleted from the staging folder - this cannot be undone.</source>
+        <translation>Удалите «{0}» и его мод(ы) {1} из этого профиля.
+
+Их файлы удаляются из постановочной папки — это нельзя отменить.</translation>
+    </message>
+    <message>
+        <source>Could not remove '{0}' - see the log.</source>
+        <translation>Не удалось удалить "{0}" - смотрите журнал.</translation>
+    </message>
+    <message>
+        <source>An install is finishing - try the collection again in a moment.</source>
+        <translation>Установка завершается - попробуйте коллекцию снова через мгновение.</translation>
+    </message>
+    <message>
+        <source>Cancel download?</source>
+        <translation>Отменить загрузку?</translation>
+    </message>
+    <message>
+        <source>This will stop the download. Archives already downloaded are kept in the Downloads tab.</source>
+        <translation>Это остановит загрузку. Уже загруженные архивы хранятся на вкладке Downloads.</translation>
+    </message>
+    <message>
+        <source>Cancel Download</source>
+        <translation>Скачать Cancel</translation>
+    </message>
+    <message>
+        <source>Nexus Premium not detected - manual download mode.</source>
+        <translation>Nexus Premium не обнаружен — ручной режим загрузки.</translation>
+    </message>
+    <message>
+        <source>Collection download cancelled - the archives already fetched are in the Downloads tab.</source>
+        <translation>Загрузка коллекции отменена - уже извлеченные архивы находятся на вкладке Загрузки.</translation>
+    </message>
+    <message>
+        <source>Paused - {0} installed.</source>
+        <translation>Пауза - установлен {0}.</translation>
+    </message>
+    <message>
+        <source>Install paused - {0} mod(s) installed.</source>
+        <translation>Установка приостановлена - установлен мод(ы) {0}.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0}/{1} - nothing installed.</source>
+        <translation>Скачать {0}/{1} - ничего не установлено.</translation>
+    </message>
+    <message>
+        <source>Collection downloaded - {0}/{1} archive(s). Install them from the Downloads tab.</source>
+        <translation>Загруженная коллекция - архив (архивы) {0}/{1}. Установите их со вкладки Downloads.</translation>
+    </message>
+    <message>
+        <source> ({0} couldn't be downloaded - see the log)</source>
+        <translation>({0} не может быть загружен - см. журнал)</translation>
+    </message>
+    <message>
+        <source>Done - {0}/{1} installed.</source>
+        <translation>Выполнено - {0}/{1} установлен.</translation>
+    </message>
+    <message>
+        <source>Collection installed - {0}/{1} mod(s)</source>
+        <translation>Установленная коллекция - мод(ы) {0}/{1}</translation>
+    </message>
+    <message>
+        <source>Imported - {0}/{1} installed.</source>
+        <translation>Импортный - установлен {0}/{1}.</translation>
+    </message>
+    <message>
+        <source>Profile imported - {0}/{1} mod(s)</source>
+        <translation>Импортный профиль - мод(ы) {0}/{1}</translation>
+    </message>
+    <message>
+        <source>This collection includes {0} off-site mod(s) the installer could not download:
+
+{1}
+
+Download and install them manually - the links are in the collection page's "Off-site mods" panel.</source>
+        <translation>Эта коллекция включает в себя мод (ы) вне сайта {0}, который установщик не мог загрузить:
+
+{1}X
+
+Скачайте и установите их вручную - ссылки находятся в панели «Моды вне сайта» на странице сбора.</translation>
+    </message>
+    <message>
+        <source>The login session has ended - start 'Login via SSO' again.</source>
+        <translation>Сеанс входа закончился - снова начните "Login via SSO".</translation>
+    </message>
+    <message>
+        <source>Failed to register - xdg-mime not found?</source>
+        <translation>Не удалось зарегистрироваться - xdg-mime не найден?</translation>
+    </message>
+    <message>
+        <source>Update check failed - see the log.</source>
+        <translation>Проверка обновлений не удалась - смотрите журнал.</translation>
     </message>
     <message>
         <source>Updates available</source>
@@ -5206,6 +5664,50 @@ Run Quick Update on all of them now?</source>
         <translation>Мод (ы) {0} имеют доступное обновление.
 
 Быстрое обновление всех из них?</translation>
+    </message>
+    <message>
+        <source>Reinstalling {0} mod(s), redownloading {1}; {2} skipped.</source>
+        <translation>Переустановка {0} mod(s), перезагрузка {1}; {2} пропущен.</translation>
+    </message>
+    <message>
+        <source>Reinstall - redownloading {0} mod(s)…</source>
+        <translation>Reinstall - перезагрузка {0} mod(s)</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll land in the Downloads tab.</source>
+        <translation>Премиум, необходимый для перезагрузки. Открыта страница (ы) загрузки {0} - они попадут на вкладку Загрузки.</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll reinstall automatically once downloaded.</source>
+        <translation>Премиум, необходимый для перезагрузки. Открытая страница (страницы) загрузки {0} - они будут автоматически переустанавливаться после загрузки.</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded - see the log.</source>
+        <translation>Reinstall: {0} mod(s) не может быть перезагружен - см. журнал.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
+        <translation>Redownloaded {0} mod(s); {1} failed - см. журнал.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
+        <translation>Redownloaded {0} mod(s) - переустановите их со вкладки Загрузки.</translation>
+    </message>
+    <message>
+        <source>Quick Update - checking {0} mod(s)…</source>
+        <translation>Быстрое обновление - проверка модов {0}</translation>
+    </message>
+    <message>
+        <source>Quick Update - downloading {0} mod(s)…</source>
+        <translation>Быстрое обновление - загрузка {0} mod(s)</translation>
+    </message>
+    <message>
+        <source>Quick Update: downloaded {0} update(s) - install them from the Downloads tab.</source>
+        <translation>Быстрое обновление: загруженные обновления {0} - установите их с вкладки Загрузки.</translation>
+    </message>
+    <message>
+        <source>Quick Update: {0} mod(s) couldn't be downloaded - see the log.</source>
+        <translation>Быстрое обновление: {0} mod(s) не может быть загружен - см. журнал.</translation>
     </message>
     <message>
         <source>Quick Update: updated {0} mod(s)</source>
@@ -5380,8 +5882,20 @@ Run Quick Update on all of them now?</source>
         <translation>Для этого мода нет файлов для скачивания.</translation>
     </message>
     <message>
-        <source>{0} game — {1}</source>
-        <translation>{0} игра — {1}</translation>
+        <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
+        <translation>Войдите в первую (Nexus 😉 Login) - откройте страницу AMM, чтобы вы могли одобрить ее там.</translation>
+    </message>
+    <message>
+        <source>Endorse AMM failed - {0}</source>
+        <translation>Одобрение AMM провалилось - {0}</translation>
+    </message>
+    <message>
+        <source>You've already endorsed - thank you!</source>
+        <translation>Вы уже одобрили - спасибо!</translation>
+    </message>
+    <message>
+        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page - please download it there first, then endorse.</source>
+        <translation>Nexus позволяет поддерживать приложение только после того, как вы его загрузили хотя бы один раз. Открывая страницу AMM - пожалуйста, сначала загрузите ее там, затем подтвердите.</translation>
     </message>
     <message>
         <source>{0} game</source>
@@ -5432,6 +5946,14 @@ Run Quick Update on all of them now?</source>
         <translation>Настройки профиля</translation>
     </message>
     <message>
+        <source>Profile Groups aren't supported for this game.</source>
+        <translation>Группы профилей не поддерживаются для этой игры.</translation>
+    </message>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Профильные группы</translation>
+    </message>
+    <message>
         <source>Profile '{0}' already exists.</source>
         <translation>Профиль «{0}» уже существует.</translation>
     </message>
@@ -5464,10 +5986,6 @@ Run Quick Update on all of them now?</source>
         <translation>Добавить исполняемый файл из папки игры</translation>
     </message>
     <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
-        <translation>Проверьте исполняемые файлы, чтобы добавить в меню Run. Они работают от своего местоположения в папке игры, включая файлы, развернутые там модами.</translation>
-    </message>
-    <message>
         <source>Executable not found: {0}</source>
         <translation>Исполняемый файл не найден: {0}</translation>
     </message>
@@ -5488,14 +6006,6 @@ Run Quick Update on all of them now?</source>
         <translation>Развертывание службы «{0}»…</translation>
     </message>
     <message>
-        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
-        <translation>Премиум, необходимый для перезагрузки. Открыл страницу (ы) загрузки {0} - они будут переустанавливаться автоматически после загрузки.</translation>
-    </message>
-    <message>
-        <source>A deploy is in progress — try again shortly.</source>
-        <translation>В настоящее время выполняется развертывание — попробуйте повторить через некоторое время.</translation>
-    </message>
-    <message>
         <source>Restoring {0}…</source>
         <translation>Восстановление {0}…</translation>
     </message>
@@ -5510,14 +6020,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>{0} Restored</source>
         <translation>{0} Восстановлено</translation>
-    </message>
-    <message>
-        <source>Deploy failed — see log.</source>
-        <translation>Развертывание завершилось сбоем — см. журнал.</translation>
-    </message>
-    <message>
-        <source>Restore failed — see log.</source>
-        <translation>Восстановление не удалось — см. журнал.</translation>
     </message>
     <message>
         <source>{0} is not configured for this game.</source>
@@ -5594,14 +6096,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>{0}…</source>
         <translation>{0}…</translation>
-    </message>
-    <message>
-        <source>{0} — done.</source>
-        <translation>{0} — готово.</translation>
-    </message>
-    <message>
-        <source>{0} — failed (see log).</source>
-        <translation>{0} — не удалось (см. журнал).</translation>
     </message>
     <message>
         <source>No game selected</source>
@@ -5684,16 +6178,80 @@ Run Quick Update on all of them now?</source>
         <translation>Установлено{0}</translation>
     </message>
     <message>
-        <source>the game</source>
-        <translation>игра</translation>
+        <source>Undo every Mod Files change for "{0}" - Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</source>
+        <translation>Отмените все изменения в файлах мод для «{0}» - промо-акции верхнего уровня, теги корневых папок и файлы с отключением? Собственные файлы мода не затрагиваются.</translation>
     </message>
     <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
-        <translation>Amethyst не смог запустить {0}
-
-Нажмите «Развернуть», чтобы применить свои моды, а затем начните игру из Steam, Heroic или Lutris — развернутые моды остаются активными, но игра запущена.</translation>
+        <source>Profile is deployed - run Restore first, then pack the {0}.</source>
+        <translation>Профиль развернут - сначала запустите Восстановление, затем упакуйте {0}.</translation>
+    </message>
+    <message>
+        <source>Profile is deployed - run Restore first, then unpack.</source>
+        <translation>Профиль развернут - запустите Восстановление сначала, затем распакуйте.</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder - usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>Плагины {0}, перечисленные в этом профиле, не имеют файла в своих модах, перезаписи или папке игры - обычно остатки удаленных модов или порядок загрузки другого профиля. Удалить их из порядка загрузки? Мод-файлы не затрагиваются.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure groups.</source>
+        <translation>Ни один активный профиль — не может настроить группы.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure plugin rules.</source>
+        <translation>Нет активного профиля - не может настроить правила плагина.</translation>
+    </message>
+    <message>
+        <source>userlist.yaml not found - cannot flip rule.</source>
+        <translation>userlist.yaml не найден - не может перевернуть правило.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot edit userlist.</source>
+        <translation>Нет активного профиля - не может редактировать список пользователей.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot assign group.</source>
+        <translation>Никакого активного профиля - нельзя назначить группу.</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot sort.</source>
+        <translation>Большая библиотека недоступна - сортировать нельзя.</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed - see log.</source>
+        <translation>LOOT refresh failed - см. log.</translation>
+    </message>
+    <message>
+        <source>LOOT sort failed - see log.</source>
+        <translation>LOOT sort failed - см. log.</translation>
+    </message>
+    <message>
+        <source>Sorted - 1 plugin moved.</source>
+        <translation>Сортирован - 1 плагин перемещен.</translation>
+    </message>
+    <message>
+        <source>Sorted - {0} plugins moved.</source>
+        <translation>Сортировка - плагины {0} перемещаются.</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot check overlap.</source>
+        <translation>Библиотека LOOT недоступна - не может проверить перекрытие.</translation>
+    </message>
+    <message>
+        <source>Overlap check failed - see log.</source>
+        <translation>Проверка не удалась - см. журнал.</translation>
+    </message>
+    <message>
+        <source>{0} overlaps {1} plugin(s) - highlighted in list</source>
+        <translation>{0} перекрывает {1} плагин(ы) - выделен в списке</translation>
+    </message>
+    <message>
+        <source>Saves</source>
+        <translation>Экономия</translation>
+    </message>
+    <message>
+        <source>the game</source>
+        <translation>игра</translation>
     </message>
     <message>
         <source>Details: {0}</source>
@@ -5704,52 +6262,28 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutri
         <translation>Игра не была запущена</translation>
     </message>
     <message>
-        <source>A mod install is in progress — deploy again when it finishes.</source>
-        <translation>Установка модов продолжается — развертывайте снова, когда она закончится.</translation>
+        <source>Profile groups…</source>
+        <translation>Профильные группы..</translation>
     </message>
     <message>
-        <source>A mod install is in progress — try again when it finishes.</source>
-        <translation>Установка модов продолжается — попробуйте снова, когда она закончится.</translation>
+        <source>Installing LAV Filters</source>
+        <translation>Установка фильтров LAV</translation>
     </message>
     <message>
-        <source>Restore queued — it will run after the current install finishes.</source>
-        <translation>Восстановите очередь — она будет работать после окончания текущей установки.</translation>
+        <source>Install cancelled.</source>
+        <translation>Установка отменена.</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Установить</translation>
     </message>
     <message>
         <source>Windows filesystem detected</source>
         <translation>Файловая система Windows обнаружена</translation>
     </message>
     <message>
-        <source>These folders are on a Windows filesystem:
-
-{0}
-
-NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
-
-A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
-
-If you continue, this warning won't be shown again for {1} unless the drives change.</source>
-        <translation>Эти папки находятся в файловой системе Windows:
-
-{0}X
-
-Накопители NTFS и exFAT имеют слабые гарантии записи на Linux: нечистая установка, потеря питания или двойная загрузка Windows с включенным Fast Startup могут незаметно сокращать файлы до 0 КБ, включая развернутые файлы модов и библиотеку постановок модов.
-
-Файловая система Linux (ext4/btrfs) рекомендуется как для игры, так и для размещения модов.
-
-Если вы продолжите, это предупреждение не будет показано снова для {1}, если диски не изменятся.</translation>
-    </message>
-    <message>
         <source>Installed {0} mods</source>
         <translation>Установленные модификации для игры «{0}»</translation>
-    </message>
-    <message>
-        <source>Installed {0} of {1} mods — see log for failures.</source>
-        <translation>Установлено {0} модификаций с сайта {1} — сведения о сбоях см. в журнале.</translation>
-    </message>
-    <message>
-        <source>Install failed — see log.</source>
-        <translation>Установка не удалась — см. журнал.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -5760,6 +6294,14 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Распакуйте файл «{0}»</translation>
     </message>
     <message>
+        <source>Reset Mod Files changes for {0}</source>
+        <translation>Перезагрузка файлов модов для {0}</translation>
+    </message>
+    <message>
+        <source>Reset Mod Files changes</source>
+        <translation>Reset Mod Files изменяется</translation>
+    </message>
+    <message>
         <source>An archive operation is already running.</source>
         <translation>В данный момент выполняется операция с архивом.</translation>
     </message>
@@ -5768,16 +6310,8 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Папка «Mod» не найдена.</translation>
     </message>
     <message>
-        <source>Profile is deployed — run Restore first, then pack the {0}.</source>
-        <translation>Профиль развернут — сначала запустите команду «Restore», а затем скомпилируйте файл «{0}».</translation>
-    </message>
-    <message>
         <source>Packing {0}…</source>
         <translation>Упаковка {0}…</translation>
-    </message>
-    <message>
-        <source>Profile is deployed — run Restore first, then unpack.</source>
-        <translation>Профиль развернут — сначала запустите команду «Restore», а затем распакуйте.</translation>
     </message>
     <message>
         <source>Unpacking {0} archive(s)…</source>
@@ -5916,24 +6450,12 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Удалить устаревшие плагины</translation>
     </message>
     <message>
-        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
-        <translation>Плагины {0}, перечисленные в этом профиле, не имеют файла в своих модах, перезаписи или папке игры - обычно остатки от удаленных модов или порядка загрузки другого профиля. Удалить их из порядка загрузки? Мод-файлы не затрагиваются.</translation>
-    </message>
-    <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
         <translation>Обновление метаданных LOOT для плагинов {0}</translation>
     </message>
     <message>
-        <source>LOOT refresh failed — see log.</source>
-        <translation>Обновление LOOT не удалось — см.</translation>
-    </message>
-    <message>
         <source>Plugin metadata refreshed.</source>
         <translation>Обновлены метаданные плагина.</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot check overlap.</source>
-        <translation>Библиотека LOOT недоступна — не может проверить перекрытие.</translation>
     </message>
     <message>
         <source>An overlap check is already running.</source>
@@ -5944,16 +6466,8 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Проверка перекрытия записи для {0}</translation>
     </message>
     <message>
-        <source>Overlap check failed — see log.</source>
-        <translation>Проверка не удалась — см. журнал.</translation>
-    </message>
-    <message>
         <source>{0}: no record overlap with other plugins.</source>
         <translation>{0}: нет совпадений с другими плагинами.</translation>
-    </message>
-    <message>
-        <source>{0} overlaps {1} plugin(s) — highlighted in list</source>
-        <translation>{0} перекрывает плагин (плагины) {1} — выделен в списке</translation>
     </message>
     <message>
         <source>+ Add exe from staging…</source>
@@ -5968,20 +6482,12 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Плагины</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure groups.</source>
-        <translation>Активного профиля нет — настроить группы невозможно.</translation>
-    </message>
-    <message>
         <source>install</source>
         <translation>устанавливать</translation>
     </message>
     <message>
         <source>deploy</source>
         <translation>развертывание</translation>
-    </message>
-    <message>
-        <source>Install queued — {0} will install after the current {1} finishes.</source>
-        <translation>Установка в очередь — {0} будет установлен после окончания текущего {1}.</translation>
     </message>
     <message>
         <source>Cyber Engine Tweaks is enabled, but cyber_engine_tweaks.asi will be symlinked.
@@ -6004,10 +6510,6 @@ CET не будет загружаться из symlinked asi. Это проис
         <translation>Группы LOOT</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure plugin rules.</source>
-        <translation>Профиль неактивен — невозможно настроить правила плагина.</translation>
-    </message>
-    <message>
         <source>LOOT Plugin Rules</source>
         <translation>Правила использования плагина LOOT</translation>
     </message>
@@ -6020,10 +6522,6 @@ CET не будет загружаться из symlinked asi. Это проис
         <translation>Цикл плагинов</translation>
     </message>
     <message>
-        <source>userlist.yaml not found — cannot flip rule.</source>
-        <translation>Файл userlist.yaml не найден — невозможно применить правило.</translation>
-    </message>
-    <message>
         <source>Rule {0} '{1}' {2} not found in userlist.yaml.</source>
         <translation>Правило {0} «{1}» {2} не найдено в файле userlist.yaml.</translation>
     </message>
@@ -6032,20 +6530,8 @@ CET не будет загружаться из symlinked asi. Это проис
         <translation>Изменение названия: «{0}» теперь называется «{1}» {2}</translation>
     </message>
     <message>
-        <source>No active profile — cannot edit userlist.</source>
-        <translation>Активного профиля нет — редактировать список пользователей невозможно.</translation>
-    </message>
-    <message>
-        <source>No active profile — cannot assign group.</source>
-        <translation>Профиль неактивен — невозможно назначить группу.</translation>
-    </message>
-    <message>
         <source>Removed from userlist: {0} plugin(s)</source>
         <translation>Удалено из списка пользователей: плагин(ы) {0}</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot sort.</source>
-        <translation>Библиотека LOOT недоступна — сортировка невозможна.</translation>
     </message>
     <message>
         <source>LOOT sorting isn't supported for this game.</source>
@@ -6064,24 +6550,12 @@ CET не будет загружаться из symlinked asi. Это проис
         <translation>Запуск LOOT с плагинами {0}…</translation>
     </message>
     <message>
-        <source>LOOT sort failed — see log.</source>
-        <translation>Сбой сортировки LOOT — см. журнал.</translation>
-    </message>
-    <message>
         <source>Failed to write load order: {0}</source>
         <translation>Не удалось записать порядок загрузки: {0}</translation>
     </message>
     <message>
         <source>Load order is already sorted.</source>
         <translation>Порядок загрузки уже отсортирован.</translation>
-    </message>
-    <message>
-        <source>Sorted — 1 plugin moved.</source>
-        <translation>Готово — 1 плагин перемещен.</translation>
-    </message>
-    <message>
-        <source>Sorted — {0} plugins moved.</source>
-        <translation>Исправлено — плагины «{0}» перенесены.</translation>
     </message>
     <message>
         <source>+ Add custom EXE…</source>
@@ -6166,24 +6640,8 @@ CET не будет загружаться из symlinked asi. Это проис
         <translation>Файл журнала изменений не найден.</translation>
     </message>
     <message>
-        <source>Log in first (Nexus ▸ Login) — opening the AMM page so you can endorse it there.</source>
-        <translation>Сначала войдите в систему (Nexus ▸ Вход) — откроется страница AMM, где вы сможете одобрить предложение.</translation>
-    </message>
-    <message>
-        <source>Endorse AMM failed — {0}</source>
-        <translation>Ошибка при подтверждении AMM — {0}</translation>
-    </message>
-    <message>
         <source>Thank you for endorsing!</source>
         <translation>Спасибо за поддержку!</translation>
-    </message>
-    <message>
-        <source>You've already endorsed — thank you!</source>
-        <translation>Вы уже поддержали нас — спасибо!</translation>
-    </message>
-    <message>
-        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page — please download it there first, then endorse.</source>
-        <translation>Nexus позволяет поставить лайк приложению только после того, как вы скачали его хотя бы один раз. Откройте страницу AMM — пожалуйста, сначала скачайте приложение оттуда, а затем поставьте лайк.</translation>
     </message>
     <message>
         <source>Endorse AMM: {0}</source>
@@ -6335,6 +6793,10 @@ How would you like to handle the existing mod?</source>
         <translation>Верхний уровень</translation>
     </message>
     <message>
+        <source>Root</source>
+        <translation>Корень</translation>
+    </message>
+    <message>
         <source>Disable</source>
         <translation>Инвалид</translation>
     </message>
@@ -6463,6 +6925,14 @@ How would you like to handle the existing mod?</source>
         <translation>Подтвердить выбор ({0})</translation>
     </message>
     <message>
+        <source>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</source>
+        <translation>{0} принадлежит заблокированному профилю {1} — переключитесь на этот профиль, чтобы удалить его или разблокировать.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) skipped — they belong to locked profile(s): {1}.</source>
+        <translation>Мод (моды) {0} пропущены — они принадлежат заблокированному профилю (профилям): {1}.</translation>
+    </message>
+    <message>
         <source>Lock Separator</source>
         <translation>Разделитель замков</translation>
     </message>
@@ -6517,6 +6987,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Open folder</source>
         <translation>Открыть папку</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Открыть в NIF Viewer</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -6691,6 +7165,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>More status filters</source>
         <translation>Больше фильтров состояния</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Очистить все фильтры</translation>
     </message>
     <message>
         <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -6889,6 +7367,10 @@ Click Done to close.</source>
     <message>
         <source>Archive conflict - Full</source>
         <translation>Конфликт - Полный</translation>
+    </message>
+    <message>
+        <source>UUID Conflict</source>
+        <translation>UUID конфликт</translation>
     </message>
 </context>
 <context>
@@ -7130,6 +7612,10 @@ or an encrypted file when no keyring is available).</source>
         <translation>Открыть в Nexus</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
+    </message>
+    <message>
         <source>Cancel download detection</source>
         <translation>Отменить обнаружение загрузки</translation>
     </message>
@@ -7253,12 +7739,222 @@ Daily: {1}</source>
         <translation>Отменить</translation>
     </message>
     <message>
+        <source>Redownload</source>
+        <translation>Перезагрузка</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Переустановить</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Установить</translation>
+    </message>
+</context>
+<context>
+    <name>NifPreview</name>
+    <message>
+        <source>View</source>
+        <translation>Просмотр</translation>
+    </message>
+    <message>
+        <source>Textures</source>
+        <translation>Текстуры</translation>
+    </message>
+    <message>
+        <source>Normal maps + shine</source>
+        <translation>Нормальные карты + блеск</translation>
+    </message>
+    <message>
+        <source>Apply the mesh's normal map and its gloss mask</source>
+        <translation>Примените обычную карту сетки и ее глянцевую маску</translation>
+    </message>
+    <message>
+        <source>Cull backfaces</source>
+        <translation>Нарезать бэкфейсы</translation>
+    </message>
+    <message>
+        <source>Hide inward-facing triangles - reveals inside-out normals</source>
+        <translation>Спрячьте треугольники, обращенные внутрь - выявите нормальные внутренние</translation>
+    </message>
+    <message>
+        <source>Wireframe</source>
+        <translation>Wireframe</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>Оставить</translation>
+    </message>
+    <message>
+        <source>Overlay</source>
+        <translation>Наложение</translation>
+    </message>
+    <message>
+        <source>Lines only</source>
+        <translation>Только линии</translation>
+    </message>
+    <message>
+        <source>Texture map</source>
+        <translation>Карта текстуры</translation>
+    </message>
+    <message>
+        <source>Diffuse</source>
+        <translation>Диффузный</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Нормальный</translation>
+    </message>
+    <message>
+        <source>Background</source>
+        <translation>Предыстория</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Свет</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>Серый</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Темный</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Черный</translation>
+    </message>
+    <message>
+        <source>Invert mouse</source>
+        <translation>Перевернутая мышь</translation>
+    </message>
+    <message>
+        <source>Reverse the drag direction for rotating and panning</source>
+        <translation>Обратное направление сопротивления для вращения и панорамирования</translation>
+    </message>
+    <message>
+        <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
+        <translation>Яркость - поднимает темные текстуры без выдувания подсветок; дважды щелкните, чтобы сбросить</translation>
+    </message>
+    <message>
+        <source>Preview this mesh with another mod's copy of its textures</source>
+        <translation>Просмотрите эту сетку с копией текстур другого мода</translation>
+    </message>
+    <message>
+        <source>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</source>
+        <translation>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Загрузка…</translation>
+    </message>
+    <message>
+        <source>no drawable geometry</source>
+        <translation>нет никакой геометрии</translation>
+    </message>
+    <message>
+        <source>{0} shapes</source>
+        <translation>Форма {0}</translation>
+    </message>
+    <message>
+        <source>{0} tris</source>
+        <translation>{0} Трис</translation>
+    </message>
+    <message>
+        <source>{0}/{1} textured</source>
+        <translation>{0}/{1} текстурированный</translation>
+    </message>
+    <message>
+        <source>failed: {0}</source>
+        <translation>провал: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>NifViewerView</name>
+    <message>
+        <source>NIF Viewer — {0} ▸ {1}</source>
+        <translation>NIF Viewer — {0} → {1}</translation>
+    </message>
+    <message>
+        <source>NIF Viewer — {0}</source>
+        <translation>NIF Viewer — {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Сканирование…</translation>
+    </message>
+    <message>
+        <source>Search meshes and mods…</source>
+        <translation>Поиск сеток и модов..</translation>
+    </message>
+    <message>
+        <source>Match a mesh path, or the name of a mod or archive that provides one</source>
+        <translation>Сопоставьте путь сетки, или имя мода или архива, который предоставляет один</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>Ограничьте список одной стороной настройки</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>Все источники</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>Моды только</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>Только ваниль</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>Только переохлажденный</translation>
+    </message>
+    <message>
+        <source>Show only meshes provided by more than one source</source>
+        <translation>Показать только сетки, предоставленные более чем одним источником</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>Только этот мод</translation>
+    </message>
+    <message>
+        <source>Show only meshes {0} provides, alongside the copies they compete with</source>
+        <translation>Показать только сетки {0}, наряду с копиями, с которыми они конкурируют</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ Закрыть</translation>
+    </message>
+    <message>
+        <source>Expand All</source>
+        <translation>Расширить все</translation>
+    </message>
+    <message>
+        <source>Collapse All</source>
+        <translation>Крах всех</translation>
+    </message>
+    <message>
+        <source>Select a mesh</source>
+        <translation>Выберите сетку</translation>
+    </message>
+    <message>
+        <source>{0} meshes</source>
+        <translation>Сетки {0}</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Чтение..</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>нельзя было читать</translation>
     </message>
 </context>
 <context>
@@ -7282,6 +7978,21 @@ Daily: {1}</source>
     <message>
         <source>Save</source>
         <translation>Сохранить</translation>
+    </message>
+</context>
+<context>
+    <name>NotificationButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>Уведомления</translation>
+    </message>
+    <message>
+        <source>No notifications</source>
+        <translation>Никаких уведомлений</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>Очистить всё</translation>
     </message>
 </context>
 <context>
@@ -8098,6 +8809,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <source>Filters</source>
         <translation>Фильтры</translation>
     </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Очистить все фильтры</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -8175,6 +8890,175 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
 </context>
 <context>
+    <name>ProfileGroupsView</name>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Профильные группы</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>Группы</translation>
+    </message>
+    <message>
+        <source>No profile groups yet. A group combines several profiles and deploys them together as one merged profile.</source>
+        <translation>Пока нет профильных групп. Группа объединяет несколько профилей и развертывает их вместе как один объединенный профиль.</translation>
+    </message>
+    <message>
+        <source>Not eligible (shared mod pool)</source>
+        <translation>Не подходит (совместный модульный пул)</translation>
+    </message>
+    <message>
+        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
+        <translation>Члены группы нуждаются в модах, специфичных для профиля, поэтому группа видит только модификации, специально добавленные к ним. Преобразуйте копии модов профиля в свою собственную папку (с жесткой связью там, где это возможно — никакого дополнительного диска на той же файловой системе); общий пул и другие профили не тронуты.</translation>
+    </message>
+    <message>
+        <source>{0} member(s)</source>
+        <translation>Член(ы) {0}</translation>
+    </message>
+    <message>
+        <source>Hide members</source>
+        <translation>Скрыть членов</translation>
+    </message>
+    <message>
+        <source>Members</source>
+        <translation>Члены</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Удалить</translation>
+    </message>
+    <message>
+        <source>  (missing)</source>
+        <translation>(пропал)</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>Перейти вверх</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>Перейти вниз</translation>
+    </message>
+    <message>
+        <source>1 = highest priority (its mods win conflicts)</source>
+        <translation>1 = высший приоритет (его мод выигрывает конфликты)</translation>
+    </message>
+    <message>
+        <source>+ Add member</source>
+        <translation>+ Добавить член</translation>
+    </message>
+    <message>
+        <source>New group</source>
+        <translation>Новая группа</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>Имя:</translation>
+    </message>
+    <message>
+        <source>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</source>
+        <translation>Пока нет подходящих профилей участников — создайте профиль с конкретными модами или преобразуйте один ниже.</translation>
+    </message>
+    <message>
+        <source>Merge overwrite / Root Folder files from:</source>
+        <translation>Перезаписывайте файлы / Root Folder из:</translation>
+    </message>
+    <message>
+        <source>These profiles have runtime-generated files (overwrite / Root Folder). Checked profiles' files are copied into the group; conflicts use the higher-priority member's copy.</source>
+        <translation>Эти профили имеют файлы, генерируемые во время выполнения (перезапись / корневая папка). Проверенные профили копируются в группу; в конфликтах используется копия более приоритетного участника.</translation>
+    </message>
+    <message>
+        <source>Create group</source>
+        <translation>Создайте группу</translation>
+    </message>
+    <message>
+        <source>Converting…</source>
+        <translation>Преобразование..</translation>
+    </message>
+    <message>
+        <source>Convert to profile-specific…</source>
+        <translation>Преобразование в профильные..</translation>
+    </message>
+    <message>
+        <source>Priority (check order): {0}</source>
+        <translation>Приоритет (проверка заказа): {0}</translation>
+    </message>
+    <message>
+        <source>Check member profiles in priority order (first checked = highest priority).</source>
+        <translation>Проверяйте профили участников в порядке приоритета (первая проверка = высший приоритет).</translation>
+    </message>
+    <message>
+        <source>An install or deploy is in progress — try again shortly.</source>
+        <translation>Установка или развертывание находится в процессе - попробуйте еще раз в ближайшее время.</translation>
+    </message>
+    <message>
+        <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
+        <translation>В настоящее время развёрнута версия {0} — сначала восстановить игру, затем редактировать группу.</translation>
+    </message>
+    <message>
+        <source>Enter a group name.</source>
+        <translation>Введите название группы.</translation>
+    </message>
+    <message>
+        <source>Check at least one member profile.</source>
+        <translation>Проверьте хотя бы один профиль.</translation>
+    </message>
+    <message>
+        <source>Group creation cancelled.</source>
+        <translation>Создание группы отменено.</translation>
+    </message>
+    <message>
+        <source>Several members have profile-specific INIs with the same name ({0}).
+Which profile's INI files should the group use for those?</source>
+        <translation>Некоторые члены имеют профильные INI с тем же названием ({0}).
+Какие файлы INI профиля следует использовать группе?</translation>
+    </message>
+    <message>
+        <source>Use these INIs</source>
+        <translation>Используйте эти INI</translation>
+    </message>
+    <message>
+        <source>Could not create group: {0}</source>
+        <translation>Не удалось создать группу: {0}</translation>
+    </message>
+    <message>
+        <source>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
+        <translation>Удалить профиль группы "{0}"?
+
+Удаляется только сама группа — ее профили участников и их модификации не тронуты. Игра будет восстановлена, если эта группа будет развернута.</translation>
+    </message>
+    <message>
+        <source>Remove Group</source>
+        <translation>Удалить группу</translation>
+    </message>
+    <message>
+        <source>Convert Profile</source>
+        <translation>Преобразовать профиль</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' to profile-specific mods?
+
+Its listed mods are copied into the profile's own mods folder (hardlinked where possible). The shared pool and other profiles are not changed.</source>
+        <translation>Преобразовать "{0}" в профильные моды?
+
+Перечисленные моды копируются в папку собственных модов профиля (жестко связанных, где это возможно). Общий пул и другие профили не меняются.</translation>
+    </message>
+    <message>
+        <source>Convert</source>
+        <translation>Преобразовывать</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' converted — it can now join groups.</source>
+        <translation>Профиль «{0}» преобразован — теперь он может объединяться в группы.</translation>
+    </message>
+    <message>
+        <source>Convert of '{0}' failed — see the log.</source>
+        <translation>Преобразование «{0}» не удалось — см. журнал.</translation>
+    </message>
+</context>
+<context>
     <name>ProfileSettingsView</name>
     <message>
         <source>Profile Settings</source>
@@ -8203,6 +9087,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Cancel</source>
         <translation>Отменить</translation>
+    </message>
+    <message>
+        <source>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</source>
+        <translation>{0} является членом развернутой группы {1} — сначала восстановить игру, а затем удалить ее.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -8857,6 +9745,247 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>SavePreviewPane</name>
+    <message>
+        <source>This file could not be read as a save.</source>
+        <translation>Этот файл не может быть прочитан как сохранение.</translation>
+    </message>
+    <message>
+        <source>No screenshot</source>
+        <translation>Нет скриншота</translation>
+    </message>
+    <message>
+        <source>Click to open full size</source>
+        <translation>Нажмите, чтобы открыть полный размер</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>Скриншот</translation>
+    </message>
+    <message>
+        <source>Character</source>
+        <translation>Характер</translation>
+    </message>
+    <message>
+        <source>Level</source>
+        <translation>Уровень</translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation>Расположение</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>Время игры</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Название</translation>
+    </message>
+    <message>
+        <source>Race</source>
+        <translation>Гонка</translation>
+    </message>
+    <message>
+        <source>Sex</source>
+        <translation>Секс</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>Сохранено</translation>
+    </message>
+    <message>
+        <source>Save number</source>
+        <translation>Сохранить номер</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Игра</translation>
+    </message>
+    <message>
+        <source>Only part of this save could be read.</source>
+        <translation>Только часть этой книги можно прочитать.</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Плагины</translation>
+    </message>
+    <message>
+        <source>Not recorded in this save.</source>
+        <translation>Не записано в этом сейфе.</translation>
+    </message>
+    <message>
+        <source>Could not be read.</source>
+        <translation>Нельзя было читать.</translation>
+    </message>
+    <message>
+        <source>Plugins ({0} · {1} ESL)</source>
+        <translation>Плагины ({0} · {1} ESL)</translation>
+    </message>
+    <message>
+        <source>Plugins ({0})</source>
+        <translation>Плагины ({0})</translation>
+    </message>
+    <message>
+        <source>Not in this profile's load order.</source>
+        <translation>Не в порядке загрузки этого профиля.</translation>
+    </message>
+</context>
+<context>
+    <name>SavesView</name>
+    <message>
+        <source>Name</source>
+        <extracomment>One expanded folder's listing, from the worker that read it. Footer summary text ("2 location(s) · 41 entries · 1.2 GB"). True when a row is selected, so the footer's Open folder button syncs. False while an export/import runs, so the footer disables its buttons. (ok, message) from an export/import worker → UI thread. The pickers' callbacks fire on a portal WORKER thread; marshal the chosen path to the GUI thread before touching any widget. Transient one-line notice for the footer (progress / result). A parsed save header for the details pane, from the parse worker. The listed file types changed, so the Filters panel can restock its list.</extracomment>
+        <translation>Имя</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Размер</translation>
+    </message>
+    <message>
+        <source>Modified</source>
+        <translation>Модифицированный</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>Не выбрана ни одна настроенная игра.</translation>
+    </message>
+    <message>
+        <source>Looking for save folders…</source>
+        <translation>В поисках папок для сохранения..</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Чтение..</translation>
+    </message>
+    <message>
+        <source>{0}   [profile saves -{1}]</source>
+        <translation>{0} [сохранить профиль -{1}]</translation>
+    </message>
+    <message>
+        <source>{0}   ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>(not created yet -the game saves here)</source>
+        <translation>(еще не создан - игра сохраняет здесь)</translation>
+    </message>
+    <message>
+        <source>(no {0} saves here yet)</source>
+        <translation>({0} пока не поддерживается)</translation>
+    </message>
+    <message>
+        <source>No save folders found for this game. Either it keeps its saves somewhere the Ludusavi manifest does not know about, it stores them in the cloud, or it has not been played yet.</source>
+        <translation>Никаких папок, найденных для этой игры. Либо он хранит свои сбережения где-то, о чем не знает манифест Людусави, он хранит их в облаке, либо в него еще не играли.</translation>
+    </message>
+    <message>
+        <source>{0} save locations</source>
+        <translation>{0} сохраняет местоположение</translation>
+    </message>
+    <message>
+        <source>(no ext)</source>
+        <translation>(без экстаза)</translation>
+    </message>
+    <message>
+        <source>{0} of {1} entries shown</source>
+        <translation>{0} показаны записи {1}</translation>
+    </message>
+    <message>
+        <source>Reading save…</source>
+        <translation>Читать книгу Спасти..</translation>
+    </message>
+    <message>
+        <source>Export saves</source>
+        <translation>Экономия экспорта</translation>
+    </message>
+    <message>
+        <source>Zip archives (*.zip)</source>
+        <translation>Zip-архивы (*.zip)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Все файлы</translation>
+    </message>
+    <message>
+        <source>Packing saves…</source>
+        <translation>Упаковка экономит..</translation>
+    </message>
+    <message>
+        <source>Export failed.</source>
+        <translation>Экспорт провалился.</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>Ошибка экспорта: {0}</translation>
+    </message>
+    <message>
+        <source>Exported {0} file(s) ({1}) to {2}</source>
+        <translation>Экспортированный файл (файлы) {0} ({1}) в {2}</translation>
+    </message>
+    <message>
+        <source>Import saves</source>
+        <translation>Экономия импорта</translation>
+    </message>
+    <message>
+        <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
+        <translation>Текущее содержимое сначала перемещается в папку «{0}», поэтому ничего не теряется.</translation>
+    </message>
+    <message>
+        <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
+        <translation>Текущие файлы {0} сначала перемещаются в папку «{1}», поэтому ничего не теряется.</translation>
+    </message>
+    <message>
+        <source>Import saves?</source>
+        <translation>Экономия на импорте?</translation>
+    </message>
+    <message>
+        <source>Extract {0} into
+{1}
+
+{2}</source>
+        <translation>Извлечение {0} в
+{1}X
+
+{2}X</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Импорт</translation>
+    </message>
+    <message>
+        <source>Extracting saves…</source>
+        <translation>Извлечение сбережений..</translation>
+    </message>
+    <message>
+        <source>Import failed.</source>
+        <translation>Импорт провалился.</translation>
+    </message>
+    <message>
+        <source>Import failed: {0}</source>
+        <translation>Импорт провалился: {0}</translation>
+    </message>
+    <message>
+        <source>Imported {0} file(s) ({1}).</source>
+        <translation>Импортированный файл (файлы) {0} ({1}).</translation>
+    </message>
+    <message>
+        <source>{0}   [in prefix]</source>
+        <translation>{0} [в префиксе]</translation>
+    </message>
+    <message>
+        <source>… only the first {0} entries are shown</source>
+        <translation>Показаны только первые записи {0}</translation>
+    </message>
+    <message>
+        <source>(empty)</source>
+        <translation>(пустая)</translation>
+    </message>
+    <message>
+        <source>{0} location(s) · {1} entries · {2}</source>
+        <translation>{0} местоположение(ы) · {1} записи · {2}</translation>
+    </message>
+</context>
+<context>
     <name>ScriptExtenderView</name>
     <message>
         <source>Install Script Extender — {0}</source>
@@ -9356,10 +10485,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Очистить архив после установки</translation>
     </message>
     <message>
-        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself — installs from the Install Mod button or the Downloads tab keep their archive.</source>
-        <translation>Удалите загруженный архив мода после его извлечения. Применяется только к архивам Amethyst, загруженным самостоятельно — установки с кнопки Install Mod или вкладки Downloads сохраняют свой архив.</translation>
-    </message>
-    <message>
         <source>Keep FOMOD archives</source>
         <translation>Сохранять архивы FOMOD</translation>
     </message>
@@ -9456,10 +10581,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Редактировать пользовательские правила для имени установки…</translation>
     </message>
     <message>
-        <source>Add your own regex search/replace rules to clean up mod names on install — useful when a download site changes its filename format.</source>
-        <translation>Добавьте собственные правила поиска и замены с помощью регулярных выражений для очистки имен модулей при установке — это пригодится, если сайт, с которого вы скачиваете файлы, изменит формат имен файлов.</translation>
-    </message>
-    <message>
         <source>Restore on close</source>
         <translation>Восстановить при закрытии</translation>
     </message>
@@ -9480,10 +10601,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Уведомление о новых версиях стартапа</translation>
     </message>
     <message>
-        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
-        <translation>Покажите уведомление, когда доступна новая версия аметиста. Отключение отключает только уведомление — вы все равно можете обновить его через менеджер пакетов или переключая настройку предварительного выпуска.</translation>
-    </message>
-    <message>
         <source>Enable automatic updates…</source>
         <translation>Автоматические обновления..</translation>
     </message>
@@ -9496,12 +10613,32 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>Архивы</translation>
     </message>
     <message>
+        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive.</source>
+        <translation>Удалите загруженный архив мода после его извлечения. Применяется только к архивам Amethyst, загруженным самостоятельно - установки с кнопки Install Mod или вкладки Downloads сохраняют свой архив.</translation>
+    </message>
+    <message>
         <source>Downloads</source>
         <translation>Загрузки</translation>
     </message>
     <message>
+        <source>Download only (don't install)</source>
+        <translation>Скачать только (не устанавливать)</translation>
+    </message>
+    <message>
+        <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+        <translation>Загрузки сохраняются в кэш, но не устанавливаются. Применяется к nxm://ссылкам, браузеру Nexus, Change Version, сборным установкам, требованиям к загрузке и обновлению/переустановке перезагрузок — их кнопки Install становятся Download. Установите их самостоятельно с вкладки Downloads или кнопки Install Mod.</translation>
+    </message>
+    <message>
         <source>Extraction</source>
         <translation>Экстракция</translation>
+    </message>
+    <message>
+        <source>Add your own regex search/replace rules to clean up mod names on install - useful when a download site changes its filename format.</source>
+        <translation>Добавьте свои собственные правила поиска / замены регексов, чтобы очистить имена модов при установке - полезно, когда сайт загрузки меняет свой формат имени файла.</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification - you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Покажите уведомление, когда доступна новая версия аметиста. Отключение отключает только уведомление - вы все равно можете обновить его через менеджер пакетов или переключая настройку предварительного выпуска.</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9592,8 +10729,24 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
         <translation>Lutris AppImage</translation>
     </message>
     <message>
-        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</source>
+        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Lutris.</source>
         <translation>Путь к Lutris AppImage, так что Play может запустить его напрямую. Требуется только для установки AppImage — оставьте пустой для Flatpak или родного Lutris.</translation>
+    </message>
+    <message>
+        <source>Path to the Faugus Launcher AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Faugus.</source>
+        <translation>Путь к Faugus Launcher AppImage, чтобы Play мог запустить его напрямую. Требуется только для установки AppImage — оставьте пустой для Flatpak или родного Faugus.</translation>
+    </message>
+    <message>
+        <source>Faugus Data Location</source>
+        <translation>Расположение данных Faugus</translation>
+    </message>
+    <message>
+        <source>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</source>
+        <translation>Скриншоты из игры Faugus Launcher.json. Blank = автоматическое обнаружение (Flatpak и родные места).</translation>
+    </message>
+    <message>
+        <source>Faugus AppImage</source>
+        <translation>Faugus Appmage</translation>
     </message>
     <message>
         <source>Steam libraryfolders.vdf</source>
@@ -9602,6 +10755,26 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
         <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
         <translation>Путь к файлу libraryfolders.vdf (или к папке, в которой он находится). Пустое поле — автоматическое определение (стандартные расположения, а также расположения для Flatpak и Snap).</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Продвинутый</translation>
+    </message>
+    <message>
+        <source>Set environment variables that Amethyst applies to itself every time it starts - kill switches, diagnostics and graphics options that otherwise need a terminal launch. Pick from the supported list or add your own.</source>
+        <translation>Установите переменные среды, которые Amethyst применяет к себе каждый раз, когда он запускается, - уничтожьте переключатели, диагностические и графические параметры, которые в противном случае нуждаются в запуске терминала. Выберите из поддерживаемого списка или добавьте свой.</translation>
+    </message>
+    <message>
+        <source>Edit environment variables…</source>
+        <translation>Редактировать переменные среды..</translation>
+    </message>
+    <message>
+        <source>{0} set: {1}</source>
+        <translation>Набор {0}: {1}</translation>
+    </message>
+    <message>
+        <source>None set</source>
+        <translation>Ни одного набора</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -10346,6 +11519,17 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     <message>
         <source>Cancel</source>
         <translation>Отменить</translation>
+    </message>
+</context>
+<context>
+    <name>TextureSourceController</name>
+    <message>
+        <source>Textures: as the game loads</source>
+        <translation>Текстуры: как загружается игра</translation>
+    </message>
+    <message>
+        <source>Textures: {0} ({1}/{2})</source>
+        <translation>Текстуры: {0} ({1}/{2})</translation>
     </message>
 </context>
 <context>
@@ -11679,7 +12863,7 @@ Latest:  {1}</source>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
-        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <extracomment>Slug carried on each page-list row (absent on the sidebar's group headers). Horizontal room left for the scrollbar/margins when scaling an image. Extra height above a sidebar group header, to set its group apart.</extracomment>
         <translation>Обновить</translation>
     </message>
     <message>
@@ -11699,6 +12883,10 @@ Check your connection and press Refresh — pages you have already opened stay r
 Проверьте свое соединение и нажмите Refresh - страницы, которые вы уже открыли, остаются читаемыми в автономном режиме.</translation>
     </message>
     <message>
+        <source>Other pages</source>
+        <translation>Другие страницы</translation>
+    </message>
+    <message>
         <source>Could not load “{0}”.
 
 Press Refresh to try again.</source>
@@ -11713,6 +12901,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Updated.</source>
         <translation>Обновлено.</translation>
+    </message>
+    <message>
+        <source>Click an import code to load it.</source>
+        <translation>Нажмите код импорта, чтобы загрузить его.</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -12227,6 +13419,17 @@ When you close it, your changes are restored automatically.</source>
     </message>
 </context>
 <context>
+    <name>_NoGLViewport</name>
+    <message>
+        <source>3D preview is unavailable on this system.</source>
+        <translation>3D предварительный просмотр недоступен в этой системе.</translation>
+    </message>
+    <message>
+        <source>no OpenGL</source>
+        <translation>нет OpenGL</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -12289,6 +13492,10 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Install</source>
         <translation>Установить</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Скачать</translation>
     </message>
 </context>
 <context>
@@ -12393,6 +13600,33 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Files swept into Overwrite (newest restore first)</source>
         <translation>Файлы, перемещенные в папку «Overwrite» (сначала восстанавливаются самые новые)</translation>
+    </message>
+    <message>
+        <source>Apply this variable at startup</source>
+        <translation>Применяйте эту переменную при запуске</translation>
+    </message>
+    <message>
+        <source>VARIABLE_NAME</source>
+        <translation>ВАРИАБЕЛЬ ИМЯ</translation>
+    </message>
+    <message>
+        <source>value</source>
+        <translation>ценность</translation>
+    </message>
+    <message>
+        <source>Remove this variable</source>
+        <translation>Удалить эту переменную</translation>
+    </message>
+</context>
+<context>
+    <name>widget</name>
+    <message>
+        <source>Male</source>
+        <translation>Мужчина</translation>
+    </message>
+    <message>
+        <source>Female</source>
+        <translation>Женщина</translation>
     </message>
 </context>
 </TS>

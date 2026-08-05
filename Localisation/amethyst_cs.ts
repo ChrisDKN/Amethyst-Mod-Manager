@@ -578,6 +578,143 @@ Nastavte si nastavení INI, pak je zavřete a klikněte na Hotovo.</translation>
     </message>
 </context>
 <context>
+    <name>BodySlideLinuxView</name>
+    <message>
+        <source>{0} (Linux) — {1}</source>
+        <translation>{0} (Linux) - {1}</translation>
+    </message>
+    <message>
+        <source>Step 3: Run {0}</source>
+        <translation>Krok 3: Spustit {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install {0} for Linux</source>
+        <translation>Krok 1: Nainstalujte {0} pro Linux</translation>
+    </message>
+    <message>
+        <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
+
+No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
+        <translation>Nativní Linux stavět BodySlide a Outfit Studio, sdílené každou hru.
+
+Není použita žádná prefix Proton - hra, její složka Data a výstupní složka jsou předávány přímo do nástroje.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Stáhnout</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Další →</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Checking for updates…</source>
+        <translation>Nainstalováno: {0}. Kontrola aktualizací..</translation>
+    </message>
+    <message>
+        <source>Not installed. Checking GitHub for the latest release…</source>
+        <translation>Neinstalováno. Kontrola GitHub pro nejnovější vydání..</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
+        <translation>Nainstalováno: {0}. Nelze dosáhnout GitHub pro kontrolu aktualizací - viz záznam.</translation>
+    </message>
+    <message>
+        <source>Could not reach GitHub to fetch the release — see log.</source>
+        <translation>Nelze dosáhnout GitHub vyzvednout vydání - viz záznam.</translation>
+    </message>
+    <message>
+        <source>Download {0}</source>
+        <translation>Stáhnout {0}</translation>
+    </message>
+    <message>
+        <source>Latest release: {0}.</source>
+        <translation>Poslední vydání: {0}.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>Aktualizace na {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} — {1} is available.</source>
+        <translation>Nainstalováno: {0} - {1} je k dispozici.</translation>
+    </message>
+    <message>
+        <source>Reinstall {0}</source>
+        <translation>Přeinstalovat {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} (up to date).</source>
+        <translation>Nainstalováno: {0} (aktuální).</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>Stahování souboru „{0}“…</translation>
+    </message>
+    <message>
+        <source>Extracting…</source>
+        <translation>Načítání…</translation>
+    </message>
+    <message>
+        <source>Installed {0}.</source>
+        <translation>Nainstaloval {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Chyba: {0}</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>Krok 2: Rozmístit Modlist</translation>
+    </message>
+    <message>
+        <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
+
+Built meshes are written to the output mod below, which is added to your mod list.</source>
+        <translation>{0} čte své posuvníky a tvary z nasazené datové složky, takže nejprve nasaďte svůj modlist.
+
+Vestavěná oka jsou zapsána do výstupního módu, který je přidán do vašeho seznamu modů.</translation>
+    </message>
+    <message>
+        <source>Output mod name:</source>
+        <translation>Název výstupního modulu:</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Přeskočit</translation>
+    </message>
+    <message>
+        <source>Deploy</source>
+        <translation>Nasazení</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Spouštím stránku {0}…</translation>
+    </message>
+    <message>
+        <source>{0} is not installed.
+
+Go back and download it first.</source>
+        <translation>{0} není nainstalován.
+
+Vrať se a nejdřív to stáhni.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} je spuštěno.
+Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} skončil.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Chyba spuštění: {0}</translation>
+    </message>
+</context>
+<context>
     <name>BodySlideView</name>
     <message>
         <source>{0} — {1}</source>
@@ -948,8 +1085,20 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
         <translation>Nebyly nalezeny žádné soubory.</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Stáhnout</translation>
+    </message>
+    <message>
         <source>View</source>
         <translation>Zobrazit</translation>
+    </message>
+    <message>
+        <source>Downloaded — install it from the Downloads tab.</source>
+        <translation>Download - nainstalujte to z karty Soubory ke stažení.</translation>
+    </message>
+    <message>
+        <source>Installing — the list will refresh when it finishes.</source>
+        <translation>Instalace - seznam se po dokončení obnoví.</translation>
     </message>
     <message>
         <source>Install</source>
@@ -1052,6 +1201,10 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     <message>
         <source>Could not load.</source>
         <translation>Nelze načíst.</translation>
+    </message>
+    <message>
+        <source>Download collection</source>
+        <translation>Sbírka ke stažení</translation>
     </message>
     <message>
         <source>Resume Install</source>
@@ -1182,6 +1335,10 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
     <message>
         <source>Cancel</source>
         <translation>Zrušit</translation>
+    </message>
+    <message>
+        <source>Skip anyway?</source>
+        <translation>Skip stejně?</translation>
     </message>
     <message>
         <source>Pausing…</source>
@@ -1393,6 +1550,18 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
         <translation>Obnovit výchozí nastavení</translation>
     </message>
     <message>
+        <source>Saves Folder (optional)</source>
+        <translation>Uloží složku (nepovinné)</translation>
+    </message>
+    <message>
+        <source>Detected automatically.</source>
+        <translation>Zjištěno automaticky.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Vymazat</translation>
+    </message>
+    <message>
         <source>Options</source>
         <translation>Možnosti</translation>
     </message>
@@ -1461,6 +1630,10 @@ Mezipaměť MD5 zůstane zachována. Archivy se budou podle potřeby stahovat zn
         <translation>Byla nakonfigurována vlastní dočasná složka.</translation>
     </message>
     <message>
+        <source>Custom saves folder configured.</source>
+        <translation>Vlastní uložení nakonfigurované složky.</translation>
+    </message>
+    <message>
         <source>Cannot reset to shared settings while mods are deployed. Restore the game first.</source>
         <translation>Pokud jsou nainstalovány mody, nelze obnovit sdílená nastavení. Nejprve hru obnovte.</translation>
     </message>
@@ -1493,12 +1666,20 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
         <translation>Nalezeno přes Lutris.</translation>
     </message>
     <message>
+        <source>Found via Faugus Launcher.</source>
+        <translation>Nalezeno přes Faugus Launcher.</translation>
+    </message>
+    <message>
         <source>Executable ({0}) not found in this folder — double-check the path.</source>
         <translation>Spustitelný ({0}) nenalezen v této složce - double- zkontrolujte cestu.</translation>
     </message>
     <message>
         <source>Executable found.</source>
         <translation>Spustitelný nalezen.</translation>
+    </message>
+    <message>
+        <source>Custom saves folder selected.</source>
+        <translation>Vlastní uložení vybrané složky.</translation>
     </message>
     <message>
         <source>Custom staging folder selected.</source>
@@ -3289,6 +3470,57 @@ Ve službě Steam klepněte pravým tlačítkem myši na hru → Vlastnosti → 
     </message>
 </context>
 <context>
+    <name>EnvVarsView</name>
+    <message>
+        <source>Environment variables</source>
+        <translation>Proměnné životního prostředí</translation>
+    </message>
+    <message>
+        <source>Variables set here are applied to Amethyst itself every time it starts, so you don't have to launch it from a terminal to use one. Pick a variable Amethyst understands from the dropdown, or add any other one by hand - those are passed on to the tools and games Amethyst launches too.
+
+Changes take effect on the next launch. If a variable ever stops the app from starting, launch it once with AMM_NO_ENV_OVERRIDES=1 to skip them all and fix it here.</source>
+        <translation>Proměnné nastavené zde se aplikují na Ametyst sám pokaždé, když začne, takže nemusíte spustit z terminálu použít jeden. Vyberte si proměnnou Ametyst rozumí z dropdown, nebo přidat jiný ručně - ty jsou předávány na nástroje a hry Ametyst spouští také.
+
+Změny nabývají účinku při dalším startu. Pokud proměnná někdy zastaví spuštění aplikace, spusťte ji jednou s AMM _ NO _ ENV _ OVERRIDES = 1, abyste je všechny přeskočili a opravili zde.</translation>
+    </message>
+    <message>
+        <source>Variables</source>
+        <translation>Proměnné</translation>
+    </message>
+    <message>
+        <source>No variables set - add one below.</source>
+        <translation>Žádné proměnné - přidejte jeden níže.</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Přidat</translation>
+    </message>
+    <message>
+        <source>Add custom variable</source>
+        <translation>Přidat vlastní proměnnou</translation>
+    </message>
+    <message>
+        <source>Add a variable Amethyst doesn't know about - anything your system or a launched tool reads.</source>
+        <translation>Přidat proměnnou Ametyst neví o - nic, co váš systém nebo spuštěný nástroj čte.</translation>
+    </message>
+    <message>
+        <source>Changes take effect after a restart.</source>
+        <translation>Změny nabývají účinku po restartu.</translation>
+    </message>
+    <message>
+        <source>Restart now</source>
+        <translation>Restartovat nyní</translation>
+    </message>
+    <message>
+        <source>All supported variables are already listed</source>
+        <translation>Všechny podporované proměnné jsou již uvedeny</translation>
+    </message>
+    <message>
+        <source>Failed to save environment variables: {0}</source>
+        <translation>Nepodařilo se uložit proměnné prostředí: {0}</translation>
+    </message>
+</context>
+<context>
     <name>ExeSettingsView</name>
     <message>
         <source>Install Java into prefix</source>
@@ -3693,6 +3925,21 @@ Klikněte na Hotovo pro vyčištění extrahovaných souborů a zavřít.</trans
     </message>
 </context>
 <context>
+    <name>FilterMenuButton</name>
+    <message>
+        <source>Filters</source>
+        <translation>Filtry</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(žádné)</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Vyčistit všechny filtry</translation>
+    </message>
+</context>
+<context>
     <name>FilterSidePanel</name>
     <message>
         <source>By status</source>
@@ -3869,6 +4116,26 @@ Klikněte na Hotovo pro vyčištění extrahovaných souborů a zavřít.</trans
     <message>
         <source>Show only not installed</source>
         <translation>Zobrazit pouze ty, které nejsou nainstalovány</translation>
+    </message>
+    <message>
+        <source>Only conflicts</source>
+        <translation>Pouze konflikty</translation>
+    </message>
+    <message>
+        <source>Mod folders</source>
+        <translation>Složky Mod</translation>
+    </message>
+    <message>
+        <source>Profile</source>
+        <translation>Profil</translation>
+    </message>
+    <message>
+        <source>Game folder</source>
+        <translation>Složka s hrou</translation>
+    </message>
+    <message>
+        <source>My Games</source>
+        <translation>Moje hry</translation>
     </message>
     <message>
         <source>Clear all</source>
@@ -4200,16 +4467,36 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
 <context>
     <name>LauncherSettingsOverlay</name>
     <message>
-        <source>Launch settings — {0}</source>
-        <translation>Nastavení spouštění — {0}</translation>
+        <source>Launch settings - {0}</source>
+        <translation>Nastavení spuštění - {0}</translation>
     </message>
     <message>
         <source>Launch via</source>
         <translation>Spustit přes</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Auto detekuje vlastnictví služby Steam / Heroic / Lutris. Nutit konkrétní odpalovač, nebo ne vždy spustit exe přímo přes Proton.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>Auto detekuje vlastnictví služby Steam / Heroic / Lutris / Faugus. Nutit konkrétní odpalovač, nebo ne vždy spustit exe přímo přes Proton.</translation>
+    </message>
+    <message>
+        <source>Launch arguments</source>
+        <translation>Argumenty zahájení</translation>
+    </message>
+    <message>
+        <source>Arguments passed to the game exe</source>
+        <translation>Argumenty předány do hry exe</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>Možnosti spuštění</translation>
+    </message>
+    <message>
+        <source>e.g. SteamDeck=0 gamemoderun %command%</source>
+        <translation>např. SteamDeck = 0 gamemoderun% příkaz%</translation>
+    </message>
+    <message>
+        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
+        <translation>Syntaxe páry. Prázdný: jsou použity vlastní možnosti služby Steam.</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -4269,6 +4556,7 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
     <name>MainWindow</name>
     <message>
         <source>Amethyst Mod Manager - v{0}</source>
+        <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
         <translation>Amethyst Mod Manager – v{0}</translation>
     </message>
     <message>
@@ -4302,6 +4590,120 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
     <message>
         <source>Check Updates</source>
         <translation>Zkontrolovat aktualizace</translation>
+    </message>
+    <message>
+        <source>{0} game - {1}</source>
+        <translation>{0} hra - {1}</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
+        <translation>Zkontrolujte, zda lze provést přidat do nabídky Run. Ty běží z jejich umístění ve složce hry - včetně souborů nasazených tam mods.</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
+        <translation>Ametyst nemohl spustit {0}.
+
+Stiskněte Použít své módy, pak začít hru ze služby Steam, Heroic, Lutris nebo Faugus místo - nasazené módy zůstat aktivní, ale hra je zahájena.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - deploy again when it finishes.</source>
+        <translation>Probíhá instalace modu - až skončí, znovu nasaďte.</translation>
+    </message>
+    <message>
+        <source>A deploy is in progress - try again shortly.</source>
+        <translation>Rozmístění probíhá - zkuste to brzy znovu.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - try again when it finishes.</source>
+        <translation>Probíhá modová instalace - zkuste to znovu, až skončí.</translation>
+    </message>
+    <message>
+        <source>Restore queued - it will run after the current install finishes.</source>
+        <translation>Obnovit frontu - spustí se po ukončení aktuální instalace.</translation>
+    </message>
+    <message>
+        <source>Deploy failed - see log.</source>
+        <translation>Rozmístění selhalo - viz deník.</translation>
+    </message>
+    <message>
+        <source>Restore failed - see log.</source>
+        <translation>Obnovení selhalo - viz záznam.</translation>
+    </message>
+    <message>
+        <source>{0} - done.</source>
+        <translation>{0} - hotovo.</translation>
+    </message>
+    <message>
+        <source>{0} - failed (see log).</source>
+        <translation>{0} - selhalo (viz záznam).</translation>
+    </message>
+    <message>
+        <source>NIF Viewer - {0}</source>
+        <translation>Prohlížeč NIF - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded '{0}' - install it from the Downloads tab.</source>
+        <translation>Staženo '{0}' - nainstalujte jej ze záložky Soubory ke stažení.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} archives - install them from the Downloads tab.</source>
+        <translation>Stažené archivy {0} - nainstalujte je z karty Soubory ke stažení.</translation>
+    </message>
+    <message>
+        <source>Install queued - {0} will install after the current {1} finishes.</source>
+        <translation>Nainstalujte queued - {0} nainstaluje po skončení aktuálního {1}.</translation>
+    </message>
+    <message>
+        <source>Install queued - waiting for the current member choice.</source>
+        <translation>Instalovat frontu - čekání na aktuální volbu člena.</translation>
+    </message>
+    <message>
+        <source>This group has no member profiles - add one first.</source>
+        <translation>Tato skupina nemá žádné členské profily - nejprve přidejte jeden.</translation>
+    </message>
+    <message>
+        <source>Install queued - it will run after the current operation finishes.</source>
+        <translation>Nainstalujte frontu - bude spuštěna po ukončení aktuální operace.</translation>
+    </message>
+    <message>
+        <source>Install into which member profile?
+('{0}' is a profile group - the mod will be installed there and appear in the group.)</source>
+        <translation>Nainstalovat do kterého členského profilu?
+('{0}' je profilová skupina - mod bude nainstalován zde a objeví se ve skupině.)</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB - including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>Tyto složky jsou na souborovém systému Windows:
+
+{0}
+
+NTFS a exFAT mechaniky mají na Linuxu slabé záložky za zápis: nečisté odmontování, ztráta napájení nebo dual- boot Windows se zapnutým Fast Startup mohou tiše zkrátit soubory na 0 KB - včetně nasazených souborů mod a vaší modelové knihovny.
+
+Linuxový souborový systém (ext4 / btrfs) se doporučuje jak pro herní, tak pro modelovou složku.
+
+Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud se mechaniky nezmění.</translation>
+    </message>
+    <message>
+        <source>'{0}' belongs to the member profile '{1}' - switch to that profile to rename it.</source>
+        <translation>'{0}' patří do členského profilu '{1}' - přepnout na tento profil přejmenovat.</translation>
+    </message>
+    <message>
+        <source>Installed {0} of {1} mods - see log for failures.</source>
+        <translation>Nainstaloval {0} {1} mods - viz záznam pro poruchy.</translation>
+    </message>
+    <message>
+        <source>Install failed - see log.</source>
+        <translation>Instalace selhala - viz záznam.</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -4656,16 +5058,8 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
         <translation>{0} a {1} více</translation>
     </message>
     <message>
-        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
-        <translation>Manipulátor hry selhal při načítání ({0}). Postižené hry jsou skryté, ale vaše módy jsou bezpečné - viz deník.</translation>
-    </message>
-    <message>
         <source>Installing 32-bit support (needed to run Windows tools) …</source>
         <translation>Instalace 32bitové podpory (potřebné pro spuštění Windows nástrojů)..</translation>
-    </message>
-    <message>
-        <source>32-bit support installed — restart the app before running Windows tools.</source>
-        <translation>32- bitová podpora nainstalována - restartujte aplikaci před spuštěním Windows nástrojů.</translation>
     </message>
     <message>
         <source>Install-name Rules</source>
@@ -4680,8 +5074,32 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
         <translation>Vyhledávání mods... (zkuste! update,! fomod,! .dds)</translation>
     </message>
     <message>
+        <source>Reset</source>
+        <translation>Obnovit</translation>
+    </message>
+    <message>
+        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
+        <translation>Zrušte změny tohoto modu Mod Files (nejvyšší úroveň, Root, Disable). Samotný Mod soubor se nedotkne.</translation>
+    </message>
+    <message>
         <source>Search files… (try !.dds)</source>
         <translation>Vyhledávání souborů... (zkuste to</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Otevřít složku</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Vývoz</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importovat</translation>
+    </message>
+    <message>
+        <source>Search saves… (try !.ess)</source>
+        <translation>Hledání šetří... (zkuste to! .ess)</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -4710,6 +5128,10 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
     <message>
         <source>Install XACT audio (XAudio2)</source>
         <translation>Nainstalujte XACT audio (XAudio2)</translation>
+    </message>
+    <message>
+        <source>Install LAV Filters (radio/music codecs)</source>
+        <translation>Nainstalujte LAV filtry (rádio / hudební kodeky)</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -4744,14 +5166,6 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
         <translation>Probíhá synchronizace jazykových souborů…</translation>
     </message>
     <message>
-        <source>Language files updated — restart to apply.</source>
-        <translation>Jazykové soubory byly aktualizovány — pro uplatnění změn je třeba restartovat.</translation>
-    </message>
-    <message>
-        <source>Your Nexus session expired — please log in again (Nexus ▸ Login to Nexus).</source>
-        <translation>Vaše sezení Nexus vypršelo - přihlaste se znovu (Nexus Klient Nexus).</translation>
-    </message>
-    <message>
         <source>Welcome</source>
         <translation>Vítejte</translation>
     </message>
@@ -4768,14 +5182,6 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
         <translation>Stahování modu z Nexusu…</translation>
     </message>
     <message>
-        <source>Nexus download failed — {0}</source>
-        <translation>Stahování z Nexus selhalo — {0}</translation>
-    </message>
-    <message>
-        <source>Downloaded — no game selected; see Downloads tab.</source>
-        <translation>Staženo — nebyla vybrána žádná hra; viz záložka „Stažené soubory“.</translation>
-    </message>
-    <message>
         <source>No configured game for Nexus domain '{0}'.</source>
         <translation>Pro doménu Nexus „{0}“ není nakonfigurována žádná hra.</translation>
     </message>
@@ -4790,22 +5196,6 @@ Může být již upravena. Ověřit herní soubory ve službě Steam / Heroic z�
     <message>
         <source>'{0}' has no Nexus Mods page.</source>
         <translation>Hra „{0}“ nemá stránku na Nexus Mods.</translation>
-    </message>
-    <message>
-        <source>A deploy or removal is already running — try again when it finishes.</source>
-        <translation>Právě probíhá nasazení nebo odstranění — zkuste to znovu, až proces skončí.</translation>
-    </message>
-    <message>
-        <source>A collection install is running — try again when it finishes.</source>
-        <translation>Právě probíhá instalace kolekce — zkuste to znovu, až bude hotová.</translation>
-    </message>
-    <message>
-        <source>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder — this cannot be undone.</source>
-        <translation>Chcete z tohoto profilu odstranit „{0}“ a jeho modifikace {1}?
-
-Soubory budou odstraněny ze složky staging — tuto akci nelze vrátit zpět.</translation>
     </message>
     <message>
         <source>No installed mods from '{0}' were found in this profile.
@@ -4826,10 +5216,6 @@ Chcete odstranit záznam z přidané sbírky?</translation>
     <message>
         <source>Removed appended collection '{0}'.</source>
         <translation>Byla odstraněna připojená kolekce „{0}“.</translation>
-    </message>
-    <message>
-        <source>Could not remove '{0}' — see the log.</source>
-        <translation>Nepodařilo se odstranit soubor „{0}“ – viz protokol.</translation>
     </message>
     <message>
         <source>The active profile isn't a collection profile.</source>
@@ -4912,26 +5298,6 @@ Chcete odstranit záznam z přidané sbírky?</translation>
         <translation>Pokračuj</translation>
     </message>
     <message>
-        <source>Nexus Premium not detected — manual download mode.</source>
-        <translation>Nexus Premium nebyl rozpoznán – režim ručního stahování.</translation>
-    </message>
-    <message>
-        <source>Paused — {0} installed.</source>
-        <translation>Pozastaven - nainstalován {0}.</translation>
-    </message>
-    <message>
-        <source>Install paused — {0} mod(s) installed.</source>
-        <translation>Instalace pozastavena — nainstalováno {0} modů.</translation>
-    </message>
-    <message>
-        <source>Done — {0}/{1} installed.</source>
-        <translation>Hotovo - nainstalováno {0} / {1}.</translation>
-    </message>
-    <message>
-        <source>Collection installed — {0}/{1} mod(s)</source>
-        <translation>Nainstalovaná sbírka - {0} / {1} mod (s)</translation>
-    </message>
-    <message>
         <source> ({0} skipped)</source>
         <translation>({0} přeskočil)</translation>
     </message>
@@ -4940,32 +5306,12 @@ Chcete odstranit záznam z přidané sbírky?</translation>
         <translation>Obnovení sdružených modů + profilových souborů..</translation>
     </message>
     <message>
-        <source>Imported — {0}/{1} installed.</source>
-        <translation>Importováno - nainstalováno {0} / {1}.</translation>
-    </message>
-    <message>
-        <source>Profile imported — {0}/{1} mod(s)</source>
-        <translation>Importovaný profil - {0} / {1} mod (s)</translation>
-    </message>
-    <message>
         <source>…and {0} more</source>
         <translation>... a {0} více</translation>
     </message>
     <message>
         <source>Off-site mods to install</source>
         <translation>Off- site mods pro instalaci</translation>
-    </message>
-    <message>
-        <source>This collection includes {0} off-site mod(s) the installer could not download:
-
-{1}
-
-Download and install them manually — the links are in the collection page's "Off-site mods" panel.</source>
-        <translation>Tato kolekce obsahuje {0} off- site mod (s) instalátor nemohl stáhnout:
-
-{1}
-
-Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na stránce sbírky.</translation>
     </message>
     <message>
         <source>OK</source>
@@ -5008,10 +5354,6 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>Aktualizace..</translation>
     </message>
     <message>
-        <source>Handler update failed — check your connection.</source>
-        <translation>Aktualizace Handler selhala - zkontrolujte spojení.</translation>
-    </message>
-    <message>
         <source>Handler not found on the Resources branch.</source>
         <translation>Handler nebyl nalezen na pobočce Resources.</translation>
     </message>
@@ -5030,14 +5372,6 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
     <message>
         <source>stable</source>
         <translation>stabilní</translation>
-    </message>
-    <message>
-        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
-        <translation>{0} kanál ještě není zveřejněn na ovladači aktualizace - zkuste to znovu po dalším {0} vydání.</translation>
-    </message>
-    <message>
-        <source>An install is finishing — try the collection again in a moment.</source>
-        <translation>Končí instalace - za chvíli zkuste sbírku znovu.</translation>
     </message>
     <message>
         <source>This will stop the install and delete the new profile '{0}'.</source>
@@ -5076,10 +5410,6 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>Nejprve spusťte možnost „Přihlášení přes SSO“ a poté vložte kód.</translation>
     </message>
     <message>
-        <source>The login session has ended — start 'Login via SSO' again.</source>
-        <translation>Přihlašovací relace skončila – spusťte znovu možnost „Přihlášení přes SSO“.</translation>
-    </message>
-    <message>
         <source>Submit</source>
         <translation>Odeslat</translation>
     </message>
@@ -5094,10 +5424,6 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
     <message>
         <source>NXM handler registered.</source>
         <translation>Zpracovatel NXM byl zaregistrován.</translation>
-    </message>
-    <message>
-        <source>Failed to register — xdg-mime not found?</source>
-        <translation>Registrace se nezdařila – xdg-mime nebyl nalezen?</translation>
     </message>
     <message>
         <source>NXM handler error: {0}</source>
@@ -5132,10 +5458,6 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>Vyhledávání aktualizací ({0})…</translation>
     </message>
     <message>
-        <source>Update check failed — see the log.</source>
-        <translation>Kontrola aktualizací se nezdařila – viz protokol.</translation>
-    </message>
-    <message>
         <source>All mods are up to date.</source>
         <translation>Všechny mody jsou aktuální.</translation>
     </message>
@@ -5152,24 +5474,12 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>Přeinstalování modů „{0}“; „{1}“ bylo přeskočeno (nebyl nalezen žádný archiv).</translation>
     </message>
     <message>
-        <source>Reinstall — redownloading {0} mod(s)…</source>
-        <translation>Přeinstalovat - restahování {0} mod (s)..</translation>
-    </message>
-    <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>Stáhnout {0} mod (y)..</translation>
     </message>
     <message>
         <source>Reinstall</source>
         <translation>Přeinstalovat</translation>
-    </message>
-    <message>
-        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
-        <translation>Znovu nainstalovat: {0} mod (s) nelze stáhnout - viz záznam.</translation>
-    </message>
-    <message>
-        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
-        <translation>Znovu stažené {0} mod (s); {1} selhalo - viz záznam.</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -5180,20 +5490,168 @@ Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na str�
         <translation>Žádné mody, u nichž je čekající aktualizace v rámci funkce „quick-update“.</translation>
     </message>
     <message>
-        <source>Quick Update — checking {0} mod(s)…</source>
-        <translation>Rychlá aktualizace — provádím kontrolu modů pro hru „{0}“…</translation>
-    </message>
-    <message>
-        <source>Quick Update — downloading {0} mod(s)…</source>
-        <translation>Rychlá aktualizace — stahují se mody pro hru „{0}“…</translation>
-    </message>
-    <message>
         <source>Downloading {0} mod(s)…</source>
         <translation>Stahování modů pro hru „{0}“…</translation>
     </message>
     <message>
         <source>Quick Update</source>
         <translation>Rychlá aktualizace</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
+        <translation>Manipulátor hry selhal při načítání ({0}). Postižené hry jsou skryté, ale vaše módy jsou bezpečné - viz deník.</translation>
+    </message>
+    <message>
+        <source>32-bit support installed - restart the app before running Windows tools.</source>
+        <translation>32- bitová podpora nainstalována - restartujte aplikaci před spuštěním Windows nástrojů.</translation>
+    </message>
+    <message>
+        <source>Environment Variables</source>
+        <translation>Proměnné prostředí</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}: {2}</source>
+        <translation>Nelze číst {0} z {1}: {2}</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}</source>
+        <translation>Nelze číst {0} z {1}</translation>
+    </message>
+    <message>
+        <source>Handler update failed - check your connection.</source>
+        <translation>Aktualizace Handler selhala - zkontrolujte spojení.</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet - try again after the next {0} release.</source>
+        <translation>{0} kanál ještě není zveřejněn na ovladači aktualizace - zkuste to znovu po dalším {0} vydání.</translation>
+    </message>
+    <message>
+        <source>Restart to apply environment variables?</source>
+        <translation>Obnovit použití proměnných prostředí?</translation>
+    </message>
+    <message>
+        <source>Environment variables are applied when Amethyst starts. Restart now?</source>
+        <translation>Proměnné prostředí se aplikují, když začne Ametyst. Znovu?</translation>
+    </message>
+    <message>
+        <source>Language files updated - restart to apply.</source>
+        <translation>Jazykové soubory aktualizovány - restartovat.</translation>
+    </message>
+    <message>
+        <source>Your Nexus session expired - please log in again (Nexus ▸ Login to Nexus).</source>
+        <translation>Vaše sezení Nexus vypršelo - přihlaste se znovu (Nexus Klient Nexus).</translation>
+    </message>
+    <message>
+        <source>Nexus download failed - {0}</source>
+        <translation>Nexus stahování selhalo - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded - no game selected; see Downloads tab.</source>
+        <translation>Staženo - žádná zvolená hra; viz Záložka Ke stažení.</translation>
+    </message>
+    <message>
+        <source>A deploy or removal is already running - try again when it finishes.</source>
+        <translation>Rozmístění nebo odstranění již běží - zkuste to znovu, až skončí.</translation>
+    </message>
+    <message>
+        <source>A collection install is running - try again when it finishes.</source>
+        <translation>Sběrná instalace běží - zkuste to znovu, až skončí.</translation>
+    </message>
+    <message>
+        <source>Remove '{0}' and its {1} mod(s) from this profile?
+
+Their files are deleted from the staging folder - this cannot be undone.</source>
+        <translation>Odstranit '{0}' a jeho {1} mod (s) z tohoto profilu?
+
+Jejich soubory jsou vymazány ze složky stagingu - to nelze odčinit.</translation>
+    </message>
+    <message>
+        <source>Could not remove '{0}' - see the log.</source>
+        <translation>Nelze odstranit '{0}' - viz záznam.</translation>
+    </message>
+    <message>
+        <source>An install is finishing - try the collection again in a moment.</source>
+        <translation>Končí instalace - za chvíli zkuste sbírku znovu.</translation>
+    </message>
+    <message>
+        <source>Cancel download?</source>
+        <translation>Zrušit stahování?</translation>
+    </message>
+    <message>
+        <source>This will stop the download. Archives already downloaded are kept in the Downloads tab.</source>
+        <translation>Tohle zastaví stahování. Archivy již stažené jsou uloženy v záložce Ke stažení.</translation>
+    </message>
+    <message>
+        <source>Cancel Download</source>
+        <translation>Zrušit stahování</translation>
+    </message>
+    <message>
+        <source>Nexus Premium not detected - manual download mode.</source>
+        <translation>Nexus Premium není detekován - ruční režim stahování.</translation>
+    </message>
+    <message>
+        <source>Collection download cancelled - the archives already fetched are in the Downloads tab.</source>
+        <translation>Stahování kolekcí zrušeno - archivy již načteny jsou v záložce Ke stažení.</translation>
+    </message>
+    <message>
+        <source>Paused - {0} installed.</source>
+        <translation>Pozastaven - nainstalován {0}.</translation>
+    </message>
+    <message>
+        <source>Install paused - {0} mod(s) installed.</source>
+        <translation>Instalovat pozastaveno - nainstalováno {0} mod (y).</translation>
+    </message>
+    <message>
+        <source>Downloaded {0}/{1} - nothing installed.</source>
+        <translation>Staženo {0} / {1} - nic nainstalováno.</translation>
+    </message>
+    <message>
+        <source>Collection downloaded - {0}/{1} archive(s). Install them from the Downloads tab.</source>
+        <translation>Sbírka stažena - archiv (archivy) {0} / {1}. Nainstalujte je z karty Soubory ke stažení.</translation>
+    </message>
+    <message>
+        <source> ({0} couldn't be downloaded - see the log)</source>
+        <translation>({0} nelze stáhnout - viz záznam)</translation>
+    </message>
+    <message>
+        <source>Done - {0}/{1} installed.</source>
+        <translation>Hotovo - nainstalováno {0} / {1}.</translation>
+    </message>
+    <message>
+        <source>Collection installed - {0}/{1} mod(s)</source>
+        <translation>Nainstalovaná sbírka - {0} / {1} mod (s)</translation>
+    </message>
+    <message>
+        <source>Imported - {0}/{1} installed.</source>
+        <translation>Importováno - nainstalováno {0} / {1}.</translation>
+    </message>
+    <message>
+        <source>Profile imported - {0}/{1} mod(s)</source>
+        <translation>Importovaný profil - {0} / {1} mod (s)</translation>
+    </message>
+    <message>
+        <source>This collection includes {0} off-site mod(s) the installer could not download:
+
+{1}
+
+Download and install them manually - the links are in the collection page's "Off-site mods" panel.</source>
+        <translation>Tato kolekce obsahuje {0} off- site mod (s) instalátor nemohl stáhnout:
+
+{1}
+
+Stáhnout a nainstalovat ručně - odkazy jsou v panelu "Off- site mods" na stránce sbírky.</translation>
+    </message>
+    <message>
+        <source>The login session has ended - start 'Login via SSO' again.</source>
+        <translation>Přihlašovací relace skončila - znovu spusťte 'Přihlášení přes SSO'.</translation>
+    </message>
+    <message>
+        <source>Failed to register - xdg-mime not found?</source>
+        <translation>Nepodařilo se zaregistrovat - xdg-mime nenalezen?</translation>
+    </message>
+    <message>
+        <source>Update check failed - see the log.</source>
+        <translation>Kontrola aktualizace selhala - viz záznam.</translation>
     </message>
     <message>
         <source>Updates available</source>
@@ -5206,6 +5664,50 @@ Run Quick Update on all of them now?</source>
         <translation>{0} mod (y) mají k dispozici aktualizaci.
 
 Spustit rychlou aktualizaci na všechny z nich teď?</translation>
+    </message>
+    <message>
+        <source>Reinstalling {0} mod(s), redownloading {1}; {2} skipped.</source>
+        <translation>Reinstalování {0} mod (s), restahování {1}; {2} přeskočil.</translation>
+    </message>
+    <message>
+        <source>Reinstall - redownloading {0} mod(s)…</source>
+        <translation>Přeinstalovat - restahování {0} mod (s)..</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll land in the Downloads tab.</source>
+        <translation>Premium nutné k opětovnému stažení. Otevřená stránka (stránky) ke stažení {0} - přistanou v záložce Ke stažení.</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll reinstall automatically once downloaded.</source>
+        <translation>Premium nutné k opětovnému stažení. Otevřená stránka (stránky) ke stažení {0} - po stažení se automaticky znovu nainstalují.</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded - see the log.</source>
+        <translation>Znovu nainstalovat: {0} mod (s) nelze stáhnout - viz záznam.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
+        <translation>Znovu stažené {0} mod (s); {1} selhalo - viz záznam.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
+        <translation>Znovu stažené {0} mod (s) - přeinstalujte je ze záložky Ke stažení.</translation>
+    </message>
+    <message>
+        <source>Quick Update - checking {0} mod(s)…</source>
+        <translation>Rychlá aktualizace - kontrola {0} mod (s)..</translation>
+    </message>
+    <message>
+        <source>Quick Update - downloading {0} mod(s)…</source>
+        <translation>Rychlá aktualizace - stahování {0} mod (s)..</translation>
+    </message>
+    <message>
+        <source>Quick Update: downloaded {0} update(s) - install them from the Downloads tab.</source>
+        <translation>Rychlá aktualizace: stažené aktualizace {0} - nainstalujte je z záložky Ke stažení.</translation>
+    </message>
+    <message>
+        <source>Quick Update: {0} mod(s) couldn't be downloaded - see the log.</source>
+        <translation>Rychlá aktualizace: {0} mod (s) nelze stáhnout - viz záznam.</translation>
     </message>
     <message>
         <source>Quick Update: updated {0} mod(s)</source>
@@ -5380,8 +5882,20 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Pro tento mod nejsou k dispozici žádné soubory ke stažení.</translation>
     </message>
     <message>
-        <source>{0} game — {1}</source>
-        <translation>{0} hra — {1}</translation>
+        <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
+        <translation>Přihlaste se jako první (Nexus ΆLogin) - otevření stránky AMM, abyste ji tam mohli podpořit.</translation>
+    </message>
+    <message>
+        <source>Endorse AMM failed - {0}</source>
+        <translation>Endorse AMM selhala - {0}</translation>
+    </message>
+    <message>
+        <source>You've already endorsed - thank you!</source>
+        <translation>Už jsi to podpořil - děkuji!</translation>
+    </message>
+    <message>
+        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page - please download it there first, then endorse.</source>
+        <translation>Nexus vám umožní podporu aplikace až poté, co si ji alespoň jednou stáhnete. Otevření stránky AMM - nejdříve si ji tam stáhněte a pak potvrďte.</translation>
     </message>
     <message>
         <source>{0} game</source>
@@ -5432,6 +5946,14 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Nastavení profilu</translation>
     </message>
     <message>
+        <source>Profile Groups aren't supported for this game.</source>
+        <translation>Profilové skupiny nejsou podporovány pro tuto hru.</translation>
+    </message>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Skupiny profilů</translation>
+    </message>
+    <message>
         <source>Profile '{0}' already exists.</source>
         <translation>Profil „{0}“ již existuje.</translation>
     </message>
@@ -5464,10 +5986,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Přidat spustitelný ze složky hry</translation>
     </message>
     <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
-        <translation>Zkontrolujte, zda lze provést přidat do nabídky Run. Ty běží z jejich umístění ve složce hry - včetně souborů nasazených tam mods.</translation>
-    </message>
-    <message>
         <source>Executable not found: {0}</source>
         <translation>Spustitelný soubor nebyl nalezen: {0}</translation>
     </message>
@@ -5488,14 +6006,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Spouštím {0}…</translation>
     </message>
     <message>
-        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
-        <translation>Premium nutné k opětovnému stažení. Otevřená stránka (stránky) ke stažení {0} - po stažení se automaticky znovu nainstalují.</translation>
-    </message>
-    <message>
-        <source>A deploy is in progress — try again shortly.</source>
-        <translation>Probíhá nasazení — zkuste to za chvíli znovu.</translation>
-    </message>
-    <message>
         <source>Restoring {0}…</source>
         <translation>Obnovení stránky {0}…</translation>
     </message>
@@ -5510,14 +6020,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     <message>
         <source>{0} Restored</source>
         <translation>{0} Obnovený</translation>
-    </message>
-    <message>
-        <source>Deploy failed — see log.</source>
-        <translation>Nasazení se nezdařilo — viz protokol.</translation>
-    </message>
-    <message>
-        <source>Restore failed — see log.</source>
-        <translation>Obnovení se nezdařilo – viz protokol.</translation>
     </message>
     <message>
         <source>{0} is not configured for this game.</source>
@@ -5594,14 +6096,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     <message>
         <source>{0}…</source>
         <translation>{0}…</translation>
-    </message>
-    <message>
-        <source>{0} — done.</source>
-        <translation>{0} — hotovo.</translation>
-    </message>
-    <message>
-        <source>{0} — failed (see log).</source>
-        <translation>{0} — selhalo (viz protokol).</translation>
     </message>
     <message>
         <source>No game selected</source>
@@ -5684,16 +6178,80 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
         <translation>Nainstalováno{0}</translation>
     </message>
     <message>
-        <source>the game</source>
-        <translation>hra</translation>
+        <source>Undo every Mod Files change for "{0}" - Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</source>
+        <translation>Zrušit každou změnu Mod souborů pro "{0}" - Propagace na nejvyšší úrovni, Root tagy složky a vypnuté soubory? Vlastní složky modu se nedotýkají.</translation>
     </message>
     <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
-        <translation>Ametyst nemohl spustit {0}.
-
-Stiskněte příkaz k použití mods, pak spusťte hru ze služby Steam, Heroic nebo Lutris - nasazené mods zůstat aktivní, ale hra je spuštěna.</translation>
+        <source>Profile is deployed - run Restore first, then pack the {0}.</source>
+        <translation>Profil je nasazen - spustit Obnovit nejprve, pak zabalit {0}.</translation>
+    </message>
+    <message>
+        <source>Profile is deployed - run Restore first, then unpack.</source>
+        <translation>Profil je nasazen - nejprve spustit Obnovit, pak vybalit.</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder - usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>{0} pluginy uvedené v tomto profilu nemají žádný soubor v jeho mods, přepsat, nebo herní složky - obvykle zbytky z odstraněných mods nebo jiný profil pořadí zatížení. Odstranit je z nákladového řádu? Složky Mod se nedotýkají.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure groups.</source>
+        <translation>Žádný aktivní profil - nemůže nastavit skupiny.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure plugin rules.</source>
+        <translation>Žádný aktivní profil - nemůže konfigurovat pravidla plugin.</translation>
+    </message>
+    <message>
+        <source>userlist.yaml not found - cannot flip rule.</source>
+        <translation>userlist.yaml nenalezen - nemůže změnit pravidlo.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot edit userlist.</source>
+        <translation>Žádný aktivní profil - nemůže upravovat seznam uživatelů.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot assign group.</source>
+        <translation>Žádný aktivní profil - nemůže přiřadit skupinu.</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot sort.</source>
+        <translation>Knihovna LOOT není k dispozici - nemůže třídit.</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed - see log.</source>
+        <translation>LOOT obnova selhala - viz záznam.</translation>
+    </message>
+    <message>
+        <source>LOOT sort failed - see log.</source>
+        <translation>LOOT selhalo - viz log.</translation>
+    </message>
+    <message>
+        <source>Sorted - 1 plugin moved.</source>
+        <translation>Sorted - 1 plugin přesunut.</translation>
+    </message>
+    <message>
+        <source>Sorted - {0} plugins moved.</source>
+        <translation>Sorted - {0} pluginy přesunuty.</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot check overlap.</source>
+        <translation>Knihovna LOOT není k dispozici - nelze zkontrolovat překrytí.</translation>
+    </message>
+    <message>
+        <source>Overlap check failed - see log.</source>
+        <translation>Kontrola překrývání selhala - viz záznam.</translation>
+    </message>
+    <message>
+        <source>{0} overlaps {1} plugin(s) - highlighted in list</source>
+        <translation>{0} překrývá modul (moduly) {1} - zvýrazněno v seznamu</translation>
+    </message>
+    <message>
+        <source>Saves</source>
+        <translation>Uložení</translation>
+    </message>
+    <message>
+        <source>the game</source>
+        <translation>hra</translation>
     </message>
     <message>
         <source>Details: {0}</source>
@@ -5704,52 +6262,28 @@ Stiskněte příkaz k použití mods, pak spusťte hru ze služby Steam, Heroic 
         <translation>Hra nebyla zahájena</translation>
     </message>
     <message>
-        <source>A mod install is in progress — deploy again when it finishes.</source>
-        <translation>Probíhá instalace modu - až skončí, znovu nasaďte.</translation>
+        <source>Profile groups…</source>
+        <translation>Profilové skupiny..</translation>
     </message>
     <message>
-        <source>A mod install is in progress — try again when it finishes.</source>
-        <translation>Probíhá modová instalace - zkuste to znovu, až skončí.</translation>
+        <source>Installing LAV Filters</source>
+        <translation>Instalace LAV filtrů</translation>
     </message>
     <message>
-        <source>Restore queued — it will run after the current install finishes.</source>
-        <translation>Obnovit frontu - spustí se po ukončení aktuální instalace.</translation>
+        <source>Install cancelled.</source>
+        <translation>Instalace zrušena.</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Nainstalovat</translation>
     </message>
     <message>
         <source>Windows filesystem detected</source>
         <translation>Detekovaný souborový systém Windows</translation>
     </message>
     <message>
-        <source>These folders are on a Windows filesystem:
-
-{0}
-
-NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
-
-A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
-
-If you continue, this warning won't be shown again for {1} unless the drives change.</source>
-        <translation>Tyto složky jsou na souborovém systému Windows:
-
-{0}
-
-NTFS a exFAT mechaniky mají na Linuxu slabé záložky za zápis: nečisté odmontování, ztráta napájení nebo dual- boot Windows se zapnutým Fast Startup mohou tiše zkrátit soubory na 0 KB - včetně nasazených souborů mod a vaší modelové knihovny.
-
-Linuxový souborový systém (ext4 / btrfs) se doporučuje jak pro herní, tak pro modelovou složku.
-
-Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud se mechaniky nezmění.</translation>
-    </message>
-    <message>
         <source>Installed {0} mods</source>
         <translation>Nainstalované mody pro hru „{0}“</translation>
-    </message>
-    <message>
-        <source>Installed {0} of {1} mods — see log for failures.</source>
-        <translation>Nainstalováno {0} z {1} mods — chyby viz protokol.</translation>
-    </message>
-    <message>
-        <source>Install failed — see log.</source>
-        <translation>Instalace se nezdařila – viz protokol.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -5760,6 +6294,14 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
         <translation>Rozbalte soubor „{0}“</translation>
     </message>
     <message>
+        <source>Reset Mod Files changes for {0}</source>
+        <translation>Obnovit změny Mod souborů pro {0}</translation>
+    </message>
+    <message>
+        <source>Reset Mod Files changes</source>
+        <translation>Obnovit změny Mod souborů</translation>
+    </message>
+    <message>
         <source>An archive operation is already running.</source>
         <translation>Archivační operace již probíhá.</translation>
     </message>
@@ -5768,16 +6310,8 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
         <translation>Složka „Mod“ nebyla nalezena.</translation>
     </message>
     <message>
-        <source>Profile is deployed — run Restore first, then pack the {0}.</source>
-        <translation>Profil je nasazen – nejprve spusťte funkci „Obnovit“ a poté sbalte soubor „{0}“.</translation>
-    </message>
-    <message>
         <source>Packing {0}…</source>
         <translation>Balení {0}…</translation>
-    </message>
-    <message>
-        <source>Profile is deployed — run Restore first, then unpack.</source>
-        <translation>Profil je nasazen – nejprve spusťte příkaz „Restore“ a poté jej rozbalte.</translation>
     </message>
     <message>
         <source>Unpacking {0} archive(s)…</source>
@@ -5916,24 +6450,12 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
         <translation>Odstranit stalé pluginy</translation>
     </message>
     <message>
-        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
-        <translation>{0} pluginy uvedené v tomto profilu nemají žádný soubor v jeho mods, přepsat, nebo herní složky - obvykle zbytky z odstraněných mods nebo jiný profil pořadí zatížení. Odstranit je z nákladového řádu? Složky Mod se nedotýkají.</translation>
-    </message>
-    <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
         <translation>Osvěžující metadata LOOT pro moduly {0}..</translation>
     </message>
     <message>
-        <source>LOOT refresh failed — see log.</source>
-        <translation>LOOT obnova selhala - viz záznam.</translation>
-    </message>
-    <message>
         <source>Plugin metadata refreshed.</source>
         <translation>Name.</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot check overlap.</source>
-        <translation>Knihovna LOOT není k dispozici - nelze zkontrolovat překrytí.</translation>
     </message>
     <message>
         <source>An overlap check is already running.</source>
@@ -5944,16 +6466,8 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
         <translation>Kontroluji překrytí {0}..</translation>
     </message>
     <message>
-        <source>Overlap check failed — see log.</source>
-        <translation>Kontrola překrývání selhala - viz záznam.</translation>
-    </message>
-    <message>
         <source>{0}: no record overlap with other plugins.</source>
         <translation>{0}: žádný záznam překrývání s jinými pluginy.</translation>
-    </message>
-    <message>
-        <source>{0} overlaps {1} plugin(s) — highlighted in list</source>
-        <translation>{0} překrývá modul (moduly) {1} - zvýrazněno v seznamu</translation>
     </message>
     <message>
         <source>+ Add exe from staging…</source>
@@ -5968,20 +6482,12 @@ Pokud budete pokračovat, toto varování nebude znovu zobrazeno pro {1}, pokud 
         <translation>Pluginy</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure groups.</source>
-        <translation>Žádný aktivní profil – nelze konfigurovat skupiny.</translation>
-    </message>
-    <message>
         <source>install</source>
         <translation>nainstalovat</translation>
     </message>
     <message>
         <source>deploy</source>
         <translation>nasadit</translation>
-    </message>
-    <message>
-        <source>Install queued — {0} will install after the current {1} finishes.</source>
-        <translation>Nainstalujte queued - {0} nainstaluje po skončení aktuálního {1}.</translation>
     </message>
     <message>
         <source>Cyber Engine Tweaks is enabled, but cyber_engine_tweaks.asi will be symlinked.
@@ -6004,10 +6510,6 @@ Rozmístit?</translation>
         <translation>Skupiny LOOT</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure plugin rules.</source>
-        <translation>Žádný aktivní profil – nelze nakonfigurovat pravidla pluginu.</translation>
-    </message>
-    <message>
         <source>LOOT Plugin Rules</source>
         <translation>Pravidla pluginu LOOT</translation>
     </message>
@@ -6020,10 +6522,6 @@ Rozmístit?</translation>
         <translation>Cyklus pluginů</translation>
     </message>
     <message>
-        <source>userlist.yaml not found — cannot flip rule.</source>
-        <translation>Soubor userlist.yaml nebyl nalezen — nelze provést převrácení pravidla.</translation>
-    </message>
-    <message>
         <source>Rule {0} '{1}' {2} not found in userlist.yaml.</source>
         <translation>Pravidlo {0} „{1}“ {2} nebylo nalezeno v souboru userlist.yaml.</translation>
     </message>
@@ -6032,20 +6530,8 @@ Rozmístit?</translation>
         <translation>Změna názvu: „{0}“ se nyní jmenuje „{1}“ {2}</translation>
     </message>
     <message>
-        <source>No active profile — cannot edit userlist.</source>
-        <translation>Žádný aktivní profil – nelze upravit seznam uživatelů.</translation>
-    </message>
-    <message>
-        <source>No active profile — cannot assign group.</source>
-        <translation>Žádný aktivní profil – nelze přiřadit skupinu.</translation>
-    </message>
-    <message>
         <source>Removed from userlist: {0} plugin(s)</source>
         <translation>Odstraněno ze seznamu uživatelů: plugin(y) {0}</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot sort.</source>
-        <translation>Knihovna LOOT není k dispozici — nelze třídit.</translation>
     </message>
     <message>
         <source>LOOT sorting isn't supported for this game.</source>
@@ -6064,24 +6550,12 @@ Rozmístit?</translation>
         <translation>Spuštění programu LOOT na pluginech {0}…</translation>
     </message>
     <message>
-        <source>LOOT sort failed — see log.</source>
-        <translation>Třídění LOOT selhalo — viz protokol.</translation>
-    </message>
-    <message>
         <source>Failed to write load order: {0}</source>
         <translation>Nepodařilo se zapsat pořadí načítání: {0}</translation>
     </message>
     <message>
         <source>Load order is already sorted.</source>
         <translation>Pořadí načítání je již seřazeno.</translation>
-    </message>
-    <message>
-        <source>Sorted — 1 plugin moved.</source>
-        <translation>Hotovo — 1 plugin byl přesunut.</translation>
-    </message>
-    <message>
-        <source>Sorted — {0} plugins moved.</source>
-        <translation>Vyřešeno — pluginy „{0}“ byly přesunuty.</translation>
     </message>
     <message>
         <source>+ Add custom EXE…</source>
@@ -6166,24 +6640,8 @@ Rozmístit?</translation>
         <translation>Soubor se seznamem změn nebyl nalezen.</translation>
     </message>
     <message>
-        <source>Log in first (Nexus ▸ Login) — opening the AMM page so you can endorse it there.</source>
-        <translation>Nejprve se přihlaste (Nexus ▸ Přihlásit se) — otevře se stránka AMM, kde ji můžete podpořit.</translation>
-    </message>
-    <message>
-        <source>Endorse AMM failed — {0}</source>
-        <translation>Podpora AMM selhala — {0}</translation>
-    </message>
-    <message>
         <source>Thank you for endorsing!</source>
         <translation>Děkujeme za podporu!</translation>
-    </message>
-    <message>
-        <source>You've already endorsed — thank you!</source>
-        <translation>Už jste vyjádřili svou podporu – děkujeme!</translation>
-    </message>
-    <message>
-        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page — please download it there first, then endorse.</source>
-        <translation>Nexus vám umožní aplikaci doporučit až poté, co jste si ji alespoň jednou stáhli. Otevřete stránku AMM – nejprve si ji tam prosím stáhněte a teprve poté ji doporučte.</translation>
     </message>
     <message>
         <source>Endorse AMM: {0}</source>
@@ -6335,6 +6793,10 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
         <translation>Nejvyšší úroveň</translation>
     </message>
     <message>
+        <source>Root</source>
+        <translation>Kořen</translation>
+    </message>
+    <message>
         <source>Disable</source>
         <translation>Zakázat</translation>
     </message>
@@ -6463,6 +6925,14 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
         <translation>Podpořit vybrané ({0})</translation>
     </message>
     <message>
+        <source>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</source>
+        <translation>'{0}' patří k uzamčenému profilu '{1}' - přepněte na tento profil, abyste ho odstranili nebo odemkli.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) skipped — they belong to locked profile(s): {1}.</source>
+        <translation>{0} mod (s) přeskočil - patří k uzamčenému profilu (s): {1}.</translation>
+    </message>
+    <message>
         <source>Lock Separator</source>
         <translation>Oddělovač zámků</translation>
     </message>
@@ -6517,6 +6987,10 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     <message>
         <source>Open folder</source>
         <translation>Otevřít složku</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Otevřít v prohlížeči NIF</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -6691,6 +7165,10 @@ Jak by se ti líbilo zvládnout stávající mód?</translation>
     <message>
         <source>More status filters</source>
         <translation>Další stavové filtry</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Vyčistit všechny filtry</translation>
     </message>
     <message>
         <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -6889,6 +7367,10 @@ Klepněte na tlačítko Hotovo pro uzavření.</translation>
     <message>
         <source>Archive conflict - Full</source>
         <translation>Archivní konflikt - plný</translation>
+    </message>
+    <message>
+        <source>UUID Conflict</source>
+        <translation>Konflikt UUID</translation>
     </message>
 </context>
 <context>
@@ -7130,6 +7612,10 @@ nebo v šifrovaném souboru, pokud klíčenka není k dispozici).</translation>
         <translation>Otevřít v Nexus</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Stáhnout</translation>
+    </message>
+    <message>
         <source>Cancel download detection</source>
         <translation>Zrušit detekci stahování</translation>
     </message>
@@ -7253,12 +7739,222 @@ Denně: {1}</translation>
         <translation>Zrušit</translation>
     </message>
     <message>
+        <source>Redownload</source>
+        <translation>Znovu stáhnout</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Přeinstalovat</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Stáhnout</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Nainstalovat</translation>
+    </message>
+</context>
+<context>
+    <name>NifPreview</name>
+    <message>
+        <source>View</source>
+        <translation>Zobrazit</translation>
+    </message>
+    <message>
+        <source>Textures</source>
+        <translation>Textury</translation>
+    </message>
+    <message>
+        <source>Normal maps + shine</source>
+        <translation>Normální mapy + lesk</translation>
+    </message>
+    <message>
+        <source>Apply the mesh's normal map and its gloss mask</source>
+        <translation>Aplikujte normální mapu oka a jeho lesklou masku</translation>
+    </message>
+    <message>
+        <source>Cull backfaces</source>
+        <translation>Kulové hřbety</translation>
+    </message>
+    <message>
+        <source>Hide inward-facing triangles - reveals inside-out normals</source>
+        <translation>Skrýt inward- čelí trojúhelníky - odhalí inside-out normály</translation>
+    </message>
+    <message>
+        <source>Wireframe</source>
+        <translation>Wireframe</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>Vypnout</translation>
+    </message>
+    <message>
+        <source>Overlay</source>
+        <translation>Překrytí</translation>
+    </message>
+    <message>
+        <source>Lines only</source>
+        <translation>Pouze řádky</translation>
+    </message>
+    <message>
+        <source>Texture map</source>
+        <translation>Textilní mapa</translation>
+    </message>
+    <message>
+        <source>Diffuse</source>
+        <translation>Difuse</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Normální</translation>
+    </message>
+    <message>
+        <source>Background</source>
+        <translation>Pozadí</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Světlo</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>Šedý</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Tmavé</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Černá</translation>
+    </message>
+    <message>
+        <source>Invert mouse</source>
+        <translation>Invertovat myš</translation>
+    </message>
+    <message>
+        <source>Reverse the drag direction for rotating and panning</source>
+        <translation>Obrátit směr tahu pro otáčení a obložení</translation>
+    </message>
+    <message>
+        <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
+        <translation>Jas - zvedne tmavé textury bez foukání zvýraznění; dvakrát klepněte na tlačítko reset</translation>
+    </message>
+    <message>
+        <source>Preview this mesh with another mod's copy of its textures</source>
+        <translation>Náhled na tuto síť s jinou mod kopii jeho textury</translation>
+    </message>
+    <message>
+        <source>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</source>
+        <translation>Přetáhněte k otočení · doprava - přetáhněte na pánev · posuňte na zoom · dvakrát klepněte na tlačítko pro refram</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Načítání…</translation>
+    </message>
+    <message>
+        <source>no drawable geometry</source>
+        <translation>žádná napínatelná geometrie</translation>
+    </message>
+    <message>
+        <source>{0} shapes</source>
+        <translation>{0} tvary</translation>
+    </message>
+    <message>
+        <source>{0} tris</source>
+        <translation>{0} tris</translation>
+    </message>
+    <message>
+        <source>{0}/{1} textured</source>
+        <translation>{0} / {1} tvarované</translation>
+    </message>
+    <message>
+        <source>failed: {0}</source>
+        <translation>selhalo: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>NifViewerView</name>
+    <message>
+        <source>NIF Viewer — {0} ▸ {1}</source>
+        <translation>Prohlížeč NIF - {0} doposud {1}</translation>
+    </message>
+    <message>
+        <source>NIF Viewer — {0}</source>
+        <translation>Prohlížeč NIF - {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Skenování…</translation>
+    </message>
+    <message>
+        <source>Search meshes and mods…</source>
+        <translation>Prohledávání sítí a modů..</translation>
+    </message>
+    <message>
+        <source>Match a mesh path, or the name of a mod or archive that provides one</source>
+        <translation>Srovnat cestu oka, nebo název mod nebo archivu, který poskytuje jeden</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>Omezte seznam na jednu stranu nastavení</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>Všechny zdroje</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>Pouze režimy</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>Pouze vanilka</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>Pouze překročen</translation>
+    </message>
+    <message>
+        <source>Show only meshes provided by more than one source</source>
+        <translation>Zobrazovat pouze oka dodaná více než jedním zdrojem</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>Pouze tento mod</translation>
+    </message>
+    <message>
+        <source>Show only meshes {0} provides, alongside the copies they compete with</source>
+        <translation>Zobrazit pouze oka {0} poskytuje, vedle kopií, které konkurují</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ Zavřít</translation>
+    </message>
+    <message>
+        <source>Expand All</source>
+        <translation>Rozbalit vše</translation>
+    </message>
+    <message>
+        <source>Collapse All</source>
+        <translation>Zhroutit vše</translation>
+    </message>
+    <message>
+        <source>Select a mesh</source>
+        <translation>Vybrat oka</translation>
+    </message>
+    <message>
+        <source>{0} meshes</source>
+        <translation>{0} oka</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Čtení..</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>nelze číst</translation>
     </message>
 </context>
 <context>
@@ -7282,6 +7978,21 @@ Denně: {1}</translation>
     <message>
         <source>Save</source>
         <translation>Uložit</translation>
+    </message>
+</context>
+<context>
+    <name>NotificationButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>Oznámení</translation>
+    </message>
+    <message>
+        <source>No notifications</source>
+        <translation>Žádné oznámení</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>Vymazat vše</translation>
     </message>
 </context>
 <context>
@@ -8098,6 +8809,10 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
         <source>Filters</source>
         <translation>Filtry</translation>
     </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Vyčistit všechny filtry</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -8175,6 +8890,175 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     </message>
 </context>
 <context>
+    <name>ProfileGroupsView</name>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Skupiny profilů</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>Skupiny</translation>
+    </message>
+    <message>
+        <source>No profile groups yet. A group combines several profiles and deploys them together as one merged profile.</source>
+        <translation>Zatím žádné profily. Skupina spojuje několik profilů a spojuje je jako jeden sloučený profil.</translation>
+    </message>
+    <message>
+        <source>Not eligible (shared mod pool)</source>
+        <translation>Nezpůsobilé (sdílený fond mod)</translation>
+    </message>
+    <message>
+        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
+        <translation>Členové skupiny potřebují profile-specific mods, takže skupina vidí mods záměrně přidány k nim. Převést kopíruje mody profilu do své vlastní složky (pokud možno pevně propojené - žádný další disk na stejném souborovém systému); sdílený bazén a další profily jsou nedotčeny.</translation>
+    </message>
+    <message>
+        <source>{0} member(s)</source>
+        <translation>Člen / členové {0}</translation>
+    </message>
+    <message>
+        <source>Hide members</source>
+        <translation>Skrýt členy</translation>
+    </message>
+    <message>
+        <source>Members</source>
+        <translation>Členové</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Odstranit</translation>
+    </message>
+    <message>
+        <source>  (missing)</source>
+        <translation>(chybí)</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>Posunout nahoru</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>Přejít dolů</translation>
+    </message>
+    <message>
+        <source>1 = highest priority (its mods win conflicts)</source>
+        <translation>1 = nejvyšší priorita (její mods vyhrávají konflikty)</translation>
+    </message>
+    <message>
+        <source>+ Add member</source>
+        <translation>+ Přidat člen</translation>
+    </message>
+    <message>
+        <source>New group</source>
+        <translation>Nová skupina</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>Jméno:</translation>
+    </message>
+    <message>
+        <source>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</source>
+        <translation>Zatím žádné způsobilé členské profily - vytvořte profil s profilespecific mods, nebo konvertujte jeden níže.</translation>
+    </message>
+    <message>
+        <source>Merge overwrite / Root Folder files from:</source>
+        <translation>Sloučit přepsat / Root Složka soubory z:</translation>
+    </message>
+    <message>
+        <source>These profiles have runtime-generated files (overwrite / Root Folder). Checked profiles' files are copied into the group; conflicts use the higher-priority member's copy.</source>
+        <translation>Tyto profily mají runtime- generované soubory (přepsat / Root Folder). Do skupiny jsou zkopírovány ověřené soubory profilů; konflikty používají kopii vysoce prioritního člena.</translation>
+    </message>
+    <message>
+        <source>Create group</source>
+        <translation>Vytvořit skupinu</translation>
+    </message>
+    <message>
+        <source>Converting…</source>
+        <translation>Konvertuji..</translation>
+    </message>
+    <message>
+        <source>Convert to profile-specific…</source>
+        <translation>Převést na specifické profily..</translation>
+    </message>
+    <message>
+        <source>Priority (check order): {0}</source>
+        <translation>Priorita (kontrolní pořadí): {0}</translation>
+    </message>
+    <message>
+        <source>Check member profiles in priority order (first checked = highest priority).</source>
+        <translation>Zkontrolujte profily členů v pořadí priorit (nejprve zaškrtnuto = nejvyšší priorita).</translation>
+    </message>
+    <message>
+        <source>An install or deploy is in progress — try again shortly.</source>
+        <translation>Probíhá instalace nebo nasazení - zkuste to brzy znovu.</translation>
+    </message>
+    <message>
+        <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
+        <translation>'{0}' je v současné době nasazen - nejprve obnovit hru, pak upravit skupinu.</translation>
+    </message>
+    <message>
+        <source>Enter a group name.</source>
+        <translation>Zadejte název skupiny.</translation>
+    </message>
+    <message>
+        <source>Check at least one member profile.</source>
+        <translation>Zkontrolujte alespoň jeden člen profilu.</translation>
+    </message>
+    <message>
+        <source>Group creation cancelled.</source>
+        <translation>Vytváření skupiny zrušeno.</translation>
+    </message>
+    <message>
+        <source>Several members have profile-specific INIs with the same name ({0}).
+Which profile's INI files should the group use for those?</source>
+        <translation>Několik členů má profilespecifické INI se stejným názvem ({0}).
+Které soubory INI by pro ně měla skupina použít?</translation>
+    </message>
+    <message>
+        <source>Use these INIs</source>
+        <translation>Použijte tyto INI</translation>
+    </message>
+    <message>
+        <source>Could not create group: {0}</source>
+        <translation>Nelze vytvořit skupinu: {0}</translation>
+    </message>
+    <message>
+        <source>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
+        <translation>Odstranit profilovou skupinu '{0}'?
+
+Pouze skupina je vymazána - její členské profily a jejich módy jsou nedotčeny. Hra bude obnovena jako první, pokud je tato skupina nasazena.</translation>
+    </message>
+    <message>
+        <source>Remove Group</source>
+        <translation>Odstranit skupinu</translation>
+    </message>
+    <message>
+        <source>Convert Profile</source>
+        <translation>Převést Profil</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' to profile-specific mods?
+
+Its listed mods are copied into the profile's own mods folder (hardlinked where possible). The shared pool and other profiles are not changed.</source>
+        <translation>Převést '{0}' na profile-specific mods?
+
+Jeho uvedené módy jsou zkopírovány do vlastní složky mods profilu (pokud možno pevně propojeny). Sdílený bazén a další profily se nemění.</translation>
+    </message>
+    <message>
+        <source>Convert</source>
+        <translation>Převést</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' converted — it can now join groups.</source>
+        <translation>Profil '{0}' převeden - nyní může připojit skupiny.</translation>
+    </message>
+    <message>
+        <source>Convert of '{0}' failed — see the log.</source>
+        <translation>Převod '{0}' selhal - viz záznam.</translation>
+    </message>
+</context>
+<context>
     <name>ProfileSettingsView</name>
     <message>
         <source>Profile Settings</source>
@@ -8203,6 +9087,10 @@ Chcete-li přidat pravidlo, přetáhněte plugin z levého panelu.</translation>
     <message>
         <source>Cancel</source>
         <translation>Zrušit</translation>
+    </message>
+    <message>
+        <source>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</source>
+        <translation>'{0}' je členem nasazené skupiny '{1}' - nejprve obnovit hru a pak ji odstranit.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -8857,6 +9745,247 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
 </context>
 <context>
+    <name>SavePreviewPane</name>
+    <message>
+        <source>This file could not be read as a save.</source>
+        <translation>Tento soubor nelze číst jako uložení.</translation>
+    </message>
+    <message>
+        <source>No screenshot</source>
+        <translation>Žádný screenshot</translation>
+    </message>
+    <message>
+        <source>Click to open full size</source>
+        <translation>Kliknutím otevřete plnou velikost</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>Snímek obrazovky</translation>
+    </message>
+    <message>
+        <source>Character</source>
+        <translation>Znak</translation>
+    </message>
+    <message>
+        <source>Level</source>
+        <translation>Úroveň</translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation>Umístění</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>Čas přehrávání</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Název</translation>
+    </message>
+    <message>
+        <source>Race</source>
+        <translation>Závod</translation>
+    </message>
+    <message>
+        <source>Sex</source>
+        <translation>Pohlaví</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>Uloženo</translation>
+    </message>
+    <message>
+        <source>Save number</source>
+        <translation>Uložit číslo</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Hra</translation>
+    </message>
+    <message>
+        <source>Only part of this save could be read.</source>
+        <translation>Pouze část této úspory lze přečíst.</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Pluginy</translation>
+    </message>
+    <message>
+        <source>Not recorded in this save.</source>
+        <translation>Nezaznamenané v tomto souboru.</translation>
+    </message>
+    <message>
+        <source>Could not be read.</source>
+        <translation>Nelze číst.</translation>
+    </message>
+    <message>
+        <source>Plugins ({0} · {1} ESL)</source>
+        <translation>Moduly ({0} · {1} ESL)</translation>
+    </message>
+    <message>
+        <source>Plugins ({0})</source>
+        <translation>Moduly ({0})</translation>
+    </message>
+    <message>
+        <source>Not in this profile's load order.</source>
+        <translation>Ne v tomhle profilu.</translation>
+    </message>
+</context>
+<context>
+    <name>SavesView</name>
+    <message>
+        <source>Name</source>
+        <extracomment>One expanded folder's listing, from the worker that read it. Footer summary text ("2 location(s) · 41 entries · 1.2 GB"). True when a row is selected, so the footer's Open folder button syncs. False while an export/import runs, so the footer disables its buttons. (ok, message) from an export/import worker → UI thread. The pickers' callbacks fire on a portal WORKER thread; marshal the chosen path to the GUI thread before touching any widget. Transient one-line notice for the footer (progress / result). A parsed save header for the details pane, from the parse worker. The listed file types changed, so the Filters panel can restock its list.</extracomment>
+        <translation>Název</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Velikost</translation>
+    </message>
+    <message>
+        <source>Modified</source>
+        <translation>Změněno</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>Není vybrána žádná nakonfigurovaná hra.</translation>
+    </message>
+    <message>
+        <source>Looking for save folders…</source>
+        <translation>Hledám složky pro uložení..</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Čtení..</translation>
+    </message>
+    <message>
+        <source>{0}   [profile saves -{1}]</source>
+        <translation>{0} [profil ukládá -{1}]</translation>
+    </message>
+    <message>
+        <source>{0}   ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>(not created yet -the game saves here)</source>
+        <translation>(dosud není vytvořen - hra zde ukládá)</translation>
+    </message>
+    <message>
+        <source>(no {0} saves here yet)</source>
+        <translation>(ne {0} ukládá zde ještě)</translation>
+    </message>
+    <message>
+        <source>No save folders found for this game. Either it keeps its saves somewhere the Ludusavi manifest does not know about, it stores them in the cloud, or it has not been played yet.</source>
+        <translation>Pro tuto hru nebyly nalezeny žádné uložené složky. Buď si uchovává své úspory někde, kde o tom Ludusavi neví, ukládá je do mraku, nebo se to ještě nehrálo.</translation>
+    </message>
+    <message>
+        <source>{0} save locations</source>
+        <translation>{0} uložení míst</translation>
+    </message>
+    <message>
+        <source>(no ext)</source>
+        <translation>(bez výrazu)</translation>
+    </message>
+    <message>
+        <source>{0} of {1} entries shown</source>
+        <translation>{0} zobrazených záznamů {1}</translation>
+    </message>
+    <message>
+        <source>Reading save…</source>
+        <translation>Čtení uložení..</translation>
+    </message>
+    <message>
+        <source>Export saves</source>
+        <translation>Exportovat ukládá</translation>
+    </message>
+    <message>
+        <source>Zip archives (*.zip)</source>
+        <translation>Archivy zip (* .zip)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Všechny soubory</translation>
+    </message>
+    <message>
+        <source>Packing saves…</source>
+        <translation>Balení šetří..</translation>
+    </message>
+    <message>
+        <source>Export failed.</source>
+        <translation>Export selhal.</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>Export se nezdařil: {0}</translation>
+    </message>
+    <message>
+        <source>Exported {0} file(s) ({1}) to {2}</source>
+        <translation>Exportovaný {0} soubor (soubory) ({1}) do {2}</translation>
+    </message>
+    <message>
+        <source>Import saves</source>
+        <translation>Importovat ukládá</translation>
+    </message>
+    <message>
+        <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
+        <translation>Současný obsah se nejprve přesune do složky "{0}", takže se nic neztratí.</translation>
+    </message>
+    <message>
+        <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
+        <translation>Aktuální soubory {0} se přesunou do složky "{1}", takže se nic neztratí.</translation>
+    </message>
+    <message>
+        <source>Import saves?</source>
+        <translation>Import šetří?</translation>
+    </message>
+    <message>
+        <source>Extract {0} into
+{1}
+
+{2}</source>
+        <translation>Extrakt {0} do
+{1}
+
+{2}</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importovat</translation>
+    </message>
+    <message>
+        <source>Extracting saves…</source>
+        <translation>Vytahování šetří..</translation>
+    </message>
+    <message>
+        <source>Import failed.</source>
+        <translation>Import selhal.</translation>
+    </message>
+    <message>
+        <source>Import failed: {0}</source>
+        <translation>Import selhal: {0}</translation>
+    </message>
+    <message>
+        <source>Imported {0} file(s) ({1}).</source>
+        <translation>Importované soubory {0} ({1}).</translation>
+    </message>
+    <message>
+        <source>{0}   [in prefix]</source>
+        <translation>{0} [v prefixu]</translation>
+    </message>
+    <message>
+        <source>… only the first {0} entries are shown</source>
+        <translation>... jsou zobrazeny pouze první položky {0}</translation>
+    </message>
+    <message>
+        <source>(empty)</source>
+        <translation>(prázdné)</translation>
+    </message>
+    <message>
+        <source>{0} location(s) · {1} entries · {2}</source>
+        <translation>Umístění {0} · Zápisy {1} · {2}</translation>
+    </message>
+</context>
+<context>
     <name>ScriptExtenderView</name>
     <message>
         <source>Install Script Extender — {0}</source>
@@ -9356,10 +10485,6 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
         <translation>Po instalaci vymazat archiv</translation>
     </message>
     <message>
-        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself — installs from the Install Mod button or the Downloads tab keep their archive.</source>
-        <translation>Smazat stažený archiv modu poté, co je extrahován. Platí pouze pro archivy, které si Ametyst stáhl sám - nainstaluje z tlačítka Install Mod nebo si kartu Ke stažení ponechá svůj archiv.</translation>
-    </message>
-    <message>
         <source>Keep FOMOD archives</source>
         <translation>Uchovávejte archivy FOMOD</translation>
     </message>
@@ -9456,10 +10581,6 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
         <translation>Upravit vlastní install-name pravidla..</translation>
     </message>
     <message>
-        <source>Add your own regex search/replace rules to clean up mod names on install — useful when a download site changes its filename format.</source>
-        <translation>Přidat vlastní regex vyhledávání / nahradit pravidla pro čištění mod jmen na instalaci - užitečné, když stránky ke stažení změní svůj formát názvu souboru.</translation>
-    </message>
-    <message>
         <source>Restore on close</source>
         <translation>Obnovit při zavření</translation>
     </message>
@@ -9480,10 +10601,6 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
         <translation>Upozorňovat na nové verze při spuštění</translation>
     </message>
     <message>
-        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
-        <translation>Ukázat oznámení, kdy je k dispozici nová verze Ametystu. Vypnutí tohoto vypnutí pouze ztlumí oznámení - stále můžete aktualizovat prostřednictvím svého správce balíku nebo přepínáním nastavení předuvolnění.</translation>
-    </message>
-    <message>
         <source>Enable automatic updates…</source>
         <translation>Povolit automatické aktualizace..</translation>
     </message>
@@ -9496,12 +10613,32 @@ Spojte své konflikty, pak je zavřete a klepněte na tlačítko Hotovo.</transl
         <translation>Archiv</translation>
     </message>
     <message>
+        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive.</source>
+        <translation>Smazat stažený archiv modu poté, co je extrahován. Platí pouze pro archivy, které si Ametyst stáhl sám - nainstaluje z tlačítka Install Mod nebo si kartu Ke stažení ponechá svůj archiv.</translation>
+    </message>
+    <message>
         <source>Downloads</source>
         <translation>Soubory ke stažení</translation>
     </message>
     <message>
+        <source>Download only (don't install)</source>
+        <translation>Pouze ke stažení (neinstalujte)</translation>
+    </message>
+    <message>
+        <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+        <translation>Soubory jsou uloženy do cache, ale nejsou nainstalovány. Platí pro nxm: / / odkazy, Prohlížeč Nexus, Změna verze, Sběr instalací, Stahování požadavků a aktualizace / reinstalovat restails - jejich tlačítka Install se stanou Stáhnout. Nainstalujte si je z karty Soubory ke stažení nebo z tlačítka Install Mod.</translation>
+    </message>
+    <message>
         <source>Extraction</source>
         <translation>Extrakce</translation>
+    </message>
+    <message>
+        <source>Add your own regex search/replace rules to clean up mod names on install - useful when a download site changes its filename format.</source>
+        <translation>Přidat vlastní regex vyhledávání / nahradit pravidla pro čištění mod jmen na instalaci - užitečné, když stránky ke stažení změní svůj formát názvu souboru.</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification - you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Ukázat oznámení, kdy je k dispozici nová verze Ametystu. Vypnutí tohoto vypnutí pouze ztlumí oznámení - stále můžete aktualizovat prostřednictvím svého správce balíku nebo přepínáním nastavení předuvolnění.</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9592,8 +10729,24 @@ ametyst.flatpakrepo</translation>
         <translation>Name</translation>
     </message>
     <message>
-        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</source>
+        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Lutris.</source>
         <translation>Cesta k aplikaci Lutris, takže Play může spustit přímo. Potřebné pouze pro AppImage instalace - nechat prázdné pro Flatpak nebo nativní Lutris.</translation>
+    </message>
+    <message>
+        <source>Path to the Faugus Launcher AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Faugus.</source>
+        <translation>Cesta k Faugus Launcher Appige, takže Play může spustit přímo. Potřebné pouze pro AppImage installs - nechat prázdné pro Flatpak nebo rodné Faugus.</translation>
+    </message>
+    <message>
+        <source>Faugus Data Location</source>
+        <translation>Faugus Umístění dat</translation>
+    </message>
+    <message>
+        <source>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</source>
+        <translation>Složka obsahující hry Fauguse Launchera. Prázdné = autodetekce (Flatpak a místní lokality).</translation>
+    </message>
+    <message>
+        <source>Faugus AppImage</source>
+        <translation>Name</translation>
     </message>
     <message>
         <source>Steam libraryfolders.vdf</source>
@@ -9602,6 +10755,26 @@ ametyst.flatpakrepo</translation>
     <message>
         <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
         <translation>Cesta k souboru libraryfolders.vdf (nebo k jeho složce). Prázdné pole = automatická detekce (standardní umístění, umístění pro Flatpak a Snap).</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Pokročilé</translation>
+    </message>
+    <message>
+        <source>Set environment variables that Amethyst applies to itself every time it starts - kill switches, diagnostics and graphics options that otherwise need a terminal launch. Pick from the supported list or add your own.</source>
+        <translation>Nastavte proměnné prostředí, které na sebe Ametyst aplikuje pokaždé, když začne - zabít přepínače, diagnostiku a grafické možnosti, které jinak potřebují spuštění terminálu. Vyberte si z podporovaného seznamu nebo přidejte vlastní.</translation>
+    </message>
+    <message>
+        <source>Edit environment variables…</source>
+        <translation>Upravit proměnné prostředí..</translation>
+    </message>
+    <message>
+        <source>{0} set: {1}</source>
+        <translation>{0} set: {1}</translation>
+    </message>
+    <message>
+        <source>None set</source>
+        <translation>Žádné</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -10346,6 +11519,17 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     <message>
         <source>Cancel</source>
         <translation>Zrušit</translation>
+    </message>
+</context>
+<context>
+    <name>TextureSourceController</name>
+    <message>
+        <source>Textures: as the game loads</source>
+        <translation>Textury: jako herní zatížení</translation>
+    </message>
+    <message>
+        <source>Textures: {0} ({1}/{2})</source>
+        <translation>Textury: {0} ({1} / {2})</translation>
     </message>
 </context>
 <context>
@@ -11679,7 +12863,7 @@ Nejnovější verze:  {1}</translation>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
-        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <extracomment>Slug carried on each page-list row (absent on the sidebar's group headers). Horizontal room left for the scrollbar/margins when scaling an image. Extra height above a sidebar group header, to set its group apart.</extracomment>
         <translation>Obnovit</translation>
     </message>
     <message>
@@ -11699,6 +12883,10 @@ Check your connection and press Refresh — pages you have already opened stay r
 Zkontrolujte připojení a stiskněte tlačítko Refresh - stránky, které jste již otevřeli, zůstávají čitelné offline.</translation>
     </message>
     <message>
+        <source>Other pages</source>
+        <translation>Ostatní stránky</translation>
+    </message>
+    <message>
         <source>Could not load “{0}”.
 
 Press Refresh to try again.</source>
@@ -11713,6 +12901,10 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     <message>
         <source>Updated.</source>
         <translation>Aktualizováno.</translation>
+    </message>
+    <message>
+        <source>Click an import code to load it.</source>
+        <translation>Kliknutím na dovozní kód jej načíst.</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -12227,6 +13419,17 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     </message>
 </context>
 <context>
+    <name>_NoGLViewport</name>
+    <message>
+        <source>3D preview is unavailable on this system.</source>
+        <translation>3D náhled není v tomto systému k dispozici.</translation>
+    </message>
+    <message>
+        <source>no OpenGL</source>
+        <translation>ne OpenGL</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -12289,6 +13492,10 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     <message>
         <source>Install</source>
         <translation>Nainstalovat</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Stáhnout</translation>
     </message>
 </context>
 <context>
@@ -12393,6 +13600,33 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
     <message>
         <source>Files swept into Overwrite (newest restore first)</source>
         <translation>Soubory přesunuté do složky „Overwrite“ (nejnovější obnovené soubory jako první)</translation>
+    </message>
+    <message>
+        <source>Apply this variable at startup</source>
+        <translation>Aplikovat tuto proměnnou při spuštění</translation>
+    </message>
+    <message>
+        <source>VARIABLE_NAME</source>
+        <translation>VARIABLE _ NÁZEV</translation>
+    </message>
+    <message>
+        <source>value</source>
+        <translation>hodnota</translation>
+    </message>
+    <message>
+        <source>Remove this variable</source>
+        <translation>Odstranit tuto proměnnou</translation>
+    </message>
+</context>
+<context>
+    <name>widget</name>
+    <message>
+        <source>Male</source>
+        <translation>Muži</translation>
+    </message>
+    <message>
+        <source>Female</source>
+        <translation>Ženy</translation>
     </message>
 </context>
 </TS>

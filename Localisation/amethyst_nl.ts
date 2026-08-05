@@ -578,6 +578,143 @@ Configureer uw INI-instellingen, sluit deze vervolgens en klik op Klaar.</transl
     </message>
 </context>
 <context>
+    <name>BodySlideLinuxView</name>
+    <message>
+        <source>{0} (Linux) — {1}</source>
+        <translation>{0} (Linux)</translation>
+    </message>
+    <message>
+        <source>Step 3: Run {0}</source>
+        <translation>Stap 3: {0} uitvoeren</translation>
+    </message>
+    <message>
+        <source>Step 1: Install {0} for Linux</source>
+        <translation>Stap 1: Installeer {0} voor Linux</translation>
+    </message>
+    <message>
+        <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
+
+No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
+        <translation>Een inheemse Linux bouw van BodySlide en Outfit Studio, gedeeld door elk spel.
+
+Er wordt geen Proton-voorvoegsel gebruikt: het spel, de gegevensmap en de uitvoermap worden direct aan het gereedschap doorgegeven.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Downloaden</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Volgende →</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Checking for updates…</source>
+        <translation>Geïnstalleerd: {0}. Controleren op updates..</translation>
+    </message>
+    <message>
+        <source>Not installed. Checking GitHub for the latest release…</source>
+        <translation>Niet geïnstalleerd. GitHub wordt gecontroleerd op de laatste release..</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
+        <translation>Geïnstalleerd: {0}. Kon GitHub niet bereiken om te controleren op updates, zie log.</translation>
+    </message>
+    <message>
+        <source>Could not reach GitHub to fetch the release — see log.</source>
+        <translation>Kon GitHub niet bereiken om de release te halen, zie log.</translation>
+    </message>
+    <message>
+        <source>Download {0}</source>
+        <translation>{0} downloaden</translation>
+    </message>
+    <message>
+        <source>Latest release: {0}.</source>
+        <translation>Laatste release: {0}.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>Bijwerken naar {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} — {1} is available.</source>
+        <translation>Geïnstalleerd: {0} is beschikbaar.</translation>
+    </message>
+    <message>
+        <source>Reinstall {0}</source>
+        <translation>{0} opnieuw installeren</translation>
+    </message>
+    <message>
+        <source>Installed: {0} (up to date).</source>
+        <translation>Geïnstalleerd: {0} (up to date).</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>{0} wordt gedownload…</translation>
+    </message>
+    <message>
+        <source>Extracting…</source>
+        <translation>Bezig met uitpakken…</translation>
+    </message>
+    <message>
+        <source>Installed {0}.</source>
+        <translation>{0} geïnstalleerd.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Fout: {0}</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>Stap 2: Modlist inzetten</translation>
+    </message>
+    <message>
+        <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
+
+Built meshes are written to the output mod below, which is added to your mod list.</source>
+        <translation>{0} leest zijn sliders en vormen uit de geïmplementeerde Data map, dus zet eerst uw modlist in.
+
+Gebouwde mazen zijn geschreven naar de output mod hieronder, die is toegevoegd aan uw mod lijst.</translation>
+    </message>
+    <message>
+        <source>Output mod name:</source>
+        <translation>Naam van de uitvoermod:</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Overslaan</translation>
+    </message>
+    <message>
+        <source>Deploy</source>
+        <translation>Implementeren</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>{0} wordt gelanceerd…</translation>
+    </message>
+    <message>
+        <source>{0} is not installed.
+
+Go back and download it first.</source>
+        <translation>{0} is niet geïnstalleerd.
+
+Ga terug en download het eerst.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} is actief.
+Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0} klaar.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>Startfout: {0}</translation>
+    </message>
+</context>
+<context>
     <name>BodySlideView</name>
     <message>
         <source>{0} — {1}</source>
@@ -948,8 +1085,20 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
         <translation>Er zijn geen bestanden gevonden.</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Downloaden</translation>
+    </message>
+    <message>
         <source>View</source>
         <translation>Bekijken</translation>
+    </message>
+    <message>
+        <source>Downloaded — install it from the Downloads tab.</source>
+        <translation>Gedownloade installatie van het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Installing — the list will refresh when it finishes.</source>
+        <translation>Het installeren van de lijst zal vernieuwen als het klaar is.</translation>
     </message>
     <message>
         <source>Install</source>
@@ -1052,6 +1201,10 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
     <message>
         <source>Could not load.</source>
         <translation>Kon niet worden geladen.</translation>
+    </message>
+    <message>
+        <source>Download collection</source>
+        <translation>Downloadverzameling</translation>
     </message>
     <message>
         <source>Resume Install</source>
@@ -1182,6 +1335,10 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
     <message>
         <source>Cancel</source>
         <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>Skip anyway?</source>
+        <translation>Toch overslaan?</translation>
     </message>
     <message>
         <source>Pausing…</source>
@@ -1393,6 +1550,18 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
         <translation>Terugzetten naar standaardinstellingen</translation>
     </message>
     <message>
+        <source>Saves Folder (optional)</source>
+        <translation>Map opslaan (facultatief)</translation>
+    </message>
+    <message>
+        <source>Detected automatically.</source>
+        <translation>Gedetecteerd automatisch.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Wissen</translation>
+    </message>
+    <message>
         <source>Options</source>
         <translation>Opties</translation>
     </message>
@@ -1461,6 +1630,10 @@ De MD5-cache blijft behouden. Archieven worden indien nodig opnieuw gedownload.<
         <translation>Aangepaste stagingmap geconfigureerd.</translation>
     </message>
     <message>
+        <source>Custom saves folder configured.</source>
+        <translation>Aangepaste map is geconfigureerd.</translation>
+    </message>
+    <message>
         <source>Cannot reset to shared settings while mods are deployed. Restore the game first.</source>
         <translation>Je kunt niet terugkeren naar de gedeelde instellingen zolang er mods zijn geïnstalleerd. Herstel het spel eerst.</translation>
     </message>
@@ -1493,12 +1666,20 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
         <translation>Gevonden via Lutris.</translation>
     </message>
     <message>
+        <source>Found via Faugus Launcher.</source>
+        <translation>Gevonden via Faugus Launcher.</translation>
+    </message>
+    <message>
         <source>Executable ({0}) not found in this folder — double-check the path.</source>
         <translation>Uitvoerbaar bestand ({0}) niet gevonden in deze map. Controleer het pad dubbel.</translation>
     </message>
     <message>
         <source>Executable found.</source>
         <translation>Uitvoerbaar gevonden.</translation>
+    </message>
+    <message>
+        <source>Custom saves folder selected.</source>
+        <translation>Aangepaste map geselecteerd.</translation>
     </message>
     <message>
         <source>Custom staging folder selected.</source>
@@ -3289,6 +3470,57 @@ In Steam, klik met de rechtermuisknop op het spel → Eigenschappen → Geïnsta
     </message>
 </context>
 <context>
+    <name>EnvVarsView</name>
+    <message>
+        <source>Environment variables</source>
+        <translation>Milieuvariabelen</translation>
+    </message>
+    <message>
+        <source>Variables set here are applied to Amethyst itself every time it starts, so you don't have to launch it from a terminal to use one. Pick a variable Amethyst understands from the dropdown, or add any other one by hand - those are passed on to the tools and games Amethyst launches too.
+
+Changes take effect on the next launch. If a variable ever stops the app from starting, launch it once with AMM_NO_ENV_OVERRIDES=1 to skip them all and fix it here.</source>
+        <translation>Variabelen die hier zijn ingesteld worden toegepast op Amethist zelf elke keer dat het begint, zodat je niet hoeft te starten vanaf een terminal om een te gebruiken. Kies een variabele Amethist begrijpt uit de dropdown, of voeg een andere met de hand - die worden doorgegeven aan de tools en games Amethist lanceert ook.
+
+Wijzigingen worden van kracht bij de volgende lancering. Als een variabele ooit de start van de app tegenhoudt, start deze dan één keer met AMM NO ENV OVERRIDES=1 om ze allemaal over te slaan en hier te repareren.</translation>
+    </message>
+    <message>
+        <source>Variables</source>
+        <translation>Variabelen</translation>
+    </message>
+    <message>
+        <source>No variables set - add one below.</source>
+        <translation>Geen variabelen ingesteld - hieronder een toevoegen.</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Toevoegen</translation>
+    </message>
+    <message>
+        <source>Add custom variable</source>
+        <translation>Aangepaste variabele toevoegen</translation>
+    </message>
+    <message>
+        <source>Add a variable Amethyst doesn't know about - anything your system or a launched tool reads.</source>
+        <translation>Voeg een variabele Amethist niet weet over - alles wat uw systeem of een gelanceerde tool leest.</translation>
+    </message>
+    <message>
+        <source>Changes take effect after a restart.</source>
+        <translation>Wijzigingen worden van kracht na een herstart.</translation>
+    </message>
+    <message>
+        <source>Restart now</source>
+        <translation>Nu opnieuw opstarten</translation>
+    </message>
+    <message>
+        <source>All supported variables are already listed</source>
+        <translation>Alle ondersteunde variabelen staan al vermeld</translation>
+    </message>
+    <message>
+        <source>Failed to save environment variables: {0}</source>
+        <translation>Opslaan van omgevingsvariabelen is mislukt: {0}</translation>
+    </message>
+</context>
+<context>
     <name>ExeSettingsView</name>
     <message>
         <source>Install Java into prefix</source>
@@ -3693,6 +3925,21 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
     </message>
 </context>
 <context>
+    <name>FilterMenuButton</name>
+    <message>
+        <source>Filters</source>
+        <translation>Filters</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(geen)</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Alle filters wissen</translation>
+    </message>
+</context>
+<context>
     <name>FilterSidePanel</name>
     <message>
         <source>By status</source>
@@ -3869,6 +4116,26 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
     <message>
         <source>Show only not installed</source>
         <translation>Alleen niet-geïnstalleerde weergeven</translation>
+    </message>
+    <message>
+        <source>Only conflicts</source>
+        <translation>Alleen conflicten</translation>
+    </message>
+    <message>
+        <source>Mod folders</source>
+        <translation>Mod mappen</translation>
+    </message>
+    <message>
+        <source>Profile</source>
+        <translation>Profiel</translation>
+    </message>
+    <message>
+        <source>Game folder</source>
+        <translation>Spelmap</translation>
+    </message>
+    <message>
+        <source>My Games</source>
+        <translation>Mijn spellen</translation>
     </message>
     <message>
         <source>Clear all</source>
@@ -4200,16 +4467,36 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
 <context>
     <name>LauncherSettingsOverlay</name>
     <message>
-        <source>Launch settings — {0}</source>
-        <translation>Startinstellingen — {0}</translation>
+        <source>Launch settings - {0}</source>
+        <translation>Startinstellingen - {0}</translation>
     </message>
     <message>
         <source>Launch via</source>
         <translation>Lancering via</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Auto detecteert Steam/Heroic/Lutris eigendom. Dwing een specifieke launcher, of geen om altijd de exe direct via Proton te lanceren.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>Auto detecteert Steam/Heroic/Lutris/Faugus eigendom. Dwing een specifieke launcher, of geen om altijd de exe direct via Proton te lanceren.</translation>
+    </message>
+    <message>
+        <source>Launch arguments</source>
+        <translation>Opstartargumenten</translation>
+    </message>
+    <message>
+        <source>Arguments passed to the game exe</source>
+        <translation>Argumenten doorgegeven aan het spel exe</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>Startopties</translation>
+    </message>
+    <message>
+        <source>e.g. SteamDeck=0 gamemoderun %command%</source>
+        <translation>bv. SteamDeck=0 gamemodern %command%</translation>
+    </message>
+    <message>
+        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
+        <translation>Stoomsyntaxis. Leeg: de eigen Steam-opties van het spel worden gebruikt.</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -4269,6 +4556,7 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <name>MainWindow</name>
     <message>
         <source>Amethyst Mod Manager - v{0}</source>
+        <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
         <translation>Amethyst Mod Manager - v{0}</translation>
     </message>
     <message>
@@ -4302,6 +4590,120 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <message>
         <source>Check Updates</source>
         <translation>Controleer op updates</translation>
+    </message>
+    <message>
+        <source>{0} game - {1}</source>
+        <translation>{0} spel - {1}</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
+        <translation>Controleer de uitvoerbare bestanden om toe te voegen aan het menu Uitvoeren. Deze lopen vanaf hun locatie in de game map - inclusief bestanden die daar door mods worden ingezet.</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
+        <translation>Amethist kon {0} niet starten.
+
+Druk op Deploy om je mods toe te passen, start dan het spel van Steam, Heroic, Lutris of Faugus - de geïmplementeerde mods blijven actief maar het spel wordt gestart.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - deploy again when it finishes.</source>
+        <translation>Een mod installatie is in uitvoering - opnieuw inzetten als het klaar is.</translation>
+    </message>
+    <message>
+        <source>A deploy is in progress - try again shortly.</source>
+        <translation>Er is een missie gaande - probeer het binnenkort opnieuw.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - try again when it finishes.</source>
+        <translation>Een mod installatie is bezig - probeer het opnieuw als het klaar is.</translation>
+    </message>
+    <message>
+        <source>Restore queued - it will run after the current install finishes.</source>
+        <translation>Terugzetten in de wachtrij - het zal worden uitgevoerd na de huidige installatie eindigt.</translation>
+    </message>
+    <message>
+        <source>Deploy failed - see log.</source>
+        <translation>Uitzetten mislukt - zie log.</translation>
+    </message>
+    <message>
+        <source>Restore failed - see log.</source>
+        <translation>Herstellen mislukt - zie log.</translation>
+    </message>
+    <message>
+        <source>{0} - done.</source>
+        <translation>{0} - klaar.</translation>
+    </message>
+    <message>
+        <source>{0} - failed (see log).</source>
+        <translation>{0} - mislukt (zie log).</translation>
+    </message>
+    <message>
+        <source>NIF Viewer - {0}</source>
+        <translation>NIF-viewer - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded '{0}' - install it from the Downloads tab.</source>
+        <translation>Gedownload '{0}' - installeer het vanaf het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} archives - install them from the Downloads tab.</source>
+        <translation>Gedownloade {0} archieven - installeer ze vanaf het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Install queued - {0} will install after the current {1} finishes.</source>
+        <translation>In de wachtrij installeren - {0} zal installeren nadat de huidige {1} klaar is.</translation>
+    </message>
+    <message>
+        <source>Install queued - waiting for the current member choice.</source>
+        <translation>In de wachtrij installeren - wachten op de huidige ledenkeuze.</translation>
+    </message>
+    <message>
+        <source>This group has no member profiles - add one first.</source>
+        <translation>Deze groep heeft geen ledenprofielen - voeg er eerst een toe.</translation>
+    </message>
+    <message>
+        <source>Install queued - it will run after the current operation finishes.</source>
+        <translation>In de wachtrij installeren - het zal draaien nadat de huidige bewerking is voltooid.</translation>
+    </message>
+    <message>
+        <source>Install into which member profile?
+('{0}' is a profile group - the mod will be installed there and appear in the group.)</source>
+        <translation>Installeren in welk ledenprofiel?
+('{0}' is een profielgroep - de mod wordt daar geïnstalleerd en verschijnt in de groep.)</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB - including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>Deze mappen staan op een Windows-bestandssysteem:
+
+{0}
+
+NTFS en exFAT drives hebben zwakke schrijfgaranties op Linux: een onreine unmount, stroomverlies, of een dual-boot Windows met Fast Startup ingeschakeld kan stilletjes bestanden afkappen naar 0 KB - inclusief geïmplementeerde mod bestanden en uw mod staging library.
+
+Een Linux bestandssysteem (ext4/btrfs) wordt aanbevolen voor zowel het spel als de mod staging map.
+
+Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de schijven veranderen.</translation>
+    </message>
+    <message>
+        <source>'{0}' belongs to the member profile '{1}' - switch to that profile to rename it.</source>
+        <translation>'{0}' behoort tot het ledenprofiel '{1}' - schakel naar dat profiel om het te hernoemen.</translation>
+    </message>
+    <message>
+        <source>Installed {0} of {1} mods - see log for failures.</source>
+        <translation>Geïnstalleerd {0} van {1} mods - zie log voor storingen.</translation>
+    </message>
+    <message>
+        <source>Install failed - see log.</source>
+        <translation>Installeren mislukt - zie log.</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -4656,16 +5058,8 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>{0} en {1} meer</translation>
     </message>
     <message>
-        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
-        <translation>Een game handler kon niet geladen worden ({0}). Beïnvloede games zijn verborgen, maar uw mods zijn veilig en zie het logboek.</translation>
-    </message>
-    <message>
         <source>Installing 32-bit support (needed to run Windows tools) …</source>
         <translation>Het installeren van 32-bit ondersteuning (nodig om Windows-tools uit te voeren) ..</translation>
-    </message>
-    <message>
-        <source>32-bit support installed — restart the app before running Windows tools.</source>
-        <translation>32-bits ondersteuning geïnstalleerd .</translation>
     </message>
     <message>
         <source>Install-name Rules</source>
@@ -4680,8 +5074,32 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>Zoek mods... (probeer !update, !fomod, ..dds)</translation>
     </message>
     <message>
+        <source>Reset</source>
+        <translation>Opnieuw instellen</translation>
+    </message>
+    <message>
+        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
+        <translation>De wijzigingen van de Mod-bestanden van deze mod ongedaan maken (bovenniveau, Root, uitschakelen). Mod bestanden zelf worden niet aangeraakt.</translation>
+    </message>
+    <message>
         <source>Search files… (try !.dds)</source>
         <translation>Bestanden doorzoeken... (probeer !.dds)</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Map openen</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Uitvoer</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importeren</translation>
+    </message>
+    <message>
+        <source>Search saves… (try !.ess)</source>
+        <translation>Opslaan doorzoeken... (probeer !.ess)</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -4710,6 +5128,10 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <message>
         <source>Install XACT audio (XAudio2)</source>
         <translation>XACT-audio installeren (XAudio2)</translation>
+    </message>
+    <message>
+        <source>Install LAV Filters (radio/music codecs)</source>
+        <translation>LAV-filters installeren (radio/muziekcodecs)</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -4744,14 +5166,6 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>Taalbestanden worden gesynchroniseerd…</translation>
     </message>
     <message>
-        <source>Language files updated — restart to apply.</source>
-        <translation>Taalbestanden bijgewerkt — start het programma opnieuw op om de wijzigingen door te voeren.</translation>
-    </message>
-    <message>
-        <source>Your Nexus session expired — please log in again (Nexus ▸ Login to Nexus).</source>
-        <translation>Uw Nexus-sessie is verlopen. .</translation>
-    </message>
-    <message>
         <source>Welcome</source>
         <translation>Welkom</translation>
     </message>
@@ -4768,14 +5182,6 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
         <translation>De mod wordt gedownload van Nexus…</translation>
     </message>
     <message>
-        <source>Nexus download failed — {0}</source>
-        <translation>Nexus-download mislukt — {0}</translation>
-    </message>
-    <message>
-        <source>Downloaded — no game selected; see Downloads tab.</source>
-        <translation>Gedownload — er is geen spel geselecteerd; zie het tabblad ‘Downloads’.</translation>
-    </message>
-    <message>
         <source>No configured game for Nexus domain '{0}'.</source>
         <translation>Er is geen spel geconfigureerd voor het Nexus-domein '{0}'.</translation>
     </message>
@@ -4790,22 +5196,6 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <message>
         <source>'{0}' has no Nexus Mods page.</source>
         <translation>'{0}' heeft geen Nexus Mods-pagina.</translation>
-    </message>
-    <message>
-        <source>A deploy or removal is already running — try again when it finishes.</source>
-        <translation>Er is al een implementatie of verwijdering bezig — probeer het opnieuw zodra deze is voltooid.</translation>
-    </message>
-    <message>
-        <source>A collection install is running — try again when it finishes.</source>
-        <translation>Er wordt momenteel een collectie geïnstalleerd — probeer het opnieuw zodra dit voltooid is.</translation>
-    </message>
-    <message>
-        <source>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder — this cannot be undone.</source>
-        <translation>Wil je '{0}' en de bijbehorende {1}-mod(s) uit dit profiel verwijderen?
-
-De bijbehorende bestanden worden uit de staging-map verwijderd — dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
         <source>No installed mods from '{0}' were found in this profile.
@@ -4826,10 +5216,6 @@ Wil je het toegevoegde collectievermelding verwijderen?</translation>
     <message>
         <source>Removed appended collection '{0}'.</source>
         <translation>De toegevoegde collectie '{0}' is verwijderd.</translation>
-    </message>
-    <message>
-        <source>Could not remove '{0}' — see the log.</source>
-        <translation>'{0}' kon niet worden verwijderd — zie het logboek.</translation>
     </message>
     <message>
         <source>The active profile isn't a collection profile.</source>
@@ -4912,26 +5298,6 @@ Wil je het toegevoegde collectievermelding verwijderen?</translation>
         <translation>Blijf doorgaan</translation>
     </message>
     <message>
-        <source>Nexus Premium not detected — manual download mode.</source>
-        <translation>Nexus Premium niet gedetecteerd — handmatige downloadmodus.</translation>
-    </message>
-    <message>
-        <source>Paused — {0} installed.</source>
-        <translation>Gepauzeerd {0} geïnstalleerd.</translation>
-    </message>
-    <message>
-        <source>Install paused — {0} mod(s) installed.</source>
-        <translation>Installatie onderbroken — {0} mod(s) geïnstalleerd.</translation>
-    </message>
-    <message>
-        <source>Done — {0}/{1} installed.</source>
-        <translation>Geïnstalleerd {0}/{1}.</translation>
-    </message>
-    <message>
-        <source>Collection installed — {0}/{1} mod(s)</source>
-        <translation>Geïnstalleerde verzameling {0}/{1} mod(s)</translation>
-    </message>
-    <message>
         <source> ({0} skipped)</source>
         <translation>({0} overgeslagen)</translation>
     </message>
@@ -4940,32 +5306,12 @@ Wil je het toegevoegde collectievermelding verwijderen?</translation>
         <translation>Herstel gebundelde mods + profielbestanden..</translation>
     </message>
     <message>
-        <source>Imported — {0}/{1} installed.</source>
-        <translation>Geïmporteerde {0}/{1} geïnstalleerd.</translation>
-    </message>
-    <message>
-        <source>Profile imported — {0}/{1} mod(s)</source>
-        <translation>Profiel geïmporteerde {0}/{1} mod(s)</translation>
-    </message>
-    <message>
         <source>…and {0} more</source>
         <translation>...en {0} meer</translation>
     </message>
     <message>
         <source>Off-site mods to install</source>
         <translation>Te installeren off-site mods</translation>
-    </message>
-    <message>
-        <source>This collection includes {0} off-site mod(s) the installer could not download:
-
-{1}
-
-Download and install them manually — the links are in the collection page's "Off-site mods" panel.</source>
-        <translation>Deze verzameling bevat {0} off-site mod(s) het installatieprogramma kon niet downloaden:
-
-{1}
-
-Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel van de collectiepagina.</translation>
     </message>
     <message>
         <source>OK</source>
@@ -5008,10 +5354,6 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Bijwerken van begeleider..</translation>
     </message>
     <message>
-        <source>Handler update failed — check your connection.</source>
-        <translation>Handler-update is mislukt. Controleer uw verbinding.</translation>
-    </message>
-    <message>
         <source>Handler not found on the Resources branch.</source>
         <translation>Handler niet gevonden op de Resources tak.</translation>
     </message>
@@ -5030,14 +5372,6 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>stable</source>
         <translation>stabiel</translation>
-    </message>
-    <message>
-        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
-        <translation>Het {0} kanaal is niet gepubliceerd op de update remote nog .</translation>
-    </message>
-    <message>
-        <source>An install is finishing — try the collection again in a moment.</source>
-        <translation>Een installatie is klaar met de collectie opnieuw proberen in een moment.</translation>
     </message>
     <message>
         <source>This will stop the install and delete the new profile '{0}'.</source>
@@ -5076,10 +5410,6 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Start eerst 'Inloggen via SSO' en plak vervolgens de code.</translation>
     </message>
     <message>
-        <source>The login session has ended — start 'Login via SSO' again.</source>
-        <translation>De inlogsessie is beëindigd — start 'Inloggen via SSO' opnieuw.</translation>
-    </message>
-    <message>
         <source>Submit</source>
         <translation>Verzenden</translation>
     </message>
@@ -5094,10 +5424,6 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
     <message>
         <source>NXM handler registered.</source>
         <translation>NXM-handler geregistreerd.</translation>
-    </message>
-    <message>
-        <source>Failed to register — xdg-mime not found?</source>
-        <translation>Registratie mislukt — xdg-mime niet gevonden?</translation>
     </message>
     <message>
         <source>NXM handler error: {0}</source>
@@ -5132,10 +5458,6 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Controleren op updates ({0})…</translation>
     </message>
     <message>
-        <source>Update check failed — see the log.</source>
-        <translation>De updatecontrole is mislukt — zie het logboek.</translation>
-    </message>
-    <message>
         <source>All mods are up to date.</source>
         <translation>Alle mods zijn up-to-date.</translation>
     </message>
@@ -5152,24 +5474,12 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>{0}-mod(s) opnieuw installeren; {1} overgeslagen (geen archief gevonden).</translation>
     </message>
     <message>
-        <source>Reinstall — redownloading {0} mod(s)…</source>
-        <translation>Herinstalleren van {0} mod(s)..</translation>
-    </message>
-    <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>{0} mod(s)..</translation>
     </message>
     <message>
         <source>Reinstall</source>
         <translation>Opnieuw installeren</translation>
-    </message>
-    <message>
-        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
-        <translation>Herinstalleren: {0} mod(s) kon niet opnieuw gedownload worden, zie de log.</translation>
-    </message>
-    <message>
-        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
-        <translation>Opnieuw gedownload {0} mod(s); {1} is mislukt Zie de log.</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -5180,20 +5490,168 @@ Download en installeer ze handmatig.De links staan in het "Off-site mods"-paneel
         <translation>Geen mods waarvoor een update via quick-update in de wachtrij staat.</translation>
     </message>
     <message>
-        <source>Quick Update — checking {0} mod(s)…</source>
-        <translation>Korte update — ik ben bezig met het controleren van de mod(s) v{0}…</translation>
-    </message>
-    <message>
-        <source>Quick Update — downloading {0} mod(s)…</source>
-        <translation>Korte update — het downloaden van de mod(s) voor {0} is bezig…</translation>
-    </message>
-    <message>
         <source>Downloading {0} mod(s)…</source>
         <translation>{0}-mod(s) wordt/worden gedownload…</translation>
     </message>
     <message>
         <source>Quick Update</source>
         <translation>Korte update</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
+        <translation>Een game handler kon niet geladen worden ({0}). Beïnvloede games zijn verborgen, maar uw mods zijn veilig - zie het logboek.</translation>
+    </message>
+    <message>
+        <source>32-bit support installed - restart the app before running Windows tools.</source>
+        <translation>32-bit ondersteuning geïnstalleerd - herstart de app voordat Windows-tools worden gestart.</translation>
+    </message>
+    <message>
+        <source>Environment Variables</source>
+        <translation>Milieuvariabelen</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}: {2}</source>
+        <translation>Kon {0} van {1} niet lezen: {2}</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}</source>
+        <translation>Kon {0} van {1} niet lezen</translation>
+    </message>
+    <message>
+        <source>Handler update failed - check your connection.</source>
+        <translation>Handler-update mislukt - controleer uw verbinding.</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet - try again after the next {0} release.</source>
+        <translation>Het {0} kanaal wordt nog niet gepubliceerd op de update afstandsbediening - probeer het opnieuw na de volgende {0} release.</translation>
+    </message>
+    <message>
+        <source>Restart to apply environment variables?</source>
+        <translation>Herstarten om omgevingsvariabelen toe te passen?</translation>
+    </message>
+    <message>
+        <source>Environment variables are applied when Amethyst starts. Restart now?</source>
+        <translation>Omgevingsvariabelen worden toegepast wanneer Amethist begint. Herstarten?</translation>
+    </message>
+    <message>
+        <source>Language files updated - restart to apply.</source>
+        <translation>Taalbestanden bijgewerkt - herstart om toe te passen.</translation>
+    </message>
+    <message>
+        <source>Your Nexus session expired - please log in again (Nexus ▸ Login to Nexus).</source>
+        <translation>Uw Nexus-sessie is verlopen - logt u opnieuw in (Nexus .</translation>
+    </message>
+    <message>
+        <source>Nexus download failed - {0}</source>
+        <translation>Nexus download mislukt - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded - no game selected; see Downloads tab.</source>
+        <translation>Gedownload - geen spel geselecteerd; zie Downloads tabblad.</translation>
+    </message>
+    <message>
+        <source>A deploy or removal is already running - try again when it finishes.</source>
+        <translation>Een implementatie of verwijdering loopt al - probeer het opnieuw als het klaar is.</translation>
+    </message>
+    <message>
+        <source>A collection install is running - try again when it finishes.</source>
+        <translation>Er wordt een collectie geïnstalleerd - probeer het opnieuw als het klaar is.</translation>
+    </message>
+    <message>
+        <source>Remove '{0}' and its {1} mod(s) from this profile?
+
+Their files are deleted from the staging folder - this cannot be undone.</source>
+        <translation>'{0}' en zijn {1} mod(s) uit dit profiel verwijderen?
+
+Hun bestanden worden verwijderd uit de staging map - dit kan niet ongedaan worden gemaakt.</translation>
+    </message>
+    <message>
+        <source>Could not remove '{0}' - see the log.</source>
+        <translation>Kon '{0}' niet verwijderen - zie het logboek.</translation>
+    </message>
+    <message>
+        <source>An install is finishing - try the collection again in a moment.</source>
+        <translation>Een installatie is klaar - probeer de collectie zo weer.</translation>
+    </message>
+    <message>
+        <source>Cancel download?</source>
+        <translation>Downloaden annuleren?</translation>
+    </message>
+    <message>
+        <source>This will stop the download. Archives already downloaded are kept in the Downloads tab.</source>
+        <translation>Dit zal de download stoppen. De reeds gedownloade archieven worden bewaard in het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Cancel Download</source>
+        <translation>Download annuleren</translation>
+    </message>
+    <message>
+        <source>Nexus Premium not detected - manual download mode.</source>
+        <translation>Nexus Premium niet gedetecteerd - handmatige downloadmodus.</translation>
+    </message>
+    <message>
+        <source>Collection download cancelled - the archives already fetched are in the Downloads tab.</source>
+        <translation>Collectiedownload geannuleerd - de reeds opgehaalde archieven staan in het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Paused - {0} installed.</source>
+        <translation>Gepauzeerd - {0} geïnstalleerd.</translation>
+    </message>
+    <message>
+        <source>Install paused - {0} mod(s) installed.</source>
+        <translation>Gepauzeerd installeren - {0} mod(s) geïnstalleerd.</translation>
+    </message>
+    <message>
+        <source>Downloaded {0}/{1} - nothing installed.</source>
+        <translation>Gedownload {0}/{1} - niets geïnstalleerd.</translation>
+    </message>
+    <message>
+        <source>Collection downloaded - {0}/{1} archive(s). Install them from the Downloads tab.</source>
+        <translation>Gedownloade collectie - {0}/{1} archief(s). Installeer ze vanaf het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source> ({0} couldn't be downloaded - see the log)</source>
+        <translation>({0} kon niet worden gedownload - zie het logboek)</translation>
+    </message>
+    <message>
+        <source>Done - {0}/{1} installed.</source>
+        <translation>Klaar - {0}/{1} geïnstalleerd.</translation>
+    </message>
+    <message>
+        <source>Collection installed - {0}/{1} mod(s)</source>
+        <translation>Verzameling geïnstalleerd - {0}/{1} mod(s)</translation>
+    </message>
+    <message>
+        <source>Imported - {0}/{1} installed.</source>
+        <translation>Geïmporteerd - {0}/{1} geïnstalleerd.</translation>
+    </message>
+    <message>
+        <source>Profile imported - {0}/{1} mod(s)</source>
+        <translation>Profiel geïmporteerd - {0}/{1} mod(s)</translation>
+    </message>
+    <message>
+        <source>This collection includes {0} off-site mod(s) the installer could not download:
+
+{1}
+
+Download and install them manually - the links are in the collection page's "Off-site mods" panel.</source>
+        <translation>Deze verzameling bevat {0} off-site mod(s) het installatieprogramma kon niet downloaden:
+
+{1}
+
+Download en installeer ze handmatig - de links staan in het "Off-site mods"-paneel van de collectiepagina.</translation>
+    </message>
+    <message>
+        <source>The login session has ended - start 'Login via SSO' again.</source>
+        <translation>De loginsessie is afgelopen - start 'Login via SSO' opnieuw.</translation>
+    </message>
+    <message>
+        <source>Failed to register - xdg-mime not found?</source>
+        <translation>Kon niet registreren - xdg-mime niet gevonden?</translation>
+    </message>
+    <message>
+        <source>Update check failed - see the log.</source>
+        <translation>Updatecontrole mislukt - zie het logboek.</translation>
     </message>
     <message>
         <source>Updates available</source>
@@ -5206,6 +5664,50 @@ Run Quick Update on all of them now?</source>
         <translation>{0} mod(s) hebben een update beschikbaar.
 
 Snelle update uitvoeren op alle van hen nu?</translation>
+    </message>
+    <message>
+        <source>Reinstalling {0} mod(s), redownloading {1}; {2} skipped.</source>
+        <translation>{0} mod(s), opnieuw downloaden {1}; {2} overgeslagen.</translation>
+    </message>
+    <message>
+        <source>Reinstall - redownloading {0} mod(s)…</source>
+        <translation>Herinstalleren - opnieuw downloaden van {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll land in the Downloads tab.</source>
+        <translation>Premium vereist om opnieuw te downloaden. Opende {0} download pagina(s) - ze zullen landen in het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll reinstall automatically once downloaded.</source>
+        <translation>Premium vereist om opnieuw te downloaden. Opende {0} download pagina(s) - ze zullen automatisch opnieuw installeren zodra gedownload.</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded - see the log.</source>
+        <translation>Herinstalleren: {0} mod(s) kon niet opnieuw worden gedownload - zie de log.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
+        <translation>Opnieuw gedownload {0} mod(s); {1} is mislukt - zie de log.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
+        <translation>Herdownload {0} mod(s) - installeer ze opnieuw vanaf het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Quick Update - checking {0} mod(s)…</source>
+        <translation>Snel bijwerken - controleren {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Quick Update - downloading {0} mod(s)…</source>
+        <translation>Snel bijwerken - {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Quick Update: downloaded {0} update(s) - install them from the Downloads tab.</source>
+        <translation>Snelle update: gedownload {0} update(s) - installeer ze vanaf het tabblad Downloads.</translation>
+    </message>
+    <message>
+        <source>Quick Update: {0} mod(s) couldn't be downloaded - see the log.</source>
+        <translation>Snelle update: {0} mod(s) kon niet worden gedownload - zie de log.</translation>
     </message>
     <message>
         <source>Quick Update: updated {0} mod(s)</source>
@@ -5380,8 +5882,20 @@ Snelle update uitvoeren op alle van hen nu?</translation>
         <translation>Er zijn geen bestanden beschikbaar om te downloaden voor die mod.</translation>
     </message>
     <message>
-        <source>{0} game — {1}</source>
-        <translation>{0} spel — {1}</translation>
+        <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
+        <translation>Log eerst in (Nexus .</translation>
+    </message>
+    <message>
+        <source>Endorse AMM failed - {0}</source>
+        <translation>Advies AMM mislukt - {0}</translation>
+    </message>
+    <message>
+        <source>You've already endorsed - thank you!</source>
+        <translation>Je hebt al ingestemd - dank je!</translation>
+    </message>
+    <message>
+        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page - please download it there first, then endorse.</source>
+        <translation>Nexus laat je de app alleen goedkeuren nadat je hem minstens één keer hebt gedownload. Openen van de AMM pagina - download het daar eerst, dan ondersteun.</translation>
     </message>
     <message>
         <source>{0} game</source>
@@ -5432,6 +5946,14 @@ Snelle update uitvoeren op alle van hen nu?</translation>
         <translation>Profielinstellingen</translation>
     </message>
     <message>
+        <source>Profile Groups aren't supported for this game.</source>
+        <translation>Profielgroepen worden niet ondersteund voor dit spel.</translation>
+    </message>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Profielgroepen</translation>
+    </message>
+    <message>
         <source>Profile '{0}' already exists.</source>
         <translation>Het profiel '{0}' bestaat al.</translation>
     </message>
@@ -5464,10 +5986,6 @@ Snelle update uitvoeren op alle van hen nu?</translation>
         <translation>Uitvoerbaar bestand uit gamemap toevoegen</translation>
     </message>
     <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
-        <translation>Controleer de uitvoerbare bestanden om toe te voegen aan het menu Uitvoeren. Deze worden uitgevoerd vanaf hun locatie in de game map met inbegrip van bestanden die daar door mods.</translation>
-    </message>
-    <message>
         <source>Executable not found: {0}</source>
         <translation>Uitvoerbaar bestand niet gevonden: {0}</translation>
     </message>
@@ -5488,14 +6006,6 @@ Snelle update uitvoeren op alle van hen nu?</translation>
         <translation>{0} wordt geïnstalleerd…</translation>
     </message>
     <message>
-        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
-        <translation>Premium vereist om opnieuw te downloaden. Opende {0} download pagina(s) .</translation>
-    </message>
-    <message>
-        <source>A deploy is in progress — try again shortly.</source>
-        <translation>Er vindt momenteel een implementatie plaats — probeer het straks nog eens.</translation>
-    </message>
-    <message>
         <source>Restoring {0}…</source>
         <translation>{0} wordt hersteld…</translation>
     </message>
@@ -5510,14 +6020,6 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     <message>
         <source>{0} Restored</source>
         <translation>{0} Gerestaureerd</translation>
-    </message>
-    <message>
-        <source>Deploy failed — see log.</source>
-        <translation>De implementatie is mislukt — zie het logboek.</translation>
-    </message>
-    <message>
-        <source>Restore failed — see log.</source>
-        <translation>Herstel is mislukt — zie logboek.</translation>
     </message>
     <message>
         <source>{0} is not configured for this game.</source>
@@ -5594,14 +6096,6 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     <message>
         <source>{0}…</source>
         <translation>{0}…</translation>
-    </message>
-    <message>
-        <source>{0} — done.</source>
-        <translation>{0} — klaar.</translation>
-    </message>
-    <message>
-        <source>{0} — failed (see log).</source>
-        <translation>{0} — mislukt (zie logboek).</translation>
     </message>
     <message>
         <source>No game selected</source>
@@ -5684,16 +6178,80 @@ Snelle update uitvoeren op alle van hen nu?</translation>
         <translation>{0} geïnstalleerd</translation>
     </message>
     <message>
-        <source>the game</source>
-        <translation>het spel</translation>
+        <source>Undo every Mod Files change for "{0}" - Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</source>
+        <translation>Maak elke Mod Files wijzigen voor "{0}" - Top Level promoties, Root map tags en uitgeschakelde bestanden? De eigen bestanden van de mod worden niet aangeraakt.</translation>
     </message>
     <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
-        <translation>Amethist kon {0} niet starten.
-
-Druk op Deploy om uw mods toe te passen, dan start het spel van Steam, Heroic of Lutris in plaats daarvan . . de geïmplementeerde mods blijven actief hoe het spel wordt gestart.</translation>
+        <source>Profile is deployed - run Restore first, then pack the {0}.</source>
+        <translation>Profiel wordt ingezet - eerst herstellen uitvoeren, dan de {0} inpakken.</translation>
+    </message>
+    <message>
+        <source>Profile is deployed - run Restore first, then unpack.</source>
+        <translation>Profiel wordt ingezet - run Restore eerst, vervolgens uitpakken.</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder - usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>{0} plugins in dit profiel hebben geen bestand in zijn mods, overschrijven, of game map - meestal restjes van verwijderde mods of een ander profiel laden orde. Haal ze uit de ladingsorder? Mod-bestanden worden niet aangeraakt.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure groups.</source>
+        <translation>Geen actief profiel - kan groepen niet configureren.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure plugin rules.</source>
+        <translation>Geen actief profiel - kan pluginregels niet instellen.</translation>
+    </message>
+    <message>
+        <source>userlist.yaml not found - cannot flip rule.</source>
+        <translation>gebruikerslijst.yaml niet gevonden - kan de regel niet omdraaien.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot edit userlist.</source>
+        <translation>Geen actief profiel - kan gebruikerslijst niet bewerken.</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot assign group.</source>
+        <translation>Geen actief profiel - kan groep niet toewijzen.</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot sort.</source>
+        <translation>LOOT-bibliotheek niet beschikbaar - kan niet sorteren.</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed - see log.</source>
+        <translation>LOOT-verversen mislukt - zie log.</translation>
+    </message>
+    <message>
+        <source>LOOT sort failed - see log.</source>
+        <translation>LOOT-sortering mislukt - zie log.</translation>
+    </message>
+    <message>
+        <source>Sorted - 1 plugin moved.</source>
+        <translation>Gesorteerd - 1 plugin verplaatst.</translation>
+    </message>
+    <message>
+        <source>Sorted - {0} plugins moved.</source>
+        <translation>Gesorteerd - {0}-plugins verplaatst.</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot check overlap.</source>
+        <translation>LOOT-bibliotheek niet beschikbaar - kan overlapping niet controleren.</translation>
+    </message>
+    <message>
+        <source>Overlap check failed - see log.</source>
+        <translation>Controle overlap mislukt - zie log.</translation>
+    </message>
+    <message>
+        <source>{0} overlaps {1} plugin(s) - highlighted in list</source>
+        <translation>{0} overlapt {1}-plugin(s) - gemarkeerd in lijst</translation>
+    </message>
+    <message>
+        <source>Saves</source>
+        <translation>Opslaan</translation>
+    </message>
+    <message>
+        <source>the game</source>
+        <translation>het spel</translation>
     </message>
     <message>
         <source>Details: {0}</source>
@@ -5704,52 +6262,28 @@ Druk op Deploy om uw mods toe te passen, dan start het spel van Steam, Heroic of
         <translation>Het spel is niet gestart</translation>
     </message>
     <message>
-        <source>A mod install is in progress — deploy again when it finishes.</source>
-        <translation>Een mod install is in uitvoering en zet opnieuw in wanneer het klaar is.</translation>
+        <source>Profile groups…</source>
+        <translation>Profielgroepen..</translation>
     </message>
     <message>
-        <source>A mod install is in progress — try again when it finishes.</source>
-        <translation>Een mod installatie is aan de gang Probeer het opnieuw als het klaar is.</translation>
+        <source>Installing LAV Filters</source>
+        <translation>LAV-filters installeren</translation>
     </message>
     <message>
-        <source>Restore queued — it will run after the current install finishes.</source>
-        <translation>Terugzetten in de wachtrij wordt uitgevoerd nadat de huidige installatie is voltooid.</translation>
+        <source>Install cancelled.</source>
+        <translation>Installeer geannuleerd.</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Installeren</translation>
     </message>
     <message>
         <source>Windows filesystem detected</source>
         <translation>Windows-bestandssysteem gedetecteerd</translation>
     </message>
     <message>
-        <source>These folders are on a Windows filesystem:
-
-{0}
-
-NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
-
-A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
-
-If you continue, this warning won't be shown again for {1} unless the drives change.</source>
-        <translation>Deze mappen staan op een Windows-bestandssysteem:
-
-{0}
-
-NTFS en exFAT drives hebben zwakke schrijfgaranties op Linux: een onreine unmount, stroomuitval, of een dual-boot Windows met Fast Startup ingeschakeld kan stilletjes bestanden afkappen naar 0 KB 
-
-Een Linux bestandssysteem (ext4/btrfs) wordt aanbevolen voor zowel het spel als de mod staging map.
-
-Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de schijven veranderen.</translation>
-    </message>
-    <message>
         <source>Installed {0} mods</source>
         <translation>{0}-mods geïnstalleerd</translation>
-    </message>
-    <message>
-        <source>Installed {0} of {1} mods — see log for failures.</source>
-        <translation>{0}en van de {1}-mods geïnstalleerd — zie het logboek voor mislukkingen.</translation>
-    </message>
-    <message>
-        <source>Install failed — see log.</source>
-        <translation>Installatie is mislukt — zie logboek.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -5760,6 +6294,14 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
         <translation>Pak het bestand „{0}” uit</translation>
     </message>
     <message>
+        <source>Reset Mod Files changes for {0}</source>
+        <translation>Modbestanden wijzigen voor {0}</translation>
+    </message>
+    <message>
+        <source>Reset Mod Files changes</source>
+        <translation>Mod-bestanden wijzigen</translation>
+    </message>
+    <message>
         <source>An archive operation is already running.</source>
         <translation>Er is al een archiveringsproces aan de gang.</translation>
     </message>
@@ -5768,16 +6310,8 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
         <translation>De map 'Mod' is niet gevonden.</translation>
     </message>
     <message>
-        <source>Profile is deployed — run Restore first, then pack the {0}.</source>
-        <translation>Het profiel is geïmplementeerd — voer eerst ‘Restore’ uit en pak vervolgens de ‘{0}’ in.</translation>
-    </message>
-    <message>
         <source>Packing {0}…</source>
         <translation>Verpakkings{0}…</translation>
-    </message>
-    <message>
-        <source>Profile is deployed — run Restore first, then unpack.</source>
-        <translation>Het profiel is geïmplementeerd — voer eerst 'Restore' uit en pak het vervolgens uit.</translation>
     </message>
     <message>
         <source>Unpacking {0} archive(s)…</source>
@@ -5916,24 +6450,12 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
         <translation>File-plugins verwijderen</translation>
     </message>
     <message>
-        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
-        <translation>{0} plugins in dit profiel hebben geen bestand in zijn mods, overschrijven, of game map  Haal ze uit de ladingsorder? Mod-bestanden worden niet aangeraakt.</translation>
-    </message>
-    <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
         <translation>LOOT-metadata voor {0}-plugins wordt ververst..</translation>
     </message>
     <message>
-        <source>LOOT refresh failed — see log.</source>
-        <translation>LOOT-verversen is mislukt, zie log.</translation>
-    </message>
-    <message>
         <source>Plugin metadata refreshed.</source>
         <translation>Plugin metadata vernieuwd.</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot check overlap.</source>
-        <translation>LOOT-bibliotheek is niet beschikbaar.</translation>
     </message>
     <message>
         <source>An overlap check is already running.</source>
@@ -5944,16 +6466,8 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
         <translation>Controleren record-overlap voor {0}..</translation>
     </message>
     <message>
-        <source>Overlap check failed — see log.</source>
-        <translation>Overlapcontrole is mislukt, zie log.</translation>
-    </message>
-    <message>
         <source>{0}: no record overlap with other plugins.</source>
         <translation>{0}: geen record overlap met andere plugins.</translation>
-    </message>
-    <message>
-        <source>{0} overlaps {1} plugin(s) — highlighted in list</source>
-        <translation>{0} overlapt {1}-plugin(s)</translation>
     </message>
     <message>
         <source>+ Add exe from staging…</source>
@@ -5968,20 +6482,12 @@ Als u doorgaat, wordt deze waarschuwing niet meer getoond voor {1} tenzij de sch
         <translation>Plug-ins</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure groups.</source>
-        <translation>Geen actief profiel — groepen kunnen niet worden geconfigureerd.</translation>
-    </message>
-    <message>
         <source>install</source>
         <translation>installeren</translation>
     </message>
     <message>
         <source>deploy</source>
         <translation>implementeren</translation>
-    </message>
-    <message>
-        <source>Install queued — {0} will install after the current {1} finishes.</source>
-        <translation>Installeer wachtrijen {0} zal installeren nadat de huidige {1} klaar is.</translation>
     </message>
     <message>
         <source>Cyber Engine Tweaks is enabled, but cyber_engine_tweaks.asi will be symlinked.
@@ -6004,10 +6510,6 @@ Toch inzetten?</translation>
         <translation>LOOT-groepen</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure plugin rules.</source>
-        <translation>Geen actief profiel — plug-inregels kunnen niet worden geconfigureerd.</translation>
-    </message>
-    <message>
         <source>LOOT Plugin Rules</source>
         <translation>Regels voor de LOOT-plug-in</translation>
     </message>
@@ -6020,10 +6522,6 @@ Toch inzetten?</translation>
         <translation>Plugin-cyclus</translation>
     </message>
     <message>
-        <source>userlist.yaml not found — cannot flip rule.</source>
-        <translation>userlist.yaml niet gevonden — regel kan niet worden omgedraaid.</translation>
-    </message>
-    <message>
         <source>Rule {0} '{1}' {2} not found in userlist.yaml.</source>
         <translation>Regel {0} '{1}' {2} is niet gevonden in userlist.yaml.</translation>
     </message>
@@ -6032,20 +6530,8 @@ Toch inzetten?</translation>
         <translation>Omgedraaid: {0} heet nu ‘{1}’ {2}</translation>
     </message>
     <message>
-        <source>No active profile — cannot edit userlist.</source>
-        <translation>Geen actief profiel — gebruikerslijst kan niet worden bewerkt.</translation>
-    </message>
-    <message>
-        <source>No active profile — cannot assign group.</source>
-        <translation>Geen actief profiel — groep kan niet worden toegewezen.</translation>
-    </message>
-    <message>
         <source>Removed from userlist: {0} plugin(s)</source>
         <translation>Verwijderd uit de gebruikerslijst: {0} plug-in(s)</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot sort.</source>
-        <translation>LOOT-bibliotheek niet beschikbaar — sorteren is niet mogelijk.</translation>
     </message>
     <message>
         <source>LOOT sorting isn't supported for this game.</source>
@@ -6064,24 +6550,12 @@ Toch inzetten?</translation>
         <translation>LOOT uitvoeren op {0}-plugins…</translation>
     </message>
     <message>
-        <source>LOOT sort failed — see log.</source>
-        <translation>Het sorteren van LOOT is mislukt — zie logboek.</translation>
-    </message>
-    <message>
         <source>Failed to write load order: {0}</source>
         <translation>Kan laadvolgorde niet opslaan: {0}</translation>
     </message>
     <message>
         <source>Load order is already sorted.</source>
         <translation>De laadvolgorde is al gesorteerd.</translation>
-    </message>
-    <message>
-        <source>Sorted — 1 plugin moved.</source>
-        <translation>Geregeld — 1 plug-in verplaatst.</translation>
-    </message>
-    <message>
-        <source>Sorted — {0} plugins moved.</source>
-        <translation>Opgelost — De plug-ins van {0} zijn verplaatst.</translation>
     </message>
     <message>
         <source>+ Add custom EXE…</source>
@@ -6166,24 +6640,8 @@ Toch inzetten?</translation>
         <translation>Het changelog-bestand is niet gevonden.</translation>
     </message>
     <message>
-        <source>Log in first (Nexus ▸ Login) — opening the AMM page so you can endorse it there.</source>
-        <translation>Log eerst in (Nexus ▸ Inloggen) — open de AMM-pagina zodat je het daar kunt goedkeuren.</translation>
-    </message>
-    <message>
-        <source>Endorse AMM failed — {0}</source>
-        <translation>Het steunbetuigen aan AMM is mislukt — {0}</translation>
-    </message>
-    <message>
         <source>Thank you for endorsing!</source>
         <translation>Bedankt voor je steun!</translation>
-    </message>
-    <message>
-        <source>You've already endorsed — thank you!</source>
-        <translation>Je hebt je steun al betuigd — bedankt!</translation>
-    </message>
-    <message>
-        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page — please download it there first, then endorse.</source>
-        <translation>Met Nexus kun je de app pas aanbevelen nadat je deze minstens één keer hebt gedownload. Open de AMM-pagina — download de app daar eerst, en beveel hem daarna aan.</translation>
     </message>
     <message>
         <source>Endorse AMM: {0}</source>
@@ -6335,6 +6793,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
         <translation>Topniveau</translation>
     </message>
     <message>
+        <source>Root</source>
+        <translation>Root</translation>
+    </message>
+    <message>
         <source>Disable</source>
         <translation>Uitschakelen</translation>
     </message>
@@ -6463,6 +6925,14 @@ Hoe wil je omgaan met de bestaande mod?</translation>
         <translation>Geselecteerd aanbevelen ({0})</translation>
     </message>
     <message>
+        <source>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</source>
+        <translation>'{0}' behoort tot het vergrendelde profiel '{1}' .</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) skipped — they belong to locked profile(s): {1}.</source>
+        <translation>{0} mod(s) overgeslagen ze behoren tot vergrendeld profiel(s): {1}.</translation>
+    </message>
+    <message>
         <source>Lock Separator</source>
         <translation>Slotafscheider</translation>
     </message>
@@ -6517,6 +6987,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
         <source>Open folder</source>
         <translation>Map openen</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>Openen in NIF-viewer</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -6691,6 +7165,10 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     <message>
         <source>More status filters</source>
         <translation>Meer statusfilters</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Alle filters wissen</translation>
     </message>
     <message>
         <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -6889,6 +7367,10 @@ Klik op Gereed om te sluiten.</translation>
     <message>
         <source>Archive conflict - Full</source>
         <translation>Archiefconflict - volledig</translation>
+    </message>
+    <message>
+        <source>UUID Conflict</source>
+        <translation>UUID-conflict</translation>
     </message>
 </context>
 <context>
@@ -7130,6 +7612,10 @@ of in een versleuteld bestand als er geen sleutelring beschikbaar is).</translat
         <translation>Openen op Nexus</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Downloaden</translation>
+    </message>
+    <message>
         <source>Cancel download detection</source>
         <translation>Downloaddetectie annuleren</translation>
     </message>
@@ -7253,12 +7739,222 @@ Per dag: {1}</translation>
         <translation>Annuleren</translation>
     </message>
     <message>
+        <source>Redownload</source>
+        <translation>Herdownloaden</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Opnieuw installeren</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>Downloaden</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Installeren</translation>
+    </message>
+</context>
+<context>
+    <name>NifPreview</name>
+    <message>
+        <source>View</source>
+        <translation>Bekijken</translation>
+    </message>
+    <message>
+        <source>Textures</source>
+        <translation>Textuur</translation>
+    </message>
+    <message>
+        <source>Normal maps + shine</source>
+        <translation>Normale kaarten + glans</translation>
+    </message>
+    <message>
+        <source>Apply the mesh's normal map and its gloss mask</source>
+        <translation>De normale maaskaart en het glansmasker aanbrengen</translation>
+    </message>
+    <message>
+        <source>Cull backfaces</source>
+        <translation>Tull backfaces</translation>
+    </message>
+    <message>
+        <source>Hide inward-facing triangles - reveals inside-out normals</source>
+        <translation>Verberg naar binnen gerichte driehoeken - onthult van binnenuit normalen</translation>
+    </message>
+    <message>
+        <source>Wireframe</source>
+        <translation>Draadframe</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>Uit</translation>
+    </message>
+    <message>
+        <source>Overlay</source>
+        <translation>Overlay</translation>
+    </message>
+    <message>
+        <source>Lines only</source>
+        <translation>Alleen lijnen</translation>
+    </message>
+    <message>
+        <source>Texture map</source>
+        <translation>Textuurkaart</translation>
+    </message>
+    <message>
+        <source>Diffuse</source>
+        <translation>Diffuse</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>Normaal</translation>
+    </message>
+    <message>
+        <source>Background</source>
+        <translation>Achtergrond</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Licht</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>Grijs</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Donker</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>Zwart</translation>
+    </message>
+    <message>
+        <source>Invert mouse</source>
+        <translation>Muis omkeren</translation>
+    </message>
+    <message>
+        <source>Reverse the drag direction for rotating and panning</source>
+        <translation>Omkeren van de sleeprichting voor draaien en panning</translation>
+    </message>
+    <message>
+        <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
+        <translation>Helderheid - tilt donkere texturen op zonder highlights uit te blazen; dubbelklik om te resetten</translation>
+    </message>
+    <message>
+        <source>Preview this mesh with another mod's copy of its textures</source>
+        <translation>Voorbeeld van dit gaas met een kopie van een andere mod van de texturen</translation>
+    </message>
+    <message>
+        <source>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</source>
+        <translation>Sleep om · naar rechts te roteren naar pan · scroll naar zoom · dubbelklik om te herframe</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Bezig met laden…</translation>
+    </message>
+    <message>
+        <source>no drawable geometry</source>
+        <translation>geen tekenbare geometrie</translation>
+    </message>
+    <message>
+        <source>{0} shapes</source>
+        <translation>{0}-vormen</translation>
+    </message>
+    <message>
+        <source>{0} tris</source>
+        <translation>{0} tris</translation>
+    </message>
+    <message>
+        <source>{0}/{1} textured</source>
+        <translation>{0}/{1} textuur</translation>
+    </message>
+    <message>
+        <source>failed: {0}</source>
+        <translation>mislukt: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>NifViewerView</name>
+    <message>
+        <source>NIF Viewer — {0} ▸ {1}</source>
+        <translation>NIF-viewer {0} {1}</translation>
+    </message>
+    <message>
+        <source>NIF Viewer — {0}</source>
+        <translation>NIF-viewer {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>Beeld wordt gescand…</translation>
+    </message>
+    <message>
+        <source>Search meshes and mods…</source>
+        <translation>Zoek meshes en mods..</translation>
+    </message>
+    <message>
+        <source>Match a mesh path, or the name of a mod or archive that provides one</source>
+        <translation>Match een maaspad, of de naam van een mod of archief dat een</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>De lijst beperken tot één kant van de setup</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>Alle bronnen</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>Alleen mods</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>Uitsluitend vanille</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>Alleen overschreven</translation>
+    </message>
+    <message>
+        <source>Show only meshes provided by more than one source</source>
+        <translation>Alleen mazen tonen die door meer dan één bron worden verstrekt</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>Alleen deze mod</translation>
+    </message>
+    <message>
+        <source>Show only meshes {0} provides, alongside the copies they compete with</source>
+        <translation>Toon alleen meshes {0} biedt, naast de kopieën waarmee ze concurreren</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ Sluiten</translation>
+    </message>
+    <message>
+        <source>Expand All</source>
+        <translation>Alles uitvouwen</translation>
+    </message>
+    <message>
+        <source>Collapse All</source>
+        <translation>Alles invouwen</translation>
+    </message>
+    <message>
+        <source>Select a mesh</source>
+        <translation>Kies een maas</translation>
+    </message>
+    <message>
+        <source>{0} meshes</source>
+        <translation>{0} mazen</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Lezen..</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>kon niet gelezen worden</translation>
     </message>
 </context>
 <context>
@@ -7282,6 +7978,21 @@ Per dag: {1}</translation>
     <message>
         <source>Save</source>
         <translation>Opslaan</translation>
+    </message>
+</context>
+<context>
+    <name>NotificationButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>Kennisgevingen</translation>
+    </message>
+    <message>
+        <source>No notifications</source>
+        <translation>Geen meldingen</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>Alles wissen</translation>
     </message>
 </context>
 <context>
@@ -8098,6 +8809,10 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
         <source>Filters</source>
         <translation>Filters</translation>
     </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>Alle filters wissen</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -8175,6 +8890,175 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
 </context>
 <context>
+    <name>ProfileGroupsView</name>
+    <message>
+        <source>Profile Groups</source>
+        <translation>Profielgroepen</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>Groepen</translation>
+    </message>
+    <message>
+        <source>No profile groups yet. A group combines several profiles and deploys them together as one merged profile.</source>
+        <translation>Nog geen profielgroepen. Een groep combineert verschillende profielen en zet ze samen als een samengevoegd profiel.</translation>
+    </message>
+    <message>
+        <source>Not eligible (shared mod pool)</source>
+        <translation>Niet subsidiabel (gedeelde mod pool)</translation>
+    </message>
+    <message>
+        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
+        <translation>Groepsleden hebben profielspecifieke mods nodig, zodat de groep alleen mods bewust aan ze ziet worden toegevoegd. Kopieer de mods van een profiel naar een eigen map (hardlinked, waar mogelijk) zonder extra schijf op hetzelfde bestandssysteem; de gedeelde pool en andere profielen zijn onaangeroerd.</translation>
+    </message>
+    <message>
+        <source>{0} member(s)</source>
+        <translation>{0}-lid(s)</translation>
+    </message>
+    <message>
+        <source>Hide members</source>
+        <translation>Leden verbergen</translation>
+    </message>
+    <message>
+        <source>Members</source>
+        <translation>Leden</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Verwijderen</translation>
+    </message>
+    <message>
+        <source>  (missing)</source>
+        <translation>(ontbrekend)</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>Omhoog</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>Naar beneden gaan</translation>
+    </message>
+    <message>
+        <source>1 = highest priority (its mods win conflicts)</source>
+        <translation>1 = hoogste prioriteit (de wijzigingen winnen conflicten)</translation>
+    </message>
+    <message>
+        <source>+ Add member</source>
+        <translation>+ Lid toevoegen</translation>
+    </message>
+    <message>
+        <source>New group</source>
+        <translation>Nieuwe groep</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>Naam:</translation>
+    </message>
+    <message>
+        <source>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</source>
+        <translation>Nog geen in aanmerking komende ledenprofielen maken een profiel met profielspecifieke mods, of converteren een hieronder.</translation>
+    </message>
+    <message>
+        <source>Merge overwrite / Root Folder files from:</source>
+        <translation>Overschrijven samenvoegen / root map bestanden van:</translation>
+    </message>
+    <message>
+        <source>These profiles have runtime-generated files (overwrite / Root Folder). Checked profiles' files are copied into the group; conflicts use the higher-priority member's copy.</source>
+        <translation>Deze profielen hebben runtime gegenereerde bestanden (overschrijven / root map). De bestanden van gecheckte profielen worden gekopieerd naar de groep; conflicten maken gebruik van de kopie van het hogere prioriteitslid.</translation>
+    </message>
+    <message>
+        <source>Create group</source>
+        <translation>Groep aanmaken</translation>
+    </message>
+    <message>
+        <source>Converting…</source>
+        <translation>Converteren..</translation>
+    </message>
+    <message>
+        <source>Convert to profile-specific…</source>
+        <translation>Naar profielspecifiek omzetten..</translation>
+    </message>
+    <message>
+        <source>Priority (check order): {0}</source>
+        <translation>Prioriteit (controlevolgorde): {0}</translation>
+    </message>
+    <message>
+        <source>Check member profiles in priority order (first checked = highest priority).</source>
+        <translation>Controleer ledenprofielen in volgorde van prioriteit (eerste gecontroleerd = hoogste prioriteit).</translation>
+    </message>
+    <message>
+        <source>An install or deploy is in progress — try again shortly.</source>
+        <translation>Een installatie of implementatie is aan de gang.Probeer het binnenkort opnieuw.</translation>
+    </message>
+    <message>
+        <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
+        <translation>'{0}' wordt momenteel ingezet om het spel eerst te herstellen en vervolgens de groep te bewerken.</translation>
+    </message>
+    <message>
+        <source>Enter a group name.</source>
+        <translation>Voer een groepsnaam in.</translation>
+    </message>
+    <message>
+        <source>Check at least one member profile.</source>
+        <translation>Controleer ten minste één ledenprofiel.</translation>
+    </message>
+    <message>
+        <source>Group creation cancelled.</source>
+        <translation>Groepsaanmaak geannuleerd.</translation>
+    </message>
+    <message>
+        <source>Several members have profile-specific INIs with the same name ({0}).
+Which profile's INI files should the group use for those?</source>
+        <translation>Verschillende leden hebben profielspecifieke INI's met dezelfde naam ({0}).
+Welk profiel van INI-bestanden moet de groep gebruiken voor die?</translation>
+    </message>
+    <message>
+        <source>Use these INIs</source>
+        <translation>Gebruik deze INI's</translation>
+    </message>
+    <message>
+        <source>Could not create group: {0}</source>
+        <translation>Kon groep niet aanmaken: {0}</translation>
+    </message>
+    <message>
+        <source>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
+        <translation>De profielgroep '{0}' verwijderen?
+
+Alleen de groep zelf wordt verwijderd  Het spel wordt eerst hersteld als deze groep wordt ingezet.</translation>
+    </message>
+    <message>
+        <source>Remove Group</source>
+        <translation>Groep verwijderen</translation>
+    </message>
+    <message>
+        <source>Convert Profile</source>
+        <translation>Profiel omzetten</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' to profile-specific mods?
+
+Its listed mods are copied into the profile's own mods folder (hardlinked where possible). The shared pool and other profiles are not changed.</source>
+        <translation>'{0}' omzetten naar profielspecifieke mods?
+
+De getoonde mods worden gekopieerd naar de eigen mods-map van het profiel (hardlinked waar mogelijk). De gedeelde pool en andere profielen worden niet gewijzigd.</translation>
+    </message>
+    <message>
+        <source>Convert</source>
+        <translation>Omzetten</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' converted — it can now join groups.</source>
+        <translation>Profiel '{0}' is geconverteerd en kan nu bij groepen worden aangesloten.</translation>
+    </message>
+    <message>
+        <source>Convert of '{0}' failed — see the log.</source>
+        <translation>Converteren van '{0}' is mislukt.</translation>
+    </message>
+</context>
+<context>
     <name>ProfileSettingsView</name>
     <message>
         <source>Profile Settings</source>
@@ -8203,6 +9087,10 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     <message>
         <source>Cancel</source>
         <translation>Annuleren</translation>
+    </message>
+    <message>
+        <source>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</source>
+        <translation>'{0}' is lid van de ingezette groep '{1}' en herstelt het spel eerst en verwijdert het dan.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -8857,6 +9745,247 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
 </context>
 <context>
+    <name>SavePreviewPane</name>
+    <message>
+        <source>This file could not be read as a save.</source>
+        <translation>Dit bestand kon niet worden gelezen als een opslag.</translation>
+    </message>
+    <message>
+        <source>No screenshot</source>
+        <translation>Geen schermafdruk</translation>
+    </message>
+    <message>
+        <source>Click to open full size</source>
+        <translation>Klik om volledige grootte te openen</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>Schermafdruk</translation>
+    </message>
+    <message>
+        <source>Character</source>
+        <translation>Teken</translation>
+    </message>
+    <message>
+        <source>Level</source>
+        <translation>Niveau</translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation>Locatie</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>Speeltijd</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Titel</translation>
+    </message>
+    <message>
+        <source>Race</source>
+        <translation>Ras</translation>
+    </message>
+    <message>
+        <source>Sex</source>
+        <translation>Geslacht</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>Opgeslagen</translation>
+    </message>
+    <message>
+        <source>Save number</source>
+        <translation>Nummer opslaan</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Spel</translation>
+    </message>
+    <message>
+        <source>Only part of this save could be read.</source>
+        <translation>Slechts een deel van deze save kon gelezen worden.</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>Plug-ins</translation>
+    </message>
+    <message>
+        <source>Not recorded in this save.</source>
+        <translation>Niet opgenomen in deze opslag.</translation>
+    </message>
+    <message>
+        <source>Could not be read.</source>
+        <translation>Kan niet gelezen worden.</translation>
+    </message>
+    <message>
+        <source>Plugins ({0} · {1} ESL)</source>
+        <translation>Plugins ({0} · {1} ESL)</translation>
+    </message>
+    <message>
+        <source>Plugins ({0})</source>
+        <translation>Plugins ({0})</translation>
+    </message>
+    <message>
+        <source>Not in this profile's load order.</source>
+        <translation>Niet in dit profiel.</translation>
+    </message>
+</context>
+<context>
+    <name>SavesView</name>
+    <message>
+        <source>Name</source>
+        <extracomment>One expanded folder's listing, from the worker that read it. Footer summary text ("2 location(s) · 41 entries · 1.2 GB"). True when a row is selected, so the footer's Open folder button syncs. False while an export/import runs, so the footer disables its buttons. (ok, message) from an export/import worker → UI thread. The pickers' callbacks fire on a portal WORKER thread; marshal the chosen path to the GUI thread before touching any widget. Transient one-line notice for the footer (progress / result). A parsed save header for the details pane, from the parse worker. The listed file types changed, so the Filters panel can restock its list.</extracomment>
+        <translation>Naam</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Afmetingen</translation>
+    </message>
+    <message>
+        <source>Modified</source>
+        <translation>Gewijzigd</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>Er is geen geconfigureerd spel geselecteerd.</translation>
+    </message>
+    <message>
+        <source>Looking for save folders…</source>
+        <translation>Op zoek naar opgeslagen mappen..</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>Lezen..</translation>
+    </message>
+    <message>
+        <source>{0}   [profile saves -{1}]</source>
+        <translation>{0} [profiel slaat -{1} op]</translation>
+    </message>
+    <message>
+        <source>{0}   ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>(not created yet -the game saves here)</source>
+        <translation>(nog niet aangemaakt - het spel slaat hier op)</translation>
+    </message>
+    <message>
+        <source>(no {0} saves here yet)</source>
+        <translation>(nog geen {0} opgeslagen)</translation>
+    </message>
+    <message>
+        <source>No save folders found for this game. Either it keeps its saves somewhere the Ludusavi manifest does not know about, it stores them in the cloud, or it has not been played yet.</source>
+        <translation>Geen opgeslagen mappen gevonden voor dit spel. Of het bewaart zijn reddingen ergens waar het Ludusavi manifest niet weet, het slaat ze op in de cloud, of het is nog niet afgespeeld.</translation>
+    </message>
+    <message>
+        <source>{0} save locations</source>
+        <translation>{0} locaties opslaan</translation>
+    </message>
+    <message>
+        <source>(no ext)</source>
+        <translation>(geen ext)</translation>
+    </message>
+    <message>
+        <source>{0} of {1} entries shown</source>
+        <translation>{0} van {1}-items getoond</translation>
+    </message>
+    <message>
+        <source>Reading save…</source>
+        <translation>Opslaan lezen..</translation>
+    </message>
+    <message>
+        <source>Export saves</source>
+        <translation>Export opslaan</translation>
+    </message>
+    <message>
+        <source>Zip archives (*.zip)</source>
+        <translation>Zip-archieven (*.zip)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Alle bestanden</translation>
+    </message>
+    <message>
+        <source>Packing saves…</source>
+        <translation>Inpakken redt..</translation>
+    </message>
+    <message>
+        <source>Export failed.</source>
+        <translation>Exporteren mislukt.</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>Exporteren is mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Exported {0} file(s) ({1}) to {2}</source>
+        <translation>Geexporteerd {0} bestand(s) ({1}) naar {2}</translation>
+    </message>
+    <message>
+        <source>Import saves</source>
+        <translation>Import opslaan</translation>
+    </message>
+    <message>
+        <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
+        <translation>De huidige inhoud wordt eerst verplaatst naar een "{0}" map, zodat er niets verloren gaat.</translation>
+    </message>
+    <message>
+        <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
+        <translation>De huidige {0}-bestanden worden opzij geschoven naar een "{1}" map, zodat er niets verloren gaat.</translation>
+    </message>
+    <message>
+        <source>Import saves?</source>
+        <translation>Import opslaan?</translation>
+    </message>
+    <message>
+        <source>Extract {0} into
+{1}
+
+{2}</source>
+        <translation>{0} uitpakken in
+{1}
+
+{2}</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Importeren</translation>
+    </message>
+    <message>
+        <source>Extracting saves…</source>
+        <translation>Uitpakken van opslaan..</translation>
+    </message>
+    <message>
+        <source>Import failed.</source>
+        <translation>Importeren mislukt.</translation>
+    </message>
+    <message>
+        <source>Import failed: {0}</source>
+        <translation>Importeren mislukt: {0}</translation>
+    </message>
+    <message>
+        <source>Imported {0} file(s) ({1}).</source>
+        <translation>Geïmporteerd {0} bestand(s) ({1}).</translation>
+    </message>
+    <message>
+        <source>{0}   [in prefix]</source>
+        <translation>{0} [in voorvoegsel]</translation>
+    </message>
+    <message>
+        <source>… only the first {0} entries are shown</source>
+        <translation>... alleen de eerste {0}-items worden getoond</translation>
+    </message>
+    <message>
+        <source>(empty)</source>
+        <translation>(leeg)</translation>
+    </message>
+    <message>
+        <source>{0} location(s) · {1} entries · {2}</source>
+        <translation>{0} locatie(s) · {1} ingangen · {2}</translation>
+    </message>
+</context>
+<context>
     <name>ScriptExtenderView</name>
     <message>
         <source>Install Script Extender — {0}</source>
@@ -9356,10 +10485,6 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Archief na installatie wissen</translation>
     </message>
     <message>
-        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself — installs from the Install Mod button or the Downloads tab keep their archive.</source>
-        <translation>Verwijder het gedownloade archief van een mod nadat het is uitgepakt. Alleen van toepassing op archieven die Amethyst zelf heeft gedownload.Installeer Mod of het tabblad Downloads houdt het archief bij.</translation>
-    </message>
-    <message>
         <source>Keep FOMOD archives</source>
         <translation>Bewaar de FOMOD-archieven</translation>
     </message>
@@ -9456,10 +10581,6 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Aangepaste installatienaamregels bewerken..</translation>
     </message>
     <message>
-        <source>Add your own regex search/replace rules to clean up mod names on install — useful when a download site changes its filename format.</source>
-        <translation>Voeg uw eigen regex zoek-/vervangregels toe om mod-namen op te ruimen bij installeren, nuttig wanneer een download-site zijn bestandsnaamformaat wijzigt.</translation>
-    </message>
-    <message>
         <source>Restore on close</source>
         <translation>Terugzetten bij het sluiten</translation>
     </message>
@@ -9480,10 +10601,6 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Bericht over nieuwe versies bij opstarten</translation>
     </message>
     <message>
-        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
-        <translation>Een melding tonen wanneer een nieuwe versie van Amethist beschikbaar is. Het uitschakelen van deze uit slechts de notificatie tempert .</translation>
-    </message>
-    <message>
         <source>Enable automatic updates…</source>
         <translation>Automatische updates inschakelen..</translation>
     </message>
@@ -9496,12 +10613,32 @@ Uw conflicten samenvoegen, dan sluiten en klik op Klaar.</translation>
         <translation>Archieven</translation>
     </message>
     <message>
+        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive.</source>
+        <translation>Verwijder het gedownloade archief van een mod nadat het is uitgepakt. Alleen van toepassing op archieven die Amethist zelf heeft gedownload - installeert vanaf de knop Mod installeren of het tabblad Downloads houdt hun archief.</translation>
+    </message>
+    <message>
         <source>Downloads</source>
         <translation>Downloads</translation>
     </message>
     <message>
+        <source>Download only (don't install)</source>
+        <translation>Alleen downloaden (niet installeren)</translation>
+    </message>
+    <message>
+        <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+        <translation>Downloads worden opgeslagen in de cache maar niet geïnstalleerd. Geldt voor nxm:// links, de Nexus browser, Versie wijzigen, collectie installeert, vereiste downloads en update/herinstalleren herdownloaden - hun Install knoppen worden Download. Installeer ze zelf vanaf het tabblad Downloads of de knop Mod installeren.</translation>
+    </message>
+    <message>
         <source>Extraction</source>
         <translation>Extractie</translation>
+    </message>
+    <message>
+        <source>Add your own regex search/replace rules to clean up mod names on install - useful when a download site changes its filename format.</source>
+        <translation>Voeg uw eigen regex zoek-/vervangregels toe om mod namen op te ruimen bij installeren - nuttig wanneer een download site zijn bestandsnaam formaat wijzigt.</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification - you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>Een melding tonen wanneer een nieuwe versie van Amethist beschikbaar is. Het uitschakelen van dit uit slechts de melding mouten - u kunt nog steeds bijwerken via uw pakketbeheerder of door het schakelen van de pre-release instelling.</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9592,8 +10729,24 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Lutris-appAfbeelding</translation>
     </message>
     <message>
-        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</source>
-        <translation>Pad naar de Lutris AppImage, dus Speel kan het direct starten. Alleen nodig voor AppImage installs laat leeg voor Flatpak of native Lutris.</translation>
+        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Lutris.</source>
+        <translation>Pad naar de Lutris AppImage, dus Speel kan het direct starten. Alleen nodig voor AppImage installatie - laat leeg voor Flatpak of native Lutris.</translation>
+    </message>
+    <message>
+        <source>Path to the Faugus Launcher AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Faugus.</source>
+        <translation>Pad naar de Faugus Launcher AppImage, dus Play kan het direct starten. Alleen nodig voor AppImage installatie - laat leeg voor Flatpak of native Faugus.</translation>
+    </message>
+    <message>
+        <source>Faugus Data Location</source>
+        <translation>Faugus Data Locatie</translation>
+    </message>
+    <message>
+        <source>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</source>
+        <translation>Map met Faugus Launcher spellen.json. Blanco = automatisch detecteren (Flatpak en inheemse locaties).</translation>
+    </message>
+    <message>
+        <source>Faugus AppImage</source>
+        <translation>Faugus AppAfbeelding</translation>
     </message>
     <message>
         <source>Steam libraryfolders.vdf</source>
@@ -9602,6 +10755,26 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
         <translation>Pad naar libraryfolders.vdf (of de bijbehorende map). Leeg = automatisch detecteren (standaardlocaties, Flatpak- en Snap-locaties).</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Geavanceerd</translation>
+    </message>
+    <message>
+        <source>Set environment variables that Amethyst applies to itself every time it starts - kill switches, diagnostics and graphics options that otherwise need a terminal launch. Pick from the supported list or add your own.</source>
+        <translation>Stel omgevingsvariabelen in die Amethist op zichzelf toepast elke keer dat het start - kill switches, diagnostics en grafische opties die anders een terminal lancering nodig hebben. Kies uit de ondersteunde lijst of voeg uw eigen lijst toe.</translation>
+    </message>
+    <message>
+        <source>Edit environment variables…</source>
+        <translation>Omgevingsvariabelen bewerken..</translation>
+    </message>
+    <message>
+        <source>{0} set: {1}</source>
+        <translation>{0} set: {1}</translation>
+    </message>
+    <message>
+        <source>None set</source>
+        <translation>Geen set</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -10346,6 +11519,17 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     <message>
         <source>Cancel</source>
         <translation>Annuleren</translation>
+    </message>
+</context>
+<context>
+    <name>TextureSourceController</name>
+    <message>
+        <source>Textures: as the game loads</source>
+        <translation>Textures: als het spel laadt</translation>
+    </message>
+    <message>
+        <source>Textures: {0} ({1}/{2})</source>
+        <translation>Textures: {0} ({1}/{2})</translation>
     </message>
 </context>
 <context>
@@ -11679,7 +12863,7 @@ Nieuwste versie:  {1}</translation>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
-        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <extracomment>Slug carried on each page-list row (absent on the sidebar's group headers). Horizontal room left for the scrollbar/margins when scaling an image. Extra height above a sidebar group header, to set its group apart.</extracomment>
         <translation>Vernieuwen</translation>
     </message>
     <message>
@@ -11699,6 +12883,10 @@ Check your connection and press Refresh — pages you have already opened stay r
 Controleer uw verbinding en druk op Refresh .</translation>
     </message>
     <message>
+        <source>Other pages</source>
+        <translation>Andere bladzijden</translation>
+    </message>
+    <message>
         <source>Could not load “{0}”.
 
 Press Refresh to try again.</source>
@@ -11713,6 +12901,10 @@ Druk op Refresh om het opnieuw te proberen.</translation>
     <message>
         <source>Updated.</source>
         <translation>Bijgewerkt.</translation>
+    </message>
+    <message>
+        <source>Click an import code to load it.</source>
+        <translation>Klik op een importcode om het te laden.</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -12227,6 +13419,17 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
     </message>
 </context>
 <context>
+    <name>_NoGLViewport</name>
+    <message>
+        <source>3D preview is unavailable on this system.</source>
+        <translation>3D preview is niet beschikbaar op dit systeem.</translation>
+    </message>
+    <message>
+        <source>no OpenGL</source>
+        <translation>geen OpenGL</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -12289,6 +13492,10 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
     <message>
         <source>Install</source>
         <translation>Installeren</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Downloaden</translation>
     </message>
 </context>
 <context>
@@ -12393,6 +13600,33 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
     <message>
         <source>Files swept into Overwrite (newest restore first)</source>
         <translation>Bestanden die naar de map „Overwrite“ zijn verplaatst (nieuwste herstelbewerking eerst)</translation>
+    </message>
+    <message>
+        <source>Apply this variable at startup</source>
+        <translation>Deze variabele toepassen bij opstarten</translation>
+    </message>
+    <message>
+        <source>VARIABLE_NAME</source>
+        <translation>VARIABEL NAME</translation>
+    </message>
+    <message>
+        <source>value</source>
+        <translation>waarde</translation>
+    </message>
+    <message>
+        <source>Remove this variable</source>
+        <translation>Deze variabele verwijderen</translation>
+    </message>
+</context>
+<context>
+    <name>widget</name>
+    <message>
+        <source>Male</source>
+        <translation>Man</translation>
+    </message>
+    <message>
+        <source>Female</source>
+        <translation>Vrouwen</translation>
     </message>
 </context>
 </TS>

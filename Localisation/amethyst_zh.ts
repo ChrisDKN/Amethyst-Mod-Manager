@@ -578,6 +578,143 @@ Configure your INI settings, then close it and click Done.</source>
     </message>
 </context>
 <context>
+    <name>BodySlideLinuxView</name>
+    <message>
+        <source>{0} (Linux) — {1}</source>
+        <translation>{0} (Linux) — {1} (英语)</translation>
+    </message>
+    <message>
+        <source>Step 3: Run {0}</source>
+        <translation>第3步:运行 {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Install {0} for Linux</source>
+        <translation>第1步:为 Linux 安装 {0}</translation>
+    </message>
+    <message>
+        <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
+
+No Proton prefix is used — the game, its Data folder and the output folder are passed to the tool directly.</source>
+        <translation>BodSlide和Outfit Studio的原生Linux所建,由每款游戏共享.
+
+没有使用质子前缀——游戏,其数据文件夹和输出文件夹被直接传递到工具上.</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>下一页 →</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Checking for updates…</source>
+        <translation>已安装: {0}. 正在检查更新..</translation>
+    </message>
+    <message>
+        <source>Not installed. Checking GitHub for the latest release…</source>
+        <translation>未安装。 正在检查 GitHub 的最新版本..</translation>
+    </message>
+    <message>
+        <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
+        <translation>已安装: {0}. 无法联系到 GitHub 以查看更新 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>Could not reach GitHub to fetch the release — see log.</source>
+        <translation>无法到达 GitHub 以获取该发布- 见日志 .</translation>
+    </message>
+    <message>
+        <source>Download {0}</source>
+        <translation>下载 {0}</translation>
+    </message>
+    <message>
+        <source>Latest release: {0}.</source>
+        <translation>最近发布:{0}.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>更新到 {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} — {1} is available.</source>
+        <translation>已安装: {0} - {1}可供使用.</translation>
+    </message>
+    <message>
+        <source>Reinstall {0}</source>
+        <translation>赖斯图尔 {0}</translation>
+    </message>
+    <message>
+        <source>Installed: {0} (up to date).</source>
+        <translation>已安装: {0}(最新).</translation>
+    </message>
+    <message>
+        <source>Downloading {0}…</source>
+        <translation>正在下载 {0}…</translation>
+    </message>
+    <message>
+        <source>Extracting…</source>
+        <translation>正在提取……</translation>
+    </message>
+    <message>
+        <source>Installed {0}.</source>
+        <translation>已安装 {0}.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>错误: {0}</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>第2步:部署模块</translation>
+    </message>
+    <message>
+        <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
+
+Built meshes are written to the output mod below, which is added to your mod list.</source>
+        <translation>{0} 从已部署的数据文件夹读取其滑动器和形状, 所以先部署您的调用列表 。
+
+所建meshes被写入下面的输出mod,它被添加到您的mod列表中.</translation>
+    </message>
+    <message>
+        <source>Output mod name:</source>
+        <translation>输出模组名称：</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>跳过</translation>
+    </message>
+    <message>
+        <source>Deploy</source>
+        <translation>部署</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>正在启动 {0}…</translation>
+    </message>
+    <message>
+        <source>{0} is not installed.
+
+Go back and download it first.</source>
+        <translation>{0}没有安装.
+
+先回去下载.</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close it when you are done, then click Done.</source>
+        <translation>{0} 正在运行。
+完成后请将其关闭，然后点击“完成”。</translation>
+    </message>
+    <message>
+        <source>{0} finished.</source>
+        <translation>{0}完成了.</translation>
+    </message>
+    <message>
+        <source>Launch error: {0}</source>
+        <translation>发射错误: {0}</translation>
+    </message>
+</context>
+<context>
     <name>BodySlideView</name>
     <message>
         <source>{0} — {1}</source>
@@ -948,8 +1085,20 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>未找到文件。</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
         <source>View</source>
         <translation>查看</translation>
+    </message>
+    <message>
+        <source>Downloaded — install it from the Downloads tab.</source>
+        <translation>已下载——从"下载"分页中安装.</translation>
+    </message>
+    <message>
+        <source>Installing — the list will refresh when it finishes.</source>
+        <translation>安装中—— 列表完成后会刷新 .</translation>
     </message>
     <message>
         <source>Install</source>
@@ -1052,6 +1201,10 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
     <message>
         <source>Could not load.</source>
         <translation>无法加载。</translation>
+    </message>
+    <message>
+        <source>Download collection</source>
+        <translation>下载收藏</translation>
     </message>
     <message>
         <source>Resume Install</source>
@@ -1182,6 +1335,10 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
     <message>
         <source>Cancel</source>
         <translation>取消</translation>
+    </message>
+    <message>
+        <source>Skip anyway?</source>
+        <translation>跳过吗?</translation>
     </message>
     <message>
         <source>Pausing…</source>
@@ -1393,6 +1550,18 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>恢复默认设置</translation>
     </message>
     <message>
+        <source>Saves Folder (optional)</source>
+        <translation>保存文件夹( 可选)</translation>
+    </message>
+    <message>
+        <source>Detected automatically.</source>
+        <translation>自动检测.</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>清除</translation>
+    </message>
+    <message>
         <source>Options</source>
         <translation>选项</translation>
     </message>
@@ -1461,6 +1630,10 @@ MD5缓存将被保留。压缩包将根据需要重新下载。</translation>
         <translation>已配置自定义暂存文件夹。</translation>
     </message>
     <message>
+        <source>Custom saves folder configured.</source>
+        <translation>自定义保存已配置的文件夹 .</translation>
+    </message>
+    <message>
         <source>Cannot reset to shared settings while mods are deployed. Restore the game first.</source>
         <translation>在模组已部署的情况下无法重置为共享设置。请先恢复游戏。</translation>
     </message>
@@ -1493,12 +1666,20 @@ The default profile's settings are not affected.</source>
         <translation>通过Lutris找到的.</translation>
     </message>
     <message>
+        <source>Found via Faugus Launcher.</source>
+        <translation>通过Faugus发射器找到的.</translation>
+    </message>
+    <message>
         <source>Executable ({0}) not found in this folder — double-check the path.</source>
         <translation>在此文件夹中找不到可执行文件( {0}) —— 双检查路径 .</translation>
     </message>
     <message>
         <source>Executable found.</source>
         <translation>找到可执行文件 .</translation>
+    </message>
+    <message>
+        <source>Custom saves folder selected.</source>
+        <translation>自定义保存选中的文件夹 .</translation>
     </message>
     <message>
         <source>Custom staging folder selected.</source>
@@ -3289,6 +3470,57 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
 </context>
 <context>
+    <name>EnvVarsView</name>
+    <message>
+        <source>Environment variables</source>
+        <translation>环境变量</translation>
+    </message>
+    <message>
+        <source>Variables set here are applied to Amethyst itself every time it starts, so you don't have to launch it from a terminal to use one. Pick a variable Amethyst understands from the dropdown, or add any other one by hand - those are passed on to the tools and games Amethyst launches too.
+
+Changes take effect on the next launch. If a variable ever stops the app from starting, launch it once with AMM_NO_ENV_OVERRIDES=1 to skip them all and fix it here.</source>
+        <translation>这里设定的变量每次启动时都会被应用到Amethyst本身,所以不需要从终端发射来使用. 选择一个变数 Amethyst 从下降中理解, 或增加任何其他一个手 - 这些被传递到工具和游戏 Amethyst 发射。
+
+变化在下一次发射时生效。 如果一个变量阻止了应用程序的启动, 请用 AMM  NO  ENV  OVERRIDES=1 启动一次, 以跳过它们全部并在这里修正 .</translation>
+    </message>
+    <message>
+        <source>Variables</source>
+        <translation>变量</translation>
+    </message>
+    <message>
+        <source>No variables set - add one below.</source>
+        <translation>无变量集 - 在下面添加一个 .</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Add custom variable</source>
+        <translation>添加自定义变量</translation>
+    </message>
+    <message>
+        <source>Add a variable Amethyst doesn't know about - anything your system or a launched tool reads.</source>
+        <translation>添加一个变量 Amethyst 不知道 - 任何您的系统或一个启动的工具读取.</translation>
+    </message>
+    <message>
+        <source>Changes take effect after a restart.</source>
+        <translation>更改在重新启动后生效.</translation>
+    </message>
+    <message>
+        <source>Restart now</source>
+        <translation>立即重启</translation>
+    </message>
+    <message>
+        <source>All supported variables are already listed</source>
+        <translation>已列出所有支持的变量</translation>
+    </message>
+    <message>
+        <source>Failed to save environment variables: {0}</source>
+        <translation>保存环境变量失败: {0}</translation>
+    </message>
+</context>
+<context>
     <name>ExeSettingsView</name>
     <message>
         <source>Install Java into prefix</source>
@@ -3693,6 +3925,21 @@ Click Done to clean up the extracted files and close.</source>
     </message>
 </context>
 <context>
+    <name>FilterMenuButton</name>
+    <message>
+        <source>Filters</source>
+        <translation>筛选条件</translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation>(无)</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>清除所有过滤器</translation>
+    </message>
+</context>
+<context>
     <name>FilterSidePanel</name>
     <message>
         <source>By status</source>
@@ -3869,6 +4116,26 @@ Click Done to clean up the extracted files and close.</source>
     <message>
         <source>Show only not installed</source>
         <translation>仅显示未安装的</translation>
+    </message>
+    <message>
+        <source>Only conflicts</source>
+        <translation>只有冲突</translation>
+    </message>
+    <message>
+        <source>Mod folders</source>
+        <translation>模块文件夹</translation>
+    </message>
+    <message>
+        <source>Profile</source>
+        <translation>简介</translation>
+    </message>
+    <message>
+        <source>Game folder</source>
+        <translation>游戏文件夹</translation>
+    </message>
+    <message>
+        <source>My Games</source>
+        <translation>我的游戏</translation>
     </message>
     <message>
         <source>Clear all</source>
@@ -4200,16 +4467,36 @@ SHA-1: {1} (英语).
 <context>
     <name>LauncherSettingsOverlay</name>
     <message>
-        <source>Launch settings — {0}</source>
-        <translation>启动设置 — {0}</translation>
+        <source>Launch settings - {0}</source>
+        <translation>发射设置 - {0}</translation>
     </message>
     <message>
         <source>Launch via</source>
         <translation>通过以下方式发布</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>自动检测Steam/Heroic/Lutris所有权. 强迫一个特定的发射装置,或者说None总是通过质子直接发射被执行人.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>自动检测Steam/Heroic/Lutris/Faugus所有权. 强迫一个特定的发射装置,或者说None总是通过质子直接发射被执行人.</translation>
+    </message>
+    <message>
+        <source>Launch arguments</source>
+        <translation>启动参数</translation>
+    </message>
+    <message>
+        <source>Arguments passed to the game exe</source>
+        <translation>传给游戏的参数 exe</translation>
+    </message>
+    <message>
+        <source>Launch Options</source>
+        <translation>启动选项</translation>
+    </message>
+    <message>
+        <source>e.g. SteamDeck=0 gamemoderun %command%</source>
+        <translation>例如,SteamDeck=0游戏moderun %命令%</translation>
+    </message>
+    <message>
+        <source>Steam syntax. Empty: the game's own Steam options are used.</source>
+        <translation>蒸气语法. 空:使用游戏自有的Steam选项.</translation>
     </message>
     <message>
         <source>Deploy mods before launching</source>
@@ -4269,6 +4556,7 @@ SHA-1: {1} (英语).
     <name>MainWindow</name>
     <message>
         <source>Amethyst Mod Manager - v{0}</source>
+        <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
         <translation>Amethyst Mod Manager - v{0}</translation>
     </message>
     <message>
@@ -4302,6 +4590,120 @@ SHA-1: {1} (英语).
     <message>
         <source>Check Updates</source>
         <translation>检查更新</translation>
+    </message>
+    <message>
+        <source>{0} game - {1}</source>
+        <translation>{0}游戏 - {1}</translation>
+    </message>
+    <message>
+        <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
+        <translation>检查可执行文件以添加到运行菜单中 。 这些从他们在游戏文件夹中的位置运行——包括Mods部署在那里的文件.</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst无法发射{0}.
+
+按下部署以应用您的模式, 然后从Steam, Heroic, Lutris 或 Faugus 开始游戏 - 部署的模式仍然有效, 但游戏已经开始 .</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - deploy again when it finishes.</source>
+        <translation>一个 Mod 安装正在进行中——完成后再次部署.</translation>
+    </message>
+    <message>
+        <source>A deploy is in progress - try again shortly.</source>
+        <translation>部署正在进行中,很快再试一次.</translation>
+    </message>
+    <message>
+        <source>A mod install is in progress - try again when it finishes.</source>
+        <translation>一个 Mod 安装正在进行中 - 完成后再试一次 .</translation>
+    </message>
+    <message>
+        <source>Restore queued - it will run after the current install finishes.</source>
+        <translation>已还原队列 - 它将在当前安装完成后运行 .</translation>
+    </message>
+    <message>
+        <source>Deploy failed - see log.</source>
+        <translation>部署失败 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>Restore failed - see log.</source>
+        <translation>恢复失败 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>{0} - done.</source>
+        <translation>{0} - 完成了.</translation>
+    </message>
+    <message>
+        <source>{0} - failed (see log).</source>
+        <translation>{0} - 失败( 参见日志) .</translation>
+    </message>
+    <message>
+        <source>NIF Viewer - {0}</source>
+        <translation>NIF 查看器 - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded '{0}' - install it from the Downloads tab.</source>
+        <translation>已下载"{0}" - 从下载分页中安装它 .</translation>
+    </message>
+    <message>
+        <source>Downloaded {0} archives - install them from the Downloads tab.</source>
+        <translation>已下载 {0} 档案 - 从下载分页中安装它们 .</translation>
+    </message>
+    <message>
+        <source>Install queued - {0} will install after the current {1} finishes.</source>
+        <translation>已安装队列 - {0} 将在当前 {1} 完成后安装.</translation>
+    </message>
+    <message>
+        <source>Install queued - waiting for the current member choice.</source>
+        <translation>安装队列 - 等待当前成员的选择 .</translation>
+    </message>
+    <message>
+        <source>This group has no member profiles - add one first.</source>
+        <translation>该组没有成员简介 - 先添加一个 .</translation>
+    </message>
+    <message>
+        <source>Install queued - it will run after the current operation finishes.</source>
+        <translation>已安装队列 - 它将在当前操作完成后运行 .</translation>
+    </message>
+    <message>
+        <source>Install into which member profile?
+('{0}' is a profile group - the mod will be installed there and appear in the group.)</source>
+        <translation>安装到哪个成员配置文件 ?
+('{0}'是一个剖面图组-该模型将安装在那里并出现在组中. )</translation>
+    </message>
+    <message>
+        <source>These folders are on a Windows filesystem:
+
+{0}
+
+NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB - including deployed mod files and your mod staging library.
+
+A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
+
+If you continue, this warning won't be shown again for {1} unless the drives change.</source>
+        <translation>这些文件夹在 Windows 文件系统上 :
+
+第{0}号
+
+NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 失去电源, 或具有快速启动功能的双启动窗口可以默默地将文件切换到 0 KB - 包括已部署的mod 文件以及您的mod中转库 。
+
+为游戏和mod中转文件夹推荐一个 Linux 文件系统(ext4/btrfs) 。
+
+如果您继续, 除非驱动器改变, 此警告将不会再次显示为 {1} .</translation>
+    </message>
+    <message>
+        <source>'{0}' belongs to the member profile '{1}' - switch to that profile to rename it.</source>
+        <translation>'{0}'属于成员配置文件'{1}' - 切换到该配置文件以重命名.</translation>
+    </message>
+    <message>
+        <source>Installed {0} of {1} mods - see log for failures.</source>
+        <translation>已安装 {1} mods 的 {0} - 请参见失败日志 .</translation>
+    </message>
+    <message>
+        <source>Install failed - see log.</source>
+        <translation>安装失败 - 见日志 .</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -4656,16 +5058,8 @@ SHA-1: {1} (英语).
         <translation>增加{0}和{1}</translation>
     </message>
     <message>
-        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe — see the log.</source>
-        <translation>一个游戏处理器未能加载({0}). 受影响的游戏被隐藏,但您的模式是安全的——参见日志.</translation>
-    </message>
-    <message>
         <source>Installing 32-bit support (needed to run Windows tools) …</source>
         <translation>安装32位支持(运行Windows工具需要)..</translation>
-    </message>
-    <message>
-        <source>32-bit support installed — restart the app before running Windows tools.</source>
-        <translation>32位支持已安装——运行Windows工具前重新启动应用程序.</translation>
     </message>
     <message>
         <source>Install-name Rules</source>
@@ -4680,8 +5074,32 @@ SHA-1: {1} (英语).
         <translation>搜索模式... (Try!update,!fomod,!.dds) 搜索模式..</translation>
     </message>
     <message>
+        <source>Reset</source>
+        <translation>重置</translation>
+    </message>
+    <message>
+        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
+        <translation>撤消此模式的 Mod 文件更改( Top Level, Root, Deputy) 。 Mod文件本身没有被触摸.</translation>
+    </message>
+    <message>
         <source>Search files… (try !.dds)</source>
         <translation>搜索文件... (尝试!.dds)</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>打开文件夹</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>导出</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <source>Search saves… (try !.ess)</source>
+        <translation>搜索保存... (尝试!ess)</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -4710,6 +5128,10 @@ SHA-1: {1} (英语).
     <message>
         <source>Install XACT audio (XAudio2)</source>
         <translation>安装 XACT 音频( XAudio2)</translation>
+    </message>
+    <message>
+        <source>Install LAV Filters (radio/music codecs)</source>
+        <translation>安装 LAV 过滤器( 收音机/ 音乐编码器)</translation>
     </message>
     <message>
         <source>Edit custom game…</source>
@@ -4744,14 +5166,6 @@ SHA-1: {1} (英语).
         <translation>正在同步语言文件……</translation>
     </message>
     <message>
-        <source>Language files updated — restart to apply.</source>
-        <translation>语言文件已更新——请重启以使更改生效。</translation>
-    </message>
-    <message>
-        <source>Your Nexus session expired — please log in again (Nexus ▸ Login to Nexus).</source>
-        <translation>您的 Nexus 会话已过期 —— 请再次登录( Nexus QQ 登录到 Nexus) .</translation>
-    </message>
-    <message>
         <source>Welcome</source>
         <translation>欢迎</translation>
     </message>
@@ -4768,14 +5182,6 @@ SHA-1: {1} (英语).
         <translation>正在从Nexus下载模组……</translation>
     </message>
     <message>
-        <source>Nexus download failed — {0}</source>
-        <translation>Nexus 下载失败 — {0}</translation>
-    </message>
-    <message>
-        <source>Downloaded — no game selected; see Downloads tab.</source>
-        <translation>已下载——未选择游戏；请查看“下载”选项卡。</translation>
-    </message>
-    <message>
         <source>No configured game for Nexus domain '{0}'.</source>
         <translation>Nexus 域“{0}”未配置任何游戏。</translation>
     </message>
@@ -4790,22 +5196,6 @@ SHA-1: {1} (英语).
     <message>
         <source>'{0}' has no Nexus Mods page.</source>
         <translation>《{0}》在 Nexus Mods 上没有页面。</translation>
-    </message>
-    <message>
-        <source>A deploy or removal is already running — try again when it finishes.</source>
-        <translation>部署或卸载操作正在进行中——请待其完成后重试。</translation>
-    </message>
-    <message>
-        <source>A collection install is running — try again when it finishes.</source>
-        <translation>正在进行集合安装——请待安装完成后再试。</translation>
-    </message>
-    <message>
-        <source>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder — this cannot be undone.</source>
-        <translation>是否要从该配置文件中移除“{0}”及其{1}模组？
-
-相关文件将从暂存文件夹中删除——此操作无法撤销。</translation>
     </message>
     <message>
         <source>No installed mods from '{0}' were found in this profile.
@@ -4826,10 +5216,6 @@ Remove the appended-collection entry?</source>
     <message>
         <source>Removed appended collection '{0}'.</source>
         <translation>已删除附加集合“{0}”。</translation>
-    </message>
-    <message>
-        <source>Could not remove '{0}' — see the log.</source>
-        <translation>无法删除“{0}”——请参阅日志。</translation>
     </message>
     <message>
         <source>The active profile isn't a collection profile.</source>
@@ -4912,26 +5298,6 @@ Remove the appended-collection entry?</source>
         <translation>继续前进</translation>
     </message>
     <message>
-        <source>Nexus Premium not detected — manual download mode.</source>
-        <translation>未检测到 Nexus Premium — 手动下载模式。</translation>
-    </message>
-    <message>
-        <source>Paused — {0} installed.</source>
-        <translation>已暂停——已安装{0}.</translation>
-    </message>
-    <message>
-        <source>Install paused — {0} mod(s) installed.</source>
-        <translation>安装已暂停 — 已安装 {0} 个模组。</translation>
-    </message>
-    <message>
-        <source>Done — {0}/{1} installed.</source>
-        <translation>已安装 {0}/{1}.</translation>
-    </message>
-    <message>
-        <source>Collection installed — {0}/{1} mod(s)</source>
-        <translation>安装的收集器——{0}/{1} Mod(s)</translation>
-    </message>
-    <message>
         <source> ({0} skipped)</source>
         <translation>({0}跳过)</translation>
     </message>
@@ -4940,32 +5306,12 @@ Remove the appended-collection entry?</source>
         <translation>正在恢复捆绑的 Mods + profile 文件..</translation>
     </message>
     <message>
-        <source>Imported — {0}/{1} installed.</source>
-        <translation>已进口——已安装{0}/{1}.</translation>
-    </message>
-    <message>
-        <source>Profile imported — {0}/{1} mod(s)</source>
-        <translation>进口的配置图——{0}/{1} mod(s)</translation>
-    </message>
-    <message>
         <source>…and {0} more</source>
         <translation>...还有{0}</translation>
     </message>
     <message>
         <source>Off-site mods to install</source>
         <translation>要安装的场外模型</translation>
-    </message>
-    <message>
-        <source>This collection includes {0} off-site mod(s) the installer could not download:
-
-{1}
-
-Download and install them manually — the links are in the collection page's "Off-site mods" panel.</source>
-        <translation>此收藏包括安装器无法下载的 {0} 站外模式 :
-
-第{1}号
-
-手动下载并安装它们——链接在收藏页的"Off-site mods"面板上.</translation>
     </message>
     <message>
         <source>OK</source>
@@ -5008,10 +5354,6 @@ Download and install them manually — the links are in the collection page's "O
         <translation>更新处理器..</translation>
     </message>
     <message>
-        <source>Handler update failed — check your connection.</source>
-        <translation>Handler 更新失败 – 请检查您的连接 .</translation>
-    </message>
-    <message>
         <source>Handler not found on the Resources branch.</source>
         <translation>在资源分支中找不到 Handler .</translation>
     </message>
@@ -5030,14 +5372,6 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>stable</source>
         <translation>稳定</translation>
-    </message>
-    <message>
-        <source>The {0} channel isn't published on the update remote yet — try again after the next {0} release.</source>
-        <translation>{0}频道尚未在更新远程上发布——在下一期{0}发布后再次尝试.</translation>
-    </message>
-    <message>
-        <source>An install is finishing — try the collection again in a moment.</source>
-        <translation>一个安装正在完成——在一瞬间再次尝试收藏.</translation>
     </message>
     <message>
         <source>This will stop the install and delete the new profile '{0}'.</source>
@@ -5076,10 +5410,6 @@ Download and install them manually — the links are in the collection page's "O
         <translation>请先启动“通过 SSO 登录”，然后粘贴代码。</translation>
     </message>
     <message>
-        <source>The login session has ended — start 'Login via SSO' again.</source>
-        <translation>登录会话已结束——请重新开始“通过 SSO 登录”。</translation>
-    </message>
-    <message>
         <source>Submit</source>
         <translation>提交</translation>
     </message>
@@ -5094,10 +5424,6 @@ Download and install them manually — the links are in the collection page's "O
     <message>
         <source>NXM handler registered.</source>
         <translation>已注册 NXM 处理程序。</translation>
-    </message>
-    <message>
-        <source>Failed to register — xdg-mime not found?</source>
-        <translation>注册失败——找不到 xdg-mime？</translation>
     </message>
     <message>
         <source>NXM handler error: {0}</source>
@@ -5132,10 +5458,6 @@ Download and install them manually — the links are in the collection page's "O
         <translation>正在检查更新（{0}）……</translation>
     </message>
     <message>
-        <source>Update check failed — see the log.</source>
-        <translation>更新检查失败——请查看日志。</translation>
-    </message>
-    <message>
         <source>All mods are up to date.</source>
         <translation>所有模组均已更新至最新版本。</translation>
     </message>
@@ -5152,24 +5474,12 @@ Download and install them manually — the links are in the collection page's "O
         <translation>正在重新安装 {0} 模组；{1} 被跳过（未找到存档）。</translation>
     </message>
     <message>
-        <source>Reinstall — redownloading {0} mod(s)…</source>
-        <translation>Reinstall——重新下载{0} Mod(s).....</translation>
-    </message>
-    <message>
         <source>Redownloading {0} mod(s)…</source>
         <translation>正在重新下载 {0} mod(s)..</translation>
     </message>
     <message>
         <source>Reinstall</source>
         <translation>重新安装</translation>
-    </message>
-    <message>
-        <source>Reinstall: {0} mod(s) couldn't be redownloaded — see the log.</source>
-        <translation>Reinstall: {0} Mod (s) 无法被重新下载——参见日志.</translation>
-    </message>
-    <message>
-        <source>Redownloaded {0} mod(s); {1} failed — see the log.</source>
-        <translation>重新下载了 {0} mod (s); {1} 失败 ——参见日志.</translation>
     </message>
     <message>
         <source>A Quick Update is already running.</source>
@@ -5180,20 +5490,168 @@ Download and install them manually — the links are in the collection page's "O
         <translation>当 quick-update 有待处理的更新时，请勿安装任何模组。</translation>
     </message>
     <message>
-        <source>Quick Update — checking {0} mod(s)…</source>
-        <translation>快速更新——正在检查 {0} 的模组……</translation>
-    </message>
-    <message>
-        <source>Quick Update — downloading {0} mod(s)…</source>
-        <translation>快速更新——正在下载《{0}》的模组……</translation>
-    </message>
-    <message>
         <source>Downloading {0} mod(s)…</source>
         <translation>正在下载《{0}》的模组……</translation>
     </message>
     <message>
         <source>Quick Update</source>
         <translation>简要更新</translation>
+    </message>
+    <message>
+        <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
+        <translation>一个游戏处理器未能加载({0}). 受影响的游戏被隐藏, 但你的模型是安全的 - 看日志.</translation>
+    </message>
+    <message>
+        <source>32-bit support installed - restart the app before running Windows tools.</source>
+        <translation>安装了32位支持 - 在运行Windows工具前重新启动应用程序.</translation>
+    </message>
+    <message>
+        <source>Environment Variables</source>
+        <translation>环境变量</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}: {2}</source>
+        <translation>无法从 {1} 读取 {0} : {2}</translation>
+    </message>
+    <message>
+        <source>Could not read {0} from {1}</source>
+        <translation>无法读取 {0} from {1}</translation>
+    </message>
+    <message>
+        <source>Handler update failed - check your connection.</source>
+        <translation>Handler 更新失败 - 请检查您的连接 .</translation>
+    </message>
+    <message>
+        <source>The {0} channel isn't published on the update remote yet - try again after the next {0} release.</source>
+        <translation>{0}频道尚未在更新远程上发布 - 在下一次{0}发布后再次尝试.</translation>
+    </message>
+    <message>
+        <source>Restart to apply environment variables?</source>
+        <translation>重新开始应用环境变量吗 ?</translation>
+    </message>
+    <message>
+        <source>Environment variables are applied when Amethyst starts. Restart now?</source>
+        <translation>环境变量在Amethyst开始时被应用. 现在重新开始?</translation>
+    </message>
+    <message>
+        <source>Language files updated - restart to apply.</source>
+        <translation>语言文件更新 - 重新启动以应用 .</translation>
+    </message>
+    <message>
+        <source>Your Nexus session expired - please log in again (Nexus ▸ Login to Nexus).</source>
+        <translation>您的 Nexus 会话已过期 - 请再次登录( Nexus QQ 登录到 Nexus) .</translation>
+    </message>
+    <message>
+        <source>Nexus download failed - {0}</source>
+        <translation>Nexus 下载失败 - {0}</translation>
+    </message>
+    <message>
+        <source>Downloaded - no game selected; see Downloads tab.</source>
+        <translation>已下载 - 没有选中游戏; 参见 Downers 标签 .</translation>
+    </message>
+    <message>
+        <source>A deploy or removal is already running - try again when it finishes.</source>
+        <translation>部署或删除已运行 - 完成后再试 .</translation>
+    </message>
+    <message>
+        <source>A collection install is running - try again when it finishes.</source>
+        <translation>收藏安装正在运行 - 完成后再试一次 .</translation>
+    </message>
+    <message>
+        <source>Remove '{0}' and its {1} mod(s) from this profile?
+
+Their files are deleted from the staging folder - this cannot be undone.</source>
+        <translation>从此配置中删除 “ {0}” 及其 {1} mod( s) ?
+
+他们的文件从中转文件夹中被删除 - 这无法被撤销 .</translation>
+    </message>
+    <message>
+        <source>Could not remove '{0}' - see the log.</source>
+        <translation>无法删除“ {0} ” - 参见日志 .</translation>
+    </message>
+    <message>
+        <source>An install is finishing - try the collection again in a moment.</source>
+        <translation>安装正在完成 - 过一会儿再试一次收藏 .</translation>
+    </message>
+    <message>
+        <source>Cancel download?</source>
+        <translation>取消下载吗 ?</translation>
+    </message>
+    <message>
+        <source>This will stop the download. Archives already downloaded are kept in the Downloads tab.</source>
+        <translation>这将停止下载。 已下载的档案保存在下载标签中 .</translation>
+    </message>
+    <message>
+        <source>Cancel Download</source>
+        <translation>取消下载</translation>
+    </message>
+    <message>
+        <source>Nexus Premium not detected - manual download mode.</source>
+        <translation>未检测出 Nexus Premium - 手动下载模式.</translation>
+    </message>
+    <message>
+        <source>Collection download cancelled - the archives already fetched are in the Downloads tab.</source>
+        <translation>收藏下载被取消 - 已经获取的档案在下载标签中 .</translation>
+    </message>
+    <message>
+        <source>Paused - {0} installed.</source>
+        <translation>已暂停 - {0}已安装.</translation>
+    </message>
+    <message>
+        <source>Install paused - {0} mod(s) installed.</source>
+        <translation>安装已暂停 - {0} mod(s) 已安装 .</translation>
+    </message>
+    <message>
+        <source>Downloaded {0}/{1} - nothing installed.</source>
+        <translation>已下载 {0}/{1} - 无安装.</translation>
+    </message>
+    <message>
+        <source>Collection downloaded - {0}/{1} archive(s). Install them from the Downloads tab.</source>
+        <translation>收藏下载 - {0}/{1} 存档 (s). 从下载标签中安装它们 .</translation>
+    </message>
+    <message>
+        <source> ({0} couldn't be downloaded - see the log)</source>
+        <translation>({0}无法下载 - 见日志)</translation>
+    </message>
+    <message>
+        <source>Done - {0}/{1} installed.</source>
+        <translation>完成 - {0}/{1}安装.</translation>
+    </message>
+    <message>
+        <source>Collection installed - {0}/{1} mod(s)</source>
+        <translation>安装的收集 -- -- {0}/{1} Mod(s)</translation>
+    </message>
+    <message>
+        <source>Imported - {0}/{1} installed.</source>
+        <translation>被进口 - {0}/{1}安装.</translation>
+    </message>
+    <message>
+        <source>Profile imported - {0}/{1} mod(s)</source>
+        <translation>已导入的配置图 - {0}/ {1} mod(s)</translation>
+    </message>
+    <message>
+        <source>This collection includes {0} off-site mod(s) the installer could not download:
+
+{1}
+
+Download and install them manually - the links are in the collection page's "Off-site mods" panel.</source>
+        <translation>此收藏包括安装器无法下载的 {0} 站外模式 :
+
+第{1}号
+
+手动下载并安装它们 - 链接在收藏页的"Off-site mods"面板中.</translation>
+    </message>
+    <message>
+        <source>The login session has ended - start 'Login via SSO' again.</source>
+        <translation>登录会话已结束 - 重新开始“ Login 通过 SSO ” .</translation>
+    </message>
+    <message>
+        <source>Failed to register - xdg-mime not found?</source>
+        <translation>注册失败 - xdg- mime 找不到 ?</translation>
+    </message>
+    <message>
+        <source>Update check failed - see the log.</source>
+        <translation>更新检查失败 - 见日志 .</translation>
     </message>
     <message>
         <source>Updates available</source>
@@ -5206,6 +5664,50 @@ Run Quick Update on all of them now?</source>
         <translation>{0} Mod (s) 有更新版本。
 
 现在运行快速更新所有它们?</translation>
+    </message>
+    <message>
+        <source>Reinstalling {0} mod(s), redownloading {1}; {2} skipped.</source>
+        <translation>重新装入 {0} mod (s) , 重新装入 {1}; {2} 跳过 .</translation>
+    </message>
+    <message>
+        <source>Reinstall - redownloading {0} mod(s)…</source>
+        <translation>Reinstall - 正在重新下载 {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll land in the Downloads tab.</source>
+        <translation>重新下载所需的高分. 打开了 {0} 下载页面 - 它们会在下载分页中登陆.</translation>
+    </message>
+    <message>
+        <source>Premium required to redownload. Opened {0} download page(s) - they'll reinstall automatically once downloaded.</source>
+        <translation>重新下载所需的高分. 打开了{0}下载页面-一旦下载,它们会自动重新安装.</translation>
+    </message>
+    <message>
+        <source>Reinstall: {0} mod(s) couldn't be redownloaded - see the log.</source>
+        <translation>Reinstall: {0} Mod (s) 无法被重新下载 - 见日志.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
+        <translation>重新下载了 {0} mod(s); {1} 失败 - 参见日志.</translation>
+    </message>
+    <message>
+        <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
+        <translation>重新下載了 {0} mod (s) - 从下載分頁中重新安装.</translation>
+    </message>
+    <message>
+        <source>Quick Update - checking {0} mod(s)…</source>
+        <translation>快速更新 - 检查 {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Quick Update - downloading {0} mod(s)…</source>
+        <translation>快速更新 - 下载 {0} mod(s)..</translation>
+    </message>
+    <message>
+        <source>Quick Update: downloaded {0} update(s) - install them from the Downloads tab.</source>
+        <translation>快更新:下载了{0}更新 - 从下载分页安装.</translation>
+    </message>
+    <message>
+        <source>Quick Update: {0} mod(s) couldn't be downloaded - see the log.</source>
+        <translation>快更新:{0} Mod(s)无法下载 - 见日志.</translation>
     </message>
     <message>
         <source>Quick Update: updated {0} mod(s)</source>
@@ -5380,8 +5882,20 @@ Run Quick Update on all of them now?</source>
         <translation>该模组没有可下载的文件。</translation>
     </message>
     <message>
-        <source>{0} game — {1}</source>
-        <translation>{0} 游戏 — {1}</translation>
+        <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
+        <translation>先登录( Nexus QQ 登录) - 打开 AMM 页面, 这样您就可以在那里认可它 .</translation>
+    </message>
+    <message>
+        <source>Endorse AMM failed - {0}</source>
+        <translation>认可 AMM 失败 - {0}</translation>
+    </message>
+    <message>
+        <source>You've already endorsed - thank you!</source>
+        <translation>你已经同意了 谢谢!</translation>
+    </message>
+    <message>
+        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page - please download it there first, then endorse.</source>
+        <translation>Nexus只允许您在下载过至少一次后认可该应用程序. 打开AMM页面 - 请先下载到那里, 然后认可.</translation>
     </message>
     <message>
         <source>{0} game</source>
@@ -5432,6 +5946,14 @@ Run Quick Update on all of them now?</source>
         <translation>个人资料设置</translation>
     </message>
     <message>
+        <source>Profile Groups aren't supported for this game.</source>
+        <translation>此游戏不支持配置组 .</translation>
+    </message>
+    <message>
+        <source>Profile Groups</source>
+        <translation>配置组</translation>
+    </message>
+    <message>
         <source>Profile '{0}' already exists.</source>
         <translation>用户“{0}”已存在。</translation>
     </message>
@@ -5464,10 +5986,6 @@ Run Quick Update on all of them now?</source>
         <translation>从游戏文件夹中添加可执行文件</translation>
     </message>
     <message>
-        <source>Check the executables to add to the Run menu. These run from their location in the game folder — including files deployed there by mods.</source>
-        <translation>检查可执行文件以添加到运行菜单中 。 这些从它们在游戏文件夹中的位置运行——包括由mods部署在那里的文件.</translation>
-    </message>
-    <message>
         <source>Executable not found: {0}</source>
         <translation>找不到可执行文件：{0}</translation>
     </message>
@@ -5488,14 +6006,6 @@ Run Quick Update on all of them now?</source>
         <translation>正在部署 {0}…</translation>
     </message>
     <message>
-        <source>Premium required to redownload. Opened {0} download page(s) — they'll reinstall automatically once downloaded.</source>
-        <translation>重新下载所需的高分. 打开了{0}下载页面——一旦下载,它们会自动重新安装.</translation>
-    </message>
-    <message>
-        <source>A deploy is in progress — try again shortly.</source>
-        <translation>正在进行部署——请稍后再试。</translation>
-    </message>
-    <message>
         <source>Restoring {0}…</source>
         <translation>正在恢复 {0}…</translation>
     </message>
@@ -5510,14 +6020,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>{0} Restored</source>
         <translation>{0} 已恢复</translation>
-    </message>
-    <message>
-        <source>Deploy failed — see log.</source>
-        <translation>部署失败——请查看日志。</translation>
-    </message>
-    <message>
-        <source>Restore failed — see log.</source>
-        <translation>还原失败——请查看日志。</translation>
     </message>
     <message>
         <source>{0} is not configured for this game.</source>
@@ -5594,14 +6096,6 @@ Run Quick Update on all of them now?</source>
     <message>
         <source>{0}…</source>
         <translation>{0}…</translation>
-    </message>
-    <message>
-        <source>{0} — done.</source>
-        <translation>{0} — 完成。</translation>
-    </message>
-    <message>
-        <source>{0} — failed (see log).</source>
-        <translation>{0} — 失败（参见日志）。</translation>
     </message>
     <message>
         <source>No game selected</source>
@@ -5684,16 +6178,80 @@ Run Quick Update on all of them now?</source>
         <translation>已安装 {0}</translation>
     </message>
     <message>
-        <source>the game</source>
-        <translation>游戏</translation>
+        <source>Undo every Mod Files change for "{0}" - Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</source>
+        <translation>撤消“ {0}” 的每个 Mod 文件更改 - 顶级推广, 根文件夹标签和已禁用的文件 ? mod自己的文件不被触及.</translation>
     </message>
     <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutris instead — the deployed mods stay active however the game is started.</source>
-        <translation>Amethyst无法发射{0}.
-
-按下部署来应用您的模式,然后从Steam,Heroic或Lutris开始游戏取而代之——部署的模式不管游戏何时开始,都保持活动.</translation>
+        <source>Profile is deployed - run Restore first, then pack the {0}.</source>
+        <translation>配置文件部署 - 先运行恢复器,然后装入{0}.</translation>
+    </message>
+    <message>
+        <source>Profile is deployed - run Restore first, then unpack.</source>
+        <translation>配置文件已部署 - 先运行还原器, 然后拆出 .</translation>
+    </message>
+    <message>
+        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder - usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
+        <translation>本配置文件列出的 {0} 插件在其mods, overwrite, 或游戏文件夹中没有任何文件 - 通常是从已删除的mods或另一个配置文件的负载顺序上留下的. 从装入命令中删除它们? Mod 文件没有被触动 .</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure groups.</source>
+        <translation>没有活动配置 - 无法配置组 .</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot configure plugin rules.</source>
+        <translation>没有活动配置文件 - 无法配置插件规则 .</translation>
+    </message>
+    <message>
+        <source>userlist.yaml not found - cannot flip rule.</source>
+        <translation>用户列表. yaml 未找到 - 无法翻转规则 .</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot edit userlist.</source>
+        <translation>没有活动配置文件 - 不能编辑用户列表 .</translation>
+    </message>
+    <message>
+        <source>No active profile - cannot assign group.</source>
+        <translation>没有活动配置文件 - 无法指定组 .</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot sort.</source>
+        <translation>LOOT 库不可用 - 无法排序 .</translation>
+    </message>
+    <message>
+        <source>LOOT refresh failed - see log.</source>
+        <translation>LOOT 刷新失败 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>LOOT sort failed - see log.</source>
+        <translation>LOOT 排序失败 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>Sorted - 1 plugin moved.</source>
+        <translation>排序 - 1个插件已移动 .</translation>
+    </message>
+    <message>
+        <source>Sorted - {0} plugins moved.</source>
+        <translation>排序 - {0} 插件已移动 .</translation>
+    </message>
+    <message>
+        <source>LOOT library not available - cannot check overlap.</source>
+        <translation>LOOT 库不可用 - 无法检查重叠 .</translation>
+    </message>
+    <message>
+        <source>Overlap check failed - see log.</source>
+        <translation>重叠检查失败 - 见日志 .</translation>
+    </message>
+    <message>
+        <source>{0} overlaps {1} plugin(s) - highlighted in list</source>
+        <translation>{0} 重叠 {1} 插件 - 在列表中突出显示</translation>
+    </message>
+    <message>
+        <source>Saves</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>the game</source>
+        <translation>游戏</translation>
     </message>
     <message>
         <source>Details: {0}</source>
@@ -5704,52 +6262,28 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic or Lutri
         <translation>游戏没有启动</translation>
     </message>
     <message>
-        <source>A mod install is in progress — deploy again when it finishes.</source>
-        <translation>一个Mod安装正在进行中——完成后再次部署.</translation>
+        <source>Profile groups…</source>
+        <translation>配置组..</translation>
     </message>
     <message>
-        <source>A mod install is in progress — try again when it finishes.</source>
-        <translation>一个mod安装正在进行中——完成后再试一次.</translation>
+        <source>Installing LAV Filters</source>
+        <translation>安装 LAV 过滤器</translation>
     </message>
     <message>
-        <source>Restore queued — it will run after the current install finishes.</source>
-        <translation>已恢复队列——它将在当前安装完成后运行.</translation>
+        <source>Install cancelled.</source>
+        <translation>安装已取消 .</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>安装</translation>
     </message>
     <message>
         <source>Windows filesystem detected</source>
         <translation>检测到 Windows 文件系统</translation>
     </message>
     <message>
-        <source>These folders are on a Windows filesystem:
-
-{0}
-
-NTFS and exFAT drives have weak write guarantees on Linux: an unclean unmount, power loss, or a dual-boot Windows with Fast Startup enabled can silently truncate files to 0 KB — including deployed mod files and your mod staging library.
-
-A Linux filesystem (ext4/btrfs) is recommended for both the game and the mod staging folder.
-
-If you continue, this warning won't be shown again for {1} unless the drives change.</source>
-        <translation>这些文件夹在 Windows 文件系统上 :
-
-第{0}号
-
-NTFS 和 exFAT 驱动器在 Linux 上有薄弱的写保证: 一个不干净的卸载, 失去电源, 或具有快速启动功能的双启动 Windows 可以默默地将文件切到 0 KB 上—— 包括已部署的mod 文件以及您的mod中转库.
-
-为游戏和mod中转文件夹推荐一个 Linux 文件系统(ext4/btrfs) 。
-
-如果您继续, 除非驱动器改变, 此警告将不会再次显示为 {1} .</translation>
-    </message>
-    <message>
         <source>Installed {0} mods</source>
         <translation>已安装的{0}模组</translation>
-    </message>
-    <message>
-        <source>Installed {0} of {1} mods — see log for failures.</source>
-        <translation>已安装 {1} 模组中的 {0} —— 有关安装失败的情况，请参见日志。</translation>
-    </message>
-    <message>
-        <source>Install failed — see log.</source>
-        <translation>安装失败——请查看日志。</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -5760,6 +6294,14 @@ NTFS 和 exFAT 驱动器在 Linux 上有薄弱的写保证: 一个不干净的�
         <translation>解压{0}</translation>
     </message>
     <message>
+        <source>Reset Mod Files changes for {0}</source>
+        <translation>重置 {0} 的 Mod 文件更改</translation>
+    </message>
+    <message>
+        <source>Reset Mod Files changes</source>
+        <translation>重置模块文件更改</translation>
+    </message>
+    <message>
         <source>An archive operation is already running.</source>
         <translation>归档操作正在运行。</translation>
     </message>
@@ -5768,16 +6310,8 @@ NTFS 和 exFAT 驱动器在 Linux 上有薄弱的写保证: 一个不干净的�
         <translation>未找到 Mod 文件夹。</translation>
     </message>
     <message>
-        <source>Profile is deployed — run Restore first, then pack the {0}.</source>
-        <translation>配置文件已部署——请先运行“还原”操作，然后打包{0}。</translation>
-    </message>
-    <message>
         <source>Packing {0}…</source>
         <translation>正在打包 {0}…</translation>
-    </message>
-    <message>
-        <source>Profile is deployed — run Restore first, then unpack.</source>
-        <translation>配置文件已部署——请先运行“还原”，然后解压。</translation>
     </message>
     <message>
         <source>Unpacking {0} archive(s)…</source>
@@ -5916,24 +6450,12 @@ NTFS 和 exFAT 驱动器在 Linux 上有薄弱的写保证: 一个不干净的�
         <translation>删除 stale 插件</translation>
     </message>
     <message>
-        <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder — usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
-        <translation>本配置文件中列出的{0}插件在其mod,覆盖,或游戏文件夹中都没有文件——通常是从被移除的mod或另一个配置的负载顺序中留下的. 从装入命令中删除它们? Mod 文件没有被触动 .</translation>
-    </message>
-    <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
         <translation>正在刷新 {0} 插件的 LOOT 元数据..</translation>
     </message>
     <message>
-        <source>LOOT refresh failed — see log.</source>
-        <translation>LOOT 刷新失败 — 见日志 .</translation>
-    </message>
-    <message>
         <source>Plugin metadata refreshed.</source>
         <translation>插件元数据已刷新 .</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot check overlap.</source>
-        <translation>LOOT 库不可用——无法检查重叠 .</translation>
     </message>
     <message>
         <source>An overlap check is already running.</source>
@@ -5944,16 +6466,8 @@ NTFS 和 exFAT 驱动器在 Linux 上有薄弱的写保证: 一个不干净的�
         <translation>正在检查 {0} 的记录重叠..</translation>
     </message>
     <message>
-        <source>Overlap check failed — see log.</source>
-        <translation>重叠检查失败 —— 见日志 .</translation>
-    </message>
-    <message>
         <source>{0}: no record overlap with other plugins.</source>
         <translation>{0}:与其他插件没有记录重叠.</translation>
-    </message>
-    <message>
-        <source>{0} overlaps {1} plugin(s) — highlighted in list</source>
-        <translation>{0} 重叠 {1} 插件 — 在列表中突出显示</translation>
     </message>
     <message>
         <source>+ Add exe from staging…</source>
@@ -5968,20 +6482,12 @@ NTFS 和 exFAT 驱动器在 Linux 上有薄弱的写保证: 一个不干净的�
         <translation>插件</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure groups.</source>
-        <translation>没有有效的配置文件——无法配置组。</translation>
-    </message>
-    <message>
         <source>install</source>
         <translation>安装</translation>
     </message>
     <message>
         <source>deploy</source>
         <translation>部署</translation>
-    </message>
-    <message>
-        <source>Install queued — {0} will install after the current {1} finishes.</source>
-        <translation>已安装队列——{0}将在当前{1}完成后安装.</translation>
     </message>
     <message>
         <source>Cyber Engine Tweaks is enabled, but cyber_engine_tweaks.asi will be symlinked.
@@ -6004,10 +6510,6 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
         <translation>LOOT 小组</translation>
     </message>
     <message>
-        <source>No active profile — cannot configure plugin rules.</source>
-        <translation>没有有效的配置文件——无法配置插件规则。</translation>
-    </message>
-    <message>
         <source>LOOT Plugin Rules</source>
         <translation>LOOT 插件规则</translation>
     </message>
@@ -6020,10 +6522,6 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
         <translation>插件循环</translation>
     </message>
     <message>
-        <source>userlist.yaml not found — cannot flip rule.</source>
-        <translation>未找到 userlist.yaml — 无法切换规则。</translation>
-    </message>
-    <message>
         <source>Rule {0} '{1}' {2} not found in userlist.yaml.</source>
         <translation>规则 {0} '{1}' {2} 在 userlist.yaml 中未找到。</translation>
     </message>
@@ -6032,20 +6530,8 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
         <translation>名称变更：{0} 现更名为“{1}” {2}</translation>
     </message>
     <message>
-        <source>No active profile — cannot edit userlist.</source>
-        <translation>没有活跃个人资料——无法编辑用户列表。</translation>
-    </message>
-    <message>
-        <source>No active profile — cannot assign group.</source>
-        <translation>没有有效的个人资料——无法分配组。</translation>
-    </message>
-    <message>
         <source>Removed from userlist: {0} plugin(s)</source>
         <translation>已从用户列表中移除：{0} 个插件</translation>
-    </message>
-    <message>
-        <source>LOOT library not available — cannot sort.</source>
-        <translation>LOOT 库不可用——无法排序。</translation>
     </message>
     <message>
         <source>LOOT sorting isn't supported for this game.</source>
@@ -6064,24 +6550,12 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
         <translation>正在{0}插件上运行LOOT……</translation>
     </message>
     <message>
-        <source>LOOT sort failed — see log.</source>
-        <translation>LOOT 排序失败——请参阅日志。</translation>
-    </message>
-    <message>
         <source>Failed to write load order: {0}</source>
         <translation>写入加载顺序失败：{0}</translation>
     </message>
     <message>
         <source>Load order is already sorted.</source>
         <translation>加载顺序已按顺序排列。</translation>
-    </message>
-    <message>
-        <source>Sorted — 1 plugin moved.</source>
-        <translation>已处理——已移动 1 个插件。</translation>
-    </message>
-    <message>
-        <source>Sorted — {0} plugins moved.</source>
-        <translation>已处理——已移动“{0}”插件。</translation>
     </message>
     <message>
         <source>+ Add custom EXE…</source>
@@ -6166,24 +6640,8 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
         <translation>未找到变更日志文件。</translation>
     </message>
     <message>
-        <source>Log in first (Nexus ▸ Login) — opening the AMM page so you can endorse it there.</source>
-        <translation>请先登录（Nexus ▸ 登录）——打开 AMM 页面，以便您在那里进行背书。</translation>
-    </message>
-    <message>
-        <source>Endorse AMM failed — {0}</source>
-        <translation>支持 AMM 失败 — {0}</translation>
-    </message>
-    <message>
         <source>Thank you for endorsing!</source>
         <translation>感谢您的支持！</translation>
-    </message>
-    <message>
-        <source>You've already endorsed — thank you!</source>
-        <translation>您已经表示支持了——谢谢！</translation>
-    </message>
-    <message>
-        <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page — please download it there first, then endorse.</source>
-        <translation>只有在至少下载过一次该应用后，Nexus 才会允许您为其点赞。请打开 AMM 页面——请先在那里下载该应用，然后再为其点赞。</translation>
     </message>
     <message>
         <source>Endorse AMM: {0}</source>
@@ -6335,6 +6793,10 @@ How would you like to handle the existing mod?</source>
         <translation>顶级</translation>
     </message>
     <message>
+        <source>Root</source>
+        <translation>根</translation>
+    </message>
+    <message>
         <source>Disable</source>
         <translation>禁用</translation>
     </message>
@@ -6463,6 +6925,14 @@ How would you like to handle the existing mod?</source>
         <translation>推荐选定内容（{0}）</translation>
     </message>
     <message>
+        <source>'{0}' belongs to the locked profile '{1}' — switch to that profile to remove it, or unlock it.</source>
+        <translation>'{0}'属于被锁定的配置文件'{1}'——切换到该配置文件去取,或解锁.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) skipped — they belong to locked profile(s): {1}.</source>
+        <translation>{0} mod (s) 跳出——它们属于锁定的配置文件: {1}.</translation>
+    </message>
+    <message>
         <source>Lock Separator</source>
         <translation>锁定分隔符</translation>
     </message>
@@ -6517,6 +6987,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>Open folder</source>
         <translation>打开文件夹</translation>
+    </message>
+    <message>
+        <source>Open in NIF Viewer</source>
+        <translation>在 NIF 查看器中打开</translation>
     </message>
     <message>
         <source>Open on Nexus</source>
@@ -6691,6 +7165,10 @@ How would you like to handle the existing mod?</source>
     <message>
         <source>More status filters</source>
         <translation>更多状态过滤器</translation>
+    </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>清除所有过滤器</translation>
     </message>
     <message>
         <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -6889,6 +7367,10 @@ Click Done to close.</source>
     <message>
         <source>Archive conflict - Full</source>
         <translation>归档冲突 - 完整</translation>
+    </message>
+    <message>
+        <source>UUID Conflict</source>
+        <translation>UUID 冲突</translation>
     </message>
 </context>
 <context>
@@ -7130,6 +7612,10 @@ or an encrypted file when no keyring is available).</source>
         <translation>在 Nexus 上打开</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
         <source>Cancel download detection</source>
         <translation>取消下载检测</translation>
     </message>
@@ -7253,12 +7739,222 @@ Daily: {1}</source>
         <translation>取消</translation>
     </message>
     <message>
+        <source>Redownload</source>
+        <translation>重新下载</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>重新安装</translation>
     </message>
     <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>安装</translation>
+    </message>
+</context>
+<context>
+    <name>NifPreview</name>
+    <message>
+        <source>View</source>
+        <translation>查看</translation>
+    </message>
+    <message>
+        <source>Textures</source>
+        <translation>纹理</translation>
+    </message>
+    <message>
+        <source>Normal maps + shine</source>
+        <translation>普通地图+发光</translation>
+    </message>
+    <message>
+        <source>Apply the mesh's normal map and its gloss mask</source>
+        <translation>应用网格的普通地图及其光泽遮罩</translation>
+    </message>
+    <message>
+        <source>Cull backfaces</source>
+        <translation>弯曲后脸</translation>
+    </message>
+    <message>
+        <source>Hide inward-facing triangles - reveals inside-out normals</source>
+        <translation>隐藏内向三角形 - 显示内向外的常态</translation>
+    </message>
+    <message>
+        <source>Wireframe</source>
+        <translation>线框</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Overlay</source>
+        <translation>重叠</translation>
+    </message>
+    <message>
+        <source>Lines only</source>
+        <translation>仅行</translation>
+    </message>
+    <message>
+        <source>Texture map</source>
+        <translation>纹理图</translation>
+    </message>
+    <message>
+        <source>Diffuse</source>
+        <translation>抖动</translation>
+    </message>
+    <message>
+        <source>Normal</source>
+        <translation>常规</translation>
+    </message>
+    <message>
+        <source>Background</source>
+        <translation>背景情况</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>光线</translation>
+    </message>
+    <message>
+        <source>Grey</source>
+        <translation>灰色</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>阴暗</translation>
+    </message>
+    <message>
+        <source>Black</source>
+        <translation>黑色</translation>
+    </message>
+    <message>
+        <source>Invert mouse</source>
+        <translation>倒转鼠标</translation>
+    </message>
+    <message>
+        <source>Reverse the drag direction for rotating and panning</source>
+        <translation>倒转旋转和平板的拖动方向</translation>
+    </message>
+    <message>
+        <source>Brightness - lifts dark textures without blowing out highlights; double-click to reset</source>
+        <translation>亮度 - 升起深色纹理而不吹出亮点; 双击重置</translation>
+    </message>
+    <message>
+        <source>Preview this mesh with another mod's copy of its textures</source>
+        <translation>用另一个 Mod 的纹理副本预览此网格</translation>
+    </message>
+    <message>
+        <source>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</source>
+        <translation>拖放以旋转 ^ 右拖放以平移 ^ 滚动以缩放 ^ 双击以重画框架</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>正在加载……</translation>
+    </message>
+    <message>
+        <source>no drawable geometry</source>
+        <translation>无可画几何</translation>
+    </message>
+    <message>
+        <source>{0} shapes</source>
+        <translation>{0} 形状</translation>
+    </message>
+    <message>
+        <source>{0} tris</source>
+        <translation>{0} 三进制</translation>
+    </message>
+    <message>
+        <source>{0}/{1} textured</source>
+        <translation>{0}/{1} 纹理</translation>
+    </message>
+    <message>
+        <source>failed: {0}</source>
+        <translation>失败: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>NifViewerView</name>
+    <message>
+        <source>NIF Viewer — {0} ▸ {1}</source>
+        <translation>NIF 查看器 — {0} {1}</translation>
+    </message>
+    <message>
+        <source>NIF Viewer — {0}</source>
+        <translation>NIF 查看器 — {0}</translation>
+    </message>
+    <message>
+        <source>Scanning…</source>
+        <translation>正在扫描……</translation>
+    </message>
+    <message>
+        <source>Search meshes and mods…</source>
+        <translation>搜索梅谢和莫德..</translation>
+    </message>
+    <message>
+        <source>Match a mesh path, or the name of a mod or archive that provides one</source>
+        <translation>匹配网路, 或提供元件或归档的名称</translation>
+    </message>
+    <message>
+        <source>Limit the list to one side of the setup</source>
+        <translation>列表仅限于设置的一面</translation>
+    </message>
+    <message>
+        <source>All sources</source>
+        <translation>所有来源</translation>
+    </message>
+    <message>
+        <source>Mods only</source>
+        <translation>只计数</translation>
+    </message>
+    <message>
+        <source>Vanilla only</source>
+        <translation>只有香草</translation>
+    </message>
+    <message>
+        <source>Only overridden</source>
+        <translation>仅被推翻</translation>
+    </message>
+    <message>
+        <source>Show only meshes provided by more than one source</source>
+        <translation>只显示多个来源提供的 meshes</translation>
+    </message>
+    <message>
+        <source>Only this mod</source>
+        <translation>只有这个模式</translation>
+    </message>
+    <message>
+        <source>Show only meshes {0} provides, alongside the copies they compete with</source>
+        <translation>仅显示 {0} 提供的 Meshes , 以及它们竞争的复制件</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ 关闭</translation>
+    </message>
+    <message>
+        <source>Expand All</source>
+        <translation>全部展开</translation>
+    </message>
+    <message>
+        <source>Collapse All</source>
+        <translation>全部折叠</translation>
+    </message>
+    <message>
+        <source>Select a mesh</source>
+        <translation>选择网格</translation>
+    </message>
+    <message>
+        <source>{0} meshes</source>
+        <translation>{0} 胶片</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>正在读取..</translation>
+    </message>
+    <message>
+        <source>could not be read</source>
+        <translation>无法读取</translation>
     </message>
 </context>
 <context>
@@ -7282,6 +7978,21 @@ Daily: {1}</source>
     <message>
         <source>Save</source>
         <translation>保存</translation>
+    </message>
+</context>
+<context>
+    <name>NotificationButton</name>
+    <message>
+        <source>Notifications</source>
+        <translation>通知</translation>
+    </message>
+    <message>
+        <source>No notifications</source>
+        <translation>无通知</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>清除全部</translation>
     </message>
 </context>
 <context>
@@ -8098,6 +8809,10 @@ Drag a plugin from the left pane to add a rule.</source>
         <source>Filters</source>
         <translation>筛选条件</translation>
     </message>
+    <message>
+        <source>Clear all filters</source>
+        <translation>清除所有过滤器</translation>
+    </message>
 </context>
 <context>
     <name>PrefixManagerView</name>
@@ -8175,6 +8890,175 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
 </context>
 <context>
+    <name>ProfileGroupsView</name>
+    <message>
+        <source>Profile Groups</source>
+        <translation>配置组</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>组</translation>
+    </message>
+    <message>
+        <source>No profile groups yet. A group combines several profiles and deploys them together as one merged profile.</source>
+        <translation>还没有配置组 一组将多个配置组合在一起,并作为一个组合配置一起部署.</translation>
+    </message>
+    <message>
+        <source>Not eligible (shared mod pool)</source>
+        <translation>不符合资格(共享模式池)</translation>
+    </message>
+    <message>
+        <source>Group members need profile-specific mods so the group only sees mods deliberately added to them. Convert copies a profile's mods into its own folder (hardlinked where possible — no extra disk on the same filesystem); the shared pool and other profiles are untouched.</source>
+        <translation>组员需要特定配置的模型,因此组员只看到其中故意添加的模型. 将一个 profile 的 mods 转换成自己的文件夹( 尽可能硬链接—— 在同一文件系统上没有额外的磁盘); 共享池和其他 profile 不受影响 .</translation>
+    </message>
+    <message>
+        <source>{0} member(s)</source>
+        <translation>{0}成员</translation>
+    </message>
+    <message>
+        <source>Hide members</source>
+        <translation>隐藏成员</translation>
+    </message>
+    <message>
+        <source>Members</source>
+        <translation>成员</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <source>  (missing)</source>
+        <translation>(失踪)</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>向上移动</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>向下移动</translation>
+    </message>
+    <message>
+        <source>1 = highest priority (its mods win conflicts)</source>
+        <translation>1=最高优先级(其模式赢得冲突)</translation>
+    </message>
+    <message>
+        <source>+ Add member</source>
+        <translation>+ 添加成员</translation>
+    </message>
+    <message>
+        <source>New group</source>
+        <translation>新组</translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation>名称 :</translation>
+    </message>
+    <message>
+        <source>No eligible member profiles yet — create a profile with profile-specific mods, or convert one below.</source>
+        <translation>还没有符合资格的成员简介——创建一个具有特定配置模式的简介,或转换以下一个.</translation>
+    </message>
+    <message>
+        <source>Merge overwrite / Root Folder files from:</source>
+        <translation>合并覆盖 / 根文件夹文件 :</translation>
+    </message>
+    <message>
+        <source>These profiles have runtime-generated files (overwrite / Root Folder). Checked profiles' files are copied into the group; conflicts use the higher-priority member's copy.</source>
+        <translation>这些配置文件有运行时间生成的文件( 覆盖 / Root 文件夹) 。 已检查配置文件被复制到组;冲突使用更高优先级的成员副本.</translation>
+    </message>
+    <message>
+        <source>Create group</source>
+        <translation>创建组</translation>
+    </message>
+    <message>
+        <source>Converting…</source>
+        <translation>正在转换..</translation>
+    </message>
+    <message>
+        <source>Convert to profile-specific…</source>
+        <translation>转换为配置文件..</translation>
+    </message>
+    <message>
+        <source>Priority (check order): {0}</source>
+        <translation>优先级( 检查顺序): {0}</translation>
+    </message>
+    <message>
+        <source>Check member profiles in priority order (first checked = highest priority).</source>
+        <translation>按优先级顺序检查成员配置(先检查后=最高优先级).</translation>
+    </message>
+    <message>
+        <source>An install or deploy is in progress — try again shortly.</source>
+        <translation>正在安装或部署——很快再试一次.</translation>
+    </message>
+    <message>
+        <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
+        <translation>'{0}'目前被部署——首先恢复游戏,再编辑组.</translation>
+    </message>
+    <message>
+        <source>Enter a group name.</source>
+        <translation>输入组名称.</translation>
+    </message>
+    <message>
+        <source>Check at least one member profile.</source>
+        <translation>检查至少一个成员简介 .</translation>
+    </message>
+    <message>
+        <source>Group creation cancelled.</source>
+        <translation>组创建被取消 .</translation>
+    </message>
+    <message>
+        <source>Several members have profile-specific INIs with the same name ({0}).
+Which profile's INI files should the group use for those?</source>
+        <translation>几位成员拥有同名({0})的剖面特有INIS.
+哪个配置文件的 INI 文件应该用于这些?</translation>
+    </message>
+    <message>
+        <source>Use these INIs</source>
+        <translation>使用这些 INIS</translation>
+    </message>
+    <message>
+        <source>Could not create group: {0}</source>
+        <translation>无法创建组: {0}</translation>
+    </message>
+    <message>
+        <source>Remove the profile group '{0}'?
+
+Only the group itself is deleted — its member profiles and their mods are untouched. The game will be restored first if this group is deployed.</source>
+        <translation>删除配置组“ {0} ” ?
+
+只有集团本身被删除——其成员简介及其模式没有被触及. 如果部署此组, 游戏将首先恢复 .</translation>
+    </message>
+    <message>
+        <source>Remove Group</source>
+        <translation>删除组</translation>
+    </message>
+    <message>
+        <source>Convert Profile</source>
+        <translation>转换配置文件</translation>
+    </message>
+    <message>
+        <source>Convert '{0}' to profile-specific mods?
+
+Its listed mods are copied into the profile's own mods folder (hardlinked where possible). The shared pool and other profiles are not changed.</source>
+        <translation>将“ {0}” 转换为配置文件指定的模式 ?
+
+它所列出的mods被复制到配置文件自己的mods文件夹中(如果可能,硬链接). 共享池和其他配置不改变.</translation>
+    </message>
+    <message>
+        <source>Convert</source>
+        <translation>转换</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' converted — it can now join groups.</source>
+        <translation>配置文件"{0}"被转换——它现在可以加入组.</translation>
+    </message>
+    <message>
+        <source>Convert of '{0}' failed — see the log.</source>
+        <translation>转换“ {0}” 失败 —— 请参见日志 .</translation>
+    </message>
+</context>
+<context>
     <name>ProfileSettingsView</name>
     <message>
         <source>Profile Settings</source>
@@ -8203,6 +9087,10 @@ Drag a plugin from the left pane to add a rule.</source>
     <message>
         <source>Cancel</source>
         <translation>取消</translation>
+    </message>
+    <message>
+        <source>'{0}' is a member of the deployed group '{1}' — restore the game first, then remove it.</source>
+        <translation>'{0}'是已部署组'{1}'的成员——首先恢复游戏,再将其去掉.</translation>
     </message>
     <message>
         <source>A deploy is in progress — try again shortly.</source>
@@ -8857,6 +9745,247 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
 </context>
 <context>
+    <name>SavePreviewPane</name>
+    <message>
+        <source>This file could not be read as a save.</source>
+        <translation>此文件无法被读取为保存 .</translation>
+    </message>
+    <message>
+        <source>No screenshot</source>
+        <translation>无截图</translation>
+    </message>
+    <message>
+        <source>Click to open full size</source>
+        <translation>单击以打开全尺寸</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>截图</translation>
+    </message>
+    <message>
+        <source>Character</source>
+        <translation>字符</translation>
+    </message>
+    <message>
+        <source>Level</source>
+        <translation>职等</translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation>地点</translation>
+    </message>
+    <message>
+        <source>Play time</source>
+        <translation>播放时间</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>标题</translation>
+    </message>
+    <message>
+        <source>Race</source>
+        <translation>种族</translation>
+    </message>
+    <message>
+        <source>Sex</source>
+        <translation>性别</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>已保存</translation>
+    </message>
+    <message>
+        <source>Save number</source>
+        <translation>保存编号</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>游戏</translation>
+    </message>
+    <message>
+        <source>Only part of this save could be read.</source>
+        <translation>只能读取其中的一部分 .</translation>
+    </message>
+    <message>
+        <source>Plugins</source>
+        <translation>插件</translation>
+    </message>
+    <message>
+        <source>Not recorded in this save.</source>
+        <translation>此保存未记录 .</translation>
+    </message>
+    <message>
+        <source>Could not be read.</source>
+        <translation>无法读取 .</translation>
+    </message>
+    <message>
+        <source>Plugins ({0} · {1} ESL)</source>
+        <translation>插件 ({0} → {1} ESL) (英语)</translation>
+    </message>
+    <message>
+        <source>Plugins ({0})</source>
+        <translation>插件( {0})</translation>
+    </message>
+    <message>
+        <source>Not in this profile's load order.</source>
+        <translation>不是这个配置的负载顺序 .</translation>
+    </message>
+</context>
+<context>
+    <name>SavesView</name>
+    <message>
+        <source>Name</source>
+        <extracomment>One expanded folder's listing, from the worker that read it. Footer summary text ("2 location(s) · 41 entries · 1.2 GB"). True when a row is selected, so the footer's Open folder button syncs. False while an export/import runs, so the footer disables its buttons. (ok, message) from an export/import worker → UI thread. The pickers' callbacks fire on a portal WORKER thread; marshal the chosen path to the GUI thread before touching any widget. Transient one-line notice for the footer (progress / result). A parsed save header for the details pane, from the parse worker. The listed file types changed, so the Filters panel can restock its list.</extracomment>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>尺寸</translation>
+    </message>
+    <message>
+        <source>Modified</source>
+        <translation>已修改</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>未选择任何已配置的游戏。</translation>
+    </message>
+    <message>
+        <source>Looking for save folders…</source>
+        <translation>正在寻找保存文件夹..</translation>
+    </message>
+    <message>
+        <source>Reading…</source>
+        <translation>正在读取..</translation>
+    </message>
+    <message>
+        <source>{0}   [profile saves -{1}]</source>
+        <translation>{0} [分页保存-{1}]</translation>
+    </message>
+    <message>
+        <source>{0}   ({1})</source>
+        <translation>{0} ({1}) (英语)</translation>
+    </message>
+    <message>
+        <source>(not created yet -the game saves here)</source>
+        <translation>(尚未创建 - 游戏在此保存)</translation>
+    </message>
+    <message>
+        <source>(no {0} saves here yet)</source>
+        <translation>(还没有{0}保存在这里)</translation>
+    </message>
+    <message>
+        <source>No save folders found for this game. Either it keeps its saves somewhere the Ludusavi manifest does not know about, it stores them in the cloud, or it has not been played yet.</source>
+        <translation>找不到此游戏的文件夹 。 要么把它的储蓄保存在卢杜萨维标本不知道的地方,要么储存在云中,要么还没有被播放.</translation>
+    </message>
+    <message>
+        <source>{0} save locations</source>
+        <translation>{0} 保存位置</translation>
+    </message>
+    <message>
+        <source>(no ext)</source>
+        <translation>(无分机)</translation>
+    </message>
+    <message>
+        <source>{0} of {1} entries shown</source>
+        <translation>显示 {1} 条目中的 {0}</translation>
+    </message>
+    <message>
+        <source>Reading save…</source>
+        <translation>正在读取保存..</translation>
+    </message>
+    <message>
+        <source>Export saves</source>
+        <translation>导出保存</translation>
+    </message>
+    <message>
+        <source>Zip archives (*.zip)</source>
+        <translation>Zip 档案 (*</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>所有文件</translation>
+    </message>
+    <message>
+        <source>Packing saves…</source>
+        <translation>包装保存..</translation>
+    </message>
+    <message>
+        <source>Export failed.</source>
+        <translation>导出失败 .</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>导出失败：{0}</translation>
+    </message>
+    <message>
+        <source>Exported {0} file(s) ({1}) to {2}</source>
+        <translation>已导出 {0} 文件 (s) ({1}) 到 {2}</translation>
+    </message>
+    <message>
+        <source>Import saves</source>
+        <translation>导入保存</translation>
+    </message>
+    <message>
+        <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
+        <translation>目前的内容先被移动到"{0}"文件夹外,所以没有丢失.</translation>
+    </message>
+    <message>
+        <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
+        <translation>目前{0}文件先被移到"{1}"文件夹旁,因此没有丢失.</translation>
+    </message>
+    <message>
+        <source>Import saves?</source>
+        <translation>导入保存 ?</translation>
+    </message>
+    <message>
+        <source>Extract {0} into
+{1}
+
+{2}</source>
+        <translation>将 {0} 提取到
+第{1}号
+
+第{2}号</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <source>Extracting saves…</source>
+        <translation>正在提取保存..</translation>
+    </message>
+    <message>
+        <source>Import failed.</source>
+        <translation>导入失败 .</translation>
+    </message>
+    <message>
+        <source>Import failed: {0}</source>
+        <translation>导入失败: {0}</translation>
+    </message>
+    <message>
+        <source>Imported {0} file(s) ({1}).</source>
+        <translation>已导入 {0} 文件 (s) ({1}).</translation>
+    </message>
+    <message>
+        <source>{0}   [in prefix]</source>
+        <translation>{0} [前缀]</translation>
+    </message>
+    <message>
+        <source>… only the first {0} entries are shown</source>
+        <translation>... 仅显示第一批 {0} 条目</translation>
+    </message>
+    <message>
+        <source>(empty)</source>
+        <translation>(空虚)</translation>
+    </message>
+    <message>
+        <source>{0} location(s) · {1} entries · {2}</source>
+        <translation>· {0} 位置 · {1}条目 · {2}</translation>
+    </message>
+</context>
+<context>
     <name>ScriptExtenderView</name>
     <message>
         <source>Install Script Extender — {0}</source>
@@ -9356,10 +10485,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>安装后清除存档</translation>
     </message>
     <message>
-        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself — installs from the Install Mod button or the Downloads tab keep their archive.</source>
-        <translation>提取后删除一个 Mod 下载的归档 。 仅适用于自己下载的档案阿梅西斯特——从"安装 Mod"按钮安装或"下载"标签保存其档案.</translation>
-    </message>
-    <message>
         <source>Keep FOMOD archives</source>
         <translation>保留 FOMOD 档案</translation>
     </message>
@@ -9456,10 +10581,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>编辑自定义安装名称规则……</translation>
     </message>
     <message>
-        <source>Add your own regex search/replace rules to clean up mod names on install — useful when a download site changes its filename format.</source>
-        <translation>添加自定义正则表达式搜索/替换规则，以便在安装时清理模组名称——当下载网站更改文件名格式时，此功能非常有用。</translation>
-    </message>
-    <message>
         <source>Restore on close</source>
         <translation>关闭时恢复</translation>
     </message>
@@ -9480,10 +10601,6 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>启动时通知新版本</translation>
     </message>
     <message>
-        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification — you can still update via your package manager or by toggling the pre-release setting.</source>
-        <translation>当新版本的Amethyst可用时显示通知 。 关闭此选项只可调音通知 —— 您仍然可以通过您的软件包管理器进行更新, 也可以将发布前的设置拖入其中 .</translation>
-    </message>
-    <message>
         <source>Enable automatic updates…</source>
         <translation>启用自动更新..</translation>
     </message>
@@ -9496,12 +10613,32 @@ Merge your conflicts, then close it and click Done.</source>
         <translation>档案</translation>
     </message>
     <message>
+        <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive.</source>
+        <translation>提取后删除一个 Mod 下载的归档 。 仅适用于自下载的档案 Amethyst - 从安装 Mod 按钮安装, 或下载标签保存其档案 .</translation>
+    </message>
+    <message>
         <source>Downloads</source>
         <translation>下载</translation>
     </message>
     <message>
+        <source>Download only (don't install)</source>
+        <translation>只下载( 不安装)</translation>
+    </message>
+    <message>
+        <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
+        <translation>下载保存到缓存中,但没有安装 。 应用 nxm://链接, Nexus 浏览器, 更改版本, 收藏安装, 要求下载并更新/ reinstall 重新下载 - 他们的安装按钮变为下载. 从下载标签或安装模式按钮中自行安装 .</translation>
+    </message>
+    <message>
         <source>Extraction</source>
         <translation>采掘业</translation>
+    </message>
+    <message>
+        <source>Add your own regex search/replace rules to clean up mod names on install - useful when a download site changes its filename format.</source>
+        <translation>添加您自己的 regex 搜索/ 替换规则来清理安装上的 mod 名称 - 当下载网站更改文件名格式时有用 .</translation>
+    </message>
+    <message>
+        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification - you can still update via your package manager or by toggling the pre-release setting.</source>
+        <translation>当新版本的Amethyst可用时显示通知 。 关闭此选项只会调试通知 - 您仍然可以通过您的软件包管理器更新, 或是将发布前的设置拖入其中 .</translation>
     </message>
     <message>
         <source>beta</source>
@@ -9592,8 +10729,24 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
         <translation>Lutris 应用程序</translation>
     </message>
     <message>
-        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs — leave blank for Flatpak or native Lutris.</source>
-        <translation>路特里斯AppImage的路径,因此Play可以直接推出. 仅需AppImage安装——为平板电脑或本地Lutris留空.</translation>
+        <source>Path to the Lutris AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Lutris.</source>
+        <translation>路特里斯AppImage的路径,因此Play可以直接推出. 仅需AppImage安装 - 为平板电脑或本地Lutris留空.</translation>
+    </message>
+    <message>
+        <source>Path to the Faugus Launcher AppImage, so Play can launch it directly. Only needed for AppImage installs - leave blank for Flatpak or native Faugus.</source>
+        <translation>Faugus Launger AppImage的路径,因此Play可以直接发射. 只用于 AppImage 安装 - 为 Flatpak 或本地 Faugus 留下空白 .</translation>
+    </message>
+    <message>
+        <source>Faugus Data Location</source>
+        <translation>Faugus 数据位置</translation>
+    </message>
+    <message>
+        <source>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</source>
+        <translation>包含 Faugus Launder 游戏的文件夹.json. Blank = 自动检测(Flatpak和本地地点).</translation>
+    </message>
+    <message>
+        <source>Faugus AppImage</source>
+        <translation>Faugus 附录</translation>
     </message>
     <message>
         <source>Steam libraryfolders.vdf</source>
@@ -9602,6 +10755,26 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
         <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
         <translation>libraryfolders.vdf（或其所在文件夹）的路径。留空表示自动检测（标准、Flatpak 和 Snap 位置）。</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>高级</translation>
+    </message>
+    <message>
+        <source>Set environment variables that Amethyst applies to itself every time it starts - kill switches, diagnostics and graphics options that otherwise need a terminal launch. Pick from the supported list or add your own.</source>
+        <translation>设定 Amethyst 每次启动时都会对自己应用的环境变量 - 杀死开关,诊断和图形选项,否则需要终端发射. 从支持的列表中选择或添加自己的列表 .</translation>
+    </message>
+    <message>
+        <source>Edit environment variables…</source>
+        <translation>编辑环境变量..</translation>
+    </message>
+    <message>
+        <source>{0} set: {1}</source>
+        <translation>{0}套装:{1}</translation>
+    </message>
+    <message>
+        <source>None set</source>
+        <translation>无设置</translation>
     </message>
     <message>
         <source>Failed to save setting: {0}</source>
@@ -10346,6 +11519,17 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     <message>
         <source>Cancel</source>
         <translation>取消</translation>
+    </message>
+</context>
+<context>
+    <name>TextureSourceController</name>
+    <message>
+        <source>Textures: as the game loads</source>
+        <translation>纹理: 作为游戏的负载</translation>
+    </message>
+    <message>
+        <source>Textures: {0} ({1}/{2})</source>
+        <translation>纹理:{0}({1}/{2})</translation>
     </message>
 </context>
 <context>
@@ -11679,7 +12863,7 @@ Latest:  {1}</source>
     <name>WikiView</name>
     <message>
         <source>Refresh</source>
-        <extracomment>Slug carried on each page-list row. Horizontal room left for the scrollbar/margins when scaling an image.</extracomment>
+        <extracomment>Slug carried on each page-list row (absent on the sidebar's group headers). Horizontal room left for the scrollbar/margins when scaling an image. Extra height above a sidebar group header, to set its group apart.</extracomment>
         <translation>刷新</translation>
     </message>
     <message>
@@ -11699,6 +12883,10 @@ Check your connection and press Refresh — pages you have already opened stay r
 检查您的连接并按刷新—— 您已经打开可读的页面 .</translation>
     </message>
     <message>
+        <source>Other pages</source>
+        <translation>其他页面</translation>
+    </message>
+    <message>
         <source>Could not load “{0}”.
 
 Press Refresh to try again.</source>
@@ -11713,6 +12901,10 @@ Press Refresh to try again.</source>
     <message>
         <source>Updated.</source>
         <translation>已更新.</translation>
+    </message>
+    <message>
+        <source>Click an import code to load it.</source>
+        <translation>单击导入代码来加载它 .</translation>
     </message>
     <message>
         <source>Loading…</source>
@@ -12227,6 +13419,17 @@ When you close it, your changes are restored automatically.</source>
     </message>
 </context>
 <context>
+    <name>_NoGLViewport</name>
+    <message>
+        <source>3D preview is unavailable on this system.</source>
+        <translation>此系统中没有 3D 预览 .</translation>
+    </message>
+    <message>
+        <source>no OpenGL</source>
+        <translation>无 OpenGL</translation>
+    </message>
+</context>
+<context>
     <name>_OverridesModel</name>
     <message>
         <source>Pak</source>
@@ -12289,6 +13492,10 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Install</source>
         <translation>安装</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
     </message>
 </context>
 <context>
@@ -12393,6 +13600,33 @@ When you close it, your changes are restored automatically.</source>
     <message>
         <source>Files swept into Overwrite (newest restore first)</source>
         <translation>被移入“覆盖”文件夹的文件（按最新恢复时间排序）</translation>
+    </message>
+    <message>
+        <source>Apply this variable at startup</source>
+        <translation>启动时应用此变量</translation>
+    </message>
+    <message>
+        <source>VARIABLE_NAME</source>
+        <translation>可变名称</translation>
+    </message>
+    <message>
+        <source>value</source>
+        <translation>数值</translation>
+    </message>
+    <message>
+        <source>Remove this variable</source>
+        <translation>删除此变量</translation>
+    </message>
+</context>
+<context>
+    <name>widget</name>
+    <message>
+        <source>Male</source>
+        <translation>男性</translation>
+    </message>
+    <message>
+        <source>Female</source>
+        <translation>妇女</translation>
     </message>
 </context>
 </TS>
