@@ -684,6 +684,13 @@ def run_collection_install(
     _DONE_SENTINEL = None
     import os as _os_col
     _COL_TIMING = bool(_os_col.environ.get("MM_COL_TIMING"))
+    # Wall-clock run start. _maybe_delete_archive only ever deletes archives
+    # whose mtime is at/after this — i.e. fetched DURING this run. An archive
+    # that predates the run was detected on disk (another manager's download
+    # folder, an earlier manual download, a previous run's cache) and must
+    # survive 'Clear archive after install' — the manager didn't download it.
+    import time as _wall_time
+    _run_started_ts = _wall_time.time()
 
     _dl_results: dict[int, tuple] = {}
     _dl_lock = threading.Lock()
@@ -1118,8 +1125,8 @@ def run_collection_install(
             cb.on_row_installed(mod.file_id)
 
     def _maybe_delete_archive(archive_path: str, was_fomod: bool) -> None:
-        """Decrement archive use-count; delete at zero honoring settings. Caller
-        must hold _install_lock."""
+        """Decrement archive use-count; delete at zero honoring settings, but
+        never an archive that predates the run. Caller must hold _install_lock."""
         if archive_path not in _archive_use_count:
             return
         _archive_use_count[archive_path] -= 1
@@ -1132,12 +1139,21 @@ def run_collection_install(
             # it was a FOMOD and the user keeps FOMOD archives (the user just
             # downloaded it by hand — leaving it behind clutters ~/Downloads).
             _should_clear = not (was_fomod and _keep_fomod_archives_cfg)
-        if (_archive_use_count[archive_path] == 0 and _should_clear
+        if not (_archive_use_count[archive_path] == 0 and _should_clear
                 and archive_path not in _external_archive_paths):
-            try:
-                delete_archive_and_sidecar(Path(archive_path))
-            except Exception as _del_exc:
-                log(f"Collection install: could not remove archive '{archive_path}': {_del_exc}")
+            return
+        try:
+            _pre_existing = Path(archive_path).stat().st_mtime < _run_started_ts
+        except OSError:
+            _pre_existing = True  # can't prove we downloaded it — keep it
+        if _pre_existing:
+            log(f"Collection install: kept pre-existing archive "
+                f"'{Path(archive_path).name}' (not downloaded by this run)")
+            return
+        try:
+            delete_archive_and_sidecar(Path(archive_path))
+        except Exception as _del_exc:
+            log(f"Collection install: could not remove archive '{archive_path}': {_del_exc}")
 
     def _install_consumer():
         while True:
@@ -1296,8 +1312,10 @@ def run_collection_install(
             with _dl_lock:
                 _dl_done += 1
             with _install_lock:
-                # Counted but NOT marked external → deleted after install
-                # (Tk manual parity; see _maybe_delete_archive).
+                # Counted but NOT marked external → deleted after install IF
+                # it appeared during this run (fresh hand-download; Tk manual
+                # parity — declutters ~/Downloads). Archives that predate the
+                # run are kept by _maybe_delete_archive's mtime guard.
                 _akey = str(archive)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
             if not download_only:
