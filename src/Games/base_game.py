@@ -186,6 +186,17 @@ class BaseGame(ABC):
         return []
 
     @property
+    def auto_drive_scan(self) -> bool:
+        """
+        When True, the Configure-Game view falls back to the all-drives exe
+        scan automatically if no launcher/store library detects the game.
+        For games with no storefront at all (manual downloads like Daggerfall
+        Unity) the library scan can never succeed, so the drive scan is the
+        real auto-detection.
+        """
+        return False
+
+    @property
     def default_deploy_mode(self) -> str:
         """
         The deploy method pre-selected in the configure dialog.

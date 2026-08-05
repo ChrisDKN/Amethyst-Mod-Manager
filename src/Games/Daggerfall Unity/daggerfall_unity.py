@@ -247,6 +247,12 @@ class DaggerfallUnity(BaseGame):
         return ""
 
     @property
+    def auto_drive_scan(self) -> bool:
+        # No storefront ships DFU, so the store-library scan can never find
+        # it — go straight to the all-drives scan.
+        return True
+
+    @property
     def nexus_game_domain(self) -> str:
         return "daggerfallunity"
 

@@ -1030,6 +1030,10 @@ class ConfigureGameView(QWidget):
                 self._set_prefix(Path(prefix))
             elif self._has_prefix_src:
                 self._start_prefix_scan()
+        elif getattr(self._game, "auto_drive_scan", False):
+            # Store-less games (manual downloads) can never be found by the
+            # library scan — the drive scan IS their auto-detection.
+            self._start_drive_scan()
         else:
             self._game_status.setText(
                 self.tr("Not found automatically. Browse manually to locate the game folder."))
