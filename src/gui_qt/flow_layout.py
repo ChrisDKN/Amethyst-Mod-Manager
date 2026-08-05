@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QLayout, QLayoutItem, QSizePolicy, QSpacerItem, QWidget,
 )
 
+from gui_qt.qt_callback_guard import guard_virtuals
+
 
 def enable_height_for_width(w: QWidget) -> None:
     """Make a FlowLayout host report its height at its ACTUAL width — Qt
@@ -174,3 +176,19 @@ class FlowLayout(QLayout):
             y -= self._spacing
 
         return y - rect.y() + m.bottom()
+
+
+# Qt drives these from C++ (layout passes, reparenting), where an escaping
+# exception poisons the interpreter instead of being raised - see
+# qt_callback_guard. A stale QLayoutItem whose widget is already gone is the
+# usual way _do_layout blows up.
+guard_virtuals(
+    FlowLayout,
+    heightForWidth=0,
+    setGeometry=None,
+    sizeHint=QSize,
+    minimumSize=QSize,
+    itemAt=None,
+    takeAt=None,
+    count=0,
+)

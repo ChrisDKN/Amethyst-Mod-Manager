@@ -15114,6 +15114,12 @@ def run() -> int:
     # mid-resize (see _Viewport.resizeEvent). Users can still opt in by exporting
     # QT_XCB_GL_INTEGRATION themselves - Qt reads it without our help.
     app = QApplication(sys.argv)
+    # Before anything installs an event filter: an exception escaping a Qt
+    # callback leaves CPython's error indicator set and kills the next widget
+    # Qt-side construction with a bogus "returned NULL without setting an
+    # exception" SystemError somewhere else entirely.
+    from gui_qt.qt_callback_guard import install as _install_callback_guard
+    _install_callback_guard()
     _apply_app_identity(app)
     # Install UI translators before any widget is built (Qt only translates
     # tr() calls made after the translator is installed). Language comes from

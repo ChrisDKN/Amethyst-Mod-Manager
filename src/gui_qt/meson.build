@@ -98,6 +98,7 @@ py.install_sources(
   'prefix_manager_view.py',
   'profile_groups_view.py',
   'profile_settings_view.py',
+  'qt_callback_guard.py',
   'remove_previous_overlay.py',
   'requirements_view.py',
   'safe_emit.py',
