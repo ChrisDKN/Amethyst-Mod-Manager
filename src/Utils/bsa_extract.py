@@ -102,8 +102,7 @@ def extract_bsa(
             return _extract(f, dest_dir, overwrite, progress, cancel)
     except BsaExtractError:
         raise
-    except (OSError, struct.error, ValueError, zlib.error,
-            RuntimeError) as exc:
+    except (OSError, struct.error, ValueError, zlib.error) as exc:
         raise BsaExtractError(f"failed to extract {bsa_path.name}: {exc}") from exc
 
 
@@ -130,8 +129,9 @@ def read_bsa_entry(bsa_path: Path | str, info: dict,
     try:
         with open(bsa_path, "rb") as f:
             return _decode_entry(f, info, size_field, data_offset)
-    except (OSError, struct.error, ValueError, zlib.error,
-            lz4.frame.LZ4FrameError) as exc:
+    except BsaExtractError:
+        raise
+    except (OSError, struct.error, ValueError, zlib.error) as exc:
         raise BsaExtractError(f"failed to read from {bsa_path}: {exc}") from exc
 
 
@@ -163,7 +163,15 @@ def _decode_entry(f, info: dict, size_field: int, data_offset: int,
     # 4-byte original-size prefix precedes the compressed stream.
     body = block[4:]
     if info["version"] == 105:
-        return lz4.frame.decompress(body)
+        try:
+            return lz4.frame.decompress(body)
+        except RuntimeError as exc:
+            # lz4.frame has no error class of its own; corrupt/truncated
+            # frames surface as bare RuntimeError. Wrap it here, at the
+            # decompress call, so a RuntimeError from elsewhere (e.g. a
+            # caller's progress/cancel callback) is not mislabelled as an
+            # archive failure.
+            raise BsaExtractError(f"lz4 decompression failed for {rel}: {exc}") from exc
     return zlib.decompress(body)
 
 

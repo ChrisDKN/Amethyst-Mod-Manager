@@ -21,11 +21,11 @@ _WINDOWS_RESERVED_CHARS = r'<>:"/\\|?*'
 # regular no-break space (U+00A0) is handled by str.strip()/rstrip below (Python
 # treats it as whitespace), so it is not listed here.
 _INVISIBLE_CHARS = (
-    "​"  # ZERO WIDTH SPACE
-    "‌"  # ZERO WIDTH NON-JOINER
-    "‍"  # ZERO WIDTH JOINER
-    "⁠"  # WORD JOINER
-    "﻿"  # ZERO WIDTH NO-BREAK SPACE / BOM
+    "\u200b"  # ZERO WIDTH SPACE
+    "\u200c"  # ZERO WIDTH NON-JOINER
+    "\u200d"  # ZERO WIDTH JOINER
+    "\u2060"  # WORD JOINER
+    "\ufeff"  # ZERO WIDTH NO-BREAK SPACE / BOM
 )
 _INVISIBLE_RE = re.compile(f"[{_INVISIBLE_CHARS}]")
 

@@ -28,6 +28,17 @@ extension-pkg-allow-list=lz4,gi
 # missing; pylint just trusts the import without inspecting members.
 ignored-modules=Utils.deploy,PySide6
 
+# Skip any .venv tree (there is one at the repo root and a second inside
+# src/), otherwise `pylint src/` descends into bundled site-packages and
+# drowns real findings in ~2,600 bogus errors from Cryptodome/PIL/etc.
+#
+# Pattern note: keep this a plain forward-slash regex with no [/\\]-style
+# character classes. pylint internally rewrites the pattern into a
+# "windows|posix" union via PureWindowsPath, and a character class
+# containing a backslash gets mangled so badly that neither half of the
+# union matches anything (verified against pylint 4.0.6).
+ignore-paths=.*/\.venv/.*
+
 
 [MESSAGES CONTROL]
 
