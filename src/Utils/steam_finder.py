@@ -6,6 +6,7 @@ No UI, no game-specific knowledge.
 
 from __future__ import annotations
 
+import collections
 import os
 import re
 import shutil
@@ -1290,11 +1291,15 @@ def scan_drives_for_exe(exe_names: list[str],
                         stop_event: "threading.Event | None" = None) -> Path | None:
     """Scan all mounted drives for any of *exe_names*, stopping at first match.
 
-    Walks every real (non-pseudo) mount point from /proc/mounts, fanning the
-    top-level subtree walks out across a thread pool so a big multi-drive scan
-    doesn't run serially. Matching is on the bare filename (case-sensitive, to
-    match the Tk behaviour); *exe_names* entries with sub-paths are matched on
-    their final component. Returns the directory holding the exe, or None.
+    Walks every real (non-pseudo) mount point from /proc/mounts, fanning
+    subtree walks out across a thread pool — user trees (/home, /run/media,
+    /media, /mnt) are split a level deeper and queued first, and each walk is
+    breadth-first, since game dirs sit shallow. Per-session fuse mirrors
+    (document portal, gvfs) are excluded so the scan never returns a
+    /run/user/…/doc alias for a real path. Matching is on the bare filename
+    (case-sensitive, to match the Tk behaviour); *exe_names* entries with
+    sub-paths are matched on their final component. Returns the directory
+    holding the exe, or None.
 
     Pass *stop_event* to allow an external caller (e.g. a closing dialog) to
     abort the walk early.
@@ -1305,13 +1310,31 @@ def scan_drives_for_exe(exe_names: list[str],
     if not names:
         return None
 
+    # fuse.portal is the xdg document portal: it mirrors folders the user
+    # previously picked in a portal file dialog under /run/user/<uid>/doc/…,
+    # so scanning it "finds" the game at an alias path that other processes
+    # (Steam, Proton) can't open. gvfs/revokefs are similar per-user fuse
+    # mirrors; autofs entries would trigger mounts as a side effect.
     skip_types = {"sysfs", "proc", "devtmpfs", "devpts", "tmpfs", "cgroup",
                   "cgroup2", "pstore", "bpf", "tracefs", "debugfs",
                   "securityfs", "fusectl", "hugetlbfs", "mqueue", "configfs",
-                  "efivarfs", "overlay", "squashfs"}
+                  "efivarfs", "overlay", "squashfs", "autofs", "binfmt_misc",
+                  "nsfs", "ramfs", "fuse.portal", "fuse.gvfsd-fuse",
+                  "fuse.revokefs-fuse", "fuse.rofiles-fuse"}
     skip_dirs = {"proc", "sys", "dev", "run", "snap"}
 
+    def _unescape(mp: str) -> str:
+        """Decode /proc/mounts octal escapes (\\040 = space) in a mountpoint."""
+        if "\\" not in mp:
+            return mp
+        try:
+            return (mp.encode("latin-1").decode("unicode_escape")
+                    .encode("latin-1").decode("utf-8", "replace"))
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            return mp
+
     roots: list[Path] = []
+    all_mounts: set[str] = set()
     try:
         with open("/proc/mounts", "r", encoding="utf-8") as f:
             for line in f:
@@ -1319,8 +1342,15 @@ def scan_drives_for_exe(exe_names: list[str],
                 if len(parts) < 3:
                     continue
                 fstype = parts[2]
-                mountpoint = parts[1]
+                mountpoint = _unescape(parts[1])
+                all_mounts.add(mountpoint)
                 if fstype in skip_types:
+                    continue
+                # /run/user holds only per-session fuse mirrors (doc portal,
+                # gvfs); /tmp/* mounts are AppImage runtimes. Neither can be
+                # real game storage. /run/media (removable drives) is NOT
+                # under /run/user and still gets scanned.
+                if mountpoint.startswith(("/run/user/", "/tmp/")):
                     continue
                 p = Path(mountpoint)
                 if p == Path("/"):
@@ -1333,27 +1363,91 @@ def scan_drives_for_exe(exe_names: list[str],
     if stop_event is None:
         stop_event = threading.Event()
 
+    root_set = {str(r) for r in roots}
+
     def _scan_subtree(start: Path) -> Path | None:
-        for dirpath, dirnames, filenames in os.walk(start, followlinks=False):
+        """Breadth-first walk: game dirs sit shallow, so BFS finds them long
+        before a depth-first walk finishes exhausting deep unrelated trees.
+        Other mountpoints are pruned — every wanted mount is walked from its
+        own /proc/mounts entry, so descending into one here would scan it
+        twice (and descending into a skipped one at all)."""
+        queue = collections.deque([str(start)])
+        while queue:
             if stop_event.is_set():
                 return None
-            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
-            if names & set(filenames):
-                return Path(dirpath)
+            dirpath = queue.popleft()
+            try:
+                with os.scandir(dirpath) as it:
+                    for entry in it:
+                        try:
+                            if entry.is_dir(follow_symlinks=False):
+                                if (entry.name not in skip_dirs
+                                        and entry.path not in all_mounts):
+                                    queue.append(entry.path)
+                            elif entry.name in names:
+                                return Path(dirpath)
+                        except OSError:
+                            continue
+            except OSError:
+                continue
         return None
 
-    scan_roots: list[Path] = []
-    for root in roots:
+    def _expand(d: Path) -> "tuple[Path | None, list[Path]]":
+        """Match d's own files and list its child dirs; (hit, children)."""
+        subs: list[Path] = []
         try:
-            scan_roots.extend(
-                p for p in root.iterdir()
-                if p.is_dir() and p.name not in skip_dirs)
-        except (PermissionError, OSError):
+            with os.scandir(d) as it:
+                for entry in it:
+                    try:
+                        is_dir = entry.is_dir(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    if is_dir:
+                        if (entry.name not in skip_dirs
+                                and entry.path not in all_mounts):
+                            subs.append(Path(entry.path))
+                    elif entry.name in names:
+                        return d, []
+        except OSError:
             pass
+        return None, subs
+
+    def _priority(p: Path) -> int:
+        # User-writable trees where games actually live go first; rootfs
+        # system trees (/usr, /var, …) are the long tail.
+        s = str(p) + "/"
+        if s.startswith(("/home/", "/run/media/", "/media/", "/mnt/")):
+            return 0
+        return 1
+
+    units: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        hit, children = _expand(root)
+        if hit is not None:
+            return hit
+        for child in children:
+            if str(child) in root_set:
+                continue  # walked from its own mount entry
+            # Fan the user trees out one level deeper so e.g. /home/deck
+            # isn't a single serial walk unit dominating wall time.
+            if _priority(child) == 0:
+                hit, subs = _expand(child)
+                if hit is not None:
+                    return hit
+                group = subs
+            else:
+                group = [child]
+            for unit in group:
+                s = str(unit)
+                if s not in seen:
+                    seen.add(s)
+                    units.append(unit)
+    units.sort(key=_priority)
 
     found: Path | None = None
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(_scan_subtree, sr): sr for sr in scan_roots}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+        futures = {pool.submit(_scan_subtree, u): u for u in units}
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result is not None:
