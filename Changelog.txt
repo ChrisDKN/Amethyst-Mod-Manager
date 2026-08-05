@@ -1,6 +1,6 @@
 - v2.1.0
 ### Game Support
-- Added Daggerfall Unity (Game detection is not possible with this and the root folder of the game must be added manually)
+- Added Daggerfall Unity
 ### Additions
 - Added a nif viewer for previewing meshes in a 3D viewer. Accessible via the Wizard > Other menu or clicking a nif file in the mod files tab
 - Added a Wizard tool to run a Linux native version of Bodyslide and Outfit studio
@@ -12,16 +12,21 @@
 - Added a menu in the settings to apply env variables to the application on launch
 - Added a notification center button for showing past notifications
 - Added an option to install lavfilters to the proton dropdown for New Vegas to fix radio issues
+- Added UUID conflict detection for bg3 pak mods
 ### Changes
 - The change version menu now stays open when installing a mod from it
 - The plugins list columns can now be sorted
 - When installing enb as a mod, Linux mode is set automatically
 - The overwrite and root folder separators now display how many files are in them
 - The in app wiki now shows a custom sidebar
+- The scan button in the game config should now be much faster at finding the executable
+- Bg3 will now only deploy the highest priority pak when they have different names but the same UUID
 ### Bug Fixes
 - Fixed an issue where folders routed via custom routing rules were not having their names normalised
 - Fixed mods that shipped with multiple folder with the same name but different caseing not merging correctly
 - Fixed an issue where the manage caches menu would take a while to open
+- Fixed an issue where archives could be deleted even with clear archive after install disabled
+- Fixed an issue where fomods with a missing destination property would not install correctly
 
 - v2.0.5
 ### Game Support
