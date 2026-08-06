@@ -1,12 +1,13 @@
-"""Create Collection — a modlist-scoped tab that packages the current profile
+"""Create Collection - a modlist-scoped tab that packages the current profile
 into a Vortex/Nexus-compatible collection ``.7z``. Subclasses ExportProfileView
 for the per-mod source/version/optional/fomod table; adds the collection info
 form (name, author, description, install instructions) and swaps the export
 path for ``Utils.collection_export`` (collection.json + bundled files).
 
-The output installs in Vortex and in Amethyst's own collection installer.
-Uploading to Nexus is a later phase — for now users can import the file into
-Vortex or attach it to a collection on the website.
+The output installs in Vortex and in Amethyst's own collection installer, and
+can be uploaded straight to Nexus as a new collection or as a new revision of
+one the user already owns (including collections authored in Vortex). Uploads
+land as drafts; publishing happens in the My Collections tab.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPlainTextEdit,
     QPushButton, QSpinBox, QCheckBox, QRadioButton, QButtonGroup,
-    QFrame, QTableWidgetItem,
+    QFrame, QTableWidgetItem, QComboBox,
 )
 
 from gui_qt.safe_emit import safe_emit
@@ -38,7 +39,7 @@ _COL_EDITS = 7
 # Per-mod update policy cycle: what the installer fetches when the mod has a
 # newer file than the one the author pinned.
 _POLICY_ORDER = ("exact", "prefer", "latest")
-# Short cell labels — the full wording lives in the picker overlay.
+# Short cell labels - the full wording lives in the picker overlay.
 _POLICY_LABELS = {
     "exact": QT_TRANSLATE_NOOP("CreateCollectionView", "Exact"),
     "prefer": QT_TRANSLATE_NOOP("CreateCollectionView", "Prefer"),
@@ -61,7 +62,7 @@ class _PolicyOverlay(_CardOverlay):
         super().__init__(host)
         self._on_pick = on_pick
         self._body.addWidget(
-            _card_title(self.tr("Update policy — {0}").format(mod_name)))
+            _card_title(self.tr("Update policy - {0}").format(mod_name)))
         sub = QLabel(self.tr("What installers download when a newer file exists:"))
         sub.setObjectName("CardSub")
         sub.setWordWrap(True)
@@ -77,7 +78,7 @@ class _PolicyOverlay(_CardOverlay):
             ("latest", self.tr("Latest"),
              self.tr("Always install the newest file")),
         ):
-            rb = QRadioButton(self.tr("{0}   — {1}").format(label, desc))
+            rb = QRadioButton(self.tr("{0}   - {1}").format(label, desc))
             rb.setChecked(value == current_policy)
             self._group.addButton(rb)
             self._radios[value] = rb
@@ -117,13 +118,19 @@ class CreateCollectionView(ExportProfileView):
     _game_version_ready = Signal(str)
     # validated Nexus username for the author autofill → UI thread.
     _author_ready = Signal(str)
+    # the user's own collections, for the upload-target picker → UI thread.
+    _targets_ready = Signal(object)
 
     def __init__(self, window, game, api, log_fn=None):
         self._pending_info: dict = {}
+        # The name we last auto-filled from the upload target, so switching
+        # targets can replace it while never clobbering a hand-typed name.
+        self._autofilled_name = ""
         super().__init__(window, game, api, log_fn=log_fn)
         self._upload_done.connect(self._on_upload_done)
         self._game_version_ready.connect(self._on_game_version_ready)
         self._author_ready.connect(self._on_author_ready)
+        self._targets_ready.connect(self._on_targets_ready)
         threading.Thread(target=self._autofill_worker,
                          daemon=True, name="collection-autofill").start()
 
@@ -132,14 +139,20 @@ class CreateCollectionView(ExportProfileView):
         version = detect_game_version(self._game)
         if version:
             safe_emit(self._game_version_ready, version)
-        if self._api is not None:
-            try:
-                user = self._api.validate()
-                name = getattr(user, "name", "") or ""
-            except Exception:
-                name = ""
-            if name:
-                safe_emit(self._author_ready, name)
+        if self._api is None:
+            return
+        try:
+            user = self._api.validate()
+            name = getattr(user, "name", "") or ""
+        except Exception:
+            name = ""
+        if name:
+            safe_emit(self._author_ready, name)
+        try:
+            mine = self._api.get_my_collections()
+        except Exception:
+            mine = []
+        safe_emit(self._targets_ready, mine)
 
     def _on_game_version_ready(self, version: str):
         if not self._info_versions.text().strip():
@@ -149,9 +162,95 @@ class CreateCollectionView(ExportProfileView):
         if not self._info_author.text().strip():
             self._info_author.setText(name)
 
+    def _on_targets_ready(self, collections):
+        """Fill the upload-target picker and preselect this profile's collection.
+
+        Priority: the profile's own upload record, then the collection URL an
+        install stamped on the profile (which is how a re-installed profile - or
+        one built from a Vortex-authored collection - is recognised)."""
+        domain = (getattr(self._game, "nexus_game_domain", "") or "").lower()
+        self._targets = [c for c in (collections or [])
+                         if not domain or not c.game_domain
+                         or c.game_domain.lower() == domain]
+        self._target_box.blockSignals(True)
+        self._target_box.clear()
+        self._target_box.addItem(self.tr("Create new collection"), 0)
+        for col in self._targets:
+            latest = (col.latest_published_revision
+                      or (col.draft_revision.revision_number
+                          if col.draft_revision else 0))
+            label = (self.tr("{0}  (rev {1})").format(col.name or col.slug, latest)
+                     if latest else (col.name or col.slug))
+            self._target_box.addItem(label, col.id)
+        self._target_box.blockSignals(False)
+
+        record = self._read_upload_record()
+        wanted_id = int(record.get("collection_id") or 0)
+        matched = None
+        if wanted_id:
+            matched = next((c for c in self._targets if c.id == wanted_id), None)
+        if matched is None:
+            slug = self._profile_collection_slug()
+            if slug:
+                matched = next((c for c in self._targets
+                                if c.slug.lower() == slug.lower()), None)
+                if matched is not None:
+                    self._log(f"[collection] profile came from '{matched.slug}' "
+                              "- preselected it as the upload target")
+        if matched is not None:
+            idx = self._target_box.findData(matched.id)
+            if idx >= 0:
+                self._target_box.setCurrentIndex(idx)
+        self._on_target_changed()
+
+    def _profile_collection_slug(self) -> str:
+        """The slug of the collection this profile was installed from, if any."""
+        pd = self._profile_dir()
+        if pd is None:
+            return ""
+        try:
+            from Utils.game_helpers import get_collection_url_from_profile
+            from Utils.collection_manifest import parse_collection_url
+            url = get_collection_url_from_profile(pd)
+            if not url:
+                return ""
+            slug, _domain, _rev = parse_collection_url(url)
+            return slug or ""
+        except Exception:
+            return ""
+
+    def _selected_target(self):
+        """(collection_id, slug, name) for the chosen upload target."""
+        cid = int(self._target_box.currentData() or 0)
+        if not cid:
+            return 0, "", ""
+        col = next((c for c in self._targets if c.id == cid), None)
+        if col is None:
+            return 0, "", ""
+        return col.id, col.slug, col.name
+
+    def _on_target_changed(self, *_args):
+        cid, _slug, name = self._selected_target()
+        if cid:
+            self._upload_btn.setText(self.tr("Upload revision"))
+            self._upload_btn.setToolTip(
+                self.tr("Uploads a new draft revision of '{0}'.").format(name))
+        else:
+            self._upload_btn.setText(self.tr("Upload to Nexus"))
+            self._upload_btn.setToolTip(
+                self.tr("Creates a new draft collection on your account."))
+
+        # Match the name to the chosen target - a revision upload sends this
+        # name through editCollection, so a stale one would rename the
+        # collection. Anything the user typed themselves is left alone.
+        current = self._info_name.text().strip()
+        if not current or current == self._autofilled_name:
+            self._info_name.setText(name)
+            self._autofilled_name = name
+
     # -- construction -------------------------------------------------------
     def _build(self):
-        # Keep the parent's "ExportProfileView" objectName — the inherited QSS
+        # Keep the parent's "ExportProfileView" objectName - the inherited QSS
         # background selector keys off it.
         super()._build()
         title = self.findChild(QLabel, "EPTitle")
@@ -198,16 +297,24 @@ class CreateCollectionView(ExportProfileView):
         self._info_name = _line(self.tr("e.g. My Survival Overhaul"))
         self._info_author = _line(self.tr("Your Nexus username"))
         self._info_versions = _line(
-            self.tr("Game version(s), comma separated — optional"))
+            self.tr("Game version(s), comma separated - optional"))
         self._info_desc = QPlainTextEdit()
-        self._info_desc.setPlaceholderText(self.tr("Short description — optional"))
+        self._info_desc.setPlaceholderText(self.tr("Short description - optional"))
         self._info_desc.setFixedHeight(72)
         self._info_instructions = QPlainTextEdit()
         self._info_instructions.setPlaceholderText(
-            self.tr("Install instructions shown before install — optional"))
+            self.tr("Install instructions shown before install - optional"))
         self._info_instructions.setFixedHeight(72)
 
+        # Upload target: a new collection, or a new revision of one the user
+        # already owns (filled in once the account's collections load).
+        self._targets: list = []
+        self._target_box = QComboBox()
+        self._target_box.addItem(self.tr("Create new collection"), 0)
+        self._target_box.currentIndexChanged.connect(self._on_target_changed)
+
         for label, field in (
+            (self.tr("Upload target"), self._target_box),
             (self.tr("Collection name"), self._info_name),
             (self.tr("Author"), self._info_author),
             (self.tr("Game versions"), self._info_versions),
@@ -266,7 +373,7 @@ class CreateCollectionView(ExportProfileView):
         actions.addWidget(self._upload_btn, 1)
         pv.addLayout(actions)
 
-        # Extra columns — Phase: install phasing (0 = first wave; higher phases
+        # Extra columns - Phase: install phasing (0 = first wave; higher phases
         # install after previous ones are deployed, e.g. frameworks first).
         # Update: what installers fetch when a newer file exists.
         t = self._table
@@ -331,7 +438,7 @@ class CreateCollectionView(ExportProfileView):
 
             # Bundled mods ship their files as-is, so edits are already in.
             if row.get("source") == "bundle":
-                dash = QTableWidgetItem("—")
+                dash = QTableWidgetItem("-")
                 dash.setFlags(Qt.ItemIsEnabled)
                 dash.setTextAlignment(Qt.AlignCenter)
                 t.setItem(i, _COL_EDITS, dash)
@@ -349,6 +456,55 @@ class CreateCollectionView(ExportProfileView):
 
     def _set_save_edits(self, data_idx: int, checked: bool):
         self._all_rows[data_idx]["save_edits"] = bool(checked)
+
+    def _bundle_blocked_reason(self, row: dict) -> str:
+        """Mods users can download themselves must not be bundled.
+
+        Bundling ships the files inside the collection, so doing it to a mod
+        that has a Nexus page is redistributing someone else's work — Nexus's
+        own guidance is that anything qualifying as a "mod" belongs on a mod
+        page and gets *linked* from the collection. Bundling stays available
+        for generated output, config files and unpublished work, and local
+        changes to a Nexus mod ride along as patches via the Edits column.
+        """
+        if row.get("mod_id") and row.get("file_id"):
+            return self.tr(
+                "Not allowed: this mod is on Nexus, so users download it "
+                "themselves. Use the Edits column to ship your changes.")
+        return ""
+
+    def _autosave_settings(self):
+        """Persist the per-mod table on every export/upload.
+
+        Revisions are the normal case for a collection, so the phases, update
+        policies and edit flags must survive closing the tab without the user
+        having to remember to press Save settings. ``_auto_load_latest`` picks
+        the newest file in the folder, so this reuses one fixed name rather
+        than piling up timestamped saves."""
+        ws_dir = self._workshop_dir()
+        if not ws_dir or not self._all_rows:
+            return
+        try:
+            ws_dir.mkdir(parents=True, exist_ok=True)
+            profile_export.write_settings(
+                ws_dir / "workshop_autosave.json", self._all_rows)
+        except Exception as exc:
+            self._log(f"[collection] could not autosave settings: {exc}")
+
+    # -- seeding ------------------------------------------------------------
+    def _seed_rows(self):
+        """Recover per-mod authoring settings from the manifest an install left
+        in the profile, so a re-installed (or Vortex-authored) collection keeps
+        its phases, update policies, sources and file-edit flags."""
+        from Utils.collection_export import (
+            read_profile_manifest, seed_rows_from_manifest)
+        manifest = read_profile_manifest(self._profile_dir())
+        if not manifest:
+            return
+        seeded = seed_rows_from_manifest(self._all_rows, manifest)
+        if seeded:
+            self._log(f"[collection] seeded {seeded} mod(s) from the "
+                      "profile's collection manifest")
 
     def _sort_key(self, col: int, row: dict):
         if col == _COL_PHASE:
@@ -394,8 +550,18 @@ class CreateCollectionView(ExportProfileView):
         return [p for p in sorted(ini_dir.glob("*.ini"))
                 if p.name.lower() in allowed]
 
+    def _info_error(self, info: dict) -> "str | None":
+        """Collection-info validation shared by export and upload."""
+        from Utils.collection_export import validate_collection_name
+        if not info.get("author"):
+            return self.tr("An author name is required.")
+        problem = validate_collection_name(info.get("name", ""))
+        return problem or None
+
     def _rows_error(self) -> "str | None":
         """Row-level validation shared by export and upload; None when OK."""
+        if not self._all_rows:
+            return self.tr("This profile has no mods to put in a collection.")
         missing = profile_export.nexus_missing_file_ids(self._all_rows)
         if missing:
             return self.tr(
@@ -440,15 +606,12 @@ class CreateCollectionView(ExportProfileView):
             self._notify(self.tr("No mods to export."), "warning")
             return
         info = self._collect_info()
-        if not info["name"] or not info["author"]:
-            self._notify(
-                self.tr("Collection name and author are required."), "warning")
-            return
-        err = self._rows_error()
+        err = self._info_error(info) or self._rows_error()
         if err:
             self._notify(err, "warning")
             return
         self._pending_info = info
+        self._autosave_settings()
 
         safe_name = "".join(
             c if c.isalnum() or c in " -_" else "_" for c in info["name"]).strip()
@@ -472,7 +635,7 @@ class CreateCollectionView(ExportProfileView):
                 self._log(f"[collection-export] {w}")
             msg = str(final)
             if warnings:
-                msg += "\n" + self.tr("{0} warning(s) — see log.").format(
+                msg += "\n" + self.tr("{0} warning(s) - see log.").format(
                     len(warnings))
             safe_emit(self._export_done, True, msg)
         except Exception as exc:
@@ -557,46 +720,50 @@ class CreateCollectionView(ExportProfileView):
                                  "Login via SSO."), "warning")
             return
         info = self._collect_info()
-        if not info["name"] or not info["author"]:
-            self._notify(
-                self.tr("Collection name and author are required."), "warning")
-            return
-        err = self._rows_error()
+        err = self._info_error(info) or self._rows_error()
         if err:
             self._notify(err, "warning")
             return
         self._pending_info = info
 
-        record = self._read_upload_record()
-        collection_id = int(record.get("collection_id") or 0)
+        collection_id, target_slug, target_name = self._selected_target()
+        if not collection_id:
+            # No explicit target picked - fall back to this profile's own
+            # upload record (set by a previous upload from here).
+            record = self._read_upload_record()
+            collection_id = int(record.get("collection_id") or 0)
+            target_slug = record.get("slug", "") or ""
+            target_name = record.get("name", "") or ""
         if collection_id:
             body = self.tr(
                 "Upload a new revision of '{0}' (collection #{1})?\n\n"
-                "The revision is created as a draft — publish it from the "
-                "Nexus website when ready. If that collection was deleted, "
-                "a new draft collection is created instead.").format(
-                    record.get("name") or info["name"], collection_id)
+                "The revision is created as a draft - publish it from "
+                "Nexus ▸ Collections ▸ My collections when ready. If that "
+                "collection was deleted, a new draft collection is created "
+                "instead.").format(target_name or info["name"], collection_id)
         else:
             body = self.tr(
                 "Create a new draft collection '{0}' on your Nexus account?\n\n"
                 "Nothing is published: the draft is only visible to you until "
-                "you publish it on the Nexus website.").format(info["name"])
+                "you publish it from Nexus ▸ Collections ▸ My collections."
+            ).format(info["name"])
 
         from gui_qt.confirm_overlay import ConfirmOverlay
 
         def _confirmed(ok: bool):
             if not ok:
                 return
+            self._autosave_settings()
             self._on_export_progress(0, 0, self.tr("Preparing upload…"))
             threading.Thread(
-                target=self._upload_worker, args=(collection_id,),
+                target=self._upload_worker, args=(collection_id, target_slug),
                 daemon=True, name="collection-upload").start()
 
         ConfirmOverlay(self.window(), self.tr("Upload collection"), body,
                        _confirmed, confirm_label=self.tr("Upload"),
                        cancel_label=self.tr("Cancel"), danger=False)
 
-    def _upload_worker(self, collection_id: int):
+    def _upload_worker(self, collection_id: int, target_slug: str = ""):
         """Worker thread: pack to a scratch .7z, PUT it, run the mutation."""
         import shutil
         import tempfile
@@ -606,16 +773,16 @@ class CreateCollectionView(ExportProfileView):
             from Utils import collection_export
             from Utils.config_paths import get_download_cache_dir
 
-            # The recorded collection may have been discarded/deleted on the
-            # website since the last upload — revising it would be rejected
+            # The target collection may have been discarded/deleted on the
+            # website since it was recorded - revising it would be rejected
             # ("not allowed to create_or_update_revision"). Fall back to
             # creating a fresh draft.
             if collection_id:
-                slug = self._read_upload_record().get("slug") or ""
+                slug = target_slug or self._read_upload_record().get("slug") or ""
                 status = self._api.get_collection_status(slug) if slug else "missing"
                 if status != "ok":
-                    self._log(f"[collection-upload] recorded collection "
-                              f"#{collection_id} ({slug}) is {status} — "
+                    self._log(f"[collection-upload] target collection "
+                              f"#{collection_id} ({slug}) is {status} - "
                               "creating a new draft instead")
                     collection_id = 0
 
@@ -691,8 +858,9 @@ class CreateCollectionView(ExportProfileView):
             else:
                 popup.clear(key="collection-export")
         if ok:
-            self._notify(self.tr("Collection uploaded as a draft — finish it "
-                                 "on the Nexus website."), "info")
+            self._notify(self.tr("Uploaded as a draft revision - publish it "
+                                 "from Nexus ▸ Collections ▸ My collections."),
+                         "info")
             self._log(f"[collection-upload] uploaded: {message} {url}")
             if url:
                 QDesktopServices.openUrl(QUrl(url))

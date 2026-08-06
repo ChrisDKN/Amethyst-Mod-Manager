@@ -53,8 +53,12 @@ from Utils.config_paths import get_fomod_selections_path, get_bain_selections_pa
 def load_rows(entries, game) -> list[dict]:
     """Build the per-mod export rows from a list of modlist ``ModEntry`` objects.
 
-    *entries* — enabled, non-separator modlist entries (high-priority first, like
-                the Tk workshop). *game* — the configured Game object; used for the
+    *entries* — non-separator modlist entries, LOWEST priority first (callers
+                pass ``reversed(read_modlist(...))``, since modlist.txt stores
+                index 0 = highest priority). The resulting row order is the
+                manifest's mods-array order, where the last entry wins
+                conflicts — matching what our installer's topo sort and Vortex
+                both expect. *game* — the configured Game object; used for the
                 staging path and active profile dir.
     """
     from Nexus.nexus_meta import read_meta

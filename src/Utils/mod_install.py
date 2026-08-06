@@ -1080,6 +1080,11 @@ class PreparedInstall:
         self.src_root = src_root
         self.fomod_base = fomod_base
         self.fomod_config = fomod_config
+        # Path to the archive's fomod/ModuleConfig.xml while the extraction is
+        # still around. Mirrored into the profile next to the saved selections
+        # so exporting a collection can rebuild the installer's step/option
+        # names later without needing the original archive.
+        self.fomod_config_path: "str | None" = None
         # Optional NexusModMeta supplied by the caller (e.g. the Nexus browser,
         # which knows the real mod_id/file_id) — written verbatim instead of
         # parsing the (sometimes wrong) archive filename.
@@ -1315,6 +1320,8 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                                prebuilt_meta=prebuilt_meta,
                                on_need_prefix=on_need_prefix)
     prepared._tmp_reserved = tmp_reserved
+    if fomod_result is not None and config is not None:
+        prepared.fomod_config_path = fomod_result[1]
     if fomod_base is not None:
         prepared.saved_fomod_selections = _read_saved_fomod_selections(
             game, mod_name, log_fn, profile_dir=profile_dir)
@@ -1624,6 +1631,9 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             if fomod_selections is not None:
                 _persist_fomod_selection(p.game, p.mod_name, fomod_selections,
                                          profile_dir=p.profile_dir)
+                _write_profile_fomod_config(p.game, p.mod_name,
+                                            p.fomod_config_path,
+                                            p.profile_dir)
             ok = _install_fomod(p.fomod_base, p.fomod_config, dest_root,
                                 fomod_selections, log_fn, _pp,
                                 context=p.fomod_context, game=p.game)
@@ -2039,6 +2049,9 @@ def install_collection_archive(
                 _write_profile_fomod_selection(game, prepared.mod_name,
                                                final_selections,
                                                prepared.profile_dir)
+                _write_profile_fomod_config(game, prepared.mod_name,
+                                            prepared.fomod_config_path,
+                                            prepared.profile_dir)
                 try:
                     if final_selections is None:
                         file_list = _default_fomod_file_list(
@@ -2268,6 +2281,32 @@ def _default_fomod_file_list(config, installed_files, active_files, loose_files,
         selections[str(i)] = sels
         flag_state = update_flags(step, sels, flag_state)
     return resolve_files(config, selections, installed_files, active_files, loose_files)
+
+
+def _write_profile_fomod_config(game, mod_name: str, config_path,
+                                profile_dir=None) -> None:
+    """Copy the archive's ``ModuleConfig.xml`` to ``<profile>/fomod/<mod>.xml``.
+
+    The saved selections only record step INDICES with group/option names, so
+    rebuilding a Nexus collection's ``choices`` block (which needs step names
+    and per-option indices) otherwise means re-reading the original archive —
+    which may be gone, renamed, or updated by then. Keeping the installer
+    config next to the selections makes the profile self-sufficient."""
+    if not config_path:
+        return
+    pdir = profile_dir if profile_dir is not None \
+        else getattr(game, "_active_profile_dir", None)
+    if not pdir:
+        return
+    try:
+        src = Path(config_path)
+        if not src.is_file():
+            return
+        pfomod = Path(pdir) / "fomod"
+        pfomod.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, pfomod / f"{mod_name}.xml")
+    except OSError:
+        pass
 
 
 def _write_profile_fomod_selection(game, mod_name: str, selections,

@@ -2281,6 +2281,7 @@ class MainWindow(QMainWindow):
                 (self.tr("Collections"), [
                     (self.tr("Browse collections…"), self._open_collections_tab),
                     (self.tr("Create collection…"), self._open_create_collection_tab),
+                    (self.tr("My collections…"), self._open_my_collections_tab),
                     (self.tr("Open current collection"), self._open_current_collection),
                     (self.tr("Reset load order"), self._reset_collection_load_order),
                 ]),
@@ -7409,6 +7410,24 @@ class MainWindow(QMainWindow):
         self._create_collection_view = view
         self._tabs.open_tab(view, self.tr("Create Collection"),
                             key="create_collection")
+
+    def _open_my_collections_tab(self):
+        """Open My Collections (Nexus ▸ Collections) as a fullscreen tab: the
+        user's own collections with edit / changelog / publish / listing
+        actions against the Nexus GraphQL API."""
+        if self._tabs.has_key("my_collections"):
+            self._tabs.focus_key("my_collections")
+            return
+        api = self._ensure_nexus_api()
+        if api is None:
+            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ "
+                                 "Login via SSO."), "warning")
+            return
+        from gui_qt.my_collections_view import MyCollectionsView
+        view = MyCollectionsView(self, api, log_fn=self._append_log)
+        self._my_collections_view = view
+        self._tabs.open_tab(view, self.tr("My Collections"),
+                            key="my_collections")
 
     def _import_profile(self):
         """Import a .amethyst / manifest: parse it, then reuse the collection detail

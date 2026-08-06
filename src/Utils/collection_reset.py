@@ -53,8 +53,9 @@ def _topo_sort_collection(schema_mods: list[dict], mod_rules: list[dict]) -> dic
     all_fids: set[int] = set(fid_order)
 
     # edges: higher_priority_fid → {lower_priority_fids}
-    # "source after reference"  → reference has higher priority than source
-    # "source before reference" → source has higher priority than reference
+    # "source after reference"  → source loads last, so SOURCE has the higher
+    #                             priority (it overwrites reference)
+    # "source before reference" → reference loads last, so it wins instead
     higher_than: dict[int, set[int]] = {f: set() for f in all_fids}  # fid → fids it beats
     in_degree: dict[int, int] = {f: 0 for f in all_fids}
 

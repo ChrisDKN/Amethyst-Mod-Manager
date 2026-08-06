@@ -264,6 +264,54 @@ class NexusCollection:
 
 
 @dataclass
+class MyCollectionRevision:
+    """One revision of a collection the signed-in user owns."""
+    id: int = 0
+    revision_number: int = 0
+    status: str = ""            # "draft" | "published" (server wording)
+    mod_count: int = 0
+    created_at: str = ""
+    published: bool = False
+    changelog_id: int = 0
+    changelog: str = ""
+
+
+@dataclass
+class MyCollection:
+    """A collection owned by the signed-in user (myCollections query)."""
+    id: int = 0
+    slug: str = ""
+    name: str = ""
+    summary: str = ""
+    description: str = ""
+    status: str = ""            # listed | unlisted | under_moderation | discarded
+    game_domain: str = ""
+    game_name: str = ""
+    category_id: int = 0
+    category_name: str = ""
+    endorsements: int = 0
+    total_downloads: int = 0
+    draft_revision_number: int = 0
+    latest_published_revision: int = 0
+    updated_at: str = ""
+    revisions: list = field(default_factory=list)   # [MyCollectionRevision]
+
+    @property
+    def draft_revision(self) -> "MyCollectionRevision | None":
+        """The newest unpublished revision, or None when everything is live."""
+        drafts = [r for r in self.revisions if not r.published]
+        if not drafts:
+            return None
+        return max(drafts, key=lambda r: r.revision_number)
+
+    def url(self) -> str:
+        if not (self.slug and self.game_domain):
+            return ""
+        return (f"https://next.nexusmods.com/{self.game_domain}"
+                f"/collections/{self.slug}")
+
+
+@dataclass
 class NexusCollectionMod:
     """A single mod entry inside a collection revision."""
     mod_id: int = 0
@@ -3030,6 +3078,198 @@ mutation EditCollection($collectionId: Int!, $name: String) {
         except Exception as exc:
             app_log(f"get_collection_status error: {exc}")
         return "missing"
+
+    # -- Managing collections the user owns ---------------------------------
+
+    _MY_COLLECTIONS_QUERY = """
+query MyCollections($count: Int, $offset: Int) {
+  myCollections(count: $count, offset: $offset, viewAdultContent: true,
+                viewUnlisted: true, viewUnderModeration: true) {
+    nodesCount
+    nodes {
+      id slug name summary description collectionStatus
+      draftRevisionNumber endorsements totalDownloads updatedAt
+      game { domainName name }
+      category { id name }
+      latestPublishedRevision { revisionNumber }
+      revisions {
+        id revisionNumber revisionStatus status modCount createdAt
+        collectionChangelog { id description }
+      }
+    }
+  }
+}"""
+
+    def get_my_collections(self, count: int = 50,
+                           offset: int = 0) -> "list[MyCollection]":
+        """Collections owned by the signed-in user, drafts and unlisted included."""
+        try:
+            resp = self._post_graphql(
+                self._MY_COLLECTIONS_QUERY,
+                {"count": int(count), "offset": int(offset)},
+                op="MyCollections")
+            body = resp.json()
+            if body.get("errors"):
+                msgs = "; ".join(e.get("message", "?") for e in body["errors"])
+                raise NexusAPIError(f"Nexus rejected the request: {msgs}",
+                                    url=GRAPHQL_BASE)
+            nodes = ((body.get("data") or {}).get("myCollections")
+                     or {}).get("nodes") or []
+        except NexusAPIError:
+            raise
+        except Exception as exc:
+            app_log(f"get_my_collections error: {exc}")
+            return []
+
+        out: list[MyCollection] = []
+        for n in nodes:
+            game = n.get("game") or {}
+            cat = n.get("category") or {}
+            latest = n.get("latestPublishedRevision") or {}
+            revisions = []
+            for r in (n.get("revisions") or []):
+                chlog = r.get("collectionChangelog") or {}
+                # The server spells the state in either field depending on
+                # version; treat anything that isn't an explicit draft as live.
+                state = str(r.get("revisionStatus")
+                            or r.get("status") or "").lower()
+                revisions.append(MyCollectionRevision(
+                    id=int(r.get("id") or 0),
+                    revision_number=int(r.get("revisionNumber") or 0),
+                    status=state,
+                    mod_count=int(r.get("modCount") or 0),
+                    created_at=r.get("createdAt", "") or "",
+                    published=state not in ("draft", "drafted", ""),
+                    changelog_id=int(chlog.get("id") or 0),
+                    changelog=chlog.get("description", "") or "",
+                ))
+            revisions.sort(key=lambda r: r.revision_number, reverse=True)
+            out.append(MyCollection(
+                id=int(n.get("id") or 0),
+                slug=n.get("slug", "") or "",
+                name=n.get("name", "") or "",
+                summary=n.get("summary", "") or "",
+                description=n.get("description", "") or "",
+                status=str(n.get("collectionStatus") or "").lower(),
+                game_domain=game.get("domainName", "") or "",
+                game_name=game.get("name", "") or "",
+                category_id=int(cat.get("id") or 0),
+                category_name=cat.get("name", "") or "",
+                endorsements=int(n.get("endorsements") or 0),
+                total_downloads=int(n.get("totalDownloads") or 0),
+                draft_revision_number=int(n.get("draftRevisionNumber") or 0),
+                latest_published_revision=int(latest.get("revisionNumber") or 0),
+                updated_at=n.get("updatedAt", "") or "",
+                revisions=revisions,
+            ))
+        return out
+
+    def get_collection_categories(self) -> "list[tuple[int, str]]":
+        """The (id, name) collection categories Nexus offers, or []."""
+        query = "query CollectionCategories { categories(global: true) { id name } }"
+        try:
+            resp = self._post_graphql(query, op="CollectionCategories")
+            cats = (resp.json().get("data") or {}).get("categories") or []
+            return [(int(c["id"]), c.get("name", "")) for c in cats if c.get("id")]
+        except Exception as exc:
+            app_log(f"get_collection_categories error: {exc}")
+            return []
+
+    def publish_revision(self, revision_id: int, listed: bool = True,
+                         adult_content: bool = False) -> bool:
+        """Publish a draft revision, listed or unlisted."""
+        mutation = """
+mutation PublishRevision($revisionId: ID!, $status: CollectionStatus,
+                         $adult: Boolean) {
+  publishRevision(revisionId: $revisionId, collectionStatus: $status,
+                  hasAdultResources: $adult) { success }
+}"""
+        result = self._run_collection_mutation(
+            mutation,
+            {"revisionId": str(revision_id),
+             "status": "listed" if listed else "unlisted",
+             "adult": bool(adult_content)},
+            "PublishRevision", "publishRevision")
+        return bool(result)
+
+    def edit_collection(self, collection_id: int, *, name: "str | None" = None,
+                        summary: "str | None" = None,
+                        description: "str | None" = None,
+                        category_id: "int | None" = None) -> bool:
+        """Update a collection's metadata; only the passed fields change."""
+        variables: dict = {"collectionId": int(collection_id)}
+        decls = ["$collectionId: Int!"]
+        args = ["collectionId: $collectionId"]
+        for key, value, gql in (("name", name, "String"),
+                                ("summary", summary, "String"),
+                                ("description", description, "String")):
+            if value is not None:
+                variables[key] = value
+                decls.append(f"${key}: {gql}")
+                args.append(f"{key}: ${key}")
+        if category_id:
+            variables["categoryId"] = str(category_id)
+            decls.append("$categoryId: ID")
+            args.append("categoryId: $categoryId")
+        mutation = (f"mutation EditCollection({', '.join(decls)}) {{ "
+                    f"editCollection({', '.join(args)}) {{ success }} }}")
+        result = self._run_collection_mutation(
+            mutation, variables, "EditCollection", "editCollection")
+        return bool(result)
+
+    def set_collection_listed(self, collection_id: int, listed: bool) -> bool:
+        """List (publicly visible) or unlist a collection."""
+        if listed:
+            mutation = ("mutation ListCollection($id: Int!) { "
+                        "listCollection(collectionId: $id) { success } }")
+            variables = {"id": int(collection_id)}
+            key = "listCollection"
+        else:
+            mutation = ("mutation UnlistCollection($id: ID!) { "
+                        "unlistCollection(collectionId: $id) { success } }")
+            variables = {"id": str(collection_id)}
+            key = "unlistCollection"
+        result = self._run_collection_mutation(
+            mutation, variables, key[0].upper() + key[1:], key)
+        return bool(result)
+
+    def set_revision_changelog(self, revision_id: int, description: str,
+                               changelog_id: int = 0) -> bool:
+        """Create or replace a revision's changelog entry."""
+        if changelog_id:
+            mutation = """
+mutation UpdateChangelog($id: ID!, $description: String) {
+  updateChangelog(changelogId: $id, description: $description) { success }
+}"""
+            variables = {"id": str(changelog_id), "description": description}
+            op, key = "UpdateChangelog", "updateChangelog"
+        else:
+            mutation = """
+mutation CreateChangelog($revisionId: ID!, $description: String) {
+  createChangelog(revisionId: $revisionId, description: $description) { success }
+}"""
+            variables = {"revisionId": str(revision_id),
+                         "description": description}
+            op, key = "CreateChangelog", "createChangelog"
+        result = self._run_collection_mutation(mutation, variables, op, key)
+        return bool(result)
+
+    def discard_revision(self, collection_id: int, revision_number: int,
+                         reason: str = "") -> bool:
+        """Discard a draft revision (or a very new one — Nexus enforces limits)."""
+        mutation = """
+mutation DiscardRevision($collectionId: ID!, $revisionNumber: Int!,
+                         $reason: String) {
+  discardRevision(collectionId: $collectionId, revisionNumber: $revisionNumber,
+                  reason: $reason) { success }
+}"""
+        result = self._run_collection_mutation(
+            mutation,
+            {"collectionId": str(collection_id),
+             "revisionNumber": int(revision_number),
+             "reason": reason or "Discarded from Amethyst"},
+            "DiscardRevision", "discardRevision")
+        return bool(result)
 
     def create_collection(self, uuid: str, manifest: dict,
                           adult_content: bool = False) -> "dict | None":

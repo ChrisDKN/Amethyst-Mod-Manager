@@ -1,10 +1,10 @@
-"""Export Profile — a modlist-scoped tab that packages the current profile into a
+"""Export Profile - a modlist-scoped tab that packages the current profile into a
 shareable ``.amethyst`` manifest. Qt port of the Tk ``gui/workshop_dialog.py``
 (the "Workshop"), renamed to "Export profile".
 
 Per-mod configuration table: Source (Nexus / Direct+URL / Bundle / Ignore), preferred
-Version (lazily fetched from Nexus), an Optional flag, and — for mods with FOMOD/BAIN
-installer choices — a Fomod-export toggle. Save / Load persist the flags as timestamped
+Version (lazily fetched from Nexus), an Optional flag, and - for mods with FOMOD/BAIN
+installer choices - a Fomod-export toggle. Save / Load persist the flags as timestamped
 JSON in ``<profile>/workshop/`` (kept for cross-compat with the Tk app); Export writes
 the zip. All packaging logic lives in the neutral ``Utils.profile_export``.
 """
@@ -41,7 +41,7 @@ _SOURCE_LABELS = {
     "ignore": QT_TRANSLATE_NOOP("ExportProfileView", "Ignore"),
 }
 
-# Per-source button colours — matched to the Tk workshop (_source_btn_style):
+# Per-source button colours - matched to the Tk workshop (_source_btn_style):
 # Nexus orange, Direct green, Bundle purple, Ignore grey. Text is white on all.
 _SOURCE_COLORS = {
     "nexus":  ("#c77a3a", "#d98c4c"),   # (base, hover)
@@ -76,7 +76,7 @@ def _card_qss(p) -> str:
     #OverlayCard QLabel {{ background: transparent; }}
     #CardTitle {{ color: {c('TEXT_MAIN')}; font-weight: 700; font-size: 16px; }}
     #CardSub {{ color: {c('TEXT_DIM')}; font-size: 13px; }}
-    /* Radio rows — a subtle pill that lights up on hover / selection. */
+    /* Radio rows - a subtle pill that lights up on hover / selection. */
     #CardOption {{
         background: {c('BG_DEEP')};
         border: 1px solid transparent;
@@ -103,7 +103,7 @@ def _card_qss(p) -> str:
         border: 1px solid {c('BORDER')};
         border-radius: 6px;
     }}
-    /* Buttons — Apply (green #GameSelectBtn) inherits the app QSS; give
+    /* Buttons - Apply (green #GameSelectBtn) inherits the app QSS; give
        Cancel a real neutral style so it isn't a plain black rectangle. */
     #CardCancelBtn {{
         background: {c('BG_ROW')};
@@ -127,7 +127,7 @@ def _card_qss(p) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Borderless overlay base (mirrors nexus_file_chooser.NexusFileChooser) — a
+# Borderless overlay base (mirrors nexus_file_chooser.NexusFileChooser) - a
 # dimmed, click-absorbing backdrop with a centered card, anchored to the
 # top-level window so it covers the whole app (Steam Deck gaming-mode safe:
 # a real top-level window can open BEHIND the app).
@@ -142,7 +142,7 @@ class _CardOverlay(QWidget):
         self._host = host
         self._done = False
         p = active_palette()
-        # Scope the dim backdrop to *this* widget by object name — an
+        # Scope the dim backdrop to *this* widget by object name - an
         # unqualified ``background`` rule is inherited by every child widget
         # (radios/buttons render black otherwise).
         self.setObjectName("CardBackdrop")
@@ -235,11 +235,13 @@ class _SourceOverlay(_CardOverlay):
     CARD_H = 520
 
     def __init__(self, host, mod_name, current_source, current_url, on_pick,
-                 current_instructions: str = ""):
+                 current_instructions: str = "", bundle_blocked_reason: str = ""):
         super().__init__(host)
         self._on_pick = on_pick
-        self._body.addWidget(_card_title(self.tr("Source — {0}").format(mod_name)))
+        self._body.addWidget(_card_title(self.tr("Source - {0}").format(mod_name)))
 
+        bundle_desc = (bundle_blocked_reason or
+                       self.tr("Include mod in the output (e.g. DynDOLOD output)"))
         self._group = QButtonGroup(self)
         self._radios: dict[str, QRadioButton] = {}
         for value, label, desc in (
@@ -247,11 +249,16 @@ class _SourceOverlay(_CardOverlay):
             ("direct", self.tr("Direct URL"), self.tr("For off-site mods")),
             ("browse", self.tr("Browse page"), self.tr("User downloads from a web page (e.g. Patreon)")),
             ("manual", self.tr("Manual"),     self.tr("User obtains the file; instructions are shown")),
-            ("bundle", self.tr("Bundle"),     self.tr("Include mod in the output (e.g. DynDOLOD output)")),
+            ("bundle", self.tr("Bundle"),     bundle_desc),
             ("ignore", self.tr("Ignore"),     self.tr("Exclude this mod from the export entirely")),
         ):
-            rb = QRadioButton(self.tr("{0}   — {1}").format(label, desc))
+            rb = QRadioButton(self.tr("{0}   - {1}").format(label, desc))
             rb.setChecked(value == current_source)
+            if value == "bundle" and bundle_blocked_reason:
+                # Redistributing a mod users can download themselves isn't ours
+                # to do — see ExportProfileView._bundle_blocked_reason.
+                rb.setEnabled(False)
+                rb.setChecked(False)
             self._group.addButton(rb)
             self._radios[value] = rb
             rb.toggled.connect(self._on_toggle)
@@ -262,6 +269,16 @@ class _SourceOverlay(_CardOverlay):
             row_l.setContentsMargins(0, 0, 0, 0)
             row_l.addWidget(rb)
             self._body.addWidget(row)
+
+        # Shown only while Bundle is selected: bundled files ship inside the
+        # collection itself, so the curator is redistributing them.
+        self._bundle_note = QLabel(self.tr(
+            "Bundled files are distributed with the collection itself. Only "
+            "bundle content you have the right to share — generated output "
+            "(DynDOLOD, Synthesis), config files, or your own work."))
+        self._bundle_note.setObjectName("CardSub")
+        self._bundle_note.setWordWrap(True)
+        self._body.addWidget(self._bundle_note)
 
         url_row = QHBoxLayout()
         ulbl = QLabel(self.tr("Download URL:"))
@@ -303,6 +320,7 @@ class _SourceOverlay(_CardOverlay):
         src = self._current()
         self._url_row_w.setVisible(src in ("direct", "browse", "manual"))
         self._ins_row_w.setVisible(src in ("browse", "manual"))
+        self._bundle_note.setVisible(src == "bundle")
 
     def _apply(self):
         src = self._current()
@@ -330,28 +348,48 @@ class _VersionOverlay(_CardOverlay):
     CARD_W = 460
     CARD_H = 380
 
-    def __init__(self, host, mod_name, options, current_label, on_pick):
+    def __init__(self, host, mod_name, options, current_label, on_pick,
+                 loading: bool = False):
         super().__init__(host)
         self._on_pick = on_pick
-        self._body.addWidget(_card_title(self.tr("Version — {0}").format(mod_name)))
-        sub = QLabel(self.tr("Preferred version (file id — version):"))
+        self._body.addWidget(_card_title(self.tr("Version - {0}").format(mod_name)))
+        sub = QLabel(self.tr("Preferred version (file id - version):"))
         sub.setObjectName("CardSub")
         self._body.addWidget(sub)
 
         self._list = QListWidget()
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
-        for opt in options:
-            it = QListWidgetItem(opt.get("label", "—"))
-            it.setData(Qt.UserRole, opt)
-            self._list.addItem(it)
-            if opt.get("label") == current_label:
-                self._list.setCurrentItem(it)
-        if self._list.currentRow() < 0 and self._list.count():
-            self._list.setCurrentRow(0)
         self._list.itemDoubleClicked.connect(lambda _i: self._apply())
         self._body.addWidget(self._list, 1)
+        # The Nexus file list is fetched lazily, so the card can open before
+        # the versions arrive; set_options() fills them in when they land.
+        self._status = QLabel(self.tr("Fetching versions from Nexus…"))
+        self._status.setObjectName("CardSub")
+        self._status.setVisible(loading)
+        self._body.addWidget(self._status)
         self._body.addLayout(_card_button_bar(self, self.tr("Select"), self._apply))
+        self.set_options(options, current_label)
         self._show_over()
+
+    def set_options(self, options, current_label=None):
+        """Repopulate the list, keeping the current selection where possible."""
+        if current_label is None:
+            it = self._list.currentItem()
+            current_label = it.text() if it is not None else None
+        self._list.clear()
+        for opt in options or []:
+            item = QListWidgetItem(opt.get("label", "-"))
+            item.setData(Qt.UserRole, opt)
+            self._list.addItem(item)
+            if opt.get("label") == current_label:
+                self._list.setCurrentItem(item)
+        if self._list.currentRow() < 0 and self._list.count():
+            self._list.setCurrentRow(0)
+
+    def set_loading(self, loading: bool, message: str = ""):
+        if message:
+            self._status.setText(message)
+        self._status.setVisible(bool(loading) or bool(message))
 
     def _apply(self):
         it = self._list.currentItem()
@@ -418,7 +456,7 @@ class _HeaderModelShim(QIdentityProxyModel):
     """Adds TkStyleHeader's text/deco suppression contract on top of the
     QTableWidget's internal model. The header paints labels itself (elided
     clear of its sort triangle) and expects headerData to honour
-    ``_suppress_header_text`` during the chrome pass — without this shim the
+    ``_suppress_header_text`` during the chrome pass - without this shim the
     native label is painted too and every column shows its text twice."""
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -442,7 +480,7 @@ class ExportProfileView(QWidget):
     # (ok, message) from the export worker → UI thread.
     _export_done = Signal(bool, str)
     # (done_bytes, total_bytes, phase) from the export worker → UI thread;
-    # total<=0 shows an indeterminate (busy) bar. Byte counts ride as `object` —
+    # total<=0 shows an indeterminate (busy) bar. Byte counts ride as `object` -
     # Signal(int) is C++ int32 and large bundles overflow 2 GiB.
     _export_progress = Signal(object, object, str)
     # pick_save_file's callback fires on the portal WORKER thread; marshal the
@@ -469,6 +507,9 @@ class ExportProfileView(QWidget):
         self._sort_asc = True
         self._restoring_columns = False
         self._vp_filter_installed = False
+        # (data_idx, overlay) for the version card currently on screen, so a
+        # late file-list fetch can populate it instead of arriving too late.
+        self._version_overlay = None
 
         self.setObjectName("ExportProfileView")
         self._versions_ready.connect(self._on_versions_ready)
@@ -559,7 +600,7 @@ class ExportProfileView(QWidget):
     # manifest records.
     # Resizing mirrors the modlist panel: TkStyleHeader conserves the total
     # width on boundary drags (grow one side by exactly what the other frees),
-    # and _fit_name_to_width keeps Mod Name absorbing viewport changes — so
+    # and _fit_name_to_width keeps Mod Name absorbing viewport changes - so
     # the columns always reach the panel edge and can't be dragged past it.
     _COLUMN_STATE_SECTION = "qt_columns_export_profile"
     _DEFAULT_COL_WIDTHS = {"Mod Name": 320, "Preferred Version": 150}
@@ -584,7 +625,7 @@ class ExportProfileView(QWidget):
 
     def _col_mins(self, names: list) -> dict:
         # Floor each column at its content minimum or its full header label
-        # (plus the sort-triangle strip), whichever is larger — column text
+        # (plus the sort-triangle strip), whichever is larger - column text
         # only elides below the user's chosen width, never at the minimum.
         fm = self._table.fontMetrics()
         label_pad = 12 + 4 + 2 + 10 + 4   # _TRI_W + _TRI_PAD + gap + margins
@@ -604,7 +645,7 @@ class ExportProfileView(QWidget):
         # adding columns), so connections below never double-fire.
         hdr = TkStyleHeader(self._table, col_mins)
         self._table.setHorizontalHeader(hdr)
-        # The header needs a model honouring the text-suppression contract —
+        # The header needs a model honouring the text-suppression contract -
         # QTableWidget's internal model doesn't, so labels would paint twice.
         shim = _HeaderModelShim(hdr)
         shim.setSourceModel(self._table.model())
@@ -753,7 +794,7 @@ class ExportProfileView(QWidget):
 
     def _load_rows(self):
         """Build export rows from the active profile's modlist (high-priority first,
-        separators dropped — mirrors the Tk _on_workshop prep), then auto-load the
+        separators dropped - mirrors the Tk _on_workshop prep), then auto-load the
         newest saved settings if present."""
         from Utils.modlist import read_modlist
         pd = self._profile_dir()
@@ -766,7 +807,13 @@ class ExportProfileView(QWidget):
             if not e.is_separator
         ]
         self._all_rows = profile_export.load_rows(entries, self._game)
+        # Defaults → subclass seeding → the user's saved settings, so an
+        # explicit save always wins over anything inferred.
+        self._seed_rows()
         self._auto_load_latest()
+
+    def _seed_rows(self):
+        """Hook: pre-fill row settings from another source. Default: nothing."""
 
     def _auto_load_latest(self):
         ws_dir = self._workshop_dir()
@@ -802,7 +849,7 @@ class ExportProfileView(QWidget):
         t = self._table
         t.setRowCount(0)
         t.setRowCount(len(self._rows))
-        # Identity-keyed position map — list.index() would deep-compare dicts
+        # Identity-keyed position map - list.index() would deep-compare dicts
         # per row (O(n²)) and pick the wrong row for structural duplicates.
         pos = {id(r): i for i, r in enumerate(self._all_rows)}
         for i, row in enumerate(self._rows):
@@ -819,7 +866,7 @@ class ExportProfileView(QWidget):
             src_btn.clicked.connect(lambda _=False, di=data_idx: self._pick_source(di))
             t.setCellWidget(i, _COL_SOURCE, src_btn)
 
-            ver_btn = QPushButton(row.get("ver_label", "—"))
+            ver_btn = QPushButton(row.get("ver_label", "-"))
             ver_btn.setCursor(Qt.PointingHandCursor)
             ver_btn.clicked.connect(lambda _=False, di=data_idx: self._pick_version(di))
             t.setCellWidget(i, _COL_VERSION, ver_btn)
@@ -830,7 +877,7 @@ class ExportProfileView(QWidget):
                     lambda ch, di=data_idx: self._set_fomod(di, ch))
                 t.setCellWidget(i, _COL_FOMOD, fomod_chk)
             else:
-                dash = QTableWidgetItem("—")
+                dash = QTableWidgetItem("-")
                 dash.setFlags(Qt.ItemIsEnabled)
                 dash.setTextAlignment(Qt.AlignCenter)
                 t.setItem(i, _COL_FOMOD, dash)
@@ -858,6 +905,15 @@ class ExportProfileView(QWidget):
     def _set_fomod(self, data_idx: int, checked: bool):
         self._all_rows[data_idx]["fomod_export"] = bool(checked)
 
+    def _bundle_blocked_reason(self, row: dict) -> str:
+        """Why *row* may not be bundled, or "" when bundling is fine.
+
+        A personal ``.amethyst`` export is a backup of the user's own setup, so
+        anything may be packed into it. Publishing is different — see the
+        override in CreateCollectionView.
+        """
+        return ""
+
     def _pick_source(self, data_idx: int):
         row = self._all_rows[data_idx]
 
@@ -870,14 +926,18 @@ class ExportProfileView(QWidget):
 
         _SourceOverlay(self.window(), row["name"], row.get("source", "nexus"),
                        row.get("direct_url", ""), _picked,
-                       current_instructions=row.get("source_instructions", ""))
+                       current_instructions=row.get("source_instructions", ""),
+                       bundle_blocked_reason=self._bundle_blocked_reason(row))
 
     def _pick_version(self, data_idx: int):
         row = self._all_rows[data_idx]
-        # Lazily fetch the file list on first open (Nexus mods only).
+        # Lazily fetch the file list on first open (Nexus mods only). The card
+        # opens straight away and is filled in by _on_versions_ready, so the
+        # first open shows every version rather than just the installed one.
         if (not row.get("versions_fetched") and row.get("mod_id")
                 and self._api is not None and row.get("source", "nexus") == "nexus"):
             row["versions_fetched"] = True
+            row["versions_fetching"] = True
             threading.Thread(
                 target=self._fetch_versions, args=(data_idx,),
                 daemon=True, name="export-versions").start()
@@ -886,20 +946,23 @@ class ExportProfileView(QWidget):
     def _open_version_dialog(self, data_idx: int):
         row = self._all_rows[data_idx]
         options = row.get("ver_options") or [
-            {"label": row.get("ver_label", "—"), "name": "", "size_bytes": 0}]
+            {"label": row.get("ver_label", "-"), "name": "", "size_bytes": 0}]
 
         def _picked(sel, di=data_idx):
             r = self._all_rows[di]
             r["ver_label"] = sel.get("label", r["ver_label"])
             r["size_bytes"] = sel.get("size_bytes", 0)
             try:
-                r["file_id"] = int(r["ver_label"].split(" — ")[0])
+                r["file_id"] = int(r["ver_label"].split(" - ")[0])
             except (ValueError, IndexError):
                 pass
             self._refresh_visible_row(di)
 
-        _VersionOverlay(self.window(), row["name"], options,
-                        row.get("ver_label", "—"), _picked)
+        overlay = _VersionOverlay(
+            self.window(), row["name"], options, row.get("ver_label", "-"),
+            _picked, loading=bool(row.get("versions_fetching")))
+        # Remembered so an in-flight fetch can populate this very card.
+        self._version_overlay = (data_idx, overlay)
 
     def _fetch_versions(self, data_idx: int):
         """Worker thread: fetch the mod's file list from Nexus, marshal back via a
@@ -913,7 +976,7 @@ class ExportProfileView(QWidget):
         sorted_files = sorted(files, key=lambda f: f.uploaded_timestamp, reverse=True)
         options = [
             {
-                "label": f"{f.file_id} — {f.version}",
+                "label": f"{f.file_id} - {f.version}",
                 "name": f.name,
                 "size_bytes": (f.size_in_bytes if f.size_in_bytes is not None
                                else (f.size_kb or 0) * 1024),
@@ -923,27 +986,40 @@ class ExportProfileView(QWidget):
         safe_emit(self._versions_ready, data_idx, options)
 
     def _on_versions_ready(self, data_idx: int, options):
-        if not options:
-            return
         row = self._all_rows[data_idx]
+        row["versions_fetching"] = False
+        open_idx, overlay = getattr(self, "_version_overlay", None) or (None, None)
+        showing = (overlay is not None and open_idx == data_idx
+                   and not getattr(overlay, "_done", True))
+        if not options:
+            # Let a later open retry rather than caching the failure forever.
+            row["versions_fetched"] = False
+            if showing:
+                overlay.set_loading(
+                    False, self.tr("Could not load versions from Nexus."))
+            return
         row["ver_options"] = options
-        # Only auto-select if the current label is still a placeholder — opening the
+        # Only auto-select if the current label is still a placeholder - opening the
         # picker must not silently change the file_id (port of _apply_versions).
         cur_label = row["ver_label"]
-        is_placeholder = (not cur_label or cur_label == "—"
-                          or " — " not in cur_label)
+        is_placeholder = (not cur_label or cur_label == "-"
+                          or " - " not in cur_label)
         if is_placeholder:
             preferred = str(row["file_id"])
             matched = next(
-                (o for o in options if o["label"].startswith(preferred + " —")), None)
+                (o for o in options if o["label"].startswith(preferred + " -")), None)
             selected = matched or options[0]
             row["ver_label"] = selected["label"]
             row["size_bytes"] = selected["size_bytes"]
             try:
-                row["file_id"] = int(selected["label"].split(" — ")[0])
+                row["file_id"] = int(selected["label"].split(" - ")[0])
             except (ValueError, IndexError):
                 pass
             self._refresh_visible_row(data_idx)
+        # Fill the open card LAST, so it highlights the settled selection.
+        if showing:
+            overlay.set_loading(False)
+            overlay.set_options(options, row.get("ver_label"))
 
     def _refresh_visible_row(self, data_idx: int):
         """Update the on-screen widgets for one data row if it's currently visible."""
@@ -959,7 +1035,7 @@ class ExportProfileView(QWidget):
             src_btn.setStyleSheet(_source_button_qss(src))
         ver_btn = self._table.cellWidget(vis_idx, _COL_VERSION)
         if isinstance(ver_btn, QPushButton):
-            ver_btn.setText(row.get("ver_label", "—"))
+            ver_btn.setText(row.get("ver_label", "-"))
 
     # -- search / filter toggles --------------------------------------------
     def _on_search(self, text: str):
@@ -1034,7 +1110,7 @@ class ExportProfileView(QWidget):
     def _on_save_path_picked(self, path):
         if not path:
             return
-        # Immediate feedback (indeterminate) — the worker switches the card to a
+        # Immediate feedback (indeterminate) - the worker switches the card to a
         # determinate byte bar once the packaging file list is known.
         self._on_export_progress(0, 0, self.tr("Preparing export…"))
         # Prefetch missing sizes + write on a worker thread.
@@ -1044,11 +1120,11 @@ class ExportProfileView(QWidget):
 
     def _export_worker(self, out_path: str):
         """Worker thread, phase 1: prefetch missing file sizes into a LOCAL
-        list — never mutating _all_rows, which the UI thread reads/sorts — and
+        list - never mutating _all_rows, which the UI thread reads/sorts - and
         post them back via _sizes_ready; the UI thread applies them and starts
         the packaging worker."""
         # Prefetch file sizes for nexus rows that have mod_id + file_id but no
-        # size yet (single batched GraphQL request — port of _prefetch_sizes).
+        # size yet (single batched GraphQL request - port of _prefetch_sizes).
         needs_size = [
             (i, r["mod_id"], r["file_id"])
             for i, r in enumerate(self._all_rows)
@@ -1110,7 +1186,7 @@ class ExportProfileView(QWidget):
 
     def _make_progress_cb(self):
         """Throttled bridge from write_amethyst's per-file callback (worker
-        thread) to the progress signal — at most ~10 emits/s, but the final
+        thread) to the progress signal - at most ~10 emits/s, but the final
         done==total update always goes through so the bar lands on 100%."""
         import time
         last_emit = [0.0]
