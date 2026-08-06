@@ -43,7 +43,45 @@ def extract_exe_icon(path: Path) -> "bytes | None":
         return None
 
 
+def extract_exe_version(path: Path) -> str:
+    """Return the exe's file version ("1.6.1170.0") from VS_VERSIONINFO, or ""."""
+    try:
+        p = Path(path)
+        if p.suffix.lower() != ".exe" or not p.is_file():
+            return ""
+        if p.stat().st_size > _MAX_FILE:
+            return ""
+        data = p.read_bytes()
+        parser = _make_parser(data)
+        if parser is None:
+            return ""
+        ver_dir = parser._find_type_dir(16)      # RT_VERSION
+        if ver_dir is None:
+            return ""
+        leaf = parser._first_data_entry(ver_dir)
+        if leaf is None:
+            return ""
+        rva, size = leaf
+        off = parser.rva_to_off(rva)
+        if off is None or off + size > len(data):
+            return ""
+        blob = data[off:off + size]
+        # VS_FIXEDFILEINFO: locate by signature, dwFileVersionMS/LS at +8/+12.
+        i = blob.find(struct.pack("<I", 0xFEEF04BD))
+        if i < 0 or i + 16 > len(blob):
+            return ""
+        ms, ls = struct.unpack_from("<II", blob, i + 8)
+        return f"{ms >> 16}.{ms & 0xFFFF}.{ls >> 16}.{ls & 0xFFFF}"
+    except Exception:
+        return ""
+
+
 def _extract(data: bytes) -> "bytes | None":
+    parser = _make_parser(data)
+    return parser.build_first_icon() if parser is not None else None
+
+
+def _make_parser(data: bytes) -> "_ResourceParser | None":
     if len(data) < 0x40 or data[:2] != b"MZ":
         return None
     e_lfanew = struct.unpack_from("<I", data, 0x3C)[0]
@@ -95,8 +133,7 @@ def _extract(data: bytes) -> "bytes | None":
     if rsrc_off is None:
         return None
 
-    parser = _ResourceParser(data, rsrc_off, rsrc_rva, rva_to_off)
-    return parser.build_first_icon()
+    return _ResourceParser(data, rsrc_off, rsrc_rva, rva_to_off)
 
 
 class _ResourceParser:

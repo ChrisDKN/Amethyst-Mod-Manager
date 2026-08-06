@@ -22,6 +22,7 @@ py.install_sources(
   'column_state.py',
   'configure_game_view.py',
   'confirm_overlay.py',
+  'create_collection_view.py',
   'custom_game_view.py',
   'data_delegate.py',
   'data_model.py',

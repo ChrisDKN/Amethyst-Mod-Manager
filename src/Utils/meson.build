@@ -32,6 +32,7 @@ py.install_sources(
   'cache_tools.py',
   'cet_check.py',
   'collection_diff.py',
+  'collection_export.py',
   'collection_ini_tweaks.py',
   'collection_install.py',
   'collection_manifest.py',

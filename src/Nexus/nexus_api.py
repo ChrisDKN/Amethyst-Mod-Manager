@@ -2882,6 +2882,192 @@ class NexusAPI:
             app_log(f"get_collection_archive_full error: {exc}")
             return {}
 
+    # -- Collection upload (create / revise) --------------------------------
+    # Mirrors Vortex's submit pipeline (nexus_integration/eventHandlers.ts
+    # onSubmitCollection): presigned-URL query → raw PUT of the .7z →
+    # createCollection / editCollection + createOrUpdateRevision. The mutation
+    # receives a FILTERED manifest (info minus installInstructions; mods minus
+    # choices/patches/details/phase; source minus fileSize/tag) — the full
+    # manifest travels inside the uploaded archive.
+
+    def get_collection_upload_url(self) -> "dict | None":
+        """Request a presigned archive-upload URL; returns {'url', 'uuid'} or None."""
+        query = "query { collectionRevisionUploadUrl { url uuid } }"
+        try:
+            resp = self._post_graphql(query, op="CollectionUploadUrl")
+            data = (resp.json().get("data") or {}).get(
+                "collectionRevisionUploadUrl") or {}
+            if data.get("url") and data.get("uuid"):
+                return {"url": data["url"], "uuid": data["uuid"]}
+            app_log(f"get_collection_upload_url: unexpected response {resp.text[:300]}")
+        except Exception as exc:
+            app_log(f"get_collection_upload_url error: {exc}")
+        return None
+
+    def upload_collection_archive(self, url: str, file_path,
+                                  progress_cb=None) -> bool:
+        """PUT the collection .7z to the presigned URL (no API auth headers)."""
+        import os as _os
+
+        import requests as _requests
+
+        path = str(file_path)
+        total = _os.path.getsize(path)
+
+        class _Reader:
+            # requests derives Content-Length from __len__; a plain generator
+            # would switch to chunked encoding, which presigned PUTs reject.
+            def __init__(self, fh):
+                self._fh = fh
+                self._done = 0
+
+            def __len__(self):
+                return total
+
+            def read(self, size=-1):
+                chunk = self._fh.read(size)
+                if chunk:
+                    self._done += len(chunk)
+                    if progress_cb:
+                        progress_cb(self._done, total)
+                return chunk
+
+        try:
+            with open(path, "rb") as fh:
+                resp = _requests.put(
+                    url, data=_Reader(fh),
+                    headers={"Content-Type": "application/octet-stream"},
+                    timeout=600, verify=self._session.verify)
+            if 200 <= resp.status_code < 300:
+                return True
+            app_log(f"upload_collection_archive: HTTP {resp.status_code} "
+                    f"{resp.text[:300]}")
+        except Exception as exc:
+            app_log(f"upload_collection_archive error: {exc}")
+        return False
+
+    @staticmethod
+    def filter_collection_manifest(manifest: dict) -> dict:
+        """The manifest subset the create/revise mutations accept (Vortex filterInfo)."""
+        info = {k: v for k, v in (manifest.get("info") or {}).items()
+                if k != "installInstructions"}
+        mods = []
+        for mod in manifest.get("mods") or []:
+            m = {k: v for k, v in mod.items()
+                 if k in ("name", "version", "optional", "domainName",
+                          "source", "author")}
+            src = m.get("source") or {}
+            m["source"] = {k: v for k, v in src.items()
+                           if k not in ("fileSize", "tag", "instructions")}
+            mods.append(m)
+        return {"info": info, "mods": mods}
+
+    _CREATE_COLLECTION_MUTATION = """
+mutation CreateCollection($payload: CollectionPayload!, $uuid: String!) {
+  createCollection(collectionData: $payload, uuid: $uuid) {
+    success
+    collectionId
+    collection { id slug }
+    revision { id revisionNumber }
+  }
+}"""
+
+    _CREATE_REVISION_MUTATION = """
+mutation CreateOrUpdateRevision($payload: CollectionPayload!,
+                                $collectionId: Int!, $uuid: String!) {
+  createOrUpdateRevision(collectionData: $payload,
+                         collectionId: $collectionId, uuid: $uuid) {
+    success
+    collectionId
+    collection { id slug }
+    revision { id revisionNumber }
+  }
+}"""
+
+    _EDIT_COLLECTION_MUTATION = """
+mutation EditCollection($collectionId: Int!, $name: String) {
+  editCollection(collectionId: $collectionId, name: $name) { success }
+}"""
+
+    def _run_collection_mutation(self, mutation: str, variables: dict,
+                                 op: str, result_key: str) -> "dict | None":
+        """POST one collection mutation; returns its payload dict or None."""
+        try:
+            resp = self._post_graphql(mutation, variables, op=op)
+            body = resp.json()
+            errors = body.get("errors")
+            if errors:
+                msgs = "; ".join(e.get("message", "?") for e in errors)
+                app_log(f"{op}: GraphQL errors: {msgs}")
+                raise NexusAPIError(f"Nexus rejected the request: {msgs}",
+                                    url=GRAPHQL_BASE)
+            data = (body.get("data") or {}).get(result_key) or {}
+            if not data.get("success"):
+                app_log(f"{op}: success=false in {str(data)[:300]}")
+                return None
+            return data
+        except NexusAPIError:
+            raise
+        except Exception as exc:
+            app_log(f"{op} error: {exc}")
+            return None
+
+    def get_collection_status(self, slug: str) -> str:
+        """'ok', 'discarded', or 'missing' for a collection we may revise."""
+        query = ('query CollectionStatus($slug: String) { '
+                 'collection(slug: $slug, viewAdultContent: true) '
+                 '{ id collectionStatus } }')
+        try:
+            resp = self._post_graphql(query, {"slug": slug},
+                                      op="CollectionStatus")
+            body = resp.json()
+            for err in body.get("errors") or []:
+                code = (err.get("extensions") or {}).get("code", "")
+                if code == "COLLECTION_DISCARDED":
+                    return "discarded"
+            if ((body.get("data") or {}).get("collection") or {}).get("id"):
+                return "ok"
+        except Exception as exc:
+            app_log(f"get_collection_status error: {exc}")
+        return "missing"
+
+    def create_collection(self, uuid: str, manifest: dict,
+                          adult_content: bool = False) -> "dict | None":
+        """Create a new (draft) collection from an uploaded archive uuid."""
+        payload = {
+            "adultContent": bool(adult_content),
+            "collectionManifest": self.filter_collection_manifest(manifest),
+            "collectionSchemaId": 1,
+        }
+        return self._run_collection_mutation(
+            self._CREATE_COLLECTION_MUTATION,
+            {"payload": payload, "uuid": uuid},
+            "CreateCollection", "createCollection")
+
+    def create_collection_revision(self, collection_id: int, uuid: str,
+                                   manifest: dict,
+                                   adult_content: bool = False) -> "dict | None":
+        """Add a draft revision to an existing collection (edits name first, like Vortex)."""
+        name = (manifest.get("info") or {}).get("name") or ""
+        if name:
+            try:
+                self._run_collection_mutation(
+                    self._EDIT_COLLECTION_MUTATION,
+                    {"collectionId": int(collection_id), "name": name},
+                    "EditCollection", "editCollection")
+            except NexusAPIError:
+                pass   # cosmetic rename — the revision itself matters
+        payload = {
+            "adultContent": bool(adult_content),
+            "collectionManifest": self.filter_collection_manifest(manifest),
+            "collectionSchemaId": 1,
+        }
+        return self._run_collection_mutation(
+            self._CREATE_REVISION_MUTATION,
+            {"payload": payload, "collectionId": int(collection_id),
+             "uuid": uuid},
+            "CreateOrUpdateRevision", "createOrUpdateRevision")
+
     # -- Helpers ------------------------------------------------------------
 
     def _parse_mod_info(self, d: dict,

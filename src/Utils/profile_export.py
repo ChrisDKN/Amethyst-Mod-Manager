@@ -124,6 +124,7 @@ def load_rows(entries, game) -> list[dict]:
             "enabled":          bool(getattr(entry, "enabled", True)),
             "source":           "nexus",
             "direct_url":       "",
+            "source_instructions": "",
         })
 
     return rows
@@ -163,6 +164,10 @@ def write_settings(out_path, rows) -> Path:
                 "direct_url": r.get("direct_url", ""),
                 "file_id":    _row_file_id(r),
                 "ver_label":  r.get("ver_label", "—"),
+                "phase":      int(r.get("phase") or 0),
+                "update_policy": r.get("update_policy", "exact"),
+                "instructions": r.get("source_instructions", ""),
+                "save_edits": bool(r.get("save_edits", False)),
             }
             for r in rows
         ],
@@ -186,6 +191,14 @@ def read_settings(in_path, rows) -> None:
         row["optional"] = bool(m.get("optional", False))
         row["source"] = m.get("source", "nexus")
         row["direct_url"] = m.get("direct_url", "")
+        row["source_instructions"] = m.get("instructions", "")
+        try:
+            row["phase"] = int(m.get("phase") or 0)
+        except (TypeError, ValueError):
+            row["phase"] = 0
+        if m.get("update_policy") in ("exact", "prefer", "latest"):
+            row["update_policy"] = m["update_policy"]
+        row["save_edits"] = bool(m.get("save_edits", False))
         # Only apply file_id / ver_label from the JSON when the mod has no file_id
         # already set from meta.ini — the installed file takes precedence.
         if not row.get("file_id"):
@@ -237,6 +250,12 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
                 "type": "direct",
                 "url":  row.get("direct_url", ""),
             }
+        elif row_source in ("browse", "manual"):
+            source = {"type": row_source}
+            if row.get("direct_url"):
+                source["url"] = row["direct_url"]
+            if row.get("source_instructions"):
+                source["instructions"] = row["source_instructions"]
         elif row_source == "bundle":
             source = {"bundle": True}
         else:

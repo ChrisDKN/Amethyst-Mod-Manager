@@ -105,8 +105,15 @@ def _build_collision_suffix_map(
 
 def _fomod_choices_from_collection(choices: dict) -> "dict[str, dict[str, list[str]]]":
     """Convert a collection.json FOMOD ``choices`` block to the saved_selections
-    format ``{str(step_idx): {group: [plugins]}}`` that ``resolve_files`` expects."""
+    format ``{step_key: {group: [plugins]}}`` that ``resolve_files`` expects.
+
+    Steps are keyed by their NAME when available: the ``options`` array only
+    holds the steps the author actually visited, so its position does not match
+    the FOMOD's real step index whenever a step was skipped by a visibility
+    condition. ``resolve_files`` falls back to a name lookup per step.
+    """
     result: dict = {}
+    seen_names: set = set()
     for step_idx, step in enumerate(choices.get("options", [])):
         groups: dict = {}
         for group in step.get("groups", []):
@@ -115,7 +122,12 @@ def _fomod_choices_from_collection(choices: dict) -> "dict[str, dict[str, list[s
             if plugin_names:
                 groups[group_name] = plugin_names
         if groups:
-            result[str(step_idx)] = groups
+            step_name = (step.get("name") or "").strip()
+            if step_name and step_name not in seen_names:
+                seen_names.add(step_name)
+                result[step_name] = groups
+            else:
+                result[str(step_idx)] = groups
     return result
 
 
@@ -447,11 +459,14 @@ def run_collection_install(
             except (TypeError, ValueError):
                 schema_file_id_to_phase[fid] = 0
             choices = schema_mod.get("choices") or {}
-            if choices.get("type") == "fomod":
+            _ctype = choices.get("type") or ""
+            # Vortex manifests carry no "type" key — a bare {"options": [...]}
+            # (see any published collection.json) is the FOMOD replay format.
+            if _ctype == "fomod" or (not _ctype and choices.get("options")):
                 fomod_by_file_id[fid] = _fomod_choices_from_collection(choices)
-            elif choices.get("type") == "fomod_selections":
+            elif _ctype == "fomod_selections":
                 fomod_by_file_id[fid] = choices["selections"]
-            elif choices.get("type") == "bain_selections":
+            elif _ctype == "bain_selections":
                 bain_by_file_id[fid] = choices["selections"]
 
     def _sort_key(m):

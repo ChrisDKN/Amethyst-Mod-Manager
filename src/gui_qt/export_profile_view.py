@@ -17,14 +17,16 @@ from pathlib import Path
 
 from PySide6.QtCore import (
     Qt, Signal, QEvent, QT_TRANSLATE_NOOP, QCoreApplication, QTimer,
+    QIdentityProxyModel,
 )
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QFrame,
-    QRadioButton, QButtonGroup, QListWidget,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit,
+    QPushButton, QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView,
+    QFrame, QRadioButton, QButtonGroup, QListWidget,
     QListWidgetItem, QAbstractItemView,
 )
 
+from gui_qt import column_state
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c, contrast_text
 from Utils import profile_export
@@ -33,6 +35,8 @@ from Utils import profile_export
 _SOURCE_LABELS = {
     "nexus":  QT_TRANSLATE_NOOP("ExportProfileView", "Nexus"),
     "direct": QT_TRANSLATE_NOOP("ExportProfileView", "Direct"),
+    "browse": QT_TRANSLATE_NOOP("ExportProfileView", "Browse"),
+    "manual": QT_TRANSLATE_NOOP("ExportProfileView", "Manual"),
     "bundle": QT_TRANSLATE_NOOP("ExportProfileView", "Bundle"),
     "ignore": QT_TRANSLATE_NOOP("ExportProfileView", "Ignore"),
 }
@@ -42,6 +46,8 @@ _SOURCE_LABELS = {
 _SOURCE_COLORS = {
     "nexus":  ("#c77a3a", "#d98c4c"),   # (base, hover)
     "direct": ("#5a7a5a", "#6b8b6b"),
+    "browse": ("#5a6b8a", "#6b7c9b"),
+    "manual": ("#8a7a4a", "#9b8b5b"),
     "bundle": ("#7a5a7a", "#8b6b8b"),
     "ignore": ("#555555", "#666666"),
 }
@@ -222,12 +228,14 @@ def _card_button_bar(overlay, ok_text, on_ok, cancel_text=None):
 
 class _SourceOverlay(_CardOverlay):
     """Borderless in-window overlay: pick a mod's download source
-    (Nexus / Direct+URL / Bundle / Ignore). ``on_pick(source, url)`` on Apply."""
+    (Nexus / Direct+URL / Browse / Manual / Bundle / Ignore).
+    ``on_pick(source, url, instructions)`` on Apply."""
 
     CARD_W = 480
-    CARD_H = 400
+    CARD_H = 520
 
-    def __init__(self, host, mod_name, current_source, current_url, on_pick):
+    def __init__(self, host, mod_name, current_source, current_url, on_pick,
+                 current_instructions: str = ""):
         super().__init__(host)
         self._on_pick = on_pick
         self._body.addWidget(_card_title(self.tr("Source — {0}").format(mod_name)))
@@ -237,6 +245,8 @@ class _SourceOverlay(_CardOverlay):
         for value, label, desc in (
             ("nexus",  self.tr("Nexus Mods"), self.tr("Download mod from Nexus")),
             ("direct", self.tr("Direct URL"), self.tr("For off-site mods")),
+            ("browse", self.tr("Browse page"), self.tr("User downloads from a web page (e.g. Patreon)")),
+            ("manual", self.tr("Manual"),     self.tr("User obtains the file; instructions are shown")),
             ("bundle", self.tr("Bundle"),     self.tr("Include mod in the output (e.g. DynDOLOD output)")),
             ("ignore", self.tr("Ignore"),     self.tr("Exclude this mod from the export entirely")),
         ):
@@ -264,6 +274,19 @@ class _SourceOverlay(_CardOverlay):
         self._url_row_w = QWidget()
         self._url_row_w.setLayout(url_row)
         self._body.addWidget(self._url_row_w)
+
+        ins_row = QVBoxLayout()
+        ilbl = QLabel(self.tr("Instructions shown to the user:"))
+        ilbl.setObjectName("CardSub")
+        ins_row.addWidget(ilbl)
+        self._instructions = QPlainTextEdit(current_instructions)
+        self._instructions.setPlaceholderText(
+            self.tr("e.g. Download the 2K version from the linked page"))
+        self._instructions.setFixedHeight(56)
+        ins_row.addWidget(self._instructions)
+        self._ins_row_w = QWidget()
+        self._ins_row_w.setLayout(ins_row)
+        self._body.addWidget(self._ins_row_w)
         self._body.addStretch(1)
         self._body.addLayout(_card_button_bar(self, self.tr("Apply"), self._apply))
 
@@ -277,15 +300,19 @@ class _SourceOverlay(_CardOverlay):
         return "nexus"
 
     def _on_toggle(self):
-        self._url_row_w.setVisible(self._current() == "direct")
+        src = self._current()
+        self._url_row_w.setVisible(src in ("direct", "browse", "manual"))
+        self._ins_row_w.setVisible(src in ("browse", "manual"))
 
     def _apply(self):
         src = self._current()
-        url = self._url.text().strip() if src == "direct" else ""
+        url = self._url.text().strip() if src in ("direct", "browse", "manual") else ""
+        instructions = (self._instructions.toPlainText().strip()
+                        if src in ("browse", "manual") else "")
         cb = self._on_pick
         self._finish()
         if cb:
-            cb(src, url)
+            cb(src, url, instructions)
 
     def _cancel(self):
         self._finish()
@@ -387,6 +414,24 @@ class _LoadSettingsOverlay(_CardOverlay):
 _COL_NAME, _COL_SOURCE, _COL_VERSION, _COL_FOMOD, _COL_OPTIONAL = range(5)
 
 
+class _HeaderModelShim(QIdentityProxyModel):
+    """Adds TkStyleHeader's text/deco suppression contract on top of the
+    QTableWidget's internal model. The header paints labels itself (elided
+    clear of its sort triangle) and expects headerData to honour
+    ``_suppress_header_text`` during the chrome pass — without this shim the
+    native label is painted too and every column shows its text twice."""
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if orientation == Qt.Horizontal:
+            if role == Qt.DisplayRole and getattr(
+                    self, "_suppress_header_text", False):
+                return ""
+            if role == Qt.DecorationRole and getattr(
+                    self, "_suppress_header_deco", False):
+                return None
+        return super().headerData(section, orientation, role)
+
+
 class ExportProfileView(QWidget):
     """Hosted as a modlist-scoped tab (like Profile Settings). Builds export rows
     from the active profile's modlist, lets the user configure per-mod source /
@@ -420,6 +465,10 @@ class ExportProfileView(QWidget):
         self._rows: list[dict] = []   # filtered/sorted view
         self._search_text = ""
         self._hide_no_fileid = False
+        self._sort_col = _COL_NAME
+        self._sort_asc = True
+        self._restoring_columns = False
+        self._vp_filter_installed = False
 
         self.setObjectName("ExportProfileView")
         self._versions_ready.connect(self._on_versions_ready)
@@ -500,13 +549,198 @@ class ExportProfileView(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QAbstractItemView.NoSelection)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(_COL_NAME, QHeaderView.Stretch)
-        hh.setSectionResizeMode(_COL_SOURCE, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(_COL_VERSION, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(_COL_FOMOD, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(_COL_OPTIONAL, QHeaderView.ResizeToContents)
+        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         root.addWidget(self._table, 1)
+        self._init_header()
+
+    # -- header: click-to-sort + Tk-style resize, persisted per view ---------
+    # Sorting is DISPLAY-ONLY: exports always read _all_rows, whose order is
+    # the profile's mod priority. Re-sorting the view never changes what the
+    # manifest records.
+    # Resizing mirrors the modlist panel: TkStyleHeader conserves the total
+    # width on boundary drags (grow one side by exactly what the other frees),
+    # and _fit_name_to_width keeps Mod Name absorbing viewport changes — so
+    # the columns always reach the panel edge and can't be dragged past it.
+    _COLUMN_STATE_SECTION = "qt_columns_export_profile"
+    _DEFAULT_COL_WIDTHS = {"Mod Name": 320, "Preferred Version": 150}
+    _NAME_MIN = 160
+    _COL_MIN_DEFAULT = 60
+    # Content-driven floors: wide enough for the cell widgets (source button,
+    # version label, centered checkbox) so shrinking the panel never clips
+    # them. The header-label fit below raises these further when needed.
+    _MIN_COL_WIDTHS = {
+        "Mod Name": _NAME_MIN,
+        "Source": 84,
+        "Preferred Version": 130,
+        "Fomod": 70,
+        "Optional": 78,
+    }
+
+    def _column_names(self) -> list:
+        t = self._table
+        return [(t.horizontalHeaderItem(c).text()
+                 if t.horizontalHeaderItem(c) is not None else str(c))
+                for c in range(t.columnCount())]
+
+    def _col_mins(self, names: list) -> dict:
+        # Floor each column at its content minimum or its full header label
+        # (plus the sort-triangle strip), whichever is larger — column text
+        # only elides below the user's chosen width, never at the minimum.
+        fm = self._table.fontMetrics()
+        label_pad = 12 + 4 + 2 + 10 + 4   # _TRI_W + _TRI_PAD + gap + margins
+        return {
+            c: max(self._MIN_COL_WIDTHS.get(name, self._COL_MIN_DEFAULT),
+                   fm.horizontalAdvance(name) + label_pad)
+            for c, name in enumerate(names)
+        }
+
+    def _init_header(self):
+        """(Re)install the Tk-style header after the column set is final."""
+        from gui_qt.modlist_header import TkStyleHeader
+
+        names = self._column_names()
+        col_mins = self._col_mins(names)
+        # A fresh header instance each call (the subclass re-runs this after
+        # adding columns), so connections below never double-fire.
+        hdr = TkStyleHeader(self._table, col_mins)
+        self._table.setHorizontalHeader(hdr)
+        # The header needs a model honouring the text-suppression contract —
+        # QTableWidget's internal model doesn't, so labels would paint twice.
+        shim = _HeaderModelShim(hdr)
+        shim.setSourceModel(self._table.model())
+        hdr.setModel(shim)
+        hdr.setMinimumSectionSize(min(col_mins.values()))
+        hdr.setSectionsMovable(False)
+        hdr.setSectionsClickable(True)
+        # TkStyleHeader paints a triangle on every sortable column itself.
+        hdr.setSortIndicatorShown(False)
+        self._table.sort_triangle_spec = (
+            lambda lg: (lg == self._sort_col, self._sort_asc))
+        # Boundary-drag release persists widths via this view hook.
+        self._table._schedule_save = self._save_column_state
+        hdr.sectionClicked.connect(self._on_header_clicked)
+        hdr.sectionResized.connect(self._on_section_resized)
+        hdr.show()
+
+        for col, name in enumerate(names):
+            width = self._DEFAULT_COL_WIDTHS.get(name, 0)
+            self._table.setColumnWidth(
+                col, max(width, self._table.columnWidth(col),
+                         col_mins.get(col, self._COL_MIN_DEFAULT)))
+
+        # Restore persisted widths + sort.
+        try:
+            state = column_state.load_state(self._COLUMN_STATE_SECTION,
+                                            columns=names)
+        except Exception:
+            state = {"widths": {}, "sort_col": None, "ascending": True}
+        self._restoring_columns = True
+        try:
+            for col, name in enumerate(names):
+                width = state["widths"].get(name)
+                if width and width > 20:
+                    # Clamp persisted widths up to the (possibly raised) floor.
+                    self._table.setColumnWidth(
+                        col, max(int(width), col_mins.get(col, 0)))
+        finally:
+            self._restoring_columns = False
+        if state.get("sort_col") in names:
+            self._sort_col = names.index(state["sort_col"])
+            self._sort_asc = bool(state.get("ascending", True))
+        hdr.setSortIndicator(
+            self._sort_col, Qt.AscendingOrder if self._sort_asc
+            else Qt.DescendingOrder)
+
+        if not getattr(self, "_vp_filter_installed", False):
+            self._table.viewport().installEventFilter(self)
+            self._vp_filter_installed = True
+        self._fit_name_to_width()
+
+    def eventFilter(self, obj, event):
+        if (obj is self._table.viewport()
+                and event.type() == QEvent.Resize):
+            self._fit_name_to_width()
+        return super().eventFilter(obj, event)
+
+    def _fit_name_to_width(self):
+        """Keep the columns exactly filling the viewport (modlist behaviour).
+
+        Growing: Mod Name absorbs the extra. Shrinking: Mod Name gives back
+        down to its minimum, then the other columns cascade toward theirs."""
+        vp = self._table.viewport().width()
+        if vp <= 0:
+            return
+        count = self._table.columnCount()
+        hdr = self._table.horizontalHeader()
+        others = sum(self._table.columnWidth(c) for c in range(count)
+                     if c != _COL_NAME)
+        target = vp - others
+        if target >= self._NAME_MIN:
+            if target != self._table.columnWidth(_COL_NAME):
+                hdr.resizeSection(_COL_NAME, target)
+            return
+        hdr.resizeSection(_COL_NAME, self._NAME_MIN)
+        deficit = (self._NAME_MIN + others) - vp
+        mins = self._col_mins(self._column_names())
+        for c in reversed(range(count)):
+            if deficit <= 0:
+                break
+            if c == _COL_NAME:
+                continue
+            room = self._table.columnWidth(c) - mins.get(c, self._COL_MIN_DEFAULT)
+            if room <= 0:
+                continue
+            take = min(room, deficit)
+            hdr.resizeSection(c, self._table.columnWidth(c) - take)
+            deficit -= take
+
+    def _sort_key(self, col: int, row: dict):
+        """Sort value for *row* under column *col*. Subclasses extend."""
+        if col == _COL_SOURCE:
+            return row.get("source", "nexus")
+        if col == _COL_VERSION:
+            return row.get("file_id") or 0
+        if col == _COL_FOMOD:
+            return (bool(row.get("has_fomod")),
+                    bool(row.get("fomod_export", True)))
+        if col == _COL_OPTIONAL:
+            return bool(row.get("optional"))
+        return row["name"].lower()
+
+    def _on_header_clicked(self, col: int):
+        if col == self._sort_col:
+            self._sort_asc = not self._sort_asc
+        else:
+            self._sort_col = col
+            self._sort_asc = True
+        self._table.horizontalHeader().setSortIndicator(
+            col, Qt.AscendingOrder if self._sort_asc else Qt.DescendingOrder)
+        self._save_column_state()
+        self._apply_filter()
+
+    def _on_section_resized(self, *_args):
+        if getattr(self, "_restoring_columns", False):
+            return
+        # Coalesce the per-pixel drag into one write when the drag settles.
+        timer = getattr(self, "_col_save_timer", None)
+        if timer is None:
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._save_column_state)
+            self._col_save_timer = timer
+        timer.start(400)
+
+    def _save_column_state(self):
+        names = self._column_names()
+        widths = {name: self._table.columnWidth(col)
+                  for col, name in enumerate(names)}
+        sort_name = names[self._sort_col] if 0 <= self._sort_col < len(names) else None
+        try:
+            column_state.save_state(widths, names, set(), sort_name,
+                                    self._sort_asc,
+                                    section=self._COLUMN_STATE_SECTION)
+        except Exception:
+            pass
 
     # -- data ---------------------------------------------------------------
     def _profile_dir(self) -> Path | None:
@@ -556,7 +790,11 @@ class ExportProfileView(QWidget):
         if self._search_text:
             q = self._search_text
             rows = [r for r in rows if q in r["name"].lower()]
+        # Name is the tiebreaker so equal keys (checkboxes, phases) stay stable.
         rows.sort(key=lambda r: r["name"].lower())
+        if self._sort_col != _COL_NAME or not self._sort_asc:
+            rows.sort(key=lambda r: self._sort_key(self._sort_col, r),
+                      reverse=not self._sort_asc)
         self._rows = rows
         self._rebuild_table()
 
@@ -623,14 +861,16 @@ class ExportProfileView(QWidget):
     def _pick_source(self, data_idx: int):
         row = self._all_rows[data_idx]
 
-        def _picked(source, url, di=data_idx):
+        def _picked(source, url, instructions, di=data_idx):
             r = self._all_rows[di]
             r["source"] = source
             r["direct_url"] = url
+            r["source_instructions"] = instructions
             self._refresh_visible_row(di)
 
         _SourceOverlay(self.window(), row["name"], row.get("source", "nexus"),
-                       row.get("direct_url", ""), _picked)
+                       row.get("direct_url", ""), _picked,
+                       current_instructions=row.get("source_instructions", ""))
 
     def _pick_version(self, data_idx: int):
         row = self._all_rows[data_idx]
