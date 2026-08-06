@@ -95,6 +95,7 @@ class SkyrimSE(Fallout_3):
             "trees",
             "asi",
             "tools",
+            "enbseries",
         }
 
     @property
@@ -167,21 +168,8 @@ class SkyrimSE(Fallout_3):
             CustomRule(dest="", filenames=[
                 "d3d11.dll",
                 "d3dcompiler_46e.dll",
-                "enbadaptation.fx",
-                "enbbloom.fx",
-                "enbdepthoffield.fx",
-                "enbeffect.fx",
-                "enbeffectpostpass.fx",
-                "enbeffectprepass.fx",
-                "enblens.fx",
                 "enblocal.ini",
-                "enbpalette.bmp",
-                "enbraindrops.dds",
                 "enbseries.ini",
-                "enbsunsprite.bmp",
-                "enbsunsprite.fx",
-                "enbunderwater.fx",
-                "enbunderwaternoise.bmp",
             ], flatten=True),
             CustomRule(dest="", folders=["enbseries"], flatten=True),
             self._saves_routing_rule([".ess"]),
