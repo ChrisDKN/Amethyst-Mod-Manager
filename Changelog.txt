@@ -1,3 +1,7 @@
+- v2.1.1
+- Added the ability to create, edit and upload collections to Nexus
+- Fixed deploy for users who have the non RT versions of Resident Evil games installed
+
 - v2.1.0
 ### Game Support
 - Added Daggerfall Unity
