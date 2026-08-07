@@ -1173,6 +1173,30 @@ def _parse_acf_installdir(acf_path: Path) -> str | None:
         return None
 
 
+_ACF_BETA_KEY_RE = re.compile(r'"BetaKey"\s+"([^"]*)"')
+
+
+def parse_acf_beta_key(acf_path: Path) -> str | None:
+    """Parse the installed Steam beta branch (BetaKey) from an appmanifest .acf.
+
+    Prefers MountedConfig (the build actually on disk) over UserConfig (the
+    user's selection, which may not have been downloaded yet).  Returns None
+    on the default branch or if the manifest can't be read.
+    """
+    try:
+        text = acf_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for section in ("MountedConfig", "UserConfig"):
+        sec = re.search(r'"%s"\s*\{([^{}]*)\}' % section, text)
+        if sec:
+            m = _ACF_BETA_KEY_RE.search(sec.group(1))
+            if m and m.group(1):
+                return m.group(1)
+    m = _ACF_BETA_KEY_RE.search(text)
+    return (m.group(1) or None) if m else None
+
+
 def find_game_by_steam_id(
     libraries: list[Path], steam_id: str, exe_name: str
 ) -> Path | None:

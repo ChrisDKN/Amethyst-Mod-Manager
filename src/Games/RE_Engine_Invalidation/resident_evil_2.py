@@ -10,8 +10,11 @@ class ResidentEvil2(ResidentEvilVillage):
     """Resident Evil 2 Remake (2019).
 
     Uses natives/STM/ instead of natives/x64/ — mods ship with x64 paths
-    but must be deployed to STM.
+    but must be deployed to STM.  Skipped on the dx11_non-rt beta branch.
     """
+
+    _rt_path_remap = {"natives/x64/": "natives/STM/"}
+    _rt_ext_remap = {".tex.10": ".tex.34"}
 
     @property
     def name(self) -> str:
@@ -32,11 +35,3 @@ class ResidentEvil2(ResidentEvilVillage):
     @property
     def nexus_game_domain(self) -> str:
         return "residentevil22019"
-
-    @property
-    def mod_deploy_path_remap(self) -> dict[str, str]:
-        return {"natives/x64/": "natives/STM/"}
-
-    @property
-    def pak_hash_extension_remap(self) -> dict[str, str]:
-        return {".tex.10": ".tex.34"}

@@ -7,7 +7,13 @@ from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVilla
 
 
 class ResidentEvil7(ResidentEvilVillage):
-    """Resident Evil 7: Biohazard — identical workflow to RE Village."""
+    """Resident Evil 7: Biohazard — identical workflow to RE Village.
+
+    STM/tex remaps are skipped on the dx11_non-rt beta branch.
+    """
+
+    _rt_path_remap = {"natives/x64/": "natives/STM/"}
+    _rt_ext_remap = {".tex.10": ".tex.34"}
 
     @property
     def name(self) -> str:
@@ -28,11 +34,3 @@ class ResidentEvil7(ResidentEvilVillage):
     @property
     def nexus_game_domain(self) -> str:
         return "residentevil7"
-
-    @property
-    def mod_deploy_path_remap(self) -> dict[str, str]:
-        return {"natives/x64/": "natives/STM/"}
-
-    @property
-    def pak_hash_extension_remap(self) -> dict[str, str]:
-        return {".tex.10": ".tex.34"}
