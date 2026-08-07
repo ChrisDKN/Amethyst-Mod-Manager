@@ -442,11 +442,8 @@ def _decode_bstrishape(c: _Cur, h: NifHeader, av: dict, shape: NifShape,
         _decode_vertex_buffer(vbuf, desc, num_verts, bpv, fullprec, shape)
 
         if num_tris:
-            flat = struct.unpack(f"<{num_tris * 3}H", c.take(num_tris * 6))
-            shape.triangles = [
-                (flat[i], flat[i + 1], flat[i + 2])
-                for i in range(0, len(flat), 3)
-            ]
+            shape.triangles = list(
+                struct.iter_unpack("<3H", c.take(num_tris * 6)))
 
     if h.bs_version == 100:
         pdata = c.u32()                            # particle data size
@@ -458,9 +455,7 @@ def _decode_bstrishape(c: _Cur, h: NifHeader, av: dict, shape: NifShape,
         if dyn:
             raw = c.take(dyn)
             if not shape.vertices:
-                shape.vertices = [
-                    v[:3] for v in struct.iter_unpack("<4f", raw)
-                ]
+                shape.vertices = list(struct.iter_unpack("<3f4x", raw))
 
 
 def _decode_vertex_buffer(vbuf: bytes, desc: int, count: int, bpv: int,
@@ -484,20 +479,26 @@ def _decode_vertex_buffer(vbuf: bytes, desc: int, count: int, bpv: int,
         shape.tangents = _signed_bytes(vbuf, off_tan, bpv, count)
     if flags & VF_COLORS:
         # One RGBA byte quad per vertex, unlike NiTriShapeData's floats.
-        shape.colors = [
-            (vbuf[o] / 255.0, vbuf[o + 1] / 255.0,
-             vbuf[o + 2] / 255.0, vbuf[o + 3] / 255.0)
-            for o in range(off_col, off_col + bpv * count, bpv)]
+        end = off_col + bpv * count
+        lut = _UNORM_LUT.__getitem__
+        shape.colors = list(zip(map(lut, vbuf[off_col:end:bpv]),
+                                map(lut, vbuf[off_col + 1:end:bpv]),
+                                map(lut, vbuf[off_col + 2:end:bpv]),
+                                map(lut, vbuf[off_col + 3:end:bpv])))
+
+
+_SNORM_LUT = tuple(b / 127.5 - 1.0 for b in range(256))
+_UNORM_LUT = tuple(b / 255.0 for b in range(256))
 
 
 def _signed_bytes(vbuf: bytes, offset: int, stride: int, count: int) -> list:
     """Unpack a normalised 3-byte vector per vertex."""
-    out = []
-    for o in range(offset, offset + stride * count, stride):
-        out.append((vbuf[o] / 127.5 - 1.0,
-                    vbuf[o + 1] / 127.5 - 1.0,
-                    vbuf[o + 2] / 127.5 - 1.0))
-    return out
+    end = offset + stride * count
+    lut = _SNORM_LUT.__getitem__
+    # Stepped bytes slices + a table lookup keep the whole pass in C.
+    return list(zip(map(lut, vbuf[offset:end:stride]),
+                    map(lut, vbuf[offset + 1:end:stride]),
+                    map(lut, vbuf[offset + 2:end:stride])))
 
 
 def _decode_bsgeometry(c: _Cur, h: NifHeader, shape: NifShape) -> None:
@@ -554,9 +555,7 @@ def _decode_skin_partition(c: _Cur, h: NifHeader, shape: NifShape) -> None:
             for n in strip_lengths:
                 tris.extend(_strip_to_tris(struct.unpack(f"<{n}H", c.take(n * 2))))
         elif has_faces and num_tris:
-            flat = struct.unpack(f"<{num_tris * 3}H", c.take(num_tris * 6))
-            tris.extend((flat[i], flat[i + 1], flat[i + 2])
-                        for i in range(0, len(flat), 3))
+            tris.extend(struct.iter_unpack("<3H", c.take(num_tris * 6)))
         has_bone_indices = c.u8()
         if has_bone_indices:
             c.skip(num_verts * num_weights)        # bone indices
@@ -573,9 +572,13 @@ def _decode_skin_partition(c: _Cur, h: NifHeader, shape: NifShape) -> None:
 
 def _strided(buf: bytes, offset: int, stride: int, count: int, fmt: str) -> list:
     """Unpack *count* tuples of *fmt* spaced *stride* bytes apart."""
-    s = struct.Struct(fmt)
-    unpack = s.unpack_from
-    return [unpack(buf, o) for o in range(offset, offset + stride * count, stride)]
+    if count <= 0:
+        return []
+    # Padding the format out to the full stride turns the per-record Python
+    # loop into a single C-level iter_unpack pass.
+    pad = stride - offset - struct.calcsize(fmt)
+    padded = f"<{offset}x{fmt.lstrip('<')}{pad}x"
+    return list(struct.iter_unpack(padded, memoryview(buf)[:stride * count]))
 
 
 def _decode_geometry_data(c: _Cur, h: NifHeader, block_type: str) -> dict:
@@ -634,10 +637,8 @@ def _decode_geometry_data(c: _Cur, h: NifHeader, block_type: str) -> dict:
         c.u32()                                    # num triangle points
         has_tris = c.u8() if h.version >= 0x0A010000 else 1
         if has_tris and num_tris:
-            flat = struct.unpack(f"<{num_tris * 3}H", c.take(num_tris * 6))
-            out["triangles"] = [
-                (flat[i], flat[i + 1], flat[i + 2]) for i in range(0, len(flat), 3)
-            ]
+            out["triangles"] = list(
+                struct.iter_unpack("<3H", c.take(num_tris * 6)))
         num_match = c.u16()
         for _ in range(num_match):
             c.skip(2 * c.u16())                    # shared-normal groups

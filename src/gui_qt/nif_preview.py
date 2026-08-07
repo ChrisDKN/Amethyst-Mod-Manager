@@ -15,6 +15,7 @@ from __future__ import annotations
 import array
 import math
 import threading
+from itertools import chain
 from pathlib import Path
 from shiboken6 import VoidPtr
 
@@ -55,6 +56,8 @@ PREVIEW_EXTS = {".nif"}
 # Cap decoded textures: a 4K RGBA QImage is 67 MB, and a dozen of those
 # exhausts memory on a handheld.
 TEXTURE_MAX_DIM = 1024
+
+_IDENTITY_ROT = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
 # Indexed asset subtrees. materials/ (FO4 texture paths live there) and
 # geometries/ (Starfield meshes) are required, not optional.
@@ -375,13 +378,15 @@ def _model_space_normal(nrm_blob, spec_blob, log=None):
         import io
         from PIL import Image as PilImage
         from PySide6.QtGui import QImage
-        from Utils.dds_compat import sanitise_dds
+        from Utils.dds_compat import sanitise_dds, skip_dds_mips
+        nrm_blob = skip_dds_mips(nrm_blob, TEXTURE_MAX_DIM)
         with PilImage.open(io.BytesIO(sanitise_dds(nrm_blob))) as im:
             big = max(im.width, im.height)
             if big > TEXTURE_MAX_DIM:
                 im = im.reduce(max(1, big // TEXTURE_MAX_DIM))
             rgb = im.convert("RGB")
         if spec_blob:
+            spec_blob = skip_dds_mips(spec_blob, TEXTURE_MAX_DIM)
             with PilImage.open(io.BytesIO(sanitise_dds(spec_blob))) as sp:
                 gloss = sp.convert("RGB").split()[0]        # red channel
                 if gloss.size != rgb.size:
@@ -425,13 +430,16 @@ def _make_gl_texture(img):
 def _qimage_from_bytes(data: bytes, log=None):
     """Decode texture bytes pulled from an archive (DDS goes via Pillow)."""
     from PySide6.QtGui import QImage
+    from Utils.dds_compat import sanitise_dds, skip_dds_mips
+    # A DDS ships its own mip chain: decode the first level that fits the
+    # cap rather than a 4K top mip (~400ms of BC7) we would only shrink.
+    data = skip_dds_mips(data, TEXTURE_MAX_DIM)
     img = QImage()
     if img.loadFromData(data) and not img.isNull():
         return img
     try:
         import io
         from PIL import Image as PilImage
-        from Utils.dds_compat import sanitise_dds
         with PilImage.open(io.BytesIO(sanitise_dds(data))) as im:
             # Reduce BEFORE convert so the full-size RGBA never hits the heap.
             big = max(im.width, im.height)
@@ -726,56 +734,57 @@ def _build_meshes(model, load_texture):
         tx, ty, tz = shape.translation
         r = shape.rotation
         s = shape.scale
-        flat = array.array("f")
-        push = flat.extend
-        # Per-shape bounds too: the centroid orders the blended pass.
-        mlo = [float("inf")] * 3
-        mhi = [float("-inf")] * 3
-        for i, ((x, y, z), (nx, ny, nz), (u, v), (gx, gy, gz)) in enumerate(zip(
-                verts, normals, uvs, tangents)):
-            wx = tx + s * (r[0] * x + r[1] * y + r[2] * z)
-            wy = ty + s * (r[3] * x + r[4] * y + r[5] * z)
-            wz = tz + s * (r[6] * x + r[7] * y + r[8] * z)
-            push((wx, wy, wz,
-                  r[0] * nx + r[1] * ny + r[2] * nz,
-                  r[3] * nx + r[4] * ny + r[5] * nz,
-                  r[6] * nx + r[7] * ny + r[8] * nz,
-                  u, v,
-                  r[0] * gx + r[1] * gy + r[2] * gz,
-                  r[3] * gx + r[4] * gy + r[5] * gz,
-                  r[6] * gx + r[7] * gy + r[8] * gz))
-            if colors is not None:
-                push(colors[i])
-            if wx < lo[0]:
-                lo[0] = wx
-            if wy < lo[1]:
-                lo[1] = wy
-            if wz < lo[2]:
-                lo[2] = wz
-            if wx > hi[0]:
-                hi[0] = wx
-            if wy > hi[1]:
-                hi[1] = wy
-            if wz > hi[2]:
-                hi[2] = wz
-            if wx < mlo[0]:
-                mlo[0] = wx
-            if wy < mlo[1]:
-                mlo[1] = wy
-            if wz < mlo[2]:
-                mlo[2] = wz
-            if wx > mhi[0]:
-                mhi[0] = wx
-            if wy > mhi[1]:
-                mhi[1] = wy
-            if wz > mhi[2]:
-                mhi[2] = wz
+        r0, r1, r2, r3, r4, r5, r6, r7, r8 = r
+        # Transform in whole-list passes; the identity case (most statics)
+        # reuses the parsed lists untouched.
+        if r == _IDENTITY_ROT and s == 1.0:
+            if (tx, ty, tz) == (0.0, 0.0, 0.0):
+                wverts = verts
+            else:
+                wverts = [(x + tx, y + ty, z + tz) for x, y, z in verts]
+            wnorms = normals
+            wtans = tangents
+        else:
+            wverts = [(tx + s * (r0 * x + r1 * y + r2 * z),
+                       ty + s * (r3 * x + r4 * y + r5 * z),
+                       tz + s * (r6 * x + r7 * y + r8 * z))
+                      for x, y, z in verts]
+            wnorms = [(r0 * x + r1 * y + r2 * z,
+                       r3 * x + r4 * y + r5 * z,
+                       r6 * x + r7 * y + r8 * z)
+                      for x, y, z in normals]
+            wtans = [(r0 * x + r1 * y + r2 * z,
+                      r3 * x + r4 * y + r5 * z,
+                      r6 * x + r7 * y + r8 * z)
+                     for x, y, z in tangents]
+
+        # Interleave pos/normal/uv/tangent(/colour) without a per-vertex
+        # Python loop: chain flattens the zipped tuples at C speed.
+        groups = (zip(wverts, wnorms, uvs, wtans, colors) if colors is not None
+                  else zip(wverts, wnorms, uvs, wtans))
+        flat = array.array("f", chain.from_iterable(
+            chain.from_iterable(groups)))
+
+        # Bounds from strided slices of the final buffer (C speed); the
+        # per-shape centroid orders the blended pass.
+        fpv = 15 if colors is not None else 11
+        xs, ys, zs = flat[0::fpv], flat[1::fpv], flat[2::fpv]
+        mlo = (min(xs), min(ys), min(zs))
+        mhi = (max(xs), max(ys), max(zs))
+        for k in range(3):
+            if mlo[k] < lo[k]:
+                lo[k] = mlo[k]
+            if mhi[k] > hi[k]:
+                hi[k] = mhi[k]
 
         nv = len(verts)
-        idx = array.array("I")
-        for a, b, c in tris:
-            if a < nv and b < nv and c < nv:
-                idx.extend((a, b, c))
+        idx = array.array("I", chain.from_iterable(tris))
+        if idx and max(idx) >= nv:
+            # Rare corrupt file: drop only the out-of-range triangles.
+            idx = array.array("I")
+            for a, b, c in tris:
+                if a < nv and b < nv and c < nv:
+                    idx.extend((a, b, c))
         if not idx:
             continue
 
