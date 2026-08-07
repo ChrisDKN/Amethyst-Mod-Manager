@@ -5306,18 +5306,23 @@ class MainWindow(QMainWindow):
 
         from gui_qt.modlist_menu import _installation_archive, _read_mod_meta
         preferred: dict[str, str] = {}   # archive path → forced folder name
+        metas: dict[str, object] = {}    # archive path → reinstall metadata
         paths: list[str] = []
-        redownload: list[tuple] = []     # (mod_name, domain, mod_id, file_id, filename)
+        redownload: list[tuple] = []     # (..., filename, installed_meta)
         missing: list[str] = []          # no archive AND no Nexus info to redownload
+        from Nexus.nexus_meta import merge_reinstall_metadata
         for nm in names:
+            meta = _read_mod_meta(self._modlist_view, nm)
             arc = _installation_archive(self._modlist_view, nm)
             if arc is not None:
-                paths.append(str(arc))
-                preferred[str(arc)] = nm
+                archive_path = str(arc)
+                paths.append(archive_path)
+                preferred[archive_path] = nm
+                if meta is not None:
+                    metas[archive_path] = merge_reinstall_metadata(None, meta)
                 continue
             # Archive gone - fall back to a Nexus redownload if this mod carries
             # a modid + fileid (and a resolvable game domain) in its meta.ini.
-            meta = _read_mod_meta(self._modlist_view, nm)
             mod_id = int(getattr(meta, "mod_id", 0) or 0) if meta is not None else 0
             file_id = int(getattr(meta, "file_id", 0) or 0) if meta is not None else 0
             from Nexus.nexus_meta import normalise_game_domain
@@ -5327,7 +5332,8 @@ class MainWindow(QMainWindow):
                 domain = getattr(game, "nexus_game_domain", "") or ""
             if mod_id > 0 and file_id > 0 and domain:
                 redownload.append((nm, domain, mod_id, file_id,
-                                   getattr(meta, "installation_file", "") or ""))
+                                   getattr(meta, "installation_file", "") or "",
+                                   meta))
             else:
                 missing.append(nm)
                 self._append_log(f"[reinstall] {nm} - install archive not found and "
@@ -5357,7 +5363,8 @@ class MainWindow(QMainWindow):
         if paths:
             # clear_archives=False: reinstall CONSUMES an existing archive the
             # user kept - deleting it would make the next reinstall impossible.
-            self._install_paths(paths, preferred_names=preferred,
+            self._install_paths(paths, metas=metas or None,
+                                preferred_names=preferred,
                                 clear_archives=False)
         if redownload:
             self._redownload_and_reinstall(redownload)
@@ -5369,7 +5376,7 @@ class MainWindow(QMainWindow):
         Replace-All). Premium users get a direct download; non-premium users get
         each mod's Nexus files page opened in the browser (site 'Download with
         Mod Manager' flow). `items` = [(mod_name, domain, mod_id, file_id,
-        filename), …]."""
+        filename, installed_meta), …]."""
         api = self._ensure_nexus_api()
         if api is None:
             self._notify(
@@ -5441,7 +5448,8 @@ class MainWindow(QMainWindow):
         def _download_all():
             import concurrent.futures as _cf
             from Nexus.nexus_download import NexusDownloader
-            from Nexus.nexus_meta import build_meta_from_download
+            from Nexus.nexus_meta import (build_meta_from_download,
+                                          merge_reinstall_metadata)
             from Utils.config_paths import get_download_cache_dir_for_game
             dest = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
             downloader = NexusDownloader(api, download_dir=dest)
@@ -5450,7 +5458,7 @@ class MainWindow(QMainWindow):
             lock = threading.Lock()
 
             def _one(item):
-                mod_name, domain, mod_id, file_id, filename = item
+                mod_name, domain, mod_id, file_id, filename, installed_meta = item
                 try:
                     def _on_progress(cur, tot, _m=mod_name):
                         with progress_lock:
@@ -5483,6 +5491,7 @@ class MainWindow(QMainWindow):
                         prebuilt = build_meta_from_download(
                             game_domain=domain, mod_id=mod_id, file_id=file_id,
                             archive_name=result.file_name, mod_info=mod_info)
+                        prebuilt = merge_reinstall_metadata(prebuilt, installed_meta)
                     except Exception as exc:
                         self._op_log.emit(
                             f"[reinstall] Warning - could not build metadata: {exc}")
@@ -5509,7 +5518,7 @@ class MainWindow(QMainWindow):
         mod: install immediately if the archive is already on disk, else open its
         download page and arm a folder watcher that auto-installs when the
         browser download arrives. `items` =
-        [(mod_name, domain, mod_id, file_id, filename), …]."""
+        [(mod_name, domain, mod_id, file_id, filename, installed_meta), …]."""
         import threading
         from gui_qt.safe_emit import safe_emit
 
@@ -5528,7 +5537,7 @@ class MainWindow(QMainWindow):
             # shared when several items point at the same mod.
             files_cache: dict = {}
             enriched = []
-            for nm, domain, mod_id, file_id, filename in items:
+            for nm, domain, mod_id, file_id, filename, installed_meta in items:
                 f = None
                 key = (domain, int(mod_id or 0))
                 if api is not None:
@@ -5547,7 +5556,7 @@ class MainWindow(QMainWindow):
                             f"({exc}); archive detection may be less reliable.")
                 if f is None:
                     f = _F(int(file_id or 0), filename or "")
-                enriched.append((nm, domain, mod_id, file_id, f))
+                enriched.append((nm, domain, mod_id, file_id, f, installed_meta))
             safe_emit(self._reinstall_manual_ready, enriched)
 
         threading.Thread(target=_prep, daemon=True,
@@ -5557,22 +5566,26 @@ class MainWindow(QMainWindow):
         """UI thread: file metadata resolved - run each mod through the shared
         start_manual_install flow (skip the browser when the archive is already
         downloaded, else open its download page + watch the download folders).
-        `enriched` = [(mod_name, domain, mod_id, file_id, NexusModFile-like), …]."""
+        `enriched` = [(mod_name, domain, mod_id, file_id, NexusModFile-like,
+        installed_meta), …]."""
         from Nexus.manual_download_watch import start_manual_install
+        from Nexus.nexus_meta import merge_reinstall_metadata
         from Utils.xdg import open_url
         from gui_qt.safe_emit import safe_emit
 
         api = getattr(self, "_nexus_api", None)
         opened = 0
-        for nm, domain, mod_id, file_id, f in enriched:
+        for nm, domain, mod_id, file_id, f, installed_meta in enriched:
             dl_key = self._new_dl_key()
             self._nexus_download_progress(dl_key, nm, 0, 0)  # show popup card
 
             # Helper callbacks run on the WATCHER thread - marshal via Signals.
             # (_op_log / _append_log are thread-safe.)
-            def on_archive(path, meta, _file, _nm=nm, _mid=mod_id, _key=dl_key):
+            def on_archive(path, meta, _file, _nm=nm, _mid=mod_id, _key=dl_key,
+                           _installed=installed_meta):
                 if not self._claim_app_manual_watch(_mid, _key):
                     return
+                meta = merge_reinstall_metadata(meta, _installed)
                 safe_emit(self._reinstall_manual_found,
                           _nm, str(path), meta, _key)
 

@@ -29,6 +29,8 @@ class ReinstallMetadataTests(unittest.TestCase):
             nexus_name="Example Root Package",
             root_folder=True,
             from_collection="example-collection",
+            from_collection_bundled=True,
+            from_collection_patched=True,
             has_update=True,
             latest_file_id=999,
         )
@@ -43,6 +45,8 @@ class ReinstallMetadataTests(unittest.TestCase):
 
         self.assertTrue(reinstall_meta.root_folder)
         self.assertEqual(reinstall_meta.from_collection, "example-collection")
+        self.assertFalse(reinstall_meta.from_collection_bundled)
+        self.assertFalse(reinstall_meta.from_collection_patched)
         self.assertFalse(reinstall_meta.has_update)
         self.assertEqual(reinstall_meta.latest_file_id, 0)
 
@@ -69,6 +73,35 @@ class ReinstallMetadataTests(unittest.TestCase):
             "Data/Scripts/example.pex",
         })
         self.assertNotIn("Scripts/example.pex", destinations)
+
+    def test_local_archive_reinstall_reuses_only_stable_package_identity(self):
+        installed = nexus_meta.NexusModMeta(
+            game_domain="examplegame",
+            mod_id=42,
+            file_id=314,
+            version="1.2.3",
+            nexus_name="Example Root Package",
+            root_folder=True,
+            from_collection="example-collection",
+            endorsed=True,
+            ignore_update=True,
+            ignored_version="2.0.0",
+            missing_requirements="7:Example Requirement",
+        )
+
+        reinstall_meta = nexus_meta.merge_reinstall_metadata(None, installed)
+
+        self.assertEqual(reinstall_meta.game_domain, "examplegame")
+        self.assertEqual(reinstall_meta.mod_id, 42)
+        self.assertEqual(reinstall_meta.file_id, 314)
+        self.assertEqual(reinstall_meta.version, "1.2.3")
+        self.assertEqual(reinstall_meta.nexus_name, "Example Root Package")
+        self.assertTrue(reinstall_meta.root_folder)
+        self.assertEqual(reinstall_meta.from_collection, "example-collection")
+        self.assertFalse(reinstall_meta.endorsed)
+        self.assertFalse(reinstall_meta.ignore_update)
+        self.assertEqual(reinstall_meta.ignored_version, "")
+        self.assertEqual(reinstall_meta.missing_requirements, "")
 
     @staticmethod
     def _skyrim_install_rules():
