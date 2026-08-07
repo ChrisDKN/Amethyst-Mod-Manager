@@ -1074,7 +1074,7 @@ def build_collection_manifest(rows, game, info: dict, *,
         meta = _read_row_meta(staging_root, name)
         archive = _cached_archive(meta, game_name)
         version = row.get("version") or (getattr(meta, "version", "") or "")
-        logical = (getattr(meta, "nexus_file_name", "") or "").strip() or name
+        logical = name
         author = (getattr(meta, "author", "") or "").strip()
         row_source = row.get("source", "nexus")
         # Mods downloaded from another Nexus game domain (cross-game files,
