@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import tempfile
 import zipfile
@@ -45,6 +46,94 @@ UPDATE_POLICIES = ("exact", "prefer", "latest")
 COLLECTION_NAME_MIN = 3
 COLLECTION_NAME_MAX = 36
 
+# The archive goes up as ONE presigned PUT (NexusAPI.upload_collection_archive),
+# and S3-compatible storage - Nexus hands out Backblaze B2 URLs - caps a single
+# PutObject at 5 GiB. Past that you need multipart, which neither we nor Vortex
+# implement, so the upload is rejected by the STORAGE layer, not by Nexus.
+# Nexus publishes no collection size limit of its own; bundling multi-GB tool
+# output is explicitly sanctioned (their collection guidelines name DynDOLOD
+# output as the intended case), so this ceiling is the only one that bites.
+UPLOAD_SIZE_LIMIT = 5 * 1024 ** 3
+# B2's docs say "5 GB" without pinning decimal vs binary. Only the binary
+# reading is refused by every S3 implementation, so that is the hard block;
+# past the decimal reading we upload but warn, since a rejection there costs
+# the user the whole transfer.
+UPLOAD_SIZE_WARN = 5_000_000_000
+
+# Total payload past which packing stops using py7zr's default filters (see
+# _pack_filters). Below it the archive is small enough that the default costs
+# nothing worth measuring.
+FAST_PACK_THRESHOLD = 64 * 1024 * 1024
+# Sample compressed to at least this fraction of its size = not worth
+# compressing. Kept high because storing INSTEAD of compressing makes the
+# archive bigger, and archive size counts against UPLOAD_SIZE_LIMIT.
+INCOMPRESSIBLE_RATIO = 0.95
+_SAMPLE_BYTES = 4 * 1024 * 1024
+_SAMPLE_FILES = 16
+
+
+def format_bytes(n: int) -> str:
+    """Bytes as a short human string ("1.4 GB"). Local: Utils can't import gui."""
+    step = 1024.0
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if abs(value) < step or unit == "GB":
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= step
+    return f"{value:.1f} GB"
+
+
+def _bundle_totals(bundle_jobs) -> "list[tuple[str, int]]":
+    """``(bundled folder, total bytes)`` per bundle job group, biggest first.
+
+    Used to name what is actually filling an over-limit archive - "it's 5.4 GB"
+    is useless next to "DynDOLOD Output is 4.9 GB of it".
+    """
+    totals: dict[str, int] = {}
+    for src, arcname in bundle_jobs or ():
+        parts = str(arcname).replace("\\", "/").split("/")
+        # bundled/<mod folder>/<file...> - anything else is grouped by its top
+        # level ("INI Tweaks", "patches").
+        key = parts[1] if (len(parts) > 2 and parts[0] == "bundled") else parts[0]
+        try:
+            totals[key] = totals.get(key, 0) + Path(src).stat().st_size
+        except OSError:
+            continue
+    return sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
+
+
+def check_upload_size(archive_path, bundle_jobs=None) -> "tuple[bool, str]":
+    """Whether a packed archive can be uploaded.
+
+    Returns ``(ok, message)``. ``ok`` False means the upload cannot succeed and
+    *message* says why; ``ok`` True with a non-empty *message* is an advisory
+    to log. Called BEFORE the PUT so an over-limit collection fails in seconds
+    instead of after transferring gigabytes.
+    """
+    try:
+        size = Path(archive_path).stat().st_size
+    except OSError:
+        return True, ""          # can't tell - let the upload speak for itself
+    if size <= UPLOAD_SIZE_WARN:
+        return True, ""
+
+    biggest = _bundle_totals(bundle_jobs)[:3]
+    detail = ""
+    if biggest:
+        detail = " Largest bundled: " + ", ".join(
+            f"{name} ({format_bytes(nbytes)})" for name, nbytes in biggest) + "."
+    if size > UPLOAD_SIZE_LIMIT:
+        return False, (
+            f"The collection archive is {format_bytes(size)}, over the "
+            f"{format_bytes(UPLOAD_SIZE_LIMIT)} limit for a single upload. "
+            f"Nexus accepts bundled tool output, but the archive itself has to "
+            f"fit in one upload - un-bundle something, or host the largest "
+            f"output as its own mod page and require it instead.{detail}")
+    return True, (
+        f"The collection archive is {format_bytes(size)}, close to the "
+        f"{format_bytes(UPLOAD_SIZE_LIMIT)} single-upload limit - Nexus may "
+        f"refuse it, and a refusal costs the whole transfer.{detail}")
+
 
 def read_profile_manifest(profile_dir) -> dict:
     """The collection manifest an install saved to ``<profile>/collection.json``.
@@ -66,6 +155,50 @@ def read_profile_manifest(profile_dir) -> dict:
         return {}
 
 
+def seed_info_from_manifest(manifest: dict) -> dict:
+    """The collection-info form fields a manifest can restore.
+
+    Only keys the manifest actually carries are returned, so a caller can tell
+    "the author left this blank" from "never recorded" and keep its own default
+    for the latter. Deliberately absent:
+
+    * ``author`` — the manifest names whoever authored the collection we
+      installed; the form fills in the signed-in Nexus user, who is the one the
+      upload will actually be attributed to.
+    * ``gameVersions`` — the form detects the version of the game as installed
+      HERE, which is what the re-upload should advertise.
+    * ``adultContent`` — not a manifest field at all. Both we and Vortex pass it
+      as an argument to the create/revision mutation, so it lives on the server.
+    """
+    out: dict = {}
+    if not isinstance(manifest, dict):
+        return out
+    info = manifest.get("info")
+    if isinstance(info, dict):
+        for key in ("description", "installInstructions"):
+            val = info.get(key)
+            if isinstance(val, str) and val.strip():
+                out[key] = val
+    config = manifest.get("collectionConfig")
+    if isinstance(config, dict):
+        # Booleans seed on PRESENCE, not truth: a recorded False has to be able
+        # to clear the form's default-on "recommend a new profile".
+        for key in ("recommendNewProfile", "excludePluginRules"):
+            if key in config:
+                out[key] = bool(config[key])
+    return out
+
+
+def _manifest_int(value) -> int:
+    """int() for manifest fields; 0 for junk. The profile's collection.json is
+    external input (Vortex writes it too), so a malformed id must degrade to
+    "no match", never raise into the view constructor that seeds from it."""
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def seed_rows_from_manifest(rows, manifest: dict) -> int:
     """Apply a manifest's per-mod authoring settings onto export *rows*.
 
@@ -82,8 +215,8 @@ def seed_rows_from_manifest(rows, manifest: dict) -> int:
     by_name: dict = {}
     for mod in mods:
         source = mod.get("source") or {}
-        mod_id = int(source.get("modId") or 0)
-        file_id = int(source.get("fileId") or 0)
+        mod_id = _manifest_int(source.get("modId"))
+        file_id = _manifest_int(source.get("fileId"))
         if mod_id and file_id:
             by_ids[(mod_id, file_id)] = mod
         for key in (mod.get("name"), source.get("logicalFilename"),
@@ -94,14 +227,15 @@ def seed_rows_from_manifest(rows, manifest: dict) -> int:
 
     seeded = 0
     for row in rows:
-        mod = by_ids.get((int(row.get("mod_id") or 0),
-                          int(row.get("file_id") or 0)))
+        mod = by_ids.get((_manifest_int(row.get("mod_id")),
+                          _manifest_int(row.get("file_id"))))
         if mod is None:
             mod = by_name.get((row.get("name") or "").strip().lower())
         if mod is None:
             continue
 
         source = mod.get("source") or {}
+        row["optional"] = bool(mod.get("optional"))
         try:
             row["phase"] = int(mod.get("phase") or 0)
         except (TypeError, ValueError):
@@ -124,7 +258,16 @@ def seed_rows_from_manifest(rows, manifest: dict) -> int:
 
 
 def validate_collection_name(name: str) -> str:
-    """Return "" when *name* is acceptable, else a human-readable reason."""
+    """Return "" when *name* is acceptable, else a human-readable reason.
+
+    Only the length limits are enforced. Vortex's *creation* dialog restricts
+    new names to letters/numbers/space/hyphen, but collections made on the
+    website carry apostrophes, colons and brackets — and we auto-fill this
+    field from the server when targeting an existing collection, so rejecting
+    those would make it impossible to upload a revision of, or rename, a
+    perfectly normal collection. Anything Nexus itself refuses comes back as a
+    mutation error we surface.
+    """
     text = (name or "").strip()
     if len(text) < COLLECTION_NAME_MIN:
         return (f"A collection name needs at least {COLLECTION_NAME_MIN} "
@@ -132,9 +275,8 @@ def validate_collection_name(name: str) -> str:
     if len(text) > COLLECTION_NAME_MAX:
         return (f"A collection name can be at most {COLLECTION_NAME_MAX} "
                 "characters.")
-    if not all(ch.isalnum() or ch in " -" for ch in text):
-        return ("A collection name may only contain letters, numbers, spaces "
-                "and hyphens.")
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text):
+        return "A collection name can't contain control characters."
     return ""
 
 # Binary-patch limits, mirroring Vortex (collections/constants.ts): a patch may
@@ -176,9 +318,21 @@ def detect_game_version(game) -> str:
 # Small helpers
 # ---------------------------------------------------------------------------
 
-def _short_tag(name: str) -> str:
-    """Deterministic 10-char tag for a mod (stable across re-exports)."""
-    return hashlib.md5(name.encode("utf-8")).hexdigest()[:10]
+def _short_tag(name: str, mod_id: int = 0, file_id: int = 0,
+               md5: str = "") -> str:
+    """Reference tag identifying the exact FILE this entry pins.
+
+    Installers short-circuit on the tag: Vortex's matcher treats an installed
+    mod carrying the same referenceTag as already satisfying the rule, without
+    checking any other attribute. So the tag must change when the file does —
+    keying it purely on the mod's name would make a revision that bumps a mod
+    to a newer file look already-installed, and it would never be downloaded.
+    """
+    # Combine every identifier we publish: the ids are what a revision bumps,
+    # the md5 is what actually changes on disk. Either moving must move the tag.
+    parts = [p for p in (str(mod_id or ""), str(file_id or ""), md5 or "") if p]
+    identity = "|".join(parts) or name
+    return hashlib.md5(identity.encode("utf-8")).hexdigest()[:10]
 
 
 def _read_row_meta(staging_root, name: str):
@@ -201,14 +355,20 @@ _fileid_index_cache: dict = {}
 
 
 def _fileid_archive_index(directory: Path) -> dict:
-    """Map Nexus file id → archive path using the cache's ``.fileid`` sidecars."""
+    """Map Nexus file id → archive path using the cache's ``.fileid`` sidecars.
+
+    Memoised per directory and invalidated by its mtime. Keyed on the path
+    alone (with the mtime stored alongside) so a folder that changes during a
+    session replaces its entry instead of accumulating one per mtime.
+    """
     try:
-        key = (str(directory), directory.stat().st_mtime_ns)
+        mtime = directory.stat().st_mtime_ns
     except OSError:
         return {}
+    key = str(directory)
     cached = _fileid_index_cache.get(key)
-    if cached is not None:
-        return cached
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
     index: dict = {}
     try:
         for sidecar in directory.glob("*.fileid"):
@@ -221,7 +381,7 @@ def _fileid_archive_index(directory: Path) -> dict:
                 index[file_id] = archive
     except OSError:
         return {}
-    _fileid_index_cache[key] = index
+    _fileid_index_cache[key] = (mtime, index)
     return index
 
 
@@ -345,59 +505,98 @@ def _module_config_from_archive(archive: Path):
     if not xml_bytes:
         return None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
-            tmp.write(xml_bytes)
-            tmp_path = tmp.name
-        try:
-            return parse_module_config(tmp_path)
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
+        # TemporaryDirectory rather than NamedTemporaryFile(delete=False):
+        # a write failure there leaves tmp_path unbound and the file on disk.
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td) / "ModuleConfig.xml"
+            tmp_path.write_bytes(xml_bytes)
+            return parse_module_config(str(tmp_path))
     except Exception:
         return None
 
 
 def _fomod_options(selections: dict, config) -> "list | None":
-    """Convert saved selections {step: {group: [plugins]}} to Vortex options."""
+    """Convert saved selections {step: {group: [plugins]}} to Vortex options.
+
+    Collection-written sidecars key steps loosely: names are stripped (the
+    installer config may carry surrounding whitespace), unnamed wizard pages
+    are keyed by the author's VISITED position (which drifts from the config's
+    step index whenever a visibility condition skipped a step), and Vortex
+    manifests leave group names empty for single-group pages. Every lookup is
+    therefore verified against the config, falling back to finding the step by
+    the selected plugins themselves; the export carries the config's canonical
+    names, not the sidecar's.
+    """
     steps = getattr(config, "steps", None) or []
     if not steps:
         return None
 
-    def _step_for(key: str):
-        try:
-            idx = int(key)
-            if 0 <= idx < len(steps):
-                return steps[idx]
-        except (TypeError, ValueError):
-            pass
-        return next((s for s in steps if s.name == key), None)
+    def _resolve_group(step, group_name: str, plugin_names: list):
+        """The step's group matching *group_name* (stripped); for a blank or
+        unmatched name, the unique group containing every selected plugin."""
+        gkey = (group_name or "").strip()
+        if gkey:
+            g = next((g for g in step.groups
+                      if (g.name or "").strip() == gkey), None)
+            if g is not None:
+                return g
+        wanted = [(p or "").strip() for p in plugin_names]
+        cands = []
+        for g in step.groups:
+            have = {(p.name or "").strip() for p in g.plugins}
+            if all(w in have for w in wanted):
+                cands.append(g)
+        return cands[0] if len(cands) == 1 else None
 
-    def _sort_key(key: str):
+    def _resolve_step(key: str, groups_sel: dict):
+        """The config step for one selection entry, content-verified: every
+        selected group (and its plugins) must exist in the returned step."""
+        def _ok(step):
+            return all(_resolve_group(step, gn, pl) is not None
+                       for gn, pl in (groups_sel or {}).items())
+        kstr = (str(key) if key is not None else "").strip()
+        step = next((s for s in steps if s.name == key), None)
+        if step is None and kstr:
+            step = next((s for s in steps
+                         if (s.name or "").strip() == kstr), None)
+        if step is not None and _ok(step):
+            return step
         try:
-            return (0, int(key))
+            idx = int(kstr)
         except (TypeError, ValueError):
-            return (1, key)
+            idx = -1
+        if 0 <= idx < len(steps) and _ok(steps[idx]):
+            return steps[idx]
+        cands = [s for s in steps if _ok(s)]
+        return cands[0] if len(cands) == 1 else None
 
-    options: list = []
-    for key in sorted(selections, key=_sort_key):
-        step = _step_for(key)
+    resolved: list = []
+    for key, groups_sel in selections.items():
+        groups_sel = groups_sel or {}
+        step = _resolve_step(key, groups_sel)
         if step is None:
             return None
         groups_out: list = []
-        for group_name, plugin_names in (selections[key] or {}).items():
-            group = next((g for g in step.groups if g.name == group_name), None)
+        for group_name, plugin_names in groups_sel.items():
+            group = _resolve_group(step, group_name, plugin_names)
             if group is None:
                 return None
             ordered = [p.name for p in group.plugins]
+            stripped = [(n or "").strip() for n in ordered]
             choices = []
             for pname in plugin_names:
-                try:
-                    idx = ordered.index(pname)
-                except ValueError:
+                p = (pname or "").strip()
+                if p not in stripped:
                     return None
-                choices.append({"name": pname, "idx": idx})
-            groups_out.append({"name": group_name, "choices": choices})
-        options.append({"name": step.name, "groups": groups_out})
-    return options
+                idx = stripped.index(p)
+                choices.append({"name": ordered[idx], "idx": idx})
+            groups_out.append({"name": group.name, "choices": choices})
+        resolved.append((steps.index(step), {"name": step.name,
+                                             "groups": groups_out}))
+    # Manifest/installer order, not sidecar key order: unattended installers
+    # walk the options array as the wizard's page sequence.
+    resolved.sort(key=lambda t: t[0])
+    return [opt for _, opt in resolved]
 
 
 def _module_config_for_mod(mod_name: str, profile_dir, archive):
@@ -453,6 +652,19 @@ def _load_fomod_selections(row: dict, game_name: str, profile_dir) -> "dict | No
 # ---------------------------------------------------------------------------
 
 _FILENAME_ILLEGAL_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _safe_archive_component(name: str) -> str:
+    """One path segment safe to write into an archive.
+
+    Mod names reach us from Nexus metadata, so they must never be able to
+    contain a separator or ``..`` that would let the extracted collection
+    escape its own folder on someone else's machine.
+    """
+    # Leading dots would also make the folder hidden on Linux; trailing dots
+    # and spaces are illegal on Windows, where collections get extracted too.
+    safe = _FILENAME_ILLEGAL_RE.sub("", name or "").strip(". ")
+    return safe or "mod"
 
 
 def _bundled_folder_name(mod_name: str, version: str = "") -> str:
@@ -822,14 +1034,16 @@ def _plugin_rules_block(profile_dir, known_plugins=None) -> "dict | None":
 # ---------------------------------------------------------------------------
 
 def build_collection_manifest(rows, game, info: dict, *,
-                              progress_cb=None) -> "tuple[dict, list, list]":
+                              progress_cb=None,
+                              scratch_out=None) -> "tuple[dict, list, list]":
     """Build (manifest, bundle_jobs, warnings) from export rows for *game*.
 
     *info* supplies the manifest info block: name, author, authorUrl,
     description, installInstructions, gameVersions (list). bundle_jobs is a
-    list of (src_path, arcname) for pack_collection; temp zips created for
-    bundle mods without a cached archive land in the download cache and are
-    removed by pack_collection after writing.
+    list of (src_path, arcname) for pack_collection. *scratch_out*, when
+    given, receives any temp directories created here (binary-patch diffs);
+    the caller must pass them to cleanup_scratch() once packing is done — the
+    files have to outlive this call but must not outlive the export.
     """
     progress_cb = progress_cb or (lambda *_a: None)
     staging_root = game.get_effective_mod_staging_path() if game else None
@@ -852,7 +1066,6 @@ def build_collection_manifest(rows, game, info: dict, *,
             "collection (Nexus collections have no disabled state).")
         active = [r for r in active if r.get("enabled") is not False]
 
-    tmp_dir = None
     patch_root = None
     total = len(active)
     for i, row in enumerate(active):
@@ -863,7 +1076,6 @@ def build_collection_manifest(rows, game, info: dict, *,
         version = row.get("version") or (getattr(meta, "version", "") or "")
         logical = (getattr(meta, "nexus_file_name", "") or "").strip() or name
         author = (getattr(meta, "author", "") or "").strip()
-        tag = _short_tag(name)
         row_source = row.get("source", "nexus")
         # Mods downloaded from another Nexus game domain (cross-game files,
         # "site" tools) keep their own domain in meta.
@@ -922,6 +1134,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             # taken here would never match (Vortex omits it for the same
             # reason - modToCollection.ts).
             md5 = ""
+            tag = _short_tag(name, md5=f"bundle:{bundle_folder}:{file_size}")
             source: dict = {
                 "type": "bundle",
                 "fileSize": file_size,
@@ -937,6 +1150,9 @@ def build_collection_manifest(rows, game, info: dict, *,
                 md5 = _archive_md5(archive)
                 if not file_size:
                     file_size = archive.stat().st_size
+            tag = _short_tag(name, row.get("mod_id") or 0,
+                             row.get("file_id") or 0,
+                             md5 or row.get("direct_url", ""))
             if row_source == "direct":
                 source = {"type": "direct", "url": row.get("direct_url", "")}
             elif row_source in ("browse", "manual"):
@@ -989,18 +1205,30 @@ def build_collection_manifest(rows, game, info: dict, *,
             else:
                 selections = _load_fomod_selections(row, game_name, profile_dir)
                 options = None
+                config = None
                 if selections:
                     config = _module_config_for_mod(name, profile_dir, archive)
                     if config is not None:
                         options = _fomod_options(selections, config)
                 if options:
-                    mod_entry["choices"] = {"options": options}
-                elif selections:
+                    # The "fomod" type is what gates UNATTENDED installs in
+                    # Vortex (installer_fomod_ipc/installer.ts checks
+                    # `choices.type === "fomod"`); without it a Vortex user
+                    # gets the wizard for every mod despite our choices being
+                    # right there. Our own installer accepts either form.
+                    mod_entry["choices"] = {"type": "fomod", "options": options}
+                elif selections and config is None:
                     warnings.append(
                         f"'{name}': FOMOD choices could not be recovered - no "
                         "installer config saved in the profile and the original "
                         "archive is missing or changed. Reinstalling the mod "
                         "records it; installers will run interactively.")
+                elif selections:
+                    warnings.append(
+                        f"'{name}': saved FOMOD choices don't line up with the "
+                        "mod's installer config (the installer may have changed "
+                        "since install) - exported without choices; the "
+                        "installer will run interactively.")
 
         # Local file edits → binary patches applied over the pristine download.
         # Bundled mods already ship the edited files themselves.
@@ -1016,7 +1244,13 @@ def build_collection_manifest(rows, game, info: dict, *,
                     patch_root = Path(tempfile.mkdtemp(
                         prefix="amethyst_colexport_",
                         dir=str(get_download_cache_dir())))
-                mod_patch_dir = patch_root / mod_entry["name"]
+                    if scratch_out is not None:
+                        scratch_out.append(patch_root)
+                # The folder is named after the mod, which comes from Nexus
+                # metadata — strip anything that could climb out of patches/
+                # when someone else extracts this collection.
+                patch_dir_name = _safe_archive_component(mod_entry["name"])
+                mod_patch_dir = patch_root / patch_dir_name
                 found = _scan_mod_patches(mod_dir, archive, mod_patch_dir,
                                           name, warnings)
                 if found:
@@ -1024,17 +1258,22 @@ def build_collection_manifest(rows, game, info: dict, *,
                     for diff in sorted(mod_patch_dir.rglob("*.diff")):
                         rel = diff.relative_to(mod_patch_dir).as_posix()
                         bundle_jobs.append(
-                            (diff, f"patches/{mod_entry['name']}/{rel}"))
+                            (diff, f"patches/{patch_dir_name}/{rel}"))
 
         # Rule references: non-exact policies must not pin the current file
-        # (the installed file may legitimately be newer).
+        # (the installed file may legitimately be newer). Rules are matched by
+        # logicalFileName against the manifest's mod names, and only nexus
+        # sources advertise `logicalFilename` — a mod switched to
+        # direct/browse/manual/bundle is listed under its folder name, so
+        # keying rules on the Nexus file name would strand them.
+        rule_name = mod_entry["name"]
         if policy != "exact":
-            refs[name] = {"versionMatch": "*", "logicalFileName": logical}
+            refs[name] = {"versionMatch": "*", "logicalFileName": rule_name}
         else:
             refs[name] = {
                 "fileExpression": file_expr,
                 "versionMatch": version or "*",
-                "logicalFileName": logical,
+                "logicalFileName": rule_name,
                 **({"fileMD5": md5} if md5 else {}),
             }
         ordered_names.append(name)
@@ -1085,11 +1324,82 @@ def build_collection_manifest(rows, game, info: dict, *,
 # Archive write
 # ---------------------------------------------------------------------------
 
+def _sample_compressibility(bundle_jobs) -> float:
+    """Compressed-to-raw ratio of a sample of the payload (1.0 = no gain).
+
+    Sampled rather than measured: the whole point is to decide without paying
+    for a full compression pass.
+    """
+    import lzma
+    jobs = list(bundle_jobs or ())
+    if not jobs:
+        return 0.0
+    # Spread the sample across the payload - bundles are usually sorted, so
+    # reading only the head would judge a whole LOD tree by its first texture.
+    step = max(1, len(jobs) // _SAMPLE_FILES)
+    picks = jobs[::step][:_SAMPLE_FILES]
+    per_file = max(64 * 1024, _SAMPLE_BYTES // max(1, len(picks)))
+    raw = bytearray()
+    for src, _arc in picks:
+        try:
+            with open(src, "rb") as fh:
+                raw += fh.read(per_file)
+        except OSError:
+            continue
+        if len(raw) >= _SAMPLE_BYTES:
+            break
+    if not raw:
+        return 0.0
+    packed = lzma.compress(
+        bytes(raw), format=lzma.FORMAT_RAW,
+        filters=[{"id": lzma.FILTER_LZMA2, "preset": 1}])
+    return len(packed) / len(raw)
+
+
+def _pack_filters(payload_bytes: int, bundle_jobs=None) -> "tuple[list | None, str]":
+    """The py7zr filter chain to pack with (None = py7zr's default), and why.
+
+    py7zr defaults to BCJ + LZMA2 preset 7, single-threaded, which is fine for
+    a few-KB manifest and badly wrong for a multi-GB bundle. Measured on this
+    machine over 96 MB, LZMA2 spends ~33s regardless of preset (1 and 7 land
+    within a second of each other and produce the same size), because the cost
+    is dominated by pushing already-compressed bytes through the coder - so
+    dropping the preset alone buys nothing. Storing the same payload takes
+    0.2s: ~190x faster.
+
+    So the choice is made on what the payload actually is. Bundles are tool
+    output - DynDOLOD LOD, BC-compressed DDS, packed BSAs - which compression
+    cannot shrink, and storing those turns hours into seconds. A bundle that
+    does compress (loose meshes, plugins, configs) is still worth compressing,
+    because archive size counts against the single-upload limit; that case
+    packs at preset 1, which matches preset 7's ratio here for less work.
+
+    Stays on LZMA2/copy deliberately. ZSTD packs faster still, but official
+    7-Zip - and so Vortex's node-7z, and our own py7zr readers - cannot extract
+    a zstd-compressed .7z, and the archive has to open everywhere.
+    """
+    if payload_bytes < FAST_PACK_THRESHOLD:
+        return None, ""
+    import lzma
+    ratio = _sample_compressibility(bundle_jobs)
+    if ratio >= INCOMPRESSIBLE_RATIO:
+        import py7zr
+        return ([{"id": py7zr.FILTER_COPY}],
+                f"storing {format_bytes(payload_bytes)} uncompressed - a sample "
+                f"compressed to {ratio * 100:.0f}% of its size, so compressing "
+                f"the rest would cost a long single-threaded pass for nothing")
+    return ([{"id": lzma.FILTER_LZMA2, "preset": 1}],
+            f"packing {format_bytes(payload_bytes)} at LZMA2 preset 1 - a "
+            f"sample compressed to {ratio * 100:.0f}%, worth keeping, but the "
+            f"default preset costs far more time for the same result")
+
+
 def pack_collection(out_path, manifest: dict, bundle_jobs, *,
-                    progress_cb=None) -> Path:
+                    progress_cb=None, log_fn=None) -> Path:
     """Write collection.json + bundled files into a .7z; returns the final path."""
     import py7zr
 
+    log_fn = log_fn or (lambda *_a: None)
     out_path = Path(out_path)
     if out_path.suffix.lower() != ".7z":
         out_path = out_path.with_suffix(".7z")
@@ -1106,44 +1416,63 @@ def pack_collection(out_path, manifest: dict, bundle_jobs, *,
     done = 0
     progress_cb(0, total, PHASE_PACK)
 
-    tmp_dirs = set()
-    # Write the manifest through a real temp file rather than writestr():
-    # py7zr stores writestr() entries without permission bits, which extract
-    # back as mode 000 and break any installer that re-reads collection.json.
-    with tempfile.TemporaryDirectory() as td:
-        cj_path = Path(td) / "collection.json"
-        cj_path.write_bytes(payload)
-        with py7zr.SevenZipFile(str(out_path), mode="w") as arc:
-            arc.write(str(cj_path), "collection.json")
-            done += sizes[0]
-            progress_cb(done, total, PHASE_PACK)
-            for (src, arcname), size in zip(bundle_jobs, sizes[1:]):
-                src = Path(src)
-                arc.write(str(src), arcname)
-                # Scratch bundles sit directly in the temp root; patch diffs
-                # nest under <root>/<mod>/…, so walk up to find the root.
-                for parent in src.parents:
-                    if parent.name.startswith("amethyst_colexport_"):
-                        tmp_dirs.add(parent)
-                        break
-                done += size
+    # Build beside the destination and rename on success: writing straight to
+    # the user's chosen path leaves a truncated .7z looking like a real export
+    # if anything fails part-way (a bundled file vanishing, ENOSPC).
+    part_path = out_path.with_name(out_path.name + ".part")
+    try:
+        # Write the manifest through a real temp file rather than writestr():
+        # py7zr stores writestr() entries without permission bits, which extract
+        # back as mode 000 and break any installer that re-reads collection.json.
+        with tempfile.TemporaryDirectory() as td:
+            cj_path = Path(td) / "collection.json"
+            cj_path.write_bytes(payload)
+            filters, why = _pack_filters(total, bundle_jobs)
+            if why:
+                log_fn(why.capitalize() + ".")
+            with py7zr.SevenZipFile(str(part_path), mode="w",
+                                    filters=filters) as arc:
+                arc.write(str(cj_path), "collection.json")
+                done += sizes[0]
                 progress_cb(done, total, PHASE_PACK)
-
-    # Sweep scratch zips created for bundle mods without a cached archive.
-    import shutil
-    for d in tmp_dirs:
-        shutil.rmtree(d, ignore_errors=True)
-
+                for (src, arcname), size in zip(bundle_jobs, sizes[1:]):
+                    arc.write(str(Path(src)), arcname)
+                    done += size
+                    progress_cb(done, total, PHASE_PACK)
+        os.replace(part_path, out_path)
+    except BaseException:
+        try:
+            part_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     return out_path
 
 
+def cleanup_scratch(scratch_dirs) -> None:
+    """Remove the temp dirs build_collection_manifest reported via *scratch_out*."""
+    import shutil
+    for path in scratch_dirs or ():
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+        except Exception:
+            pass
+
+
 def export_collection(out_path, rows, game, info: dict, *,
-                      progress_cb=None) -> "tuple[Path, list]":
+                      progress_cb=None, log_fn=None) -> "tuple[Path, list]":
     """Build the manifest and write the archive; returns (final_path, warnings)."""
-    manifest, bundle_jobs, warnings = build_collection_manifest(
-        rows, game, info, progress_cb=progress_cb)
-    if not manifest["mods"]:
-        raise ValueError("No exportable mods (all ignored, disabled, or missing).")
-    final = pack_collection(out_path, manifest, bundle_jobs,
-                            progress_cb=progress_cb)
-    return final, warnings
+    scratch: list = []
+    try:
+        manifest, bundle_jobs, warnings = build_collection_manifest(
+            rows, game, info, progress_cb=progress_cb, scratch_out=scratch)
+        if not manifest["mods"]:
+            raise ValueError(
+                "No exportable mods (all ignored, disabled, or missing).")
+        final = pack_collection(out_path, manifest, bundle_jobs,
+                                progress_cb=progress_cb, log_fn=log_fn)
+        return final, warnings
+    finally:
+        # Owned here so the scratch survives packing but never outlives it —
+        # including when the build produced no patches at all, or raised.
+        cleanup_scratch(scratch)

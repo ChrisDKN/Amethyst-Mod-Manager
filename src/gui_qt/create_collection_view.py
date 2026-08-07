@@ -51,6 +51,41 @@ _POLICY_LABELS = {
 _UPLOAD_RECORD = "uploaded_collection.json"
 
 
+class _NoScrollSpinBox(QSpinBox):
+    """A spin box that ignores the wheel instead of changing value.
+
+    Phase boxes sit in table cells, so a wheel event over one is the user
+    scrolling the mod list, not aiming at that box - and silently renumbering a
+    phase while scrolling past is the kind of edit nobody notices until the
+    collection installs in the wrong order. Ignoring the event lets it bubble
+    to the table viewport, which scrolls as if the box weren't there.
+    ``StrongFocus`` drops the default ``WheelFocus`` so scrolling can't pull
+    keyboard focus into a cell either; clicking and tabbing still work.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class _NoScrollComboBox(QComboBox):
+    """A combo box that ignores the wheel. See :class:`_NoScrollSpinBox`.
+
+    The upload target is the one setting where a stray scroll does real damage:
+    it decides WHICH collection a revision is pushed to.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def wheelEvent(self, event):
+        event.ignore()
+
+
 class _PolicyOverlay(_CardOverlay):
     """Borderless in-window overlay: pick a mod's update policy.
     ``on_pick(policy)`` fires on Apply."""
@@ -120,6 +155,11 @@ class CreateCollectionView(ExportProfileView):
     _author_ready = Signal(str)
     # the user's own collections, for the upload-target picker → UI thread.
     _targets_ready = Signal(object)
+
+    # A Nexus collection has no disabled state — build_collection_manifest
+    # drops disabled rows outright — so default them to "ignore" and let the
+    # table say so, instead of listing them as exportable and warning later.
+    _IGNORE_DISABLED_ROWS = True
 
     def __init__(self, window, game, api, log_fn=None):
         self._pending_info: dict = {}
@@ -309,7 +349,7 @@ class CreateCollectionView(ExportProfileView):
         # Upload target: a new collection, or a new revision of one the user
         # already owns (filled in once the account's collections load).
         self._targets: list = []
-        self._target_box = QComboBox()
+        self._target_box = _NoScrollComboBox()
         self._target_box.addItem(self.tr("Create new collection"), 0)
         self._target_box.currentIndexChanged.connect(self._on_target_changed)
 
@@ -344,9 +384,17 @@ class CreateCollectionView(ExportProfileView):
             "that installers merge into the player's settings."))
         ini_count = len(self._profile_ini_candidates())
         if ini_count:
-            self._ini_tweaks_chk.setChecked(True)
+            # OFF by default: these are whole INI files, so they carry the
+            # author's resolution, gamma, shadow distance and adapter settings
+            # and would overwrite the installing user's machine-specific values.
+            self._ini_tweaks_chk.setChecked(False)
             self._ini_tweaks_chk.setText(
                 self.tr("Include profile INI files ({0})").format(ini_count))
+            self._ini_tweaks_chk.setToolTip(self.tr(
+                "Ships the profile's game INI files as INI tweaks. These are "
+                "complete files, so they also carry display settings specific "
+                "to your machine (resolution, gamma, shadow distance) and "
+                "will overwrite the installing user's."))
         else:
             self._ini_tweaks_chk.setChecked(False)
             self._ini_tweaks_chk.setEnabled(False)
@@ -411,7 +459,7 @@ class CreateCollectionView(ExportProfileView):
         pos = {id(r): i for i, r in enumerate(self._all_rows)}
         for i, row in enumerate(self._rows):
             data_idx = pos[id(row)]
-            spin = QSpinBox()
+            spin = _NoScrollSpinBox()
             spin.setRange(0, 99)
             spin.setValue(int(row.get("phase") or 0))
             spin.setFixedWidth(56)
@@ -473,6 +521,22 @@ class CreateCollectionView(ExportProfileView):
                 "themselves. Use the Edits column to ship your changes.")
         return ""
 
+    def _snapshot_rows(self) -> list:
+        """A detached copy of the export rows for a worker thread.
+
+        The table stays interactive during an export/upload, so the worker
+        must not read the live dicts the UI is still mutating."""
+        return [dict(r) for r in self._all_rows]
+
+    def _workshop_dir(self):
+        """Collection settings live in their own folder.
+
+        ``ExportProfileView._auto_load_latest`` loads the NEWEST json in this
+        directory, so sharing it with the .amethyst export would make each
+        feature clobber the other's auto-loaded settings."""
+        pd = self._profile_dir()
+        return (pd / "workshop" / "collection") if pd else None
+
     def _autosave_settings(self):
         """Persist the per-mod table on every export/upload.
 
@@ -497,7 +561,8 @@ class CreateCollectionView(ExportProfileView):
         in the profile, so a re-installed (or Vortex-authored) collection keeps
         its phases, update policies, sources and file-edit flags."""
         from Utils.collection_export import (
-            read_profile_manifest, seed_rows_from_manifest)
+            read_profile_manifest, seed_info_from_manifest,
+            seed_rows_from_manifest)
         manifest = read_profile_manifest(self._profile_dir())
         if not manifest:
             return
@@ -505,6 +570,32 @@ class CreateCollectionView(ExportProfileView):
         if seeded:
             self._log(f"[collection] seeded {seeded} mod(s) from the "
                       "profile's collection manifest")
+        self._seed_info(seed_info_from_manifest(manifest))
+
+    def _seed_info(self, info: dict):
+        """Pre-fill the collection-info panel from the installed manifest.
+
+        Runs during construction, before the user can type, so an empty text
+        field means "untouched" - it is still checked so a later caller can't
+        silently overwrite real input.
+        """
+        if not info:
+            return
+        filled = []
+        for key, widget in (("description", self._info_desc),
+                            ("installInstructions", self._info_instructions)):
+            if key in info and not widget.toPlainText().strip():
+                widget.setPlainText(info[key])
+                filled.append(key)
+        for key, chk in (
+                ("recommendNewProfile", self._recommend_profile_chk),
+                ("excludePluginRules", self._exclude_plugin_rules_chk)):
+            if key in info:
+                chk.setChecked(info[key])
+                filled.append(key)
+        if filled:
+            self._log("[collection] seeded collection info from the profile's "
+                      f"manifest: {', '.join(filled)}")
 
     def _sort_key(self, col: int, row: dict):
         if col == _COL_PHASE:
@@ -624,13 +715,39 @@ class CreateCollectionView(ExportProfileView):
             filters=[(self.tr("Nexus Collection (*.7z)"), ["*.7z"]),
                      (self.tr("All files"), ["*"])])
 
-    def _package_worker(self, out_path: str):
-        """Worker thread: build the collection manifest and write the .7z."""
+    def _set_busy(self, busy: bool):
+        """One export/upload at a time.
+
+        Both operations share ``_pending_info`` and the progress card, so a
+        second run started mid-flight would race the first (and could register
+        an upload under the second operation's name/adult flag)."""
+        for btn in (self._export_btn, self._upload_btn):
+            btn.setEnabled(not busy)
+
+    def _on_save_path_picked(self, path):
+        # The export starts here (after the async file picker), not at the
+        # Export… click — locking the buttons at the click would leave them
+        # dead if the user cancels the picker.
+        if path:
+            self._set_busy(True)
+        super()._on_save_path_picked(path)
+
+    def _package_worker(self, out_path: str, rows=None):
+        """Worker thread: build the collection manifest and write the .7z.
+
+        *rows* is a UI-thread snapshot; the table stays editable while this
+        runs, so reading self._all_rows here would race with the user.
+        ``_pending_info`` is grabbed once: it is only ever REBOUND to a fresh
+        dict (never mutated in place), and _set_busy blocks a second operation
+        from rebinding it while this runs."""
+        info = self._pending_info
         try:
             from Utils import collection_export
             final, warnings = collection_export.export_collection(
-                out_path, self._all_rows, self._game, self._pending_info,
-                progress_cb=self._make_collection_progress_cb())
+                out_path, rows if rows is not None else self._all_rows,
+                self._game, info,
+                progress_cb=self._make_collection_progress_cb(),
+                log_fn=lambda m: self._log(f"[collection-export] {m}"))
             for w in warnings:
                 self._log(f"[collection-export] {w}")
             msg = str(final)
@@ -664,6 +781,16 @@ class CreateCollectionView(ExportProfileView):
 
         return _cb
 
+    def _byte_phase_labels(self) -> set:
+        """Phase labels whose counters are BYTES rather than mod counts.
+
+        The build phases count mods; packing and uploading count bytes, so the
+        card has to switch units or a 500 MB upload reads as a raw integer.
+        Matched on the label because that is all the progress signal carries —
+        both sides translate the same source string, so it stays correct."""
+        return {self.tr("Writing collection archive…"),
+                self.tr("Uploading archive…")}
+
     def _on_export_progress(self, done, total, phase: str):
         done, total = int(done), int(total)
         popup = self._progress_popup()
@@ -671,9 +798,12 @@ class CreateCollectionView(ExportProfileView):
             return
         popup.set_progress(done, total, phase,
                            title=self.tr("Exporting collection"),
-                           bytes_mode=False, key="collection-export")
+                           bytes_mode=(total > 0
+                                       and phase in self._byte_phase_labels()),
+                           key="collection-export")
 
     def _on_export_done(self, ok: bool, message: str):
+        self._set_busy(False)
         popup = self._progress_popup()
         if popup is not None:
             if ok:
@@ -727,9 +857,15 @@ class CreateCollectionView(ExportProfileView):
         self._pending_info = info
 
         collection_id, target_slug, target_name = self._selected_target()
-        if not collection_id:
-            # No explicit target picked - fall back to this profile's own
-            # upload record (set by a previous upload from here).
+        if not collection_id and not self._targets:
+            # Fall back to this profile's upload record ONLY while the target
+            # picker is empty (fetch failed / offline), so revision continuity
+            # survives without the account list. Once the picker has targets,
+            # a live recorded collection is in it and preselected — so "Create
+            # new collection" is an explicit user choice. Overriding it with
+            # the record would not just force a revision: the revision path
+            # sends the typed name through editCollection and would RENAME the
+            # old collection.
             record = self._read_upload_record()
             collection_id = int(record.get("collection_id") or 0)
             target_slug = record.get("slug", "") or ""
@@ -754,21 +890,35 @@ class CreateCollectionView(ExportProfileView):
             if not ok:
                 return
             self._autosave_settings()
+            self._set_busy(True)
             self._on_export_progress(0, 0, self.tr("Preparing upload…"))
             threading.Thread(
-                target=self._upload_worker, args=(collection_id, target_slug),
+                target=self._upload_worker,
+                args=(collection_id, target_slug, self._snapshot_rows(),
+                      dict(info)),
                 daemon=True, name="collection-upload").start()
 
         ConfirmOverlay(self.window(), self.tr("Upload collection"), body,
                        _confirmed, confirm_label=self.tr("Upload"),
                        cancel_label=self.tr("Cancel"), danger=False)
 
-    def _upload_worker(self, collection_id: int, target_slug: str = ""):
-        """Worker thread: pack to a scratch .7z, PUT it, run the mutation."""
+    def _upload_worker(self, collection_id: int, target_slug: str = "",
+                       rows=None, info=None):
+        """Worker thread: pack to a scratch .7z, PUT it, run the mutation.
+
+        *rows* and *info* are snapshots taken on the UI thread — the view
+        stays live during an upload, so reading ``self._all_rows`` or
+        ``self._pending_info`` here would race with edits (and a second
+        export/upload replacing ``_pending_info`` would register this upload
+        under the OTHER operation's name and adult flag)."""
         import shutil
         import tempfile
+        import time
 
+        rows = rows if rows is not None else self._all_rows
+        info = info if info is not None else self._pending_info
         tmp_dir = None
+        scratch: list = []
         try:
             from Utils import collection_export
             from Utils.config_paths import get_download_cache_dir
@@ -779,19 +929,28 @@ class CreateCollectionView(ExportProfileView):
             # creating a fresh draft.
             if collection_id:
                 slug = target_slug or self._read_upload_record().get("slug") or ""
-                status = self._api.get_collection_status(slug) if slug else "missing"
-                if status != "ok":
+                status = self._api.get_collection_status(slug, collection_id)
+                if status in ("discarded", "missing"):
                     self._log(f"[collection-upload] target collection "
                               f"#{collection_id} ({slug}) is {status} - "
                               "creating a new draft instead")
                     collection_id = 0
+                elif status != "ok":
+                    # Couldn't tell (network/API error). Revising is the safe
+                    # guess: if the collection really is gone Nexus rejects it
+                    # and we surface that, whereas assuming it's gone would
+                    # silently create a duplicate collection.
+                    self._log(f"[collection-upload] could not verify collection "
+                              f"#{collection_id} ({slug}) - attempting the "
+                              "revision anyway")
 
             tmp_dir = Path(tempfile.mkdtemp(
                 prefix="amethyst_colupload_", dir=str(get_download_cache_dir())))
             manifest, bundle_jobs, warnings = \
                 collection_export.build_collection_manifest(
-                    self._all_rows, self._game, self._pending_info,
-                    progress_cb=self._make_collection_progress_cb())
+                    rows, self._game, info,
+                    progress_cb=self._make_collection_progress_cb(),
+                    scratch_out=scratch)
             if not manifest["mods"]:
                 raise ValueError(
                     "No uploadable mods (all ignored, disabled, or missing).")
@@ -799,24 +958,46 @@ class CreateCollectionView(ExportProfileView):
                 self._log(f"[collection-upload] {w}")
             archive = collection_export.pack_collection(
                 tmp_dir / "collection.7z", manifest, bundle_jobs,
-                progress_cb=self._make_collection_progress_cb())
+                progress_cb=self._make_collection_progress_cb(),
+                log_fn=lambda m: self._log(f"[collection-upload] {m}"))
+
+            # Before asking for an upload URL: an over-limit archive can only
+            # fail, and finding that out after transferring gigabytes (with no
+            # resume) is the worst possible time.
+            ok, size_msg = collection_export.check_upload_size(
+                archive, bundle_jobs)
+            if size_msg:
+                self._log(f"[collection-upload] {size_msg}")
+            if not ok:
+                raise ValueError(size_msg)
 
             up = self._api.get_collection_upload_url()
             if not up:
                 raise RuntimeError(
                     "Nexus did not provide an upload URL (see log).")
 
+            # The PUT reader is driven in 8 KiB blocks, so a large collection
+            # would queue tens of thousands of cross-thread emits without this.
+            last_emit = [0.0]
+
             def _put_progress(done, total):
+                now = time.monotonic()
+                if done < total and now - last_emit[0] < 0.1:
+                    return
+                last_emit[0] = now
                 safe_emit(self._export_progress, done, total,
                           self.tr("Uploading archive…"))
 
-            if not self._api.upload_collection_archive(
-                    up["url"], archive, progress_cb=_put_progress):
-                raise RuntimeError("Archive upload failed (see log).")
+            ok, detail = self._api.upload_collection_archive(
+                up["url"], archive, progress_cb=_put_progress)
+            if not ok:
+                raise RuntimeError(
+                    f"Archive upload failed: {detail}" if detail
+                    else "Archive upload failed (see log).")
 
             safe_emit(self._export_progress, 0, 0,
                       self.tr("Registering collection…"))
-            adult = bool(self._pending_info.get("adultContent"))
+            adult = bool(info.get("adultContent"))
             if collection_id:
                 result = self._api.create_collection_revision(
                     collection_id, up["uuid"], manifest, adult_content=adult)
@@ -837,20 +1018,25 @@ class CreateCollectionView(ExportProfileView):
                 "collection_id": new_id,
                 "slug": slug,
                 "domain": domain,
-                "name": self._pending_info.get("name", ""),
+                "name": info.get("name", ""),
                 "last_revision": int(rev.get("revisionNumber") or 0),
                 "updated": datetime.now(timezone.utc).isoformat(),
             })
             url = (f"https://next.nexusmods.com/{domain}/collections/{slug}"
                    if slug and domain else "")
+            # Warnings mean mods were dropped or shipped degraded; the upload
+            # must not look unconditionally clean when that happened.
+            self._pending_warnings = len(warnings)
             safe_emit(self._upload_done, True, slug or str(new_id), url)
         except Exception as exc:
             safe_emit(self._upload_done, False, str(exc), "")
         finally:
+            collection_export.cleanup_scratch(scratch)
             if tmp_dir is not None:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def _on_upload_done(self, ok: bool, message: str, url: str):
+        self._set_busy(False)
         popup = self._progress_popup()
         if popup is not None:
             if ok:
@@ -858,9 +1044,12 @@ class CreateCollectionView(ExportProfileView):
             else:
                 popup.clear(key="collection-export")
         if ok:
-            self._notify(self.tr("Uploaded as a draft revision - publish it "
-                                 "from Nexus ▸ Collections ▸ My collections."),
-                         "info")
+            warned = getattr(self, "_pending_warnings", 0)
+            text = self.tr("Uploaded as a draft revision - publish it "
+                           "from Nexus ▸ Collections ▸ My collections.")
+            if warned:
+                text += "  " + self.tr("{0} warning(s) - see log.").format(warned)
+            self._notify(text, "warning" if warned else "info")
             self._log(f"[collection-upload] uploaded: {message} {url}")
             if url:
                 QDesktopServices.openUrl(QUrl(url))

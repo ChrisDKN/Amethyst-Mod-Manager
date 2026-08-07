@@ -73,6 +73,8 @@ class NexusModMeta:
     from_collection: str = ""          # slug of the collection that installed this mod
     from_collection_bundled: bool = False  # True for mods extracted from collection bundled/ folder
     from_collection_patched: bool = False  # True for mods that received BSDIFF40 patches from a collection
+    collection_optional: bool = False  # manifest ``optional`` flag at collection-install time
+    collection_phase: int = 0          # manifest ``phase`` at collection-install time
     xedit_modified_plugins: str = ""   # semicolon-separated plugin names edited in xEdit (set on restore)
     fomod_pending_deps: str = ""       # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user did NOT select; flags a rerun when a clause becomes fully present in the load order
     fomod_active_deps: str = ""        # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user DID select; flags a rerun when a clause is no longer fully present (its mod was removed)
@@ -160,6 +162,8 @@ _KEY_MAP: dict[str, str] = {
     "fromCollection":    "from_collection",
     "fromCollectionBundled": "from_collection_bundled",
     "fromCollectionPatched": "from_collection_patched",
+    "collectionOptional": "collection_optional",
+    "collectionPhase":   "collection_phase",
     "xeditModifiedPlugins": "xedit_modified_plugins",
     "fomodPendingDeps":  "fomod_pending_deps",
     "fomodActiveDeps":   "fomod_active_deps",
@@ -167,12 +171,14 @@ _KEY_MAP: dict[str, str] = {
 }
 
 # Attributes that are ints
-_INT_FIELDS = {"mod_id", "file_id", "category_id", "latest_file_id", "file_size"}
+_INT_FIELDS = {"mod_id", "file_id", "category_id", "latest_file_id", "file_size",
+               "collection_phase"}
 
 # Attributes that are bools
 _BOOL_FIELDS = {
     "endorsed", "has_update", "ignore_update", "is_fomod", "is_bain",
     "root_folder", "from_collection_bundled", "from_collection_patched",
+    "collection_optional",
 }
 
 
@@ -261,7 +267,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # that construct fresh ``NexusModMeta`` objects without them.
             if attr in (
                 "is_fomod", "is_bain", "from_collection_bundled",
-                "from_collection_patched",
+                "from_collection_patched", "collection_optional",
             ) and not value:
                 continue
             cp.set(_SECTION, ini_key, "true" if value else "false")
@@ -288,6 +294,11 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # Same for the archive size: stamped once at install time; callers
             # that build a fresh NexusModMeta must not zero it.
             if attr == "file_size" and not value:
+                continue
+            # Same for the collection phase: stamped by the collection install;
+            # absence means phase 0, so 0 is never written and a stamped phase
+            # survives fresh NexusModMeta writers.
+            if attr == "collection_phase" and not value:
                 continue
             # Same for the uploader: stamped by the install lookup / update
             # check; a fresh NexusModMeta without it must not blank the value.

@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import Qt, Signal, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import Qt, Signal, QUrl, QT_TRANSLATE_NOOP
+from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit,
     QPushButton, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView,
@@ -28,11 +28,14 @@ from gui_qt.export_profile_view import _CardOverlay, _card_title, _card_button_b
 
 _COL_NAME, _COL_GAME, _COL_STATUS, _COL_REVISION, _COL_DOWNLOADS = range(5)
 
+# QT_TRANSLATE_NOOP marks these for lupdate - self.tr() on a variable can't be
+# extracted, so without it these statuses would ship untranslated.
 _STATUS_LABELS = {
-    "listed": "Listed",
-    "unlisted": "Unlisted",
-    "under_moderation": "Under moderation",
-    "discarded": "Discarded",
+    "listed": QT_TRANSLATE_NOOP("MyCollectionsView", "Listed"),
+    "unlisted": QT_TRANSLATE_NOOP("MyCollectionsView", "Unlisted"),
+    "under_moderation": QT_TRANSLATE_NOOP("MyCollectionsView",
+                                          "Under moderation"),
+    "discarded": QT_TRANSLATE_NOOP("MyCollectionsView", "Discarded"),
 }
 
 
@@ -100,6 +103,7 @@ class MyCollectionsView(QWidget):
     _loaded = Signal(object, str)        # (list[MyCollection] | None, error)
     _action_done = Signal(bool, str)     # (ok, message)
     _categories_ready = Signal(object)   # [(id, name), …]
+    _image_ready = Signal(str, object)   # (url, image bytes | None) → UI thread
 
     def __init__(self, window, api, log_fn=None):
         super().__init__()
@@ -110,11 +114,17 @@ class MyCollectionsView(QWidget):
         self._selected: "object | None" = None
         self._categories: list = []
         self._busy = False
+        # url → QPixmap (original size; scaled on display). Bounded: the list
+        # is the user's own collections, so a handful of entries.
+        self._img_cache: dict = {}
+        self._img_fetching: set = set()
+        self._img_wanted = ""      # tile url of the CURRENT selection
 
         self.setObjectName("MyCollectionsView")
         self._loaded.connect(self._on_loaded)
         self._action_done.connect(self._on_action_done)
         self._categories_ready.connect(self._on_categories_ready)
+        self._image_ready.connect(self._on_image_ready)
         self._build()
         self.refresh()
 
@@ -199,6 +209,21 @@ class MyCollectionsView(QWidget):
         self._detail_hint.setObjectName("MCHint")
         self._detail_hint.setWordWrap(True)
         pv.addWidget(self._detail_hint)
+        pv.addSpacing(6)
+
+        # Tile image preview. The API has no way to SET one (editCollection
+        # carries no image argument and no media mutation exists — verified by
+        # schema introspection; the website uses its own internal uploader),
+        # so this is read-only with a pointer to where changing it happens.
+        self._detail_image = QLabel()
+        self._detail_image.setAlignment(Qt.AlignCenter)
+        self._detail_image.setVisible(False)
+        pv.addWidget(self._detail_image)
+        self._image_note = QLabel("")
+        self._image_note.setObjectName("MCHint")
+        self._image_note.setWordWrap(True)
+        self._image_note.setVisible(False)
+        pv.addWidget(self._image_note)
         pv.addSpacing(6)
 
         self._name = QLineEdit()
@@ -291,15 +316,22 @@ class MyCollectionsView(QWidget):
 
     def _on_categories_ready(self, cats):
         self._categories = list(cats)
-        current = self._category.currentData()
+        self._category.blockSignals(True)
         self._category.clear()
+        # A collection can legitimately have no category; without this entry
+        # the combo would sit on the first real one and "Save changes" would
+        # recategorise it on Nexus.
+        self._category.addItem(self.tr("(no category)"), 0)
         for cid, name in self._categories:
             self._category.addItem(name, cid)
-        if current:
-            self._select_category(current)
+        self._category.blockSignals(False)
+        # The list normally arrives AFTER the first row was auto-selected, so
+        # that selection's _select_category ran against an empty combo and did
+        # nothing — re-apply it now.
+        self._select_category(getattr(self._selected, "category_id", 0) or 0)
 
     def _select_category(self, category_id: int):
-        idx = self._category.findData(category_id)
+        idx = self._category.findData(int(category_id or 0))
         if idx >= 0:
             self._category.setCurrentIndex(idx)
 
@@ -368,11 +400,14 @@ class MyCollectionsView(QWidget):
             return
         col = self._collections[idx]
         self._selected = col
+        self._show_image(col)
         self._name.setText(col.name)
         self._summary.setText(col.summary)
         self._description.setPlainText(col.description)
-        if col.category_id:
-            self._select_category(col.category_id)
+        # Always re-apply, including 0 -> "(no category)", so switching from a
+        # categorised collection to an uncategorised one doesn't leave the
+        # previous row's category showing (and get saved onto it).
+        self._select_category(col.category_id or 0)
         draft = col.draft_revision
         target = draft or (col.revisions[0] if col.revisions else None)
         self._changelog.setPlainText(target.changelog if target else "")
@@ -427,6 +462,66 @@ class MyCollectionsView(QWidget):
                 self._install_btn.setToolTip(self.tr(
                     "Opens this collection's install page."))
 
+    # -- tile image preview -------------------------------------------------
+    _IMG_MAX_W, _IMG_MAX_H = 316, 200   # panel inner width / height cap
+
+    def _show_image(self, col):
+        """Show the selection's tile image: cache hit → apply, else fetch."""
+        url = getattr(col, "tile_image_url", "") or ""
+        self._img_wanted = url
+        if not url:
+            self._detail_image.setVisible(False)
+            self._image_note.setText(self.tr(
+                "No image yet. Collection images are set on the Nexus site "
+                "(Open on Nexus)."))
+            self._image_note.setVisible(True)
+            return
+        pm = self._img_cache.get(url)
+        if pm is not None:
+            self._apply_image(pm)
+            return
+        self._detail_image.setVisible(False)
+        self._image_note.setText(self.tr("Loading image…"))
+        self._image_note.setVisible(True)
+        if url in self._img_fetching:
+            return
+        self._img_fetching.add(url)
+
+        def _fetch(u=url):
+            data = None
+            try:
+                import requests
+                resp = requests.get(u, timeout=15)
+                if resp.ok:
+                    data = resp.content
+            except Exception:
+                pass
+            safe_emit(self._image_ready, u, data)
+
+        threading.Thread(target=_fetch, daemon=True,
+                         name="collection-tile-image").start()
+
+    def _on_image_ready(self, url: str, data):
+        self._img_fetching.discard(url)
+        pm = QPixmap()
+        if not (data and pm.loadFromData(data)) or pm.isNull():
+            if url == self._img_wanted:
+                self._image_note.setText(self.tr("Could not load the image."))
+                self._image_note.setVisible(True)
+            return
+        self._img_cache[url] = pm
+        if url == self._img_wanted and self._selected is not None:
+            self._apply_image(pm)
+
+    def _apply_image(self, pm: QPixmap):
+        self._detail_image.setPixmap(pm.scaled(
+            self._IMG_MAX_W, self._IMG_MAX_H,
+            Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self._detail_image.setVisible(True)
+        self._image_note.setText(self.tr(
+            "Change the image on the Nexus site (Open on Nexus)."))
+        self._image_note.setVisible(True)
+
     def _set_detail_enabled(self, on: bool):
         for w in (self._name, self._summary, self._description, self._category,
                   self._save_btn, self._changelog, self._changelog_btn,
@@ -439,6 +534,9 @@ class MyCollectionsView(QWidget):
             self._summary.clear()
             self._description.clear()
             self._changelog.clear()
+            self._img_wanted = ""
+            self._detail_image.setVisible(False)
+            self._image_note.setVisible(False)
 
     # -- actions ------------------------------------------------------------
     def _run(self, fn, busy_message: str):

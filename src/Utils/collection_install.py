@@ -831,6 +831,8 @@ def run_collection_install(
                 pmeta.category_name = _schema_cat
             if schema_file_id_to_install_type.get(mod.file_id, "").lower() == "dinput":
                 pmeta.root_folder = True
+            pmeta.collection_optional = bool(getattr(mod, "optional", False))
+            pmeta.collection_phase = schema_file_id_to_phase.get(mod.file_id, 0)
             return pmeta
         except Exception:
             return None
@@ -1530,14 +1532,16 @@ def run_collection_install(
             install_order.append((sort_key, folder))
 
     # Step 2c: bundled assets from the collection archive
+    _bundled_folders: list[str] = []
     if with_bundled:
         try:
-            _n_bundled, _n_bundle_skipped = _install_bundled_assets(
+            _n_bundled, _n_bundle_skipped, _b_names = _install_bundled_assets(
                 game, api, profile_dir, staging_path, collection_schema,
                 schema_mods, download_link_path, revision_number,
                 collection_slug, staging_lower_map, install_order, log, _set_status)
             installed += _n_bundled
             skipped += _n_bundle_skipped
+            _bundled_folders.extend(_b_names)
         except Exception as exc:
             log(f"Collection install: error processing bundled assets: {exc}")
 
@@ -1565,11 +1569,53 @@ def run_collection_install(
     # Step 3b: bundled folders + binary patches + INI tweaks (before LOOT).
     if with_bundled and not _col_pause.is_set() and overwrite_existing is None:
         try:
-            _run_step3b(game, api, profile_dir, staging_path, collection_schema,
-                        download_link_path, collection_slug, revision_number,
-                        _install_results, log)
+            _bundled_folders.extend(
+                _run_step3b(game, api, profile_dir, staging_path,
+                            collection_schema, download_link_path,
+                            collection_slug, revision_number,
+                            _install_results, log) or [])
         except Exception as exc:
             log(f"Collection install: Step 3b failed: {exc}")
+
+    # Bundled folders are copied straight into staging by Steps 2c/3b, which run
+    # AFTER the index rebuild above — so they have no modindex.bin entry, and
+    # build_filemap deploys NOTHING for a mod it can't find in the index (it
+    # warns "has NO index entry"). The mod is staged and in modlist.txt, so it
+    # looks installed while contributing no files: bundled DynDOLOD/Pandora
+    # output silently loses to the animation mods it is supposed to overwrite,
+    # and the game reports missing behaviours. Index them here rather than
+    # rebuilding the whole staging tree again — this is the same subset rescan
+    # the root-flag toggle uses.
+    if _bundled_folders and not _col_pause.is_set():
+        try:
+            from Utils.filemap import rescan_mods_in_index
+            from Utils.deploy import load_per_mod_strip_prefixes
+            from Nexus.nexus_meta import collect_root_flagged_mods
+            _staging = game.get_effective_mod_staging_path()
+            try:
+                _index_dir = game.get_effective_filemap_path().parent
+            except Exception:
+                _index_dir = profile_dir
+            try:
+                _rf_mods = collect_root_flagged_mods(modlist_path, _staging,
+                                                     log_fn=log)
+            except Exception:
+                _rf_mods = set()
+            _uniq = list(dict.fromkeys(_bundled_folders))
+            rescan_mods_in_index(
+                _index_dir / "modindex.bin", _staging, _uniq,
+                strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
+                per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
+                allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
+                root_folder_mods=set(_rf_mods or ()) or None,
+                normalize_folder_case=getattr(game, "normalize_folder_case", True),
+                log_fn=log)
+            log(f"Collection install: indexed {len(_uniq)} bundled folder(s) "
+                f"so they deploy: {', '.join(_uniq[:5])}"
+                + (" …" if len(_uniq) > 5 else ""))
+        except Exception as exc:
+            log(f"Collection install: could not index bundled folders ({exc}) "
+                "— run Refresh if bundled content does not deploy")
 
     # Step 3c: build filemap.txt BEFORE the LOOT sort in Step 4.
     #   LOOT resolves each plugin to the copy of its *winning* enabled mod via
@@ -1726,6 +1772,8 @@ def _process_deferred(
                 pmeta.category_name = _schema_cat
             if schema_file_id_to_install_type.get(mod.file_id, "").lower() == "dinput":
                 pmeta.root_folder = True
+            pmeta.collection_optional = bool(getattr(mod, "optional", False))
+            pmeta.collection_phase = schema_file_id_to_phase.get(mod.file_id, 0)
         except Exception:
             pmeta = None
         logical = schema_file_id_to_logical.get(mod.file_id, "") or ""
@@ -2187,19 +2235,22 @@ def _on_disk_plugin_names(game) -> "set[str]":
 def _install_bundled_assets(game, api, profile_dir, staging_path, collection_schema,
                             schema_mods, download_link_path, revision_number,
                             collection_slug, staging_lower_map, install_order, log,
-                            _set_status) -> "tuple[int, int]":
-    """Returns ``(installed, skipped)`` — skipped counts bundled assets missing
-    from the archive or that failed to copy (Tk counted these in the final
-    "(N skipped)" summary)."""
+                            _set_status) -> "tuple[int, int, list[str]]":
+    """Returns ``(installed, skipped, folders)`` — skipped counts bundled assets
+    missing from the archive or that failed to copy (Tk counted these in the
+    final "(N skipped)" summary). *folders* is every staging folder this touched,
+    so the caller can get them into the mod index: they land AFTER the index
+    rebuild, and build_filemap deploys nothing for a mod with no index entry."""
     import tempfile as _tf
     import shutil as _shutil
     bundle_schema_mods = [
         m for m in schema_mods
         if (m.get("source") or {}).get("type", "").lower() == "bundle"]
     if not (bundle_schema_mods and download_link_path):
-        return 0, 0
+        return 0, 0, []
     installed = 0
     skipped = 0
+    touched: list[str] = []
     _scratch_root = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
     bundle_extract_dir = _tf.mkdtemp(prefix="amethyst_bundle_", dir=str(_scratch_root))
     try:
@@ -2245,6 +2296,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     log(f"Collection install: bundled '{bm_name}' already installed — skipping")
                     existing = staging_lower_map.get(mod_name_clean.lower(), mod_name_clean)
                     install_order.append((-1, existing))
+                    touched.append(existing)
                     installed += 1
                     continue
                 _meta_hit = (_bundled_meta_map.get(file_expr.lower())
@@ -2253,6 +2305,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     log(f"Collection install: bundled '{bm_name}' already installed "
                         f"as '{_meta_hit}' — skipping")
                     install_order.append((-1, _meta_hit))
+                    touched.append(_meta_hit)
                     installed += 1
                     continue
                 _set_status(f"Installing bundled asset: {bm_name}…")
@@ -2268,10 +2321,19 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                         "fromCollection": _slug, "fromCollectionBundled": "true"}
                     if revision_number is not None:
                         general["fromCollectionRevision"] = str(int(revision_number))
+                    if bm.get("optional"):
+                        general["collectionOptional"] = "true"
+                    try:
+                        _bm_phase = int(bm.get("phase") or 0)
+                    except (TypeError, ValueError):
+                        _bm_phase = 0
+                    if _bm_phase:
+                        general["collectionPhase"] = str(_bm_phase)
                     cp["General"] = general
                     with open(dest / "meta.ini", "w", encoding="utf-8") as mf:
                         cp.write(mf)
                     install_order.append((-1, mod_name_clean))
+                    touched.append(mod_name_clean)
                     installed += 1
                     log(f"Collection install: installed bundled asset "
                         f"'{bm_name}' → '{mod_name_clean}'")
@@ -2283,7 +2345,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
             _shutil.rmtree(bundle_extract_dir, ignore_errors=True)
         except Exception:
             pass
-    return installed, skipped
+    return installed, skipped, touched
 
 
 def _installed_bundled_meta_map(staging_path: Path, slug: str) -> "dict[str, str]":
@@ -2359,7 +2421,10 @@ def _ensure_collection_archive_extracted(game, api, collection_slug,
 
 
 def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
-                                    collection_slug, revision_number, log):
+                                    collection_slug, revision_number, log
+                                    ) -> "list[str]":
+    """Install the archive's bundled/ folders; returns the staging folders used
+    (the caller must get them into the mod index — see _install_bundled_assets)."""
     import re as _re
     import shutil as _shutil
     import configparser as _cpi
@@ -2367,11 +2432,31 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
     rev_str = str(int(revision_number)) if revision_number is not None else ""
     bundled_root = archive_root / "bundled"
     if not bundled_root.is_dir():
-        return
+        return []
     bundle_folders = [p for p in sorted(bundled_root.iterdir()) if p.is_dir()]
     if not bundle_folders:
-        return
+        return []
     log(f"Collection bundled-cache: installing {len(bundle_folders)} bundled folder(s)")
+    # fileExpression/name → (optional, phase) from the archive's own manifest,
+    # so bundled meta.ini gets the same collectionOptional/collectionPhase
+    # stamps as Nexus-sourced mods.
+    bundle_flags: "dict[str, tuple[bool, int]]" = {}
+    try:
+        cj = json.loads((archive_root / "collection.json").read_text(encoding="utf-8"))
+        for m in cj.get("mods") or []:
+            src = m.get("source") or {}
+            if (src.get("type") or "").lower() != "bundle":
+                continue
+            try:
+                _ph = int(m.get("phase") or 0)
+            except (TypeError, ValueError):
+                _ph = 0
+            flags = (bool(m.get("optional")), _ph)
+            for key in (src.get("fileExpression"), m.get("name")):
+                if key:
+                    bundle_flags.setdefault(str(key).lower(), flags)
+    except Exception:
+        pass
     staging_lower_map = ({p.name.lower(): p.name for p in staging_path.iterdir() if p.is_dir()}
                          if staging_path.exists() else {})
     bundled_meta_map = _installed_bundled_meta_map(staging_path, slug)
@@ -2394,6 +2479,11 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                    "fromCollection": slug, "fromCollectionBundled": "true"}
         if rev_str:
             general["fromCollectionRevision"] = rev_str
+        _opt, _ph = bundle_flags.get(raw_name.lower(), (False, 0))
+        if _opt:
+            general["collectionOptional"] = "true"
+        if _ph:
+            general["collectionPhase"] = str(_ph)
         cp["General"] = general
         try:
             with open(dest / "meta.ini", "w", encoding="utf-8") as mf:
@@ -2413,6 +2503,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                 log(f"Collection bundled-cache: prepended {len(prepend)} bundled mod(s)")
         except Exception as exc:
             log(f"Collection bundled-cache: modlist update failed: {exc}")
+    return new_mod_names
 
 
 def _apply_collection_binary_patches(archive_root, collection_schema, staging_path,
@@ -2494,20 +2585,22 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
-                install_results, log):
+                install_results, log) -> "list[str]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
-    collection archive. Runs after modlist is written, before LOOT."""
+    collection archive. Runs after modlist is written, before LOOT. Returns the
+    bundled staging folders, which the caller must add to the mod index."""
     import shutil as _shutil
     archive_root = _ensure_collection_archive_extracted(
         game, api, collection_slug, revision_number, download_link_path or "", log)
     if archive_root is None:
-        return
+        return []
     modlist_path = profile_dir / "modlist.txt"
+    bundled: list[str] = []
     try:
         try:
-            _install_bundled_from_extracted(
+            bundled = _install_bundled_from_extracted(
                 archive_root, modlist_path, staging_path, collection_slug,
-                revision_number, log)
+                revision_number, log) or []
         except Exception as exc:
             log(f"Collection install: bundled step failed: {exc}")
         try:
@@ -2522,6 +2615,7 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
             log(f"Collection install: INI tweaks step failed: {exc}")
     finally:
         _shutil.rmtree(archive_root, ignore_errors=True)
+    return bundled
 
 
 # ---------------------------------------------------------------------------

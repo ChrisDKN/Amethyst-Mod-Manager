@@ -491,6 +491,12 @@ class ExportProfileView(QWidget):
     # mutate rows the UI thread reads/sorts) and then starts the packaging.
     _sizes_ready = Signal(str, object)
 
+    # Default disabled mods to "ignore"? Off here: the ``.amethyst`` manifest
+    # carries ``enabled: false`` through to the importer, so a disabled mod is
+    # exportable. Nexus collections have no disabled state and drop those rows,
+    # so CreateCollectionView turns this on.
+    _IGNORE_DISABLED_ROWS = False
+
     def __init__(self, window, game, api, log_fn=None):
         super().__init__()
         self._window = window
@@ -793,9 +799,13 @@ class ExportProfileView(QWidget):
         return (pd / "workshop") if pd else None
 
     def _load_rows(self):
-        """Build export rows from the active profile's modlist (high-priority first,
-        separators dropped - mirrors the Tk _on_workshop prep), then auto-load the
-        newest saved settings if present."""
+        """Build export rows from the active profile's modlist, then seed and
+        auto-load saved settings.
+
+        Rows come out LOWEST priority first: modlist.txt stores index 0 as the
+        highest priority, and the manifest wants the winner last, so the list
+        is reversed here. Separators are dropped (mirrors the Tk _on_workshop
+        prep)."""
         from Utils.modlist import read_modlist
         pd = self._profile_dir()
         modlist_path = (pd / "modlist.txt") if pd else None
@@ -811,6 +821,11 @@ class ExportProfileView(QWidget):
         # explicit save always wins over anything inferred.
         self._seed_rows()
         self._auto_load_latest()
+        # Last: rows still on the "nexus" default that can't export as Nexus
+        # are switched to one that works. After the saved settings on purpose,
+        # so an autosave that recorded the impossible state is corrected.
+        profile_export.apply_source_defaults(
+            self._all_rows, ignore_disabled=self._IGNORE_DISABLED_ROWS)
 
     def _seed_rows(self):
         """Hook: pre-fill row settings from another source. Default: nothing."""
@@ -953,7 +968,8 @@ class ExportProfileView(QWidget):
             r["ver_label"] = sel.get("label", r["ver_label"])
             r["size_bytes"] = sel.get("size_bytes", 0)
             try:
-                r["file_id"] = int(r["ver_label"].split(" - ")[0])
+                r["file_id"] = profile_export.split_ver_label(
+                    r["ver_label"])[0] or r["file_id"]
             except (ValueError, IndexError):
                 pass
             self._refresh_visible_row(di)
@@ -976,7 +992,7 @@ class ExportProfileView(QWidget):
         sorted_files = sorted(files, key=lambda f: f.uploaded_timestamp, reverse=True)
         options = [
             {
-                "label": f"{f.file_id} - {f.version}",
+                "label": f"{f.file_id}{profile_export.VER_LABEL_SEP}{f.version}",
                 "name": f.name,
                 "size_bytes": (f.size_in_bytes if f.size_in_bytes is not None
                                else (f.size_kb or 0) * 1024),
@@ -1002,20 +1018,31 @@ class ExportProfileView(QWidget):
         # Only auto-select if the current label is still a placeholder - opening the
         # picker must not silently change the file_id (port of _apply_versions).
         cur_label = row["ver_label"]
-        is_placeholder = (not cur_label or cur_label == "-"
-                          or " - " not in cur_label)
+        # A real label parses as "<file id> <sep> <version>"; anything else
+        # (the "—" dash, a bare id) is a placeholder we may fill in.
+        is_placeholder = not profile_export.split_ver_label(cur_label)[0]
         if is_placeholder:
-            preferred = str(row["file_id"])
+            # Match by parsed file id, not label prefix — labels use the
+            # em-dash VER_LABEL_SEP, so a "id -" string match never hits.
+            preferred = int(row.get("file_id") or 0)
             matched = next(
-                (o for o in options if o["label"].startswith(preferred + " -")), None)
-            selected = matched or options[0]
-            row["ver_label"] = selected["label"]
-            row["size_bytes"] = selected["size_bytes"]
-            try:
-                row["file_id"] = int(selected["label"].split(" - ")[0])
-            except (ValueError, IndexError):
-                pass
-            self._refresh_visible_row(data_idx)
+                (o for o in options
+                 if profile_export.split_ver_label(o["label"])[0] == preferred),
+                None) if preferred else None
+            # A row with a real file_id that Nexus no longer lists must KEEP
+            # it: defaulting to options[0] would silently re-pin the mod to
+            # the newest upload. Only a row with no identity at all takes the
+            # newest as its starting point.
+            selected = matched or (None if preferred else options[0])
+            if selected is not None:
+                row["ver_label"] = selected["label"]
+                row["size_bytes"] = selected["size_bytes"]
+                try:
+                    row["file_id"] = profile_export.split_ver_label(
+                        selected["label"])[0] or row["file_id"]
+                except (ValueError, IndexError):
+                    pass
+                self._refresh_visible_row(data_idx)
         # Fill the open card LAST, so it highlights the settled selection.
         if showing:
             overlay.set_loading(False)
@@ -1151,11 +1178,19 @@ class ExportProfileView(QWidget):
             if 0 <= i < len(self._all_rows):
                 self._all_rows[i]["size_bytes"] = sz
         threading.Thread(
-            target=self._package_worker, args=(str(out_path),),
+            target=self._package_worker,
+            args=(str(out_path), self._snapshot_rows()),
             daemon=True, name="export-package").start()
 
-    def _package_worker(self, out_path: str):
+    def _snapshot_rows(self) -> list:
+        """A detached copy of the export rows for a worker thread — the table
+        stays interactive during packing, so workers must not read the live
+        dicts the UI is still mutating."""
+        return [dict(r) for r in self._all_rows]
+
+    def _package_worker(self, out_path: str, rows=None):
         """Worker thread, phase 2: build the manifest and write the archive."""
+        rows = rows if rows is not None else self._all_rows
         try:
             try:
                 from version import __version__ as app_version
@@ -1165,14 +1200,14 @@ class ExportProfileView(QWidget):
             game_name = self._game.name if self._game else None
             pd = self._profile_dir()
             manifest = profile_export.build_manifest(
-                self._all_rows, self._game_domain, app_version,
+                rows, self._game_domain, app_version,
                 game_name=game_name, profile_dir=pd)
 
             staging_root = (self._game.get_effective_mod_staging_path()
                             if self._game else None)
             overwrite_root = (self._game.get_effective_overwrite_path()
                               if self._game else None)
-            bundle_names = [r["name"] for r in self._all_rows
+            bundle_names = [r["name"] for r in rows
                             if r.get("source") == "bundle"]
 
             final = profile_export.write_amethyst(

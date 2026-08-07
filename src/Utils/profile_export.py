@@ -21,7 +21,8 @@ A *row* is a plain dict describing one mod's export configuration::
         "category_name": str,
         "ver_label":     str,   # "fileid — version" or "—"
         "ver_options":   list,  # [{"label", "name", "size_bytes"}]
-        "optional":      bool,  # user-set
+        "optional":      bool,  # user-set; defaults from meta.ini collectionOptional
+        "phase":         int,   # install phase; defaults from meta.ini collectionPhase
         "has_fomod":     bool,  # has a FOMOD or BAIN sidecar
         "has_bain":      bool,
         "fomod_export":  bool,  # include installer choices in the export
@@ -29,7 +30,8 @@ A *row* is a plain dict describing one mod's export configuration::
         "size_bytes":    int,   # original archive size from meta.ini (0 if unknown)
         "root_folder":   bool,  # deploys to game root (meta.ini rootFolder)
         "enabled":       bool,  # modlist enabled state of the source entry
-        "source":        str,   # "nexus" | "direct" | "bundle" | "ignore"
+        "source":        str,   # "nexus" | "direct" | "browse" | "manual"
+                                # | "bundle" | "ignore"; see apply_source_defaults
         "direct_url":    str,
     }
 """
@@ -38,6 +40,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import zlib
 import zipfile
 import shutil
@@ -49,6 +52,24 @@ from Utils.config_paths import get_fomod_selections_path, get_bain_selections_pa
 # ---------------------------------------------------------------------------
 # Row building (port of workshop_dialog._load_mods)
 # ---------------------------------------------------------------------------
+
+# Version labels read "<file id> — <version>". Both an em dash and a plain
+# hyphen have been written at different times (and are sitting in users' saved
+# workshop settings), so PARSING must accept either while new labels use one.
+VER_LABEL_SEP = " — "
+_VER_LABEL_RE = re.compile(r"^\s*(\d+)\s+[—-]\s+(.*)$")
+
+
+def split_ver_label(label: str) -> "tuple[int, str]":
+    """``"12345 — 1.2"`` → ``(12345, "1.2")``; ``(0, "")`` when it isn't one."""
+    m = _VER_LABEL_RE.match(label or "")
+    if not m:
+        return 0, ""
+    try:
+        return int(m.group(1)), m.group(2).strip()
+    except ValueError:
+        return 0, ""
+
 
 def load_rows(entries, game) -> list[dict]:
     """Build the per-mod export rows from a list of modlist ``ModEntry`` objects.
@@ -75,6 +96,8 @@ def load_rows(entries, game) -> list[dict]:
         category_name = ""
         size_bytes = 0
         root_folder = False
+        col_optional = False
+        col_phase = 0
         if staging_root:
             meta_path = Path(staging_root) / name / "meta.ini"
             if meta_path.is_file():
@@ -87,6 +110,8 @@ def load_rows(entries, game) -> list[dict]:
                     category_name = meta.category_name or ""
                     size_bytes = meta.file_size or 0
                     root_folder = bool(meta.root_folder)
+                    col_optional = bool(meta.collection_optional)
+                    col_phase = meta.collection_phase or 0
                 except Exception:
                     pass
 
@@ -118,7 +143,8 @@ def load_rows(entries, game) -> list[dict]:
             "category_name":    category_name,
             "ver_label":        ver_label,
             "ver_options":      [{"label": ver_label, "name": "", "size_bytes": 0}],
-            "optional":         False,
+            "optional":         col_optional,
+            "phase":            col_phase,
             "has_fomod":        has_installer,
             "has_bain":         has_bain,
             "fomod_export":     has_installer,
@@ -144,11 +170,7 @@ def _row_file_id(row: dict) -> int:
     fid = row.get("file_id") or 0
     if not fid:
         lbl = row.get("ver_label", "")
-        if lbl and " — " in lbl:
-            try:
-                fid = int(lbl.split(" — ")[0])
-            except ValueError:
-                fid = 0
+        fid = split_ver_label(lbl)[0]
     return fid
 
 
@@ -193,7 +215,9 @@ def read_settings(in_path, rows) -> None:
         if not m:
             continue
         row["optional"] = bool(m.get("optional", False))
-        row["source"] = m.get("source", "nexus")
+        # Keep the row's current source when the saved entry has none: a file
+        # written before sources existed must not reset a deduced one.
+        row["source"] = m.get("source") or row.get("source", "nexus")
         row["direct_url"] = m.get("direct_url", "")
         row["source_instructions"] = m.get("instructions", "")
         try:
@@ -211,16 +235,52 @@ def read_settings(in_path, rows) -> None:
             if m.get("ver_label"):
                 row["ver_label"] = m["ver_label"]
                 # Back-fill file_id from ver_label if still missing.
-                if not row.get("file_id") and " — " in row["ver_label"]:
-                    try:
-                        row["file_id"] = int(row["ver_label"].split(" — ")[0])
-                    except ValueError:
-                        pass
+                if not row.get("file_id"):
+                    parsed = split_ver_label(row["ver_label"])[0]
+                    if parsed:
+                        row["file_id"] = parsed
 
 
 # ---------------------------------------------------------------------------
 # Manifest build + zip (port of _write_manifest)
 # ---------------------------------------------------------------------------
+
+def apply_source_defaults(rows, *, ignore_disabled: bool = False) -> int:
+    """Replace the un-chosen ``"nexus"`` default with a source that can work.
+
+    Only rows still sitting on ``"nexus"`` are touched, so an explicit choice —
+    a manifest seed, saved settings, or a source the user picked by hand —
+    always wins. Applied AFTER those, so a stale autosave that recorded
+    ``"nexus"`` for a row that can never export as Nexus gets corrected too.
+
+    * No modId AND no fileId → ``"bundle"``. There is no mod page to point at,
+      so Nexus is not a possible answer: the row would either block the upload
+      (``nexus_missing_file_ids``) or export as ``modId 0`` with its files left
+      behind. Bundling ships the files instead, and is exactly the case
+      ``_bundle_blocked_reason`` permits. Vortex deduces the same way
+      (transformCollection.ts ``deduceSource``: no nexus repo → ``bundle``).
+      A row with a modId but no fileId is deliberately left alone — it IS on
+      Nexus, and the version picker is how the user fills the fileId in.
+    * ``ignore_disabled`` → disabled rows become ``"ignore"``. Only for Nexus
+      collections, which have no disabled state and drop those rows anyway; the
+      ``.amethyst`` profile export carries ``enabled: false`` through to the
+      importer, so defaulting there would LOSE mods it can represent.
+
+    Returns how many rows changed.
+    """
+    changed = 0
+    for row in rows:
+        if row.get("source", "nexus") != "nexus":
+            continue
+        if ignore_disabled and row.get("enabled") is False:
+            row["source"] = "ignore"
+        elif not row.get("mod_id") and not row.get("file_id"):
+            row["source"] = "bundle"
+        else:
+            continue
+        changed += 1
+    return changed
+
 
 def nexus_missing_file_ids(rows) -> list[str]:
     """Names of Nexus-source mods that lack a File ID (can't be exported until set)."""
@@ -242,11 +302,9 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
         # Parse fileid from ver_label ("fileid — version") when present.
         ver_label = row["ver_label"]
         file_id = row["file_id"]
-        if ver_label and " — " in ver_label:
-            try:
-                file_id = int(ver_label.split(" — ")[0])
-            except ValueError:
-                pass
+        parsed_fid = split_ver_label(ver_label)[0]
+        if parsed_fid:
+            file_id = parsed_fid
 
         row_source = row.get("source", "nexus")
         if row_source == "direct":
@@ -287,8 +345,8 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
 
         # Include version and category from meta.ini if available.
         row_version = row.get("version") or ""
-        if not row_version and ver_label and " — " in ver_label:
-            row_version = ver_label.split(" — ", 1)[1]
+        if not row_version:
+            row_version = split_ver_label(ver_label)[1]
         if row_version:
             mod_entry["version"] = row_version
         cat_id = row.get("category_id") or 0

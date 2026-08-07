@@ -106,13 +106,26 @@ def apply_collection_patches(
         if not installed_folder:
             continue
 
-        # Patch sources live under either the mod's ``name`` or its
-        # ``source.fileExpression`` — try both.
-        archive_subdir_candidates = [
-            patches_root / (mod_entry.get("name") or ""),
-            patches_root / ((mod_entry.get("source") or {}).get("fileExpression") or ""),
-        ]
-        archive_subdir = next((d for d in archive_subdir_candidates if d.is_dir()), None)
+        # Patch sources live under the mod's ``name``, its
+        # ``source.fileExpression``, or — for our own exports — the SANITIZED
+        # name: collection_export strips characters that are illegal in
+        # archive members (':', '?', …), so a mod named "X: SE" ships its
+        # diffs under "X SE" and the raw-name lookup alone would miss every
+        # one of them. Empty components must be skipped, not joined:
+        # ``patches_root / ""`` is ``patches_root`` itself, which always
+        # exists and would swallow the lookup (nexus sources carry no
+        # fileExpression, so this was the common case).
+        name = mod_entry.get("name") or ""
+        candidates = [name,
+                      (mod_entry.get("source") or {}).get("fileExpression") or ""]
+        if name:
+            from Utils.collection_export import _safe_archive_component
+            safe = _safe_archive_component(name)
+            if safe != name:
+                candidates.append(safe)
+        archive_subdir = next(
+            (patches_root / c for c in candidates
+             if c and (patches_root / c).is_dir()), None)
         if archive_subdir is None:
             for rel, _crc in patches.items():
                 log(f"Collection patches: no patch folder for '{mod_entry.get('name')}' "

@@ -27,6 +27,7 @@ Usage
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -263,6 +264,66 @@ class NexusCollection:
     contains_adult_content: bool = False
 
 
+_ERROR_MOD_ID_RE = re.compile(r"\bmod\s+(\d+)", re.IGNORECASE)
+_ERROR_FILE_ID_RE = re.compile(r"\bfile\s+(\d+)", re.IGNORECASE)
+
+
+def _collect_error_ids(errors) -> "tuple[set, set]":
+    """(mod ids, file ids) referenced by a GraphQL error list."""
+    mod_ids: set = set()
+    file_ids: set = set()
+
+    def _walk(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                lowered = str(key).lower()
+                if isinstance(value, (int, str)) and str(value).isdigit():
+                    if lowered == "modid":
+                        mod_ids.add(int(value))
+                    elif lowered == "fileid":
+                        file_ids.add(int(value))
+                else:
+                    _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    for err in errors or []:
+        _walk(err.get("extensions") or {})
+        message = str(err.get("message") or "")
+        mod_ids.update(int(m) for m in _ERROR_MOD_ID_RE.findall(message))
+        file_ids.update(int(m) for m in _ERROR_FILE_ID_RE.findall(message))
+    return mod_ids, file_ids
+
+
+def describe_collection_error(errors, manifest: "dict | None" = None) -> str:
+    """Turn Nexus's terse mutation errors into something actionable.
+
+    Nexus answers with things like *"Mod 184013, skyrimspecialedition not
+    available."* — a bare id the author has no way to place. Map it back to the
+    mod's name in the manifest we just sent and say what to do about it.
+    """
+    raw = "; ".join(str(e.get("message") or "?") for e in errors or [])
+    mod_ids, file_ids = _collect_error_ids(errors)
+    named: list = []
+    if manifest and (mod_ids or file_ids):
+        for mod in manifest.get("mods") or []:
+            src = mod.get("source") or {}
+            mid = int(src.get("modId") or 0)
+            fid = int(src.get("fileId") or 0)
+            if (mid and mid in mod_ids) or (fid and fid in file_ids):
+                label = mod.get("name") or src.get("logicalFilename") or "?"
+                named.append(f"'{label}' (Nexus mod {mid or '?'})")
+    if not named:
+        return f"Nexus rejected the request: {raw}"
+    if "not available" in raw.lower() or "not found" in raw.lower():
+        return (f"Nexus rejected {', '.join(named)}: that mod page is no longer "
+                "available (hidden, removed, or restricted), so it can't be "
+                "part of a collection. Remove the mod, or change its source to "
+                "Browse/Manual so users fetch it themselves.")
+    return f"Nexus rejected {', '.join(named)}: {raw}"
+
+
 @dataclass
 class MyCollectionRevision:
     """One revision of a collection the signed-in user owns."""
@@ -285,6 +346,7 @@ class MyCollection:
     summary: str = ""
     description: str = ""
     status: str = ""            # listed | unlisted | under_moderation | discarded
+    tile_image_url: str = ""    # collection tile image (empty when unset)
     game_domain: str = ""
     game_name: str = ""
     category_id: int = 0
@@ -2953,8 +3015,13 @@ class NexusAPI:
         return None
 
     def upload_collection_archive(self, url: str, file_path,
-                                  progress_cb=None) -> bool:
-        """PUT the collection .7z to the presigned URL (no API auth headers)."""
+                                  progress_cb=None) -> "tuple[bool, str]":
+        """PUT the collection .7z to the presigned URL (no API auth headers).
+
+        Returns ``(ok, detail)``; *detail* describes the failure in terms the
+        UI can show, since the alternative - a bare "upload failed" - arrives
+        after the user has already spent the whole transfer.
+        """
         import os as _os
 
         import requests as _requests
@@ -2987,12 +3054,22 @@ class NexusAPI:
                     headers={"Content-Type": "application/octet-stream"},
                     timeout=600, verify=self._session.verify)
             if 200 <= resp.status_code < 300:
-                return True
-            app_log(f"upload_collection_archive: HTTP {resp.status_code} "
-                    f"{resp.text[:300]}")
+                return True, ""
+            body = (resp.text or "")[:300]
+            app_log(f"upload_collection_archive: HTTP {resp.status_code} {body}")
+            # S3-compatible storage refuses a single PUT over 5 GiB with this
+            # code; say so plainly rather than making the user read the log.
+            if ("EntityTooLarge" in body
+                    or (resp.status_code in (403, 413)
+                        and "too large" in body.lower())):
+                return False, (
+                    f"the storage service rejected the archive as too large "
+                    f"({total / 1024 ** 3:.1f} GB). A collection has to upload "
+                    f"in one piece, so some bundled content has to come out.")
+            return False, f"the upload was rejected (HTTP {resp.status_code})."
         except Exception as exc:
             app_log(f"upload_collection_archive error: {exc}")
-        return False
+            return False, f"the upload could not be completed ({exc})."
 
     @staticmethod
     def filter_collection_manifest(manifest: dict) -> dict:
@@ -3038,7 +3115,8 @@ mutation EditCollection($collectionId: Int!, $name: String) {
 }"""
 
     def _run_collection_mutation(self, mutation: str, variables: dict,
-                                 op: str, result_key: str) -> "dict | None":
+                                 op: str, result_key: str,
+                                 manifest: "dict | None" = None) -> "dict | None":
         """POST one collection mutation; returns its payload dict or None."""
         try:
             resp = self._post_graphql(mutation, variables, op=op)
@@ -3047,8 +3125,9 @@ mutation EditCollection($collectionId: Int!, $name: String) {
             if errors:
                 msgs = "; ".join(e.get("message", "?") for e in errors)
                 app_log(f"{op}: GraphQL errors: {msgs}")
-                raise NexusAPIError(f"Nexus rejected the request: {msgs}",
-                                    url=GRAPHQL_BASE)
+                raise NexusAPIError(
+                    describe_collection_error(errors, manifest),
+                    url=GRAPHQL_BASE)
             data = (body.get("data") or {}).get(result_key) or {}
             if not data.get("success"):
                 app_log(f"{op}: success=false in {str(data)[:300]}")
@@ -3060,8 +3139,35 @@ mutation EditCollection($collectionId: Int!, $name: String) {
             app_log(f"{op} error: {exc}")
             return None
 
-    def get_collection_status(self, slug: str) -> str:
-        """'ok', 'discarded', or 'missing' for a collection we may revise."""
+    def get_collection_status(self, slug: str, collection_id: int = 0) -> str:
+        """Whether a collection we intend to revise is still there.
+
+        Returns ``"ok"`` / ``"discarded"`` / ``"missing"`` / ``"unknown"``.
+        ``"unknown"`` means the lookup itself failed — callers must NOT treat
+        that as gone, or a network blip turns an "upload revision" into a
+        duplicate collection.
+
+        The owner's own view is authoritative: a never-published draft or an
+        unlisted collection is invisible to the plain ``collection(slug:)``
+        lookup, so check ``myCollections`` (which asks for unlisted, under-
+        moderation and adult content) first.
+        """
+        try:
+            mine = self.get_my_collections()
+        except Exception as exc:
+            app_log(f"get_collection_status: myCollections failed: {exc}")
+            return "unknown"
+        wanted_slug = (slug or "").lower()
+        for col in mine:
+            if ((wanted_slug and col.slug.lower() == wanted_slug)
+                    or (collection_id and col.id == int(collection_id))):
+                return "ok"
+
+        # Not among the user's collections — separate "deliberately discarded"
+        # from "never existed / no longer visible" for a clearer log, and keep
+        # lookup failures distinguishable from both.
+        if not slug:
+            return "missing"
         query = ('query CollectionStatus($slug: String) { '
                  'collection(slug: $slug, viewAdultContent: true) '
                  '{ id collectionStatus } }')
@@ -3077,6 +3183,7 @@ mutation EditCollection($collectionId: Int!, $name: String) {
                 return "ok"
         except Exception as exc:
             app_log(f"get_collection_status error: {exc}")
+            return "unknown"
         return "missing"
 
     # -- Managing collections the user owns ---------------------------------
@@ -3089,6 +3196,7 @@ query MyCollections($count: Int, $offset: Int) {
     nodes {
       id slug name summary description collectionStatus
       draftRevisionNumber endorsements totalDownloads updatedAt
+      tileImage { url }
       game { domainName name }
       category { id name }
       latestPublishedRevision { revisionNumber }
@@ -3151,6 +3259,7 @@ query MyCollections($count: Int, $offset: Int) {
                 summary=n.get("summary", "") or "",
                 description=n.get("description", "") or "",
                 status=str(n.get("collectionStatus") or "").lower(),
+                tile_image_url=(n.get("tileImage") or {}).get("url", "") or "",
                 game_domain=game.get("domainName", "") or "",
                 game_name=game.get("name", "") or "",
                 category_id=int(cat.get("id") or 0),
@@ -3282,7 +3391,7 @@ mutation DiscardRevision($collectionId: ID!, $revisionNumber: Int!,
         return self._run_collection_mutation(
             self._CREATE_COLLECTION_MUTATION,
             {"payload": payload, "uuid": uuid},
-            "CreateCollection", "createCollection")
+            "CreateCollection", "createCollection", manifest=manifest)
 
     def create_collection_revision(self, collection_id: int, uuid: str,
                                    manifest: dict,
@@ -3306,7 +3415,8 @@ mutation DiscardRevision($collectionId: ID!, $revisionNumber: Int!,
             self._CREATE_REVISION_MUTATION,
             {"payload": payload, "collectionId": int(collection_id),
              "uuid": uuid},
-            "CreateOrUpdateRevision", "createOrUpdateRevision")
+            "CreateOrUpdateRevision", "createOrUpdateRevision",
+            manifest=manifest)
 
     # -- Helpers ------------------------------------------------------------
 
