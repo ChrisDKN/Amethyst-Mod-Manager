@@ -148,6 +148,13 @@ class SkyrimSE(Fallout_3):
         return 64
 
     @property
+    def filemap_casing_prefixes(self) -> dict[str, str]:
+        return {
+            "meshes": "lower",
+            "data/meshes": "lower",
+        }
+
+    @property
     def filemap_casing_pins(self) -> dict[str, str]:
         return {
             "hudmoviebaseinstance":    "HUDMovieBaseInstance",

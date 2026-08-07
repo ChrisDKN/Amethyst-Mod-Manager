@@ -448,6 +448,8 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 exclude_dirs=getattr(game, "filemap_exclude_dirs", None) or None,
                 normalize_folder_case=norm_case,
                 filemap_casing=getattr(game, "filemap_casing", "upper"),
+                filemap_casing_prefixes=getattr(
+                    game, "filemap_casing_prefixes", None),
                 filemap_casing_pins=getattr(game, "filemap_casing_pins", None),
                 conflict_key_fn=conflict_key_fn,
                 root_folder_mods=rf_mods or None,

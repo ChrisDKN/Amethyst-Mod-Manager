@@ -189,7 +189,7 @@ class _IncrementalState:
         "filemap_root", "sorted_keys_root", "lines_root",
         "dirty", "last_disabled_frozen",
         "casing_strategy", "dir_refcount", "ctx_variants", "canonical",
-        "dir_rewrite", "casing_ties_present", "casing_pins",
+        "dir_rewrite", "casing_ties_present", "casing_prefixes", "casing_pins",
     )
 
     def __init__(self):
@@ -229,6 +229,7 @@ class _IncrementalState:
         self.canonical: dict[tuple[str, str], str] = {}
         self.dir_rewrite: dict[str, "str | None"] = {}
         self.casing_ties_present = False
+        self.casing_prefixes: tuple[tuple[str, str], ...] = ()
         # Per-folder casing pins (lowercase segment → exact casing) applied
         # after canonical normalization; empty = no pins.  See _pin_rel_str.
         self.casing_pins: dict[str, str] = {}
@@ -271,6 +272,7 @@ class _IncrementalState:
         st.canonical = dict(self.canonical)
         st.dir_rewrite = dict(self.dir_rewrite)
         st.casing_ties_present = self.casing_ties_present
+        st.casing_prefixes = self.casing_prefixes
         st.casing_pins = self.casing_pins  # immutable per build; share
         return st
 
@@ -345,6 +347,7 @@ def _build_incr_fingerprint(
     excluded_mod_files,
     normalize_folder_case: bool,
     filemap_casing: str,
+    filemap_casing_prefixes,
     filemap_casing_pins,
     conflict_key_fn,
     root_folder_mods,
@@ -376,6 +379,7 @@ def _build_incr_fingerprint(
             for m, v in (excluded_mod_files or {}).items()
         )),
         normalize_folder_case, filemap_casing,
+        tuple(filemap_casing_prefixes or ()),
         tuple(sorted((filemap_casing_pins or {}).items())),
         conflict_key_fn is None,
         frozenset(root_folder_mods or ()),
@@ -412,6 +416,7 @@ def _build_ctx_variants(
 def _ctx_ties_present(
     ctx_variants: dict[tuple[str, str], Counter],
     strategy: str,
+    prefix_strategies: "tuple[tuple[str, str], ...]" = (),
 ) -> bool:
     """True when any ctx has ≥2 distinct variants tied on the winning score.
 
@@ -419,10 +424,12 @@ def _ctx_ties_present(
     which incremental history cannot reproduce — such profiles always take
     the full rebuild.
     """
-    prefer_lower = strategy == FILEMAP_CASING_LOWER
-    for counts in ctx_variants.values():
+    for (parent, segment), counts in ctx_variants.items():
         if len(counts) < 2:
             continue
+        context_strategy = _casing_strategy_for_context(
+            strategy, prefix_strategies, parent, segment)
+        prefer_lower = context_strategy == FILEMAP_CASING_LOWER
         scores = [_upper_count(v) for v in counts]
         best = min(scores) if prefer_lower else max(scores)
         if scores.count(best) > 1:
@@ -442,6 +449,7 @@ def _make_incr_state(
     disabled_frozen: frozenset,
     casing_strategy, dir_refcount, ctx_variants, canonical, dir_rewrite,
     casing_ties: bool,
+    casing_prefixes: "tuple[tuple[str, str], ...]",
     casing_pins: dict[str, str],
 ) -> _IncrementalState:
     """Assemble a fresh _IncrementalState from full-merge intermediates."""
@@ -470,6 +478,7 @@ def _make_incr_state(
     st.canonical = canonical
     st.dir_rewrite = dir_rewrite
     st.casing_ties_present = casing_ties
+    st.casing_prefixes = casing_prefixes
     st.casing_pins = casing_pins
     return st
 
@@ -526,10 +535,12 @@ def _casing_dir_added(
     rc[dir_str] = cur + 1
     if cur:
         return  # dir already known; variant sets unchanged
-    strategy = st.casing_strategy or FILEMAP_CASING_UPPER
+    default_strategy = st.casing_strategy or FILEMAP_CASING_UPPER
     parent = ""
     for seg in dir_str.split("/"):
         ctx = (parent, seg.lower())
+        strategy = _casing_strategy_for_context(
+            default_strategy, st.casing_prefixes, *ctx)
         counts = st.ctx_variants.get(ctx)
         if counts is None:
             counts = st.ctx_variants[ctx] = Counter()
@@ -571,11 +582,14 @@ def _casing_dir_removed(
         rc[dir_str] = cur - 1
         return
     del rc[dir_str]
-    prefer_lower = st.casing_strategy == FILEMAP_CASING_LOWER
+    default_strategy = st.casing_strategy or FILEMAP_CASING_UPPER
     ctx_deleted = False
     parent = ""
     for seg in dir_str.split("/"):
         ctx = (parent, seg.lower())
+        strategy = _casing_strategy_for_context(
+            default_strategy, st.casing_prefixes, *ctx)
+        prefer_lower = strategy == FILEMAP_CASING_LOWER
         counts = st.ctx_variants.get(ctx)
         n = counts.get(seg, 0) if counts else 0
         if n <= 0:
@@ -766,6 +780,7 @@ def _try_incremental(
             "conflict_ignore_foldernames",
             "excluded_loose_filenames", "allowed_top_level_folders",
             "excluded_mod_files", "normalize_folder_case", "filemap_casing",
+            "filemap_casing_prefixes",
             "filemap_casing_pins",
             "no_conflict_key_fn", "root_folder_mods", "root_mod_files",
             "utf8_bad",
@@ -1454,6 +1469,31 @@ _VALID_FILEMAP_CASINGS = frozenset({
 })
 
 
+def _normalize_casing_prefixes(
+    prefixes: "dict[str, str] | None",
+) -> "tuple[tuple[str, str], ...]":
+    normalized: dict[str, str] = {}
+    for raw_prefix, strategy in (prefixes or {}).items():
+        prefix = str(raw_prefix).replace("\\", "/").strip("/").lower()
+        if prefix and strategy in (FILEMAP_CASING_UPPER, FILEMAP_CASING_LOWER):
+            normalized[prefix] = strategy
+    return tuple(sorted(
+        normalized.items(), key=lambda item: (-len(item[0]), item[0])))
+
+
+def _casing_strategy_for_context(
+    default: str,
+    prefix_strategies: "tuple[tuple[str, str], ...]",
+    parent: str,
+    segment: str,
+) -> str:
+    context = parent + segment.lower()
+    for prefix, strategy in prefix_strategies:
+        if context == prefix or context.startswith(prefix + "/"):
+            return strategy
+    return default
+
+
 def _pick_canonical_segment(a: str, b: str, strategy: str = FILEMAP_CASING_UPPER) -> str:
     """Choose the folder name whose casing best matches *strategy*.
 
@@ -1494,6 +1534,7 @@ def _collect_unique_dirs(
 def _collect_canonical(
     unique_dirs: "dict[str, None] | set[str]",
     strategy: str,
+    prefix_strategies: "tuple[tuple[str, str], ...]" = (),
 ) -> dict[tuple[str, str], str]:
     """Pick the canonical casing per folder segment across *unique_dirs*.
 
@@ -1513,7 +1554,10 @@ def _collect_canonical(
             if cur is None:
                 canonical[ctx_key] = seg
             else:
-                canonical[ctx_key] = _pick_canonical_segment(cur, seg, strategy)
+                context_strategy = _casing_strategy_for_context(
+                    strategy, prefix_strategies, *ctx_key)
+                canonical[ctx_key] = _pick_canonical_segment(
+                    cur, seg, context_strategy)
             parent = parent + seg.lower() + "/"
     return canonical
 
@@ -1567,6 +1611,7 @@ def _rewrite_rel_strs(
 def _normalize_folder_cases(
     *all_files_list: dict[str, dict[str, str]],
     strategy: str = FILEMAP_CASING_UPPER,
+    prefix_strategies: "tuple[tuple[str, str], ...]" = (),
 ) -> None:
     """Normalize folder name casing across all mods in-place.
 
@@ -1588,7 +1633,7 @@ def _normalize_folder_cases(
     unique_dirs = _collect_unique_dirs(*all_files_list)
     if not unique_dirs:
         return
-    canonical = _collect_canonical(unique_dirs, strategy)
+    canonical = _collect_canonical(unique_dirs, strategy, prefix_strategies)
     if not canonical:
         return
     dir_rewrite = _apply_canonical(canonical, unique_dirs)
@@ -1706,6 +1751,7 @@ def canonicalize_dir_casing(
     rel_paths: "list[str]",
     strategy: str = FILEMAP_CASING_UPPER,
     pins: "dict[str, str] | None" = None,
+    casing_prefixes: "dict[str, str] | None" = None,
 ) -> "dict[str, str]":
     """Map each rel path to the same path with case-variant FOLDER segments
     unified to one canonical casing. Filenames are never touched.
@@ -1727,8 +1773,9 @@ def canonicalize_dir_casing(
         slash = rel.rfind("/")
         if slash >= 0:
             unique_dirs[rel[:slash]] = None
+    prefix_strategies = _normalize_casing_prefixes(casing_prefixes)
     dir_rewrite = _apply_canonical(
-        _collect_canonical(unique_dirs, strategy), unique_dirs)
+        _collect_canonical(unique_dirs, strategy, prefix_strategies), unique_dirs)
     out: dict[str, str] = {}
     for rel in rel_paths:
         new = rel
@@ -2520,6 +2567,7 @@ def build_filemap(
     excluded_mod_files: dict[str, set[str]] | None = None,
     normalize_folder_case: bool = True,
     filemap_casing: str = FILEMAP_CASING_UPPER,
+    filemap_casing_prefixes: dict[str, str] | None = None,
     filemap_casing_pins: dict[str, str] | None = None,
     conflict_key_fn: "Callable[[str, str], str] | None" = None,
     exclude_dirs: frozenset[str] | None = None,
@@ -2575,6 +2623,10 @@ def build_filemap(
     (filemap_root.txt) instead of the Data one.  Exclusions win over root tags;
     whole-mod root flags make per-file tags redundant.
 
+    filemap_casing_prefixes — optional logical directory prefixes whose
+    canonical casing strategy differs from filemap_casing. Prefix matching is
+    case-insensitive and applies to the named directory and its descendants.
+
     Returns:
         (count, conflict_map, overrides, overridden_by)
     """
@@ -2583,6 +2635,7 @@ def build_filemap(
         {k.lower(): v for k, v in filemap_casing_pins.items()}
         if filemap_casing_pins else {}
     )
+    _casing_prefixes = _normalize_casing_prefixes(filemap_casing_prefixes)
 
     # Per-mod root-tagged rel_keys — frozen once for O(1) merge-loop membership.
     _root_files: dict[str, frozenset[str]] = {
@@ -2641,6 +2694,7 @@ def build_filemap(
                 conflict_ignore_foldernames,
                 excluded_loose_filenames, allowed_top_level_folders,
                 excluded_mod_files, normalize_folder_case, filemap_casing,
+                _casing_prefixes,
                 _pins, conflict_key_fn, root_folder_mods, _root_files,
                 _utf8_bad,
             )
@@ -2977,9 +3031,11 @@ def build_filemap(
                         if _sl2 >= 0:
                             _cas_refcount[_rs2[:_sl2]] += 1
                 _cas_ctxv = _build_ctx_variants(_udirs)
-                _cas_ties = _ctx_ties_present(_cas_ctxv, _strategy)
+                _cas_ties = _ctx_ties_present(
+                    _cas_ctxv, _strategy, _casing_prefixes)
             if _udirs:
-                _canon = _collect_canonical(_udirs, _strategy)
+                _canon = _collect_canonical(
+                    _udirs, _strategy, _casing_prefixes)
                 if _canon:
                     _drw = _apply_canonical(_canon, _udirs)
                     _rewrite_rel_strs(_drw, _norm_normal, _norm_root)
@@ -3024,7 +3080,7 @@ def build_filemap(
             filemap_root, skeys_r, lines_r,
             _disabled_frozen,
             _cas_strategy, _cas_refcount, _cas_ctxv, _cas_canon, _cas_drw,
-            _cas_ties, _pins,
+            _cas_ties, _casing_prefixes, _pins,
         ))
         _incr_stats["full"] += 1
         if _cas_ties and log_fn is not None:

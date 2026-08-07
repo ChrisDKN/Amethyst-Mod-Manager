@@ -230,7 +230,8 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
     mapping = canonicalize_dir_casing(
         rels,
         getattr(game, "filemap_casing", "upper") or "upper",
-        getattr(game, "filemap_casing_pins", None))
+        getattr(game, "filemap_casing_pins", None),
+        getattr(game, "filemap_casing_prefixes", None))
     merged = {r.rsplit("/", 1)[0] for r, n in mapping.items() if r != n and "/" in r}
     if not merged:
         return file_list

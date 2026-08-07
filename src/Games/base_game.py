@@ -661,6 +661,16 @@ class BaseGame(ABC):
         return "upper"
 
     @property
+    def filemap_casing_prefixes(self) -> "dict[str, str]":
+        """Per-directory-prefix overrides for :attr:`filemap_casing`.
+
+        Keys are lowercase logical directory prefixes and values are ``upper``
+        or ``lower``.  An override applies to the named directory and every
+        directory below it, while unrelated namespaces keep the global policy.
+        """
+        return {}
+
+    @property
     def filemap_casing_pins(self) -> "dict[str, str]":
         """
         Per-folder casing overrides that win over ``filemap_casing``.
