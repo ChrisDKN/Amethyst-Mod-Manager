@@ -460,3 +460,137 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
             seen.add(candidate)
             result.append(candidate)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Rename / install name suggestions (GH#368)
+# ---------------------------------------------------------------------------
+#
+# Every place the user can name or rename a mod offers the same short menu of
+# candidates, mirroring MO2's install dialog:
+#   1. the name on Nexus (per-file label first, then the mod page title),
+#   2. the folder name an older/other version of the SAME Nexus mod already
+#      uses (so a second part or an update lands on the existing name),
+#   3. the prettified archive filename (Amethyst's install default),
+#   4. the untouched archive filename.
+# Source labels are English keys — the UI translates them.
+
+SRC_NEXUS_FILE = "Nexus file name"
+SRC_NEXUS_MOD = "Nexus mod name"
+SRC_INSTALLED = "Previously installed"
+SRC_CLEANED = "Cleaned filename"
+SRC_ALTERNATIVE = "Alternative"
+SRC_ORIGINAL = "Original filename"
+
+
+# Only KNOWN archive extensions are stripped — a blind "drop the last dotted
+# segment" pass eats real version tails ("Mod v1.2.3" → "Mod v1.2").
+_ARCHIVE_EXTS = {
+    "zip", "7z", "rar", "tar", "gz", "bz2", "xz", "zst", "lzma", "tgz", "omod",
+}
+
+
+def _archive_stem(installation_file: str) -> str:
+    """Strip the (possibly multi-part) archive extension off a download name."""
+    stem = installation_file.strip()
+    # Trailing split-archive part number, e.g. "Foo.7z.001".
+    base, dot, ext = stem.rpartition(".")
+    if dot and ext.isdigit() and len(ext) <= 3:
+        stem = base
+    for _ in range(2):                      # ".tar.gz" needs two passes
+        base, dot, ext = stem.rpartition(".")
+        if not dot or ext.lower() not in _ARCHIVE_EXTS:
+            break
+        stem = base
+    # RAR's split form puts the part number BEFORE the extension ("Foo.part1.rar").
+    return re.sub(r"\.part\d+$", "", stem, flags=re.I)
+
+
+def name_suggestions(meta=None, *, installation_file: str = "",
+                     previous_name: str = "",
+                     exclude: str = "") -> list[tuple[str, str]]:
+    """Return ``[(name, source_label), …]`` naming candidates, best first."""
+    file_name = installation_file or getattr(meta, "installation_file", "") or ""
+    stem = _archive_stem(file_name)
+    cleaned = _suggest_mod_names(stem) if stem else []
+
+    ordered: list[tuple[str, str]] = []
+    if previous_name:
+        # An existing folder for this same mod outranks everything else: it is
+        # what a multi-part download or an update has to land on to merge.
+        ordered.append((previous_name, SRC_INSTALLED))
+    ordered.append((getattr(meta, "nexus_file_name", "") or "", SRC_NEXUS_FILE))
+    ordered.append((getattr(meta, "nexus_name", "") or "", SRC_NEXUS_MOD))
+    # _suggest_mod_names always ends with the untouched stem; it is offered
+    # below under its own label, so it must not also show up as a "cleaned" one.
+    for i, cand in enumerate([c for c in cleaned if c != stem]):
+        ordered.append((cand, SRC_CLEANED if i == 0 else SRC_ALTERNATIVE))
+    ordered.append((stem, SRC_ORIGINAL))
+
+    out: list[tuple[str, str]] = []
+    seen = {exclude.strip().lower()} if exclude else set()
+    for raw, label in ordered:
+        if not raw.strip():
+            continue
+        name = sanitize_mod_folder_name(raw.strip())
+        if not name:
+            continue
+        if name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        out.append((name, label))
+    return out
+
+
+def sibling_version_name(staging_root, mod_name: str, meta) -> str:
+    """Folder name of another staged mod sharing this mod's Nexus id ("" if none)."""
+    mod_id = int(getattr(meta, "mod_id", 0) or 0)
+    if mod_id <= 0 or staging_root is None:
+        return ""
+    from Nexus.nexus_meta import read_meta   # lazy: Utils must not need Nexus
+    domain = (getattr(meta, "game_domain", "") or "").lower()
+    try:
+        folders = sorted(p for p in staging_root.iterdir() if p.is_dir())
+    except OSError:
+        return ""
+    # Raw substring probe before the (much costlier) configparser parse — this
+    # runs on the UI thread when the user hits F2, and a big staging folder is
+    # thousands of meta.ini files.
+    id_re = re.compile(rf"^\s*modid\s*=\s*{mod_id}\s*$", re.MULTILINE | re.I)
+    for folder in folders:
+        if folder.name == mod_name:
+            continue
+        meta_path = folder / "meta.ini"
+        try:
+            if not id_re.search(meta_path.read_text(encoding="utf-8",
+                                                    errors="replace")):
+                continue
+            other = read_meta(meta_path)
+        except Exception:      # missing / unreadable / malformed meta.ini
+            continue
+        if int(getattr(other, "mod_id", 0) or 0) != mod_id:
+            continue
+        if domain and (other.game_domain or "").lower() != domain:
+            continue
+        return folder.name
+    return ""
+
+
+def suggest_names_for_staged_mod(staging_root, mod_name: str
+                                 ) -> list[tuple[str, str]]:
+    """Rename candidates for an installed mod, read from its meta.ini."""
+    if staging_root is None or not mod_name:
+        return []
+    meta_path = staging_root / mod_name / "meta.ini"
+    if not meta_path.is_file():
+        return []
+    try:
+        from Nexus.nexus_meta import read_meta
+        meta = read_meta(meta_path)
+    except Exception:
+        return []
+    return name_suggestions(
+        meta,
+        previous_name=sibling_version_name(staging_root, mod_name, meta),
+        exclude=mod_name,
+    )

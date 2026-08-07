@@ -6799,7 +6799,9 @@ class MainWindow(QMainWindow):
                     if new:
                         _launch({_nm: new}, set())
 
-            ModExistsOverlay.show_over(self, nm, False, _resolved)
+            ModExistsOverlay.show_over(
+                self, nm, False, _resolved,
+                suggestions=self._mod_name_suggestions(nm, src_staging))
         else:
             # Several already there → one Replace-or-skip prompt (Tk parity).
             from gui_qt.confirm_overlay import ConfirmOverlay
@@ -9854,22 +9856,44 @@ class MainWindow(QMainWindow):
             payload["file_list"], _done)
 
     def _make_exists_cb(self):
-        """Return an on_exists(mod_name, conflict) callback for finish_install.
-        Runs on the WORKER thread → shows the Mod-Already-Exists overlay on the
-        UI thread and BLOCKS until the user picks (replace / rename:<n> / cancel),
-        mirroring _make_need_prefix_cb."""
+        """Return an on_exists(mod_name, conflict, prepared) callback for
+        finish_install. Runs on the WORKER thread → shows the Mod-Already-Exists
+        overlay on the UI thread and BLOCKS until the user picks (replace /
+        rename:<n> / cancel), mirroring _make_need_prefix_cb."""
         import threading
 
-        def _cb(mod_name, conflict=False):
+        def _cb(mod_name, conflict=False, prepared=None):
             holder = {"result": "cancel"}
             ev = threading.Event()
             self._mod_exists.emit({
                 "mod_name": mod_name, "conflict": bool(conflict),
+                "suggestions": self._install_name_suggestions(mod_name, prepared),
                 "holder": holder, "event": ev})
             ev.wait()
             return holder["result"]
 
         return _cb
+
+    def _install_name_suggestions(self, mod_name: str, prepared):
+        """Naming candidates for the Mod-Already-Exists rename field (GH#368).
+        Worker-thread safe: pure file reads, no Qt. Never raises."""
+        if prepared is None:
+            return []
+        try:
+            from Utils.mod_name_utils import name_suggestions, sibling_version_name
+            meta = getattr(prepared, "prebuilt_meta", None)
+            archive = getattr(prepared, "archive", None)
+            staging = self._gs.staging_dir()
+            previous = ""
+            if meta is not None and staging is not None:
+                previous = sibling_version_name(staging, mod_name, meta)
+            return name_suggestions(
+                meta,
+                installation_file=archive.name if archive is not None else "",
+                previous_name=previous, exclude=mod_name)
+        except Exception as exc:
+            print(f"[gui_qt] install name suggestions failed: {exc}", flush=True)
+            return []
 
     def _on_mod_exists_ui(self, payload):
         """UI thread: show the Mod-Already-Exists overlay; unblock the worker."""
@@ -9882,7 +9906,8 @@ class MainWindow(QMainWindow):
             payload["event"].set()
 
         ModExistsOverlay.show_over(
-            self, payload["mod_name"], payload["conflict"], _done)
+            self, payload["mod_name"], payload["conflict"], _done,
+            suggestions=payload.get("suggestions") or [])
 
     def _make_confirm_cet_cb(self, game):
         """Return a confirm_cet() callback for run_deploy_pipeline. Runs on the
@@ -10732,7 +10757,20 @@ class MainWindow(QMainWindow):
         from gui_qt.text_input_overlay import TextInputOverlay
         TextInputOverlay.show_over(
             self, "Rename mod", "New name for the installed mod:", _named,
-            initial=name, ok_label=self.tr("Rename"))
+            initial=name, ok_label=self.tr("Rename"),
+            suggestions=self._mod_name_suggestions(name))
+
+    def _mod_name_suggestions(self, name: str, staging=None):
+        """Naming candidates for a staged mod: Nexus names, sibling version,
+        cleaned + raw archive filename (GH#368). Never raises."""
+        try:
+            from Utils.mod_name_utils import suggest_names_for_staged_mod
+            root = staging if staging is not None else self._gs.staging_dir()
+            return suggest_names_for_staged_mod(root, name)
+        except Exception as exc:
+            print(f"[gui_qt] name suggestions failed for {name!r}: {exc}",
+                  flush=True)
+            return []
 
     def _rename_mod_on_disk(self, old_name: str, new_name: str) -> str | None:
         """Rename a mod: staging folder → new, modindex entry, modlist entry,
@@ -10779,7 +10817,10 @@ class MainWindow(QMainWindow):
                 elif result.startswith("rename:"):
                     self._rename_mod_on_disk(old_name, result[len("rename:"):])
 
-            ModExistsOverlay.show_over(self, new_name, False, _resolved)
+            # Suggestions come from the mod BEING renamed, not the occupant.
+            ModExistsOverlay.show_over(
+                self, new_name, False, _resolved,
+                suggestions=self._mod_name_suggestions(old_name))
             return None
         return self._do_rename_mod_on_disk(old_name, new_name)
 

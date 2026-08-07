@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QWidget, QHBoxLayout, QLabel, QLineEdit, QMenu, QPushButton,
 )
 
 from gui_qt.overlay_base import OverlayBase
@@ -26,9 +26,12 @@ class ModExistsOverlay(OverlayBase):
     MIN_H = 180
     ESC_RESULT = "cancel"
 
-    def __init__(self, host: QWidget, mod_name: str, conflict: bool, on_done):
+    def __init__(self, host: QWidget, mod_name: str, conflict: bool, on_done,
+                 suggestions=None):
         super().__init__(host, on_done=on_done)
         p = active_palette()
+        from gui_qt.text_input_overlay import normalise_suggestions
+        self._suggestions = normalise_suggestions(suggestions)
 
         _card, v = self._make_card("ExistsCard")
 
@@ -59,6 +62,9 @@ class ModExistsOverlay(OverlayBase):
         self._entry.setText(mod_name)
         self._entry.returnPressed.connect(self._confirm_rename)
         rr.addWidget(self._entry, 1)
+        if self._suggestions:
+            from gui_qt.text_input_overlay import make_suggestion_button
+            rr.addWidget(make_suggestion_button(self._show_suggestions))
         confirm = QPushButton(self.tr("OK"))
         confirm.setObjectName("PrimaryButton")
         confirm.setCursor(Qt.PointingHandCursor)
@@ -91,13 +97,24 @@ class ModExistsOverlay(OverlayBase):
         self._present()
 
     @classmethod
-    def show_over(cls, host, mod_name, conflict, on_done):
+    def show_over(cls, host, mod_name, conflict, on_done, suggestions=None):
         top = host.window() if host is not None else None
-        return cls(top or host, mod_name, conflict, on_done)
+        return cls(top or host, mod_name, conflict, on_done, suggestions)
 
     # -- internals ----------------------------------------------------------
     def _show_rename(self):
         self._rename_row.setVisible(True)
+        self._entry.setFocus()
+        self._entry.selectAll()
+
+    def _show_suggestions(self, anchor):
+        from gui_qt.text_input_overlay import fill_suggestion_menu
+        menu = QMenu(self)
+        fill_suggestion_menu(menu, self._suggestions, self._apply_suggestion)
+        menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
+
+    def _apply_suggestion(self, text: str):
+        self._entry.setText(text)
         self._entry.setFocus()
         self._entry.selectAll()
 

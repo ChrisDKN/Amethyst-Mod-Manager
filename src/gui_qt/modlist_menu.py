@@ -1243,8 +1243,25 @@ def _rename(view, model, row):
         if callable(cb):
             cb(e.name, new.strip())
 
+    # Separators have no folder (and so no meta.ini) — only mods get the
+    # suggested-name dropdown.
+    suggestions = [] if e.is_separator else _name_suggestions(view, e.name)
     TextInputOverlay.show_over(view, _mt("Rename"), _mt("New name:"), _named,
-                               initial=e.display_name, ok_label=_mt("Rename"))
+                               initial=e.display_name, ok_label=_mt("Rename"),
+                               suggestions=suggestions)
+
+
+def _name_suggestions(view, name):
+    """Rename candidates for a staged mod (Nexus name, sibling version, …)."""
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return []
+    try:
+        from Utils.mod_name_utils import suggest_names_for_staged_mod
+        return suggest_names_for_staged_mod(staging, name)
+    except Exception as exc:
+        print(f"[gui_qt] name suggestions failed for {name!r}: {exc}", flush=True)
+        return []
 
 
 def _set_priority(view, model, row):

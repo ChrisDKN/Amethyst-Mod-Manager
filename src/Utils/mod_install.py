@@ -1534,7 +1534,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     cancel).
 
     *on_exists* — optional callback invoked when the destination mod folder
-    already exists: ``on_exists(mod_name, conflict) -> str`` returning one of
+    already exists: ``on_exists(mod_name, conflict, prepared) -> str`` returning
+    one of
     ``"replace"`` (wipe + reinstall, keep modlist position + endorsed flag),
     ``"rename:<newname>"`` (install as a NEW mod), or ``"cancel"``. *conflict* is
     True on a re-prompt when a chosen rename target is itself taken. When
@@ -1585,7 +1586,9 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         else:
             conflict = False
             while dest_root.exists():
-                action = on_exists(p.mod_name, conflict)
+                # *p* is passed so the caller can offer naming suggestions
+                # (archive filename / Nexus names) in its rename field.
+                action = on_exists(p.mod_name, conflict, p)
                 if action == "cancel" or not action:
                     log_fn(f"Install cancelled — '{p.mod_name}' already exists.")
                     p.cleanup()
