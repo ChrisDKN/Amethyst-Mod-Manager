@@ -215,7 +215,7 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     </message>
     <message>
         <source>Choose file…</source>
-        <translation>Escolha o arquivo..</translation>
+        <translation>Escolha o arquivo…</translation>
     </message>
     <message>
         <source>Detect again</source>
@@ -235,7 +235,7 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     </message>
     <message>
         <source>Looking for the BSA Decompressor download…</source>
-        <translation>Procurando o download do descompressor BSA..</translation>
+        <translation>Procurando o download do descompressor BSA…</translation>
     </message>
     <message>
         <source>Using previously extracted package.</source>
@@ -247,7 +247,7 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     </message>
     <message>
         <source>Extracting the .mpi package from {0}…</source>
-        <translation>Extraindo o pacote MPI do {0}..</translation>
+        <translation>Extraindo o pacote MPI do {0}…</translation>
     </message>
     <message>
         <source>Auto-detected from {0}.</source>
@@ -263,7 +263,7 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     </message>
     <message>
         <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
-        <translation>Conta Premium, baixando o pacote de descompressores BSA da Nexus..</translation>
+        <translation>Conta Premium, baixando o pacote de descompressores BSA da Nexus…</translation>
     </message>
     <message>
         <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
@@ -353,7 +353,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Decompressing… (see log below)</source>
-        <translation>Descompressão..</translation>
+        <translation>Descompressão…</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -365,7 +365,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Build complete — registering mod…</source>
-        <translation>Constrói completo, registrando mod..</translation>
+        <translation>Constrói completo, registrando mod…</translation>
     </message>
     <message>
         <source>Build finished but registering the mod failed: {0}</source>
@@ -609,11 +609,11 @@ Nenhum prefixo Proton é usado — o jogo, sua pasta de dados e a pasta de saíd
     </message>
     <message>
         <source>Installed: {0}. Checking for updates…</source>
-        <translation>Instalado: {0}. Verificando as atualizações..</translation>
+        <translation>Instalado: {0}. Verificando as atualizações…</translation>
     </message>
     <message>
         <source>Not installed. Checking GitHub for the latest release…</source>
-        <translation>Não instalado. Verificando GitHub para a última versão..</translation>
+        <translation>Não instalado. Verificando GitHub para a última versão…</translation>
     </message>
     <message>
         <source>Installed: {0}. Could not reach GitHub to check for updates — see log.</source>
@@ -2025,7 +2025,7 @@ Os mods são baixados do Nexus Mods - faça login primeiro (Nexus Login to Nexus
     </message>
     <message>
         <source>Downloading '{0}' from GitHub…</source>
-        <translation>Baixando '{0}' do GitHub..</translation>
+        <translation>Baixando '{0}' do GitHub…</translation>
     </message>
     <message>
         <source>Retry</source>
@@ -2077,7 +2077,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>Checking FalloutNV.exe…</source>
-        <translation>Checando FalloutNV.exe..</translation>
+        <translation>Checando FalloutNV.exe…</translation>
     </message>
     <message>
         <source>Final step: Apply the 4GB Patch</source>
@@ -3251,7 +3251,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Choose file…</source>
-        <translation>Escolha o arquivo..</translation>
+        <translation>Escolha o arquivo…</translation>
     </message>
     <message>
         <source>Detect again</source>
@@ -3271,7 +3271,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Looking for the ESM Fixes download…</source>
-        <translation>Procurando o download do ESM Fixes..</translation>
+        <translation>Procurando o download do ESM Fixes…</translation>
     </message>
     <message>
         <source>Using previously extracted package.</source>
@@ -3283,7 +3283,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Extracting the .mpi package from {0}…</source>
-        <translation>Extraindo o pacote MPI do {0}..</translation>
+        <translation>Extraindo o pacote MPI do {0}…</translation>
     </message>
     <message>
         <source>Auto-detected from {0}.</source>
@@ -3299,7 +3299,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
-        <translation>Conta Premium, baixando o pacote ESM Fixes da Nexus..</translation>
+        <translation>Conta Premium, baixando o pacote ESM Fixes da Nexus…</translation>
     </message>
     <message>
         <source>Archive not found — download it from Nexus (button above). It will be picked up automatically as soon as the download finishes.</source>
@@ -3393,7 +3393,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Patching… (see log below)</source>
-        <translation>Patching..</translation>
+        <translation>Patching…</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -3405,7 +3405,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Patching complete — registering mod…</source>
-        <translation>Patching completo - registrando mod..</translation>
+        <translation>Patching completo - registrando mod…</translation>
     </message>
     <message>
         <source>Patching finished but registering the mod failed: {0}</source>
@@ -3574,7 +3574,7 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
-        <translation>Execute este exe com vinho nu contra o mesmo prefixo em vez de uma sessão de Proton - nenhum cliente do Steam anexar, então Steam Input mantém os controles de desktop (trackpad / teclado na tela). O prefixo ainda é criado e atualizado através de Próton. Env vars em Opções de Lançamento ainda se aplicam; invólucros e% comando% são ignorados neste modo.</translation>
+        <translation>Execute este exe com vinho nu contra o mesmo prefixo em vez de uma sessão de Proton - nenhum cliente do Steam anexar, então Steam Input mantém os controles de desktop (trackpad / teclado na tela). O prefixo ainda é criado e atualizado através de Proton. Env vars em Opções de Lançamento ainda se aplicam; invólucros e% comando% são ignorados neste modo.</translation>
     </message>
     <message>
         <source>Launch with plain Wine (winetricks-style)</source>
@@ -3781,7 +3781,7 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
         <source>Preparing export…</source>
-        <translation>Preparando exportação..</translation>
+        <translation>Preparando exportação…</translation>
     </message>
     <message>
         <source>Packing mod: {0}</source>
@@ -3789,15 +3789,15 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
         <source>Packing overwrite files…</source>
-        <translation>Embalando arquivos de substituição..</translation>
+        <translation>Embalando arquivos de substituição…</translation>
     </message>
     <message>
         <source>Packing profile files…</source>
-        <translation>Embalando arquivos de perfil..</translation>
+        <translation>Embalando arquivos de perfil…</translation>
     </message>
     <message>
         <source>Packing…</source>
-        <translation>Embalar..</translation>
+        <translation>Embalar…</translation>
     </message>
     <message>
         <source>Exporting profile</source>
@@ -4470,7 +4470,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Auto detecta a propriedade do Steam/Heroic/Lutris/Faugus. Forçar um lançador específico, ou nenhum, a lançar o exe diretamente via Próton.</translation>
+        <translation>Auto detecta a propriedade do Steam/Heroic/Lutris/Faugus. Forçar um lançador específico, ou nenhum, a lançar o exe diretamente via Proton.</translation>
     </message>
     <message>
         <source>Launch arguments</source>
@@ -5093,7 +5093,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
         <source>Search saves… (try !.ess)</source>
-        <translation>Busca salva..</translation>
+        <translation>Busca salva…</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -5345,7 +5345,7 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
         <source>Updating handler…</source>
-        <translation>Atualizando contato..</translation>
+        <translation>Atualizando contato…</translation>
     </message>
     <message>
         <source>Handler not found on the Resources branch.</source>
@@ -5665,7 +5665,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Reinstall - redownloading {0} mod(s)…</source>
-        <translation>Reinstalar - redownload {0} mod(s)..</translation>
+        <translation>Reinstalar - redownload {0} mod(s)…</translation>
     </message>
     <message>
         <source>Premium required to redownload. Opened {0} download page(s) - they'll land in the Downloads tab.</source>
@@ -5689,11 +5689,11 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Quick Update - checking {0} mod(s)…</source>
-        <translation>Atualização rápida, checando mod(s) {0}..</translation>
+        <translation>Atualização rápida, checando mod(s) {0}…</translation>
     </message>
     <message>
         <source>Quick Update - downloading {0} mod(s)…</source>
-        <translation>Atualização rápida - baixando o mod(s) {0}..</translation>
+        <translation>Atualização rápida - baixando o mod(s) {0}…</translation>
     </message>
     <message>
         <source>Quick Update: downloaded {0} update(s) - install them from the Downloads tab.</source>
@@ -5781,7 +5781,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Tracking {0} mod(s)…</source>
-        <translation>Rastreando mod(s) {0}..</translation>
+        <translation>Rastreando mod(s) {0}…</translation>
     </message>
     <message>
         <source>Tracking {0} mod(s).</source>
@@ -6257,7 +6257,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Profile groups…</source>
-        <translation>Grupos de perfil..</translation>
+        <translation>Grupos de perfil…</translation>
     </message>
     <message>
         <source>Installing LAV Filters</source>
@@ -6445,7 +6445,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Refreshing LOOT metadata for {0} plugins…</source>
-        <translation>Atualizando metadados LOOT para plugins {0}..</translation>
+        <translation>Atualizando metadados LOOT para plugins {0}…</translation>
     </message>
     <message>
         <source>Plugin metadata refreshed.</source>
@@ -6469,7 +6469,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>+ Add exe from game folder…</source>
-        <translation>+ Adicionar exe da pasta de jogo..</translation>
+        <translation>+ Adicionar exe da pasta de jogo…</translation>
     </message>
     <message>
         <source>Plugins</source>
@@ -7884,7 +7884,7 @@ Por dia: {1}</translation>
     </message>
     <message>
         <source>Search meshes and mods…</source>
-        <translation>Procure malhas e mods..</translation>
+        <translation>Procure malhas e mods…</translation>
     </message>
     <message>
         <source>Match a mesh path, or the name of a mod or archive that provides one</source>
@@ -7944,7 +7944,7 @@ Por dia: {1}</translation>
     </message>
     <message>
         <source>Reading…</source>
-        <translation>Lendo..</translation>
+        <translation>Lendo…</translation>
     </message>
     <message>
         <source>could not be read</source>
@@ -8337,7 +8337,7 @@ Depois de fazer isso, clique em Deploy.</translation>
     </message>
     <message>
         <source>Deploy is unavailable here.</source>
-        <translation>O Deploy não está disponível aqui.</translation>
+        <translation>Deploy não está disponível aqui.</translation>
     </message>
     <message>
         <source>Deploying…</source>
@@ -8967,11 +8967,11 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
         <source>Converting…</source>
-        <translation>Convertendo..</translation>
+        <translation>Convertendo…</translation>
     </message>
     <message>
         <source>Convert to profile-specific…</source>
-        <translation>Converta-se para perfil específico..</translation>
+        <translation>Converta-se para perfil específico…</translation>
     </message>
     <message>
         <source>Priority (check order): {0}</source>
@@ -9846,11 +9846,11 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>Looking for save folders…</source>
-        <translation>Procurando pastas de salvamento..</translation>
+        <translation>Procurando pastas de salvamento…</translation>
     </message>
     <message>
         <source>Reading…</source>
-        <translation>Lendo..</translation>
+        <translation>Lendo…</translation>
     </message>
     <message>
         <source>{0}   [profile saves -{1}]</source>
@@ -9886,7 +9886,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>Reading save…</source>
-        <translation>Lendo salvar..</translation>
+        <translation>Lendo salvar…</translation>
     </message>
     <message>
         <source>Export saves</source>
@@ -9902,7 +9902,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>Packing saves…</source>
-        <translation>Embalar salva..</translation>
+        <translation>Embalar salva…</translation>
     </message>
     <message>
         <source>Export failed.</source>
@@ -9948,7 +9948,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>Extracting saves…</source>
-        <translation>Extraindo economias..</translation>
+        <translation>Extraindo economias…</translation>
     </message>
     <message>
         <source>Import failed.</source>
@@ -10594,7 +10594,7 @@ Junte seus conflitos, feche e clique em "Feito".</translation>
     </message>
     <message>
         <source>Enable automatic updates…</source>
-        <translation>Habilitar atualizações automáticas..</translation>
+        <translation>Habilitar atualizações automáticas…</translation>
     </message>
     <message>
         <source>Switch this Flatpak to the Amethyst update remote so future updates arrive automatically through your package manager (GNOME Software / Discover) with smaller downloads. This reinstalls the app once from the remote and relaunches it.</source>
@@ -10758,7 +10758,7 @@ Amethyst-Mod-Manager/amethyst</translation>
     </message>
     <message>
         <source>Edit environment variables…</source>
-        <translation>Editar variáveis de ambiente..</translation>
+        <translation>Editar variáveis de ambiente…</translation>
     </message>
     <message>
         <source>{0} set: {1}</source>
@@ -11021,11 +11021,11 @@ Escolha o destino da instalação e clique em Próximo.</translation>
     </message>
     <message>
         <source>Installing SMAPI…</source>
-        <translation>Instalando o SMAPI..</translation>
+        <translation>Instalando o SMAPI…</translation>
     </message>
     <message>
         <source>Unpacking and installing SMAPI…</source>
-        <translation>Desembalando e instalando SMAPI..</translation>
+        <translation>Desembalando e instalando SMAPI…</translation>
     </message>
     <message>
         <source>
@@ -12859,7 +12859,7 @@ Mais recente:  {1}</translation>
     </message>
     <message>
         <source>Loading the wiki…</source>
-        <translation>Carregando o wiki..</translation>
+        <translation>Carregando o wiki…</translation>
     </message>
     <message>
         <source>Could not reach the wiki.
@@ -12899,7 +12899,7 @@ Pressione Refresh para tentar novamente.</translation>
     </message>
     <message>
         <source>Refreshing…</source>
-        <translation>Refrescante..</translation>
+        <translation>Refrescante…</translation>
     </message>
 </context>
 <context>
@@ -13032,7 +13032,7 @@ Reabra esse mago.</translation>
     </message>
     <message>
         <source>Restoring modlist…</source>
-        <translation>Restaurando modlist..</translation>
+        <translation>Restaurando modlist…</translation>
     </message>
     <message>
         <source>Restore failed — see log.</source>
@@ -13306,11 +13306,11 @@ Quando você fecha, suas mudanças são restauradas automaticamente.</translatio
     </message>
     <message>
         <source>Preparing to clean {0} plugin(s)…</source>
-        <translation>Preparando para limpar o(s) plugin(s) {0}..</translation>
+        <translation>Preparando para limpar o(s) plugin(s) {0}…</translation>
     </message>
     <message>
         <source>Cleaning {0} of {1}: {2}…</source>
-        <translation>Limpeza {0} de {1}: {2}..</translation>
+        <translation>Limpeza {0} de {1}: {2}…</translation>
     </message>
     <message>
         <source>QAC All finished — cleaned {0} plugin(s).</source>
