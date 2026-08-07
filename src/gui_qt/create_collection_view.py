@@ -22,7 +22,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPlainTextEdit,
     QPushButton, QSpinBox, QCheckBox, QRadioButton, QButtonGroup,
-    QFrame, QTableWidgetItem, QComboBox,
+    QFrame, QComboBox,
 )
 
 from gui_qt.safe_emit import safe_emit
@@ -146,6 +146,8 @@ class CreateCollectionView(ExportProfileView):
 
     _TAB_KEY = "create_collection"
     _COLUMN_STATE_SECTION = "qt_columns_create_collection"
+    # Phase/Update slot in before the parent's Edits column.
+    _EDITS_COL = _COL_EDITS
 
     # (ok, message, url) from the upload worker → UI thread.
     _upload_done = Signal(bool, str, str)
@@ -324,7 +326,7 @@ class CreateCollectionView(ExportProfileView):
 
         self._DEFAULT_COL_WIDTHS = dict(
             ExportProfileView._DEFAULT_COL_WIDTHS,
-            **{"Phase": 70, "Update": 100, "Edits": 60})
+            **{"Phase": 70, "Update": 100})
         # Content floors for the extra columns: the phase spinbox is 56px
         # fixed, and Update must fit the widest policy label button.
         fm = self.fontMetrics()
@@ -332,7 +334,7 @@ class CreateCollectionView(ExportProfileView):
                             for lbl in _POLICY_LABELS.values())
         self._MIN_COL_WIDTHS = dict(
             ExportProfileView._MIN_COL_WIDTHS,
-            **{"Phase": 72, "Update": widest_policy + 36, "Edits": 58})
+            **{"Phase": 72, "Update": widest_policy + 36})
 
         self._info_name = _line(self.tr("e.g. My Survival Overhaul"))
         self._info_author = _line(self.tr("Your Nexus username"))
@@ -484,26 +486,8 @@ class CreateCollectionView(ExportProfileView):
                 lambda _=False, di=data_idx, b=pol_btn: self._pick_policy(di, b))
             t.setCellWidget(i, _COL_POLICY, pol_btn)
 
-            # Bundled mods ship their files as-is, so edits are already in.
-            if row.get("source") == "bundle":
-                dash = QTableWidgetItem("-")
-                dash.setFlags(Qt.ItemIsEnabled)
-                dash.setTextAlignment(Qt.AlignCenter)
-                t.setItem(i, _COL_EDITS, dash)
-            else:
-                edits_chk = self._center_checkbox(
-                    row.get("save_edits", False),
-                    lambda ch, di=data_idx: self._set_save_edits(di, ch))
-                edits_chk.setToolTip(self.tr(
-                    "Ship your local changes to this mod's files as binary "
-                    "patches, so users get the mod exactly as you have it."))
-                t.setCellWidget(i, _COL_EDITS, edits_chk)
-
     def _set_phase(self, data_idx: int, value: int):
         self._all_rows[data_idx]["phase"] = int(value)
-
-    def _set_save_edits(self, data_idx: int, checked: bool):
-        self._all_rows[data_idx]["save_edits"] = bool(checked)
 
     def _bundle_blocked_reason(self, row: dict) -> str:
         """Mods users can download themselves must not be bundled.
@@ -604,8 +588,6 @@ class CreateCollectionView(ExportProfileView):
             policy = row.get("update_policy", "exact")
             return (_POLICY_ORDER.index(policy)
                     if policy in _POLICY_ORDER else 0)
-        if col == _COL_EDITS:
-            return bool(row.get("save_edits"))
         return super()._sort_key(col, row)
 
     def _policy_btn_width(self, btn: QPushButton) -> int:

@@ -33,6 +33,8 @@ A *row* is a plain dict describing one mod's export configuration::
         "source":        str,   # "nexus" | "direct" | "browse" | "manual"
                                 # | "bundle" | "ignore"; see apply_source_defaults
         "direct_url":    str,
+        "save_edits":    bool,  # ship local file edits as binary patches
+                                # (build_patch_jobs); not set by load_rows
     }
 """
 
@@ -242,6 +244,79 @@ def read_settings(in_path, rows) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Binary patches — local file edits shipped as diffs over the pristine download
+# ---------------------------------------------------------------------------
+
+def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
+                     ) -> "tuple[list, list]":
+    """Diff each ``save_edits`` row's staged files against its cached archive.
+
+    Attaches the resulting ``{rel_path: source_crc32}`` map to the matching
+    manifest mod entry (``patches`` — the same shape Nexus collections use, so
+    the collection-install pipeline can apply them) and returns
+    ``(jobs, warnings)``: *jobs* are ``(src_path, arcname)`` pairs for
+    :func:`write_amethyst`'s ``patch_jobs``, arcnames under ``patches/``.
+
+    Bundle rows are skipped — their files ship verbatim, edits included.
+    *scratch_out*, when given, receives the temp dir holding the ``.diff``
+    files; the caller must delete it after packing (the files have to outlive
+    this call but must not outlive the export).
+    """
+    import tempfile
+    from Utils.collection_export import (
+        _cached_archive, _read_row_meta, _safe_archive_component,
+        _scan_mod_patches)
+    from Utils.config_paths import get_download_cache_dir
+
+    jobs: list = []
+    warnings: list = []
+    wanted = [r for r in rows
+              if r.get("save_edits")
+              and r.get("source", "nexus") not in ("bundle", "ignore")]
+    if not wanted:
+        return jobs, warnings
+
+    staging_root = game.get_effective_mod_staging_path() if game else None
+    game_name = getattr(game, "name", "") or ""
+    entries = {m.get("name"): m for m in manifest.get("mods") or []}
+
+    patch_root = None
+    for row in wanted:
+        name = row["name"]
+        mod_entry = entries.get(name)
+        if mod_entry is None:
+            continue
+        mod_dir = Path(staging_root) / name if staging_root else None
+        if not (mod_dir and mod_dir.is_dir()):
+            continue
+        meta = _read_row_meta(staging_root, name)
+        archive = _cached_archive(meta, game_name)
+        if archive is None:
+            warnings.append(
+                f"'{name}': file edits skipped - the original archive is "
+                "not in the download cache.")
+            continue
+        if patch_root is None:
+            patch_root = Path(tempfile.mkdtemp(
+                prefix="amethyst_profexport_",
+                dir=str(get_download_cache_dir())))
+            if scratch_out is not None:
+                scratch_out.append(patch_root)
+        # The folder is named after the mod, which comes from Nexus metadata —
+        # strip anything that could climb out of patches/ on extraction.
+        patch_dir_name = _safe_archive_component(name)
+        mod_patch_dir = patch_root / patch_dir_name
+        found = _scan_mod_patches(mod_dir, archive, mod_patch_dir,
+                                  name, warnings)
+        if found:
+            mod_entry["patches"] = found
+            for diff in sorted(mod_patch_dir.rglob("*.diff")):
+                rel = diff.relative_to(mod_patch_dir).as_posix()
+                jobs.append((diff, f"patches/{patch_dir_name}/{rel}"))
+    return jobs, warnings
+
+
+# ---------------------------------------------------------------------------
 # Manifest build + zip (port of _write_manifest)
 # ---------------------------------------------------------------------------
 
@@ -400,10 +475,14 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
 
 def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                    overwrite_root=None, profile_dir=None,
-                   bundle_names=None, progress_cb=None) -> Path:
+                   bundle_names=None, patch_jobs=None,
+                   progress_cb=None) -> Path:
     """Write the ``.amethyst`` zip: ``manifest.json`` + bundled ``mods/`` +
     ``overwrite/`` + ``profile/`` state files. Returns the final path (suffix
     forced to .amethyst when not already .zip/.amethyst).
+
+    *patch_jobs* — ``(src_path, arcname)`` pairs from :func:`build_patch_jobs`
+    (binary-patch ``.diff`` files under ``patches/``).
 
     *progress_cb* (optional) is called as ``progress_cb(done_bytes, total_bytes,
     arcname)`` — once with ``done_bytes=0`` before writing starts (total known),
@@ -422,6 +501,9 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
     jobs: list[tuple] = [
         (None, "manifest.json", json.dumps(manifest, indent=2).encode("utf-8")),
     ]
+
+    for src, arcname in (patch_jobs or []):
+        jobs.append((Path(src), str(arcname), None))
 
     if staging_root:
         for name in bundle_names:

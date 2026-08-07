@@ -4333,6 +4333,7 @@ class MainWindow(QMainWindow):
                     collection_schema_cache=local_manifest,
                     manual_mode=manual_mode, download_only=dl_only,
                     append_card_info=append_card_info,
+                    local_bundle_zip=info.get("bundle_zip") or "",
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 import traceback

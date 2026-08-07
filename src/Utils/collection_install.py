@@ -262,6 +262,7 @@ def run_collection_install(
         manual_mode: bool = False,
         download_only: bool = False,
         append_card_info: "dict | None" = None,
+        local_bundle_zip: str = "",
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -289,6 +290,11 @@ def run_collection_install(
     ``download_only``: fetch every manifest archive into the download cache and
     install NOTHING — no extraction, staging or profile writes. ``profile_dir``
     is then None and the run ends once the download pipeline drains.
+    ``local_bundle_zip``: the ``.amethyst`` file behind a local-manifest import.
+    There is no cached collection archive for those, so Step 3b reads the
+    manifest's binary patches (``patches/`` members) from this zip instead; the
+    bundled ``mods/`` + ``profile/`` members are extracted by the caller after
+    the run (``profile_export.install_local_bundle``).
     """
     cb = callbacks or CollectionInstallCallbacks()
     ctl = control or CollectionInstallControl()
@@ -1573,7 +1579,8 @@ def run_collection_install(
                 _run_step3b(game, api, profile_dir, staging_path,
                             collection_schema, download_link_path,
                             collection_slug, revision_number,
-                            _install_results, log) or [])
+                            _install_results, log,
+                            local_bundle_zip=local_bundle_zip) or [])
         except Exception as exc:
             log(f"Collection install: Step 3b failed: {exc}")
 
@@ -2420,6 +2427,49 @@ def _ensure_collection_archive_extracted(game, api, collection_slug,
     return extract_dir
 
 
+def _extract_local_bundle_patches(game, bundle_zip, log) -> "Path | None":
+    """Extract a local ``.amethyst``'s ``patches/`` members into a temp dir
+    usable as a Step-3b archive root, or None when it has none. The zip's
+    other members (mods/, overwrite/, profile/) are deliberately left alone —
+    ``install_local_bundle`` extracts those after the install run.
+    Caller rmtree's the returned dir."""
+    import shutil as _shutil
+    import tempfile as _tf
+    import zipfile as _zip
+    bundle_zip = Path(bundle_zip)
+    try:
+        if not _zip.is_zipfile(bundle_zip):
+            return None
+        with _zip.ZipFile(bundle_zip, "r") as zf:
+            members = [
+                n for n in zf.namelist()
+                if n.startswith("patches/") and not n.endswith("/")
+                # Arcnames are author-controlled: never let one climb out.
+                and ".." not in Path(n).parts
+            ]
+            if not members:
+                return None
+            cache_dir = get_download_cache_dir_for_game(
+                getattr(game, "name", "") or "")
+            extract_dir = Path(_tf.mkdtemp(
+                prefix="amethyst_import_patches_", dir=str(cache_dir)))
+            try:
+                for n in members:
+                    dest = extract_dir / n
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(n) as srcf, open(dest, "wb") as dstf:
+                        _shutil.copyfileobj(srcf, dstf)
+            except Exception:
+                _shutil.rmtree(extract_dir, ignore_errors=True)
+                raise
+            log(f"Import: extracted {len(members)} binary patch file(s) "
+                "from the bundle")
+            return extract_dir
+    except Exception as exc:
+        log(f"Import: could not read patches from {bundle_zip.name}: {exc}")
+        return None
+
+
 def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                                     collection_slug, revision_number, log
                                     ) -> "list[str]":
@@ -2585,13 +2635,20 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
-                install_results, log) -> "list[str]":
+                install_results, log, *, local_bundle_zip="") -> "list[str]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
     collection archive. Runs after modlist is written, before LOOT. Returns the
-    bundled staging folders, which the caller must add to the mod index."""
+    bundled staging folders, which the caller must add to the mod index.
+
+    A local ``.amethyst`` import has no cached collection archive — its binary
+    patches come out of the bundle zip itself (*local_bundle_zip*); the zip's
+    bundled mods/profile files are handled by the caller afterwards."""
     import shutil as _shutil
     archive_root = _ensure_collection_archive_extracted(
         game, api, collection_slug, revision_number, download_link_path or "", log)
+    if archive_root is None and local_bundle_zip:
+        archive_root = _extract_local_bundle_patches(
+            game, local_bundle_zip, log)
     if archive_root is None:
         return []
     modlist_path = profile_dir / "modlist.txt"

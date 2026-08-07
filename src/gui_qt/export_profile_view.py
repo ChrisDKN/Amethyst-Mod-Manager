@@ -3,9 +3,11 @@ shareable ``.amethyst`` manifest. Qt port of the Tk ``gui/workshop_dialog.py``
 (the "Workshop"), renamed to "Export profile".
 
 Per-mod configuration table: Source (Nexus / Direct+URL / Bundle / Ignore), preferred
-Version (lazily fetched from Nexus), an Optional flag, and - for mods with FOMOD/BAIN
-installer choices - a Fomod-export toggle. Save / Load persist the flags as timestamped
-JSON in ``<profile>/workshop/`` (kept for cross-compat with the Tk app); Export writes
+Version (lazily fetched from Nexus), an Optional flag, for mods with FOMOD/BAIN
+installer choices a Fomod-export toggle, and an Edits toggle that ships local file
+changes as binary patches over the pristine download (same mechanism as the
+collection creator). Save / Load persist the flags as timestamped JSON in
+``<profile>/workshop/`` (kept for cross-compat with the Tk app); Export writes
 the zip. All packaging logic lives in the neutral ``Utils.profile_export``.
 """
 
@@ -449,7 +451,8 @@ class _LoadSettingsOverlay(_CardOverlay):
 # ---------------------------------------------------------------------------
 
 # Column indices.
-_COL_NAME, _COL_SOURCE, _COL_VERSION, _COL_FOMOD, _COL_OPTIONAL = range(5)
+(_COL_NAME, _COL_SOURCE, _COL_VERSION, _COL_FOMOD, _COL_OPTIONAL,
+ _COL_EDITS) = range(6)
 
 
 class _HeaderModelShim(QIdentityProxyModel):
@@ -589,10 +592,10 @@ class ExportProfileView(QWidget):
         root.addWidget(tb)
 
         # Table.
-        self._table = QTableWidget(0, 5)
+        self._table = QTableWidget(0, 6)
         self._table.setHorizontalHeaderLabels(
             [self.tr("Mod Name"), self.tr("Source"), self.tr("Preferred Version"),
-             self.tr("Fomod"), self.tr("Optional")])
+             self.tr("Fomod"), self.tr("Optional"), self.tr("Edits")])
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QAbstractItemView.NoSelection)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -621,7 +624,11 @@ class ExportProfileView(QWidget):
         "Preferred Version": 130,
         "Fomod": 70,
         "Optional": 78,
+        "Edits": 58,
     }
+    # Where the Edits (save_edits) column sits — CreateCollectionView inserts
+    # Phase/Update before it and overrides this.
+    _EDITS_COL = _COL_EDITS
 
     def _column_names(self) -> list:
         t = self._table
@@ -752,6 +759,8 @@ class ExportProfileView(QWidget):
                     bool(row.get("fomod_export", True)))
         if col == _COL_OPTIONAL:
             return bool(row.get("optional"))
+        if col == self._EDITS_COL:
+            return bool(row.get("save_edits"))
         return row["name"].lower()
 
     def _on_header_clicked(self, col: int):
@@ -902,6 +911,28 @@ class ExportProfileView(QWidget):
                 lambda ch, di=data_idx: self._set_optional(di, ch))
             t.setCellWidget(i, _COL_OPTIONAL, opt_chk)
 
+            self._build_edits_cell(i, data_idx, row)
+
+    def _build_edits_cell(self, vis_idx: int, data_idx: int, row: dict):
+        """The Edits column cell: a save-edits toggle, or a dash for bundled
+        mods (their files ship as-is, so edits are already included)."""
+        t = self._table
+        if row.get("source") == "bundle":
+            t.removeCellWidget(vis_idx, self._EDITS_COL)
+            dash = QTableWidgetItem("-")
+            dash.setFlags(Qt.ItemIsEnabled)
+            dash.setTextAlignment(Qt.AlignCenter)
+            t.setItem(vis_idx, self._EDITS_COL, dash)
+        else:
+            t.takeItem(vis_idx, self._EDITS_COL)
+            edits_chk = self._center_checkbox(
+                row.get("save_edits", False),
+                lambda ch, di=data_idx: self._set_save_edits(di, ch))
+            edits_chk.setToolTip(self.tr(
+                "Ship your local changes to this mod's files as binary "
+                "patches, so users get the mod exactly as you have it."))
+            t.setCellWidget(vis_idx, self._EDITS_COL, edits_chk)
+
     def _center_checkbox(self, checked: bool, on_toggle) -> QWidget:
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
@@ -919,6 +950,9 @@ class ExportProfileView(QWidget):
 
     def _set_fomod(self, data_idx: int, checked: bool):
         self._all_rows[data_idx]["fomod_export"] = bool(checked)
+
+    def _set_save_edits(self, data_idx: int, checked: bool):
+        self._all_rows[data_idx]["save_edits"] = bool(checked)
 
     def _bundle_blocked_reason(self, row: dict) -> str:
         """Why *row* may not be bundled, or "" when bundling is fine.
@@ -1063,6 +1097,13 @@ class ExportProfileView(QWidget):
         ver_btn = self._table.cellWidget(vis_idx, _COL_VERSION)
         if isinstance(ver_btn, QPushButton):
             ver_btn.setText(row.get("ver_label", "-"))
+        # Source flips to/from "bundle" swap the Edits cell between the
+        # checkbox and the dash. Identity match — == would deep-compare dicts
+        # and can hit a structural duplicate.
+        data_idx = next(
+            (i for i, r in enumerate(self._all_rows) if r is row), None)
+        if data_idx is not None:
+            self._build_edits_cell(vis_idx, data_idx, row)
 
     # -- search / filter toggles --------------------------------------------
     def _on_search(self, text: str):
@@ -1210,11 +1251,29 @@ class ExportProfileView(QWidget):
             bundle_names = [r["name"] for r in rows
                             if r.get("source") == "bundle"]
 
-            final = profile_export.write_amethyst(
-                out_path, manifest,
-                staging_root=staging_root, overwrite_root=overwrite_root,
-                profile_dir=pd, bundle_names=bundle_names,
-                progress_cb=self._make_progress_cb())
+            # Local file edits → binary patches applied over the pristine
+            # download on import (diffing extracts archives, so it can take a
+            # moment — announce it on the indeterminate bar).
+            scratch: list = []
+            try:
+                if any(r.get("save_edits") for r in rows):
+                    safe_emit(self._export_progress, 0, 0,
+                              self.tr("Building file-edit patches…"))
+                patch_jobs, patch_warnings = profile_export.build_patch_jobs(
+                    rows, manifest, self._game, scratch_out=scratch)
+                for warning in patch_warnings:
+                    self._log(f"[export] {warning}")
+
+                final = profile_export.write_amethyst(
+                    out_path, manifest,
+                    staging_root=staging_root, overwrite_root=overwrite_root,
+                    profile_dir=pd, bundle_names=bundle_names,
+                    patch_jobs=patch_jobs,
+                    progress_cb=self._make_progress_cb())
+            finally:
+                import shutil
+                for tmp in scratch:
+                    shutil.rmtree(tmp, ignore_errors=True)
             safe_emit(self._export_done, True, str(final))
         except Exception as exc:
             safe_emit(self._export_done, False, str(exc))
@@ -1238,6 +1297,8 @@ class ExportProfileView(QWidget):
                 phase = self.tr("Packing overwrite files…")
             elif parts and parts[0] == "profile":
                 phase = self.tr("Packing profile files…")
+            elif parts and parts[0] == "patches":
+                phase = self.tr("Packing file-edit patches…")
             else:
                 phase = self.tr("Packing…")
             safe_emit(self._export_progress, done, total, phase)
