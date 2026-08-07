@@ -622,11 +622,11 @@ def _normalize_one_rel_str(st: _IncrementalState, raw: str) -> str:
     """Normalize one raw rel_str's folder casing with the current picks.
 
     Mirrors _apply_canonical/_rewrite_rel_strs for a single path, memoized
-    per raw parent dir in st.dir_rewrite.
+    per raw parent dir in st.dir_rewrite.  Filename pins applied after.
     """
     slash = raw.rfind("/")
     if slash < 0:
-        return raw
+        return _pin_rel_str(raw, st.casing_pins) if st.casing_pins else raw
     d = raw[:slash]
     nd = st.dir_rewrite.get(d, _MEMO_MISS)
     if nd is _MEMO_MISS:
@@ -646,7 +646,13 @@ def _normalize_one_rel_str(st: _IncrementalState, raw: str) -> str:
             parent = parent + seg.lower() + "/"
         nd = "/".join(parts) if changed else None
         st.dir_rewrite[d] = nd
-    return raw if nd is None else nd + raw[slash:]
+    out = raw if nd is None else nd + raw[slash:]
+    if st.casing_pins:
+        name = out[out.rfind("/") + 1:]
+        pinned = st.casing_pins.get(name.lower())
+        if pinned is not None and pinned != name:
+            out = out[:out.rfind("/") + 1] + pinned
+    return out
 
 
 # Above this many structural changes, one O(n) two-pointer merge beats
@@ -1645,21 +1651,14 @@ def _apply_casing_pins(
     *all_files_list: dict[str, dict[str, str]],
     pins: dict[str, str],
 ) -> None:
-    """Force specific folder segments to a pinned exact casing, in place.
+    """Force pinned path segments (folders AND filenames) to exact casing, in place.
 
-    *pins* maps a lowercase folder-segment name to the exact casing it must
-    deploy as (e.g. ``{"compassshoutmeterholder": "CompassShoutMeterHolder"}``).
-    Any folder segment whose lowercased name is a key is rewritten to the
-    pinned value, at any depth.  Only the named segment is touched — folders
-    nested inside it are left to the normal strategy — and the final segment
-    (the filename) is never rewritten.
-
-    Pins win over ``filemap_casing`` / ``_normalize_folder_cases`` because this
-    runs last, so a mod that reads its own data folder by a hardcoded
-    case-sensitive path always sees the casing it expects, regardless of what
-    casing any other mod ships for the same folder name.  Applied to the
-    output dicts only (both full-rebuild and incremental paths converge here),
-    so the two code paths can never disagree on a pinned folder.
+    *pins* maps a lowercase segment name to the exact casing it must deploy as
+    (``{"compassshoutmeterholder": "CompassShoutMeterHolder"}``, or with an
+    extension for a file: ``{"compass.swf": "Compass.swf"}``).  Matches at any
+    depth; only the named segment is touched.  Runs last so it wins over
+    ``filemap_casing`` / ``_normalize_folder_cases``, and both the full-rebuild
+    and incremental paths converge here so they can never disagree.
     """
     if not pins:
         return
@@ -1668,33 +1667,23 @@ def _apply_casing_pins(
             continue
         for files in all_files.values():
             for rel_key in files:
-                rel_str = files[rel_key]
-                slash = rel_str.rfind("/")
-                if slash < 0:
-                    continue  # loose file — no folder segments to pin
-                parts = rel_str.split("/")
-                changed = False
-                for i in range(len(parts) - 1):  # skip the filename
-                    pinned = pins.get(parts[i].lower())
-                    if pinned is not None and pinned != parts[i]:
-                        parts[i] = pinned
-                        changed = True
-                if changed:
-                    files[rel_key] = "/".join(parts)
+                new = _pin_rel_str(files[rel_key], pins)
+                if new != files[rel_key]:
+                    files[rel_key] = new
 
 
-def _pin_rel_str(rel_str: str, pins: dict[str, str]) -> str:
-    """Return *rel_str* with any pinned folder segment forced to its casing.
-
-    Segment-name match (any depth); the final segment (filename) is never
-    touched.  Returns the input unchanged when nothing is pinned.
-    """
-    slash = rel_str.rfind("/")
-    if slash < 0:
-        return rel_str  # loose file — no folder segments to pin
+def _pin_rel_str(rel_str: str, pins: dict[str, str],
+                 include_filename: bool = True) -> str:
+    """Return *rel_str* with any pinned segment (folder or filename) forced to its casing."""
+    if "/" not in rel_str:
+        if not include_filename:
+            return rel_str
+        pinned = pins.get(rel_str.lower())
+        return pinned if pinned is not None else rel_str
     parts = rel_str.split("/")
+    last = len(parts) if include_filename else len(parts) - 1
     changed = False
-    for i in range(len(parts) - 1):  # skip the filename
+    for i in range(last):
         pinned = pins.get(parts[i].lower())
         if pinned is not None and pinned != parts[i]:
             parts[i] = pinned
@@ -1737,7 +1726,9 @@ def canonicalize_dir_casing(
             nd = dir_rewrite.get(rel[:slash])
             if nd is not None:
                 new = nd + rel[slash:]
-        out[rel] = _pin_rel_str(new, pins) if pins else new
+        # Folder pins only: staging merges case-variant folders but must never
+        # rename a file on disk — deploy applies filename pins to the link name.
+        out[rel] = _pin_rel_str(new, pins, False) if pins else new
     return out
 
 

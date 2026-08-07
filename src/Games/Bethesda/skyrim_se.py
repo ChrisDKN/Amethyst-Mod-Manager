@@ -151,8 +151,21 @@ class SkyrimSE(Fallout_3):
     @property
     def filemap_casing_pins(self) -> dict[str, str]:
         return {
+            # These are mostly to fix issues with infinity UI related mods that expect exact casing otherwise they crash
             "hudmoviebaseinstance":    "HUDMovieBaseInstance",
             "compassshoutmeterholder": "CompassShoutMeterHolder",
+            "infinityui": "InfinityUI",
+            "hudmenu": "HUDMenu",
+            "skse": "SKSE",
+            "!assets": "!assets",
+            "compass.swf": "Compass.swf",
+            "questitemlist.swf": "QuestItemList.swf",
+            "minimap.swf": "Minimap.swf",
+            "minimapart.swf": "MinimapArt.swf",
+            "worldmap": "WorldMap",
+            "localmapmenu": "LocalMapMenu",
+            "icondisplayextension.swf": "IconDisplayExtension.swf",
+            "icondisplayextensionart.swf": "IconDisplayExtensionArt.swf",
         }
 
     @property

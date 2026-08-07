@@ -672,11 +672,17 @@ class BaseGame(ABC):
         uppercase variant) and can be knocked over the moment another mod
         ships a differently-cased variant of the same folder name.
 
-        A pin makes that guarantee explicit.  Keyed by the *lowercase* folder
-        segment name, valued by the exact casing to deploy.  Any folder with
+        A pin makes that guarantee explicit.  Keyed by the *lowercase* path
+        segment name, valued by the exact casing to deploy.  Any segment with
         that name (at any depth) is rewritten to the pinned casing regardless
         of strategy or what mods ship.  Only the named segment is affected;
-        folders nested inside it still follow the normal strategy.
+        segments nested inside it still follow the normal strategy.
+
+        Include an extension to pin a FILENAME (``{"compass.swf":
+        "Compass.swf"}``) — the winning mod's on-disk name is otherwise what
+        deploys, so a replacer shipping a lowercase copy renames the link.
+        Filename pins apply to the deployed name only; install-time staging
+        still merges folders alone and never renames a file on disk.
 
         Returns an empty dict by default (no pins).  Example (Skyrim SE):
         ``{"compassshoutmeterholder": "CompassShoutMeterHolder"}`` keeps
