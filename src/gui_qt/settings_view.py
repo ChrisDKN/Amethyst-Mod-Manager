@@ -459,11 +459,13 @@ class SettingsView(QWidget):
             self._safe_save(uc.save_ui_scale, "auto")
             self._prompt_scale_restart()
         else:
-            # Disabling auto just re-enables the slider. The slider already shows
-            # the currently-applied scale, so nothing changes until the user
-            # actually moves it (which commits + prompts then). Persist the
-            # explicit value so a manual scale is recorded, but don't prompt.
-            self._safe_save(uc.save_ui_scale, self._scale_slider.value() / 100.0)
+            # Disabling auto just re-enables the slider; nothing is persisted
+            # until the user actually moves it (which commits + prompts then).
+            # Writing the slider's current value here would freeze the
+            # auto-detected scale as a manual choice - GH#337: a wrong auto
+            # value got cemented that way and later detection fixes never
+            # reached the user's ini.
+            pass
 
     def _on_scale_value_changed(self, pct: int):
         """Live label update on every tick. Commit immediately only when the
