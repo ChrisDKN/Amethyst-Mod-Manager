@@ -187,7 +187,7 @@ Reconstruir do zero restaura o jogo para baunilha e corre o descompressor novame
     </message>
     <message>
         <source>Step 2: Game folder &amp; package</source>
-        <translation>Passo 2: pasta de jogo e pacote</translation>
+        <translation>Passo 2: pasta de jogo &amp; pacote</translation>
     </message>
     <message>
         <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
@@ -353,7 +353,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Decompressing… (see log below)</source>
-        <translation>Descompressão…</translation>
+        <translation>Descompressão… (veja o registro abaixo)</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -369,7 +369,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Build finished but registering the mod failed: {0}</source>
-        <translation>A construção terminou, mas o registro falhou</translation>
+        <translation>A construção terminou, mas o registro do mod falhou: {0}</translation>
     </message>
     <message>
         <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
@@ -1249,7 +1249,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source> MB/s</source>
-        <translation>MB/s</translation>
+        <translation> MB/s</translation>
     </message>
     <message>
         <source>Unlimited</source>
@@ -2506,7 +2506,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>Store &amp; Artwork</source>
-        <translation>Loja e Arte</translation>
+        <translation>Loja &amp; Arte</translation>
     </message>
     <message>
         <source>Steam App ID</source>
@@ -2526,7 +2526,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>Conflicts &amp; Advanced Behaviour</source>
-        <translation>Conflitos e Comportamento Avançado</translation>
+        <translation>Conflitos &amp; Comportamento Avançado</translation>
     </message>
     <message>
         <source>Game Sub-folder</source>
@@ -3223,7 +3223,7 @@ Reconstruir do zero restaura o jogo para baunilha e corre o patter novamente (pr
     </message>
     <message>
         <source>Step 2: Game folder &amp; package</source>
-        <translation>Passo 2: pasta de jogo e pacote</translation>
+        <translation>Passo 2: pasta de jogo &amp; pacote</translation>
     </message>
     <message>
         <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
@@ -3393,7 +3393,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Patching… (see log below)</source>
-        <translation>Patching…</translation>
+        <translation>Patching… (veja o registro abaixo)</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -4635,7 +4635,7 @@ Pressione Implantar para aplicar seus mods, em seguida, iniciar o jogo a partir 
     </message>
     <message>
         <source>NIF Viewer - {0}</source>
-        <translation>NIF Viewer - {0}</translation>
+        <translation>NIF Viewer — {0}</translation>
     </message>
     <message>
         <source>Downloaded '{0}' - install it from the Downloads tab.</source>
@@ -5093,7 +5093,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
         <source>Search saves… (try !.ess)</source>
-        <translation>Busca salva…</translation>
+        <translation>Buscar saves… (tente !.ess)</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -5605,7 +5605,7 @@ Seus arquivos são apagados da pasta de encenação - isso não pode ser desfeit
     </message>
     <message>
         <source> ({0} couldn't be downloaded - see the log)</source>
-        <translation>({0} não pôde ser baixado - veja o registro)</translation>
+        <translation> ({0} não pôde ser baixado - veja o registro)</translation>
     </message>
     <message>
         <source>Done - {0}/{1} installed.</source>
@@ -5881,7 +5881,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Endorse AMM failed - {0}</source>
-        <translation>Endorse AMM falhou</translation>
+        <translation>Falha ao apoiar AMM - {0}</translation>
     </message>
     <message>
         <source>You've already endorsed - thank you!</source>
@@ -7872,11 +7872,11 @@ Por dia: {1}</translation>
     <name>NifViewerView</name>
     <message>
         <source>NIF Viewer — {0} ▸ {1}</source>
-        <translation>NIF Viewer - {0}</translation>
+        <translation>NIF Viewer — {0} ▸ {1}</translation>
     </message>
     <message>
         <source>NIF Viewer — {0}</source>
-        <translation>NIF Viewer - {0}</translation>
+        <translation>NIF Viewer — {0}</translation>
     </message>
     <message>
         <source>Scanning…</source>
@@ -8923,7 +8923,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
         <source>  (missing)</source>
-        <translation>(desaparecido)</translation>
+        <translation>  (ausente)</translation>
     </message>
     <message>
         <source>Move up</source>
@@ -9004,8 +9004,8 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     <message>
         <source>Several members have profile-specific INIs with the same name ({0}).
 Which profile's INI files should the group use for those?</source>
-        <translation>Vários membros têm INIs com o mesmo nome.
-Que perfil os arquivos do INI devem usar para isso?</translation>
+        <translation>Vários membros têm INIs específicos de perfil com o mesmo nome ({0}).
+Qual perfil os arquivos INI do grupo devem usar para esses?</translation>
     </message>
     <message>
         <source>Use these INIs</source>
@@ -9854,7 +9854,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>{0}   [profile saves -{1}]</source>
-        <translation>{0}</translation>
+        <translation>{0}   [saves do perfil -{1}]</translation>
     </message>
     <message>
         <source>{0}   ({1})</source>
@@ -11031,7 +11031,9 @@ Escolha o destino da instalação e clique em Próximo.</translation>
         <source>
 
 Deploy your mods to activate it.</source>
-        <translation>Prepare seus mods para ativá-lo.</translation>
+        <translation>
+
+Faça deploy dos mods para ativá-lo.</translation>
     </message>
     <message>
         <source>SMAPI installed successfully!
@@ -13318,7 +13320,7 @@ Quando você fecha, suas mudanças são restauradas automaticamente.</translatio
     </message>
     <message>
         <source>QAC All error: {0}</source>
-        <translation>Todos os erros:</translation>
+        <translation>Erro do QAC All: {0}</translation>
     </message>
     <message>
         <source>{0} is cleaning plugins — please wait.</source>
