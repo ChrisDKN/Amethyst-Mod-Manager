@@ -180,7 +180,26 @@ def run_installer(allow_prerelease: bool = False):
     )
     os.makedirs(config_dir, exist_ok=True)
     log_path = os.path.join(config_dir, "amethyst-update.log")
+
+    # $APPIMAGE (set by the AppImage runtime) is where the user actually keeps
+    # the app — an AppImage manager like GearLever may have moved/renamed it
+    # (GH#361: updating always wrote a second copy to ~/Applications, giving
+    # two app-drawer entries). Pass it to the installer as --dest so the
+    # update replaces that file in place, and relaunch from the same path.
+    # realpath: replace the real file, not a manager-created symlink. Grab it
+    # BEFORE strip_appimage_vars below removes APPIMAGE from the child env.
+    dest = os.environ.get("APPIMAGE") or ""
+    if dest:
+        try:
+            dest = os.path.realpath(dest)
+        except OSError:
+            pass
+    if not dest:
+        dest = os.path.expanduser(
+            "~/Applications/AmethystModManager-x86_64.AppImage")
+
     installer_args = " --prerelease" if allow_prerelease else ""
+    installer_args += f" --dest {shlex.quote(dest)}"
     cmd = (
         f"sleep 2 && "
         f"SCRIPT=$(mktemp /tmp/amethyst-installer-XXXXXX.sh) && "
@@ -188,7 +207,7 @@ def run_installer(allow_prerelease: bool = False):
         f"chmod +x \"$SCRIPT\" && "
         f"bash \"$SCRIPT\"{installer_args} && "
         f"rm -f \"$SCRIPT\" && "
-        f"nohup \"$HOME/Applications/AmethystModManager-x86_64.AppImage\" &>/dev/null &"
+        f"nohup {shlex.quote(dest)} &>/dev/null &"
     )
 
     # Build a clean environment: start from the current env then strip every

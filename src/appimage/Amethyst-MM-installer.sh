@@ -8,10 +8,13 @@
 set -e
 
 ALLOW_PRERELEASE=0
-for arg in "$@"; do
-    case "$arg" in
+CUSTOM_DEST=""
+while [ $# -gt 0 ]; do
+    case "$1" in
         --prerelease) ALLOW_PRERELEASE=1 ;;
+        --dest) CUSTOM_DEST="$2"; shift ;;
     esac
+    shift
 done
 
 REPO="ChrisDKN/Amethyst-Mod-Manager"
@@ -82,17 +85,32 @@ fi
 echo "Latest version: ${LATEST_VERSION}"
 echo ""
 
+# --dest = update-in-place mode: the caller (the running app) passed the path
+# of the AppImage it was launched from, which may live wherever the user's
+# AppImage manager (GearLever, AppImageLauncher, ...) put it — GH#361. In that
+# mode we ONLY replace that file; the manager owns the icon and .desktop
+# entry, and creating our own here is exactly what duplicated the app-drawer
+# entries. Without --dest, do the classic full install to ~/Applications.
+if [ -n "$CUSTOM_DEST" ] && [ "$CUSTOM_DEST" != "$APPLICATIONS_DIR/$APPIMAGE_NAME" ]; then
+    APPIMAGE_DEST="$CUSTOM_DEST"
+    MANAGE_DESKTOP=0
+else
+    APPIMAGE_DEST="$APPLICATIONS_DIR/$APPIMAGE_NAME"
+    MANAGE_DESKTOP=1
+fi
+
 # Create directories if they don't exist
-mkdir -p "$APPLICATIONS_DIR"
-mkdir -p "$ICONS_DIR"
-mkdir -p "$APPLICATIONS_DESKTOP_DIR"
+mkdir -p "$(dirname "$APPIMAGE_DEST")"
+if [ "$MANAGE_DESKTOP" = "1" ]; then
+    mkdir -p "$ICONS_DIR"
+    mkdir -p "$APPLICATIONS_DESKTOP_DIR"
+fi
 
 # Download AppImage to a sibling temp file, then atomically rename it into
 # place. Writing directly to the destination fails with ETXTBSY ("Text file
 # busy") when the currently-running AppImage is still being unmounted by the
 # kernel. rename(2) on the same filesystem only swaps the directory entry —
 # the running process keeps its open inode, so there is no conflict.
-APPIMAGE_DEST="$APPLICATIONS_DIR/$APPIMAGE_NAME"
 APPIMAGE_TMP="$APPIMAGE_DEST.new"
 echo "Downloading AppImage..."
 if command -v curl &>/dev/null; then
@@ -107,6 +125,12 @@ fi
 chmod +x "$APPIMAGE_TMP"
 mv -f "$APPIMAGE_TMP" "$APPIMAGE_DEST"
 echo "AppImage installed to $APPIMAGE_DEST (executable)."
+
+if [ "$MANAGE_DESKTOP" = "0" ]; then
+    echo ""
+    echo "Update complete. Icon and menu entry are managed by your AppImage manager."
+    exit 0
+fi
 
 # Download icon
 echo "Downloading icon..."
