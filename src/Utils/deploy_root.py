@@ -90,16 +90,17 @@ def deploy_root_folder(
     tasks: list[tuple[Path, Path, Path, str]] = []  # (src, dst, rel, rel_posix)
     for src, rel in sources:
         dst = _resolve_root_path(game_root, rel, _dir_cache)
+        resolved_rel = dst.relative_to(game_root)
         if len(rel.parts) > 1:
             # Use the resolved (possibly case-corrected) top-level name.
-            top = dst.relative_to(game_root).parts[0]
+            top = resolved_rel.parts[0]
             pre = _top_preexisted.get(top)
             if pre is None:
                 pre = (game_root / top).exists()
                 _top_preexisted[top] = pre
             if not pre:
                 created_dirs.add(top)
-        tasks.append((src, dst, rel, str(rel).replace("\\", "/")))
+        tasks.append((src, dst, resolved_rel, resolved_rel.as_posix()))
 
     def _write_log(rels: "list[str]") -> None:
         # Files on the first line block, then a separator, then directories
@@ -276,7 +277,7 @@ def deploy_root_flagged_mods(
             continue
 
         dst = _resolve_root_path(game_root, Path(rel_str), _dir_cache)
-        rel_posix = str(Path(rel_str)).replace("\\", "/")
+        rel_posix = dst.relative_to(game_root).as_posix()
 
         # Skip if already placed by a previous call (avoid double-backup)
         if rel_posix in existing_placed_set:
