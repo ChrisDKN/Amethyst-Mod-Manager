@@ -392,22 +392,37 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
 
 
 def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):
-    """Fill *sub* with a single QWidgetAction wrapping a QListWidget showing
-    *items* — visible height capped at *scroll_cap* rows, real scrollbar past
-    that. Clicking a row closes the whole menu and runs its slot."""
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QListWidget, QWidgetAction
-    lst = QListWidget(sub)
+    """Fill *sub* with a single QWidgetAction wrapping a search box over a
+    QListWidget showing *items* — visible height capped at *scroll_cap* rows,
+    real scrollbar past that, and typing in the box filters the rows. Enter
+    picks the highlighted (else first visible) row; clicking a row or pressing
+    Enter closes the whole menu and runs its slot."""
+    from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+    from PySide6.QtWidgets import (QLineEdit, QListWidget, QVBoxLayout,
+                                   QWidget, QWidgetAction)
+    box = QWidget(sub)
+    lay = QVBoxLayout(box)
+    lay.setContentsMargins(4, 4, 4, 4)
+    lay.setSpacing(4)
+    edit = QLineEdit(box)
+    edit.setPlaceholderText(_mt("Search…"))
+    edit.setClearButtonEnabled(True)
+    lst = QListWidget(box)
     lst.setFrameShape(QListWidget.Shape.NoFrame)
     lst.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     lst.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
     lst.setMouseTracking(True)
+    # Focus stays in the search box; arrows are forwarded so the list never
+    # needs it (and hover/selection styling still applies without focus).
+    lst.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     # Menu-like hover highlight (QListWidget only tints on selection by default).
     lst.setStyleSheet(
         "QListWidget { background: transparent; outline: none; }"
         "QListWidget::item { padding: 3px 16px; }"
         "QListWidget::item:hover, QListWidget::item:selected {"
         " background: palette(highlight); color: palette(highlighted-text); }")
+    lay.addWidget(edit)
+    lay.addWidget(lst)
     slots = []
     for text, slot in items:
         # Item texts are DATA (separator names), not translated.
@@ -418,16 +433,65 @@ def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):
     sbar_w = lst.verticalScrollBar().sizeHint().width()
     lst.setMinimumWidth(lst.sizeHintForColumn(0) + sbar_w + 8)
 
-    def _picked(item):
-        row = lst.row(item)
+    def _pick(row):
         sub.close()
         root_menu.close()
         if 0 <= row < len(slots):
             slots[row]()
 
-    lst.itemClicked.connect(_picked)
+    lst.itemClicked.connect(lambda item: _pick(lst.row(item)))
+
+    def _visible_rows():
+        return [i for i in range(lst.count()) if not lst.item(i).isHidden()]
+
+    def _apply_filter(text):
+        needle = text.casefold()
+        for i in range(lst.count()):
+            lst.item(i).setHidden(needle not in lst.item(i).text().casefold())
+        vis = _visible_rows()
+        # Keep a current row so Enter always has a target while typing.
+        lst.setCurrentRow(vis[0] if vis else -1)
+
+    edit.textChanged.connect(_apply_filter)
+
+    def _pick_current():
+        row = lst.currentRow()
+        if row < 0 or lst.item(row).isHidden():
+            vis = _visible_rows()
+            row = vis[0] if vis else -1
+        if row >= 0:
+            _pick(row)
+
+    edit.returnPressed.connect(_pick_current)
+
+    def _step(delta):
+        vis = _visible_rows()
+        if not vis:
+            return
+        cur = lst.currentRow()
+        pos = vis.index(cur) if cur in vis else (-1 if delta > 0 else 0)
+        lst.setCurrentRow(vis[max(0, min(len(vis) - 1, pos + delta))])
+        lst.scrollToItem(lst.currentItem())
+
+    class _ArrowFwd(QObject):
+        # Up/Down typed in the search box move the list highlight.
+        def eventFilter(self, obj, ev):
+            if ev.type() == QEvent.Type.KeyPress:
+                if ev.key() == Qt.Key.Key_Up:
+                    _step(-1)
+                    return True
+                if ev.key() == Qt.Key.Key_Down:
+                    _step(1)
+                    return True
+            return False
+
+    edit.installEventFilter(_ArrowFwd(edit))
+    # QMenu doesn't focus embedded widgets on its own — grab it post-show so
+    # typing filters immediately (singleShot: the menu isn't visible yet inside
+    # aboutToShow, and setFocus on a hidden widget is dropped).
+    sub.aboutToShow.connect(lambda: QTimer.singleShot(0, edit.setFocus))
     wa = QWidgetAction(sub)
-    wa.setDefaultWidget(lst)
+    wa.setDefaultWidget(box)
     sub.addAction(wa)
 
 
@@ -1526,6 +1590,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Rename"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename separator"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Search…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Separator name:"),
     QT_TRANSLATE_NOOP("ModListMenu", "Separator settings…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Set priority"),
