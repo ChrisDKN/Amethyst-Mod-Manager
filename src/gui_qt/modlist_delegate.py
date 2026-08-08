@@ -638,8 +638,9 @@ class ModRowDelegate(QStyledItemDelegate):
 
     def _flag_tip(self, hit, index):
         """Tooltip for the hovered flag *hit*. The Note flag shows the actual
-        note text rendered from Markdown (Tk parity + rich text); everything
-        else uses the static _FLAG_TIPS."""
+        note text rendered from Markdown (Tk parity + rich text), the
+        rerun-FOMOD flag names the plugins that triggered it; everything else
+        uses the static _FLAG_TIPS."""
         if hit == FLAG_NOTE:
             try:
                 model = index.model()
@@ -649,6 +650,27 @@ class ModRowDelegate(QStyledItemDelegate):
                     if len(note) > 500:
                         note = note[:500].rstrip() + "…"
                     return _note_to_tooltip_html(note)
+            except Exception:
+                pass
+        if hit == FLAG_RERUN_FOMOD:
+            try:
+                model = index.model()
+                name = index.data(EntryRole).name
+                reason = (model.rerun_fomod_reason(name)
+                          if hasattr(model, "rerun_fomod_reason") else None)
+                if reason and reason[1]:
+                    kind, plugins = reason
+                    names = ", ".join(plugins[:6]) + \
+                        ("…" if len(plugins) > 6 else "")
+                    if kind == "active":
+                        return self.tr(
+                            "A plugin an installed FOMOD option requires left "
+                            "the load order ({0}) - click to re-run the FOMOD "
+                            "installer").format(names)
+                    return self.tr(
+                        "A FOMOD option you didn't select is now relevant "
+                        "({0} is in the load order) - click to re-run the "
+                        "FOMOD installer").format(names)
             except Exception:
                 pass
         tip = _FLAG_TIPS.get(hit)

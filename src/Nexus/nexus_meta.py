@@ -79,6 +79,7 @@ class NexusModMeta:
     fomod_pending_deps: str = ""       # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user did NOT select; flags a rerun when a clause becomes fully present in the load order
     fomod_active_deps: str = ""        # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user DID select; flags a rerun when a clause is no longer fully present (its mod was removed)
     fomod_active_deps_seen: str = ""   # subset of fomod_active_deps observed SATISFIED at least once; the "orphaned patch" flag only fires for these, so a clause that was never satisfied (a hint pattern recorded by an older installer) can't fire it
+    fomod_pending_baselined: bool = False  # True once the rerun-flag refresh has evaluated fomod_pending_deps against the first post-install load order and pruned the clauses that already held (deps the wizard showed and the user declined - an informed choice, not a change); cleared by a (re)install
 
     @property
     def nexus_page_url(self) -> str:
@@ -168,6 +169,7 @@ _KEY_MAP: dict[str, str] = {
     "fomodPendingDeps":  "fomod_pending_deps",
     "fomodActiveDeps":   "fomod_active_deps",
     "fomodActiveDepsSeen": "fomod_active_deps_seen",
+    "fomodPendingBaselined": "fomod_pending_baselined",
 }
 
 # Attributes that are ints
@@ -178,7 +180,7 @@ _INT_FIELDS = {"mod_id", "file_id", "category_id", "latest_file_id", "file_size"
 _BOOL_FIELDS = {
     "endorsed", "has_update", "ignore_update", "is_fomod", "is_bain",
     "root_folder", "from_collection_bundled", "from_collection_patched",
-    "collection_optional",
+    "collection_optional", "fomod_pending_baselined",
 }
 
 
@@ -268,6 +270,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             if attr in (
                 "is_fomod", "is_bain", "from_collection_bundled",
                 "from_collection_patched", "collection_optional",
+                "fomod_pending_baselined",
             ) and not value:
                 continue
             cp.set(_SECTION, ini_key, "true" if value else "false")
@@ -319,6 +322,12 @@ def set_meta_key(meta_ini_path: Path, ini_key: str, value: str) -> None:
     Cheaper and safer than a read/modify/write_meta round-trip for callers that
     only maintain a single bookkeeping key.
     """
+    set_meta_keys(meta_ini_path, {ini_key: value})
+
+
+def set_meta_keys(meta_ini_path: Path, values: dict) -> None:
+    """Set several keys in a meta.ini's [General] section in ONE write, leaving
+    the rest untouched. A value of ``None`` REMOVES that key."""
     if not meta_ini_path.is_file():
         return
     cp = configparser.ConfigParser(allow_no_value=True, strict=False)
@@ -328,7 +337,11 @@ def set_meta_key(meta_ini_path: Path, ini_key: str, value: str) -> None:
         return
     if not cp.has_section(_SECTION):
         cp.add_section(_SECTION)
-    cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
+    for ini_key, value in values.items():
+        if value is None:
+            cp.remove_option(_SECTION, ini_key)
+        else:
+            cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
     with open(meta_ini_path, "w", encoding="utf-8") as f:
         cp.write(f)
 

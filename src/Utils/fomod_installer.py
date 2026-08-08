@@ -423,6 +423,13 @@ FLAG_OR_SEP = "|"       # OR alternatives within one option
 FLAG_AND_SEP = "<"      # AND members within one alternative clause
 FLAG_ABSENT = ">"       # prefix: this plugin must be ABSENT (state="Missing")
 
+# Relevance order of FOMOD option types - used to tell a pattern that PROMOTES
+# an option (dep present → more relevant / newly selectable) from one that
+# DEMOTES it (dep present → less relevant, e.g. a pre-selected "No" answer
+# dropping Recommended→Optional once the real patch target is detected).
+_TYPE_RANK = {"NotUsable": 0, "CouldBeUsable": 1, "Optional": 2,
+              "Recommended": 3, "Required": 4}
+
 
 def _dep_plugin_name(dep: "Dependency") -> str:
     """The cleaned plugin-name literal of a fileDependency for the rerun-flag
@@ -586,8 +593,21 @@ def _collect_dep_plugin_clauses(config: ModuleConfig, all_selections: dict,
                 # Missing/Inactive" → "SurWR.esp | !SurWR.esp", always true → flag
                 # fires on install). Skip NotUsable patterns.
                 clauses: list[list[str]] = []
-                for pattern_dep, _t in plugin.type_descriptor.patterns:
+                td = plugin.type_descriptor
+                for pattern_dep, _t in td.patterns:
                     if _t == "NotUsable":
+                        continue
+                    # Pending side: only patterns that PROMOTE the option above
+                    # its default type (Recommended/Required, or usable from a
+                    # NotUsable default) mean "this skipped patch matters once
+                    # the dep appears". A demote pattern (e.g. Helios's "No"
+                    # tonemapping answer dropping Recommended→Optional when any
+                    # CS plugin is Active) means the option matters LESS when
+                    # satisfied - recording it fired the rerun flag on installs
+                    # where the user picked the correct sibling option.
+                    if not want_selected and (
+                            _TYPE_RANK.get(_t, 2)
+                            <= _TYPE_RANK.get(td.default_type, 2)):
                         continue
                     # An Inactive ("present but disabled") gate can't be encoded in
                     # the enabled/absent clause format - dropping it would leave a
@@ -619,7 +639,9 @@ def collect_unselected_dep_plugins(config: ModuleConfig,
 
     These are patches the FOMOD would offer (or make required/recommended) *if*
     the named plugin(s) were present - so if they appear later the FOMOD is worth
-    re-running.
+    re-running. Only PROMOTE patterns are recorded (see
+    :func:`_collect_dep_plugin_clauses`): a pattern that demotes an unselected
+    option when the dep appears is not a reason to re-run.
     """
     return _collect_dep_plugin_clauses(config, all_selections,
                                        want_selected=False)
@@ -635,6 +657,94 @@ def collect_selected_dep_plugins(config: ModuleConfig,
     """
     return _collect_dep_plugin_clauses(config, all_selections,
                                        want_selected=True)
+
+
+# --------------------------------------------------------------------------
+# Decode side of the FLAG_* clause format - shared with the modlist rerun-flag
+# evaluation (gui_qt/app._build_rerun_fomod_mods) so the encoder above and its
+# evaluation can never drift. Members keep their recorded casing for display;
+# all comparisons are done lowercased against an enabled-plugin (lower) set.
+
+def iter_option_conditions(raw: str):
+    """Yield ``(cond, alts)`` per option-condition recorded in *raw*: ``cond``
+    is the stripped condition string (its identity in seen/baseline lists),
+    ``alts`` its OR alternatives, each a list of AND members."""
+    for cond in (raw or "").split(FLAG_OPT_SEP):
+        alts = []
+        for clause in cond.split(FLAG_OR_SEP):
+            members = [m.strip() for m in clause.split(FLAG_AND_SEP)
+                       if m.strip()]
+            if members:
+                alts.append(members)
+        if alts:
+            yield cond.strip(), alts
+
+
+def _member_holds(member: str, enabled_lower: set) -> bool:
+    """">name" = the plugin must be ABSENT; "name" = present + enabled."""
+    if member.startswith(FLAG_ABSENT):
+        return member[len(FLAG_ABSENT):].lower() not in enabled_lower
+    return member.lower() in enabled_lower
+
+
+def option_met(alts, enabled_lower: set) -> bool:
+    """OR-of-ANDs: the option's condition holds if ANY alternative clause has
+    ALL its members holding."""
+    return any(all(_member_holds(m, enabled_lower) for m in a)
+               for a in alts if a)
+
+
+def option_has_present_member(alts) -> bool:
+    """True if any alternative names a plugin that must be PRESENT - a
+    condition needing only absences is true almost always and can't sensibly
+    drive the rerun flag."""
+    return any(not m.startswith(FLAG_ABSENT) for a in alts for m in a)
+
+
+def satisfied_present_members(alts, enabled_lower: set) -> list[str]:
+    """The PRESENT members (recorded casing, deduped) of the alternatives that
+    currently hold - the plugins a tooltip should name as the trigger."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for a in alts:
+        if not all(_member_holds(m, enabled_lower) for m in a):
+            continue
+        for m in a:
+            if m.startswith(FLAG_ABSENT):
+                continue
+            key = m.lower()
+            if key not in seen:
+                seen.add(key)
+                out.append(m)
+    return out
+
+
+def missing_present_members(alts, enabled_lower: set) -> list[str]:
+    """The PRESENT-required members (recorded casing, deduped) that are NOT in
+    the load order - for a fired active clause, the plugins whose removal
+    orphaned the installed patch."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for a in alts:
+        for m in a:
+            if m.startswith(FLAG_ABSENT):
+                continue
+            key = m.lower()
+            if key not in enabled_lower and key not in seen:
+                seen.add(key)
+                out.append(m)
+    return out
+
+
+def prune_satisfied_conditions(raw: str, enabled_lower: set) -> str:
+    """Baseline filter for fomodPendingDeps: drop the option-conditions that
+    ALREADY hold against *enabled_lower*. Run once on the first flag evaluation
+    after a (re)install - the wizard offered those patches against this very
+    load order and the user declined them, so they are an informed choice, not
+    a change worth flagging. Returns the re-joined surviving conditions."""
+    keep = [cond for cond, alts in iter_option_conditions(raw)
+            if not option_met(alts, enabled_lower)]
+    return FLAG_OPT_SEP.join(keep)
 
 
 def _dep_references_file(dep: "Dependency") -> bool:

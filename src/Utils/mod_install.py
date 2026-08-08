@@ -2782,6 +2782,13 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             _clear_meta_key(meta_path, "fomodPendingDeps")
         if is_fomod and not fomod_active_deps:
             _clear_meta_key(meta_path, "fomodActiveDeps")
+        if is_fomod:
+            # A (re)install resets the rerun-flag bookkeeping: the pending
+            # baseline is re-derived on the next flag evaluation (against the
+            # load order the wizard just ran in) and the active-clause
+            # observations start over.
+            _clear_meta_key(meta_path, "fomodPendingBaselined")
+            _clear_meta_key(meta_path, "fomodActiveDepsSeen")
     except Exception as exc:
         log_fn(f"meta.ini write skipped ({exc}).")
 

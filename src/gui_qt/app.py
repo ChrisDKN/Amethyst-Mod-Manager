@@ -12246,13 +12246,20 @@ class MainWindow(QMainWindow):
             pass
         return out
 
-    def _build_rerun_fomod_mods(self) -> set:
-        """Mods that should show the rerun-FOMOD flag. Two conditions, both read
-        from meta.ini for FOMOD mods only (read_meta is mtime-cached, so cheap)
-        and evaluated against the currently-enabled plugins:
+    def _build_rerun_fomod_mods(self) -> dict:
+        """Mods that should show the rerun-FOMOD flag, mapped to the reason it
+        fired - ``("pending"|"active", [plugin names])`` for the hover tooltip.
+        Two conditions, both read from meta.ini for FOMOD mods only (read_meta
+        is mtime-cached, so cheap) and evaluated against the currently-enabled
+        plugins:
 
           • `fomodPendingDeps` (UNSELECTED options' deps): flag when an AND-clause
-            becomes FULLY present - a patch you skipped is now relevant.
+            becomes FULLY present - a patch you skipped is now relevant. On the
+            FIRST evaluation after a (re)install (`fomodPendingBaselined` unset)
+            clauses that ALREADY hold are pruned instead of fired: the wizard
+            offered those patches against this very load order and the user
+            declined them - an informed choice, not a change. Only a dep that
+            appears AFTER install raises the flag.
           • `fomodActiveDeps` (SELECTED options' deps): flag when an AND-clause is
             NO LONGER fully present - a patch you installed is now orphaned (its
             required mod was removed/disabled). Gated on `fomodActiveDepsSeen`:
@@ -12263,14 +12270,14 @@ class MainWindow(QMainWindow):
 
         See FLAG_RERUN_FOMOD."""
         if not hasattr(self, "_modlist_model") or not hasattr(self, "_plugin_model"):
-            return set()
+            return {}
         staging = self._gs.staging_dir()
         if staging is None:
-            return set()
+            return {}
         try:
             enabled = self._plugin_model.enabled_lower()
         except Exception:
-            return set()
+            return {}
         # Narrow to FOMOD-installed mods when we know them (avoids reading meta for
         # every mod); fall back to all mods if the set isn't populated yet.
         candidates = getattr(self, "_mod_fomod", None) or self._modlist_model.mod_names()
@@ -12282,63 +12289,45 @@ class MainWindow(QMainWindow):
             candidates = [m for m in candidates if m in enabled_mods]
         except Exception:
             pass
-        out: set[str] = set()
+        out: dict[str, tuple[str, list[str]]] = {}
         try:
             from Nexus.nexus_meta import read_meta
         except Exception:
-            return set()
+            return {}
 
-        # Clause delimiters - imported so the encode (fomod_installer) and decode
-        # (here) can never drift. They're all filename-illegal chars, so plugin
-        # names containing "+", "!", "&" etc. don't collide.
+        # Clause parsing/evaluation shared with the encode side
+        # (fomod_installer) so the format and its evaluation can never drift.
         from Utils.fomod_installer import (
-            FLAG_OPT_SEP, FLAG_OR_SEP, FLAG_AND_SEP, FLAG_ABSENT)
-
-        def _member_holds(m: str) -> bool:
-            # ">name" = the plugin must be ABSENT (a state="Missing" gate);
-            # "name" = the plugin must be present + enabled.
-            if m.startswith(FLAG_ABSENT):
-                return m[len(FLAG_ABSENT):] not in enabled
-            return m in enabled
-
-        def _and_clause(clause: str):
-            # An AND-clause → its lowercase members.
-            return [m.strip().lower() for m in clause.split(FLAG_AND_SEP)
-                    if m.strip()]
-
-        def _clause_holds(members) -> bool:
-            return bool(members) and all(_member_holds(m) for m in members)
-
-        def _option_conditions(raw: str):
-            # Each option-group is ONE option's condition, an OR-of-ANDs. Yield the
-            # raw condition string (its identity in the seen-list) and the list of
-            # member-lists (the OR alternatives).
-            for cond in (raw or "").split(FLAG_OPT_SEP):
-                alts = [_and_clause(c) for c in cond.split(FLAG_OR_SEP)]
-                alts = [a for a in alts if a]
-                if alts:
-                    yield cond.strip(), alts
-
-        def _option_met(alts) -> bool:
-            # OR: the option's condition holds if ANY alternative clause holds.
-            return any(_clause_holds(a) for a in alts)
-
-        def _has_present_member(alts) -> bool:
-            return any(not m.startswith(FLAG_ABSENT) for a in alts for m in a)
+            FLAG_OPT_SEP, iter_option_conditions, option_met,
+            option_has_present_member, satisfied_present_members,
+            missing_present_members, prune_satisfied_conditions)
 
         for name in candidates:
+            meta_path = staging / name / "meta.ini"
             try:
-                meta = read_meta(staging / name / "meta.ini")
+                meta = read_meta(meta_path)
             except Exception:
                 continue
+            # Baseline: first evaluation after a (re)install prunes clauses that
+            # already hold - the wizard offered those patches against this load
+            # order and the user declined them (see docstring).
+            pending_raw = getattr(meta, "fomod_pending_deps", "") or ""
+            if pending_raw and not getattr(meta, "fomod_pending_baselined",
+                                           False):
+                pending_raw = prune_satisfied_conditions(pending_raw, enabled)
+                self._persist_pending_baseline(meta_path, pending_raw)
             # Pending: an UNSELECTED option's condition is now satisfiable → rerun
             # to pick up the newly-relevant patch. Require at least one PRESENT
-            # member across the option (a non-"!" literal) so a condition that only
+            # member across the option (a non-">" literal) so a condition that only
             # needs something ABSENT - true almost always - doesn't fire constantly.
-            if any(_option_met(alts) and _has_present_member(alts)
-                   for _cond, alts in _option_conditions(
-                       getattr(meta, "fomod_pending_deps", ""))):
-                out.add(name)
+            triggers: list[str] = []
+            for _cond, alts in iter_option_conditions(pending_raw):
+                if option_met(alts, enabled) and option_has_present_member(alts):
+                    for m in satisfied_present_members(alts, enabled):
+                        if m not in triggers:
+                            triggers.append(m)
+            if triggers:
+                out[name] = ("pending", triggers)
                 continue
             # Active: a SELECTED option's condition is no longer satisfied (NONE of
             # its OR alternatives hold) → rerun to drop the now-orphaned patch. For
@@ -12354,21 +12343,37 @@ class MainWindow(QMainWindow):
             ).split(FLAG_OPT_SEP) if c.strip()]
             seen = {c.lower() for c in seen_list}
             fire = False
+            missing: list[str] = []
             newly_seen = False
-            for cond, alts in _option_conditions(active_raw):
-                if _option_met(alts):
+            for cond, alts in iter_option_conditions(active_raw):
+                if option_met(alts, enabled):
                     if cond.lower() not in seen:
                         seen.add(cond.lower())
                         seen_list.append(cond)
                         newly_seen = True
                 elif cond.lower() in seen:
                     fire = True
+                    for m in missing_present_members(alts, enabled):
+                        if m not in missing:
+                            missing.append(m)
             if newly_seen:
-                self._persist_active_deps_seen(staging / name / "meta.ini",
+                self._persist_active_deps_seen(meta_path,
                                                FLAG_OPT_SEP.join(seen_list))
             if fire:
-                out.add(name)
+                out[name] = ("active", missing)
         return out
+
+    def _persist_pending_baseline(self, meta_path, pruned: str) -> None:
+        """Store the install-time-pruned fomodPendingDeps and mark the mod
+        baselined (see _build_rerun_fomod_mods). One write for both keys."""
+        try:
+            from Nexus.nexus_meta import set_meta_keys
+            set_meta_keys(meta_path, {
+                "fomodPendingDeps": pruned or None,   # None removes the key
+                "fomodPendingBaselined": "true",
+            })
+        except Exception:
+            pass
 
     def _persist_active_deps_seen(self, meta_path, value: str) -> None:
         """Record which fomodActiveDeps clauses have been observed satisfied."""

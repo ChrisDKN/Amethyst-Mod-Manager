@@ -142,9 +142,10 @@ class ModListModel(QAbstractTableModel):
         self._prertx_mods: set[str] = set()
         self._root_rule_mods: set[str] = set()
         # Live overlay: mods whose FOMOD recorded a fileDependency plugin that is
-        # now present + enabled in the load order (→ rerun the FOMOD). Computed on
-        # every plugin reload from meta.ini fomodPendingDeps. See FLAG_RERUN_FOMOD.
-        self._rerun_fomod_mods: set[str] = set()
+        # now present + enabled in the load order (→ rerun the FOMOD), mapped to
+        # ("pending"|"active", [plugin names]) for the tooltip. Computed on every
+        # plugin reload from meta.ini fomodPendingDeps. See FLAG_RERUN_FOMOD.
+        self._rerun_fomod_mods: dict[str, tuple[str, list[str]]] = {}
         # Highlight state: mod names tinted green (wins over selection) / red
         # (loses to selection), and a set of "anchor" mods (orange) - the mod a
         # selected plugin belongs to. Driven by the view's cross-panel wiring.
@@ -364,12 +365,22 @@ class ModListModel(QAbstractTableModel):
         self._root_rule_mods = set(mods or ())
         self._emit_flags_changed()
 
-    def set_rerun_fomod_mods(self, mods: set[str]) -> None:
+    def set_rerun_fomod_mods(self, mods) -> None:
         """Set which mods have a recorded FOMOD fileDependency plugin now present
         in the load order - the rerun-FOMOD icon (live overlay, recomputed on
-        each plugin reload). See FLAG_RERUN_FOMOD."""
-        self._rerun_fomod_mods = set(mods or ())
+        each plugin reload). *mods* maps mod name → ``("pending"|"active",
+        [plugin names])`` for the hover tooltip (a bare iterable of names is
+        accepted with empty reasons). See FLAG_RERUN_FOMOD."""
+        if isinstance(mods, dict):
+            self._rerun_fomod_mods = dict(mods)
+        else:
+            self._rerun_fomod_mods = {n: ("", []) for n in (mods or ())}
         self._emit_flags_changed()
+
+    def rerun_fomod_reason(self, name: str):
+        """``("pending"|"active", [plugin names])`` behind *name*'s rerun-FOMOD
+        flag, or None - read by the delegate's flag tooltip."""
+        return self._rerun_fomod_mods.get(name)
 
     def _emit_flags_changed(self) -> None:
         if self._entries:
