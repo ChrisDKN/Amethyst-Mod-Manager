@@ -824,6 +824,25 @@ class BaseGame(ABC):
         return {}
 
     @property
+    def default_launch_args(self) -> list[str]:
+        """
+        Command-line arguments the game itself should always be launched with.
+
+        Applied on every launch route that can carry arguments: the direct
+        Proton path appends them to the command line, and the Steam route
+        forwards them via ``steam -applaunch`` / the rungameid URL.  Launcher
+        routes that can't carry arguments (Heroic/Lutris/Faugus) only log a
+        note — the game handler should surface those in a deploy warning.
+
+        Per-exe arguments the user saved come on top; a default that the user
+        already passes themselves is skipped, so no flag is doubled.
+
+        Example: Cyberpunk 2077 returns ``["-modded"]`` so deployed REDmods
+        are actually loaded.  Return an empty list (the default) for none.
+        """
+        return []
+
+    @property
     def steam_id(self) -> str:
         """
         Steam App ID for this game, e.g. '377160' for Fallout 4.

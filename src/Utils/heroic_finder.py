@@ -815,6 +815,28 @@ def find_heroic_proton_for_prefix(prefix_path: "str | Path") -> Path | None:
     return None
 
 
+def heroic_launcher_args(app_names: list[str]) -> str | None:
+    """The ``launcherArgs`` string from GamesConfig/<app>.json for the first
+    matching app, '' when the game has a config without args, or None when no
+    per-game config exists at all (game not configured in Heroic)."""
+    for heroic_root in _find_heroic_config_roots():
+        games_config = heroic_root / "GamesConfig"
+        for app_name in app_names:
+            cfg_file = games_config / f"{app_name}.json"
+            if not cfg_file.is_file():
+                continue
+            try:
+                cfg = json.loads(cfg_file.read_text(
+                    encoding="utf-8", errors="replace"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            inner = cfg.get(app_name, cfg) if isinstance(cfg, dict) else {}
+            if isinstance(inner, dict):
+                val = inner.get("launcherArgs", "")
+                return val if isinstance(val, str) else ""
+    return None
+
+
 def find_heroic_prefix(app_names: list[str]) -> Path | None:
     """
     Search all Heroic config roots for the Wine prefix of a game matching any

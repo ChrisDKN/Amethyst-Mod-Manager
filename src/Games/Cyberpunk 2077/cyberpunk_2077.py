@@ -151,6 +151,20 @@ class Cyberpunk2077(BaseGame):
 
 
     @property
+    def default_launch_args(self) -> list[str]:
+        # REDmod content (mods/ + r6/cache/modded) only loads when the game is
+        # started with -modded; harmless when no REDmods are installed, so it
+        # is passed unconditionally on every launch route we control.
+        return ["-modded"]
+
+    @property
+    def framework_launch_exes(self) -> dict[str, str]:
+        # REDlauncher re-runs redMod.exe deploy itself when the mod list
+        # changed, so it's the safest Run entry for script/tweak REDmods.
+        # -modded is forwarded to it via default_launch_args.
+        return {"REDLauncher": "REDprelauncher.exe"}
+
+    @property
     def frameworks(self) -> dict[str, str]:
         return {"Cyber Engine Tweaks": "bin/x64/plugins/cyber_engine_tweaks.asi",
                 "RED4ext": "red4ext/RED4ext.dll",
@@ -256,6 +270,65 @@ class Cyberpunk2077(BaseGame):
                                                progress_fn=progress_fn,
                                                exclude=custom_exclude or None)
         _log(f"Deploy complete. {linked_mod} mod file(s) placed in game root.")
+
+    def _deployed_redmods(self) -> list[str]:
+        """Names of REDmods deployed in the game root (mods/<name>/info.json)."""
+        if self._game_path is None:
+            return []
+        try:
+            return sorted(p.parent.name
+                          for p in (self._game_path / "mods").glob("*/info.json"))
+        except OSError:
+            return []
+
+    def post_deploy(self, log_fn=None) -> None:
+        """Warn when REDmods are deployed but an external launcher (Steam /
+        Heroic) would start the game without -modded, silently skipping them.
+        The manager's own launch routes pass -modded via default_launch_args."""
+        _log = log_fn or (lambda _m: None)
+        redmods = self._deployed_redmods()
+        if not redmods:
+            return
+        _log(f"REDmod: {len(redmods)} mod(s) deployed under mods/ — the game "
+             "only loads them when launched with -modded (the Play button "
+             "passes it automatically).")
+        warn = self._external_launch_missing_modded(_log)
+        if warn:
+            _log(f"REDmod: {warn}")
+            self.add_deploy_warning(warn)
+
+    def _external_launch_missing_modded(self, _log) -> str | None:
+        """A user-facing warning when the game's external launcher lacks
+        -modded, or None when it's configured (or there's no launcher)."""
+        try:
+            from Utils.exe_launch import (
+                effective_steam_id, game_is_steam_install,
+                game_is_heroic_install, heroic_app_names_for_launch,
+            )
+            if game_is_steam_install(self):
+                from Utils.steam_finder import steam_launch_options
+                opts = steam_launch_options(
+                    effective_steam_id(self) or self.steam_id)
+                if "-modded" not in opts:
+                    return (
+                        "REDmod mods are installed, but the game's Steam "
+                        "Launch Options don't include -modded, so launching "
+                        "from Steam will skip them. Add -modded in Steam → "
+                        "Cyberpunk 2077 → Properties → Launch Options. "
+                        "(The in-app Play button passes it automatically.)")
+            elif game_is_heroic_install(self):
+                from Utils.heroic_finder import heroic_launcher_args
+                args = heroic_launcher_args(heroic_app_names_for_launch(self))
+                if not args or "-modded" not in args:
+                    return (
+                        "REDmod mods are installed, but Heroic doesn't pass "
+                        "-modded, so launching from Heroic will skip them. "
+                        "Add -modded under Game Settings → Advanced → Game "
+                        "Arguments in Heroic. (The in-app Play button passes "
+                        "it automatically.)")
+        except Exception as exc:
+            _log(f"REDmod: launch-options check skipped ({exc})")
+        return None
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Remove deployed mod files from the game root and restore any vanilla files."""

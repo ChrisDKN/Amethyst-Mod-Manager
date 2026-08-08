@@ -870,7 +870,8 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     threading.Thread(target=_watch, daemon=True).start()
 
 
-def launch_via_steam(steam_id: str, log_fn=_noop_log) -> None:
+def launch_via_steam(steam_id: str, log_fn=_noop_log,
+                     extra_args: "list[str] | None" = None) -> None:
     """Launch through Steam (steam://rungameid) so the Steam API initialises.
 
     Inside a Flatpak sandbox the runtime has no `steam` binary and its own
@@ -880,15 +881,43 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log) -> None:
     wrong host CWD, missing binary - which is why the Play button silently
     did nothing. ``spawn_watched`` fixes the CWD, watches the real exit code,
     and chains to the next candidate on failure.
+
+    *extra_args* are forwarded to the game's command line. Two forms, tried
+    in this order when args are present:
+      1. ``steam -applaunch <id> <args>`` - the documented CLI form, Steam
+         reliably appends the args (after the user's Launch Options).
+      2. the rungameid URL with args after ``//`` ('+'-separated, URL-quoted)
+         - best-effort: some Steam builds ignore URL args, but it's the only
+         route into a Flatpak Steam (no host ``steam`` binary). xdg-open
+         exits 0 once the URL is handed off, so a dropped arg can't be
+         detected - which is why it must come *after* -applaunch here,
+         reversing the argless candidate order.
     """
     log_fn(f"Play: launching via Steam (app {steam_id}) ...")
     url = f"steam://rungameid/{steam_id}"
     in_flatpak = Path("/.flatpak-info").exists()
+    have_spawn = shutil.which("flatpak-spawn") is not None
+    if extra_args:
+        from urllib.parse import quote
+        url += "//" + "+".join(quote(a, safe="-_.~") for a in extra_args)
+        applaunch = ["steam", "-applaunch", steam_id, *extra_args]
+        log_fn(f"Play: forwarding launch args through Steam: {' '.join(extra_args)}")
+        if in_flatpak and have_spawn:
+            candidates = [
+                ["flatpak-spawn", "--host", *applaunch],
+                ["flatpak-spawn", "--host", "xdg-open", url],
+                ["xdg-open", url],
+            ]
+        else:
+            candidates = [
+                applaunch,
+                ["xdg-open", url],
+            ]
     # Ordered candidates, each falling through to the next on non-zero exit.
     # Host xdg-open goes first: it routes steam:// to whichever Steam the user
     # actually has (native *or* Flatpak com.valvesoftware.Steam), whereas a
     # bare `steam` binary only exists for native installs.
-    if in_flatpak and shutil.which("flatpak-spawn"):
+    elif in_flatpak and have_spawn:
         candidates = [
             ["flatpak-spawn", "--host", "xdg-open", url],
             ["flatpak-spawn", "--host", "steam", url],
@@ -1911,6 +1940,15 @@ def launch_game(game, log_fn=_noop_log) -> None:
     steam_id = effective_steam_id(game)
     heroic_app_names = heroic_app_names_for_launch(game)
     is_steam = game_is_steam_install(game)
+    default_args = list(getattr(game, "default_launch_args", []) or [])
+
+    def _note_launcher_args(launcher: str) -> None:
+        # heroic:// / lutris: / faugus URLs can't carry a command line - the
+        # handler's deploy warning tells the user where to add the args.
+        if default_args:
+            log_fn(f"Play: note - the {launcher} route can't pass launch "
+                   f"args; make sure '{' '.join(default_args)}' is set in "
+                   f"{launcher}'s own launch settings for this game.")
 
     # One routing-trace line so a user's session log shows WHY a launch route
     # was chosen or skipped - "the Play button does nothing" reports are
@@ -1924,13 +1962,14 @@ def launch_game(game, log_fn=_noop_log) -> None:
 
     if mode == "steam":
         if steam_id:
-            launch_via_steam(steam_id, log_fn)
+            launch_via_steam(steam_id, log_fn, extra_args=default_args or None)
         else:
             log_fn("Play: launch mode is Steam but game has no Steam ID.")
         return
 
     if mode == "heroic":
         if heroic_app_names:
+            _note_launcher_args("Heroic")
             launch_via_heroic(heroic_app_names, log_fn)
         else:
             log_fn("Play: launch mode is Heroic but game has no Heroic app name.")
@@ -1939,6 +1978,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
     if mode == "lutris":
         slugs = lutris_slugs_for_launch(game)
         if slugs:
+            _note_launcher_args("Lutris")
             launch_via_lutris(slugs, log_fn)
         else:
             log_fn("Play: launch mode is Lutris but the game was not found in Lutris.")
@@ -1947,6 +1987,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
     if mode == "faugus":
         gameids = faugus_gameids_for_launch(game)
         if gameids:
+            _note_launcher_args("Faugus")
             launch_via_faugus(gameids, log_fn)
         else:
             log_fn("Play: launch mode is Faugus but the game was not found in Faugus.")
@@ -1954,9 +1995,10 @@ def launch_game(game, log_fn=_noop_log) -> None:
 
     if mode != "none":  # "auto"
         if steam_id and is_steam:
-            launch_via_steam(steam_id, log_fn)
+            launch_via_steam(steam_id, log_fn, extra_args=default_args or None)
             return
         if heroic_app_names and game_is_heroic_install(game):
+            _note_launcher_args("Heroic")
             if launch_via_heroic(heroic_app_names, log_fn):
                 return
         # Lutris/Faugus last among launchers (computed lazily - the scans
@@ -1964,10 +2006,12 @@ def launch_game(game, log_fn=_noop_log) -> None:
         lutris_slugs = lutris_slugs_for_launch(game)
         if lutris_slugs:
             if launch_via_lutris(lutris_slugs, log_fn):
+                _note_launcher_args("Lutris")
                 return
         faugus_gameids = faugus_gameids_for_launch(game)
         if faugus_gameids:
             if launch_via_faugus(faugus_gameids, log_fn):
+                _note_launcher_args("Faugus")
                 return
         log_fn("Play: no Steam/Heroic/Lutris/Faugus route matched - launching "
                "the game executable directly.")
@@ -2362,6 +2406,15 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
     # must too. Only when we ARE the launcher: mode=heroic never gets here.
     epic_args = epic_args_for_game(game, log_fn) if launches_game else []
     extra_args = extra_args + epic_args
+
+    # Handler-declared default args (e.g. Cyberpunk's -modded). Prepended so
+    # the user's own saved args stay last; skipped when already passed.
+    if launches_game:
+        default_args = [a for a in (getattr(game, "default_launch_args", []) or [])
+                        if a not in extra_args]
+        if default_args:
+            log_fn(f"Run EXE: adding default launch args: {' '.join(default_args)}")
+            extra_args = default_args + extra_args
 
     # Apply launch-option env vars before building the command: when the
     # command gets wrapped in flatpak-spawn --host, proton_run_command
