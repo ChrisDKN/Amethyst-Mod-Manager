@@ -237,13 +237,23 @@ class _SourceOverlay(_CardOverlay):
     CARD_H = 520
 
     def __init__(self, host, mod_name, current_source, current_url, on_pick,
-                 current_instructions: str = "", bundle_blocked_reason: str = ""):
+                 current_instructions: str = "", bundle_blocked_reason: str = "",
+                 option_notes: dict | None = None,
+                 disabled_sources: set | None = None):
+        """*option_notes* maps a source to a caveat shown as a ⚠ with the text
+        on hover; *disabled_sources* greys a source out entirely. Both are how
+        the bulk (multi-mod) path reports that a source only fits part of the
+        selection — see ExportProfileView._bulk_source_notes."""
         super().__init__(host)
         self._on_pick = on_pick
+        option_notes = dict(option_notes or {})
+        disabled_sources = set(disabled_sources or ())
         self._body.addWidget(_card_title(self.tr("Source - {0}").format(mod_name)))
 
         bundle_desc = (bundle_blocked_reason or
                        self.tr("Include mod in the output (e.g. DynDOLOD output)"))
+        if bundle_blocked_reason:
+            disabled_sources.add("bundle")
         self._group = QButtonGroup(self)
         self._radios: dict[str, QRadioButton] = {}
         for value, label, desc in (
@@ -254,9 +264,15 @@ class _SourceOverlay(_CardOverlay):
             ("bundle", self.tr("Bundle"),     bundle_desc),
             ("ignore", self.tr("Ignore"),     self.tr("Exclude this mod from the export entirely")),
         ):
-            rb = QRadioButton(self.tr("{0}   - {1}").format(label, desc))
+            text = self.tr("{0}   - {1}").format(label, desc)
+            note = option_notes.get(value, "")
+            if note:
+                text = f"{text}  ⚠"        # i18n: skip - a bare glyph
+            rb = QRadioButton(text)
+            if note:
+                rb.setToolTip(note)
             rb.setChecked(value == current_source)
-            if value == "bundle" and bundle_blocked_reason:
+            if value in disabled_sources:
                 # Redistributing a mod users can download themselves isn't ours
                 # to do — see ExportProfileView._bundle_blocked_reason.
                 rb.setEnabled(False)
@@ -313,10 +329,14 @@ class _SourceOverlay(_CardOverlay):
         self._show_over()
 
     def _current(self) -> str:
+        """The picked source, or "" when none is. Empty is reachable two ways:
+        a bulk change over rows that don't share one source, and a row whose
+        saved source is now disabled. Both must mean "nothing chosen yet"
+        rather than silently falling through to Nexus."""
         for value, rb in self._radios.items():
             if rb.isChecked():
                 return value
-        return "nexus"
+        return ""
 
     def _on_toggle(self):
         src = self._current()
@@ -326,6 +346,9 @@ class _SourceOverlay(_CardOverlay):
 
     def _apply(self):
         src = self._current()
+        if not src:
+            self._finish()      # nothing picked - close without changing rows
+            return
         url = self._url.text().strip() if src in ("direct", "browse", "manual") else ""
         instructions = (self._instructions.toPlainText().strip()
                         if src in ("browse", "manual") else "")
@@ -451,8 +474,13 @@ class _LoadSettingsOverlay(_CardOverlay):
 # ---------------------------------------------------------------------------
 
 # Column indices.
-(_COL_NAME, _COL_SOURCE, _COL_VERSION, _COL_FOMOD, _COL_OPTIONAL,
- _COL_EDITS) = range(6)
+(_COL_CHECK, _COL_NAME, _COL_SOURCE, _COL_VERSION, _COL_FOMOD, _COL_OPTIONAL,
+ _COL_EDITS) = range(7)
+
+# The bulk-select column's header is blank — the checkboxes speak for
+# themselves and a label would only widen the column. It is still the
+# column_state key its width is persisted under, so it must stay stable.
+_CHECK_COL_NAME = ""
 
 
 class _HeaderModelShim(QIdentityProxyModel):
@@ -516,6 +544,13 @@ class ExportProfileView(QWidget):
         self._sort_asc = True
         self._restoring_columns = False
         self._vp_filter_installed = False
+        # Bulk selection: data indices into _all_rows (stable — _all_rows is
+        # only ever replaced wholesale by _load_rows, never re-ordered).
+        # _check_anchor + _check_range_select drive shift-click ranges the same
+        # way DownloadsModel.toggle_check does.
+        self._checked: set[int] = set()
+        self._check_anchor: int | None = None
+        self._check_range_select = True
         # (data_idx, overlay) for the version card currently on screen, so a
         # late file-list fetch can populate it instead of arriving too late.
         self._version_overlay = None
@@ -532,9 +567,29 @@ class ExportProfileView(QWidget):
 
     # -- construction -------------------------------------------------------
     def _qss(self) -> str:
+        from gui_qt.theme_qt import _tinted_icon_url
         p = active_palette()
         c = lambda k: _c(p, k)
-        return f"""
+        ct = lambda k: contrast_text(_c(p, k))
+        # The select column's tick is an item-view indicator, not a QCheckBox,
+        # so the app theme's QCheckBox::indicator rules don't reach it. Repeat
+        # them here or it renders as a bare platform checkbox next to the
+        # themed Optional/Fomod boxes three columns over.
+        check_qss = f"""
+        QTableWidget::indicator {{
+            width: 16px; height: 16px;
+            border: 1px solid {c('BORDER_FAINT')};
+            border-radius: 3px;
+            background: {c('BG_DEEP')};
+        }}
+        QTableWidget::indicator:hover {{ border: 1px solid {c('CHECK_FILL')}; }}
+        QTableWidget::indicator:checked {{
+            background: {c('CHECK_FILL')};
+            border: 1px solid {c('CHECK_FILL')};
+            image: url({_tinted_icon_url('check_white.png', ct('CHECK_FILL'))});
+        }}
+        """
+        return check_qss + f"""
         #ExportProfileView {{ background: {c('BG_DEEP')}; }}
         #EPTitleBar {{ background: {c('BG_HEADER')};
                        border-bottom: 1px solid {c('BORDER')}; }}
@@ -577,6 +632,17 @@ class ExportProfileView(QWidget):
         self._hide_chk.toggled.connect(self._on_hide_toggle)
         tl.addWidget(self._hide_chk)
         tl.addStretch(1)
+        # Bulk actions on the ticked rows - disabled until something is ticked.
+        self._bulk_source_btn = QPushButton(self.tr("Change Source"))
+        self._bulk_source_btn.setObjectName("FormButton")
+        self._bulk_source_btn.setCursor(Qt.PointingHandCursor)
+        self._bulk_source_btn.clicked.connect(self._on_bulk_source)
+        tl.addWidget(self._bulk_source_btn)
+        self._bulk_optional_btn = QPushButton(self.tr("Make Optional"))
+        self._bulk_optional_btn.setObjectName("FormButton")
+        self._bulk_optional_btn.setCursor(Qt.PointingHandCursor)
+        self._bulk_optional_btn.clicked.connect(self._on_bulk_optional)
+        tl.addWidget(self._bulk_optional_btn)
         save = QPushButton(self.tr("Save settings")); save.setObjectName("FormButton")
         save.setCursor(Qt.PointingHandCursor)
         save.clicked.connect(self._on_save_settings)
@@ -592,9 +658,10 @@ class ExportProfileView(QWidget):
         root.addWidget(tb)
 
         # Table.
-        self._table = QTableWidget(0, 6)
+        self._table = QTableWidget(0, 7)
         self._table.setHorizontalHeaderLabels(
-            [self.tr("Mod Name"), self.tr("Source"), self.tr("Preferred Version"),
+            [_CHECK_COL_NAME,
+             self.tr("Mod Name"), self.tr("Source"), self.tr("Preferred Version"),
              self.tr("Fomod"), self.tr("Optional"), self.tr("Edits")])
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QAbstractItemView.NoSelection)
@@ -619,6 +686,7 @@ class ExportProfileView(QWidget):
     # version label, centered checkbox) so shrinking the panel never clips
     # them. The header-label fit below raises these further when needed.
     _MIN_COL_WIDTHS = {
+        _CHECK_COL_NAME: 34,   # just the tick indicator
         "Mod Name": _NAME_MIN,
         "Source": 84,
         "Preferred Version": 130,
@@ -711,10 +779,208 @@ class ExportProfileView(QWidget):
         self._fit_name_to_width()
 
     def eventFilter(self, obj, event):
-        if (obj is self._table.viewport()
-                and event.type() == QEvent.Resize):
-            self._fit_name_to_width()
+        if obj is self._table.viewport():
+            if event.type() == QEvent.Resize:
+                self._fit_name_to_width()
+            elif (event.type() in (QEvent.MouseButtonRelease,
+                                   QEvent.MouseButtonDblClick)
+                    and event.button() == Qt.LeftButton):
+                # Downloads-tab parity: the tick OR the mod name toggles the
+                # row, so a shift-range is easy to drag out. Double-clicks are
+                # handled too, else a fast second click is swallowed and the
+                # row appears not to respond.
+                idx = self._table.indexAt(event.position().toPoint())
+                if idx.isValid() and idx.column() in (_COL_CHECK, _COL_NAME):
+                    self._toggle_check(
+                        idx.row(),
+                        shift=bool(event.modifiers() & Qt.ShiftModifier))
+                    return True
         return super().eventFilter(obj, event)
+
+    # -- bulk selection ------------------------------------------------------
+    def _data_index_map(self) -> dict:
+        """``id(row) -> index into _all_rows``. Identity-keyed: list.index()
+        would deep-compare dicts and pick the wrong row for duplicates."""
+        return {id(r): i for i, r in enumerate(self._all_rows)}
+
+    def _toggle_check(self, vis_row: int, shift: bool = False):
+        """Toggle the tick on a VISIBLE row. With *shift* and a live anchor,
+        apply the anchor's last action to the whole visible range between them
+        (port of DownloadsModel.toggle_check). Ranges walk the rows as sorted
+        and filtered on screen, which is what the user is pointing at."""
+        if not (0 <= vis_row < len(self._rows)):
+            return
+        pos = self._data_index_map()
+        data_idx = pos.get(id(self._rows[vis_row]))
+        if data_idx is None:
+            return
+        if shift and self._check_anchor is not None:
+            anchor_vis = next(
+                (v for v, r in enumerate(self._rows)
+                 if pos.get(id(r)) == self._check_anchor), None)
+            if anchor_vis is not None:
+                lo, hi = sorted((anchor_vis, vis_row))
+                for v in range(lo, hi + 1):
+                    di = pos.get(id(self._rows[v]))
+                    if di is None:
+                        continue
+                    if self._check_range_select:
+                        self._checked.add(di)
+                    else:
+                        self._checked.discard(di)
+                # Anchor stays put so the range can be re-extended.
+                self._refresh_check_column()
+                self._update_bulk_actions()
+                return
+        if data_idx in self._checked:
+            self._checked.discard(data_idx)
+            self._check_range_select = False
+        else:
+            self._checked.add(data_idx)
+            self._check_range_select = True
+        self._check_anchor = data_idx
+        self._refresh_check_column()
+        self._update_bulk_actions()
+
+    def _refresh_check_column(self):
+        """Re-stamp every visible tick from ``_checked``."""
+        pos = self._data_index_map()
+        for v, row in enumerate(self._rows):
+            item = self._table.item(v, _COL_CHECK)
+            if item is None:
+                continue
+            di = pos.get(id(row))
+            item.setCheckState(Qt.Checked if di in self._checked
+                               else Qt.Unchecked)
+
+    def _checked_rows(self) -> list:
+        """The ticked rows, in ``_all_rows`` order. Ticks survive search and
+        filter changes (Downloads parity), so this can include rows that are
+        currently hidden — the button labels carry the count to make that
+        visible before the user acts."""
+        return [self._all_rows[i] for i in sorted(self._checked)
+                if 0 <= i < len(self._all_rows)]
+
+    def _clear_checks(self):
+        self._checked.clear()
+        self._check_anchor = None
+        self._check_range_select = True
+
+    def _update_bulk_actions(self):
+        """Enable/label the bulk buttons for the current tick set."""
+        rows = self._checked_rows()
+        n = len(rows)
+        for btn in (self._bulk_source_btn, self._bulk_optional_btn):
+            btn.setEnabled(bool(n))
+        self._bulk_source_btn.setText(
+            self.tr("Change Source ({0})").format(n) if n
+            else self.tr("Change Source"))
+        # One button, both directions: an all-optional selection clears, any
+        # other selection sets. The label always states what a click will do.
+        all_optional = bool(rows) and all(r.get("optional") for r in rows)
+        if not n:
+            self._bulk_optional_btn.setText(self.tr("Make Optional"))
+        elif all_optional:
+            self._bulk_optional_btn.setText(
+                self.tr("Clear Optional ({0})").format(n))
+        else:
+            self._bulk_optional_btn.setText(
+                self.tr("Make Optional ({0})").format(n))
+
+    def _bulk_source_notes(self, rows) -> "tuple[dict, set]":
+        """``(per-source warning text, sources to disable)`` for a bulk change.
+
+        A selection is usually mixed, so instead of hiding sources that only
+        some rows can use, each one carries what it will do to the rows that
+        can't - matching the single-mod overlay, which explains rather than
+        silently drops."""
+        total = len(rows)
+        notes: dict = {}
+        disabled: set = set()
+
+        blocked = [r for r in rows if self._bundle_blocked_reason(r)]
+        if blocked:
+            if len(blocked) == total:
+                disabled.add("bundle")
+                notes["bundle"] = self._bundle_blocked_reason(blocked[0])
+            else:
+                notes["bundle"] = self.tr(
+                    "{0} of {1} selected mods are on Nexus and will be left "
+                    "unchanged.").format(len(blocked), total)
+
+        no_file = [r for r in rows if not (r.get("mod_id") and r.get("file_id"))]
+        if no_file:
+            notes["nexus"] = self.tr(
+                "{0} of {1} selected mods have no Nexus File ID yet - set one "
+                "on each before exporting.").format(len(no_file), total)
+
+        if total > 1:
+            shared = self.tr(
+                "The same URL and instructions are applied to all {0} selected "
+                "mods.").format(total)
+            for key in ("direct", "browse", "manual"):
+                notes[key] = shared
+        return notes, disabled
+
+    def _on_bulk_source(self):
+        rows = self._checked_rows()
+        if not rows:
+            return
+        notes, disabled = self._bulk_source_notes(rows)
+
+        def _unanimous(key: str, default: str = "") -> str:
+            """The value all rows share, else "" — a mixed selection starts the
+            field blank rather than silently adopting one row's value."""
+            vals = {r.get(key, default) or "" for r in rows}
+            return vals.pop() if len(vals) == 1 else ""
+
+        current = _unanimous("source", "nexus")
+        count = len(rows)
+        label = (rows[0]["name"] if count == 1
+                 else self.tr("{0} mods").format(count))
+
+        def _picked(source, url, instructions):
+            self._apply_bulk_source(source, url, instructions)
+
+        _SourceOverlay(self.window(), label, current, _unanimous("direct_url"),
+                       _picked,
+                       current_instructions=_unanimous("source_instructions"),
+                       option_notes=notes, disabled_sources=disabled)
+
+    def _apply_bulk_source(self, source: str, url: str, instructions: str):
+        changed = skipped = 0
+        for row in self._checked_rows():
+            # The bundle rule is per-mod, so a bulk change must not become a
+            # way around it - those rows keep the source they had.
+            if source == "bundle" and self._bundle_blocked_reason(row):
+                skipped += 1
+                continue
+            row["source"] = source
+            row["direct_url"] = url
+            row["source_instructions"] = instructions
+            changed += 1
+        # Full rebuild: source drives the Edits cell and can drive the sort.
+        self._apply_filter()
+        if skipped:
+            self._notify(
+                self.tr("Source set on {0} mod(s); {1} left unchanged (on "
+                        "Nexus).").format(changed, skipped), "warning")
+        else:
+            self._notify(
+                self.tr("Source set on {0} mod(s).").format(changed), "info")
+
+    def _on_bulk_optional(self):
+        rows = self._checked_rows()
+        if not rows:
+            return
+        make = not all(r.get("optional") for r in rows)
+        for row in rows:
+            row["optional"] = make
+        self._apply_filter()
+        self._notify(
+            self.tr("Marked {0} mod(s) optional.").format(len(rows)) if make
+            else self.tr("Cleared optional on {0} mod(s).").format(len(rows)),
+            "info")
 
     def _fit_name_to_width(self):
         """Keep the columns exactly filling the viewport (modlist behaviour).
@@ -816,6 +1082,8 @@ class ExportProfileView(QWidget):
         is reversed here. Separators are dropped (mirrors the Tk _on_workshop
         prep)."""
         from Utils.modlist import read_modlist
+        # Ticks index into _all_rows, so they can't outlive it being rebuilt.
+        self._clear_checks()
         pd = self._profile_dir()
         modlist_path = (pd / "modlist.txt") if pd else None
         if not modlist_path or not modlist_path.is_file():
@@ -868,6 +1136,8 @@ class ExportProfileView(QWidget):
                       reverse=not self._sort_asc)
         self._rows = rows
         self._rebuild_table()
+        # Counts/labels track the tick set, which survives filtering.
+        self._update_bulk_actions()
 
     def _rebuild_table(self):
         t = self._table
@@ -878,6 +1148,17 @@ class ExportProfileView(QWidget):
         pos = {id(r): i for i, r in enumerate(self._all_rows)}
         for i, row in enumerate(self._rows):
             data_idx = pos[id(row)]
+
+            # Selection tick. Deliberately NOT ItemIsUserCheckable: Qt paints
+            # the indicator for any item carrying CheckStateRole, and leaving
+            # the flag off means Qt never toggles it behind our back — every
+            # change goes through _toggle_check, which owns the shift anchor.
+            chk = QTableWidgetItem()
+            chk.setFlags(Qt.ItemIsEnabled)
+            chk.setTextAlignment(Qt.AlignCenter)
+            chk.setCheckState(Qt.Checked if data_idx in self._checked
+                              else Qt.Unchecked)
+            t.setItem(i, _COL_CHECK, chk)
 
             name_item = QTableWidgetItem(row["name"])
             name_item.setFlags(Qt.ItemIsEnabled)
@@ -1164,6 +1445,38 @@ class ExportProfileView(QWidget):
                 self.tr("{0} Nexus {1} {2} missing a File ID and must be set before exporting.").format(count, noun, verb), "warning")
             return
 
+        # Bundling a mod that has a Nexus page packs someone else's work into
+        # the file instead of linking to it. Allowed here - a .amethyst is a
+        # personal backup and never leaves this machine on its own - but the
+        # user should know before handing the file to anyone else.
+        redistributable = profile_export.redistributable_bundle_names(
+            self._all_rows)
+        if redistributable:
+            from gui_qt.confirm_overlay import ConfirmOverlay
+
+            def _confirmed(ok: bool):
+                if ok:
+                    self._open_export_picker()
+
+            count = len(redistributable)
+            body = self.tr(
+                "{0} bundled mod(s) below are available on Nexus, so their "
+                "files will be packed into this export rather than downloaded "
+                "on import.\n\nThat is fine for your own backup. Do not share "
+                "or upload the file in this state - set those mods to Nexus "
+                "and use Edits to carry your local changes."
+            ).format(count)
+            ConfirmOverlay(self.window(), self.tr("Bundled Nexus mods"), body,
+                           _confirmed, confirm_label=self.tr("Export anyway"),
+                           cancel_label=self.tr("Cancel"), danger=False,
+                           list_items=redistributable)
+            return
+
+        self._open_export_picker()
+
+    def _open_export_picker(self):
+        """Ask for the output path, then export. Split out of :meth:`_on_export`
+        so the bundled-Nexus-mods confirmation can resume it."""
         pd = self._profile_dir()
         profile_name = pd.name if pd else "manifest"
         default_name = f"{profile_name}_export.amethyst"

@@ -29,12 +29,15 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.export_profile_view import (
     ExportProfileView, _CardOverlay, _card_title, _card_button_bar,
+    _CHECK_COL_NAME,
 )
 from Utils import profile_export
 
-_COL_PHASE = 5
-_COL_POLICY = 6
-_COL_EDITS = 7
+# Base columns are check/name/source/version/fomod/optional (0-5); these three
+# are appended, so they shift with any change to the base set.
+_COL_PHASE = 6
+_COL_POLICY = 7
+_COL_EDITS = 8
 
 # Per-mod update policy cycle: what the installer fetches when the mod has a
 # newer file than the one the author pinned.
@@ -427,9 +430,10 @@ class CreateCollectionView(ExportProfileView):
         # install after previous ones are deployed, e.g. frameworks first).
         # Update: what installers fetch when a newer file exists.
         t = self._table
-        t.setColumnCount(8)
+        t.setColumnCount(9)
         t.setHorizontalHeaderLabels(
-            [self.tr("Mod Name"), self.tr("Source"), self.tr("Preferred Version"),
+            [_CHECK_COL_NAME,
+             self.tr("Mod Name"), self.tr("Source"), self.tr("Preferred Version"),
              self.tr("Fomod"), self.tr("Optional"), self.tr("Phase"),
              self.tr("Update"), self.tr("Edits")])
         # Re-wire the header now the column set is final (sortable + resizable,

@@ -365,6 +365,24 @@ def nexus_missing_file_ids(rows) -> list[str]:
     ]
 
 
+def redistributable_bundle_names(rows) -> list[str]:
+    """Names of bundled mods that are also downloadable from Nexus.
+
+    Bundling packs the mod's files into the ``.amethyst`` itself, so for a mod
+    with a Nexus page the export stops being a list of what to download and
+    becomes a copy of someone else's work. That is fine for a personal backup —
+    the export has no upload path — but not for one handed to other people, so
+    the Qt view confirms before writing. Publishing is blocked outright; see
+    CreateCollectionView._bundle_blocked_reason and collection_export's
+    bundle -> nexus downgrade.
+    """
+    return [
+        row["name"] for row in rows
+        if row.get("source") == "bundle" and row.get("mod_id")
+        and row.get("file_id")
+    ]
+
+
 def build_manifest(rows, game_domain: str, app_version: str, *,
                    game_name=None, profile_dir=None) -> dict:
     """Build the ``manifest.json`` dict from the export *rows*. Mods with
