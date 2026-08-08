@@ -173,9 +173,9 @@ Clique em Instalar para começar.</translation>
         <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
 
 Rebuild from scratch restores the game to vanilla and runs the decompressor again (needs the .mpi package).</source>
-        <translation>O mod '{0}' já está em sua lista de mods - não há nada para re-aplicar, então você pode simplesmente fechar este assistente.
+        <translation>O mod '{0}' já está em sua lista de mods - não há nada para re-aplicar, então você pode simplesmente fechar este wizard.
 
-Reconstruir do zero restaura o jogo para baunilha e corre o descompressor novamente (precisa do pacote .mpi).</translation>
+Reconstruir do zero restaura o jogo para vanilla e executa o descompressor novamente (precisa do pacote .mpi).</translation>
     </message>
     <message>
         <source>Rebuild from scratch</source>
@@ -193,7 +193,7 @@ Reconstruir do zero restaura o jogo para baunilha e corre o descompressor novame
         <source>The BSA Decompressor rebuilds the vanilla BSA archives without compression for faster loading, and the result is added as a mod.
 
 Download the 'FNV BSA Decompressor' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
-        <translation>O Descompressor BSA reconstrói os arquivos BSA de baunilha sem compressão para carregamento mais rápido, e o resultado é adicionado como um mod.
+        <translation>O Descompressor BSA reconstrói os arquivos BSA vanilla sem compressão para carregamento mais rápido, e o resultado é adicionado como um mod.
 
 Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro do arquivo é detectado automaticamente.</translation>
     </message>
@@ -312,24 +312,24 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     <message>
         <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
 Output is written directly into your mod list as the '{0}' mod.</source>
-        <translation>O jogo é restaurado primeiro para um estado de baunilha, então o instalador reconstrói os arquivos BSA baunilha sem compressão. Isso pode demorar um pouco. Por favor, deixe ligado.
+        <translation>O jogo é restaurado primeiro para um estado vanilla, então o instalador reconstrói os arquivos BSA vanilla sem compressão. Isso pode demorar um pouco. Por favor, deixe ligado.
 Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translation>
     </message>
     <message>
         <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-        <translation>O binário do instalador sumiu. Reinicie o assistente e deixe-o instalar primeiro.</translation>
+        <translation>O binário do instalador sumiu. Reinicie o wizard e deixe-o instalar primeiro.</translation>
     </message>
     <message>
         <source>Restoring game to vanilla…</source>
-        <translation>Restaurando o jogo para baunilha…</translation>
+        <translation>Restaurando o jogo para vanilla…</translation>
     </message>
     <message>
         <source>Restoring game to a vanilla state before install…</source>
-        <translation>Restaurando o jogo para um estado de baunilha antes de instalar…</translation>
+        <translation>Restaurando o jogo para um estado vanilla antes de instalar…</translation>
     </message>
     <message>
         <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-        <translation>A restauração falhou, veja o registro. Conserte o problema (ou restaure manualmente através do botão Restaurar) e tente novamente.</translation>
+        <translation>A restauração falhou, veja o log. Conserte o problema (ou restaure manualmente através do botão Restaurar) e tente novamente.</translation>
     </message>
     <message>
         <source>Mod staging path is not configured.</source>
@@ -338,7 +338,7 @@ Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translatio
     <message>
         <source>ERROR: missing vanilla plugin files:
 {0}</source>
-        <translation>ERRO: arquivos de plugin de baunilha faltando:
+        <translation>ERRO: arquivos de plugin vanilla faltando:
 {0}</translation>
     </message>
     <message>
@@ -346,14 +346,14 @@ Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translatio
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-        <translation>Arquivos de plug-in de baunilha faltando mesmo depois de restaurar a baunilha - estes nunca foram copiados.
+        <translation>Arquivos de plugin vanilla faltando mesmo depois de restaurar para vanilla - estes nunca foram copiados.
 No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arquivos instalados → Verifique a integridade dos arquivos do jogo, em seguida, tente novamente.
 
 {0}</translation>
     </message>
     <message>
         <source>Decompressing… (see log below)</source>
-        <translation>Descompressão… (veja o registro abaixo)</translation>
+        <translation>Descompressão… (veja o log abaixo)</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -361,7 +361,7 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Installer exited with error (code {0}). See the log for details.</source>
-        <translation>O instalador saiu com erro (código {0}). Veja o registro para detalhes.</translation>
+        <translation>O instalador saiu com erro (código {0}). Veja o log para detalhes.</translation>
     </message>
     <message>
         <source>Build complete — registering mod…</source>
@@ -548,7 +548,7 @@ Ou use Procurar para selecioná-lo manualmente.</translation>
         <source>'{0}' was not found.
 Please restart the wizard and install BethINI Pie first.</source>
         <translation>"{0}" não foi encontrado.
-Por favor, reinicie o assistente e instale BethINI Pie primeiro.</translation>
+Por favor, reinicie o wizard e instale BethINI Pie primeiro.</translation>
     </message>
     <message>
         <source>'{0}' was not found.</source>
@@ -758,7 +758,7 @@ Faça o deploy da lista de mods primeiro e, em seguida, execute a ferramenta.</t
 Install {0} as a mod, then reopen this wizard.</source>
         <translation>{0} não foi encontrado na sua pasta de staging.
 
-Instale {0} como mod e reabra este assistente.</translation>
+Instale {0} como mod e reabra este wizard.</translation>
     </message>
     <message>
         <source>Launching {0}…</source>
@@ -770,7 +770,7 @@ Instale {0} como mod e reabra este assistente.</translation>
 Deploy your modlist first, then reopen this wizard.</source>
         <translation>{0} não foi encontrado na pasta "Data" com deploy feito.
 
-Faça o deploy da lista de mods primeiro e, em seguida, reabra este assistente.</translation>
+Faça o deploy da lista de mods primeiro e, em seguida, reabra este wizard.</translation>
     </message>
     <message>
         <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
@@ -1150,7 +1150,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Opt</source>
-        <translation>Opt</translation>
+        <translation>Opc</translation>
     </message>
     <message>
         <source>Total size: {0}  |  {1} mods</source>
@@ -1609,7 +1609,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Game Patch Version</source>
-        <translation>Versão da atualização do jogo</translation>
+        <translation>Versão do patch do jogo</translation>
     </message>
     <message>
         <source>Patch {0}</source>
@@ -1756,7 +1756,7 @@ Kept: your mods, profiles, and overwrite folders.
 This cannot be undone.</source>
         <translation>Remover a configuração de instância para {0}?
 
-Excluído: jogo config + caches gerados; o jogo é restaurado à baunilha.
+Excluído: jogo config + caches gerados; o jogo é restaurado para vanilla.
 Mantido: seus mods, perfis, e substituir pastas.
 
 Isso não pode ser desfeito.</translation>
@@ -1858,7 +1858,7 @@ Install it, then reopen this wizard.</source>
 O Creation Kit é instalado pelo Steam:
 Skyrim Special Edition → ⚙ → Gerenciar → Creation Kit.
 
-Instale-o e, em seguida, reabra este assistente.</translation>
+Instale-o e, em seguida, reabra este wizard.</translation>
     </message>
     <message>
         <source>Found {0} in the game folder.</source>
@@ -1876,7 +1876,7 @@ Instale-o e, em seguida, reabra este assistente.</translation>
         <source>Creation Kit Platform Extended (CKPE) patches the Creation Kit so it runs correctly. It is downloaded from GitHub and installed as a mod with the root flag enabled, so it deploys into the game folder next to CreationKit.exe.
 
 </source>
-        <translation>Plataforma Kit de Criação Estendida (CKPE) patches o Kit de Criação para que funcione corretamente. Ele é baixado do GitHub e instalado como um mod com a bandeira root ativada, então ele implementa na pasta de jogo ao lado do CreationKit.exe.
+        <translation>A Plataforma Creation Kit Extended (CKPE) aplica patch no Creation Kit para que funcione corretamente. É baixada do GitHub e instalada como um mod com a flag root ativada, então recebe deploy na pasta do jogo ao lado de CreationKit.exe.
 
 </translation>
     </message>
@@ -1904,7 +1904,7 @@ Instale-o e, em seguida, reabra este assistente.</translation>
         <source>Note: on a brand-new prefix the first launch may open the plain Creation Kit without Creation Kit Platform Extended (CKPE). If you need CKPE, close the Creation Kit and run the wizard again — CKPE loads on the second launch once the prefix is initialised.
 
 The Creation Kit can also occasionally crash on startup under Proton (a known Wine timing issue). If it closes immediately, just relaunch.</source>
-        <translation>Observação: em um prefixo totalmente novo, a primeira execução pode abrir o Creation Kit básico, sem o Creation Kit Platform Extended (CKPE). Se você precisar do CKPE, feche o Creation Kit e execute o assistente novamente — o CKPE é carregado na segunda execução, assim que o prefixo for inicializado.
+        <translation>Observação: em um prefixo totalmente novo, a primeira execução pode abrir o Creation Kit básico, sem o Creation Kit Platform Extended (CKPE). Se você precisar do CKPE, feche o Creation Kit e execute o wizard novamente — o CKPE é carregado na segunda execução, assim que o prefixo for inicializado.
 
 O Creation Kit também pode, ocasionalmente, travar ao iniciar no Proton (um problema conhecido de sincronização do Wine). Se ele fechar imediatamente, basta reiniciá-lo.</translation>
     </message>
@@ -1920,7 +1920,7 @@ O Creation Kit também pode, ocasionalmente, travar ao iniciar no Proton (um pro
         <source>{0} was not found in the game folder.
 Install the Creation Kit from Steam, then reopen this wizard.</source>
         <translation>{0} não foi encontrado na pasta de jogos.
-Instale o Kit de Criação do Steam, e então reabra este mago.</translation>
+Instale o Kit de Criação do Steam, e então reabra este wizard.</translation>
     </message>
     <message>
         <source>Contacting GitHub…</source>
@@ -1987,7 +1987,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
         <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
 
 The mods are downloaded from Nexus Mods — log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
-        <translation>Este assistente baixa o perfil '{0}' e abre o importador de perfil, que instala o modlist em um perfil NOVO.
+        <translation>Este wizard baixa o perfil '{0}' e abre o importador de perfil, que instala o modlist em um perfil NOVO.
 
 Os mods são baixados do Nexus Mods - faça login primeiro (Nexus Login to Nexus) se você não tiver.</translation>
     </message>
@@ -2001,7 +2001,7 @@ Os mods são baixados do Nexus Mods - faça login primeiro (Nexus Login to Nexus
     </message>
     <message>
         <source>Patches the vanilla .esm masters with community bugfixes after the modlist is installed. It is too large to bundle, so it runs as an extra step — needs the 'Ultimate Edition ESM Fixes Remastered' download from Nexus.</source>
-        <translation>Remenda os mestres de baunilha com bugs comunitários depois que o modlist for instalado. Ele é muito grande para empacotar, então ele corre como um passo extra - precisa do download 'Ultimate Edition ESM Fixes Remastered' do Nexus.</translation>
+        <translation>Aplica patch nos masters vanilla .esm com bugfixes comunitários depois que o modlist for instalado. Ele é muito grande para empacotar, então ele executa como um passo extra - precisa do download 'Ultimate Edition ESM Fixes Remastered' do Nexus.</translation>
     </message>
     <message>
         <source>Also run the FNV BSA Decompressor (recommended)</source>
@@ -2009,7 +2009,7 @@ Os mods são baixados do Nexus Mods - faça login primeiro (Nexus Login to Nexus
     </message>
     <message>
         <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed — needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
-        <translation>Reconstrui os arquivos BSA baunilha sem compressão para carregamento mais rápido, adicionado como um modlist após a instalação do modlist - precisa do 'FNV BSA Descompressor' download de Nexus. Também pode ser executado mais tarde através de seu próprio mago.</translation>
+        <translation>Reconstrui os arquivos BSA vanilla sem compressão para carregamento mais rápido, adicionado como um modlist após a instalação do modlist - precisa do 'FNV BSA Descompressor' download de Nexus. Também pode ser executado mais tarde através de seu próprio wizard.</translation>
     </message>
     <message>
         <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
@@ -2041,7 +2041,7 @@ Os mods são baixados do Nexus Mods - faça login primeiro (Nexus Login to Nexus
     </message>
     <message>
         <source>Premium account — the wizard continues automatically when the import completes.</source>
-        <translation>Conta Premium, o assistente continua automaticamente quando a importação termina.</translation>
+        <translation>Conta Premium, o wizard continua automaticamente quando a importação termina.</translation>
     </message>
     <message>
         <source>Could not read manifest: {0}</source>
@@ -2085,7 +2085,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
-        <translation>FalloutNV.exe é remendada para que o jogo possa usar 4 GB de memória e carregar NVSE automaticamente na inicialização. O exe original é mantido como um backup (restaurante através do assistente de 4GB Patch).</translation>
+        <translation>FalloutNV.exe está com patch aplicado para que o jogo possa usar 4 GB de memória e carregar NVSE automaticamente na inicialização. O exe original é mantido como backup (restaurável via wizard 4GB Patch).</translation>
     </message>
     <message>
         <source>Game path is not configured — skipping the 4GB patch.</source>
@@ -2093,7 +2093,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>{0} is already 4GB patched.</source>
-        <translation>{0} já está em 4GB.</translation>
+        <translation>{0} já está com patch 4GB aplicado.</translation>
     </message>
     <message>
         <source>{0} not found in the game folder — skipping the 4GB patch.</source>
@@ -2101,7 +2101,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>Unrecognised {0} version — skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
-        <translation>Versão {0} não reconhecida, pulando. Verifique os arquivos de jogo no Steam/Heroic, então execute o assistente de 4GB Patch manualmente.</translation>
+        <translation>Versão {0} não reconhecida, pulando. Verifique os arquivos de jogo no Steam/Heroic, então execute o wizard de 4GB Patch manualmente.</translation>
     </message>
     <message>
         <source>Patching {0}…</source>
@@ -2109,11 +2109,11 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>Patched {0} ({1} version) — original kept as {2}.</source>
-        <translation>{0} (versão {1}) - original mantido como {2}.</translation>
+        <translation>{0} com patch aplicado ({1} versão) — original mantido como {2}.</translation>
     </message>
     <message>
         <source>Patch failed: {0} — you can run the 4GB Patch wizard manually later.</source>
-        <translation>O patch falhou: {0} - você pode executar o assistente de patch de 4GB manualmente depois.</translation>
+        <translation>O patch falhou: {0} - você pode executar o wizard de patch de 4GB manualmente depois.</translation>
     </message>
     <message>
         <source>All done</source>
@@ -3019,7 +3019,7 @@ Depois de fazer isso, clique em Deploy.</translation>
         <source>{0} was not found.
 Please restart the wizard and install {1} first.</source>
         <translation>{0} não foi encontrado.
-Reinicie o assistente e instale primeiro o {1}.</translation>
+Reinicie o wizard e instale primeiro o {1}.</translation>
     </message>
     <message>
         <source>Step 5: Choose Proton Version</source>
@@ -3128,7 +3128,7 @@ mod "{0}", que aparecerá na sua lista de mods.</translation>
         <source>{0} was not found.
 Please restart the wizard and let it install ESLifier first.</source>
         <translation>{0} não foi encontrado.
-Por favor, reinicie o assistente e deixe instalar o ESLifier primeiro.</translation>
+Por favor, reinicie o wizard e deixe instalar o ESLifier primeiro.</translation>
     </message>
     <message>
         <source>Launching ESLifier…</source>
@@ -3209,9 +3209,9 @@ Clique em Instalar para começar.</translation>
         <source>The '{0}' mod is already in your mod list — there is nothing to re-apply, so you can simply close this wizard.
 
 Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
-        <translation>O mod '{0}' já está em sua lista de mods - não há nada para re-aplicar, então você pode simplesmente fechar este assistente.
+        <translation>O mod '{0}' já está em sua lista de mods - não há nada para re-aplicar, então você pode simplesmente fechar este wizard.
 
-Reconstruir do zero restaura o jogo para baunilha e corre o patter novamente (precisa do pacote .mpi).</translation>
+Reconstruir do zero restaura o jogo para vanilla e executa o patcher novamente (precisa do pacote .mpi).</translation>
     </message>
     <message>
         <source>Rebuild from scratch</source>
@@ -3229,7 +3229,7 @@ Reconstruir do zero restaura o jogo para baunilha e corre o patter novamente (pr
         <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
 
 Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus — the .mpi package inside the archive is detected automatically.</source>
-        <translation>Ultimate Edition ESM Conserta os mestres de baunilha (FalloutNV + todos DLC) com correções de bugs comunitárias, e o resultado é adicionado como um mod.
+        <translation>Ultimate Edition ESM Fixes aplica patch nos masters vanilla .esm (FalloutNV + todos os DLC) com bugfixes comunitários, e o resultado é adicionado como um mod.
 
 Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pacote .mpi dentro do arquivo é detectado automaticamente.</translation>
     </message>
@@ -3343,29 +3343,29 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Step 3: Patching the vanilla masters</source>
-        <translation>Passo 3: patching os mestres de baunilha</translation>
+        <translation>Passo 3: Aplicando patch nos masters vanilla</translation>
     </message>
     <message>
         <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
 Output is written directly into your mod list as the '{0}' mod.</source>
-        <translation>O jogo é primeiro restaurado para um estado de baunilha, em seguida, o instalador patches o mestre de baunilha .esm com a comunidade bugfixes.
-Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translation>
+        <translation>O jogo é primeiro restaurado para um estado vanilla; em seguida, o instalador aplica patch no master vanilla .esm com bugfixes comunitários.
+A saída é escrita diretamente na sua lista de mods como o mod '{0}'.</translation>
     </message>
     <message>
         <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-        <translation>O binário do instalador sumiu. Reinicie o assistente e deixe-o instalar primeiro.</translation>
+        <translation>O binário do instalador sumiu. Reinicie o wizard e deixe-o instalar primeiro.</translation>
     </message>
     <message>
         <source>Restoring game to vanilla…</source>
-        <translation>Restaurando o jogo para baunilha…</translation>
+        <translation>Restaurando o jogo para vanilla…</translation>
     </message>
     <message>
         <source>Restoring game to a vanilla state before install…</source>
-        <translation>Restaurando o jogo para um estado de baunilha antes de instalar…</translation>
+        <translation>Restaurando o jogo para um estado vanilla antes de instalar…</translation>
     </message>
     <message>
         <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-        <translation>A restauração falhou, veja o registro. Conserte o problema (ou restaure manualmente através do botão Restaurar) e tente novamente.</translation>
+        <translation>A restauração falhou, veja o log. Conserte o problema (ou restaure manualmente através do botão Restaurar) e tente novamente.</translation>
     </message>
     <message>
         <source>Mod staging path is not configured.</source>
@@ -3374,7 +3374,7 @@ Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translatio
     <message>
         <source>ERROR: missing vanilla plugin files:
 {0}</source>
-        <translation>ERRO: arquivos de plugin de baunilha faltando:
+        <translation>ERRO: arquivos de plugin vanilla faltando:
 {0}</translation>
     </message>
     <message>
@@ -3382,18 +3382,18 @@ Saída é escrita diretamente em sua lista de mods como o mod '{0}'.</translatio
 In Steam, right-click the game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-        <translation>Arquivos de plug-in de baunilha faltando mesmo depois de restaurar a baunilha - estes nunca foram copiados.
+        <translation>Arquivos de plugin vanilla faltando mesmo depois de restaurar para vanilla - estes nunca foram copiados.
 No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arquivos instalados → Verifique a integridade dos arquivos do jogo, em seguida, tente novamente.
 
 {0}</translation>
     </message>
     <message>
         <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run — if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
-        <translation>Aviso: FalloutNV.exe tem 4GB. O instalador verifica o exe do jogo e pode se recusar a correr. Se falhar abaixo, restaure o exe original através do assistente de 4GB Patch, execute isso de novo, então reaplique o exe.</translation>
+        <translation>Aviso: FalloutNV.exe tem patch 4GB. O instalador verifica o exe do jogo e pode se recusar a executar. Se falhar abaixo, restaure o exe original via wizard 4GB Patch, execute novamente e reaplique o patch de 4GB.</translation>
     </message>
     <message>
         <source>Patching… (see log below)</source>
-        <translation>Patching… (veja o registro abaixo)</translation>
+        <translation>Aplicando patch… (veja o log abaixo)</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -3401,15 +3401,15 @@ No Steam, clique com o botão direito do mouse no jogo → Propriedades → Arqu
     </message>
     <message>
         <source>Installer exited with error (code {0}). See the log for details.</source>
-        <translation>O instalador saiu com erro (código {0}). Veja o registro para detalhes.</translation>
+        <translation>O instalador saiu com erro (código {0}). Veja o log para detalhes.</translation>
     </message>
     <message>
         <source>Patching complete — registering mod…</source>
-        <translation>Patching completo - registrando mod…</translation>
+        <translation>Patch aplicado — registrando mod…</translation>
     </message>
     <message>
         <source>Patching finished but registering the mod failed: {0}</source>
-        <translation>O patch terminou mas o registro do mod falhou: {0}</translation>
+        <translation>Patch aplicado, mas o registro do mod falhou: {0}</translation>
     </message>
     <message>
         <source>Done! '{0}' was added to your mod list. Enable it and deploy.</source>
@@ -3657,11 +3657,11 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
         <source>Bundle</source>
-        <translation>Bundle</translation>
+        <translation>Pacote</translation>
     </message>
     <message>
         <source>Ignore</source>
-        <translation>Ignore</translation>
+        <translation>Ignorar</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -3907,7 +3907,7 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     </message>
     <message>
         <source>Checked tools appear at the top of the Wizard menu for quick access.</source>
-        <translation>As ferramentas marcadas aparecem na parte superior do menu do Assistente para acesso rápido.</translation>
+        <translation>As ferramentas marcadas aparecem na parte superior do menu do Wizard para acesso rápido.</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -4167,16 +4167,16 @@ restore reverts it — disable that option to manage the patch
 manually here.
 
 The original exe is kept as {0}.</source>
-        <translation>Patches FalloutNV.exe para que o jogo possa usar 4 GB de memória
-e carrega NVSE automaticamente na inicialização.
+        <translation>Aplica patch em FalloutNV.exe para que o jogo possa usar 4 GB de memória
+e carregue NVSE automaticamente na inicialização.
 
-Sob Proton, isso silencia principalmente os avisos dos mods.
-Aquele cheque para o patch, mas é seguro e recomendado.
+Sob Proton, isso silencia principalmente avisos de mods
+que verificam o patch; é seguro e recomendado.
 
-Enquanto "Aplicar o patch 4GB automaticamente" está ativado em
+Enquanto "Aplicar o patch de 4GB automaticamente" estiver ativado em
 Configurar jogo (padrão), fazer deploy aplica o patch e
-a restauração reverte — desative essa opção para gerenciar o patch
-aqui manualmente.
+restaurar reverte — desative essa opção para gerenciar o patch
+manualmente aqui.
 
 O exe original é mantido como {0}.</translation>
     </message>
@@ -4206,11 +4206,11 @@ O exe original é mantido como {0}.</translation>
     </message>
     <message>
         <source>{0} is already 4GB patched.</source>
-        <translation>{0} já está em 4GB.</translation>
+        <translation>{0} já está com patch 4GB aplicado.</translation>
     </message>
     <message>
         <source>Unpatched {0} detected ({1} version) — ready to patch.</source>
-        <translation>{0} detectado (versão {1}) - pronto para remendar.</translation>
+        <translation>{0} detectado (versão {1}) - pronto para aplicar patch.</translation>
     </message>
     <message>
         <source>Unrecognised {0} version.
@@ -4253,7 +4253,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Forget the saved selections for this mod and restart the wizard with its defaults</source>
-        <translation>Esqueça as seleções salvas para este mod e reinicie o assistente com as configurações padrão</translation>
+        <translation>Esqueça as seleções salvas para este mod e reinicie o wizard com as configurações padrão</translation>
     </message>
     <message>
         <source>Back</source>
@@ -4343,7 +4343,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Log:</source>
-        <translation>Registro:</translation>
+        <translation>Log:</translation>
     </message>
     <message>
         <source>'{0}' not found in game root.</source>
@@ -4619,7 +4619,7 @@ Pressione Deploy para aplicar seus mods e, em seguida, inicie o jogo pelo Steam,
     </message>
     <message>
         <source>Deploy failed - see log.</source>
-        <translation>O lançamento falhou, veja o registro.</translation>
+        <translation>O lançamento falhou, veja o log.</translation>
     </message>
     <message>
         <source>Restore failed - see log.</source>
@@ -4921,7 +4921,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
         <source>Wizard</source>
-        <translation>Assistente</translation>
+        <translation>Wizard</translation>
     </message>
     <message>
         <source>Nexus</source>
@@ -5029,7 +5029,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
         <source>Game Patch Version</source>
-        <translation>Versão da atualização do jogo</translation>
+        <translation>Versão do patch do jogo</translation>
     </message>
     <message>
         <source>Patch 8</source>
@@ -5493,7 +5493,7 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
         <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
-        <translation>Um manipulador falhou em carregar ({0}). Jogos afetados estão escondidos, mas seus mods estão seguros. Veja o registro.</translation>
+        <translation>Um manipulador falhou em carregar ({0}). Jogos afetados estão escondidos, mas seus mods estão seguros. Veja o log.</translation>
     </message>
     <message>
         <source>32-bit support installed - restart the app before running Windows tools.</source>
@@ -5561,7 +5561,7 @@ Seus arquivos são apagados da pasta de staging — isso não pode ser desfeito.
     </message>
     <message>
         <source>Could not remove '{0}' - see the log.</source>
-        <translation>Não foi possível remover '{0}' - ver o registro.</translation>
+        <translation>Não foi possível remover '{0}' - ver o log.</translation>
     </message>
     <message>
         <source>An install is finishing - try the collection again in a moment.</source>
@@ -5605,7 +5605,7 @@ Seus arquivos são apagados da pasta de staging — isso não pode ser desfeito.
     </message>
     <message>
         <source> ({0} couldn't be downloaded - see the log)</source>
-        <translation> ({0} não pôde ser baixado - veja o registro)</translation>
+        <translation> ({0} não pôde ser baixado - veja o log)</translation>
     </message>
     <message>
         <source>Done - {0}/{1} installed.</source>
@@ -5645,7 +5645,7 @@ Baixe e instale manualmente. Os links estão no painel de mods da página de col
     </message>
     <message>
         <source>Update check failed - see the log.</source>
-        <translation>A atualização falhou, veja o registro.</translation>
+        <translation>A atualização falhou, veja o log.</translation>
     </message>
     <message>
         <source>Updates available</source>
@@ -5677,11 +5677,11 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Reinstall: {0} mod(s) couldn't be redownloaded - see the log.</source>
-        <translation>Reinstalar: {0} mod(s) não pôde(ram) ser baixado(s) novamente — veja o registro.</translation>
+        <translation>Reinstalar: {0} mod(s) não pôde(ram) ser baixado(s) novamente — veja o log.</translation>
     </message>
     <message>
         <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
-        <translation>Baixado(s) novamente {0} mod(s); {1} falhou(aram) — veja o registro.</translation>
+        <translation>Baixado(s) novamente {0} mod(s); {1} falhou(aram) — veja o log.</translation>
     </message>
     <message>
         <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
@@ -5701,7 +5701,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Quick Update: {0} mod(s) couldn't be downloaded - see the log.</source>
-        <translation>Atualização rápida: {0} mod(s) não pôde ser baixado - veja o registro.</translation>
+        <translation>Atualização rápida: {0} mod(s) não pôde ser baixado - veja o log.</translation>
     </message>
     <message>
         <source>Quick Update: updated {0} mod(s)</source>
@@ -5961,7 +5961,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>▶  Run</source>
-        <translation>▶  Correr</translation>
+        <translation>▶  Executar</translation>
     </message>
     <message>
         <source>No executables found in staging.</source>
@@ -6109,7 +6109,7 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Choose which wizard tools appear at the top of this menu for quick access.</source>
-        <translation>Escolha quais ferramentas do assistente aparecerão na parte superior deste menu para acesso rápido.</translation>
+        <translation>Escolha quais ferramentas do wizard aparecerão na parte superior deste menu para acesso rápido.</translation>
     </message>
     <message>
         <source>Manage Prefixes…</source>
@@ -6581,7 +6581,7 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
         <source>Log</source>
-        <translation>Registro</translation>
+        <translation>Log</translation>
     </message>
     <message>
         <source>● Errors</source>
@@ -6597,11 +6597,11 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
         <source>Clear Log</source>
-        <translation>Limpar o log</translation>
+        <translation>Limpar log</translation>
     </message>
     <message>
         <source>Open Log Folder</source>
-        <translation>Abrir pasta de logs</translation>
+        <translation>Abrir pasta de log</translation>
     </message>
     <message>
         <source>Wiki</source>
@@ -6609,7 +6609,7 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
         <source>Changelog</source>
-        <translation>Registro de alterações</translation>
+        <translation>Changelog</translation>
     </message>
     <message>
         <source>Github</source>
@@ -6626,12 +6626,12 @@ Fazer deploy mesmo assim?</translation>
     <message>
         <source>Could not read the changelog:
 {0}</source>
-        <translation>Não foi possível ler o registro de alterações:
+        <translation>Não foi possível ler o changelog:
 {0}</translation>
     </message>
     <message>
         <source>Changelog file not found.</source>
-        <translation>Arquivo de histórico de alterações não encontrado.</translation>
+        <translation>Arquivo changelog não encontrado.</translation>
     </message>
     <message>
         <source>Thank you for endorsing!</source>
@@ -6936,7 +6936,7 @@ Gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
         <source>Log</source>
-        <translation>Registro</translation>
+        <translation>Log</translation>
     </message>
     <message>
         <source>Missing Requirements</source>
@@ -7080,11 +7080,11 @@ Gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
         <source>Track Mod</source>
-        <translation>Track Mod</translation>
+        <translation>Rastrear mod</translation>
     </message>
     <message>
         <source>Track Mod ({0})</source>
-        <translation>Track Mod ({0})</translation>
+        <translation>Rastrear mod ({0})</translation>
     </message>
     <message>
         <source>Unlock Separator</source>
@@ -7312,7 +7312,7 @@ Clique em "Feito para fechar".</translation>
     </message>
     <message>
         <source>This mod has diff patches applied by the collection install</source>
-        <translation>Este mod tem diferenças aplicadas pela instalação da coleção</translation>
+        <translation>Este mod tem patches de diff aplicados pela instalação da coleção</translation>
     </message>
     <message>
         <source>Modified in Mod Files tab</source>
@@ -7627,7 +7627,7 @@ ou em um arquivo criptografado quando não houver chaveiro disponível).</transl
     </message>
     <message>
         <source>Track Mod</source>
-        <translation>Track Mod</translation>
+        <translation>Rastrear mod</translation>
     </message>
     <message>
         <source>Abstain</source>
@@ -7650,7 +7650,7 @@ ou em um arquivo criptografado quando não houver chaveiro disponível).</transl
     </message>
     <message>
         <source>Misc</source>
-        <translation>Misc</translation>
+        <translation>Diversos</translation>
     </message>
     <message>
         <source>Main files</source>
@@ -7904,7 +7904,7 @@ Por dia: {1}</translation>
     </message>
     <message>
         <source>Vanilla only</source>
-        <translation>Apenas baunilha</translation>
+        <translation>Apenas vanilla</translation>
     </message>
     <message>
         <source>Only overridden</source>
@@ -8202,7 +8202,7 @@ entrem em conflito por mod, imitando uma configuração real do MO2. Experimenta
         <source>{0} was not found.
 Please restart the wizard and download PGPatcher first.</source>
         <translation>{0} não foi encontrado.
-Por favor, reinicie o assistente e baixe o PGPatcher primeiro.</translation>
+Por favor, reinicie o wizard e baixe o PGPatcher primeiro.</translation>
     </message>
     <message>
         <source>Checking d3dcompiler_47…</source>
@@ -8222,7 +8222,7 @@ Por favor, reinicie o assistente e baixe o PGPatcher primeiro.</translation>
     </message>
     <message>
         <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Não foi possível encontrar Proton '{0}' - verifique se ele está instalado no Steam, em seguida, reabrir este assistente.</translation>
+        <translation>Não foi possível encontrar Proton '{0}' - verifique se ele está instalado no Steam, em seguida, reabrir este wizard.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 already installed — skipping.</source>
@@ -8262,7 +8262,7 @@ Por favor, reinicie o assistente e baixe o PGPatcher primeiro.</translation>
     </message>
     <message>
         <source>{0} not found — please restart the wizard.</source>
-        <translation>{0} não encontrado - por favor, reinicie o assistente.</translation>
+        <translation>{0} não encontrado - por favor, reinicie o wizard.</translation>
     </message>
     <message>
         <source>Config applied.</source>
@@ -8365,7 +8365,7 @@ Depois de fazer isso, clique em Deploy.</translation>
 Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
         <translation>O arquivo "{0}" não foi encontrado na sua pasta de modificação temporária.
 
-Instale o Pandora Behaviour Engine+ como um mod e, em seguida, reabra este assistente.</translation>
+Instale o Pandora Behaviour Engine+ como um mod e, em seguida, reabra este wizard.</translation>
     </message>
     <message>
         <source>Step 3: Install Dependencies</source>
@@ -8381,7 +8381,7 @@ Instale o Pandora Behaviour Engine+ como um mod e, em seguida, reabra este assis
     </message>
     <message>
         <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Não foi possível encontrar Proton '{0}' - verifique se ele está instalado no Steam, em seguida, reabrir este assistente.</translation>
+        <translation>Não foi possível encontrar Proton '{0}' - verifique se ele está instalado no Steam, em seguida, reabrir este wizard.</translation>
     </message>
     <message>
         <source>.NET 10 already installed — skipping.</source>
@@ -8415,7 +8415,7 @@ Instale o Pandora Behaviour Engine+ como um mod e, em seguida, reabra este assis
         <source>Pandora exited with error (code {0}).
 See the log for details. Click Done to close.</source>
         <translation>Pandora saiu com erro (código {0}).
-Veja o registro para detalhes. Clique em "Feito para fechar".</translation>
+Veja o log para detalhes. Clique em "Feito para fechar".</translation>
     </message>
     <message>
         <source>Pandora finished. Click Done to close.</source>
@@ -8444,7 +8444,7 @@ Feche-o quando terminar e, em seguida, clique em "Concluído".</translation>
     </message>
     <message>
         <source>Audits your active load order to find patched plugins that can be safely disabled (their patches still apply at runtime), and flags those blocked by new records or by other plugins depending on them.</source>
-        <translation>Verifica sua ordem de carregamento ativa para identificar plugins corrigidos que possam ser desativados com segurança (suas correções continuam sendo aplicadas durante a execução) e sinaliza aqueles bloqueados por novos registros ou por outros plugins que dependam deles.</translation>
+        <translation>Verifica sua ordem de carregamento ativa para identificar plugins com patch que podem ser desativados com segurança (seus patches ainda serão aplicados em tempo de execução) e sinaliza os bloqueados por novos registros ou por outros plugins que dependam deles.</translation>
     </message>
     <message>
         <source>Start Scan</source>
@@ -9049,7 +9049,7 @@ Seus mods listados são copiados para a própria pasta de mods do perfil (hardli
     </message>
     <message>
         <source>Convert of '{0}' failed — see the log.</source>
-        <translation>A conversão de '{0}' falhou. Veja o registro.</translation>
+        <translation>A conversão de '{0}' falhou. Veja o log.</translation>
     </message>
 </context>
 <context>
@@ -9126,7 +9126,7 @@ Seus mods listados são copiados para a própria pasta de mods do perfil (hardli
 Install a Proton version in Steam (or with Heroic's Wine Manager), then reopen this wizard.</source>
         <translation>Nenhuma versão Proton foi encontrada.
 
-Instale uma versão Proton no Steam (ou com Heroic's Wine Manager), e então reabra este assistente.</translation>
+Instale uma versão Proton no Steam (ou com Heroic's Wine Manager), e então reabra este wizard.</translation>
     </message>
     <message>
         <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.
@@ -9142,7 +9142,7 @@ Instale uma versão Proton no Steam (ou com Heroic's Wine Manager), e então rea
     </message>
     <message>
         <source>Reuse one prefix (per Proton version) shared by every wizard tool, kept in the app config folder instead of next to the exe.</source>
-        <translation>Reutilizar um prefixo (por versão do Proton) compartilhado por todas as ferramentas do assistente, mantido na pasta de configuração do aplicativo, em vez de ao lado do arquivo exe.</translation>
+        <translation>Reutilizar um prefixo (por versão do Proton) compartilhado por todas as ferramentas do wizard, mantido na pasta de configuração do aplicativo, em vez de ao lado do arquivo exe.</translation>
     </message>
     <message>
         <source>Use game prefix</source>
@@ -9279,7 +9279,7 @@ Se o jogo ainda estiver com problemas, verifique os arquivos pelo Steam.</transl
     </message>
     <message>
         <source>Log:</source>
-        <translation>Registro:</translation>
+        <translation>Log:</translation>
     </message>
     <message>
         <source>Repairing PAK files from game-root manifest …</source>
@@ -9295,7 +9295,7 @@ Se o jogo ainda estiver com problemas, verifique os arquivos pelo Steam.</transl
     </message>
     <message>
         <source>Nothing to repair — the PAK entries are already vanilla (or no manifest was found).</source>
-        <translation>Nada para reparar, as entradas PAK já são de baunilha (ou nenhum manifesto foi encontrado).</translation>
+        <translation>Nada para reparar, as entradas PAK já são vanilla (ou nenhum manifesto foi encontrado).</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -9603,7 +9603,7 @@ Prefixo do Proton: {2}</translation>
     </message>
     <message>
         <source>Registry write finished with errors — see log above.</source>
-        <translation>A gravação do registro terminou com erros, veja o registro acima.</translation>
+        <translation>A gravação do registro terminou com erros, veja o log acima.</translation>
     </message>
 </context>
 <context>
@@ -9995,7 +9995,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>Game folder (restores to vanilla first)</source>
-        <translation>Pasta de jogos (restaura primeiro com baunilha)</translation>
+        <translation>Pasta de jogos (restaura primeiro com vanilla)</translation>
     </message>
     <message>
         <source>Root_Folder (staging)</source>
@@ -10119,7 +10119,7 @@ Clique em Próximo para instalá-lo.</translation>
     </message>
     <message>
         <source>Restoring game to vanilla state…</source>
-        <translation>Restaurando o jogo para o estado de baunilha…</translation>
+        <translation>Restaurando o jogo para o estado vanilla…</translation>
     </message>
     <message>
         <source>Script extender installed successfully!
@@ -10202,7 +10202,7 @@ Ou use Procurar para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Could not find Proton '{0}' — check that it is installed in Steam, then reopen this wizard.</source>
-        <translation>Não foi possível encontrar Proton '{0}' - verifique se ele está instalado no Steam, em seguida, reabrir este assistente.</translation>
+        <translation>Não foi possível encontrar Proton '{0}' - verifique se ele está instalado no Steam, em seguida, reabrir este wizard.</translation>
     </message>
     <message>
         <source>.NET 8 already installed — skipping.</source>
@@ -10246,7 +10246,7 @@ Cancele e reative os mods listados para manter as fusões, ou exclua as fusões 
     </message>
     <message>
         <source>Launch cancelled — re-enable the merges' source mods, then reopen this wizard.</source>
-        <translation>Lançamento cancelado — reative os mods de origem das fusões e, em seguida, reabra este assistente.</translation>
+        <translation>Lançamento cancelado — reative os mods de origem das fusões e, em seguida, reabra este wizard.</translation>
     </message>
     <message>
         <source>Launching WitcherScriptMerger…</source>
@@ -10260,7 +10260,7 @@ Cancele e reative os mods listados para manter as fusões, ou exclua as fusões 
         <source>{0} was not found.
 Please restart the wizard and install Script Merger first.</source>
         <translation>{0} não foi encontrado.
-Reinicie o assistente e instale primeiro o Script Merger.</translation>
+Reinicie o wizard e instale primeiro o Script Merger.</translation>
     </message>
     <message>
         <source>Could not find Proton '{0}' — check that it is installed in Steam.</source>
@@ -10269,7 +10269,7 @@ Reinicie o assistente e instale primeiro o Script Merger.</translation>
     <message>
         <source>WitcherScriptMerger is running.
 Merge your conflicts, then close it and click Done.</source>
-        <translation>WitcherScriptMerger está correndo.
+        <translation>WitcherScriptMerger está em execução.
 Junte seus conflitos, feche e clique em "Feito".</translation>
     </message>
     <message>
@@ -10886,7 +10886,7 @@ Amethyst-Mod-Manager/amethyst</translation>
     </message>
     <message>
         <source>SkyGen scans your active load order to find plugins that add objects/records eligible for Base Object Swapper or SkyPatcher patches, and flags those already patched.</source>
-        <translation>O SkyGen analisa sua lista de carregamento ativa para identificar plugins que adicionam objetos/registros elegíveis para patches do Base Object Swapper ou do SkyPatcher, e marca aqueles que já foram corrigidos.</translation>
+        <translation>O SkyGen analisa sua ordem de carregamento ativa para identificar plugins que adicionam objetos/registros elegíveis para patches do Base Object Swapper ou do SkyPatcher, e marca os que já têm patch aplicado.</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -10985,7 +10985,7 @@ Mod de saída: {2}
     </message>
     <message>
         <source>Game folder (restores to vanilla first)</source>
-        <translation>Pasta de jogos (restaura primeiro com baunilha)</translation>
+        <translation>Pasta de jogos (restaura primeiro com vanilla)</translation>
     </message>
     <message>
         <source>Root_Folder (staging)</source>
@@ -11101,7 +11101,7 @@ Use Procurar para selecionar um arquivo baixado manualmente.</translation>
     </message>
     <message>
         <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
-        <translation>Verifique os executáveis para adicionar ao menu Executar. Ferramentas com um mago abrem o mago quando correm.</translation>
+        <translation>Verifique os executáveis para adicionar ao menu Executar. Ferramentas com um wizard abrem o wizard ao executar.</translation>
     </message>
     <message>
         <source>Search…</source>
@@ -11379,19 +11379,19 @@ O resultado é adicionado diretamente à sua lista de mods como o mod "{0}".</tr
     </message>
     <message>
         <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-        <translation>O binário do instalador sumiu. Reinicie o assistente e deixe-o instalar primeiro.</translation>
+        <translation>O binário do instalador sumiu. Reinicie o wizard e deixe-o instalar primeiro.</translation>
     </message>
     <message>
         <source>Restoring game to vanilla…</source>
-        <translation>Restaurando o jogo para baunilha…</translation>
+        <translation>Restaurando o jogo para vanilla…</translation>
     </message>
     <message>
         <source>Restoring game to a vanilla state before install…</source>
-        <translation>Restaurando o jogo para um estado de baunilha antes de instalar…</translation>
+        <translation>Restaurando o jogo para um estado vanilla antes de instalar…</translation>
     </message>
     <message>
         <source>Restore failed — see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-        <translation>A restauração falhou, veja o registro. Conserte o problema (ou restaure manualmente através do botão Restaurar) e tente novamente.</translation>
+        <translation>A restauração falhou, veja o log. Conserte o problema (ou restaure manualmente através do botão Restaurar) e tente novamente.</translation>
     </message>
     <message>
         <source>Mod staging path is not configured.</source>
@@ -11408,7 +11408,7 @@ O resultado é adicionado diretamente à sua lista de mods como o mod "{0}".</tr
     <message>
         <source>ERROR: missing vanilla plugin files:
 {0}</source>
-        <translation>ERRO: arquivos de plugin de baunilha faltando:
+        <translation>ERRO: arquivos de plugin vanilla faltando:
 {0}</translation>
     </message>
     <message>
@@ -11416,7 +11416,7 @@ O resultado é adicionado diretamente à sua lista de mods como o mod "{0}".</tr
 In Steam, right-click each game → Properties → Installed Files → Verify integrity of game files, then retry.
 
 {0}</source>
-        <translation>Arquivos de plug-in de baunilha faltando mesmo depois de restaurar a baunilha - estes nunca foram copiados.
+        <translation>Arquivos de plugin vanilla faltando mesmo depois de restaurar para vanilla - estes nunca foram copiados.
 No Steam, clique com o botão direito do mouse em cada jogo → Propriedades → Arquivos instalados → Verifique a integridade dos arquivos de jogo, em seguida, tente novamente.
 
 {0}</translation>
@@ -11431,7 +11431,7 @@ No Steam, clique com o botão direito do mouse em cada jogo → Propriedades →
     </message>
     <message>
         <source>Installer exited with error (code {0}). See the log for details.</source>
-        <translation>O instalador saiu com erro (código {0}). Veja o registro para detalhes.</translation>
+        <translation>O instalador saiu com erro (código {0}). Veja o log para detalhes.</translation>
     </message>
     <message>
         <source>Install complete — registering mod…</source>
@@ -11585,7 +11585,7 @@ Faça o deploy da lista de mods primeiro e, em seguida, clique em Executar.</tra
     </message>
     <message>
         <source>▶  Run {0}</source>
-        <translation>▶  Acesse {0}</translation>
+        <translation>▶  Executar {0}</translation>
     </message>
     <message>
         <source>Done</source>
@@ -11605,7 +11605,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>{0} not found. Please restart the wizard.</source>
-        <translation>{0} Não encontrado. Reinicie o assistente.</translation>
+        <translation>{0} Não encontrado. Reinicie o wizard.</translation>
     </message>
     <message>
         <source>Game Data folder not found. Deploy first.</source>
@@ -13006,7 +13006,7 @@ Verifique se o arquivo contém {0}.</translation>
         <source>{0} was not found.
 Reopen this wizard.</source>
         <translation>{0} não foi encontrado.
-Reabra esse mago.</translation>
+Reabra esse wizard.</translation>
     </message>
     <message>
         <source>Deploy is unavailable here.</source>
@@ -13087,7 +13087,7 @@ Na restauração, o novo plugin é movido para substituir.</translation>
         <source>'{0}' was not found.
 Please restart the wizard to reinstall Wrye Bash.</source>
         <translation>"{0}" não foi encontrado.
-Por favor, reinicie o assistente para reinstalar Wrye Bash.</translation>
+Por favor, reinicie o wizard para reinstalar Wrye Bash.</translation>
     </message>
     <message>
         <source>'{0}' was not found.</source>
@@ -13104,7 +13104,7 @@ Por favor, reinicie o assistente para reinstalar Wrye Bash.</translation>
     <message>
         <source>Wrye Bash is running.
 Close it when you are done, then click Done.</source>
-        <translation>Wrye Bash está correndo.
+        <translation>Wrye Bash está em execução.
 Feche quando terminar e clique em "Feito".</translation>
     </message>
     <message>
@@ -13166,7 +13166,7 @@ Para baixá-la:
   2. Baixe o arquivo mais recente do xEdit (por exemplo, "xEdit 4.1.5q.7z") no canal #xedit-builds.
   3. Deixe o arquivo na sua pasta "Downloads" e clique em Próximo.
 
-Ele contém o xFOEdit (Fallout), o xSFEdit (Starfield) e o xTESEdit (Elder Scrolls); o assistente executa automaticamente o correspondente a este jogo.</translation>
+Ele contém o xFOEdit (Fallout), o xSFEdit (Starfield) e o xTESEdit (Elder Scrolls); o wizard executa automaticamente o correspondente a este jogo.</translation>
     </message>
     <message>
         <source>Downloaded: {0}</source>
@@ -13262,7 +13262,7 @@ Verifique se o arquivo contém {0}.</translation>
         <source>{0} was not found.
 Please restart the wizard and install {1} first.</source>
         <translation>{0} não foi encontrado.
-Reinicie o assistente e instale primeiro o {1}.</translation>
+Reinicie o wizard e instale primeiro o {1}.</translation>
     </message>
     <message>
         <source>Step 5: Choose Proton Version</source>
@@ -13468,7 +13468,7 @@ Quando você fecha, suas mudanças são restauradas automaticamente.</translatio
     </message>
     <message>
         <source>Ignore</source>
-        <translation>Ignore</translation>
+        <translation>Ignorar</translation>
     </message>
     <message>
         <source>Don't count this requirement towards the missing-requirements flag. It stays listed here so you can un-ignore it.</source>
@@ -13511,7 +13511,7 @@ Quando você fecha, suas mudanças são restauradas automaticamente.</translatio
     </message>
     <message>
         <source>Bundle</source>
-        <translation>Bundle</translation>
+        <translation>Pacote</translation>
     </message>
     <message>
         <source>Include mod in the output (e.g. DynDOLOD output)</source>
@@ -13519,7 +13519,7 @@ Quando você fecha, suas mudanças são restauradas automaticamente.</translatio
     </message>
     <message>
         <source>Ignore</source>
-        <translation>Ignore</translation>
+        <translation>Ignorar</translation>
     </message>
     <message>
         <source>Exclude this mod from the export entirely</source>
