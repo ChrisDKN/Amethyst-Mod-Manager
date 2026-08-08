@@ -3815,7 +3815,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."), "warning")
             return
         # Latched ONCE for the whole run. Re-reading it later would let a toggle
-        # mid-flight mix the two modes — worst case an Update that has already
+        # mid-flight mix the two modes - worst case an Update that has already
         # removed the outgoing mods then downloads their replacements instead of
         # installing them, leaving the profile gutted.
         self._col_download_only = self._download_only_active()
@@ -4390,7 +4390,7 @@ class MainWindow(QMainWindow):
             on_log=lambda m: self._op_log.emit(str(m)),
             on_done=lambda i, s, t, p: self._col_finished.emit("done", (i, s, t, p)),
             on_paused=lambda i, p: self._col_finished.emit("paused", (i, p)),
-            # str(None) would be the truthy "None" — every download-only guard
+            # str(None) would be the truthy "None" - every download-only guard
             # downstream keys on profile_dir being falsy.
             on_cancelled=lambda pd: self._col_finished.emit(
                 "cancelled", {"profile_dir": str(pd) if pd else ""}),
@@ -6093,11 +6093,11 @@ class MainWindow(QMainWindow):
 
     def _sync_change_version_after_install(self, final_name: str):
         """Retarget the open Change Version tab at *final_name* once an install
-        it kicked off has landed — the tab stays open across installs, so its
+        it kicked off has landed - the tab stays open across installs, so its
         title, Ignore-Update state and highlights must track the fresh meta.ini.
         Also the swap after 'Remove previous version' renames the target. Reads
         meta from the profile the install actually landed in (a group member's
-        staging when a Profile Group is active — the group link may not exist
+        staging when a Profile Group is active - the group link may not exist
         yet at this point)."""
         view = getattr(self, "_change_version_view", None)
         if view is None:
@@ -6147,7 +6147,7 @@ class MainWindow(QMainWindow):
         from Nexus.nexus_meta import read_meta
         meta = read_meta(staging / e.name / "meta.ini")
         if int(getattr(meta, "mod_id", 0) or 0) <= 0:
-            return    # not a Nexus mod — keep showing the current one
+            return    # not a Nexus mod - keep showing the current one
         view.retarget(e.name, meta)
 
     # ---- Bundle options (plugins-panel-scoped overlay) --------------------
@@ -8447,6 +8447,15 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Deploying {0}…").format(game.name), "info")
         rf_enabled = True
 
+        # Tell handlers whether a manager-driven launch follows this deploy.
+        # Our own launch routes pass the handler's default_launch_args, so a
+        # "configure your launcher" warning is only useful when the user is
+        # NOT about to press Play here (see BaseGame.deploy_launch_pending).
+        try:
+            game.deploy_launch_pending = self._post_deploy_action is not None
+        except Exception:
+            pass
+
         import threading
 
         def worker():
@@ -8470,6 +8479,12 @@ class MainWindow(QMainWindow):
                     warns = list(game.pop_deploy_warnings())
                 except Exception:
                     warns = []
+                # Scoped to this deploy: wizard/CLI deploys call the pipeline
+                # directly and must not inherit the last GUI value.
+                try:
+                    game.deploy_launch_pending = False
+                except Exception:
+                    pass
                 self._op_done.emit("deploy", bool(ok), warns)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -10531,7 +10546,7 @@ class MainWindow(QMainWindow):
             if not getattr(self, "_reload_had_entries", False):
                 self._reload_plugins()
             self._notify(self.tr("Installed {0}").format(final), "success")
-            # Change Version tab stays open — refresh its highlights.
+            # Change Version tab stays open - refresh its highlights.
             if prev_name:
                 self._sync_change_version_after_install(final)
             # Change Version landed a different-named version → offer to remove
@@ -10597,7 +10612,7 @@ class MainWindow(QMainWindow):
         # the previous version (Tk parity). One-shot per queue.
         prev = getattr(self, "_install_prev_name", None)
         if prev:
-            # The Change Version tab stays open — repoint it at the installed
+            # The Change Version tab stays open - repoint it at the installed
             # mod so the installed-version highlight is accurate.
             self._sync_change_version_after_install(name)
         if prev and name != prev:
@@ -10731,7 +10746,7 @@ class MainWindow(QMainWindow):
         self._reload_modlist()
         self._rebuild_conflicts_async()
         # The Change Version tab may still be open on the mod that was just
-        # removed — swap it to the version that replaced it.
+        # removed - swap it to the version that replaced it.
         self._sync_change_version_after_install(new_name)
 
     def _maybe_prompt_rename(self, name: str, on_done):
@@ -10956,7 +10971,7 @@ class MainWindow(QMainWindow):
         # Re-flag Reinstall in the Downloads tab now that meta.ini changed.
         if hasattr(self, "_downloads_view"):
             self._downloads_view.mark_dirty()
-        # A failed Change Version install never reaches the per-item retarget —
+        # A failed Change Version install never reaches the per-item retarget -
         # don't leave the tab's "Installing…" notice up forever.
         chv = getattr(self, "_change_version_view", None)
         if chv is not None:
@@ -15312,8 +15327,8 @@ def run() -> int:
 
     # Single-instance: if launched with an nxm:// link and an instance is
     # already running, hand the link off over the IPC socket and exit - don't
-    # build a second window. Done FIRST — before registration and the
-    # QApplication — so the browser-spawned process is cheap, and so a stale
+    # build a second window. Done FIRST - before registration and the
+    # QApplication - so the browser-spawned process is cheap, and so a stale
     # .desktop pointing at a different install variant can't re-assert its own
     # registration on every click while another variant is the one actually
     # running (the receiving instance re-registers itself instead, so the

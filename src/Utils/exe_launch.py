@@ -2409,9 +2409,14 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
 
     # Handler-declared default args (e.g. Cyberpunk's -modded). Prepended so
     # the user's own saved args stay last; skipped when already passed.
+    # Asked per-exe: some args only fit some launch targets (Cyberpunk keeps
+    # --launcher-skip away from the REDprelauncher Run entry).
     if launches_game:
-        default_args = [a for a in (getattr(game, "default_launch_args", []) or [])
-                        if a not in extra_args]
+        try:
+            _declared = game.default_launch_args_for_exe(exe_path.name)
+        except AttributeError:
+            _declared = getattr(game, "default_launch_args", []) or []
+        default_args = [a for a in _declared if a not in extra_args]
         if default_args:
             log_fn(f"Run EXE: adding default launch args: {' '.join(default_args)}")
             extra_args = default_args + extra_args

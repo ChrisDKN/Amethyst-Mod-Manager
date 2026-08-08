@@ -198,6 +198,183 @@ def _parse_launch_options(localconfig: Path, app_id: str) -> str:
     return ""
 
 
+def steam_client_running() -> bool:
+    """True when a Steam client appears to be running.
+
+    Reads Steam's own pid files (native + Flatpak Steam) and checks the pid
+    is alive and still looks like Steam - a stale steam.pid whose pid was
+    recycled by an unrelated process must not count.  Inside our own Flatpak
+    sandbox /proc shows only the sandbox, so the check runs on the host via
+    flatpak-spawn; if that can't be determined, assume running (the safe
+    direction for callers that must not write Steam's config mid-session).
+    """
+    pid_files = [
+        _HOME / ".steam" / "steam.pid",
+        _HOME / ".var" / "app" / _STEAM_FLATPAK_ID / ".steam" / "steam.pid",
+    ]
+    in_flatpak = Path("/.flatpak-info").exists()
+    for pid_file in pid_files:
+        try:
+            pid = int(pid_file.read_text(encoding="ascii", errors="replace").strip())
+        except (OSError, ValueError):
+            continue
+        if pid <= 0:
+            continue
+        if in_flatpak:
+            # Host pid namespace is not ours - ask the host.
+            import shutil as _shutil
+            import subprocess as _subprocess
+            if not _shutil.which("flatpak-spawn"):
+                return True  # can't verify; be conservative
+            try:
+                rc = _subprocess.run(
+                    ["flatpak-spawn", "--host", "sh", "-c",
+                     f'grep -qi steam /proc/{pid}/comm'],
+                    stdout=_subprocess.DEVNULL, stderr=_subprocess.DEVNULL,
+                    timeout=5).returncode
+            except Exception:
+                return True
+            if rc == 0:
+                return True
+            continue
+        try:
+            comm = Path(f"/proc/{pid}/comm").read_text(
+                encoding="ascii", errors="replace").strip()
+        except OSError:
+            continue  # pid dead (or unreadable) - stale pid file
+        if "steam" in comm.lower():
+            return True
+    return False
+
+
+def _newest_localconfig() -> "Path | None":
+    """The most recently written userdata localconfig.vdf (the active user)."""
+    best: "tuple[float, Path | None]" = (-1.0, None)
+    for steam_root in _STEAM_CANDIDATES:
+        userdata = steam_root / "userdata"
+        if not userdata.is_dir():
+            continue
+        try:
+            user_dirs = [d for d in userdata.iterdir() if d.is_dir()]
+        except OSError:
+            continue
+        for user_dir in user_dirs:
+            cfg = user_dir / "config" / "localconfig.vdf"
+            try:
+                mtime = cfg.stat().st_mtime
+            except OSError:
+                continue
+            if mtime > best[0]:
+                best = (mtime, cfg)
+    return best[1]
+
+
+def add_steam_launch_option(app_id: str, option: str) -> str:
+    """Append *option* to the app's Steam Launch Options in localconfig.vdf.
+
+    Returns a status string:
+      "added"         - written; applies the next time Steam starts
+      "already"       - the option is already present, nothing written
+      "steam_running" - refused: Steam rewrites localconfig.vdf from memory
+                        on exit, so an edit made now would be lost
+      "no_config"     - no usable localconfig.vdf / apps block found
+      "error"         - the file could not be modified
+
+    The edit is line-based and byte-preserving (surrogateescape round trip):
+    only the LaunchOptions value line is touched, or a minimal block is
+    inserted when the app has none yet.  A one-shot backup is kept next to
+    the file as localconfig.vdf.amm_bak.
+    """
+    if not app_id or not option:
+        return "error"
+    if option in steam_launch_options(app_id).split():
+        return "already"
+    if steam_client_running():
+        return "steam_running"
+    cfg = _newest_localconfig()
+    if cfg is None:
+        return "no_config"
+
+    want = ["userlocalconfigstore", "software", "valve", "steam", "apps"]
+    want_app = want + [app_id.lower()]
+    try:
+        raw = cfg.read_text(encoding="utf-8", errors="surrogateescape")
+    except OSError:
+        return "error"
+    lines = raw.splitlines(keepends=True)
+
+    path: list[str] = []
+    pending = ""
+    kv_re = re.compile(r'^(\s*)"([^"]*)"(\s*)"(.*)"(\s*)$')
+    key_re = re.compile(r'^(\s*)"([^"]*)"\s*$')
+    insert_at = -1          # line index to insert new content at
+    insert_indent = ""
+    mode = ""               # "append" | "new_key" | "new_block"
+
+    for i, rawline in enumerate(lines):
+        line = rawline.strip()
+        if line == "{":
+            path.append(pending)
+            pending = ""
+            continue
+        if line == "}":
+            if path == want_app and mode != "append":
+                # App block closing without a LaunchOptions key.
+                mode, insert_at = "new_key", i
+                insert_indent = rawline[:len(rawline) - len(rawline.lstrip())] + "\t"
+                break
+            if path == want and mode == "":
+                # apps block closing without our app.
+                mode, insert_at = "new_block", i
+                insert_indent = rawline[:len(rawline) - len(rawline.lstrip())] + "\t"
+                break
+            if path:
+                path.pop()
+            continue
+        m = kv_re.match(rawline.rstrip("\r\n"))
+        if m:
+            if path == want_app and m.group(2).lower() == "launchoptions":
+                old_val = m.group(4)
+                new_val = (old_val + " " + option) if old_val else option
+                eol = rawline[len(rawline.rstrip("\r\n")):]
+                lines[i] = (f'{m.group(1)}"{m.group(2)}"{m.group(3)}'
+                            f'"{new_val}"{m.group(5)}{eol}')
+                mode = "append"
+                break
+            continue
+        m = key_re.match(rawline.rstrip("\r\n"))
+        if m:
+            pending = m.group(2).lower()
+
+    if mode == "":
+        return "no_config"
+
+    eol = "\r\n" if lines and lines[0].endswith("\r\n") else "\n"
+    if mode == "new_key":
+        lines.insert(insert_at,
+                     f'{insert_indent}"LaunchOptions"\t\t"{option}"{eol}')
+    elif mode == "new_block":
+        block = [
+            f'{insert_indent}"{app_id}"{eol}',
+            f'{insert_indent}{{{eol}',
+            f'{insert_indent}\t"LaunchOptions"\t\t"{option}"{eol}',
+            f'{insert_indent}}}{eol}',
+        ]
+        lines[insert_at:insert_at] = block
+
+    try:
+        backup = cfg.with_name(cfg.name + ".amm_bak")
+        if not backup.exists():
+            shutil.copy2(cfg, backup)
+        tmp = cfg.with_name(cfg.name + ".amm_tmp")
+        tmp.write_text("".join(lines), encoding="utf-8",
+                       errors="surrogateescape")
+        tmp.replace(cfg)
+    except OSError:
+        return "error"
+    return "added"
+
+
 _RUNTIME_ENTRY_POINT = "_v2-entry-point"
 
 # Steam Linux Runtime app ID → install dir, used only when the runtime's
@@ -1316,7 +1493,7 @@ def scan_drives_for_exe(exe_names: list[str],
     """Scan all mounted drives for any of *exe_names*, stopping at first match.
 
     Walks every real (non-pseudo) mount point from /proc/mounts, fanning
-    subtree walks out across a thread pool — user trees (/home, /run/media,
+    subtree walks out across a thread pool - user trees (/home, /run/media,
     /media, /mnt) are split a level deeper and queued first, and each walk is
     breadth-first, since game dirs sit shallow. Per-session fuse mirrors
     (document portal, gvfs) are excluded so the scan never returns a
@@ -1418,7 +1595,7 @@ def scan_drives_for_exe(exe_names: list[str],
     def _scan_subtree(start: Path) -> Path | None:
         """Breadth-first walk: game dirs sit shallow, so BFS finds them long
         before a depth-first walk finishes exhausting deep unrelated trees.
-        Other mountpoints are pruned — every wanted mount is walked from its
+        Other mountpoints are pruned - every wanted mount is walked from its
         own /proc/mounts entry, so descending into one here would scan it
         twice (and descending into a skipped one at all)."""
         queue = collections.deque([str(start)])

@@ -5,7 +5,7 @@ Abstract base class that all game handlers must subclass.
 To add support for a new game:
   1. Create a new .py file in the Games/ directory
   2. Subclass BaseGame and implement all abstract methods/properties
-  3. Drop the file in — it will be auto-discovered by Utils/game_loader.py
+  3. Drop the file in - it will be auto-discovered by Utils/game_loader.py
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ MODERN_DIRECTX_DEPS = ["vcredist", "d3dcompiler_47"]
 
 
 # Shared serialisation tables for load_paths/save_paths. Note that we map both
-# "symlink" and "copy" → SYMLINK on read — historically the user-facing "copy"
+# "symlink" and "copy" → SYMLINK on read - historically the user-facing "copy"
 # option was renamed to symlink years ago and the saved string can be either.
 # Games that genuinely deploy by copying (7DTD, Morrowind, OpenMW) set
 # deploy_mode_supports_copy = True to use _DEPLOY_MODE_FROM_STR_COPY instead.
@@ -112,6 +112,14 @@ class BaseGame(ABC):
     # Subclasses extend these; unlisted keys stay global for all profiles
     # (e.g. heroic_app_name, a game-detection detail).
     #
+    # Set by the GUI for the duration of a deploy that the Play button (or a
+    # Run-dropdown entry) started, meaning a launch through the manager
+    # follows immediately.  post_deploy() implementations use it to skip
+    # advice that only applies to launching from Steam/Heroic directly - our
+    # own launch routes already pass default_launch_args.  Always False for
+    # a standalone Deploy, and for wizard/CLI deploys.
+    deploy_launch_pending: bool = False
+
     # True for games that deploy by copying files (so the saved "copy" deploy
     # mode is preserved instead of collapsing to symlink).
     deploy_mode_supports_copy: bool = False
@@ -246,7 +254,7 @@ class BaseGame(ABC):
         Lowercase filename glob patterns excluded from the filemap.
 
         Files whose name (not path) matches an entry here are dropped from
-        the filemap entirely — never deployed and never conflict-tracked.
+        the filemap entirely - never deployed and never conflict-tracked.
         Useful for metadata files that many mods ship (e.g. modinfo.ini) which would otherwise cause spurious conflict markers.
 
         Return an empty set (the default) to disable.
@@ -258,8 +266,8 @@ class BaseGame(ABC):
         """
         Lowercase folder-name glob patterns excluded from the filemap.
 
-        A folder whose name matches an entry here — at any depth inside a
-        mod — is skipped along with its entire subtree: nothing inside it is
+        A folder whose name matches an entry here - at any depth inside a
+        mod - is skipped along with its entire subtree: nothing inside it is
         deployed or conflict-tracked.  Files remain in modindex.bin; the
         exclusion is applied at filemap-merge time, unlike
         ``filemap_exclude_dirs`` which removes top-level dirs at scan time.
@@ -309,7 +317,7 @@ class BaseGame(ABC):
     def archive_plugin_ordering(self) -> bool:
         """
         When True (the default), archive load order is refined by plugin
-        load order — Bethesda engines load a BSA at its owning plugin's
+        load order - Bethesda engines load a BSA at its owning plugin's
         position, so conflict winners follow loadorder.txt.
 
         Games whose archives are not plugin-tied (UE5 paks) return False so
@@ -340,7 +348,7 @@ class BaseGame(ABC):
         and mod_auto_strip_until_required have run at install time.
 
         Use this when the folder to strip is the same one declared in
-        mod_required_top_level_folders — so auto-strip can first normalise the
+        mod_required_top_level_folders - so auto-strip can first normalise the
         mod structure down to that folder, then this property removes it.
 
         Example: REFramework mods must contain a top-level reframework/ folder
@@ -413,7 +421,7 @@ class BaseGame(ABC):
         installed (MO2-style "Set data directory").
 
         Example: Cyberpunk 2077 mods must live under archive/, bin/, r6/, or
-        red4ext/ — declaring these here causes a warning dialog to appear when
+        red4ext/ - declaring these here causes a warning dialog to appear when
         an author ships loose files with no recognised top-level folder.
 
         Return an empty set (the default) to disable this check entirely.
@@ -464,7 +472,7 @@ class BaseGame(ABC):
            stripped down to one) before falling through to the prefix dialog.
 
         2. Standalone (without mod_required_top_level_folders): if no required
-           top-level folders are declared, this check runs on its own — the mod
+           top-level folders are declared, this check runs on its own - the mod
            must have a qualifying file at its top level, or the auto-strip /
            prefix-dialog / install-as-is fallbacks apply as normal.
 
@@ -530,9 +538,9 @@ class BaseGame(ABC):
     @property
     def mod_supports_bundles(self) -> bool:
         """
-        When True, the installer detects bundle mods — archives whose top-level
+        When True, the installer detects bundle mods - archives whose top-level
         subfolders each contain a ``modinfo.ini`` with the same ``nameasbundle``
-        value — and installs every variant as a separate staged mod named
+        value - and installs every variant as a separate staged mod named
         ``<bundle_name>__<variant_name>``.  The mod list then shows them as a
         radio-button group where enabling one variant auto-disables the others.
 
@@ -634,7 +642,7 @@ class BaseGame(ABC):
         system and respects the exact folder names provided by mod authors
         (e.g. Stardew Valley on Linux, where ``Music/`` and ``music/`` are
         different directories).  When False, folder names in the filemap are
-        left exactly as each mod provides them — no cross-mod unification.
+        left exactly as each mod provides them - no cross-mod unification.
         """
         return True
 
@@ -645,17 +653,17 @@ class BaseGame(ABC):
         when ``normalize_folder_case`` is True. Ignored when normalization is
         off. One of:
 
-          "upper"        — prefer the variant with more uppercase letters
+          "upper"        - prefer the variant with more uppercase letters
                            (default; correct for most Windows-shipped mods).
-          "lower"        — prefer the variant with more lowercase letters
+          "lower"        - prefer the variant with more lowercase letters
                            (Cyberpunk 2077: REDengine reads ``archive/pc/mod``
-                           lowercase — using ``Mod`` for one mod and ``mod``
+                           lowercase - using ``Mod`` for one mod and ``mod``
                            for another would split into two real dirs on
                            case-sensitive Linux filesystems).
-          "force_lower"  — every folder segment is lowercased regardless of
+          "force_lower"  - every folder segment is lowercased regardless of
                            how mod authors shipped it. Filenames untouched.
-          "force_upper"  — every folder segment is uppercased. Filenames
-                           untouched. Mostly here for symmetry — rarely
+          "force_upper"  - every folder segment is uppercased. Filenames
+                           untouched. Mostly here for symmetry - rarely
                            useful in practice.
         """
         return "upper"
@@ -667,7 +675,7 @@ class BaseGame(ABC):
 
         Some mods read their own data folders by a hardcoded, case-sensitive
         path string, so the merged deploy MUST use the exact casing that mod
-        shipped — the ``filemap_casing`` heuristic only preserves it by
+        shipped - the ``filemap_casing`` heuristic only preserves it by
         coincidence (e.g. when the required casing happens to be the most-
         uppercase variant) and can be knocked over the moment another mod
         ships a differently-cased variant of the same folder name.
@@ -679,7 +687,7 @@ class BaseGame(ABC):
         segments nested inside it still follow the normal strategy.
 
         Include an extension to pin a FILENAME (``{"compass.swf":
-        "Compass.swf"}``) — the winning mod's on-disk name is otherwise what
+        "Compass.swf"}``) - the winning mod's on-disk name is otherwise what
         deploys, so a replacer shipping a lowercase copy renames the link.
         Filename pins apply to the deployed name only; install-time staging
         still merges folders alone and never renames a file on disk.
@@ -695,7 +703,7 @@ class BaseGame(ABC):
     def mod_staging_requires_subdir(self) -> bool:
         """
         When True, each mod's staging folder must contain a named subdirectory
-        at its top level — loose files must NOT sit at the staging folder root.
+        at its top level - loose files must NOT sit at the staging folder root.
 
         This applies to games like Stardew Valley where the mod loader requires
         mods to live in <game>/Mods/<ModName>/.  The staging structure must
@@ -729,7 +737,7 @@ class BaseGame(ABC):
 
         Only consulted when ``mod_staging_requires_subdir`` is True.  If any
         immediate subdirectory of a mod contains one of these files, the mod is
-        left untouched even if a wrap signal is present at the root — the loose
+        left untouched even if a wrap signal is present at the root - the loose
         root file is a sibling (e.g. a JA3 Packs ``.hpk`` next to an existing
         ``<ModName>/metadata.lua`` folder), not a flat mod.  Empty (the default)
         disables the guard.
@@ -744,13 +752,13 @@ class BaseGame(ABC):
         The plugin panel checks whether each executable exists in the game's
         root directory **or** in the active profile's Root_Folder staging
         directory, and displays a status banner at the top of the Plugins tab:
-          • Green  — "Script Extender Installed"
-          • Red    — "Script Extender Not Present"
+          • Green  - "Script Extender Installed"
+          • Red    - "Script Extender Not Present"
 
         Example (Skyrim SE):
             {"Script Extender": "skse64_loader.exe"}
 
-        A value may also be a tuple/list of alternative paths — the framework
+        A value may also be a tuple/list of alternative paths - the framework
         counts as satisfied when ANY of them is found (e.g. BepInEx ships
         winhttp.dll on Windows builds but run_bepinex.sh on native Linux
         builds):
@@ -811,13 +819,13 @@ class BaseGame(ABC):
         frameworks that *launch* the game (script extenders and the like).
 
         Each entry that exists in the deployed game root is added to the
-        play-bar Run dropdown automatically — no manual "Add custom EXE"
+        play-bar Run dropdown automatically - no manual "Add custom EXE"
         needed. Unlike ``preferred_launch_exe`` the game's own Play entry is
         left untouched; the framework appears as an extra dropdown item and
         runs through the normal exe-via-Proton path (game prefix, Steam
         app-id env, cwd = the exe's folder).
 
-        Only include launchers here — config GUIs / compilers declared in
+        Only include launchers here - config GUIs / compilers declared in
         ``frameworks`` (MGE XE gui, scc.exe, …) don't belong in the Run
         dropdown. Return an empty dict (the default) to add nothing.
         """
@@ -832,7 +840,7 @@ class BaseGame(ABC):
         Proton path appends them to the command line, and the Steam route
         forwards them via ``steam -applaunch`` / the rungameid URL.  Launcher
         routes that can't carry arguments (Heroic/Lutris/Faugus) only log a
-        note — the game handler should surface those in a deploy warning.
+        note - the game handler should surface those in a deploy warning.
 
         Per-exe arguments the user saved come on top; a default that the user
         already passes themselves is skipped, so no flag is doubled.
@@ -841,6 +849,17 @@ class BaseGame(ABC):
         are actually loaded.  Return an empty list (the default) for none.
         """
         return []
+
+    def default_launch_args_for_exe(self, exe_name: str) -> list[str]:
+        """Per-exe variant of :attr:`default_launch_args`.
+
+        The direct Proton launch path asks this with the exe's filename, so a
+        game can withhold args that only make sense for some launch targets
+        (e.g. Cyberpunk keeps ``--launcher-skip`` away from REDprelauncher -
+        the whole point of that Run entry is showing the launcher).  Defaults
+        to :attr:`default_launch_args` for every exe.
+        """
+        return self.default_launch_args
 
     @property
     def steam_id(self) -> str:
@@ -894,7 +913,7 @@ class BaseGame(ABC):
 
         When empty (the default), Heroic detection matches on the handler's
         exe name(s).  When set, these names are authoritative and the exe
-        scan is skipped entirely — register games whose launcher name
+        scan is skipped entirely - register games whose launcher name
         collides with a different title (e.g. FalloutLauncher.exe ships
         with both Fallout 3 GOTY and classic Fallout on GOG).
         """
@@ -1008,7 +1027,7 @@ class BaseGame(ABC):
         When set, the masterlist URL is built dynamically to match the bundled
         libloot version (loot_sorter.masterlist_url_for_repo), with a
         walk-down fallback to the most recent available branch. This is the
-        preferred way to declare masterlist hosting — `loot_masterlist_url`
+        preferred way to declare masterlist hosting - `loot_masterlist_url`
         is kept as a legacy fallback for repos that don't follow the
         standard branch-per-libloot-version convention.
 
@@ -1043,10 +1062,10 @@ class BaseGame(ABC):
         Wine DLL overrides to apply to the Proton prefix on every deploy.
 
         Maps DLL name → load order string using Wine's notation:
-          ``"native,builtin"``  — try the Windows DLL first, then Wine's
-          ``"native"``          — Windows DLL only
-          ``"builtin"``         — Wine's built-in only
-          ``"disabled"``        — block the DLL entirely
+          ``"native,builtin"``  - try the Windows DLL first, then Wine's
+          ``"native"``          - Windows DLL only
+          ``"builtin"``         - Wine's built-in only
+          ``"disabled"``        - block the DLL entirely
 
         These are written into ``user.reg`` under
         ``[Software\\\\Wine\\\\DllOverrides]`` each time ``deploy()`` runs,
@@ -1085,11 +1104,11 @@ class BaseGame(ABC):
 
         These run silently in the background and are skipped per-dep when the
         prefix's amethyst_deps.json already records them, or when no Proton
-        prefix is available. Prefer this over ``winetricks_components`` — many
+        prefix is available. Prefer this over ``winetricks_components`` - many
         users lack a working winetricks/cabextract setup, and the winetricks
         vcredist/d3dcompiler verbs are also less reliable for DLL mods.
 
-        Default: ``["vcredist"]`` for every game (including custom games) —
+        Default: ``["vcredist"]`` for every game (including custom games) -
         the VC++ x64 runtime is a near-universal requirement for Windows
         titles and mod DLLs, and games without a Proton prefix (native Linux)
         are skipped anyway. Games needing more override this (see
@@ -1129,7 +1148,7 @@ class BaseGame(ABC):
     def restore_whitelist_matcher(self, rel_prefix: str = ""):
         """Compiled matcher over this game's restore_whitelist, or None.
 
-        rel_prefix — pass the deploy subfolder (e.g. "data/") when the walk
+        rel_prefix - pass the deploy subfolder (e.g. "data/") when the walk
         root is a subdirectory of the game root; rules are re-based onto it.
         """
         rules = self.restore_whitelist
@@ -1163,7 +1182,7 @@ class BaseGame(ABC):
         Suggested DLL name that ReShade should be installed as.
 
         This is only a *hint* used to pre-select the right option in the
-        ReShade wizard — the user can always change it there.  The correct
+        ReShade wizard - the user can always change it there.  The correct
         value depends on the graphics API the game uses:
           - DirectX 9          → ``"d3d9.dll"``
           - DirectX 10/11/12   → ``"dxgi.dll"``
@@ -1316,7 +1335,7 @@ class BaseGame(ABC):
             return self._staging_path
         return self.get_mod_staging_path().parent
 
-    # Active profile directory — set by the UI whenever the user switches profiles.
+    # Active profile directory - set by the UI whenever the user switches profiles.
     _active_profile_dir: "Path | None" = None
 
     def set_active_profile_dir(self, profile_dir: "Path | None") -> None:
@@ -1482,7 +1501,7 @@ class BaseGame(ABC):
         Called by run_deploy_pipeline around game.deploy(): the handler's
         end-of-deploy snapshot_root_for_runtime_capture() call becomes a no-op
         that only records the request, and the pipeline writes the snapshot
-        once after the root-folder files have also landed — one game-root walk
+        once after the root-folder files have also landed - one game-root walk
         per deploy instead of two (and chained handler deploys coalesce)."""
         self._defer_runtime_snapshot = True
         self._deferred_snapshot_requested = False
@@ -1584,7 +1603,7 @@ class BaseGame(ABC):
                                    deploy_mode: str | None = None) -> None:
         """Persist profile_name as the last successfully deployed profile.
 
-        deploy_mode — optional LinkMode name to record alongside it (passed by
+        deploy_mode - optional LinkMode name to record alongside it (passed by
         the deploy pipeline; other callers leave the stored value untouched).
         """
         try:
@@ -1701,7 +1720,7 @@ class BaseGame(ABC):
         # Non-default profile: persist an overridable key as a sticky per-profile
         # override only when the incoming value differs from the profile's current
         # effective value (global overlaid with any existing override). A key the
-        # user actually changed differs and gets pinned — and stays pinned even if
+        # user actually changed differs and gets pinned - and stays pinned even if
         # it equals the default, surviving later changes to the default. A key
         # left untouched matches its effective value and is not written, so it
         # keeps following the default.
@@ -1784,7 +1803,7 @@ class BaseGame(ABC):
         (Heroic-only games, etc.) can override.
 
         The game path is passed through so the Steam lookup can tell which
-        library owns the app — without it a stale compatdata in another
+        library owns the app - without it a stale compatdata in another
         library can win.
         """
         for sid in [self.steam_id, *self.alt_steam_ids]:
@@ -1888,7 +1907,7 @@ class BaseGame(ABC):
 
         Multi-library users who moved a game between drives can end up with a
         stale ``compatdata/<id>`` in the old library. It is a real directory, so
-        load_paths() keeps it forever — auto-detection only runs when the saved
+        load_paths() keeps it forever - auto-detection only runs when the saved
         prefix is missing. Only Steam compatdata paths whose owning library is
         known and different are touched; everything else is left alone.
         """
@@ -1896,7 +1915,7 @@ class BaseGame(ABC):
         if prefix is None:
             return
         if self._profile_overrides_prefix():
-            # A per-profile prefix is a deliberate choice — never second-guess it.
+            # A per-profile prefix is a deliberate choice - never second-guess it.
             return
         try:
             from Utils.steam_finder import (prefix_is_in_wrong_library,
@@ -2002,7 +2021,7 @@ class BaseGame(ABC):
         }
         data = self._read_global_paths()
         data["staging_path"] = str(self._staging_path) if self._staging_path else ""
-        # Saves live where the game puts them, not where a profile says — the
+        # Saves live where the game puts them, not where a profile says - the
         # override stays global rather than joining the per-profile pins.
         data["save_path_override"] = (str(self._save_path_override)
                                       if self._save_path_override else "")
@@ -2085,7 +2104,7 @@ class BaseGame(ABC):
 
         Called during load_paths().  If the user set a custom staging
         directory and that directory has since been deleted, the game
-        config is stale — clear paths.json so the user must re-add the
+        config is stale - clear paths.json so the user must re-add the
         game through the Add Game dialog.
         """
         if self._staging_path is not None and not self._staging_path.is_dir():
@@ -2099,7 +2118,7 @@ class BaseGame(ABC):
                 pass
 
     # -----------------------------------------------------------------------
-    # Validation (concrete — subclasses may override)
+    # Validation (concrete - subclasses may override)
     # -----------------------------------------------------------------------
 
     def is_configured(self) -> bool:

@@ -124,12 +124,21 @@ class Cyberpunk2077(BaseGame):
         return True
 
     @property
+    def mod_deploy_path_remap(self) -> dict[str, str]:
+        return {"archive/pc/patch/": "archive/pc/mod/"}
+
+    @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return [
             CustomRule(
                 dest="archive/pc/mod",
                 extensions=[".archive"],
                 companion_extensions=[".xl"],
+                loose_only=True,
+            ),
+            CustomRule(
+                dest="archive/pc/mod",
+                extensions=[".xl"],
                 loose_only=True,
             ),
         ]
@@ -162,16 +171,24 @@ class Cyberpunk2077(BaseGame):
 
     @property
     def default_launch_args(self) -> list[str]:
-        # REDmod content (mods/ + r6/cache/modded) only loads when the game is
-        # started with -modded; harmless when no REDmods are installed, so it
-        # is passed unconditionally on every launch route we control.
-        return ["-modded"]
+        # -modded: REDmod content (mods/ + r6/cache/modded) only loads when
+        # the game is started with it; harmless when no REDmods are installed.
+        # --launcher-skip: REDprelauncher goes straight to the game.  Both are
+        # passed unconditionally on every launch route we control.
+        return ["-modded", "--launcher-skip"]
+
+    def default_launch_args_for_exe(self, exe_name: str) -> list[str]:
+        # The REDLauncher Run entry exists to SHOW the launcher (and let it
+        # run its own redMod deploy) - don't skip it from itself.
+        if exe_name.lower() == "redprelauncher.exe":
+            return ["-modded"]
+        return self.default_launch_args
 
     @property
     def framework_launch_exes(self) -> dict[str, str]:
         # REDlauncher re-runs redMod.exe deploy itself when the mod list
         # changed, so it's the safest Run entry for script/tweak REDmods.
-        # -modded is forwarded to it via default_launch_args.
+        # -modded is forwarded to it via default_launch_args_for_exe.
         return {"REDLauncher": "REDprelauncher.exe"}
 
     @property
@@ -249,7 +266,7 @@ class Cyberpunk2077(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir so custom-routed
+        # Separator overrides - loaded from the real profile_dir so custom-routed
         # files honour a separator's File Transfer Method (shared-staging safe).
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
@@ -259,7 +276,7 @@ class Cyberpunk2077(BaseGame):
         custom_rules = self.custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
-            _log("Routing loose .archive files to archive/pc/mod/ ...")
+            _log("Routing loose .archive/.xl files to archive/pc/mod/ ...")
             custom_exclude = deploy_custom_rules(
                 filemap, game_root, staging,
                 rules=custom_rules,
@@ -278,12 +295,13 @@ class Cyberpunk2077(BaseGame):
                                                per_mod_strip_prefixes=per_mod_strip,
                                                log_fn=_log,
                                                progress_fn=progress_fn,
-                                               exclude=custom_exclude or None)
+                                               exclude=custom_exclude or None,
+                                               path_remap=self.mod_deploy_path_remap or None)
 
         if os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") != "0":
             try:
                 # Raw-deploy mods and custom-location separator mods never
-                # land in archive/pc/mod — keep them out of the load order.
+                # land in archive/pc/mod - keep them out of the load order.
                 _excl: set[str] = set(per_mod_raw or ())
                 if _sep_deploy:
                     _excl |= set(expand_separator_deploy_paths(
@@ -311,7 +329,7 @@ class Cyberpunk2077(BaseGame):
         The game loads modlist.txt top to bottom and the first archive that
         touches a resource wins, so the order is Overwrite first (it beats
         everything in the filemap merge), then mods by profile priority
-        (modlist index 0 = highest).  Only flat archive/pc/mod entries count —
+        (modlist index 0 = highest).  Only flat archive/pc/mod entries count -
         subfolders there aren't reliably scanned by the engine.  exclude_mods
         (raw-deploy / custom-location separator mods) never land in
         archive/pc/mod, so their archives are dropped entirely.
@@ -327,13 +345,21 @@ class Cyberpunk2077(BaseGame):
 
         prefix = "archive/pc/mod/"
         excluded = exclude_mods or set()
+        # Deploy remaps these prefixes (archive/pc/patch → archive/pc/mod), so
+        # apply the same substitution before deciding what lands in the dir.
+        remap = [(k.lower(), v) for k, v in (self.mod_deploy_path_remap or {}).items()]
         best: dict[str, tuple[int, str]] = {}  # filename_lower → (rank, filename)
         for rel, mod in parse_filemap(filemap):
             rl = rel.lower()
             if not rl.endswith(".archive") or mod in excluded:
                 continue
+            for old_p, new_p in remap:
+                if rl.startswith(old_p):
+                    rel = new_p + rel[len(old_p):]
+                    rl = rel.lower()
+                    break
             if "/" not in rel:
-                # Loose archive — routed to archive/pc/mod by the custom rule.
+                # Loose archive - routed to archive/pc/mod by the custom rule.
                 name = rel
             elif rl.startswith(prefix) and "/" not in rel[len(prefix):]:
                 name = rel[len(prefix):]
@@ -387,7 +413,7 @@ class Cyberpunk2077(BaseGame):
         dest.write_bytes(content)
         state.write_bytes(content)
         _log(f"Archive load order: wrote modlist.txt with {len(names)} "
-             "archive(s) — highest-priority mod loads first (first wins).")
+             "archive(s) - highest-priority mod loads first (first wins).")
 
     def _cleanup_archive_modlist(self, filemap: Path, game_root: Path,
                                  log_fn=None) -> None:
@@ -423,43 +449,84 @@ class Cyberpunk2077(BaseGame):
         redmods = self._deployed_redmods()
         if not redmods:
             return
-        _log(f"REDmod: {len(redmods)} mod(s) deployed under mods/ — the game "
+        _log(f"REDmod: {len(redmods)} mod(s) deployed under mods/ - the game "
              "only loads them when launched with -modded (the Play button "
              "passes it automatically).")
         warn = self._external_launch_missing_modded(_log)
         if warn:
             _log(f"REDmod: {warn}")
-            self.add_deploy_warning(warn)
+            # Only toast it when no manager launch follows: the Play button
+            # passes -modded itself, so the advice would be noise there. It
+            # matters for a later launch from Steam/Heroic directly, and the
+            # log line above records it either way.
+            if not self.deploy_launch_pending:
+                self.add_deploy_warning(warn)
 
     def _external_launch_missing_modded(self, _log) -> str | None:
-        """A user-facing warning when the game's external launcher lacks
-        -modded, or None when it's configured (or there's no launcher)."""
+        """Make sure the game's external launcher passes -modded.
+
+        Tries to write the option into the launcher's own config first -
+        Steam's localconfig.vdf (only safe while Steam is closed: it rewrites
+        the file from memory on exit) or Heroic's GamesConfig json (safe any
+        time, re-read per launch).  Returns a user-facing warning only when
+        the option couldn't be added automatically."""
         try:
             from Utils.exe_launch import (
                 effective_steam_id, game_is_steam_install,
                 game_is_heroic_install, heroic_app_names_for_launch,
             )
             if game_is_steam_install(self):
-                from Utils.steam_finder import steam_launch_options
-                opts = steam_launch_options(
-                    effective_steam_id(self) or self.steam_id)
-                if "-modded" not in opts:
+                from Utils.steam_finder import (
+                    add_steam_launch_option, steam_launch_options,
+                )
+                sid = effective_steam_id(self) or self.steam_id
+                missing = [a for a in self.default_launch_args
+                           if a not in steam_launch_options(sid).split()]
+                if not missing:
+                    return None
+                results = {a: add_steam_launch_option(sid, a) for a in missing}
+                added = [a for a in missing if results[a] == "added"]
+                if added:
+                    _log(f"REDmod: added {' '.join(added)} to the game's "
+                         "Steam Launch Options - applies the next time Steam "
+                         "starts.")
+                # Only -modded is required for REDmods; --launcher-skip is
+                # QoL and never worth a warning on its own.
+                modded = results.get("-modded")
+                if modded in (None, "added", "already"):
+                    return None
+                if modded == "steam_running":
                     return (
-                        "REDmod mods are installed, but the game's Steam "
-                        "Launch Options don't include -modded, so launching "
-                        "from Steam will skip them. Add -modded in Steam → "
-                        "Cyberpunk 2077 → Properties → Launch Options. "
-                        "(The in-app Play button passes it automatically.)")
+                        "REDmods need -modded in the game's Steam Launch "
+                        "Options. Steam is running and would undo the change "
+                        "- add it in Properties → Launch Options, or close "
+                        "Steam and deploy again.")
+                return (
+                    "REDmods need -modded in the game's Steam Launch Options "
+                    "(Properties → Launch Options) - it couldn't be added "
+                    "automatically.")
             elif game_is_heroic_install(self):
-                from Utils.heroic_finder import heroic_launcher_args
-                args = heroic_launcher_args(heroic_app_names_for_launch(self))
-                if not args or "-modded" not in args:
-                    return (
-                        "REDmod mods are installed, but Heroic doesn't pass "
-                        "-modded, so launching from Heroic will skip them. "
-                        "Add -modded under Game Settings → Advanced → Game "
-                        "Arguments in Heroic. (The in-app Play button passes "
-                        "it automatically.)")
+                from Utils.heroic_finder import (
+                    add_heroic_launcher_arg, heroic_launcher_args,
+                )
+                names = heroic_app_names_for_launch(self)
+                have = (heroic_launcher_args(names) or "").split()
+                missing = [a for a in self.default_launch_args
+                           if a not in have]
+                if not missing:
+                    return None
+                results = {a: add_heroic_launcher_arg(names, a)
+                           for a in missing}
+                added = [a for a in missing if results[a]]
+                if added:
+                    _log(f"REDmod: added {' '.join(added)} to the game's "
+                         "launch arguments in Heroic.")
+                if results.get("-modded", True):
+                    return None
+                return (
+                    "REDmods need -modded in Heroic's Game Arguments "
+                    "(game settings → Advanced) - it couldn't be added "
+                    "automatically.")
         except Exception as exc:
             _log(f"REDmod: launch-options check skipped ({exc})")
         return None

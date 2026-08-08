@@ -44,7 +44,7 @@ def _heroic_config_candidates() -> list[Path]:
     candidates += [
         # Flatpak (most common on Steam Deck)
         _HOME / ".var" / "app" / "com.heroicgameslauncher.hgl" / "config" / "heroic",
-        # Native / AppImage — respects XDG_CONFIG_HOME
+        # Native / AppImage - respects XDG_CONFIG_HOME
         _XDG_CONFIG / "heroic",
         _HOME / ".config" / "heroic",  # Fallback if XDG_CONFIG was overridden
         # Alternate directory name used by some distro packages
@@ -89,7 +89,7 @@ def _maybe_log_heroic_config_missing() -> None:
         from Utils.app_log import app_log
         app_log(
             "Heroic binary found on PATH but no Heroic config directory was "
-            "located — set a custom Heroic config path in the app's settings "
+            "located - set a custom Heroic config path in the app's settings "
             "if Heroic-managed games aren't detected"
         )
     except Exception:
@@ -343,7 +343,7 @@ def find_heroic_game_info_by_app_names(
 
     Same result shape as find_heroic_game_info_by_exe.  Used when a handler
     declares heroic_app_names: those are authoritative, and the caller skips
-    exe-name matching entirely — generic launcher names collide across
+    exe-name matching entirely - generic launcher names collide across
     different games (e.g. GOG Fallout 3 GOTY and classic Fallout both ship
     FalloutLauncher.exe), so an exe scan can resolve to the wrong title.
     """
@@ -473,7 +473,7 @@ def _legendary_commands(heroic_root: Path) -> list[list[str]]:
 def epic_launch_args(app_name: str, log_fn=None, timeout: int = 90) -> list[str]:
     """Epic auth/portal arguments legendary passes when launching *app_name*.
 
-    Epic builds that use the EOS SDK need these to reach their main menu — the
+    Epic builds that use the EOS SDK need these to reach their main menu - the
     game otherwise logs "Missing platform services" and dies (Subnautica).
     Heroic gets them from legendary on every launch; the exchange code inside
     is single-use, so this must run per launch and can't be cached. Returns []
@@ -498,14 +498,14 @@ def epic_launch_args(app_name: str, log_fn=None, timeout: int = 90) -> list[str]
                 proc = subprocess.run(argv, capture_output=True, text=True,
                                       timeout=timeout)
             except Exception as e:
-                _log(f"Epic auth: legendary failed to run — {e}")
+                _log(f"Epic auth: legendary failed to run - {e}")
                 continue
             try:
                 info = json.loads(proc.stdout.strip().splitlines()[-1])
             except Exception:
                 err = (proc.stderr or proc.stdout or "").strip().splitlines()
                 _log("Epic auth: legendary returned no launch data"
-                     + (f" — {err[-1]}" if err else ""))
+                     + (f" - {err[-1]}" if err else ""))
                 continue
             args = [str(a) for a in (list(info.get("game_parameters") or [])
                                      + list(info.get("egl_parameters") or [])
@@ -514,7 +514,7 @@ def epic_launch_args(app_name: str, log_fn=None, timeout: int = 90) -> list[str]
                 _log(f"Epic auth: got {len(args)} Epic launch argument(s) from "
                      "legendary (Epic Online Services login).")
             return args
-        _log("Epic auth: this is an Epic game but legendary could not be run — "
+        _log("Epic auth: this is an Epic game but legendary could not be run - "
              "the game may fail without its Epic login arguments. Launch via "
              "Heroic instead, or set AMM_EPIC_AUTH=0 to stop trying.")
         return []
@@ -549,7 +549,7 @@ def _stored_exe_matches(stored_exe: str, rel_parts: list[str]) -> bool:
     handler's exe name (pre-split into lowercase path segments).
 
     When the handler name includes directories (e.g. 'launcher/Launcher.exe')
-    every segment must match the tail of the stored path — a bare-filename
+    every segment must match the tail of the stored path - a bare-filename
     match is not enough, since generic names like Launcher.exe collide across
     games.  Single-segment names compare by filename only (Heroic may store a
     bare name or a relative/absolute path).
@@ -835,6 +835,47 @@ def heroic_launcher_args(app_names: list[str]) -> str | None:
                 val = inner.get("launcherArgs", "")
                 return val if isinstance(val, str) else ""
     return None
+
+
+def add_heroic_launcher_arg(app_names: list[str], option: str) -> bool:
+    """Append *option* to launcherArgs in the first matching GamesConfig json.
+
+    Heroic re-reads the per-game config on every launch, so unlike Steam this
+    is safe while Heroic is running.  Only an existing config file is
+    modified - Heroic owns the file format, so none is created from scratch.
+    Returns True when the option is present afterwards (added or already
+    there), False when no per-game config exists or the write failed.
+    """
+    if not option:
+        return False
+    for heroic_root in _find_heroic_config_roots():
+        games_config = heroic_root / "GamesConfig"
+        for app_name in app_names:
+            cfg_file = games_config / f"{app_name}.json"
+            if not cfg_file.is_file():
+                continue
+            try:
+                cfg = json.loads(cfg_file.read_text(
+                    encoding="utf-8", errors="replace"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            inner = cfg.get(app_name, cfg) if isinstance(cfg, dict) else None
+            if not isinstance(inner, dict):
+                continue
+            args = inner.get("launcherArgs", "")
+            if not isinstance(args, str):
+                args = ""
+            if option in args.split():
+                return True
+            inner["launcherArgs"] = f"{args} {option}".strip()
+            try:
+                tmp = cfg_file.with_name(cfg_file.name + ".amm_tmp")
+                tmp.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+                tmp.replace(cfg_file)
+            except OSError:
+                return False
+            return True
+    return False
 
 
 def find_heroic_prefix(app_names: list[str]) -> Path | None:
