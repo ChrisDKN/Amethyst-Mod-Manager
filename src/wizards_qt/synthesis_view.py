@@ -42,7 +42,7 @@ class SynthesisView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run Synthesis — {0}").format(game.name))
+                         title=self.tr("Run Synthesis - {0}").format(game.name))
         self._selected_proton: Path | None = None
         self._proton_candidates: list[Path] = []
         self._plugins_links: list[Path] = []
@@ -241,7 +241,7 @@ class SynthesisView(WizardViewBase):
                       self.tr("Prefix ready. Click Launch Synthesis."), GREEN)
         else:
             safe_emit(self._setup_status_sig,
-                      self.tr("Setup completed with errors — launch may still work."),
+                      self.tr("Setup completed with errors - launch may still work."),
                       _AMBER)
         safe_emit(self._setup_done_sig)
 

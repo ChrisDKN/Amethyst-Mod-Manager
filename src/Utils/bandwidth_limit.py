@@ -1,6 +1,6 @@
 """Global download bandwidth limiter (toolkit-neutral).
 
-A single token-bucket shared by EVERY download thread in the app — the
+A single token-bucket shared by EVERY download thread in the app - the
 collection installer's parallel workers, single nxm/Downloads-tab downloads
 and the collection-archive fetch all call :func:`throttle` from their
 streaming loops, so the configured cap applies to the aggregate transfer

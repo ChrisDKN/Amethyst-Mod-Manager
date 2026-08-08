@@ -3,19 +3,19 @@ re_pak_patcher.py
 Utilities for patching and restoring RE Engine PAK files.
 
 Zeroes out the 8-byte hash field of every PAK entry that matches a deployed
-mod file.  The engine uses (hash_lower, hash_upper) as a lookup key — a zero
+mod file.  The engine uses (hash_lower, hash_upper) as a lookup key - a zero
 pair never matches any real filename, so the engine falls back to loading the
 loose file from disk (via REFramework's LooseFileLoader hook).
 
 Two PAK versions are supported:
 
-PAK v2.0 entry layout (24 bytes each — RE2 Remake, RE3 Remake):
+PAK v2.0 entry layout (24 bytes each - RE2 Remake, RE3 Remake):
   0  8   file_offset       int64
   8  8   decompressed_size int64
  16  4   hash_lower        uint32  Murmur3-32 of lowercase UTF-16LE path
  20  4   hash_upper        uint32  Murmur3-32 of uppercase UTF-16LE path
 
-PAK v4.x entry layout (48 bytes each — RE Village, RE4 Remake, RE7, …):
+PAK v4.x entry layout (48 bytes each - RE Village, RE4 Remake, RE7, …):
   0  4   hash_lower        uint32  Murmur3-32 of lowercase UTF-16LE path
   4  4   hash_upper        uint32  Murmur3-32 of uppercase UTF-16LE path
   8  8   file_offset       int64
@@ -156,7 +156,7 @@ def patch_pak_file(
     """Invalidate PAK entries whose hash pair is in *hashes*.
 
     Only reads the 16-byte header and the entry table (N × 48 bytes) into
-    memory — the file data is never loaded.  Matching entries are patched
+    memory - the file data is never loaded.  Matching entries are patched
     in-place via seek+write so even multi-GB PAK files work fine.
 
     Writes the original 8-byte hash fields to *backup_path* (JSON) so they
@@ -202,7 +202,7 @@ def patch_pak_file(
             if (hl, hu) not in hashes:
                 continue
             if hl == 0 and hu == 0:
-                continue  # already zeroed — skip
+                continue  # already zeroed - skip
             # Save original bytes
             if i not in existing:
                 existing[i] = table[hash_start:hash_start + 8].hex()
@@ -337,13 +337,13 @@ def update_root_manifest(game_root: Path, pak_path: Path, backup_path: Path,
     # Append-only ledger: merge new entries into the pak's existing list by
     # index, never dropping previously recorded ones.  The manifest thus grows
     # into a record of *every* entry the manager has ever invalidated in this
-    # pak, so the repair wizard can always heal them all — even across mod swaps
+    # pak, so the repair wizard can always heal them all - even across mod swaps
     # or earlier deploys whose per-profile backups are long gone.  When an index
     # was seen before, keep the earliest-saved ``original`` (the true vanilla
     # value); a later deploy only ever re-zeroes an already-zeroed slot, so its
     # "original" could itself be zero.
     # Key by the pak's path relative to the game root (POSIX-style) so DLC
-    # PAKs under dlc/ keep their subfolder — a bare filename would be looked
+    # PAKs under dlc/ keep their subfolder - a bare filename would be looked
     # for in the wrong place on restore.
     try:
         pak_key = pak_path.relative_to(game_root).as_posix()
@@ -397,7 +397,7 @@ def restore_from_root_manifest(game_root: Path, log_fn=None) -> int:
     re-running it is safe and so are paks that were already healed normally.
 
     The manifest is an append-only ledger of every entry the manager has ever
-    invalidated, so it is intentionally **not** deleted here — it stays as a
+    invalidated, so it is intentionally **not** deleted here - it stays as a
     permanent record so the wizard can always re-heal the paks, even after a
     later deploy/restore cycle.  Because the restore is idempotent (it only
     rewrites slots still zeroed on disk), keeping a superset is always safe.

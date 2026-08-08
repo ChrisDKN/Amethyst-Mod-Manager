@@ -46,13 +46,13 @@ from Utils.plugin_parser import (  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# Hash sanity — known cp1252 strings against values produced by libbsarch.
+# Hash sanity - known cp1252 strings against values produced by libbsarch.
 # These were computed from the canonical algorithm; they're here to guard
 # against future refactors silently breaking hash agreement.
 # ---------------------------------------------------------------------------
 
 def test_hashes() -> None:
-    # File hashes — root + ext layout, with the per-extension magic OR.
+    # File hashes - root + ext layout, with the per-extension magic OR.
     # Sanity check: round-trip through the reader's cache layer is enough
     # for the writer to produce a readable archive, but the *game* will
     # silently reject bad hashes. We pin a few values to catch drift.
@@ -89,7 +89,7 @@ def test_hashes() -> None:
 
 
 def _tes4_ref(name: bytes, ext: bytes) -> int:
-    """Reference TES4 hash, recomputed locally — verifies the writer's
+    """Reference TES4 hash, recomputed locally - verifies the writer's
     implementation against an independent transcription of the algorithm."""
     full = (name + ext).lower()
     if not full:
@@ -137,11 +137,11 @@ def _tes4_ref(name: bytes, ext: bytes) -> int:
 # ---------------------------------------------------------------------------
 
 def test_filter() -> None:
-    """Verify the per-game allowlist (Utils.archive_rules) — not just the
+    """Verify the per-game allowlist (Utils.archive_rules) - not just the
     always-excluded globals.  Skyrim SE is the canonical reference."""
     sse = "skyrim_se"
 
-    # Should pack — bethutil's tes5_default_sets allows these.
+    # Should pack - bethutil's tes5_default_sets allows these.
     assert is_packable("textures/sky.dds", sse)
     assert is_packable("meshes/foo.nif", sse)
     assert is_packable("sound/door.wav", sse)
@@ -156,13 +156,13 @@ def test_filter() -> None:
     assert is_packable("strings/lang.dlstrings", sse)
     assert is_packable("seq/quest.seq", sse)
 
-    # Should NOT pack — these would break the mod or pollute the archive.
+    # Should NOT pack - these would break the mod or pollute the archive.
     assert not is_packable("plugin.esp", sse)
     assert not is_packable("plugin.esl", sse)
     assert not is_packable("plugin.esm", sse)
     assert not is_packable("nested.bsa", sse)
     assert not is_packable("nested.ba2", sse)
-    # Wrong directory for a packable extension — engine would never read
+    # Wrong directory for a packable extension - engine would never read
     # it from inside the archive.
     assert not is_packable("docs/manual.txt", sse)        # .txt only under interface/meshes/scripts
     assert not is_packable("random/stray.dds", sse)       # .dds only under textures/interface
@@ -218,7 +218,7 @@ def _make_test_tree(root: Path) -> dict[str, bytes]:
 
 
 def _extract_file_via_offsets(bsa_path: Path, target: str) -> bytes:
-    """Independent extractor — re-walks the TOC, finds *target* (lowercase
+    """Independent extractor - re-walks the TOC, finds *target* (lowercase
     forward-slash relative path) and returns its data. Used to verify the
     on-disk layout the writer produced, not just the file list."""
     with bsa_path.open("rb") as f:
@@ -345,7 +345,7 @@ def test_roundtrip(version: int) -> None:
         assert _extract_file_via_offsets(bsa_path, compressible) == expected[compressible]
 
         # Verify the incompressible-extension file (.wav) extracts cleanly
-        # — the writer should have set the per-file invert bit.
+        # - the writer should have set the per-file invert bit.
         wav = "sound/fx/door_open.wav"
         assert _extract_file_via_offsets(bsa_path, wav) == expected[wav]
 
@@ -393,7 +393,7 @@ def test_extract_roundtrip(version: int) -> None:
         last = progress_calls[-1]
         assert last[0] == last[1] == len(expected)
 
-        # overwrite=False — pre-place a marker in a fresh dir and run
+        # overwrite=False - pre-place a marker in a fresh dir and run
         # extract on top. The marker file must survive; siblings get
         # extracted normally.
         out2 = tmp_path / "Out2"
@@ -549,7 +549,7 @@ def test_root_files_skipped() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "RootOnly"
         src.mkdir()
-        # Only files at root — they must not pack (BSA format requires a folder).
+        # Only files at root - they must not pack (BSA format requires a folder).
         (src / "loose.dds").write_bytes(b"x")
         try:
             write_bsa(Path(tmp) / "out.bsa", src)
@@ -614,7 +614,7 @@ def test_stub_plugin() -> None:
         assert flags == 0, f"expected flags=0, got {flags}"
         assert not is_esl_flagged(sse_no_esl)
 
-        # Skyrim LE — engine doesn't support ESL; flag must be ignored even
+        # Skyrim LE - engine doesn't support ESL; flag must be ignored even
         # if explicitly requested.
         sle_esp = Path(tmp) / "MyMod_sle.esp"
         write_stub_plugin(sle_esp, game_id="skyrim", esl=True)
@@ -632,7 +632,7 @@ def test_stub_plugin() -> None:
 
         # Verify TES4 internal version (offset 20, uint16). 44 for SSE,
         # 43 for LE. Empty/zero here causes the engine to silently reject
-        # the plugin — and therefore not load its BSA.
+        # the plugin - and therefore not load its BSA.
         sse_iv = struct.unpack_from("<H", sse_bytes, 20)[0]
         sle_iv = struct.unpack_from("<H", sle_bytes, 20)[0]
         assert sse_iv == 44, f"SSE internal_version expected 44, got {sse_iv}"

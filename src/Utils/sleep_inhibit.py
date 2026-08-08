@@ -2,12 +2,12 @@
 
 DynDOLOD, PGPatcher, Synthesis and BodySlide batch builds routinely run for
 tens of minutes with no input, which is exactly what a Steam Deck's autosuspend
-timer waits for — the tool is then frozen mid-build (and Wine often does not
+timer waits for - the tool is then frozen mid-build (and Wine often does not
 survive the resume). Every blocking wizard-tool launch takes a lock for its
 duration so the machine stays awake until the tool exits.
 
 Two backends, and we take *both* when both are available rather than stopping
-at the first that works — they cover different things and neither is a superset:
+at the first that works - they cover different things and neither is a superset:
 
   * ``systemd-inhibit --what=sleep:idle --mode=block`` holding a ``cat`` whose
     stdin is our pipe. This is the one that takes a real logind sleep lock, so
@@ -90,7 +90,7 @@ def _portal_hold(reason: str) -> "_Holder | None":
 
     try:
         # No Inhibit backend (bare X session, headless CI) answers the version
-        # property with an error — fall through to systemd-inhibit rather than
+        # property with an error - fall through to systemd-inhibit rather than
         # blocking on a Request that will never be answered.
         props = DBusAddress(_PORTAL_PATH, bus_name=_PORTAL_BUS,
                             interface="org.freedesktop.DBus.Properties")
@@ -102,8 +102,8 @@ def _portal_hold(reason: str) -> "_Holder | None":
 
         addr = DBusAddress(_PORTAL_PATH, bus_name=_PORTAL_BUS,
                            interface=_INHIBIT_IFACE)
-        # The reply carries a Request handle we never use — we release by
-        # dropping the connection, not by closing the Request — but it is worth
+        # The reply carries a Request handle we never use - we release by
+        # dropping the connection, not by closing the Request - but it is worth
         # the round-trip to learn the call was refused, so we can still fall
         # back to systemd-inhibit instead of silently holding nothing.
         reply = conn.send_and_get_reply(new_method_call(
@@ -175,7 +175,7 @@ def _acquire(reason: str, log_fn: LogFn) -> bool:
             return False
         _holders.extend(taken)
         _refcount = 1
-    log_fn(f"sleep inhibited via {', '.join(h.kind for h in taken)} — {reason}")
+    log_fn(f"sleep inhibited via {', '.join(h.kind for h in taken)} - {reason}")
     return True
 
 
@@ -211,7 +211,7 @@ def inhibit_sleep(reason: str, log_fn: "LogFn | None" = None):
     except Exception:
         held = False
     if not held:
-        log("could not inhibit sleep (no portal or systemd-inhibit) — "
+        log("could not inhibit sleep (no portal or systemd-inhibit) - "
             "the system may suspend during this run.")
         yield False
         return

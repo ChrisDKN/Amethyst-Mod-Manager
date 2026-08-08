@@ -1,10 +1,10 @@
-"""ReShade installation wizard — Qt port of wizards/reshade.py.
+"""ReShade installation wizard - Qt port of wizards/reshade.py.
 
 Offered by every game (BaseGame._base_wizard_tools). Five steps in a
 plugins-panel-scoped tab:
   1. Rendering API + executable architecture.
   2. Shader packs: optional preset picker + the full checkbox grid (greyed
-     when a preset is loaded — all packs download then trim to the preset).
+     when a preset is loaded - all packs download then trim to the preset).
   3. Download ReShade DLL + shaders (parallel), prune to preset.
   4. Install d3dcompiler_47 into the Proton prefix (skippable).
   5. Install: destination (game / Root_Folder / managed mod) + Wine override.
@@ -75,7 +75,7 @@ class ReShadeView(QWidget):
         self._installed = False   # a successful install happened
         self._installed_dest = ""  # which destination the last install used
 
-        self._closing = False   # teardown started — drop late worker signals
+        self._closing = False   # teardown started - drop late worker signals
 
         # Each connection is guarded: a daemon worker (download / d3d install /
         # file copy) can emit AFTER the user closed the tab and the widget was
@@ -107,7 +107,7 @@ class ReShadeView(QWidget):
 
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Install ReShade — {0}").format(self._game.name))
+        title = QLabel(self.tr("Install ReShade - {0}").format(self._game.name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -126,7 +126,7 @@ class ReShadeView(QWidget):
         self._stack.addWidget(self._build_step_download()) # 2
         self._stack.addWidget(self._build_step_d3d())      # 3
         self._stack.addWidget(self._build_step_install())  # 4
-        # The d3d step's prompt depends on live prefix/dep state — refresh it
+        # The d3d step's prompt depends on live prefix/dep state - refresh it
         # whenever it becomes visible (Tk rebuilt the step on every show).
         self._stack.currentChanged.connect(
             lambda i: self._refresh_d3d_step() if i == 3 else None)
@@ -277,7 +277,7 @@ class ReShadeView(QWidget):
 
     def _browse_preset(self):
         from Utils.portal_filechooser import pick_preset_file
-        # Callback fires on the portal WORKER thread — marshal via Signal.
+        # Callback fires on the portal WORKER thread - marshal via Signal.
         pick_preset_file(self.tr("Select a ReShade preset (.ini)"),
                          lambda path: safe_emit(self._preset_picked_sig, path))
 
@@ -287,10 +287,10 @@ class ReShadeView(QWidget):
         path = Path(path)
         wanted = parse_preset_effect_files(path)
         if not wanted:
-            self._log("ReShade wizard: preset has no Techniques= list — ignoring "
+            self._log("ReShade wizard: preset has no Techniques= list - ignoring "
                       "it and using the ticked packs instead.")
             self._preset_label.setText(
-                self.tr("{0} (no effects found — using pack selection)").format(path.name))
+                self.tr("{0} (no effects found - using pack selection)").format(path.name))
             self._preset_label.setStyleSheet(f"color:{_WARN};")
             return
         self._preset_path = path
@@ -315,7 +315,7 @@ class ReShadeView(QWidget):
         self._packs_hint.setVisible(locked)
         if locked:
             self._packs_hint.setText(
-                self.tr("A preset is loaded — all packs will be downloaded and trimmed "
+                self.tr("A preset is loaded - all packs will be downloaded and trimmed "
                 "to it, so individual selection is disabled."))
 
     # ---- step 3: download ---------------------------------------------------
@@ -475,7 +475,7 @@ class ReShadeView(QWidget):
             self._rewire(self._d3d_btn, self._enter_install)
         elif not can_install:
             self._d3d_info.setText(
-                self.tr("No Proton prefix or Steam ID is configured for this game — "
+                self.tr("No Proton prefix or Steam ID is configured for this game - "
                 "d3dcompiler_47 cannot be installed automatically. Install it "
                 "manually via winecfg before running the game with ReShade."))
             self._d3d_info.setStyleSheet(f"color:{_WARN};")
@@ -518,7 +518,7 @@ class ReShadeView(QWidget):
             self._rewire(self._d3d_btn, self._enter_install)
         else:
             self._set_lbl(self._d3d_status,
-                          self.tr("Install failed — you can Skip and install it "
+                          self.tr("Install failed - you can Skip and install it "
                           "manually."),
                           err_text())
             self._d3d_btn.setText(self.tr("Retry"))
@@ -623,7 +623,7 @@ class ReShadeView(QWidget):
 
         def worker():
             try:
-                # NB: install_reshade_files does NO UI refresh — we reload the
+                # NB: install_reshade_files does NO UI refresh - we reload the
                 # modlist below on the GUI thread (in _on_install_done).
                 # Touching widgets from this worker spawns a stray window.
                 msg = install_reshade_files(
@@ -644,7 +644,7 @@ class ReShadeView(QWidget):
             self._install_btn.setEnabled(False)
             self._install_btn.setText(self.tr("Install"))
             self._done_btn.setEnabled(True)
-            # A managed-mod install changed modlist.txt — reload it now, on the
+            # A managed-mod install changed modlist.txt - reload it now, on the
             # GUI thread, so the new mod shows without waiting for Done.
             if self._installed_dest == "mod":
                 refresh = getattr(self._ctx, "refresh_modlist", None)

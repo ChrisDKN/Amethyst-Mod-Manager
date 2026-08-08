@@ -10,7 +10,7 @@ Mod structure:
   (the actual folder that lands inside <game>/mods/).
 
   Darktide Mod Loader (DML) and its associated files are NOT managed as
-  regular mods — they are installed to the game root via Root_Folder staging.
+  regular mods - they are installed to the game root via Root_Folder staging.
 
   After every deploy, mod_load_order.txt is written from the enabled modlist
   in priority order (bottom of modlist → first line in file, per DML spec).
@@ -18,7 +18,7 @@ Mod structure:
   excluded from mod_load_order.txt automatically.
 
   The game must be patched with dtkit-patch after every game update. Patching
-  is owned solely by the dtkit-patch wizard (see wizards/dtkit_patch.py) — it is
+  is owned solely by the dtkit-patch wizard (see wizards/dtkit_patch.py) - it is
   deliberately NOT run during deploy/restore. Those steps don't manage
   bundle_database.data or its dtkit .bak, so running the patcher there can
   desync the patched state from the backup (stranded/wrong-version .bak →
@@ -223,7 +223,7 @@ class Darktide(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir and passed
+        # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
@@ -318,7 +318,7 @@ class Darktide(BaseGame):
             )
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         else:
-            _log(f"Restore: no {core}/ found — nothing to restore.")
+            _log(f"Restore: no {core}/ found - nothing to restore.")
 
         moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
         if moved:
@@ -349,7 +349,7 @@ class Darktide(BaseGame):
 
         DML loads mods in the order listed in the file.  We write the modlist
         in reverse priority order so that the highest-priority mod in the mod
-        manager loads last (and therefore wins conflicts) — matching the
+        manager loads last (and therefore wins conflicts) - matching the
         behaviour users expect from a standard mod manager.
 
         Only subdirectories containing a .mod file are included; the stem of
@@ -364,7 +364,7 @@ class Darktide(BaseGame):
         modlist_path = profile_dir / "modlist.txt"
 
         if not modlist_path.is_file():
-            _log("  mod_load_order.txt: modlist.txt not found — skipping.")
+            _log("  mod_load_order.txt: modlist.txt not found - skipping.")
             return
 
         entries = read_modlist(modlist_path)

@@ -1,11 +1,11 @@
-"""ImageView — a full-size image viewer that opens as a tab (lightbox).
+"""ImageView - a full-size image viewer that opens as a tab (lightbox).
 
 Used by the FOMOD wizard when an option image is clicked, and by the Saves
 tab when a save's screenshot is clicked. Scrollwheel zooms (anchored under the
 cursor), left-drag pans, double-click resets to fit. Reuses the Mod Files
 preview canvas so behaviour stays consistent across the app.
 
-Takes either a path to load or an already-decoded pixmap — a save screenshot
+Takes either a path to load or an already-decoded pixmap - a save screenshot
 is raw pixels out of the save file with no image on disk to point at.
 """
 

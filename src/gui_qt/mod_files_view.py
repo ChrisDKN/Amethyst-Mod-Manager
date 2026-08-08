@@ -1,4 +1,4 @@
-"""Qt Mod Files tab — per-mod file tree with Top Level + Root + Disable checkbox columns.
+"""Qt Mod Files tab - per-mod file tree with Top Level + Root + Disable checkbox columns.
 
 Reuses Utils.mod_files for every bit of logic (file listing, conflict cache, the
 strip-prefix promotion/demotion algorithm, the exclusion save-merge) so it stays
@@ -52,7 +52,7 @@ class ModFilesView(QWidget):
         self.profile_dir = profile_dir
         self.index_path = index_path
         # The Root column is meaningless when the normal deploy already targets
-        # the game root (no Data subfolder) — hide it for those games.
+        # the game root (no Data subfolder) - hide it for those games.
         hide_root = True
         if game is not None:
             try:
@@ -100,7 +100,7 @@ class ModFilesView(QWidget):
         from gui_qt.mod_files_delegate import ModFilesDelegate
         self._tree.setItemDelegate(ModFilesDelegate(self._tree))
 
-        # Tk-style column resize (boundary drag, constant total) — same as the
+        # Tk-style column resize (boundary drag, constant total) - same as the
         # modlist/plugins panels.
         from gui_qt.modlist_header import TkStyleHeader
         col_mins = {
@@ -197,7 +197,7 @@ class ModFilesView(QWidget):
     def _request_repopulate(self):
         """Defer the (expensive: live disk scan + conflict cache) tree rebuild
         off the caller's stack. show_mod runs inside the modlist selection
-        handler — rebuilding synchronously there blocks the conflict
+        handler - rebuilding synchronously there blocks the conflict
         highlights/marker-strip repaint for seconds on a file-heavy mod. While
         this tab is hidden (e.g. the Plugins sub-tab is showing) skip the work
         entirely and do it on show instead; when visible, coalesce onto a
@@ -239,7 +239,7 @@ class ModFilesView(QWidget):
 
         # Scan the displayed mod LIVE so the tree always matches the real
         # on-disk structure (a stale flat index otherwise builds wrong paths,
-        # orphaning strip-prefix entries on toggle — the "can't untick, it
+        # orphaning strip-prefix entries on toggle - the "can't untick, it
         # disappears" bug). Only one mod is scanned, so it's cheap.
         files = mflogic.load_mod_files(self.game, mod_name, self.index_path,
                                        full_index, prefer_live=True)
@@ -251,11 +251,11 @@ class ModFilesView(QWidget):
         self.filetypes_changed.emit()
 
         # Self-heal: drop strip entries that aren't a real ancestor folder of any
-        # file (legacy corruption — e.g. a path saved without its parent prefix).
+        # file (legacy corruption - e.g. a path saved without its parent prefix).
         # These would otherwise show as un-removable orphan rows.
         self._prune_orphan_strips(files)
         # One-time conversion of state written in the old post-strip key space.
-        # Only root tags are pruned — BSA pack needs exclusions for the loose
+        # Only root tags are pruned - BSA pack needs exclusions for the loose
         # files it deletes, which no longer exist on disk.
         mflogic.migrate_root_tags_to_raw(self.profile_dir, mod_name,
                                          files, self._stripped)
@@ -273,7 +273,7 @@ class ModFilesView(QWidget):
                 self.game, self.index_path),
             root_ctx=mflogic.conflict_root_context(self.game, self.profile_dir),
             # BG3: two paks with different names but one module UUID contest by
-            # identity — the loser never reaches filemap.txt, so without this it
+            # identity - the loser never reaches filemap.txt, so without this it
             # would show as unconflicted here.
             pak_ctx=mflogic.pak_uuid_context(self.game, self.index_path))
 
@@ -353,7 +353,7 @@ class ModFilesView(QWidget):
 
     def _mod_root_dir(self) -> Path | None:
         """The mod's own staging folder (where meta.ini lives). Distinct from a
-        file's deploy path — meta.ini sits at the folder root, not in the tree."""
+        file's deploy path - meta.ini sits at the folder root, not in the tree."""
         return mflogic._mod_dir_for(self.game, self._mod_name) \
             if self._mod_name is not None else None
 
@@ -402,7 +402,7 @@ class ModFilesView(QWidget):
     def _recompute_top_level(self, by_path: dict):
         # A row's Top Level box is CHECKED only when it currently deploys at the
         # top level AND its own path isn't itself stripped. A row stripped to
-        # promote a descendant shows UNCHECKED + greyed (Tk parity) — this is the
+        # promote a descendant shows UNCHECKED + greyed (Tk parity) - this is the
         # "selecting a different top-level deselects the others" behaviour.
         for node in by_path.values():
             if node.synthetic:

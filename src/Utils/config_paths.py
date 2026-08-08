@@ -5,7 +5,7 @@ Central helpers for resolving user-writable config directories.
 Follows the XDG Base Directory Specification:
   Config lives in $XDG_CONFIG_HOME/AmethystModManager  (default: ~/.config/AmethystModManager)
 
-This is required for AppImage packaging — the AppImage mount is read-only,
+This is required for AppImage packaging - the AppImage mount is read-only,
 so all user config must be written outside the app bundle.
 """
 
@@ -73,8 +73,8 @@ def get_default_staging_root() -> Path:
 
     Mod staging must live on the *same filesystem* as the game install so that
     deployed files can be hardlinked.  Under Flatpak the app's config dir lives
-    in ``~/.var/app/<id>/config`` — a separate namespace mount from the games
-    exposed via ``--filesystem=home`` — so hardlinking staged files into the
+    in ``~/.var/app/<id>/config`` - a separate namespace mount from the games
+    exposed via ``--filesystem=home`` - so hardlinking staged files into the
     game silently falls back to symlink/copy (``os.link`` → ``EXDEV``).  Placing
     the default staging in the user's real home (``~/Games/Amethyst``) keeps it
     on the ``--filesystem=home`` mount alongside the games, so hardlinks work in
@@ -86,11 +86,11 @@ def get_default_staging_root() -> Path:
 def get_default_game_staging_root(game_name: str) -> Path:
     """Return the preferred staging *root* for a newly-added game.
 
-    ``~/Games/Amethyst/<game>`` — the per-game folder that holds ``mods/``,
+    ``~/Games/Amethyst/<game>`` - the per-game folder that holds ``mods/``,
     ``profiles/``, ``overwrite/`` and ``filemap.txt`` (i.e. what the backend
     stores as a game's custom ``_staging_path``).  Used by the add-game / reset
     UI to seed the staging field so new games land beside the game installs on
-    the same filesystem (hardlink-friendly) — including on *existing* installs,
+    the same filesystem (hardlink-friendly) - including on *existing* installs,
     whose already-staged games keep resolving via get_profiles_dir() below.
     """
     return get_default_staging_root() / game_name
@@ -100,8 +100,8 @@ def get_profiles_dir() -> Path:
     """Return the legacy root Profiles directory for default-staged games.
 
     Resolution order:
-      1. $MOD_MANAGER_PROFILES_DIR — explicit override (set by AppImage AppRun).
-      2. Legacy <config>/Profiles — if it already exists, existing users keep it
+      1. $MOD_MANAGER_PROFILES_DIR - explicit override (set by AppImage AppRun).
+      2. Legacy <config>/Profiles - if it already exists, existing users keep it
          so upgrades never relocate an in-use staging tree.  Games with an empty
          (default) staging_path resolve their mods dir from here, so this MUST
          stay stable for existing installs.
@@ -110,7 +110,7 @@ def get_profiles_dir() -> Path:
          same mount as the game installs, so deployed files can be hardlinked
          instead of falling back to symlink/copy.
 
-    NB: new games no longer default here — the add-game UI seeds a per-game
+    NB: new games no longer default here - the add-game UI seeds a per-game
     custom root via get_default_game_staging_root() so their layout is
     ~/Games/Amethyst/<game>/mods (no Profiles/ segment).  This function only
     resolves games that already carry an empty staging_path.
@@ -118,7 +118,7 @@ def get_profiles_dir() -> Path:
     The fresh-install path is returned WITHOUT being created: this is called at
     import time by every game handler (and re-run by discover_games on each
     add-game reload), so an eager mkdir here dropped ~/Games/Amethyst into the
-    user's home on first startup and after every game add — even when nothing
+    user's home on first startup and after every game add - even when nothing
     ever stages there.  Anything that actually uses the path creates it with
     mkdir(parents=True) at that point.
     """
@@ -270,7 +270,7 @@ def get_wine_prefixes_dir() -> Path:
     Result: ~/.config/AmethystModManager/wine_prefixes/
 
     Migrates an existing ``<download_cache>/wine_prefixes`` directory on first
-    access — best-effort: if migration fails the old location is left alone.
+    access - best-effort: if migration fails the old location is left alone.
     """
     d = get_config_dir() / "wine_prefixes"
     if not d.exists():

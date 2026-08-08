@@ -11,7 +11,7 @@ The on-disk format is documented in bsa_reader.py's module docstring; the
 write order is:
 
     1. Header (36 B)
-    2. Folder records (16 B each for v104, 24 B each for v105) — folders
+    2. Folder records (16 B each for v104, 24 B each for v105) - folders
        sorted by TES4 hash.
     3. For each folder: 1 B name length + null-terminated folder name (using
        backslash separators), then that folder's file records (16 B each:
@@ -30,7 +30,7 @@ The compression algorithm is **version-dependent**:
 
 Skyrim SE switched to LZ4 for faster decompression at load time. Storing
 zlib bytes inside a v105 archive makes the engine silently fail every
-asset lookup (visible as missing-texture purple grids) — the file list
+asset lookup (visible as missing-texture purple grids) - the file list
 parses fine, the data extracts fine with zlib, but the engine refuses to
 decode it because it expects LZ4-frame magic at the start of each
 compressed payload.
@@ -74,7 +74,7 @@ class BsaWriteError(Exception):
 # Re-export for callers importing Utils.bsa_writer.is_packable.
 from Utils.archive_rules import is_packable  # noqa: F401
 
-# Per-extension "do not compress" list — kept here because it drives
+# Per-extension "do not compress" list - kept here because it drives
 # ``write_bsa``'s compression-bit decision and is independent of the
 # packable-or-not question (an .ogg under sound/ IS packable but should
 # not be re-compressed).  Superset of bethutil's incompressible-set
@@ -98,7 +98,7 @@ def _is_incompressible(name_lower: str) -> bool:
 
 # Game IDs that use BSA v105 (Skyrim SE engine onward). Everything else
 # Bethesda-flavoured uses v104 (Oblivion / FO3 / FNV / Skyrim LE).
-# Game IDs come from each handler's `game_id` property — see src/Games/.
+# Game IDs come from each handler's `game_id` property - see src/Games/.
 _V105_GAME_IDS: frozenset[str] = frozenset({
     "skyrim_se",   # Skyrim Special Edition (Games/Bethesda/skyrim_se.py)
     "skyrimvr",    # Skyrim VR
@@ -137,14 +137,14 @@ def bsa_version_for_game(game_id: str | None) -> int | None:
 #
 # The TES4 record header size is GAME-SPECIFIC:
 #
-# Oblivion — 20-byte header (no timestamp/version fields; they postdate it):
+# Oblivion - 20-byte header (no timestamp/version fields; they postdate it):
 #     type        4 B   b"TES4"
-#     datasize    4 B   uint32 LE — size of subrecord block (excludes header)
+#     datasize    4 B   uint32 LE - size of subrecord block (excludes header)
 #     flags       4 B   record flags
 #     formID      4 B   0 for the TES4 header record
 #     vcs         4 B   version-control info, 0 is fine
 #
-# FO3/FNV/Skyrim/FO4 (+VR/Enderal SE) — 24-byte header (8-byte trailer):
+# FO3/FNV/Skyrim/FO4 (+VR/Enderal SE) - 24-byte header (8-byte trailer):
 #     type/datasize/flags/formID  as above (16 B)
 #     timestamp   2 B   editor timestamp, 0 is fine
 #     last_mod    2 B   last user-mod-index, 0
@@ -154,19 +154,19 @@ def bsa_version_for_game(game_id: str | None) -> int | None:
 #
 # HEDR subrecord (18 B total, 12 B data):
 #     type     4 B   b"HEDR"
-#     size     2 B   uint16 LE — 12
-#     version  4 B   float32 LE — game-specific (0.94 / 1.0 / 1.7)
-#     numRecs  4 B   uint32 LE — 0
-#     nextID   4 B   uint32 LE — 0x800 (lowest valid free FormID)
+#     size     2 B   uint16 LE - 12
+#     version  4 B   float32 LE - game-specific (0.94 / 1.0 / 1.7)
+#     numRecs  4 B   uint32 LE - 0
+#     nextID   4 B   uint32 LE - 0x800 (lowest valid free FormID)
 #
 # Getting the header size wrong shifts HEDR off its expected offset and the
 # engine silently rejects the plugin: assets ship in the BSA but never load
 # (missing-texture purple grid, or just vanilla content). Writing the FO3+
 # 24-byte header for Oblivion put HEDR at offset 24 instead of 20 and broke
-# plugin-association BSA loading — the bug this split fixes.
+# plugin-association BSA loading - the bug this split fixes.
 # ---------------------------------------------------------------------------
 
-# Per-game HEDR version — what the official editors stamp.
+# Per-game HEDR version - what the official editors stamp.
 _HEDR_VERSION: dict[str, float] = {
     "Oblivion":     1.0,
     "Fallout3":     0.94,
@@ -197,7 +197,7 @@ _INTERNAL_VERSION: dict[str, int] = {
     "Fallout4VR":   131,
 }
 
-# ESL flag — only meaningful for engines that support light masters.
+# ESL flag - only meaningful for engines that support light masters.
 # The existing TES4_FLAG_ESL constant in plugin_parser.py is 0x0200.
 _TES4_FLAG_ESL = 0x0200
 _ESL_CAPABLE_GAMES: frozenset[str] = frozenset({
@@ -211,7 +211,7 @@ def is_our_stub_plugin(plugin_path: Path) -> bool:
     by ``write_stub_plugin``.
 
     Recognised variants (all start with a TES4 record carrying only HEDR
-    [+ optional empty CNAM], which real authored plugins never do — they
+    [+ optional empty CNAM], which real authored plugins never do - they
     carry MAST/records and run well over 60 bytes):
       - FO3+ 24-byte header: 49 B (HEDR+CNAM) or older 42 B (HEDR only),
         HEDR at offset 24. NB: Oblivion stubs written before the header-size
@@ -245,7 +245,7 @@ def write_stub_plugin(
     """Write a minimal TES4 plugin to *plugin_path* (atomically).
 
     The plugin contains a single TES4 record with one HEDR subrecord and
-    an empty CNAM (author) subrecord — no masters, no content. Used to
+    an empty CNAM (author) subrecord - no masters, no content. Used to
     make a same-named ``<ModName>.bsa`` auto-load.
 
     Args:
@@ -254,7 +254,7 @@ def write_stub_plugin(
                      Determines the HEDR version and TES4 internal version.
         esl:         Set the ESL (light master) flag. ``None`` (default)
                      auto-enables it on ESL-capable engines (Skyrim
-                     SE/VR, Enderal SE) — recommended, since an empty
+                     SE/VR, Enderal SE) - recommended, since an empty
                      stub trivially satisfies ESL constraints and keeps
                      the load order from filling up. Pass ``False`` to
                      force a regular plugin slot, or ``True`` to demand
@@ -275,9 +275,9 @@ def write_stub_plugin(
     if esl and game_id in _ESL_CAPABLE_GAMES:
         record_flags |= _TES4_FLAG_ESL
 
-    # HEDR subrecord — 12 B of data prefixed by 6 B subrecord header.
+    # HEDR subrecord - 12 B of data prefixed by 6 B subrecord header.
     hedr = struct.pack("<4sHfII", b"HEDR", 12, hedr_version, 0, 0x800)
-    # CNAM (author) subrecord — 1 B null-terminated empty string.  Every
+    # CNAM (author) subrecord - 1 B null-terminated empty string.  Every
     # "real" plugin carries one; LOOT/xEdit complain about plugins without.
     cnam = struct.pack("<4sH", b"CNAM", 1) + b"\x00"
     subrecord_block = hedr + cnam
@@ -319,7 +319,7 @@ def write_stub_plugin(
 
 
 # ---------------------------------------------------------------------------
-# TES4 hash — folder + file. Matches BSArch / libbsarch.
+# TES4 hash - folder + file. Matches BSArch / libbsarch.
 #
 # The algorithm splits the name at the final '.' (file extension) and
 # computes:
@@ -339,11 +339,11 @@ def write_stub_plugin(
 #     final hash (uint64) = ((hash2 + hash3) << 32) | hash1
 #
 # Folder hashes use the same routine with the *full folder path* as the
-# "name" (no extension splitting — there's no '.' in normal folder names).
+# "name" (no extension splitting - there's no '.' in normal folder names).
 # ---------------------------------------------------------------------------
 
 
-# Per-extension "magic OR" applied to hash1 — verified against vanilla
+# Per-extension "magic OR" applied to hash1 - verified against vanilla
 # BSAs.  Same table is consumed by the self-test as a known-good
 # reference; if you change a value, update both places.
 TES4_EXT_MAGIC: dict[bytes, int] = {
@@ -369,7 +369,7 @@ def _tes4_hash(name: bytes) -> int:
         ext = b""
 
     if not root:
-        # All-extension input (e.g. ".dds") — treat the whole thing as root.
+        # All-extension input (e.g. ".dds") - treat the whole thing as root.
         root = name
         ext = b""
 
@@ -417,9 +417,9 @@ _AF_COMPRESSED_DEF  = 0x0004
 _AF_RETAIN_DIR_NAMES = 0x0008  # set by Bethesda tools; harmless to include
 _AF_RETAIN_FILE_NAMES = 0x0010
 _AF_XBOX360 = 0x0040  # not set
-_AF_EMBED_FILE_NAMES = 0x0100  # not set — names live in name block
+_AF_EMBED_FILE_NAMES = 0x0100  # not set - names live in name block
 
-# file_flags: meshes(0x1) + textures(0x2) — generic safe value matching what
+# file_flags: meshes(0x1) + textures(0x2) - generic safe value matching what
 # BSArch writes for arbitrary archives. The game largely ignores this for
 # v104/v105.
 _FILE_FLAGS = 0x0003
@@ -470,7 +470,7 @@ def _collect_files(
         rel_dir = os.path.relpath(dirpath, src_str)
         if rel_dir == ".":
             # Root-level files cannot be packed (BSA stores everything
-            # under a folder).  Skip silently — they remain loose.
+            # under a folder).  Skip silently - they remain loose.
             continue
 
         rel_dir_norm = rel_dir.replace("/", "\\").replace(os.sep, "\\").lower()
@@ -526,7 +526,7 @@ def write_bsa(
                        folder are written into the archive.
         version:       104 (Oblivion / FO3 / FNV / Skyrim LE) or
                        105 (Skyrim SE / VR).
-        game_id:       Game ID (e.g. ``"skyrim_se"``) — selects the
+        game_id:       Game ID (e.g. ``"skyrim_se"``) - selects the
                        per-game packable allowlist.  ``None`` falls
                        back to a permissive policy (intended for the
                        self-test only).
@@ -534,7 +534,7 @@ def write_bsa(
                        automatically disable compression for known
                        incompressible formats.
         excluded_keys: rel_keys (lowercase forward-slash relative paths)
-                       that should be skipped — e.g. files the user
+                       that should be skipped - e.g. files the user
                        disabled in the Mod Files tab.
         texture_mode:  ``"all"`` (default) packs everything; ``"exclude"``
                        drops files whose extension is in the game's
@@ -548,7 +548,7 @@ def write_bsa(
                        untouched.
 
     Returns:
-        (file_count, bytes_written, packed_rel_keys) — the size of the
+        (file_count, bytes_written, packed_rel_keys) - the size of the
         finished .bsa and the list of rel_keys that were packed (lower-
         case forward-slash). Callers use the rel_key list to update the
         Mod Files tab so packed loose files are auto-disabled.
@@ -629,7 +629,7 @@ def write_bsa(
                 _FILE_FLAGS,
             ))
 
-            # --- Folder records (placeholder — patched after we know the
+            # --- Folder records (placeholder - patched after we know the
             #     folder block offsets) ----------------------------------
             folder_record_block_offset = fh.tell()
             fh.write(b"\x00" * (folder_record_size * folder_count))
@@ -637,7 +637,7 @@ def write_bsa(
             # --- Folder name + file-record blocks (interleaved) ---------
             # Track byte offset *of each folder's name+file-record group*
             # from the start of the file. That's what folder_record.offset
-            # holds — but per BSA spec it includes total_file_name_length
+            # holds - but per BSA spec it includes total_file_name_length
             # (so writing tools and game agree on the constant offset of
             # the file data start). We follow the convention bethutil uses:
             # folder.offset = absolute byte offset of folder_name +
@@ -648,7 +648,7 @@ def write_bsa(
             # **absolute** offset to the folder-name-plus-file-records
             # block PLUS total_file_name_length. Our reader (which only
             # walks sequentially from folder_offset) doesn't depend on
-            # this value being meaningful for *its* parse — but the game
+            # this value being meaningful for *its* parse - but the game
             # and other tools do. So we record absolute offsets here and
             # add total_file_name_length at the patch step.
             folder_block_offsets: list[int] = []
@@ -661,7 +661,7 @@ def write_bsa(
             #   16 B per file record
             file_record_positions: list[int] = []   # absolute file-position
             file_descriptors: list[tuple[Path, str, bool]] = []
-            # (abs_path, name_lower, do_compress) — do_compress is the
+            # (abs_path, name_lower, do_compress) - do_compress is the
             # *effective* compression for that file.
 
             for folder_name, folder_hash, files in sorted_folders:
@@ -706,18 +706,18 @@ def write_bsa(
 
                 if do_compress:
                     if version == 105:
-                        # Skyrim SE/VR — LZ4 frame format. Engine rejects
+                        # Skyrim SE/VR - LZ4 frame format. Engine rejects
                         # zlib payloads in v105 archives.
                         compressed = lz4.frame.compress(raw, compression_level=9)
                     else:
-                        # v104 — zlib deflate.
+                        # v104 - zlib deflate.
                         compressed = zlib.compress(raw, 9)
                     payload = struct.pack("<I", len(raw)) + compressed
                 else:
                     payload = raw
                 on_disk_size = len(payload)
 
-                # Per-file size field is 30 bits — files larger than
+                # Per-file size field is 30 bits - files larger than
                 # ~1 GiB don't fit and must stay loose.  Check before
                 # writing so we don't leave a partial archive on disk.
                 if on_disk_size > _FILE_SIZE_MASK:
@@ -746,7 +746,7 @@ def write_bsa(
 
             # v104 BSAs use 32-bit offsets; the engine cannot read past
             # 4 GiB.  v105 widened folder offsets to 64-bit but file
-            # records still pack data_offset as uint32 (line below) — so
+            # records still pack data_offset as uint32 (line below) - so
             # archives >4 GiB are unsafe in either version.
             if end_offset > 0xFFFFFFFF:
                 raise BsaWriteError(

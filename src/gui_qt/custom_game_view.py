@@ -1,4 +1,4 @@
-"""Define-Custom-Game view — Qt port of gui/custom_game_dialog.CustomGamePanel.
+"""Define-Custom-Game view - Qt port of gui/custom_game_dialog.CustomGamePanel.
 
 Opens as a (detachable) tab. Lets the user define a brand-new game handler from
 a JSON definition (name, exe, deploy type, mod sub-folder, Steam/Nexus IDs,
@@ -53,7 +53,7 @@ def _T(s: str) -> str:
     return s
 
 
-# Deploy-type radios: (label, value, description) — mirrors the Tk dialog.
+# Deploy-type radios: (label, value, description) - mirrors the Tk dialog.
 _DEPLOY_OPTIONS = [
     ("Standard", "standard",
      "Mods install into a single sub-folder (e.g. Data/, BepInEx/plugins/). "
@@ -62,7 +62,7 @@ _DEPLOY_OPTIONS = [
      "Mods deploy directly to the game's root folder. "
      "Same as The Witcher 3 and Cyberpunk 2077."),
     ("UE5", "ue5",
-     "Unreal Engine 5 — pak files → Content/Paks/~mods/, UE4SS/lua → "
+     "Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → "
      "Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts "
      "Legacy / Oblivion Remastered."),
 ]
@@ -89,7 +89,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("CustomGameView", "Mods deploy directly to the game's root folder. "
        "Same as The Witcher 3 and Cyberpunk 2077."),
     QT_TRANSLATE_NOOP("CustomGameView", "UE5"),
-    QT_TRANSLATE_NOOP("CustomGameView", "Unreal Engine 5 — pak files → Content/Paks/~mods/, UE4SS/lua → "
+    QT_TRANSLATE_NOOP("CustomGameView", "Unreal Engine 5 - pak files → Content/Paks/~mods/, UE4SS/lua → "
        "Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts "
        "Legacy / Oblivion Remastered."),
     QT_TRANSLATE_NOOP("CustomGameView", "Most uppercase"), QT_TRANSLATE_NOOP("CustomGameView", "Most lowercase"),
@@ -105,7 +105,7 @@ _TR_MARKERS = (
        "If none match, the user is prompted to set a data directory."),
     QT_TRANSLATE_NOOP("CustomGameView", "Required File Types"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated file extensions a mod must contain at its root. "
-       "e.g. .esp, .esm — works standalone or as a fallback after "
+       "e.g. .esp, .esm - works standalone or as a fallback after "
        "Required Top-Level Folders."),
     QT_TRANSLATE_NOOP("CustomGameView", "Strip Prefixes (post-install)"),
     QT_TRANSLATE_NOOP("CustomGameView", "Like Strip Prefixes but applied after Required Top-Level Folders "
@@ -351,7 +351,7 @@ class CustomGameView(QWidget):
             self._preset_combo = QComboBox()
             self._preset_combo.setMaxVisibleItems(15)
             self._preset_combo.setStyleSheet("QComboBox { combobox-popup: 0; }")
-            self._preset_combo.addItem(self.tr("— Select a game to copy from —"), userData=None)
+            self._preset_combo.addItem(self.tr("- Select a game to copy from -"), userData=None)
             for defn in load_builtin_game_templates():
                 nm = defn.get("name", "")
                 if nm:
@@ -485,7 +485,7 @@ class CustomGameView(QWidget):
         _render_entry(
             g, "mod_required_file_types", _T("Required File Types"),
             _T("Comma-separated file extensions a mod must contain at its root. "
-               "e.g. .esp, .esm — works standalone or as a fallback after "
+               "e.g. .esp, .esm - works standalone or as a fallback after "
                "Required Top-Level Folders."))
         _render_toggle(
             g, "mod_auto_strip_until_required", _T("Auto Strip Until Required"),
@@ -573,7 +573,7 @@ class CustomGameView(QWidget):
         self._routing_vbox = QVBoxLayout(self._routing_container)
         self._routing_vbox.setContentsMargins(0, 0, 0, 0)
         self._routing_vbox.setSpacing(2)
-        # Column headers over the dest / match-value inputs — shown only while
+        # Column headers over the dest / match-value inputs - shown only while
         # at least one rule row exists. Stretch factors mirror the row layout.
         self._routing_header = QWidget()
         rh = QHBoxLayout(self._routing_header)
@@ -599,7 +599,7 @@ class CustomGameView(QWidget):
             "the game root (empty = the game root) and matches folder names "
             "(protecting the folder's whole contents), filenames, or "
             "extensions directly at that path. Matching is case-insensitive "
-            "and anchored — the same name at any other path needs its own "
+            "and anchored - the same name at any other path needs its own "
             "rule. Folder and filename values accept wildcards (e.g. "
             "ego_dlc* or *.log)."))
         v = QVBoxLayout(self._sec_whitelist.body)
@@ -971,7 +971,7 @@ class CustomGameView(QWidget):
             self._remove_whitelist_rule(rd)
         for rd in list(self._framework_rows):
             self._remove_framework(rd)
-        # Populate every field from the preset, but leave the name blank — the
+        # Populate every field from the preset, but leave the name blank - the
         # new game needs its own unique name.
         self._prepopulate(defn, keep_name=False)
         self._update_data_path_visibility()
@@ -1100,7 +1100,7 @@ class CustomGameView(QWidget):
     def _auto_expand_sections(self):
         """Expand collapsed sections that hold non-default content, so nothing
         a prepopulate filled in (edit mode, preset, share-code import) is
-        hidden. Expand-only — never re-collapse a section the user opened."""
+        hidden. Expand-only - never re-collapse a section the user opened."""
         edits = self._adv_edits
         toggles = self._adv_toggles
         tuning_keys = (

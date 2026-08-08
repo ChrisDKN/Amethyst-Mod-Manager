@@ -1,7 +1,7 @@
 """Live preview panel for the theme editor.
 
 A self-contained mock of the app's themeable elements, shown to the right of
-the colour swatches. ``refresh(pal)`` restyles ONLY this subtree — the working
+the colour swatches. ``refresh(pal)`` restyles ONLY this subtree - the working
 palette is rendered via ``build_qss``/``build_qpalette`` set on the preview
 root (Qt's nearest-ancestor stylesheet wins over the app-wide one), plus a
 list of registered updaters for elements the real app paints manually
@@ -31,7 +31,7 @@ from gui_qt.theme_qt import (
 from gui_qt.wheel_guard import no_wheel
 
 
-# (base fill key, hover key, label) — one sample button per family. Hover is
+# (base fill key, hover key, label) - one sample button per family. Hover is
 # interactive: button_qss emits a real :hover rule from the working palette.
 _BUTTON_FAMILIES = (
     ("BTN_DANGER", "BTN_DANGER_HOV", "Danger"),
@@ -79,7 +79,7 @@ class ThemePreviewPanel(QWidget):
         super().__init__(parent)
         # Manual repaint hooks, each called with the palette dict on refresh.
         self._updaters: list[Callable[[dict], None]] = []
-        # (item, column, bg_key, fg_key) — tree cells painted via brushes,
+        # (item, column, bg_key, fg_key) - tree cells painted via brushes,
         # mirroring how the real modlist delegate colours its rows.
         self._tree_cells: list[tuple[QTreeWidgetItem, int, str | None, str | None]] = []
 
@@ -88,7 +88,7 @@ class ThemePreviewPanel(QWidget):
         outer.setSpacing(0)
 
         caption = QLabel(self.tr(
-            "Preview — approximate; use \"Restart to apply\" to see the theme "
+            "Preview - approximate; use \"Restart to apply\" to see the theme "
             "across the whole app."))
         caption.setWordWrap(True)
         caption.setContentsMargins(12, 8, 12, 8)
@@ -123,7 +123,7 @@ class ThemePreviewPanel(QWidget):
         """Re-render the preview from *pal*. Standard widgets pick the new
         colours up from the regenerated QSS/QPalette; manually painted samples
         are repainted by the registered updaters."""
-        p = dict(pal)   # snapshot — the editor mutates its working dict in place
+        p = dict(pal)   # snapshot - the editor mutates its working dict in place
         self._content.setStyleSheet(build_qss(p) + self._extra_qss(p))
         self._content.setPalette(build_qpalette(p))
         for fn in self._updaters:
@@ -132,7 +132,7 @@ class ThemePreviewPanel(QWidget):
     # ---- section scaffolding ------------------------------------------------
     def _extra_qss(self, p: dict) -> str:
         """Preview-only chrome build_qss doesn't cover (it has no QGroupBox /
-        section styling — the app never uses one)."""
+        section styling - the app never uses one)."""
         c = lambda k: _c(p, k)
         return f"""
         #ThemePreviewContent {{ background: {c('BG_DEEP')}; }}
@@ -232,7 +232,7 @@ class ThemePreviewPanel(QWidget):
         # Mirrors the bands/tints the modlist delegate paints via brushes.
         add(self.tr("Overwrite"), "", "OVERWRITE_SEP_BG", "OVERWRITE_SEP_FG")
         add(self.tr("Root Folder"), "", "ROOT_SEP_BG", "ROOT_SEP_FG")
-        add(self.tr("— Gameplay —"), "", "BG_SEP", "TEXT_SEP")
+        add(self.tr("- Gameplay -"), "", "BG_SEP", "TEXT_SEP")
         add(self.tr("Unofficial Patch"))
         sel = add(self.tr("Selected mod"))
         add(self.tr("Wins over selection"), self.tr("conflict"),

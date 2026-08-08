@@ -67,7 +67,7 @@ def finalize_xedit_saves(data_dir: Path, log_fn=None) -> int:
 
 
 def applications_dir(game: "BaseGame", app_dir: str) -> Path:
-    """Profiles/<game>/Applications/<app_dir>/ — where wizard tools extract."""
+    """Profiles/<game>/Applications/<app_dir>/ - where wizard tools extract."""
     return game.get_mod_staging_path().parent / "Applications" / app_dir
 
 
@@ -197,8 +197,8 @@ def seed_xedit_viewsettings(game: "BaseGame", pfx: Path, xedit_name: str, log_fn
     AppData/Local data dir, so xEdit shows its nag dialogs every time the
     prefix is recreated. Seeding the gate keys suppresses them:
 
-      [Options]          ShowTip=0            — no Tip of the Day on startup
-      [WhatsNew]         Version=<very high>  — newer than any running build
+      [Options]          ShowTip=0            - no Tip of the Day on startup
+      [WhatsNew]         Version=<very high>  - newer than any running build
       [DeveloperMessage] LastShownOn=<far-future Delphi date serial>
 
     ``LastShownOn`` is a Delphi ``TDateTime`` integer (days since 1899-12-30);
@@ -216,7 +216,7 @@ def seed_xedit_viewsettings(game: "BaseGame", pfx: Path, xedit_name: str, log_fn
     settings_file = data_dir / f"Plugins.{ext}viewsettings"
 
     if settings_file.exists():
-        return  # real settings already present — don't clobber
+        return  # real settings already present - don't clobber
 
     # Far-future Delphi date serial (1899-12-30 epoch) so the developer
     # message stays dismissed: 2099-01-01 -> 72686.
@@ -251,8 +251,8 @@ def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None) -> Non
     leaving root-folder deployed files behind in the game install.
 
     QuickAutoClean backs the original plugin up into ``Data/<tool> Backups/``
-    — which, under symlink-mode deploy, consumes the staging copy (the Data
-    entry was a symlink into staging) — and writes the cleaned plugin as a
+    - which, under symlink-mode deploy, consumes the staging copy (the Data
+    entry was a symlink into staging) - and writes the cleaned plugin as a
     fresh regular file in Data/.  If we let the wizard-close reload
     rescan staging now, ``rebuild_mod_index`` finds the mod folder missing
     its plugin and drops it from the index; the next Restore then can't
@@ -309,7 +309,7 @@ def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None) -> Non
                 game.load_paths()
             except Exception:
                 pass
-    # The game is no longer deployed — drop the deploy-active flag so the
+    # The game is no longer deployed - drop the deploy-active flag so the
     # profile dropdown loses its green "deployed" highlight (mirrors what the
     # Restore button does).  The caller refreshes the UI afterwards.
     if restored_ok:

@@ -14,7 +14,7 @@ installed files and reduces them to per-mod missing requirements that merge
 into the existing meta.ini ``missingRequirements`` pipeline.
 
 Satisfaction policy (v1): a dependency definition is satisfied when ANY of
-its OR-alternative candidate mods is installed at all — an installed but
+its OR-alternative candidate mods is installed at all - an installed but
 out-of-range version counts as satisfied, because the meta format and the
 missing-requirements UI can only express missing *mods*. Version-range
 strictness is future work.
@@ -63,7 +63,7 @@ def resolve_missing_definitions(
     """Reduce candidate rows to unsatisfied dependency definitions.
 
     Returns {source_version_uid: [one representative candidate per
-    unsatisfied definition]}. Pure function — unit-testable offline.
+    unsatisfied definition]}. Pure function - unit-testable offline.
 
     A definition (all rows sharing (source_version_id, definition_id)) is
     satisfied/suppressed when any of its candidates' game-scoped mod ids is
@@ -124,7 +124,7 @@ def resolve_all_definitions(
     A definition (rows sharing (source_version_id, definition_id)) is
     represented by its preferred published candidate; definitions with no valid
     published candidate are skipped (nothing to point at). OR-alternatives
-    collapse to a single representative — the full list can only express one
+    collapse to a single representative - the full list can only express one
     mod per definition anyway.
     """
     groups: dict[tuple[int, int], list[FileDependencyCandidate]] = {}
@@ -157,7 +157,7 @@ def compute_file_level_all(
     """ALL file-level requirements for the given metas (installed or not).
 
     Same batch/resolution pipeline as ``compute_file_level_missing`` but with
-    no satisfaction filtering — it returns every file-level dependency so the
+    no satisfaction filtering - it returns every file-level dependency so the
     View Requirements full list can show installed deps normally and missing
     ones dimmed. Returns {source mod_id: [NexusModRequirement, ...]}, or {} on
     the kill switch / no usable file id / any v3 failure.

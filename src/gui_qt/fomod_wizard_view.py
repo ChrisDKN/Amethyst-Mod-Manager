@@ -1,4 +1,4 @@
-"""FOMOD installer wizard — Qt port of gui/fomod_dialog.py.
+"""FOMOD installer wizard - Qt port of gui/fomod_dialog.py.
 
 Opens as a (detachable) tab when an archive with a FOMOD ModuleConfig is being
 installed. Walks the visible install steps; each step's groups render as radio
@@ -47,7 +47,7 @@ class FomodWizardView(QWidget):
         self._all_selections: dict[str, dict] = {}
         self._flag_state: dict = {}
         # Context sets FOMOD conditions evaluate against (plugins.txt /
-        # loadorder.txt / filemap — see mod_install._collection_plugin_context).
+        # loadorder.txt / filemap - see mod_install._collection_plugin_context).
         self._installed: set = installed_files or set()
         self._active: set = active_files or set()
         self._loose: set = loose_files or set()
@@ -56,7 +56,7 @@ class FomodWizardView(QWidget):
         # the user can spot prior choices (Tk parity). Accepts both index-keyed
         # (new) and step-name-keyed (old on-disk JSON) formats.
         self._saved_selections: dict = saved_selections or {}
-        self._selections_path = selections_path   # Path|None — Reset button
+        self._selections_path = selections_path   # Path|None - Reset button
         self._visible_steps = []
         self._cur = 0
         # Live widget state for the current step: group_name → controls info.
@@ -86,7 +86,7 @@ class FomodWizardView(QWidget):
         hb.addWidget(self._step_lbl)
         outer.addWidget(header)
 
-        # Body: a resizable splitter — left = image+description, right = option
+        # Body: a resizable splitter - left = image+description, right = option
         # groups. Image side is larger by default; the user can drag the divider.
         body = QSplitter(Qt.Horizontal)
         body.setObjectName("FomodSplit")
@@ -192,14 +192,14 @@ class FomodWizardView(QWidget):
         return False
 
     def _is_rerun(self) -> bool:
-        """True when this install has prior saved selections — i.e. the user has
+        """True when this install has prior saved selections - i.e. the user has
         run this FOMOD before. 'Newly available' highlighting only applies then
         (on a fresh install every option is 'new', so it would be noise)."""
         return bool(self._saved_selections)
 
     def _newly_available(self, plugin, previously_saved) -> bool:
         """True on a RERUN when this option is gated on a plugin, that gate is now
-        MET, and the option was NOT selected last time — so it's newly selectable
+        MET, and the option was NOT selected last time - so it's newly selectable
         and worth flagging in blue."""
         return (self._is_rerun()
                 and plugin.name not in previously_saved
@@ -222,7 +222,7 @@ class FomodWizardView(QWidget):
         # Priority: current session > saved from previous install > computed
         # defaults. Saved selections are merged with auto-detected defaults so
         # that newly installed mods still get their compatibility patches
-        # auto-selected (Tk parity — gui/fomod_dialog._load_step).
+        # auto-selected (Tk parity - gui/fomod_dialog._load_step).
         existing = self._all_selections.get(step_key)
         if existing is None:
             try:
@@ -242,7 +242,7 @@ class FomodWizardView(QWidget):
                     if group and saved_plugins:
                         # Drop any saved plugin that's now NotUsable OR whose
                         # plugin fileDependency is no longer met (its required mod
-                        # was removed/disabled since last install) — don't restore
+                        # was removed/disabled since last install) - don't restore
                         # a stale choice whose reqs no longer hold. If that empties
                         # the group, fall back to the defaults.
                         filtered = [
@@ -273,7 +273,7 @@ class FomodWizardView(QWidget):
             else:
                 existing = defaults
 
-        # Prior-install choices per group — highlighted in green so the user
+        # Prior-install choices per group - highlighted in green so the user
         # can revert if they change their mind. Empty on a fresh install.
         saved_for_step = (self._saved_selections.get(step_key)
                           or self._saved_selections.get(step.name)
@@ -320,7 +320,7 @@ class FomodWizardView(QWidget):
             # can revert if they change their mind. On a RERUN, an option that is
             # NOW available (its fileDependency plugin appeared since last install)
             # but wasn't picked before shows in BLUE so the user can spot what's
-            # newly selectable — the whole reason the rerun-FOMOD flag fired. An
+            # newly selectable - the whole reason the rerun-FOMOD flag fired. An
             # option whose fileDependency still isn't met is dimmed as a HINT
             # (still selectable). Precedence: locked > saved(green) > new(blue) >
             # unmet(dim).
@@ -333,12 +333,12 @@ class FomodWizardView(QWidget):
                 control.setStyleSheet(
                     f"color:{self._c('ACCENT')}; font-weight:600;")
                 control.setToolTip(self.tr(
-                    "Newly available — this option's required plugin is now "
+                    "Newly available - this option's required plugin is now "
                     "installed since your last run of this installer."))
             elif dep_unmet:
                 control.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
                 control.setToolTip(self.tr(
-                    "This option's required plugin isn't enabled — enable it "
+                    "This option's required plugin isn't enabled - enable it "
                     "first, or select this only if you plan to add it."))
 
         controls = []
@@ -348,7 +348,7 @@ class FomodWizardView(QWidget):
             # NON-exclusive so the user can click the checked option again to clear
             # it (zero is valid). But a non-exclusive group won't auto-uncheck
             # siblings, so a manual handler enforces "at most one" when a new one is
-            # ticked — otherwise two radios could show checked at once (only the
+            # ticked - otherwise two radios could show checked at once (only the
             # first would actually install, misleading the user).
             bg.setExclusive(gtype == "SelectExactlyOne")
             for plugin in group.plugins:
@@ -393,7 +393,7 @@ class FomodWizardView(QWidget):
     def _wire_at_most_one(self, controls):
         """Enforce 'at most one' on a non-exclusive radio group: when one radio is
         toggled ON, clear the others. Toggling it OFF (clicking the checked one)
-        leaves the group empty — which SelectAtMostOne permits."""
+        leaves the group empty - which SelectAtMostOne permits."""
         radios = [w for _p, w in controls]
 
         def _make(this):

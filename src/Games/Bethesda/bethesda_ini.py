@@ -53,7 +53,7 @@ def _set_ini_key(ini_path: Path, section: str, key: str, value: "str | None",
     INIs such as enblocal.ini are hand-edited and vary), instead of appending a
     duplicate block.
     """
-    # newline="" disables universal-newline translation — without it every CRLF
+    # newline="" disables universal-newline translation - without it every CRLF
     # file would read back as LF and be rewritten LF-only.
     try:
         with ini_path.open(encoding="utf-8", newline="") as fh:

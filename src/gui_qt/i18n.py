@@ -8,11 +8,11 @@ translated (Qt Linguist or any XML editor), then compiled to ``.qm`` with
 
 Translation files are loaded from TWO locations, config-folder-wins:
 
-1. ``~/.config/AmethystModManager/languages/`` — the user config folder. This
+1. ``~/.config/AmethystModManager/languages/`` - the user config folder. This
    is where translations synced from the Resources branch (see
    ``Utils.gh_sync.sync_languages``) land, and where a user can drop their own
    ``amethyst_<code>.qm`` to add or override a language WITHOUT an app update.
-2. The built-in ``translations/`` source folder — ships English (the source
+2. The built-in ``translations/`` source folder - ships English (the source
    language needs no file) and any languages bundled with the app.
 
 When a language exists in both, the config-folder copy wins, so fixes shipped
@@ -20,8 +20,8 @@ via Resources take effect without a full app release.
 
 At startup :func:`install_translators` picks the language from ``amethyst.ini``
 (``[ui] language``; empty = follow the system locale), loads our ``.qm`` plus
-Qt's own bundled ``qtbase_<code>.qm`` (so standard dialog buttons — OK/Cancel/
-etc. — are localised too), and installs both on the app.
+Qt's own bundled ``qtbase_<code>.qm`` (so standard dialog buttons - OK/Cancel/
+etc. - are localised too), and installs both on the app.
 
 The translators are kept alive on the QApplication because Qt does not retain
 a reference to an installed QTranslator; letting one get garbage-collected
@@ -160,7 +160,7 @@ def install_translators(app, code: str) -> list[QTranslator]:
     lang = _resolve_code(code)
     installed: list[QTranslator] = []
 
-    # English (or a resolved "en") is our source language — nothing to load.
+    # English (or a resolved "en") is our source language - nothing to load.
     if lang and lang != "en":
         # Try each search dir in priority order (config folder first) and use
         # the first that has this language's .qm.
@@ -178,6 +178,6 @@ def install_translators(app, code: str) -> list[QTranslator]:
             app.installTranslator(qt_tr)
             installed.append(qt_tr)
 
-    # Keep references alive — Qt does not retain installed translators.
+    # Keep references alive - Qt does not retain installed translators.
     app._i18n_translators = installed
     return installed

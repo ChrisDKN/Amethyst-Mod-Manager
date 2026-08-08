@@ -1,14 +1,14 @@
 """Qt tree model for the Data tab.
 
 A QAbstractItemModel over the merged-deployment folder tree (what lands in the
-game folder). Two columns — no checkboxes:
+game folder). Two columns - no checkboxes:
 
-  0  Path         — folder / file name (the tree)
-  1  Winning Mod  — the mod that owns this file in the deployed filemap
+  0  Path         - folder / file name (the tree)
+  1  Winning Mod  - the mod that owns this file in the deployed filemap
 
 Conflict files (owned by >1 enabled mod) are tinted; the selected mod's files get
 a highlight background. Mirrors gui_qt.mod_files_model but without the checkbox
-columns. Display-only — all data-building lives in Utils.data_tab.
+columns. Display-only - all data-building lives in Utils.data_tab.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ COL_NAME = 0
 COL_MOD = 1
 COLUMNS = ["Path", "Winning Mod"]
 # Translated at display time in headerData; register literals for lupdate
-# (explicit calls — a loop variable wouldn't be statically extractable).
+# (explicit calls - a loop variable wouldn't be statically extractable).
 _COL_TR = (
     QT_TRANSLATE_NOOP("DataModel", "Path"),
     QT_TRANSLATE_NOOP("DataModel", "Winning Mod"),
@@ -57,7 +57,7 @@ class DataModel(QAbstractItemModel):
         super().__init__(parent)
         self._root = _DataNode("", "", is_dir=True)
         self._highlight_mod: str | None = None
-        # Highlight QColor cached once — data() runs per cell per repaint
+        # Highlight QColor cached once - data() runs per cell per repaint
         # (mirrors modlist_delegate; matches the modlist anchor tint).
         self._c_highlight = qc(active_palette(), "CONFLICT_HL_ANCHOR")
 

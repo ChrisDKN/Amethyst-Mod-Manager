@@ -3,7 +3,7 @@ Qt wizard-tool registry + shared Qt wizard views.
 
 Games keep declaring their tools as ``WizardTool`` descriptors (see
 ``Games.base_game``) whose ``dialog_class_path`` points at the Tk wizard
-class.  The Qt app never imports those Tk classes — instead this registry maps
+class.  The Qt app never imports those Tk classes - instead this registry maps
 each ``dialog_class_path`` to a Qt view factory.  Tools without an entry here
 appear greyed out in the Wizards header menu until their port lands; tools in
 ``EXCLUDED`` are dropped from the Qt app entirely.
@@ -48,22 +48,22 @@ class QtWizardContext:
     (mutex/coalesce + progress popup); on_done(ok: bool) fires on the UI
     thread when the final deploy completes. Returns False if a deploy could
     not be started. run_restore(on_done) is its counterpart for restoring the
-    modlist (same machinery; False when a restore can't start) — wizards that
+    modlist (same machinery; False when a restore can't start) - wizards that
     write files into the game root (4GB patch backup exe, FO3 downgrade)
     restore first, because files created while a profile is deployed are
     missing from the deploy snapshot and the next restore would sweep them
     into overwrite/ as runtime files.
     refresh_modlist() re-syncs the mods folder + reloads the
     panels (footer Refresh).  refresh_plugins() re-runs LOOT to refresh plugin
-    metadata WITHOUT reordering the load order (footer Refresh Plugins) — used by
+    metadata WITHOUT reordering the load order (footer Refresh Plugins) - used by
     the xEdit wizards after a clean/edit session so dirty/message flags update.
     import_manifest(manifest, source_stem, bundle_zip) opens the Profile-import
     tab (the collection detail + install pipeline) for an already-parsed
-    Amethyst manifest — used by the curated-profile wizard. current_profile()
+    Amethyst manifest - used by the curated-profile wizard. current_profile()
     returns the LIVE active profile name (profile_name is frozen at open, so a
-    wizard spanning a profile switch — e.g. a profile import — reads this).
+    wizard spanning a profile switch - e.g. a profile import - reads this).
     nexus_api() returns the app's shared NexusAPI (or None when not logged
-    in) — call it on the GUI thread; used by the MPI wizards' hands-free
+    in) - call it on the GUI thread; used by the MPI wizards' hands-free
     archive fetch (premium direct download / download-folder watch).
     """
     profile_name: str = "default"
@@ -200,7 +200,7 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_param("wizards_qt.bodyslide_view", "BodySlideView", tool="bodyslide")),
     "wizards.bodyslide.OutfitStudioWizard":
         QtWizardSpec(_param("wizards_qt.bodyslide_view", "BodySlideView", tool="outfitstudio")),
-    # Native-Linux AppImage fork — Qt-only, no Tk counterpart ever existed.
+    # Native-Linux AppImage fork - Qt-only, no Tk counterpart ever existed.
     "wizards.bodyslide_linux.BodySlideLinuxWizard":
         QtWizardSpec(_param("wizards_qt.bodyslide_linux_view",
                             "BodySlideLinuxView", tool="bodyslide")),

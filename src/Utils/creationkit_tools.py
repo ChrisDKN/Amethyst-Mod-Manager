@@ -68,7 +68,7 @@ def install_ckpe_mod(game: "BaseGame", *,
                      log_fn: Callable[[str], None] = _noop) -> str:
     """Download the latest CKPE release and install it as a root-flagged
     managed mod.  Returns the release tag.  Blocking; call from a worker
-    thread — does NO UI work (status_fn/log_fn only receive strings).
+    thread - does NO UI work (status_fn/log_fn only receive strings).
 
     Mirrors the Tk wizard's _do_ckpe_install: register the mod (meta.ini
     rootFolder=true + modlist entry), extract CKPE into it so the
@@ -124,7 +124,7 @@ def install_ckpe_mod(game: "BaseGame", *,
         placeholder.touch(exist_ok=True)
         log_fn("added empty CKPEPlugins/ folder (prevents CKPE startup crash).")
 
-        # build_filemap reads modindex.bin (fast path) — index the mod now or
+        # build_filemap reads modindex.bin (fast path) - index the mod now or
         # nothing reaches the game root on the deploy step.
         index_installed_mod(game, CKPE_MOD_NAME, log_fn=log_fn)
     finally:

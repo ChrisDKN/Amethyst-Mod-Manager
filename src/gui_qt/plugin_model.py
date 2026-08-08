@@ -1,4 +1,4 @@
-"""Plugin-tab model — QAbstractTableModel over PluginRow list.
+"""Plugin-tab model - QAbstractTableModel over PluginRow list.
 
 Columns: Plugin Name, Flags, Lock, Index (checkbox painted into col 0 by the
 delegate). Toggling enable writes back to plugins.txt via plugin_state.save.
@@ -24,7 +24,7 @@ COL_GAME_INDEX = 4  # MO2-style hex load index the game assigns (00, FE:000…)
 COLUMNS = ["Plugin Name", "Flags", "", "P", "Index"]
 # headerData() translates these at display time (self.tr(COLUMNS[i])); register
 # the literals so lupdate extracts them under the PluginModel context. Must be
-# explicit literal calls — lupdate can't see through a loop variable.
+# explicit literal calls - lupdate can't see through a loop variable.
 _COL_TR = (
     QT_TRANSLATE_NOOP("PluginModel", "Plugin Name"),
     QT_TRANSLATE_NOOP("PluginModel", "Flags"),
@@ -42,12 +42,12 @@ class PluginModel(QAbstractTableModel):
     # toggle). BSA load order follows plugin load order, so the window listens
     # to this to recompute BSA conflicts. See _save().
     order_changed = Signal()
-    # plugins.txt write failed — the window surfaces a toast.
+    # plugins.txt write failed - the window surfaces a toast.
     save_failed = Signal(str)
 
     def __init__(self, rows: list[PluginRow] | None = None):
         super().__init__()
-        # _rows is the DISPLAY list — with no column sort active it IS _natural
+        # _rows is the DISPLAY list - with no column sort active it IS _natural
         # (same object); a sort derives a reordered copy. The natural order is
         # the load order, and plugins.txt / loadorder.txt are ALWAYS written
         # from it (see _save / natural_rows).
@@ -105,7 +105,7 @@ class PluginModel(QAbstractTableModel):
 
     @property
     def display_is_natural(self) -> bool:
-        """True when the displayed order IS the load order — no sort, or the P
+        """True when the displayed order IS the load order - no sort, or the P
         column ascending. Drag-reorder is only meaningful in that state."""
         return self._rows is self._natural
 
@@ -165,7 +165,7 @@ class PluginModel(QAbstractTableModel):
         self.layoutChanged.emit()
 
     def flags_changed(self) -> None:
-        """Row flag bits were mutated in place (ESL scan / userlist refresh) —
+        """Row flag bits were mutated in place (ESL scan / userlist refresh) -
         re-derive the display if the Flags column is the active sort."""
         self._resort_if_key("flags")
 
@@ -179,7 +179,7 @@ class PluginModel(QAbstractTableModel):
         return bool(self._locks.get(self._rows[i].name.lower(), False))
 
     def is_locked_name(self, name: str) -> bool:
-        """Lock state by plugin name — for callers working in natural order,
+        """Lock state by plugin name - for callers working in natural order,
         where the display row index doesn't apply."""
         return bool(self._locks.get((name or "").lower(), False))
 
@@ -232,7 +232,7 @@ class PluginModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             # TkStyleHeader paints the label itself on sortable sections (elided
-            # clear of the sort triangle) — it suppresses the native text for
+            # clear of the sort triangle) - it suppresses the native text for
             # the chrome pass, or the label is drawn twice.
             if getattr(self, "_suppress_header_text", False):
                 return ""
@@ -266,7 +266,7 @@ class PluginModel(QAbstractTableModel):
             if col == COL_NAME:
                 return r.name
             if col == COL_PRIORITY:
-                # The NATURAL load position — sorting by another column doesn't
+                # The NATURAL load position - sorting by another column doesn't
                 # renumber the load order (modlist parity).
                 return f"{self._nat_pos.get(r.name.lower(), index.row()):03d}"
             if col == COL_GAME_INDEX:
@@ -296,7 +296,7 @@ class PluginModel(QAbstractTableModel):
         self._save()
 
     def set_enabled(self, indices, enabled: bool):
-        """Enable/disable the given rows (skips vanilla — always-on), persist +
+        """Enable/disable the given rows (skips vanilla - always-on), persist +
         repaint. Mirrors toggle() for the context menu's Enable/Disable items."""
         changed = [i for i in indices
                    if 0 <= i < len(self._rows) and not self._rows[i].vanilla]
@@ -332,7 +332,7 @@ class PluginModel(QAbstractTableModel):
         Vanilla rows stay pinned at the top; locked rows never move. Persists
         order to loadorder.txt (+ plugins.txt) on success."""
         if not self.display_is_natural:
-            # Display rows aren't load-order rows under a column sort — the
+            # Display rows aren't load-order rows under a column sort - the
             # view clears the sort before a drag, so this only guards callers
             # that forget to. (P ascending IS the load order, so it passes.)
             return False
@@ -380,6 +380,6 @@ class PluginModel(QAbstractTableModel):
                 print(f"[gui_qt] plugins.txt save failed: {exc}", flush=True)
                 self.save_failed.emit(f"Plugins save failed: {exc}")
                 return
-            # loadorder.txt / plugins.txt are now on disk — let the window
+            # loadorder.txt / plugins.txt are now on disk - let the window
             # recompute BSA conflicts (BSA winners follow plugin load order).
             self.order_changed.emit()

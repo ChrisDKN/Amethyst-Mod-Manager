@@ -2,20 +2,20 @@
 
 Shown BEFORE the download/install pipeline to choose how to install a collection:
 
-  * ModeOverlay     — "Create a new profile" (default) vs "Append to existing
+  * ModeOverlay     - "Create a new profile" (default) vs "Append to existing
                       profile" (with a profile dropdown + Overwrite/Skip options).
-  * ContinueOverlay — shown when this exact collection+revision is already in a
+  * ContinueOverlay - shown when this exact collection+revision is already in a
                       profile; a single "Continue Install" action.
 
 Borderless in-window overlays via gui_qt/overlay_base.py. All widgets are built
 ONCE with real parents (no per-item unparented widgets that could flash as
-blank top-level windows — see the collection install-overlay fix).
+blank top-level windows - see the collection install-overlay fix).
 
 ``on_done(result)`` is called with the SAME tuple shape the neutral wiring expects:
   ("new", None, False, False)
   ("append", profile_name, overwrite_existing, skip_existing)
   ("continue", profile_name, False, False)
-  None                                                     — cancelled
+  None                                                     - cancelled
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ class ModeOverlay(_BaseModeOverlay):
         v.addWidget(self._new_radio)
 
         # When the manifest requires a new profile, the Append section is omitted
-        # entirely (Tk parity) — only the note is shown.
+        # entirely (Tk parity) - only the note is shown.
         self._append_radio = None
         self._profile_combo = None
         self._overwrite_cb = None
@@ -97,7 +97,7 @@ class ModeOverlay(_BaseModeOverlay):
                 self.tr("Append to existing profile"), self._card)
             self._group.addButton(self._append_radio)
             v.addWidget(self._append_radio)
-            # Append controls (indented) — enabled only when Append is selected.
+            # Append controls (indented) - enabled only when Append is selected.
             self._profile_combo = QComboBox(self._card)
             self._profile_combo.addItems(self._profiles or [self.tr("(no profiles)")])
             v.addWidget(self._profile_combo)
@@ -134,7 +134,7 @@ class ModeOverlay(_BaseModeOverlay):
             w.setEnabled(is_append and has_profiles)
 
     def _on_install(self):
-        # A forced-new collection has no Append section — only a new profile.
+        # A forced-new collection has no Append section - only a new profile.
         if self._force_new or self._append_radio is None \
                 or self._new_radio.isChecked() \
                 or not self._append_radio.isChecked():

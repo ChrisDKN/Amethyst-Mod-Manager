@@ -4,7 +4,7 @@ Game handler for The Elder Scrolls III: Morrowind.
 
 Key differences from other Bethesda games:
   - Mods install into <game_path>/Data Files/  (not Data/)
-  - Does NOT use plugins.txt — load order is managed via Morrowind.ini
+  - Does NOT use plugins.txt - load order is managed via Morrowind.ini
   - Plugin load order is determined by file mtime, not ini position
 """
 
@@ -42,7 +42,7 @@ class Morrowind(BaseGame):
     vanilla_plugins = ["Morrowind.esm", "Tribunal.esm", "Bloodmoon.esm"]
 
     # Morrowind loads all .esm files before any .esp (TES3 has no header
-    # master flag — the partition is purely by extension).
+    # master flag - the partition is purely by extension).
     plugins_master_block = True
 
     @property
@@ -267,7 +267,7 @@ class Morrowind(BaseGame):
         per_mod_raw    = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
         # Custom-routed files (MGE XE loose files: d3d8.dll, MGEXEgui.exe,
-        # mge3/, …) are placed under the game root — NOT 'Data Files/' — so run
+        # mge3/, …) are placed under the game root - NOT 'Data Files/' - so run
         # this before the normal deploy and exclude the handled paths from it.
         custom_rules = self.custom_routing_rules
         custom_exclude: set[str] = set()

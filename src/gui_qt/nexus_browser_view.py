@@ -1,4 +1,4 @@
-"""Nexus Mods browser — a full detachable tab.
+"""Nexus Mods browser - a full detachable tab.
 
 Qt port of the Tk overlay (gui/nexus_browser_overlay.py + browse/trending/
 tracked/endorsed_mods_panel.py + mod_card.py). Layout:
@@ -68,7 +68,7 @@ class NexusBrowserView(QWidget):
     _premium_checked = Signal(object, object)       # (entry, is_premium|None)
     _files_ready = Signal(object, object)           # (entry, list[NexusModFile])
     _manual_files_ready = Signal(object, object)    # (entry, list[NexusModFile]|None)
-    _manual_watch_ended = Signal(int)               # (mod_id) — found or timed out
+    _manual_watch_ended = Signal(int)               # (mod_id) - found or timed out
     _download_done = Signal(object, object, object)      # (archive_path|None, meta|None, dl_key)
     _download_progress = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
 
@@ -183,7 +183,7 @@ class NexusBrowserView(QWidget):
     def _enable_hfw(w: QWidget) -> None:
         """Report the bar's height via heightForWidth (the wrapped FlowLayout
         height at the actual width), not the sizeHint Qt evaluates at minimum
-        width (every control on its own row) — same as app._enable_height_for_width."""
+        width (every control on its own row) - same as app._enable_height_for_width."""
         pol = w.sizePolicy()
         pol.setHeightForWidth(True)
         w.setSizePolicy(pol)
@@ -480,7 +480,7 @@ class NexusBrowserView(QWidget):
 
     def _add_cat_check(self, name: str, indent: int):
         # Use the SAME widget as the modlist filter panel (TriStateCheckBox) so
-        # the rows look identical — two_state so it's plain on/off (no exclude).
+        # the rows look identical - two_state so it's plain on/off (no exclude).
         from gui_qt.tri_state_checkbox import TriStateCheckBox
         cb = TriStateCheckBox(name, two_state=True)
         cb.setToolTip(name)              # long names that clip still readable
@@ -510,7 +510,7 @@ class NexusBrowserView(QWidget):
         self._reload()
 
     def _on_time_changed(self, label: str):
-        # A preset was chosen — drop any lingering custom range so it doesn't
+        # A preset was chosen - drop any lingering custom range so it doesn't
         # stay pinned in the dropdown next to the presets.
         if self._custom_time_label and label != self._custom_time_label:
             self._custom_time_label = None
@@ -569,7 +569,7 @@ class NexusBrowserView(QWidget):
         if mode == self._search_mode:
             return
         self._search_mode = mode
-        # Switching mode is a fresh, name-based query — drop any pinned uploader
+        # Switching mode is a fresh, name-based query - drop any pinned uploader
         # id from a prior right-click "Mods by this author".
         self._uploader_id = 0
         self._search.setPlaceholderText(
@@ -586,7 +586,7 @@ class NexusBrowserView(QWidget):
 
     def _clear_search(self):
         """Empty the search field, switch back to Name mode (if the dropdown was
-        on Author), and — if a search was active — return to the default
+        on Author), and - if a search was active - return to the default
         (unfiltered) listing for the current section."""
         self._search.blockSignals(True)
         self._search.clear()
@@ -623,7 +623,7 @@ class NexusBrowserView(QWidget):
             return
         if q == self._query:
             return
-        # A manually edited query is name-based — drop any pinned uploader id.
+        # A manually edited query is name-based - drop any pinned uploader id.
         self._uploader_id = 0
         self._query = q
         self._page = 0
@@ -680,7 +680,7 @@ class NexusBrowserView(QWidget):
         is open). Resets navigation + filters (categories differ per game) and
         re-fetches categories + the Browse grid for the new domain."""
         # Pending browser-download watches would install into the NEW game's
-        # modlist — stop them (and their progress cards) instead.
+        # modlist - stop them (and their progress cards) instead.
         self._cancel_manual_watches()
         self._game = game
         self._domain = domain or ""
@@ -879,7 +879,7 @@ class NexusBrowserView(QWidget):
 
     def refresh_installed(self):
         """Recompute installed IDs and flip card buttons. Call on profile change
-        and after an install completes — the browser tab persists across both."""
+        and after an install completes - the browser tab persists across both."""
         installed = self._installed_ids()
         for card in self._cards:
             card.set_installed(card.entry.mod_id in installed)
@@ -956,7 +956,7 @@ class NexusBrowserView(QWidget):
             self.tr("Cancel download detection")
             if entry.mod_id in self._manual_watchers else _act,
             lambda: self._on_install(entry))
-        # Browse by the uploader's stable account id (reliable — survives a
+        # Browse by the uploader's stable account id (reliable - survives a
         # rename and can't be spoofed via the free-text `author` field). Fall
         # back to the display name / author only for a label when no id is
         # available (e.g. a REST-sourced entry without uploader.memberId).
@@ -987,7 +987,7 @@ class NexusBrowserView(QWidget):
         uploader_id = int(uploader_id or 0)
         if not author and not uploader_id:
             return
-        # Switch to Browse first — _set_section clears the query and resets the
+        # Switch to Browse first - _set_section clears the query and resets the
         # mode (incl. the pinned uploader id), so do it before we set up below.
         if self._section != "Browse":
             self._set_section("Browse")
@@ -1030,7 +1030,7 @@ class NexusBrowserView(QWidget):
     # -- install (premium check → file pick → download → install queue) ----
     def _on_install(self, entry):
         if entry.mod_id in self._manual_watchers:
-            # Waiting for this mod's browser download — the click cancels the
+            # Waiting for this mod's browser download - the click cancels the
             # watch (e.g. it can't recognise the file). Click again to retry.
             self.cancel_manual_watch(entry.mod_id)
             self._log(f"Nexus: cancelled download detection for "
@@ -1051,7 +1051,7 @@ class NexusBrowserView(QWidget):
                 # browser-download flow (same switch the collections use).
                 from Utils.ui_config import load_force_manual_install
                 if load_force_manual_install():
-                    self._log("Nexus: [dev] force_manual_install — using the "
+                    self._log("Nexus: [dev] force_manual_install - using the "
                               "manual browser-download flow.")
                     premium = False
             return (entry, premium)
@@ -1084,17 +1084,17 @@ class NexusBrowserView(QWidget):
         """UI thread (non-premium install): pick the file (same chooser as the
         premium path), open ITS download page directly, and watch the download
         folders so the browser download auto-installs when it arrives.
-        'Download with Mod Manager' still works too — that comes back as an
+        'Download with Mod Manager' still works too - that comes back as an
         nxm:// link, which cancels this watch (see app._handle_nxm)."""
         from gui_qt.nexus_file_chooser import NexusFileChooser, installable_files
         picks = installable_files(files or [])
         if not picks:
             # No file list (API error) or nothing installable: fall back to
-            # the plain files page — no watch possible without expected files.
+            # the plain files page - no watch possible without expected files.
             from Utils.xdg import open_url
             self._installing = False
             open_url(f"{self._mod_url(entry)}?tab=files", log_fn=self._log)
-            self._log("Nexus: premium required for direct download — opened "
+            self._log("Nexus: premium required for direct download - opened "
                       "the files page (couldn't fetch the file list, so the "
                       "download won't auto-install; use 'Download with Mod "
                       "Manager' or the Downloads tab).")
@@ -1130,9 +1130,9 @@ class NexusBrowserView(QWidget):
         self._progress_fn(dl_key, name, 0, 0)
         watchers = self._manual_watchers
 
-        # All three callbacks run on the WATCHER thread — marshal via Signals.
+        # All three callbacks run on the WATCHER thread - marshal via Signals.
         def _claim() -> bool:
-            # Only the watch that still owns the slot may emit completion —
+            # Only the watch that still owns the slot may emit completion -
             # a watch cancelled or replaced by a re-click must stay silent
             # (double install / clobbering the new watch's progress card).
             t = watchers.pop(mod_id, None)
@@ -1156,7 +1156,7 @@ class NexusBrowserView(QWidget):
             if not _claim():
                 return
             self._log(f"Nexus: stopped waiting for a browser download of "
-                      f"{name} (nothing arrived — install it from the "
+                      f"{name} (nothing arrived - install it from the "
                       f"Downloads tab once downloaded).")
             safe_emit(self._download_done, None, None, dl_key)
             safe_emit(self._manual_watch_ended, mod_id)
@@ -1165,7 +1165,7 @@ class NexusBrowserView(QWidget):
             api=self._api, game_domain=domain, mod_id=mod_id, files=[file],
             open_url_fn=lambda u: open_url(u, log_fn=self._log),
             log_fn=self._log, log_label=file.file_name,
-            mod_info=entry,          # card entry IS the NexusModInfo — no fetch
+            mod_info=entry,          # card entry IS the NexusModInfo - no fetch
             on_archive=on_archive, on_progress=on_progress,
             on_timeout=on_timeout)
         watchers[mod_id] = (watcher, dl_key)
@@ -1174,7 +1174,7 @@ class NexusBrowserView(QWidget):
     def cancel_manual_watch(self, mod_id: int):
         """Stop a pending browser-download watch (no-op if none). Called on
         re-click, and by the app when an nxm:// download for the same mod
-        arrives — the nxm flow installs it, so the watch must not."""
+        arrives - the nxm flow installs it, so the watch must not."""
         t = self._manual_watchers.pop(int(mod_id or 0), None)
         if t is not None:
             watcher, dl_key = t
@@ -1233,7 +1233,7 @@ class NexusBrowserView(QWidget):
                 from Nexus.nexus_download import NexusDownloader
                 from Utils.config_paths import get_download_cache_dir_for_game
                 # Download into the per-game CACHE folder (the Downloads tab
-                # scans this), matching the Tk Nexus browser — NOT ~/Downloads.
+                # scans this), matching the Tk Nexus browser - NOT ~/Downloads.
                 dest = get_download_cache_dir_for_game(
                     getattr(self._game, "name", "") or "")
                 size = (file.size_in_bytes or 0) or (file.size_kb * 1024)
@@ -1246,7 +1246,7 @@ class NexusBrowserView(QWidget):
                 if result.success and result.file_path is not None:
                     archive = str(result.file_path)
                     # Build the meta from the KNOWN mod_id/file_id (the archive
-                    # name can mis-parse), like the Tk browser — so the installed
+                    # name can mis-parse), like the Tk browser - so the installed
                     # meta.ini records the right id and Reinstall detection works.
                     try:
                         from Nexus.nexus_meta import build_meta_from_download
@@ -1265,7 +1265,7 @@ class NexusBrowserView(QWidget):
 
         threading.Thread(target=worker, daemon=True).start()
         # The download is underway on its own thread with its own progress
-        # card — release the guard so the user can queue up the next mod
+        # card - release the guard so the user can queue up the next mod
         # while this one downloads/installs (installs serialise in the app's
         # pending-install queue).
         self._installing = False

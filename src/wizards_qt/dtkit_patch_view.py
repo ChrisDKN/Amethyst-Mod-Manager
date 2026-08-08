@@ -1,10 +1,10 @@
-"""Darktide dtkit-patch wizard — Qt port of wizards/dtkit_patch.py.
+"""Darktide dtkit-patch wizard - Qt port of wizards/dtkit_patch.py.
 
 The Darktide Mod Loader (DML) mod ships the current Windows ``dtkit-patch.exe``
 in its ``tools/`` folder. Once the modlist is deployed, that exe (and the
 ``bundle/`` folder) land in the game directory via Darktide's custom routing
-rules. We run the shipped exe under the game's Proton prefix — mirroring DML's
-``toggle_darktide_mods.bat`` — so the patcher version stays in lock-step with
+rules. We run the shipped exe under the game's Proton prefix - mirroring DML's
+``toggle_darktide_mods.bat`` - so the patcher version stays in lock-step with
 the user's DML install (required after every game update).
 
 Two steps (plugins-panel-scoped tab):
@@ -49,7 +49,7 @@ class DtkitPatchView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Patch Game (dtkit-patch) — {0}").format(game.name))
+                         title=self.tr("Patch Game (dtkit-patch) - {0}").format(game.name))
         self._toggling = False
 
         self._toggle_line_sig.connect(self._guard(self._append_output))
@@ -133,7 +133,7 @@ class DtkitPatchView(WizardViewBase):
         self._toggling = True
         self._toggle_btn.setEnabled(False)
         self._set_status(self._toggle_status,
-                         self.tr("Running dtkit-patch — toggle…"))
+                         self.tr("Running dtkit-patch - toggle…"))
         game = self._game
 
         def worker():
@@ -143,7 +143,7 @@ class DtkitPatchView(WizardViewBase):
                     flag="--toggle",
                     log_fn=self._log,
                     line_fn=lambda line: safe_emit(self._toggle_line_sig, line))
-            except Exception as exc:  # noqa: BLE001 — surface, don't kill the tab
+            except Exception as exc:  # noqa: BLE001 - surface, don't kill the tab
                 self._log(f"dtkit-patch wizard: run error: {exc}")
                 safe_emit(self._toggle_line_sig, self.tr("Error: {0}").format(exc))
                 ok = False

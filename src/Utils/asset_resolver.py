@@ -280,5 +280,5 @@ class AssetResolver:
 
     @property
     def stats(self) -> dict:
-        """Where resolved assets came from — useful for diagnosing a preview."""
+        """Where resolved assets came from - useful for diagnosing a preview."""
         return dict(self._stats)

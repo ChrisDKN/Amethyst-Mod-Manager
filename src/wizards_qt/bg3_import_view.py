@@ -42,7 +42,7 @@ class BG3ImportView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Import BG3MM Load Order — {0}").format(game.name))
+                         title=self.tr("Import BG3MM Load Order - {0}").format(game.name))
         self._json_path: Path | None = None
         self._plan = None
 
@@ -86,7 +86,7 @@ class BG3ImportView(WizardViewBase):
                   lambda p: safe_emit(self._picked_sig, p), _JSON_FILTERS)
 
     def _on_picked(self, path):
-        """Base portal-picker override — this view has no locate page, so the
+        """Base portal-picker override - this view has no locate page, so the
         pick lands on the .json handler (the base connection stays guarded)."""
         self._on_json_picked(path)
 

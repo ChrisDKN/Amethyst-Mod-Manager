@@ -218,7 +218,7 @@ class StardewValley(BaseGame):
         breaks on Linux. AT scans <ContentPack>/Textures (next to manifest.json)
         via GetDirectories, and gates per-folder texture.json / texture.png /
         texture_N.png via case-sensitive File.Exists / GetFiles. Detect content
-        packs for PeacefulEnd.AlternativeTextures (at ANY nesting depth — authors
+        packs for PeacefulEnd.AlternativeTextures (at ANY nesting depth - authors
         commonly group [CP]+[AT] folders under a parent) and canonicalise both
         the 'Textures' folder and those filenames in the filemap. Source
         resolution stays case-insensitive, so the on-disk casing is still found.
@@ -284,7 +284,7 @@ class StardewValley(BaseGame):
                     if parts[tex_idx] != "Textures":
                         parts[tex_idx] = "Textures"
                         changed = True
-                    # Filename: texture.json / texture.png / texture_N.png —
+                    # Filename: texture.json / texture.png / texture_N.png -
                     # AT gates these via case-sensitive File.Exists / GetFiles.
                     base = parts[-1]
                     if base != base.lower() and (
@@ -310,7 +310,7 @@ class StardewValley(BaseGame):
         SMAPI errors when a Mods/<Name>/ folder holds files but no manifest.json.
         The [Overwrite] folder keeps each mod's runtime files (config.json and
         more), which would otherwise deploy even after the owning mod is
-        disabled/removed — leaving a <Name>/ folder with no manifest. Skip any
+        disabled/removed - leaving a <Name>/ folder with no manifest. Skip any
         [Overwrite] file under a <Name>/ whose <Name>/manifest.json is not in the
         filemap (i.e. no enabled mod provides it). Overwrite files at the root
         (no <Name>/ subfolder) and the manifest.json itself are never skipped.
@@ -364,7 +364,7 @@ class StardewValley(BaseGame):
             restored = restore_data_core(plugins_dir, core_dir=core_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         else:
-            _log(f"Restore: no {core}/ found — nothing to restore.")
+            _log(f"Restore: no {core}/ found - nothing to restore.")
 
         moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
         if moved:

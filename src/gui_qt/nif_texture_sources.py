@@ -85,7 +85,7 @@ class TextureSourceController(QObject):
             self._preview.set_texture_sources([])
 
     def _on_textures_seen(self, paths):
-        """The mesh asked for these textures — list who else provides them."""
+        """The mesh asked for these textures - list who else provides them."""
         if not paths or self._token is None:
             return
         # A reload with an override reports the same paths again; don't rebuild
@@ -119,7 +119,7 @@ class TextureSourceController(QObject):
             return
         self._by_source, total = group_by_source(copies)
         if len(self._by_source) < 2:
-            # A single provider for everything — nothing to swap to.
+            # A single provider for everything - nothing to swap to.
             self._preview.set_texture_sources([])
             return
         items = [(self.tr("Textures: as the game loads"), None)]

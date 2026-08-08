@@ -103,7 +103,7 @@ class Fallout_4VR(Fallout_3):
     _ARCHIVE_INI_FILENAME = "Fallout4.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout4Prefs.ini"
     _archive_invalidation_extra_keys = (("sResourceDataDirsFinal", ""),)
-    # BA2-based — no dummy BSA.
+    # BA2-based - no dummy BSA.
     _invalidation_bsa_name = None
     _invalidation_bsa_version = None
 

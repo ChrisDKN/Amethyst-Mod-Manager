@@ -1,4 +1,4 @@
-"""Fallout 3 Downgrade wizard — Qt port of wizards/fallout_downgrade.py.
+"""Fallout 3 Downgrade wizard - Qt port of wizards/fallout_downgrade.py.
 
 Walks through downloading the Fallout Anniversary Patcher from Nexus,
 locating the archive, extracting it into the game root, running Patcher.exe
@@ -36,7 +36,7 @@ class FalloutDowngradeView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Downgrade Fallout 3 — {0}").format(game.name))
+                         title=self.tr("Downgrade Fallout 3 - {0}").format(game.name))
         self._game_root = game.get_game_path()
         self._extracted_paths: list[Path] = []
         self._did_restore = False
@@ -78,15 +78,15 @@ class FalloutDowngradeView(WizardViewBase):
             # The patcher downgrades the exe and writes backups into the game
             # root. If a profile is deployed those files are absent from the
             # deploy snapshot, so the next restore would sweep them into
-            # overwrite/ as runtime files — restore the modlist first and run
+            # overwrite/ as runtime files - restore the modlist first and run
             # the patcher against the vanilla root (Done redeploys).
             if getattr(self._game, "get_deploy_active", lambda: False)():
-                self._log("Downgrade Wizard: modlist is deployed — restoring "
+                self._log("Downgrade Wizard: modlist is deployed - restoring "
                           "before patching (redeploys when the wizard closes).")
                 if self._run_ctx_restore(self._run_status, self._start_patch_step):
                     self._did_restore = True
                     return
-                # Restore couldn't start — fall through and patch the deployed
+                # Restore couldn't start - fall through and patch the deployed
                 # root rather than dead-ending (pre-fix behaviour).
             self._start_patch_step()
 
@@ -116,7 +116,7 @@ class FalloutDowngradeView(WizardViewBase):
         safe_emit(self._run_status_sig,
                   self.tr("Extracting archive to game folder…"), "")
         self._log(f"Downgrade Wizard: extracting {archive.name} → {game_root}")
-        # extract_archive returns files then dirs deepest-first — kept for
+        # extract_archive returns files then dirs deepest-first - kept for
         # the reverse-depth cleanup when the wizard closes.
         self._extracted_paths = extract_archive(archive, game_root)
         n = len([p for p in self._extracted_paths if p.is_file()])
@@ -189,7 +189,7 @@ class FalloutDowngradeView(WizardViewBase):
                           "restored before patching.")
             else:
                 self._log("Downgrade Wizard: could not redeploy automatically "
-                          "— use Deploy to put your modlist back.")
+                          "- use Deploy to put your modlist back.")
         super()._finish()
 
     def _cleanup_extracted(self):
@@ -204,7 +204,7 @@ class FalloutDowngradeView(WizardViewBase):
                     removed += 1
                 elif p.is_dir():
                     try:
-                        p.rmdir()   # only when empty — files removed above
+                        p.rmdir()   # only when empty - files removed above
                         removed += 1
                     except OSError:
                         pass

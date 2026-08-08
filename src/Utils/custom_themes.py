@@ -15,7 +15,7 @@ JSON schema (one file per theme)::
 
 Theme ids are namespaced ``custom:<stem>`` (the filename without ``.json``) so
 they never collide with the built-in ids (``dark``, ``light``, ...). The
-loaders here are deliberately toolkit-free — they're merged into the neutral
+loaders here are deliberately toolkit-free - they're merged into the neutral
 ``Utils.themes`` discovery layer used by both the Tk and Qt front-ends.
 """
 

@@ -5,7 +5,7 @@
 # Consumed by:
 #   - src/appimage/PKGBUILD build()          (pip --target _vendor)
 #   - flatpak/pypi-dependencies.yaml         (regenerated from this file via
-#     flatpak-pip-generator — see that file's header for the exact command)
+#     flatpak-pip-generator - see that file's header for the exact command)
 py7zr
 Pillow
 lz4

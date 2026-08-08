@@ -1,4 +1,4 @@
-"""Mod-note editor — borderless in-window overlay.
+"""Mod-note editor - borderless in-window overlay.
 
 Edit the free-text note attached to a mod (or apply one to several). A dimmed
 child overlay (see gui_qt/overlay_base.py) with a multiline text box, Save /
@@ -35,7 +35,7 @@ class NoteEditorOverlay(OverlayBase):
 
         _card, v = self._make_card("_NoteCard")
 
-        title_lbl = QLabel(self.tr("Note — {0}").format(title))
+        title_lbl = QLabel(self.tr("Note - {0}").format(title))
         title_lbl.setStyleSheet(
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:15px;")
         v.addWidget(title_lbl)
@@ -47,7 +47,7 @@ class NoteEditorOverlay(OverlayBase):
             f" border:1px solid {_c(p,'BORDER')}; border-radius:4px; }}")
         v.addWidget(self._edit, 1)
 
-        hint = QLabel(self.tr("Markdown is supported — it renders in the note tooltip."))
+        hint = QLabel(self.tr("Markdown is supported - it renders in the note tooltip."))
         hint.setStyleSheet(
             f"color:{_c(p,'TEXT_DIM')}; font-size:11px;")
         v.addWidget(hint)

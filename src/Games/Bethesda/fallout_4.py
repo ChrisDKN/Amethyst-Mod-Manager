@@ -51,7 +51,7 @@ class Fallout_4(Fallout_3):
                 description="Deploy mods and run Outfit Studio from the Data folder.",
                 dialog_class_path="wizards.bodyslide.OutfitStudioWizard",
             ))
-        # Native Linux builds — always listed: the wizard downloads the
+        # Native Linux builds - always listed: the wizard downloads the
         # AppImage itself, so there is no staged exe to gate on.
         bodyslide_tools.append(WizardTool(
             id="run_bodyslide_linux_fo4",
@@ -148,9 +148,9 @@ class Fallout_4(Fallout_3):
     # Disable the AE launcher's Creations/Bethesda.net platform sync, which
     # otherwise rewrites plugins.txt on launch and clobbers our load order.
     _ini_override_keys = (("Bethesda.net", "bEnablePlatform", "0"),)
-    # The AE launcher rewrites plugins.txt on launch — mark it read-only.
+    # The AE launcher rewrites plugins.txt on launch - mark it read-only.
     _lock_plugins_txt = True
-    # BA2-based — no dummy BSA, only the bInvalidateOlderFiles INI key.
+    # BA2-based - no dummy BSA, only the bInvalidateOlderFiles INI key.
     _invalidation_bsa_name = None
     _invalidation_bsa_version = None
 

@@ -1,6 +1,6 @@
 """
 fallout_3.py
-Fallout 3 — base game handler for the Bethesda family (Data/-folder deployment).
+Fallout 3 - base game handler for the Bethesda family (Data/-folder deployment).
 
 Mod structure:
   Mods install into <game_path>/Data/
@@ -43,7 +43,7 @@ class Fallout_3(BaseGame):
     # Auto-install the VC++ x64 runtime + fxc2 d3dcompiler_47 on add/save for
     # every Bethesda title (inherited by all subclasses below). The modern
     # Creation Engine games genuinely need them; the older Gamebryo titles
-    # don't, but installing is harmless. LAV Filters is the exception — it is
+    # don't, but installing is harmless. LAV Filters is the exception - it is
     # added only for the games in _LAVFILTERS_GAME_IDS, since it is a real
     # install (a Windows installer under Wine), not a cheap DLL drop.
     @property
@@ -112,7 +112,7 @@ class Fallout_3(BaseGame):
         alts = list(self._launcher_alts)
         # GOG editions of Fallout 3 / Fallout 3 GOTY ship FalloutLauncher.exe
         # instead of Fallout3Launcher.exe.  Both classes keep that exe_name
-        # (every other subclass overrides it), so key the alt off it — this
+        # (every other subclass overrides it), so key the alt off it - this
         # can't leak to Skyrim/Fallout 4/etc.
         if self.exe_name == "Fallout3Launcher.exe" and \
                 "FalloutLauncher.exe" not in alts:
@@ -356,7 +356,7 @@ class Fallout_3(BaseGame):
         the game's ``restore()`` (``restore_data_core`` with overwrite/staging),
         so no per-game restore code is needed.
 
-        Every game also gets the "Discord version" of xEdit — the latest
+        Every game also gets the "Discord version" of xEdit - the latest
         official build, now released through the xEdit Discord (not Nexus) as
         one multi-game download whose launcher differs per game family
         (xFOEdit/xSFEdit/xTESEdit).  Its QAC is the same exe with
@@ -452,7 +452,7 @@ class Fallout_3(BaseGame):
         raw_pfname = data.get("plugins_txt_filename")
         # Only treat a stored value as an override when it differs from the
         # game's class default, so a value equal to the default (which we now
-        # always persist — see _save_paths_extra) doesn't masquerade as one.
+        # always persist - see _save_paths_extra) doesn't masquerade as one.
         pfname = str(raw_pfname) if raw_pfname else ""
         self._plugins_txt_filename_override = (
             pfname if pfname and pfname != self._PLUGINS_TXT_FILENAME else None)
@@ -567,13 +567,13 @@ class Fallout_3(BaseGame):
     _ARCHIVE_INI_FILENAME = "FALLOUT.INI"
     # Per-game Prefs INI. When set, archive invalidation writes the same keys
     # to both the primary INI and the Prefs INI so the Prefs file can't silently
-    # override what we wrote — the engine reads both and the Prefs value wins
+    # override what we wrote - the engine reads both and the Prefs value wins
     # when present in both. Set to None on subclasses without a Prefs INI.
     _ARCHIVE_PREFS_INI_FILENAME: "str | None" = "FalloutPrefs.ini"
 
     # Whether the SArchiveList / SInvalidationFile edits go to the Prefs INI too.
-    # FO3/FNV: yes — FalloutPrefs.ini legitimately carries Archive keys that
-    # override Fallout.ini. Oblivion: NO — OblivionPrefs.ini does not manage
+    # FO3/FNV: yes - FalloutPrefs.ini legitimately carries Archive keys that
+    # override Fallout.ini. Oblivion: NO - OblivionPrefs.ini does not manage
     # SArchiveList, and writing a partial list there (dummy + mod BSAs but no
     # vanilla archives, since the vanilla list only lives in Oblivion.ini)
     # shadows the good list and breaks BSA loading for ALL mods. bInvalidate-
@@ -592,11 +592,11 @@ class Fallout_3(BaseGame):
     _invalidation_archive_list_key: str = "SArchiveList"
 
     # FO3/FNV only: these engines read files only from BSAs listed in
-    # SArchiveList — a mod BSA named to match its plugin is NOT reliably
+    # SArchiveList - a mod BSA named to match its plugin is NOT reliably
     # auto-loaded. When True, the invalidation step appends every deployed
     # mod-provided BSA to SArchiveList so its assets load. Fallout_3/
     # Fallout3_GOTY/Fallout_NV set it True; later engines override it False.
-    # Oblivion does NOT use this — it auto-loads a mod's BSA via plugin-name
+    # Oblivion does NOT use this - it auto-loads a mod's BSA via plugin-name
     # association, and forcing entries here both fights SkyBSA's load-order
     # reversal and blows the 256-char SArchiveList limit. See
     # geckwiki.com/index.php/BSA_Files.
@@ -618,7 +618,7 @@ class Fallout_3(BaseGame):
     def frameworks(self) -> dict[str, str]:
         fw = {"Script Extender": self._script_extender_exe}
         # The SArchiveList fix plugin is only relevant on games where we
-        # append mod BSAs (FO3/GOTY/FNV) — later engines inherit the attrs
+        # append mod BSAs (FO3/GOTY/FNV) - later engines inherit the attrs
         # but never hit that codepath.
         if (self._archive_list_needs_mod_bsas
                 and self._archive_list_fix_name and self._archive_list_fix_path):
@@ -662,15 +662,15 @@ class Fallout_3(BaseGame):
 
     # GOG builds of Bethesda games can't read a *symlinked* plugins.txt, so we
     # deploy a real copy (see Utils.plugins.deploy_plugins_copy). Casing follows
-    # plugins_txt_filename (the game default — lowercase for most, Plugins.txt
-    # for Oblivion/Oblivion Remastered/Starfield — or the user's override).
+    # plugins_txt_filename (the game default - lowercase for most, Plugins.txt
+    # for Oblivion/Oblivion Remastered/Starfield - or the user's override).
     def _plugins_txt_targets(self, prefix_root: "Path | None" = None) -> list[Path]:
         """Return every in-prefix path where the game might expect plugins.txt.
 
         Steam and GOG builds use separate AppData folders. If both exist, we
         write to both so either build picks up the load order.
 
-        prefix_root overrides the game's own pfx/ dir — used for per-tool
+        prefix_root overrides the game's own pfx/ dir - used for per-tool
         Proton prefixes (PGPatcher etc.) that need the same layout.
         """
         root = prefix_root if prefix_root is not None else self._prefix_path
@@ -704,12 +704,12 @@ class Fallout_3(BaseGame):
         _log = log_fn
         targets = self._plugins_txt_targets(prefix_root)
         if not targets:
-            _log("  WARN: Prefix path not set — skipping plugins.txt deploy.")
+            _log("  WARN: Prefix path not set - skipping plugins.txt deploy.")
             return
 
         source = self.get_profile_root() / "profiles" / profile / "plugins.txt"
         if not source.is_file():
-            _log(f"  WARN: plugins.txt not found at {source} — skipping deploy.")
+            _log(f"  WARN: plugins.txt not found at {source} - skipping deploy.")
             return
 
         content = source.read_text(encoding="utf-8")
@@ -718,7 +718,7 @@ class Fallout_3(BaseGame):
             if self._lock_plugins_txt:
                 # Mark read-only so Fallout 4's AE launcher can't rewrite it on
                 # launch. Restore deletes the file (unlink ignores the read-only
-                # bit), so the next deploy writes a fresh copy — no need to clear
+                # bit), so the next deploy writes a fresh copy - no need to clear
                 # the flag first.
                 try:
                     target.chmod(0o444)
@@ -736,7 +736,7 @@ class Fallout_3(BaseGame):
     # Timestamp load order (Oblivion/FO3/FNV)
     # -----------------------------------------------------------------------
 
-    # The legacy engine orders plugins by Data/ file mtime — plugins.txt only
+    # The legacy engine orders plugins by Data/ file mtime - plugins.txt only
     # selects the active set. Skyrim-era subclasses (plugins.txt-ordered)
     # override this back to False.
     _plugin_load_order_by_mtime: bool = True
@@ -844,13 +844,13 @@ class Fallout_3(BaseGame):
             return
         mygames_dirs = self._mygames_paths()
         if not mygames_dirs:
-            _log("  WARN: Prefix path not set — skipping profile INI symlinks.")
+            _log("  WARN: Prefix path not set - skipping profile INI symlinks.")
             return
         ini_dir = self._profile_ini_dir(profile)
         ini_dir.mkdir(parents=True, exist_ok=True)
         ini_files = list(ini_dir.glob("*.ini"))
         if not ini_files:
-            _log(f"  No *.ini files found in '{ini_dir.name}' folder — skipping.")
+            _log(f"  No *.ini files found in '{ini_dir.name}' folder - skipping.")
             return
         for mygames in mygames_dirs:
             mygames.mkdir(parents=True, exist_ok=True)
@@ -946,7 +946,7 @@ class Fallout_3(BaseGame):
             return
         targets = self._saves_link_targets()
         if not targets:
-            _log("  WARN: No save-link target — skipping profile saves.")
+            _log("  WARN: No save-link target - skipping profile saves.")
             return
         profile_saves = self._profile_saves_dir(profile)
         profile_saves.mkdir(parents=True, exist_ok=True)
@@ -958,7 +958,7 @@ class Fallout_3(BaseGame):
             elif link.exists():
                 backup = target_dir / (self._SAVES_FOLDER_NAME + self._SAVES_BACKUP_SUFFIX)
                 if backup.exists():
-                    _log(f"  WARN: {backup.name} already exists — leaving "
+                    _log(f"  WARN: {backup.name} already exists - leaving "
                          f"{link.name} in place, skipping.")
                     continue
                 link.rename(backup)
@@ -980,7 +980,7 @@ class Fallout_3(BaseGame):
                 link.unlink()
                 _log(f"  Removed profile saves symlink: {link}")
             elif link.exists():
-                # Not our symlink — leave it alone and skip restoring the backup
+                # Not our symlink - leave it alone and skip restoring the backup
                 # so we don't clobber whatever is there now.
                 continue
             backup = target_dir / (self._SAVES_FOLDER_NAME + self._SAVES_BACKUP_SUFFIX)
@@ -997,14 +997,14 @@ class Fallout_3(BaseGame):
 
         Writes to both Fallout.ini and FalloutPrefs.ini (or the per-game
         equivalents) because the engine reads both at launch and the Prefs
-        value wins when a key appears in both — leaving Prefs unmanaged would
+        value wins when a key appears in both - leaving Prefs unmanaged would
         silently override what we wrote to the primary INI.
         """
         _log = log_fn
         if not self.archive_invalidation_enabled:
             return
         # AI toggled off in the GUI: ensure on-disk state matches by running
-        # the revert path. Idempotent — if nothing was previously applied the
+        # the revert path. Idempotent - if nothing was previously applied the
         # helpers no-op. Without this, turning AI off and re-deploying would
         # leave the dummy BSA and INI keys in place.
         if not self.archive_invalidation:
@@ -1012,7 +1012,7 @@ class Fallout_3(BaseGame):
             return
         ini_paths = self._get_archive_ini_paths()
         if not ini_paths:
-            _log("  WARN: Prefix path not set — skipping archive invalidation.")
+            _log("  WARN: Prefix path not set - skipping archive invalidation.")
             return
 
         # FO3/FNV: resolve the mod-BSA delta once so every INI gets the same
@@ -1035,7 +1035,7 @@ class Fallout_3(BaseGame):
                 _set_ini_key(ini_path, "Archive", key, value)
             # SArchiveList / SInvalidationFile only go to the Prefs INI when the
             # engine treats it as an Archive-key override (FO3/FNV). On Oblivion
-            # they must stay in Oblivion.ini only — see _archive_list_in_prefs_ini.
+            # they must stay in Oblivion.ini only - see _archive_list_in_prefs_ini.
             # Also strip any partial SArchiveList a prior version wrote to Prefs,
             # since it shadows the good list and breaks BSA loading.
             if ini_path != primary_ini and not self._archive_list_in_prefs_ini:
@@ -1064,7 +1064,7 @@ class Fallout_3(BaseGame):
         Vanilla FO3/FNV read the key into a 255-char buffer; anything past
         that is silently truncated mid-name. JIP LN NVSE (FNV) / Command
         Extender (FO3) apply FalloutCustom.ini settings directly in memory
-        with a 16 KB buffer, bypassing the limit — so when the list is over
+        with a 16 KB buffer, bypassing the limit - so when the list is over
         and the plugin is installed, mirror it there. Otherwise remove our
         key so a stale FalloutCustom.ini value can't shadow the managed INIs
         (those plugins apply it *after* the vanilla INIs load).
@@ -1076,7 +1076,7 @@ class Fallout_3(BaseGame):
             for d in ini_dirs:
                 _set_ini_key(d / self._CUSTOM_INI_FILENAME, "Archive",
                              key, list_str)
-            _log(f"  {key} is {len(list_str)} chars (engine limit 255) — "
+            _log(f"  {key} is {len(list_str)} chars (engine limit 255) - "
                  f"wrote full list to {self._CUSTOM_INI_FILENAME} "
                  f"({self._archive_list_fix_name} installed).")
             return
@@ -1087,11 +1087,11 @@ class Fallout_3(BaseGame):
         if over:
             fix = (f" Install {self._archive_list_fix_name} to fix this."
                    if self._archive_list_fix_name else "")
-            _log(f"  WARN: {key} is {len(list_str)} characters — the engine "
+            _log(f"  WARN: {key} is {len(list_str)} characters - the engine "
                  "reads only the first 255 and some mod BSAs will not load."
                  f"{fix}")
             self.add_deploy_warning(
-                f"{key} exceeds the engine's 255-character limit — some mod "
+                f"{key} exceeds the engine's 255-character limit - some mod "
                 f"BSAs will not load.{fix}")
 
     def revert_archive_invalidation(self, log_fn) -> None:
@@ -1101,7 +1101,7 @@ class Fallout_3(BaseGame):
         is set: removes the BSA from ``SArchiveList`` in each INI, restores
         ``SInvalidationFile`` to its default, and deletes the dummy file.
 
-        Not gated on the current ``archive_invalidation`` setting — revert cleans
+        Not gated on the current ``archive_invalidation`` setting - revert cleans
         whatever artifacts are present so toggling the setting and re-deploying
         leaves a consistent on-disk state.
         """
@@ -1141,7 +1141,7 @@ class Fallout_3(BaseGame):
     def apply_ini_overrides(self, log_fn) -> None:
         """Force ``_ini_override_keys`` into every managed game INI.
 
-        Unlike archive invalidation, this is not gated on any setting — the
+        Unlike archive invalidation, this is not gated on any setting - the
         keys are written on every deploy and always set to our value (an
         existing user value is overwritten, since the whole point is to
         override it).
@@ -1188,7 +1188,7 @@ class Fallout_3(BaseGame):
         if bsa_name is None or bsa_version is None:
             return
         if self._game_path is None:
-            _log("  WARN: Game path not set — skipping dummy BSA write.")
+            _log("  WARN: Game path not set - skipping dummy BSA write.")
             return
         from Utils.bsa_invalidation import write_dummy_bsa
         try:
@@ -1230,7 +1230,7 @@ class Fallout_3(BaseGame):
         if self._archive_list_needs_mod_bsas:
             # FO3/FNV: only BSAs listed here have their assets read. Drop the
             # mod BSAs we previously appended, then re-append what's currently
-            # deployed — so removed mods don't leave stale entries. Lists are
+            # deployed - so removed mods don't leave stale entries. Lists are
             # precomputed by the caller and the sidecar is written once there.
             prev = self._tracked_mod_bsas() if prev_mod_bsas is None else prev_mod_bsas
             mod_bsas = self._deployed_mod_bsas() if new_mod_bsas is None else new_mod_bsas
@@ -1443,11 +1443,11 @@ class Fallout_3(BaseGame):
         if self._game_path is None:
             return
         if not self._script_extender_swap:
-            _log("  Script extender / launcher swap disabled — skipping.")
+            _log("  Script extender / launcher swap disabled - skipping.")
             return
         se = self._game_path / self._script_extender_exe
         if not se.is_file():
-            _log(f"  {self._script_extender_exe} not found — skipping launcher swap.")
+            _log(f"  {self._script_extender_exe} not found - skipping launcher swap.")
             return
         exe_name = self._launcher_name()
         launcher = self._game_path / exe_name
@@ -1507,7 +1507,7 @@ class Fallout_3(BaseGame):
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
         # Per-separator deploy overrides. Loaded here (from the real profile_dir,
-        # which is where modlist.txt / profile_state.json live — the filemap may
+        # which is where modlist.txt / profile_state.json live - the filemap may
         # sit at the shared-staging profile root instead) and passed explicitly
         # to both Step 0 and Step 2 so the self-load fallbacks in those functions
         # don't have to guess the profile dir from filemap_path.parent.

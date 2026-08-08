@@ -109,7 +109,7 @@ class PakUuidCache:
                 except ValueError:
                     version = 0
         except Exception:
-            # Unreadable pak — cache the miss so a multi-GB archive isn't
+            # Unreadable pak - cache the miss so a multi-GB archive isn't
             # reopened on every filemap build.
             pass
 
@@ -150,7 +150,7 @@ def make_pak_uuid_conflict_key_fn(
     """Build a (mod_name, rel_key) → conflict-key callback keying paks by UUID.
 
     Non-pak files go to *fallback* (the path-based key fn) unchanged. A pak with
-    no readable meta.lsx keys by file NAME — BG3 deploys every pak flattened into
+    no readable meta.lsx keys by file NAME - BG3 deploys every pak flattened into
     one Mods/ folder, so same-named paks collide whatever their staged subfolder.
     *skip_top_level* names folders whose paks are custom-routed elsewhere.
     Returns None when the index can't be read.
@@ -193,7 +193,7 @@ def make_pak_uuid_conflict_key_fn(
             return name_key
         if _is_multipart(rel_key, entry[0]):
             # "Foo_1.pak" alongside "Foo.pak" is a continuation archive, not a
-            # mod (BG3MM's PakIsNotPartial). Never dedupe those by identity —
+            # mod (BG3MM's PakIsNotPartial). Never dedupe those by identity -
             # dropping one would break the mod it belongs to.
             return name_key
         uuid, version = cache.lookup(_mod_root(mod_name) / rel_str)
@@ -202,7 +202,7 @@ def make_pak_uuid_conflict_key_fn(
 
         prev = seen.get(uuid)
         if prev is not None and (prev[0], prev[1]) != (mod_name, rel_key):
-            # Same module again — the earlier pak loses (build_filemap drops
+            # Same module again - the earlier pak loses (build_filemap drops
             # it). Only a cross-mod clash of DIFFERENTLY-named paks gets the
             # UUID icon: same-named ones already collide by path, and two copies
             # inside one mod folder have no second mod to point an icon at.
@@ -215,7 +215,7 @@ def make_pak_uuid_conflict_key_fn(
             if log_fn is not None:
                 if not (cross_mod and same_name):   # that one is an obvious clash
                     log_fn(f'BG3: "{prev[0]}/{prev[1]}" duplicates '
-                           f'"{mod_name}/{rel_key}" (module {uuid}) — only the '
+                           f'"{mod_name}/{rel_key}" (module {uuid}) - only the '
                            f"latter deploys.")
                 if prev[2] > version > 0:
                     # BG3 Mod Manager keeps the newer pak; we keep the
@@ -223,7 +223,7 @@ def make_pak_uuid_conflict_key_fn(
                     # silently.
                     log_fn(f'BG3: WARNING: the copy being kept '
                            f'("{mod_name}/{rel_key}", version {version}) is '
-                           f'OLDER than "{prev[0]}/{prev[1]}" ({prev[2]}) — '
+                           f'OLDER than "{prev[0]}/{prev[1]}" ({prev[2]}) - '
                            f"reorder them to deploy the newer one.")
         seen[uuid] = (mod_name, rel_key, version)
         return _PAK_NS + uuid

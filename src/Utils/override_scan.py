@@ -2,7 +2,7 @@
 
 An "override" pak either has no Mods/<Folder>/meta.lsx at all, or has one but
 only writes into Larian built-in module folders (same classification the
-modsettings writer uses) — either way it never gets a modsettings.lsx entry
+modsettings writer uses) - either way it never gets a modsettings.lsx entry
 and just needs to sit in the game's Mods folder. This module lists them
 per enabled mod so the GUI can show/toggle them; deployment itself is
 unchanged (paks deploy via the filemap regardless).
@@ -25,7 +25,7 @@ STATUS_OVERRIDE_ONLY = "override_only"
 @dataclass
 class OverridePakRow:
     mod_name: str   # staging folder name (excluded_mod_files key)
-    rel_key: str    # raw lowercase posix path — the exclusion key
+    rel_key: str    # raw lowercase posix path - the exclusion key
     rel_str: str    # raw-case relative path for display
     status: str     # STATUS_NO_META | STATUS_OVERRIDE_ONLY
 
@@ -68,7 +68,7 @@ def scan_override_paks(staging_root: Path,
     """Override paks across *enabled_mod_names*, in modlist order.
 
     Disabled paks are listed too (the view shows them unchecked). rel_key is
-    the RAW mod-relative path — the space excluded_mod_files keys on.
+    the RAW mod-relative path - the space excluded_mod_files keys on.
     """
     rows: list[OverridePakRow] = []
     for name in enabled_mod_names:

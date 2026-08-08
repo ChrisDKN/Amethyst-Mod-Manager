@@ -9,11 +9,11 @@ poll the system Downloads dir + the user's extra download locations until an
 archive matching one of the mod's files is complete on disk, then report it
 so the caller can hand it to the install queue.
 
-The game CACHE dirs are deliberately NOT watched — the app's own downloaders
+The game CACHE dirs are deliberately NOT watched - the app's own downloaders
 (premium API, nxm) write there and install through their own pipelines, so
 watching them would install the same archive twice.
 
-Callbacks fire on the watcher THREAD — Qt callers must marshal (safe_emit).
+Callbacks fire on the watcher THREAD - Qt callers must marshal (safe_emit).
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ _IDLE_TIMEOUT_S = 15 * 60.0
 def scan_download_dirs() -> "list[Path]":
     """Folders watched for the browser download: the system Downloads dir
     (unless disabled in download locations) + the extra download locations.
-    Re-evaluated every poll — cheap, and picks up newly added locations."""
+    Re-evaluated every poll - cheap, and picks up newly added locations."""
     dirs: list[Path] = []
     seen: set = set()
     if not is_default_downloads_disabled():
@@ -75,7 +75,7 @@ def _expected_size(f) -> int:
 def _match_name(f) -> str:
     """Name to match the downloaded archive against. Normally the API
     ``file_name``; for newer Nexus uploads GraphQL returns a CDN UUID *path*
-    there (``ed/8d/27/…``) — useless for matching — so fall back to the
+    there (``ed/8d/27/…``) - useless for matching - so fall back to the
     display ``name``."""
     fn = (getattr(f, "file_name", "") or "").strip()
     if fn and "/" not in fn:
@@ -87,7 +87,7 @@ def find_existing_archive(mod_id: int, files: list) -> "tuple[Path, object] | No
     """Return ``(path, file)`` for an already-complete cached archive matching
     any of *files*, or ``None`` if nothing is on disk yet.
 
-    Same matching the watcher uses on its first poll — factored out so callers
+    Same matching the watcher uses on its first poll - factored out so callers
     can short-circuit the browser-download flow: if the archive is already
     downloaded there is no need to open the Nexus download page at all, just
     install it directly. *files* are NexusModFile-likes (see the watcher)."""
@@ -117,11 +117,11 @@ def start_manual_install(
     on_timeout: Callable[[], None] = lambda: None,
 ) -> "tuple[ManualDownloadWatcher, bool]":
     """Shared non-premium install flow (Nexus browser / Change Version /
-    Reinstall — one implementation so new callers stay consistent).
+    Reinstall - one implementation so new callers stay consistent).
 
     If a matching archive is already in the download folders the browser is
     NOT opened; otherwise the first file's own download page (file_id
-    deep-link) is. Either way a ManualDownloadWatcher is armed — an existing
+    deep-link) is. Either way a ManualDownloadWatcher is armed - an existing
     archive is accepted on its first poll, so ``on_archive`` fires immediately
     for the already-downloaded case.
 
@@ -130,10 +130,10 @@ def start_manual_install(
     when given (caller already has a NexusModInfo, e.g. a browser card entry);
     otherwise it is fetched via GraphQL with ``mod_info_fallback`` as the
     backstop. ``on_progress(done, total)`` / ``on_timeout()`` also run on the
-    watcher thread — marshal to the UI thread in the callbacks.
+    watcher thread - marshal to the UI thread in the callbacks.
 
     ``log_label`` names the download in log lines (defaults to the first
-    file's match name). Returns ``(watcher, already_downloaded)`` — the
+    file's match name). Returns ``(watcher, already_downloaded)`` - the
     watcher is already started; keep it for cancel support."""
     from Nexus.nexus_meta import build_meta_from_download
 
@@ -146,7 +146,7 @@ def start_manual_install(
         fid = int(getattr(files[0], "file_id", 0) or 0) if files else 0
         open_url_fn(f"https://www.nexusmods.com/{game_domain}/mods/{mod_id}"
                     f"?tab=files&file_id={fid}")
-        log_fn("Nexus: premium required for direct download — opened the "
+        log_fn("Nexus: premium required for direct download - opened the "
                f"download page for '{label}'. It will install automatically "
                "once the browser download finishes.")
 
@@ -185,15 +185,15 @@ class ManualDownloadWatcher:
 
     *files* is the mod's full file list (NexusModFile-likes; only
     ``file_name``/``file_id``/size fields are read). The first file whose
-    archive appears complete wins — the user picks the actual file on the
+    archive appears complete wins - the user picks the actual file on the
     website, so every listed file is an acceptable match. A matching archive
     that already exists is accepted immediately (manual collection installer
     parity: "already downloaded" is a valid answer).
 
     Callbacks (all on the watcher thread):
-      on_found(path, file)        — a complete archive matched *file*
-      on_progress(done, total)    — an in-flight download's bytes (best match)
-      on_timeout()                — gave up (idle timeout / nothing to watch)
+      on_found(path, file)        - a complete archive matched *file*
+      on_progress(done, total)    - an in-flight download's bytes (best match)
+      on_timeout()                - gave up (idle timeout / nothing to watch)
     """
 
     def __init__(self, *, mod_id: int, files: list,
@@ -241,7 +241,7 @@ class ManualDownloadWatcher:
 
         Browsers name the temp file after the *download* name (which, for the
         newer Nexus website naming, contains the mod id as a space-delimited
-        token) — NOT after the API ``file_name``.  So match any in-progress
+        token) - NOT after the API ``file_name``.  So match any in-progress
         temp file (``.part``/``.crdownload``/``.download``) whose name carries
         this mod's id.  Cosmetic only (drives the progress card); completion
         detection is done by _find_cached_archive on the finished archive.

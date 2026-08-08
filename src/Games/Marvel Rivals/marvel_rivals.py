@@ -17,7 +17,7 @@ subfolder (the UE5 game root):
 The game root lives at:
   <steam_install>/MarvelRivals/MarvelGame/Marvel/
 
-There are no plugin files (.esp/.esm/.esl) — this is a pure UE5 game.
+There are no plugin files (.esp/.esm/.esl) - this is a pure UE5 game.
 """
 
 from __future__ import annotations

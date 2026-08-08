@@ -1,11 +1,11 @@
 """In-window overlay shown when installing a mod whose folder already exists.
-Qt equivalent of the Tk ``_ReplaceModDialog`` — a dimmed child overlay (see
+Qt equivalent of the Tk ``_ReplaceModDialog`` - a dimmed child overlay (see
 gui_qt/overlay_base.py).
 
 `on_done(result)` is called with:
-    "replace"        — wipe the existing folder + reinstall (keep its position)
-    "rename:<name>"  — install as a NEW mod under <name>
-    "cancel"         — abort the install
+    "replace"        - wipe the existing folder + reinstall (keep its position)
+    "rename:<name>"  - install as a NEW mod under <name>
+    "cancel"         - abort the install
 """
 
 from __future__ import annotations

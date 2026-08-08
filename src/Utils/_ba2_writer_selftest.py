@@ -34,14 +34,14 @@ from Utils.bsa_reader import read_bsa_file_list  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# Hash sanity — five real (path, hash) samples from vanilla FO4 BA2s.
+# Hash sanity - five real (path, hash) samples from vanilla FO4 BA2s.
 # A regression here means the writer is producing archives whose lookups
 # the engine can't resolve (silent missing-asset failures).
 # ---------------------------------------------------------------------------
 
 def test_ba2_hash() -> None:
     samples = [
-        # (input string, expected hash) — pulled from real vanilla BA2 dumps.
+        # (input string, expected hash) - pulled from real vanilla BA2 dumps.
         ("Materials\\CreationClub\\BGSFO4038\\Actors\\PowerArmor", 0x44676566),
         ("HorsePAArmL", 0x0037711f),
         ("HorsePAArmL_Green", 0xb0ae1a37),
@@ -63,7 +63,7 @@ def test_ba2_hash() -> None:
 # ---------------------------------------------------------------------------
 
 def _make_test_tree(root: Path) -> dict[str, bytes]:
-    """A representative FO4 layout — every path here matches a rule in
+    """A representative FO4 layout - every path here matches a rule in
     bethutil's FO4 allowlist (textures/*.dds, meshes/*.nif, sound/*.wav,
     scripts/*.pex, interface/*.swf, interface/translations/*.txt)."""
     files = {
@@ -133,7 +133,7 @@ def test_roundtrip() -> None:
         # file count: prep phase + data phase).
         assert progress_calls, "no progress callbacks fired"
 
-        # Header sanity check — confirm we wrote v1 GNRL.
+        # Header sanity check - confirm we wrote v1 GNRL.
         with ba2_path.open("rb") as f:
             magic = f.read(4)
             version, type_tag, fc, _nto = struct.unpack("<I4sIQ", f.read(20))
@@ -245,7 +245,7 @@ def _make_synthetic_dds(width: int, height: int, mip_count: int = 1,
     pixel bytes.  Format 71 is BC1_UNORM (8 bytes per 4×4 block); BC2/3
     family is 16 bytes per block; BC5/7 likewise.
 
-    We only need the bytes to round-trip — they don't need to decode to
+    We only need the bytes to round-trip - they don't need to decode to
     a real image."""
     # Per-mip linear size depends on the DXGI format's block size.
     block_8 = {70, 71, 72, 79, 80, 81}                                  # BC1, BC4
@@ -323,7 +323,7 @@ def test_dx10_roundtrip() -> None:
         assert count == len(files), f"expected {len(files)} textures, got {count}"
         assert ba2.stat().st_size == size
 
-        # Header sanity — we wrote v1 DX10.
+        # Header sanity - we wrote v1 DX10.
         with ba2.open("rb") as f:
             magic = f.read(4)
             v, t, fc, _ = struct.unpack("<I4sIQ", f.read(20))

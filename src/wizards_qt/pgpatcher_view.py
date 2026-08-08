@@ -1,4 +1,4 @@
-"""PGPatcher wizard — Qt port of wizards/pgpatcher.py.
+"""PGPatcher wizard - Qt port of wizards/pgpatcher.py.
 
 Auto-downloads PGPatcher from GitHub → Proton step → installs
 d3dcompiler_47 + .NET 8 into the tool prefix → applies the settings.json
@@ -49,7 +49,7 @@ class PGPatcherView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run PGPatcher — {0}").format(game.name))
+                         title=self.tr("Run PGPatcher - {0}").format(game.name))
         self._exe = tool_exe_path(game, _PATCHER_EXE, _PATCHER_DIR)
         self._proton_name = ""
         self._prefix_mode = ""
@@ -179,7 +179,7 @@ class PGPatcherView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._d3d_status_sig,
-                              self.tr("Could not find Proton '{0}' — check "
+                              self.tr("Could not find Proton '{0}' - check "
                               "that it is installed in Steam, then reopen this "
                               "wizard.").format(proton_name), RED)
                     safe_emit(self._deps_done_sig, False)
@@ -191,7 +191,7 @@ class PGPatcherView(WizardViewBase):
                 # --- d3dcompiler_47 ---
                 if is_dep_installed(prefix_path, D3D_DEP_KEY):
                     safe_emit(self._d3d_status_sig,
-                              self.tr("d3dcompiler_47 already installed — skipping."),
+                              self.tr("d3dcompiler_47 already installed - skipping."),
                               GREEN)
                 else:
                     safe_emit(self._d3d_status_sig,
@@ -203,7 +203,7 @@ class PGPatcherView(WizardViewBase):
                                                 prefix_path=prefix_path)
                     safe_emit(self._d3d_status_sig,
                               self.tr("d3dcompiler_47 installed.") if ok else
-                              self.tr("d3dcompiler_47 install failed — continuing "
+                              self.tr("d3dcompiler_47 install failed - continuing "
                               "anyway."),
                               GREEN if ok else _AMBER)
 
@@ -212,7 +212,7 @@ class PGPatcherView(WizardViewBase):
                 net8_key = dotnet_dep_key("8")
                 if is_dep_installed(prefix_path, net8_key):
                     safe_emit(self._net8_status_sig,
-                              self.tr(".NET 8 already installed — skipping."), GREEN)
+                              self.tr(".NET 8 already installed - skipping."), GREEN)
                     safe_emit(self._deps_done_sig, True)
                     return
 
@@ -246,7 +246,7 @@ class PGPatcherView(WizardViewBase):
             try:
                 if exe is None:
                     raise RuntimeError(self.tr(
-                        "{0} not found — please restart the wizard.").format(
+                        "{0} not found - please restart the wizard.").format(
                             _PATCHER_EXE))
                 from Utils.exe_args_builder import _bootstrap_pgpatcher_settings
                 _bootstrap_pgpatcher_settings(
@@ -360,13 +360,13 @@ class PGPatcherView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — "
+                              self.tr("Could not find Proton '{0}' - "
                               "check that it is installed in Steam.").format(
                                   proton_name), RED)
                     return
                 proton_script, compat_data, env = result
 
-                # Seed the game's Installed Path into the prefix registry —
+                # Seed the game's Installed Path into the prefix registry -
                 # Skyrim only writes it to the game prefix on first launch
                 # (idempotent, marker-guarded).
                 maybe_register_for_game(
@@ -375,7 +375,7 @@ class PGPatcherView(WizardViewBase):
                 link_plugins_txt(game, compat_data / "pfx", _wlog)
 
                 # Re-apply settings.json now that we know whether MO2 parity
-                # is on and where the dummy instance lives — the config step
+                # is on and where the dummy instance lives - the config step
                 # ran before the dummy was built, so this is the
                 # authoritative write of modmanager.type.
                 try:

@@ -1,5 +1,5 @@
 """
-gpak — read GPAK archives (Mewgenics / The End Is Nigh style).
+gpak - read GPAK archives (Mewgenics / The End Is Nigh style).
 
 Format (ZenHAX): file count, then per-file (name length, name, stored size),
 then file data sequentially. File data may be zlib-compressed.

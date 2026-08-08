@@ -70,7 +70,7 @@ def _remove_filemap_paths_from_dir(
         try:
             target.resolve().relative_to(unpack_dir.resolve())
         except ValueError:
-            continue  # path traversal — skip
+            continue  # path traversal - skip
         if target.is_file():
             if backup_dir is not None:
                 backup_file = backup_dir / rel_norm
@@ -115,7 +115,7 @@ def _restore_vanilla_from_backup(
         try:
             dest.resolve().relative_to(unpack_dir.resolve())
         except ValueError:
-            continue  # path traversal — skip
+            continue  # path traversal - skip
         if backup_file.is_file():
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(backup_file, dest)
@@ -128,7 +128,7 @@ def _restore_vanilla_from_backup(
 class Mewgenics(BaseGame):
 
     # Mewgenics repacks archives, so it deploys by copying only (no symlink/
-    # hardlink) — preserve "copy" and fall back to it for unknown saved modes.
+    # hardlink) - preserve "copy" and fall back to it for unknown saved modes.
     deploy_mode_supports_copy = True
     deploy_mode_fallback = LinkMode.COPY
 
@@ -351,7 +351,7 @@ class Mewgenics(BaseGame):
             )
             _log(f"Deployed {linked} mod file(s) into Unpacked.")
         else:
-            _log("No filemap.txt — skipping mod merge.")
+            _log("No filemap.txt - skipping mod merge.")
 
         # 3. Repack Unpacked → resources.gpak (uncompressed)
         _log("Repacking to resources.gpak…")
@@ -409,7 +409,7 @@ class Mewgenics(BaseGame):
         if removed:
             _log(f"Removed {removed} modded file(s) from Unpacked.")
         else:
-            _log("No filemap.txt — nothing to remove.")
+            _log("No filemap.txt - nothing to remove.")
 
         # 2b. Restore vanilla files from backup so repacked gpak has originals
         backup_dir = self.get_profile_root() / _VANILLA_BACKUP_DIR

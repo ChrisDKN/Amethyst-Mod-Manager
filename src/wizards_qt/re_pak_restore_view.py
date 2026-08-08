@@ -1,4 +1,4 @@
-"""RE Engine PAK repair wizard — Qt port of wizards/re_pak_restore.py.
+"""RE Engine PAK repair wizard - Qt port of wizards/re_pak_restore.py.
 
 RE Engine games (Resident Evil 2/3/7/8, RE4 Remake, Street Fighter 6, …) load
 loose mod files by *invalidating* the matching entry inside the game's PAK
@@ -67,7 +67,7 @@ class RePakRestoreView(QWidget):
         # Toolbar: title + Close.
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Repair PAK files — {0}").format(self._game.name))
+        title = QLabel(self.tr("Repair PAK files - {0}").format(self._game.name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -108,7 +108,7 @@ class RePakRestoreView(QWidget):
         pak_count, entry_count = root_manifest_summary(self._game_root)
         if pak_count == 0:
             status = QLabel(
-                self.tr('No restore manifest ({0}) found in the game root. There is nothing to repair — either no PAK-patching mods were deployed, or the manifest was already consumed by a clean restore.\n\nIf the game is still broken, verify the game files via Steam.').format(ROOT_MANIFEST_NAME))
+                self.tr('No restore manifest ({0}) found in the game root. There is nothing to repair - either no PAK-patching mods were deployed, or the manifest was already consumed by a clean restore.\n\nIf the game is still broken, verify the game files via Steam.').format(ROOT_MANIFEST_NAME))
             status.setWordWrap(True)
             status.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
             bl.addWidget(status)
@@ -166,14 +166,14 @@ class RePakRestoreView(QWidget):
                 restored = restore_from_root_manifest(
                     game_root, log_fn=lambda *a: safe_emit(self._log_line, *a))
                 if restored:
-                    msg = (self.tr("Repair complete — restored {0} entry to vanilla.")
+                    msg = (self.tr("Repair complete - restored {0} entry to vanilla.")
                            if restored == 1 else
-                           self.tr("Repair complete — restored {0} entries to vanilla.")
+                           self.tr("Repair complete - restored {0} entries to vanilla.")
                            ).format(restored)
                 else:
-                    msg = self.tr("Nothing to repair — the PAK entries are already "
+                    msg = self.tr("Nothing to repair - the PAK entries are already "
                            "vanilla (or no manifest was found).")
-            except Exception as e:  # noqa: BLE001 — surface, don't kill the tab
+            except Exception as e:  # noqa: BLE001 - surface, don't kill the tab
                 msg = self.tr("Error: {0}").format(e)
             safe_emit(self._done, msg)
 
@@ -184,7 +184,7 @@ class RePakRestoreView(QWidget):
         self._log(msg)
         self._running = False
         # The manifest is an append-only ledger that persists after a repair,
-        # so the button stays enabled — re-running is always a safe no-op when
+        # so the button stays enabled - re-running is always a safe no-op when
         # the PAKs are already vanilla.
         if self._repair_btn is not None:
             self._repair_btn.setEnabled(True)

@@ -1,5 +1,5 @@
 """
-writer.py — Pack files into a GPAK archive.
+writer.py - Pack files into a GPAK archive.
 
 Writes the same format the reader expects: file count, then per-file
 (name length, name, stored size), then concatenated file data.

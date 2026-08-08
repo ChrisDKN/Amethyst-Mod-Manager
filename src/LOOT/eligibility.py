@@ -110,7 +110,7 @@ def check_esl_eligible(plugin_path: Path, game_type_attr: str) -> bool:
     if staged is None:
         return False
     try:
-        # Must use load_plugins (full record data), NOT load_plugin_headers —
+        # Must use load_plugins (full record data), NOT load_plugin_headers -
         # headers alone lack record FormIDs, so is_valid_as_light_plugin would
         # return True for everything (including Skyrim.esm).
         game.load_plugins([str(staged)])

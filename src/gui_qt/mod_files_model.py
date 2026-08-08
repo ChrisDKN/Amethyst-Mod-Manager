@@ -3,10 +3,10 @@
 A QAbstractItemModel over a folder/file hierarchy built from a mod's raw file
 listing (Utils.mod_files.build_tree). Four columns:
 
-  0  File name  — the tree (folder/file names)
-  1  Top Level  — checkbox: is this path promoted to deploy at the game root
-  2  Root       — checkbox: deploy this file to the game root folder (tri-state)
-  3  Disable    — checkbox: is this file excluded from deploy (folders = tri-state)
+  0  File name  - the tree (folder/file names)
+  1  Top Level  - checkbox: is this path promoted to deploy at the game root
+  2  Root       - checkbox: deploy this file to the game root folder (tri-state)
+  3  Disable    - checkbox: is this file excluded from deploy (folders = tri-state)
 
 The model is display-only state; all persistence + the strip/exclusion
 algorithms live in Utils.mod_files. The view drives saves on checkbox clicks.
@@ -45,7 +45,7 @@ class _Node:
                  rel_str=None, raw_key=None):
         self.name = name
         self.path = path            # canonical rel path (orig case)
-        self.raw_key = raw_key      # raw on-disk key (files only) — the state key
+        self.raw_key = raw_key      # raw on-disk key (files only) - the state key
         self.rel_str = rel_str      # raw on-disk path (files only)
         self.is_dir = is_dir
         self.children: list[_Node] = []
@@ -70,7 +70,7 @@ class ModFilesModel(QAbstractItemModel):
         self._root = _Node("", "", is_dir=True)
         # path(lower) -> node, for ancestor/folder lookups
         self._by_path: dict[str, _Node] = {}
-        # Foreground QColors cached once — data() runs per cell per repaint
+        # Foreground QColors cached once - data() runs per cell per repaint
         # (mirrors modlist_delegate; theme changes take effect on restart).
         p = active_palette()
         self._c_dim = qc(p, "FILE_DIM")
@@ -141,7 +141,7 @@ class ModFilesModel(QAbstractItemModel):
             return Qt.NoItemFlags
         f = Qt.ItemIsEnabled | Qt.ItemIsSelectable
         node: _Node = index.internalPointer()
-        # The meta.ini row is view/edit-only — it deploys nothing, so it gets
+        # The meta.ini row is view/edit-only - it deploys nothing, so it gets
         # no checkboxes.
         if not getattr(node, "meta", False) and \
                 index.column() in (COL_TOPLEVEL, COL_ROOT, COL_DISABLE):
@@ -232,7 +232,7 @@ class ModFilesModel(QAbstractItemModel):
         return self._leaves(node)
 
     def _descendants(self, node: _Node) -> list[_Node]:
-        """All descendant nodes — folders AND files (for repaint after a
+        """All descendant nodes - folders AND files (for repaint after a
         folder-level Disable toggle so nested subfolders update too)."""
         out: list[_Node] = []
         stack = list(node.children)
@@ -287,7 +287,7 @@ class ModFilesModel(QAbstractItemModel):
                 self.index_for_node(p, COL_DISABLE),
                 [Qt.CheckStateRole, Qt.ForegroundRole])
             p = p.parent
-        # Descendants — every folder AND file under this node, so nested
+        # Descendants - every folder AND file under this node, so nested
         # subfolders' (tri-state) checkboxes + greying repaint too (not just the
         # leaves). Was the "disable a folder, subfolders don't update" bug.
         if node.is_dir:

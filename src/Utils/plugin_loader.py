@@ -55,7 +55,7 @@ _REQUIRED_KEYS = {"id", "label", "dialog_class"}
 # wizard tools with Qt views registered in ``wizards_qt.REGISTRY``.  We keep the
 # game-id-based attachment (rather than moving them onto each game class) because
 # some target games are JSON custom games (e.g. Slime Rancher, My Summer Car),
-# which have no Python game class to edit — matching on ``game.game_id`` covers
+# which have no Python game class to edit - matching on ``game.game_id`` covers
 # both built-in and custom games uniformly.
 #
 # Each entry mirrors the old PLUGIN_INFO shape but carries a *real*
@@ -92,7 +92,7 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "id": "nif_viewer",
         "label": "NIF Viewer",
         "description": ("Browse every mesh in this profile and the vanilla game "
-                        "— loose files and BSA/BA2 contents — and preview it in 3D."),
+                        "- loose files and BSA/BA2 contents - and preview it in 3D."),
         "game_ids": _BETHESDA_GAME_IDS,
         "all_games": False,
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
@@ -195,7 +195,7 @@ def discover_plugins(*, force: bool = False) -> list[dict]:
         try:
             plugin = _load_plugin_file(py_file)
         except Exception as exc:
-            _warn(f"Plugin '{py_file.name}': skipped — {exc}")
+            _warn(f"Plugin '{py_file.name}': skipped - {exc}")
             continue
 
         if plugin is None:

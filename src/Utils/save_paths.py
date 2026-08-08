@@ -336,7 +336,7 @@ def save_path_override_for_game(game) -> "SaveLocation | None":
     """Return the user's manual save folder as a location, or None if unset.
 
     Always returned regardless of *existing_only*: the user typed this path, so
-    it belongs in the tab even before the game has written its first save —
+    it belongs in the tab even before the game has written its first save -
     seeing it there is how they know the setting took.
     """
     try:

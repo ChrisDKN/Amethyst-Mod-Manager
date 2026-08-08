@@ -105,7 +105,7 @@ def load_modio_key() -> str:
             pass
         return ""
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for mod.io API key: {e} — using file fallback")
+        app_log(f"Keyring unavailable for mod.io API key: {e} - using file fallback")
         return _load_key_file()
 
 
@@ -118,7 +118,7 @@ def save_modio_key(key: str) -> None:
     try:
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for saving mod.io API key: {e} — using file fallback")
+        app_log(f"Keyring unavailable for saving mod.io API key: {e} - using file fallback")
         _save_key_file(key)
 
 

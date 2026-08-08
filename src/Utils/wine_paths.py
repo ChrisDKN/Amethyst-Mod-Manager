@@ -1,4 +1,4 @@
-"""Wine/Proton path conversion — toolkit-neutral.
+"""Wine/Proton path conversion - toolkit-neutral.
 
 Converting a Linux absolute path into the ``Z:\\`` drive path that a Wine /
 Proton prefix sees. Pure string/symlink logic, shared by the GUI and backend
@@ -15,7 +15,7 @@ def to_wine_path(linux_path: Path | str, prefix: Path | None = None) -> str:
 
     If *prefix* is the Wine pfx directory (containing dosdevices/), the Z:
     symlink target is resolved first.  This handles prefixes where Z: points
-    to a UUID mount (e.g. /mnt/c3edc2f9-.../`) rather than / — without this,
+    to a UUID mount (e.g. /mnt/c3edc2f9-.../`) rather than / - without this,
     paths on that drive would be double-prefixed (Z:\mnt\uuid\...).
     """
     if prefix is not None:

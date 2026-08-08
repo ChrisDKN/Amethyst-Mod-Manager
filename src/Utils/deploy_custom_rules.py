@@ -72,7 +72,7 @@ def canonicalize_declared_folders(tail: str, declared: tuple[str, ...]) -> str:
     """Force folder segments a rule names to the casing that rule declared.
 
     Folder matching is case-insensitive, so two mods shipping ``~Mods`` and
-    ``~mods`` both hit the same rule — but each would otherwise deploy its own
+    ``~mods`` both hit the same rule - but each would otherwise deploy its own
     casing and create two sibling folders on a case-sensitive filesystem, where
     the engine only reads one of them. The rule names the folder, so the rule's
     spelling is the canonical one. Filenames (the last segment) are never
@@ -144,7 +144,7 @@ def _match_single_rule(
 
 def _normalise_rule(rule: "CustomRule") -> tuple["CustomRule", set[str], list[str], set[str]]:
     """Return ``(rule, folders_lower, exts_sorted, filenames_lower)`` for a
-    single CustomRule — the form expected by ``_match_single_rule``."""
+    single CustomRule - the form expected by ``_match_single_rule``."""
     return (
         rule,
         {f.lower() for f in rule.folders},
@@ -156,7 +156,7 @@ def _normalise_rule(rule: "CustomRule") -> tuple["CustomRule", set[str], list[st
 def compute_prefix_handled(
     entries: list[tuple[str, str]], rules: list["CustomRule"],
 ) -> tuple[set[str], list[tuple[str, str, "CustomRule", int, str]]]:
-    """Return ``(prefix_handled, prefix_primaries)`` — only the entries
+    """Return ``(prefix_handled, prefix_primaries)`` - only the entries
     claimed by ``to_prefix`` rules.
 
     Non-prefix rules are evaluated alongside prefix rules to preserve correct
@@ -229,13 +229,13 @@ def _sibling_container(
     folder containing the matched file, not the whole mod.
 
     For "VanillaHUD Plus/lua/vanillahud/utils/x.lua" matching ``utils``,
-    the container is "VanillaHUD Plus" — every file under that folder rides
+    the container is "VanillaHUD Plus" - every file under that folder rides
     along to ``dest/VanillaHUD Plus/...``.
 
     For a file at the mod root (no folder above it), there's nothing to drag
-    — returns None.
+    - returns None.
     """
-    del strip_len, mod_name  # unused — container is always the topmost folder
+    del strip_len, mod_name  # unused - container is always the topmost folder
     norm_rel = rel_str.replace("\\", "/")
     if "/" not in norm_rel:
         return None
@@ -277,15 +277,15 @@ def compute_routed_dest(
     match with ``flatten`` collapses to the bare filename; a non-flatten match
     keeps the full rel_path under ``dest``.
 
-    Files matching no rule fall through to their strip-prefixed staged path —
+    Files matching no rule fall through to their strip-prefixed staged path -
     exactly what ``deploy_filemap_to_root`` places verbatim under the game root.
 
     ``to_prefix`` rules (deployed into the Proton prefix, not the game root)
-    and ``mirror_dests`` are intentionally ignored for keying — prefix files
+    and ``mirror_dests`` are intentionally ignored for keying - prefix files
     live in a separate namespace, and mirroring never *removes* the primary
     destination, so the primary dest is the correct conflict key.
 
-    ``data_prefix`` — the game-root-relative folder that *non-routed* files
+    ``data_prefix`` - the game-root-relative folder that *non-routed* files
     deploy into (a standard custom game's ``mod_data_path``, e.g. ``data``).
     Routed files already carry their absolute ``dest`` and are unaffected; this
     just anchors the verbatim fallback to the same game-root frame so a routed
@@ -296,7 +296,7 @@ def compute_routed_dest(
     for rule, folders, exts, filenames in norm_rules:
         if rule.to_prefix:
             # Prefix-routed files land in the Proton prefix, a distinct
-            # namespace from game-root files — never a cross conflict here.
+            # namespace from game-root files - never a cross conflict here.
             hit = _match_single_rule(rel_lower, rule, folders, exts, filenames)
             if hit is not None:
                 return "\x00prefix\x00" + rel_lower  # unique, never collides w/ root
@@ -318,7 +318,7 @@ def compute_routed_dest(
         else:
             tail = rel_lower
         return f"{dest}/{tail}" if dest else tail
-    # No rule matched — verbatim deploy under mod_data_path (after top strip).
+    # No rule matched - verbatim deploy under mod_data_path (after top strip).
     tail = _strip_top_prefix(rel_lower, {p.lower() for p in (strip_prefixes or set())})
     _dp = data_prefix.replace("\\", "/").strip("/").lower()
     return f"{_dp}/{tail}" if _dp else tail
@@ -351,10 +351,10 @@ def deploy_custom_rules(
     (any path segment in rule.folders), extension (rule.extensions), or
     filename (rule.filenames). Placement under ``game_root / rule.dest``
     depends on rule.flatten:
-    - flatten=False (default) — preserve the full mod-relative path under dest
-    - flatten=True + folder match — strip the prefix above the matched folder,
+    - flatten=False (default) - preserve the full mod-relative path under dest
+    - flatten=True + folder match - strip the prefix above the matched folder,
       keep matched folder + contents under dest
-    - flatten=True + ext/filename match — bare filename under dest
+    - flatten=True + ext/filename match - bare filename under dest
 
     Returns the set of lowercased rel_paths that were handled so the caller
     can exclude them from the normal deploy step.
@@ -388,7 +388,7 @@ def deploy_custom_rules(
     _per_mode = _per_mode or {}
 
     # Mods sitting under a separator with "Ignore deployment rules" (raw deploy)
-    # on must bypass custom routing entirely — their files are placed as-is by
+    # on must bypass custom routing entirely - their files are placed as-is by
     # the normal deploy step (deploy_standard) under the separator's custom dir.
     # Self-load the set (mirroring _per_mode) when the caller didn't supply it.
     _raw_mods = raw_mods
@@ -418,7 +418,7 @@ def deploy_custom_rules(
         base = _rule_base(rule)
         return [base / d if d else base for d in (rule.dest, *rule.mirror_dests)]
 
-    # Drop rules that want the prefix but have none — otherwise they'd silently
+    # Drop rules that want the prefix but have none - otherwise they'd silently
     # land at game_root, which is worse than skipping them.
     skipped = [r for r in rules if r.to_prefix and prefix_root is None]
     if skipped:
@@ -478,7 +478,7 @@ def deploy_custom_rules(
             if "\t" not in line:
                 continue
             rel_str, mod_name = line.split("\t", 1)
-            # Raw-deploy mods bypass routing rules entirely — leave their files
+            # Raw-deploy mods bypass routing rules entirely - leave their files
             # for the normal deploy step (placed as-is under the custom dir).
             if mod_name in _raw_mods:
                 continue
@@ -525,7 +525,7 @@ def deploy_custom_rules(
                     could_match = True
                     break
         if not could_match and _pf_exts:
-            # Over-accepts (no length guard) — the real rule check confirms.
+            # Over-accepts (no length guard) - the real rule check confirms.
             for _e in _pf_exts:
                 if filename.endswith(_e):
                     could_match = True
@@ -548,7 +548,7 @@ def deploy_custom_rules(
             nocase_cache,
         )
         if src_str is None:
-            _log(f"  WARN: source not found — {rel_str} ({mod_name})")
+            _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             handled_lower.add(rel_lower)  # claim it anyway so later rules don't re-try
             return
         src = Path(src_str)
@@ -599,7 +599,7 @@ def deploy_custom_rules(
                 nocase_cache,
             )
             if src_str is None:
-                _log(f"  WARN: source not found — {sib_rel_str} ({sib_mod_name})")
+                _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
                 handled_lower.add(sib_lower)
                 continue
             src = Path(src_str)
@@ -613,7 +613,7 @@ def deploy_custom_rules(
     #      it as a primary.
     #   2. If include_siblings is on, immediately drag the container of
     #      every just-placed primary so later rules can't claim those files.
-    # This ordering is what enforces "rule order wins" — if rule 1's drag
+    # This ordering is what enforces "rule order wins" - if rule 1's drag
     # would swallow a file that rule 2 would also match, rule 1 takes it.
     for rule, folders, exts, filenames in _rules:
         # Step 1: claim primaries for this rule among unclaimed files.
@@ -661,7 +661,7 @@ def deploy_custom_rules(
         parent_lower, _, name_lower = rel_lower.rpartition("/")
         # Stem is the primary filename minus the extension that matched.
         # Falls back to splitext when there was no extension match (folder/
-        # filename rules) — companions remain stem-relative in that case.
+        # filename rules) - companions remain stem-relative in that case.
         if matched_ext and name_lower.endswith(matched_ext):
             stem_lower = name_lower[: -len(matched_ext)]
         else:
@@ -687,7 +687,7 @@ def deploy_custom_rules(
                 nocase_cache,
             )
             if src_str is None:
-                _log(f"  WARN: source not found — {sib_rel_str} ({sib_mod_name})")
+                _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
                 continue
             src = Path(src_str)
             if rule.flatten:
@@ -712,10 +712,10 @@ def deploy_custom_rules(
     prefix_backup_dir = filemap_path.parent / _CUSTOM_RULES_PREFIX_BACKUP_DIR
 
     # Self-heal: a leftover deploy log means the previous deploy was never
-    # restored (crashed or failed restore).  Restore it now — otherwise the
+    # restored (crashed or failed restore).  Restore it now - otherwise the
     # rmtree below would destroy the backed-up vanilla originals.
     if (filemap_path.parent / _CUSTOM_RULES_LOG_NAME).is_file():
-        _log("  Previous custom-rules deploy log still present — restoring it before redeploying.")
+        _log("  Previous custom-rules deploy log still present - restoring it before redeploying.")
         restore_custom_rules(filemap_path, game_root, rules=[],
                              log_fn=log_fn, prefix_root=prefix_root)
 
@@ -825,7 +825,7 @@ def restore_custom_rules(
     (``to_prefix=True``) and restoring their backups from
     ``custom_rules_prefix_backup``.
     """
-    del rules  # unused — log file is the source of truth for what was placed
+    del rules  # unused - log file is the source of truth for what was placed
     _log = _safe_log(log_fn)
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     backup_dir = filemap_path.parent / _CUSTOM_RULES_BACKUP_DIR
@@ -841,7 +841,7 @@ def restore_custom_rules(
     _game_root_resolved = game_root.resolve()
     _prefix_root_resolved = prefix_root.resolve() if prefix_root else None
     # Pre-filter for path traversal (cheap, serial) so the worker pool only
-    # does syscalls — one lstat + (maybe) one unlink per file.
+    # does syscalls - one lstat + (maybe) one unlink per file.
     safe_targets: list[Path] = []
     for abs_str in placed:
         p = Path(abs_str)
@@ -867,7 +867,7 @@ def restore_custom_rules(
                 except ValueError:
                     continue
         if under_root is None:
-            _log(f"  SKIP: path traversal blocked — {abs_str}")
+            _log(f"  SKIP: path traversal blocked - {abs_str}")
             continue
         safe_targets.append(p)
         # Collect parent dirs for pruning (stop at the matched root)
@@ -976,7 +976,7 @@ def mods_matching_root_rules(
             else:
                 rel_lower = rel.lower()
 
-            # Global pre-filter — skip the rule loop unless this file COULD
+            # Global pre-filter - skip the rule loop unless this file COULD
             # match something.  Splitting once and reusing across the per-rule
             # match is also cheaper than splitting inside _match_single_rule
             # for every rule.
@@ -996,7 +996,7 @@ def mods_matching_root_rules(
                         could_match = True
                         break
             if not could_match and exts_tuple and filename.endswith(exts_tuple):
-                # Cheap extension check — over-accepts, real check inside the rule.
+                # Cheap extension check - over-accepts, real check inside the rule.
                 could_match = True
             if not could_match and (filename in exact_names
                                     or (glob_re is not None

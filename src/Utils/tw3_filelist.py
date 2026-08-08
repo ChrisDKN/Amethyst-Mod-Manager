@@ -1,11 +1,11 @@
 """
-tw3_filelist.py — Menu Filelist Updater for The Witcher 3: Next-Gen Edition.
+tw3_filelist.py - Menu Filelist Updater for The Witcher 3: Next-Gen Edition.
 
 The Next-Gen update (4.0+) requires two text files in:
     bin/config/r4game/user_config_matrix/pc/
 
-    dx11filelist.txt  — menu XMLs for DX11 mode
-    dx12filelist.txt  — menu XMLs for DX12 mode
+    dx11filelist.txt  - menu XMLs for DX11 mode
+    dx12filelist.txt  - menu XMLs for DX12 mode
 
 Each file is a plain list of XML filenames, one per line, each followed by
 a semicolon:
@@ -22,7 +22,7 @@ Behaviour
 - If the target directory does not exist the function returns immediately
   (older game versions don't have it; they don't need filelists).
 - If neither dx11filelist.txt nor dx12filelist.txt is present the function
-  also returns immediately — the directory exists but the game version
+  also returns immediately - the directory exists but the game version
   pre-dates the requirement, so we leave it alone.
 - Filenames starting with "~" are ignored (backups/temporaries).
 - The two vanilla graphics entries are swapped between the two lists as
@@ -64,13 +64,13 @@ def update_menu_filelists(game_root: Path, log_fn=None) -> None:
     menu_dir = game_root / _MENU_DIR_REL
 
     if not menu_dir.is_dir():
-        return  # Pre-Next-Gen or non-standard install — skip silently.
+        return  # Pre-Next-Gen or non-standard install - skip silently.
 
     dx11_path = menu_dir / _DX11_FILE
     dx12_path = menu_dir / _DX12_FILE
 
     if not dx11_path.exists() and not dx12_path.exists():
-        return  # Neither filelist present — this game version doesn't need them.
+        return  # Neither filelist present - this game version doesn't need them.
 
     # Collect all XML filenames, excluding ignored prefixes and the filelist
     # files themselves (they live in the same dir but aren't XML).
@@ -85,7 +85,7 @@ def update_menu_filelists(game_root: Path, log_fn=None) -> None:
     )
 
     if not xmls:
-        return  # No XMLs found at all — skip silently.
+        return  # No XMLs found at all - skip silently.
 
     dx11_entries = [x for x in xmls if x != _DX12_VANILLA]
     dx12_entries = [x for x in xmls if x != _DX11_VANILLA]

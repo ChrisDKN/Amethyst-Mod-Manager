@@ -1,4 +1,4 @@
-"""Show Conflicts — a full (detachable) tab listing a mod's file conflicts.
+"""Show Conflicts - a full (detachable) tab listing a mod's file conflicts.
 Qt port of the Tk `gui/dialogs.py:OverwritesPanel`, styled for Qt.
 
 Three panes: files this mod OVERRIDES (green, path | mods beaten), files this mod
@@ -133,7 +133,7 @@ class ShowConflictsView(QWidget):
 
     def _on_ready(self, win, lose, none, bsa_win_paths):
         if win is None and lose is None and none is None:
-            self._status.setText(self.tr("Could not compute conflicts — see the log."))
+            self._status.setText(self.tr("Could not compute conflicts - see the log."))
             return
         # bsa_paths adds the cyan tint to loose rows that beat archives only;
         # this mod's own `archive.bsa : path` rows match BSA_ROW_RE instead.

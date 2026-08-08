@@ -10,7 +10,7 @@ base: io.qt.PySide.BaseApp
 base-version: "6.9"
 
 # 32-bit support for running Proton's bundled `wine` binary (ELF i386) during
-# Synthesis prefix setup. Without these, exec'ing wine fails with ENOENT — the
+# Synthesis prefix setup. Without these, exec'ing wine fails with ENOENT - the
 # kernel reports the missing 32-bit ld-linux.so.2 interpreter as the error.
 # NOTE: version 24.08 matches KDE 6.9's freedesktop base (was 25.08 on GNOME 50).
 add-extensions:
@@ -30,7 +30,7 @@ command: amethyst-mod-manager
 
 build-options:
   env:
-    # cleanup-BaseApp.sh knobs — the app only uses QtCore/QtGui/QtWidgets,
+    # cleanup-BaseApp.sh knobs - the app only uses QtCore/QtGui/QtWidgets,
     # so strip the QtWebEngine stack the BaseApp inherits.
     BASEAPP_REMOVE_WEBENGINE: "true"
     BASEAPP_DISABLE_NUMPY: "true"
@@ -41,7 +41,7 @@ build-options:
 #   it and falls back to X11 otherwise.
 # - dri: GPU rendering
 # - home: mod staging (user-configurable path, e.g. anywhere in ~/), game paths, Steam libraries.
-#   NOTE: app config does NOT live in ~/.config here — flatpak redirects
+#   NOTE: app config does NOT live in ~/.config here - flatpak redirects
 #   XDG_CONFIG_HOME, so it lands in ~/.var/app/<app-id>/config/AmethystModManager
 #   (separate from a native/AppImage install's ~/.config/AmethystModManager).
 # - run/media, media, mnt: Steam libraries on SD cards and removable drives (Steam Deck, etc.)
@@ -85,7 +85,7 @@ cleanup-commands:
   - mkdir -p /app/lib/i386-linux-gnu/GL
 
 modules:
-  # Python Dependencies (PySide6 excluded — provided by the BaseApp)
+  # Python Dependencies (PySide6 excluded - provided by the BaseApp)
   - pypi-dependencies.yaml
 
   - name: sevenzip

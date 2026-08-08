@@ -1,7 +1,7 @@
-"""Pure column-sort helpers for the Qt modlist — no Qt imports, fully
+"""Pure column-sort helpers for the Qt modlist - no Qt imports, fully
 headless-testable.
 
-Ports the Tk sort semantics (gui/modlist_panel.py — REFERENCE, do not modify):
+Ports the Tk sort semantics (gui/modlist_panel.py - REFERENCE, do not modify):
 separators never move, mods are sorted within their separator group, and the
 special reverse-priority mode ("priority" ascending, 0 at top) inverts the
 whole display: Root Folder on top, user groups reversed (lowest priority
@@ -77,7 +77,7 @@ def sort_key_fn(key: str, ctx: dict):
 
     if key == "category":
         cats = ctx.get("categories") or {}
-        # Missing category sorts last (high Unicode sentinel — Tk parity).
+        # Missing category sorts last (high Unicode sentinel - Tk parity).
         return lambda e: (cats.get(e.name, "") or "￿").lower()
 
     if key == "author":
@@ -164,11 +164,11 @@ def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
 
     When *flatten_groups* is set (the "hide separators" filter is active), a
     plain column sort ignores separator boundaries and orders every mod as one
-    flat list — otherwise mods only sort within their own separator group and
+    flat list - otherwise mods only sort within their own separator group and
     still cluster under the (now-hidden) separator, which reads as broken. The
     separators are appended at the end (hidden by the filter anyway) so the
     natural round-trip and boundary handling stay intact. The special
-    reverse-priority mode is unaffected — its grouping is intrinsic."""
+    reverse-priority mode is unaffected - its grouping is intrinsic."""
     if not key:
         return list(natural)
 
@@ -206,7 +206,7 @@ def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
             if sep is not None:
                 out.append(sep)
             out.extend(reversed(mods))
-        # Divider between the last user group and the float — shown whenever
+        # Divider between the last user group and the float - shown whenever
         # user separators exist, even with an empty float, so the slot is
         # always visible/reachable (Tk static-boundary-always-on).
         if user:
@@ -251,7 +251,7 @@ def uninvert_display(display: list[ModEntry]) -> list[ModEntry]:
             break
 
     # With no user separators the ungrouped mods live in Root's group (first
-    # separator in inverted-visual order) — promote them to a separator-less
+    # separator in inverted-visual order) - promote them to a separator-less
     # group so they reverse between OW and Root.
     if rf is not None and rf[1]:
         middle.append((None, rf[1]))
@@ -290,7 +290,7 @@ def resolve_reverse_drop(entries: list[ModEntry], slot: int,
       there).
     - Top clamp: a lone mod / multi-selection can never land above the first
       user separator (the Root gap uninverts to the very top). Full separator
-      blocks are exempt — dropped above the first user separator they become
+      blocks are exempt - dropped above the first user separator they become
       the new lowest-priority peer group.
 
     *hidden* = display rows currently hidden (collapsed blocks); the entry

@@ -1,10 +1,10 @@
-"""QFileDialog pickers — the last-resort step of the portal chooser waterfall.
+"""QFileDialog pickers - the last-resort step of the portal chooser waterfall.
 
 ``Utils.portal_filechooser`` tries the XDG portal, then zenity, then kdialog,
 then whatever pickers the GUI registered here.  Until now nothing was ever
 registered, so on a desktop with no ``org.freedesktop.portal.FileChooser``
 backend (wlroots compositors like Sway ship only ScreenCast/Screenshot) the
-waterfall bottomed out at whichever zenity was on PATH — inside the AppImage
+waterfall bottomed out at whichever zenity was on PATH - inside the AppImage
 that is the cut-down static zenity-rs, which can't navigate directories.
 
 These pickers depend on nothing but Qt, which is already bundled, so they work
@@ -36,7 +36,7 @@ def _qt_filter(label: str, patterns) -> str:
     # of the Tk contract); accept both shapes.
     if isinstance(patterns, str):
         patterns = patterns.split()
-    # Qt splits the glob group on whitespace/';' only — commas would become
+    # Qt splits the glob group on whitespace/';' only - commas would become
     # part of the glob itself.
     globs = " ".join(patterns) or "*"
     return f"{_TRAILING_PARENS.sub('', label).strip()} ({globs})"

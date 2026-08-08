@@ -4,7 +4,7 @@ Games launched by a flatpak launcher (Heroic on Steam Deck/Bazzite being the
 common case) run inside that launcher's bubblewrap sandbox.  The sandbox only
 mounts the paths listed in the flatpak's manifest and user overrides, so a
 symlink our deploy creates inside the game folder or wine prefix dangles when
-its target — the mod staging folder or the profile dir (ini files) — is not
+its target - the mod staging folder or the profile dir (ini files) - is not
 one of those paths.  The game then reports the file as missing even though
 the link is perfectly valid on the host (GH#275: symlinked nvse_1_4.dll and
 FalloutCustom.ini unreadable under flatpak Heroic while hardlinks work).
@@ -45,7 +45,7 @@ _HOME = Path.home()
 
 
 # ---------------------------------------------------------------------------
-# Detection — which flatpak sandbox (if any) will the game run inside?
+# Detection - which flatpak sandbox (if any) will the game run inside?
 # ---------------------------------------------------------------------------
 
 def _flatpak_app_owning_path(path: Path) -> Optional[str]:
@@ -67,7 +67,7 @@ def _steam_flatpak_owns_path(path: Path) -> bool:
 
     Games in the flatpak Steam's default library live under ~/.var/app and
     are caught by the path check alone; this covers its EXTERNAL libraries
-    (SD card, second drive) — those games still run inside the Steam sandbox
+    (SD card, second drive) - those games still run inside the Steam sandbox
     even though their files don't.  The flatpak's own libraryfolders.vdf is
     the authority on which libraries belong to it.
     """
@@ -102,12 +102,12 @@ def sandbox_app_for_game(game, game_root: Optional[Path]) -> Optional[str]:
 
     Ways a game ends up sandboxed:
       * its files live under ~/.var/app/<id>/ (launcher keeps games in its
-        own data dir — flatpak Steam's default library included) — the id is
+        own data dir - flatpak Steam's default library included) - the id is
         read straight off the path;
       * it sits in one of the flatpak Steam's EXTERNAL libraries (SD card /
-        second drive) — files outside ~/.var/app, process still sandboxed;
+        second drive) - files outside ~/.var/app, process still sandboxed;
       * it is a Heroic-, Lutris- or Faugus-managed install and that
-        launcher's flatpak exists — same shape as the Steam external-library
+        launcher's flatpak exists - same shape as the Steam external-library
         case.
     If the user also has the native launcher installed and that one actually
     starts the game, the extra override is harmless.
@@ -126,7 +126,7 @@ def sandbox_app_for_game(game, game_root: Optional[Path]) -> Optional[str]:
         except Exception:
             pass
     # Lutris flatpak grants --filesystem=home by default, so its games are
-    # usually fine — but the baseline check in ensure_symlink_target_access
+    # usually fine - but the baseline check in ensure_symlink_target_access
     # handles that (silent no-op); this covers staging outside home (/mnt)
     # and Flatseal-tightened setups.
     if (_HOME / ".var" / "app" / LUTRIS_FLATPAK_ID).is_dir():
@@ -159,7 +159,7 @@ def _read_override_text(app_id: str) -> str:
     """Current user-override keyfile content for *app_id* ('' if none).
 
     Flatpak masks its own data dir (~/.local/share/flatpak) inside every
-    sandbox — even with --filesystem=home — so from inside our flatpak the
+    sandbox - even with --filesystem=home - so from inside our flatpak the
     file can only be read via the host CLI.
     """
     if Path("/.flatpak-info").is_file():
@@ -226,7 +226,7 @@ def _baseline_filesystems(app_id: str) -> "tuple[set[str], list[Path]]":
 
     Needed so launchers that already ship broad access (Lutris grants
     `home`) don't get a pointless override + restart prompt.  Cached per
-    process — manifest permissions only change on app updates.
+    process - manifest permissions only change on app updates.
     """
     if app_id in _baseline_cache:
         return _baseline_cache[app_id]
@@ -278,7 +278,7 @@ def _grant_paths(app_id: str, paths: "list[Path]", log_fn: LogFn) -> bool:
         return False
     if res.returncode != 0:
         err = (res.stderr or res.stdout or "").strip()
-        log_fn(f"  WARN: flatpak override failed ({err}) — grant access "
+        log_fn(f"  WARN: flatpak override failed ({err}) - grant access "
                f"manually: flatpak override --user {app_id} " +
                " ".join(f"--filesystem='{p}'" for p in paths))
         return False
@@ -293,7 +293,7 @@ def _wanted_roots(staging: Optional[Path],
     also covers siblings like overwrite/.  Never widen to $HOME itself.
 
     Profile Group: the group's staging is a per-mod symlink farm resolving
-    into MEMBER profile dirs — granting only the group dir would leave every
+    into MEMBER profile dirs - granting only the group dir would leave every
     deployed symlink dangling inside the sandbox. Widen to the profiles/
     root (still far narrower than $HOME) so all members are covered.
     """
@@ -345,7 +345,7 @@ def ensure_symlink_target_access(
         missing = [p for p in wanted if not _covered(p, granted, tokens)]
         if missing:
             # The manifest itself may already grant enough (Lutris ships
-            # --filesystem=home) — only override what neither layer covers.
+            # --filesystem=home) - only override what neither layer covers.
             btokens, bgranted = _baseline_filesystems(app_id)
             missing = [p for p in missing
                        if not _covered(p, bgranted, btokens)]
@@ -364,7 +364,7 @@ def ensure_symlink_target_access(
 
 def _notify_restart_needed(app_id: str, granted: "list[Path]") -> None:
     """Popup (when a GUI is attached) telling the user to restart the
-    launcher — the sandbox only picks the new grants up on a fresh start."""
+    launcher - the sandbox only picks the new grants up on a fresh start."""
     launcher = _APP_NAMES.get(app_id, app_id)
     try:
         from Utils import ui_hooks
@@ -374,7 +374,7 @@ def _notify_restart_needed(app_id: str, granted: "list[Path]") -> None:
             (f"The {launcher} flatpak was granted access to:\n\n{paths}\n\n"
              f"so the mod files deployed as symlinks are visible inside its "
              f"sandbox.\n\nFully close and restart {launcher} before "
-             f"launching the game — until then the game will not see these "
+             f"launching the game - until then the game will not see these "
              f"mod files."),
             height=300,
         )

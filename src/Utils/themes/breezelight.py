@@ -1,5 +1,5 @@
 """
-Breeze Light theme — matches the KDE Breeze Dark colour scheme.
+Breeze Light theme - matches the KDE Breeze Dark colour scheme.
 
 Every key here must also exist in every other theme file. If you add a new
 constant, add it to every theme or the app will break when that theme is
@@ -11,7 +11,7 @@ NAME = "Breeze Light"
 CTK_APPEARANCE = "light"
 
 PALETTE: dict[str, str | tuple] = {
-    # Backgrounds — Breeze "window" / "view" / "button" greys.
+    # Backgrounds - Breeze "window" / "view" / "button" greys.
     "BG_DEEP":       "#dee0e2",   # window background
     "BG_PANEL":      "#eff0f1",   # raised panel
     "BG_HEADER":     "#dee0e2",   # toolbar / header / button base
@@ -24,12 +24,12 @@ PALETTE: dict[str, str | tuple] = {
     "BG_SELECT":     "#3daee9",   # Breeze selection blue
     "BG_HOVER_ROW":  "#e3e5e7",
 
-    # Accents — Breeze blue.
+    # Accents - Breeze blue.
     "ACCENT":        "#3daee9",
     "ACCENT_HOV":    "#2a8ac7",
     "TEXT_ON_ACCENT":"#ffffff",
 
-    # Text — Breeze foreground greys.
+    # Text - Breeze foreground greys.
     "TEXT_MAIN":     "#232627",
     "TEXT_DIM":      "#4d4d4d",
     "TEXT_MUTED":    "#6a6a6a",
@@ -44,12 +44,12 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_ERR_BRIGHT":  "#e55f70",
     "TEXT_WARN_BRIGHT": "#ffc947",
 
-    # Borders — subtle Breeze separators.
+    # Borders - subtle Breeze separators.
     "BORDER":        "#dfdfdf",
     "BORDER_DIM":    "#e8e8e8",
     "BORDER_FAINT":  "#cbcdcd",
 
-    # Buttons — reds
+    # Buttons - reds
     "RED_BTN":       "#da4453",
     "RED_HOV":       "#c72637",
     "BTN_DANGER":        "#da4453",
@@ -61,7 +61,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#c72637",
     "BTN_CANCEL_HOV":    "#a6232e",
 
-    # Buttons — greens
+    # Buttons - greens
     "BTN_SUCCESS":          "#009665",
     "BTN_SUCCESS_HOV":      "#007d54",
     "BTN_SUCCESS_ALT":      "#006f4a",
@@ -69,7 +69,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#004a31",
     "BTN_SUCCESS_DEEP_HOV": "#003a26",
 
-    # Buttons — oranges
+    # Buttons - oranges
     "BTN_WARN":          "#ffb81c",
     "BTN_WARN_HOV":      "#e6a619",
     "BTN_WARN_DEEP":     "#cc9416",
@@ -79,7 +79,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#cc7a00",
     "BTN_WARN_ORANGE_HOV":"#b06900",
 
-    # Buttons — blues
+    # Buttons - blues
     "BTN_INFO":          "#3daee9",
     "BTN_INFO_HOV":      "#2a8ac7",
     "BTN_INFO_DEEP":     "#2172a3",
@@ -87,13 +87,13 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#586a7a",
     "BTN_NEUTRAL_HOV":   "#657a8f",
 
-    # Buttons — greys
+    # Buttons - greys
     "BTN_GREY":        "#c6c9cb",
     "BTN_GREY_HOV":    "#cbced0",
     "BTN_GREY_ALT":    "#d6d5d4",
     "BTN_GREY_ALT_HOV":"#dadad9",
 
-    # Buttons — purples
+    # Buttons - purples
     "BTN_PURPLE":     "#9b59b6",
     "BTN_PURPLE_HOV": "#8e4bad",
 
@@ -196,7 +196,7 @@ PALETTE: dict[str, str | tuple] = {
     "REQ_HL_REQUIRES":    "#9b59b6",   # mods the selection requires (purple)
     "REQ_HL_REQUIRED_BY": "#2172a3",   # mods that require the selection (blue)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#d4edda", "FRAMEWORK_INSTALLED_FG": "#0b6847",
     "FRAMEWORK_STAGED_BG":    "#fcebd5", "FRAMEWORK_STAGED_FG":    "#856404",
     "FRAMEWORK_DISABLED_BG":  "#dae7f3", "FRAMEWORK_DISABLED_FG":  "#2172a3",

@@ -1,10 +1,10 @@
 """Progress popup + transient notification toasts for the Qt UI.
 
 Mirrors the Tk app's deploy/restore feedback:
-  * `ProgressPopup` — a small bottom-right card with a title, phase label, a
+  * `ProgressPopup` - a small bottom-right card with a title, phase label, a
     determinate (done/total) or indeterminate (animated) bar. Reused/updated via
     `set_progress(done, total, phase)` and dismissed via `clear()`.
-  * `NotificationManager.notify(text, state)` — a stacked toast (info/success/
+  * `NotificationManager.notify(text, state)` - a stacked toast (info/success/
     warning/error) that auto-dismisses after a few seconds.
 
 Both anchor to a host window and reposition with it. All methods must be called
@@ -45,7 +45,7 @@ class _HoverFadeMixin:
         self._fade_anim.setDuration(140)
         self._fade_anim.setEasingCurve(QEasingCurve.InOutQuad)
         # Once faded we set WA_TransparentForMouseEvents so clicks fall through,
-        # which also stops us receiving leaveEvent — so poll the cursor to know
+        # which also stops us receiving leaveEvent - so poll the cursor to know
         # when it has moved off us and we can fade back in.
         self._faded = False
         self._unhover_timer = QTimer(self)
@@ -125,13 +125,13 @@ class ProgressPopup(_HoverFadeMixin, QFrame):
     def set_progress(self, done: int, total: int, phase: str | None = None,
                      title: str | None = None, bytes_mode: bool = False):
         """*bytes_mode* formats the counter as human-readable file sizes
-        ("12.3 MB / 340.0 MB") instead of raw counts — used for downloads."""
+        ("12.3 MB / 340.0 MB") instead of raw counts - used for downloads."""
         if title:
             self._title.setText(title)
         if phase is not None:
             self._phase.setText(phase or self.tr("Working…"))
         if total > 0:
-            # QProgressBar is int32 — summed byte totals (e.g. two 1.1 GB
+            # QProgressBar is int32 - summed byte totals (e.g. two 1.1 GB
             # downloads) overflow it. Scale the bar values down to fit; the
             # counter label below still shows the real numbers.
             bar_done, bar_total = min(done, total), total
@@ -147,7 +147,7 @@ class ProgressPopup(_HoverFadeMixin, QFrame):
             else:
                 self._count.setText(self.tr("{0} / {1}").format(done, total))
         else:
-            # Indeterminate (busy) — Qt animates a range of 0,0.
+            # Indeterminate (busy) - Qt animates a range of 0,0.
             self._bar.setRange(0, 0)
             self._count.setText("")
         if not self.isVisible():
@@ -276,7 +276,7 @@ class ToastHandle:
                 auto_dismiss_ms: int = 0):
         """Remove the sticky toast. If *text* is given, first swap it to a
         transient toast (optionally re-styled via *state*) that auto-dismisses
-        after *auto_dismiss_ms* — handy for turning "Checking…" into a final
+        after *auto_dismiss_ms* - handy for turning "Checking…" into a final
         "Found N updates" that then fades on its own."""
         t = self._toast
         if t is None or t not in self._manager._toasts:

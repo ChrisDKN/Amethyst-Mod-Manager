@@ -1,18 +1,18 @@
 # PKGBUILD for the Amethyst Mod Manager AppImage build.
 #
-# Not for AUR distribution — this exists so quick-sharun gets a real /usr
+# Not for AUR distribution - this exists so quick-sharun gets a real /usr
 # install to deploy from. It expects:
 #   * The source tree to be at $SRC_TREE (env var, set by make-appimage.sh).
-#   * Optional prebuilt libloot extension at $LIBLOOT_SO (env var) — copied
+#   * Optional prebuilt libloot extension at $LIBLOOT_SO (env var) - copied
 #     into LOOT/ before packaging.
 #
 # Bundled into /usr/ alongside the app:
-#   * /usr/bin/zenity   — zenity-rs-bin (static Rust drop-in; replaces the
+#   * /usr/bin/zenity   - zenity-rs-bin (static Rust drop-in; replaces the
 #                         stock GTK4 zenity that we deliberately don't install)
-#   * /usr/bin/7zzs     — 7-Zip 26.00 standalone binary
-#   * /usr/bin/{7z,7za} — symlinks to 7zzs
+#   * /usr/bin/7zzs     - 7-Zip 26.00 standalone binary
+#   * /usr/bin/{7z,7za} - symlinks to 7zzs
 #
-# bsdtar is still staged outside this package — it would conflict with the
+# bsdtar is still staged outside this package - it would conflict with the
 # libarchive package.
 #
 # pkgver is read from src/version.py at makepkg time.
@@ -47,7 +47,7 @@ _seven_zip_url='https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linu
 
 build() {
     # Vendor pip deps so package() can install a frozen tree. PySide6 is NOT
-    # vendored — it comes from the system pyside6 package so quick-sharun
+    # vendored - it comes from the system pyside6 package so quick-sharun
     # traces the shared Qt libs and deploys their plugins.
     rm -rf "$srcdir/_vendor"
     mkdir -p "$srcdir/_vendor"
@@ -106,7 +106,7 @@ package() {
     find "$app_share" -type f -name '*.py' -exec chmod 0644 {} \;
 
     # Stale extensions from older layouts/ABIs inside LOOT/ are dead weight
-    # (loot_sorter does a top-level `import loot`) — don't ship them.
+    # (loot_sorter does a top-level `import loot`) - don't ship them.
     rm -f "$app_share/LOOT"/loot.cpython-*.so
 
     # Inject the prebuilt libloot .so from CI when available. It goes at the
@@ -124,7 +124,7 @@ package() {
     # step in make-appimage.sh after quick-sharun deploys.
     cat > "$pkgdir/usr/bin/mod-manager" <<EOF
 #!/bin/sh
-# Don't export PYTHONPATH here — it would inherit into any child shell the
+# Don't export PYTHONPATH here - it would inherit into any child shell the
 # user spawns from the app, shadowing their system Pillow with our vendored
 # copy long after the AppImage's /tmp mount has disappeared. run_qt.py /
 # cli.py add _vendor to sys.path themselves (app_bootstrap) when \$APPDIR
@@ -150,7 +150,7 @@ esac
 EOF
     chmod 0755 "$pkgdir/usr/bin/mod-manager"
 
-    # Private fontconfig config — see fonts.conf header + the FONTCONFIG_FILE
+    # Private fontconfig config - see fonts.conf header + the FONTCONFIG_FILE
     # export in the wrapper above.
     install -Dm644 "$_src/appimage/fonts.conf" "$app_share/fonts.conf"
 
@@ -159,7 +159,7 @@ EOF
     install -Dm644 "$_src/appimage/mod-manager.png" \
         "$pkgdir/usr/share/icons/hicolor/256x256/apps/mod-manager.png"
 
-    # Bundled binaries — these get bundled into the AppImage as if they were
+    # Bundled binaries - these get bundled into the AppImage as if they were
     # any other system binary (quick-sharun's /usr → "$APPDIR" rewrite).
     install -Dm755 "$srcdir/.7z/7zzs"  "$pkgdir/usr/bin/7zzs"
     ln -sf 7zzs "$pkgdir/usr/bin/7z"

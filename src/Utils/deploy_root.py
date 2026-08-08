@@ -43,9 +43,9 @@ def deploy_root_folder(
 ) -> int:
     """Transfer files from root_folder_dir into game_root.
 
-    root_folder_dir — Profiles/<game>/Root_Folder/
-    game_root       — the game's install directory (the root, not Data/)
-    mode            — transfer method (HARDLINK / SYMLINK / COPY)
+    root_folder_dir - Profiles/<game>/Root_Folder/
+    game_root       - the game's install directory (the root, not Data/)
+    mode            - transfer method (HARDLINK / SYMLINK / COPY)
 
     Behaviour:
       - If root_folder_dir is empty or missing, does nothing and returns 0.
@@ -64,7 +64,7 @@ def deploy_root_folder(
         return 0
 
     # Collect all source files first; bail early if none.  os.walk gets the
-    # file/dir split from readdir d_type — no stat per entry like rglob+is_file.
+    # file/dir split from readdir d_type - no stat per entry like rglob+is_file.
     sources: list[tuple[Path, Path]] = []   # (src, rel)
     _root_str = str(root_folder_dir)
     _root_plen = len(_root_str) + 1
@@ -80,9 +80,9 @@ def deploy_root_folder(
     log_path   = root_folder_dir.parent / _ROOT_LOG_NAME
 
     # Resolve destinations case-insensitively against the game tree (shared
-    # dir cache — one iterdir per directory instead of one per file) and
+    # dir cache - one iterdir per directory instead of one per file) and
     # track which top-level directories we are creating so restore can wipe
-    # them entirely — including any game-generated files written into them
+    # them entirely - including any game-generated files written into them
     # after deploy (e.g. BepInEx cache/config/log files).
     _dir_cache: dict = {}
     _top_preexisted: dict[str, bool] = {}
@@ -168,13 +168,13 @@ def deploy_root_flagged_mods(
 ) -> int:
     """Deploy files from root-flagged mods (filemap_root.txt) directly into game_root.
 
-    filemap_root_path      — Profiles/<game>/filemap_root.txt  (written by build_filemap)
-    game_root              — the game's install directory (not Data/)
-    staging_root           — the mod staging root (same as used by deploy_filemap)
-    mode                   — HARDLINK / SYMLINK / COPY
-    strip_prefixes         — shared top-level folder names stripped during staging
-    per_mod_strip_prefixes — per-mod overrides for strip_prefixes (same as deploy_filemap)
-    excluded_raw           — per-mod RAW excluded keys; skipped as sources, so a
+    filemap_root_path      - Profiles/<game>/filemap_root.txt  (written by build_filemap)
+    game_root              - the game's install directory (not Data/)
+    staging_root           - the mod staging root (same as used by deploy_filemap)
+    mode                   - HARDLINK / SYMLINK / COPY
+    strip_prefixes         - shared top-level folder names stripped during staging
+    per_mod_strip_prefixes - per-mod overrides for strip_prefixes (same as deploy_filemap)
+    excluded_raw           - per-mod RAW excluded keys; skipped as sources, so a
                              collision deploys the variant the user kept
 
     Files are appended to the same root_folder_deployed.txt log and Root_Backup/ directory
@@ -187,7 +187,7 @@ def deploy_root_flagged_mods(
     if not filemap_root_path.is_file():
         return 0
 
-    # Read filemap_root.txt — each line is "rel_str\tmod_name"
+    # Read filemap_root.txt - each line is "rel_str\tmod_name"
     entries: list[tuple[str, str]] = []
     with filemap_root_path.open(encoding="utf-8") as f:
         for line in f:
@@ -236,7 +236,7 @@ def deploy_root_flagged_mods(
         _exc = _excluded_raw.get(mod_name)
         mod_root = staging_root / mod_name
         # Candidate mod-relative paths: the bare path, then each strip prefix
-        # the scan peeled off (per-mod, shared, and the stacked combination —
+        # the scan peeled off (per-mod, shared, and the stacked combination -
         # e.g. a "MyPreset" Top Level strip followed by "Data").
         _mod_prefixes = (per_mod_strip_prefixes or {}).get(mod_name)
         _prefixes = list(_mod_prefixes) if _mod_prefixes else []
@@ -256,7 +256,7 @@ def deploy_root_flagged_mods(
         if src is None:
             # filemap casing is canonicalised across ALL mods, so a mod whose
             # folder is `sound` gets listed as `Sound` when another mod spells
-            # it that way — on a case-sensitive FS the literal path above then
+            # it that way - on a case-sensitive FS the literal path above then
             # misses and the file silently never deploys. Resolve the real
             # on-disk casing instead.
             for cand_rel in _rels:
@@ -361,14 +361,14 @@ def restore_root_folder(
     was placed into game_root, restores any backed-up originals from
     Root_Backup/, then removes the log and any empty directories left behind.
 
-    root_folder_dir — Profiles/<game>/Root_Folder/  (used to locate the log)
-    game_root       — the game's install directory
-    data_deploy_dirs — top-level dir names (e.g. {"Data"}) that the standard
+    root_folder_dir - Profiles/<game>/Root_Folder/  (used to locate the log)
+    game_root       - the game's install directory
+    data_deploy_dirs - top-level dir names (e.g. {"Data"}) that the standard
                      Data/ deploy also owns.  A placed file under one of these
                      dirs that is now a plain regular file with no Root_Backup/
                      original was a deployed-vanilla symlink/hardlink at deploy
                      time (so we never backed it up) and has since been restored
-                     to genuine vanilla by restore_data_core() — leaving it
+                     to genuine vanilla by restore_data_core() - leaving it
                      intact, not deleting it, keeps that vanilla file.  Defaults
                      to no protection; callers pass the game's
                      root_restore_protect_dirs() (e.g. {"Data"} for Bethesda).
@@ -398,12 +398,12 @@ def restore_root_folder(
     # Data/ deploy (e.g. a root-flagged mod shipping its own Data/Fallout4.esm)
     # is dangerous to delete blindly.  At deploy time the pre-existing file there
     # was a deployed-vanilla symlink/hardlink into Data_Core/, so we never copied
-    # an original into Root_Backup/ — only its raw bytes live in Data_Core/.  By
+    # an original into Root_Backup/ - only its raw bytes live in Data_Core/.  By
     # the time this restore runs, restore_data_core() has already wiped Data/ and
     # renamed Data_Core/ back, so the path now holds the genuine vanilla file.
     # Unlinking it here (with nothing in Root_Backup/ to put back) destroys the
     # vanilla copy for good.  Rule: only remove a placed file when Root_Backup/
-    # actually holds its original — otherwise the file is owned by the Data_Core
+    # actually holds its original - otherwise the file is owned by the Data_Core
     # mechanism (or was already cleared) and must be left alone.
     def _has_backup(rel_str: str) -> bool:
         bak = backup_dir / rel_str
@@ -419,15 +419,15 @@ def restore_root_folder(
         head = rel_str.replace("\\", "/").split("/", 1)[0].lower()
         return head in _protect_dirs
 
-    # Remove files we placed (parallelised — one lstat + one unlink per worker).
+    # Remove files we placed (parallelised - one lstat + one unlink per worker).
     _game_root_str = str(game_root)
     safe_targets: list[str] = []
     for rel_str in placed:
         dst = game_root / rel_str
         if not _path_under_root(dst, game_root):
-            _log(f"  SKIP: path traversal blocked — {rel_str}")
+            _log(f"  SKIP: path traversal blocked - {rel_str}")
             continue
-        # Protect only Data-deploy paths with no Root_Backup original — those are
+        # Protect only Data-deploy paths with no Root_Backup original - those are
         # the files restore_data_core owns.  Pure root-folder mod files (winhttp
         # .dll, BepInEx/, etc.) are still removed even without a backup.
         protect = _under_data_deploy(rel_str) and not _has_backup(rel_str)
@@ -440,7 +440,7 @@ def restore_root_folder(
         except OSError:
             return 0
         # A real regular file at a protected Data path is the vanilla file that
-        # restore_data_core put back — leave it (deleting it would lose vanilla).
+        # restore_data_core put back - leave it (deleting it would lose vanilla).
         # Symlinks are always our own deploy artifacts: safe to drop.
         if protect and _stat.S_ISREG(st.st_mode):
             return 0
@@ -463,15 +463,15 @@ def restore_root_folder(
     # Remove the log.
     log_path.unlink()
 
-    # Wipe entire top-level directories we freshly created — removes any
+    # Wipe entire top-level directories we freshly created - removes any
     # game-generated files written into them after deploy.
     for dir_name in created_dirs:
         if ".." in dir_name or "/" in dir_name or "\\" in dir_name:
-            _log(f"  SKIP: path traversal blocked — {dir_name}/")
+            _log(f"  SKIP: path traversal blocked - {dir_name}/")
             continue
         d = game_root / dir_name
         if not _path_under_root(d, game_root):
-            _log(f"  SKIP: path traversal blocked — {dir_name}/")
+            _log(f"  SKIP: path traversal blocked - {dir_name}/")
             continue
         if d.is_dir():
             shutil.rmtree(d, ignore_errors=True)

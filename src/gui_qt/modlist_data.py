@@ -1,5 +1,5 @@
 """Real modlist metadata (versions / installed dates / flags from meta.ini, and
-conflicts from filemap overrides). Pure backend calls — no Qt, no gui.* — so
+conflicts from filemap overrides). Pure backend calls - no Qt, no gui.* - so
 they can run on a worker thread.
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from Utils.modlist import ModEntry
 
 
-# Flag bits for the Flags column — mirrors the full Tk set (FOMOD/BAIN are
+# Flag bits for the Flags column - mirrors the full Tk set (FOMOD/BAIN are
 # install methods, NOT flag icons).
 FLAG_UPDATE = 1 << 0       # has_update & not ignored
 FLAG_ENDORSED = 1 << 1
@@ -25,15 +25,15 @@ FLAG_NOTE = 1 << 7         # a saved per-profile user note (read_mod_notes)
 FLAG_XEDIT = 1 << 8        # meta.xedit_modified_plugins non-empty (xEdit-edited plugins)
 FLAG_BUNDLE = 1 << 9       # RE/Fluffy bundle (a [Bundle] section in meta.ini)
 FLAG_MODIO_UPDATE = 1 << 10  # BG3 mod.io update (modioFileId != modioLatestFileId)
-FLAG_PRERTX = 1 << 11      # contains pre-RTX (natives/x64) files — filemap-derived
-FLAG_ROOT_RULE = 1 << 12   # owns files with a custom root-routing rule — filemap-derived
-FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in the load order — live overlay
+FLAG_PRERTX = 1 << 11      # contains pre-RTX (natives/x64) files - filemap-derived
+FLAG_ROOT_RULE = 1 << 12   # owns files with a custom root-routing rule - filemap-derived
+FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in the load order - live overlay
 
 
 def _parse_missing_req_pairs(raw: str) -> list[tuple[int, str]]:
     """`(modId, name)` pairs from a meta.ini `missing_requirements` value:
     semicolon-separated `modId:name` entries. The name half may be blank
-    (locally-seeded requirements — e.g. the TTW installer — store `modId:`
+    (locally-seeded requirements - e.g. the TTW installer - store `modId:`
     with no name), so entries are keyed on the id, not the name."""
     pairs: list[tuple[int, str]] = []
     for part in (raw or "").split(";"):
@@ -65,10 +65,10 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     descriptions[name] -> Nexus summary text for the name-column hover tooltip
     authors[name]      -> Nexus uploader username (Author column, "" if none)
 
-    *ignored_reqs* — requirement names the user has dismissed (per-profile); a
+    *ignored_reqs* - requirement names the user has dismissed (per-profile); a
     mod is only flagged if it still has missing requirements outside this set.
-    *profile_dir* — the active profile dir; when given, per-mod user notes are
-    read (Note flag). *is_bg3* — enable the BG3-only mod.io update flag.
+    *profile_dir* - the active profile dir; when given, per-mod user notes are
+    read (Note flag). *is_bg3* - enable the BG3-only mod.io update flag.
     """
     versions: dict[str, str] = {}
     installed: dict[str, str] = {}
@@ -93,7 +93,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         return (versions, installed, flags, categories, updates, fomod, bain,
                 missing_reqs, descriptions, authors)
 
-    # Per-profile user notes (Note flag) — one read for the whole list.
+    # Per-profile user notes (Note flag) - one read for the whole list.
     notes: dict[str, str] = {}
     if profile_dir is not None:
         try:
@@ -213,7 +213,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             missing_reqs, descriptions, authors)
 
 
-# ---- mod folder sizes (Size column) — ported from gui/modlist_panel.py --------
+# ---- mod folder sizes (Size column) - ported from gui/modlist_panel.py --------
 def _dir_size_bytes(path: Path) -> int:
     """Recursively sum file sizes under path (bytes). Safe to run in a thread."""
     total = 0

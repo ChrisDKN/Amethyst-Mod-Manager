@@ -4,7 +4,7 @@ A dimmed child overlay (see gui_qt/overlay_base.py) with a centered card:
 title, body text, and Confirm / Cancel buttons. ``on_done(True)`` on confirm,
 ``on_done(False)`` on cancel / Esc.
 
-Pass ``cancel_label=None`` for a single-button message card (OK-only) — the
+Pass ``cancel_label=None`` for a single-button message card (OK-only) - the
 in-app replacement for ``QMessageBox.warning``/``critical``/``information``.
 """
 

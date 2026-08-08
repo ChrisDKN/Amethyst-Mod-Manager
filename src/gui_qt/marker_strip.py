@@ -1,9 +1,9 @@
-"""Marker scrollbar — a QScrollBar that paints coloured conflict-highlight ticks
+"""Marker scrollbar - a QScrollBar that paints coloured conflict-highlight ticks
 directly into its own track, mirroring the Tk app's combined scrollbar+marker
 canvas. Used by both the modlist and the plugins panel.
 
 We subclass QScrollBar (rather than overlay a separate widget) because a sibling
-overlay parented to the view doesn't composite reliably over the scrollbar — by
+overlay parented to the view doesn't composite reliably over the scrollbar - by
 owning the scrollbar's paintEvent the ticks are guaranteed to render, in the real
 scrollbar track, behind the handle (exactly MO2/Tk behaviour).
 
@@ -63,7 +63,7 @@ class MarkerScrollBar(QScrollBar):
     def _row_offsets(self, model):
         """Return (offsets, total) where offsets[row] is the row's content-space
         Y centre (px from the top of the full content) and *total* is the full
-        content height. Hidden rows (under a collapsed separator) take 0 height —
+        content height. Hidden rows (under a collapsed separator) take 0 height -
         so ticks line up with where the row actually sits on the scroll track,
         accounting for variable row heights (separators are taller). Returns
         (None, 0) if geometry isn't available yet."""
@@ -122,7 +122,7 @@ class MarkerScrollBar(QScrollBar):
                 tick(r, self._C_MASTER)
             # lower → higher → required-by → requires → anchor so the anchor
             # wins on coincidence (the requirement codes never coexist with the
-            # conflict ones — set_highlights swaps all sets at once). The map is
+            # conflict ones - set_highlights swaps all sets at once). The map is
             # panel-specific (see __init__) so code 3 reads correctly per panel.
             for wanted, col in self._code_cols.items():
                 for r, code in marks:
@@ -143,7 +143,7 @@ def install_marker_strip(view, highlight_role: int,
     """Replace *view*'s vertical scrollbar with a MarkerScrollBar that paints
     conflict ticks. Refreshes on scroll + any highlight-role change. Returns the
     scrollbar (also stored on the view as ``_marker_strip``). Pass *code_map*
-    (highlight code → QColor) to override the default modlist tick colours — the
+    (highlight code → QColor) to override the default modlist tick colours - the
     plugins panel does this because it reuses code 3 for masters, not requires."""
     sb = MarkerScrollBar(view, highlight_role, code_map)
     view.setVerticalScrollBar(sb)
@@ -159,7 +159,7 @@ def install_marker_strip(view, highlight_role: int,
 
 
 def reposition_marker_strip(view) -> None:
-    """No-op — the MarkerScrollBar IS the scrollbar, so it positions itself. Kept
+    """No-op - the MarkerScrollBar IS the scrollbar, so it positions itself. Kept
     so callers (resizeEvent/showEvent) don't need to special-case."""
     sb = getattr(view, "_marker_strip", None)
     if sb is not None:

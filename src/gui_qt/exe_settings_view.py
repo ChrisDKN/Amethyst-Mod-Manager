@@ -1,16 +1,16 @@
-"""Per-executable settings — a plugins-panel-scoped tab.
+"""Per-executable settings - a plugins-panel-scoped tab.
 
 Qt port of the non-launcher branch of Tk's ExeConfigPanel (gui/dialogs.py):
 launch arguments (+ insert game/mod path), Proton version override with the
 prefix tool buttons (run exe / winetricks / open folder), Steam-style launch
-options, and Remove EXE. "Run from Data folder" is gone — the dropdown no
+options, and Remove EXE. "Run from Data folder" is gone - the dropdown no
 longer scans the staging tree. Entries are manual custom exes, plus
 auto-detected framework launchers (installed script extenders) for which
 Remove becomes "Hide from dropdown" (they aren't in custom_exes.json).
 
 All persistence goes through Utils.exe_launch (same files the Tk app uses).
 The prefix tool workers run on daemon threads and only touch log_fn (the
-app's thread-safe _append_log) — never widgets.
+app's thread-safe _append_log) - never widgets.
 """
 
 from __future__ import annotations
@@ -116,7 +116,7 @@ class ExeSettingsView(QWidget):
             sv.setContentsMargins(10, 8, 10, 8)
             sv.setSpacing(4)
             # Title row: label + a "?" marker whose tooltip carries the
-            # description (matches the Settings menu — no inline hint text).
+            # description (matches the Settings menu - no inline hint text).
             head = QHBoxLayout(); head.setContentsMargins(0, 0, 0, 0); head.setSpacing(6)
             lbl = QLabel(title_text)
             lbl.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
@@ -137,7 +137,7 @@ class ExeSettingsView(QWidget):
                 "command in Launch Options, e.g. 'java -jar %command%' "
                 "(%command% is the jar path).\n"
                 "Proton prefix: click 'Install Java into prefix' once, then it "
-                "runs automatically as 'java.exe -jar <jar>' — anything you put "
+                "runs automatically as 'java.exe -jar <jar>' - anything you put "
                 "in Launch Options / Launch arguments is appended as extra "
                 "flags. Which prefix follows the Proton version below "
                 "('Game default' = the game's prefix; a specific version = an "
@@ -162,7 +162,7 @@ class ExeSettingsView(QWidget):
         # -- Launch arguments ------------------------------------------------
         sec_args, sa = section(self.tr("Launch arguments"), self.tr(
             "Arguments passed to the exe. Use Wine paths for file arguments "
-            "(e.g. Z:\\home\\...) — the buttons below insert them for you."))
+            "(e.g. Z:\\home\\...) - the buttons below insert them for you."))
         self._args_box = QPlainTextEdit()
         self._args_box.setFixedHeight(90)
         sa.addWidget(self._args_box)
@@ -213,7 +213,7 @@ class ExeSettingsView(QWidget):
         if not self._is_jar:
             wt_help = self.tr(
                 "Run this exe with bare Wine against the same prefix instead "
-                "of a Proton session — no Steam client attach, so Steam Input "
+                "of a Proton session - no Steam client attach, so Steam Input "
                 "keeps the desktop controls (trackpad / on-screen keyboard). "
                 "The prefix is still created and updated through Proton. Env "
                 "vars in Launch Options still apply; wrappers and %command% "
@@ -347,7 +347,7 @@ class ExeSettingsView(QWidget):
 
     def _on_remove(self):
         if self._is_auto:
-            # Auto-detected entry — persist the hide so it stays gone across
+            # Auto-detected entry - persist the hide so it stays gone across
             # refreshes; also drop any duplicate manual entry for the same exe.
             exe_launch.hide_auto_exe(self._game, self._exe_path.name)
             exe_launch.remove_custom_exe(self._game, self._exe_path)
@@ -426,7 +426,7 @@ class ExeSettingsView(QWidget):
                 "opening file picker …")
 
             def on_picked(exe):
-                # Fires on the picker's worker thread — no widgets touched.
+                # Fires on the picker's worker thread - no widgets touched.
                 if exe is None:
                     return
                 if not exe.is_file():
@@ -436,7 +436,7 @@ class ExeSettingsView(QWidget):
                 from Utils.steam_finder import proton_run_command
                 try:
                     subprocess.Popen(
-                        # runinprefix: isolated tool prefix — no steam.exe
+                        # runinprefix: isolated tool prefix - no steam.exe
                         # shim, so Steam doesn't show the game as "Running".
                         proton_run_command(proton_script, "runinprefix",
                                            str(exe), env=env),
@@ -506,7 +506,7 @@ class ExeSettingsView(QWidget):
             try:
                 result = exe_launch.resolve_jar_prefix_env(jar_path, game, log_fn=log)
                 if result is None:
-                    log("Java: could not resolve a prefix — pick a Proton "
+                    log("Java: could not resolve a prefix - pick a Proton "
                         "version or deploy/launch the game once first.")
                     return
                 _script, compat_data, _env = result
@@ -529,7 +529,7 @@ class ExeSettingsView(QWidget):
             return
         prefix_dir = self._exe_path.parent / f"prefix_{proton_script.parent.name}"
         if not prefix_dir.is_dir():
-            self._log("Prefix tools: no prefix exists yet for this version — "
+            self._log("Prefix tools: no prefix exists yet for this version - "
                       "run the exe once first.")
             return
         from Utils.xdg import xdg_open

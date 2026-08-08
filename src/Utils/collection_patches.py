@@ -90,7 +90,7 @@ def apply_collection_patches(
     patched_mods: set[str] = set()  # installed-folder names we already tagged
 
     if not _BSDIFF_AVAILABLE:
-        log("Collection patches: bsdiff4 not installed — patches skipped")
+        log("Collection patches: bsdiff4 not installed - patches skipped")
         return result
 
     patches_root = archive_root / "patches"
@@ -107,7 +107,7 @@ def apply_collection_patches(
             continue
 
         # Patch sources live under the mod's ``name``, its
-        # ``source.fileExpression``, or — for our own exports — the SANITIZED
+        # ``source.fileExpression``, or - for our own exports - the SANITIZED
         # name: collection_export strips characters that are illegal in
         # archive members (':', '?', …), so a mod named "X: SE" ships its
         # diffs under "X SE" and the raw-name lookup alone would miss every
@@ -157,7 +157,7 @@ def apply_collection_patches(
                 actual_crc = _crc32_hex(src)
                 if actual_crc.upper() != str(expected_crc).upper():
                     log(f"Collection patches: CRC mismatch for {rel_path} "
-                        f"(expected {expected_crc}, got {actual_crc}) — skipping")
+                        f"(expected {expected_crc}, got {actual_crc}) - skipping")
                     result.crc_mismatch += 1
                     continue
 

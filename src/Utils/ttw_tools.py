@@ -316,7 +316,7 @@ def seed_required_mods(game: "BaseGame",
         return
     meta_path = mod_dir / "meta.ini"
     if not meta_path.is_file():
-        log_fn("TTW meta.ini not found — skipping requirement seeding.")
+        log_fn("TTW meta.ini not found - skipping requirement seeding.")
         return
     meta = read_meta(meta_path)
     meta.missing_requirements = ";".join(f"{mid}:" for mid in TTW_REQUIRED_MOD_IDS)

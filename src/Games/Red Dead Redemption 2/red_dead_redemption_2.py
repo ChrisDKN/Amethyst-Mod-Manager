@@ -218,7 +218,7 @@ class RedDeadRedemption2(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir and passed
+        # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []

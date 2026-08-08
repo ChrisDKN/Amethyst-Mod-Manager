@@ -8,7 +8,7 @@ from Games.Bethesda.fallout_3 import Fallout_3
 
 
 class Fallout3_GOTY(Fallout_3):
-    """Fallout 3 Game of the Year Edition — identical deployment to the base
+    """Fallout 3 Game of the Year Edition - identical deployment to the base
     game, only the name, game_id, and steam_id differ."""
 
     @property

@@ -7,7 +7,7 @@ extracted VERBATIM from the Tk ``gui/collections_dialog.py`` (the priority
 resolver + userlist writer + the reset body) so the Qt app can call it without
 importing the Tk module (which would drag in tkinter).
 
-Pure I/O — no GUI imports.
+Pure I/O - no GUI imports.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ def _topo_sort_collection(schema_mods: list[dict], mod_rules: list[dict]) -> dic
             higher_than[winner].add(loser)
             in_degree[loser] += 1
 
-    # Kahn's topological sort — highest priority first
+    # Kahn's topological sort - highest priority first
     from collections import deque
     queue = deque(f for f in fid_order if in_degree[f] == 0)
     sorted_fids: list[int] = []
@@ -115,7 +115,7 @@ def _resolve_collection_priorities(collection_schema: dict) -> dict[int, int]:
     """Return file_id → priority position (0 = highest priority, top of modlist.txt).
 
     Prefers the manifest's `loadOrder` array when present (FBLO games like
-    BG3 ship the curator's exact ordered list — `loadOrder[0]` is the first
+    BG3 ship the curator's exact ordered list - `loadOrder[0]` is the first
     mod to load, which is bottom of modlist.txt / position N-1 in this
     manager). When `loadOrder` is present, `modRules` before/after constraints
     are layered on top as a stable post-pass: rules already satisfied by the
@@ -201,7 +201,7 @@ def _resolve_collection_priorities(collection_schema: dict) -> dict[int, int]:
             in_degree[loser] += 1
 
     # Stable topo sort using a min-heap keyed by base LO position. Whenever
-    # multiple nodes are eligible, the one closest to its base-LO slot wins —
+    # multiple nodes are eligible, the one closest to its base-LO slot wins -
     # so rules already satisfied by the LO are no-ops, and only conflicting
     # rules cause the minimum reordering needed to satisfy them.
     import heapq
@@ -379,7 +379,7 @@ def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn)
     try:
         data = _parse(ul_path)
 
-        # Merge groups — add any that don't already exist
+        # Merge groups - add any that don't already exist
         existing_group_names = {g["name"].lower() for g in data["groups"]}
         added_groups = 0
         for sg in schema_groups:
@@ -402,7 +402,7 @@ def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn)
                 existing_group_names.add(gname.lower())
                 added_groups += 1
 
-        # Merge plugin rules — overwrite existing entries for collection plugins
+        # Merge plugin rules - overwrite existing entries for collection plugins
         existing_plugins: dict[str, dict] = {e["name"].lower(): e for e in data["plugins"]}
         for plugin_lower, rule in plugin_rules.items():
             if plugin_lower in existing_plugins:
@@ -507,7 +507,7 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
         # so LOOT (and staged-plugin recovery) see the true conflict winners,
         # then LOOT-sort exactly as a fresh install / manual sort would. This
         # keeps the reset from dropping unlisted plugins or writing the raw
-        # (unsorted) manifest order — see project_qt_collection_loot_sort.
+        # (unsorted) manifest order - see project_qt_collection_loot_sort.
         try:
             from Utils.collection_install import (
                 _write_collection_plugins, _loot_available)

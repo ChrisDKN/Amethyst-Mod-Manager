@@ -1,4 +1,4 @@
-"""Delegate for the Text Files tree — folder arrow + depth indent (col 0, like the
+"""Delegate for the Text Files tree - folder arrow + depth indent (col 0, like the
 Data/Mod Files tabs) and a dim Source column. No checkboxes; clicking a file leaf
 opens it in the scoped editor.
 """

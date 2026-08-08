@@ -1,7 +1,7 @@
-"""Toolkit-neutral core for the Downloads tab — archive scanning, installed-mod
+"""Toolkit-neutral core for the Downloads tab - archive scanning, installed-mod
 detection, size/ext helpers, and the filter pass. Ported from the pure-Python
 parts of gui/downloads_panel.py so the Qt Downloads tab reuses the exact logic.
-Pure stdlib + Utils.*/Nexus.* — no GUI toolkit.
+Pure stdlib + Utils.*/Nexus.* - no GUI toolkit.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ def build_installed_index(game) -> InstalledIndex:
 # ---------------------------------------------------------------------------
 @dataclass
 class DownloadEntry:
-    """One row — an archive or a synthetic section header (group by source dir)."""
+    """One row - an archive or a synthetic section header (group by source dir)."""
     is_section_header: bool = False
     section_name: str = ""
     path: Optional[Path] = None
@@ -213,7 +213,7 @@ def scan_download_dirs(game_name: Optional[str]) -> list[DownloadEntry]:
                         if st.st_size == 0:
                             # In-progress browser downloads (e.g. Firefox) create a
                             # 0-byte placeholder with the final name next to the
-                            # .part file — hide it until the download completes.
+                            # .part file - hide it until the download completes.
                             continue
                         bucket.append((entry, st.st_mtime, st.st_size))
             except OSError:
@@ -226,7 +226,7 @@ def scan_download_dirs(game_name: Optional[str]) -> list[DownloadEntry]:
             # Cache / extra locations: alphabetical (case-insensitive).
             bucket.sort(key=lambda t: t[0].name.casefold())
         # A section header is emitted for EVERY scan dir (even empty ones) so the
-        # cache / extra locations always show — Tk parity.
+        # cache / extra locations always show - Tk parity.
         entries.append(DownloadEntry(
             is_section_header=True,
             section_name=section_label_for_dir(dl_dir, game_name),

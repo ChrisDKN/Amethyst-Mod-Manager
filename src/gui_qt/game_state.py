@@ -33,7 +33,7 @@ class ConflictData:
     # compound NONE→WINS→PARTIAL.
     loose_codes_base: dict[str, int] | None = None
     bsa_codes: dict[str, int] = field(default_factory=dict)
-    # BG3 mods whose .pak duplicates another mod's module UUID — its own icon,
+    # BG3 mods whose .pak duplicates another mod's module UUID - its own icon,
     # kept out of loose_codes so an identity clash doesn't light up two.
     uuid_codes: dict[str, int] = field(default_factory=dict)
     overrides: dict[str, set] = field(default_factory=dict)
@@ -47,12 +47,12 @@ class ConflictData:
     prertx_mods: set = field(default_factory=set)
     root_rule_mods: set = field(default_factory=set)
     # Framework banner rows (list[FrameworkStatus]) precomputed on the conflict
-    # worker — detect_frameworks re-reads filemap.txt (+ the mod index), which
+    # worker - detect_frameworks re-reads filemap.txt (+ the mod index), which
     # is too slow for the UI thread on a 100k-file modlist.
     framework_statuses: list = field(default_factory=list)
     # Toggle-capability sets (index-derived, same cached scan as the flags):
     # mods shipping plugin files / BSA-BA2 archives / files whose basename
-    # matches a framework exe. Drive the disable fast path — a mod in none of
+    # matches a framework exe. Drive the disable fast path - a mod in none of
     # these can be disabled without recomputing plugin_owner, BSA conflicts or
     # framework statuses (see app._toggle_skips_conflict_scan).
     plugin_mods: set = field(default_factory=set)
@@ -60,7 +60,7 @@ class ConflictData:
     framework_file_mods: set = field(default_factory=set)
     # Mods whose loose file overrides some archive's copy of it. In no other
     # capability set (they ship no archive; the loose maps can't see archives)
-    # yet toggling one flips two icons — hence its own entry in the disable
+    # yet toggling one flips two icons - hence its own entry in the disable
     # fast-path guard (see app._toggle_skips_conflict_scan).
     loose_beats_bsa_mods: set = field(default_factory=set)
 
@@ -113,7 +113,7 @@ class GameState:
             return
         self.game_name = name
         _save_last_game(name)
-        # Restore the profile last used ON THIS GAME (Tk parity — top_bar uses
+        # Restore the profile last used ON THIS GAME (Tk parity - top_bar uses
         # game.get_last_active_profile()), falling back to the first profile.
         self._select_last_active_profile()
         self._apply_active_profile()
@@ -128,7 +128,7 @@ class GameState:
         self._apply_active_profile()
         self._materialize_if_group()
         # Remember this as the game's last active profile so switching away and
-        # back returns here (Tk parity — top_bar._on_profile_change).
+        # back returns here (Tk parity - top_bar._on_profile_change).
         self._save_last_active_profile()
         save_last_session(self.game_name, self.profile)
 
@@ -136,10 +136,10 @@ class GameState:
         """Reconcile the just-activated profile when it is a Profile Group.
 
         Runs ONLY on real profile-identity changes (load / set_game /
-        set_profile) — never from reassert_active_profile, which fires on
+        set_profile) - never from reassert_active_profile, which fires on
         every reload and must stay a cheap no-op. Ordering matters: callers
         run sync_modlist_with_mods_folder after switching, and that sync
-        drops entries whose folder is missing — the link farm must be
+        drops entries whose folder is missing - the link farm must be
         reconciled first."""
         g = self.game
         pdir = self.profile_dir()
@@ -159,7 +159,7 @@ class GameState:
         return g.get_profile_root() / "profiles" / self.profile / "modlist.txt"
 
     def profile_dir(self) -> Path | None:
-        """Active profile dir — where per-profile state (collapsed separators,
+        """Active profile dir - where per-profile state (collapsed separators,
         separator locks, etc.) is stored."""
         g = self.game
         if g is None or not self.profile:
@@ -187,7 +187,7 @@ class GameState:
     def build_conflicts(self, log_fn=None, rescan_index: bool = False) -> "ConflictData":
         """Build the filemap for the active game/profile and return a ConflictData
         with loose + BSA conflict codes, the override maps (for highlights), and a
-        plugin→owner map. Expensive — run off-thread. Empty on failure.
+        plugin→owner map. Expensive - run off-thread. Empty on failure.
 
         rescan_index=True forces a full re-scan of every mod folder from disk
         (the Refresh path) so file changes inside existing mods are picked up."""
@@ -200,7 +200,7 @@ class GameState:
         log = log_fn or (lambda _m: None)
         # Flat-staging heal (Tk parity): wrap manually-copied flat mods before
         # the index/filemap build so deploy targets Mods/<Name>/ correctly. A
-        # fix forces a full rescan — the index still has the pre-wrap layout.
+        # fix forces a full rescan - the index still has the pre-wrap layout.
         if getattr(g, "mod_staging_requires_subdir", False):
             try:
                 from Utils.mod_install import fix_flat_staging_folders
@@ -270,8 +270,8 @@ class GameState:
         (1699). The last three are the toggle-capability sets (see
         ConflictData). Runs on the conflict worker.
 
-        All scans depend only on the index content + static game rules — a
-        mod toggle/reorder doesn't touch modindex.bin — so the result is
+        All scans depend only on the index content + static game rules - a
+        mod toggle/reorder doesn't touch modindex.bin - so the result is
         cached by (index path, mtime) and per-toggle rebuilds skip the
         ~100-150 ms file walk entirely."""
         from Utils.perftrace import span
@@ -315,7 +315,7 @@ class GameState:
         # Toggle capabilities: which mods ship plugin files / BSA-BA2s / files
         # basename-matching a framework exe (framework_detect matches staged
         # keys and disabled-mod files by basename). Root-namespace files
-        # included — broader only makes the fast path MORE conservative.
+        # included - broader only makes the fast path MORE conservative.
         plugin_mods: set = set()
         bsa_mods: set = set()
         framework_mods: set = set()
@@ -393,7 +393,7 @@ class GameState:
 
     def _build_bsa_conflicts(self, g, log):
         """Compute BSA/BA2 archive conflicts. Returns (codes, overrides,
-        overridden_by, loose_overrides_bsa) — codes as 1 win / -1 lose /
+        overridden_by, loose_overrides_bsa) - codes as 1 win / -1 lose /
         2 mixed / 3 fully-overridden; the maps key mod → set(mods). Empty
         for non-archive games or on failure.
 
@@ -404,7 +404,7 @@ class GameState:
 
         The "Hide BSA conflicts" setting empties the pipeline entirely (Tk
         parity) so the expensive parse is skipped and no codes are produced.
-        It only applies to Bethesda BSA/BA2 games — UE pak conflicts are
+        It only applies to Bethesda BSA/BA2 games - UE pak conflicts are
         always shown (two paks touching the same asset is exactly the signal
         pak-game users need; there's no vanilla-BSA noise to hide there)."""
         empty = ({}, {}, {}, {})
@@ -435,7 +435,7 @@ class GameState:
                 rebuild_bsa_index(bsa_index, staging, exts, log_fn=log,
                                   follow_toplevel_links_under=g.get_profile_root() / "profiles")
             pdir = self.profile_dir()
-            # UE pak mounting is not plugin-driven — winners follow pure mod
+            # UE pak mounting is not plugin-driven - winners follow pure mod
             # priority there, so skip the plugin load-order refinement.
             use_plugin_order = getattr(g, "archive_plugin_ordering", True)
             plugin_order = (read_loadorder(pdir / "loadorder.txt")
@@ -472,7 +472,7 @@ class GameState:
             elif c == CONFLICT_PARTIAL:
                 codes[name] = 2
             elif c == CONFLICT_FULL:
-                # Zero surviving paths — every file in the mod's archives is
+                # Zero surviving paths - every file in the mod's archives is
                 # overridden (by other archives and/or loose files). Its own
                 # icon, same split as the loose codes.
                 codes[name] = 3
@@ -496,9 +496,9 @@ class GameState:
 
             NONE    → WINS      (its only conflict is over the BSA)
             LOSES   → PARTIAL   (loses to a loose mod, but beats a BSA)
-            FULL    → PARTIAL   (fully overridden loosely, still beats a BSA —
+            FULL    → PARTIAL   (fully overridden loosely, still beats a BSA -
                                  a surviving win means it isn't redundant)
-            WINS/PARTIAL        unchanged — already showing a win."""
+            WINS/PARTIAL        unchanged - already showing a win."""
         from gui_qt.modlist_data import (
             DISP_WINS, DISP_LOSES, DISP_PARTIAL, DISP_FULL,
         )
@@ -544,8 +544,8 @@ class GameState:
 
         Background workers (restore, profile-remove, bundle import) temporarily
         swap the game's ``_active_profile_dir`` and restore it in a ``finally``
-        block. If the user switches profiles while one runs — or a worker
-        restores to the wrong value (e.g. ``None``/default) — the game object
+        block. If the user switches profiles while one runs - or a worker
+        restores to the wrong value (e.g. ``None``/default) - the game object
         can be left pointing at a different profile than the dropdown shows,
         which makes path-derived actions (Open ▸ Staging/Profile folder, etc.)
         resolve to the wrong profile. Call this before reading any path that
@@ -559,7 +559,7 @@ class GameState:
             g.set_active_profile_dir(
                 g.get_profile_root() / "profiles" / self.profile)
             # Re-resolve paths so this profile's game/prefix/deploy-mode
-            # overrides take effect — or fall back to the default profile's
+            # overrides take effect - or fall back to the default profile's
             # values when it has none (Tk parity: top_bar re-ran load_paths on
             # every profile switch). Without this the previous profile's paths
             # stay live on the game object.

@@ -1,4 +1,4 @@
-"""Proton/Wine prefix helpers — toolkit-neutral.
+"""Proton/Wine prefix helpers - toolkit-neutral.
 
 Resolving a Steam/Heroic ``compatdata`` path from a user-selected ``pfx/``
 folder, and reading the Proton runner name out of ``config_info``. These are
@@ -17,10 +17,10 @@ def resolve_compat_data(prefix_path: Path) -> Path:
     Steam layout: compatdata/<id>/pfx/ → compat_data = prefix_path.parent.
     Heroic layout: <prefix>/pfx is a symlink to "." → compat_data = prefix_path
     itself (config_info lives alongside the pfx symlink, not one level up).
-    Lutris layout: the prefix root IS the compat data — marked by lutris.json
+    Lutris layout: the prefix root IS the compat data - marked by lutris.json
     (present even before the first run writes config_info), or by the same
     self-referencing pfx symlink umu creates.
-    Faugus layout: umu-made like Lutris's, but with no marker file at all —
+    Faugus layout: umu-made like Lutris's, but with no marker file at all -
     a fresh, never-launched prefix has neither config_info nor the pfx
     symlink, so it is identified by its games.json entry instead (checked
     last; the common cases short-circuit without reading games.json)."""

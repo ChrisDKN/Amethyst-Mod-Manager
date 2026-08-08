@@ -1,4 +1,4 @@
-"""Pandora Behaviour Engine+ wizard — Qt port of wizards/pandora.py.
+"""Pandora Behaviour Engine+ wizard - Qt port of wizards/pandora.py.
 
 Pandora ships as a regular mod, so this wizard is only offered when
 "Pandora Behaviour Engine+.exe" is found under the mod staging folder
@@ -59,7 +59,7 @@ class PandoraView(QWidget):
         self._prefix_env = None       # (proton_script, compat_data, env)
         self._busy = False            # a worker step is running
         self._ran = False             # Pandora was launched at least once
-        self._closing = False         # teardown started — ignore late signals
+        self._closing = False         # teardown started - ignore late signals
 
         # Guard every worker→UI signal: a daemon worker (deps install, or the
         # run worker blocking on proc.communicate()) can emit AFTER the user
@@ -92,7 +92,7 @@ class PandoraView(QWidget):
 
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Run Pandora — {0}").format(self._game.name))
+        title = QLabel(self.tr("Run Pandora - {0}").format(self._game.name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -187,14 +187,14 @@ class PandoraView(QWidget):
                 self._goto_step(1)
             else:
                 self._set_status(self._deploy_status,
-                                 self.tr("Deploy failed — see log."), err_text())
+                                 self.tr("Deploy failed - see log."), err_text())
                 self._deploy_btn.setEnabled(True)
                 self._skip_btn.setEnabled(True)
 
         if not run_deploy(_done):
             self._busy = False
             self._set_status(self._deploy_status,
-                             self.tr("Could not start deploy — see log."), err_text())
+                             self.tr("Could not start deploy - see log."), err_text())
             self._deploy_btn.setEnabled(True)
             self._skip_btn.setEnabled(True)
 
@@ -251,7 +251,7 @@ class PandoraView(QWidget):
                     log_fn=lambda m: self._log(f"Pandora Wizard: {m}"))
                 if result is None:
                     safe_emit(self._deps_status_sig,
-                        self.tr("Could not find Proton '{0}' — check that "
+                        self.tr("Could not find Proton '{0}' - check that "
                         "it is installed in Steam, then reopen this wizard.")
                         .format(proton_name),
                         err_text())
@@ -260,7 +260,7 @@ class PandoraView(QWidget):
                 proton_script, compat_data, env = result
                 if net10_installed(compat_data):
                     safe_emit(self._deps_status_sig,
-                        self.tr(".NET 10 already installed — skipping."), ok_text())
+                        self.tr(".NET 10 already installed - skipping."), ok_text())
                 else:
                     install_net10(
                         proton_script, compat_data, env,
@@ -306,7 +306,7 @@ class PandoraView(QWidget):
             try:
                 if prefix_env is None:
                     safe_emit(self._run_status_sig,
-                        self.tr("Prefix was not prepared — go back and retry."),
+                        self.tr("Prefix was not prepared - go back and retry."),
                         err_text())
                     return
                 proton_script, compat_data, env = prefix_env
@@ -350,7 +350,7 @@ class PandoraView(QWidget):
     def _on_close(self):
         # Both the header ✕ and the Done button always close. Any in-flight
         # daemon worker keeps running harmlessly (Pandora is its own process;
-        # deploy/.NET steps finish in the background) — the _closing guard
+        # deploy/.NET steps finish in the background) - the _closing guard
         # drops their late UI signals so nothing touches the deleted widget.
         self._finish()
 
@@ -361,11 +361,11 @@ class PandoraView(QWidget):
         if self._closing:
             return
         self._closing = True
-        # Snapshot before the widget is torn down — the refresh is a ctx
+        # Snapshot before the widget is torn down - the refresh is a ctx
         # method (safe post-close), but read our own flags/ctx first.
         do_refresh = self._ran and getattr(self._ctx, "refresh_modlist", None)
         self._on_close_cb()
         if do_refresh:
-            # Pandora may have written a new Pandora_output mod — re-sync the
+            # Pandora may have written a new Pandora_output mod - re-sync the
             # modlist so it appears (mirrors the Tk wizard's _reload_mod_panel).
             do_refresh()

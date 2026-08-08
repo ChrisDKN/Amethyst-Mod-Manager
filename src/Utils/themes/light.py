@@ -10,7 +10,7 @@ NAME = "Light"
 
 # Which CTk appearance mode this theme should use for built-in CustomTkinter
 # widgets that read from ctk.ThemeManager (CTkLoader, default frame fills,
-# etc.). Must be "light" or "dark" — CTk doesn't understand custom names.
+# etc.). Must be "light" or "dark" - CTk doesn't understand custom names.
 CTK_APPEARANCE = "light"
 
 # Per-theme defaults for the user-customisable keys (Settings → Theme).
@@ -23,7 +23,7 @@ THEME_DEFAULTS_OVERRIDE: dict[str, str] = {
 }
 
 PALETTE: dict[str, str | tuple] = {
-    # Backgrounds — near-white bases with enough separation that gutter,
+    # Backgrounds - near-white bases with enough separation that gutter,
     # alternating panels, and alternating rows are each readable.
     "BG_DEEP":       "#9c9c9c",   # app gutter / outer scroll bg
     "BG_PANEL":      "#e0e0e0",   # panel A / primary surface (grey so white inputs on it contrast)
@@ -37,12 +37,12 @@ PALETTE: dict[str, str | tuple] = {
     "BG_SELECT":     "#8cbde8",
     "BG_HOVER_ROW":  "#b8b8b8",
 
-    # Accents — keep the same blue (works in both modes)
+    # Accents - keep the same blue (works in both modes)
     "ACCENT":        "#0078d4",
     "ACCENT_HOV":    "#1084d8",
     "TEXT_ON_ACCENT":"#ffffff",   # text colour that reads on ACCENT/ACCENT_HOV
 
-    # Text — dark on light
+    # Text - dark on light
     "TEXT_MAIN":     "#1e1e1e",
     "TEXT_DIM":      "#555555",
     "TEXT_MUTED":    "#6b6b6b",
@@ -57,13 +57,13 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_ERR_BRIGHT":  "#b02020",
     "TEXT_WARN_BRIGHT": "#a06a00",
 
-    # Borders — visible greys (need enough contrast against BG_PANEL
+    # Borders - visible greys (need enough contrast against BG_PANEL
     # for 1px divider lines to read on non-OLED monitors).
     "BORDER":        "#8a8a8a",
     "BORDER_DIM":    "#9a9a9a",
     "BORDER_FAINT":  "#a8a8a8",
 
-    # Buttons — reds (slightly darker so text reads on lighter bg)
+    # Buttons - reds (slightly darker so text reads on lighter bg)
     "RED_BTN":       "#c43c3c",
     "RED_HOV":       "#d44848",
     "BTN_DANGER":        "#c94848",
@@ -75,7 +75,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#c0392b",
     "BTN_CANCEL_HOV":    "#a93226",
 
-    # Buttons — greens
+    # Buttons - greens
     "BTN_SUCCESS":          "#3a9e3a",
     "BTN_SUCCESS_HOV":      "#2d7a2d",
     "BTN_SUCCESS_ALT":      "#3a8a3d",
@@ -83,7 +83,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#369150",
     "BTN_SUCCESS_DEEP_HOV": "#2a6e3f",
 
-    # Buttons — oranges
+    # Buttons - oranges
     "BTN_WARN":          "#e28b00",
     "BTN_WARN_HOV":      "#c37800",
     "BTN_WARN_DEEP":     "#a07800",
@@ -93,7 +93,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#d97000",
     "BTN_WARN_ORANGE_HOV":"#b35a00",
 
-    # Buttons — blues
+    # Buttons - blues
     "BTN_INFO":          "#2a6aab",
     "BTN_INFO_HOV":      "#1e4d7a",
     "BTN_INFO_DEEP":     "#2070a8",
@@ -101,17 +101,17 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#4a70aa",
     "BTN_NEUTRAL_HOV":   "#3a5a8a",
 
-    # Buttons — greys
+    # Buttons - greys
     "BTN_GREY":        "#c8c8c8",
     "BTN_GREY_HOV":    "#b8b8b8",
     "BTN_GREY_ALT":    "#d4d4d4",
     "BTN_GREY_ALT_HOV":"#c0c0c0",
 
-    # Buttons — purples
+    # Buttons - purples
     "BTN_PURPLE":     "#9b3fd0",
     "BTN_PURPLE_HOV": "#7b2fa8",
 
-    # Tree tags — darker saturations that read on light bg
+    # Tree tags - darker saturations that read on light bg
     "TAG_FOLDER":       "#1e7a8a",
     "TAG_BSA":          "#8a6a00",
     "TAG_BSA_ALT":      "#1e7a8a",
@@ -148,8 +148,8 @@ PALETTE: dict[str, str | tuple] = {
     "BG_ORANGE_TEXT":  "#7a4a00",
     "BG_BLUE_DEEP":    "#cce0f5",
     "BG_BLUE_TEXT":    "#1a3a6b",
-    "BG_DARK_BLUE":    "#b4c8e4",   # Root Folder separator — saturated so it reads on grey panel
-    "BG_DARK_GREEN":   "#b4d8b4",   # Overwrite separator — same treatment
+    "BG_DARK_BLUE":    "#b4c8e4",   # Root Folder separator - saturated so it reads on grey panel
+    "BG_DARK_GREEN":   "#b4d8b4",   # Overwrite separator - same treatment
     "BG_ENTRY":        "#ffffff",
     "BG_BTN_SAVE":     "#5a5a9a",
     "BG_SELECT_BAR":   "#c0c8e0",
@@ -170,7 +170,7 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_CARD_MED": "#404040",
     "TEXT_TREE_FG":  "#2e7a2e",
 
-    # CTk light/dark tuples — tuples stay identical across themes.
+    # CTk light/dark tuples - tuples stay identical across themes.
     "CTK_TEXT":       ("#000000", "#FFFFFF"),
     "CTK_FOOTER_FG":  ("#EBECF0", "#393B40"),
     "CTK_FOOTER_HOV": ("#DFE1E5", "#43454A"),
@@ -210,7 +210,7 @@ PALETTE: dict[str, str | tuple] = {
     "REQ_HL_REQUIRES":    "#6b3fa0",   # mods the selection requires (purple)
     "REQ_HL_REQUIRED_BY": "#1f5fae",   # mods that require the selection (blue)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#c8e0c8", "FRAMEWORK_INSTALLED_FG": "#1a4d1a",
     "FRAMEWORK_STAGED_BG":    "#f5e0c0", "FRAMEWORK_STAGED_FG":    "#7a4a00",
     "FRAMEWORK_DISABLED_BG":  "#cce0f5", "FRAMEWORK_DISABLED_FG":  "#1a3a6b",

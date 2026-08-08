@@ -1,4 +1,4 @@
-"""Delegate for the Mod Files tree — draws modlist-style checkboxes (blue, 17px,
+"""Delegate for the Mod Files tree - draws modlist-style checkboxes (blue, 17px,
 centred in the Top Level / Root / Disable columns) and uses the separator arrow
 assets (arrow.png / right.png) for the expand/collapse indicator.
 """

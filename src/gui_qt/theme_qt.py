@@ -1,4 +1,4 @@
-"""Qt theming — builds a QSS stylesheet from the existing theme palettes.
+"""Qt theming - builds a QSS stylesheet from the existing theme palettes.
 
 The palette data in ``gui/themes/*.py`` is plain ``{KEY: "#hex"}`` dicts
 (toolkit-neutral), so the Qt app reuses it directly rather than duplicating
@@ -56,7 +56,7 @@ def _tinted_icon_url(name: str, color: str) -> str:
         tinted = QPixmap(pm.size())
         tinted.fill(Qt.transparent)
         p = QPainter(tinted)
-        p.drawPixmap(0, 0, pm)          # original — for its alpha shape
+        p.drawPixmap(0, 0, pm)          # original - for its alpha shape
         p.setCompositionMode(QPainter.CompositionMode_SourceIn)
         p.fillRect(tinted.rect(), QColor(color))
         p.end()
@@ -67,7 +67,7 @@ def _tinted_icon_url(name: str, color: str) -> str:
 
 
 # The Qt app defaults to the original near-black "dark" palette. (Breeze Dark
-# stays available as a selectable theme — appearance_mode = "breeze".) The blue
+# stays available as a selectable theme - appearance_mode = "breeze".) The blue
 # checkboxes/selection come from this palette's ACCENT (#0078d4).
 _QT_DEFAULT_THEME = "dark"
 
@@ -88,7 +88,7 @@ def invalidate_palette_cache() -> None:
 def active_palette() -> dict:
     """Return the {KEY: hex} palette for the Qt app. Defaults to the dark palette;
     an explicit saved appearance_mode theme wins when present. (Values may be str
-    or (light,dark) tuples; _c() normalises them.) Memoised — see
+    or (light,dark) tuples; _c() normalises them.) Memoised - see
     invalidate_palette_cache()."""
     global _active_palette_cache
     if _active_palette_cache is not None:
@@ -118,7 +118,7 @@ def build_qss(pal: dict | None = None) -> str:
     p = pal or active_palette()
     c = lambda k: _c(p, k)
     # Auto-contrast text for a coloured fill: label visibility beats palette
-    # choice, so button text is never editable — it's derived from the fill.
+    # choice, so button text is never editable - it's derived from the fill.
     ct = lambda k: contrast_text(_c(p, k))
     return f"""
     QWidget {{
@@ -127,11 +127,11 @@ def build_qss(pal: dict | None = None) -> str:
     }}
     QMainWindow, QDialog {{ background: {c('BG_DEEP')}; }}
     /* Transparent by default so labels/checkboxes don't paint near-black boxes
-       over their container — containers set their own background explicitly. */
+       over their container - containers set their own background explicitly. */
     QLabel, QCheckBox, QRadioButton {{ background: transparent; }}
     QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
-    /* Toggle indicators — blue when checked, consistent size everywhere. */
+    /* Toggle indicators - blue when checked, consistent size everywhere. */
     QCheckBox::indicator {{
         width: 16px; height: 16px;
         border: 1px solid {c('BORDER_FAINT')};
@@ -144,7 +144,7 @@ def build_qss(pal: dict | None = None) -> str:
         border: 1px solid {c('CHECK_FILL')};
         image: url({_tinted_icon_url('check_white.png', ct('CHECK_FILL'))});
     }}
-    /* Radio: same look as the dropdown-menu exclusive indicator — hollow ring
+    /* Radio: same look as the dropdown-menu exclusive indicator - hollow ring
        unchecked, a fully accent-filled circle when checked (border-radius = half
        the box). 14px to match QMenu::indicator. */
     QRadioButton::indicator {{
@@ -226,7 +226,7 @@ def build_qss(pal: dict | None = None) -> str:
         background: {c('CHECK_FILL')};
         image: url({_tinted_icon_url('check_white.png', ct('CHECK_FILL'))});
     }}
-    /* Submenu indicator — our own right-pointing arrow (matches the collapsed
+    /* Submenu indicator - our own right-pointing arrow (matches the collapsed
        row indicator) in place of Qt's default triangle. */
     QMenu::right-arrow {{
         width: 12px; height: 12px;
@@ -255,7 +255,7 @@ def build_qss(pal: dict | None = None) -> str:
         border-bottom: 1px solid {c('BORDER')};
     }}
 
-    /* Detachable tabs (overlay replacement) — modern flat look: rounded top,
+    /* Detachable tabs (overlay replacement) - modern flat look: rounded top,
        no boxy borders, an accent underline on the selected tab. */
     QTabWidget::pane {{ border: none; top: 0; }}
     QTabBar {{ background: {c('BG_HEADER')}; }}
@@ -280,7 +280,7 @@ def build_qss(pal: dict | None = None) -> str:
         color: {c('TEXT_MAIN')};
         border-bottom: 2px solid {c('ACCENT')};
     }}
-    /* Close button — a clear square on the right of the tab (matches the
+    /* Close button - a clear square on the right of the tab (matches the
        mockup). Larger hit area, subtle by default, soft rounded red on hover. */
     QTabBar::close-button {{
         image: url({_tinted_icon_url('close_white.png', c('TEXT_DIM'))});
@@ -293,7 +293,7 @@ def build_qss(pal: dict | None = None) -> str:
         image: url({_tinted_icon_url('close_white.png', ct('BTN_DANGER'))});
     }}
 
-    /* Slim modern scrollbars — applied globally (modlist, plugins, log, …) */
+    /* Slim modern scrollbars - applied globally (modlist, plugins, log, …) */
     QScrollBar:vertical {{
         background: transparent;
         width: 14px;
@@ -364,11 +364,11 @@ def build_qss(pal: dict | None = None) -> str:
        easy to find and grab. */
     QSplitter::handle:hover {{ background: {c('ACCENT')}; }}
     QSplitter::handle:pressed {{ background: {c('ACCENT')}; }}
-    /* FOMOD wizard divider — a visible, grabbable handle. */
+    /* FOMOD wizard divider - a visible, grabbable handle. */
     #FomodSplit::handle {{ background: {c('BORDER')}; }}
     #FomodSplit::handle:horizontal {{ width: 6px; }}
     #FomodSplit::handle:hover {{ background: {c('ACCENT')}; }}
-    /* FOMOD option groups — larger text + indicators for readability. */
+    /* FOMOD option groups - larger text + indicators for readability. */
     #FomodGroup {{
         background: {c('BG_PANEL')};
         border: 1px solid {c('BORDER')};
@@ -495,7 +495,7 @@ def build_qss(pal: dict | None = None) -> str:
         border-radius: 4px;
         padding: 8px 10px;
     }}
-    /* Consistent form button (Browse/Open/Scan/Reset, Cancel) — same height as
+    /* Consistent form button (Browse/Open/Scan/Reset, Cancel) - same height as
        the primary Save/Danger buttons so rows line up. */
     #FormButton {{
         background: {c('BG_ROW')};
@@ -615,7 +615,7 @@ def build_qpalette(p: dict) -> "QPalette":
     pal.setColor(QPalette.PlaceholderText, c("TEXT_FAINT"))
     pal.setColor(QPalette.Link, c("LINK_BLUE"))
     pal.setColor(QPalette.BrightText, c("TEXT_WHITE"))
-    # Fusion draws bevels/frames from these shade roles — seed them so panels,
+    # Fusion draws bevels/frames from these shade roles - seed them so panels,
     # group boxes, frames and sunken borders read on the dark theme instead of
     # the default near-black/near-white guesses.
     pal.setColor(QPalette.Light, c("BORDER_FAINT"))
@@ -684,7 +684,7 @@ def _resolve_base_style(p: dict):
 
 
 def _lighten(hex_color: str, factor: float = 0.18) -> str:
-    """Return *hex_color* blended toward white by *factor* (0..1) — used for the
+    """Return *hex_color* blended toward white by *factor* (0..1) - used for the
     hover state of danger buttons so it lifts consistently regardless of theme."""
     h = hex_color.lstrip("#")
     if len(h) != 6:
@@ -721,7 +721,7 @@ def contrast_text(bg: str, dark: str = "#101010", light: str = "#ffffff") -> str
 
 
 def qc(pal: dict, key: str) -> "QColor":
-    """QColor for palette *key* — shorthand for ``QColor(_c(pal, key))``,
+    """QColor for palette *key* - shorthand for ``QColor(_c(pal, key))``,
     the incantation every delegate __init__ repeats per colour."""
     from PySide6.QtGui import QColor
     return QColor(_c(pal, key))
@@ -748,13 +748,13 @@ def button_qss(key: str, *, hover_key: str | None = None,
 
     Central builder so the many tab/wizard views that used to hardcode
     ``background:#2d6a9e``-style hex (blue "Select", green "Done", orange,
-    red close) all pull their colours from the active theme instead — which
+    red close) all pull their colours from the active theme instead - which
     is what lets a monotone / high-contrast theme actually take effect.
 
     *key* is the palette key for the base fill; the hover is *hover_key* when
     given, otherwise the base blended toward white via :func:`_lighten`. The
     label colour is **auto-contrasted** off the fill (:func:`contrast_text`) so
-    it stays visible on any theme — button text is deliberately not editable,
+    it stays visible on any theme - button text is deliberately not editable,
     since visibility matters more than the exact colour. Pass *text_key* only
     to force a specific palette key. Disabled fill/text are palette-driven."""
     if pal is None:

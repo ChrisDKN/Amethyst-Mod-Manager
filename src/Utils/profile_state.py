@@ -1,6 +1,6 @@
 """
 profile_state.py
-Centralised read/write for profile_state.json — a single file that
+Centralised read/write for profile_state.json - a single file that
 consolidates all small per-profile JSON/text state files:
 
   collapsed_seps              list[str]
@@ -54,7 +54,7 @@ _LEGACY = {
     "disabled_plugins":             "disabled_plugins.json",
     "excluded_mod_files":           "excluded_mod_files.json",
     "profile_settings":             "profile_settings.json",
-    # ignored_missing_requirements has no legacy JSON file — it was a .txt
+    # ignored_missing_requirements has no legacy JSON file - it was a .txt
 }
 
 _LEGACY_IGNORED_TXT = "ignored_missing_requirements.txt"
@@ -162,7 +162,7 @@ def _read_key(profile_dir: Path, state: dict | None, key: str):
     """Return state[key] if present in *state* snapshot, else current disk, else legacy file.
 
     If *state* is a stale in-memory snapshot (e.g. loaded at profile open) and a key was
-    written later only to profile_state.json, we must read from disk — otherwise callers
+    written later only to profile_state.json, we must read from disk - otherwise callers
     see {} and the next write drops other mods' data (e.g. disabled_plugins).
     """
     if state is not None and key in state:
@@ -360,7 +360,7 @@ def read_ignored_missing_requirements(profile_dir: Path, state: dict | None = No
 
 
 # ---------------------------------------------------------------------------
-# Per-key writers — load current state, update one key, write back
+# Per-key writers - load current state, update one key, write back
 # ---------------------------------------------------------------------------
 
 def _lock_for(profile_dir: Path) -> threading.Lock:

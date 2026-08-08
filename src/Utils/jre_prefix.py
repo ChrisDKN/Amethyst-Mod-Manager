@@ -15,7 +15,7 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
-# Liberica Full 8 (Windows x64) — bundles JavaFX. Pinned to a known-good build;
+# Liberica Full 8 (Windows x64) - bundles JavaFX. Pinned to a known-good build;
 # BellSoft keeps old builds available indefinitely.
 LIBERICA_WIN_JRE_URL = (
     "https://download.bell-sw.com/java/8u442+7/"
@@ -54,7 +54,7 @@ def install_windows_jre(compat_data: Path, log_fn=lambda _m: None,
 
     Returns the native path to the installed java.exe, or None on failure.
     Idempotent: if java.exe is already present it just returns it. Synchronous
-    (network + unzip) — call from a worker thread.
+    (network + unzip) - call from a worker thread.
     """
     existing = java_exe_in_prefix(compat_data)
     if existing.is_file():
@@ -71,7 +71,7 @@ def install_windows_jre(compat_data: Path, log_fn=lambda _m: None,
         from Utils.ca_bundle import download_file
         download_file(url, archive)
     except Exception as e:
-        log_fn(f"Java: download failed — {e}")
+        log_fn(f"Java: download failed - {e}")
         return None
 
     log_fn("Java: unpacking into the prefix …")
@@ -79,7 +79,7 @@ def install_windows_jre(compat_data: Path, log_fn=lambda _m: None,
         with zipfile.ZipFile(archive, "r") as zf:
             zf.extractall(dest)
     except Exception as e:
-        log_fn(f"Java: unpack failed — {e}")
+        log_fn(f"Java: unpack failed - {e}")
         return None
     finally:
         try:
@@ -90,7 +90,7 @@ def install_windows_jre(compat_data: Path, log_fn=lambda _m: None,
     _flatten_single_top_dir(dest)
     result = java_exe_in_prefix(compat_data)
     if not result.is_file():
-        log_fn("Java: install finished but java.exe wasn't found — the archive "
+        log_fn("Java: install finished but java.exe wasn't found - the archive "
                "layout may have changed.")
         return None
     log_fn(f"Java: installed. Set Launch Options to '{JAVA_EXE_WIN} -jar %command%'.")

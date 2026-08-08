@@ -7,7 +7,7 @@ from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVilla
 
 
 class ResidentEvil4(ResidentEvilVillage):
-    """Resident Evil 4 Remake (2023) — identical workflow to RE Village."""
+    """Resident Evil 4 Remake (2023) - identical workflow to RE Village."""
 
     @property
     def name(self) -> str:

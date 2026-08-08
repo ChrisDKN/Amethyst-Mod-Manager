@@ -1,4 +1,4 @@
-"""Modlist filter engine (Qt) — a faithful port of the Tk
+"""Modlist filter engine (Qt) - a faithful port of the Tk
 ModListPanel._compute_visible_indices filtering logic.
 
 Pure backend: takes the model's ModEntry list + a FilterData bundle (conflict
@@ -9,7 +9,7 @@ unions this with its collapse hide-set and calls setRowHidden.
 The tri-state semantics, separator-block awareness ("keep a separator if any
 mod in its block matches"), and the independent include/exclude handling all
 mirror the Tk engine so the same edge cases are covered. Data builders
-(categories, filetypes, BSA, PBR) read the persisted backend indexes directly —
+(categories, filetypes, BSA, PBR) read the persisted backend indexes directly -
 the same sources the Tk panel uses.
 """
 
@@ -58,7 +58,7 @@ _CONFLICT_KEYS = {
 
 _BOUNDARY = (OVERWRITE_NAME, ROOT_FOLDER_NAME)
 
-# Texture suffixes PGPatcher acts on (parallax/complex-material/PBR) — mirrors
+# Texture suffixes PGPatcher acts on (parallax/complex-material/PBR) - mirrors
 # the Tk _PGPATCHER_TEX_SUFFIXES list.
 _PGPATCHER_TEX_SUFFIXES = (
     "_p", "_m", "_em", "_envmask",
@@ -94,8 +94,8 @@ class FilterData:
 # Separator-block helpers (operate on the entry list)
 # --------------------------------------------------------------------------
 def _sep_block_range(entries, sep_idx: int) -> range:
-    """[sep_idx, end) — the separator plus its non-separator mods until the next
-    separator (or end). (No bundle handling — Qt has no bundle separators yet.)"""
+    """[sep_idx, end) - the separator plus its non-separator mods until the next
+    separator (or end). (No bundle handling - Qt has no bundle separators yet.)"""
     end = sep_idx + 1
     n = len(entries)
     while end < n and not entries[end].is_separator:
@@ -267,10 +267,10 @@ def plugin_filter_hidden_rows(rows, state: dict, disabled_mf=None) -> set[int]:
     `rows` is the PluginModel row list (each has .name/.enabled/.flags/.vanilla);
     `state` maps each filter_* key → tri-state int (0 off / 1 include / 2 exclude).
     `disabled_mf` (optional) is the set of plugin filenames (lowercase basename)
-    disabled via the Mod Files tab — a plugin in this set counts as "disabled"
+    disabled via the Mod Files tab - a plugin in this set counts as "disabled"
     even if plugins.txt still enables it (the two sources are unioned).
     Include narrows (keep only rows where the predicate holds); exclude drops
-    (hide rows where it holds). AND across includes, OR across excludes — same
+    (hide rows where it holds). AND across includes, OR across excludes - same
     convention as compute_hidden_rows. No active keys → hide nothing.
     """
     from gui_qt.plugin_state import (
@@ -493,7 +493,7 @@ def compute_hidden_rows(entries, state: dict, data: FilterData) -> set[int]:
     return {i for i in range(len(entries)) if i not in visible}
 
 
-# (attr_key, mods_set_attr_on_data) — the tri-state membership filters.
+# (attr_key, mods_set_attr_on_data) - the tri-state membership filters.
 _SIMPLE_SPECS = (
     ("filter_missing_reqs", None),          # special: subtract ignored
     ("filter_has_disabled_plugins", "disabled_plugins_mods"),
@@ -549,7 +549,7 @@ def _any_active(state: dict) -> bool:
 
 
 # --------------------------------------------------------------------------
-# Data builders (read the persisted backend indexes — same sources as Tk)
+# Data builders (read the persisted backend indexes - same sources as Tk)
 # --------------------------------------------------------------------------
 def _read_mod_index(staging_parent: Path) -> dict:
     """{mod: (normal, root)} from modindex.bin, or {}."""
@@ -613,7 +613,7 @@ def build_mods_with_plugins(staging_parent: Path, plugin_exts) -> set[str]:
     out: set[str] = set()
     try:
         # surrogateescape: filemap.txt carries filesystem-derived relative
-        # paths whose non-UTF-8 bytes decode to surrogate code points — a plain
+        # paths whose non-UTF-8 bytes decode to surrogate code points - a plain
         # utf-8 read raises UnicodeDecodeError/EncodeError on them.
         for line in fm.read_text(encoding="utf-8",
                                  errors="surrogateescape").splitlines():

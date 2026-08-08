@@ -29,7 +29,7 @@ def _mod_plugins(staging_root: Path, mod_name: str,
 
     For rule-routing games (*game* with a plugins_routing_ctx, e.g. Oblivion
     Remastered) plugins can additionally sit ANYWHERE inside the mod as long
-    as the deploy rules route them to the top of the data dir — those are
+    as the deploy rules route them to the top of the data dir - those are
     picked up via routed_mod_plugin_names."""
     mod_dir = staging_root / mod_name
     if not mod_dir.is_dir():
@@ -67,7 +67,7 @@ def _mod_plugins_from_index(index, mod_name: str, exts: tuple[str, ...],
     mod is not indexed (caller falls back to the disk scan).
 
     Index rel paths are destination-relative (strip prefixes removed), so this
-    matches exactly what the filemap deploys to the top of the data dir — the
+    matches exactly what the filemap deploys to the top of the data dir - the
     same universe the panel's filemap recovery adds plugins from. The disk
     scan misses layouts the filemap handles (e.g. non-data strip prefixes),
     which left stale plugins.txt entries on disable (GH#318 class)."""
@@ -123,7 +123,7 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
     if not plugin_exts:
         return False
     # Also scan the top level of the game's data subfolder inside each mod
-    # ('Data Files/' for Morrowind) — see _mod_plugins. Gated on the subfolder
+    # ('Data Files/' for Morrowind) - see _mod_plugins. Gated on the subfolder
     # being a declared strip prefix so a folder that would deploy NESTED into
     # the data dir (never loadable) isn't scanned by mistake.
     data_subs: "set[str] | None" = None
@@ -162,7 +162,7 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
     # read_plugins returns [] and write_plugins creates the file (+ parents), so
     # the code below handles a missing file correctly. An earlier port bailed
     # here, which silently dropped a freshly-enabled mod's plugins on a new
-    # profile (they never reached plugins.txt) — a Qt-vs-Tk regression.
+    # profile (they never reached plugins.txt) - a Qt-vs-Tk regression.
 
     add: list[str] = []
     add_seen: set[str] = set()
@@ -185,12 +185,12 @@ def sync_plugins_for_mods(game, profile_dir: Path | None,
             mdir = staging_root / mod_name
             if not mdir.is_dir():
                 log(f"WARN plugin sync: enabled mod \"{mod_name}\" has no "
-                    f"staging folder at {mdir} — nothing added to plugins.txt")
+                    f"staging folder at {mdir} - nothing added to plugins.txt")
         for name in found:
             low = name.lower()
             if now_enabled:
                 # Dedupe: two mods in one batch can provide the same plugin
-                # (patcher outputs) — one plugins.txt line, not two.
+                # (patcher outputs) - one plugins.txt line, not two.
                 if low not in add_seen:
                     add.append(name)
                     add_seen.add(low)

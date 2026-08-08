@@ -5,10 +5,10 @@ be reused by the Qt view and unit-tested without a GUI toolkit.  No tkinter or
 Qt imports here.
 
 Pipeline:
-  * ``fetch_latest_smapi_asset()`` — latest installer-zip URL from GitHub.
-  * ``download_smapi(url, dest, reporthook)`` — HTTPS download via the app CA
+  * ``fetch_latest_smapi_asset()`` - latest installer-zip URL from GitHub.
+  * ``download_smapi(url, dest, reporthook)`` - HTTPS download via the app CA
     bundle.
-  * ``install_smapi(game, archive, mode, ...)`` — unattended install into the
+  * ``install_smapi(game, archive, mode, ...)`` - unattended install into the
     game folder / Root_Folder staging / a managed root-flagged mod.
 
 Why we don't run SMAPI's own installer
@@ -17,10 +17,10 @@ The bundled ``internal/linux/SMAPI.Installer`` is an interactive .NET console
 app: it asks the player to pick install-vs-uninstall and confirm the game
 folder, then writes into that folder directly.  Driving it needed a terminal
 emulator (konsole/xterm/…), which is fragile from a Flatpak/AppImage sandbox,
-required user input, and can only ever target the real game folder — so it
+required user input, and can only ever target the real game folder - so it
 could not honour our Root_Folder / managed-mod destinations.
 
-Its payload, however, is just ``internal/linux/install.dat`` — a plain zip (the
+Its payload, however, is just ``internal/linux/install.dat`` - a plain zip (the
 SMAPI README documents renaming it to ``.zip``).  The installer's remaining
 work is three documented steps we reproduce natively here:
 
@@ -31,7 +31,7 @@ work is three documented steps we reproduce natively here:
      starts SMAPI.
 
 Steps 2 and 3 touch *vanilla* game files, so they behave differently per
-destination — see :func:`install_smapi` and :func:`_write_launcher_shim`.
+destination - see :func:`install_smapi` and :func:`_write_launcher_shim`.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ _GAME_LAUNCHER = "StardewValley"
 _GAME_LAUNCHER_BACKUP = "StardewValley-original"
 _SMAPI_LAUNCHER = "StardewModdingAPI"
 
-#: deps.json copy — SMAPI reuses the game's dependency manifest.
+#: deps.json copy - SMAPI reuses the game's dependency manifest.
 _GAME_DEPS = "Stardew Valley.deps.json"
 _SMAPI_DEPS = "StardewModdingAPI.deps.json"
 
@@ -123,7 +123,7 @@ def find_payload(installer_root: Path) -> Path:
     The release zip wraps everything in a top-level ``SMAPI x.y.z installer/``
     folder, so match on the path *suffix* rather than an exact relative path.
     The archive also ships ``internal/windows`` and ``internal/macOS``
-    payloads — picking either of those would install the wrong platform's
+    payloads - picking either of those would install the wrong platform's
     binaries, so only the documented Linux/unix locations are accepted.
     """
     matches = sorted(installer_root.rglob("install.dat"))
@@ -138,7 +138,7 @@ def find_payload(installer_root: Path) -> Path:
             return cand
     raise RuntimeError(
         "Could not find 'internal/linux/install.dat' inside the SMAPI "
-        "archive — the archive may be corrupt or not a SMAPI installer.")
+        "archive - the archive may be corrupt or not a SMAPI installer.")
 
 
 def extract_smapi_payload(archive: Path, dest: Path,
@@ -147,7 +147,7 @@ def extract_smapi_payload(archive: Path, dest: Path,
 
     *archive* is the downloaded ``SMAPI-x.y.z-installer.zip``; the real files
     live in a nested ``install.dat`` zip.  Returns the number of files written.
-    Marks the SMAPI launcher and ``unix-launcher.sh`` executable — the zip
+    Marks the SMAPI launcher and ``unix-launcher.sh`` executable - the zip
     stores POSIX modes but Python's zipfile drops them on extract.
     """
     cache_root = Path.home() / ".cache" / "amethyst-smapi"
@@ -200,7 +200,7 @@ def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
         shutil.copy2(deps_src, deps_dst)
         log_fn(f"SMAPI Wizard: copied {_GAME_DEPS} → {_SMAPI_DEPS}")
     else:
-        log_fn(f"SMAPI Wizard: warning — {_GAME_DEPS} not found in the game "
+        log_fn(f"SMAPI Wizard: warning - {_GAME_DEPS} not found in the game "
                "folder; SMAPI may fail to start.")
 
     vanilla = game_dir / _GAME_LAUNCHER
@@ -209,19 +209,19 @@ def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
 
     if not smapi.is_file():
         raise RuntimeError(
-            f"'{_SMAPI_LAUNCHER}' is missing after extraction — "
+            f"'{_SMAPI_LAUNCHER}' is missing after extraction - "
             "the SMAPI payload did not unpack correctly.")
 
     if backup.is_file():
         # Already installed once: `vanilla` is a previous SMAPI launcher, so
         # overwrite it and leave the real backup untouched.
-        log_fn(f"SMAPI Wizard: {_GAME_LAUNCHER_BACKUP} already present — "
+        log_fn(f"SMAPI Wizard: {_GAME_LAUNCHER_BACKUP} already present - "
                "reusing the existing vanilla backup.")
     elif vanilla.is_file():
         shutil.move(str(vanilla), str(backup))
         log_fn(f"SMAPI Wizard: renamed {_GAME_LAUNCHER} → {_GAME_LAUNCHER_BACKUP}")
     else:
-        log_fn(f"SMAPI Wizard: warning — no {_GAME_LAUNCHER} launcher found "
+        log_fn(f"SMAPI Wizard: warning - no {_GAME_LAUNCHER} launcher found "
                "to back up.")
 
     shutil.copy2(smapi, vanilla)
@@ -233,7 +233,7 @@ def _write_launcher_shim(dest: Path, log_fn: LogFn = _noop) -> None:
     """Write a ``StardewValley`` launcher into a *staged* payload.
 
     For staging destinations (Root_Folder / managed mod) we cannot rename the
-    vanilla launcher — it lives in the game folder and is restored on every
+    vanilla launcher - it lives in the game folder and is restored on every
     deploy cycle.  Instead we ship our own ``StardewValley`` script that the
     deploy overlays on top of the vanilla one; it execs SMAPI from the same
     folder.  Deploy backs the vanilla launcher up to the _Core folder, so the
@@ -242,7 +242,7 @@ def _write_launcher_shim(dest: Path, log_fn: LogFn = _noop) -> None:
     shim = dest / _GAME_LAUNCHER
     shim.write_text(
         "#!/usr/bin/env bash\n"
-        "# Installed by Amethyst Mod Manager — launches SMAPI instead of the\n"
+        "# Installed by Amethyst Mod Manager - launches SMAPI instead of the\n"
         "# vanilla game. The original launcher is preserved by the mod\n"
         "# manager's deploy backup (Stardew Valley restore puts it back).\n"
         'cd "$(dirname "$0")" || exit $?\n'
@@ -262,12 +262,12 @@ def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> Non
     """
     game_dir = game.get_game_path()
     if game_dir is None:
-        log_fn("SMAPI Wizard: warning — game path not configured, cannot stage "
+        log_fn("SMAPI Wizard: warning - game path not configured, cannot stage "
                f"{_SMAPI_DEPS}.")
         return
     src = Path(game_dir) / _GAME_DEPS
     if not src.is_file():
-        log_fn(f"SMAPI Wizard: warning — {_GAME_DEPS} not found in the game "
+        log_fn(f"SMAPI Wizard: warning - {_GAME_DEPS} not found in the game "
                f"folder; {_SMAPI_DEPS} was not staged.")
         return
     shutil.copy2(src, dest / _SMAPI_DEPS)
@@ -291,12 +291,12 @@ def install_smapi(
 ) -> tuple[str, int, "str | None"]:
     """Install SMAPI from *archive* with no user interaction.
 
-    mode — ``"game"`` (game folder, restoring to vanilla first when
+    mode - ``"game"`` (game folder, restoring to vanilla first when
     *restore_first*), ``"root"`` (Root_Folder staging) or ``"mod"`` (a managed
     root-flagged mod, registered in the modlist and indexed so it deploys
     without a manual Refresh).
 
-    Returns ``(dest_label, file_count, mod_name-or-None)``.  Blocking — call
+    Returns ``(dest_label, file_count, mod_name-or-None)``.  Blocking - call
     from a worker thread; does no UI work.  The caller reloads the modlist on
     the GUI thread when mode == "mod".
     """

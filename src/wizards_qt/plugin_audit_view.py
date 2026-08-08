@@ -1,11 +1,11 @@
-"""Plugin Audit wizard — Qt port of wizards/plugin_audit.py.
+"""Plugin Audit wizard - Qt port of wizards/plugin_audit.py.
 
 A modlist-panel-scoped tab, three pages:
-  1. Scan — worker audits the active load order (progress bar).
-  2. Results — three grouped sections (safe-to-disable / blocked by new
+  1. Scan - worker audits the active load order (progress bar).
+  2. Results - three grouped sections (safe-to-disable / blocked by new
      records / blocked by dependents) with a checkbox + columns; actions:
      Re-Scan, Select All Safe, Disable Selected, Clean Orphaned INIs.
-  3. Cleanup result — summary + Re-Scan.
+  3. Cleanup result - summary + Re-Scan.
 The scan/disable/cleanup logic lives in Utils/plugin_audit_core.py.
 """
 
@@ -42,7 +42,7 @@ class PluginAuditView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Plugin Audit — {0}").format(game.name))
+                         title=self.tr("Plugin Audit - {0}").format(game.name))
         self._entries: dict = {}
         self._checks: dict = {}   # plugin_name -> QCheckBox (safe entries only)
 
@@ -180,7 +180,7 @@ class PluginAuditView(WizardViewBase):
             patch.setFixedWidth(150)
             patch.setStyleSheet(f"color:{colour};")
             rh.addWidget(patch)
-            pri = QLabel(str(entry.priority) if entry.priority >= 0 else "—")
+            pri = QLabel(str(entry.priority) if entry.priority >= 0 else "-")
             pri.setFixedWidth(60)
             pri.setStyleSheet(self._dim)
             rh.addWidget(pri)
@@ -196,13 +196,13 @@ class PluginAuditView(WizardViewBase):
             for e in safe:
                 _row(e, selectable=True)
         if blocked_new:
-            _section(self.tr("Blocked — adds new records ({0})").format(
+            _section(self.tr("Blocked - adds new records ({0})").format(
                      len(blocked_new)),
                      "#e0a83c")
             for e in blocked_new:
                 _row(e, selectable=False)
         if blocked_dep:
-            _section(self.tr("Blocked — required by other plugins "
+            _section(self.tr("Blocked - required by other plugins "
                      "({0})").format(len(blocked_dep)), RED)
             for e in blocked_dep:
                 _row(e, selectable=False)
@@ -210,7 +210,7 @@ class PluginAuditView(WizardViewBase):
         self._results_scroll.setWidget(inner)
 
         self._results_summary.setText(
-            self.tr("Audit complete — {0} plugins, {1} safe to disable.")
+            self.tr("Audit complete - {0} plugins, {1} safe to disable.")
             .format(len(entries), len(safe)))
         self._sel_safe_btn.setEnabled(bool(safe))
         self._disable_btn.setEnabled(bool(safe))
@@ -237,7 +237,7 @@ class PluginAuditView(WizardViewBase):
         disabled, msg = core.disable_plugins(self._game, selected)
         self._log(f"Plugin Audit: {msg}")
         self._ran = True
-        # plugins.txt changed — re-sync + reload panels, then close.
+        # plugins.txt changed - re-sync + reload panels, then close.
         self._finish()
 
     # ---- cleanup ------------------------------------------------------------------
@@ -271,7 +271,7 @@ class PluginAuditView(WizardViewBase):
     def _on_cleanup_done(self, found: int, deleted: int):
         self._ran = True
         self._cleanup_summary.setText(
-            self.tr("Cleanup complete — deleted {0} of {1} INI(s) found.\n\n"
+            self.tr("Cleanup complete - deleted {0} of {1} INI(s) found.\n\n"
             "Re-scan to verify.").format(deleted, found)
             if found else self.tr("No SkyGen INIs found to clean."))
         self._stack.setCurrentIndex(_PG_CLEANUP)

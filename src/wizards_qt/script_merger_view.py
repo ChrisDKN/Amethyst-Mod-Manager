@@ -1,4 +1,4 @@
-"""Witcher 3 Script Merger wizard — Qt port of wizards/script_merger_tw3.py.
+"""Witcher 3 Script Merger wizard - Qt port of wizards/script_merger_tw3.py.
 
 Deploy → manual Nexus download → locate (sm-fae archive) → extract to
 Applications/ScriptMerger/ → choose Proton version/prefix (shared wizard
@@ -41,7 +41,7 @@ class ScriptMergerView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run Script Merger — {0}").format(game.name))
+                         title=self.tr("Run Script Merger - {0}").format(game.name))
         self._proton_name = ""
         self._prefix_mode = ""
         self._prefix_env = None
@@ -51,7 +51,7 @@ class ScriptMergerView(WizardViewBase):
             lambda t, c: self._set_status(self._net8_status, t, c)))
         self._net8_done_sig.connect(self._guard(self._on_net8_done))
 
-        # page 0: deploy (auto-start + Skip — Tk parity)
+        # page 0: deploy (auto-start + Skip - Tk parity)
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QPushButton
         page, lay = self._step_page(self.tr("Step 1: Deploy Modlist"))
@@ -156,7 +156,7 @@ class ScriptMergerView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._net8_status_sig,
-                              self.tr("Could not find Proton '{0}' — check "
+                              self.tr("Could not find Proton '{0}' - check "
                               "that it is installed in Steam, then reopen this "
                               "wizard.").format(proton_name), RED)
                     safe_emit(self._net8_done_sig, False)
@@ -168,7 +168,7 @@ class ScriptMergerView(WizardViewBase):
                 net8_key = dotnet_dep_key("8")
                 if is_dep_installed(prefix_path, net8_key):
                     safe_emit(self._net8_status_sig,
-                              self.tr(".NET 8 already installed — skipping."),
+                              self.tr(".NET 8 already installed - skipping."),
                               GREEN)
                     safe_emit(self._net8_done_sig, True)
                     return
@@ -199,7 +199,7 @@ class ScriptMergerView(WizardViewBase):
     # ---- run ----------------------------------------------------------------------
     # Script Merger's only record of existing merges is MergeInventory.xml
     # next to its exe; on launch it DELETES entries whose merged file or
-    # source mods are missing from the deployed game folder — and doing
+    # source mods are missing from the deployed game folder - and doing
     # that with the merged mod deployed crashes it under Wine (unhandled
     # IOException in DeleteEmptyDirs) and leaves half-deleted merges.
     # Restore the profile's snapshot first, then if any recorded merge
@@ -216,7 +216,7 @@ class ScriptMergerView(WizardViewBase):
             restore_inventory(self._game, log_fn=_wlog)
             missing = missing_merge_sources(self._game)
             # Capture, from the restored inventory, which merges have
-            # undeployed sources — the Done-snapshot keeps these if the
+            # undeployed sources - the Done-snapshot keeps these if the
             # merger drops them, instead of pruning them as user deletions.
             from Utils.script_merger_inventory import collateral_keys
             self._collateral_keys = collateral_keys(self._game)
@@ -268,7 +268,7 @@ class ScriptMergerView(WizardViewBase):
     def _cancel_launch(self):
         self._set_status(
             self._run_status,
-            self.tr("Launch cancelled — re-enable the merges' source mods, "
+            self.tr("Launch cancelled - re-enable the merges' source mods, "
                     "then reopen this wizard."),
             RED)
 
@@ -296,14 +296,14 @@ class ScriptMergerView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — check "
+                              self.tr("Could not find Proton '{0}' - check "
                               "that it is installed in Steam.").format(
                                   proton_name), RED)
                     return
                 proton_script, compat_data, env = result
 
                 # Script Merger watches Documents\The Witcher 3 (the mod load
-                # order) and crashes if it's missing — a fresh tool prefix has
+                # order) and crashes if it's missing - a fresh tool prefix has
                 # no such folder, so link the game prefix's real one in.
                 link_game_documents(game, compat_data / "pfx",
                                     game.name, log_fn=_wlog)
@@ -351,7 +351,7 @@ class ScriptMergerView(WizardViewBase):
     # Merged files land in the deployed game folder; game.restore() rescues
     # them into staging.  It must complete BEFORE the view closes so the
     # follow-up ctx.refresh_modlist (GUI thread, from the base _finish) sees
-    # them — marshalling after teardown would target a deleted view.
+    # them - marshalling after teardown would target a deleted view.
     _restore_done_sig = Signal()
 
     def _finish(self):
@@ -359,7 +359,7 @@ class ScriptMergerView(WizardViewBase):
             return
         if self._ran and not getattr(self, "_restored", False):
             if getattr(self, "_restoring", False):
-                return  # restore in flight — closes itself when done
+                return  # restore in flight - closes itself when done
             self._restoring = True
             self._done_btn.setEnabled(False)
             self._set_status(self._run_status,
@@ -373,7 +373,7 @@ class ScriptMergerView(WizardViewBase):
                     game.restore(log_fn=log)
                 except Exception as exc:
                     log(f"Script Merger Wizard: restore warning: {exc}")
-                # Pair the rescued merged files with the merger's inventory —
+                # Pair the rescued merged files with the merger's inventory -
                 # without it the merger forgets these merges exist.
                 try:
                     from Utils.script_merger_inventory import snapshot_inventory

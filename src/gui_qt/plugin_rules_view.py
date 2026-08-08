@@ -1,13 +1,13 @@
-"""LOOT Plugin Rules view — configure per-plugin before/after rules in userlist.yaml.
+"""LOOT Plugin Rules view - configure per-plugin before/after rules in userlist.yaml.
 
 Qt port of the Tk gui/loot_plugin_rules_overlay.py LootPluginRulesOverlay (1:1).
-Opens as a modlist-panel-scoped tab so the plugins panel stays visible — the
+Opens as a modlist-panel-scoped tab so the plugins panel stays visible - the
 selected plugin comes from the plugins panel (the app forwards selection changes
 via set_selected_plugin, mirroring Tk's _on_plugin_row_selected_cb).
 
 Left pane:  all plugins (except the selected one), filterable, draggable onto
             the right pane.
-Right pane: rules for the selected plugin — each dropped plugin becomes a rule
+Right pane: rules for the selected plugin - each dropped plugin becomes a rule
             row with a before/after toggle and a remove button.
 
 Tk semantics kept exactly: drop defaults to "after" and skips self/duplicates;
@@ -129,7 +129,7 @@ class PluginRulesView(QWidget):
         self._on_saved = on_saved or (lambda: None)
 
         self._selected_plugin: str = selected_plugin
-        # rules: list of [rel, target] — mutable so toggle can update in-place
+        # rules: list of [rel, target] - mutable so toggle can update in-place
         self._rules: list[list[str]] = []
 
         self.setObjectName("PluginRulesView")
@@ -210,7 +210,7 @@ class PluginRulesView(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(6)
 
-        hdr = QLabel(self.tr("Plugins  —  drag onto rules pane"))
+        hdr = QLabel(self.tr("Plugins  -  drag onto rules pane"))
         hdr.setStyleSheet(f"color:{self._c_text}; font-weight:bold;")
         v.addWidget(hdr)
 
@@ -237,7 +237,7 @@ class PluginRulesView(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(6)
 
-        plugin_label = self._selected_plugin or self.tr("— no plugin selected —")
+        plugin_label = self._selected_plugin or self.tr("- no plugin selected -")
         self._rules_title = QLabel(self.tr("Rules for: {0}").format(plugin_label))
         self._rules_title.setStyleSheet(
             f"color:{self._c_text}; font-weight:bold;")

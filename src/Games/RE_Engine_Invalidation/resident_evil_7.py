@@ -7,7 +7,7 @@ from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVilla
 
 
 class ResidentEvil7(ResidentEvilVillage):
-    """Resident Evil 7: Biohazard — identical workflow to RE Village.
+    """Resident Evil 7: Biohazard - identical workflow to RE Village.
 
     STM/tex remaps are skipped on the dx11_non-rt beta branch.
     """

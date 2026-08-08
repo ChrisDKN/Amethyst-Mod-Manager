@@ -9,7 +9,7 @@ Mod structure:
 
   Every mod must live inside a named subfolder containing metadata.lua
   (or, for some mods, a single .hpk file):  Mods/<ModName>/metadata.lua.
-  A few mods ship metadata.lua / the .hpk loose at the staging root — these
+  A few mods ship metadata.lua / the .hpk loose at the staging root - these
   are auto-wrapped into <ModName>/ before the filemap is built
   (mod_staging_requires_subdir + mod_staging_wrap_signals).
 """
@@ -111,14 +111,14 @@ class JaggedAlliance3(BaseGame):
     def mod_staging_wrap_signals(self) -> "tuple[set[str], set[str]]":
         # A loose metadata.lua (a genuinely flat mod) or a loose ModContent.hpk
         # (AppData mod shipping only that pack) signals a mod that must be
-        # wrapped into <ModName>/.  A non-ModContent .hpk is NOT a wrap signal —
+        # wrapped into <ModName>/.  A non-ModContent .hpk is NOT a wrap signal -
         # it is a Packs/ sibling routed elsewhere (see ja3_packs).
         return ({"metadata.lua", "modcontent.hpk"}, set())
 
     @property
     def mod_staging_already_structured_markers(self) -> "set[str]":
         # If a subdir already holds metadata.lua the mod is correctly built;
-        # a loose .hpk at root is a Packs sibling, not a flat mod — don't wrap.
+        # a loose .hpk at root is a Packs sibling, not a flat mod - don't wrap.
         return {"metadata.lua"}
 
     # -----------------------------------------------------------------------
@@ -223,7 +223,7 @@ class JaggedAlliance3(BaseGame):
                 filemap, staging, self._game_path, mode=mode,
                 log_fn=_log, appdata_mods_dir=mods_dir)
         else:
-            _log("Step 4: Skipped Packs/ routing — game path not configured.")
+            _log("Step 4: Skipped Packs/ routing - game path not configured.")
 
         _log(
             f"Deploy complete. "

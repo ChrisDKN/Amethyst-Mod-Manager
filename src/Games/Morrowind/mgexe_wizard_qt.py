@@ -1,10 +1,10 @@
-"""MGE XE wizard (Morrowind) — Qt port of Games/Morrowind/mgexe_wizard.py.
+"""MGE XE wizard (Morrowind) - Qt port of Games/Morrowind/mgexe_wizard.py.
 
 MGE XE bundles MWSE. Two install paths, auto-detected from the archive name:
-  * Installer — archive contains MGEXE-<version>-installer.exe; extracted to
+  * Installer - archive contains MGEXE-<version>-installer.exe; extracted to
     the game root, then run via the game's Proton prefix. The installer .exe
     writes into the live game folder when run, so it always installs there.
-  * Manual    — loose files (d3d8.dll, MGEXEgui.exe, mge3/, MWSE-Update.exe …).
+  * Manual    - loose files (d3d8.dll, MGEXEgui.exe, mge3/, MWSE-Update.exe …).
     The user picks a destination: the game's Root_Folder staging, or a managed
     root-flagged mod (registered in the modlist + indexed so it deploys).
 """
@@ -46,7 +46,7 @@ class MGEXEView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=f"Install MGE XE — {game.name}")
+                         title=f"Install MGE XE - {game.name}")
         self._game_root = game.get_game_path()
         self._is_installer = False
         self._dest_mode = "root"          # manual variant: "root" | "mod"
@@ -254,7 +254,7 @@ class MGEXEView(WizardViewBase):
 
     def _on_install_done(self):
         self._done_btn.setEnabled(True)
-        # A managed-mod install changed modlist.txt — reload it now on the GUI
+        # A managed-mod install changed modlist.txt - reload it now on the GUI
         # thread so the new mod shows without waiting for Done.
         if not self._is_installer and self._dest_mode == "mod":
             refresh = getattr(self._ctx, "refresh_modlist", None)

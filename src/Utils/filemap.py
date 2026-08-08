@@ -4,7 +4,7 @@ Build and write a filemap.txt that resolves mod file conflicts.
 
 Algorithm: walk enabled mods from lowest priority to highest priority.
 For each file, record (relative_path, source_mod). Higher-priority mods
-overwrite lower-priority entries — no conflicts remain in the output.
+overwrite lower-priority entries - no conflicts remain in the output.
 
 Format (one line per file):
     <relative/path/to/file>\t<mod_name>
@@ -19,7 +19,7 @@ mod so that build_filemap() can skip the expensive disk scan on every
 enable/disable/reorder.  The index is only updated when mods are installed
 or removed (or when the user hits the Refresh button).
 
-Index format — msgpack binary, v4:
+Index format - msgpack binary, v4:
     {"v": 4, "mods": [[mod_name, [[rel_key, rel_str, kind], ...]], ...]}
 where <kind> is "n" (normal) or "r" (unused legacy, kept for format compatibility).
 Paths stored in the index reflect the raw on-disk casing of each mod's files.
@@ -60,17 +60,17 @@ CONFLICT_NONE    = 0   # no conflicts at all
 CONFLICT_WINS    = 1   # wins some/all conflicts, loses none (green dot)
 CONFLICT_LOSES   = 2   # loses some conflicts, wins none (red dot)
 CONFLICT_PARTIAL = 3   # wins some, loses some (yellow dot)
-CONFLICT_FULL    = 4   # all files overridden — nothing reaches the game (white dot)
+CONFLICT_FULL    = 4   # all files overridden - nothing reaches the game (white dot)
 
 # Sentinel name used in filemap.txt and conflict dicts for the overwrite folder
 OVERWRITE_NAME   = "[Overwrite]"
 
-# Sentinel name for the root folder — files deploy to the game root, not mod data path
+# Sentinel name for the root folder - files deploy to the game root, not mod data path
 ROOT_FOLDER_NAME = "[Root_Folder]"
 
 # Not real game files: MO2 meta.ini, the manager's restore-sweep log
 # (deploy_shared.OVERWRITE_LOG_NAME), and the Script Merger inventory
-# snapshot (script_merger_inventory.SNAPSHOT_NAME) — must never reach
+# snapshot (script_merger_inventory.SNAPSHOT_NAME) - must never reach
 # the filemap.
 _EXCLUDE_NAMES = frozenset({"meta.ini", ".mm_overwrite_log.txt",
                             ".mm_merge_inventory.xml"})
@@ -126,7 +126,7 @@ def _index_cache_store(path_str: str, stat_key: tuple, index) -> None:
 # Serializes every read-modify-write of modindex.bin across threads.
 # update/remove/rename/rescan all read the index, mutate, and write it back;
 # without this, two writers on different threads (e.g. an install finishing
-# during a Refresh rebuild) interleave and one's changes are lost — or their
+# during a Refresh rebuild) interleave and one's changes are lost - or their
 # temp files collide and a half-written index gets renamed into place.
 # RLock because the RMW helpers hold it while calling _write_mod_index,
 # which takes it too.
@@ -134,7 +134,7 @@ _index_write_lock = threading.RLock()
 
 
 def _index_stat_key(index_path: Path):
-    """(st_mtime_ns, st_size) — cache-validity key for modindex.bin.
+    """(st_mtime_ns, st_size) - cache-validity key for modindex.bin.
 
     A bare float mtime is too coarse on FAT/exFAT SD cards (2 s resolution):
     a rewrite by another process inside the same tick would serve stale cache.
@@ -286,7 +286,7 @@ _incr_stats = {"fast": 0, "full": 0, "fallback": 0}
 def _incr_note(msg: str) -> None:
     """Diagnostic line for incremental skip/fallback reasons.
 
-    perftrace.mark drops sub-threshold durations, so print directly — these
+    perftrace.mark drops sub-threshold durations, so print directly - these
     are rare and explain exactly why a rebuild took the slow path.
     """
     if perftrace.is_enabled():
@@ -298,7 +298,7 @@ def _incremental_enabled() -> bool:
 
     Enabled by default; set AMM_FILEMAP_INCREMENTAL=0 to force every rebuild
     down the full-merge path (e.g. when hunting a suspected conflict-data
-    divergence — pair with AMM_FILEMAP_VERIFY=1 to compare both paths live).
+    divergence - pair with AMM_FILEMAP_VERIFY=1 to compare both paths live).
     """
     return os.environ.get("AMM_FILEMAP_INCREMENTAL") != "0"
 
@@ -355,7 +355,7 @@ def _build_incr_fingerprint(
 
     A stored state is only reusable when this matches exactly; the modlist
     diff is handled separately by the delta logic. disabled_plugins is
-    deliberately absent — it only affects the written file, tracked at write
+    deliberately absent - it only affects the written file, tracked at write
     time via last_disabled_frozen.
     """
     return (
@@ -393,7 +393,7 @@ def _build_ctx_variants(
     """Count casing variants per folder-segment context across unique dirs.
 
     Same segment walk as _collect_canonical, but keeps ALL variants with the
-    number of distinct dirs carrying each — the incremental path uses this to
+    number of distinct dirs carrying each - the incremental path uses this to
     detect when adding/removing a mod's dirs would change a canonical pick.
     """
     ctx_variants: dict[tuple[str, str], Counter] = {}
@@ -416,7 +416,7 @@ def _ctx_ties_present(
     """True when any ctx has ≥2 distinct variants tied on the winning score.
 
     Tie-breaks in _collect_canonical are first-seen (fold-order dependent),
-    which incremental history cannot reproduce — such profiles always take
+    which incremental history cannot reproduce - such profiles always take
     the full rebuild.
     """
     prefer_lower = strategy == FILEMAP_CASING_LOWER
@@ -516,7 +516,7 @@ def _casing_dir_added(
 
     Only a 0→1 refcount transition introduces the dir's casing variants.
     A variant that BEATS the current canonical pick replaces it and the ctx
-    is appended to *pick_changes* — the caller then re-normalizes every
+    is appended to *pick_changes* - the caller then re-normalizes every
     entry under that ctx (they share a lowercase key prefix). Pick changes
     are deterministic (strictly better score); only score TIES fall back,
     because a fresh rebuild resolves those by fold order.
@@ -543,7 +543,7 @@ def _casing_dir_added(
                 if _upper_count(seg) == _upper_count(pick):
                     raise _IncrFallback(f"casing tie introduced at {ctx}")
                 if _pick_canonical_segment(pick, seg, strategy) != pick:
-                    # New variant wins — adopt it and re-normalize below.
+                    # New variant wins - adopt it and re-normalize below.
                     st.canonical[ctx] = seg
                     st.dir_rewrite = {}  # memo computed under the old pick
                     pick_changes.append(ctx)
@@ -561,7 +561,7 @@ def _casing_dir_removed(
     When the retired variant WAS the canonical pick and other variants
     remain, the new best-scoring variant is adopted and the ctx appended to
     *pick_changes* for re-normalization (deterministic unless the remaining
-    best scores tie — that still falls back, fold-order dependent).
+    best scores tie - that still falls back, fold-order dependent).
     """
     rc = st.dir_refcount
     cur = rc.get(dir_str, 0)
@@ -583,12 +583,12 @@ def _casing_dir_removed(
         if n == 1:
             del counts[seg]
             if not counts:
-                # No dirs use this ctx at all any more — retire it cleanly.
+                # No dirs use this ctx at all any more - retire it cleanly.
                 del st.ctx_variants[ctx]
                 st.canonical.pop(ctx, None)
                 ctx_deleted = True
             elif st.canonical.get(ctx) == seg:
-                # The winning variant is gone — re-pick among the remaining.
+                # The winning variant is gone - re-pick among the remaining.
                 best = None
                 best_score = None
                 tie = False
@@ -610,7 +610,7 @@ def _casing_dir_removed(
     if ctx_deleted:
         # The dir_rewrite memo may hold entries computed under a now-retired
         # ctx; if a same-cased dir returns later with a different pick the
-        # stale memo would win. The memo is a pure cache — clearing is safe
+        # stale memo would win. The memo is a pure cache - clearing is safe
         # and it repopulates lazily per touched dir.
         st.dir_rewrite = {}
 
@@ -670,8 +670,8 @@ def _splice_rendered(
 ) -> None:
     """Update the sorted-keys/lines render cache in place for a delta.
 
-    replaced — value change at an existing key (line rewrite, O(log n) each).
-    inserted/deleted — structural; spliced via bisect for small deltas or one
+    replaced - value change at an existing key (line rewrite, O(log n) each).
+    inserted/deleted - structural; spliced via bisect for small deltas or one
     O(n) two-pointer merge for large ones. Raises _IncrFallback on any
     key/cache disagreement (corruption guard).
     """
@@ -752,7 +752,7 @@ def _try_incremental(
 
     Returns (count, conflict_map, overrides, overridden_by, dry_texts) on
     success, or None to signal "do the full rebuild" (state missing/invalid,
-    casing pick change, oversized delta, or any internal error — in which
+    casing pick change, oversized delta, or any internal error - in which
     case the state is dropped first so the full path repopulates cleanly).
 
     dry_run (verify mode): operates on a clone, touches no files and no
@@ -763,7 +763,7 @@ def _try_incremental(
         _incr_note("filemap: incremental skip (no state)")
         return None
     if st0.fingerprint != fingerprint:
-        # Name the mismatching components — essential for diagnosing why a
+        # Name the mismatching components - essential for diagnosing why a
         # profile never takes the fast path.
         _fp_names = (
             "index_path", "index_mtime", "modlist_path", "staging_root",
@@ -792,7 +792,7 @@ def _try_incremental(
     expect_canonical = normalize_folder_case and strategy_norm in (
         FILEMAP_CASING_UPPER, FILEMAP_CASING_LOWER)
     if expect_canonical and st0.casing_strategy is None:
-        # State was populated from an empty filemap — no casing baseline to
+        # State was populated from an empty filemap - no casing baseline to
         # maintain. The full rebuild (trivial at that size) repopulates it.
         _incr_note("filemap: incremental skip (no casing baseline)")
         return None
@@ -822,7 +822,7 @@ def _try_incremental(
                 [m for m in old if m in new_set] != [m for m in new if m in old_set]
             )
 
-        # Oversized deltas lose to the (index-cached) full merge — bail early.
+        # Oversized deltas lose to the (index-cached) full merge - bail early.
         total = sum(st.files_count.values()) or 1
         delta_files = 0
         for m in added:
@@ -890,7 +890,7 @@ def _try_incremental(
                     bad = [rs for rs in entry[0].values() if not _is_utf8_safe(rs)]
                     try:  # escaped + guarded (see rebuild_mod_index)
                         log_fn(
-                            f"WARN: Mod \"{_safe_log_str(m)}\" skipped — contains "
+                            f"WARN: Mod \"{_safe_log_str(m)}\" skipped - contains "
                             f"file(s) with non-UTF-8 name(s): "
                             f"{', '.join(_safe_log_str(n) for n in bad[:5])}"
                         )
@@ -904,7 +904,7 @@ def _try_incremental(
                 # only for a real mod so a symlinked/unscanned mod is visible.
                 if log_fn is not None and m != OVERWRITE_NAME:
                     log_fn(f"WARN: enabled mod \"{m}\" has no index entry / zero "
-                           f"files (incremental) — it will deploy no files; "
+                           f"files (incremental) - it will deploy no files; "
                            f"check for a symlinked/unreadable folder or Refresh")
                 continue
             is_root = m in root_set
@@ -948,7 +948,7 @@ def _try_incremental(
                 entry_old = fmap_ns.get(rel_key)
                 old_winner = entry_old[1] if entry_old is not None else None
                 if stack is None:
-                    # No provider left — entry disappears.
+                    # No provider left - entry disappears.
                     if entry_old is not None:
                         del fmap_ns[rel_key]
                         deleted.append(rel_key)
@@ -1045,7 +1045,7 @@ def _try_incremental(
         # --- canonical pick changes: re-normalize affected subtrees -----------
         # Every entry under a changed ctx shares the lowercase key prefix
         # parent+seg+"/", i.e. a contiguous range of the (post-splice) sorted
-        # keys. Winners are unchanged — only rel_str casing is rewritten.
+        # keys. Winners are unchanged - only rel_str casing is rewritten.
         if pick_changes:
             rep2_n: list[str] = []
             rep2_r: list[str] = []
@@ -1116,12 +1116,12 @@ def _try_incremental(
         return count, conflict_map, overrides, overridden_by, None
     except Exception as exc:
         if not dry_run:
-            # State may be half-mutated — drop it; the full rebuild repopulates.
+            # State may be half-mutated - drop it; the full rebuild repopulates.
             _drop_incr_state(output_key)
         _incr_stats["fallback"] += 1
         _incr_note(f"filemap: incremental fallback ({exc.__class__.__name__}: {exc})")
         if log_fn is not None:
-            log_fn(f"filemap: incremental fallback — {exc}")
+            log_fn(f"filemap: incremental fallback - {exc}")
         return None
     finally:
         if not dry_run:
@@ -1131,7 +1131,7 @@ def _try_incremental(
 def index_key_for_raw(raw_key: str,
                       strip_prefixes=None,
                       strip_path_prefixes: "list[str] | None" = None) -> str:
-    """Index key for a mod-relative RAW path — the one translation between the
+    """Index key for a mod-relative RAW path - the one translation between the
     tab's raw-keyed state and index space. Keep in step with _scan_dir."""
     rel = raw_key.replace("\\", "/")
     if strip_path_prefixes:
@@ -1155,7 +1155,7 @@ def index_key_for_raw(raw_key: str,
 def mod_strip_args(mod_name: str, strip_prefixes=None,
                    per_mod_strip_prefixes: dict | None = None,
                    root_folder_mods=None) -> tuple:
-    """(strip_prefixes, strip_path_prefixes) for one mod — mirrors the
+    """(strip_prefixes, strip_path_prefixes) for one mod - mirrors the
     _strip_for_mod / _path_prefixes_for_mod pair. Root mods get none."""
     if root_folder_mods and mod_name in root_folder_mods:
         return frozenset(), []
@@ -1190,28 +1190,28 @@ def _scan_dir(
     Returns (source_name, normal_files, {}, invalid_names) where normal_files
     is {rel_key_lower: rel_str_original} and invalid_names is a list of
     relative paths whose filenames contain non-UTF-8 bytes (surrogates).
-    Pure function — no shared state, safe to call from any thread.
+    Pure function - no shared state, safe to call from any thread.
 
-    strip_path_prefixes — full path prefixes to strip once (e.g. ["Tree", "Meshes/Architecture"]).
+    strip_path_prefixes - full path prefixes to strip once (e.g. ["Tree", "Meshes/Architecture"]).
     Applied first, before strip_prefixes. Longest match wins. Case-insensitive.
 
-    strip_prefixes — lowercase top-level folder names to remove from the
+    strip_prefixes - lowercase top-level folder names to remove from the
     start of each relative path before adding it to the result.  Only the
     first path segment is ever stripped, and only when it matches one of the
     listed names (case-insensitive).  e.g. strip_prefixes={"plugins"} turns
     "plugins/MyMod/MyMod.dll" into "MyMod/MyMod.dll".
 
-    allowed_extensions — when non-empty, only files whose lowercase extension
+    allowed_extensions - when non-empty, only files whose lowercase extension
     (including the leading dot) appears in this set are included.  e.g.
     allowed_extensions={".pak"} drops all non-.pak files from the result.
 
-    exclude_dirs — lowercase directory names to skip entirely during the walk.
+    exclude_dirs - lowercase directory names to skip entirely during the walk.
     Any directory whose name (case-insensitive) matches an entry here is never
     pushed onto the scan stack, so none of its files reach the filemap.
     e.g. exclude_dirs={"fomod"} prevents FOMOD installer metadata from being
     deployed to the game's data directory.
 
-    _unused_root_deploy_folders — retained for call-site compatibility only;
+    _unused_root_deploy_folders - retained for call-site compatibility only;
     the root-deploy routing has been removed in favour of custom_routing_rules.
     """
     result: dict[str, str] = {}
@@ -1223,7 +1223,7 @@ def _scan_dir(
         sorted(((p.lower(), len(p)) for p in strip_path_prefixes), key=lambda t: -t[1])
         if strip_path_prefixes else []
     )
-    # Iterative scandir stack — avoids rglob/Pathlib per-entry object cost.
+    # Iterative scandir stack - avoids rglob/Pathlib per-entry object cost.
     # Errors are handled at three levels so a transient failure on ONE entry
     # (stale NFS handle, permission blip, dying SD card) doesn't silently drop
     # every remaining entry of that directory: opening the directory and
@@ -1245,7 +1245,7 @@ def _scan_dir(
                 except StopIteration:
                     break
                 except OSError:
-                    # readdir itself failed — remaining entries of this
+                    # readdir itself failed - remaining entries of this
                     # directory are unreadable; count once and move on.
                     skipped_errors += 1
                     break
@@ -1257,11 +1257,11 @@ def _scan_dir(
                             continue
                         # Isolated Proton prefixes created next to a mod's exe
                         # (see _get_tool_prefix_env in dialogs.py) are runtime
-                        # state, not mod content — never include them in the
+                        # state, not mod content - never include them in the
                         # filemap so they don't get deployed into the game.
                         if entry.name.startswith("prefix_"):
                             continue
-                        # RE/Fluffy bundle option library — holds the original
+                        # RE/Fluffy bundle option library - holds the original
                         # option folders; only the materialised selection at the
                         # mod root is deployed (see Utils/re_bundle.py).
                         if entry.name == ".mm_bundle":
@@ -1300,7 +1300,7 @@ def _scan_dir(
                                     rel_str = remainder
                                 else:
                                     break
-                        # Extension filter — drop files not in the allowed set.
+                        # Extension filter - drop files not in the allowed set.
                         # Use suffix matching so multi-dot extensions like
                         # ".dekcns.json" are honoured (splitext only returns
                         # the last suffix).
@@ -1358,7 +1358,7 @@ def repair_nonutf8_names(root: "Path | str", log_fn=None) -> int:
     staging tree, so a Refresh can HEAL mods already on disk (installed before
     the extract-time repair existed). A non-UTF-8 name (legacy Windows code
     page byte written verbatim by the extractor) makes rebuild_mod_index skip
-    the WHOLE mod — this restores it. Decodes the raw bytes as CP1252 then
+    the WHOLE mod - this restores it. Decodes the raw bytes as CP1252 then
     CP437 (else backslashreplace) to a valid UTF-8 name. Deepest-first; skips
     when the target name already exists. Returns entries renamed. Cheap when all
     names are already UTF-8 (the common case: one rglob, no renames).
@@ -1409,7 +1409,7 @@ def _safe_log_str(s: str) -> str:
     File names read from disk can contain surrogate-escaped non-UTF-8 bytes
     (e.g. Windows-1252 curly quotes in a mod's music files). Embedding those
     RAW in a log message makes the log call itself raise UnicodeEncodeError
-    on a strict-UTF-8 stdout — which aborted rebuild_mod_index mid-rescan and
+    on a strict-UTF-8 stdout - which aborted rebuild_mod_index mid-rescan and
     left modindex.bin permanently stale ("Index rescan warning: 'utf-8' codec
     can't encode character '\\udc94' …"). Escape them instead (b"\\x94"-style)
     so warnings about bad names can never crash the operation reporting them.
@@ -1426,7 +1426,7 @@ _utf8_unsafe_cache: tuple[str, tuple, frozenset] | None = None
 
 
 def mod_index_utf8_unsafe(index_path: Path) -> frozenset:
-    """Mods in *index_path* owning a file with a non-UTF-8 (surrogate) name —
+    """Mods in *index_path* owning a file with a non-UTF-8 (surrogate) name -
     a legacy-index-only condition (v4 indexes skip such files at scan time).
 
     Cached by (path, mtime) like read_mod_index: the sweep encodes every file
@@ -1463,8 +1463,8 @@ _VALID_FILEMAP_CASINGS = frozenset({
 def _pick_canonical_segment(a: str, b: str, strategy: str = FILEMAP_CASING_UPPER) -> str:
     """Choose the folder name whose casing best matches *strategy*.
 
-    strategy="upper" — prefer the variant with more uppercase characters.
-    strategy="lower" — prefer the variant with more lowercase characters
+    strategy="upper" - prefer the variant with more uppercase characters.
+    strategy="lower" - prefer the variant with more lowercase characters
                        (= fewer uppercase).
     On a tie, the first-seen variant (*a*) wins (stable choice).
     """
@@ -1583,8 +1583,8 @@ def _normalize_folder_cases(
     whole filemap is consistent.
 
     strategy:
-      "upper" — prefer the variant with more uppercase letters (default).
-      "lower" — prefer the variant with more lowercase letters.
+      "upper" - prefer the variant with more uppercase letters (default).
+      "lower" - prefer the variant with more lowercase letters.
 
     File *names* are left exactly as they are.  Use ``_apply_force_casing``
     for force-lower / force-upper modes which transform every segment.
@@ -1627,8 +1627,8 @@ def _apply_force_casing(
 ) -> None:
     """Force-rewrite every folder segment of rel_str in place.
 
-    strategy="force_lower" — every folder segment is lowercased.
-    strategy="force_upper" — every folder segment is uppercased.
+    strategy="force_lower" - every folder segment is lowercased.
+    strategy="force_upper" - every folder segment is uppercased.
 
     Filenames (the final segment) are left exactly as each mod shipped them.
     Used when the game engine prefers a uniform casing convention for
@@ -1700,7 +1700,7 @@ def canonicalize_dir_casing(
     unified to one canonical casing. Filenames are never touched.
 
     Exposed so the installer can merge ONE mod's ``meshes/`` + ``Meshes/`` in
-    staging using exactly the pick the filemap makes at deploy time — otherwise
+    staging using exactly the pick the filemap makes at deploy time - otherwise
     staging and the Data tab would disagree about which casing won.
     force_lower/force_upper collapse to their picking direction here: staging
     only merges variants, it never renames files.
@@ -1727,7 +1727,7 @@ def canonicalize_dir_casing(
             if nd is not None:
                 new = nd + rel[slash:]
         # Folder pins only: staging merges case-variant folders but must never
-        # rename a file on disk — deploy applies filename pins to the link name.
+        # rename a file on disk - deploy applies filename pins to the link name.
         out[rel] = _pin_rel_str(new, pins, False) if pins else new
     return out
 
@@ -1742,7 +1742,7 @@ def _apply_casing_pins_tuplemap(
     shape used at write time (both the full-rebuild and incremental paths
     converge on this shape just before ``_write_filemap``).  Applying it at
     both write sites keeps a pinned folder identical regardless of which path
-    produced the map — pins are deterministic and path-independent, so the two
+    produced the map - pins are deterministic and path-independent, so the two
     can never disagree.
     """
     if not pins:
@@ -1757,7 +1757,7 @@ def _apply_casing_pins_tuplemap(
 
 
 # ---------------------------------------------------------------------------
-# Mod index — persistent cache of each mod's file list
+# Mod index - persistent cache of each mod's file list
 # ---------------------------------------------------------------------------
 
 def read_mod_index(
@@ -1767,7 +1767,7 @@ def read_mod_index(
 
     Returns None if the index does not exist or has an unrecognised version
     (caller should fall back to a full disk scan).
-    Paths in the returned dicts reflect raw on-disk casing per mod — folder
+    Paths in the returned dicts reflect raw on-disk casing per mod - folder
     case normalization across mods is applied at filemap-build time, not in
     the index.
     Results are cached in memory by (path, stat) so repeated calls within
@@ -1854,7 +1854,7 @@ def _write_mod_index(
         mods.append([mod_name, files])
     payload = {"v": _INDEX_VERSION, "mods": mods}
     # Per-process temp suffix: a second PROCESS (two app instances, CLI + GUI)
-    # writing concurrently must not truncate/rename this writer's temp file —
+    # writing concurrently must not truncate/rename this writer's temp file -
     # a fixed ".tmp" let one writer rename the other's half-written file over
     # the real index. In-process writers are serialized by _index_write_lock.
     tmp_suffix = f".tmp-{os.getpid()}"
@@ -1867,7 +1867,7 @@ def _write_mod_index(
             # A mod name or rel path carries surrogate-escaped non-UTF-8 bytes
             # msgpack cannot serialize. Scan-time filters catch files inside
             # mods, but e.g. a non-UTF-8 mod FOLDER name or a caller-supplied
-            # rel can still reach here — and one bad entry must not block the
+            # rel can still reach here - and one bad entry must not block the
             # ENTIRE index write (the historical "index permanently stale"
             # failure). Drop the unencodable entries, warn, and write the rest;
             # a later Refresh (after repair_nonutf8_names) restores them.
@@ -1907,7 +1907,7 @@ def _write_mod_index(
         for key in list(_filemap_winner_cache):
             if key.startswith(profile_dir):
                 del _filemap_winner_cache[key]
-    # The incremental state mirrors the index — drop it so the next
+    # The incremental state mirrors the index - drop it so the next
     # build_filemap() does a full merge and repopulates from fresh data.
     _drop_incr_states_under(profile_dir)
 
@@ -1936,7 +1936,7 @@ def update_mod_index(
         if index is None and index_path.is_file():
             if log_fn is not None:
                 try:
-                    log_fn(f"WARN: modindex.bin exists but is unreadable — "
+                    log_fn(f"WARN: modindex.bin exists but is unreadable - "
                            f"skipped index update for \"{_safe_log_str(mod_name)}\" "
                            f"(a full Refresh will rebuild the index).")
                 except Exception:
@@ -2014,13 +2014,13 @@ def rebuild_mod_index(
 
     The overwrite folder is also indexed under OVERWRITE_NAME.
 
-    root_folder_mods — names of mods marked root_folder=True. These are deployed
+    root_folder_mods - names of mods marked root_folder=True. These are deployed
     verbatim to the game root, so the global strip_prefixes (e.g. Bethesda's
     ``Data``) must NOT be applied: a SKSE-style mod ships ``Data/Scripts/...``
     plus loose ``.exe`` files at top level; stripping ``Data/`` would dump the
     Scripts subtree at the game root instead of inside ``<game>/Data/``.
 
-    follow_toplevel_links_under — when set, a top-level symlinked mod dir is
+    follow_toplevel_links_under - when set, a top-level symlinked mod dir is
     followed IF its resolved target lives under this root (callers pass the
     game's profiles/ dir so Profile Group links resolve); anything else keeps
     the historical skip+WARN. _scan_dir never follows nested symlinks, so a
@@ -2044,7 +2044,7 @@ def rebuild_mod_index(
         with os.scandir(staging_str) as it:
             for entry in it:
                 if entry.is_dir(follow_symlinks=False):
-                    # The folder name becomes the index KEY — a non-UTF-8
+                    # The folder name becomes the index KEY - a non-UTF-8
                     # (surrogate) name makes msgpack refuse to serialize the
                     # whole payload, blocking the ENTIRE index write. Skip it
                     # here (repair_nonutf8_names usually renames it on the
@@ -2058,7 +2058,7 @@ def rebuild_mod_index(
                     # caller passed follow_toplevel_links_under AND the resolved
                     # target is contained in it (Profile Group links into member
                     # profiles). Otherwise: the modlist sync adopts it (pathlib
-                    # is_dir follows links) but this index scan skips it — so
+                    # is_dir follows links) but this index scan skips it - so
                     # the mod appears in the list yet deploys nothing. Record +
                     # warn in that case.
                     followed = False
@@ -2079,17 +2079,17 @@ def rebuild_mod_index(
                         skipped_nondir.append(entry.name)
     except OSError as scan_err:
         # Staging root unreadable (unmounted SD card, permission loss).
-        # Writing an index from this state would WIPE every mod's entry —
+        # Writing an index from this state would WIPE every mod's entry -
         # abort without touching the existing index instead.
         if log_fn is not None:
             try:
                 log_fn(f"WARN: staging folder could not be read "
-                       f"({scan_err}) — modindex.bin left unchanged.")
+                       f"({scan_err}) - modindex.bin left unchanged.")
             except Exception:
                 pass
         return
     if skipped_nondir and log_fn is not None:
-        # Names come raw from disk and may carry surrogate bytes — escape them
+        # Names come raw from disk and may carry surrogate bytes - escape them
         # and never let a log-sink failure abort the rescan (same hardening as
         # the non-UTF-8 warning below; an unguarded sink crash here would
         # leave the index permanently stale).
@@ -2102,7 +2102,7 @@ def rebuild_mod_index(
             pass
     if skipped_badname and log_fn is not None:
         try:
-            log_fn(f"WARN: {len(skipped_badname)} mod folder(s) skipped — folder "
+            log_fn(f"WARN: {len(skipped_badname)} mod folder(s) skipped - folder "
                    f"NAME is not valid UTF-8 (rename to fix): "
                    f"{', '.join(_safe_log_str(n) for n in skipped_badname[:10])}")
         except Exception:
@@ -2141,12 +2141,12 @@ def rebuild_mod_index(
             name, normal, root, invalid_names = fut.result()
             if invalid_names:
                 if log_fn is not None:
-                    # The names are KNOWN non-UTF-8 — escape them, and never let a
+                    # The names are KNOWN non-UTF-8 - escape them, and never let a
                     # log-sink failure abort the rescan (an unguarded print of the
                     # raw names crashed here and left the index permanently stale).
                     try:
                         log_fn(
-                            f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
+                            f"WARN: Mod \"{_safe_log_str(name)}\" skipped - contains "
                             f"file(s) with non-UTF-8 name(s): "
                             f"{', '.join(_safe_log_str(n) for n in invalid_names)}"
                         )
@@ -2156,13 +2156,13 @@ def rebuild_mod_index(
             index[name] = (normal, root)
     except _FuturesTimeoutError:
         # A scan worker is stuck (hung mount / dying disk). Writing what we
-        # have would silently drop the unscanned mods — keep the old index.
+        # have would silently drop the unscanned mods - keep the old index.
         stuck = [futures[f] for f in futures if not f.done()]
         if log_fn is not None:
             try:
                 log_fn(f"WARN: index rescan timed out after {_SCAN_TIMEOUT:.0f}s "
                        f"waiting on: "
-                       f"{', '.join(_safe_log_str(n) for n in stuck[:10])} — "
+                       f"{', '.join(_safe_log_str(n) for n in stuck[:10])} - "
                        f"modindex.bin left unchanged (is the staging drive "
                        f"responding?).")
             except Exception:
@@ -2202,10 +2202,10 @@ def rescan_mods_in_index(
 
     def _warn_unreadable() -> None:
         # An existing-but-unreadable index means a subset rewrite would WIPE
-        # every other mod's entry — skip and leave it for a full Refresh.
+        # every other mod's entry - skip and leave it for a full Refresh.
         if log_fn is not None:
             try:
-                log_fn("WARN: modindex.bin exists but is unreadable — skipped "
+                log_fn("WARN: modindex.bin exists but is unreadable - skipped "
                        "partial index update (a full Refresh will rebuild it).")
             except Exception:
                 pass
@@ -2255,7 +2255,7 @@ def rescan_mods_in_index(
                 if log_fn is not None:
                     try:  # escaped names + guarded: logging must never abort the write
                         log_fn(
-                            f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
+                            f"WARN: Mod \"{_safe_log_str(name)}\" skipped - contains "
                             f"file(s) with non-UTF-8 name(s): "
                             f"{', '.join(_safe_log_str(n) for n in invalid_names)}"
                         )
@@ -2269,7 +2269,7 @@ def rescan_mods_in_index(
             try:
                 log_fn(f"WARN: index rescan timed out after {_SCAN_TIMEOUT:.0f}s "
                        f"waiting on: "
-                       f"{', '.join(_safe_log_str(n) for n in stuck[:10])} — "
+                       f"{', '.join(_safe_log_str(n) for n in stuck[:10])} - "
                        f"modindex.bin left unchanged (is the staging drive "
                        f"responding?).")
             except Exception:
@@ -2320,7 +2320,7 @@ def _render_filemap(
 ) -> tuple[list[str], list[str]]:
     """Sort the filemap and render one output line per entry.
 
-    Returns (sorted_keys, lines) — parallel lists, UNfiltered by
+    Returns (sorted_keys, lines) - parallel lists, UNfiltered by
     disabled_plugins (that filter is applied at join/write time so the
     rendered cache stays valid when the disabled set changes).
     """
@@ -2361,7 +2361,7 @@ def _join_and_write(
 ) -> int:
     """Join rendered lines (skipping disabled root-level plugins) and write.
 
-    Atomic (write-temp → rename) — concurrent readers (plugin resolution,
+    Atomic (write-temp → rename) - concurrent readers (plugin resolution,
     Data tab, deploy) must never observe a partially-written filemap.
     Returns the number of lines written.
     """
@@ -2386,7 +2386,7 @@ class _PathFilters:
     """Compiled per-file acceptance filters for the merge.
 
     Built once per build_filemap() call and shared by the full merge loop and
-    the incremental fast path — both must apply EXACTLY the same logic (same
+    the incremental fast path - both must apply EXACTLY the same logic (same
     compiled regex objects, same check order).
     """
     __slots__ = ("ignore_re", "loose_excl_re", "allowed_top", "excluded",
@@ -2461,7 +2461,7 @@ def _build_path_filters(
         _ignore_re = re.compile("|".join(parts))
 
     # Folder-name ignore patterns: a match on any directory segment drops the
-    # whole subtree from the filemap (no `<name>.*` expansion — file-specific).
+    # whole subtree from the filemap (no `<name>.*` expansion - file-specific).
     _folder_ignore_re: "re.Pattern[str] | None" = None
     if conflict_ignore_foldernames:
         _folder_ignore_re = re.compile(
@@ -2528,41 +2528,41 @@ def build_filemap(
     Falls back to a full disk scan if the index is missing or corrupt,
     and writes a fresh index as a side-effect of that scan.
 
-    per_mod_strip_prefixes — optional dict mapping mod name to a list of
+    per_mod_strip_prefixes - optional dict mapping mod name to a list of
     top-level folder names to strip for that mod only (contents move up one
     level during deployment).  Merged with strip_prefixes when scanning.
 
-    allowed_extensions — when non-empty, only files with a matching lowercase
+    allowed_extensions - when non-empty, only files with a matching lowercase
     extension (e.g. {".pak"}) are included in the filemap.  Pass None or an
     empty set to include all files (default behaviour).
 
-    root_deploy_folders — no longer used; kept for call-site compatibility.
+    root_deploy_folders - no longer used; kept for call-site compatibility.
     Previously wrote a ``filemap_root.txt``; routing is now done via
     ``custom_routing_rules`` at deploy time.
 
-    conflict_ignore_filenames — lowercase filename glob patterns (not paths);
-    matching files are dropped from the filemap entirely — never deployed and
+    conflict_ignore_filenames - lowercase filename glob patterns (not paths);
+    matching files are dropped from the filemap entirely - never deployed and
     never conflict-tracked.  Pass None or an empty set to disable.
 
-    conflict_ignore_foldernames — lowercase folder-name glob patterns; a
+    conflict_ignore_foldernames - lowercase folder-name glob patterns; a
     folder whose name matches (at any depth) is dropped from the filemap along
-    with its entire subtree — never deployed and never conflict-tracked.
+    with its entire subtree - never deployed and never conflict-tracked.
     Pass None or an empty set to disable.
 
-    excluded_loose_filenames — lowercase glob patterns; matching files are
+    excluded_loose_filenames - lowercase glob patterns; matching files are
     dropped from the filemap entirely, but only when the file is loose (no
     parent folder).  Same-named files nested in folders are unaffected.
 
-    allowed_top_level_folders — when non-empty, any foldered entry whose first
+    allowed_top_level_folders - when non-empty, any foldered entry whose first
     path segment is not in this set is dropped from the filemap.  Loose
     top-level files (no folder) are not affected by this rule.
 
-    excluded_mod_files — dict mapping mod name to a set of lowercase rel_key
+    excluded_mod_files - dict mapping mod name to a set of lowercase rel_key
     paths that should be excluded from the filemap for that mod.  Excluded
     files are treated as if the mod does not have them, so the next
     lower-priority mod that has the same file wins instead.
 
-    root_mod_files — per-mod index keys routed to the game-root namespace
+    root_mod_files - per-mod index keys routed to the game-root namespace
     (filemap_root.txt) instead of the Data one.  Exclusions win over root tags;
     whole-mod root flags make per-file tags redundant.
 
@@ -2575,7 +2575,7 @@ def build_filemap(
         if filemap_casing_pins else {}
     )
 
-    # Per-mod root-tagged rel_keys — frozen once for O(1) merge-loop membership.
+    # Per-mod root-tagged rel_keys - frozen once for O(1) merge-loop membership.
     _root_files: dict[str, frozenset[str]] = {
         m: frozenset(v) for m, v in (root_mod_files or {}).items() if v
     }
@@ -2595,7 +2595,7 @@ def build_filemap(
     index = read_mod_index(index_path)
 
     if index is None:
-        # Index missing or corrupt — fall back to full disk scan and rebuild it.
+        # Index missing or corrupt - fall back to full disk scan and rebuild it.
         rebuild_mod_index(
             index_path, staging_root,
             strip_prefixes=strip_prefixes,
@@ -2610,7 +2610,7 @@ def build_filemap(
         index = read_mod_index(index_path) or {}
 
     # Mods with legacy surrogate-encoded file names (skipped below). The sweep
-    # is mtime-cached — per-toggle rebuilds otherwise re-encode ~100k names.
+    # is mtime-cached - per-toggle rebuilds otherwise re-encode ~100k names.
     _utf8_bad = mod_index_utf8_unsafe(index_path)
 
     # Incremental fast-path bookkeeping. UE5 conflict_key_fn builds are never
@@ -2668,7 +2668,7 @@ def build_filemap(
             return False
         return rel_key[:slash] not in _allowed_top
 
-    # Per-mod disabled-plugin sets (lowercase filenames, root-level only) —
+    # Per-mod disabled-plugin sets (lowercase filenames, root-level only) -
     # write-time filter, needed by both the fast path and the full path.
     _disabled_lower = _get_disabled_lower(disabled_plugins) if disabled_plugins else {}
     _disabled_frozen = (
@@ -2727,11 +2727,11 @@ def build_filemap(
     conflict_staged: dict[str, str] = {}
     # Identity-key bookkeeping (BG3 pak UUIDs). _path_pairs holds every
     # (loser, winner) relation that came from a real path collision, so the
-    # identity-only ones can be subtracted exactly — a pair that conflicts BOTH
+    # identity-only ones can be subtracted exactly - a pair that conflicts BOTH
     # ways keeps its loose-file status.
     # Identity keys (BG3 pak UUIDs): _path_pairs records every (loser, winner)
     # from a REAL path collision so identity-only ones can be subtracted exactly
-    # — a pair conflicting both ways keeps its loose-file status.
+    # - a pair conflicting both ways keeps its loose-file status.
     _ident_on = bool(identity_ck_prefix) and conflict_key_fn is not None
     _ident_pfx = identity_ck_prefix or ""
     _path_pairs: set[tuple[str, str]] = set()
@@ -2756,8 +2756,8 @@ def build_filemap(
             # modlist) but rebuild_mod_index never indexed it (e.g. a symlinked
             # folder skipped by follow_symlinks=False, an unreadable dir, or a
             # non-UTF-8 filename that dropped the whole mod). Such a mod deploys
-            # nothing and contributes no plugins/conflicts — the exact "copied
-            # mod is invisible" signature — so surface it instead of skipping
+            # nothing and contributes no plugins/conflicts - the exact "copied
+            # mod is invisible" signature - so surface it instead of skipping
             # silently. Only warn once we know the index isn't simply empty.
             if (log_fn is not None and name != OVERWRITE_NAME
                     and name not in _utf8_bad and index):
@@ -2772,13 +2772,13 @@ def build_filemap(
                          if k != OVERWRITE_NAME and k.strip().casefold() == _nm]
                 if _near and _near != [name]:
                     log_fn(f"WARN: enabled mod \"{name}\" has NO index entry, but "
-                           f"the index has a NEAR-MATCH key {_near!r} — the "
+                           f"the index has a NEAR-MATCH key {_near!r} - the "
                            f"modlist name and the on-disk folder differ by case / "
                            f"whitespace / Unicode form. This mod deploys nothing "
                            f"until the names match (rename the folder or the "
                            f"modlist entry).")
                 else:
-                    log_fn(f"WARN: enabled mod \"{name}\" has NO index entry — it "
+                    log_fn(f"WARN: enabled mod \"{name}\" has NO index entry - it "
                            f"will deploy no files (not scanned into modindex.bin; "
                            f"check for a symlinked/unreadable folder or run "
                            f"Refresh). Index has {len(index)} mod(s).")
@@ -2787,7 +2787,7 @@ def build_filemap(
         if not normal:
             if (log_fn is not None and name != OVERWRITE_NAME
                     and name not in _utf8_bad):
-                log_fn(f"WARN: enabled mod \"{name}\" indexed with ZERO files — "
+                log_fn(f"WARN: enabled mod \"{name}\" indexed with ZERO files - "
                        f"it will deploy nothing")
             continue
         # Guard against surrogate-encoded filenames left in an old modindex.bin
@@ -2800,7 +2800,7 @@ def build_filemap(
             if log_fn is not None:
                 try:  # escaped + guarded (see rebuild_mod_index)
                     log_fn(
-                        f"WARN: Mod \"{_safe_log_str(name)}\" skipped — contains "
+                        f"WARN: Mod \"{_safe_log_str(name)}\" skipped - contains "
                         f"file(s) with non-UTF-8 name(s): "
                         f"{', '.join(_safe_log_str(n) for n in bad_names[:5])}"
                     )
@@ -2856,7 +2856,7 @@ def build_filemap(
                 if _ident_on:
                     _path_pairs.add((prev, name))
                 if _incr_on:
-                    # Each overwrite event IS one consecutive pair — the same
+                    # Each overwrite event IS one consecutive pair - the same
                     # relation the incremental pair refcounts maintain.
                     _pk = (prev, name)
                     _pair_counts[_pk] = _pair_counts.get(_pk, 0) + 1
@@ -2874,7 +2874,7 @@ def build_filemap(
                 _is_ident = (prev_ck is not None and _ident_on
                              and ck.startswith(_ident_pfx))
                 # An identity key drops the earlier file even when the SAME mod
-                # owns it (two paks of one module in a mod folder — or in the
+                # owns it (two paks of one module in a mod folder - or in the
                 # overwrite folder, which is one pseudo-mod). Path keys keep the
                 # historical mod != mod rule.
                 if prev_ck is not None and (prev_ck != name or _is_ident):
@@ -2886,7 +2886,7 @@ def build_filemap(
                         filemap.pop(prev_staged, None)
                         win_count[prev_ck] = win_count.get(prev_ck, 0) - 1
                         if _is_ident:
-                            # Losing an identity contest isn't a file conflict —
+                            # Losing an identity contest isn't a file conflict -
                             # give the win back when scoring path-only status.
                             _ident_pops[prev_ck] = _ident_pops.get(prev_ck, 0) + 1
                     if prev_ck != name:
@@ -2908,7 +2908,7 @@ def build_filemap(
         )
         if _ident_on and conflict_extras is not None:
             # Same classification minus identity-only relations (and the wins
-            # they cost) — the caller paints THIS as the loose-file icon, so an
+            # they cost) - the caller paints THIS as the loose-file icon, so an
             # identity clash doesn't light up two icons. overrides/overridden_by
             # stay whole, so cross-panel highlights still link the mods.
             _p_over = {n: {o for o in s if (o, n) in _path_pairs}
@@ -2925,14 +2925,14 @@ def build_filemap(
     # Normalize folder casing across the merged filemap so that two mods which
     # ship the same logical path with different casings (e.g. "archive/pc/Mod"
     # vs "Archive/PC/Mod") produce a single canonical path in filemap.txt.
-    # This runs on the output dicts only — the index stays a faithful mirror
+    # This runs on the output dicts only - the index stays a faithful mirror
     # of each mod's on-disk casing, which is what _resolve_source needs.
     #
     # The picking strategy comes from the game's `filemap_casing` property:
-    #   "upper"        — pick variant with more uppercase letters (default)
-    #   "lower"        — pick variant with more lowercase letters
-    #   "force_lower"  — every folder/filename forced lowercase
-    #   "force_upper"  — every folder/filename-stem forced uppercase (extension stays lower)
+    #   "upper"        - pick variant with more uppercase letters (default)
+    #   "lower"        - pick variant with more lowercase letters
+    #   "force_lower"  - every folder/filename forced lowercase
+    #   "force_upper"  - every folder/filename-stem forced uppercase (extension stays lower)
     _norm_t0 = time.perf_counter()
     # Casing state for the incremental fast path (upper/lower strategies only).
     _cas_strategy: "str | None" = None
@@ -2960,7 +2960,7 @@ def build_filemap(
                 _cas_strategy = _strategy
                 # Raw-dir refcount over WINNING entries (both namespaces);
                 # must be taken before the rel_str rewrite below. Casing
-                # canonicalization pools winners only — losers' variants
+                # canonicalization pools winners only - losers' variants
                 # never influence picks (mirrors _norm_* regrouping).
                 for _m2 in (filemap, filemap_root):
                     for _rs2, _mn2 in _m2.values():
@@ -2985,7 +2985,7 @@ def build_filemap(
                 filemap_root[_rk] = (_rs, _mn)
     perftrace.mark("filemap: normalize folder casing", time.perf_counter() - _norm_t0)
 
-    # Casing pins win over the strategy above — applied last, and regardless of
+    # Casing pins win over the strategy above - applied last, and regardless of
     # normalize_folder_case, so a mod that reads its own data folder by a
     # hardcoded case-sensitive path always sees the casing it shipped.  The
     # incremental fast path applies the same pins in _normalize_one_rel_str, so
@@ -2998,8 +2998,8 @@ def build_filemap(
     # sort + string build + disk write (and post_build_filemap re-read).
     # disabled_plugins is rare but must be included since it affects written lines.
     # Snapshot the full normal-namespace map (rel_key → rel_str+mod), not just
-    # the winner (rel_key → mod): folder-casing changes — from the strategy or a
-    # casing pin — alter the written rel_str without changing the winner, and
+    # the winner (rel_key → mod): folder-casing changes - from the strategy or a
+    # casing pin - alter the written rel_str without changing the winner, and
     # the skip-if-unchanged check must still detect them.
     _winner_snapshot = (frozenset(filemap.items()), _disabled_frozen, frozenset(filemap_root.items()))
     with _filemap_winner_cache_lock:
@@ -3019,7 +3019,7 @@ def build_filemap(
         ))
         _incr_stats["full"] += 1
         if _cas_ties and log_fn is not None:
-            log_fn("filemap: casing-variant tie present — incremental fast "
+            log_fn("filemap: casing-variant tie present - incremental fast "
                    "path disabled for this profile")
 
     def _verify_check() -> None:
@@ -3061,11 +3061,11 @@ def build_filemap(
             else:
                 _incr_stats["verify_ok"] = _incr_stats.get("verify_ok", 0) + 1
         except Exception as exc:  # verify must never break the build
-            _log(f"filemap: verify comparison failed — {exc}")
+            _log(f"filemap: verify comparison failed - {exc}")
 
     if _unchanged and output_path.is_file():
         # Conflict data is still valid; file on disk is already correct.
-        count = sum(1 for _ in filemap_winner)  # approx — disabled_plugins may trim a few
+        count = sum(1 for _ in filemap_winner)  # approx - disabled_plugins may trim a few
         if _incr_on:
             _skeys, _lines = _render_filemap(filemap)
             _skeys_r, _lines_r = _render_filemap(filemap_root)

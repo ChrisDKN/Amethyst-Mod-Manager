@@ -4,23 +4,23 @@ The canonical list of AppImage/bundle-injected environment variables, and the
 scrub function that removes them from a child-process environment.
 
 Inside the AppImage, the sharun runtime (and our own launcher wrapper) exports
-vars that point into the transient /tmp/.mount_* FUSE mount — loader paths,
+vars that point into the transient /tmp/.mount_* FUSE mount - loader paths,
 GTK/GIO module caches, CA-bundle paths, our private FONTCONFIG_FILE, … A HOST
 child that inherits them loads the bundle's libraries instead of its own
 (crashes, TLS failures), or keeps using paths that dangle the moment the
 AppImage exits. sharun's anylinux.so execve hook scrubs SOME of these
 automatically, but it is disabled on some build hosts (ANYLINUX_LIB=0) and
-doesn't know about vars our own wrapper adds — so the Python side must not
+doesn't know about vars our own wrapper adds - so the Python side must not
 rely on it.
 
 History: three modules (protontricks, xdg, smapi_installer) each grew their
-own hand-maintained copy of this list, and they drifted — a var added to one
+own hand-maintained copy of this list, and they drifted - a var added to one
 was silently missing from the others. This module is now the single source of
 truth; the per-module wrappers keep their differing POLICIES (no-op outside
 the AppImage vs. always-strip) but share the list and the strip logic.
 
 Prefix semantics: an env var is dropped when its name STARTS WITH an entry
-below — so "FONTCONFIG_" covers FONTCONFIG_FILE / _PATH / _SYSROOT and
+below - so "FONTCONFIG_" covers FONTCONFIG_FILE / _PATH / _SYSROOT and
 "SHARUN_" covers every sharun knob.
 """
 
@@ -39,7 +39,7 @@ APPIMAGE_ENV_PREFIXES: tuple[str, ...] = (
     "PYTHONHOME", "PYTHONPATH", "PYTHONDONTWRITEBYTECODE",
     # Our own launcher/bootstrap
     "MOD_MANAGER_GAMES",     # app_bootstrap points this at $APPDIR/.../Games
-    "FONTCONFIG_",           # wrapper's private fonts.conf — a host child
+    "FONTCONFIG_",           # wrapper's private fonts.conf - a host child
                              # reading it would write ITS fontconfig version's
                              # caches into our private cache dir, re-creating
                              # the shared-cache poisoning crash in reverse
@@ -70,7 +70,7 @@ def strip_appimage_vars(env: dict) -> dict:
 
     Whole vars matching ``APPIMAGE_ENV_PREFIXES`` are dropped outright;
     list-style vars (PATH, XDG_DATA_DIRS, XDG_CONFIG_DIRS) keep their host
-    entries but lose any ``/tmp/.mount_*`` / ``$APPDIR`` fragments — otherwise
+    entries but lose any ``/tmp/.mount_*`` / ``$APPDIR`` fragments - otherwise
     a host child would still find the bundle's own python3/tools on PATH and
     re-pollute itself.
 

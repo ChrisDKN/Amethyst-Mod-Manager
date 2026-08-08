@@ -1,4 +1,4 @@
-"""Save preview — the details pane along the bottom of the Saves sub-tab.
+"""Save preview - the details pane along the bottom of the Saves sub-tab.
 
 Shows what MO2 shows for a Bethesda save: screenshot, character, play time and
 the plugin list it was written with. Plugins missing from the active load
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c
 from Utils.save_header import format_play_time
 
-# Save screenshots are small (320x192 Skyrim, 512x288 New Vegas) — little to
+# Save screenshots are small (320x192 Skyrim, 512x288 New Vegas) - little to
 # gain from blowing them up much past native size.
 _SHOT_MIN_W = 200
 _SHOT_MAX_W = 420
@@ -46,7 +46,7 @@ class SavePreviewPane(QWidget):
         # missing flagging off (else every plugin would look missing).
         self._known: set[str] = set()
         self._pixmap: "QPixmap | None" = None
-        # The save the shown header came from — keys the lightbox tab.
+        # The save the shown header came from - keys the lightbox tab.
         self._path = None
         self._build()
         self.clear()
@@ -70,7 +70,7 @@ class SavePreviewPane(QWidget):
         row.setSpacing(12)
         outer.addWidget(body, 1)
 
-        # 1. Screenshot — click opens it full size, like the FOMOD wizard's.
+        # 1. Screenshot - click opens it full size, like the FOMOD wizard's.
         self._shot = QLabel()
         self._shot.setAlignment(Qt.AlignCenter)
         self._shot.setMinimumWidth(_SHOT_MIN_W)
@@ -80,7 +80,7 @@ class SavePreviewPane(QWidget):
         self._shot.mousePressEvent = lambda _e: self._open_lightbox()
         row.addWidget(self._shot, 0)
 
-        # 2. Metadata grid, rebuilt per save — which fields a format carries
+        # 2. Metadata grid, rebuilt per save - which fields a format carries
         #    varies (Oblivion has no race, New Vegas no timestamp).
         fields = QWidget()
         self._grid = QGridLayout(fields)
@@ -163,7 +163,7 @@ class SavePreviewPane(QWidget):
             self._shot.setToolTip("")
             return
         fmt = QImage.Format_RGBA8888 if shot.channels == 4 else QImage.Format_RGB888
-        # Pass the stride explicitly — QImage otherwise assumes 32-bit aligned
+        # Pass the stride explicitly - QImage otherwise assumes 32-bit aligned
         # rows and skews any RGB888 image whose width isn't a multiple of 4.
         image = QImage(shot.data, shot.width, shot.height,
                        shot.width * shot.channels, fmt).copy()
@@ -263,7 +263,7 @@ class SavePreviewPane(QWidget):
         missing_brush = QBrush(QColor(_c(p, "TEXT_ERR")))
         dim_brush = QBrush(QColor(_c(p, "TEXT_DIM")))
         tip = self.tr("Not in this profile's load order.")
-        # Regular first, then light ones dimmed — the game's load order.
+        # Regular first, then light ones dimmed - the game's load order.
         for name, is_light in ([(n, False) for n in regular]
                                + [(n, True) for n in light]):
             item = QListWidgetItem(name)
@@ -276,7 +276,7 @@ class SavePreviewPane(QWidget):
 
 
 def _game_label(header) -> str:
-    """"Skyrim (v12)" — the format the save claims, not the handler's name."""
+    """"Skyrim (v12)" - the format the save claims, not the handler's name."""
     label = _KIND_LABELS.get(header.kind, header.kind)
     if header.game_version:
         return f"{label} {header.game_version}"

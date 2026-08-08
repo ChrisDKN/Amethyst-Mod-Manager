@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-# Frankensnoop — pure Python plugin parser (no MO2/PyQt6)
+# Frankensnoop - pure Python plugin parser (no MO2/PyQt6)
 
 BASE_GAME_PLUGINS: Set[str] = {
     "Skyrim.esm", "Update.esm", "Dawnguard.esm",
@@ -48,7 +48,7 @@ PROTECTED_AUTHORS: Set[str] = {
     "bethesda", "mcarofano", "bnesmith", "rsalvatore",
 }
 
-# BOS Categories — must be defined before BOS_SIGS
+# BOS Categories - must be defined before BOS_SIGS
 BOS_CATEGORIES: Dict[str, Set[str]] = {
     "Tree": {"TREE"},
     "Furniture": {"FURN", "MSTT"},
@@ -59,7 +59,7 @@ BOS_CATEGORIES: Dict[str, Set[str]] = {
     "Skin": {"ARMO", "ARMA", "NPC_", "RACE", "ASSET_SKIN", "ASSET_BODY"},
 }
 
-# BOS-eligible signatures — static objects BOS can swap
+# BOS-eligible signatures - static objects BOS can swap
 BOS_SIGS: Set[str] = set()
 for _sigs in BOS_CATEGORIES.values():
     BOS_SIGS.update(_sigs)
@@ -150,7 +150,7 @@ _BLACKLIST_AUTHORS = {
 
 @dataclass
 class PluginDNA:
-    """Minimal plugin fingerprint — sufficient for the audit + patch gen."""
+    """Minimal plugin fingerprint - sufficient for the audit + patch gen."""
     plugin_name:   str
     signatures:    Set[str]
     author:        str
@@ -294,7 +294,7 @@ def _decompress_record(payload: bytes, uncompressed_size: int) -> Optional[bytes
     """Decompress a compressed TES4 record payload.
 
     Skyrim SE uses LZ4 block compression for most modern records; legacy LE
-    plugins use zlib. Try each in turn. Returns None if all attempts fail —
+    plugins use zlib. Try each in turn. Returns None if all attempts fail -
     caller then falls back to FormID-only extraction.
     """
     if uncompressed_size <= 0 or not payload:
@@ -406,7 +406,7 @@ def _extract_records(path: Path, wanted_sigs: Set[str]) -> List[Dict]:
                     rec_start = rec_offset + 24
                     rec_end = rec_start + rec_size
                     if rec_tag == b"GRUP":
-                        # Nested GRUP (cell children etc.) — skip
+                        # Nested GRUP (cell children etc.) - skip
                         nested_size = int.from_bytes(data[rec_offset + 4:rec_offset + 8], "little")
                         rec_offset += max(nested_size, 24)
                         continue
@@ -681,7 +681,7 @@ def _read_loadorder(game: "BaseGame", profile: str) -> List[str]:
             if line.startswith("*"):
                 active_set.add(line[1:].strip())
             elif not line.startswith("#") and line:
-                # Older format without star prefix — treat all as active
+                # Older format without star prefix - treat all as active
                 active_set.add(line)
 
     if not full_order:
@@ -713,7 +713,7 @@ def _find_plugin_file(plugin_name: str, mods_path: Path, data_path: Optional[Pat
 def _build_patch_index(mods_path: Path) -> Tuple[Set[str], Set[str]]:
     """Scan staging directory for existing patches.
     
-    Returns (bos_patched, sp_patched) — lower-case plugin name sets.
+    Returns (bos_patched, sp_patched) - lower-case plugin name sets.
     Catches patches in different mods than the target plugin.
     """
     bos_patched: Set[str] = set()
@@ -748,7 +748,7 @@ def _build_patch_index(mods_path: Path) -> Tuple[Set[str], Set[str]]:
                                 if stem.endswith(suffix):
                                     stem = stem[: -len(suffix)]
                                     break
-                            # stem could map to .esp/.esm/.esl — try all
+                            # stem could map to .esp/.esm/.esl - try all
                             for ext in (".esp", ".esm", ".esl"):
                                 bos_patched.add(stem + ext)
                 except OSError:
@@ -881,7 +881,7 @@ def scan_load_order(game: "BaseGame", *,
             if pname.lower() in _bp_masters:
                 dna.folder_scents.add("PRE_PATCHED_BASHED")
 
-    # Reverse dependency map — flag masters of other active plugins.
+    # Reverse dependency map - flag masters of other active plugins.
     master_to_dependents: Dict[str, List[str]] = {}
     for pname, dna in dna_map.items():
         for master in dna.masters:
@@ -1079,7 +1079,7 @@ def _gen_skypatcher(out_dir: Path, dna_map, lo_map, mods_path, data_path,
         else:
             for sig in sorted(sp_sigs):
                 lines += [
-                    f"; [{sig}] — could not extract FormIDs from {plugin_name}",
+                    f"; [{sig}] - could not extract FormIDs from {plugin_name}",
                     f"; filterByFormID={plugin_name}|<FormID>",
                     f"; {_SP_EXAMPLE_ACTION.get(sig, 'Set<Field> = <Value>')}",
                     "",

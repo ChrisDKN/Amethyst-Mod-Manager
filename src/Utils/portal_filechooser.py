@@ -168,7 +168,7 @@ def _jeepney_portal_call(
 
             # Drain signals until we see one whose object path matches our handle.
             # (The namespace rule may pick up Response signals for other concurrent
-            # portal requests — extremely rare, but we filter defensively.)
+            # portal requests - extremely rare, but we filter defensively.)
             while True:
                 response_msg = conn.recv_until_filtered(matches)
                 msg_path = response_msg.header.fields.get(HeaderFields.path)
@@ -401,7 +401,7 @@ def _run_zenity(args: list[str]) -> subprocess.CompletedProcess[str] | None:
             _debug_log("flatpak-spawn: zenity not installed on host")
             continue
         return result
-    _debug_log("zenity unavailable — install the 'zenity' package from your distro for a better file picker")
+    _debug_log("zenity unavailable - install the 'zenity' package from your distro for a better file picker")
     return None
 
 
@@ -415,10 +415,10 @@ def _zenity_folder(title: str) -> Path | object | None:
             return p
     # Exit code 1 with empty stderr = user pressed Cancel. Exit 1 with stderr
     # output (or any other code) usually means zenity failed to start (e.g.
-    # D-Bus failure on bare X11/DWM) — fall through so the next picker is tried.
+    # D-Bus failure on bare X11/DWM) - fall through so the next picker is tried.
     if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
-    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
+    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} - falling through to next picker")
     return None
 
 
@@ -444,7 +444,7 @@ def _zenity_file(
             return p
     if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
-    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
+    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} - falling through to next picker")
     return None
 
 
@@ -463,7 +463,7 @@ def _kdialog_folder(title: str) -> Path | object | None:
                 return p
         if result.returncode == 1 and not result.stderr.strip():
             return _CANCELLED
-        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} — falling through")
+        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} - falling through")
         return None
     except FileNotFoundError:
         pass
@@ -497,7 +497,7 @@ def _kdialog_file(
                 return p
         if result.returncode == 1 and not result.stderr.strip():
             return _CANCELLED
-        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} — falling through")
+        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} - falling through")
         return None
     except FileNotFoundError:
         pass
@@ -667,7 +667,7 @@ def _zenity_files(title: str) -> "list[Path] | object | None":
             return paths
     if result.returncode == 1 and not result.stderr.strip():
         return _CANCELLED
-    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} — falling through to next picker")
+    _debug_log(f"zenity exited with code {result.returncode}: {result.stderr.strip()!r} - falling through to next picker")
     return None
 
 
@@ -692,7 +692,7 @@ def _kdialog_files(title: str) -> "list[Path] | object | None":
                 return paths
         if result.returncode == 1 and not result.stderr.strip():
             return _CANCELLED
-        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} — falling through")
+        _debug_log(f"kdialog exited with code {result.returncode}: {result.stderr.strip()!r} - falling through")
         return None
     except FileNotFoundError:
         pass
@@ -715,7 +715,7 @@ def _tkinter_files(
 def _run_file_picker_worker_multi(title: str, filters: list[tuple[str, list[str]]], cb: "Callable[[list[Path]], None]") -> None:
     """Worker for multi-file picker; runs in background thread."""
     # tkinter fallback returns [] (never None), which the waterfall treats
-    # as "unavailable" — so wrap it to keep the empty-list semantics intact.
+    # as "unavailable" - so wrap it to keep the empty-list semantics intact.
     def _tkinter_step() -> "list[Path] | None":
         result = _tkinter_files(title, filters)
         return result if result else None

@@ -1,4 +1,4 @@
-"""Qt Downloads tab — scans archive folders (Downloads + per-game cache + extras),
+"""Qt Downloads tab - scans archive folders (Downloads + per-game cache + extras),
 lists them grouped by source with Install/Reinstall buttons + checkboxes. Reuses
 Utils.downloads_core for all scanning/filtering/installed-detection, and
 Utils.download_locations for the (backward-compatible) settings. Built lazily:
@@ -30,7 +30,7 @@ class DownloadsView(QWidget):
         super().__init__(parent)
         self.game = None
         self.game_name_getter = None      # callable -> active game name | None
-        self.on_install = None            # callback(path) — per-row / selected
+        self.on_install = None            # callback(path) - per-row / selected
         self._dirty = True
         self._is_visible = False
         self._all_entries: list = []      # unfiltered scan result
@@ -116,7 +116,7 @@ class DownloadsView(QWidget):
             if event.type() == QEvent.Resize:
                 self._fit_name_to_width()
             # Drag an archive row out (onto the modlist to install-at-position).
-            # Only observe here — press/release still reach the delegate, so the
+            # Only observe here - press/release still reach the delegate, so the
             # checkbox and Install button behave as before; a drag only starts
             # after the cursor moves past the threshold with the button held.
             elif (event.type() == QEvent.MouseButtonPress
@@ -169,7 +169,7 @@ class DownloadsView(QWidget):
         # setDragCursor(pixmap, Qt.IgnoreAction) DOES override that at the Qt
         # level (verified: QGuiApplication.overrideCursor is our pixmap during
         # the drag), but under a Wayland session the app runs via XWayland and
-        # KWin draws its OWN DnD cursor for XWayland clients — the X11 override
+        # KWin draws its OWN DnD cursor for XWayland clients - the X11 override
         # cursor can't reach it (KDE bug: XWayland drag shows the wrong cursor).
         # So there's nothing to set here; the badge is compositor-owned. The
         # setPixmap label + the modlist's blue drop line carry the feedback.

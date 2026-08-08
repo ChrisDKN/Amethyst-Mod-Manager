@@ -1,12 +1,12 @@
 """Borderless in-window overlays for the Mewgenics deploy flow.
 
-Mewgenics can be modded two ways (Tk parity — see gui/mewgenics_dialogs.py):
+Mewgenics can be modded two ways (Tk parity - see gui/mewgenics_dialogs.py):
 
-  * ``MewgenicsDeployChoiceOverlay`` — asks whether to generate a Steam launch
+  * ``MewgenicsDeployChoiceOverlay`` - asks whether to generate a Steam launch
     command (safer, no repack) or to repack ``resources.gpak`` in place.
     ``on_done("steam" | "repack" | None)``.
 
-  * ``MewgenicsLaunchCommandOverlay`` — shows the generated ``-modpaths`` launch
+  * ``MewgenicsLaunchCommandOverlay`` - shows the generated ``-modpaths`` launch
     string in a read-only box with a Copy-to-clipboard button (auto-copied on
     open) and, when a script was written, its path.
 
@@ -38,7 +38,7 @@ class MewgenicsDeployChoiceOverlay(OverlayBase):
         p = active_palette()
         _card, v = self._make_card("MewgenicsChoiceCard")
 
-        title = QLabel(self.tr("Mewgenics — Deploy method"))
+        title = QLabel(self.tr("Mewgenics - Deploy method"))
         title.setStyleSheet(
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         v.addWidget(title)
@@ -100,7 +100,7 @@ class MewgenicsLaunchCommandOverlay(OverlayBase):
         p = active_palette()
         _card, v = self._make_card("MewgenicsLaunchCard")
 
-        title = QLabel(self.tr("Mewgenics — Steam / Lutris launch command"))
+        title = QLabel(self.tr("Mewgenics - Steam / Lutris launch command"))
         title.setStyleSheet(
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         v.addWidget(title)
@@ -152,4 +152,4 @@ class MewgenicsLaunchCommandOverlay(OverlayBase):
             cb.setText(self._launch_string)
             self._copy_btn.setText(self.tr("Copied ✓"))
         else:
-            self._copy_btn.setText(self.tr("Copy failed — copy it manually"))
+            self._copy_btn.setText(self.tr("Copy failed - copy it manually"))

@@ -1,6 +1,6 @@
 """Borderless in-window overlay to move selected download archives between the
 *configured* download locations (default Downloads, Mod Manager cache, and any
-extra locations) — NOT a native folder browser.
+extra locations) - NOT a native folder browser.
 
 The list of targets comes from ``Utils.downloads_core.get_scan_dirs`` /
 ``section_label_for_dir`` so it matches the folders the Downloads tab already

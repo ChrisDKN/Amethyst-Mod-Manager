@@ -8,7 +8,7 @@ settings in small YAML files. It can be installed as a Flatpak
 respective data dirs.
 
 Two prefix flavors exist in the wild:
-  * umu/Proton-made (modern default): Heroic-shaped — ``pfx -> .`` symlink,
+  * umu/Proton-made (modern default): Heroic-shaped - ``pfx -> .`` symlink,
     ``config_info`` (after first run), ``lutris.json`` marker, and a
     ``steamuser`` account. The existing Proton machinery handles these.
   * classic lutris-wine: a plain WINEPREFIX run with a runner from
@@ -73,7 +73,7 @@ def _lutris_root_candidates() -> list[LutrisRoot]:
         pass
 
     candidates += [
-        # Native / AppImage — respects XDG_DATA_HOME / XDG_CONFIG_HOME
+        # Native / AppImage - respects XDG_DATA_HOME / XDG_CONFIG_HOME
         _root_from_dirs(_XDG_DATA / "lutris", _XDG_CONFIG / "lutris",
                         is_flatpak=False),
         _root_from_dirs(_HOME / ".local" / "share" / "lutris",
@@ -111,7 +111,7 @@ def _maybe_log_lutris_data_missing() -> None:
         from Utils.app_log import app_log
         app_log(
             "Lutris appears to be installed but no Lutris data directory was "
-            "located — set a custom Lutris data path in the app's settings "
+            "located - set a custom Lutris data path in the app's settings "
             "if Lutris-managed games aren't detected"
         )
     except Exception:
@@ -187,11 +187,11 @@ def parse_lutris_yaml(text: str) -> dict:
     """Parse the yaml.safe_dump block-mapping subset Lutris writes.
 
     Nested dicts of any depth; scalar leaves kept as strings (booleans and
-    numbers are not coerced — callers only read path/name strings). List
+    numbers are not coerced - callers only read path/name strings). List
     items and comments are skipped.
     """
     root: dict = {}
-    # (indent, dict) — innermost open mapping last
+    # (indent, dict) - innermost open mapping last
     stack: list[tuple[int, dict]] = [(-1, root)]
     for raw in text.splitlines():
         stripped = raw.strip()
@@ -407,7 +407,7 @@ def build_installed_exe_index() -> list[list[str]]:
     time so the picker's index can answer membership from memory (mirrors the
     one-pass Steam/Heroic indexes in ``installed_scan``). Games with a
     ``directory`` column but no configured exe are still directory-scanned
-    lazily at query time — those are rare and only pay when actually probed.
+    lazily at query time - those are rare and only pay when actually probed.
     """
     out: list[list[str]] = []
     for root, row, yml in _iter_games():
@@ -493,7 +493,7 @@ def find_lutris_game_info_by_exe(exe_name: str) -> "tuple[Path, Path | None, str
     whose DB ``directory`` exists are probed by scanning that directory.
 
     Returns (install_path, prefix_path | None, slug), or None. The install
-    path is derived from the exe location — Lutris frequently leaves the DB
+    path is derived from the exe location - Lutris frequently leaves the DB
     ``directory`` column empty.
     """
     rel_parts = _split_exe_rel_parts(exe_name)
@@ -542,7 +542,7 @@ def find_lutris_slugs_by_exes(exe_names) -> list[str]:
 
 def find_lutris_launch_info(slugs: list[str]) -> "tuple[str, bool] | None":
     """(slug, lutris_is_flatpak) for the first installed game matching any
-    of *slugs* — used to build a ``lutris:rungame/<slug>`` launch."""
+    of *slugs* - used to build a ``lutris:rungame/<slug>`` launch."""
     slugs_lower = {s.lower() for s in slugs if s}
     if not slugs_lower:
         return None
@@ -561,7 +561,7 @@ def find_lutris_launch_info(slugs: list[str]) -> "tuple[str, bool] | None":
 def _is_protonish(version: str) -> bool:
     """True for wine version strings that denote Proton/umu-managed runners
     ('GE-Proton10-34', 'Proton - Experimental', the 'ge-proton' sentinel, …).
-    Classic wine-GE builds are named 'lutris-GE-Proton8-26' — the leading
+    Classic wine-GE builds are named 'lutris-GE-Proton8-26' - the leading
     'lutris-' keeps them out of this check."""
     v = (version or "").strip().lower()
     return v.startswith(("proton", "ge-proton")) or "umu" in v
@@ -630,7 +630,7 @@ def find_lutris_wine_for_prefix(prefix_path: "str | Path") -> Path | None:
     """Wine binary of the lutris-wine runner configured for *prefix_path*.
 
     Returns None when the game's runner is Proton/umu-managed (the modern
-    default) — callers fall back to the Proton machinery in that case.
+    default) - callers fall back to the Proton machinery in that case.
     """
     hit = _game_for_prefix(prefix_path)
     if hit is None:
@@ -688,8 +688,8 @@ def find_umu_run() -> Path | None:
 
     umu is how Lutris itself runs Proton games outside Steam: it starts
     Proton inside the Steam Linux Runtime container (pressure-vessel) with
-    its own compat plumbing, so no Steam client attach happens — the game
-    doesn't need to be owned on Steam and doesn't show as "running" there —
+    its own compat plumbing, so no Steam client attach happens - the game
+    doesn't need to be owned on Steam and doesn't show as "running" there -
     and the audio/library environment matches a real Steam launch.
 
     Preference: a system install on PATH (umu-launcher package), then the
@@ -779,7 +779,7 @@ def umu_run_command(umu_bin: Path, *args: str,
     sandbox the launch is forwarded to the host via ``flatpak-spawn --host``
     (pressure-vessel can't nest inside a sandbox); flatpak-spawn doesn't
     forward the environment, so the env diff vs os.environ is re-exported
-    with ``--env=`` flags — same pattern as steam_finder.proton_run_command.
+    with ``--env=`` flags - same pattern as steam_finder.proton_run_command.
 
     *host_cwd*, when given, becomes the host process's working directory
     under flatpak-spawn (``--directory=``). Callers whose Popen cwd is a

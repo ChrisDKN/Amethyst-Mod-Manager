@@ -1,11 +1,11 @@
 """In-window overlay shown after a Change Version install lands as a NEW mod
 (different folder name): offer to remove the previous version. Qt equivalent of
-the Tk ``_prompt_remove_previous_version`` CTkAlert — a dimmed child overlay
+the Tk ``_prompt_remove_previous_version`` CTkAlert - a dimmed child overlay
 (see gui_qt/overlay_base.py).
 
 `on_done(result)` is called with:
-    "remove"  — delete the old mod; the new one inherits its modlist slot + state
-    "keep"    — leave both mods
+    "remove"  - delete the old mod; the new one inherits its modlist slot + state
+    "keep"    - leave both mods
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Panel-scoped image preview widget for the Mod Files tab.
 
-Loads via Pillow (so .dds/.tga/.tiff decode — QPixmap can't) and shows the image
+Loads via Pillow (so .dds/.tga/.tiff decode - QPixmap can't) and shows the image
 fit-to-panel over a checkerboard backdrop (transparency visible). Scrollwheel
 zooms (anchored under the cursor), left-drag pans, double-click resets to fit.
 Used as a modlist-panel-scoped tab: the Mod Files tree stays live in the plugins

@@ -1,6 +1,6 @@
 """App-update banner card (Tk parity: gui.py `_show_update_overlay`).
 
-A centered card floated over the modlist panel with NO dimmed backdrop —
+A centered card floated over the modlist panel with NO dimmed backdrop -
 the app stays fully usable behind it (unlike ``ConfirmOverlay``). The card
 is the whole widget: it is parented to the host panel and re-centered on
 host resizes via an event filter, so clicks outside the card land on the
@@ -72,7 +72,7 @@ class UpdateOverlay(QFrame):
         v.addWidget(body)
 
         # Opt-out (all modes): ticking suppresses the startup update banner.
-        # Saved immediately — no confirm needed; re-enable via Settings, and a
+        # Saved immediately - no confirm needed; re-enable via Settings, and a
         # manual pre-release toggle still forces a check regardless.
         mute = QCheckBox(self.tr("Don't notify me about new versions"))
         mute.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")

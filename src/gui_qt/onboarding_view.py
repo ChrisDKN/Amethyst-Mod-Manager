@@ -1,14 +1,14 @@
-"""onboarding_view.py — first-run onboarding, shown as a fullscreen detachable
+"""onboarding_view.py - first-run onboarding, shown as a fullscreen detachable
 tab (like the Nexus browser). Qt port of gui/onboarding_panel.py.
 
 Pages:
-  0 — Welcome        (Next button)
-  1 — Nexus login    (optional, skippable; Skip becomes Next after login)
-  2 — Configure paths + Add a game (opens the game picker)
+  0 - Welcome        (Next button)
+  1 - Nexus login    (optional, skippable; Skip becomes Next after login)
+  2 - Configure paths + Add a game (opens the game picker)
 
 The OAuth flow itself lives in the app (MainWindow._nexus_login_sso /
 _on_oauth_event). This view just fires `on_login()` and reacts to the app
-calling `on_logged_in()` back on it — no OAuth client is owned here.
+calling `on_logged_in()` back on it - no OAuth client is owned here.
 """
 
 from __future__ import annotations
@@ -51,14 +51,14 @@ def _logo(name: str, size: int) -> QPixmap | None:
 
 class OnboardingView(QWidget):
     """First-run onboarding. Callbacks (mirroring the Tk panel):
-      * on_login()     — start the browser OAuth flow (app._nexus_login_sso)
-      * on_add_game()  — open the Add-Game picker (app._open_add_game_tab)
-      * on_done()      — dismiss onboarding (app._finish_onboarding)
+      * on_login()     - start the browser OAuth flow (app._nexus_login_sso)
+      * on_add_game()  - open the Add-Game picker (app._open_add_game_tab)
+      * on_done()      - dismiss onboarding (app._finish_onboarding)
 
     *already_logged_in* skips the Nexus page (Tk parity).
     """
 
-    # Portal picker callbacks fire on a worker thread — marshal the result back
+    # Portal picker callbacks fire on a worker thread - marshal the result back
     # onto the GUI thread before touching the line edits.
     _folder_picked = Signal(str, str)   # (which, path)
 
@@ -76,8 +76,8 @@ class OnboardingView(QWidget):
         self._on_login = on_login or (lambda: None)
         self._on_add_game = on_add_game or (lambda: None)
         self._on_done = on_done or (lambda: None)
-        # on_language_change(code) — app re-installs translators + retranslates;
-        # on_sync_languages() — app pulls latest .qm from Resources.
+        # on_language_change(code) - app re-installs translators + retranslates;
+        # on_sync_languages() - app pulls latest .qm from Resources.
         self._on_language_change = on_language_change or (lambda _c: None)
         self._on_sync_languages = on_sync_languages or (lambda: None)
         self._already_logged_in = already_logged_in
@@ -216,7 +216,7 @@ class OnboardingView(QWidget):
         v.addWidget(body)
         v.addSpacing(20)
 
-        # Language picker + sync — so users can switch language before going on.
+        # Language picker + sync - so users can switch language before going on.
         lang_row = QHBoxLayout()
         lang_row.setContentsMargins(0, 0, 0, 0)
         lang_row.addStretch(1)
@@ -273,7 +273,7 @@ class OnboardingView(QWidget):
         self._on_language_change(code)
 
     def refresh_language_options(self):
-        """A background/manual sync added .qm files — refresh the picker."""
+        """A background/manual sync added .qm files - refresh the picker."""
         self._populate_language_combo()
 
     # -------------------------------------------------------------- page 1 nexus
@@ -328,7 +328,7 @@ class OnboardingView(QWidget):
             self._sso_btn.setEnabled(False)
             self._sso_btn.setText(self.tr("Waiting for browser..."))
         self._set_nexus_status(
-            self.tr("Browser login started — complete it in your browser."),
+            self.tr("Browser login started - complete it in your browser."),
             _c(self._pal, "TEXT_DIM"))
         self._on_login()
 
@@ -360,7 +360,7 @@ class OnboardingView(QWidget):
         # -- Default mod staging folder --
         v.addWidget(self._section_title(self.tr("Default Mod Staging Folder")))
         # Display-only: new games default to ~/Games/Amethyst/<game>.  Nothing
-        # is created here — the folder appears when the first game is saved.
+        # is created here - the folder appears when the first game is saved.
         v.addWidget(self._hint(self.tr("Default: {0}").format(
             get_default_staging_root() / self.tr("<game name>"))))
         self._staging_edit = QLineEdit(load_default_staging_path())
@@ -436,7 +436,7 @@ class OnboardingView(QWidget):
                  else "Select Download Cache Folder")
 
         def _on_chosen(chosen):
-            # Fires on a worker thread — marshal to the GUI thread via a Signal.
+            # Fires on a worker thread - marshal to the GUI thread via a Signal.
             if chosen:
                 safe_emit(self._folder_picked, which, str(chosen))
 
@@ -498,6 +498,6 @@ class OnboardingView(QWidget):
         elif self._page == 1:
             self._show_page(2)
         else:
-            # Skip on the last page — dismiss without adding a game.
+            # Skip on the last page - dismiss without adding a game.
             self._save_paths()
             self._on_done()

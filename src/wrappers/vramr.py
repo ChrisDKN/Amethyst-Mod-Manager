@@ -1,6 +1,6 @@
 """
 vramr.py
-Linux wrapper for VRAMr — runs the Windows VRAMr texture optimisation pipeline
+Linux wrapper for VRAMr - runs the Windows VRAMr texture optimisation pipeline
 on Linux via Proton/Wine.
 
 Steps 1–5 (BSA extraction, loose copy, exclusions, filter, extract) use the
@@ -45,7 +45,7 @@ PRESETS: dict[str, dict] = {
     "vanilla":     {"diffuse": 512,  "normal": 512,  "parallax": 512,  "material": 512,  "label": "Vanilla"},
 }
 
-# Target format per texture type — BC7 for quality, BC1 for simple cases
+# Target format per texture type - BC7 for quality, BC1 for simple cases
 _FORMAT_MAP = {
     "diffuse":  "BC7",
     "normal":   "BC7",
@@ -252,7 +252,7 @@ def _optimise_one_texture(args: tuple) -> str:
 
     def _run_compress(src: Path, out_file: Path, resize: bool) -> subprocess.CompletedProcess:
         # Compressonator reads BC-compressed DDS natively, so let it do the
-        # resize too (-width/-height) — this avoids handing an already-BC7
+        # resize too (-width/-height) - this avoids handing an already-BC7
         # DDS to Pillow, which can't decode it ("Unimplemented DXGI format 72").
         cmd = [str(comp_cli), "-fd", target_fmt, "-miplevels", "1"]
         if resize:
@@ -290,18 +290,18 @@ def _optimise_one_texture(args: tuple) -> str:
 
             if result.returncode != 0 or not out_file.is_file():
                 stderr_snippet = (result.stderr or result.stdout or "")[:200]
-                return f"FAIL: {dds_path.name} — {stderr_snippet}"
+                return f"FAIL: {dds_path.name} - {stderr_snippet}"
 
             # Replace the original
             shutil.move(str(out_file), str(dds_path))
 
         action = f"resized to {target_w}x{target_h} and " if needs_resize else ""
-        return f"OK: {dds_path.name} — {action}converted to {target_fmt}"
+        return f"OK: {dds_path.name} - {action}converted to {target_fmt}"
 
     except subprocess.TimeoutExpired:
-        return f"ERROR: {dds_path.name} — compression timed out (900s)"
+        return f"ERROR: {dds_path.name} - compression timed out (900s)"
     except Exception as exc:
-        return f"ERROR: {dds_path.name} — {exc}"
+        return f"ERROR: {dds_path.name} - {exc}"
 
 
 def _run_native_optimise(
@@ -358,7 +358,7 @@ def _run_native_optimise(
     total = len(tasks)
     log_fn(f"  Processing {total} textures natively (Pillow + CompressonatorCLI)...")
 
-    # Scale workers to half the logical CPU count — Compressonator uses multiple
+    # Scale workers to half the logical CPU count - Compressonator uses multiple
     # threads internally per job, so half-cores avoids contention while keeping
     # all physical cores busy. Floor at 1, cap at total tasks.
     cpu_count = os.cpu_count() or 4
@@ -482,7 +482,7 @@ def run_vramr(
     w_db       = _linux_to_wine(db_path)
     w_exclusions = _linux_to_wine(tools_dir / "Exclusions.mod")
 
-    # PBR detection (case-insensitive — folder may be Textures/PBR on Linux)
+    # PBR detection (case-insensitive - folder may be Textures/PBR on Linux)
     pbr_exists = any(
         p.is_dir()
         for tex in game_data_dir.iterdir() if tex.is_dir() and tex.name.lower() == "textures"

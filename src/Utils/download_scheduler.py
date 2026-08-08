@@ -26,7 +26,7 @@ def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = Non
                   ) -> list:
     """Return *mods* sorted smallest→largest by size.
 
-    Mods that don't report a size (``size_bytes`` 0/missing — some Nexus files
+    Mods that don't report a size (``size_bytes`` 0/missing - some Nexus files
     omit it) are sorted to the END, not the front: their real size is unknown and
     could be large, so we download the known-small mods first and leave the
     unknowns for last (rather than letting a big unknown-size mod jump the queue
@@ -45,15 +45,15 @@ def run_double_ended(mods: list, work: Callable[[object], None], workers: int,
     """Dispatch *mods* to *work* using the double-ended policy and block until
     every mod has been processed (or *stop* is set).
 
-    *mods*    — the download units, PRE-SORTED smallest→largest
+    *mods*    - the download units, PRE-SORTED smallest→largest
                 (see :func:`order_by_size`).
-    *work*    — called once per mod on a worker thread: ``work(mod)``.
-    *workers* — total worker threads (>=1). One is the "large" worker pulling
+    *work*    - called once per mod on a worker thread: ``work(mod)``.
+    *workers* - total worker threads (>=1). One is the "large" worker pulling
                 from the tail; the rest pull from the head.
-    *stop*    — optional cancel event; when set, workers drain without calling
+    *stop*    - optional cancel event; when set, workers drain without calling
                 *work* on the remainder (the caller's *work* still runs for
                 already-claimed items and is expected to short-circuit on stop).
-    *spawn*   — optional ``spawn(target, name) -> thread-like`` with ``.start``/
+    *spawn*   - optional ``spawn(target, name) -> thread-like`` with ``.start``/
                 ``.join`` (defaults to daemon ``threading.Thread``); lets a test
                 inject deterministic threading.
 
@@ -100,7 +100,7 @@ def run_double_ended(mods: list, work: Callable[[object], None], workers: int,
 
     threads = []
     # Exactly one large-end worker (unless there's only a single worker, in
-    # which case it must still cover the whole list — it pulls from the head so
+    # which case it must still cover the whole list - it pulls from the head so
     # small-first behaviour is preserved when workers==1).
     for i in range(workers):
         from_tail = (workers > 1 and i == 0)
@@ -127,33 +127,33 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     Root problem this solves: with a single fetch-link→download loop per worker,
     every worker blocks on a ``get_download_links`` round-trip between mods. For
     tiny archives that latency is comparable to the download itself and all the
-    workers hit it in lockstep, so the pipe stutters — downloads arrive at the
+    workers hit it in lockstep, so the pipe stutters - downloads arrive at the
     installer in bursts of *dl_workers* with idle gaps between. Pipelining the
     link fetch hides that latency behind other in-flight downloads.
 
-    *mods*        — PRE-SORTED smallest→largest (see :func:`order_by_size`);
+    *mods*        - PRE-SORTED smallest→largest (see :func:`order_by_size`);
                     both stages honour that order (fetchers claim from the head).
-    *fetch*       — ``fetch(mod) -> links``, called on a link-worker thread;
+    *fetch*       - ``fetch(mod) -> links``, called on a link-worker thread;
                     whatever it returns is passed straight to *download* as-is
                     (return None/[] to let *download* fetch links itself). May
-                    raise — the mod still flows to *download* with ``links=None``
+                    raise - the mod still flows to *download* with ``links=None``
                     so the caller's per-mod bookkeeping (counters, install-queue
                     sentinels) still fires exactly once.
-    *download*    — ``download(mod, links)``, called on a download-worker thread
+    *download*    - ``download(mod, links)``, called on a download-worker thread
                     once per mod, exactly once, in the same smallest-first order
-                    the fetchers claimed. May raise — the exception is swallowed
+                    the fetchers claimed. May raise - the exception is swallowed
                     so the worker (and the pipeline) keeps flowing.
-    *dl_workers*  — number of download-worker threads (>=1).
-    *link_workers*— number of link-fetch threads (>=1). Small (2–3) is enough to
+    *dl_workers*  - number of download-worker threads (>=1).
+    *link_workers*- number of link-fetch threads (>=1). Small (2–3) is enough to
                     stay a step ahead; keeping it low bounds how far ahead links
                     are minted so signed CDN URLs never go stale before use.
-    *stop*        — optional cancel event; when set, both stages drain the
+    *stop*        - optional cancel event; when set, both stages drain the
                     remainder (feeding *download* with ``links=None``) so every
                     mod is still handed off once and the caller short-circuits.
-    *spawn*       — optional ``spawn(target, name) -> thread-like`` for tests.
+    *spawn*       - optional ``spawn(target, name) -> thread-like`` for tests.
 
     The ready queue is bounded to ``dl_workers + link_workers`` so the fetchers
-    stay only a step ahead of consumption — enough to keep every download slot
+    stay only a step ahead of consumption - enough to keep every download slot
     fed, not so far ahead that links expire.
     """
     n = len(mods)
@@ -187,7 +187,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                 except Exception:
                     links = None
             # Enqueue even when stopping so the downloader still hands the mod
-            # off once (caller bookkeeping) — the download fn short-circuits.
+            # off once (caller bookkeeping) - the download fn short-circuits.
             ready.put((mod, links))
 
     def _downloader():
@@ -202,7 +202,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                 # A dead worker wedges the whole pipeline: the fetchers block
                 # in ready.put() on the bounded queue and _closer never
                 # returns, so the caller hangs uncancellably. Drop this mod's
-                # download instead — the caller's own bookkeeping/logging is
+                # download instead - the caller's own bookkeeping/logging is
                 # its responsibility.
                 pass
 
@@ -218,7 +218,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
         t.start()
 
     # Once every fetcher has drained the mod list, no more real items will be
-    # enqueued — feed one sentinel per download worker so they exit cleanly.
+    # enqueued - feed one sentinel per download worker so they exit cleanly.
     def _closer():
         for t in fetchers:
             t.join()
@@ -234,7 +234,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
 
 def _drain_remaining(work, cursor, lock, mods, stop):
     """After a cancel, feed every remaining mod to *work* so the caller's
-    per-mod bookkeeping (counters, install-queue sentinels) still fires — work
+    per-mod bookkeeping (counters, install-queue sentinels) still fires - work
     is expected to no-op the actual download when *stop* is set."""
     while True:
         with lock:

@@ -59,7 +59,7 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
 
 
 def index_archive(path: Path, keep_prefix: str = "") -> dict:
-    """{rel_lower: (kind, record)} for one archive — TOC only, cached by
+    """{rel_lower: (kind, record)} for one archive - TOC only, cached by
     (path, mtime, size, keep_prefix); ArchiveLookup collapses to the first
     holder, this exposes each archive whole."""
     return _index_one(Path(path), keep_prefix)

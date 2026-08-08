@@ -89,7 +89,7 @@ class Subnautica(BaseGame):
     @property
     def frameworks(self) -> "dict[str, tuple[str, ...]]":
         # Windows builds proxy-load via winhttp.dll; native Linux builds ship
-        # run_bepinex.sh instead — either one means BepInEx is present.
+        # run_bepinex.sh instead - either one means BepInEx is present.
         return {"BepInEx": ("winhttp.dll", "run_bepinex.sh")}
 
     @property
@@ -208,7 +208,7 @@ class Subnautica(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir and passed
+        # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
@@ -305,7 +305,7 @@ class Subnautica(BaseGame):
             try:
                 _dir.rmdir()
             except OSError:
-                break  # not empty (or gone) — stop climbing
+                break  # not empty (or gone) - stop climbing
             _log(f"  Removed empty folder {_dir.relative_to(self._game_path)}/.")
             _dir = _dir.parent
 

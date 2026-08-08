@@ -135,7 +135,7 @@ def apply_collection_ini_tweaks(
     prefix_ini_dir
         The user's prefix My Games dir (e.g. ``<prefix>/drive_c/users/steamuser/
         Documents/My Games/Skyrim Special Edition``). Used to seed the profile
-        copy on first apply. May be ``None`` — in that case profile copies
+        copy on first apply. May be ``None`` - in that case profile copies
         start from a stub if absent.
     set_ini_key, read_ini_key
         Re-uses the byte-preserving helpers in ``Bethesda.py`` so we don't
@@ -158,10 +158,10 @@ def apply_collection_ini_tweaks(
         target_name = _target_ini_for_tweak(tweak_path, allowed=allowed_targets)
         if not target_name:
             if allowed_targets is not None:
-                log(f"Collection INI tweaks: skipping '{tweak_path.name}' — "
+                log(f"Collection INI tweaks: skipping '{tweak_path.name}' - "
                     f"target not in allowlist {allowed_targets}")
             else:
-                log(f"Collection INI tweaks: skipping '{tweak_path.name}' — "
+                log(f"Collection INI tweaks: skipping '{tweak_path.name}' - "
                     "filename doesn't end with [TargetIni].ini")
             result.skipped += 1
             continue

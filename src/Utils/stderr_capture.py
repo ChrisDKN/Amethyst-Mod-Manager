@@ -1,7 +1,7 @@
 """stderr_capture.py
 
-Mirror everything written to ``sys.stderr`` — plus any uncaught exception on
-the main thread or a worker thread — into the application log panel via
+Mirror everything written to ``sys.stderr`` - plus any uncaught exception on
+the main thread or a worker thread - into the application log panel via
 ``Utils.app_log.app_log``.
 
 Rationale: Python tracebacks, ``warnings``, and stderr writes from third-party
@@ -12,7 +12,7 @@ launch from a terminal.
 Design:
  - ``_Tee`` wraps the real stderr: it forwards writes to the terminal unchanged
    AND buffers them into complete lines that are handed to ``app_log``. The tee
-   never raises into its caller — a logging failure must not break the write it
+   never raises into its caller - a logging failure must not break the write it
    was mirroring.
  - ``sys.excepthook`` / ``threading.excepthook`` format uncaught tracebacks and
    send them to ``app_log`` as well. The default hooks already write to stderr
@@ -31,9 +31,9 @@ import traceback
 
 _installed = False
 _fault_installed = False
-_fault_file = None  # kept open for the process lifetime — faulthandler needs it
+_fault_file = None  # kept open for the process lifetime - faulthandler needs it
 _file_installed = False
-_stderr_file = None  # kept open for the process lifetime — fd 2 is dup'd onto it
+_stderr_file = None  # kept open for the process lifetime - fd 2 is dup'd onto it
 
 
 def install_stderr_file(log_dir=None) -> bool:
@@ -42,14 +42,14 @@ def install_stderr_file(log_dir=None) -> bool:
     AppImage with no terminal attached.
 
     This is the on-disk equivalent of ``run_qt.sh``'s ``2> >(tee …)`` shell
-    redirect — but done inside Python so it works identically for the AppImage
+    redirect - but done inside Python so it works identically for the AppImage
     and flatpak builds (which never run ``run_qt.sh``). It must be installed as
     early as possible (before Qt / MainWindow construction) so a crash during
     startup is captured.
 
     Mechanism: ``os.dup2`` redirects fd 2 itself onto the log file, which is the
     only way to also capture output from C libraries (Qt, libloot, …), the
-    interpreter's own fatal-error messages, and ``faulthandler`` — none of which
+    interpreter's own fatal-error messages, and ``faulthandler`` - none of which
     go through ``sys.stderr``. The terminal (if any) still sees stderr because we
     tee: the file gets fd 2, and ``sys.stderr`` is rebound to a Python-level tee
     that also writes to the original terminal fd.
@@ -58,7 +58,7 @@ def install_stderr_file(log_dir=None) -> bool:
     ``get_config_dir()``, matching the from-source path). The previous run's log
     is rotated to ``.old`` so old tracebacks don't mix into current triage.
 
-    Idempotent and best-effort — any failure here must never block startup.
+    Idempotent and best-effort - any failure here must never block startup.
     """
     global _file_installed, _stderr_file
     if _file_installed:
@@ -68,7 +68,7 @@ def install_stderr_file(log_dir=None) -> bool:
     from pathlib import Path
 
     # If the launcher already tees stderr to a file (run_qt.sh sets this), don't
-    # redirect fd 2 out from under it — that would break its live terminal echo
+    # redirect fd 2 out from under it - that would break its live terminal echo
     # and rotate its log mid-run. Source runs keep the shell behaviour; only the
     # AppImage/flatpak launch (no run_qt.sh) falls through to the Python capture.
     if os.environ.get("AMM_STDERR_TEED"):
@@ -78,7 +78,7 @@ def install_stderr_file(log_dir=None) -> bool:
     # The AppImage's own debug mode (APPIMAGE_DEBUG=1 in AppRun.sh) redirects
     # the whole process's stderr to a log beside the AppImage and turns on
     # LD_DEBUG / EGL_LOG_LEVEL / LIBGL_DEBUG. Taking fd 2 away from it would
-    # capture exactly the Qt/EGL messages that mode exists to collect — GH#350
+    # capture exactly the Qt/EGL messages that mode exists to collect - GH#350
     # came back with a debug log that stopped at interpreter startup. Leave fd
     # 2 alone whenever a loader/GL trace is being collected.
     if (os.environ.get("APPIMAGE_DEBUG") == "1"
@@ -95,7 +95,7 @@ def install_stderr_file(log_dir=None) -> bool:
         log_dir = Path(log_dir)
         log_dir.mkdir(parents=True, exist_ok=True)
         path = log_dir / "run-qt-stderr.log"
-        # One log per run — rotate the previous one so we don't append forever.
+        # One log per run - rotate the previous one so we don't append forever.
         try:
             if path.exists():
                 os.replace(path, str(path) + ".old")
@@ -143,7 +143,7 @@ def install_stderr_file(log_dir=None) -> bool:
                               encoding="utf-8", errors="replace")
         sys.stderr = _Tee(py_stderr, lambda line: _echo(orig_term, line))
     except Exception:
-        # dup2 already succeeded — the file still captures stderr even if the
+        # dup2 already succeeded - the file still captures stderr even if the
         # Python-level tee couldn't be wired. That's the important half.
         pass
 
@@ -172,7 +172,7 @@ class _Tee:
         self._lock = threading.Lock()
 
     def write(self, data):
-        # Forward to the terminal first — never let logging break real stderr.
+        # Forward to the terminal first - never let logging break real stderr.
         try:
             if self._real is not None:
                 self._real.write(data)
@@ -309,7 +309,7 @@ def install_faulthandler(log_dir=None) -> bool:
     """Enable ``faulthandler`` so native crashes (segfaults, aborts) leave a
     C-level traceback on disk. Idempotent, best-effort.
 
-    A segfault from Qt/other C code cannot be caught in Python — by the time the
+    A segfault from Qt/other C code cannot be caught in Python - by the time the
     interpreter would run our excepthook the process is already gone. faulthandler
     installs an OS signal handler that dumps every thread's Python stack straight
     to a file descriptor at crash time (no Python-level logging possible from a
@@ -346,7 +346,7 @@ def install_faulthandler(log_dir=None) -> bool:
         stream = None
 
     try:
-        # all_threads=True dumps every thread's stack — the crashing one may not
+        # all_threads=True dumps every thread's stack - the crashing one may not
         # be the main thread. file defaults to sys.stderr when stream is None.
         if stream is not None:
             faulthandler.enable(file=stream, all_threads=True)

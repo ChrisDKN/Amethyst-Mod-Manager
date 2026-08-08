@@ -2,12 +2,12 @@
 
 Hardlinks (`os.link`) require the source and destination to live on the same
 filesystem. When the deploy mode is Hardlink, every directory the game deploys
-into must sit on the same device as the mod staging folder — otherwise deploy
+into must sit on the same device as the mod staging folder - otherwise deploy
 would fail at link time. This module holds the pure detection so the config
 UIs (Tk add-game dialog, Qt configure-game view) can block the save and warn.
 
 The set of directories that must match is game-specific and lives in
-``game.get_hardlink_deploy_targets()`` — the game directory by default, plus
+``game.get_hardlink_deploy_targets()`` - the game directory by default, plus
 the Proton prefix / native data dir for games that deploy there (BG3, The
 Sims 4, Jagged Alliance 3, Dragon Age Origins). BG3 with an empty prefix
 (native Linux Larian build) reports only the game dir, so only that matters.
@@ -28,7 +28,7 @@ def hardlink_device_mismatches(game) -> list[str]:
     The caller must have already applied the pending game/prefix/staging paths
     to *game* (so ``get_mod_staging_path`` and ``get_hardlink_deploy_targets``
     resolve against the values being saved). An empty list means all targets
-    share the staging device (or nothing could be probed) — i.e. hardlinks are
+    share the staging device (or nothing could be probed) - i.e. hardlinks are
     safe. Returns labels like ``["Proton prefix"]`` when they don't.
 
     Paths that don't exist yet are anchored to their nearest existing parent so

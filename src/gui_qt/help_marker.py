@@ -1,10 +1,10 @@
-"""Shared help-marker helpers — the tooltip + bold accent "?" pattern.
+"""Shared help-marker helpers - the tooltip + bold accent "?" pattern.
 
 Used by the Settings, exe-launch settings and Define-Custom-Game views: option
 descriptions live in tooltips (on the row widgets and on a small "?" QLabel)
 instead of inline hint paragraphs, so rows stay one line tall.
 
-The host view styles the marker itself — include :func:`help_mark_qss` in its
+The host view styles the marker itself - include :func:`help_mark_qss` in its
 stylesheet so the "?" picks up the theme's accent colour.
 """
 

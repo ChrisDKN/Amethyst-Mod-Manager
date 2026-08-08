@@ -16,7 +16,7 @@ _SECTION = "qt_columns"
 def _make_parser():
     # strict=False so a legacy duplicate key (e.g. an older build wrote the
     # lowercase ``w_mod name`` AND this case-preserving build wrote ``w_Mod
-    # Name``) doesn't raise on read — last value wins. save_state rewrites the
+    # Name``) doesn't raise on read - last value wins. save_state rewrites the
     # whole section from scratch, which purges such stale duplicates.
     parser = configparser.ConfigParser(strict=False)
     parser.optionxform = str   # preserve key case (column names are case-sensitive)

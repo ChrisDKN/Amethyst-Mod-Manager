@@ -11,7 +11,7 @@ This module provides two reductions:
 
 1. Conditional requests via ETag / If-None-Match. A 304 response is free
    (it does not consume rate-limit quota) and lets us reuse the on-disk copy.
-2. A min-interval throttle keyed on URL — if the last successful fetch for a
+2. A min-interval throttle keyed on URL - if the last successful fetch for a
    URL happened less than ``min_interval`` seconds ago we skip the request
    entirely and return the cached body.
 

@@ -10,15 +10,15 @@ feeds them through libloot's sorting algorithm, and returns the reordered
 list with enabled/disabled state preserved.
 
 Game support is driven by the game handler's properties:
-  - loot_sort_enabled: bool       — whether LOOT sorting applies to this game
-  - loot_game_type: str           — libloot GameType attribute name (e.g. 'SkyrimSE')
-  - loot_masterlist_repo: str     — GitHub repo slug under github.com/loot/
+  - loot_sort_enabled: bool       - whether LOOT sorting applies to this game
+  - loot_game_type: str           - libloot GameType attribute name (e.g. 'SkyrimSE')
+  - loot_masterlist_repo: str     - GitHub repo slug under github.com/loot/
                                     (e.g. 'skyrimse', 'fallout4'); used to build
                                     the masterlist URL keyed to the bundled
                                     libloot version.
-  - loot_masterlist_url: str      — (legacy) full URL; used as a fallback if
+  - loot_masterlist_url: str      - (legacy) full URL; used as a fallback if
                                     loot_masterlist_repo is not set.
-  - game_id: str                  — used to derive the masterlist filename
+  - game_id: str                  - used to derive the masterlist filename
                                     (masterlist_<game_id>.yaml in
                                     ~/.config/AmethystModManager/LOOT/data/)
 """
@@ -43,7 +43,7 @@ except ImportError as _exc:
     loot = None
     _AVAILABLE = False
     # A missing or ABI-mismatched extension disables LOOT sorting for the
-    # whole session — record why instead of failing silently (e.g. a flatpak
+    # whole session - record why instead of failing silently (e.g. a flatpak
     # runtime whose Python version has no matching loot.cpython-3XX .so).
     try:
         import sysconfig
@@ -55,7 +55,7 @@ except ImportError as _exc:
             {p.name for d in (_here.parent, _here) for p in d.glob("loot.*.so")}
         )
         _IMPORT_DETAIL = (
-            "LOOT: native extension failed to import — sorting disabled. "
+            "LOOT: native extension failed to import - sorting disabled. "
             f"Interpreter needs 'loot{_tag}', found {_present or 'none'}. ({_exc})"
         )
     except Exception:
@@ -73,18 +73,18 @@ else:
 # Bundled masterlists shipped with the application (read-only in AppImage)
 _BUNDLED_DATA_DIR = Path(__file__).parent / "data"
 
-# User-writable masterlist directory — resolved lazily to avoid import-time side effects
+# User-writable masterlist directory - resolved lazily to avoid import-time side effects
 _DATA_DIR: Path | None = None
 
 # Re-download masterlists at most once per 24 hours (when libloot version
-# is unchanged — a libloot version bump always forces a re-fetch).
+# is unchanged - a libloot version bump always forces a re-fetch).
 _MASTERLIST_TTL_SECS = 86400
 
 # Walk-down floor: don't probe branches older than this. v0.21 is the oldest
 # masterlist branch any of our games currently use.
 _BRANCH_FLOOR = (0, 21)
 
-# Per-minor cap when walking back through a previous major (defensive only —
+# Per-minor cap when walking back through a previous major (defensive only -
 # real masterlist repos haven't crossed a 1.0 boundary).
 _PREV_MAJOR_MINOR_CAP = 50
 
@@ -100,7 +100,7 @@ def _get_data_dir() -> Path:
 
 
 PRELUDE_FILE = "masterlist_prelude.yaml"
-# Prelude lives in github.com/loot/prelude — same per-libloot-version branch scheme.
+# Prelude lives in github.com/loot/prelude - same per-libloot-version branch scheme.
 _PRELUDE_REPO = "prelude"
 _PRELUDE_FILENAME_IN_REPO = "prelude.yaml"
 
@@ -216,7 +216,7 @@ def _resolve_branch(
             _write_branch_cache(cache)
             if (major, minor) != target:
                 _log(
-                    f"loot/{repo}: no {_branch_label(*target)} branch — "
+                    f"loot/{repo}: no {_branch_label(*target)} branch - "
                     f"falling back to {branch}."
                 )
             return branch
@@ -307,7 +307,7 @@ def _ensure_masterlist(
     # Try to download if a URL is provided
     if download_url:
         if version_changed:
-            _log(f"libloot version changed — refreshing {filename}...")
+            _log(f"libloot version changed - refreshing {filename}...")
         else:
             _log(f"Fetching latest {filename}...")
         try:
@@ -318,7 +318,7 @@ def _ensure_masterlist(
             _log(f"Updated {filename}.")
             return
         except Exception as exc:
-            _log(f"Could not fetch {filename}: {exc} — using cached copy.")
+            _log(f"Could not fetch {filename}: {exc} - using cached copy.")
 
     # Fall through: use cached file if it exists
     if dest.is_file():
@@ -430,7 +430,7 @@ def _render_file_list(files) -> list[dict]:
         name = str(getattr(f, "name", "") or "")
         display = getattr(f, "display_name", "") or ""
         detail_msgs = getattr(f, "detail", None)
-        # detail is a list[MessageContent] — pick best-match language.
+        # detail is a list[MessageContent] - pick best-match language.
         detail_text = ""
         if detail_msgs:
             try:
@@ -469,7 +469,7 @@ def _render_cleaning_data(entries, language: str = "en") -> list[dict]:
     """
     out: list[dict] = []
     for d in entries or []:
-        # detail is a list[MessageContent] — pick best-match language.
+        # detail is a list[MessageContent] - pick best-match language.
         detail_text = ""
         detail_msgs = getattr(d, "detail", None)
         if detail_msgs:
@@ -495,8 +495,8 @@ def _render_cleaning_data(entries, language: str = "en") -> list[dict]:
 def _render_bash_tags(current, suggested) -> dict:
     """Merge a plugin's current (header) Bash Tags with masterlist suggestions.
 
-    current   — iterable of tag-name strings from plugin.bash_tags()
-    suggested — iterable of libloot Tag objects from evaluated metadata
+    current   - iterable of tag-name strings from plugin.bash_tags()
+    suggested - iterable of libloot Tag objects from evaluated metadata
                 (each has .name and .is_addition).
 
     Returns {"current": [...], "add": [...], "remove": [...]} with empty lists
@@ -666,7 +666,7 @@ def _read_filemap_winners(
     """Resolve plugin names to the staging file of their *winning* enabled mod.
 
     `filemap.txt` (Profiles/<game>/filemap.txt) maps each deployed relative
-    path to the mod folder that wins the conflict — it already encodes both the
+    path to the mod folder that wins the conflict - it already encodes both the
     enabled/disabled state and mod priority. We use it to pin each plugin to the
     copy that would actually be deployed, rather than letting an arbitrary
     staging tree walk return a *disabled* mod's copy (e.g. a stale ESLifier
@@ -720,7 +720,7 @@ def _scan_tree_for_plugins(
 
     Returns a map of lowercase basename → first matching path, stopping the walk
     as soon as every needed name has been located. Uses os.scandir so directory
-    entries are filtered without a stat per file — the bulk of mod data (meshes,
+    entries are filtered without a stat per file - the bulk of mod data (meshes,
     textures, …) never gets stat'd, only candidate plugin files do.
 
     When `plugin_exts` is given (e.g. {".esp", ".esm", ".esl"}), matches are
@@ -766,7 +766,7 @@ def _find_plugin_paths(
     Locate plugin files on disk, searching the game's Data directory first,
     then falling back to the mod staging folders, then the overwrite folder.
 
-    Empty or malformed plugin files are skipped — libloot can hang or crash
+    Empty or malformed plugin files are skipped - libloot can hang or crash
     when handed a 0-byte or non-TES file.
 
     Returns:
@@ -950,7 +950,7 @@ def sort_plugins(
 
     # libloot's load_current_load_order_state() reads plugin headers directly
     # from the game's Data directory to determine flags such as the ESM/master
-    # flag.  Masterlist conditions like is_master() rely on this — if a plugin
+    # flag.  Masterlist conditions like is_master() rely on this - if a plugin
     # is only in the staging folder (i.e. the profile is not deployed), libloot
     # cannot see its header and treats it as a non-master, which can trigger
     # spurious cyclic-dependency errors when conditional load-after rules fire
@@ -965,7 +965,7 @@ def sort_plugins(
         # We only need to symlink plugins that aren't already present in Data/.
         # For a deployed profile every plugin is already there, so this set is
         # empty and we skip the (potentially huge) staging tree walk entirely.
-        # Presence is checked case-insensitively — some installs ship
+        # Presence is checked case-insensitively - some installs ship
         # differently-cased plugin files (e.g. lowercased CC content), and a
         # case-sensitive miss would symlink a second, differently-cased copy.
         data_present_lower: set[str] = set()
@@ -982,8 +982,8 @@ def sort_plugins(
 
         if needed:
             # Build a map of lowercase plugin name → staging file path. Prefer
-            # the filemap winner (the enabled mod's copy) so the header — and
-            # the CRC used for dirty/clean flags — comes from the file that
+            # the filemap winner (the enabled mod's copy) so the header - and
+            # the CRC used for dirty/clean flags - comes from the file that
             # would actually deploy, not a disabled mod's leftover copy. Fall
             # back to a recursive scan for anything the filemap can't resolve.
             staging_plugin_map = _read_filemap_winners(staging_root, needed)
@@ -1016,7 +1016,7 @@ def sort_plugins(
         else:
             db.load_masterlist(str(masterlist_path))
             _log("Loaded masterlist (no prelude found).")
-            warnings.append("Prelude file not found — sorting may be less accurate.")
+            warnings.append("Prelude file not found - sorting may be less accurate.")
 
         # Load userlist if provided and non-empty
         if userlist_path is not None and userlist_path.is_file():
@@ -1028,7 +1028,7 @@ def sort_plugins(
             except (ValueError, OSError) as e:
                 warnings.append(f"Userlist skipped: {e}")
 
-        # Find plugin files on disk — check game Data dir AND staging mods
+        # Find plugin files on disk - check game Data dir AND staging mods
         plugin_paths, missing = _find_plugin_paths(
             plugin_names, effective_data_dir, staging_root,
         )
@@ -1044,7 +1044,7 @@ def sort_plugins(
             _log(f"Loading {len(plugin_paths)} plugin headers...")
             game.load_plugin_headers(plugin_paths)
 
-        # Only sort plugins that exist on disk — libloot can't sort unknown plugins
+        # Only sort plugins that exist on disk - libloot can't sort unknown plugins
         missing_set = set(missing)
         sortable = [n for n in plugin_names if n not in missing_set]
         unsortable = [n for n in plugin_names if n in missing_set]
@@ -1074,7 +1074,7 @@ def sort_plugins(
                                 for n in plugin_names]
             else:
                 # libloot returned a different plugin set than it was given
-                # (shouldn't happen) — positional merge is impossible, fall
+                # (shouldn't happen) - positional merge is impossible, fall
                 # back to appending so no plugin is dropped.
                 sorted_names = sorted_names + unsortable
 

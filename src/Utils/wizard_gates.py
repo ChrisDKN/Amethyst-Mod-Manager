@@ -4,7 +4,7 @@ GUI-neutral wizard gating helpers.
 Game files decide which wizard tools to offer by probing the install (exe in
 staging, dll winning in the filemap). Those probes used to live in the Tk
 wizard modules (wizards/bodyslide.py, sse_display_tweaks.py, engine_fixes.py),
-which import customtkinter at module level — the Qt app can't import them, so
+which import customtkinter at module level - the Qt app can't import them, so
 the neutral copies live here and the game files import from this module.
 """
 
@@ -39,7 +39,7 @@ def find_staged_exe(game: "BaseGame", exe_name) -> Path | None:
 
     Used to gate wizards on whether a tool's exe is installed. On a large
     modlist a raw ``staging.rglob()`` walks tens of thousands of files and is
-    called several times per Wizard-menu open — so this reads the memory-cached
+    called several times per Wizard-menu open - so this reads the memory-cached
     ``modindex.bin`` (every mod's file list, kept fresh on install/remove/
     refresh) instead, and only falls back to a disk walk when the index is
     missing or the match can't be resolved to a real file.
@@ -66,12 +66,12 @@ def find_staged_exe(game: "BaseGame", exe_name) -> Path | None:
                         candidate = staging / mod_name / rel_str
                         if candidate.is_file():
                             return candidate
-        # Index present but no match — trust it (it's the deploy source of
+        # Index present but no match - trust it (it's the deploy source of
         # truth) rather than paying for a full-tree walk that would find the
         # same nothing.
         return None
 
-    # No usable index — fall back to the disk walk.
+    # No usable index - fall back to the disk walk.
     for name in _as_names(exe_name):
         for candidate in staging.rglob(name):
             if candidate.is_file():

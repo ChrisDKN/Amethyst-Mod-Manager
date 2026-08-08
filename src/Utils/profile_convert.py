@@ -1,10 +1,10 @@
 """
 profile_convert.py
 Convert a shared-pool profile to profile-specific mods (Profile Group
-members must be profile-specific — see Utils/profile_groups.py).
+members must be profile-specific - see Utils/profile_groups.py).
 
 Clones every listed mod from the shared pool into the profile's own mods/
-(bulk assets hardlinked, in-place-editable files copied — see _COPY_EXTS),
+(bulk assets hardlinked, in-place-editable files copied - see _COPY_EXTS),
 creates overwrite/ and Root_Folder/, flips profile_specific_mods, and
 rebuilds the profile's indexes. The shared pool is untouched; a clone
 failure aborts and rolls back. No reverse direction.
@@ -28,7 +28,7 @@ class ConvertError(ValueError):
 # Files that get REWRITTEN IN PLACE by the app or its tools (meta.ini writes,
 # text-editor saves, xEdit's cleaned-plugin rescue). Hardlinking those would
 # leak every later edit between the converted profile and the shared pool, so
-# they are always real copies; bulk assets (meshes/textures/archives — the
+# they are always real copies; bulk assets (meshes/textures/archives - the
 # actual disk weight) stay hardlinked.
 _COPY_EXTS = frozenset({
     ".ini", ".json", ".txt", ".xml", ".cfg", ".conf", ".toml", ".yaml",
@@ -87,7 +87,7 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
         src = shared_staging / e.name
         dst = dest_staging / e.name
         if dst.exists():
-            # A completed clone (retry after interruption) — trustworthy
+            # A completed clone (retry after interruption) - trustworthy
             # because clones land under a temp name and only a FINISHED tree
             # is renamed into place.
             cloned.append(e.name)
@@ -108,7 +108,7 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
                 for d in created_this_run:
                     shutil.rmtree(d, ignore_errors=True)
                 raise ConvertError(
-                    f"Cloning '{e.name}' failed ({exc}) — conversion aborted, "
+                    f"Cloning '{e.name}' failed ({exc}) - conversion aborted, "
                     f"profile left unchanged.") from exc
         else:
             missing.append(e.name)
@@ -142,7 +142,7 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
             log_fn=log,
         )
     except Exception as exc:
-        log(f"Convert: index rebuild failed ({exc}) — run Refresh to rebuild.")
+        log(f"Convert: index rebuild failed ({exc}) - run Refresh to rebuild.")
     archive_exts = frozenset(getattr(game, "archive_extensions", frozenset()) or frozenset())
     if archive_exts:
         try:

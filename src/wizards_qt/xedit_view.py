@@ -1,4 +1,4 @@
-"""xEdit wizard (SSEEdit / FO4Edit / FNVEdit / … + QuickAutoClean) — Qt port
+"""xEdit wizard (SSEEdit / FO4Edit / FNVEdit / … + QuickAutoClean) - Qt port
 of wizards/sseedit.py.
 
 One parametrised view serves every Bethesda game via the WizardTool.extra
@@ -84,13 +84,13 @@ class XEditView(QWidget):
         self._qac = qac
         self._discord = discord
         # Game-mode arg the multi-game Discord launcher needs (e.g. "SSE",
-        # "FO4", "SF1") — it refuses to start without one.
+        # "FO4", "SF1") - it refuses to start without one.
         self._discord_mode = discord_mode
 
         # Resolve per-game config from kwargs, falling back to SSEEdit
         # defaults (mirrors the Tk wizard's __init__).
         base_exe = xedit_exe or _EXE_NAME
-        # The Discord build has no separate QuickAutoClean exe — QAC
+        # The Discord build has no separate QuickAutoClean exe - QAC
         # is the same launcher with a ``-quickautoclean`` command-line arg (added
         # in _start_run).  The Nexus builds ship a distinct <build>QuickAutoClean.exe.
         if qac and not discord and base_exe.lower().endswith(".exe"):
@@ -98,7 +98,7 @@ class XEditView(QWidget):
         else:
             self._exe_name = base_exe
         self._nexus_url = nexus_url or _NEXUS_URL
-        # The pinned file id must pair with the URL it belongs to — only fall
+        # The pinned file id must pair with the URL it belongs to - only fall
         # back to the SSEEdit default when the URL is also the default. The
         # QAC build ships inside the same archive, so it shares the id;
         # Discord builds have no Nexus file at all.
@@ -158,7 +158,7 @@ class XEditView(QWidget):
 
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Run {0} — {1}").format(self._name, self._game.name))
+        title = QLabel(self.tr("Run {0} - {1}").format(self._name, self._game.name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -252,10 +252,10 @@ class XEditView(QWidget):
         page, lay = self._step_page(self.tr("Step 1: Download xEdit (Discord version)"))
         note = QLabel(self.tr(
             'The latest official xEdit is now released through the xEdit '
-            'Discord — a single multi-game download that is NOT on Nexus Mods.\n\n'
+            'Discord - a single multi-game download that is NOT on Nexus Mods.\n\n'
             'To get it:\n'
             '  1. Find and join the xEdit Discord server (search for it '
-            'yourself — we do not link it here as the invite can change).\n'
+            'yourself - we do not link it here as the invite can change).\n'
             '  2. Download the latest xEdit archive (e.g. "xEdit 4.1.5q.7z") '
             'from the #xedit-builds channel.\n'
             '  3. Leave the archive in your Downloads folder and click Next.\n\n'
@@ -286,7 +286,7 @@ class XEditView(QWidget):
         api_fn = getattr(self._ctx, "nexus_api", None)
         if api_fn is not None:
             try:
-                api = api_fn()      # GUI thread — the app's shared resolver
+                api = api_fn()      # GUI thread - the app's shared resolver
             except Exception:
                 api = None
         from wizards_qt._view_base import arm_nexus_auto_fetch
@@ -310,7 +310,7 @@ class XEditView(QWidget):
     def _on_auto_dl_archive(self, path):
         self._on_auto_dl_gate(True)
         path = Path(path)
-        # Only auto-advance while still on the download/locate steps — a user
+        # Only auto-advance while still on the download/locate steps - a user
         # who already located an archive manually keeps their choice.
         if self._stack.currentIndex() not in (_PG_DOWNLOAD, _PG_LOCATE):
             return
@@ -350,7 +350,7 @@ class XEditView(QWidget):
         if found:
             self._archive_path = found
             self._set_status(self._locate_status, self.tr("Found: {0}").format(found.name), ok_text())
-            # Fire only while still on the locate page — the hands-free fetch
+            # Fire only while still on the locate page - the hands-free fetch
             # may have advanced the wizard while this timer was pending.
             QTimer.singleShot(
                 300, lambda: None
@@ -365,7 +365,7 @@ class XEditView(QWidget):
 
     def _browse_archive(self):
         from Utils.portal_filechooser import pick_file
-        # Portal callback fires on a WORKER thread — marshal via Signal.
+        # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self.tr("Select the {0} archive").format(self._xedit_name),
                   lambda *a: safe_emit(self._picked_sig, *a))
 
@@ -448,7 +448,7 @@ class XEditView(QWidget):
         run_deploy = getattr(self._ctx, "run_deploy", None)
         if run_deploy is None:
             self._set_status(self._deploy_status,
-                             self.tr("Deploy is unavailable here — Skip to continue."),
+                             self.tr("Deploy is unavailable here - Skip to continue."),
                              err_text())
             return
         self._set_status(self._deploy_status, self.tr("Deploying…"), "")
@@ -462,11 +462,11 @@ class XEditView(QWidget):
                 self._goto_step(_PG_PROTON)
             else:
                 self._set_status(self._deploy_status,
-                                 self.tr("Deploy failed — see log."), err_text())
+                                 self.tr("Deploy failed - see log."), err_text())
 
         if not run_deploy(_done):
             self._set_status(self._deploy_status,
-                             self.tr("Could not start deploy — see log."), err_text())
+                             self.tr("Could not start deploy - see log."), err_text())
 
     # ---- step 5: proton -----------------------------------------------------------
     def _build_step_proton(self) -> QWidget:
@@ -562,7 +562,7 @@ class XEditView(QWidget):
         box.setFrameShape(QScrollArea.NoFrame)
 
         # Drop the placeholder stretch so it doesn't split the free vertical
-        # space with the box — then the box (stretch 1) gets the full height.
+        # space with the box - then the box (stretch 1) gets the full height.
         for i in range(self._run_page_lay.count()):
             item = self._run_page_lay.itemAt(i)
             if item is not None and item.widget() is None and item.spacerItem() is not None:
@@ -599,7 +599,7 @@ class XEditView(QWidget):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                        self.tr("Could not find Proton '{0}' — "
+                        self.tr("Could not find Proton '{0}' - "
                         "check that it is installed in Steam.").format(
                             proton_name), err_text())
                     return
@@ -619,7 +619,7 @@ class XEditView(QWidget):
                 if self._qac and self._discord:
                     extra_args.insert(0, "-quickautoclean")
                 # The multi-game Discord launcher needs a game-mode arg (e.g.
-                # -SSE / -FO4 / -SF1) to pick the game — it errors out without it.
+                # -SSE / -FO4 / -SF1) to pick the game - it errors out without it.
                 if self._discord and self._discord_mode:
                     extra_args.insert(0, f"-{self._discord_mode}")
                 # User-supplied extra launch arguments (Step 5 field) go last.
@@ -664,7 +664,7 @@ class XEditView(QWidget):
                     self._log(f"{name} Wizard: finalised {n} pending xEdit save(s).")
 
                 # Move any edited plugin back into its mod folder while the
-                # modindex still knows it — BEFORE the close-refresh rescans
+                # modindex still knows it - BEFORE the close-refresh rescans
                 # staging (the core QAC-plugins-land-in-overwrite fix).
                 restore_after_xedit(game, name, log_fn=self._log)
                 self._log(f"{name} Wizard: {name} closed.")
@@ -685,20 +685,20 @@ class XEditView(QWidget):
         self._tool_running = True
         self._close_btn.setEnabled(False)
         self._close_btn.setToolTip(
-            self.tr("{0} is running — close it to continue.").format(self._name))
+            self.tr("{0} is running - close it to continue.").format(self._name))
         self._set_status(
             self._run_status,
             self.tr('{0} is running.\nWhen you close it, your changes are restored automatically.').format(self._name),
             ok_text())
 
     def _on_run_finished(self):
-        # xEdit exited and restore_after_xedit already ran on the worker —
+        # xEdit exited and restore_after_xedit already ran on the worker -
         # unlock and close/refresh without any user action.
         self._tool_running = False
         self._finish()
 
     def _on_run_error(self):
-        # Launch/run failed after the close lock engaged — unlock so the user
+        # Launch/run failed after the close lock engaged - unlock so the user
         # can read the error status and close the wizard manually.
         self._tool_running = False
         self._close_btn.setEnabled(True)
@@ -726,7 +726,7 @@ class XEditView(QWidget):
                             self._name, n),
                 "")
         else:
-            # No LOOT-flagged dirty plugins — QAC All has nothing to do, so only
+            # No LOOT-flagged dirty plugins - QAC All has nothing to do, so only
             # offer the interactive launch (LOOT may simply never have run).
             self._qac_all_btn.setEnabled(False)
             self._set_status(
@@ -781,7 +781,7 @@ class XEditView(QWidget):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                        self.tr("Could not find Proton '{0}' — "
+                        self.tr("Could not find Proton '{0}' - "
                         "check that it is installed in Steam.").format(
                             proton_name), err_text())
                     safe_emit(self._qac_all_aborted_sig)
@@ -828,7 +828,7 @@ class XEditView(QWidget):
                     safe_emit(self._run_status_sig,
                               self.tr("Cleaning {0} of {1}: {2}…").format(
                                   i, total, plugin), "")
-                    self._log(f"{name} Wizard: QAC All — cleaning {plugin} "
+                    self._log(f"{name} Wizard: QAC All - cleaning {plugin} "
                               f"({i}/{total})")
                     run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                     extra_args=base_args + [plugin],
@@ -851,7 +851,7 @@ class XEditView(QWidget):
                 self._log(f"{name} Wizard: QAC All cleaned {cleaned} plugin(s).")
 
                 safe_emit(self._run_status_sig,
-                          self.tr("QAC All finished — cleaned {0} plugin(s).").format(
+                          self.tr("QAC All finished - cleaned {0} plugin(s).").format(
                               cleaned), ok_text())
                 safe_emit(self._run_finished_sig)
             except Exception as exc:
@@ -870,11 +870,11 @@ class XEditView(QWidget):
         self._tool_running = True
         self._close_btn.setEnabled(False)
         self._close_btn.setToolTip(
-            self.tr("{0} is cleaning plugins — please wait.").format(self._name))
+            self.tr("{0} is cleaning plugins - please wait.").format(self._name))
 
     def _on_qac_all_aborted(self):
         # The batch bailed before launching anything (no Proton / no game path),
-        # so nothing was cleaned and no lock was taken — put the chooser back
+        # so nothing was cleaned and no lock was taken - put the chooser back
         # rather than stranding the user on a hidden row. The error status the
         # worker already emitted stays on screen.
         self._qac_launch_btn.setEnabled(True)
@@ -906,7 +906,7 @@ class XEditView(QWidget):
         # ✕ and the auto-close after the tool exits both land here.
         # Idempotent; in-flight daemon workers finish harmlessly (their late
         # signals are dropped by the _closing guards). While xEdit runs the ✕
-        # is disabled, but guard anyway (e.g. programmatic close attempts) —
+        # is disabled, but guard anyway (e.g. programmatic close attempts) -
         # closing mid-run would rescan staging before restore_after_xedit.
         if self._closing or self._tool_running:
             return
@@ -918,7 +918,7 @@ class XEditView(QWidget):
         self._on_close_cb()
         if do_refresh:
             # The post-run restore un-deployed the game and may have moved
-            # cleaned plugins back into their mod folders — re-sync + reload
+            # cleaned plugins back into their mod folders - re-sync + reload
             # panels (mirrors the Tk wizard's _reload_mod_panel; the Qt
             # refresh path also rescans the mod index, which the QAC flow
             # depends on).

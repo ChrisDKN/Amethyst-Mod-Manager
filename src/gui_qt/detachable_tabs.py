@@ -1,4 +1,4 @@
-"""Detachable tab widget — the Qt replacement for the Tk overlays.
+"""Detachable tab widget - the Qt replacement for the Tk overlays.
 
 Views that the Tk app showed as overlays (Add Game, Nexus browser, settings,
 wizards, …) open here as TABS instead of new windows. A tab can be:
@@ -86,7 +86,7 @@ _x11_probe_inited = False
 
 
 def _left_button_down() -> bool:
-    """True while the left mouse button is physically held — reliable during a
+    """True while the left mouse button is physically held - reliable during a
     WM title-bar drag (X11 via XQueryPointer), else Qt's mouseButtons()."""
     global _x11_button_probe, _x11_probe_inited
     if not _x11_probe_inited:
@@ -104,9 +104,9 @@ def _left_button_down() -> bool:
 def _have_reliable_release_probe() -> bool:
     """True when we can detect the real mouse-button-release during a WM drag
     (X11 XQueryPointer). On native Wayland we CAN'T (the compositor owns the drag
-    + global button state is blocked), so the drag-back gesture would misfire —
+    + global button state is blocked), so the drag-back gesture would misfire -
     callers disable it there and rely on close-to-redock instead.
-    NOTE: re-test on a Wayland session — XWayland reports platformName 'xcb' and
+    NOTE: re-test on a Wayland session - XWayland reports platformName 'xcb' and
     works; only native 'wayland' lacks the probe."""
     global _x11_button_probe, _x11_probe_inited
     if not _x11_probe_inited:
@@ -117,7 +117,7 @@ def _have_reliable_release_probe() -> bool:
 
 class _DetachTabBar(QTabBar):
     """Tab bar that emits detach_requested when a tab is dragged far enough
-    outside the bar (the gesture people get subtly wrong — so it's centralised
+    outside the bar (the gesture people get subtly wrong - so it's centralised
     here with a clear vertical-distance threshold)."""
 
     detach_requested = Signal(int, QPoint)   # (tab index, global drop pos)
@@ -162,8 +162,8 @@ class _FloatingTab(QMainWindow):
 
     # Emitted when the window should give its page back to the tab widget.
     redock_requested = Signal(QWidget, str)   # (page, title)
-    moved = Signal(object)                     # (self) — drag-in-progress tracking
-    drag_finished = Signal(object)             # (self) — title-bar drag released
+    moved = Signal(object)                     # (self) - drag-in-progress tracking
+    drag_finished = Signal(object)             # (self) - title-bar drag released
 
     def __init__(self, page: QWidget, title: str, parent=None):
         super().__init__(parent)
@@ -188,7 +188,7 @@ class _FloatingTab(QMainWindow):
     def event(self, event):
         # A native title-bar drag ends with a NonClientArea mouse-button-release
         # (Qt receives this even though it doesn't own the drag). Use it as the
-        # reliable "let go" signal — mouseButtons() is unreliable mid-WM-drag.
+        # reliable "let go" signal - mouseButtons() is unreliable mid-WM-drag.
         from PySide6.QtCore import QEvent
         if event.type() == QEvent.NonClientAreaMouseButtonRelease:
             self.drag_finished.emit(self)
@@ -210,7 +210,7 @@ class DetachableTabWidget(QTabWidget):
         self._bar = _DetachTabBar(self)
         self.setTabBar(self._bar)
         # Closing the current tab returns to the PREVIOUSLY ACTIVE tab (Qt keeps
-        # a per-tab back-pointer, adjusted across reorders/removals) — not the
+        # a per-tab back-pointer, adjusted across reorders/removals) - not the
         # neighbour on the right.
         self._bar.setSelectionBehaviorOnRemove(
             QTabBar.SelectionBehavior.SelectPreviousTab)
@@ -230,7 +230,7 @@ class DetachableTabWidget(QTabWidget):
         self._scoped: dict[int, tuple] = {}
         self._permanent_widget: QWidget | None = None
         # Per-panel active scoped tab: id(target_stack) → id(placeholder).
-        # Lets a modlist-scoped AND a plugins-scoped tab show at the same time —
+        # Lets a modlist-scoped AND a plugins-scoped tab show at the same time -
         # selecting one only claims ITS panel; the other panel keeps whatever
         # scoped view it was showing. Cleared (all panels reset to page 0) when
         # a full-UI or the permanent tab is selected.
@@ -264,7 +264,7 @@ class DetachableTabWidget(QTabWidget):
         scoped = self._scoped.get(id(w)) if w is not None else None
         if scoped is not None:
             # A panel-scoped tab was selected. Its own page is an empty
-            # placeholder — we don't want to show that. Instead snap the content
+            # placeholder - we don't want to show that. Instead snap the content
             # back to the permanent full-UI page and show the scoped widget in
             # its target panel stack, so the full UI stays live with that panel
             # showing the scoped view. Only THIS tab's panel is claimed: a scoped
@@ -285,7 +285,7 @@ class DetachableTabWidget(QTabWidget):
     def _sync_scoped_stacks(self):
         """Bring every panel stack in line with _panel_active: show the active
         scoped widget where one is recorded (and still open), else page 0.
-        Resolves pages by WIDGET, not stored index — closing another scoped tab
+        Resolves pages by WIDGET, not stored index - closing another scoped tab
         on the same stack shifts indices (removeWidget), which would make a
         stored page_idx stale."""
         stacks: dict[int, QStackedWidget] = {}
@@ -325,8 +325,8 @@ class DetachableTabWidget(QTabWidget):
                         target_stack, key: str | None = None):
         """Open a PANEL-SCOPED tab: it appears in the shared tab bar, but selecting
         it keeps the permanent full-UI page visible and shows *scoped_widget* in
-        *target_stack* (one panel's QStackedWidget). The rest of the UI — the
-        other panel, headers, footers — stays live and interactive.
+        *target_stack* (one panel's QStackedWidget). The rest of the UI - the
+        other panel, headers, footers - stays live and interactive.
 
         Re-opening the same *key* focuses the existing tab. Returns the tab's
         placeholder widget (the handle used as its identity)."""
@@ -343,7 +343,7 @@ class DetachableTabWidget(QTabWidget):
             alt = self._stack_for_mode(pinned)
             if alt is not None:
                 target_stack = alt
-        # The tab page itself is an empty placeholder — the real content lives in
+        # The tab page itself is an empty placeholder - the real content lives in
         # target_stack. addTab needs a widget; this 0-size stub never shows.
         placeholder = QWidget()
         page_idx = target_stack.addWidget(scoped_widget)
@@ -430,7 +430,7 @@ class DetachableTabWidget(QTabWidget):
             widget.deleteLater()
             self._update_bar_visibility()
             return
-        # Otherwise a floating window — dismiss it for real (don't redock).
+        # Otherwise a floating window - dismiss it for real (don't redock).
         for flt in list(self._floats):
             if flt._page is widget:
                 self._floats = [f for f in self._floats if f is not flt]
@@ -447,7 +447,7 @@ class DetachableTabWidget(QTabWidget):
         if id(w) in self._permanent:
             return
         # A view may veto the tab-bar ✕ (e.g. an xEdit wizard while the tool
-        # is running). For scoped tabs the page is a placeholder — ask the
+        # is running). For scoped tabs the page is a placeholder - ask the
         # real content widget in the panel stack.
         scoped = self._scoped.get(id(w))
         content = scoped[1] if scoped is not None else w
@@ -482,7 +482,7 @@ class DetachableTabWidget(QTabWidget):
             self.removeTab(tab_idx)
         self._forget(placeholder)
         placeholder.deleteLater()
-        # Re-sync the panel stacks for whichever tab is now current — closing a
+        # Re-sync the panel stacks for whichever tab is now current - closing a
         # NON-current scoped tab fires no currentChanged, yet we reset a stack
         # the current scoped tab may share.
         self._on_current_changed(self.currentIndex())
@@ -524,7 +524,7 @@ class DetachableTabWidget(QTabWidget):
 
     def _repin(self, content: QWidget, target_mode: str):
         """Move an already-open view *content* into *target_mode*, preserving its
-        state, key and title. Reuses the extract logic from detach/redock — the
+        state, key and title. Reuses the extract logic from detach/redock - the
         widget is reparented, never recreated."""
         if self._modes.get(id(content)) == target_mode:
             return
@@ -551,7 +551,7 @@ class DetachableTabWidget(QTabWidget):
                     if placeholder is not None:
                         title = self.tabText(self.indexOf(placeholder))
                         # For a scoped tab the _tab_key lives on the PLACEHOLDER,
-                        # not the content widget — read it there.
+                        # not the content widget - read it there.
                         if not key:
                             key = placeholder.property("_tab_key")
                     ts.setCurrentIndex(0)
@@ -609,7 +609,7 @@ class DetachableTabWidget(QTabWidget):
             return
         title = self.tabText(index)
         key = w.property("_tab_key")
-        # SCOPED tab: its QTabWidget page is an empty placeholder — the REAL
+        # SCOPED tab: its QTabWidget page is an empty placeholder - the REAL
         # content lives in a target panel stack. Float that real widget instead
         # (else the detached window is blank), and remember its scope so redock
         # puts it back into the panel stack.
@@ -640,7 +640,7 @@ class DetachableTabWidget(QTabWidget):
         self._floats.append(flt)
         self._update_bar_visibility()
         # Drag-back redock needs a reliable button-release probe (X11). On native
-        # Wayland we can't read it, so the gesture would misfire — skip wiring it
+        # Wayland we can't read it, so the gesture would misfire - skip wiring it
         # there and rely on close-to-redock (the window's X button) instead.
         # (Re-test on a Wayland session; XWayland still reports xcb and works.)
         if _have_reliable_release_probe():
@@ -681,7 +681,7 @@ class DetachableTabWidget(QTabWidget):
         """Global-coords rect where dropping a floating window redocks it."""
         bar = self.tabBar()
         if not bar.isVisible() and self.count() <= 1:
-            # Tab bar hidden (only permanent tab) — top strip of the widget.
+            # Tab bar hidden (only permanent tab) - top strip of the widget.
             tl = self.mapToGlobal(self.rect().topLeft())
             zone = self.rect().translated(tl)
             zone.setHeight(48)
@@ -695,7 +695,7 @@ class DetachableTabWidget(QTabWidget):
         dragging over the redock zone, and redock on the release EDGE over the
         zone. On X11 the WM grabs the pointer during the drag (so the
         NonClientArea release event / live button state are unreliable mid-drag),
-        but `mouseButtons()` reports released once the grab ends — which the poll
+        but `mouseButtons()` reports released once the grab ends - which the poll
         catches."""
         self._drag_flt = flt
         timer = getattr(self, "_drag_poll", None)
@@ -717,7 +717,7 @@ class DetachableTabWidget(QTabWidget):
             return
         over = self._redock_zone().contains(QCursor.pos())
         if _left_button_down():
-            # Still dragging — keep the indicator in sync.
+            # Still dragging - keep the indicator in sync.
             self._set_drop_indicator(over)
             return
         # Button physically released → stop polling + redock if over the zone.
@@ -730,7 +730,7 @@ class DetachableTabWidget(QTabWidget):
             flt.close()
 
     def _on_drag_finished(self, flt):
-        """NonClientArea release (when the platform delivers it) — redock if over
+        """NonClientArea release (when the platform delivers it) - redock if over
         the zone. Harmless if it never fires (the poll handles X11)."""
         from PySide6.QtGui import QCursor
         if flt not in self._floats:
@@ -779,7 +779,7 @@ class DetachableTabWidget(QTabWidget):
         if idx != -1:
             self.setCurrentIndex(idx)
         else:
-            # It's floating — raise its window.
+            # It's floating - raise its window.
             for f in self._floats:
                 if f._page is widget:
                     f.raise_(); f.activateWindow()
@@ -795,7 +795,7 @@ class DetachableTabWidget(QTabWidget):
         if key in self._keys:
             return True
         # A detached SCOPED tab forgets its key from _keys but its float still
-        # carries _tab_key — treat that as open so close_tab/re-open see it.
+        # carries _tab_key - treat that as open so close_tab/re-open see it.
         return any(getattr(f, "_tab_key", None) == key for f in self._floats)
 
     def focus_key(self, key: str):

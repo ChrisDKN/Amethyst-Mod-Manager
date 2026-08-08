@@ -169,7 +169,7 @@ class Fallout_NV(Fallout_3):
         # Keep the 4GB-patch backup exe in the game root across restores. It
         # is created after the deploy snapshot (post_deploy or the wizard), so
         # the runtime sweep would otherwise move it into Root_Folder/ whenever
-        # _undo_4gb_patch skips it — auto-patching turned off between deploy
+        # _undo_4gb_patch skips it - auto-patching turned off between deploy
         # and restore, or a fresh unpatched exe after Steam verify-files.
         from Utils.deploy import RestoreWhitelistRule
         from Utils.fnv4gb_tools import BACKUP_NAME
@@ -263,10 +263,10 @@ class Fallout_NV(Fallout_3):
         state = info["state"]
         if state == "patchable":
             variant = apply_4gb_patch(game_root)
-            _log(f"4GB patch: auto-patched {EXE_NAME} ({variant} version) — "
+            _log(f"4GB patch: auto-patched {EXE_NAME} ({variant} version) - "
                  f"original kept as {BACKUP_NAME}.")
         elif state == "unknown":
-            _log(f"4GB patch: skipped — unrecognised {EXE_NAME} version "
+            _log(f"4GB patch: skipped - unrecognised {EXE_NAME} version "
                  f"(SHA-1 {info['hash']}). Verify game files, then use the "
                  f"4GB Patch wizard.")
         # "patched" / "missing" → nothing to do.

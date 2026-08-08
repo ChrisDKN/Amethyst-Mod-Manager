@@ -2,7 +2,7 @@
 plugin_parser.py
 Read master-file dependencies from Bethesda plugin headers (.esp/.esm/.esl).
 
-Only the first record (TES4/TES3) is parsed — this contains MAST subrecords
+Only the first record (TES4/TES3) is parsed - this contains MAST subrecords
 that list the plugin's required master files.
 
 TES4 record layout (Oblivion and newer):
@@ -213,11 +213,11 @@ TES4_FLAG_ESL = 0x0200
 # Starfield-only: marks a plugin as a "blueprint" (or BlueprintShips) plugin.
 # Per esplugin (src/plugin.rs is_blueprint_plugin) and libloadorder
 # (asterisk_based.rs save()), ALL blueprint plugins must be stripped from
-# Plugins.txt — Starfield silently drops any blueprint plugin it sees there.
+# Plugins.txt - Starfield silently drops any blueprint plugin it sees there.
 TES4_FLAG_BLUEPRINT = 0x0800
 
 # Games that fully support the ESL flag (set by the game panel via supports_esl_flag).
-# This constant is informational — the authoritative gate is the game property.
+# This constant is informational - the authoritative gate is the game property.
 _ESL_SUPPORTED_GAME_IDS: frozenset[str] = frozenset({
     "Fallout4", "Fallout4VR",
     "SkyrimSE", "SkyrimAE", "skyrimvr",
@@ -228,7 +228,7 @@ _ESL_SUPPORTED_GAME_IDS: frozenset[str] = frozenset({
 
 # Header-flags cache, mtime+size keyed like _MASTERS_CACHE. Every plugin
 # reload reads two flag bits (ESL + master) per plugin; without this, a
-# 250-plugin load order costs 500 file opens per reload — and the plugin
+# 250-plugin load order costs 500 file opens per reload - and the plugin
 # list reloads several times per profile switch.
 _HDR_FLAGS_CACHE: dict[str, tuple[int, int, "int | None"]] = {}
 
@@ -277,7 +277,7 @@ def is_master_flagged(plugin_path: Path) -> bool:
 def is_blueprint_flagged(plugin_path: Path) -> bool:
     """Return ``True`` if the plugin has the Starfield Blueprint bit (0x800) set.
 
-    Blueprint plugins must be omitted from Plugins.txt — Starfield strips any
+    Blueprint plugins must be omitted from Plugins.txt - Starfield strips any
     blueprint line at load time, and listing one causes the game to skip every
     plugin after it.
     """
@@ -288,7 +288,7 @@ def is_blueprint_flagged(plugin_path: Path) -> bool:
 def set_esl_flag(plugin_path: Path, enable: bool) -> bool:
     """Set or clear the ESL flag bit (``0x200``) in a TES4 plugin's header.
 
-    Writes in-place — the plugin file must be writable.  Returns ``True`` on
+    Writes in-place - the plugin file must be writable.  Returns ``True`` on
     success, ``False`` if the file could not be opened/written or is not a
     TES4 plugin.
     """
@@ -311,7 +311,7 @@ def set_esl_flag(plugin_path: Path, enable: bool) -> bool:
 def check_esl_eligible(plugin_path: Path, game_type_attr: str) -> bool:
     """Return ``True`` if libloot considers the plugin safe to ESL-flag.
 
-    Delegates to ``LOOT.eligibility.check_esl_eligible`` — libloot's scan is
+    Delegates to ``LOOT.eligibility.check_esl_eligible`` - libloot's scan is
     stricter than a simple FormID-range walk: it also checks that every
     referenced FormID resolves correctly once the plugin sits in the 0xFE
     slot.

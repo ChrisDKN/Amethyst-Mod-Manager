@@ -7,7 +7,7 @@ the top, then mods follow saved loadorder.txt order.
 
 v1 scope: list + order + enable-toggle + ESL/master flags. The deeper Tk logic
 (orphan detection, Data_Core pruning, LOOT messages, bash tags, missing-master
-checks) is deferred — the Flags column is structured to receive them later.
+checks) is deferred - the Flags column is structured to receive them later.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from Utils.plugins import (
 )
 
 # Verbose plugin-panel diagnostics. Set AMM_PLUGIN_DIAG=1 to log every stage of
-# load_plugins (plugins.txt / filemap recovery / resolver / prune) — used to
+# load_plugins (plugins.txt / filemap recovery / resolver / prune) - used to
 # chase "an enabled mod's plugins don't appear in the panel" reports where the
 # filemap is correct but the panel comes up empty. The always-on WARN lines
 # below fire regardless, to catch the silent-drop cases in normal use.
@@ -64,7 +64,7 @@ _ESL_ELIG_CACHE_VERSION = 2
 
 # Process-wide caches keyed by (path, mtime_ns, size[, game_type, version]) so
 # the expensive per-plugin record scan / flag read only runs when a plugin file
-# is actually rewritten — mirrors Tk _esl_flag_cache / _esl_eligible_cache.
+# is actually rewritten - mirrors Tk _esl_flag_cache / _esl_eligible_cache.
 _ESL_FLAG_CACHE: dict = {}
 _ESL_ELIG_CACHE: dict = {}
 
@@ -104,7 +104,7 @@ def compute_game_indexes(rows: list[PluginRow]) -> list[str]:
       FF after 4096).
     - Normal              → "%02X" of the running normal-plugin counter.
 
-    Medium / ESH (slot FD) is not handled — the model has no medium flag today
+    Medium / ESH (slot FD) is not handled - the model has no medium flag today
     (matches current game support). TODO medium/ESH when a game needs it.
     """
     out: list[str] = []
@@ -164,7 +164,7 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
     priority order (Tk parity: gui/plugin_panel.py:_check_all_masters).
 
     Mod plugins live in staging / overwrite (resolved via filemap.txt), NOT in
-    the vanilla Data dir, so reading a plugin header needs this resolver — using
+    the vanilla Data dir, so reading a plugin header needs this resolver - using
     only data_dir misses every mod-added (incl. ESL-flagged) plugin.
     """
     paths: dict[str, Path] = {}
@@ -182,7 +182,7 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
                 if "/" in rel_path:
                     # Rule-routing games (Oblivion Remastered): a NESTED
                     # staged path can still deploy to the top of the plugins
-                    # data dir — resolve it via the game's routing rules. The
+                    # data dir - resolve it via the game's routing rules. The
                     # staged rel is the real on-disk path under the mod dir.
                     if routing_ctx is None:
                         continue
@@ -231,7 +231,7 @@ def _resolve_plugin_paths(staging_dir: Path | None, data_dir: Path | None,
                     continue
                 name = rel_path[plen:]
                 if "/" in name or not name.lower().endswith(exts):
-                    continue   # nested below the data dir — not loadable
+                    continue   # nested below the data dir - not loadable
                 src = staging_dir / mod_name / rel_path
                 if not src.is_file():
                     found = _find_plugin_in_mod_dir(staging_dir / mod_name, name)
@@ -303,7 +303,7 @@ def resolve_plugin_paths_for_game(game, data_dir: Path | None = None
 def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
                               enabled_mods_lower: "set[str] | None" = None
                               ) -> dict[str, str]:
-    """Top-level plugin names that the CURRENT filemap.txt deploys — i.e. still
+    """Top-level plugin names that the CURRENT filemap.txt deploys - i.e. still
     provided by some enabled mod (or overwrite). Returns {lower: original_name}.
 
     A patcher mod (e.g. ESLifier Output) ships duplicate copies of plugins that
@@ -331,7 +331,7 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
         return {}
     exts = tuple(e.lower() for e in plugin_exts)
     # Rule-routing games (Oblivion Remastered): a nested staged path can still
-    # deploy to the top of the plugins data dir — treat those the same as
+    # deploy to the top of the plugins data dir - treat those the same as
     # top-level entries. See Utils.game_helpers.plugins_routing_ctx.
     try:
         from Utils.game_helpers import plugins_routing_ctx, routed_plugin_name
@@ -369,7 +369,7 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
         return {}
     # Root-flagged mods (filemap_root.txt) deploy VERBATIM to the game root:
     # '<data subpath>/<plugin>' lands at the top level of the deploy dir, the
-    # same place a top-level filemap.txt entry does — recover those too (e.g.
+    # same place a top-level filemap.txt entry does - recover those too (e.g.
     # a root MGE XE install shipping 'Data Files/XE Sky Variations.esp').
     fm_root = staging.parent / "filemap_root.txt"
     if fm_root.is_file():
@@ -395,7 +395,7 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
                         continue
                     name = rel_path[plen:]
                     if "/" in name:
-                        continue   # nested below the data dir — not loadable
+                        continue   # nested below the data dir - not loadable
                     low = name.lower()
                     if low.endswith(exts):
                         found.setdefault(low, name)
@@ -409,7 +409,7 @@ def _filemap_deployed_plugins(game, plugin_exts: tuple[str, ...],
 def _staged_top_level_plugins(game, staging: "Path | None",
                               exts: tuple[str, ...]) -> "set[str] | None":
     """Lowercase top-level plugin names across ALL staged mods (enabled or
-    not), from modindex.bin. None when the index is unavailable — callers
+    not), from modindex.bin. None when the index is unavailable - callers
     must treat that as unknown, not empty."""
     if staging is None:
         return None
@@ -455,16 +455,16 @@ def load_plugins(game, profile: str,
                  ) -> "list[PluginRow] | None":
     """Return the ordered plugin rows for *game*/*profile*, or [] if none.
 
-    *cancelled* — optional zero-arg callable polled between the expensive
+    *cancelled* - optional zero-arg callable polled between the expensive
     phases (path resolution, per-plugin header reads, master checks, ESL
     eligibility, BOS/SP scan). When it returns True the load aborts and
     returns None: a superseded reload's result is dropped by the caller's
     generation check anyway, so finishing it just burns seconds of disk + GIL
     time that slow the reload that superseded it.
 
-    *report* — optional dict filled with prune diagnostics for the caller:
+    *report* - optional dict filled with prune diagnostics for the caller:
     'prune_checked' (the phantom-prune actually ran, i.e. filemap_ok held)
-    and 'mass_prune' (names SAFETY 3 refused to auto-prune — more unresolved
+    and 'mass_prune' (names SAFETY 3 refused to auto-prune - more unresolved
     entries than _PRUNE_MAX). An explicit Refresh uses this to offer the
     user a confirmed cleanup the automatic path must not do on its own."""
     if cancelled is None:
@@ -481,7 +481,7 @@ def load_plugins(game, profile: str,
           f"active_dir={getattr(game, '_active_profile_dir', None)}")
 
     # Full vanilla set: base + DLC + Creation Club (.ccc), filtered to files
-    # present in Data — same resolver the Tk app uses.
+    # present in Data - same resolver the Tk app uses.
     try:
         from Utils.game_helpers import _vanilla_plugins_for_game
         with span("plugins.vanilla_resolve"):
@@ -490,7 +490,7 @@ def load_plugins(game, profile: str,
         vanilla = {n.lower(): n for n in getattr(game, "vanilla_plugins", [])}
 
     # Recover plugins still deployed by an enabled mod (per the fresh filemap)
-    # but missing from plugins.txt — see _filemap_deployed_plugins. The guard
+    # but missing from plugins.txt - see _filemap_deployed_plugins. The guard
     # is the listed-entry set below: a disabled patcher mod's toggle sync
     # (Utils/plugin_sync.py) strips its plugins from BOTH plugins.txt and
     # loadorder.txt, so a name absent from both that the filemap still deploys
@@ -498,12 +498,12 @@ def load_plugins(game, profile: str,
     exts = tuple(e.lower() for e in (getattr(game, "plugin_extensions", []) or [])) \
         or (".esp", ".esm", ".esl")
     listed_lower = {e.name.lower() for e in entries}
-    # Legacy (non-star) games have no disabled syntax in plugins.txt — a
+    # Legacy (non-star) games have no disabled syntax in plugins.txt - a
     # user-disabled plugin is OMITTED from the file and survives only in
     # loadorder.txt (see Utils/plugins.py). Reconstruct those names as
     # disabled entries BEFORE the filemap recovery below: the plugin's file is
     # still deployed by its (enabled) mod, so without this the recovery
-    # re-added it as enabled — and persisted it back into plugins.txt — on
+    # re-added it as enabled - and persisted it back into plugins.txt - on
     # every reload. Deploy and LOOT sort both end in a reload, so "disable a
     # plugin, then deploy/sort" silently re-enabled it. Names whose mod was
     # since removed don't resolve to a file and are pruned further down.
@@ -514,7 +514,7 @@ def load_plugins(game, profile: str,
                 continue
             entries.append(PluginEntry(name=name, enabled=False))
             listed_lower.add(low)
-    # Enabled mods per the CURRENT modlist.txt — the recovery filter (see
+    # Enabled mods per the CURRENT modlist.txt - the recovery filter (see
     # _filemap_deployed_plugins). Missing/unreadable modlist → no filtering.
     enabled_mods: "set[str] | None" = None
     modlist_path = p.parent / "modlist.txt"
@@ -538,7 +538,7 @@ def load_plugins(game, profile: str,
           f"recovered {len(recovered)} not in plugins.txt: {recovered[:10]}")
 
     # Orphan plugins: files sitting in the game's Data/ folder that the user
-    # installed manually — see _scan_orphan_plugins. Appended here so they show
+    # installed manually - see _scan_orphan_plugins. Appended here so they show
     # in the panel and can be toggled / LOOT-sorted like any other plugin.
     data_dir = (game.get_vanilla_plugins_path()
                 if hasattr(game, "get_vanilla_plugins_path") else None)
@@ -597,14 +597,14 @@ def load_plugins(game, profile: str,
     #
     # SAFETY: only prune when the resolver returned a healthy map (the filemap
     # exists and resolution produced paths). resolve_plugin_paths_for_game
-    # returns {} on ANY failure — pruning on an empty map would wipe every
+    # returns {} on ANY failure - pruning on an empty map would wipe every
     # non-vanilla plugin from plugins.txt. Require the filemap to exist AND the
     # resolver to have found at least one path before trusting a miss.
     staging = (game.get_effective_mod_staging_path()
                if hasattr(game, "get_effective_mod_staging_path") else None)
     fm_path = (staging.parent / "filemap.txt") if staging is not None else None
     # SAFETY 4 (freshness): plugins.txt newer than filemap.txt means entries
-    # were appended AFTER the filemap was built — a just-committed install
+    # were appended AFTER the filemap was built - a just-committed install
     # (_add_plugins) or toggle sync whose conflict rebuild hasn't landed yet.
     # The resolver can't see those mods, so an unresolved name proves nothing.
     # Without this guard the prune deleted a freshly installed mod's plugin
@@ -621,7 +621,7 @@ def load_plugins(game, profile: str,
         pass
     if not filemap_fresh:
         _diag(f"load_plugins: SAFETY-4 filemap OLDER than plugins.txt "
-              f"({fm_path}) — prune + recovered-persist skipped this reload")
+              f"({fm_path}) - prune + recovered-persist skipped this reload")
     filemap_ok = (fm_path is not None and fm_path.is_file()
                   and bool(resolved) and filemap_fresh)
     # SAFETY 2: never prune while the game object points at a DIFFERENT
@@ -639,8 +639,8 @@ def load_plugins(game, profile: str,
         # staging/filemap, so every path resolution is meaningless. This also
         # silently disables the prune (safe), but if it fires during a normal
         # reload it means load_plugins ran against a different profile than the
-        # one on screen — a prime suspect for "plugins missing after a toggle".
-        _diag(f"load_plugins: SAFETY-2 active-dir MISMATCH — "
+        # one on screen - a prime suspect for "plugins missing after a toggle".
+        _diag(f"load_plugins: SAFETY-2 active-dir MISMATCH - "
               f"active={active} vs plugins.txt dir={p.parent} "
               f"(resolver ran against the wrong profile; prune skipped)")
         filemap_ok = False
@@ -663,11 +663,11 @@ def load_plugins(game, profile: str,
                 pruned.append(e.name)
         # Partition unresolved entries by staged ownership (modindex.bin):
         # a name that IS a top-level plugin of some staged mod can only be
-        # unresolved because that mod is disabled — the toggle sync should
+        # unresolved because that mod is disabled - the toggle sync should
         # have removed it (missed scan, older version, externally edited
         # profile). Ownership is proven, so it is NOT the broken-resolution
         # case SAFETY 3 exists for and prunes uncapped (self-heals the
-        # GH#318 state). plugins.txt only on star games — loadorder.txt
+        # GH#318 state). plugins.txt only on star games - loadorder.txt
         # keeps the position for a re-enable. AMM_PRUNE_OWNED=0 kills it.
         staged = (_staged_top_level_plugins(game, staging, exts)
                   if pruned else None)
@@ -687,15 +687,15 @@ def load_plugins(game, profile: str,
             pruned_now.update(n.lower() for n in owned)
         # SAFETY 3: a genuine stale entry is one removed mod's worth of
         # plugins. A mass miss means the resolution itself is wrong (desync
-        # not caught above, or filemap.txt read mid-rewrite) — keep the
+        # not caught above, or filemap.txt read mid-rewrite) - keep the
         # entries and let a later healthy reload prune them one by one.
         # Reported to the caller so an EXPLICIT Refresh can offer the user a
-        # confirmed mass cleanup (a genuinely polluted plugins.txt — e.g.
-        # another profile's load order copied in — looks identical to a
+        # confirmed mass cleanup (a genuinely polluted plugins.txt - e.g.
+        # another profile's load order copied in - looks identical to a
         # broken resolution from here, so only the user can arbitrate).
         if unowned and len(unowned) > _PRUNE_MAX:
             app_log(f"Plugins: NOT pruning {len(unowned)} unresolved plugin(s) "
-                    f"(> {_PRUNE_MAX}) — wrong-staging/partial-filemap "
+                    f"(> {_PRUNE_MAX}) - wrong-staging/partial-filemap "
                     f"resolution suspected; plugins.txt left untouched. "
                     f"Refresh Modlist offers a confirmed cleanup.")
             if report is not None:
@@ -711,8 +711,8 @@ def load_plugins(game, profile: str,
     # Persist manual orphans into plugins.txt so LOOT sort and deploy pick
     # them up even if the user never touches the panel. Same SAFETY-2 guard
     # as the prune: only write when the game object points at the profile
-    # being loaded. Skip any the prune dropped above (shouldn't happen —
-    # orphans resolve via the Data/Data_Core scan — but stay consistent).
+    # being loaded. Skip any the prune dropped above (shouldn't happen -
+    # orphans resolve via the Data/Data_Core scan - but stay consistent).
     if orphans and _active_matches:
         still = {e.name.lower() for e in ordered}
         _append_orphans_to_plugins(
@@ -720,8 +720,8 @@ def load_plugins(game, profile: str,
 
     # Persist filemap-recovered plugins too (Tk parity: Tk's Data/ orphan scan
     # fed the same sync that wrote them back to plugins.txt). Without this, a
-    # plugin that lost its plugins.txt entry — e.g. pruned by an earlier
-    # stale-filemap reload — shows in the panel forever but never reaches
+    # plugin that lost its plugins.txt entry - e.g. pruned by an earlier
+    # stale-filemap reload - shows in the panel forever but never reaches
     # plugins.txt, so deploy's prefix plugins.txt omits it and the game never
     # loads it. filemap_fresh: only trust the recovery when the filemap is at
     # least as new as plugins.txt (see SAFETY 4).
@@ -747,7 +747,7 @@ def load_plugins(game, profile: str,
         _apply_userlist_flags(rows, p.parent)
     if cancelled():
         return None
-    # ESL eligibility deliberately NOT computed here — see
+    # ESL eligibility deliberately NOT computed here - see
     # compute_esl_eligibility (deferred to its own post-apply worker).
     with span("plugins.bos_sp"):
         _apply_bos_sp(rows, staging)
@@ -759,14 +759,14 @@ def _scan_orphan_plugins(game, data_dir: Path | None,
                          vanilla: dict[str, str],
                          saved_order: list[str]) -> list[PluginEntry]:
     """Plugin files sitting in the game's Data/ folder that the user installed
-    manually — not in plugins.txt (*listed_lower*), not in loadorder.txt
+    manually - not in plugins.txt (*listed_lower*), not in loadorder.txt
     (*saved_order*), not vanilla, not deployed by another profile. Returned as
     enabled entries so the panel surfaces them (Tk parity:
     gui/plugin_panel.py:_refresh_plugins_tab orphan scan).
 
     When a deploy is active, Data/ contains mod hardlinks owned by the mod
     manager. Anything NOT also present in Data_Core/ (the vanilla snapshot)
-    came from a mod deploy and must not be treated as a manual orphan —
+    came from a mod deploy and must not be treated as a manual orphan -
     otherwise disabling a mod would leave its plugin in the panel, because the
     hardlink in Data/ outlives its plugins.txt entry until the next deploy."""
     if data_dir is None or not data_dir.is_dir():
@@ -809,7 +809,7 @@ def _append_orphans_to_plugins(plugins_path: Path, star: bool,
     """Append plugins missing from plugins.txt (manually-installed Data/
     orphans AND filemap-recovered entries from enabled mods) so they stay
     listed (and get deployed / LOOT-sorted) without requiring a panel edit.
-    Best-effort and idempotent — names already listed are skipped, failures
+    Best-effort and idempotent - names already listed are skipped, failures
     are swallowed (the plugin just re-surfaces from its scan next reload).
     Entries with a loadorder.txt position go back to that slot (plugins.txt
     file order is the engine load order); the rest append at the end."""
@@ -834,8 +834,8 @@ def _prune_phantom_plugins(plugins_path: Path, star: bool,
                            phantom_lower: set[str],
                            loadorder_too: bool = True) -> None:
     """Remove *phantom_lower* plugin names from plugins.txt (+ loadorder.txt
-    unless *loadorder_too* is False — disabled-mod-owned prunes on star games
-    keep the loadorder entry as position memory). Best-effort — failures are
+    unless *loadorder_too* is False - disabled-mod-owned prunes on star games
+    keep the loadorder entry as position memory). Best-effort - failures are
     swallowed so a read-only profile still renders."""
     try:
         entries = read_plugins(plugins_path, star_prefix=star)
@@ -862,7 +862,7 @@ def prune_listed_plugins(game, profile: str, names: list[str]) -> None:
 
     User-confirmed mass cleanup behind the Refresh Modlist flow: load_plugins'
     automatic prune refuses to drop more than _PRUNE_MAX unresolved entries
-    (SAFETY 3 — a mass miss usually means a broken resolution, not a stale
+    (SAFETY 3 - a mass miss usually means a broken resolution, not a stale
     file), so removals above the cap require this explicit path."""
     p = plugins_path(game, profile)
     if p is None or not p.is_file() or not names:
@@ -901,7 +901,7 @@ def _to_row(e: PluginEntry, vanilla: dict, resolved: dict[str, Path],
 def _apply_master_checks(rows: list[PluginRow], resolved: dict[str, Path],
                          data_dir: Path | None) -> None:
     """Flag missing / late / version-mismatched masters from each plugin's
-    resolved on-disk path (staging/overwrite/Data), not just the Data dir — so
+    resolved on-disk path (staging/overwrite/Data), not just the Data dir - so
     the checks work for mod plugins on un-deployed profiles too. The check_*
     functions index plugin_paths by name.lower(), so key the dict that way."""
     names = [r.name for r in rows]
@@ -946,7 +946,7 @@ _SE_LOADER_RE = re.compile(
 
 class RequirementResolver:
     """Resolves LOOT "Requires" entries against the active profile so a
-    requirement that IS satisfied — but not by an *enabled plugin name* — is not
+    requirement that IS satisfied - but not by an *enabled plugin name* - is not
     flagged as missing.
 
     Ported from Tk gui/plugin_panel_loot.py (`_is_requirement_satisfied` and its
@@ -1163,7 +1163,7 @@ def _apply_loot_flags(rows: list[PluginRow], profile_dir: Path,
             continue
         # Resolve "requirements" against the active profile so a requirement
         # already satisfied (by an enabled mod's Nexus id, a staged file, or an
-        # installed script extender — not just an enabled plugin name) doesn't
+        # installed script extender - not just an enabled plugin name) doesn't
         # light the flag or show up as missing. Shallow-copy before overwriting
         # so the shared cached `info` dict is left intact for other consumers.
         reqs = d.get("requirements") or []
@@ -1210,7 +1210,7 @@ def _apply_userlist_flags(rows: list[PluginRow], profile_dir: Path) -> None:
 def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
                             data_dir: Path | None, game) -> dict[str, int]:
     """Return {plugin_name_lower: PF_ESL_SAFE | PF_ESL_UNSAFE} for each
-    .esp/.esm in *names* — libloot's is-this-safe-to-ESL-flag verdict,
+    .esp/.esm in *names* - libloot's is-this-safe-to-ESL-flag verdict,
     mirroring Tk _refresh_esl_flagged_set. Feeds the ESL-safe/unsafe filters.
 
     NOT called from load_plugins: a cold scan is seconds of libloot record
@@ -1218,7 +1218,7 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
     worker AND the UI thread. The window defers it to its own worker after
     the plugin rows are applied (app._start_esl_scan) and patches the bits in.
 
-    Gated on the game's ``supports_esl_flag`` capability — no point scanning
+    Gated on the game's ``supports_esl_flag`` capability - no point scanning
     games without an ESL flag (Fallout 3 / Oblivion / Morrowind). ``.esl``
     files are always light by extension, so eligibility isn't computed for
     them. Results are cached by (path, mtime_ns, size, game_type, version) so
@@ -1234,7 +1234,7 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
         return out
     for name in names:
         low = name.lower()
-        # .esl files are always light by extension — not eligibility-scanned.
+        # .esl files are always light by extension - not eligibility-scanned.
         if low.endswith(".esl") or not low.endswith((".esp", ".esm")):
             continue
         path = resolved.get(low) or ((data_dir / name) if data_dir else None)
@@ -1269,10 +1269,10 @@ def scan_bos_sp_patches(staging_root: Path | None) -> dict[str, str]:
            so every mod is scanned, not just the plugin's owner.
 
     Fast path: derive everything from modindex.bin (already an in-memory-cached
-    parse) instead of walking the staging tree — a full rglob over hundreds of
+    parse) instead of walking the staging tree - a full rglob over hundreds of
     mods costs seconds, the index pass costs milliseconds. Only SkyPatcher INI
     contents are read from disk. Cached by the index's mtime, which only changes
-    on install/remove/refresh — deploys touch staging dir mtimes but not the
+    on install/remove/refresh - deploys touch staging dir mtimes but not the
     index, so the cache survives an auto-deploy (the old mtime-sum key didn't).
     Falls back to the original disk walk when the index is missing/unreadable.
     A lock serializes concurrent scans (overlapping plugin reloads) so the
@@ -1320,7 +1320,7 @@ def _parse_sp_ini_text(text: str, sp_plugins: set[str]) -> None:
 
 def _scan_bos_sp_from_index(index: dict, staging_root: Path,
                             overwrite_name: str) -> dict[str, str]:
-    """Index-backed BOS/SP scan — see scan_bos_sp_patches. Index paths are
+    """Index-backed BOS/SP scan - see scan_bos_sp_patches. Index paths are
     destination-relative (the game's top-level strip prefix, e.g. ``Data``,
     already removed), which matches what the disk walk collected from the mod
     root + ``Data/``. Only SkyPatcher INIs are opened; the index key stripped
@@ -1367,7 +1367,7 @@ def _combine_bos_sp(all_plugins: set[str], bos_stems: set[str],
 
 
 def _scan_bos_sp_disk(staging_root: Path) -> dict[str, str]:
-    """Original full-disk-walk BOS/SP scan — the fallback when modindex.bin is
+    """Original full-disk-walk BOS/SP scan - the fallback when modindex.bin is
     missing or unreadable. Cached by (total staging dir mtime, staging path)."""
     staging_str = str(staging_root)
     try:
@@ -1461,7 +1461,7 @@ def format_loot_tooltip(info: dict, enabled_lower: set[str]) -> str:
     *enabled_lower* is the set of enabled plugin filenames (lowercase); it filters
     requirements to those not met by an enabled plugin, and incompatibilities to
     those whose conflicting plugin is currently enabled. The richer resolution
-    (staged files / enabled Nexus mod ids / script-extender detection — Tk parity)
+    (staged files / enabled Nexus mod ids / script-extender detection - Tk parity)
     is applied upstream by RequirementResolver in _apply_loot_flags, which stores
     only the still-unsatisfied requirements in `info["requirements"]`, so a
     non-plugin requirement like PapyrusUtil SE no longer reads as missing."""
@@ -1538,7 +1538,7 @@ def format_loot_tooltip(info: dict, enabled_lower: set[str]) -> str:
             util = d.get("utility", "")
             if util:
                 um = re.match(r'^\[(.+?)\]\(.+?\)$', util)
-                line += f" — clean with {um.group(1) if um else util}"
+                line += f" - clean with {um.group(1) if um else util}"
             lines.append(line)
             detail = d.get("detail", "")
             if detail:
@@ -1577,13 +1577,13 @@ def apply_loot_sort(rows: list[PluginRow], locked_indices: dict[int, PluginRow],
     """
     vanilla_lower = {r.name.lower() for r in rows if r.vanilla}
     # Case-insensitive: LOOT returns names with on-disk casing, which can
-    # differ from the plugins.txt casing in *rows* — a case-sensitive miss
+    # differ from the plugins.txt casing in *rows* - a case-sensitive miss
     # here silently re-enabled disabled plugins on every sort.
     name_to_enabled = {r.name.lower(): r.enabled for r in rows}
     total = len(rows)
     pre_unlocked = [r.name for i, r in enumerate(rows) if i not in locked_indices]
     if len(sorted_names) != len(pre_unlocked):
-        # Set mismatch (shouldn't happen — LOOT preserves the input set). Bail
+        # Set mismatch (shouldn't happen - LOOT preserves the input set). Bail
         # to the original order rather than risk a bad interleave.
         return list(rows), 0
     it = iter(sorted_names)
@@ -1611,16 +1611,16 @@ def apply_loot_sort(rows: list[PluginRow], locked_indices: dict[int, PluginRow],
 def save_plugins(game, profile: str, rows: list[PluginRow]) -> None:
     """Write the plugin order + enable state back to disk.
 
-    plugins.txt — mod plugins only (vanilla excluded unless the game includes
-    them); loadorder.txt — the FULL order incl. vanilla so LOOT-sorted positions
+    plugins.txt - mod plugins only (vanilla excluded unless the game includes
+    them); loadorder.txt - the FULL order incl. vanilla so LOOT-sorted positions
     survive a refresh. Mirrors plugin_panel._save_plugins (Tk parity)."""
     p = plugins_path(game, profile)
     if p is None:
         return
     star = getattr(game, "plugins_use_star_prefix", True)
     include_vanilla = bool(getattr(game, "plugins_include_vanilla", False))
-    # The whole vanilla set — base masters, DLC AND .ccc-listed Creation Club
-    # content (incl. _ResourcePack.esl, which ships inside Skyrim.ccc) — stays
+    # The whole vanilla set - base masters, DLC AND .ccc-listed Creation Club
+    # content (incl. _ResourcePack.esl, which ships inside Skyrim.ccc) - stays
     # out of plugins.txt: the engine force-loads it at fixed early positions
     # before reading the file, ignores any entries for it, and strips them when
     # it rewrites plugins.txt on launch. MO2 (primaryPlugins skip), Vortex

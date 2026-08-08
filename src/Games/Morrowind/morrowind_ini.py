@@ -2,7 +2,7 @@
 morrowind_ini.py
 Utility for managing the [Game Files] section of Morrowind.ini.
 
-Morrowind does not use plugins.txt — active plugins are listed under
+Morrowind does not use plugins.txt - active plugins are listed under
 [Game Files] as GameFile0=..., GameFile1=..., etc.
 
 Load order is determined by the last-modified date of the actual plugin
@@ -68,7 +68,7 @@ def _read_plugins_txt(plugins_txt: Path) -> list[str]:
 
     Lines starting with '#' or '*' prefixes (MO2-style) are handled:
       - Lines starting with '*' are active (strip the '*').
-      - Lines starting with '#' are comments — skipped.
+      - Lines starting with '#' are comments - skipped.
       - Plain lines are treated as active.
     """
     if not plugins_txt.is_file():
@@ -158,7 +158,7 @@ def update_morrowind_ini(
     active = _read_plugins_txt(plugins_txt)
     base   = _base_plugins(data_files_dir)
 
-    # Exclude base plugins from the user list — they're always written first.
+    # Exclude base plugins from the user list - they're always written first.
     base_lower = {p.lower() for p in base}
     user_plugins = [p for p in active if p.lower() not in base_lower]
 
@@ -185,7 +185,7 @@ def update_morrowind_ini(
             out_lines.extend(lines)
 
     if not wrote_game_files:
-        # No [Game Files] section existed — append one.
+        # No [Game Files] section existed - append one.
         out_lines.append("")
         out_lines.append("[Game Files]")
         for i, plugin in enumerate(ordered):

@@ -1,4 +1,4 @@
-"""Creation Kit (+ CKPE) wizard — Qt port of wizards/creationkit.py.
+"""Creation Kit (+ CKPE) wizard - Qt port of wizards/creationkit.py.
 
 Detects CreationKit.exe in the game root (installed via Steam), optionally
 installs/updates Creation Kit Platform Extended from GitHub as a
@@ -31,7 +31,7 @@ _PG_DETECT, _PG_CKPE, _PG_DEPLOY, _PG_PROTON, _PG_RUN = range(5)
 
 
 def _ck_isolated_prefix_dir(proton_name: str):
-    """Isolated CK prefix lives in the app config's wine_prefixes/ folder —
+    """Isolated CK prefix lives in the app config's wine_prefixes/ folder -
     CreationKit.exe is in the game root, so the default (next to the exe)
     would create a ~1 GB Wine prefix inside the game install."""
     from Utils.config_paths import get_wine_prefixes_dir
@@ -47,7 +47,7 @@ class CreationKitView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run Creation Kit — {0}").format(game.name))
+                         title=self.tr("Run Creation Kit - {0}").format(game.name))
         self._exe = creationkit_exe_path(game)
         self._proton_name = ""
         self._prefix_mode = ""
@@ -124,7 +124,7 @@ class CreationKitView(WizardViewBase):
         self._make_note(lay, (
             self.tr("Note: on a brand-new prefix the first launch may open the plain "
             "Creation Kit without Creation Kit Platform Extended (CKPE). If "
-            "you need CKPE, close the Creation Kit and run the wizard again — "
+            "you need CKPE, close the Creation Kit and run the wizard again - "
             "CKPE loads on the second launch once the prefix is initialised."
             "\n\nThe Creation Kit can also occasionally crash on startup "
             "under Proton (a known Wine timing issue). If it closes "
@@ -186,7 +186,7 @@ class CreationKitView(WizardViewBase):
 
     def _on_ckpe_done(self, ok: bool):
         if ok:
-            self._ran = True   # new mod in the modlist — refresh on close
+            self._ran = True   # new mod in the modlist - refresh on close
             self._goto_step(_PG_DEPLOY)
         else:
             self._ckpe_btn.setEnabled(True)
@@ -219,7 +219,7 @@ class CreationKitView(WizardViewBase):
                     isolated_prefix_dir=_ck_isolated_prefix_dir(proton_name))
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — "
+                              self.tr("Could not find Proton '{0}' - "
                               "check that it is installed in Steam.").format(proton_name), RED)
                     return
                 proton_script, compat_data, env = result
@@ -231,7 +231,7 @@ class CreationKitView(WizardViewBase):
                     return
                 pfx = compat_data / "pfx"
 
-                # CK reads the game's Installed Path from the registry — a
+                # CK reads the game's Installed Path from the registry - a
                 # fresh tool prefix never has it (idempotent, marker-guarded).
                 maybe_register_for_game(
                     prefix_dir=compat_data, proton_script=proton_script,
@@ -257,7 +257,7 @@ class CreationKitView(WizardViewBase):
                 # CKPE ships a winhttp.dll loader; the prefix must prefer the
                 # native DLL.  Write the override, then shut the wineserver
                 # down so the CK launch starts cold and reads it from disk
-                # (a live server only reads the registry on cold start —
+                # (a live server only reads the registry on cold start -
                 # otherwise CKPE only loads from the second launch on).
                 apply_wine_dll_overrides(
                     compat_data, {"winhttp": "native,builtin"}, log_fn=_wlog)
@@ -265,7 +265,7 @@ class CreationKitView(WizardViewBase):
                                            log_fn=_wlog)
 
                 # CKPE crashes on startup if CKPEPlugins/ is missing from the
-                # game root; the CKPE mod ships one — create it only as a
+                # game root; the CKPE mod ships one - create it only as a
                 # fallback for manual CKPE installs.
                 ckpe_plugins = game_path / "CKPEPlugins"
                 if ckpe_plugins.is_dir():
@@ -273,7 +273,7 @@ class CreationKitView(WizardViewBase):
                 else:
                     try:
                         ckpe_plugins.mkdir(exist_ok=True)
-                        _wlog("CKPEPlugins/ missing — created it in the game "
+                        _wlog("CKPEPlugins/ missing - created it in the game "
                               "root (manual CKPE install fallback).")
                     except OSError as exc:
                         _wlog(f"could not create CKPEPlugins/: {exc}")

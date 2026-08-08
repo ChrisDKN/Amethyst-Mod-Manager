@@ -4,7 +4,7 @@ hovering shows the API rate-limit usage in a small popup ABOVE the label.
 Mirrors the Tk status bar's rate-limit feature (gui/status_bar.py) but presents
 the username on the label and the hourly/daily remaining counts in the popup
 (matching the requested design). Rate limits are read passively from
-``api.rate_limits`` — captured from response headers on every Nexus request — so
+``api.rate_limits`` - captured from response headers on every Nexus request - so
 the periodic refresh never makes a network call.
 
 We use our OWN frameless popup rather than QToolTip: QToolTip anchors to the
@@ -22,7 +22,7 @@ from gui_qt.theme_qt import active_palette, _c
 
 
 class _HoverPopup(QLabel):
-    """A small frameless info window — white text, blue border, above the label."""
+    """A small frameless info window - white text, blue border, above the label."""
 
     def __init__(self, accent: str):
         # Qt.ToolTip = frameless, floats above, never takes focus / activation.
@@ -36,7 +36,7 @@ class _HoverPopup(QLabel):
 
     def show_above(self, anchor: QLabel) -> None:
         """Position the popup so its bottom edge sits just above *anchor*'s top,
-        roughly centred on the anchor, then show it — clamped to stay within the
+        roughly centred on the anchor, then show it - clamped to stay within the
         application window (so a corner-anchored label doesn't push it off-screen).
         """
         self.adjustSize()
@@ -84,7 +84,7 @@ class NexusFooterLabel(QLabel):
         self.setMouseTracking(True)
         self._apply_style(self._col_main)
         self._refresh()
-        # Poll cached state every 10s (no network) — matches the Tk cadence.
+        # Poll cached state every 10s (no network) - matches the Tk cadence.
         self._timer = QTimer(self)
         self._timer.setInterval(10_000)
         self._timer.timeout.connect(self._refresh)
@@ -147,14 +147,14 @@ class NexusFooterLabel(QLabel):
 
         r = getattr(api, "rate_limits", None) if api is not None else None
         if r is None or (r.hourly_remaining < 0 and r.daily_remaining < 0):
-            self._set_tip(self.tr("Nexus API rate limits — no data yet.\n"
+            self._set_tip(self.tr("Nexus API rate limits - no data yet.\n"
                           "Values appear after the first API request."))
             self._apply_style(self._col_main)
             return
 
         h, d = r.hourly_remaining, r.daily_remaining
-        h_str = f"{h:,}" if h >= 0 else "—"
-        d_str = f"{d:,}" if d >= 0 else "—"
+        h_str = f"{h:,}" if h >= 0 else "-"
+        d_str = f"{d:,}" if d >= 0 else "-"
         self._set_tip(self.tr('Remaining API requests:\nHourly: {0}\nDaily: {1}').format(h_str, d_str))
 
         # White by default; amber/red as the hourly budget runs low.

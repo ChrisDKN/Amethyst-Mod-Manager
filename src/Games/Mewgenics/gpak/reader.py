@@ -1,12 +1,12 @@
 """
-reader.py — GPAK archive format reader for Mewgenics.
+reader.py - GPAK archive format reader for Mewgenics.
 
 GPAK is used by Mewgenics and The End Is Nigh. Layout:
   - 4 bytes: file count (uint32 LE)
   - For each file:
       - 2 bytes: filename length (uint16 LE)
       - N bytes: filename (UTF-8 or Latin-1)
-      - 4 bytes: stored size (uint32 LE) — bytes of this file in the archive
+      - 4 bytes: stored size (uint32 LE) - bytes of this file in the archive
   - File data: concatenated blobs, one per file (each blob may be zlib-compressed).
 """
 

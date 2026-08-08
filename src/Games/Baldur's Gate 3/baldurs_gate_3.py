@@ -212,7 +212,7 @@ class BaldursGate3(BaseGame):
         if not uuid_conflicts_enabled():
             return None
         # Paks under a custom-routed folder (data/, bin/, …) are game-Data
-        # paks, not Mods-folder paks — keep those keyed by path.
+        # paks, not Mods-folder paks - keep those keyed by path.
         routed: set[str] = set()
         for rule in self.custom_routing_rules:
             if ".pak" in {e.lower() for e in (rule.exclude_extensions or ())}:
@@ -348,7 +348,7 @@ class BaldursGate3(BaseGame):
 
         # Tell the user exactly where mods are being deployed. The Larian data
         # folder lives either inside the Proton prefix or in the native Linux
-        # build's ~/.local/share — diagnosing "mods not loading" almost always
+        # build's ~/.local/share - diagnosing "mods not loading" almost always
         # starts with confirming which one we targeted.
         if self._prefix_path is not None:
             _log(f"Deploy target: Proton prefix ({self._prefix_path})")
@@ -371,7 +371,7 @@ class BaldursGate3(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir and passed
+        # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
@@ -423,7 +423,7 @@ class BaldursGate3(BaseGame):
         _log(f"Step 4: Generating modsettings.lsx → {modsettings}")
         if not modsettings.parent.is_dir():
             _log(f"  Note: profile folder {modsettings.parent} does not exist "
-                 "yet — creating it (game may not have generated a profile).")
+                 "yet - creating it (game may not have generated a profile).")
         game_data = self._game_path / "Data" if self._game_path else None
         # If this profile was created from a collection, the manifest's
         # loadOrder array drives the pak ordering. Curators interleave paks

@@ -1,8 +1,8 @@
-"""Plugin Cycle view — view and resolve a broken cycle in userlist.yaml.
+"""Plugin Cycle view - view and resolve a broken cycle in userlist.yaml.
 
 Qt port of the Tk gui/plugin_cycle_overlay.py PluginCycleOverlay (1:1).
 Opens as a modlist-panel-scoped tab when the user right-clicks a plugin with a
-red userlist dot and picks 'Show cycle…' (or 'Show userlist rules…' — both open
+red userlist dot and picks 'Show cycle…' (or 'Show userlist rules…' - both open
 this view, Tk parity). Once open, the view is pinned to the set of plugins that
 formed the cycle at open time. Each plugin rule connecting any two of those
 plugins gets a Flip button so the user can iteratively resolve (and, if needed,
@@ -85,13 +85,13 @@ class PluginCycleView(QWidget):
     ) -> None:
         """Replace the view's data and repaint.
 
-        `scope_plugins`    — plugins pinned to this view (the original SCC).
-        `scope_edges`      — every rule between scope plugins (cyclic or not).
-        `cyclic_edges`     — subset of scope_edges whose endpoints are still in
+        `scope_plugins`    - plugins pinned to this view (the original SCC).
+        `scope_edges`      - every rule between scope plugins (cyclic or not).
+        `cyclic_edges`     - subset of scope_edges whose endpoints are still in
                              the same SCC right now.
-        `fixable_reasons`  — set of reason ids (owner_lower, field, target_lower)
+        `fixable_reasons`  - set of reason ids (owner_lower, field, target_lower)
                              whose single flip would resolve every current cycle.
-        `is_broken`        — True if the scope currently contains any cycle.
+        `is_broken`        - True if the scope currently contains any cycle.
         """
         self._starting = starting_plugin
         self._plugins = sorted(scope_plugins)
@@ -231,18 +231,18 @@ class PluginCycleView(QWidget):
     def _repaint_title(self):
         n = len(self._plugins)
         self._title_label.setText(
-            (self.tr("Userlist rules (1 plugin) — anchor: {0}").format(self._starting)
+            (self.tr("Userlist rules (1 plugin) - anchor: {0}").format(self._starting)
              if n == 1
-             else self.tr("Userlist rules ({0} plugins) — anchor: {1}")
+             else self.tr("Userlist rules ({0} plugins) - anchor: {1}")
              .format(n, self._starting)))
 
     def _repaint_status(self):
         if self._is_broken:
             bg, fg = STATUS_BROKEN_BG, STATUS_BROKEN_FG
-            text = "Status: BROKEN — these plugins still form a cycle."
+            text = "Status: BROKEN - these plugins still form a cycle."
         else:
             bg, fg = STATUS_OK_BG, STATUS_OK_FG
-            text = "Status: OK — no cycle among these plugins."
+            text = "Status: OK - no cycle among these plugins."
         self._status_label.setText(text)
         self._status_label.setStyleSheet(
             f"background:{bg}; color:{fg}; font-weight:bold; padding:8px 12px;")
@@ -319,7 +319,7 @@ class PluginCycleView(QWidget):
                         self._on_flip(o, f, t))
                     h.addWidget(flip)
             elif reason.get("kind") == "group":
-                note = QLabel(self.tr("(group rule — edit via Groups overlay)"))
+                note = QLabel(self.tr("(group rule - edit via Groups overlay)"))
                 note.setStyleSheet(f"color:{self._c_text_dim};")
                 h.addWidget(note)
 
@@ -355,12 +355,12 @@ class PluginCycleView(QWidget):
             if marker in text:
                 left, right = text.split(marker, 1)
                 layout.addWidget(_lbl(left, self._c_text_dim))
-                lbl = _lbl(" after ", AFTER_FG, bold=True)  # i18n: skip — LOOT rule match token
+                lbl = _lbl(" after ", AFTER_FG, bold=True)  # i18n: skip - LOOT rule match token
                 layout.addWidget(lbl)
                 layout.addWidget(_lbl(right, self._c_text_dim))
                 layout.addStretch(1)
                 return
-        # Fallback — flat text.
+        # Fallback - flat text.
         layout.addWidget(_lbl(reason.get("text", ""), text_fg))
         layout.addStretch(1)
 

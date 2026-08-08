@@ -2,7 +2,7 @@
 GUI-neutral archive download/locate/extract primitives for wizard tools.
 
 Moved out of wizards/script_extender.py (which imports customtkinter) so the
-Qt wizard views can share them. These are deliberately generic — the script
+Qt wizard views can share them. These are deliberately generic - the script
 extender, BepInEx, Wrye Bash, DynDOLOD, TTW … wizards all follow the same
 "fetch archive → find it in ~/Downloads → extract to game/root/mod" shape,
 and Morrowind's MGE XE / MCP wizards already use them as a library.
@@ -106,7 +106,7 @@ def extract_to_dir(archive: Path, dest: Path) -> None:
 
     elif name_lower.endswith(".7z"):
         extracted_via_cli = False
-        # Prefer a native 7-zip binary — the Flatpak bundles `7zz` at
+        # Prefer a native 7-zip binary - the Flatpak bundles `7zz` at
         # /app/bin and the AppImage bundles `7zzs`. py7zr is a last resort:
         # it can't decode the BCJ2 filter that SKSE-style archives use.
         _7z_bin = (
@@ -154,7 +154,7 @@ def _zstd_module():
 
     ``compression.zstd`` is stdlib from 3.14; ``backports.zstd`` is the
     same API on older interpreters and is already vendored (it ships in the
-    AppImage and the flatpak), so this is the portable path — unlike bsdtar
+    AppImage and the flatpak), so this is the portable path - unlike bsdtar
     or 7z, it needs nothing on PATH.
     """
     try:
@@ -279,14 +279,14 @@ def install_archive_payload(
 ) -> tuple[str, int, "str | None"]:
     """Extract *archive* into the wizard-standard destination for *mode*.
 
-    mode — "game" (game root, restoring to vanilla first when *restore_first*),
+    mode - "game" (game root, restoring to vanilla first when *restore_first*),
     "root" (Root_Folder staging), or "mod" (a managed root-flagged mod named
     via derive_mod_name, registered in the modlist AND indexed so it deploys
-    without a manual Refresh — the Tk wizards relied on the mod panel's
+    without a manual Refresh - the Tk wizards relied on the mod panel's
     reload for that).
 
     Returns (dest_label, file_count, mod_name-or-None). Raises on failure.
-    Blocking; call from a worker thread. Does NO UI work — the caller reloads
+    Blocking; call from a worker thread. Does NO UI work - the caller reloads
     the modlist on the GUI thread afterwards when mode == "mod".
     """
     from Utils.install_as_mod import (
@@ -337,7 +337,7 @@ def install_archive_payload(
         register_as_mod_neutral(
             game, mod_name, archive,
             modlist_path=modlist_path, log_fn=log_fn, root_folder=True)
-        # Files are on disk now — index them so the next deploy sees the mod.
+        # Files are on disk now - index them so the next deploy sees the mod.
         index_installed_mod(game, mod_name, log_fn=log_fn)
 
     if delete_archive:

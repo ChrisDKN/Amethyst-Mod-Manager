@@ -57,28 +57,28 @@ def deploy_filemap_to_root(
     Designed for games whose mods install into the game root itself (Cyberpunk,
     Witcher 3) rather than a dedicated subdirectory.  Unlike move_to_core() /
     restore_data_core(), this never touches vanilla files that mods don't
-    overwrite — it only places mod files and backs up what they replace.
+    overwrite - it only places mod files and backs up what they replace.
 
-    filemap_path  — Profiles/<game>/filemap.txt
-    game_root     — the game's install directory
-    staging_root  — Profiles/<game>/mods/
-    mode          — transfer method
-    strip_prefixes — forwarded to source-file resolution (same as deploy_filemap)
-    per_mod_strip_prefixes — optional dict mod name -> list of strip folders
-    log_fn        — optional logging callable
-    progress_fn   — optional callable(done: int, total: int)
-    path_remap    — optional dict of prefix replacements applied to dest paths
+    filemap_path  - Profiles/<game>/filemap.txt
+    game_root     - the game's install directory
+    staging_root  - Profiles/<game>/mods/
+    mode          - transfer method
+    strip_prefixes - forwarded to source-file resolution (same as deploy_filemap)
+    per_mod_strip_prefixes - optional dict mod name -> list of strip folders
+    log_fn        - optional logging callable
+    progress_fn   - optional callable(done: int, total: int)
+    path_remap    - optional dict of prefix replacements applied to dest paths
                     e.g. {"natives/x64/": "natives/STM/"} for RE2/RE3
-    ext_remap     — optional dict of file extension substitutions applied to
+    ext_remap     - optional dict of file extension substitutions applied to
                     dest paths, e.g. {".tex.10": ".tex.34"} for RTX-updated RE
-    file_transform — optional callable(src_path: str, dst_path: str) -> str | None
+    file_transform - optional callable(src_path: str, dst_path: str) -> str | None
                      If it returns a new path, that path is used as the source
                      for the transfer instead (e.g. for TEX format conversion).
 
     Writes a log file next to filemap.txt so restore_filemap_from_root() knows
     exactly which files to remove.
 
-    Returns (count, placed_lower) — same shape as deploy_filemap().
+    Returns (count, placed_lower) - same shape as deploy_filemap().
     placed_lower contains the *remapped* paths (as deployed on disk).
     """
     _log = _safe_log(log_fn)
@@ -97,10 +97,10 @@ def deploy_filemap_to_root(
     log_path      = filemap_path.parent / _FILEMAP_LOG_NAME
 
     # Self-heal: a leftover deploy log means the previous deploy was never
-    # restored (crashed or failed restore).  Restore it now — otherwise the
+    # restored (crashed or failed restore).  Restore it now - otherwise the
     # rmtree below would destroy the backed-up vanilla originals.
     if log_path.is_file():
-        _log("  Previous deploy log still present — restoring it before redeploying.")
+        _log("  Previous deploy log still present - restoring it before redeploying.")
         _restore_from_log(log_path, game_root, backup_dir, log_fn)
 
     # Clear any stale backup from a previous deploy.
@@ -193,7 +193,7 @@ def deploy_filemap_to_root(
                 nocase_cache, mod_index_cache,
             )
         if src_str is None:
-            _log(f"  WARN: source not found — {rel_str} ({mod_name})")
+            _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue
 
         # Apply file transform (e.g. TEX v10→v34 conversion).  The callback
@@ -309,11 +309,11 @@ def restore_filemap_from_root(
     Pass move_runtime_files=False for migration helpers that are not game
     restore operations.
 
-    restore_whitelist — optional matcher from build_restore_whitelist_matcher;
+    restore_whitelist - optional matcher from build_restore_whitelist_matcher;
     matching runtime files are left in the game folder instead of moved.
 
-    filemap_path — Profiles/<game>/filemap.txt  (used to locate the log)
-    game_root    — the game's install directory
+    filemap_path - Profiles/<game>/filemap.txt  (used to locate the log)
+    game_root    - the game's install directory
     Returns the number of mod files removed.
     """
     _log = _safe_log(log_fn)
@@ -321,7 +321,7 @@ def restore_filemap_from_root(
     backup_dir = filemap_path.parent / _FILEMAP_BACKUP_DIR
 
     if not log_path.is_file():
-        _log("  No filemap_deployed.txt found — nothing to restore.")
+        _log("  No filemap_deployed.txt found - nothing to restore.")
         return 0
 
     removed = _restore_from_log(log_path, game_root, backup_dir, log_fn)

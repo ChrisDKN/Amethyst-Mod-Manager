@@ -1,4 +1,4 @@
-"""FlowLayout — a QLayout that arranges its items left-to-right and wraps to a
+"""FlowLayout - a QLayout that arranges its items left-to-right and wraps to a
 new row when the next item would overflow the available width.
 
 Used for the footer/toolbar button rows so that longer translated labels (German
@@ -21,7 +21,7 @@ from gui_qt.qt_callback_guard import guard_virtuals
 
 
 def enable_height_for_width(w: QWidget) -> None:
-    """Make a FlowLayout host report its height at its ACTUAL width — Qt
+    """Make a FlowLayout host report its height at its ACTUAL width - Qt
     otherwise evaluates the hint at minimum width, i.e. fully wrapped."""
     pol = w.sizePolicy()
     pol.setHeightForWidth(True)
@@ -82,7 +82,7 @@ class FlowLayout(QLayout):
     @staticmethod
     def _can_grow_v(item: QLayoutItem) -> bool:
         """Whether the item's widget may be stretched past its hint height
-        (vertical size policy carries the grow flag — e.g. labels), mirroring
+        (vertical size policy carries the grow flag - e.g. labels), mirroring
         qSmartMaxSize in QBoxLayout."""
         w = item.widget()
         if w is None:

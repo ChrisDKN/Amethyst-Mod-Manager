@@ -3,7 +3,7 @@ GUI-neutral ReShade install logic.
 
 Moved out of wizards/reshade.py (which imports customtkinter) so both the Tk
 wizard and the Qt wizard view can share it. Everything here is pure
-urllib/zipfile/shutil/re — no toolkit imports.
+urllib/zipfile/shutil/re - no toolkit imports.
 
 Covers:
   * fetching + extracting the ReShade DLL from reshade.me
@@ -129,7 +129,7 @@ def download_and_extract_reshade_dll(dest_dir: Path, arch: int = 64) -> Path:
 # Shader packs
 # ---------------------------------------------------------------------------
 
-# Always downloaded — the official ReShade shader set.
+# Always downloaded - the official ReShade shader set.
 SHADER_BASE_URL = "https://github.com/crosire/reshade-shaders/archive/refs/heads/slim.zip"
 SHADER_BASE_SUBFOLDER = None  # has Shaders/ and Textures/ at root
 
@@ -187,7 +187,7 @@ OPTIONAL_SHADER_PACKS: list[tuple[str, str, "str | None"]] = [
 ]
 
 # Effect filenames that presets still reference but which no current shader
-# pack ships — they were renamed or removed upstream. Used only to give the
+# pack ships - they were renamed or removed upstream. Used only to give the
 # user a clearer "this isn't a bug" message (key = bare filename, lowercase).
 OBSOLETE_PRESET_EFFECTS: dict[str, str] = {
     "depth3d.fx":            "renamed upstream to SuperDepth3D.fx (Depth3D pack)",
@@ -207,11 +207,11 @@ def _extract_zip_into(
     """Extract the ``Shaders/`` and ``Textures/`` trees from a GitHub repo zip
     into *dest* (which is the ``reshade-shaders/`` output folder).
 
-    *subfolder* — if None, those folders sit at the repo root. If a string,
+    *subfolder* - if None, those folders sit at the repo root. If a string,
     they live inside that subfolder. Either way the result is merged as
     ``dest/Shaders/...`` and ``dest/Textures/...``.
 
-    *is_base* — True only for the base ``slim`` repo (extracted first). Packs
+    *is_base* - True only for the base ``slim`` repo (extracted first). Packs
     are not allowed to overwrite :data:`CORE_HEADERS`.
     """
     _KEEP = ("Shaders/", "Textures/")
@@ -318,13 +318,13 @@ def _fetch_pack_zip(url: str, cache_dir: Path, timeout: float = 60.0) -> bytes:
             return body
     except urllib.error.HTTPError as exc:
         if exc.code == 304 and cached is not None:
-            return cached  # unchanged upstream — reuse the cached zip
+            return cached  # unchanged upstream - reuse the cached zip
         if cached is not None:
             return cached
         raise RuntimeError(f"{url}: {exc}") from exc
     except Exception as exc:
         if cached is not None:
-            return cached  # offline / transient error — fall back to cache
+            return cached  # offline / transient error - fall back to cache
         raise RuntimeError(f"{url}: {exc}") from exc
 
 
@@ -403,7 +403,7 @@ def _set_preset_path_in_ini(ini_path: Path, preset_filename: str) -> None:
             lines[i] = "PresetPath=" + new_value
             break
     else:
-        return  # no PresetPath key — leave the ini untouched
+        return  # no PresetPath key - leave the ini untouched
     try:
         ini_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except OSError:
@@ -428,7 +428,7 @@ def parse_preset_effect_files(preset_path: Path) -> set[str]:
     for raw in text.splitlines():
         line = raw.strip()
         if line.startswith("[") and line.endswith("]"):
-            break  # entered the per-effect sections — stop
+            break  # entered the per-effect sections - stop
         key, sep, value = line.partition("=")
         if not sep:
             continue
@@ -444,7 +444,7 @@ def parse_preset_effect_files(preset_path: Path) -> set[str]:
     return wanted
 
 
-# Matches ``#include "Foo.fxh"`` (or .fx) — captures the bare filename.
+# Matches ``#include "Foo.fxh"`` (or .fx) - captures the bare filename.
 _INCLUDE_RE = re.compile(
     r'#\s*include\s+[<"]\s*([^>"]+?)\s*[>"]', re.IGNORECASE
 )
@@ -456,7 +456,7 @@ _TEXTURE_REF_RE = re.compile(
 
 def _scan_includes_and_textures(path: Path) -> "tuple[set[str], set[str]]":
     """Return (included basenames lower, texture basenames lower) referenced
-    directly by the shader at *path*. Best-effort text scan — never raises."""
+    directly by the shader at *path*. Best-effort text scan - never raises."""
     incs: set[str] = set()
     texs: set[str] = set()
     try:
@@ -582,12 +582,12 @@ def install_reshade_files(
 ) -> str:
     """Copy ReShade into the chosen destination and apply the Wine DLL override.
 
-    *dest* — "game" | "root_folder" | "mod". For "mod", a managed root-flagged
+    *dest* - "game" | "root_folder" | "mod". For "mod", a managed root-flagged
     mod is created (staging folder + modlist entry) and the payload is indexed
     so it deploys without a manual Refresh. Returns a human-readable status
-    string; raises on failure. Blocking — call from a worker thread.
+    string; raises on failure. Blocking - call from a worker thread.
 
-    Does NO UI refresh — the caller must reload the modlist on the GUI thread
+    Does NO UI refresh - the caller must reload the modlist on the GUI thread
     after this returns (a managed-mod install changes modlist.txt). Touching
     widgets from this worker-thread call would spawn a stray floating window.
     """
@@ -631,7 +631,7 @@ def install_reshade_files(
         dest_label += f" (under {exe_subdir})"
 
     if extracted_dll is None or not Path(extracted_dll).is_file():
-        raise RuntimeError("ReShade DLL not found — please restart the wizard.")
+        raise RuntimeError("ReShade DLL not found - please restart the wizard.")
 
     # 1. Copy the ReShade DLL renamed to the game's override name.
     shutil.copy2(str(extracted_dll), str(dest_dir / reshade_dll))
@@ -664,7 +664,7 @@ def install_reshade_files(
 
     # 3. Copy reshade-shaders/ directly into dest_dir.
     if extracted_shaders is None or not Path(extracted_shaders).is_dir():
-        raise RuntimeError("Shader files not found — please restart the wizard.")
+        raise RuntimeError("Shader files not found - please restart the wizard.")
     shaders_dest = dest_dir / "reshade-shaders"
     if shaders_dest.exists():
         shutil.rmtree(str(shaders_dest))
@@ -672,7 +672,7 @@ def install_reshade_files(
     log_fn("ReShade wizard: copied reshade-shaders/")
 
     # 3b. Index the managed mod so build_filemap sees its files and it deploys
-    #     immediately (the Tk wizard skipped this — mod needed a Refresh first).
+    #     immediately (the Tk wizard skipped this - mod needed a Refresh first).
     #     The caller reloads the modlist UI on the GUI thread after we return.
     if indexed_mod is not None:
         from Utils.install_as_mod import index_installed_mod

@@ -1,10 +1,10 @@
-"""BodySlide / Outfit Studio wizard — Qt port of wizards/bodyslide.py.
+"""BodySlide / Outfit Studio wizard - Qt port of wizards/bodyslide.py.
 
 Both tools are installed as regular mods (the WizardTool only registers when
 the exe is staged); the deployed copy runs from the game's Data folder.
 Flow: deploy (with an output-mod-name entry; the output-capture mod +
 Config.xml redirect are applied BEFORE the deploy so the mod lands in the
-filemap — the Tk version did this via run_deploy_pipeline's on_pre_filemap
+filemap - the Tk version did this via run_deploy_pipeline's on_pre_filemap
 hook) → Proton (prefix anchored to the STAGED exe, never inside Data) → run
 the deployed exe with the Xalia helper disabled (wxWidgets crash) and the
 Bethesda registry key seeded.
@@ -49,7 +49,7 @@ class BodySlideView(WizardViewBase):
                  *, tool: str = "bodyslide", **_extra):
         self._name, self._exe_names, self._output_default = _TOOLS[tool]
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("{0} — {1}").format(self._name, game.name))
+                         title=self.tr("{0} - {1}").format(self._name, game.name))
         # The prefix is anchored to the staged exe (prefix_* dirs in staging
         # are excluded from filemap scans); the deployed copy is what runs.
         self._exe = find_staged_exe(game, self._exe_names)
@@ -129,14 +129,14 @@ class BodySlideView(WizardViewBase):
         self._deploy_skip_btn.setEnabled(False)
 
         # Materialize the output-capture mod (modlist entry + Config.xml
-        # OutputDataPath) BEFORE the deploy so the filemap picks it up —
+        # OutputDataPath) BEFORE the deploy so the filemap picks it up -
         # replaces the Tk run_deploy_pipeline(on_pre_filemap=) hook.
         from Utils.bodyslide_tools import apply_output_redirect
         try:
             apply_output_redirect(
                 self._game, self._output_mod_name, self._profile(),
                 post_deploy=False, tool_label=self._name, log_fn=self._log)
-            self._ran = True   # modlist gained the output mod — refresh on close
+            self._ran = True   # modlist gained the output mod - refresh on close
         except Exception as exc:
             self._log(f"{self._name} Wizard: output redirect failed: {exc}")
 
@@ -193,7 +193,7 @@ class BodySlideView(WizardViewBase):
                     staged_exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — "
+                              self.tr("Could not find Proton '{0}' - "
                               "check that it is installed in Steam.").format(proton_name), RED)
                     return
                 proton_script, compat_data, env = result
@@ -206,7 +206,7 @@ class BodySlideView(WizardViewBase):
                 env["PROTON_USE_XALIA"] = "0"
 
                 # The x64 builds autofill the Data folder from the Bethesda
-                # Softworks registry key — seed it (idempotent).
+                # Softworks registry key - seed it (idempotent).
                 try:
                     from Utils.bethesda_registry import maybe_register_for_game
                     maybe_register_for_game(
@@ -238,7 +238,7 @@ class BodySlideView(WizardViewBase):
                     # GL trace mode: keep the raw file redirect (verbose OpenGL
                     # channels the log-panel stream would flood).
                     proc = subprocess.Popen(
-                        # runinprefix — same verb as the normal
+                        # runinprefix - same verb as the normal
                         # run_tool_logged path (no steam.exe shim).
                         proton_run_command(proton_script, "runinprefix",
                                            str(deployed), env=env),

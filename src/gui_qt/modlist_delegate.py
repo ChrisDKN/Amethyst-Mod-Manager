@@ -1,4 +1,4 @@
-"""Modlist delegate — paints rows for the QTreeView.
+"""Modlist delegate - paints rows for the QTreeView.
 
 Graduates the spike's painting onto the multi-column model:
   - separator rows: full-width band + bold label
@@ -30,7 +30,7 @@ from gui_qt.modlist_data import (
 
 # Flag bit → icon filename, painted left-to-right in the Flags column, in the
 # SAME order as the Tk modlist (gui/modlist_panel.py ~2878): note, bundle,
-# missing-reqs, update, modio-update, endorsed, info (pre-RTX OR collection —
+# missing-reqs, update, modio-update, endorsed, info (pre-RTX OR collection -
 # mutually exclusive, handled in _flag_icons), modified-MF, xEdit, root.
 _FLAG_ICONS = [
     (FLAG_NOTE, "note.png"),
@@ -40,7 +40,7 @@ _FLAG_ICONS = [
     (FLAG_UPDATE, "update.png"),
     (FLAG_MODIO_UPDATE, "update_modio.png"),
     (FLAG_ENDORSED, "endorsed.png"),
-    # info.png: pre-RTX OR collection bundled/patched — only ONE ever paints (see
+    # info.png: pre-RTX OR collection bundled/patched - only ONE ever paints (see
     # _flag_icons). The hover tooltip distinguishes which.
     (FLAG_PRERTX, "info.png"),
     (FLAG_COLLECTION_BUNDLED, "info.png"),
@@ -54,7 +54,7 @@ _FLAG_ICONS = [
 
 # The info-icon flags, in precedence order (Tk: pre-RTX wins, else collection).
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
-# The root-icon flags — only one root.png ever paints.
+# The root-icon flags - only one root.png ever paints.
 _ROOT_FLAGS = (FLAG_ROOT, FLAG_ROOT_RULE)
 
 # Flag bit → hover tooltip text (verbatim from the Tk modlist, ~5114). The two
@@ -65,7 +65,7 @@ _FLAG_TIPS = {
     FLAG_NOTE: QT_TRANSLATE_NOOP("ModRowDelegate", "Note"),
     FLAG_BUNDLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Click here to open bundle settings"),
     FLAG_MISSING_REQS: QT_TRANSLATE_NOOP("ModRowDelegate", "Missing requirements"),
-    FLAG_RERUN_FOMOD: QT_TRANSLATE_NOOP("ModRowDelegate", "A FOMOD patch option's plugin is now installed — click to re-run the FOMOD installer"),
+    FLAG_RERUN_FOMOD: QT_TRANSLATE_NOOP("ModRowDelegate", "A FOMOD patch option's plugin is now installed - click to re-run the FOMOD installer"),
     FLAG_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on Nexus Mods"),
     FLAG_MODIO_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on mod.io"),
     FLAG_ENDORSED: QT_TRANSLATE_NOOP("ModRowDelegate", "Endorsed"),
@@ -101,7 +101,7 @@ _CONFLICT_ICONS = {
     1: "conflict-winner.png",
     -1: "conflict-loser.png",
     2: "conflict-mixed.png",
-    3: "conflict-redundant.png",   # FULL — fully overridden / redundant
+    3: "conflict-redundant.png",   # FULL - fully overridden / redundant
 }
 
 # BSA/BA2 archive conflict gets its own icon set (drawn right of the loose one).
@@ -109,11 +109,11 @@ _BSA_CONFLICT_ICONS = {
     1: "archive-conflict-winner.png",
     -1: "archive-conflict-loser.png",
     2: "archive-conflict-mixed.png",
-    3: "archive-conflict-redundant.png",   # FULL — every archive file overridden
+    3: "archive-conflict-redundant.png",   # FULL - every archive file overridden
 }
 
 # BG3 module-UUID conflicts: two mods shipping the same .pak module under
-# different file names. Own icon set — "partial" means a mod with several paks
+# different file names. Own icon set - "partial" means a mod with several paks
 # won some UUIDs and lost others. There is no redundant/FULL variant: a mod that
 # loses every one of its paks is still just a loser.
 _UUID_CONFLICT_ICONS = {
@@ -125,7 +125,7 @@ _UUID_CONFLICT_ICONS = {
 
 # Conflict code → hover tooltip (verbatim from the Tk modlist, ~5217). Loose-file
 # and BSA conflicts each get their own text; static so lupdate can extract them
-# (wrapped in self.tr() at show time — see _conflict_tip).
+# (wrapped in self.tr() at show time - see _conflict_tip).
 _LOOSE_CONFLICT_TIPS = {
     1:  QT_TRANSLATE_NOOP("ModRowDelegate", "Loose file conflict - Winning"),
     -1: QT_TRANSLATE_NOOP("ModRowDelegate", "Loose file conflict - Losing"),
@@ -146,7 +146,7 @@ _UUID_CONFLICT_TIPS = {
 def _contrasting_text_color(hex_bg: str) -> str:
     """'#111111' or '#eeeeee' based on the luminance of *hex_bg* so separator
     text stays readable on a custom colour. Inlined from gui.theme (which pulls
-    in customtkinter/tkinter — unavailable in the Qt app)."""
+    in customtkinter/tkinter - unavailable in the Qt app)."""
     try:
         hex_bg = hex_bg.lstrip("#")
         r, g, b = (int(hex_bg[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
@@ -159,7 +159,7 @@ def _contrasting_text_color(hex_bg: str) -> str:
         return "#eeeeee"
 
 
-# Row metrics — ~10% larger than the Tk baseline (30px) for readability.
+# Row metrics - ~10% larger than the Tk baseline (30px) for readability.
 ROW_H = 33
 SEP_H = 33
 CHECK_BOX = 17
@@ -199,7 +199,7 @@ class ModRowDelegate(QStyledItemDelegate):
         self.c_root_text = qc(p, "ROOT_SEP_FG")
         self.c_overwrite_text = qc(p, "OVERWRITE_SEP_FG")
         self.c_badge = qc(p, "LINK_BLUE")   # separator deploy-path badge
-        # Shared row/label fonts — paint() runs per visible cell, so build
+        # Shared row/label fonts - paint() runs per visible cell, so build
         # these once instead of allocating a QFont per call.
         self.f_row = QFont()
         self.f_row.setPixelSize(FONT_PX)
@@ -350,7 +350,7 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setFont(self.f_bold)
             cy = r.center().y()
             nr = self._col_rect(COL_NAME, r)
-            # These rows own a folder, not a block of mods — the "(N)" counts
+            # These rows own a folder, not a block of mods - the "(N)" counts
             # the files in it (blank until the async walk lands).
             n = (model.boundary_file_count(e.name)
                  if hasattr(model, "boundary_file_count") else None)
@@ -381,7 +381,7 @@ class ModRowDelegate(QStyledItemDelegate):
         cx = name_rect.center().x()
         cy = r.center().y()
 
-        # Collapse arrow — right.png when collapsed, arrow.png when expanded.
+        # Collapse arrow - right.png when collapsed, arrow.png when expanded.
         a = self._arrow_rect(r)
         ico = icon("right.png" if collapsed else "arrow.png", self.ARROW_SZ,
                    color=self.c_arrow)
@@ -390,7 +390,7 @@ class ModRowDelegate(QStyledItemDelegate):
 
         if has_badge:
             # Custom deploy override: left-aligned name after the arrow, with
-            # the "⇒ path" badge flowing right of it (Tk parity — no lines).
+            # the "⇒ path" badge flowing right of it (Tk parity - no lines).
             tx = a.right() + 8
             p.setPen(text_color)
             p.drawText(QRect(tx, r.top(), tw, r.height()),
@@ -398,7 +398,7 @@ class ModRowDelegate(QStyledItemDelegate):
             self._paint_deploy_badge(p, r, deploy, tx + tw + 10, collapsed)
         else:
             # Strikethrough line across the row, broken around the centred name
-            # (Tk-style — makes separators easy to distinguish). The left line
+            # (Tk-style - makes separators easy to distinguish). The left line
             # starts just past the collapse arrow so it doesn't run under it.
             p.setPen(QPen(self.c_border, 1))
             gap = tw // 2 + 12
@@ -411,9 +411,9 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setPen(text_color)
             p.drawText(name_rect, Qt.AlignVCenter | Qt.AlignHCenter, label)
 
-        # Grouped flags/conflicts when collapsed — each under its own column.
+        # Grouped flags/conflicts when collapsed - each under its own column.
         # Plus the priority range of the hidden mods in the Priority column
-        # (Tk parity — e.g. "0 - 20", dim + centred).
+        # (Tk parity - e.g. "0 - 20", dim + centred).
         if collapsed:
             self._paint_grouped_icons(p, r, model, block)
             prio_text = (model.sep_block_priority_range(index.row())
@@ -421,7 +421,7 @@ class ModRowDelegate(QStyledItemDelegate):
             if prio_text:
                 p.setFont(self.f_row)
                 p.setPen(self.c_text_dim)
-                # Keep the range clear of the lock box on the far right — clamp
+                # Keep the range clear of the lock box on the far right - clamp
                 # the column rect so it never runs under the lock icon.
                 pr = self._col_rect(COL_PRIORITY, r)
                 lock_left = self._lock_rect(r).left() - 8
@@ -429,7 +429,7 @@ class ModRowDelegate(QStyledItemDelegate):
                     pr.setRight(lock_left)
                 p.drawText(pr, Qt.AlignVCenter | Qt.AlignHCenter, prio_text)
 
-        # Lock checkbox on the far right — always drawn so it reads as a
+        # Lock checkbox on the far right - always drawn so it reads as a
         # clickable control. Empty box when unlocked; the (gold) lock.png on a
         # neutral fill when locked (lock.png is gold, so the fill stays neutral).
         lk = self._lock_rect(r)
@@ -444,7 +444,7 @@ class ModRowDelegate(QStyledItemDelegate):
     def _paint_deploy_badge(self, p, r, deploy, x, collapsed):
         """Paint the custom-deploy badge ("⇒ ~/path  [raw]", or "[raw deploy]"
         when only the raw flag is set) starting at *x*, in the link-blue tone.
-        Elided to stop before the lock box — and, when the separator is
+        Elided to stop before the lock box - and, when the separator is
         collapsed, before the Flags column so the grouped icons stay clear."""
         path = deploy.get("path", "")
         if path:
@@ -472,7 +472,7 @@ class ModRowDelegate(QStyledItemDelegate):
 
     def _paint_grouped_icons(self, p, r, model, block):
         """Collapsed-separator summary: union of the block's flag icons painted
-        in the Flags column, and its conflict icons in the Conflicts column —
+        in the Flags column, and its conflict icons in the Conflicts column -
         each kept under the relevant header."""
         bits, conflicts, bsa_conflicts, uuid_conflicts = \
             model.sep_block_summary(block)
@@ -543,7 +543,7 @@ class ModRowDelegate(QStyledItemDelegate):
     @staticmethod
     def _conflict_icon_names(loose, bsa, uuid):
         """Icon file names for the Conflicts cell, in paint order. Single source
-        of truth for painting, hit-testing and tooltips — they must agree."""
+        of truth for painting, hit-testing and tooltips - they must agree."""
         return [n for n in (_CONFLICT_ICONS.get(loose),
                             _BSA_CONFLICT_ICONS.get(bsa),
                             _UUID_CONFLICT_ICONS.get(uuid)) if n]
@@ -551,7 +551,7 @@ class ModRowDelegate(QStyledItemDelegate):
     @staticmethod
     def _effective_flag_bits(bits):
         """Collapse the mutually-exclusive icon groups: only ONE info.png (pre-RTX
-        wins over collection bundled/patched) and only ONE root.png ever paint —
+        wins over collection bundled/patched) and only ONE root.png ever paint -
         matching Tk. Returns the active FLAG_ICONS entries after the collapse."""
         # Info group: keep the first present in precedence order, drop the rest.
         info_keep = next((f for f in _INFO_FLAGS if bits & f), 0)
@@ -608,7 +608,7 @@ class ModRowDelegate(QStyledItemDelegate):
         return False
 
     def _conflict_tip(self, pos, r, index):
-        """Tooltip for the hovered conflict icon (Tk parity — the loose-file icon
+        """Tooltip for the hovered conflict icon (Tk parity - the loose-file icon
         is drawn left, the BSA/BA2 icon right; each gets its own text). Returns
         None when *pos* is not over a conflict icon."""
         loose = index.data(ConflictRole) or 0
@@ -655,7 +655,7 @@ class ModRowDelegate(QStyledItemDelegate):
         return self.tr(tip) if tip else None
 
     def helpEvent(self, event, view, opt, index):
-        """Show the per-flag tooltip when hovering a flag icon (Tk parity —
+        """Show the per-flag tooltip when hovering a flag icon (Tk parity -
         distinguishes e.g. collection bundled vs patched)."""
         try:
             if event.type() == QEvent.ToolTip and index.isValid():
@@ -693,7 +693,7 @@ class ModRowDelegate(QStyledItemDelegate):
         for name in names:
             # A "file.png#rrggbb" name carries a tint colour (e.g. the bundle
             # flag recolours its glyph white to read on any row). Re-attach the
-            # "#" — QColor requires it, and a bare "ffffff" is invalid (→ black).
+            # "#" - QColor requires it, and a bare "ffffff" is invalid (→ black).
             fname, sep, hexpart = name.partition("#")
             color = ("#" + hexpart) if sep else None
             ic = icon(fname, sz, color)

@@ -9,7 +9,7 @@ Settings tab can call it.
 The download cache stores extracted/queued mod archives under
 ``get_download_cache_dir()`` (honours ``[paths] download_cache_path``). Aborted
 extractions can leave ``modmgr_*`` temp dirs scattered across every game's
-staging path — :func:`orphaned_tmp_dirs` finds them and
+staging path - :func:`orphaned_tmp_dirs` finds them and
 :func:`clear_download_cache` removes both.
 """
 
@@ -32,15 +32,15 @@ CLEAR_ALL_PRESERVE: frozenset[str] = frozenset({"md5_cache.json"})
 
 # How far below a staging root the modmgr_* sweep descends. Aborted extractions
 # dropped their temp dir at the root (or one level in, beside a mod folder), so
-# a shallow sweep finds every real orphan — while an unbounded rglob walked the
+# a shallow sweep finds every real orphan - while an unbounded rglob walked the
 # whole mod library (100k+ dirents) and made "Manage Caches" take seconds.
 ORPHAN_SCAN_MAX_DEPTH = 3
 
 
 def format_size(n_bytes: int) -> str:
-    """Human-readable byte count ("12.3 MB"); "—" for empty/unknown."""
+    """Human-readable byte count ("12.3 MB"); "-" for empty/unknown."""
     if n_bytes <= 0:
-        return "—"
+        return "-"
     for unit, threshold in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
         if n_bytes >= threshold:
             return f"{n_bytes / threshold:.1f} {unit}"
@@ -91,7 +91,7 @@ def enumerate_game_caches() -> list[Path]:
 def game_cache_sizes(names: list[str]) -> dict[str, int]:
     """Map each per-game cache name -> total byte size (reuses dir_size).
 
-    The per-cache walks run on a small thread pool — they're pure I/O wait, so
+    The per-cache walks run on a small thread pool - they're pure I/O wait, so
     overlapping them cuts the wall clock on a multi-game cache roughly by the
     worker count.
     """
@@ -165,7 +165,7 @@ def _scan_for_orphans(root: Path) -> list[Path]:
     """``modmgr_*`` dirs at most ORPHAN_SCAN_MAX_DEPTH levels below *root*.
 
     Never descends through a symlink (staging trees are full of deploy symlinks
-    pointing back into the game dir) nor into a matched dir — its children are
+    pointing back into the game dir) nor into a matched dir - its children are
     already covered by the rmtree that removes it.
     """
     found: list[Path] = []
@@ -196,7 +196,7 @@ def _scan_for_orphans(root: Path) -> list[Path]:
 def orphaned_tmp_scan() -> tuple[list[Path], int]:
     """(orphaned ``modmgr_*`` dirs, their total bytes) in one sweep.
 
-    Callers that need both must use this — ``orphaned_tmp_dirs`` +
+    Callers that need both must use this - ``orphaned_tmp_dirs`` +
     ``orphaned_tmp_size`` walks the staging roots twice.
     """
     dirs = orphaned_tmp_dirs()
@@ -210,7 +210,7 @@ def orphaned_tmp_size() -> int:
 
 def clear_orphaned_tmp_dirs() -> tuple[int, list[str]]:
     """Delete every orphaned ``modmgr_*`` temp dir. Returns (cleared, errors)
-    ('path: msg' strings). Best-effort — individual failures are recorded."""
+    ('path: msg' strings). Best-effort - individual failures are recorded."""
     cleared = 0
     errors: list[str] = []
     for orphan in orphaned_tmp_dirs():
@@ -227,7 +227,7 @@ def clear_download_cache() -> int:
 
     Removes the *contents* of the cache root (keeping the root itself so the
     path stays valid) and every ``modmgr_*`` orphan dir. Returns the number of
-    top-level entries removed. Best-effort — individual failures are skipped.
+    top-level entries removed. Best-effort - individual failures are skipped.
     """
     removed = 0
     cache_root = get_download_cache_dir()

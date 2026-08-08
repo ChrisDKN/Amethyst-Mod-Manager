@@ -9,8 +9,8 @@ override (see [[txst_lookup]]) but a colour form:
 CNAM is RGBA byte order, confirmed against Skyrim.esm's own named colours
 (RedTintBright = 213,0,0; reading it as BGRA would make that blue).
 
-Only the plugins actually needed are walked — the mod's own, plus the one or
-two masters named by the FormIDs — because the masters are large.
+Only the plugins actually needed are walked - the mod's own, plus the one or
+two masters named by the FormIDs - because the masters are large.
 """
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def _find_plugin(name: str, dirs) -> "Path | None":
 
 
 def _small_plugins(dirs) -> list[Path]:
-    """Top-level plugins of the mod folders — masters are fetched by name."""
+    """Top-level plugins of the mod folders - masters are fetched by name."""
     out: list[Path] = []
     for d in dirs:
         try:
@@ -195,7 +195,7 @@ def hair_color(mesh_rel: str, plugin_dirs) -> "tuple[float, float, float] | None
 def _is_hair(shape) -> bool:
     """Which shapes the hair colour applies to.
 
-    A heuristic — the authoritative answer is the head part's type, which a
+    A heuristic - the authoritative answer is the head part's type, which a
     baked FaceGen mesh no longer carries. Scoped to FaceGen meshes by the
     caller, so a stray match cannot affect ordinary models.
     """

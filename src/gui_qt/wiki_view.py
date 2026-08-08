@@ -2,7 +2,7 @@
 
 A detachable tab: page list on the left, rendered markdown on the right. Pages
 and images come from :mod:`Utils.wiki_sync`, so editing the wiki on GitHub is
-reflected here on the next fetch — nothing is bundled with the app. The list
+reflected here on the next fetch - nothing is bundled with the app. The list
 mirrors the wiki's own ``_Sidebar.md``, group headings included, so the app's
 navigation is edited on GitHub alongside the pages.
 
@@ -246,7 +246,7 @@ class WikiView(QWidget):
         if not rows:
             self._set_message(self.tr(
                 "Could not reach the wiki.\n\nCheck your connection and press "
-                "Refresh — pages you have already opened stay readable offline."))
+                "Refresh - pages you have already opened stay readable offline."))
             return
         self._list.blockSignals(True)
         self._list.clear()
@@ -321,7 +321,7 @@ class WikiView(QWidget):
         unchanged = was_refresh and self._page_text.get(slug) == text
         self._page_text[slug] = text
         self._view.reset_images(drop_cached=was_refresh)
-        # QTextEdit.setMarkdown takes no dialect argument — it always uses
+        # QTextEdit.setMarkdown takes no dialect argument - it always uses
         # MarkdownDialectGitHub, which is what the wiki is authored in.
         codes: list[str] = []
         self._view.setMarkdown(
@@ -336,7 +336,7 @@ class WikiView(QWidget):
             # so a page edited moments ago can come back unchanged however hard
             # we ask. Say so rather than let Refresh look broken.
             self._set_status(self.tr(
-                "No change yet — GitHub caches wiki pages for up to 5 minutes."
+                "No change yet - GitHub caches wiki pages for up to 5 minutes."
             ) if unchanged else self.tr("Updated."))
         if self._share_codes:
             # Said last so it wins over a Refresh note: the codes are the one
@@ -386,7 +386,7 @@ class WikiView(QWidget):
     def _style_tables(self) -> None:
         """Give every table on the page a readable, consistent look.
 
-        Qt's importer leaves tables in two different states — markdown pipe
+        Qt's importer leaves tables in two different states - markdown pipe
         tables get a 1px *outset* (3D-looking) border and 4px padding, while a
         raw ``<table>`` block gets no border and no padding at all, so its
         columns run together. Both are restyled here into one flat, banded
@@ -478,8 +478,8 @@ class WikiView(QWidget):
     def _request_import(self, url: QUrl) -> None:
         """Hand the clicked share code to the manager's import-code flow.
 
-        The link only carries the code's index on the page — the code itself is
-        a kilobyte of base64 — so a stale link (one clicked after the page was
+        The link only carries the code's index on the page - the code itself is
+        a kilobyte of base64 - so a stale link (one clicked after the page was
         re-rendered) is simply ignored rather than importing the wrong thing.
         """
         try:

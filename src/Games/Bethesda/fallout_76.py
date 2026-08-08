@@ -11,7 +11,7 @@ from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 
 
 class Fallout_76(Fallout_3):
-    """Fallout 76 — a BA2-based Bethesda game with NO plugin system.
+    """Fallout 76 - a BA2-based Bethesda game with NO plugin system.
 
     The live game blocks .esp/.esm plugins, so there is no plugins.txt, no load
     order, and no LOOT/Synthesis. Mods load exclusively via the comma-separated
@@ -21,7 +21,7 @@ class Fallout_76(Fallout_3):
     surfaces the deployed BA2s.
     """
 
-    # No plugin system at all — empty plugin_extensions disables the Plugins tab,
+    # No plugin system at all - empty plugin_extensions disables the Plugins tab,
     # load-order tracking, master logic, ESL flags, and orphan-plugin scanning.
     uses_plugins_txt = False
     plugins_use_star_prefix = True
@@ -56,7 +56,7 @@ class Fallout_76(Fallout_3):
 
     @property
     def plugin_extensions(self) -> list[str]:
-        # FO76 has no plugin system — disable all plugin tracking.
+        # FO76 has no plugin system - disable all plugin tracking.
         return []
 
     @property
@@ -91,7 +91,7 @@ class Fallout_76(Fallout_3):
     _ARCHIVE_INI_FILENAME = "Fallout76.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout76Prefs.ini"
     _CUSTOM_INI_FILENAME = "Fallout76Custom.ini"
-    # BA2-based — no dummy BSA, only the sResourceArchive2List sync below.
+    # BA2-based - no dummy BSA, only the sResourceArchive2List sync below.
     _invalidation_bsa_name = None
     _invalidation_bsa_version = None
     # We manage the archive list ourselves (see apply/revert below), so leave the
@@ -101,7 +101,7 @@ class Fallout_76(Fallout_3):
     _archive_list_fix_path = None
     _invalidation_archive_list_key = "sResourceArchive2List"
 
-    # No plugins.txt — FO76 doesn't read one.
+    # No plugins.txt - FO76 doesn't read one.
     def _plugins_txt_targets(self, prefix_root: "Path | None" = None) -> list[Path]:
         return []
 
@@ -113,12 +113,12 @@ class Fallout_76(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        # No SE / Wrye Bash / BethINI — none apply to FO76.
+        # No SE / Wrye Bash / BethINI - none apply to FO76.
         return self._base_wizard_tools()
 
     @property
     def frameworks(self) -> dict[str, str]:
-        # FO76 has no script extender — skip framework detection entirely.
+        # FO76 has no script extender - skip framework detection entirely.
         return {}
     
     @property
@@ -152,7 +152,7 @@ class Fallout_76(Fallout_3):
         except OSError:
             return
         for dll in entries:
-            # Case-insensitive .dll match — the prefix FS is case-preserving and
+            # Case-insensitive .dll match - the prefix FS is case-preserving and
             # mods may ship MyMod.DLL etc.
             if not dll.is_file() or not dll.name.lower().endswith(".dll"):
                 continue
@@ -183,7 +183,7 @@ class Fallout_76(Fallout_3):
             original = nw.with_name(nw.name[: -len(".nwmode")])
             try:
                 if original.exists():
-                    nw.unlink()  # original was re-added during deploy — drop the stash
+                    nw.unlink()  # original was re-added during deploy - drop the stash
                     log_fn(f"  Removed stale {nw.name} ({original.name} present)")
                 else:
                     nw.rename(original)
@@ -192,7 +192,7 @@ class Fallout_76(Fallout_3):
                 log_fn(f"  WARN: could not restore {nw.name}: {exc}")
 
     def swap_launcher(self, log_fn) -> None:
-        # FO76 has no SE launcher to swap — repurpose this post-deploy hook to
+        # FO76 has no SE launcher to swap - repurpose this post-deploy hook to
         # quarantine non-whitelisted DLLs (game files are all in place by now).
         self._rename_non_whitelisted_dlls(log_fn)
 
@@ -224,7 +224,7 @@ class Fallout_76(Fallout_3):
             return
         custom_inis = self._fo76_custom_ini_paths()
         if not custom_inis:
-            _log("  WARN: Prefix path not set — skipping FO76 archive sync.")
+            _log("  WARN: Prefix path not set - skipping FO76 archive sync.")
             return
 
         from Utils.bsa_invalidation import (
@@ -242,7 +242,7 @@ class Fallout_76(Fallout_3):
                     _set_ini_key(ini, "Archive", k, v)
             current = _read_ini_key(ini, "Archive", key) or ""
             # Drop the .ba2 entries we previously added, then re-add what's
-            # deployed now — user-added entries (never in the sidecar) survive.
+            # deployed now - user-added entries (never in the sidecar) survive.
             updated = remove_many_from_archive_list(current, prev)
             updated = append_to_archive_list(updated, new)
             if updated != current:

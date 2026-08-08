@@ -9,13 +9,13 @@ skins that are registered in:
 
 A mod can drop the resource files on disk, but unless they are listed here the
 creator never displays them. Worse, only ONE chargenmorphcfg.xml can win in the
-override folder — so when several chargen mods are installed, deploying each
+override folder - so when several chargen mods are installed, deploying each
 mod's own copy last-wins and silently drops everyone else's entries.
 
 This module rebuilds a single merged chargenmorphcfg.xml at deploy time:
 
   1. Start from the vanilla baseline (the stock creator resources).
-  2. Merge every installed mod's chargenmorphcfg.xml fragment — authors curate
+  2. Merge every installed mod's chargenmorphcfg.xml fragment - authors curate
      these, so they are the most reliable source. Resources are unioned by
      block path and de-duplicated by name.
   3. (Fallback) auto-register loose chargen files (.mop/.mmh/.tnt/.dds) found in
@@ -166,7 +166,7 @@ def _existing_names(block: ET.Element) -> set[str]:
 
 
 # Map a chargen block tag to the file extension(s) its resources need on disk.
-# A resource is only registered if a matching file is present in the override —
+# A resource is only registered if a matching file is present in the override -
 # otherwise the creator shows an empty/invisible slot. Blocks whose "resources"
 # are colour tints (.tnt) are matched by basename too.
 _BLOCK_EXTS = {
@@ -230,7 +230,7 @@ def _merge_block(dst_parent: ET.Element, src_block: ET.Element,
             continue
         if name.casefold() in have:
             continue
-        # Drop phantom entries whose mesh/texture isn't actually installed —
+        # Drop phantom entries whose mesh/texture isn't actually installed -
         # otherwise the creator shows an invisible slot. When present is None
         # (no override scan), keep everything (vanilla-only baseline build).
         if present is not None and exts and not _resource_present(name, exts, present):
@@ -266,8 +266,8 @@ def build_chargenmorph(data_root: Path, mod_staging: "Path | None" = None,
                        log_fn=None) -> int:
     """Build a merged chargenmorphcfg.xml in the override folder.
 
-    data_root   — DAO data folder (the deployed override lives here)
-    mod_staging — optional staging root; fragments are read from staging so the
+    data_root   - DAO data folder (the deployed override lives here)
+    mod_staging - optional staging root; fragments are read from staging so the
                   merge sees every enabled mod even before the per-mod copies are
                   collapsed in the override. Falls back to scanning the deployed
                   override when not given.
@@ -279,7 +279,7 @@ def build_chargenmorph(data_root: Path, mod_staging: "Path | None" = None,
     # Scan the DEPLOYED override for files actually present. A fragment may
     # register hairs/heads/etc. that belong to mods the user doesn't have
     # installed (mega "compatibility" fragments do this). Registering a resource
-    # with no mesh on disk yields an invisible slot in the creator — so we only
+    # with no mesh on disk yields an invisible slot in the creator - so we only
     # keep resources whose file is present here.
     deployed_override = data_root / _CHARGEN_REL.parent
     present: set[str] = set()

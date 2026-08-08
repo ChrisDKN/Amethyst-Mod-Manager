@@ -4,7 +4,7 @@ Make DDS blobs Pillow can't decode decodable, for preview purposes.
 
 PBR texture packs (Community Shaders / PGPatcher output) encode as
 BC1/BC2/BC3_UNORM_SRGB in a DX10 header; Pillow implements only the UNORM
-twins. The pixel data is identical — sRGB vs UNORM is a sampling gamma hint —
+twins. The pixel data is identical - sRGB vs UNORM is a sampling gamma hint -
 so rewriting the DXGI format dword is lossless for display.
 """
 
@@ -31,7 +31,7 @@ def is_srgb_dds(data: bytes) -> bool:
     """True if the DDS DECLARES an sRGB-encoded format.
 
     Only DX10-header files say so. Legacy (DXT1/DXT5 fourcc) files carry no
-    such flag — Skyrim's own textures are sRGB content but never declare it,
+    such flag - Skyrim's own textures are sRGB content but never declare it,
     so a caller must not infer 'linear' from a False here.
     """
     if (len(data) < _DXGI_OFF + 4 or not data.startswith(_MAGIC)

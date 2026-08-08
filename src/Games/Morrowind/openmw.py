@@ -3,11 +3,11 @@ openmw.py
 Game handler for The Elder Scrolls III: Morrowind running under OpenMW.
 
 Key differences from the vanilla Morrowind handler:
-  - OpenMW is a native Linux binary — no Wine/Proton needed.
+  - OpenMW is a native Linux binary - no Wine/Proton needed.
   - Flatpak install at ~/.var/app/org.openmw.OpenMW/ is auto-detected.
   - Config lives at ~/.config/openmw/openmw.cfg (native) or
     ~/.var/app/org.openmw.OpenMW/config/openmw/openmw.cfg (Flatpak).
-  - Load order is the order of 'content=' lines — no mtime manipulation.
+  - Load order is the order of 'content=' lines - no mtime manipulation.
   - MGE XE and Morrowind Code Patch are not applicable (OpenMW has these
     capabilities built in).
   - get_launch_command() provides the native launch command; the plugin
@@ -38,7 +38,7 @@ _PROFILES_DIR = get_profiles_dir()
 
 _OPENMW_FLATPAK_ID = "org.openmw.OpenMW"
 
-# Config path candidates — Flatpak first
+# Config path candidates - Flatpak first
 _OPENMW_CFG_CANDIDATES: list[Path] = [
     Path.home() / ".var" / "app" / _OPENMW_FLATPAK_ID / "config" / "openmw" / "openmw.cfg",
     Path.home() / ".config" / "openmw" / "openmw.cfg",
@@ -180,7 +180,7 @@ class OpenMW(BaseGame):
           4. None if nothing found.
         """
         if self._is_flatpak_install():
-            # Inside our own Flatpak sandbox there is no `flatpak` CLI —
+            # Inside our own Flatpak sandbox there is no `flatpak` CLI -
             # forward the launch to the host via flatpak-spawn.
             if Path("/.flatpak-info").exists():
                 if shutil.which("flatpak-spawn"):
@@ -244,7 +244,7 @@ class OpenMW(BaseGame):
     # Configuration persistence
     # -----------------------------------------------------------------------
 
-    # OpenMW is a native Linux binary — never look up a Proton prefix.
+    # OpenMW is a native Linux binary - never look up a Proton prefix.
     def _find_prefix_for_load(self) -> "Path | None":
         return None
 
@@ -263,7 +263,7 @@ class OpenMW(BaseGame):
         self._staging_path = Path(path) if path else None
         self.save_paths()
 
-    # OpenMW is a native Linux binary — no Proton prefix.
+    # OpenMW is a native Linux binary - no Proton prefix.
     def get_prefix_path(self) -> Path | None:
         return None
 

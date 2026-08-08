@@ -1,4 +1,4 @@
-"""Morrowind Code Patch wizard — Qt port of Games/Morrowind/mcp_wizard.py.
+"""Morrowind Code Patch wizard - Qt port of Games/Morrowind/mcp_wizard.py.
 
 Loose files extract straight into the game root; then Morrowind Code
 Patch.exe runs via the game's Proton prefix so the user can apply patches.
@@ -36,7 +36,7 @@ class MCPView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=f"Install MCP — {game.name}")
+                         title=f"Install MCP - {game.name}")
         self._game_root = game.get_game_path()
 
         self._extract_status_sig2.connect(self._guard(

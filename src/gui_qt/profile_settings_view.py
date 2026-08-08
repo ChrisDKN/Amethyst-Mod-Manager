@@ -1,4 +1,4 @@
-"""Profile Settings — a modlist-scoped tab listing every profile for the active
+"""Profile Settings - a modlist-scoped tab listing every profile for the active
 game with per-row management. Qt port of the Tk ``gui/profile_settings_overlay.py``
 (``ProfileSettingsOverlay``), MINUS the "Steam Cmd" button.
 
@@ -6,7 +6,7 @@ Each row: a lock toggle (disabled for the default profile), the profile name (wi
 ``(default)`` / ``★`` markers), and Rename / Open / Remove buttons. Rename opens an
 inline bar under the row; Remove restores the game first if the profile is deployed,
 asks a second time if the profile has its own mods, then deletes the folder. All the
-persistence reuses the neutral ``Utils.profile_state`` helpers — no backend rewrite.
+persistence reuses the neutral ``Utils.profile_state`` helpers - no backend rewrite.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from Utils.xdg import xdg_open
 
 class _LockBox(QWidget):
     """A small bordered checkbox-style box that shows lock.png when locked, drawn
-    directly (mirrors the modlist delegate's lock cell — QToolButton.setIcon does
+    directly (mirrors the modlist delegate's lock cell - QToolButton.setIcon does
     not render reliably inside a styled small button). Click toggles when enabled."""
 
     _BOX = 18
@@ -193,7 +193,7 @@ class ProfileSettingsView(QWidget):
 
     # -- list ---------------------------------------------------------------
     def _populate_list(self):
-        # Tear down existing rows (leak-safe — Qt won't auto-destroy like Tk).
+        # Tear down existing rows (leak-safe - Qt won't auto-destroy like Tk).
         # Keep the trailing stretch (the last layout item).
         while self._rows_layout.count() > 1:
             item = self._rows_layout.takeAt(0)
@@ -221,7 +221,7 @@ class ProfileSettingsView(QWidget):
         rl.setContentsMargins(10, 4, 10, 4)
         rl.setSpacing(8)
 
-        # (1) Lock toggle — bordered box, gold lock.png when locked (default
+        # (1) Lock toggle - bordered box, gold lock.png when locked (default
         # profile can't be toggled). Drawn directly for reliable icon rendering.
         lock = _LockBox(is_locked, not is_default,
                         lambda pr=profile: self._toggle_lock(pr))
@@ -240,7 +240,7 @@ class ProfileSettingsView(QWidget):
             name.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')};")
         rl.addWidget(name, 1)
 
-        # (3) Buttons — Rename / Open / Remove (NO Steam Cmd).
+        # (3) Buttons - Rename / Open / Remove (NO Steam Cmd).
         rename = QPushButton(self.tr("Rename"))
         rename.setObjectName("FormButton")
         rename.setCursor(Qt.PointingHandCursor)
@@ -396,7 +396,7 @@ class ProfileSettingsView(QWidget):
         game = _GAMES.get(self._game_name)
 
         # Deleting a MEMBER of a group that is currently deployed would leave
-        # the game full of dangling links — require a restore first.
+        # the game full of dangling links - require a restore first.
         try:
             from Utils.profile_groups import is_group, member_of_groups
             target_is_group = is_group(self._get_profile_dir(profile))
@@ -405,7 +405,7 @@ class ProfileSettingsView(QWidget):
                 if groups and game.get_deploy_active() \
                         and game.get_last_deployed_profile() in groups:
                     self._notify(self.tr(
-                        "'{0}' is a member of the deployed group '{1}' — "
+                        "'{0}' is a member of the deployed group '{1}' - "
                         "restore the game first, then remove it.").format(
                             profile, game.get_last_deployed_profile()),
                         "warning")
@@ -426,12 +426,12 @@ class ProfileSettingsView(QWidget):
                 self._start_remove_worker(profile, is_deployed)
 
             if target_is_group:
-                # A group's mods/ holds only symlinks — deleting it never
+                # A group's mods/ holds only symlinks - deleting it never
                 # touches member profiles' files, so no scary second confirm.
                 ConfirmOverlay.show_over(
                     self._overlay_host(), "Remove Group",
                     f"'{profile}' is a profile group.\n\n"
-                    "Only the group itself is removed — its member profiles "
+                    "Only the group itself is removed - its member profiles "
                     "and their mods are untouched. Continue?",
                     on_done=lambda ok2: proceed() if ok2 else None,
                     confirm_label=self.tr("Remove"))
@@ -456,7 +456,7 @@ class ProfileSettingsView(QWidget):
         win = self._window
         # Coordinate with the app's deploy/restore mutex.
         if getattr(win, "_deploy_running", False):
-            self._notify(self.tr("A deploy is in progress — try again shortly."), "warning")
+            self._notify(self.tr("A deploy is in progress - try again shortly."), "warning")
             return
         profile_dir = self._get_profile_dir(profile)
         if is_deployed:
@@ -495,7 +495,7 @@ class ProfileSettingsView(QWidget):
         win = self._window
         from Utils.deploy import restore_root_folder
         # Remember the profile we're actually on so the finally block restores to
-        # it — restoring to None (default) would desync the game object from the
+        # it - restoring to None (default) would desync the game object from the
         # selected profile and make later path-derived opens resolve wrong.
         prev_profile_dir = getattr(game, "_active_profile_dir", None)
         game.set_active_profile_dir(profile_dir)
@@ -538,7 +538,7 @@ class ProfileSettingsView(QWidget):
 
     # -- misc ---------------------------------------------------------------
     def _close(self):
-        """Dismiss the panel — routes through the window's tab manager so the
+        """Dismiss the panel - routes through the window's tab manager so the
         scoped tab tears down (modlist panel stack resets to page 0). Falls back
         to hiding if the tab manager isn't reachable (e.g. detached)."""
         tabs = getattr(self._window, "_tabs", None)

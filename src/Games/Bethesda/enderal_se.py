@@ -47,7 +47,7 @@ class EnderalSE(Fallout_3):
     def loot_game_type(self) -> str:
         return "SkyrimSE"
 
-    # SSE engine is 64-bit — without these the Fallout_3 branch's d3d9/32-bit
+    # SSE engine is 64-bit - without these the Fallout_3 branch's d3d9/32-bit
     # ReShade config is inherited and the wizard installs a 32-bit d3d9.dll.
     @property
     def reshade_dll(self) -> str:
@@ -77,7 +77,7 @@ class EnderalSE(Fallout_3):
     _MYGAMES_SUBPATH_GOG = Path("Enderal Special Edition GOG")
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
-    # SSE-engine: see SkyrimSE — no dummy-BSA needed.
+    # SSE-engine: see SkyrimSE - no dummy-BSA needed.
     _invalidation_bsa_name = None
     _invalidation_bsa_version = None
 
@@ -87,7 +87,7 @@ class EnderalSE(Fallout_3):
 
     def swap_launcher(self, log_fn) -> None:
         # Enderal Launcher.exe already bootstraps SKSE64; swapping breaks it.
-        log_fn("  Enderal Launcher invokes SKSE64 internally — skipping launcher swap.")
+        log_fn("  Enderal Launcher invokes SKSE64 internally - skipping launcher swap.")
 
     def _restore_launcher(self, log_fn) -> None:
         # Migration path: undo any prior swap left over from earlier versions.

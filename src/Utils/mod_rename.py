@@ -3,7 +3,7 @@
 Tkinter-free port of the disk-backed half of gui/modlist_panel.py
 `_migrate_mod_name_state` (6618-6690): strip prefixes, disabled plugins,
 excluded mod files and mod notes are all keyed by mod name in the profile's
-state files — a rename must re-key them or the settings silently detach from
+state files - a rename must re-key them or the settings silently detach from
 the mod. (modindex.bin migration lives in Utils.filemap.rename_in_mod_index;
 the in-memory renderer sets are Tk-only and rebuilt on reload in Qt.)
 """

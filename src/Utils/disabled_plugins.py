@@ -3,7 +3,7 @@
 The Mod Files tab lets the user tick a "Disable" checkbox on individual files
 inside a mod, which excludes them from deploy (stored in
 ``profile_state.json`` as ``{mod_name: [raw_key_lower, ...]}``). When one of
-those excluded files is a plugin (``.esp/.esm/.esl``), the plugin never deploys —
+those excluded files is a plugin (``.esp/.esm/.esl``), the plugin never deploys -
 so it should read as "disabled" in the Plugins tab filter and its owning mod
 should surface in the modlist "Mods with disabled plugins" filter.
 

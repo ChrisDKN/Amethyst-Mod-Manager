@@ -4,14 +4,14 @@ Each game class declares the frameworks it cares about via its ``frameworks``
 property → ``{display_name: relative_exe_path}`` (e.g. Skyrim SE →
 ``{"Script Extender": "skse64_loader.exe"}``). A value may also be a
 tuple/list of alternative paths where ANY present file satisfies the
-framework (e.g. BepInEx → ``("winhttp.dll", "run_bepinex.sh")`` — the native
+framework (e.g. BepInEx → ``("winhttp.dll", "run_bepinex.sh")`` - the native
 Linux build ships the shell script instead of the proxy dll). This module
 decides, for each, one of four states by checking where the exe lives:
 
-  installed     — present in the deployed game root            (green)
-  not_deployed  — staged in the modlist but not deployed yet   (orange)
-  not_enabled   — present only in a disabled mod / RF-off       (blue)
-  missing       — not found anywhere                            (red)
+  installed     - present in the deployed game root            (green)
+  not_deployed  - staged in the modlist but not deployed yet   (orange)
+  not_enabled   - present only in a disabled mod / RF-off       (blue)
+  missing       - not found anywhere                            (red)
 
 Ported from the Tk ``gui/plugin_panel.py`` framework-banner logic so both
 front-ends behave identically. GUI-free (no tkinter / PySide6).
@@ -36,7 +36,7 @@ class FrameworkStatus:
 
 
 def framework_exe_candidates(value) -> "tuple[str, ...]":
-    """Normalise a ``frameworks`` dict value to a tuple of candidate paths —
+    """Normalise a ``frameworks`` dict value to a tuple of candidate paths -
     a plain string is one candidate, a tuple/list is taken as alternatives
     where any present file satisfies the framework."""
     if isinstance(value, str):
@@ -47,7 +47,7 @@ def framework_exe_candidates(value) -> "tuple[str, ...]":
 
 
 def resolve_file_ci(base: Path, rel: Path) -> "Path | None":
-    """Case-insensitive file resolution — walk each component of *rel* under
+    """Case-insensitive file resolution - walk each component of *rel* under
     *base*, matching names case-insensitively (framework files may live in
     differently-cased folders on a case-sensitive filesystem). Returns the
     actual on-disk Path, or None when any component is missing."""
@@ -90,7 +90,7 @@ def exe_in_staged(exe: str, staged_keys: set[str], mods_dir: str) -> bool:
 
 
 def disabled_basenames(modlist_path, index_path) -> set[str]:
-    """Lowercased basenames of every file belonging to a DISABLED mod — lets us
+    """Lowercased basenames of every file belonging to a DISABLED mod - lets us
     flag a framework that's installed but toggled off. Port of the Tk
     ``_framework_disabled_basenames``."""
     if not modlist_path or not index_path:
@@ -193,7 +193,7 @@ def detect_frameworks(game, filemap_path, modlist_path,
             return STATE_NOT_ENABLED
         return STATE_MISSING
 
-    # Any one candidate satisfies the framework — report the best state.
+    # Any one candidate satisfies the framework - report the best state.
     rank = {STATE_INSTALLED: 3, STATE_NOT_DEPLOYED: 2,
             STATE_NOT_ENABLED: 1, STATE_MISSING: 0}
     out: list[FrameworkStatus] = []

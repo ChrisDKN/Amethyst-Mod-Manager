@@ -1,4 +1,4 @@
-"""Delegate for the Data tree — same visual language as the Mod Files tree (depth
+"""Delegate for the Data tree - same visual language as the Mod Files tree (depth
 indent + arrow.png/right.png expand arrow, conflict text tint) but two text
 columns and no checkboxes. Col 0 = Path (tree), col 1 = Winning Mod.
 """

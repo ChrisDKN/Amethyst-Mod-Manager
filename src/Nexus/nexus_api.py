@@ -83,7 +83,7 @@ def _redact_sensitive_dict(obj: Any) -> Any:
 
 
 def _uploader_fields(n: dict) -> dict:
-    """uploaded_by / uploader_id kwargs from a GraphQL mod node's uploader —
+    """uploaded_by / uploader_id kwargs from a GraphQL mod node's uploader -
     unpack with ** into a NexusModInfo(...) call."""
     up = n.get("uploader") or {}
     return {"uploaded_by": up.get("name", "") or "",
@@ -300,7 +300,7 @@ def describe_collection_error(errors, manifest: "dict | None" = None) -> str:
     """Turn Nexus's terse mutation errors into something actionable.
 
     Nexus answers with things like *"Mod 184013, skyrimspecialedition not
-    available."* — a bare id the author has no way to place. Map it back to the
+    available."* - a bare id the author has no way to place. Map it back to the
     mod's name in the manifest we just sent and say what to do about it.
     """
     raw = "; ".join(str(e.get("message") or "?") for e in errors or [])
@@ -387,9 +387,9 @@ class NexusCollectionMod:
     source_type: str = "nexus"  # "nexus", "bundle", "browse", "direct"
     category_id: int = 0
     category_name: str = ""
-    install_type: str = ""  # collection.json mods[].details.type — e.g. "dinput" → root install
-    md5: str = ""           # collection.json mods[].source.md5 — used to verify cached archives
-    domain_name: str = ""   # collection.json mods[].domainName — overrides collection-level domain
+    install_type: str = ""  # collection.json mods[].details.type - e.g. "dinput" → root install
+    md5: str = ""           # collection.json mods[].source.md5 - used to verify cached archives
+    domain_name: str = ""   # collection.json mods[].domainName - overrides collection-level domain
                             # (e.g. Skyrim mods inside an Enderal collection)
 
 
@@ -461,7 +461,7 @@ def _save_key_file(key: str) -> None:
     p = _api_key_file_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     cipher = Fernet(_derive_key())
-    # Create owner-only from the start — no chmod window with looser perms.
+    # Create owner-only from the start - no chmod window with looser perms.
     fd = _os.open(p, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
     try:
         _os.fchmod(fd, 0o600)  # tighten a pre-existing file too
@@ -525,7 +525,7 @@ def load_api_key() -> str:
             pass
         return _migrate_legacy_key()
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for Nexus API key: {e} — using file fallback")
+        app_log(f"Keyring unavailable for Nexus API key: {e} - using file fallback")
         return _load_key_file() or _migrate_legacy_key()
 
 
@@ -538,7 +538,7 @@ def save_api_key(key: str) -> None:
     try:
         keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, key)
     except keyring.errors.KeyringError as e:
-        app_log(f"Keyring unavailable for saving Nexus API key: {e} — using file fallback")
+        app_log(f"Keyring unavailable for saving Nexus API key: {e} - using file fallback")
         _save_key_file(key)
         return
     # Remove legacy file if it exists
@@ -579,7 +579,7 @@ class NexusAPIError(Exception):
 class RateLimitError(NexusAPIError):
     """Raised when the server returns HTTP 429."""
     def __init__(self, url: str = ""):
-        super().__init__("Rate limit exceeded — slow down", 429, url)
+        super().__init__("Rate limit exceeded - slow down", 429, url)
 
 
 class NexusAPI:
@@ -880,7 +880,7 @@ class NexusAPI:
         app_log(f"Nexus API: rate limit headers received: {rl_headers}")
         r = self._rate
         app_log(
-            f"Nexus API: rate limits refreshed — "
+            f"Nexus API: rate limits refreshed - "
             f"hourly {r.hourly_remaining}/{r.hourly_limit}, daily {r.daily_remaining}/{r.daily_limit}"
         )
         if resp.status_code == 429:
@@ -910,7 +910,7 @@ class NexusAPI:
             if time.monotonic() - self._cached_user_ts < self._VALIDATE_CACHE_TTL:
                 return self._cached_user
 
-        # OAuth mode: v1 /users/validate doesn't accept Bearer tokens — use userinfo instead
+        # OAuth mode: v1 /users/validate doesn't accept Bearer tokens - use userinfo instead
         if not self._key and "Authorization" in self._session.headers:
             user = self._validate_via_oauth_userinfo()
         else:
@@ -1230,11 +1230,11 @@ class NexusAPI:
         Nexus's newer upload pipeline returns ``sizeInBytes: null`` and a CDN
         UUID *path* in ``uri`` (e.g. ``ed/8d/27/ed8d270a-…``) instead of the
         archive filename. The REST endpoint still carries the real
-        ``file_name`` — which for these uploads is the exact browser-download
-        name — plus ``size_kb``. Without them, download detection and cache
+        ``file_name`` - which for these uploads is the exact browser-download
+        name - plus ``size_kb``. Without them, download detection and cache
         matching have nothing to match on. Only called when at least one entry
         is deficient, and merged strictly by ``file_id``, so the REST
-        wrong-mod bug (see get_mod_files docstring) can't corrupt anything —
+        wrong-mod bug (see get_mod_files docstring) can't corrupt anything -
         unmatched ids are simply left as they were. Best-effort: REST errors
         leave the GraphQL data untouched.
         """
@@ -1340,7 +1340,7 @@ class NexusAPI:
                         self._enrich_files_from_rest(game_domain, mod_id, files)
                         return NexusModFiles(files=files, file_updates=[])
             except Exception as exc:
-                app_log(f"GraphQL modFiles error for {game_domain}/{mod_id}: {exc} — falling back to REST")
+                app_log(f"GraphQL modFiles error for {game_domain}/{mod_id}: {exc} - falling back to REST")
 
         data = self._get(f"/games/{game_domain}/mods/{mod_id}/files")
         files = [
@@ -1608,7 +1608,7 @@ class NexusAPI:
         Returns one row per candidate version per dependency definition; see
         FileDependencyCandidate for grouping semantics. Sources with no
         file-level dependencies contribute no rows. Raises on HTTP failure
-        (the v3 API is experimental — callers must degrade gracefully).
+        (the v3 API is experimental - callers must degrade gracefully).
         """
         out: list[FileDependencyCandidate] = []
         _MAX_IDS = 5000
@@ -1680,7 +1680,7 @@ class NexusAPI:
         replacing the two REST calls (get_mod + get_mod_files) used during NXM
         downloads.
 
-        Returns (NexusModInfo, NexusModFile) — either may be None on failure.
+        Returns (NexusModInfo, NexusModFile) - either may be None on failure.
         Falls back gracefully so callers can still use partial data.
         """
         # Mod type has no 'files' field; request mod + category only (file_info from link)
@@ -1967,7 +1967,7 @@ class NexusAPI:
 
         Uses the same ``legacyModsByDomain`` endpoint as the update-check
         batch, but requests the full field set needed for the Tracked/Endorsed
-        panels — replacing N individual ``get_mod()`` REST calls with
+        panels - replacing N individual ``get_mod()`` REST calls with
         ceil(N/20) rate-limit-free GraphQL requests.
 
         Parameters
@@ -2054,7 +2054,7 @@ class NexusAPI:
         Fetch file sizes for a list of (mod_id, file_id) pairs using a single
         GraphQL request per batch of up to _GRAPHQL_FILE_BATCH mod IDs.
 
-        Uses aliased ``modFiles`` queries — one alias per unique mod_id — so
+        Uses aliased ``modFiles`` queries - one alias per unique mod_id - so
         N mods cost ceil(N/_GRAPHQL_FILE_BATCH) rate-limit-free GraphQL calls
         instead of N REST calls.
 
@@ -2251,11 +2251,11 @@ class NexusAPI:
         free-text `author` field the uploader can't set it to anything.
 
         The GraphQL schema exposes `uploaderId` as a BaseFilterValue (EQUALS
-        only — no WILDCARD), and the value must be passed as a *string*.
+        only - no WILDCARD), and the value must be passed as a *string*.
         """
         if not uploader_id:
             return []
-        # uploaderId is EQUALS-only and the server rejects an int value — coerce
+        # uploaderId is EQUALS-only and the server rejects an int value - coerce
         # to a string. No min-length guard: it's an exact numeric id, not text.
         cond = {"uploaderId": [{"value": str(uploader_id)}]}
         return self._search_mods_filtered(
@@ -2291,10 +2291,10 @@ class NexusAPI:
         """
         WILDCARD text search on a single field (used by search_mods for `name`).
 
-        The `name` WILDCARD operator does substring matching on the raw value —
+        The `name` WILDCARD operator does substring matching on the raw value -
         the `nameStemmed` filter only matches whole (stemmed) words, so a
         trailing partial word like "disp" in "sse disp" never matches "SSE
-        Display Tweaks". NB: do NOT add `*`/`%` wildcard chars around the value —
+        Display Tweaks". NB: do NOT add `*`/`%` wildcard chars around the value -
         the operator already matches substrings, and supplying them makes it
         match nothing. WILDCARD needs ≥2 chars, so short values short-circuit.
         """
@@ -2319,7 +2319,7 @@ class NexusAPI:
             sort_key = "downloads"
         base_filter = self._build_mods_filter(game_domain, category_names)
         if "filter" in base_filter:
-            # nested AND structure — append the condition
+            # nested AND structure - append the condition
             base_filter["filter"].append(cond)
         else:
             base_filter.update(cond)
@@ -2435,7 +2435,7 @@ class NexusAPI:
         self._update_rate_limits(resp)
         self._log_response("POST", "/user/tracked_mods", resp)
         if resp.status_code == 422:
-            # Already tracked — not an error
+            # Already tracked - not an error
             return {"message": "Already tracked"}
         resp.raise_for_status()
         return resp.json()
@@ -2456,7 +2456,7 @@ class NexusAPI:
 
     # Accepted sort keys → the collectionsV2 `sort` clause. These are baked into
     # the GraphQL query text (field names cannot be passed as variables), so the
-    # mapping doubles as an allow-list — only these keys ever reach the query.
+    # mapping doubles as an allow-list - only these keys ever reach the query.
     COLLECTION_SORTS = {
         "downloads": "{ downloads: { direction: DESC } }",
         "endorsements": "{ endorsements: { direction: DESC } }",
@@ -2602,7 +2602,7 @@ class NexusAPI:
         The server-side filter searches the full catalogue and supports
         count/offset pagination, so results are not limited to the most-
         downloaded batch the way a client-side filter would be. Do NOT add
-        `*`/`%` wildcard chars around the value — the WILDCARD operator already
+        `*`/`%` wildcard chars around the value - the WILDCARD operator already
         matches substrings, and supplying them makes it match nothing.
 
         *sort* is one of COLLECTION_SORTS (see get_collections).
@@ -2774,7 +2774,7 @@ class NexusAPI:
                 mod = f.get("mod") or {}
                 fid = int(entry.get("fileId") or 0)
                 if fid and fid in _seen_file_ids:
-                    app_log(f"get_collection_detail: duplicate fileId {fid} in modFiles — skipping")
+                    app_log(f"get_collection_detail: duplicate fileId {fid} in modFiles - skipping")
                     continue
                 if fid:
                     _seen_file_ids.add(fid)
@@ -2832,10 +2832,10 @@ class NexusAPI:
                 return {}
 
             # Step 2: download the archive into a temp file.
-            # Try each mirror in turn — some CDN nodes geo-restrict collection
+            # Try each mirror in turn - some CDN nodes geo-restrict collection
             # archives and return 401 for certain regions.
             # When keep_archive_at is provided, stream straight there to avoid
-            # using /tmp (tmpfs/SteamOS — too small for 1+ GB archives).
+            # using /tmp (tmpfs/SteamOS - too small for 1+ GB archives).
             import os as _os
             if keep_archive_at:
                 _os.makedirs(_os.path.dirname(keep_archive_at), exist_ok=True)
@@ -2939,7 +2939,7 @@ class NexusAPI:
 
             # Download the .7z directly to keep_archive_at when provided
             # (avoids a copy through /tmp, which is tmpfs on SteamOS and only
-            # has a few hundred MB free — collection archives can be 1.5+ GB).
+            # has a few hundred MB free - collection archives can be 1.5+ GB).
             # Otherwise put the temp file next to extract_dir, which the caller
             # has chosen to be on real disk.
             if keep_archive_at:
@@ -2997,7 +2997,7 @@ class NexusAPI:
     # onSubmitCollection): presigned-URL query → raw PUT of the .7z →
     # createCollection / editCollection + createOrUpdateRevision. The mutation
     # receives a FILTERED manifest (info minus installInstructions; mods minus
-    # choices/patches/details/phase; source minus fileSize/tag) — the full
+    # choices/patches/details/phase; source minus fileSize/tag) - the full
     # manifest travels inside the uploaded archive.
 
     def get_collection_upload_url(self) -> "dict | None":
@@ -3143,7 +3143,7 @@ mutation EditCollection($collectionId: Int!, $name: String) {
         """Whether a collection we intend to revise is still there.
 
         Returns ``"ok"`` / ``"discarded"`` / ``"missing"`` / ``"unknown"``.
-        ``"unknown"`` means the lookup itself failed — callers must NOT treat
+        ``"unknown"`` means the lookup itself failed - callers must NOT treat
         that as gone, or a network blip turns an "upload revision" into a
         duplicate collection.
 
@@ -3163,7 +3163,7 @@ mutation EditCollection($collectionId: Int!, $name: String) {
                     or (collection_id and col.id == int(collection_id))):
                 return "ok"
 
-        # Not among the user's collections — separate "deliberately discarded"
+        # Not among the user's collections - separate "deliberately discarded"
         # from "never existed / no longer visible" for a clearer log, and keep
         # lookup failures distinguishable from both.
         if not slug:
@@ -3365,7 +3365,7 @@ mutation CreateChangelog($revisionId: ID!, $description: String) {
 
     def discard_revision(self, collection_id: int, revision_number: int,
                          reason: str = "") -> bool:
-        """Discard a draft revision (or a very new one — Nexus enforces limits)."""
+        """Discard a draft revision (or a very new one - Nexus enforces limits)."""
         mutation = """
 mutation DiscardRevision($collectionId: ID!, $revisionNumber: Int!,
                          $reason: String) {
@@ -3405,7 +3405,7 @@ mutation DiscardRevision($collectionId: ID!, $revisionNumber: Int!,
                     {"collectionId": int(collection_id), "name": name},
                     "EditCollection", "editCollection")
             except NexusAPIError:
-                pass   # cosmetic rename — the revision itself matters
+                pass   # cosmetic rename - the revision itself matters
         payload = {
             "adultContent": bool(adult_content),
             "collectionManifest": self.filter_collection_manifest(manifest),

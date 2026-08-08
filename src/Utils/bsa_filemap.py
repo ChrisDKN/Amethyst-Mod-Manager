@@ -1,6 +1,6 @@
 """
 bsa_filemap.py
-Archive conflict detection — index cache and conflict engine.
+Archive conflict detection - index cache and conflict engine.
 
 Scans archive files (Bethesda BSA/BA2, Unreal Engine .pak/.utoc) across
 enabled mods, caches the contained file lists in bsa_index.bin (msgpack),
@@ -10,7 +10,7 @@ uses come from ``game.archive_extensions``; UE archives are scanned
 recursively (mods stage paks in nested folders like Content/Paks/~mods/)
 while BSAs keep the top-level-only scan.
 
-Cache format — msgpack binary, v1:
+Cache format - msgpack binary, v1:
     {
         "v": 1,
         "mods": [
@@ -74,9 +74,9 @@ def _load_bsa_index(index_path: Path):
     """Internal: load and return the parsed index, or a sentinel.
 
     Returns:
-        dict      — parsed index.
-        None      — file does not exist.
-        _BSA_INDEX_CORRUPT — file exists but is unparseable / wrong version.
+        dict      - parsed index.
+        None      - file does not exist.
+        _BSA_INDEX_CORRUPT - file exists but is unparseable / wrong version.
     """
     global _bsa_cache
     path_str = str(index_path)
@@ -167,7 +167,7 @@ def _scan_mod_bsas(
 
     Returns (mod_name, [(archive_key, mtime, [file_paths])], parse_count)
     where ``parse_count`` is the number of archives actually parsed (cache
-    misses). Thread-safe — no shared mutable state.
+    misses). Thread-safe - no shared mutable state.
     """
     results: list[tuple[str, float, list[str]]] = []
     parse_count = 0
@@ -176,7 +176,7 @@ def _scan_mod_bsas(
     try:
         if recursive:
             for root, dirnames, filenames in os.walk(mod_dir, followlinks=False):
-                # FOMOD metadata never deploys — don't index archives in it.
+                # FOMOD metadata never deploys - don't index archives in it.
                 dirnames[:] = [d for d in dirnames if d.lower() != "fomod"]
                 for fn in filenames:
                     ext = os.path.splitext(fn)[1].lower()
@@ -197,7 +197,7 @@ def _scan_mod_bsas(
                             continue
                         ext = os.path.splitext(entry.name)[1].lower()
                         if ext in archive_extensions:
-                            # Reuses the dirent's cached lstat — no extra
+                            # Reuses the dirent's cached lstat - no extra
                             # syscall (is_file above already fetched it).
                             mtime = entry.stat(follow_symlinks=False).st_mtime
                             candidates.append((entry.name, entry.path, ext, mtime))
@@ -206,7 +206,7 @@ def _scan_mod_bsas(
     except OSError:
         return (mod_name, results, parse_count)
     for key, full_path, ext, mtime in candidates:
-        # Cache check happens *before* parsing — a match skips the
+        # Cache check happens *before* parsing - a match skips the
         # expensive TOC read entirely.
         if cached_archives is not None:
             cached = cached_archives.get(key)
@@ -232,7 +232,7 @@ def rebuild_bsa_index(
     Uses the existing BSA index for incremental updates: only re-parses
     BSAs whose mtime has changed since the last scan.
 
-    follow_toplevel_links_under — same bounded symlink allowance as
+    follow_toplevel_links_under - same bounded symlink allowance as
     filemap.rebuild_mod_index: a top-level entry that is a symlink to a
     directory is scanned only when its resolved target lives under this root
     (Profile Group links into member profiles).
@@ -290,7 +290,7 @@ def rebuild_bsa_index(
     if log_fn:
         log_fn(
             f"BSA index: {total_bsa} archive(s), {total_files} file(s) "
-            f"across {len(index)} mod(s) — parsed {total_parsed}, "
+            f"across {len(index)} mod(s) - parsed {total_parsed}, "
             f"reused {total_bsa - total_parsed} from cache."
         )
 
@@ -408,18 +408,18 @@ def _compute_bsa_load_order(
 
     ``archive_name_ordering`` selects the UE pak mount rule: rank by
     (``_P`` boost, basename alphabetical), matching how the engine itself
-    resolves two paks shipping the same asset — mod priority only breaks
+    resolves two paks shipping the same asset - mod priority only breaks
     exact-basename ties (where the deploy step dedupes to the higher-
     priority mod's copy, so it is also what actually lands on disk).
 
     Each element is (mod_name, [(bsa_name, mtime, paths)...]). A mod may
-    appear multiple times — once per BSA — so different BSAs from the same
+    appear multiple times - once per BSA - so different BSAs from the same
     mod can interleave with BSAs from other mods by plugin load order.
 
     Rank rules (Bethesda):
       * A BSA tied to a plugin uses that plugin's load index (higher = later).
       * A BSA with no matching plugin (orphan / sArchiveList-style) loads
-        *before* any plugin-tied BSA — that matches how the engine loads
+        *before* any plugin-tied BSA - that matches how the engine loads
         sArchiveList entries first and then plugin-tied archives. Within
         the orphan group, ties break on mod priority then BSA filename.
     """
@@ -438,7 +438,7 @@ def _compute_bsa_load_order(
         return [(u[3], u[4]) for u in units_ue]
 
     if not plugin_order_low_to_high or not plugin_extensions:
-        # No plugin load order available — fall back to pure mod order.
+        # No plugin load order available - fall back to pure mod order.
         return [(m, index.get(m) or []) for m in mods_low_to_high if index.get(m)]
 
     # Map plugin basename (lowercase, no ext) → load rank. Engine behavior:
@@ -569,7 +569,7 @@ def build_bsa_conflicts(
 
     Walks enabled mods' BSAs in engine load order (derived from plugin
     load order when available; otherwise mod priority). For each file
-    path, the later-loaded BSA wins — matching how Skyrim/Fallout resolve
+    path, the later-loaded BSA wins - matching how Skyrim/Fallout resolve
     BSA contents.
 
     plugin_order is the full plugin load order (typically from
@@ -578,17 +578,17 @@ def build_bsa_conflicts(
     back to mod priority.
 
     When loose_index_path is provided, the *winning* loose-file mod at any
-    BSA path always overrides that BSA — regardless of load order — because
+    BSA path always overrides that BSA - regardless of load order - because
     the Skyrim/Fallout engines load BSAs first and then apply loose files on
     top. The BSA mod is recorded as losing via the BSA conflict flag. The
     winning loose-file mod's override is returned separately so the caller
-    can fold it into the *loose-file* conflict flag — the win belongs to that
+    can fold it into the *loose-file* conflict flag - the win belongs to that
     mod's loose file, and the winner frequently ships no archive of its own.
 
     The loose side of that cross-check prefers loose_filemap_path
     (filemap.txt, the resolved deploy map: honours Mod Files ▸ Disable
     exclusions and loose-vs-loose winners) over modindex.bin, which is a raw
-    disk mirror — an excluded file never deploys, so it must not claim a BSA
+    disk mirror - an excluded file never deploys, so it must not claim a BSA
     override. The index walk is the fallback when no filemap is available.
 
     Returns
@@ -605,7 +605,7 @@ def build_bsa_conflicts(
 
     index = read_bsa_index(index_path)
     if index is None:
-        # No index — return empty results. Use defaultdicts so _compute_conflict_status
+        # No index - return empty results. Use defaultdicts so _compute_conflict_status
         # can still key into them without KeyErrors.
         empty_map = {name: CONFLICT_NONE for name in priority_order}
         empty_a: dict[str, set[str]] = defaultdict(set)
@@ -651,7 +651,7 @@ def build_bsa_conflicts(
     loose_overridden_by_bsa: dict[str, set[str]] = {}
     # "Loose beats archive" is a Bethesda engine rule; UE games (name
     # ordering) never load loose assets over pak contents, so skip the
-    # cross-check there — a loose file whose staged path happens to match a
+    # cross-check there - a loose file whose staged path happens to match a
     # pak-internal asset path must not fake an override.
     if loose_index_path is not None and bsa_winner and not archive_name_ordering:
         # Only paths the BSAs actually ship can possibly be overridden by
@@ -666,7 +666,7 @@ def build_bsa_conflicts(
             # Preferred: the resolved deploy map (see docstring). Lines are
             # "<rel_str>\t<mod>" in original case; BSA paths are lowercase.
             # Mods outside the modlist ([Overwrite]) have no row to flag, so
-            # skip them — the index walk only visited priority_order too.
+            # skip them - the index walk only visited priority_order too.
             try:
                 fm_text = loose_filemap_path.read_text(encoding="utf-8")
             except OSError:
@@ -684,7 +684,7 @@ def build_bsa_conflicts(
                     if rel_key in bsa_paths:
                         loose_winner[rel_key] = mod
         if not loose_resolved:
-            # Fallback: raw index walk (blind to exclusions — best effort).
+            # Fallback: raw index walk (blind to exclusions - best effort).
             loose_index = read_mod_index(loose_index_path)
             if loose_index:
                 for mod_name in priority_order:
@@ -692,7 +692,7 @@ def build_bsa_conflicts(
                     if not entry:
                         continue
                     normal, _ = entry
-                    # Iterate whichever side is smaller — typically bsa_paths
+                    # Iterate whichever side is smaller - typically bsa_paths
                     # is smaller than a mod with thousands of loose files.
                     if len(normal) < len(bsa_paths):
                         for rel_key in normal:

@@ -1,4 +1,4 @@
-"""VRAMr / BENDr / ParallaxR wizards — Qt port of wizards/vramr.py and
+"""VRAMr / BENDr / ParallaxR wizards - Qt port of wizards/vramr.py and
 wizards/bendr_parallaxr.py.
 
 All three share one shape: manual Nexus download → locate → extract to
@@ -70,7 +70,7 @@ class TextureToolView(WizardViewBase):
         (self._name, self._nexus_url, self._app_dir, self._archive_kw,
          self._output_dir, self._run_desc, self._has_presets) = _TOOLS[tool]
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run {0} — {1}").format(self._name, game.name))
+                         title=self.tr("Run {0} - {1}").format(self._name, game.name))
         self._preset = "optimum"
         self._run_reenable_sig.connect(self._guard(
             lambda: self._run_btn.setEnabled(True)))
@@ -219,7 +219,7 @@ class TextureToolView(WizardViewBase):
                 safe_emit(self._run_status_sig,
                           self.tr("{0} complete! Output is ready as a mod.")
                           .format(name), GREEN)
-                # marks _ran + enables Done (no auto-close — let the user read
+                # marks _ran + enables Done (no auto-close - let the user read
                 # the result and click Done).
                 safe_emit(self._run_started_sig)
             except Exception as exc:

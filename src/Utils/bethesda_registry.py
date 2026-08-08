@@ -7,7 +7,7 @@ Outfit Studio x64) read the plain ``HKLM\\Software\\...`` view. Wine does
 not mirror writes between the two views, so we write both.
 
 Steam itself writes the 64-bit key when the user launches the game through
-Steam — but users who install the game and immediately use a mod-manager
+Steam - but users who install the game and immediately use a mod-manager
 wizard never trigger that, leaving the key absent. Per-exe prefixes
 (xEdit/Synthesis launched in their own compat folder) never have it at
 all. Registering ourselves covers both cases.
@@ -50,7 +50,7 @@ def register_bethesda_game_path(
     *proton_script* is the Proton entrypoint (run via ``python3 <script> run``).
     *env* must already contain STEAM_COMPAT_DATA_PATH / STEAM_COMPAT_CLIENT_INSTALL_PATH.
 
-    Idempotent — a marker file under the prefix records the registered path
+    Idempotent - a marker file under the prefix records the registered path
     and skips the write while it is unchanged. A different game path (e.g. a
     profile pinned to another install) re-registers, since the tool prefix is
     shared across profiles. Returns True on success or if already done.
@@ -80,7 +80,7 @@ def register_bethesda_game_path(
     ]
     _log(f"Bethesda registry: registering {registry_game_name} → {wine_value}")
     # runinprefix: no steam.exe shim, so the write doesn't flash the game as
-    # "Running" in Steam. Only safe once the prefix has been initialised —
+    # "Running" in Steam. Only safe once the prefix has been initialised -
     # runinprefix skips Proton's prefix setup, and the Run-EXE override path
     # calls us right after mkdir on a brand-new prefix. There, fall back to
     # "run" (its env carries no SteamAppId, so nothing shows in Steam anyway).

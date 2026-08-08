@@ -1,13 +1,13 @@
 """
 curated_profiles.py
 Download prebuilt (curated) .amethyst profiles from the Amethyst-Mod-Manager
-``Resources`` branch on GitHub — e.g. ``Profiles/FalloutNV/Viva_New_Vegas.amethyst``
+``Resources`` branch on GitHub - e.g. ``Profiles/FalloutNV/Viva_New_Vegas.amethyst``
 for the "Install Viva New Vegas" wizard.
 
 GUI-neutral: the Qt curated-profile wizard calls download_curated_profile() on a
 worker thread, then hands the parsed manifest to the app's normal Import-profile
 pipeline (which re-reads the bundle zip at the END of the install, so the file
-is kept in a persistent cache dir — never a tempfile).
+is kept in a persistent cache dir - never a tempfile).
 """
 
 from __future__ import annotations

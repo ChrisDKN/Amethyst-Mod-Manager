@@ -9,7 +9,7 @@ import unicodedata
 
 # Characters Windows/Wine forbid in a path component.  Mods are deployed and
 # read through Wine tools (xEdit, PGPatcher, BodySlide, …) and into Wine
-# prefixes, so a folder name Wine can't address breaks those tools — and a
+# prefixes, so a folder name Wine can't address breaks those tools - and a
 # trailing dot or space is silently stripped by Windows path normalisation,
 # which makes the folder vanish from the tool's point of view.
 _WINDOWS_RESERVED_CHARS = r'<>:"/\\|?*'
@@ -42,12 +42,12 @@ def sanitize_mod_folder_name(name: str) -> str:
     - Strips characters Windows/Wine forbid in a path component.
     - Removes control characters.
     - Trims trailing dots and spaces (incl. the no-break space, which
-      str.strip() treats as whitespace) — Windows path normalisation drops
+      str.strip() treats as whitespace) - Windows path normalisation drops
       these, so "Foo." / "Foo " / "Foo " become unreachable to Wine tools.
     - Falls back to "Mod" if nothing usable remains.
 
     Visible non-ASCII characters (accented letters, Cyrillic, CJK, …) are
-    preserved — only ambiguous/invisible bytes are normalised away. This only
+    preserved - only ambiguous/invisible bytes are normalised away. This only
     affects the on-disk folder name; the user's chosen display name is
     unaffected elsewhere.
     """
@@ -60,7 +60,7 @@ def sanitize_mod_folder_name(name: str) -> str:
     s = "".join(ch for ch in s if ord(ch) >= 32)
     # Windows strips trailing dots and spaces from each path component.
     s = s.rstrip(". ")
-    # Reserved DOS device names (CON, PRN, NUL, COM1…) — extremely rare for a
+    # Reserved DOS device names (CON, PRN, NUL, COM1…) - extremely rare for a
     # mod name, but a folder so named is unusable under Wine.
     if re.fullmatch(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])", s):
         s = s + "_"
@@ -116,7 +116,7 @@ _NEW_NEXUS_SPACED_TS_RE = re.compile(
 
 # mod.io download names append a truncated-UUID tail: an underscore, the first
 # two hex groups of the mod's UUID (``<8hex>-<4hex>``), then one or more short
-# trailing groups (1-4 chars each) ending in a random token — e.g.
+# trailing groups (1-4 chars each) ending in a random token - e.g.
 # ``bettercontainers_cb42bc3a-f1d2-afwl``, ``wingsunlocked_3d7eabb4-81bf-d9-bwww``,
 # ``weightlessgold_81117bd5-de2f-a-du9y`` (note the 1-char ``a`` group).  The
 # ``_<8hex>-<4hex>`` anchor is distinct from any Nexus tail, so matching is
@@ -128,7 +128,7 @@ _MODIO_TAIL_RE = re.compile(r"_[0-9a-f]{8}-[0-9a-f]{4}(?:-[0-9a-z]{1,4})+$")
 # Default (built-in) install-name rules, exposed as editable regex rows.
 #
 # These mirror the known download-name formats above as plain search/replace
-# regex so a user can SEE and tweak what runs — the editor seeds them into the
+# regex so a user can SEE and tweak what runs - the editor seeds them into the
 # config on first use and offers a per-row / global "restore default". They run
 # through the same _apply_custom_patterns path as user rules (as Step 0 of
 # _suggest_mod_names). The heuristic Python parsers below (_strip_nexus_new_format
@@ -180,7 +180,7 @@ def default_install_name_rules() -> list[dict]:
 # ids of the built-in defaults whose FORMAT is ALSO handled by a heuristic
 # Python parser below (_strip_nexus_new_format / the mod.io tail strip). The
 # editor's rules are authoritative: when the user disables (or deletes) the rule
-# for one of these, the matching Python parser step is skipped too — otherwise
+# for one of these, the matching Python parser step is skipped too - otherwise
 # the internal parser would silently shadow the disabled rule and disabling
 # would appear to do nothing. Formats WITHOUT a duplicate parser (e.g. the
 # underscore ``<name>_<ver>_<slug>`` form, legacy dash tails) always run.
@@ -194,7 +194,7 @@ def _disabled_gated_ids() -> set[str]:
     """Return the set of gated default-rule ids that the user has disabled or
     removed. A gated Python parser step is skipped for any id in this set so the
     editor's rules stay authoritative. On any error, returns an empty set (parse
-    everything — the safe default)."""
+    everything - the safe default)."""
     try:
         from Utils.ui_config import load_install_name_patterns
         rules = load_install_name_patterns()
@@ -214,7 +214,7 @@ def _apply_custom_patterns(stem: str) -> str | None:
     """Apply the user's custom install-name search/replace rules to *stem*.
 
     Rules come from Settings ▸ (install name patterns) via
-    ``ui_config.load_install_name_patterns`` and are applied in order — each
+    ``ui_config.load_install_name_patterns`` and are applied in order - each
     enabled rule runs ``re.sub(search, replace, stem)``. Nexus keeps changing
     its download-name format, so this lets a user adapt without a code change.
 
@@ -365,7 +365,7 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
     for the install/rename dialog, **best (default) first**.
 
     Nexus Mods download names follow ``ModName-nexusid-version-timestamp``.
-    The only suffix we strip for the *default* name is that Nexus tail — the
+    The only suffix we strip for the *default* name is that Nexus tail - the
     title itself (including any parentheses, version, or descriptive tags the
     uploader chose) is preserved.  This mirrors Mod Organizer 2, whose
     name-guess regex treats ``( ) . -`` and spaces as legitimate mod-name
@@ -373,12 +373,12 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
 
     The aggressively-cleaned name (parens/version/edition tags removed) is still
     offered as a *lower-priority* candidate so the rename dialog can suggest it,
-    but it is no longer the default — too many real titles carry meaningful
+    but it is no longer the default - too many real titles carry meaningful
     parentheses (Stardew framework tags "(CP)"/"(AT)", disambiguators like
     "(Black)" vs "(Silver)", etc.) that the old default silently destroyed.
     """
     # Step 0: user-defined custom rules (Settings) win over every built-in
-    # parser — this is the escape hatch for a new Nexus download-name format we
+    # parser - this is the escape hatch for a new Nexus download-name format we
     # haven't shipped a built-in for yet. When a rule matches, the transformed
     # name is the default candidate; the built-in suggestions are still appended
     # below as fallbacks in the rename dialog.
@@ -389,7 +389,7 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
 
     # Which built-in default rules has the user turned off? The matching
     # (duplicated) parser steps below are skipped so the editor's rules stay
-    # authoritative — disabling a default rule visibly changes the result.
+    # authoritative - disabling a default rule visibly changes the result.
     disabled = _disabled_gated_ids()
 
     # Step 1: strip duplicate-download suffix added by browsers/OS (e.g. " (1)", " (2)")
@@ -449,7 +449,7 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
             nexus_clean = re.sub(r"(-\d+)+$", "", stem).strip()
 
     # Aggressively-cleaned variant: strip parens/brackets/version/edition tags.
-    # Offered as a fallback candidate only — NOT the default (see docstring).
+    # Offered as a fallback candidate only - NOT the default (see docstring).
     title_clean = _strip_title_metadata(nexus_clean)
 
     # Build de-duplicated list, default (least-destructive) first.
@@ -473,7 +473,7 @@ def _suggest_mod_names(filename_stem: str) -> list[str]:
 #      uses (so a second part or an update lands on the existing name),
 #   3. the prettified archive filename (Amethyst's install default),
 #   4. the untouched archive filename.
-# Source labels are English keys — the UI translates them.
+# Source labels are English keys - the UI translates them.
 
 SRC_NEXUS_FILE = "Nexus file name"
 SRC_NEXUS_MOD = "Nexus mod name"
@@ -483,7 +483,7 @@ SRC_ALTERNATIVE = "Alternative"
 SRC_ORIGINAL = "Original filename"
 
 
-# Only KNOWN archive extensions are stripped — a blind "drop the last dotted
+# Only KNOWN archive extensions are stripped - a blind "drop the last dotted
 # segment" pass eats real version tails ("Mod v1.2.3" → "Mod v1.2").
 _ARCHIVE_EXTS = {
     "zip", "7z", "rar", "tar", "gz", "bz2", "xz", "zst", "lzma", "tgz", "omod",
@@ -553,7 +553,7 @@ def sibling_version_name(staging_root, mod_name: str, meta) -> str:
         folders = sorted(p for p in staging_root.iterdir() if p.is_dir())
     except OSError:
         return ""
-    # Raw substring probe before the (much costlier) configparser parse — this
+    # Raw substring probe before the (much costlier) configparser parse - this
     # runs on the UI thread when the user hits F2, and a big staging folder is
     # thousands of meta.ini files.
     id_re = re.compile(rf"^\s*modid\s*=\s*{mod_id}\s*$", re.MULTILINE | re.I)

@@ -3,7 +3,7 @@ pak_reader.py
 Read metadata from Baldur's Gate 3 .pak files (Larian LSPK v15/v16/v18).
 
 Extracts the meta.lsx XML from inside a .pak archive without needing
-lslib or any external tools — only the ``lz4`` Python package is required.
+lslib or any external tools - only the ``lz4`` Python package is required.
 
 LSPK v18 header (40 bytes):
     4B  signature ("LSPK")
@@ -122,7 +122,7 @@ def _decompress(data: bytes, flags: int, uncompressed_size: int) -> bytes:
         max_out = max(uncompressed_size * 4, 1 << 20)  # at least 1 MiB headroom
         return dctx.decompress(data, max_output_size=max_out)
     if method in (2, 3):
-        # 2 = LZ4, 3 = LZ4HC — decompression is identical for both
+        # 2 = LZ4, 3 = LZ4HC - decompression is identical for both
         _require_lz4()
         return _lz4_decompress_resilient(data, uncompressed_size)
     raise ValueError(f"Unknown LSPK compression method: {method}")
@@ -291,7 +291,7 @@ def read_pak_info(pak_path: Path | str) -> PakInfo:
             name = entry[0]
             info.file_names.append(name)
             if entry[5] != 0:
-                continue  # content lives in another archive part — can't read
+                continue  # content lives in another archive part - can't read
             name_lower = name.lower()
             if name_lower.endswith("meta.lsx"):
                 meta_candidates.append((name, entry))

@@ -50,7 +50,7 @@ _DATA_EXTS = {
 
 # Documentation extensions (Wrye Bash: docExts). These count toward sub-package
 # detection (_top_files_plus_docs) but a doc at the archive *root* must NOT make
-# the package look like a simple/type-1 package — e.g. a Wrye Bash package.txt.
+# the package look like a simple/type-1 package - e.g. a Wrye Bash package.txt.
 _DOC_EXTS = {
     ".txt", ".rtf", ".htm", ".html", ".doc", ".docx", ".odt", ".mht", ".pdf",
     ".css", ".xls", ".xlsx", ".ods", ".odp", ".ppt", ".pptx", ".md", ".rst",
@@ -62,7 +62,7 @@ _SKIP_DIR_NAMES = {"bash", "omod conversion data", "wizard images"}
 _SKIP_PREFIXES = ("--",)
 
 # A sub-package folder name like "00 Core" / "01 Faction Integration" /
-# "01a Variant" — Wrye Bash allows an optional letter suffix after the digits
+# "01a Variant" - Wrye Bash allows an optional letter suffix after the digits
 # to group mutually-exclusive variants (01a, 01b, …). Used only to prettify the
 # display name; it is not required for detection.
 _NUMERIC_PREFIX_RE = re.compile(r"^(\d+)([a-zA-Z]*)[\s_.\-]")
@@ -74,7 +74,7 @@ class BainSubPackage:
     display_name: str    # prefix stripped, e.g. "Core"
     path: str            # absolute path to the folder
     default_selected: bool = False
-    # Relative file paths (lower-cased) under `path` — populated by
+    # Relative file paths (lower-cased) under `path` - populated by
     # scan_subpackage_files on the prepare/install WORKER so the Qt picker
     # never walks the disk on the GUI thread. None = not scanned yet.
     file_keys: set | None = None
@@ -183,7 +183,7 @@ def detect_bain(extract_dir: str,
         return None
 
     # If the root itself holds loose data files or recognised data dirs, it's a
-    # *simple* package (type 1), not a complex one — don't show a picker. Note:
+    # *simple* package (type 1), not a complex one - don't show a picker. Note:
     # doc files at the root (e.g. a Wrye Bash package.txt) do NOT count, matching
     # Wrye Bash's _re_top_extensions (which excludes docExts).
     for e in entries:

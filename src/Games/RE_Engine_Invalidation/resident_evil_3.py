@@ -9,7 +9,7 @@ from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVilla
 class ResidentEvil3(ResidentEvilVillage):
     """Resident Evil 3 Remake (2020).
 
-    Uses natives/STM/ instead of natives/x64/ — mods ship with x64 paths
+    Uses natives/STM/ instead of natives/x64/ - mods ship with x64 paths
     but must be deployed to STM.  Skipped on the dx11_non-rt beta branch.
     """
 

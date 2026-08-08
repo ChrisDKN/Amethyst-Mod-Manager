@@ -5,7 +5,7 @@ Detect user-supplied paths that the Flatpak sandbox cannot see.
 The manager's flatpak grants --filesystem=home, /run/media, /media, /mnt and
 the Steam/Heroic flatpak data dirs (see flatpak/io.github.Amethyst.ModManager.yml).
 A game or staging path outside those trees (e.g. /data/SteamLibrary, /opt/...)
-simply doesn't exist from inside the sandbox — indistinguishable from a typo —
+simply doesn't exist from inside the sandbox - indistinguishable from a typo -
 so the UI should tell the user it's a sandbox grant problem, not a bad path.
 
 No UI imports here (Utils stays gui-free).
@@ -51,7 +51,7 @@ def flatpak_blocked_path_hint(path) -> str | None:
         if rel is not None:
             parts = rel.parts
             if parts[:2] != (".var", "app"):
-                return None  # plain home path — granted, so genuinely missing
+                return None  # plain home path - granted, so genuinely missing
             app = parts[2] if len(parts) > 2 else ""
             # The app's own ~/.var/app/<FLATPAK_ID> tree is always visible to
             # itself; a missing path there is genuinely missing, not blocked.

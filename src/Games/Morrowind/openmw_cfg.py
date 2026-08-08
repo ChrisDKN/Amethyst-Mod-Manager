@@ -6,12 +6,12 @@ OpenMW uses ~/.config/openmw/openmw.cfg (native) or
 ~/.var/app/org.openmw.OpenMW/config/openmw/openmw.cfg (Flatpak).
 
 Unlike Morrowind.ini, load order is determined solely by the order of
-content= lines — no mtime manipulation is needed.
+content= lines - no mtime manipulation is needed.
 
 Managed keys (fully replaced on every deploy):
-  data=        — directories OpenMW searches for assets and plugins
-  content=     — ordered plugin load list
-  groundcover= — grass/groundcover plugins (preserved if caller passes None)
+  data=        - directories OpenMW searches for assets and plugins
+  content=     - ordered plugin load list
+  groundcover= - grass/groundcover plugins (preserved if caller passes None)
 
 All other lines (sections, comments, and other key=value pairs) are left
 untouched.
@@ -29,7 +29,7 @@ _VANILLA_MASTERS = [
     "Bloodmoon.esm",
 ]
 
-# Vanilla BSAs — always included as fallback-archive entries before mod BSAs.
+# Vanilla BSAs - always included as fallback-archive entries before mod BSAs.
 _VANILLA_BSAS = [
     "Morrowind.bsa",
     "Tribunal.bsa",

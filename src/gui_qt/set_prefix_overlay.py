@@ -1,12 +1,12 @@
 """In-window overlay shown when a mod's structure doesn't match the game and
-auto-strip failed — the user types a prefix to install the files under (e.g.
+auto-strip failed - the user types a prefix to install the files under (e.g.
 ``bin/x64`` for CET, ``archive/pc/mod`` for REDmod). Qt equivalent of the Tk
 ``_SetPrefixDialog``. A dimmed child overlay via gui_qt/overlay_base.py (NOT a
-top-level window — Steam-Deck gaming mode opens those behind the app).
+top-level window - Steam-Deck gaming mode opens those behind the app).
 
 `on_done(result)` is called with:
-    str   — install under this prefix ("" = install as-is, no remap)
-    None  — cancel the install
+    str   - install under this prefix ("" = install as-is, no remap)
+    None  - cancel the install
 """
 
 from __future__ import annotations

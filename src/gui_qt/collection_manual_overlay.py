@@ -1,6 +1,6 @@
 """Manual (non-premium) collection install overlay (Qt).
 
-A borderless in-window overlay shown while a manual collection install runs —
+A borderless in-window overlay shown while a manual collection install runs -
 the port of the Tk ``_show_manual_install_overlay`` card. Free Nexus users
 can't auto-download, so the orchestrator walks the collection one mod at a
 time: this card shows the CURRENT mod (name, size, Required/Optional badge,
@@ -12,7 +12,7 @@ overlay's only channel back to it is ``manual_queue`` (a str path or None).
 
 Like the premium ``CollectionInstallOverlay``, all widgets are built ONCE in
 ``_build`` and only updated in place (creating widgets later briefly realises
-them as top-level windows — see that module's header for the full story), and
+them as top-level windows - see that module's header for the full story), and
 every slot here runs on the UI thread. The slot surface is duck-typed to the
 premium overlay's so the app's ``_on_col_*`` handlers work on either: the
 download/extract slots are no-ops (there is no download pane here).
@@ -160,7 +160,7 @@ class CollectionManualOverlay(QWidget):
 
         # --- instruction + secondary status ---
         # Two lines: the per-mod instruction (from update_mod) and the shared
-        # pipeline status (set_status — "installed N/M…"), so a parallel
+        # pipeline status (set_status - "installed N/M…"), so a parallel
         # install finishing doesn't wipe the download instruction.
         self._instr_lbl = QLabel(self.tr("Preparing…"), self._card)
         self._instr_lbl.setWordWrap(True)
@@ -245,7 +245,7 @@ class CollectionManualOverlay(QWidget):
         q = self._queue
 
         def _on_picked(path):
-            # WORKER thread — queue.put only, never touch widgets here.
+            # WORKER thread - queue.put only, never touch widgets here.
             if path is not None:
                 q.put(str(path))
 
@@ -275,7 +275,7 @@ class CollectionManualOverlay(QWidget):
         if self._on_cancel is not None:
             self._on_cancel()
 
-    # ---- slots (UI thread only) — duck-typed premium surface ----------
+    # ---- slots (UI thread only) - duck-typed premium surface ----------
     def update_mod(self, payload: dict):
         """Show the next mod awaiting a manual download (on_manual_mod)."""
         name = payload.get("name") or ""
@@ -294,7 +294,7 @@ class CollectionManualOverlay(QWidget):
         fname = payload.get("file_name") or ""
         self._hint_lbl.setText(self.tr("Expected file: {0}").format(fname) if fname else "")
         self._instr_lbl.setText(
-            self.tr("Mod {0}/{1} — download this file, then it will be auto-detected…")
+            self.tr("Mod {0}/{1} - download this file, then it will be auto-detected…")
             .format(payload.get('idx', 0), payload.get('total', self._total)))
         self._total = int(payload.get("total", self._total) or self._total)
         self._installed_base = int(payload.get("installed_base", 0) or 0)
@@ -329,7 +329,7 @@ class CollectionManualOverlay(QWidget):
         if name:
             self._status_lbl.setText(self.tr("Installing {0}…").format(name))
 
-    # No download pane / aggregate bar in manual mode — accept and ignore the
+    # No download pane / aggregate bar in manual mode - accept and ignore the
     # premium-overlay slot calls so the app's handlers need no isinstance.
     def set_display_total(self, n: int):
         pass

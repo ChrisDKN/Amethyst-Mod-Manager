@@ -1,4 +1,4 @@
-"""Engine Fixes config editor — Qt port of wizards/engine_fixes.py.
+"""Engine Fixes config editor - Qt port of wizards/engine_fixes.py.
 
 A modlist-panel-scoped tab: a scrollable grid form of every EngineFixes.toml
 key with a typed value control (bool → two radios, else line edit) and a dim
@@ -31,7 +31,7 @@ class EngineFixesView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Engine Fixes — {0}").format(game.name))
+                         title=self.tr("Engine Fixes - {0}").format(game.name))
         self._rows: dict = {}   # (section,key) -> (getter()->str, setter(str))
         self._stack.addWidget(self._build_form())
 

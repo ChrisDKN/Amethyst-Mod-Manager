@@ -1,7 +1,7 @@
 """
 Global keyboard shortcuts for the Qt Mod Manager main window.
 
-Port of the Tk ``src/gui/shortcuts.py`` — same behaviour, idiomatic Qt.
+Port of the Tk ``src/gui/shortcuts.py`` - same behaviour, idiomatic Qt.
 
 Bindings:
     F2              Rename the selected mod or separator (modlist panel)
@@ -23,7 +23,7 @@ Bindings:
 Alt+Up/Down, F2, Ctrl+A, Home/End, Shift+F and the movers dispatch to whichever
 panel (modlist or plugin) was most recently interacted with (focus or mouse).
 Shortcuts are suppressed while a text-input widget has focus (except F5 and
-Ctrl+F) and while an overlay / modal is open — mirroring the Tk guard.
+Ctrl+F) and while an overlay / modal is open - mirroring the Tk guard.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def _guard(win, fn):
 
 
 def _unguarded(win, fn):
-    """Fires even when a text input has focus (F5, Ctrl+F) — still suppressed
+    """Fires even when a text input has focus (F5, Ctrl+F) - still suppressed
     while an overlay/modal is open."""
     def _handler():
         if _overlay_open(win):
@@ -93,7 +93,7 @@ class _ReturnOverride(QObject):
 
     The window-level Return/Enter shortcuts (toggle selected mods) consume the
     key during Qt's ShortcutOverride phase even when ``_guard`` would then
-    no-op — QLineEdit only claims printable/editing keys in that phase, so
+    no-op - QLineEdit only claims printable/editing keys in that phase, so
     ``returnPressed`` never fired anywhere in the main window (e.g. the Nexus
     browser page box). Accepting the override whenever the guard would refuse
     the shortcut delivers the key press to the focused widget instead."""
@@ -117,7 +117,7 @@ class _ReturnOverride(QObject):
 # ---------------------------------------------------------------------------
 
 def _active_panel(win) -> str:
-    """"mod" or "plugin" — whichever list the user last interacted with."""
+    """"mod" or "plugin" - whichever list the user last interacted with."""
     which = getattr(win, "_last_list_panel", "mod")
     if which == "plugin" and getattr(win, "_plugin_view", None) is not None:
         return "plugin"
@@ -213,7 +213,7 @@ def _delete_selected(win):
 
     Delegates to the context menu's remove handlers so the keyboard path gets
     the SAME guards: Profile Group entries route through the group-aware
-    removal (which also deletes the owning member's copy — a plain remove
+    removal (which also deletes the owning member's copy - a plain remove
     would only drop the group's link and the mod would return on the next
     reconcile), and mods owned by a LOCKED member profile are refused."""
     view = getattr(win, "_modlist_view", None)
@@ -368,7 +368,7 @@ def _move_modlist(win, direction: int):
         return
     m = view.model()
 
-    # A non-priority column sort blocks row moves — clear it first (drag parity).
+    # A non-priority column sort blocks row moves - clear it first (drag parity).
     key, _asc = m.sort_state()
     if key and not m.reverse_mode_active:
         view._apply_sort(-1, None, True)
@@ -487,12 +487,12 @@ def register_shortcuts(win) -> None:
 
     # Perf instrumentation (MM_PERFTRACE=1): F11 = timing summary table,
     # Shift+F11 = reset counters (perftrace.install only binds Tk keys, so
-    # the Qt window wires its own). Unguarded — the table should dump even
+    # the Qt window wires its own). Unguarded - the table should dump even
     # with an overlay open or a text box focused.
     from Utils import perftrace
     if perftrace.is_enabled():
         sc("F11", lambda _win: perftrace.dump(), guarded=False)
         sc("Shift+F11", lambda _win: perftrace.reset(), guarded=False)
         import sys
-        print("[PERF] perftrace enabled — F11 = summary table, "
+        print("[PERF] perftrace enabled - F11 = summary table, "
               "Shift+F11 = reset counters.", file=sys.stderr)

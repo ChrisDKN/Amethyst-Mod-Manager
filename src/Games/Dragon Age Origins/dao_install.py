@@ -55,7 +55,7 @@ _JUNK_FILE_NAMES = {".ds_store"}
 _JUNK_SUFFIXES = {".bak"}
 
 # Documentation / preview clutter that DAO never loads. Only stripped when it
-# sits at (or near) the mod root — a ``.txt`` deep inside override content may
+# sits at (or near) the mod root - a ``.txt`` deep inside override content may
 # be a legitimate config the author references, so we keep those.
 _DOC_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".rtf", ".doc", ".docx", ".url"}
 
@@ -64,7 +64,7 @@ _KEEP_AT_ROOT = {"meta.ini"}
 
 # Top-level segments that are already canonical DAO layout (from extracted
 # .dazip Contents or hand-structured mods). These are left exactly where they
-# are — only loose/unstructured content gets pushed into packages/core/override.
+# are - only loose/unstructured content gets pushed into packages/core/override.
 _CANONICAL_TOP = {"addins", "offers", "packages", "modules", "characters",
                   "settings", "bin_ship"}
 
@@ -98,7 +98,7 @@ def _override_dest_rel(rel_parts: list[str]) -> Path:
     packages/core/override and does NOT reliably recurse into arbitrary
     mod-named subfolders. Mods ship deeply nested layouts (e.g.
     ``Anto Hairstyles/Coolsims033 Hair/hm/hm_har_coolsims033_0.mmh``) that the
-    user is expected to flatten on install — otherwise the resource is
+    user is expected to flatten on install - otherwise the resource is
     registered in chargenmorphcfg.xml but the mesh can't be found (invisible
     hairstyle). So we flatten every override file to its bare basename.
 
@@ -192,7 +192,7 @@ def _extract_archives(dest_root: Path, log_fn) -> int:
             if contents.is_dir():
                 _merge_tree(contents, dest_root)
             else:
-                log_fn(f"  [DAO] {arc.name}: no Contents/ — merging extracted "
+                log_fn(f"  [DAO] {arc.name}: no Contents/ - merging extracted "
                        "tree as-is.")
                 _merge_tree(temp, dest_root)
                 temp.mkdir(parents=True, exist_ok=True)  # re-stub for cleanup
@@ -220,7 +220,7 @@ def _maybe_apply_override_config(dest_root: Path, log_fn, mod_name: str = "") ->
 
     Searches the whole staged tree for an OverrideConfig.xml. This runs as its
     own normalize step (not only during .override extraction) because the mod
-    may have been unpacked by the generic installer before normalize sees it —
+    may have been unpacked by the generic installer before normalize sees it -
     by then there is no .override archive left, only the unpacked tree.
 
     OverrideConfig.xml (DAO-Modmanager format) offers selectable variants: each
@@ -258,7 +258,7 @@ def _maybe_apply_override_config(dest_root: Path, log_fn, mod_name: str = "") ->
             except OSError as exc:
                 log_fn(f"  [DAO] OverrideConfig copy failed "
                        f"{replacement}→{original}: {exc}")
-    # OverrideConfig.xml is an installer artifact — the game never reads it.
+    # OverrideConfig.xml is an installer artifact - the game never reads it.
     # Remove it (always, even when no choices were applied) so it does not
     # deploy into the override folder.
     try:
@@ -319,13 +319,13 @@ def _prompt_override_config(config_path: Path, log_fn,
     from Utils import ui_hooks
     from Utils.ui_hooks import BACK, USE_DEFAULTS
     if not ui_hooks.has_choice_handler():
-        log_fn(f"  [DAO] OverrideConfig.xml present but no UI hook — "
+        log_fn(f"  [DAO] OverrideConfig.xml present but no UI hook - "
                f"keeping {len(options)} default(s).")
         return []
     ask = ui_hooks.ask_choice
 
     total = len(options)
-    title = f"{mod_name} — Mod Options" if mod_name else "Dragon Age — Mod Options"
+    title = f"{mod_name} - Mod Options" if mod_name else "Dragon Age - Mod Options"
     # Remember each page's chosen label so a Back navigation re-shows the user's
     # prior selection as the default instead of resetting to the config default.
     chosen_labels: list[str | None] = [None] * total
@@ -344,7 +344,7 @@ def _prompt_override_config(config_path: Path, log_fn,
             )
         chosen = ask(
             title=title,
-            prompt=(f"{opt['section']} — {opt['key']}\n\n"
+            prompt=(f"{opt['section']} - {opt['key']}\n\n"
                     f"{opt['description']}\n\n"
                     f"(default: {opt['default']})"),
             options=labels,
@@ -367,7 +367,7 @@ def _prompt_override_config(config_path: Path, log_fn,
         if chosen is None:
             # Cancel aborts the entire install, not just this page.
             log_fn(f"  [DAO] OverrideConfig cancelled at page {page}/{total} "
-                   f"— aborting install.")
+                   f"- aborting install.")
             raise InstallCancelled("OverrideConfig wizard cancelled")
         chosen_labels[idx] = chosen
         idx += 1
@@ -394,11 +394,11 @@ def _warn_duplicate_overrides(mod_name: str,
     user is meant to choose between. We deployed one (last wins) but can't know
     which they want, so we surface it and point them at the mod page.
 
-    ``interactive`` is False for headless/collection installs — those log only,
+    ``interactive`` is False for headless/collection installs - those log only,
     never popping a dialog (the collection author already resolved the options).
     """
     n = len(duplicates)
-    log_fn(f"  [DAO] {mod_name}: WARNING — {n} override file(s) bundled multiple "
+    log_fn(f"  [DAO] {mod_name}: WARNING - {n} override file(s) bundled multiple "
            f"times (likely selectable variants; the last copy was kept):")
     for dst, srcs in sorted(duplicates.items(), key=lambda kv: str(kv[0])):
         log_fn(f"    -- {dst.name} --")
@@ -432,14 +432,14 @@ def _warn_duplicate_overrides(mod_name: str,
     # The GUI's registered handler owns main-thread dispatch + modal display.
     # No-op when headless. height hint kept for the Tk/CTkAlert backend.
     from Utils import ui_hooks
-    ui_hooks.warn("Dragon Age — Duplicate override files", message, height=280)
+    ui_hooks.warn("Dragon Age - Duplicate override files", message, height=280)
 
 
 def normalize_dao_mod(dest_root: Path, mod_name: str, log_fn=None,
                       interactive: bool = True) -> None:
     """Restructure a freshly-staged DAO mod into the game's layout.
 
-    ``interactive`` is False for headless/collection installs — the duplicate
+    ``interactive`` is False for headless/collection installs - the duplicate
     override warning then logs only, without popping a dialog.
     """
     _log = log_fn or (lambda _: None)
@@ -451,7 +451,7 @@ def normalize_dao_mod(dest_root: Path, mod_name: str, log_fn=None,
     # content flows through the override/AddIns normalization below.
     extracted = _extract_archives(dest_root, _log)
 
-    # Step 0.1: handle the pre-extracted .dazip case — when install_mod unpacks
+    # Step 0.1: handle the pre-extracted .dazip case - when install_mod unpacks
     # the .dazip itself (because it treats .dazip as a zip), the staged tree
     # contains a Contents/ folder and a Manifest.xml at the root. This is the
     # same structure _extract_archives processes, but no archive file remains.
@@ -460,7 +460,7 @@ def normalize_dao_mod(dest_root: Path, mod_name: str, log_fn=None,
     if contents_dir.is_dir():
         _merge_tree(contents_dir, dest_root)
         _log(f"  [DAO] merged pre-extracted Contents/ tree.")
-    # File a root-level Manifest.xml if present — covers the pre-extracted
+    # File a root-level Manifest.xml if present - covers the pre-extracted
     # .dazip case and any mod that ships Manifest.xml at the staging root.
     _file_manifest(dest_root, dest_root, _log)
 
@@ -505,7 +505,7 @@ def normalize_dao_mod(dest_root: Path, mod_name: str, log_fn=None,
 
         # Override content (anywhere an "override" segment appears, however
         # deeply nested) must be FLATTENED to packages/core/override/<basename>
-        # — DAO does not recurse into mod-named subfolders for these resources.
+        # - DAO does not recurse into mod-named subfolders for these resources.
         if "override" in lower_parts:
             dst_rel = _OVERRIDE_DEST / rel_parts[-1]
             if dst_rel != rel:
@@ -527,7 +527,7 @@ def normalize_dao_mod(dest_root: Path, mod_name: str, log_fn=None,
 
     # Detect basename collisions: because override is flattened to bare
     # basenames, two sources mapping to the same destination means the mod ships
-    # the same file more than once — almost always selectable VARIANTS the user
+    # the same file more than once - almost always selectable VARIANTS the user
     # is meant to pick between (e.g. three robe-colour folders each containing
     # pf_rob_mora_0d.dds). We can't know which the user wants, so we deploy one
     # (last wins) and warn them to consult the mod page. Keyed by dst_rel; value

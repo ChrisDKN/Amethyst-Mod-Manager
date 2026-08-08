@@ -32,7 +32,7 @@ OUTPUT_NAME = "FNV BSA Decompressor"
 ARCHIVE_KEYWORDS = ["bsa", "decompressor"]
 
 # Pinned main file for the hands-free fetch (premium direct download /
-# download-folder watch) — see Utils.mpi_auto_fetch.
+# download-folder watch) - see Utils.mpi_auto_fetch.
 NEXUS_GAME_DOMAIN = "newvegas"
 NEXUS_MOD_ID = 65854
 NEXUS_FILE_ID = 1000136741

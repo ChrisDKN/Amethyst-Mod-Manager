@@ -1,10 +1,10 @@
-"""SkyGen BOS/SkyPatcher patch generator — Qt port of wizards/skygen.py.
+"""SkyGen BOS/SkyPatcher patch generator - Qt port of wizards/skygen.py.
 
 A modlist-panel-scoped tab, three pages:
-  1. Scan — worker scans the active load order (progress bar + Cancel).
-  2. Generate — BOS/SkyPatcher mode radios + a scrollable checkbox list of
+  1. Scan - worker scans the active load order (progress bar + Cancel).
+  2. Generate - BOS/SkyPatcher mode radios + a scrollable checkbox list of
      eligible plugins (Select/Deselect all) + Generate.
-  3. Done — summary + Open output folder.
+  3. Done - summary + Open output folder.
 The scan/generate logic lives in Utils/skygen_core.py.
 """
 
@@ -43,7 +43,7 @@ class SkyGenView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("SkyGen — Patch Generator — {0}").format(game.name))
+                         title=self.tr("SkyGen - Patch Generator - {0}").format(game.name))
         self._dna_map: dict = {}
         self._lo_map: dict = {}
         self._cancel = False
@@ -256,7 +256,7 @@ class SkyGenView(WizardViewBase):
     def _on_gen_done(self, mode: str, out_dir, written: int):
         self._gen_btn.setEnabled(True)
         self._out_dir = out_dir
-        self._ran = True   # new mod added — refresh on close
+        self._ran = True   # new mod added - refresh on close
         self._done_summary.setText(
             self.tr('Generated {0} {1} patch INI(s).\n\nOutput mod: {2}\n{3}').format(written, mode, out_dir.name, out_dir))
         self._stack.setCurrentIndex(_PG_DONE)

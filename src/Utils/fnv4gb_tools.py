@@ -148,7 +148,7 @@ def apply_4gb_patch(game_root: Path) -> str:
     if known is None:
         raise RuntimeError(
             f"Unrecognised {EXE_NAME} version (SHA-1 {digest}). "
-            "The exe may already be modified — verify game files and try again."
+            "The exe may already be modified - verify game files and try again."
         )
     version, variant = known
 

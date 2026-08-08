@@ -5,7 +5,7 @@ The play-bar dropdown shows the game's logo for the game entry and each custom
 exe's OWN icon for the exe entries. Custom exes are Windows .exe files, so their
 icon lives in the PE resource section (RT_GROUP_ICON → RT_ICON). This module
 parses that out and returns a standalone .ico byte blob the GUI layer can hand
-to QIcon/QPixmap — no Qt dependency here so Utils stays toolkit-neutral.
+to QIcon/QPixmap - no Qt dependency here so Utils stays toolkit-neutral.
 
 Returns None (never raises) for non-PE files (.bat, ELF), icon-less exes, or any
 parse failure; the caller falls back to a generic glyph.

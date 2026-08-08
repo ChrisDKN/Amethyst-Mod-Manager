@@ -92,7 +92,7 @@ class NewProfileBar(QWidget):
             return
         specific = self._specific.isChecked()
         # Hide first so a validation-failure re-open (duplicate name) by the host
-        # starts from a clean state — mirrors the Tk flow.
+        # starts from a clean state - mirrors the Tk flow.
         self.setVisible(False)
         self.on_create(name, specific)
 

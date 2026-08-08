@@ -6,15 +6,15 @@ and Proton launch can be driven by the Qt view (and unit-tested) without any
 GUI toolkit.  No tkinter or Qt imports here.
 
 Pipeline:
-  1. ``fetch_latest_synthesis_asset`` + ``download_and_extract_synthesis`` — get
+  1. ``fetch_latest_synthesis_asset`` + ``download_and_extract_synthesis`` - get
      the latest Synthesis release into ``Applications/Synthesis/``.
-  2. ``list_proton`` / ``load_saved_proton`` / ``save_proton`` — per-game Proton
+  2. ``list_proton`` / ``load_saved_proton`` / ``save_proton`` - per-game Proton
      choice persisted in ``synthesis.ini``.
-  3. ``setup_synthesis_prefix`` — idempotent (per-step ``.done`` markers) Wine
+  3. ``setup_synthesis_prefix`` - idempotent (per-step ``.done`` markers) Wine
      prefix bootstrap: mscoree cleanup, win11 version, vcredist, the .NET
      SDK/Desktop runtimes, cert bundles, regedit/xEdit DLL overrides, fonts,
      nuget config, game-path registration.
-  4. ``launch_synthesis`` — symlink the profile's plugins.txt + My Games into
+  4. ``launch_synthesis`` - symlink the profile's plugins.txt + My Games into
      the prefix, deploy the active profile, run ``Synthesis.exe`` via
      ``proton run`` and clean up the symlinks afterwards.
 """
@@ -186,7 +186,7 @@ def download_and_extract_synthesis(game: "BaseGame", reporthook=None,
 
     if not synthesis_exe(game).is_file():
         raise RuntimeError(
-            f"{EXE_NAME} not found after extraction — the release asset layout "
+            f"{EXE_NAME} not found after extraction - the release asset layout "
             "may have changed.")
     return tag
 
@@ -311,7 +311,7 @@ def _step_dotnet10_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=900,
     )
-    # exit 1 under Wine ~ already present, bundle declined to reinstall — accept it
+    # exit 1 under Wine ~ already present, bundle declined to reinstall - accept it
     if result.returncode not in (0, 3010, 1):
         log(f"  .NET 10 SDK installer exited with {result.returncode}")
         return False
@@ -333,7 +333,7 @@ def _step_dotnet10_desktop(pfx: Path, wine: Path, log: LogFn) -> bool:
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
-    # exit 1 under Wine ~ already present, bundle declined to reinstall — accept it
+    # exit 1 under Wine ~ already present, bundle declined to reinstall - accept it
     if result.returncode not in (0, 3010, 1):
         log(f"  .NET 10 Desktop Runtime installer exited with {result.returncode}")
         return False
@@ -358,7 +358,7 @@ def _install_desktop_runtime(
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
-    # exit 1 under Wine ~ already present, bundle declined to reinstall — accept it
+    # exit 1 under Wine ~ already present, bundle declined to reinstall - accept it
     if result.returncode not in (0, 3010, 1):
         log(f"  {label} installer exited with {result.returncode}")
         return False
@@ -386,11 +386,11 @@ def _step_dotnet6_desktop(pfx: Path, wine: Path, log: LogFn) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Root-certificate import — crypt32 registry blobs via regedit.
+# Root-certificate import - crypt32 registry blobs via regedit.
 #
 # certutil.exe and rundll32 cryptext.dll are unimplemented stubs in Wine, and
 # crypt32 store writes (X509Store.Add) under GE-Proton report success without
-# ever reaching wineserver's registry — writing serialized cert blobs straight
+# ever reaching wineserver's registry - writing serialized cert blobs straight
 # into the Root store key via regedit is the only import that persists.  NuGet
 # treats an untrusted root on the *timestamp* chain as a hard error (NU3028)
 # regardless of signatureValidationMode / allowUntrustedRoot / any env var, so
@@ -440,7 +440,7 @@ def _hex_reg_value(name: str, data: bytes) -> str:
 def _build_certs_reg_content(pem_bundles: list[Path]) -> tuple[str, frozenset]:
     """Build .reg content adding every cert in *pem_bundles* to the prefix
     Root store.  Returns ``(reg_content, sha1_thumbprints)``.  Re-importing is
-    idempotent — regedit overwrites identical keys in place."""
+    idempotent - regedit overwrites identical keys in place."""
     seen: set[str] = set()
     parts = ["Windows Registry Editor Version 5.00"]
     for bundle in pem_bundles:
@@ -459,7 +459,7 @@ def _build_certs_reg_content(pem_bundles: list[Path]) -> tuple[str, frozenset]:
 def _missing_thumbprints(pfx: Path, thumbprints: frozenset) -> frozenset:
     """Check which thumbprints are actually present in the on-disk system.reg.
 
-    regedit's exit code alone is not reliable here — on large batches (~400
+    regedit's exit code alone is not reliable here - on large batches (~400
     keys) it has been observed to exit 0 while silently dropping individual
     entries.  system.reg stores hive-relative key paths (no HKLM prefix) with
     each backslash doubled, unlike the .reg syntax used to write them."""
@@ -485,7 +485,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
     verify against system.reg, retrying on partial imports."""
     reg_content, thumbprints = _build_certs_reg_content(pem_bundles)
     if not thumbprints:
-        log(f"  {label}: no certificates found in bundle(s) — nothing to import.")
+        log(f"  {label}: no certificates found in bundle(s) - nothing to import.")
         return True
 
     env = _base_env(pfx, wine)
@@ -508,7 +508,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
                     timeout=180,
                 )
             except subprocess.TimeoutExpired:
-                log("  regedit timed out — retrying.")
+                log("  regedit timed out - retrying.")
                 continue
             if result.returncode != 0:
                 log(f"  regedit exited with {result.returncode}: "
@@ -532,7 +532,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
                 log(f"  {label}: {len(thumbprints)} certs imported and verified.")
                 return True
             log(f"  {label}: {len(missing)} of {len(thumbprints)} certs did "
-                "not persist — retrying.")
+                "not persist - retrying.")
 
         log(f"  {label}: import incomplete after {max_attempts} attempts "
             f"({len(missing)} of {len(thumbprints)} missing).")
@@ -548,7 +548,7 @@ def _step_ca_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
     """Import the full public CA bundle into the Wine Root store.
 
     dotnet runs under Wine as a *Windows* process, where NuGet signature
-    verification uses the Windows root store — Wine's is near-empty, so
+    verification uses the Windows root store - Wine's is near-empty, so
     author/timestamp certs on Mutagen's older deps fail with NU3028.
     Importing the Mozilla CA bundle gives the prefix the trust anchors those
     signatures chain to (DigiCert Trusted Root G4 included)."""
@@ -567,12 +567,12 @@ def _step_ca_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
             import certifi
             bundle = certifi.where()
         except Exception as exc:
-            log(f"  No CA bundle available ({exc}) — skipping root import.")
+            log(f"  No CA bundle available ({exc}) - skipping root import.")
             return True
 
     bundle_path = Path(bundle)
     if not bundle_path.is_file():
-        log(f"  CA bundle not found at {bundle_path} — skipping root import.")
+        log(f"  CA bundle not found at {bundle_path} - skipping root import.")
         return True
 
     log("Importing public CA roots into the Wine Root store …")
@@ -583,7 +583,7 @@ def _step_ca_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
 
 
 def _find_sdk_trusted_roots(pfx: Path) -> list[Path]:
-    """Locate the newest installed .NET SDK's bundled trustedroots PEMs —
+    """Locate the newest installed .NET SDK's bundled trustedroots PEMs -
     the exact trust anchors NuGet itself uses for package and timestamp
     signature validation."""
     sdk_root = pfx / "drive_c" / "Program Files" / "dotnet" / "sdk"
@@ -601,7 +601,7 @@ def _find_sdk_trusted_roots(pfx: Path) -> list[Path]:
 def _step_nuget_trusted_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
     """Import the .NET SDK's code-signing + timestamp trusted roots.
 
-    Must run after the SDK install step — the PEM bundles ship inside the
+    Must run after the SDK install step - the PEM bundles ship inside the
     SDK.  This is what actually fixes NU3028 on the timestamp chain (a
     dropped VeriSign Universal Root is the confirmed cause of long-standing
     intermittent Synthesis patcher-restore failures), hence the verified,
@@ -612,7 +612,7 @@ def _step_nuget_trusted_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
 
     bundles = _find_sdk_trusted_roots(pfx)
     if not bundles:
-        log("  .NET SDK trustedroots bundles not found — was the SDK "
+        log("  .NET SDK trustedroots bundles not found - was the SDK "
             "install step skipped or failed?")
         return False
 
@@ -950,7 +950,7 @@ def setup_synthesis_prefix(
     if ok:
         log_fn("Synthesis prefix ready.")
     else:
-        log_fn("Synthesis prefix setup finished with errors — see log above.")
+        log_fn("Synthesis prefix setup finished with errors - see log above.")
     return ok
 
 
@@ -1084,7 +1084,7 @@ def symlink_mygames(game: "BaseGame", log: LogFn) -> Path | None:
         log("Skipping My Games link (game has no My Games path).")
         return None
     if not src.is_dir():
-        log(f"Game-prefix My Games folder not found ({src}) — skipping link.")
+        log(f"Game-prefix My Games folder not found ({src}) - skipping link.")
         return None
     try:
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1092,7 +1092,7 @@ def symlink_mygames(game: "BaseGame", log: LogFn) -> Path | None:
             if dst.is_symlink():
                 dst.unlink()
             else:
-                log(f"My Games already exists as a real folder at {dst} — "
+                log(f"My Games already exists as a real folder at {dst} - "
                     "skipping link.")
                 return None
         dst.symlink_to(src, target_is_directory=True)
@@ -1109,7 +1109,7 @@ def deploy_active_profile(game: "BaseGame", profile: str, log: LogFn) -> bool:
     Delegates to the shared ``run_deploy_pipeline`` (the canonical deploy path)
     so the pre-launch deploy stays in lock-step with the Deploy button:
     incremental fast path, deferred runtime snapshot, mount checks, per-profile
-    ``load_paths`` on the profile switch, root-flagged mods, etc. — none of which
+    ``load_paths`` on the profile switch, root-flagged mods, etc. - none of which
     the old bespoke copy did.  Called from the synthesis wizard's launch worker
     thread.
     """
@@ -1151,7 +1151,7 @@ def launch_synthesis(game: "BaseGame", proton_script: Path, profile: str,
     env.setdefault("DISPLAY", os.environ.get("DISPLAY", ":0"))
     env["NUGET_CERT_REVOCATION_MODE"] = "offline"
     # Retry NuGet trust-chain builds: the first chain build after a fresh cert
-    # import can race and fail spuriously (NuGet/Home#11099) — and our cert
+    # import can race and fail spuriously (NuGet/Home#11099) - and our cert
     # import may have happened moments earlier in the same setup run.
     env["NUGET_EXPERIMENTAL_CHAIN_BUILD_RETRY_POLICY"] = "10,1000"
     # VBCSCompiler's named-pipe IPC is unreliable under Wine, so every patcher

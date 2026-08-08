@@ -1,6 +1,6 @@
 """Staging-exe picker overlay.
 
-A dimmed borderless child overlay (NOT a top-level window — gaming-mode opens
+A dimmed borderless child overlay (NOT a top-level window - gaming-mode opens
 top-levels behind the app) with a centered card: title, a search box, a
 scrollable checklist of ``.exe`` files found in the profile's staging area, and
 Cancel / Add buttons. Checked exes are added to the play-bar exe dropdown.

@@ -1,4 +1,4 @@
-"""Reusable "Choose Proton Version" wizard step — Qt port of the Tk
+"""Reusable "Choose Proton Version" wizard step - Qt port of the Tk
 ProtonPrefixStepMixin's step UI (wizards/_proton_prefix.py).
 
 Lets the user pick a Proton version and a prefix placement for a wizard tool:
@@ -285,7 +285,7 @@ class ProtonStepWidget(QWidget):
         if use_game:
             self._delete_btn.setEnabled(False)
             self._prefix_status.setText(
-                self.tr("Using the game's existing prefix — Proton version follows "
+                self.tr("Using the game's existing prefix - Proton version follows "
                 "the game's Steam setting and no new prefix is created."))
             self._prefix_status.setStyleSheet(
                 f"color:{_c(active_palette(),'TEXT_DIM')};")
@@ -344,7 +344,7 @@ class ProtonStepWidget(QWidget):
         self._delete_btn.setEnabled(exists)
         self._set_prefix_status(
             self.tr("A prefix already exists for this version. Delete it if "
-            "{0}\nhas issues — it is recreated "
+            "{0}\nhas issues - it is recreated "
             "automatically on the next step.").format(self._tool_display_name)
             if exists else "")
 
@@ -386,7 +386,7 @@ class ProtonStepWidget(QWidget):
         if ok:
             self._log(f"{self._tool_display_name} Wizard: deleted prefix {msg}")
             self._set_prefix_status(
-                self.tr("Prefix deleted — a fresh one is created on the next step."),
+                self.tr("Prefix deleted - a fresh one is created on the next step."),
                 ok_text())
         else:
             self._log(f"{self._tool_display_name} Wizard: prefix delete error: {msg}")

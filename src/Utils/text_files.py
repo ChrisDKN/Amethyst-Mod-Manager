@@ -1,10 +1,10 @@
 """Toolkit-neutral discovery + content search for the Text Files tab.
 
-Lists config/text files from four sources — mod folders (via filemap.txt), the
-active profile folder, the vanilla game folder, and (Bethesda) My Games — grouped
+Lists config/text files from four sources - mod folders (via filemap.txt), the
+active profile folder, the vanilla game folder, and (Bethesda) My Games - grouped
 by source. Ported from the pure-Python parts of the Tk `gui/plugin_panel_ini.py`
 (internally "Ini Files"; the UI is "Text Files") so the Qt tab stays in lockstep.
-Pure stdlib + Utils.* — no GUI toolkit.
+Pure stdlib + Utils.* - no GUI toolkit.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ SOURCE_LABELS = (
 )
 _SOURCE_ORDER = {key: i for i, (key, _label) in enumerate(SOURCE_LABELS)}
 
-# Profile subfolders surfaced by other sources / holding backups — skipped so we
+# Profile subfolders surfaced by other sources / holding backups - skipped so we
 # don't dump thousands of duplicate mod files under "Profile".
 _PROFILE_SKIP_DIRS = frozenset({"mods", "overwrite", "root_folder", "backups",
                                 "fomod"})
@@ -66,7 +66,7 @@ def resolve_file_path(rel_path: str, mod_name: str,
                       dir_cache: dict | None = None) -> Path | None:
     """Resolve a filemap entry to a full path (case-insensitive fallback).
 
-    *dir_cache* — optional {dir_path: {lower_name: real_name}} memo shared across
+    *dir_cache* - optional {dir_path: {lower_name: real_name}} memo shared across
     calls. Filemap entries under the same mod share parent directories, so caching
     each directory's case-folded listing turns the fallback from O(entries × depth)
     ``iterdir`` calls into one listing per directory. Pass an empty dict once per
@@ -198,7 +198,7 @@ def discover_text_files(game, profile_dir: Path | None,
                         filemap_path: Path | None,
                         staging_root: Path | None) -> list[tuple[str, str, Path]]:
     """Return sorted [(rel_path, source_mod, full_path)] across all four sources.
-    Port of Tk `_refresh_ini_files_tab`. Deferred/expensive — call off the hot
+    Port of Tk `_refresh_ini_files_tab`. Deferred/expensive - call off the hot
     path (recursive game + My Games scans)."""
     entries: list[tuple[str, str, Path]] = []
 
@@ -218,7 +218,7 @@ def discover_text_files(game, profile_dir: Path | None,
 
     # 2. Vanilla game folder (skip symlinks/hardlinks = deployed files). Use
     #    os.walk + scandir so the extension check (cheap) gates the stat (costly)
-    #    — most game files aren't text and never get stat'd.
+    #    - most game files aren't text and never get stat'd.
     game_path = (game.get_game_path()
                  if game and hasattr(game, "get_game_path") else None)
     if game_path and Path(game_path).is_dir():

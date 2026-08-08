@@ -151,7 +151,7 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("BORDER_DIM", "Border (dim)"),
         ("BORDER_FAINT", "Border (faint)"),
     ]),
-    ("Buttons — Red", [
+    ("Buttons - Red", [
         ("BTN_DANGER", "Danger"),
         ("BTN_DANGER_HOV", "Danger hover"),
         ("BTN_DANGER_ALT", "Danger (alt)"),
@@ -163,7 +163,7 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("RED_BTN", "Red (legacy)"),
         ("RED_HOV", "Red hover (legacy)"),
     ]),
-    ("Buttons — Green", [
+    ("Buttons - Green", [
         ("BTN_SUCCESS", "Success"),
         ("BTN_SUCCESS_HOV", "Success hover"),
         ("BTN_SUCCESS_ALT", "Success (alt)"),
@@ -171,7 +171,7 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("BTN_SUCCESS_DEEP", "Success (deep)"),
         ("BTN_SUCCESS_DEEP_HOV", "Success deep hover"),
     ]),
-    ("Buttons — Orange", [
+    ("Buttons - Orange", [
         ("BTN_WARN", "Warning"),
         ("BTN_WARN_HOV", "Warning hover"),
         ("BTN_WARN_DEEP", "Warning (deep)"),
@@ -181,7 +181,7 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("BTN_WARN_ORANGE", "Warning (orange)"),
         ("BTN_WARN_ORANGE_HOV", "Warning orange hover"),
     ]),
-    ("Buttons — Blue", [
+    ("Buttons - Blue", [
         ("BTN_INFO", "Info"),
         ("BTN_INFO_HOV", "Info hover"),
         ("BTN_INFO_DEEP", "Info (deep)"),
@@ -189,13 +189,13 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("BTN_NEUTRAL", "Neutral"),
         ("BTN_NEUTRAL_HOV", "Neutral hover"),
     ]),
-    ("Buttons — Grey", [
+    ("Buttons - Grey", [
         ("BTN_GREY", "Grey"),
         ("BTN_GREY_HOV", "Grey hover"),
         ("BTN_GREY_ALT", "Grey (alt)"),
         ("BTN_GREY_ALT_HOV", "Grey alt hover"),
     ]),
-    ("Buttons — Purple", [
+    ("Buttons - Purple", [
         ("BTN_PURPLE", "Purple"),
         ("BTN_PURPLE_HOV", "Purple hover"),
     ]),
@@ -267,11 +267,11 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
         ("HIGHLIGHT_DRAG", "Drag selection outline"),
     ]),
     ("Conflict highlights", [
-        ("CONFLICT_HL_WIN", "Conflict row — winning"),
-        ("CONFLICT_HL_LOSE", "Conflict row — overridden"),
-        ("CONFLICT_HL_ANCHOR", "Conflict row — anchor"),
-        ("REQ_HL_REQUIRES", "Requirement row — requires"),
-        ("REQ_HL_REQUIRED_BY", "Requirement row — required by"),
+        ("CONFLICT_HL_WIN", "Conflict row - winning"),
+        ("CONFLICT_HL_LOSE", "Conflict row - overridden"),
+        ("CONFLICT_HL_ANCHOR", "Conflict row - anchor"),
+        ("REQ_HL_REQUIRES", "Requirement row - requires"),
+        ("REQ_HL_REQUIRED_BY", "Requirement row - required by"),
     ]),
     ("Framework detection", [
         ("FRAMEWORK_INSTALLED_BG", "Installed (bg)"),
@@ -297,16 +297,16 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
 # One-line "where does this show up" hint per section, rendered under the group
 # title in the editor so it's obvious what each block of colours affects.
 GROUP_DESCRIPTIONS: dict[str, str] = {
-    "Backgrounds": "Window, panels, list rows and input fields — the app's surfaces.",
+    "Backgrounds": "Window, panels, list rows and input fields - the app's surfaces.",
     "Text": "Label and list text throughout the app, plus success/warning/error text.",
     "Accent": "The highlight colour: links, dropdown arrows and accented controls.",
     "Borders": "Lines and frames around panels, lists and inputs.",
-    "Buttons — Red": "Danger / cancel / remove buttons (delete, remove profile, ✕ close).",
-    "Buttons — Green": "Success / confirm buttons (Install, Done, Play).",
-    "Buttons — Orange": "Warning buttons (Reinstall, download / update actions).",
-    "Buttons — Blue": "Info / neutral action buttons (Select, Groups, Plugin Rules).",
-    "Buttons — Grey": "Secondary / neutral buttons (View, minor actions).",
-    "Buttons — Purple": "Accent buttons like Ko-Fi.",
+    "Buttons - Red": "Danger / cancel / remove buttons (delete, remove profile, ✕ close).",
+    "Buttons - Green": "Success / confirm buttons (Install, Done, Play).",
+    "Buttons - Orange": "Warning buttons (Reinstall, download / update actions).",
+    "Buttons - Blue": "Info / neutral action buttons (Select, Groups, Plugin Rules).",
+    "Buttons - Grey": "Secondary / neutral buttons (View, minor actions).",
+    "Buttons - Purple": "Accent buttons like Ko-Fi.",
     "Tree tags": "Coloured labels in file trees (folders, BSA archives, bundled/installed).",
     "Tones": "Shared accent tones reused by flags, icons and small highlights.",
     "Scrollbars": "The scrollbar track and thumb.",

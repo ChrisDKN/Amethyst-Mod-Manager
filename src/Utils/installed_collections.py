@@ -11,7 +11,7 @@ its meta.ini ``fromCollection`` equals the slug, or (legacy/un-tagged) its
 ``fileid`` appears in the saved manifest. Mods stamped by ANOTHER collection or
 installed manually are never touched.
 
-Pure stdlib + Utils.* — no GUI toolkit imports.
+Pure stdlib + Utils.* - no GUI toolkit imports.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def _safe_filename(slug: str) -> str:
 def record_appended_collection(profile_dir: Path, *, slug: str,
                                revision: "int | None", card: dict,
                                manifest: dict, log_fn=None) -> "Path | None":
-    """Write (or overwrite — latest append wins) the record for *slug*."""
+    """Write (or overwrite - latest append wins) the record for *slug*."""
     log = log_fn or (lambda _m: None)
     try:
         folder = Path(profile_dir) / INSTALLED_COLLECTIONS_DIR

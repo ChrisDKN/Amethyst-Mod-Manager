@@ -89,7 +89,7 @@ class TypeDescriptor:
     plugin_type: str = "Optional"   # Optional|Required|Recommended|CouldBeUsable|NotUsable
     is_conditional: bool = False
     default_type: str = "Optional"
-    # List of (Dependency, type_name) pairs — first matching pattern wins
+    # List of (Dependency, type_name) pairs - first matching pattern wins
     patterns: list[tuple[Dependency, str]] = field(default_factory=list)
 
 
@@ -115,7 +115,7 @@ class Group:
     group_type: str   # SelectExactlyOne|SelectAtMostOne|SelectAtLeastOne|SelectAny|SelectAll
     plugins: list[Plugin] = field(default_factory=list)
     # The author's original name when `name` was de-duplicated (see
-    # _dedupe_group_names). Empty when no rename happened — display code should
+    # _dedupe_group_names). Empty when no rename happened - display code should
     # use `display_name or name`.
     display_name: str = ""
 
@@ -143,7 +143,7 @@ class ModuleConfig:
     steps: list[InstallStep] = field(default_factory=list)
     required_files: list[FileInstall] = field(default_factory=list)
     conditional_file_installs: list[ConditionalInstallPattern] = field(default_factory=list)
-    # Pre-install gate — if non-None, must be satisfied before the wizard runs.
+    # Pre-install gate - if non-None, must be satisfied before the wizard runs.
     # Typically references other plugins/flags that must be installed first.
     module_dependency: Optional[Dependency] = None
 
@@ -199,14 +199,14 @@ def _parse_dependency(el: ET.Element) -> Dependency:
     elif tag in ("gameDependency", "fommDependency", "foseDependency",
                  "nvseDependency", "f4seDependency", "skseDependency",
                  "versionDependency", "falloutDependency"):
-        # Version dependencies — we don't track game / script-extender
+        # Version dependencies - we don't track game / script-extender
         # versions, so these are unevaluable. Treated as True for step
         # visibility (so the user still sees the step) but False for
         # typeDescriptor patterns (so pattern matching falls through to
         # the default type, which resolve_plugin_type can then fix up).
         return Dependency(dep_type="version")
     else:
-        # Unknown dependency type — fail closed.
+        # Unknown dependency type - fail closed.
         return Dependency(dep_type="unsatisfiable")
 
 
@@ -221,7 +221,7 @@ def _parse_files(files_el: ET.Element) -> list[FileInstall]:
             source = child.get("source", "")
             destination = child.get("destination")
             is_folder = (tag == "folder")
-            # An ABSENT `destination` is not the same as an EMPTY one — the
+            # An ABSENT `destination` is not the same as an EMPTY one - the
             # FOMOD schema says a missing destination installs to the source's
             # own path, while an explicit destination="" means the destination
             # root. Conflating the two stripped the wrapper off every
@@ -233,7 +233,7 @@ def _parse_files(files_el: ET.Element) -> list[FileInstall]:
             #                 <file>   lands under its basename (so
             #                          <file source="main file\X.esp"
             #                          destination=""/> gives X.esp, NOT
-            #                          main file/X.esp — this is what buried
+            #                          main file/X.esp - this is what buried
             #                          CACO's main .esp/.bsa).
             #                 <folder> copies its *contents* to the root,
             #                          stripping the wrapper (so
@@ -330,7 +330,7 @@ def _apply_order(items: list, order: str, key) -> list:
     """
     Honour FOMOD's `order` attribute on installSteps/optionalFileGroups/plugins.
 
-    Values (per XSD orderEnum): "Explicit" (document order — the XSD DEFAULT
+    Values (per XSD orderEnum): "Explicit" (document order - the XSD DEFAULT
     when the attribute is absent), "Ascending", "Descending". MO2 preserves
     author-defined order when `order` is omitted, so we must NOT alphabetize
     by default. Sorting (when requested) is by the element's `name` attribute,
@@ -430,7 +430,7 @@ def _dedupe_group_names(groups: list[Group]) -> None:
     """Make group names unique within a step, in place.
 
     Selections, defaults and live widget state are all keyed by group NAME
-    ({step: {group_name: [plugin, ...]}} — wizard views, saved-selections JSON,
+    ({step: {group_name: [plugin, ...]}} - wizard views, saved-selections JSON,
     compute_file_installs, the rerun-dep encoder). A step with duplicate group
     names (e.g. Embers XD's four \"Select One\" add-on groups) collapses those
     dicts: only the LAST same-named group survives, silently dropping its
@@ -476,8 +476,8 @@ def detect_fomod(extracted_root: str) -> Optional[tuple[str, str]]:
          files alongside the wrapper (which MO2 itself refuses to detect).
 
     Returns (mod_root, config_path) where:
-      mod_root    — the directory that contains the fomod/ folder
-      config_path — full path to ModuleConfig.xml
+      mod_root    - the directory that contains the fomod/ folder
+      config_path - full path to ModuleConfig.xml
     Returns None if no FOMOD installer is found.
     """
     root = Path(extracted_root)
@@ -539,11 +539,11 @@ def detect_scripted_fomod(extracted_root: str) -> Optional[str]:
     installer, i.e. it has a ``script.cs`` / ``script.dll`` but NO
     ``ModuleConfig.xml``.
 
-    The XML-based installer dialog cannot run these — the install proceeds as a
+    The XML-based installer dialog cannot run these - the install proceeds as a
     plain full-file copy.  Callers use this to warn the user that no install
     options were shown and an XML version of the mod may exist.
 
-    NOTE: ``info.xml`` alone is NOT a scripted installer — it is optional
+    NOTE: ``info.xml`` alone is NOT a scripted installer - it is optional
     metadata (name/author/version) that plain mods (e.g. BodySlide) ship in a
     ``fomod/`` folder with no ModuleConfig and no script. Only a real script
     file counts.
@@ -559,7 +559,7 @@ def detect_scripted_fomod(extracted_root: str) -> Optional[str]:
                 if child.is_dir() and child.name.lower() == "fomod":
                     names = {f.name.lower() for f in child.iterdir() if f.is_file()}
                     if "moduleconfig.xml" in names:
-                        return None  # XML installer — handled by detect_fomod
+                        return None  # XML installer - handled by detect_fomod
                     if names & {"script.cs", "script.dll"}:
                         return str(child)
         except PermissionError:

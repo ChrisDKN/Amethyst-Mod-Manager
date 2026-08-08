@@ -206,7 +206,7 @@ def _plugin_has_new_records(path: Path) -> bool:
 
 
 def _scan_data_for_new_records(data: bytes) -> bool:
-    """Core scan — accepts bytes, mmap, or any buffer object."""
+    """Core scan - accepts bytes, mmap, or any buffer object."""
 
     if len(data) < 28 or data[:4] != b"TES4":
         return True
@@ -287,7 +287,7 @@ def _scan_data_for_new_records(data: bytes) -> bool:
 
 
 def _build_patch_index(mods_path: Path) -> Tuple[Set[str], Set[str]]:
-    """Return (bos_patched, sp_patched) — lower-case plugin name sets."""
+    """Return (bos_patched, sp_patched) - lower-case plugin name sets."""
     bos_patched: Set[str] = set()
     sp_patched:  Set[str] = set()
     if not mods_path or not mods_path.is_dir():
@@ -344,7 +344,7 @@ def _build_patch_index(mods_path: Path) -> Tuple[Set[str], Set[str]]:
                             for ext in (".esp", ".esm", ".esl"):
                                 sp_patched.add(stem + ext)
                     break
-            # SPID / KID / DSD — scan relevant extensions only
+            # SPID / KID / DSD - scan relevant extensions only
             try:
                 for pattern in ("*.ini", "*.json", "*.yaml", "*.yml"):
                     for f in mod_dir.rglob(pattern):
@@ -587,7 +587,7 @@ def disable_plugins(game: "BaseGame", selected: "list[str]") -> "tuple[int, str]
     pdir = _profile_dir(game, profile)
     plugins_path = pdir / "plugins.txt"
     if not plugins_path.is_file():
-        return 0, "plugins.txt not found — cannot disable."
+        return 0, "plugins.txt not found - cannot disable."
 
     from Utils.plugins import _plugins_txt_encoding, _read_text_game_compat
     lines = _read_text_game_compat(plugins_path).splitlines()
@@ -624,7 +624,7 @@ def cleanup_orphaned_inis(game: "BaseGame", targets: "set[str]", *,
     output mods only) for plugins in *targets*. Returns (found, deleted)."""
     mods_path = _staging_path(game)
     if not mods_path or not mods_path.is_dir():
-        log_fn("Cannot find mod staging path — aborting cleanup.")
+        log_fn("Cannot find mod staging path - aborting cleanup.")
         return 0, 0
 
     deleted = 0

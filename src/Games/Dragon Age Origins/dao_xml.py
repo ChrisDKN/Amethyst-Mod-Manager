@@ -5,8 +5,8 @@ Deploy-time generation of Dragon Age: Origins registry XML.
 DAO discovers installed DLC-style content (AddIns and Offers) through two
 registry files the game reads at launch:
 
-    Settings/AddIns.xml   — <AddInsList> of every installed AddIn
-    Settings/Offers.xml   — <OfferList>  of every installed Offer
+    Settings/AddIns.xml   - <AddInsList> of every installed AddIn
+    Settings/Offers.xml   - <OfferList>  of every installed Offer
 
 Each .dazip ships a Manifest.xml whose AddInItem/OfferItem must be merged into
 these lists, or the content is installed on disk but invisible in-game.
@@ -14,12 +14,12 @@ these lists, or the content is installed on disk but invisible in-game.
 CRITICAL: a fresh install's AddIns.xml already lists the official DLC AddInItems
 (Awakening, The Stone Prisoner, Return to Ostagar, ...). Those entries drive the
 "New Game → Awakening" flow and the "Downloadable Content" menu. So we must NOT
-rebuild the registry from mod Manifests alone — that wipes the DLC list. Instead
+rebuild the registry from mod Manifests alone - that wipes the DLC list. Instead
 we snapshot the pristine registry on the FIRST deploy (``*.mm_vanilla``), seed
 each rebuild from that snapshot, then merge the enabled mods on top. Restore
 copies the snapshot back verbatim. On an install already broken by a pre-fix
 deploy (no snapshot, DLC already gone) we recover the official DLC list by
-scanning the game install's own ``addins/``/``offers/`` Manifests — the same
+scanning the game install's own ``addins/``/``offers/`` Manifests - the same
 source DAO's DAUpdater uses.
 
 ``RequiresAuthorization="1"`` is rewritten to ``"0"`` so the game does not gate
@@ -43,7 +43,7 @@ _REGISTRIES = (
     ("Offers", "OfferItem", "OfferList", "Offers.xml", "DAO_Offers.xml"),
 )
 
-# Directory holding this module — the vendored gold baseline files live here.
+# Directory holding this module - the vendored gold baseline files live here.
 _THIS_DIR = Path(__file__).resolve().parent
 
 
@@ -54,7 +54,7 @@ def _gold_items(gold_name: str, item_tag: str, list_tag: str) -> dict:
 # Suffix for the pristine (vanilla) copy of each registry file. The first time
 # we touch a registry we stash the untouched original here so the official DLC
 # AddInItems it carries (Awakening, Stone Prisoner, Return to Ostagar, ...) are
-# never lost — the deployed registry is vanilla + mods, and restore copies the
+# never lost - the deployed registry is vanilla + mods, and restore copies the
 # vanilla file back verbatim.
 _VANILLA_SUFFIX = ".mm_vanilla"
 
@@ -66,7 +66,7 @@ def _vanilla_path(out_path: Path) -> Path:
 def _ensure_vanilla_backup(out_path: Path, log_fn=None) -> None:
     """Stash the pristine registry once, before we ever rewrite it.
 
-    Only the FIRST call (when no backup exists yet) copies — subsequent deploys
+    Only the FIRST call (when no backup exists yet) copies - subsequent deploys
     must not overwrite the vanilla snapshot with an already-modded file.
     """
     _log = log_fn or (lambda _: None)
@@ -144,19 +144,19 @@ def _baseline_items(out_path: Path, subdir: str, item_tag: str, list_tag: str,
     """Seed the registry baseline with the official DLC list.
 
     Source priority (all unioned by UID, later sources only fill gaps):
-      1. Vendored gold file (DAO_Addins.xml / DAO_Offers.xml) — the authoritative,
+      1. Vendored gold file (DAO_Addins.xml / DAO_Offers.xml) - the authoritative,
          disk-independent list of every official AddIn/Offer/promo DLC. Primary.
-      2. The pristine snapshot captured on this install's first deploy — catches
+      2. The pristine snapshot captured on this install's first deploy - catches
          any DLC the user had that isn't in gold (region/promo variants).
       3. On the very first deploy (no snapshot), the current live registry.
-      4. The game install's own addins/offers Manifests — last-ditch recovery.
+      4. The game install's own addins/offers Manifests - last-ditch recovery.
 
     The gold file alone is enough to keep Awakening / the DLC menu working even on
     an install whose own AddIns.xml is already broken or missing.
     """
     _log = log_fn or (lambda _: None)
 
-    # 1. Gold baseline — always present, authoritative.
+    # 1. Gold baseline - always present, authoritative.
     items = _gold_items(gold_name, item_tag, list_tag)
     if items:
         _log(f"  [DAO] {out_path.name}: seeded {len(items)} official DLC "
@@ -201,8 +201,8 @@ def build_registry_xml(data_root: Path, mod_staging: "Path | None" = None,
                        game_path: "Path | None" = None, log_fn=None) -> int:
     """(Re)build Settings/AddIns.xml and Settings/Offers.xml from Manifests.
 
-    data_root   — DAO data folder (output Settings/ lives here)
-    mod_staging — optional staging root; Manifests are read from here so the
+    data_root   - DAO data folder (output Settings/ lives here)
+    mod_staging - optional staging root; Manifests are read from here so the
                   registry reflects every enabled mod even when Manifest.xml is
                   not deployed into the data folder. Falls back to data_root.
     Returns the total number of registry items written across both files.
@@ -284,10 +284,10 @@ def reset_registry_xml(data_root: Path, log_fn=None) -> None:
         vanilla = _vanilla_path(out_path)
         if vanilla.exists():
             if vanilla.stat().st_size == 0:
-                # Vanilla had no such registry — remove ours to match.
+                # Vanilla had no such registry - remove ours to match.
                 if out_path.exists():
                     out_path.unlink()
-                _log(f"  [DAO] {out_name}: vanilla had none — removed.")
+                _log(f"  [DAO] {out_name}: vanilla had none - removed.")
             else:
                 shutil.copy2(vanilla, out_path)
                 _log(f"  [DAO] restored vanilla {out_name} from snapshot.")
@@ -298,4 +298,4 @@ def reset_registry_xml(data_root: Path, log_fn=None) -> None:
         if out_name == "Offers.xml" and not out_path.exists():
             continue
         _write_list(out_path, list_tag, [])
-        _log(f"  [DAO] {out_name}: no vanilla snapshot — reset to empty list.")
+        _log(f"  [DAO] {out_name}: no vanilla snapshot - reset to empty list.")

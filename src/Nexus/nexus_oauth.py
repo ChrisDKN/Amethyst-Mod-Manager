@@ -18,9 +18,9 @@ Endpoints (from https://users.nexusmods.com/.well-known/openid-configuration)
 Public API
 ----------
     NexusOAuthClient(on_token, on_error, on_status, client_id)
-        .start()    — begin the flow (non-blocking, background thread)
-        .cancel()   — abort
-        .is_running — True while waiting for the browser callback
+        .start()    - begin the flow (non-blocking, background thread)
+        .cancel()   - abort
+        .is_running - True while waiting for the browser callback
 
 Token persistence (separate from the legacy API key):
     load_oauth_tokens()  → OAuthTokens | None
@@ -55,7 +55,7 @@ from version import __version__
 from Nexus.nexus_api import _KEYRING_SERVICE
 
 # ---------------------------------------------------------------------------
-# Keyring availability check — fall back to file storage when DBus is slow
+# Keyring availability check - fall back to file storage when DBus is slow
 # or the keyring service is missing (common after SteamOS updates).
 # ---------------------------------------------------------------------------
 _keyring_available: bool = False
@@ -74,7 +74,7 @@ def _probe_keyring() -> bool:
         )
         if "boolean true" not in result.stdout:
             return False
-        # Service exists on DBus — verify we can actually list collections
+        # Service exists on DBus - verify we can actually list collections
         # (catches broken secretstorage / assertion errors).
         import secretstorage
         conn = secretstorage.dbus_init()
@@ -92,7 +92,7 @@ def _check_keyring() -> None:
         app_log("OAuth: keyring backend available")
     else:
         _keyring_available = False
-        app_log("OAuth: no keyring backend available — using file-based token storage")
+        app_log("OAuth: no keyring backend available - using file-based token storage")
 
 _check_keyring()
 
@@ -151,7 +151,7 @@ def _save_tokens_file(tokens: OAuthTokens) -> None:
             "expires_at": tokens.expires_at,
         }).encode()
         os.makedirs(os.path.dirname(p), exist_ok=True)
-        # Create owner-only from the start — no chmod window with looser perms.
+        # Create owner-only from the start - no chmod window with looser perms.
         fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
             os.fchmod(fd, 0o600)  # tighten a pre-existing file too
@@ -216,7 +216,7 @@ class OAuthRefreshError(RuntimeError):
     """Raised when a refresh-token exchange fails.
 
     ``token_revoked`` is True when Nexus rejected the refresh token itself
-    (HTTP 400 / ``invalid_grant``) — i.e. the saved refresh token is dead and
+    (HTTP 400 / ``invalid_grant``) - i.e. the saved refresh token is dead and
     the user must log in again. It is False for transient failures (network,
     TLS, timeout, 5xx) where the token is probably still good and a later
     retry may succeed.
@@ -229,7 +229,7 @@ class OAuthRefreshError(RuntimeError):
 
 # Serialises refresh-token exchanges across threads. Nexus rotates the refresh
 # token on every successful refresh (the old one is revoked server-side), so
-# two concurrent refreshes with the same token would race — the second POST
+# two concurrent refreshes with the same token would race - the second POST
 # gets a 400 and, worse, could overwrite the freshly-saved good token with a
 # now-revoked one. The lock + reload-under-lock below makes refresh atomic.
 _refresh_lock = threading.Lock()
@@ -340,7 +340,7 @@ def _log_connection_diagnostics() -> None:
                 f"handshake succeeded)")
     except Exception as exc:
         app_log(f"OAuth diagnostics: python requests GET FAILED: {exc!r}")
-        app_log("OAuth diagnostics: ^ this is the app's real failure — usually a "
+        app_log("OAuth diagnostics: ^ this is the app's real failure - usually a "
                 "CA-bundle / certifi issue in this build")
 
     # 4. System curl comparison (uses the OS cert store, like the user's manual test)
@@ -418,17 +418,17 @@ def refresh_if_needed(tokens: OAuthTokens, client_id: str = CLIENT_ID, client_se
             data = resp.json()
         except requests.exceptions.HTTPError as exc:
             # A 4xx here means Nexus rejected the refresh token itself (rotated
-            # out, revoked, or client mismatch) — the saved token is dead and
+            # out, revoked, or client mismatch) - the saved token is dead and
             # the user must re-authenticate. 5xx is transient; leave the token.
             status = getattr(exc.response, "status_code", None)
             revoked = status is not None and 400 <= status < 500
             app_log(f"OAuth: token refresh rejected (HTTP {status}); "
-                    f"{'refresh token is dead — re-login required' if revoked else 'server error, will retry later'}")
+                    f"{'refresh token is dead - re-login required' if revoked else 'server error, will retry later'}")
             raise OAuthRefreshError(
                 f"OAuth token refresh failed: {exc}", token_revoked=revoked
             ) from exc
         except requests.exceptions.RequestException as exc:
-            # Network / TLS / timeout — token is probably still valid.
+            # Network / TLS / timeout - token is probably still valid.
             app_log(f"OAuth: token refresh hit a connection error ({exc!r}); running diagnostics")
             _log_connection_diagnostics()
             raise OAuthRefreshError(f"OAuth token refresh failed: {exc}") from exc
@@ -463,9 +463,9 @@ def _pkce_pair() -> tuple[str, str]:
 
 # Logo shown on the browser callback page (the http://localhost:7890/callback
 # page the browser lands on after the user authorises). Inlined as a base64
-# data-URI so the page is self-contained — no second request back to the local
+# data-URI so the page is self-contained - no second request back to the local
 # server. Uses src/icons/Logo.png (bundled into both the AppImage and Flatpak
-# source trees — src/appimage/ is NOT shipped, only used as an icon source at
+# source trees - src/appimage/ is NOT shipped, only used as an icon source at
 # build time). Loaded + cached once; None (and the page falls back to text-only)
 # if the asset isn't present in this build.
 _LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -708,7 +708,7 @@ class NexusOAuthClient:
             "code_challenge_method": "S256",
         })
         auth_url = f"{_AUTHORIZE_URL}?{params}"
-        self._on_status("Opening browser — please authorise in Nexus Mods...")
+        self._on_status("Opening browser - please authorise in Nexus Mods...")
         app_log("OAuth: opening auth URL")
         open_url(auth_url)
 
@@ -726,7 +726,7 @@ class NexusOAuthClient:
             return
 
         if returned_state != state:
-            self._on_error("OAuth state mismatch — possible CSRF attack, aborting.")
+            self._on_error("OAuth state mismatch - possible CSRF attack, aborting.")
             return
 
         # 4. Exchange code for tokens

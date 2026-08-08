@@ -1,8 +1,8 @@
 """
-Cyberpunk theme — inspired by the Cyberpunk 2077 / Mod Organizer look.
+Cyberpunk theme - inspired by the Cyberpunk 2077 / Mod Organizer look.
 
 Deep red-black backgrounds, red separators, cyan text and yellow buttons /
-selection. Every key mirrors dark.py — if a key is added there, add it here too
+selection. Every key mirrors dark.py - if a key is added there, add it here too
 or the app breaks when this theme is selected.
 """
 
@@ -17,7 +17,7 @@ CTK_APPEARANCE = "dark"
 #   cyan     #00ffff             (primary text / info & warn buttons)
 
 PALETTE: dict[str, str | tuple] = {
-    # Backgrounds — deep red-black
+    # Backgrounds - deep red-black
     "BG_DEEP":       "#120608",
     "BG_PANEL":      "#1a080b",
     "BG_HEADER":     "#200a0e",
@@ -30,12 +30,12 @@ PALETTE: dict[str, str | tuple] = {
     "BG_SELECT":     "#eeee00",   # dark red glow selection (matches screenshot)
     "BG_HOVER_ROW":  "#331016",
 
-    # Accents — electric yellow
+    # Accents - electric yellow
     "ACCENT":        "#f3e600",
     "ACCENT_HOV":    "#fff340",
     "TEXT_ON_ACCENT":"#0a0e12",   # dark text reads on bright yellow
 
-    # Text — cyan family
+    # Text - cyan family
     "TEXT_MAIN":     "#00ffff",
     "TEXT_DIM":      "#008b8b",
     "TEXT_MUTED":    "#66c2d4",
@@ -50,12 +50,12 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_ERR_BRIGHT":  "#ff3355",
     "TEXT_WARN_BRIGHT": "#ffdb2e",
 
-    # Borders — red-tinted to match the screenshot's red grid/frame
+    # Borders - red-tinted to match the screenshot's red grid/frame
     "BORDER":        "#5a1420",
     "BORDER_DIM":    "#6e1a28",
     "BORDER_FAINT":  "#822032",
 
-    # Buttons — reds
+    # Buttons - reds
     "RED_BTN":       "#c00028",
     "RED_HOV":       "#ff003c",
     "BTN_DANGER":        "#c00028",
@@ -67,7 +67,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#c00028",
     "BTN_CANCEL_HOV":    "#970022",
 
-    # Buttons — greens (teal-leaning to fit the palette)
+    # Buttons - greens (teal-leaning to fit the palette)
     "BTN_SUCCESS":          "#eeee00",
     "BTN_SUCCESS_HOV":      "#f0f028",
     "BTN_SUCCESS_ALT":      "#969600",
@@ -75,7 +75,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#5f5f00",
     "BTN_SUCCESS_DEEP_HOV": "#757523",
 
-    # Buttons — oranges/yellows
+    # Buttons - oranges/yellows
     "BTN_WARN":          "#00ffff",
     "BTN_WARN_HOV":      "#23ffff",
     "BTN_WARN_DEEP":     "#009494",
@@ -85,7 +85,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#00ffff",
     "BTN_WARN_ORANGE_HOV":"#23ffff",
 
-    # Buttons — blues/cyans
+    # Buttons - blues/cyans
     "BTN_INFO":          "#00ffff",
     "BTN_INFO_HOV":      "#38ffff",
     "BTN_INFO_DEEP":     "#009c9c",
@@ -93,13 +93,13 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#004c4c",
     "BTN_NEUTRAL_HOV":   "#236565",
 
-    # Buttons — greys
+    # Buttons - greys
     "BTN_GREY":        "#1e2c36",
     "BTN_GREY_HOV":    "#2a3d4a",
     "BTN_GREY_ALT":    "#182430",
     "BTN_GREY_ALT_HOV":"#243541",
 
-    # Buttons — purples/magenta
+    # Buttons - purples/magenta
     "BTN_PURPLE":     "#eeee00",
     "BTN_PURPLE_HOV": "#f0f028",
 
@@ -121,7 +121,7 @@ PALETTE: dict[str, str | tuple] = {
     "TONE_BLUE_SOFT": "#66d9ff",
     "TONE_FLAG":      "#f3e600",
 
-    # Scrollbars — red thumb (matches screenshot)
+    # Scrollbars - red thumb (matches screenshot)
     "SCROLL_BG":     "#3a1018",
     "SCROLL_TROUGH": "#120607",
     "SCROLL_ACTIVE": "#ff003c",
@@ -156,13 +156,13 @@ PALETTE: dict[str, str | tuple] = {
     "STATUS_QUEUED":        "#f3e600",
     "STATUS_DL_GREEN":      "#00e090",
 
-    # Card text — cyan family
+    # Card text - cyan family
     "TEXT_CARD":     "#00ffff",
     "TEXT_CARD_DIM": "#3d7580",
     "TEXT_CARD_MED": "#a8ecf6",
     "TEXT_TREE_FG":  "#3ef0a0",
 
-    # CTk light/dark tuples — keep tuples so built-in CTk widgets still adapt.
+    # CTk light/dark tuples - keep tuples so built-in CTk widgets still adapt.
     "CTK_TEXT":       ("#000000", "#FFFFFF"),
     "CTK_FOOTER_FG":  ("#EBECF0", "#12171D"),
     "CTK_FOOTER_HOV": ("#DFE1E5", "#1C2733"),
@@ -202,7 +202,7 @@ PALETTE: dict[str, str | tuple] = {
     "REQ_HL_REQUIRES":    "#8a2be2",   # mods the selection requires (purple)
     "REQ_HL_REQUIRED_BY": "#1e6fd9",   # mods that require the selection (blue)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#b1b100", "FRAMEWORK_INSTALLED_FG": "#000000",
     "FRAMEWORK_STAGED_BG":    "#8c0096", "FRAMEWORK_STAGED_FG":    "#ffffff",
     "FRAMEWORK_DISABLED_BG":  "#00727a", "FRAMEWORK_DISABLED_FG":  "#000000",

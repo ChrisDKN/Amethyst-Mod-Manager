@@ -77,7 +77,7 @@ def check_for_updates(
     results: list[ModioUpdateInfo] = []
 
     if not api_key:
-        _log("mod.io: no API key — skipping update check.")
+        _log("mod.io: no API key - skipping update check.")
         return results
 
     modio_meta = _load_sibling("modio_meta")
@@ -85,7 +85,7 @@ def check_for_updates(
     try:
         api = modio_api.ModioAPI(api_key)
     except Exception as e:
-        _log(f"mod.io: cannot init API — {e}")
+        _log(f"mod.io: cannot init API - {e}")
         return results
 
     # Phase 1: gather each mod.io folder's meta, resolving any that lack an id.
@@ -110,7 +110,7 @@ def check_for_updates(
                     staging_dir=folder, api_key=api_key, log_fn=_log,
                 )
             except Exception as e:
-                _log(f"mod.io: resolve failed for '{folder.name}' — {e}")
+                _log(f"mod.io: resolve failed for '{folder.name}' - {e}")
                 continue
             if resolved is None or resolved.mod_id <= 0:
                 continue
@@ -130,7 +130,7 @@ def check_for_updates(
     try:
         summaries = api.get_mods_latest_batch([m.mod_id for _, _, m in targets])
     except Exception as e:
-        _log(f"mod.io: batch lookup failed — {e}")
+        _log(f"mod.io: batch lookup failed - {e}")
         return results
 
     for folder, meta_path, meta in targets:

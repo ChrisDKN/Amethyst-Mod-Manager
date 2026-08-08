@@ -4,11 +4,11 @@ NTFS/exFAT/FAT mounts on Linux have weak write guarantees: NTFS journals
 metadata only, ntfs-3g is a FUSE driver with no write barriers, and a drive
 shared with Windows can be left dirty by Fast Startup/hibernation. Any of
 these can leave files that *exist with their attributes* but contain 0 bytes
-after an unclean unmount — GH#307: a runtime-recreated NVSE DLL came back as
+after an unclean unmount - GH#307: a runtime-recreated NVSE DLL came back as
 a 0 KB read-only file, which the restore rescue walk then propagated into
 staging (that half is guarded in deploy_standard now).
 
-This module holds the pure detection — find deploy-relevant folders (mod
+This module holds the pure detection - find deploy-relevant folders (mod
 staging + the game's hardlink deploy targets) that sit on a Windows
 filesystem. The GUI layer owns the actual prompt, mirroring
 :mod:`Utils.cet_check`.
@@ -95,7 +95,7 @@ def mount_fs_type(path: "Path | str") -> "tuple[str, str] | None":
 
 def windows_fs_targets(game) -> list[tuple[str, str, str]]:
     """Return (folder label, filesystem label, mountpoint) for every deploy
-    folder of *game* that sits on a Windows filesystem — the mod staging
+    folder of *game* that sits on a Windows filesystem - the mod staging
     folder plus ``get_hardlink_deploy_targets()`` (game directory, and the
     Proton prefix for games that deploy there). Empty list means nothing to
     warn about (or nothing could be probed)."""

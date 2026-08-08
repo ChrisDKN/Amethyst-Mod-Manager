@@ -3,7 +3,7 @@
 A self-contained install pipeline the Qt UI calls: extract an archive, auto-strip
 to a sensible mod root, copy into the game's staging folder, then update the mod
 index (+ BSA index), modlist.txt and plugins.txt. FOMOD archives are installed
-with their DEFAULT (recommended) selections — the interactive wizard is NOT run
+with their DEFAULT (recommended) selections - the interactive wizard is NOT run
 here (deferred to a later Qt port); a plain non-FOMOD layout installs verbatim.
 
 The heavy Tk-coupled `gui/install_mod.py` is the full-featured path (FOMOD/BAIN
@@ -41,7 +41,7 @@ FOMOD_DEFERRED = "__FOMOD_DEFERRED__"
 BAIN_DEFERRED = "__BAIN_DEFERRED__"
 
 # Serialises the per-profile "commit" writes (modindex.bin, modlist.txt,
-# plugins.txt) — read-modify-write files that concurrent install workers
+# plugins.txt) - read-modify-write files that concurrent install workers
 # (parallel batch installs, collection install consumers) would otherwise
 # race, silently dropping entries.
 _commit_lock = threading.Lock()
@@ -49,14 +49,14 @@ _commit_lock = threading.Lock()
 
 # ---- case-insensitive copy core (moved from gui/install_mod.py, shared) ------
 # These resolve FOMOD/archive paths case-insensitively against the real (case-
-# sensitive Linux) filesystem and dedup by destination — the accumulated fixes
+# sensitive Linux) filesystem and dedup by destination - the accumulated fixes
 # for "wrong files installed" / duplicate-cased folders. gui/install_mod.py
 # imports them back so there is ONE implementation.
 def _case_candidates(current: Path, part: str,
                      _cache: "dict[Path, dict[str, list[str]]]") -> "list[str]":
     """Real on-disk names in *current* matching *part* case-insensitively, exact
     case first. A dir can hold SEVERAL case variants of one name (mods ship both
-    ``meshes/`` and ``Meshes/``), so the sibling map keeps EVERY variant — folding
+    ``meshes/`` and ``Meshes/``), so the sibling map keeps EVERY variant - folding
     them to one name silently loses whole subtrees. Sorted for determinism."""
     if current not in _cache:
         entries: "dict[str, list[str]]" = {}
@@ -79,14 +79,14 @@ def _case_candidates(current: Path, part: str,
 def _resolve_src_case(src_root: Path, src_rel: str,
                       _cache: "dict[Path, dict[str, list[str]]] | None" = None) -> Path:
     """src_root / src_rel, resolved case-insensitively against what exists on disk
-    (FOMOD XML is Windows-cased) — but ONLY as a fallback.
+    (FOMOD XML is Windows-cased) - but ONLY as a fallback.
 
     The literal path is tried first: the direct-install list feeds REAL on-disk
     paths, and case-folding those is destructive, not corrective. A mod shipping
     case-variant sibling folders (Relics of Hyrule: 147 such groups, nested 6 deep)
     had every file under the "losing" variant rewritten to a path that does not
     exist, failing the ``src.is_file()`` guard in ``_copy_file_list`` and vanishing
-    with no log — 2490 of 7597 files.
+    with no log - 2490 of 7597 files.
 
     When the literal path misses, walk the components case-insensitively and
     BACKTRACK: with both ``meshes/`` and ``Meshes/`` on disk, a mis-cased XML path
@@ -124,7 +124,7 @@ def _resolve_dst_case(dest_root: Path, dst_rel: str,
     FOMOD install doesn't create duplicate folders differing only in case.
 
     Folding IS wanted here (merge into whatever casing the destination already
-    has), but an exact-case hit wins over a variant — otherwise, once a mod folder
+    has), but an exact-case hit wins over a variant - otherwise, once a mod folder
     legitimately holds two case variants, which one a file lands in is arbitrary."""
     if _cache is None:
         _cache = {}
@@ -153,7 +153,7 @@ def _copytree_case_insensitive(src: Path, dst: Path) -> int:
     disk (a case-aware shutil.copytree(dirs_exist_ok=True)). Returns file count.
 
     The case-insensitive sibling map for *dst* is read ONCE up front and updated
-    in-place as we create children — NOT re-listed per entry. Re-listing on every
+    in-place as we create children - NOT re-listed per entry. Re-listing on every
     entry made this O(N²) in a directory's file count (an ``iterdir`` per file ×
     N files): on a 22k-file mod folder (e.g. an OStim animation pack, which the
     FOMOD/BAIN path stages as a single folder entry) it took ~275 s instead of
@@ -187,7 +187,7 @@ def _copytree_case_insensitive(src: Path, dst: Path) -> int:
 
 def _merge_case_variant_dirs(file_list, game, log_fn):
     """Unify one mod's case-variant folders (``meshes/`` + ``Meshes/``) onto a
-    single casing — the same pick the filemap makes at deploy time.
+    single casing - the same pick the filemap makes at deploy time.
 
     Windows-authored mods routinely ship both; on case-insensitive NTFS they ARE
     one folder, so splitting them in staging shows duplicate folders no Windows
@@ -195,10 +195,10 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
 
     Lossless by construction: ``_copy_file_list`` already dedups on the
     LOWERCASED destination, so folding folder casing cannot change which files
-    survive — only which folder they land in.
+    survive - only which folder they land in.
 
     Skipped when the game (or the global setting) turns folder-case
-    normalization off — for Stardew Valley on Linux ``Music/`` and ``music/``
+    normalization off - for Stardew Valley on Linux ``Music/`` and ``music/``
     really are different directories. Only file entries are rewritten; folder
     entries already merge via ``_copytree_case_insensitive``.
     """
@@ -212,7 +212,7 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
     except Exception:
         return file_list
 
-    # A trailing slash marks a DIRECTORY destination ("copy as src.name") —
+    # A trailing slash marks a DIRECTORY destination ("copy as src.name") -
     # canonicalize treats a path's last segment as a filename and leaves it
     # alone, so dir destinations get a sentinel filename appended: every real
     # segment then counts as (and merges as) a folder.
@@ -276,7 +276,7 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
             # on disk (e.g. CACO ships "Complete Alchemy & Cooking Overhaul.esp"
             # in the XML but "complete alchemy...esp" on disk). A raw case-
             # sensitive join here fails src.is_file() and silently drops the
-            # file — even when src_rel == dst_rel (the parser's rule for a
+            # file - even when src_rel == dst_rel (the parser's rule for a
             # <file destination="">), which is the common case for main files.
             src = _resolve_src_case(src_root_path, src_rel, _src_cache)
         else:
@@ -338,7 +338,7 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
 def resolve_direct_files(extract_dir: str) -> list[tuple[str, str, bool]]:
     """Every file under *extract_dir* as a (src, dst, is_folder) tuple (src == dst,
     both relative to the root). A top-level ``fomod/`` folder is skipped (installer
-    metadata, not game content), as is a root-level ``meta.ini`` — some archives
+    metadata, not game content), as is a root-level ``meta.ini`` - some archives
     (e.g. re-uploaded MO2 mods) ship their own MO2 meta.ini, which would collide
     with the one we write and, being in MO2's valueless-key format, break every
     ConfigParser read of it (``read_meta`` etc.)."""
@@ -545,7 +545,7 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
         if root_marker_exts and check_mod_top_level_file_types(
                 file_list, root_marker_exts):
             did_auto_strip = True
-            log_fn("Mod has a plugin/archive at its root — archive root is already the mod root.")
+            log_fn("Mod has a plugin/archive at its root - archive root is already the mod root.")
         if not did_auto_strip and auto_strip:
             file_list, did_auto_strip = try_auto_strip_top_level(file_list, required)
             if did_auto_strip:
@@ -553,7 +553,7 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
         if not did_auto_strip and required_file_types:
             if check_mod_top_level_file_types(file_list, required_file_types):
                 did_auto_strip = True
-                log_fn("Mod contains recognised top-level file type(s) — skipping prefix check.")
+                log_fn("Mod contains recognised top-level file type(s) - skipping prefix check.")
             elif auto_strip:
                 file_list, did_auto_strip = try_auto_strip_for_file_types(
                     file_list, required_file_types)
@@ -561,11 +561,11 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
                     log_fn("Auto-stripped top-level folder(s) to expose recognised file type(s).")
         if not did_auto_strip:
             if install_as_is:
-                log_fn("Mod structure unrecognised — installing as-is (no prefix applied).")
+                log_fn("Mod structure unrecognised - installing as-is (no prefix applied).")
             else:
                 prefix = on_need_prefix(required, file_list, mod_name) if on_need_prefix else None
                 if prefix is None and on_need_prefix is not None:
-                    log_fn("Install cancelled — mod structure not mapped.")
+                    log_fn("Install cancelled - mod structure not mapped.")
                     return None
                 if prefix:
                     prefix = prefix.strip().strip("/").replace("\\", "/")
@@ -580,11 +580,11 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
                 log_fn("Auto-stripped top-level folder(s) to expose recognised file type(s).")
         if not did_auto_strip:
             if install_as_is:
-                log_fn("Mod structure unrecognised — installing as-is (no prefix applied).")
+                log_fn("Mod structure unrecognised - installing as-is (no prefix applied).")
             else:
                 prefix = on_need_prefix(set(), file_list, mod_name) if on_need_prefix else None
                 if prefix is None and on_need_prefix is not None:
-                    log_fn("Install cancelled — mod structure not mapped.")
+                    log_fn("Install cancelled - mod structure not mapped.")
                     return None
                 if prefix:
                     prefix = prefix.strip().strip("/").replace("\\", "/")
@@ -606,7 +606,7 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
 # ---------------------------------------------------------------- temp location
 # Guards /tmp space accounting so parallel extractions (collection installs run
 # several workers at once) don't all claim the same free space before any of
-# them has started writing — Tk parity (gui/install_mod.py _tmp_space_reserved).
+# them has started writing - Tk parity (gui/install_mod.py _tmp_space_reserved).
 _tmp_space_lock = threading.Lock()
 _tmp_space_reserved: int = 0   # bytes claimed by in-flight /tmp extractions
 
@@ -622,7 +622,7 @@ def _is_disk_full_error(text: "str | None") -> bool:
     """True if *text* (tool stderr / exception text) reports out-of-space.
 
     Covers ENOSPC ("No space left") and the tmpfs size-cap case, which the
-    kernel reports as EDQUOT — surfaced by 7z/tar as "Disk Quota Exceeded"."""
+    kernel reports as EDQUOT - surfaced by 7z/tar as "Disk Quota Exceeded"."""
     if not text:
         return False
     low = text.lower()
@@ -634,7 +634,7 @@ def _is_disk_full_error(text: "str | None") -> bool:
 
 def _is_truncated_archive_error(text: "str | None") -> bool:
     """True if *text* (tool stderr / exception text) reports a truncated or
-    incomplete archive — an interrupted download, not an extractor problem.
+    incomplete archive - an interrupted download, not an extractor problem.
 
     Covers 7z ("Unexpected end of archive"), bsdtar on rar/tar ("Truncated
     input file: needed N bytes, only M available") and bsdtar's streaming zip
@@ -671,19 +671,19 @@ def _free_bytes(path: str) -> int:
 def _choose_extract_parent(archive_path: str, staging_root: Path,
                            log_fn: LogFn) -> "tuple[Path | None, int]":
     """Pick a temp-dir PARENT that can hold the extraction. Default /tmp is a
-    RAM-backed tmpfs (Steam Deck: roughly half of RAM) — if the archive won't
+    RAM-backed tmpfs (Steam Deck: roughly half of RAM) - if the archive won't
     fit there with headroom, extract NEXT TO the staging folder (real disk)
-    instead. This mirrors the Tk app's reroute logic — without it large mods
+    instead. This mirrors the Tk app's reroute logic - without it large mods
     fail with 'No space left on device'.
 
     Returns ``(parent, tmp_reserved_bytes)``: *parent* None = use /tmp, in
     which case *tmp_reserved_bytes* has been claimed from the shared /tmp
-    reservation pool so concurrent extractions don't jointly overflow it —
+    reservation pool so concurrent extractions don't jointly overflow it -
     release it with :func:`_release_tmp_reservation` once the extract dir is
     deleted."""
     global _tmp_space_reserved
     # Real metadata size where available (`7z l` probe / zip headers), 15×
-    # fallback otherwise — a compressed-size multiple alone undershoots extreme
+    # fallback otherwise - a compressed-size multiple alone undershoots extreme
     # texture packs (a 120 MB .7z that unpacks to 3.6 GB is 30×).
     need = get_uncompressed_size(archive_path)
     headroom = 512 * 1024 * 1024
@@ -691,14 +691,14 @@ def _choose_extract_parent(archive_path: str, staging_root: Path,
     with _tmp_space_lock:
         if need + headroom + _tmp_space_reserved < _free_bytes(tmp):
             _tmp_space_reserved += need
-            return None, need   # /tmp has room — claimed
+            return None, need   # /tmp has room - claimed
     # /tmp too small (a RAM-backed tmpfs) → use the staging filesystem (real disk).
     disk_parent = staging_root.parent if staging_root else None
     if disk_parent is not None:
         try:
             disk_parent.mkdir(parents=True, exist_ok=True)
             if need + headroom < _free_bytes(str(disk_parent)):
-                log_fn(f"Extracting to disk ({disk_parent}) — /tmp too small for "
+                log_fn(f"Extracting to disk ({disk_parent}) - /tmp too small for "
                        f"~{need // (1024 * 1024)} MB.")
                 return disk_parent, 0
             log_fn(f"Warning: extract target {disk_parent} may also be low on "
@@ -728,7 +728,7 @@ def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     mods zipped on Windows) store member names with ``\\`` separators, which
     violates the ZIP spec. Native extractors (7z/bsdtar) and Python's
     ``zipfile`` then create *flat* files whose names literally contain
-    backslashes — e.g. a single file called ``r6\\scripts\\foo.reds`` — instead
+    backslashes - e.g. a single file called ``r6\\scripts\\foo.reds`` - instead
     of a nested folder tree. Downstream staging resolves paths with forward
     slashes, so those flat entries never match and the mod stages 0 files
     ("nothing staged"). This sweep relocates every backslash-named entry to its
@@ -785,13 +785,13 @@ def _fix_nonutf8_names_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     Archives packed on Windows without the UTF-8 name flag store member names in
     a legacy code page (CP437/CP1252). Extractors write those bytes verbatim, so
     a file meant to be ``himinbjörg.mp3`` lands on disk as the raw byte
-    ``0x94`` — not valid UTF-8. The OS surfaces such names surrogate-escaped
+    ``0x94`` - not valid UTF-8. The OS surfaces such names surrogate-escaped
     (``\\udc94``), which (a) crashed logging that embedded them and (b) makes
     filemap.rebuild_mod_index SKIP THE WHOLE MOD (its _is_utf8_safe check), so
     the mod silently contributes no files / plugins / conflicts.
 
     This sweep renames every non-UTF-8 entry to a valid UTF-8 name by decoding
-    the raw bytes with a legacy code page (CP1252 first — the dominant Windows
+    the raw bytes with a legacy code page (CP1252 first - the dominant Windows
     source; the resulting character may not be the visually-intended one, but
     the file becomes addressable and the mod works). Deepest-first so a renamed
     parent dir doesn't invalidate child paths. Returns entries renamed.
@@ -811,15 +811,15 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     successful native/zip extraction, backslash-named members are normalised
     into a real tree (see _debackslash_extracted_tree).
 
-    *cancel* — optional ``threading.Event``; when set, the running native
+    *cancel* - optional ``threading.Event``; when set, the running native
     extractor (7z/bsdtar) is terminated and this returns False so the caller can
     clean up the partial extract dir (used by the collection-install pause).
 
-    *error_sink* — optional list; each extractor's failure text is appended so
+    *error_sink* - optional list; each extractor's failure text is appended so
     the caller can classify the overall failure (e.g. disk-full → retry on a
     bigger filesystem).
 
-    *progress_cb* — optional ``cb(percent)`` with real extraction progress.
+    *progress_cb* - optional ``cb(percent)`` with real extraction progress.
     Only the 7z (``-bsp1``) and zipfile paths report; the rare fallbacks
     (bsdtar/py7zr/tarfile) never fire it, leaving the caller's indeterminate
     bar in place."""
@@ -860,7 +860,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
 
     # Extraction resource limits (Settings ▸ Downloads & Collections). Read per
     # archive so a settings change applies to the next extraction without a
-    # restart — the INI parse is trivial next to the extractor spawn it gates.
+    # restart - the INI parse is trivial next to the extractor spawn it gates.
     try:
         from Utils.ui_config import load_extraction_settings
         _limits = load_extraction_settings()
@@ -941,20 +941,20 @@ def _run_extractor_cancellable(cmd: list, cancel,
                                low_priority=False) -> "tuple[int, str, bool]":
     """Run *cmd* (7z/bsdtar), polling *cancel* so a pause/cancel kills the
     extractor promptly instead of waiting for it to finish. Returns
-    ``(returncode, stderr, killed)`` — *killed* is True if we terminated it on a
+    ``(returncode, stderr, killed)`` - *killed* is True if we terminated it on a
     cancel request. When *cancel* is None this behaves like a blocking run.
 
-    *progress_cb* — optional ``cb(percent)``; when given, stdout is kept (7z is
+    *progress_cb* - optional ``cb(percent)``; when given, stdout is kept (7z is
     invoked with ``-bsp1``) and scanned for percent updates. 7z redraws its
     progress line in place with backspaces rather than newlines, so the scan is
     a regex over raw chunks, not line reads. Both pipes are drained on
-    background threads — waiting for the process first and reading after would
+    background threads - waiting for the process first and reading after would
     deadlock once a pipe buffer fills.
 
-    *low_priority* — run the extractor at low CPU and disk priority so it
+    *low_priority* - run the extractor at low CPU and disk priority so it
     yields to foreground applications. CPU niceness is set post-spawn with
     ``os.setpriority`` (a ``preexec_fn`` is unsafe in this heavily-threaded
-    process); disk priority via an ``ionice`` prefix when available — ionice
+    process); disk priority via an ``ionice`` prefix when available - ionice
     exec()s the target without forking, so the PID (and thus terminate/renice)
     still reaches the extractor itself."""
     if low_priority and shutil.which("ionice"):
@@ -1029,7 +1029,7 @@ def _run_extractor_cancellable(cmd: list, cancel,
 # ---------------------------------------------------------------- root detection
 def _single_root_unwrap(extract_dir: Path) -> Path:
     """If the archive extracted into a single wrapper folder (and nothing else),
-    descend ONE level — matches Tk's `unwrap_single_folder`. Must NOT loop down a
+    descend ONE level - matches Tk's `unwrap_single_folder`. Must NOT loop down a
     chain: e.g. CET ships everything under `bin/x64/`, and descending the whole
     `bin`→`x64` chain would strip the required `bin/` structure (then the mod
     installs to the wrong place / triggers the prefix dialog)."""
@@ -1045,7 +1045,7 @@ def _single_root_unwrap(extract_dir: Path) -> Path:
 def _find_fomod_archive(extract_dir: Path) -> Path | None:
     """Return the path to a `.fomod` file inside *extract_dir* if the archive
     is just a wrapper around one (optionally peeling a single top-level
-    folder). A `.fomod` is itself a renamed 7z/zip — Nexus packages older
+    folder). A `.fomod` is itself a renamed 7z/zip - Nexus packages older
     Fallout/Oblivion mods this way and they need a second extraction pass
     before FOMOD detection can find `fomod/ModuleConfig.xml` (Tk parity)."""
     root = _single_root_unwrap(extract_dir)
@@ -1086,15 +1086,15 @@ class PreparedInstall:
         # names later without needing the original archive.
         self.fomod_config_path: "str | None" = None
         # Optional NexusModMeta supplied by the caller (e.g. the Nexus browser,
-        # which knows the real mod_id/file_id) — written verbatim instead of
+        # which knows the real mod_id/file_id) - written verbatim instead of
         # parsing the (sometimes wrong) archive filename.
         self.prebuilt_meta = prebuilt_meta
         # Optional callback on_need_prefix(required, file_list, mod_name) -> str|None
         # invoked when a non-FOMOD mod's structure doesn't match the game and
-        # auto-strip fails — the toolkit shows the Set-Prefix dialog. None = the
+        # auto-strip fails - the toolkit shows the Set-Prefix dialog. None = the
         # neutral default (install as-is).
         self.on_need_prefix = on_need_prefix
-        # BAIN complex-package detection (mutually exclusive with FOMOD — a
+        # BAIN complex-package detection (mutually exclusive with FOMOD - a
         # non-FOMOD archive is probed for a BAIN sub-package layout at prepare
         # time so the caller can show the picker before finish_install stages it).
         # bain_subpkgs is a list[BainSubPackage] (or None); bain_root is the
@@ -1106,14 +1106,14 @@ class PreparedInstall:
         self.saved_bain_selections = None
         # FOMOD wizard context (set at prepare time when a FOMOD is detected):
         # saved selections from the previous install of this mod (global config
-        # JSON, restores + green-highlights prior choices — Tk parity) and the
+        # JSON, restores + green-highlights prior choices - Tk parity) and the
         # (installed, active, loose) file sets its conditions evaluate against.
         self.saved_fomod_selections = None
         self.fomod_context = (set(), set(), set())
         # RE / Fluffy bundle detection (games with mod_supports_bundles, probed
         # at prepare time when the archive is neither FOMOD nor BAIN): the
         # grouped BundleLayout + the single-folder-unwrapped dir its variant
-        # paths live under. multi_mods is the sibling shape — every top-level
+        # paths live under. multi_mods is the sibling shape - every top-level
         # folder has a modinfo.ini but there's no bundle grouping, so each
         # folder installs as its own independent mod.
         self.bundle_layout = None
@@ -1126,7 +1126,7 @@ class PreparedInstall:
         self._preserved_endorsed = False
         self._preserved_ignored_reqs = ""
         # Bytes claimed from the shared /tmp reservation pool while extract_dir
-        # lives there (0 when extracted to disk) — released by cleanup().
+        # lives there (0 when extracted to disk) - released by cleanup().
         self._tmp_reserved = 0
 
     def is_fomod(self) -> bool:
@@ -1135,7 +1135,7 @@ class PreparedInstall:
     def fomod_has_steps(self) -> bool:
         """True when the FOMOD config has at least one install step (i.e. the
         wizard has something to show). A config with only requiredInstallFiles /
-        conditionalFileInstalls and no <installSteps> installs headlessly — the
+        conditionalFileInstalls and no <installSteps> installs headlessly - the
         wizard would open on an empty step list and crash."""
         return self.is_fomod() and bool(
             getattr(self.fomod_config, "steps", None))
@@ -1164,7 +1164,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     or just calls `finish_install(prepared, None)` for a plain/default install.
     Returns None on failure (and cleans up).
 
-    *cancel* — optional ``threading.Event``; when set the extraction is aborted
+    *cancel* - optional ``threading.Event``; when set the extraction is aborted
     and the partial temp dir removed (returns None)."""
     archive = Path(archive_path)
     if not archive.is_file():
@@ -1179,20 +1179,20 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         log_fn("Install: no staging folder configured.")
         return None
     # Name the mod folder. Priority:
-    #   1. preferred_name  — the caller forces it (Nexus browser, collections).
-    #   2. prebuilt_meta   — the caller already resolved the Nexus file → use its
+    #   1. preferred_name  - the caller forces it (Nexus browser, collections).
+    #   2. prebuilt_meta   - the caller already resolved the Nexus file → use its
     #                        per-file display name if it has one.
-    #   3. Nexus MD5/filename lookup — when logged in, name the folder after the
+    #   3. Nexus MD5/filename lookup - when logged in, name the folder after the
     #                        file's Nexus display name (e.g. "Engine Fixes - Main
     #                        File") and reuse the resolved meta as prebuilt_meta so
     #                        finish_install doesn't look it up a second time.
-    #   4. _clean_mod_name — strip the archive stem (offline / not on Nexus).
+    #   4. _clean_mod_name - strip the archive stem (offline / not on Nexus).
     if preferred_name:
         mod_name = preferred_name
     else:
         nexus_name = _nexus_file_display_name(prebuilt_meta, game)
         if not nexus_name:
-            # Not supplied by the caller — try a live lookup ourselves. Reuse the
+            # Not supplied by the caller - try a live lookup ourselves. Reuse the
             # resolved meta downstream so the MD5 hash isn't recomputed later.
             resolved = _resolve_nexus_meta_for_naming(archive, game, log_fn)
             if resolved is not None:
@@ -1214,7 +1214,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         # so the (0, 0) indeterminate bar above stays for them.
         _p(pct, 100, "Extracting")
 
-    # Pick a temp parent big enough — /tmp is a RAM-backed tmpfs on the Deck, so
+    # Pick a temp parent big enough - /tmp is a RAM-backed tmpfs on the Deck, so
     # a large mod must extract to the staging disk instead (Tk parity).
     parent, tmp_reserved = _choose_extract_parent(str(archive),
                                                   Path(staging_root), log_fn)
@@ -1227,15 +1227,15 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                                  progress_cb=_extract_progress)
     if not extracted and (cancel is None or not cancel.is_set()):
         # The size estimate can undershoot (a solid .7z with no `7z` binary to
-        # probe falls back to 15× compressed — extreme texture packs reach 30×),
+        # probe falls back to 15× compressed - extreme texture packs reach 30×),
         # so the pre-check can pass and the extraction still fill a small
-        # RAM-backed /tmp. Retry ONCE on the staging disk — Tk parity
+        # RAM-backed /tmp. Retry ONCE on the staging disk - Tk parity
         # (gui/install_mod.py's disk-full reroute).
         disk_parent = Path(staging_root).parent
         if (any(_is_disk_full_error(e) for e in extract_errors)
                 and _is_small_fs(str(extract_dir))
                 and not _is_small_fs(str(disk_parent))):
-            log_fn("Extraction filled the temp ramdisk — retrying on disk…")
+            log_fn("Extraction filled the temp ramdisk - retrying on disk…")
             try:
                 disk_parent.mkdir(parents=True, exist_ok=True)
                 new_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
@@ -1254,7 +1254,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                                              progress_cb=_extract_progress)
     if not extracted:
         if cancel is not None and cancel.is_set():
-            log_fn("Install: extraction cancelled — removing temp files.")
+            log_fn("Install: extraction cancelled - removing temp files.")
         elif any(_is_truncated_archive_error(e) for e in extract_errors):
             try:
                 size_gb = archive.stat().st_size / (1024 ** 3)
@@ -1262,7 +1262,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             except OSError:
                 got = ""
             log_fn(f"Install failed: the archive appears incomplete or "
-                   f"truncated{got} — the download was likely interrupted. "
+                   f"truncated{got} - the download was likely interrupted. "
                    f"Re-download {archive.name} and try again.")
         else:
             log_fn("Install failed: could not extract the archive.")
@@ -1274,7 +1274,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     # detection can find fomod/ModuleConfig.xml (Tk parity).
     fomod_wrapper = _find_fomod_archive(extract_dir)
     if fomod_wrapper is not None:
-        log_fn(f"Archive contains a .fomod wrapper — extracting {fomod_wrapper.name}…")
+        log_fn(f"Archive contains a .fomod wrapper - extracting {fomod_wrapper.name}…")
         inner_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
                                           dir=str(extract_dir.parent)))
         _p(0, 0, "Extracting")   # back to indeterminate for the second pass
@@ -1284,7 +1284,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             extract_dir = inner_dir
         else:
             if cancel is not None and cancel.is_set():
-                log_fn("Install: extraction cancelled — removing temp files.")
+                log_fn("Install: extraction cancelled - removing temp files.")
             else:
                 log_fn("Install failed: could not extract the inner .fomod archive.")
             shutil.rmtree(inner_dir, ignore_errors=True)
@@ -1345,7 +1345,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             subpkgs = None
             bain_root = str(extract_dir)
         if subpkgs:
-            # Fill the per-package file sets here (worker thread) — the Qt
+            # Fill the per-package file sets here (worker thread) - the Qt
             # picker's win/lose recolour needs them and must not walk the
             # disk on the GUI thread.
             from Utils.bain_installer import scan_subpackage_files
@@ -1355,7 +1355,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             prepared.readme_text = _read_bain_readme(bain_root)
             prepared.saved_bain_selections = _read_saved_bain_selections(
                 game, mod_name, log_fn, profile_dir=profile_dir)
-            log_fn(f"BAIN package detected — {len(subpkgs)} sub-package(s).")
+            log_fn(f"BAIN package detected - {len(subpkgs)} sub-package(s).")
 
     # RE / Fluffy bundle & multi-mod probe (Tk parity: gui/install_mod.py chain
     # FOMOD → BAIN → bundle → multi-mod → plain). Only for games that opt in via
@@ -1371,7 +1371,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             if layout is not None:
                 prepared.bundle_layout = layout
                 prepared.bundle_root = bundle_root
-                log_fn(f"Bundle detected: '{layout.bundle_name}' — "
+                log_fn(f"Bundle detected: '{layout.bundle_name}' - "
                        f"{len(layout.groups)} group(s), "
                        f"{layout.variant_count} option(s).")
             else:
@@ -1390,7 +1390,7 @@ def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
                                   cleanup_on_cancel: bool) -> bool:
     """Run the game's post-install hooks; returns True on user cancel.
 
-    Ported from the Tk installer (gui/install_mod.py) — the hooks (e.g. DAO's
+    Ported from the Tk installer (gui/install_mod.py) - the hooks (e.g. DAO's
     normalize_dao_mod) restructure the staged tree and MUST run before the mod
     is indexed. ``interactive`` is False for headless/collection installs so
     hooks that pop dialogs stay silent in those modes.
@@ -1403,11 +1403,11 @@ def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
             else:
                 fn(dest_root, mod_name, log_fn)
         except Exception as e:
-            # A wizard hook may signal a user cancellation (marker attr) —
+            # A wizard hook may signal a user cancellation (marker attr) -
             # abort the whole install and clean up the staged folder rather
             # than leaving a half-installed mod in the modlist.
             if getattr(e, "install_cancelled", False):
-                log_fn(f"Install cancelled by user — removing '{mod_name}'.")
+                log_fn(f"Install cancelled by user - removing '{mod_name}'.")
                 if cleanup_on_cancel:
                     def _force_remove(func, path, _exc):
                         os.chmod(path, 0o700)
@@ -1514,7 +1514,7 @@ def fix_flat_staging_folders(
         return fixed
     for mod_dir in staging_root.iterdir():
         # Never restructure through a symlinked mod dir (Profile Group link
-        # farm) — the member profile heals its own real folder.
+        # farm) - the member profile heals its own real folder.
         if mod_dir.is_symlink():
             continue
         if mod_dir.is_dir() and wrap_flat_mod_dir(mod_dir, names, exts, guard):
@@ -1533,7 +1533,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     Always cleans up the extract dir. Returns the installed mod name (None on
     cancel).
 
-    *on_exists* — optional callback invoked when the destination mod folder
+    *on_exists* - optional callback invoked when the destination mod folder
     already exists: ``on_exists(mod_name, conflict, prepared) -> str`` returning
     one of
     ``"replace"`` (wipe + reinstall, keep modlist position + endorsed flag),
@@ -1551,19 +1551,19 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         if progress_fn is not None:
             progress_fn(done, total, phase)
 
-    # Multi-mod archives install several independent mods — route them to their
+    # Multi-mod archives install several independent mods - route them to their
     # own loop (the single-mod exists-prompt below is keyed on the archive name,
     # which never becomes a mod folder for this shape).
     if p.is_multi_mod():
         return _install_multi_mod(p, log_fn, _pp)
 
     # Reinstall/update of an RE bundle: carry the user's saved option selection
-    # (and order) onto the freshly detected spec before the folder is wiped —
+    # (and order) onto the freshly detected spec before the folder is wiped -
     # captured only on replace, a rename installs as a NEW mod (Tk parity).
     old_bundle_spec = None
 
     # Existing same-named folder: ask the caller what to do (replace / rename /
-    # cancel), or — with no callback — silently replace (collection installs).
+    # cancel), or - with no callback - silently replace (collection installs).
     if dest_root.exists():
         if on_exists is None:
             # Silent replace is still a replace: keep the mod's modlist slot and
@@ -1590,7 +1590,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 # (archive filename / Nexus names) in its rename field.
                 action = on_exists(p.mod_name, conflict, p)
                 if action == "cancel" or not action:
-                    log_fn(f"Install cancelled — '{p.mod_name}' already exists.")
+                    log_fn(f"Install cancelled - '{p.mod_name}' already exists.")
                     p.cleanup()
                     return None
                 if action == "replace":
@@ -1641,11 +1641,11 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                                 fomod_selections, log_fn, _pp,
                                 context=p.fomod_context, game=p.game)
             if not ok:
-                log_fn("FOMOD resolve failed — installing all files verbatim.")
+                log_fn("FOMOD resolve failed - installing all files verbatim.")
                 _copy_tree(p.src_root, dest_root, log_fn, _pp)
         elif p.is_bain():
             # BAIN: merge the selected sub-packages (later ones override earlier),
-            # with paths relative to the unwrapped bain_root — mirroring the
+            # with paths relative to the unwrapped bain_root - mirroring the
             # collection install path.
             from Utils.bain_installer import resolve_bain_files
             if bain_selections is not None and isinstance(
@@ -1731,7 +1731,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         return None
 
     # For FOMOD installs, record the fileDependency plugins on options the user
-    # did NOT select — the modlist flags a rerun if any of them appears in the
+    # did NOT select - the modlist flags a rerun if any of them appears in the
     # load order later. Computed against {} for headless-defaults installs
     # (fomod_selections is None), where no options are explicitly selected.
     fomod_pending_deps = ""
@@ -1801,7 +1801,7 @@ def install_archive(archive_path: str, game, profile_dir: Path, *,
 def _collection_plugin_context(game, profile_dir: "Path | None"
                                ) -> "tuple[set[str], set[str], set[str]]":
     """Build the (installed_files, active_files, loose_files) sets a collection
-    FOMOD needs to evaluate its conditions — a tkinter-free port of the set-up
+    FOMOD needs to evaluate its conditions - a tkinter-free port of the set-up
     block in ``gui/install_mod.py`` (~1747-1794). Reads plugins.txt/loadorder.txt/
     filemap.txt next to the profile, then seeds vanilla/DLC plugins (loaded
     implicitly by the engine, so never in plugins.txt)."""
@@ -1855,7 +1855,7 @@ def _archive_lists_fomod_config(archive_path: str) -> bool:
     ``.fomod`` wrapper archives (installer nested inside an inner archive)
     return False and the normal extract-then-detect path decides. A listed but
     unparseable ModuleConfig.xml means the mod defers and installs verbatim in
-    the deferred phase instead of verbatim immediately — same outcome, later."""
+    the deferred phase instead of verbatim immediately - same outcome, later."""
     target = "fomod/moduleconfig.xml"
 
     def _hit(name: str) -> bool:
@@ -1886,7 +1886,7 @@ def _archive_lists_fomod_config(archive_path: str) -> bool:
             pass
         return False
     if archive_path.lower().endswith(".7z"):
-        # No 7z binary (extraction falls back to bsdtar/py7zr) — list via py7zr.
+        # No 7z binary (extraction falls back to bsdtar/py7zr) - list via py7zr.
         try:
             import py7zr
             with py7zr.SevenZipFile(archive_path, "r") as z:
@@ -1911,7 +1911,7 @@ def install_collection_archive(
         resolve_bain=None,
         on_installed=None,
         cancel=None) -> "str | None":
-    """Install ONE collection mod from a downloaded archive — the tkinter-free
+    """Install ONE collection mod from a downloaded archive - the tkinter-free
     equivalent of ``gui/install_mod.py:install_mod_from_archive`` for the paths a
     collection install exercises (FOMOD with author selections or deferred, BAIN,
     dinput/root_folder, plain). Reuses the shared neutral staging/meta/modlist
@@ -1941,14 +1941,14 @@ def install_collection_archive(
     staging_root = Path(staging_root)
 
     # Interactive FOMODs get deferred to the end of the collection install.
-    # When the archive LISTING already shows fomod/ModuleConfig.xml, defer NOW —
+    # When the archive LISTING already shows fomod/ModuleConfig.xml, defer NOW -
     # skipping the full extract that would be discarded and repeated in the
     # deferred phase (double extraction of every interactive FOMOD; minutes of
     # 7z time on big texture packs). Listing misses fall through to the normal
     # extract-then-detect defer below.
     if (defer_interactive_fomod and fomod_auto_selections is None
             and _archive_lists_fomod_config(str(archive))):
-        log_fn("FOMOD installer detected (archive listing) — deferring until "
+        log_fn("FOMOD installer detected (archive listing) - deferring until "
                "dependencies are installed.")
         return FOMOD_DEFERRED
 
@@ -2003,30 +2003,30 @@ def install_collection_archive(
                     config, installed_files, active_files, loose_files)
                 if not ok:
                     log_fn("WARNING: this mod's <moduleDependencies> gate is not "
-                           "satisfied — it may not work until these are met:")
+                           "satisfied - it may not work until these are met:")
                     for line in (msg or "").splitlines():
                         log_fn(f"  {line}")
             except Exception:
                 resolve_files = None  # type: ignore
 
             # A FOMOD with no <installSteps> has nothing for the user to choose
-            # (only requiredInstallFiles / conditionalFileInstalls) — never open
+            # (only requiredInstallFiles / conditionalFileInstalls) - never open
             # the wizard (it crashes on an empty step list) and no need to defer;
             # install defaults inline.
             has_steps = bool(getattr(config, "steps", None))
 
             if fomod_auto_selections is None and defer_interactive_fomod and has_steps:
-                log_fn("FOMOD installer detected — deferring until dependencies "
+                log_fn("FOMOD installer detected - deferring until dependencies "
                        "are installed.")
                 prepared.cleanup()
                 return FOMOD_DEFERRED
 
             if fomod_auto_selections is not None:
-                log_fn("FOMOD installer detected — applying collection author's "
+                log_fn("FOMOD installer detected - applying collection author's "
                        "choices automatically.")
                 final_selections = fomod_auto_selections
             elif resolve_fomod is not None and has_steps:
-                log_fn("FOMOD installer detected — opening wizard...")
+                log_fn("FOMOD installer detected - opening wizard...")
                 saved_sel = _read_saved_fomod_selections(
                     game, prepared.mod_name, log_fn)
                 final_selections = resolve_fomod(
@@ -2045,7 +2045,7 @@ def install_collection_archive(
             else:
                 # No auto-selections and no resolver → FOMOD defaults (parity with
                 # the non-interactive single-mod fallback).
-                log_fn("FOMOD installer detected — using default/recommended options.")
+                log_fn("FOMOD installer detected - using default/recommended options.")
                 final_selections = None
 
             if not cancelled:
@@ -2064,7 +2064,7 @@ def install_collection_archive(
                             config, final_selections, installed_files,
                             active_files, loose_files)
                     is_fomod_install = True
-                    log_fn(f"FOMOD complete — {len(file_list or [])} file(s) to install.")
+                    log_fn(f"FOMOD complete - {len(file_list or [])} file(s) to install.")
                     try:
                         from Utils.fomod_installer import (
                             collect_unselected_dep_plugins,
@@ -2077,7 +2077,7 @@ def install_collection_archive(
                     except Exception as exc:
                         log_fn(f"FOMOD dep scan skipped ({exc}).")
                 except Exception as exc:
-                    log_fn(f"FOMOD resolve failed ({exc}) — installing verbatim.")
+                    log_fn(f"FOMOD resolve failed ({exc}) - installing verbatim.")
                     file_list = None
                     is_fomod_install = False
 
@@ -2091,9 +2091,9 @@ def install_collection_archive(
             if bain_subpkgs:
                 stage_src_root = bain_root
                 default_names = [p.name for p in bain_subpkgs if p.default_selected]
-                log_fn(f"BAIN package detected — {len(bain_subpkgs)} sub-package(s).")
+                log_fn(f"BAIN package detected - {len(bain_subpkgs)} sub-package(s).")
                 if bain_auto_selections is None and defer_interactive_bain:
-                    log_fn("BAIN installer detected — deferring until other mods "
+                    log_fn("BAIN installer detected - deferring until other mods "
                            "are installed.")
                     prepared.cleanup()
                     return BAIN_DEFERRED
@@ -2115,13 +2115,13 @@ def install_collection_archive(
                         selected = result.get("selected", [])
                 else:
                     selected = default_names
-                    log_fn("BAIN: non-interactive install — using default selection.")
+                    log_fn("BAIN: non-interactive install - using default selection.")
                 if not cancelled:
                     _write_profile_bain_selection(
                         game, prepared.mod_name, {"selected": selected},
                         prepared.profile_dir)
                     file_list = resolve_bain_files(bain_subpkgs, set(selected))
-                    log_fn(f"BAIN complete — {len(selected)} sub-package(s), "
+                    log_fn(f"BAIN complete - {len(selected)} sub-package(s), "
                            f"{len(file_list)} file(s) to install.")
 
         if cancelled:
@@ -2151,7 +2151,7 @@ def install_collection_archive(
             _copy_file_list(file_list, stage_src_root, dest_root, log_fn, game=game)
         elif prepared.is_bundle():
             # RE / Fluffy bundle: installs as ONE normal mod, same as
-            # finish_install — option folders stashed in <mod>/.mm_bundle/,
+            # finish_install - option folders stashed in <mod>/.mm_bundle/,
             # selection materialised onto the mod root, spec in meta.ini's
             # [Bundle] section (preserved by _write_install_meta below).
             from Utils.re_bundle import (layout_to_spec, merge_bundle_spec,
@@ -2185,7 +2185,7 @@ def install_collection_archive(
                 mod_name=prepared.mod_name, on_need_prefix=None, log_fn=log_fn)
             if staged is None:
                 # stage_file_list only returns None when a prefix was required
-                # but no resolver was supplied — for a collection mod that means
+                # but no resolver was supplied - for a collection mod that means
                 # the structure wasn't recognised. Log the extract contents so a
                 # live re-run pinpoints why (the "missing mods" investigation).
                 try:
@@ -2198,7 +2198,7 @@ def install_collection_archive(
                                 break
                         if len(_preview) >= 12:
                             break
-                    log_fn(f"Collection install: '{prepared.mod_name}' — "
+                    log_fn(f"Collection install: '{prepared.mod_name}' - "
                            f"stage_file_list returned None (structure not "
                            f"recognised). Extract root={stage_src_root}; "
                            f"first files: {_preview}")
@@ -2208,7 +2208,7 @@ def install_collection_archive(
             else:
                 dest_root.mkdir(parents=True, exist_ok=True)
                 if not staged:
-                    log_fn(f"Collection install: '{prepared.mod_name}' — "
+                    log_fn(f"Collection install: '{prepared.mod_name}' - "
                            f"stage_file_list produced an EMPTY file list "
                            f"(0 files to copy).")
                 _copy_file_list(staged, stage_src_root, dest_root, log_fn, game=game)
@@ -2292,7 +2292,7 @@ def _write_profile_fomod_config(game, mod_name: str, config_path,
 
     The saved selections only record step INDICES with group/option names, so
     rebuilding a Nexus collection's ``choices`` block (which needs step names
-    and per-option indices) otherwise means re-reading the original archive —
+    and per-option indices) otherwise means re-reading the original archive -
     which may be gone, renamed, or updated by then. Keeping the installer
     config next to the selections makes the profile self-sufficient."""
     if not config_path:
@@ -2314,11 +2314,11 @@ def _write_profile_fomod_config(game, mod_name: str, config_path,
 
 def _write_profile_fomod_selection(game, mod_name: str, selections,
                                    profile_dir=None) -> None:
-    """Mirror FOMOD selections into ``<profile>/fomod/<mod>.json`` (Tk parity —
+    """Mirror FOMOD selections into ``<profile>/fomod/<mod>.json`` (Tk parity -
     profile-scoped, never the global config, so collection choices don't clobber
     the user's manual selections). No-op when selections is None (defaults).
 
-    *profile_dir* — the target profile captured at prepare time. Prefer it over
+    *profile_dir* - the target profile captured at prepare time. Prefer it over
     the live ``game._active_profile_dir``: the game object is shared across the
     UI + background workers, so a concurrent deploy / collection install can swap
     (or null) ``_active_profile_dir`` between the install being queued and this
@@ -2344,7 +2344,7 @@ def _write_profile_bain_selection(game, mod_name: str, result,
                                   profile_dir=None) -> None:
     """Mirror BAIN selection into ``<profile>/bain/<mod>.json`` (Tk parity).
 
-    *profile_dir* — captured target profile; preferred over the shared, mutable
+    *profile_dir* - captured target profile; preferred over the shared, mutable
     ``game._active_profile_dir`` (see _write_profile_fomod_selection)."""
     pdir = profile_dir if profile_dir is not None \
         else getattr(game, "_active_profile_dir", None)
@@ -2362,7 +2362,7 @@ def _write_profile_bain_selection(game, mod_name: str, result,
 
 def _read_bain_readme(bain_root: str) -> "str | None":
     """Return the text of a package readme at *bain_root* (``package.txt`` or
-    ``readme.txt``, case-insensitive) — shown alongside the BAIN picker. A Wrye
+    ``readme.txt``, case-insensitive) - shown alongside the BAIN picker. A Wrye
     Bash installer *script* (``wizard.txt``) is deliberately NOT treated as a
     readme (Tk parity)."""
     try:
@@ -2389,7 +2389,7 @@ def _read_saved_fomod_selections(game, mod_name: str, log_fn: LogFn,
     the profile-scoped copy (``<profile>/fomod/<mod>.json``) so selections still
     restore for mods installed only under a profile.
 
-    *profile_dir* — captured target profile; preferred over the shared, mutable
+    *profile_dir* - captured target profile; preferred over the shared, mutable
     ``game._active_profile_dir`` (see _write_profile_fomod_selection)."""
     game_name = getattr(game, "name", "")
     if not game_name:
@@ -2420,7 +2420,7 @@ def _persist_fomod_selection(game, mod_name: str, selections,
     (Tk parity: interactive installs write both; the collection orchestrator
     mirrors to the profile itself, so it passes profile=False).
 
-    *profile_dir* — captured target profile for the mirror (see
+    *profile_dir* - captured target profile for the mirror (see
     _write_profile_fomod_selection); falls back to the live active profile."""
     if selections is None:
         return
@@ -2447,7 +2447,7 @@ def _read_saved_bain_selections(game, mod_name: str, log_fn: LogFn,
     the profile-scoped copy (``<profile>/bain/<mod>.json``) so selections still
     restore for mods installed only under a profile.
 
-    *profile_dir* — captured target profile; preferred over the shared, mutable
+    *profile_dir* - captured target profile; preferred over the shared, mutable
     ``game._active_profile_dir`` (see _write_profile_fomod_selection)."""
     game_name = getattr(game, "name", "")
     if not game_name:
@@ -2476,7 +2476,7 @@ def _persist_bain_selection(game, mod_name: str, result, profile_dir=None) -> No
     (``get_bain_selections_path``) and the profile (``<profile>/bain/<mod>.json``),
     matching the Tk installer.
 
-    *profile_dir* — captured target profile for the mirror (see
+    *profile_dir* - captured target profile for the mirror (see
     _write_profile_fomod_selection); falls back to the live active profile."""
     _write_profile_bain_selection(game, mod_name, result, profile_dir)
     game_name = getattr(game, "name", "")
@@ -2503,7 +2503,7 @@ def _nexus_file_display_name(meta, game) -> str:
     """The sanitized per-file Nexus display name from *meta*, or "" if absent.
 
     Uses ``file_details.name`` (NexusModMeta.nexus_file_name, e.g. "Engine Fixes
-    - Main File") — the label shown against the download on the mod's Files tab —
+    - Main File") - the label shown against the download on the mod's Files tab -
     to name the staging folder. Sanitized to a valid folder name; returns "" so
     the caller falls back to the archive-stem name when the meta has no file name.
     """
@@ -2525,7 +2525,7 @@ def _resolve_nexus_meta_for_naming(archive: Path, game, log_fn: LogFn):
     """Look up *archive* on Nexus (filename → MD5) so its folder can be named
     after the file's Nexus display name. Returns a NexusModMeta or None.
 
-    Requires the user to be logged in (a live API) — offline / not-logged-in
+    Requires the user to be logged in (a live API) - offline / not-logged-in
     returns None and the caller falls back to the stripped archive stem. Failures
     are swallowed: naming from the archive name is always an acceptable fallback.
     """
@@ -2547,7 +2547,7 @@ def _clean_mod_name(stem: str, game) -> str:
     """Best-effort folder name from the archive stem.
 
     Uses the same derivation as the Tk installer: ``_suggest_mod_names(stem)[0]``
-    — the *least-destructive* candidate, which strips only the Nexus id/version
+    - the *least-destructive* candidate, which strips only the Nexus id/version
     tail (and the new underscore ``_<version>_<slug>`` tail / mod.io UUID tail)
     while preserving the actual title, including meaningful parentheses and
     edition tags (``(SE)``, ``(CP)``, ``(Black)`` …).  ``_strip_title_metadata``
@@ -2561,7 +2561,7 @@ def _clean_mod_name(stem: str, game) -> str:
         name = (suggestions[0] if suggestions else stem) or stem
         name = sanitize_mod_folder_name(name) or name
     except Exception:
-        # mod_name_utils may pull Tk transitively — fall back to a basic clean.
+        # mod_name_utils may pull Tk transitively - fall back to a basic clean.
         import re
         name = re.sub(r"-\d+-.*$", "", stem).strip() or stem
         name = re.sub(r'[<>:"/\\|?*]', "_", name).rstrip(". ")
@@ -2654,7 +2654,7 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
             file_list = stage_file_list(p.game, m_path, mod_name=m_name,
                                         log_fn=log_fn)
             if not file_list:
-                log_fn(f"  '{m_name}': nothing to install — skipped.")
+                log_fn(f"  '{m_name}': nothing to install - skipped.")
                 continue
             m_dest = staging_root / m_name
             if m_dest.exists():
@@ -2730,14 +2730,14 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
         meta = None
         domain = getattr(game, "nexus_game_domain", None) or getattr(game, "game_id", "")
         if prebuilt_meta is not None:
-            # The caller (Nexus browser) knows the real mod_id/file_id — use it
+            # The caller (Nexus browser) knows the real mod_id/file_id - use it
             # verbatim instead of parsing the archive filename, which can be
             # wrong for mods whose name/version embeds digits.
             meta = prebuilt_meta
         else:
             try:
                 # Pass a live API so resolve_nexus_meta_for_archive can do the
-                # MD5 reverse lookup (its Strategy 2 is skipped when api=None) —
+                # MD5 reverse lookup (its Strategy 2 is skipped when api=None) -
                 # this is what the Tk installer did and the Qt port dropped.
                 api = _build_nexus_api()
                 meta = resolve_nexus_meta_for_archive(
@@ -2769,7 +2769,7 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             # modlist can flag a rerun if one appears in the load order later
             # (pending), and from SELECTED options so it can flag when one is
             # REMOVED (active). An empty value on a FOMOD (re)install means
-            # "nothing" — but write_meta skips empty values to protect the keys
+            # "nothing" - but write_meta skips empty values to protect the keys
             # from unrelated callers, so empty results are cleared explicitly.
             if fomod_pending_deps:
                 meta.fomod_pending_deps = fomod_pending_deps
@@ -2792,17 +2792,17 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
 
     Both come from a SINGLE Nexus GraphQL v2 request (``modRequirements`` +
     ``viewerEndorsed``) via ``graphql_mod_update_info_batch``, which does NOT
-    consume the REST hourly rate limit — so this runs on every install at zero
+    consume the REST hourly rate limit - so this runs on every install at zero
     rate-limit cost. Results are written to each mod's ``missingRequirements``
     and ``endorsed`` meta.ini fields, the same fields the "Check updates" flow
     populates and the modlist UI already reads, so the warning/★ flags appear
     immediately without the user pressing Check updates.
 
-    *mod_names* is a single folder name or an iterable of them — multi-mod
+    *mod_names* is a single folder name or an iterable of them - multi-mod
     archives pass every installed name at once so the staging scan and the
     GraphQL request happen once per archive, not once per mod.
 
-    Best-effort: offline / not-logged-in / any failure is swallowed — this must
+    Best-effort: offline / not-logged-in / any failure is swallowed - this must
     never break or delay a successful install.
     """
     try:
@@ -2832,7 +2832,7 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         if not these_mods:
             return
 
-        # One GraphQL request for just these mods — fetches modRequirements AND
+        # One GraphQL request for just these mods - fetches modRequirements AND
         # viewerEndorsed (rate-limit-free). The batch helper parses both.
         gql_info = api.graphql_mod_update_info_batch(
             [(domain, m.mod_id) for m in these_mods])
@@ -2854,7 +2854,7 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
             api=api,
         )
 
-        # Endorsement: viewerEndorsed is None when unauthenticated/unknown — only
+        # Endorsement: viewerEndorsed is None when unauthenticated/unknown - only
         # touch the flag when the API returned a definite True/False.
         for m in these_mods:
             info = gql_info.get(m.mod_id)
@@ -2876,7 +2876,7 @@ def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
     try:
         from Utils.filemap import rescan_mods_in_index
         from Utils.deploy import load_per_mod_strip_prefixes
-        # The index MUST live where build_filemap reads it — next to the
+        # The index MUST live where build_filemap reads it - next to the
         # effective filemap (= staging.parent / game root), NOT the profile dir.
         # Writing it to the profile dir leaves a fresh install invisible to the
         # filemap rebuild → no conflicts detected (the bug this fixes).
@@ -2890,11 +2890,11 @@ def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
         # Refresh path) so the single-mod entry is written with EXACTLY the same
         # strip-prefix / extension / per-mod / root-folder rules a full Refresh
         # applies. The canonical game attributes are mod_folder_strip_prefixes /
-        # mod_install_extensions — the older strip_prefixes / install_extensions
+        # mod_install_extensions - the older strip_prefixes / install_extensions
         # names don't exist on the game classes (getattr → None), which wrote an
         # UNSTRIPPED entry (e.g. Bethesda "Data/…" kept), inconsistent with a
         # Refresh → deploy double-nested paths / wrong conflicts until Refresh.
-        # A root-flagged mod (e.g. SKSE) must NOT be stripped — read the flag
+        # A root-flagged mod (e.g. SKSE) must NOT be stripped - read the flag
         # from the just-written meta.ini (the modlist isn't updated yet here).
         root_mods = None
         try:
@@ -2917,14 +2917,14 @@ def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
             from Utils.bsa_filemap import update_bsa_index
             update_bsa_index(index_dir / "bsa_index.bin", mod_name, dest_root, archive_exts)
     except Exception as exc:
-        log_fn(f"index update skipped ({exc}) — next rebuild will rescan.")
+        log_fn(f"index update skipped ({exc}) - next rebuild will rescan.")
 
 
 def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,
                     preserve_position: bool = False) -> None:
     # The user-configurable default state for a freshly installed mod (Downloads
     # tab option). Collection installs never route through here, so they are
-    # unaffected. Only applies to brand-new entries — reinstalls/updates keep
+    # unaffected. Only applies to brand-new entries - reinstalls/updates keep
     # their existing state via preserve_existing_state below.
     try:
         from Utils.ui_config import load_install_mods_disabled
@@ -2934,7 +2934,7 @@ def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,
     modlist_path = profile_dir / "modlist.txt"
     try:
         if preserve_position:
-            # Replacing an existing mod — keep its load-order position and its
+            # Replacing an existing mod - keep its load-order position and its
             # existing enabled/disabled state (a reinstall/update must not
             # silently re-enable a disabled mod).
             from Utils.modlist import ensure_mod_preserving_position
@@ -2958,7 +2958,7 @@ def _add_to_modlist(profile_dir: Path, mod_name: str, log_fn: LogFn,
         from Utils.modlist import read_modlist
         if mod_name not in {e.name for e in read_modlist(modlist_path)}:
             log_fn(f"WARNING: '{mod_name}' was written to {modlist_path} but "
-                   f"is not there on read-back — concurrent overwrite?")
+                   f"is not there on read-back - concurrent overwrite?")
     except Exception:
         pass
 
@@ -2973,7 +2973,7 @@ def _add_plugins(game, profile_dir: Path, dest_root: Path, log_fn: LogFn) -> Non
         plugins_path = profile_dir / "plugins.txt"
         # Besides the mod root, scan the top level of the game's data subfolder
         # ('Data Files/' for Morrowind): plugins there still deploy to the top
-        # of the data dir — the filemap strips the prefix for normal mods, and
+        # of the data dir - the filemap strips the prefix for normal mods, and
         # root-flagged mods deploy '<subfolder>/x.esp' verbatim into it. Gated
         # on the subfolder being a declared strip prefix so a folder that would
         # deploy NESTED (never loadable) isn't scanned.

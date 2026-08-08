@@ -1,4 +1,4 @@
-"""LOOT Groups view — configure LOOT groups and group ordering rules.
+"""LOOT Groups view - configure LOOT groups and group ordering rules.
 
 Qt port of the Tk gui/loot_groups_overlay.py LootGroupsOverlay (1:1 behaviour).
 Opens as a modlist-panel-scoped tab (Tk places it over the modlist panel).
@@ -56,7 +56,7 @@ class PluginGroupsView(QWidget):
         if DEFAULT_GROUP not in self._groups:
             self._groups.insert(0, DEFAULT_GROUP)
 
-        # rules: list of (group_a, "after"|"before", group_b) — stored as "after".
+        # rules: list of (group_a, "after"|"before", group_b) - stored as "after".
         self._rules: list[tuple[str, str, str]] = []
         for g in data.get("groups", []):
             name = g.get("name", "")

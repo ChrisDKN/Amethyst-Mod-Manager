@@ -10,7 +10,7 @@ Layouts (each parser below documents its own field walk):
     FO3SAVEGAME    Fallout 3, New Vegas        .fos   pipe-delimited strings
     TES4SAVEGAME   Oblivion                    .ess   bzstrings
 
-Text is in the Windows system codepage, decoded as cp1252 — a save from a
+Text is in the Windows system codepage, decoded as cp1252 - a save from a
 localised (e.g. Russian cp1251) build shows mojibake, the same limitation MO2
 has, since the file records no encoding.
 """
@@ -46,7 +46,7 @@ _BODY_HEAD = 4 * 1024 * 1024
 # well inside the first page or two; the screenshot is what follows.
 _HEADER_PROBE = 8192
 
-# Bytes read when the screenshot is wanted but the plugin list isn't — the
+# Bytes read when the screenshot is wanted but the plugin list isn't - the
 # largest real screenshot is Fallout 4's 640x384 RGBA (~1 MB).
 _SHOT_PROBE = 4 * 1024 * 1024
 
@@ -172,7 +172,7 @@ class SaveHeader:
     location: str = ""
     play_time: str = ""       # the engine's own "hhh.mm.ss" string
     race: str = ""
-    #: Fallout 3 / New Vegas only — the character's class + karma line.
+    #: Fallout 3 / New Vegas only - the character's class + karma line.
     title: str = ""
     sex: str = ""
     saved_at: "float | None" = None
@@ -193,7 +193,7 @@ _MAGICS = (
 )
 
 _CACHE: dict = {}
-# Screenshots dominate an entry (~0.25-1 MB), so this stays small — it only
+# Screenshots dominate an entry (~0.25-1 MB), so this stays small - it only
 # exists to make re-selecting the same row instant.
 _CACHE_MAX = 24
 
@@ -285,7 +285,7 @@ def parse_save(path, *, want_screenshot: bool = True,
     try:
         header = parser(buf, want_screenshot, want_plugins)
     except Exception:
-        # Magic matched, layout didn't — report the format so the UI can say
+        # Magic matched, layout didn't - report the format so the UI can say
         # "unreadable save" rather than "not a save".
         return SaveHeader(kind=kind, partial=True)
 
@@ -382,7 +382,7 @@ def _tesv_body(rdr: _Reader, compression: int) -> bytes:
     blob = rdr.bytes(compressed_len)
     if compression == 1:
         # Stop at _BODY_HEAD: SE compresses the whole rest of the save, and a
-        # late-game file inflates to hundreds of MB — the plugin lists we want
+        # late-game file inflates to hundreds of MB - the plugin lists we want
         # sit in the first few KB of it.
         return zlib.decompressobj().decompress(blob, _BODY_HEAD)
     if compression == 2:
@@ -402,14 +402,14 @@ def _creation_plugin_lists(rdr: _Reader, *, gameversion: bool,
     """
     form_version = rdr.u8()
     game_version = rdr.wstring() if gameversion else ""
-    rdr.u32()   # pluginInfoSize — the lists below are self-describing
+    rdr.u32()   # pluginInfoSize - the lists below are self-describing
     plugins = _read_plugin_list(rdr, rdr.u8(), "wstring")
     light, partial = (), False
     if form_version >= esl_form_version:
         try:
             light = _read_plugin_list(rdr, rdr.u16(), "wstring")
         except _SaveParseError:
-            # Claimed a light list and didn't deliver — say so rather than
+            # Claimed a light list and didn't deliver - say so rather than
             # quietly reporting the save as having no ESLs.
             partial = True
     return plugins, light, game_version, partial
@@ -481,7 +481,7 @@ def _parse_fo3_variant(buf: bytes, want_shot: bool, want_plugins: bool,
                        language_bytes: int) -> SaveHeader:
     rdr = _Reader(buf, 11)
     header_size = rdr.u32()
-    # headerSize is measured from here — the version field is inside it.
+    # headerSize is measured from here - the version field is inside it.
     header_end = rdr.pos + header_size
     version = rdr.u32()
 
@@ -579,7 +579,7 @@ def _parse_tes4(buf: bytes, want_shot: bool, want_plugins: bool) -> SaveHeader:
 
 
 def _oblivion_play_time(game_ticks: int) -> str:
-    """Oblivion has no play-time string — render its ms counter as hhh.mm.ss
+    """Oblivion has no play-time string - render its ms counter as hhh.mm.ss
     so callers stay format-agnostic."""
     if game_ticks <= 0:
         return ""
@@ -603,7 +603,7 @@ def _partial(header: SaveHeader) -> SaveHeader:
 def format_play_time(raw: str) -> str:
     """Render an engine play-time string for display.
 
-    Two shapes occur: "hhh.mm.ss" (Skyrim, Fallout 3/NV — the units are pinned
+    Two shapes occur: "hhh.mm.ss" (Skyrim, Fallout 3/NV - the units are pinned
     down by New Vegas writing the same value into its save FILENAMES), and
     Fallout 4's "2d.2h.10m.2 days.2 hours.10 minutes", where a compact form is
     followed by a spelled-out one. Anything else passes through untouched.

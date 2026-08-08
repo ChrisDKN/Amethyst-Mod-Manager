@@ -1,4 +1,4 @@
-"""Copy / move a mod's staging folder to another profile — tkinter-free.
+"""Copy / move a mod's staging folder to another profile - tkinter-free.
 
 Ported from the Tk ``modlist_panel._copy_mod_to_profile`` / ``_copy_mods_to_profile``
 file-work so the Qt (or any) GUI can reuse it. Collision decisions (replace / rename
@@ -57,13 +57,13 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
     already exists (and wasn't handled), the copy fails and returns None.
 
     *game* (optional but recommended) lets us add the copied mod to the target
-    staging's ``modindex.bin`` incrementally — without it, the target profile's
+    staging's ``modindex.bin`` incrementally - without it, the target profile's
     cached index is stale and the mod is invisible to the filemap rebuild
     (no deploy / no plugins / no conflicts) until a full Refresh.
 
     *register* controls the per-mod modlist prepend. When copying SEVERAL mods,
     pass ``register=False`` and call :func:`register_mods_in_modlist` once with
-    the full ordered block afterwards — prepending each mod individually reverses
+    the full ordered block afterwards - prepending each mod individually reverses
     the group's relative order (the source-topmost mod is prepended first and
     ends up lowest), matching the Tk single-block prepend."""
     src_folder = Path(src_staging) / mod_name
@@ -94,8 +94,8 @@ def _update_target_index(game, target_staging: Path, target_profile_dir: Path,
     ``modindex.bin`` (+ ``bsa_index.bin``).
 
     Without this the target profile's cached index is stale after a copy/move
-    and the mod is invisible to the filemap rebuild — no deploy, no plugins,
-    no conflicts — until a full Refresh rescans the index from disk.
+    and the mod is invisible to the filemap rebuild - no deploy, no plugins,
+    no conflicts - until a full Refresh rescans the index from disk.
 
     The index/BSA-index live next to the *target* staging (= where
     ``build_filemap`` reads them for that profile), which may not be the active
@@ -112,7 +112,7 @@ def _update_target_index(game, target_staging: Path, target_profile_dir: Path,
         index_dir = Path(target_staging).parent
         # A root-flagged mod must NOT have strip_prefixes applied. The flag
         # lives in the mod's own meta.ini (copied verbatim into dest_root); read
-        # it directly — the target modlist isn't updated until after this call.
+        # it directly - the target modlist isn't updated until after this call.
         root_mods = None
         try:
             from Nexus.nexus_meta import read_meta
@@ -135,7 +135,7 @@ def _update_target_index(game, target_staging: Path, target_profile_dir: Path,
             update_bsa_index(index_dir / "bsa_index.bin",
                              mod_name, dest_root, archive_exts)
     except Exception:
-        # Best-effort — the next full index rescan (Refresh) will pick it up.
+        # Best-effort - the next full index rescan (Refresh) will pick it up.
         pass
 
 
@@ -147,7 +147,7 @@ def _register_in_modlist(target_modlist: Path, name: str, enabled: bool) -> None
 
 def register_mods_in_modlist(target_modlist: Path,
                              mods: "list[tuple[str, bool]]") -> None:
-    """Prepend *mods* — ordered highest-priority-first — to the target modlist as
+    """Prepend *mods* - ordered highest-priority-first - to the target modlist as
     a single block (dedup by name), preserving their relative order. Mirrors the
     Tk single-block prepend; do NOT call this per-mod in a loop, which reverses
     the group."""

@@ -1,4 +1,4 @@
-"""LoadingOverlay — a translucent overlay shown over a panel while it loads.
+"""LoadingOverlay - a translucent overlay shown over a panel while it loads.
 
 A small reusable widget that shows the application logo centered over its parent
 widget as a static "loading…" indicator. Call ``show_over(parent)`` to (re)parent

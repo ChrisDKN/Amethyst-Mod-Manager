@@ -1,4 +1,4 @@
-"""profile_export.py — neutral (GUI-free) helpers for the "Export profile" feature.
+"""profile_export.py - neutral (GUI-free) helpers for the "Export profile" feature.
 
 Packages the current profile into a shareable, zipped ``.amethyst`` manifest:
 ``manifest.json`` + bundled ``mods/`` + ``overwrite/`` + ``profile/`` state files.
@@ -19,7 +19,7 @@ A *row* is a plain dict describing one mod's export configuration::
         "version":       str,   # from meta.ini
         "category_id":   int,
         "category_name": str,
-        "ver_label":     str,   # "fileid — version" or "—"
+        "ver_label":     str,   # "fileid - version" or "-"
         "ver_options":   list,  # [{"label", "name", "size_bytes"}]
         "optional":      bool,  # user-set; defaults from meta.ini collectionOptional
         "phase":         int,   # install phase; defaults from meta.ini collectionPhase
@@ -55,15 +55,15 @@ from Utils.config_paths import get_fomod_selections_path, get_bain_selections_pa
 # Row building (port of workshop_dialog._load_mods)
 # ---------------------------------------------------------------------------
 
-# Version labels read "<file id> — <version>". Both an em dash and a plain
+# Version labels read "<file id> - <version>". Both an em dash and a plain
 # hyphen have been written at different times (and are sitting in users' saved
 # workshop settings), so PARSING must accept either while new labels use one.
-VER_LABEL_SEP = " — "
-_VER_LABEL_RE = re.compile(r"^\s*(\d+)\s+[—-]\s+(.*)$")
+VER_LABEL_SEP = " - "
+_VER_LABEL_RE = re.compile(r"^\s*(\d+)\s+[--]\s+(.*)$")
 
 
 def split_ver_label(label: str) -> "tuple[int, str]":
-    """``"12345 — 1.2"`` → ``(12345, "1.2")``; ``(0, "")`` when it isn't one."""
+    """``"12345 - 1.2"`` → ``(12345, "1.2")``; ``(0, "")`` when it isn't one."""
     m = _VER_LABEL_RE.match(label or "")
     if not m:
         return 0, ""
@@ -76,12 +76,12 @@ def split_ver_label(label: str) -> "tuple[int, str]":
 def load_rows(entries, game) -> list[dict]:
     """Build the per-mod export rows from a list of modlist ``ModEntry`` objects.
 
-    *entries* — non-separator modlist entries, LOWEST priority first (callers
+    *entries* - non-separator modlist entries, LOWEST priority first (callers
                 pass ``reversed(read_modlist(...))``, since modlist.txt stores
                 index 0 = highest priority). The resulting row order is the
                 manifest's mods-array order, where the last entry wins
-                conflicts — matching what our installer's topo sort and Vortex
-                both expect. *game* — the configured Game object; used for the
+                conflicts - matching what our installer's topo sort and Vortex
+                both expect. *game* - the configured Game object; used for the
                 staging path and active profile dir.
     """
     from Nexus.nexus_meta import read_meta
@@ -118,11 +118,11 @@ def load_rows(entries, game) -> list[dict]:
                     pass
 
         if file_id and version:
-            ver_label = f"{file_id} — {version}"
+            ver_label = f"{file_id} - {version}"
         elif file_id:
             ver_label = str(file_id)
         else:
-            ver_label = "—"
+            ver_label = "-"
 
         has_fomod = bool(
             profile_dir
@@ -168,7 +168,7 @@ def load_rows(entries, game) -> list[dict]:
 
 def _row_file_id(row: dict) -> int:
     """The effective file id for a row: the explicit ``file_id``, else parsed from
-    the ``ver_label`` ("fileid — version")."""
+    the ``ver_label`` ("fileid - version")."""
     fid = row.get("file_id") or 0
     if not fid:
         lbl = row.get("ver_label", "")
@@ -191,7 +191,7 @@ def write_settings(out_path, rows) -> Path:
                 "source":     r.get("source", "nexus"),
                 "direct_url": r.get("direct_url", ""),
                 "file_id":    _row_file_id(r),
-                "ver_label":  r.get("ver_label", "—"),
+                "ver_label":  r.get("ver_label", "-"),
                 "phase":      int(r.get("phase") or 0),
                 "update_policy": r.get("update_policy", "exact"),
                 "instructions": r.get("source_instructions", ""),
@@ -230,7 +230,7 @@ def read_settings(in_path, rows) -> None:
             row["update_policy"] = m["update_policy"]
         row["save_edits"] = bool(m.get("save_edits", False))
         # Only apply file_id / ver_label from the JSON when the mod has no file_id
-        # already set from meta.ini — the installed file takes precedence.
+        # already set from meta.ini - the installed file takes precedence.
         if not row.get("file_id"):
             if m.get("file_id"):
                 row["file_id"] = m["file_id"]
@@ -244,7 +244,7 @@ def read_settings(in_path, rows) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Binary patches — local file edits shipped as diffs over the pristine download
+# Binary patches - local file edits shipped as diffs over the pristine download
 # ---------------------------------------------------------------------------
 
 def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
@@ -252,12 +252,12 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
     """Diff each ``save_edits`` row's staged files against its cached archive.
 
     Attaches the resulting ``{rel_path: source_crc32}`` map to the matching
-    manifest mod entry (``patches`` — the same shape Nexus collections use, so
+    manifest mod entry (``patches`` - the same shape Nexus collections use, so
     the collection-install pipeline can apply them) and returns
     ``(jobs, warnings)``: *jobs* are ``(src_path, arcname)`` pairs for
     :func:`write_amethyst`'s ``patch_jobs``, arcnames under ``patches/``.
 
-    Bundle rows are skipped — their files ship verbatim, edits included.
+    Bundle rows are skipped - their files ship verbatim, edits included.
     *scratch_out*, when given, receives the temp dir holding the ``.diff``
     files; the caller must delete it after packing (the files have to outlive
     this call but must not outlive the export).
@@ -302,7 +302,7 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
                 dir=str(get_download_cache_dir())))
             if scratch_out is not None:
                 scratch_out.append(patch_root)
-        # The folder is named after the mod, which comes from Nexus metadata —
+        # The folder is named after the mod, which comes from Nexus metadata -
         # strip anything that could climb out of patches/ on extraction.
         patch_dir_name = _safe_archive_component(name)
         mod_patch_dir = patch_root / patch_dir_name
@@ -323,8 +323,8 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
 def apply_source_defaults(rows, *, ignore_disabled: bool = False) -> int:
     """Replace the un-chosen ``"nexus"`` default with a source that can work.
 
-    Only rows still sitting on ``"nexus"`` are touched, so an explicit choice —
-    a manifest seed, saved settings, or a source the user picked by hand —
+    Only rows still sitting on ``"nexus"`` are touched, so an explicit choice -
+    a manifest seed, saved settings, or a source the user picked by hand -
     always wins. Applied AFTER those, so a stale autosave that recorded
     ``"nexus"`` for a row that can never export as Nexus gets corrected too.
 
@@ -334,7 +334,7 @@ def apply_source_defaults(rows, *, ignore_disabled: bool = False) -> int:
       behind. Bundling ships the files instead, and is exactly the case
       ``_bundle_blocked_reason`` permits. Vortex deduces the same way
       (transformCollection.ts ``deduceSource``: no nexus repo → ``bundle``).
-      A row with a modId but no fileId is deliberately left alone — it IS on
+      A row with a modId but no fileId is deliberately left alone - it IS on
       Nexus, and the version picker is how the user fills the fileId in.
     * ``ignore_disabled`` → disabled rows become ``"ignore"``. Only for Nexus
       collections, which have no disabled state and drop those rows anyway; the
@@ -370,8 +370,8 @@ def redistributable_bundle_names(rows) -> list[str]:
 
     Bundling packs the mod's files into the ``.amethyst`` itself, so for a mod
     with a Nexus page the export stops being a list of what to download and
-    becomes a copy of someone else's work. That is fine for a personal backup —
-    the export has no upload path — but not for one handed to other people, so
+    becomes a copy of someone else's work. That is fine for a personal backup -
+    the export has no upload path - but not for one handed to other people, so
     the Qt view confirms before writing. Publishing is blocked outright; see
     CreateCollectionView._bundle_blocked_reason and collection_export's
     bundle -> nexus downgrade.
@@ -392,7 +392,7 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
     for row in rows:
         if row.get("source") == "ignore":
             continue
-        # Parse fileid from ver_label ("fileid — version") when present.
+        # Parse fileid from ver_label ("fileid - version") when present.
         ver_label = row["ver_label"]
         file_id = row["file_id"]
         parsed_fid = split_ver_label(ver_label)[0]
@@ -431,7 +431,7 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
         # importer stages the mod normally, then marks it disabled.
         if row.get("enabled") is False:
             mod_entry["enabled"] = False
-        # Root-deploy mods use the Nexus-collections "dinput" install type —
+        # Root-deploy mods use the Nexus-collections "dinput" install type -
         # the importer already maps details.type == "dinput" to meta rootFolder.
         if row.get("root_folder"):
             mod_entry["details"] = {"type": "dinput"}
@@ -454,7 +454,7 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
         if row["has_fomod"] and row.get("fomod_export", True) and game_name:
             # Prefer the profile-local copy so exports stay profile-specific even
             # if the global installer settings differ. A mod is either BAIN or
-            # FOMOD — pick the right sidecar + type.
+            # FOMOD - pick the right sidecar + type.
             if row.get("has_bain"):
                 sub_dir, choices_type, path_fn = (
                     "bain", "bain_selections", get_bain_selections_path)
@@ -499,11 +499,11 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
     ``overwrite/`` + ``profile/`` state files. Returns the final path (suffix
     forced to .amethyst when not already .zip/.amethyst).
 
-    *patch_jobs* — ``(src_path, arcname)`` pairs from :func:`build_patch_jobs`
+    *patch_jobs* - ``(src_path, arcname)`` pairs from :func:`build_patch_jobs`
     (binary-patch ``.diff`` files under ``patches/``).
 
     *progress_cb* (optional) is called as ``progress_cb(done_bytes, total_bytes,
-    arcname)`` — once with ``done_bytes=0`` before writing starts (total known),
+    arcname)`` - once with ``done_bytes=0`` before writing starts (total known),
     then after each member is written. Members are collected up-front so the
     byte total is exact; the callback runs on the caller's thread."""
     out_path = Path(out_path)
@@ -646,7 +646,7 @@ def read_manifest(src_path) -> dict:
 def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
                          log_fn=None) -> list[str]:
     """Extract a locally-exported ``.amethyst`` bundle into a freshly-installed
-    profile — faithful to the Tk import (CollectionsDialog bundle-zip extraction):
+    profile - faithful to the Tk import (CollectionsDialog bundle-zip extraction):
 
       * ``mods/<name>/…``      → ``<mods_dir>/<name>/…`` **verbatim** (folder names
         preserved exactly, including spaces, keeping the archive's own meta.ini) so
@@ -676,7 +676,7 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
     with _zip.ZipFile(src_path, "r") as zf:
         names = zf.namelist()
 
-        # (1) Bundled mods + overwrite — extract verbatim (no rename, keep meta.ini).
+        # (1) Bundled mods + overwrite - extract verbatim (no rename, keep meta.ini).
         for n in names:
             if n.endswith("/"):
                 continue
@@ -716,7 +716,7 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
     # (3) Reconcile the modlist against what's actually on disk: the bundled
     # modlist.txt lists mods that were NOT exported (disabled leftovers from the
-    # source profile) — drop those phantom entries now so they don't linger until
+    # source profile) - drop those phantom entries now so they don't linger until
     # a manual Refresh. Mirrors the Refresh path's folder-sync.
     try:
         from Utils.modlist import sync_modlist_with_mods_folder
@@ -729,13 +729,13 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
 
 # ---------------------------------------------------------------------------
-# Share code — a compressed, copy-pasteable text form of the manifest
+# Share code - a compressed, copy-pasteable text form of the manifest
 # ---------------------------------------------------------------------------
 #
 # The "Export code" feature turns the same Amethyst manifest into a short text
 # string the user can paste into a chat / forum to share a modlist. It carries
-# only what a recipient can rebuild from Nexus — mods with BOTH a modId and a
-# fileId — plus embedded FOMOD/BAIN installer choices. No mod files are bundled
+# only what a recipient can rebuild from Nexus - mods with BOTH a modId and a
+# fileId - plus embedded FOMOD/BAIN installer choices. No mod files are bundled
 # (that's what the .amethyst zip is for), so a code stays small.
 #
 # Load order is carried by the ORDER of the manifest's ``mods`` array (top of
@@ -749,14 +749,14 @@ CODE_PREFIX = "AMMCODE1:"   # version tag; bump the digit on a format change.
 
 def build_code_manifest(entries, game, app_version: str, *,
                         profile_name=None) -> dict:
-    """Build a share-code manifest from *entries* — modlist entries (separators
+    """Build a share-code manifest from *entries* - modlist entries (separators
     included) in ``read_modlist`` order (index 0 = HIGHEST priority = top of
     modlist). Includes only mods with both a modId and a fileId; embeds
     FOMOD/BAIN choices, per-mod enabled state and root-deploy flags.
 
     The collection-install pipeline that consumes an imported manifest treats the
     ``mods`` array as LOW-priority first (``mods[-1]`` becomes the top of the
-    modlist — see ``collection_reset._topo_sort_collection``). *entries* is highest-
+    modlist - see ``collection_reset._topo_sort_collection``). *entries* is highest-
     priority first, so we reverse when writing the array to keep the imported load
     order identical to the source. No separate ``loadOrder`` block is emitted (that
     would switch the importer onto its FBLO code path); the mods-array order alone
@@ -764,11 +764,11 @@ def build_code_manifest(entries, game, app_version: str, *,
 
     Beyond the mods array, the manifest carries:
 
-    * ``modlistSeparators`` — the source modlist's separators, TOP-first, each
+    * ``modlistSeparators`` - the source modlist's separators, TOP-first, each
       with its member mod names (the exported mods between it and the next
       separator, modlist order) plus optional ``color``/``locked``. The importer
       re-inserts each one above its first surviving member.
-    * ``info.exported`` / ``info.gameName`` / ``info.totalSize`` — display
+    * ``info.exported`` / ``info.gameName`` / ``info.totalSize`` - display
       metadata for the import preview (ISO timestamp, game display name, sum of
       the known archive sizes)."""
     mod_entries = [e for e in entries if not getattr(e, "is_separator", False)]
@@ -810,7 +810,7 @@ def _separator_blocks(entries, kept_names: set, profile_dir) -> list[dict]:
     """Build the ``modlistSeparators`` manifest block: one dict per separator in
     modlist order (top-first) with the names of its exported member mods (the
     kept mods between it and the next separator). Separators whose group has no
-    exported member are dropped — the importer would have nothing to anchor them
+    exported member are dropped - the importer would have nothing to anchor them
     to. Colors / locks come from the profile's separator state."""
     colors = {}
     locks = {}

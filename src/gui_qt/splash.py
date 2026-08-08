@@ -1,7 +1,7 @@
 """Transparent, correctly-centred startup splash.
 
 Replaces the old Tkinter splash, which was GTK-backed and relied on window-
-manager hints to centre itself — those hints were ignored on some setups, so
+manager hints to centre itself - those hints were ignored on some setups, so
 the splash landed in a corner. Here we centre explicitly against the screen
 geometry, which does not depend on the WM cooperating.
 

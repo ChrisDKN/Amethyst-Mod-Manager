@@ -1,4 +1,4 @@
-"""Manage Prefixes — browse every isolated tool Wine/Proton prefix and delete
+"""Manage Prefixes - browse every isolated tool Wine/Proton prefix and delete
 them selectively. Qt port of gui/prefix_manager_overlay.py; discovery / size /
 deletion-safety logic is shared via the neutral Utils.prefix_manager.
 
@@ -110,7 +110,7 @@ class PrefixManagerView(QWidget):
         info = QLabel(
             self.tr("Wizard tools each run in their own Wine prefix (created next to "
             "the tool's exe or in the app config folder). Deleting one only "
-            "reclaims disk space — it is recreated automatically the next "
+            "reclaims disk space - it is recreated automatically the next "
             "time the tool runs."))
         info.setWordWrap(True)
         info.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; padding:8px 12px 4px 12px;")
@@ -199,8 +199,8 @@ class PrefixManagerView(QWidget):
             self._total_lbl.setText("")
             return
         self._status.setText(
-            (self.tr("1 prefix found — calculating sizes…") if len(self._entries) == 1
-             else self.tr("{0} prefixes found — calculating sizes…").format(len(self._entries))))
+            (self.tr("1 prefix found - calculating sizes…") if len(self._entries) == 1
+             else self.tr("{0} prefixes found - calculating sizes…").format(len(self._entries))))
         self._start_size_scan()
 
     def _make_row(self, p, e: PrefixEntry) -> QWidget:
@@ -217,7 +217,7 @@ class PrefixManagerView(QWidget):
         text = QWidget()
         tv = QVBoxLayout(text); tv.setContentsMargins(0, 0, 0, 0); tv.setSpacing(1)
         active = (self._active_game and e.game == self._active_game)
-        name = QLabel(self.tr("{0} — {1}").format(e.tool, e.game)
+        name = QLabel(self.tr("{0} - {1}").format(e.tool, e.game)
                       + (self.tr("  (active)") if active else ""))
         name.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         tv.addWidget(name)
@@ -333,6 +333,6 @@ class PrefixManagerView(QWidget):
             self._log(f"Prefix manager: {err}")
         if errors:
             self._status.setText(
-                self.tr("Deleted {0}; {1} problem(s) — see log.").format(deleted, len(errors)))
+                self.tr("Deleted {0}; {1} problem(s) - see log.").format(deleted, len(errors)))
             self._status.setStyleSheet(f"color:{err_text()}; padding:2px 12px;")
         self._reload()

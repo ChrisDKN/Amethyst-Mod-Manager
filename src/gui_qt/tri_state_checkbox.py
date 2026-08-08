@@ -5,7 +5,7 @@ cycles 0 -> 1 -> 2 -> 0, mirroring the Tk TriStateCheckBox so the same filter
 engine (off / include / exclude) drives both toolkits.
 
 Painted by hand (QAbstractButton) so all three states render consistently
-regardless of the platform style — the box is the same 16px blue indicator as
+regardless of the platform style - the box is the same 16px blue indicator as
 the rest of the app, the exclude state swaps to a red box with a white minus.
 """
 
@@ -20,7 +20,7 @@ STATE_OFF = 0
 STATE_INCLUDE = 1
 STATE_EXCLUDE = 2
 
-# Colours — accent (include) is themed; exclude matches the Tk red palette.
+# Colours - accent (include) is themed; exclude matches the Tk red palette.
 _INCLUDE = "#1c7fd6"      # overridden from the active palette in __init__
 _EXCLUDE = "#c0392b"
 _BORDER = "#5a5a5a"
@@ -134,7 +134,7 @@ class TriStateCheckBox(QAbstractButton):
         elif self._state == STATE_EXCLUDE:
             self._draw_minus(p, box)
 
-        # Label — elide with "…" if it's wider than the available room (longer
+        # Label - elide with "…" if it's wider than the available room (longer
         # translated filter labels can exceed the fixed panel width) and show
         # the full text in a tooltip so nothing is lost.
         p.setPen(QColor(self._text_color if enabled else self._text_disabled))

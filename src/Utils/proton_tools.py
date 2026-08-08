@@ -1,4 +1,4 @@
-"""Toolkit-neutral Proton tools — env resolution, wine-tool launching and the
+"""Toolkit-neutral Proton tools - env resolution, wine-tool launching and the
 dependency installers (VC++, d3dcompiler_47, .NET).
 
 Single source of truth for both the Tk Proton-tools panel
@@ -45,7 +45,7 @@ def _noop(_msg: str) -> None:
 #   1638 = another (newer) version already present
 #   3010 = installed, reboot required
 #   1    = ambiguous under Wine but ~always means the runtime is already present
-#          and the bundle declined to reinstall — treat as done, not a failure.
+#          and the bundle declined to reinstall - treat as done, not a failure.
 DOTNET_OK_CODES: frozenset[int] = frozenset({0, 102, 1638, 3010, 1})
 
 
@@ -85,7 +85,7 @@ def install_dotnet_runtime(
         log_fn(f"no download URL known for .NET {version}.")
         return False
 
-    # Older Proton driving a newer prefix hangs under runinprefix — refuse with
+    # Older Proton driving a newer prefix hangs under runinprefix - refuse with
     # the fix instead of sitting on a dead progress bar (GH#333).
     compat_data = env.get("STEAM_COMPAT_DATA_PATH")
     stale_prefix = prefix_downgrade_warning(proton_script, compat_data)
@@ -116,7 +116,7 @@ def install_dotnet_runtime(
         proton_script=proton_script, compat_data=compat_data,
     )
     if rc is None:
-        _status(f".NET {version} install timed out — see log.")
+        _status(f".NET {version} install timed out - see log.")
         return False                    # run_prefix_installer logged the abort
     if rc not in DOTNET_OK_CODES:
         log_fn(f".NET {version} installer exited with code {rc}.")
@@ -128,8 +128,8 @@ def install_dotnet_runtime(
         mark_dep_installed(Path(prefix_path), dep_key or dotnet_dep_key(version))
 
     if rc == 1:
-        _status(f".NET {version} already installed — continuing.")
-        log_fn(f".NET {version} already installed (installer exit 1) — marking done.")
+        _status(f".NET {version} already installed - continuing.")
+        log_fn(f".NET {version} already installed (installer exit 1) - marking done.")
     else:
         _status(f".NET {version} installed successfully.")
         log_fn(f".NET {version} installed (exit {rc}).")
@@ -147,7 +147,7 @@ def _resolve_lutris_wine_env(prefix_path, log_fn: LogFn = _noop):
     runner is a lutris-wine build on disk. Proton/umu-managed Lutris games
     return ``(None, None)`` so callers use the normal Proton machinery (their
     prefixes are Proton-shaped). The wine binary rides in the proton_script
-    slot — ``proton_run_command`` recognises it and builds a bare wine
+    slot - ``proton_run_command`` recognises it and builds a bare wine
     invocation.
     """
     try:
@@ -163,7 +163,7 @@ def _resolve_lutris_wine_env(prefix_path, log_fn: LogFn = _noop):
     from Utils.protontricks import strip_appimage_env
     env = strip_appimage_env(os.environ.copy())
     env.update(lutris_wine_env(wine_bin, prefix_path))
-    log_fn(f"Proton Tools: Lutris prefix — using Lutris wine runner "
+    log_fn(f"Proton Tools: Lutris prefix - using Lutris wine runner "
            f"{wine_bin.parent.parent.name}.")
     return wine_bin, env
 
@@ -202,7 +202,7 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
 
     if proton_script is None:
         # Heroic-managed prefixes have no Steam CompatToolMapping, but the
-        # exact Proton build is recorded in GamesConfig/<app>.json — use it.
+        # exact Proton build is recorded in GamesConfig/<app>.json - use it.
         try:
             from Utils.heroic_finder import find_heroic_proton_for_prefix
             proton_script = find_heroic_proton_for_prefix(prefix_path)
@@ -287,11 +287,11 @@ def _host_forward(cmd: list[str], env: dict, log_fn: LogFn) -> list[str]:
     if not os.path.exists("/.flatpak-info"):
         return cmd
     if cmd and cmd[0] == "flatpak-spawn":
-        # proton_run_command already host-forwarded (Steam-flatpak Proton) —
+        # proton_run_command already host-forwarded (Steam-flatpak Proton) -
         # don't wrap it twice.
         return cmd
     if not shutil.which("flatpak-spawn"):
-        log_fn("Proton Tools: WARNING — inside a Flatpak sandbox but "
+        log_fn("Proton Tools: WARNING - inside a Flatpak sandbox but "
                "flatpak-spawn is unavailable; running on the sandbox runtime, "
                "which will likely fail.")
         return cmd
@@ -304,8 +304,8 @@ def wine_tool_command(game, proton_script, env, tool: str, log_fn: LogFn = _noop
     """Build a launch command for a wine tool (winecfg/regedit).
 
     Uses Proton's ``runinprefix`` verb, which runs the tool inside Proton's own
-    runtime container (soldier/sniper) — the environment its bundled wine binary
-    needs — *without* booting the steam.exe shim (``run``) that aborts when it
+    runtime container (soldier/sniper) - the environment its bundled wine binary
+    needs - *without* booting the steam.exe shim (``run``) that aborts when it
     can't reach a Steam client. Running the raw ``files/bin/wine`` binary
     directly (as we used to) core-dumps on modern GE-Proton, which ships wine
     only as a container-launched binary. Mutates *env* (sets WINEPREFIX) and,
@@ -314,16 +314,16 @@ def wine_tool_command(game, proton_script, env, tool: str, log_fn: LogFn = _noop
     proton_dir = Path(proton_script).parent
     log_fn(f"Proton Tools: resolving Proton under {proton_dir}")
     if not proton_dir.is_dir():
-        log_fn(f"Proton Tools: WARNING — Proton dir does not exist: {proton_dir}")
+        log_fn(f"Proton Tools: WARNING - Proton dir does not exist: {proton_dir}")
 
     prefix_path = game.get_prefix_path()
     if prefix_path is not None:
         env["WINEPREFIX"] = str(prefix_path)
         log_fn(f"Proton Tools: WINEPREFIX set to {prefix_path}")
         if not prefix_path.is_dir():
-            log_fn(f"Proton Tools: WARNING — WINEPREFIX path does not exist: {prefix_path}")
+            log_fn(f"Proton Tools: WARNING - WINEPREFIX path does not exist: {prefix_path}")
     else:
-        log_fn("Proton Tools: WARNING — no prefix path for this game; "
+        log_fn("Proton Tools: WARNING - no prefix path for this game; "
                "wine will use its default prefix (~/.wine).")
 
     log_fn(f"Proton Tools: launching {tool} via 'proton runinprefix'.")
@@ -353,7 +353,7 @@ def launch_wine_tool(game, tool: str, log_fn: LogFn = _noop) -> bool:
 
 def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
     """Download winetricks/cabextract if needed, then launch the winetricks GUI
-    against the game's prefix. Blocking on the (small) downloads — call from a
+    against the game's prefix. Blocking on the (small) downloads - call from a
     worker thread."""
     from Utils.protontricks import (
         _bundled_winetricks,
@@ -366,15 +366,15 @@ def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
 
     prefix_path = game.get_prefix_path()
     if prefix_path is None or not prefix_path.is_dir():
-        log_fn("Proton Tools: prefix not configured for this game — cannot launch winetricks.")
+        log_fn("Proton Tools: prefix not configured for this game - cannot launch winetricks.")
         return
 
     if not winetricks_installed():
-        log_fn("Proton Tools: winetricks not found — downloading …")
+        log_fn("Proton Tools: winetricks not found - downloading …")
         if not install_winetricks(log_fn=lambda m: log_fn(f"Proton Tools: {m}")):
             return
     if not cabextract_installed():
-        log_fn("Proton Tools: cabextract not found — downloading a portable copy …")
+        log_fn("Proton Tools: cabextract not found - downloading a portable copy …")
         if not install_cabextract(log_fn=lambda m: log_fn(f"Proton Tools: {m}")):
             return
     from Utils.protontricks import strip_appimage_env, wine_bin_dir_for_prefix
@@ -455,7 +455,7 @@ def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
     Registers real DirectShow decoders so games that stream their radio/music
     through DirectShow (Fallout 3 / New Vegas) play it instead of running
     silent. Unattended and skip-if-recorded, so re-running is instant.
-    The verb runs a Windows installer under Wine — allow it longer than the
+    The verb runs a Windows installer under Wine - allow it longer than the
     300 s default the DLL-drop verbs get."""
     from Utils.protontricks import install_winetricks_verb
     return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=60)

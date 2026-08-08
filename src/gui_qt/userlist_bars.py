@@ -3,9 +3,9 @@
 Qt port of the two hidden inline panels at the bottom of the Tk plugins tab
 (gui/plugin_panel.py rows 5/6 + gui/plugin_panel_userlist_cycle.py handlers):
 
-- UserlistBar — 'Add to userlist…': After/Before entry fields (|-separated),
+- UserlistBar - 'Add to userlist…': After/Before entry fields (|-separated),
   prefilled from the plugin's current load-order neighbours by the caller.
-- GroupBar — 'Add to group…': group combo (from userlist.yaml, 'default'
+- GroupBar - 'Add to group…': group combo (from userlist.yaml, 'default'
   first), single or multi plugin assignment.
 
 Both bars are hidden by default; the plugins context menu opens them. Save
@@ -142,7 +142,7 @@ class UserlistBar(_BarBase):
 
     def open_for(self, plugin_name: str, after_prefill: str,
                  before_prefill: str):
-        """Show the bar prefilled for this plugin (Tk _add_plugin_to_userlist —
+        """Show the bar prefilled for this plugin (Tk _add_plugin_to_userlist -
         the caller derives the prefills from the current load order position)."""
         self._plugin = plugin_name
         self._after_edit.setText(after_prefill)

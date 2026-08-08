@@ -1,5 +1,5 @@
 """
-Dark theme — the app's original palette.
+Dark theme - the app's original palette.
 
 Every key here must also exist in every other theme file. If you add a new
 constant, add it to every theme or the app will break when that theme is
@@ -10,7 +10,7 @@ NAME = "Dark"
 
 # Which CTk appearance mode this theme should use for built-in CustomTkinter
 # widgets that read from ctk.ThemeManager (CTkLoader, default frame fills,
-# etc.). Must be "light" or "dark" — CTk doesn't understand custom names.
+# etc.). Must be "light" or "dark" - CTk doesn't understand custom names.
 CTK_APPEARANCE = "dark"
 
 PALETTE: dict[str, str | tuple] = {
@@ -52,7 +52,7 @@ PALETTE: dict[str, str | tuple] = {
     "BORDER_DIM":    "#555555",
     "BORDER_FAINT":  "#666666",
 
-    # Buttons — reds
+    # Buttons - reds
     "RED_BTN":       "#a83232",
     "RED_HOV":       "#c43c3c",
     "BTN_DANGER":        "#b33a3a",
@@ -64,7 +64,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#c0392b",
     "BTN_CANCEL_HOV":    "#a93226",
 
-    # Buttons — greens
+    # Buttons - greens
     "BTN_SUCCESS":          "#2d7a2d",
     "BTN_SUCCESS_HOV":      "#3a9e3a",
     "BTN_SUCCESS_ALT":      "#2e6b30",
@@ -72,7 +72,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#2a6e3f",
     "BTN_SUCCESS_DEEP_HOV": "#369150",
 
-    # Buttons — oranges
+    # Buttons - oranges
     "BTN_WARN":          "#c37800",
     "BTN_WARN_HOV":      "#e28b00",
     "BTN_WARN_DEEP":     "#7a5a00",
@@ -82,7 +82,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#b35a00",
     "BTN_WARN_ORANGE_HOV":"#d97000",
 
-    # Buttons — blues
+    # Buttons - blues
     "BTN_INFO":          "#1e4d7a",
     "BTN_INFO_HOV":      "#2a6aab",
     "BTN_INFO_DEEP":     "#1a5a8a",
@@ -90,13 +90,13 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#3a5a8a",
     "BTN_NEUTRAL_HOV":   "#4a70aa",
 
-    # Buttons — greys
+    # Buttons - greys
     "BTN_GREY":        "#444444",
     "BTN_GREY_HOV":    "#555555",
     "BTN_GREY_ALT":    "#3c3c3c",
     "BTN_GREY_ALT_HOV":"#505050",
 
-    # Buttons — purples
+    # Buttons - purples
     "BTN_PURPLE":     "#7b2fa8",
     "BTN_PURPLE_HOV": "#9b3fd0",
 
@@ -159,7 +159,7 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_CARD_MED": "#dddddd",
     "TEXT_TREE_FG":  "#6dbf6d",
 
-    # CTk light/dark tuples — CustomTkinter picks one based on appearance mode.
+    # CTk light/dark tuples - CustomTkinter picks one based on appearance mode.
     # These stay as tuples in every theme so built-in CTk widgets still adapt.
     "CTK_TEXT":       ("#000000", "#FFFFFF"),
     "CTK_FOOTER_FG":  ("#EBECF0", "#393B40"),
@@ -200,7 +200,7 @@ PALETTE: dict[str, str | tuple] = {
     "REQ_HL_REQUIRES":    "#5e3a8e",   # mods the selection requires (purple)
     "REQ_HL_REQUIRED_BY": "#1d4f8b",   # mods that require the selection (blue)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#1b4d1b", "FRAMEWORK_INSTALLED_FG": "#c8ffc8",
     "FRAMEWORK_STAGED_BG":    "#5c3a14", "FRAMEWORK_STAGED_FG":    "#ffe0b0",
     "FRAMEWORK_DISABLED_BG":  "#1a3a5c", "FRAMEWORK_DISABLED_FG":  "#b0d8ff",

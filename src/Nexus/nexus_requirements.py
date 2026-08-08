@@ -253,7 +253,7 @@ def check_missing_requirements(
     if not game_domain:
         game_domain = checkable[0].game_domain.strip().lower()
     if not game_domain:
-        _log("No game domain available — cannot check requirements.")
+        _log("No game domain available - cannot check requirements.")
         return []
 
     # 2. Build set of all installed Nexus mod IDs
@@ -270,7 +270,7 @@ def check_missing_requirements(
     _log(f"Checking requirements for {len(by_mod_id)} Nexus mod(s)...")
 
     # File-level requirements (v3 API) for all checkable mods, in one batch.
-    # {} on kill switch or any v3 failure — mod-level results are unaffected.
+    # {} on kill switch or any v3 failure - mod-level results are unaffected.
     from Nexus.nexus_file_requirements import compute_file_level_missing
     file_missing = compute_file_level_missing(
         api, checkable, installed_mod_ids, game_domain,
@@ -296,12 +296,12 @@ def check_missing_requirements(
         missing: list[NexusModRequirement] = []
         for req in reqs:
             if req.is_external:
-                # External requirements (non-Nexus) — skip, we can't track them
+                # External requirements (non-Nexus) - skip, we can't track them
                 continue
             if req.mod_id <= 0:
                 continue
             if _is_external_for_game(game_domain, req.mod_id, external_set):
-                # External tools (script extenders, xEdit) — installed to game folder, not mod list
+                # External tools (script extenders, xEdit) - installed to game folder, not mod list
                 continue
             if _alternative_satisfied_for_game(game_domain, req.mod_id, installed_mod_ids, alternatives_dict):
                 # e.g. 33746#92109: requirement 33746 satisfied if 92109 (Open Animation Replacer) installed
@@ -333,7 +333,7 @@ def check_missing_requirements(
                     meta_path = staging_root / meta.mod_name / "meta.ini"
                     write_meta(meta_path, meta)
             else:
-                # All requirements satisfied — clear flag
+                # All requirements satisfied - clear flag
                 if save_results and meta.missing_requirements:
                     meta.missing_requirements = ""
                     meta_path = staging_root / meta.mod_name / "meta.ini"
@@ -374,7 +374,7 @@ def check_requirements_from_gql(
         ``requirements`` list is used directly.
     all_installed :
         Full list of all installed NexusModMeta objects (used to build the
-        set of installed mod IDs for dependency resolution — includes both
+        set of installed mod IDs for dependency resolution - includes both
         enabled and disabled mods).
     game_domain :
         Nexus game domain string (e.g. ``"skyrimspecialedition"``).
@@ -421,8 +421,8 @@ def check_requirements_from_gql(
     # File-level requirements (v3 API) for all checkable mods, in one batch.
     # We fetch ALL of them (installed or not) so the View Requirements full list
     # can show installed file-level deps too, then derive the *missing* subset
-    # locally — one batch of API calls instead of two. Only runs when the caller
-    # provides an API client; {} on kill switch or any v3 failure — mod-level
+    # locally - one batch of API calls instead of two. Only runs when the caller
+    # provides an API client; {} on kill switch or any v3 failure - mod-level
     # results are unaffected.
     file_all: dict[int, list[NexusModRequirement]] = {}
     if api is not None:
@@ -434,7 +434,7 @@ def check_requirements_from_gql(
     for mod_id, metas in by_mod_id.items():
         info = gql_info.get(mod_id)
         if info is None:
-            # Not returned by GraphQL (hidden/deleted mod) — leave flags unchanged
+            # Not returned by GraphQL (hidden/deleted mod) - leave flags unchanged
             continue
 
         # Full requirement pool: mod-level (GraphQL) + file-level (v3), deduped.
@@ -453,7 +453,7 @@ def check_requirements_from_gql(
             if req.mod_id not in installed_mod_ids:
                 missing.append(req)
 
-        # Full requirements list (installed or not) — powers View Requirements.
+        # Full requirements list (installed or not) - powers View Requirements.
         # ';' in names would corrupt the pair format, swap for ','.
         full_str = ";".join(
             f"{max(r.mod_id, 0)}:{(r.mod_name or '').replace(';', ',')}"

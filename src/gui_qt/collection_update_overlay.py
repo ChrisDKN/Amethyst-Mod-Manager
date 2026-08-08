@@ -7,7 +7,7 @@ update / add / orphan) and asks the user to confirm before the install runs.
 
 Borderless in-window overlay via gui_qt/overlay_base.py. All widgets are built
 ONCE with real parents (no per-item unparented widgets that could flash as
-blank top-level windows — see the collection install-overlay fix).
+blank top-level windows - see the collection install-overlay fix).
 
 ``on_done(True)`` on Apply Update, ``on_done(False)`` on Cancel / Escape.
 """
@@ -69,7 +69,7 @@ class UpdateOverlay(OverlayBase):
         def _rev(r):
             return self.tr("Rev {0}").format(r) if r is not None else self.tr("?")
         summary = QLabel(
-            self.tr("Profile '{0}' — {1} → {2}").format(
+            self.tr("Profile '{0}' - {1} → {2}").format(
                 self._profile_name, _rev(self._from_rev), _rev(self._to_rev)),
             self._card)
         summary.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:13px;")

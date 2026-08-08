@@ -23,8 +23,8 @@ Non-``Mods/`` content
 ---------------------
 Some 7D2D mods ship only loose files for the game's ``Data/`` tree
 (e.g. custom POI prefabs under ``Data/Prefabs``, replacement ``.assets``
-files under ``7DaysToDie_Data``).  Those have no load-order semantics —
-they are plain file replacements — so they are deployed file-by-file from
+files under ``7DaysToDie_Data``).  Those have no load-order semantics -
+they are plain file replacements - so they are deployed file-by-file from
 low-priority to high-priority, with higher-priority mods overwriting lower.
 Mixed mods (both ``ModInfo.xml`` and loose ``Data/`` files in one staging
 folder) are treated as Mods/-style mods since that is the 7D2D convention.
@@ -49,7 +49,7 @@ from Utils.config_paths import get_profiles_dir
 _PROFILES_DIR = get_profiles_dir()
 
 # Zero-padding width for the priority prefix (``0001_Foo``).  Four digits is
-# enough for 9999 enabled mods — the modlist cap in practice is well under that.
+# enough for 9999 enabled mods - the modlist cap in practice is well under that.
 _PRIORITY_WIDTH = 4
 
 # Strip any leading numeric ordering prefix the mod author may have baked into
@@ -204,7 +204,7 @@ class SevenDaysToDie(BaseGame):
 
         When False, mods are linked under their bare folder name (with any
         author-supplied numeric prefix preserved) and load order falls back to
-        plain alphabetical order — useful for users who manage 7D2D ordering
+        plain alphabetical order - useful for users who manage 7D2D ordering
         themselves or whose mods rely on their original folder names.
         """
         return self._load_settings().get("prefix_numbering", True)
@@ -264,7 +264,7 @@ class SevenDaysToDie(BaseGame):
         # Per-mod strip prefixes ("Top Level" promotions from the Mod Files
         # tab). Exclusions are stored as RAW keys but the keep-filter offset
         # below has these prefixes peeled off, so translate into that same
-        # space — otherwise "Disable" silently misses and the files deploy.
+        # space - otherwise "Disable" silently misses and the files deploy.
         from Utils.filemap import _build_path_filters
         from Utils.mod_files import translate_exclusions_for_engine
         from Utils.profile_state import read_mod_strip_prefixes
@@ -281,12 +281,12 @@ class SevenDaysToDie(BaseGame):
         # Walk each enabled staging folder and split its *contents* into:
         #   - mods_folders: inner dirs that contain ModInfo.xml (each becomes
         #     its own Mods/NNNN_<name>/ on disk)
-        #   - data_items:   everything else (files and non-mod subdirs) —
+        #   - data_items:   everything else (files and non-mod subdirs) -
         #     routed via the loose-file deploy so extensions like .nim land
         #     in Data/Prefabs/.
         # The manager-level staging folder always wraps the real mod content
         # (because mod_staging_requires_subdir=True), so the ModInfo.xml never
-        # sits at the staging root itself — we look one level deeper.
+        # sits at the staging root itself - we look one level deeper.
         mods_folders: list[tuple[int, str, Path]] = []  # (modlist_idx, staged_name, inner_mod_dir)
         data_items:   list[tuple[int, str, list[Path]]] = []  # (idx, staged_name, loose paths)
         for idx, entry in enumerate(enabled):
@@ -314,9 +314,9 @@ class SevenDaysToDie(BaseGame):
         total_steps = total_mods + total_data
         use_prefix = self.prefix_numbering
         if not use_prefix:
-            _log("  (Folder numbering disabled — linking mods under their "
+            _log("  (Folder numbering disabled - linking mods under their "
                  "original folder names; load order is plain alphabetical.)")
-        # Per deployed folder: (dst_name, staged_name, offset, placed rels) —
+        # Per deployed folder: (dst_name, staged_name, offset, placed rels) -
         # persisted so restore can tell deployed files from runtime-generated.
         deployed_sections: list[tuple[str, str, str, list[str]]] = []
         overwrite_dir = self.get_effective_overwrite_path()
@@ -349,7 +349,7 @@ class SevenDaysToDie(BaseGame):
             try:
                 placed_rels = _deploy_mod_folder(inner, dst, mode, keep)
                 # Overlay runtime files rescued to overwrite/ by earlier
-                # restores — only while their owning mod is enabled/deployed.
+                # restores - only while their owning mod is enabled/deployed.
                 ow_src = overwrite_dir / "Mods" / staged_name
                 if offset:
                     ow_src = ow_src / offset.rstrip("/")
@@ -359,7 +359,7 @@ class SevenDaysToDie(BaseGame):
                     placed_rels += ow_rels
                 if not placed_rels:
                     # Every file in this inner mod was excluded ("Disable" on a
-                    # whole variant) — don't leave an empty Mods/<name>/ behind,
+                    # whole variant) - don't leave an empty Mods/<name>/ behind,
                     # which 7D2D would list as a broken mod with no ModInfo.xml.
                     try:
                         shutil.rmtree(dst)
@@ -487,11 +487,11 @@ class SevenDaysToDie(BaseGame):
         # --- Clear deployed Mods/ entries and swap vanilla back ---
         # The Mods/ deploy log says exactly which folders/files the last deploy
         # placed.  Files inside those folders that are NOT in the log appeared
-        # at runtime (mod configs, logs, generated dumps) — rescue them into
+        # at runtime (mod configs, logs, generated dumps) - rescue them into
         # overwrite/ so the next deploy overlays them back, instead of deleting
         # them.  With no log (pre-log deploy) fall back to the old
         # wipe-everything behaviour, but only when a vanilla backup proves a
-        # deploy actually happened — otherwise Mods/ holds vanilla/user content
+        # deploy actually happened - otherwise Mods/ holds vanilla/user content
         # and must not be touched.
         deployed_map = None
         mods_log_path = None
@@ -563,7 +563,7 @@ class SevenDaysToDie(BaseGame):
                 pass
             _log(f"  Restored {restored} vanilla mod folder(s).")
         else:
-            _log("Restore: no vanilla backup present — nothing to restore.")
+            _log("Restore: no vanilla backup present - nothing to restore.")
 
         _log("Restore complete.")
 
@@ -577,7 +577,7 @@ class SevenDaysToDie(BaseGame):
         ``core_dir`` so the vanilla layout can be restored later.
 
         Skips entries that are already symlinks (leftovers from a previous
-        deploy that wasn't properly restored) — those are simply unlinked.
+        deploy that wasn't properly restored) - those are simply unlinked.
         """
         if not mods_dir.is_dir():
             return 0
@@ -614,7 +614,7 @@ def _has_modinfo(folder: Path) -> bool:
 
 
 # Files at the staging root that belong to the mod manager, not to the mod
-# itself — they must never appear in the game install.
+# itself - they must never appear in the game install.
 _STAGING_METADATA = frozenset({"meta.ini", "mm_ignore"})
 
 
@@ -639,29 +639,29 @@ def _classify_stage_children(stage_root: Path) -> tuple[list[Path], list[Path]]:
     and Data/-style loose paths.
 
     Each entry of the returned ``inner_mods`` list is a directory that has a
-    direct ``ModInfo.xml`` — deploy it as its own ``Mods/NNNN_<name>/``.
+    direct ``ModInfo.xml`` - deploy it as its own ``Mods/NNNN_<name>/``.
 
     ``loose`` is a list of Path objects (files *and* directories) that should
     be linked into the game root via the loose-file pipeline.  Manager
     metadata files (``meta.ini`` etc.) are silently excluded.
 
     Handles arbitrarily-wrapped staged layouts:
-      - **Flat** (post-strip, current installs): ``<stage>/ModInfo.xml`` —
+      - **Flat** (post-strip, current installs): ``<stage>/ModInfo.xml`` -
         the staging folder itself is the mod.
       - **Nested / variant packs**: ``<stage>/<Wrapper>/<InnerMod>/ModInfo.xml``
-        — a directory with no ModInfo.xml but containing mods deeper down is a
+        - a directory with no ModInfo.xml but containing mods deeper down is a
         wrapper; recurse into it rather than dumping it to loose.  This keeps
         repacked packs (a redundant top folder, or several variant sub-mods)
         landing in ``Mods/`` instead of ``Data/Prefabs/``.
 
-    A directory that has ModInfo.xml is a complete mod — its own subfolders
+    A directory that has ModInfo.xml is a complete mod - its own subfolders
     (``Config/`` etc.) belong to it, so recursion never descends *into* one.
     """
     inner_mods: list[Path] = []
     loose: list[Path] = []
 
     def _walk(folder: Path) -> None:
-        # A ModInfo.xml here means the whole folder is one mod — stop.
+        # A ModInfo.xml here means the whole folder is one mod - stop.
         if _has_modinfo(folder):
             inner_mods.append(folder)
             return
@@ -673,10 +673,10 @@ def _classify_stage_children(stage_root: Path) -> tuple[list[Path], list[Path]]:
             if entry.is_dir():
                 p = Path(entry.path)
                 if _contains_modinfo(p):
-                    # A mod folder, or a wrapper around one — recurse.
+                    # A mod folder, or a wrapper around one - recurse.
                     _walk(p)
                 else:
-                    # No mods anywhere inside — genuine Data/-style content.
+                    # No mods anywhere inside - genuine Data/-style content.
                     loose.append(p)
             elif entry.is_file():
                 if entry.name.lower() in _STAGING_METADATA:
@@ -732,7 +732,7 @@ def _make_keep(path_filters, mod_name: str, offset: str, strip=None):
     ``strip`` is an optional set of lowercase strip prefixes (the mod's "Top
     Level" promotions).  The keys in *path_filters* were translated into the
     post-strip space, so any wrapper prefix is peeled off the combined
-    ``offset + rel_key`` before testing — otherwise "Disable" exclusions on
+    ``offset + rel_key`` before testing - otherwise "Disable" exclusions on
     wrapped content never match and the files deploy anyway."""
     if strip:
         from Utils.mod_files import rel_key_after_strip
@@ -748,14 +748,14 @@ def _deploy_mod_folder(src: Path, dst: Path, mode: LinkMode,
     Every file is linked individually (rather than symlinking the whole folder)
     so the same per-file filtering the filemap uses can be honoured uniformly:
 
-    SYMLINK  — one symlink per file.
-    HARDLINK — one hardlink per file (default).
-    COPY     — copy each file preserving metadata.
+    SYMLINK  - one symlink per file.
+    HARDLINK - one hardlink per file (default).
+    COPY     - copy each file preserving metadata.
 
     ``keep`` is a predicate ``(rel_key_lower) -> bool`` (rel_key relative to
     ``src``, forward-slash); files for which it returns False are skipped, and
-    directories left empty as a result are not created — so the deployed tree
-    matches the Data tab exactly.  ``dst`` must not exist on entry — any
+    directories left empty as a result are not created - so the deployed tree
+    matches the Data tab exactly.  ``dst`` must not exist on entry - any
     pre-existing directory with the same name is removed first so re-deploys
     stay idempotent.
 
@@ -781,7 +781,7 @@ def _deploy_mod_folder(src: Path, dst: Path, mode: LinkMode,
         made_dir = rel == "."   # dst root always exists already
         for fname in files:
             # Manager metadata at the mod root (meta.ini etc.) is excluded
-            # from the filemap at index level, so keep() never sees it —
+            # from the filemap at index level, so keep() never sees it -
             # filter it here too (flat layout puts it at the walk root).
             if rel == "." and fname.lower() in _STAGING_METADATA:
                 continue
@@ -829,7 +829,7 @@ def _read_mods_deploy_log(
     """Parse the Mods/ deploy log written by :func:`_write_mods_deploy_log`.
 
     Returns ``{dst_name: (staged_name, offset, deployed_rels_lower)}``, or
-    None when the log is missing/unreadable (pre-log deploy — the caller falls
+    None when the log is missing/unreadable (pre-log deploy - the caller falls
     back to the legacy wipe).  An empty dict is a valid log (deploy placed no
     Mods/-style folders).
     """
@@ -869,7 +869,7 @@ def _rescue_runtime_files(
 
     Any regular file not recorded in the deploy log appeared after deploy (mod
     configs, logs, generated dumps).  It is moved to
-    ``overwrite/Mods/<staged_name>/<offset><rel>`` — the overwrite folder owns
+    ``overwrite/Mods/<staged_name>/<offset><rel>`` - the overwrite folder owns
     runtime data (Stardew-style); deploy overlays it back onto the deployed
     folder while the owning mod stays enabled.  An existing overwrite copy is
     replaced (the file being rescued is the newest version).
@@ -886,7 +886,7 @@ def _rescue_runtime_files(
         for fname in files:
             rel = prefix + fname
             if rel.lower() in deployed_rels:
-                continue                      # we deployed it — delete normally
+                continue                      # we deployed it - delete normally
             src = os.path.join(root, fname)
             if os.path.islink(src):
                 continue                      # a link is never runtime data
@@ -906,7 +906,7 @@ def _rescue_runtime_files(
 def _overlay_overwrite_files(ow_dir: Path, dst: Path, mode: LinkMode,
                              log_fn) -> list[str]:
     """Link every file under *ow_dir* (the mod's slice of overwrite/) into the
-    deployed folder *dst*, replacing mod-shipped files on collision — runtime
+    deployed folder *dst*, replacing mod-shipped files on collision - runtime
     data always wins over the shipped default.  Called only for mods being
     deployed, so overwrite content of disabled/removed mods never reaches the
     game (Stardew-style orphan skip).
@@ -944,7 +944,7 @@ def _route_loose_file(rel: str, fname: str) -> str | None:
     """Return the game-root-relative destination for a file, or None to skip.
 
     ``rel`` is the POSIX-normalised path (relative to the mod staging root)
-    of the directory the file lives in — ``"."`` means the file is directly
+    of the directory the file lives in - ``"."`` means the file is directly
     at the staging root.
 
     Routing:
@@ -976,7 +976,7 @@ def _route_loose_file(rel: str, fname: str) -> str | None:
     return f"{_PREFAB_DEST}/{fname}"
 
 
-# Filename stems recognised as documentation — deploy would never want these
+# Filename stems recognised as documentation - deploy would never want these
 # landing in the game root.  Match is a prefix check against the lowercased
 # stem so ``Readme_v2.txt`` and ``CHANGELOG.md`` are both caught.
 _JUNK_STEM_PREFIXES = ("readme", "changelog", "license", "licence",
@@ -999,7 +999,7 @@ def _deploy_loose_items(
 ) -> list[str]:
     """Route each path in ``items`` under ``dst_root``.
 
-    Items may be files (handled directly) or directories (walked — their
+    Items may be files (handled directly) or directories (walked - their
     contents inherit the directory's relative position under ``stage_root``
     for routing purposes).  Higher-priority callers invoke this later so
     existing destination files are replaced on conflict.
@@ -1045,7 +1045,7 @@ def _deploy_loose_items(
             continue
         if not item.is_dir():
             continue
-        # Walk the subtree — the item itself is a subdir of stage_root so its
+        # Walk the subtree - the item itself is a subdir of stage_root so its
         # relative path starts with the dir name (e.g. "AJ_Refuge_Camp").
         item_str = str(item)
         for root, _dirs, files in os.walk(item_str):

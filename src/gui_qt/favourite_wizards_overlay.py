@@ -1,6 +1,6 @@
 """Favourite-wizard-tools picker overlay.
 
-A dimmed borderless child overlay (NOT a top-level window — gaming-mode opens
+A dimmed borderless child overlay (NOT a top-level window - gaming-mode opens
 top-levels behind the app) with a centered card: title, a scrollable checklist
 of the active game's wizard tools, and Cancel / Save buttons. Checked tools are
 the favourites shown at the top of the Wizard header menu.

@@ -2,7 +2,7 @@
 
 CET's ASI loader refuses to load a symlinked ``cyber_engine_tweaks.asi``, so the
 mod silently fails when Cyberpunk 2077 is deployed in SYMLINK mode. This module
-holds the pure detection — scan the effective filemap for the asi and report
+holds the pure detection - scan the effective filemap for the asi and report
 whether a warning is warranted. The GUI layer owns the actual prompt.
 
 Ported from the Tk ``gui.dialogs.confirm_cet_symlink`` (its detection half).
@@ -18,7 +18,7 @@ CET_ASI = "cyber_engine_tweaks.asi"
 
 def cet_symlink_conflict(game) -> bool:
     """Return True when *game* is Cyberpunk 2077, CET's ``cyber_engine_tweaks.asi``
-    is staged, and the deploy will symlink it — i.e. the situation where CET
+    is staged, and the deploy will symlink it - i.e. the situation where CET
     would silently fail to load.
 
     Two ways the asi ends up symlinked:
@@ -40,7 +40,7 @@ def cet_symlink_conflict(game) -> bool:
             return False
         mode = game.get_deploy_mode()
         if mode == LinkMode.SYMLINK:
-            pass  # symlink chosen outright — always a conflict
+            pass  # symlink chosen outright - always a conflict
         elif mode == LinkMode.HARDLINK:
             # Hardlink chosen, but if the game folder and staging are on
             # different filesystems the deploy silently symlinks instead.

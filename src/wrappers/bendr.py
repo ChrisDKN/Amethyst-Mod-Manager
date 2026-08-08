@@ -1,6 +1,6 @@
 """
 bendr.py
-Linux wrapper for BENDr — runs the Windows BENDr normal-map pipeline on Linux
+Linux wrapper for BENDr - runs the Windows BENDr normal-map pipeline on Linux
 via Wine/Proton.
 
 All steps (BSA extract, loose copy, exclusions, filter, BENDing +
@@ -138,8 +138,8 @@ def _ensure_utf8_prefix(wine: str, prefix: str) -> None:
     is determined at Python startup from the Windows system code page.  Wine
     defaults to cp1252, causing crashes.
 
-    We patch system.reg directly — the ACP and OEMCP values under
-    HKLM\\System\\CurrentControlSet\\Control\\Nls\\CodePage — so that the
+    We patch system.reg directly - the ACP and OEMCP values under
+    HKLM\\System\\CurrentControlSet\\Control\\Nls\\CodePage - so that the
     code page is 65001 (UTF-8) before any process reads it.
     """
     prefix_path = Path(prefix)
@@ -263,7 +263,7 @@ def run_bendr(
     w_texconv    = _linux_to_wine(tools_dir / "texconv.exe")
 
     # BENDr v3.0331+ simplified workflow (see BENDr.bat). PrepParallax,
-    # AlphaNormalSQL and the separate BC7 pass are gone — BENDr.exe now bends
+    # AlphaNormalSQL and the separate BC7 pass are gone - BENDr.exe now bends
     # the normals and compresses via the supplied --tool texconv.exe.
 
     # ── Step 1: BSA extraction (normals + parallax only)
@@ -303,7 +303,7 @@ def run_bendr(
     ], log_fn=_log, label="Step 4/5: Filtering Pairs")
     _progress(55)
 
-    # ── Step 5: BENDr — bend the normal maps and compress via texconv
+    # ── Step 5: BENDr - bend the normal maps and compress via texconv
     _file_log("BENDing Normal Maps...")
     _wine_run(wine, prefix, _tool("BENDr.exe"), [
         "--source", w_output,

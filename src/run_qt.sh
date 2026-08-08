@@ -23,8 +23,8 @@ PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '^/tmp/\.mount_' | paste -sd:)
 export PATH XDG_DATA_DIRS
 
 # Force XWayland (xcb) rather than native Wayland. Under native Wayland, Qt
-# clients have no global coordinate system — window position reports as (0,0)
-# and mapToGlobal is wrong — so QToolTip (which needs global coords to place the
+# clients have no global coordinate system - window position reports as (0,0)
+# and mapToGlobal is wrong - so QToolTip (which needs global coords to place the
 # tip) mis-anchors, badly once QT_SCALE_FACTOR != 1 compounds the logical/
 # physical size mismatch. XWayland exposes real global coords so tooltips place
 # correctly and scaling stays exact; it also fixes the Wayland splitter/colour-
@@ -32,7 +32,7 @@ export PATH XDG_DATA_DIRS
 : "${QT_QPA_PLATFORM:=xcb}"
 export QT_QPA_PLATFORM
 
-# The Qt app uses the PROJECT-ROOT .venv (../.venv), which has PySide6 —
+# The Qt app uses the PROJECT-ROOT .venv (../.venv), which has PySide6 -
 # separate from src/.venv (the Tk app's venv, no PySide6) that run.sh uses.
 VENV="../.venv"
 
@@ -50,7 +50,7 @@ fi
 
 # Tee stderr to a log so a native crash trace (faulthandler) and the bash
 # "Segmentation fault" line survive after the terminal closes. Still shown live.
-# One log per run (previous kept as .old) — appending forever mixes tracebacks
+# One log per run (previous kept as .old) - appending forever mixes tracebacks
 # from old builds into current triage.
 _errlog="${XDG_CONFIG_HOME:-$HOME/.config}/AmethystModManager/run-qt-stderr.log"
 mkdir -p "$(dirname "$_errlog")"

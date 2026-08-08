@@ -3,8 +3,8 @@ ba2_writer.py
 Pure-Python BA2 (Bethesda Archive 2) writer for Fallout 4 / FO4 VR.
 
 Two archive types:
-    GNRL — general files (anything except DDS textures)
-    DX10 — DDS textures, with per-mip chunking and DXGI metadata
+    GNRL - general files (anything except DDS textures)
+    DX10 - DDS textures, with per-mip chunking and DXGI metadata
 
 Public API mirrors bsa_writer:
     write_ba2(...)          → GNRL archive
@@ -17,10 +17,10 @@ GNRL on-disk layout (version 1):
     File data block (concatenated bytes; packed_size==0 means uncompressed)
     Name table                        per file: name_length(2) + name_bytes (backslashed)
 
-DX10 layout differs in the file records — see ``write_ba2_textures``.
+DX10 layout differs in the file records - see ``write_ba2_textures``.
 
 The FO4 BA2 hash is CRC-32 (poly 0xEDB88320) with **init=0** and **no
-final XOR** — distinct from the standard zlib CRC.  See ``ba2_hash``.
+final XOR** - distinct from the standard zlib CRC.  See ``ba2_hash``.
 Verified against vanilla FO4 archives.
 """
 
@@ -41,7 +41,7 @@ class Ba2WriteError(Exception):
 
 
 # ---------------------------------------------------------------------------
-# File filter — what gets packed.  Mirrors bsa_writer's policy: plugins,
+# File filter - what gets packed.  Mirrors bsa_writer's policy: plugins,
 # nested archives, readmes, executables, dotfiles, mod-manager metadata
 # stay loose.  We share this with bsa_writer rather than duplicating so
 # the packing rules stay in lockstep.
@@ -51,10 +51,10 @@ from Utils.bsa_writer import is_packable, _INCOMPRESSIBLE_EXT
 
 
 # ---------------------------------------------------------------------------
-# Hash — FO4 BA2 CRC-32 variant.  zlib.crc32 won't do because zlib's
+# Hash - FO4 BA2 CRC-32 variant.  zlib.crc32 won't do because zlib's
 # wrapper applies init=0xFFFFFFFF and a final XOR; the BA2 hash is a
 # raw CRC-32 with init=0 and no finalisation.  Verified against vanilla
-# FO4 archives — five real (path, hash) samples all match.
+# FO4 archives - five real (path, hash) samples all match.
 # ---------------------------------------------------------------------------
 
 def _build_crc_table() -> list[int]:
@@ -92,7 +92,7 @@ def ba2_hash(s: str) -> int:
 # Game IDs (from src/Games/) that use BA2.  FO4 vanilla and FO4 VR ship
 # v1 archives; FO4 next-gen (post-2024 update) writes v8.  We always
 # write v1 since v8 only differs in a 4-byte trailing string-table flag
-# field that vanilla FO4 ignores — v1 archives load on every FO4 build.
+# field that vanilla FO4 ignores - v1 archives load on every FO4 build.
 _BA2_GAME_IDS: frozenset[str] = frozenset({
     "Fallout4", "Fallout4VR",
 })
@@ -136,19 +136,19 @@ _HEADER_LEN        = 24       # archive header (magic + 20)
 #
 # We need: width, height, mip_count, dxgi_format, and per-mip byte size.
 # bethutil's BA2 writer (well, rsm-bsa, which it links to) parses these
-# same fields and chunks the pixel data per mip.  We do the same — one
+# same fields and chunks the pixel data per mip.  We do the same - one
 # chunk per mip is the simplest correct packing.  The engine accepts
 # that variant; vanilla archives sometimes group small mips into a tail
 # chunk for streaming wins, but that's an optimisation, not a hard
 # requirement.
 #
 # Per-mip byte size formula depends on the DXGI format:
-#   * Block-compressed formats (BC1..BC7) — 4×4 pixel blocks of either
+#   * Block-compressed formats (BC1..BC7) - 4×4 pixel blocks of either
 #     8 bytes (BC1, BC4) or 16 bytes (BC2/3/5/6/7).  size = ceil(w/4) *
 #     ceil(h/4) * block_bytes.  Min ceil(.) is 1.
-#   * Uncompressed formats — width * height * bytes_per_pixel.
+#   * Uncompressed formats - width * height * bytes_per_pixel.
 #
-# DXGI format constants we care about — see Microsoft DXGI_FORMAT enum.
+# DXGI format constants we care about - see Microsoft DXGI_FORMAT enum.
 # This list covers everything FO4 ships in vanilla Textures BA2s plus
 # the formats community texture mods commonly use (BC7 for albedo,
 # BC5 for normals, BC4 for masks).
@@ -208,7 +208,7 @@ class _DdsParseError(Exception):
 # Legacy DDS fourCC → DXGI format.  Vanilla FO4 modding tools translate
 # these on read; bethutil/rsm-bsa do the same.  Unmapped fourCCs
 # (uncompressed legacy formats described by the bit-mask fields in
-# DDS_HEADER) fall back to DDS_HEADER_DXT10 parsing — and if the file
+# DDS_HEADER) fall back to DDS_HEADER_DXT10 parsing - and if the file
 # doesn't have that, we punt.
 _LEGACY_FOURCC_TO_DXGI: dict[bytes, int] = {
     b"DXT1": 71,    # BC1_UNORM
@@ -229,7 +229,7 @@ def _parse_dds(data: bytes) -> dict:
     """Parse a DDS file's header and return a dict with:
 
         width, height, mip_count, dxgi_format, pixel_data_offset,
-        per_mip_sizes — list of byte sizes for each mip, mip 0 first.
+        per_mip_sizes - list of byte sizes for each mip, mip 0 first.
 
     Handles both modern DX10 (fourCC == "DX10" + DDS_HEADER_DXT10)
     and legacy DDS where the format is encoded as a fourCC like
@@ -256,7 +256,7 @@ def _parse_dds(data: bytes) -> dict:
         dxgi_format = struct.unpack_from("<I", data, 128)[0]
         pixel_data_offset = 4 + 124 + 20
     else:
-        # Legacy DDS — translate fourCC to DXGI.  Bethesda's loader
+        # Legacy DDS - translate fourCC to DXGI.  Bethesda's loader
         # does this mapping internally; we do it on the way in so we
         # can write a DX10 BA2 record that the engine can resolve.
         dxgi_format_opt = _LEGACY_FOURCC_TO_DXGI.get(fourcc)
@@ -279,7 +279,7 @@ def _parse_dds(data: bytes) -> dict:
     expected_total = sum(per_mip_sizes)
     actual_total = len(data) - pixel_data_offset
     if actual_total < expected_total:
-        # File is smaller than what we computed — could be a partial
+        # File is smaller than what we computed - could be a partial
         # mip chain (some mods drop the smallest mips).  Trim our
         # per-mip list to fit the actual data.
         running = 0
@@ -307,10 +307,10 @@ def _parse_dds(data: bytes) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Collection — walk the mod folder and group by (dir_path, leaf_name).
+# Collection - walk the mod folder and group by (dir_path, leaf_name).
 # Same shape as bsa_writer._collect_files: returns (groups, packed_rel_keys).
 # Files at the mod root would be packable (BA2 has no "must be in a folder"
-# rule like BSA — a name table entry can be just "foo.dds"), so unlike
+# rule like BSA - a name table entry can be just "foo.dds"), so unlike
 # bsa_writer we keep them.
 # ---------------------------------------------------------------------------
 
@@ -330,7 +330,7 @@ def _collect_files(
       * a parallel list of rel_keys (lowercase forward-slash paths) so
         the caller can persist the auto-disable / auto-delete list.
 
-    Files passing ``is_packable(rel_key, game_id)`` are returned — the
+    Files passing ``is_packable(rel_key, game_id)`` are returned - the
     per-game allowlist lives in Utils.archive_rules.
     """
     files: list[tuple[str, str, str, Path]] = []
@@ -408,7 +408,7 @@ def write_ba2(
     Args:
         ba2_path:        Destination .ba2 path.
         source_dir:      Mod folder root.
-        game_id:         Game ID (e.g. ``"Fallout4"``) — selects the
+        game_id:         Game ID (e.g. ``"Fallout4"``) - selects the
                          per-game packable allowlist.  ``None`` falls
                          back to a permissive policy (intended for the
                          self-test only).
@@ -417,10 +417,10 @@ def write_ba2(
                          ``_INCOMPRESSIBLE_EXT`` list (which already
                          covers .wav / .mp3 / .ogg / .flac / .xwm /
                          .fuz / .lip / .mp4 / .bk2 / .*strings).
-                         ``False`` writes everything raw — useful when
+                         ``False`` writes everything raw - useful when
                          the user explicitly wants archive2.exe-style
                          uncompressed output.
-        excluded_keys:   rel_keys (lowercase forward-slash) to skip —
+        excluded_keys:   rel_keys (lowercase forward-slash) to skip -
                          the user's per-mod disable list from the Mod
                          Files tab.
         exclude_textures: If True, skip .dds files entirely.  Used by
@@ -432,7 +432,7 @@ def write_ba2(
         cancel:          Optional callback returning True to abort.
 
     Returns:
-        ``(file_count, bytes_written, packed_rel_keys)`` — same shape
+        ``(file_count, bytes_written, packed_rel_keys)`` - same shape
         as bsa_writer.write_bsa.
 
     Raises:
@@ -455,7 +455,7 @@ def write_ba2(
 
     # Pre-load file bytes (and compress) so we can compute exact data
     # offsets in a single forward pass.  For very large mods this could
-    # be a memory pinch — vanilla FO4 archives top out around 2 GB, but
+    # be a memory pinch - vanilla FO4 archives top out around 2 GB, but
     # community FO4 mods can ship multi-GB voice packs.  If memory ever
     # becomes a problem we could stream-write instead and patch the
     # offsets at the end like bsa_writer does.  For now the simple path
@@ -505,7 +505,7 @@ def write_ba2(
     header_end = _HEADER_LEN
     record_table_size = file_count * _GNRL_RECORD_LEN
     data_block_offset = header_end + record_table_size
-    # Cumulative data offsets — each file lives back-to-back.
+    # Cumulative data offsets - each file lives back-to-back.
     data_offsets: list[int] = []
     cur = data_block_offset
     for _dir_back, _leaf, _ext, _ap, payload, _ps, _us, _fb in prepared:
@@ -577,7 +577,7 @@ def write_ba2(
 #       1 B  unk1          0
 #       1 B  num_chunks    one chunk per mip (simpler than vanilla's
 #                          tail-grouping; the engine accepts this)
-#       2 B  chunk_size    24 — the size of each chunk record below
+#       2 B  chunk_size    24 - the size of each chunk record below
 #       2 B  height
 #       2 B  width
 #       1 B  num_mips
@@ -606,7 +606,7 @@ def _split_texture_files(
 ]:
     """Partition a packed-files list into ``(non_textures, textures)``.
 
-    A "texture" here is any ``.dds`` file — those are eligible for the
+    A "texture" here is any ``.dds`` file - those are eligible for the
     DX10 archive.  Everything else goes into the GNRL archive.  The
     ``rel_keys`` list is split in lockstep so callers can persist
     auto-disable state per archive.
@@ -637,14 +637,14 @@ def write_ba2_textures(
 ) -> tuple[int, int, list[str]]:
     """Pack every ``.dds`` file under *source_dir* into a DX10 BA2.
 
-    Texture files are packed into the DX10 archive variant — same outer
+    Texture files are packed into the DX10 archive variant - same outer
     BTDX header but per-record metadata (height, width, mip_count, DXGI
     format) plus per-mip chunks.  This matches what ``archive2.exe`` and
     bethutil produce and is what FO4 expects in a ``<plugin> -
     Textures.ba2``.
 
     Files that aren't valid DX10 DDS (no DXT10 extension header,
-    unsupported DXGI format, etc.) are **silently skipped** — callers
+    unsupported DXGI format, etc.) are **silently skipped** - callers
     are expected to send the same input to :func:`write_ba2`, which
     will pack them in the GNRL archive instead.
 
@@ -724,7 +724,7 @@ def write_ba2_textures(
     # Phase 3: prepare per-mip payloads (with optional zlib compression)
     # and accumulate offsets.
     # mip_payloads[i] is a list of (compressed_bytes, packed_size_field,
-    # unpacked_size, data_offset) tuples — one per mip.
+    # unpacked_size, data_offset) tuples - one per mip.
     mip_payloads: list[list[tuple[bytes, int, int, int]]] = []
     cur = data_block_offset
     for (_fb, _leaf, _db, _fmt, _h, _w, _mips, pix_off, per_mip,
@@ -736,7 +736,7 @@ def write_ba2_textures(
             mip_off += mip_size
             if compress:
                 comp = zlib.compress(mip_data, 9)
-                # Only use the compressed form if it's actually smaller —
+                # Only use the compressed form if it's actually smaller -
                 # tiny mips often expand under zlib overhead.
                 if len(comp) < len(mip_data):
                     payload = comp
@@ -784,7 +784,7 @@ def write_ba2_textures(
                     w,
                     mips,
                     fmt,
-                    2048,             # unk16 — copied from vanilla archives
+                    2048,             # unk16 - copied from vanilla archives
                 ))
                 # One chunk per mip.
                 for mip_index, (_payload, packed_field, unpacked,
@@ -824,7 +824,7 @@ def write_ba2_textures(
 
 
 # ---------------------------------------------------------------------------
-# Stub plugin generation — re-export bsa_writer's helpers verbatim.  The
+# Stub plugin generation - re-export bsa_writer's helpers verbatim.  The
 # stub plugin is a Bethesda format concept, not a BA2 one, and FO4 uses
 # the same TES4 header layout (with internal_version 131 instead of 44).
 # bsa_writer.write_stub_plugin already drives the version off game_id, so

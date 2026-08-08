@@ -35,7 +35,7 @@ class RegisterGamePathView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Register Game Path — {0}").format(game.name))
+                         title=self.tr("Register Game Path - {0}").format(game.name))
 
         self._log_sig.connect(self._guard(self._append_box))
         self._finish_sig.connect(self._guard(self._on_finished))
@@ -74,9 +74,9 @@ class RegisterGamePathView(WizardViewBase):
                 or not Path(prefix_path).is_dir()):
             self._run_btn.setEnabled(False)
             if game_path is None:
-                self._append_box(self.tr("Game path is not configured — set it first."))
+                self._append_box(self.tr("Game path is not configured - set it first."))
             else:
-                self._append_box(self.tr("Proton prefix not found — launch the game "
+                self._append_box(self.tr("Proton prefix not found - launch the game "
                                  "once via Steam first."))
 
     # ---- logging ----------------------------------------------------------------
@@ -97,7 +97,7 @@ class RegisterGamePathView(WizardViewBase):
 
     def _on_finished(self, ok: bool):
         self._run_btn.setEnabled(True)
-        self._run_btn.setText(self.tr("Done — Write Again") if ok else self.tr("Retry"))
+        self._run_btn.setText(self.tr("Done - Write Again") if ok else self.tr("Retry"))
 
     def _do_register(self):
         game = self._game
@@ -149,5 +149,5 @@ class RegisterGamePathView(WizardViewBase):
         if ok:
             self._log_line(self.tr("Registry keys written (64-bit + Wow6432Node views)."))
         else:
-            self._log_line(self.tr("Registry write finished with errors — see log above."))
+            self._log_line(self.tr("Registry write finished with errors - see log above."))
         safe_emit(self._finish_sig, ok)

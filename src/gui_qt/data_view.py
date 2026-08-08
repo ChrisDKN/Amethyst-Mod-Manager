@@ -1,8 +1,8 @@
-"""Qt Data tab — the merged deployment tree (Path + Winning Mod), conflict
+"""Qt Data tab - the merged deployment tree (Path + Winning Mod), conflict
 highlighting, file-type/only-conflicts filter, search, and image preview.
 
 Mirrors gui_qt.mod_files_view's structure/visuals (lean: header label + QTreeView,
-no embedded footer — the footer + filter panel are owned by the app) but reads the
+no embedded footer - the footer + filter panel are owned by the app) but reads the
 deployed filemap via Utils.data_tab instead of a per-mod scan. Built lazily: the
 tree is only (re)built when the Data sub-tab is visible (mark_dirty defers it).
 """
@@ -38,7 +38,7 @@ class DataView(QWidget):
         self.profile_dir: Path | None = None
         self.filemap_path: Path | None = None
         self.index_path: Path | None = None
-        self.on_select_mod = None          # callback(mod_name | None) — highlight
+        self.on_select_mod = None          # callback(mod_name | None) - highlight
         self._dirty = True
         self._is_visible = False           # is the Data sub-tab currently shown
         self._search = ""
@@ -183,7 +183,7 @@ class DataView(QWidget):
         except OSError:
             return []
         # filemap_root.txt feeds the tree too (root-deployed games) and can
-        # change alone (root-flag toggle) — key on its mtime as well.
+        # change alone (root-flag toggle) - key on its mtime as well.
         try:
             root_mtime = (self.filemap_path.parent
                           / "filemap_root.txt").stat().st_mtime
@@ -216,7 +216,7 @@ class DataView(QWidget):
         def worker():
             try:
                 entries = self._resolved_entries()
-                # Merged view of both deploy namespaces — a key contested in
+                # Merged view of both deploy namespaces - a key contested in
                 # either one tints here.
                 contested = mflogic.build_conflict_cache(
                     index_path, profile_dir, bsa_index_path=bsa_index_path,
@@ -348,7 +348,7 @@ class DataView(QWidget):
         if node is None or node is self._model._root:
             return
         # Folder name click toggles expand. File selection (handled by
-        # _on_selection_changed) highlights the winning mod in the modlist —
+        # _on_selection_changed) highlights the winning mod in the modlist -
         # Tk parity; no image preview here.
         if index.column() == COL_NAME and node.is_dir \
                 and self._model.rowCount(index) > 0:
@@ -368,4 +368,4 @@ class DataView(QWidget):
         cb(node.mod if (node and not node.is_dir and node.mod) else None)
 
     def _on_context_menu(self, pos):
-        pass  # Open-in-browser — wired in a later step
+        pass  # Open-in-browser - wired in a later step

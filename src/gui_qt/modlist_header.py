@@ -29,7 +29,7 @@ class TkStyleHeader(QHeaderView):
         # Section-move OFF: it conflicts with boundary-drag resizing and isn't
         # needed for the Tk feel. (Column reordering can return later via a
         # dedicated affordance.)
-        # Section MOVE is enabled (Tk parity — drag a header to reorder). It
+        # Section MOVE is enabled (Tk parity - drag a header to reorder). It
         # coexists with our boundary-drag resize: a press ON a boundary line is
         # consumed for resizing (see mousePressEvent), anything else falls
         # through to Qt's native move. The view pins COL 0 (Mod Name) in place.
@@ -62,7 +62,7 @@ class TkStyleHeader(QHeaderView):
         spec_fn = getattr(self._view, "sort_triangle_spec", None)
         spec = spec_fn(logicalIndex) if callable(spec_fn) else None
         if spec is None:
-            # Icon-only sections (no text label, just a DecorationRole icon —
+            # Icon-only sections (no text label, just a DecorationRole icon -
             # e.g. the plugins lock column) are painted with the icon CENTERED.
             # QHeaderView otherwise left-aligns the decoration alongside the
             # (empty) label.
@@ -117,7 +117,7 @@ class TkStyleHeader(QHeaderView):
             fm = painter.fontMetrics()
             elided = fm.elidedText(text, Qt.ElideRight, avail.width())
             painter.save()
-            # ButtonText is what QHeaderView paints labels with — QSS's
+            # ButtonText is what QHeaderView paints labels with - QSS's
             # `color:` lands there, so this matches the native look exactly.
             painter.setPen(self.palette().buttonText().color())
             painter.drawText(avail, int(self.defaultAlignment()), elided)
@@ -168,7 +168,7 @@ class TkStyleHeader(QHeaderView):
             self._do_drag(x)
             return   # don't let the base class interfere mid-drag
         # Cursor feedback. Only toggle when it actually changes, and DON'T call
-        # super() while on a boundary — the base QHeaderView resets the cursor
+        # super() while on a boundary - the base QHeaderView resets the cursor
         # every move, which caused the flicker.
         # Toggle cursor only on change; skip super() while on a boundary (it
         # resets the cursor every move → flicker).
@@ -191,7 +191,7 @@ class TkStyleHeader(QHeaderView):
                 self._drag_order = self._visible_order()
                 self._drag_start_w = {c: self.sectionSize(c)
                                       for c in self._drag_order}
-                return   # consume — don't start a section move/sort
+                return   # consume - don't start a section move/sort
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):

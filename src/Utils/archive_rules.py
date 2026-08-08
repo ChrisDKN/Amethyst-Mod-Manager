@@ -6,13 +6,13 @@ Faithful Python port of bethutil's ``Settings::get(Game)`` allowlists
 (see https://github.com/Guekka/bethutil ``include/btu/bsa/settings.hpp``).
 We use bethutil's curated allowlist instead of a blocklist because:
 
-  * A blocklist always misses something — bethutil's comments call out
+  * A blocklist always misses something - bethutil's comments call out
     ``.kf, .mp3, .ini, .txt, .json`` as "purposefully missing" for TES4
     even though some of those look harmless at first glance.
   * The engine only loads specific extension / directory combinations
     from inside an archive.  Files outside the allowlist load fine as
     loose, but if you stuff them into a BSA the engine ignores them
-    silently — wasting space at best, breaking the mod at worst (the
+    silently - wasting space at best, breaking the mod at worst (the
     .bk2 video case that prompted this rewrite).
 
 Rule shape:
@@ -31,7 +31,7 @@ A file is **packable** when at least one rule across the standard /
 texture / incompressible lists for its game matches.  Anything else is
 blacklisted (= left loose; not an error).
 
-The "incompressible" list is informational at the moment — bsa_writer's
+The "incompressible" list is informational at the moment - bsa_writer's
 existing per-extension incompressible bit handling already covers
 ``.wav / .mp3 / .ogg / .flac / .xwm / .fuz / .lip / .*strings``, which
 is a superset of what bethutil flags incompressible.
@@ -51,7 +51,7 @@ Rule = tuple[str, frozenset[str]]
 
 
 # ---------------------------------------------------------------------------
-# Skyrim Special Edition / Skyrim VR / Enderal SE — bethutil's tes5_default_sets
+# Skyrim Special Edition / Skyrim VR / Enderal SE - bethutil's tes5_default_sets
 # ---------------------------------------------------------------------------
 
 _SSE_STANDARD: tuple[Rule, ...] = (
@@ -106,7 +106,7 @@ _SSE_INCOMPRESSIBLE: tuple[Rule, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Fallout 4 / Fallout 4 VR — bethutil's sets_fo4 (SSE + .png demoted to
+# Fallout 4 / Fallout 4 VR - bethutil's sets_fo4 (SSE + .png demoted to
 # standard, .uvd added to standard, .dds restricted to textures+interface).
 # ---------------------------------------------------------------------------
 
@@ -123,7 +123,7 @@ _FO4_INCOMPRESSIBLE: tuple[Rule, ...] = _SSE_INCOMPRESSIBLE
 
 
 # ---------------------------------------------------------------------------
-# Skyrim Legendary Edition — bethutil's sets_sle (= SSE without the
+# Skyrim Legendary Edition - bethutil's sets_sle (= SSE without the
 # texture-version split; same allowlists).
 # ---------------------------------------------------------------------------
 
@@ -133,7 +133,7 @@ _SLE_INCOMPRESSIBLE = _SSE_INCOMPRESSIBLE
 
 
 # ---------------------------------------------------------------------------
-# Oblivion (TES4) — bethutil's tes4_default_sets.  Comment in upstream:
+# Oblivion (TES4) - bethutil's tes4_default_sets.  Comment in upstream:
 # "Purposefully missing: .kf, .mp3, .ini, .txt, .json".
 # ---------------------------------------------------------------------------
 
@@ -175,7 +175,7 @@ _TES4_INCOMPRESSIBLE: tuple[Rule, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Fallout 3 / FNV — bethutil's sets_fnv (= TES4 + tes5 archive version
+# Fallout 3 / FNV - bethutil's sets_fnv (= TES4 + tes5 archive version
 # tweak; same allowlists).
 # ---------------------------------------------------------------------------
 
@@ -189,7 +189,7 @@ _FNV_INCOMPRESSIBLE = _TES4_INCOMPRESSIBLE
 #
 # Game IDs come from each handler's ``game_id`` property in src/Games/.
 # Games we don't yet support (Starfield, Fallout 76, Morrowind v103,
-# non-Bethesda) aren't in this map — the helpers below fall through to
+# non-Bethesda) aren't in this map - the helpers below fall through to
 # "no rules", which the writer will treat as "no packable files" and
 # refuse the operation.
 # ---------------------------------------------------------------------------
@@ -241,7 +241,7 @@ def _ext_lower(rel_path: str) -> str:
 
 def texture_extensions_for_game(game_id: str | None) -> frozenset[str]:
     """Return the set of file extensions (with leading dot, lowercase)
-    that classify as "texture" for *game_id* — i.e. files that should
+    that classify as "texture" for *game_id* - i.e. files that should
     end up in the ``- Textures.bsa`` / ``- Textures.ba2`` sibling when
     the user asks for a separate textures archive.
 
@@ -257,14 +257,14 @@ def is_packable(rel_path: str, game_id: str | None) -> bool:
     """Return True if *rel_path* should be packed for *game_id*.
 
     Falls back to a permissive "True for any non-dotfile" if the game is
-    unknown — the Pack BSA / Pack BA2 buttons gate on a known game ID
+    unknown - the Pack BSA / Pack BA2 buttons gate on a known game ID
     anyway, so this branch is defensive.
 
     Always-excluded regardless of allowlist:
-      * Plugins (``.esp / .esl / .esm``) — must remain loose.
+      * Plugins (``.esp / .esl / .esm``) - must remain loose.
       * Nested archives (``.bsa / .ba2``).
       * Dotfiles and known mod-manager metadata (``meta.ini`` etc.).
-      * SKSE / F4SE plugins (``.dll``) — script extenders refuse to
+      * SKSE / F4SE plugins (``.dll``) - script extenders refuse to
         load DLLs from inside an archive.
     """
     name = rel_path.rsplit("/", 1)[-1]
@@ -278,7 +278,7 @@ def is_packable(rel_path: str, game_id: str | None) -> bool:
         return False
 
     if game_id is None or game_id not in _GAME_RULES:
-        # Unknown game — be permissive.  In practice the GUI never
+        # Unknown game - be permissive.  In practice the GUI never
         # invokes Pack on an unknown game, but if a future game is
         # wired up before we add its allowlist we'd rather pack a
         # superset than nothing.
@@ -293,7 +293,7 @@ def is_packable(rel_path: str, game_id: str | None) -> bool:
     return False
 
 
-# Always-excluded extensions / names — applied even before the allowlist
+# Always-excluded extensions / names - applied even before the allowlist
 # check, to short-circuit the engine-format files (plugins, nested
 # archives, SKSE DLLs) and obvious mod-manager metadata.
 _ALWAYS_EXCLUDE_EXT: frozenset[str] = frozenset({

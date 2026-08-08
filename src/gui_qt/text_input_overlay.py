@@ -5,7 +5,7 @@ title, prompt, a line edit and Cancel / OK buttons. ``on_done(text)`` on
 confirm, ``on_done(None)`` on cancel / Esc / backdrop click. Replaces the
 native ``QInputDialog.getText`` / ``getInt`` prompts; pass a ``QIntValidator``
 for numeric input, or ``suggestions=[(text, label), …]`` to add a ▾ button that
-drops down pre-filled answers (mod-rename candidates — see GH#368).
+drops down pre-filled answers (mod-rename candidates - see GH#368).
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def tr_name_source(label: str) -> str:
 
 
 def make_suggestion_button(on_click) -> QPushButton:
-    """The ▾ button next to a name field — arrow.png tinted like a QComboBox."""
+    """The ▾ button next to a name field - arrow.png tinted like a QComboBox."""
     from gui_qt.icons import icon
     from PySide6.QtCore import QSize
     btn = QPushButton()
@@ -41,7 +41,7 @@ def make_suggestion_button(on_click) -> QPushButton:
     btn.setCursor(Qt.PointingHandCursor)
     btn.setIcon(icon("arrow.png", 12, _c(active_palette(), "DROPDOWN_ARROW")))
     btn.setIconSize(QSize(12, 12))
-    # #FormButton carries 14px of side padding — in a 30px-wide button that
+    # #FormButton carries 14px of side padding - in a 30px-wide button that
     # leaves no room for the glyph, so drop it for this icon-only button.
     btn.setStyleSheet("#FormButton { padding: 0px; }")
     btn.setFixedWidth(30)

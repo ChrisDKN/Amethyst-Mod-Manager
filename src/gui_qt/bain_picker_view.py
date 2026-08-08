@@ -1,12 +1,12 @@
-"""BAIN sub-package picker — Qt port of gui/bain_dialog.py (1:1 parity).
+"""BAIN sub-package picker - Qt port of gui/bain_dialog.py (1:1 parity).
 
-Unlike the FOMOD wizard there are no steps/groups/conditions — just a checklist
+Unlike the FOMOD wizard there are no steps/groups/conditions - just a checklist
 of sub-packages to merge. Each sub-package is a distinct card (accent side-bar,
 checkbox, bold display name, dim raw folder name) that recolours live to show
 which selected packages win/lose shared files:
 
-  * green — the package contributes ≥1 file (or has no files);
-  * red   — every one of its files is provided by a LATER selected package, so it
+  * green - the package contributes ≥1 file (or has no files);
+  * red   - every one of its files is provided by a LATER selected package, so it
             is fully overridden and installs nothing. A ⬆ "Promote" button on red
             cards unchecks the later packages overriding it so it wins.
 
@@ -19,7 +19,7 @@ state = each sub-package's ``default_selected`` (00-prefixed core packages), or 
 restored saved selection when provided.
 
 All widgets are built ONCE with real parents (no per-item unparented widgets that
-could flash as blank top-level windows — see the collection install-overlay fix);
+could flash as blank top-level windows - see the collection install-overlay fix);
 recompute recolours by re-applying stylesheets, never by create/destroy.
 """
 
@@ -56,7 +56,7 @@ class BainPickerView(QWidget):
         self._states: dict[str, str] = {}
 
         # Per-package set of relative file keys (rel, lower-cased) so we can show
-        # which selected packages win/lose shared files live — matches how
+        # which selected packages win/lose shared files live - matches how
         # conflicts resolve on a case-insensitive game install. The prepare /
         # install worker pre-fills file_keys (scan_subpackage_files) so this
         # normally costs nothing; the walk is only a fallback.
@@ -97,16 +97,16 @@ class BainPickerView(QWidget):
         root.setSpacing(10)
 
         title = QLabel(
-            self.tr("{0} — BAIN package — choose sub-packages to install")
+            self.tr("{0} - BAIN package - choose sub-packages to install")
             .format(self._mod_name)
             if self._mod_name
-            else self.tr("BAIN package — choose sub-packages to install"))
+            else self.tr("BAIN package - choose sub-packages to install"))
         title.setStyleSheet(
             f"color:{self._c('TEXT_MAIN')}; font-weight:600; font-size:15px;")
         root.addWidget(title)
 
         header = QLabel(
-            self.tr("Sub-packages ({0}) — tick to install · "
+            self.tr("Sub-packages ({0}) - tick to install · "
             "green = files used · red = fully overridden by a later package")
             .format(len(self._subpackages)))
         header.setWordWrap(True)
@@ -133,7 +133,7 @@ class BainPickerView(QWidget):
             left.addWidget(ro, 1)
             content.addLayout(left, 1)
 
-        # Checklist (scrollable) — build the card list.
+        # Checklist (scrollable) - build the card list.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -217,11 +217,11 @@ class BainPickerView(QWidget):
         for lbl in (name_lbl, sub_lbl):
             lbl.mousePressEvent = lambda _e, c=cb: c.toggle()
 
-        # "Promote to winner" button (right) — shown only on red cards.
+        # "Promote to winner" button (right) - shown only on red cards.
         promote = QPushButton("⬆")
         promote.setFixedSize(30, 30)
         promote.setCursor(Qt.PointingHandCursor)
-        promote.setToolTip(self.tr("Use this package — turn off the later packages "
+        promote.setToolTip(self.tr("Use this package - turn off the later packages "
                            "overriding its files"))
         promote.clicked.connect(lambda _=False, n=pkg.name: self._promote_package(n))
         promote.hide()

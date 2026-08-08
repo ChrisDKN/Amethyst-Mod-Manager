@@ -1,5 +1,5 @@
 """
-OLED theme — the default dark theme with pure-black backgrounds.
+OLED theme - the default dark theme with pure-black backgrounds.
 
 Identical to dark.py except every background / surface colour is flattened to
 pure black (#000000) or a near-black so OLED panels save power and read as true
@@ -15,7 +15,7 @@ NAME = "OLED"
 CTK_APPEARANCE = "dark"
 
 PALETTE: dict[str, str | tuple] = {
-    # Backgrounds — pure black surfaces
+    # Backgrounds - pure black surfaces
     "BG_DEEP":       "#000000",
     "BG_PANEL":      "#000000",
     "BG_HEADER":     "#050505",
@@ -48,12 +48,12 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_ERR_BRIGHT":  "#e06c6c",
     "TEXT_WARN_BRIGHT": "#e5a04a",
 
-    # Borders — darker so black stays black
+    # Borders - darker so black stays black
     "BORDER":        "#2a2a2a",
     "BORDER_DIM":    "#333333",
     "BORDER_FAINT":  "#3d3d3d",
 
-    # Buttons — reds
+    # Buttons - reds
     "RED_BTN":       "#a83232",
     "RED_HOV":       "#c43c3c",
     "BTN_DANGER":        "#b33a3a",
@@ -65,7 +65,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#c0392b",
     "BTN_CANCEL_HOV":    "#a93226",
 
-    # Buttons — greens
+    # Buttons - greens
     "BTN_SUCCESS":          "#2d7a2d",
     "BTN_SUCCESS_HOV":      "#3a9e3a",
     "BTN_SUCCESS_ALT":      "#2e6b30",
@@ -73,7 +73,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#2a6e3f",
     "BTN_SUCCESS_DEEP_HOV": "#369150",
 
-    # Buttons — oranges
+    # Buttons - oranges
     "BTN_WARN":          "#c37800",
     "BTN_WARN_HOV":      "#e28b00",
     "BTN_WARN_DEEP":     "#7a5a00",
@@ -83,7 +83,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#b35a00",
     "BTN_WARN_ORANGE_HOV":"#d97000",
 
-    # Buttons — blues
+    # Buttons - blues
     "BTN_INFO":          "#1e4d7a",
     "BTN_INFO_HOV":      "#2a6aab",
     "BTN_INFO_DEEP":     "#1a5a8a",
@@ -91,13 +91,13 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#3a5a8a",
     "BTN_NEUTRAL_HOV":   "#4a70aa",
 
-    # Buttons — greys (darkened for OLED)
+    # Buttons - greys (darkened for OLED)
     "BTN_GREY":        "#1f1f1f",
     "BTN_GREY_HOV":    "#2e2e2e",
     "BTN_GREY_ALT":    "#1a1a1a",
     "BTN_GREY_ALT_HOV":"#2a2a2a",
 
-    # Buttons — purples
+    # Buttons - purples
     "BTN_PURPLE":     "#7b2fa8",
     "BTN_PURPLE_HOV": "#9b3fd0",
 
@@ -119,7 +119,7 @@ PALETTE: dict[str, str | tuple] = {
     "TONE_BLUE_SOFT": "#7aa2f7",
     "TONE_FLAG":      "#e5c07b",
 
-    # Scrollbars — dark trough on black
+    # Scrollbars - dark trough on black
     "SCROLL_BG":     "#242424",
     "SCROLL_TROUGH": "#000000",
     "SCROLL_ACTIVE": "#0078d4",
@@ -160,7 +160,7 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_CARD_MED": "#dddddd",
     "TEXT_TREE_FG":  "#6dbf6d",
 
-    # CTk light/dark tuples — dark value pushed to black.
+    # CTk light/dark tuples - dark value pushed to black.
     "CTK_TEXT":       ("#000000", "#FFFFFF"),
     "CTK_FOOTER_FG":  ("#EBECF0", "#000000"),
     "CTK_FOOTER_HOV": ("#DFE1E5", "#1a1a1a"),
@@ -200,7 +200,7 @@ PALETTE: dict[str, str | tuple] = {
     "REQ_HL_REQUIRES":    "#5e3a8e",   # mods the selection requires (purple)
     "REQ_HL_REQUIRED_BY": "#1d4f8b",   # mods that require the selection (blue)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#0f330f", "FRAMEWORK_INSTALLED_FG": "#c8ffc8",
     "FRAMEWORK_STAGED_BG":    "#3a260d", "FRAMEWORK_STAGED_FG":    "#ffe0b0",
     "FRAMEWORK_DISABLED_BG":  "#0f2740", "FRAMEWORK_DISABLED_FG":  "#b0d8ff",

@@ -2,14 +2,14 @@
 
 The pure-Python archive backend already lives in :mod:`Utils.bsa_writer`,
 :mod:`Utils.ba2_writer`, :mod:`Utils.bsa_extract`, :mod:`Utils.ba2_extract`.
-This module hosts the *decision* logic that sits above them — which archive
+This module hosts the *decision* logic that sits above them - which archive
 kind a game packs, how the archive is named, whether a stub plugin is needed,
 which files to keep loose, the split-textures multi-pass, the delete-loose
 cleanup, and the unpack grouping.
 
 It is a straight port of the Tk ``gui/plugin_panel.py`` pack/unpack methods and
 ``gui/bsa_unpack_overlay.py``'s grouping, so the Tk and Qt front-ends stay in
-lockstep. Nothing here imports tkinter or PySide6 — both GUIs drive it the same
+lockstep. Nothing here imports tkinter or PySide6 - both GUIs drive it the same
 way (resolve a plan, show a menu, run the worker with progress/cancel callbacks).
 """
 
@@ -181,7 +181,7 @@ def plan_pack(
         archive_textures_path = mod_dir / f"{archive_stem} - Textures.bsa"
 
     # An archive only auto-loads if a same-named plugin exists. If the mod ships
-    # no real plugin (existing_plugin is None — also covers "only a prior stub"),
+    # no real plugin (existing_plugin is None - also covers "only a prior stub"),
     # (re)stamp a minimal stub named after the mod folder.
     stub_plugin_path = None if existing_plugin is not None else mod_dir / f"{mod_name}.esp"
 
@@ -265,7 +265,7 @@ def run_pack(
 
     try:
         if kind == "ba2":
-            # GNRL pass — everything except .dds. "no packable" is non-fatal
+            # GNRL pass - everything except .dds. "no packable" is non-fatal
             # (a textures-only mod still gets a DX10 archive below).
             try:
                 res.main_count, res.main_size, packed_main = write_ba2(
@@ -278,7 +278,7 @@ def run_pack(
             except Ba2WriteError as exc:
                 if "no packable" not in str(exc).lower():
                     raise
-            # DX10 pass — only .dds. "no packable"/"no dx10" non-fatal.
+            # DX10 pass - only .dds. "no packable"/"no dx10" non-fatal.
             try:
                 res.tex_count, res.tex_size, packed_tex = write_ba2_textures(
                     plan.archive_textures_path, mod_dir,

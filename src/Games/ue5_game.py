@@ -13,15 +13,15 @@ identity/path properties.
 Routing rules
 -------------
 Each rule is a dict with at least:
-  ``dest``  — path relative to game root where matching files are deployed
+  ``dest``  - path relative to game root where matching files are deployed
               (e.g. ``"Content/Paks"``)
 
 Match criteria (one or more):
-  ``extensions``  — list of lowercase dotted extensions, e.g. ``[".pak", ".utoc"]``
-  ``folder``      — top-level folder name inside the mod (case-insensitive),
-                    e.g. ``"ue4ss"`` — matches when the first path segment of
+  ``extensions``  - list of lowercase dotted extensions, e.g. ``[".pak", ".utoc"]``
+  ``folder``      - top-level folder name inside the mod (case-insensitive),
+                    e.g. ``"ue4ss"`` - matches when the first path segment of
                     the staged file equals this string
-  ``strip``       — optional list of leading path segments to strip from the
+  ``strip``       - optional list of leading path segments to strip from the
                     staged relative path before writing to ``dest``
                     (e.g. strip ``["Content/Paks", "Paks"]`` so a staged file at
                     ``Content/Paks/MyMod.pak`` deploys as ``Content/Paks/MyMod.pak``
@@ -33,7 +33,7 @@ are deployed to ``ue5_default_dest`` (defaults to the game root itself).
 Deploy workflow
 ---------------
 Unlike traditional games, UE5 mod destinations are not folders full of vanilla
-files — they are either empty or contain unrelated game content that must not
+files - they are either empty or contain unrelated game content that must not
 be touched.  Deploy therefore works without a Core backup:
 
   1. Place each mod file directly into its resolved game destination.
@@ -84,7 +84,7 @@ def _build_overwrite_lookup(
     The overwrite folder stores files in DEPLOYED layout (restore moves
     runtime-generated files there under their game-root-relative paths), but
     the filemap index applied ``mod_folder_strip_prefixes`` when it scanned
-    the folder — e.g. ``Binaries/Win64/ue4ss/Mods/X/a.txt`` was indexed as
+    the folder - e.g. ``Binaries/Win64/ue4ss/Mods/X/a.txt`` was indexed as
     ``ue4ss/Mods/X/a.txt``.  Re-apply the same leading-segment strip here so
     a filemap entry can be mapped back to its real on-disk file regardless
     of how many wrapper folders the deployed layout carries.
@@ -135,7 +135,7 @@ class UE5Rule:
                     and lands at "<dest>/folder2/file".
         prefix:     Match files whose staged path starts with this multi-segment
                     prefix (case-insensitive), e.g. "Binaries/Win64/ue4ss".
-                    More specific than ``folder`` — checked first.
+                    More specific than ``folder`` - checked first.
         filenames:  Match files whose basename (case-insensitive) is in this
                     list, e.g. ["enabled.txt"].  Checked after prefix/folder.
         strip:      Path prefixes to strip from the staged relative path
@@ -194,7 +194,7 @@ class UE5Game(BaseGame):
     @property
     def filemap_casing_pins(self) -> dict[str, str]:
         """UE4SS loads a lua mod's entry point from ``Scripts/main.lua`` (capital
-        S) but discovers the mod folder by a lowercase ``scripts`` check — see
+        S) but discovers the mod folder by a lowercase ``scripts`` check - see
         UE4SS ``setup_mods()`` vs ``queue_start_lua_mod_by_path()``. On Windows
         the filesystem is case-insensitive so either casing works, but under
         Proton on a case-sensitive Linux filesystem a mod shipping a lowercase
@@ -294,7 +294,7 @@ class UE5Game(BaseGame):
 
         Each CustomRule may name multiple folders, so it expands into one
         UE5Rule per folder; extension-/filename-only rules produce a single
-        UE5Rule.  ``to_prefix`` rules are skipped here — the manifest deploy
+        UE5Rule.  ``to_prefix`` rules are skipped here - the manifest deploy
         can't route into the Wine/Proton prefix, so those are honoured
         separately by ``deploy_custom_rules`` (see ``_prefix_routing_rules``).
         ``companion_extensions`` have no UE5Rule equivalent and are applied by
@@ -409,7 +409,7 @@ class UE5Game(BaseGame):
 
     @property
     def archive_plugin_ordering(self) -> bool:
-        """UE pak mounting is not plugin-driven — archive conflict winners
+        """UE pak mounting is not plugin-driven - archive conflict winners
         follow mod priority, not any plugin load order."""
         return False
 
@@ -458,7 +458,7 @@ class UE5Game(BaseGame):
         return Path("Binaries/Win64")
 
     # -----------------------------------------------------------------------
-    # Paths (concrete default — subclasses may override)
+    # Paths (concrete default - subclasses may override)
     # -----------------------------------------------------------------------
 
     def get_game_path(self) -> Path | None:
@@ -555,7 +555,7 @@ class UE5Game(BaseGame):
                     continue
                 # loose_only: prefix must start at index 0 of the path
                 # (always true since startswith already requires that), but
-                # also require no segments above the prefix's last segment —
+                # also require no segments above the prefix's last segment -
                 # i.e. the prefix is anchored at the root.
                 if rule.loose_only:
                     # startswith already anchors at root, so this is True.
@@ -583,7 +583,7 @@ class UE5Game(BaseGame):
                     if rule.loose_only and hit_idx != 0:
                         continue
                     if hit_idx == 0:
-                        # Folder is already at root — no dynamic strip.
+                        # Folder is already at root - no dynamic strip.
                         return rule, rule.strip, True
                     # Strip the prefix above the matched folder so the
                     # folder + contents land under dest.
@@ -691,17 +691,17 @@ class UE5Game(BaseGame):
     def _resolve_entry(self, rel_str: str) -> tuple[str, str]:
         """Return (dest_rel, final_rel) for a filemap entry.
 
-        dest_rel  — game-root-relative destination directory (may be "")
-        final_rel — file path relative to dest_rel
+        dest_rel  - game-root-relative destination directory (may be "")
+        final_rel - file path relative to dest_rel
 
         Placement under ``dest`` depends on rule.flatten:
-        - flatten=False (default) — preserve the full mod-relative path under
+        - flatten=False (default) - preserve the full mod-relative path under
           dest (no strip applied)
-        - flatten=True + folder/prefix/folder_anywhere match — apply the
+        - flatten=True + folder/prefix/folder_anywhere match - apply the
           rule's strip so the matched folder + contents land under dest.
           If the matched folder is already at the root (no parent to strip),
           the path is preserved as-is so the folder name itself is kept.
-        - flatten=True + ext/filename-only match — bare filename under dest
+        - flatten=True + ext/filename-only match - bare filename under dest
 
         ``include_siblings`` only affects the matched file itself here (it
         lands at ``dest/<container_name>/<filename>``); resolving the
@@ -737,7 +737,7 @@ class UE5Game(BaseGame):
                     # Folder/prefix/folder_anywhere match: strip parents above
                     # the matched folder, keep matched folder + contents.
                     # Empty strip means "no parent to strip" (folder is
-                    # already at root) — preserve as-is.
+                    # already at root) - preserve as-is.
                     final_rel = self._apply_strip(rel_str, dyn_strip) if dyn_strip else norm
                 else:
                     # Ext/filename-only: bare filename.
@@ -808,7 +808,7 @@ class UE5Game(BaseGame):
         #      a primary, placing it under rule.dest.
         #   2. If include_siblings, drag the container of every just-claimed
         #      primary so subsequent rules can't claim files inside it.
-        # This ordering enforces "rule order wins" — an earlier rule's drag
+        # This ordering enforces "rule order wins" - an earlier rule's drag
         # pre-empts a later rule's primary match on the same files.
         for rule in self.ue5_routing_rules:
             new_primaries: list[tuple[int, list[str], bool]] = []
@@ -895,7 +895,7 @@ class UE5Game(BaseGame):
         try:
             self._apply_logicmods_grouping(core_entries, per_entry)
         except Exception:
-            # Advisory — any failure leaves the rules' own resolution alone.
+            # Advisory - any failure leaves the rules' own resolution alone.
             pass
 
         if prefix_handled:
@@ -941,7 +941,7 @@ class UE5Game(BaseGame):
     def _apply_logicmods_grouping(self, core_entries, per_entry) -> None:
         """Fix up ``.pak``/``.utoc``/``.ucas`` placement in ``per_entry``.
 
-        Two related corrections, both keyed on the *stem group* — same-folder
+        Two related corrections, both keyed on the *stem group* - same-folder
         same-stem archive files, which for an IoStore mod are one container set
         that must never be split across destinations:
 
@@ -949,7 +949,7 @@ class UE5Game(BaseGame):
            path, the rest follow it. Several UE handlers declare a
            ``.pak → Content/Paks/LogicMods`` rule listing no
            ``companion_extensions``, which sends the ``.pak`` to LogicMods and
-           leaves its ``.utoc``/``.ucas`` to fall through to ``~mods`` — the mod
+           leaves its ``.utoc``/``.ucas`` to fall through to ``~mods`` - the mod
            then has a loader entry with no data behind it.
         2. **Promotion.** A group that landed outside LogicMods is probed:
            if it contains ``Mods/<Name>/ModActor`` it is a UE4SS blueprint mod
@@ -958,7 +958,7 @@ class UE5Game(BaseGame):
            See ``Utils.ue_logicmods_detect``.
 
         Cohesion is preferred over promotion so a group the rules already
-        placed correctly keeps the layout they chose — flattening
+        placed correctly keeps the layout they chose - flattening
         ``LogicMods/<Mod>/x.pak`` to the LogicMods root would strand a
         ``config.lua`` sitting beside it, which BPModLoaderMod reads from the
         mod's own subfolder.
@@ -989,7 +989,7 @@ class UE5Game(BaseGame):
                 if anchors:
                     if len(anchors) == len(idxs):
                         continue  # already consistent
-                    # Prefer the .pak as anchor — it is what BPModLoaderMod
+                    # Prefer the .pak as anchor - it is what BPModLoaderMod
                     # enumerates, so its placement is the one to match.
                     anchor = next(
                         (i for i in anchors
@@ -1016,7 +1016,7 @@ class UE5Game(BaseGame):
                 # are a deliberate layout (a config.lua that BPModLoaderMod
                 # reads from the mod's own subfolder, say); lifting just the
                 # archives out of it would strand the rest, so leave the whole
-                # folder to the rules — together and unpromoted beats split.
+                # folder to the rules - together and unpromoted beats split.
                 # Files loose at the mod root carry no such grouping: a readme
                 # or .modconfig.json beside a pak is routed on its own merits,
                 # so those still promote.
@@ -1211,7 +1211,7 @@ class UE5Game(BaseGame):
                 if entry is None:
                     continue
                 normal_files, root_files = entry
-                # rel_key is lowercased — match endings like "/mods/mods.txt"
+                # rel_key is lowercased - match endings like "/mods/mods.txt"
                 # or exactly "mods/mods.txt" (no leading slash).
                 for rel_key, rel_str in normal_files.items():
                     if not (rel_key.endswith("/mods/mods.txt") or rel_key == "mods/mods.txt"):
@@ -1253,7 +1253,7 @@ class UE5Game(BaseGame):
     ) -> None:
         """Sync ``mods.txt`` to reflect the currently deployed UE4SS lua mods.
 
-        ``disabled_folders`` (case-insensitive lowercased names) — fresh
+        ``disabled_folders`` (case-insensitive lowercased names) - fresh
         entries written for folders in this set get ``: 0`` instead of
         ``: 1``. Existing lines in the file are preserved as-is, so the
         user's manual edits survive.
@@ -1289,7 +1289,7 @@ class UE5Game(BaseGame):
         out_lines: list[str] = []
         seen_lower: set[str] = set()
 
-        # Track Keybinds separately — UE4SS requires it loaded last (the
+        # Track Keybinds separately - UE4SS requires it loaded last (the
         # shipped file has a "; Built-in keybinds, do not move up!" comment
         # above it). We always force it to the bottom regardless of where
         # it appeared in the source file.
@@ -1299,12 +1299,12 @@ class UE5Game(BaseGame):
         for line in existing_lines:
             folder, _enabled = self._parse_mods_txt_line(line)
             if folder is None:
-                # Comment / blank / unrecognised — keep as-is
+                # Comment / blank / unrecognised - keep as-is
                 out_lines.append(line)
                 continue
             f_lower = folder.lower()
             if f_lower in seen_lower:
-                # Duplicate of an entry we've already emitted — drop
+                # Duplicate of an entry we've already emitted - drop
                 continue
             if f_lower == "keybinds":
                 # Defer Keybinds to end-of-file
@@ -1313,10 +1313,10 @@ class UE5Game(BaseGame):
                 seen_lower.add(f_lower)
                 continue
             if f_lower in deployed_lower:
-                # Managed entry, still deployed — keep, mark as seen
+                # Managed entry, still deployed - keep, mark as seen
                 out_lines.append(line)
                 seen_lower.add(f_lower)
-            # Else: managed entry whose mod is no longer deployed — drop
+            # Else: managed entry whose mod is no longer deployed - drop
 
         # Strip any trailing blank lines / comments left after Keybinds was
         # pulled out (so we don't double the trailing blank when re-appending).
@@ -1392,13 +1392,13 @@ class UE5Game(BaseGame):
 
         Filters applied (post-deploy, against the live game tree):
           - Skip if the folder contains ``enabled.txt`` (UE4SS auto-loads via
-            the per-folder marker — duplicate entry is unnecessary).
+            the per-folder marker - duplicate entry is unnecessary).
           - Skip if the folder doesn't contain ``Scripts/main.lua`` (UE4SS
             only treats folders with a main.lua as actual mods; everything
             else is library/shared code).
 
         Manifest entries are game-root-relative (custom-dir absolute entries
-        are skipped — UE4SS lua mods always land in the game tree).
+        are skipped - UE4SS lua mods always land in the game tree).
         """
         prefix = dest_rel.replace("\\", "/").strip("/").lower() + "/"
         candidate_folders: set[str] = set()
@@ -1413,7 +1413,7 @@ class UE5Game(BaseGame):
             tail = norm[len(prefix):]
             first_seg, _, rest = tail.partition("/")
             if not first_seg or not rest:
-                # Loose file directly in the Mods dir (not a mod folder) — skip
+                # Loose file directly in the Mods dir (not a mod folder) - skip
                 continue
             candidate_folders.add(first_seg)
 
@@ -1496,7 +1496,7 @@ class UE5Game(BaseGame):
             )
         overwrite_dir = staging.parent / "overwrite"
         # Filemap entries for the overwrite folder carry strip-normalised
-        # paths while the folder itself holds deployed-layout paths — a
+        # paths while the folder itself holds deployed-layout paths - a
         # direct join misses them (e.g. "ue4ss/..." vs the on-disk
         # "Binaries/Win64/ue4ss/...").  Index it once up front.
         overwrite_lookup = _build_overwrite_lookup(
@@ -1556,7 +1556,7 @@ class UE5Game(BaseGame):
                 dest_file = dest_dir / final_rel
             key = str(dest_file)
             # Overwrite-folder files layer user/runtime edits on top of every
-            # mod, so they must win destination collisions — without this the
+            # mod, so they must win destination collisions - without this the
             # sentinel name (absent from modlist.txt) would rank LAST.
             if mod_name == _OVERWRITE_NAME:
                 rank = -1
@@ -1571,7 +1571,7 @@ class UE5Game(BaseGame):
         deploy_order = list(resolved_by_dest.values())
         total = len(deploy_order)
 
-        # The managed UE4SS mods.txt path — we own this file entirely; skip
+        # The managed UE4SS mods.txt path - we own this file entirely; skip
         # any mod-shipped copy from being placed at this exact location.
         ue4ss_dest_rel = self._resolve_ue4ss_mods_dest()
         managed_mods_txt: Path | None = (
@@ -1582,7 +1582,7 @@ class UE5Game(BaseGame):
         for i, (_rank, staged_rel, mod_name, final_rel,
                 dest_dir, dest_file, in_custom_dir, dest_rel) in enumerate(deploy_order):
 
-            # Skip mod-shipped mods.txt at the managed location — we generate
+            # Skip mod-shipped mods.txt at the managed location - we generate
             # the canonical file ourselves after the deploy loop, so placing
             # a mod's copy here would just be overwritten and creates churn
             # in the vanilla-backup logic.
@@ -1609,7 +1609,7 @@ class UE5Game(BaseGame):
             dest_file.parent.mkdir(parents=True, exist_ok=True)
             try:
                 # Back up any real vanilla file before overwriting it.
-                # Symlinks are our own previous deploys — don't back those up.
+                # Symlinks are our own previous deploys - don't back those up.
                 if dest_file.is_file() and not dest_file.is_symlink():
                     if in_custom_dir:
                         # Mirror full absolute path so restore can reconstruct it.
@@ -1660,7 +1660,7 @@ class UE5Game(BaseGame):
             try:
                 folders = self._collect_deployed_ue4ss_folders(manifest, ue4ss_dest)
                 # Build the disabled-by-consensus set from every source
-                # mods.txt across staging — a folder defaults to ``: 0`` only
+                # mods.txt across staging - a folder defaults to ``: 0`` only
                 # if every mod that mentions it sets it to 0. Reuses the
                 # cached modindex.bin to avoid walking disk per mod.
                 from Utils.filemap import read_mod_index as _read_mod_index
@@ -1700,7 +1700,7 @@ class UE5Game(BaseGame):
         """Locate the physical source file for a filemap entry.
 
         Tries in order:
-          1. Overwrite dir (direct join, then the strip-normalised lookup —
+          1. Overwrite dir (direct join, then the strip-normalised lookup -
              the folder holds deployed-layout paths such as
              ``Binaries/Win64/ue4ss/...`` while the filemap entry was
              indexed with strip prefixes applied)
@@ -1719,7 +1719,7 @@ class UE5Game(BaseGame):
             if src is not None:
                 return src
         if mod_name == _OVERWRITE_NAME:
-            # No staging folder exists for the overwrite sentinel — the
+            # No staging folder exists for the overwrite sentinel - the
             # lookups below would just probe staging/[Overwrite]/.
             return None
 
@@ -1729,7 +1729,7 @@ class UE5Game(BaseGame):
         if src is not None:
             return src
 
-        # Re-add global strip prefixes (e.g. "oblivionremastered") — the
+        # Re-add global strip prefixes (e.g. "oblivionremastered") - the
         # filemap stripped them during build but the file on disk still has them.
         # Use case-insensitive lookup since the prefix is stored lowercase.
         if global_strips:
@@ -1774,7 +1774,7 @@ class UE5Game(BaseGame):
 
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
         if not manifest_path.is_file():
-            _log("Restore: no deployed manifest found — nothing to remove.")
+            _log("Restore: no deployed manifest found - nothing to remove.")
             return
 
         # Move runtime-generated files (saves, shader cache, etc.) to overwrite/
@@ -1817,7 +1817,7 @@ class UE5Game(BaseGame):
                 except OSError as exc:
                     _log(f"  WARN: could not remove {rel}: {exc}")
 
-        # Strip our managed UE4SS mods.txt entries — leaves user sentinels intact,
+        # Strip our managed UE4SS mods.txt entries - leaves user sentinels intact,
         # or removes the file entirely if nothing else is left.
         ue4ss_dest = self._resolve_ue4ss_mods_dest()
         if ue4ss_dest is not None:

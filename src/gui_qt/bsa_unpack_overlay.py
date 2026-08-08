@@ -43,7 +43,7 @@ class BsaUnpackOverlay(OverlayBase):
 
         _card, v = self._make_card("UnpackCard", margins=(18, 16, 18, 14))
 
-        title_lbl = QLabel(self.tr("Unpack {0} — {1}").format(kind_label, mod_name))
+        title_lbl = QLabel(self.tr("Unpack {0} - {1}").format(kind_label, mod_name))
         title_lbl.setStyleSheet(
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         v.addWidget(title_lbl)
@@ -112,9 +112,9 @@ class BsaUnpackOverlay(OverlayBase):
             info.addWidget(sub)
         size_mb = g.total_bytes / (1024 * 1024)
         if g.total_files >= 0:
-            totals = f"{g.total_files} file(s) — {size_mb:.1f} MiB"
+            totals = f"{g.total_files} file(s) - {size_mb:.1f} MiB"
         else:
-            totals = f"unreadable — {size_mb:.1f} MiB"
+            totals = f"unreadable - {size_mb:.1f} MiB"
         totals_lbl = QLabel(totals)
         totals_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:11px;")
         info.addWidget(totals_lbl)

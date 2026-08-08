@@ -243,7 +243,7 @@ class _SourceOverlay(_CardOverlay):
         """*option_notes* maps a source to a caveat shown as a ⚠ with the text
         on hover; *disabled_sources* greys a source out entirely. Both are how
         the bulk (multi-mod) path reports that a source only fits part of the
-        selection — see ExportProfileView._bulk_source_notes."""
+        selection - see ExportProfileView._bulk_source_notes."""
         super().__init__(host)
         self._on_pick = on_pick
         option_notes = dict(option_notes or {})
@@ -274,7 +274,7 @@ class _SourceOverlay(_CardOverlay):
             rb.setChecked(value == current_source)
             if value in disabled_sources:
                 # Redistributing a mod users can download themselves isn't ours
-                # to do — see ExportProfileView._bundle_blocked_reason.
+                # to do - see ExportProfileView._bundle_blocked_reason.
                 rb.setEnabled(False)
                 rb.setChecked(False)
             self._group.addButton(rb)
@@ -292,7 +292,7 @@ class _SourceOverlay(_CardOverlay):
         # collection itself, so the curator is redistributing them.
         self._bundle_note = QLabel(self.tr(
             "Bundled files are distributed with the collection itself. Only "
-            "bundle content you have the right to share — generated output "
+            "bundle content you have the right to share - generated output "
             "(DynDOLOD, Synthesis), config files, or your own work."))
         self._bundle_note.setObjectName("CardSub")
         self._bundle_note.setWordWrap(True)
@@ -477,7 +477,7 @@ class _LoadSettingsOverlay(_CardOverlay):
 (_COL_CHECK, _COL_NAME, _COL_SOURCE, _COL_VERSION, _COL_FOMOD, _COL_OPTIONAL,
  _COL_EDITS) = range(7)
 
-# The bulk-select column's header is blank — the checkboxes speak for
+# The bulk-select column's header is blank - the checkboxes speak for
 # themselves and a label would only widen the column. It is still the
 # column_state key its width is persisted under, so it must stay stable.
 _CHECK_COL_NAME = ""
@@ -544,7 +544,7 @@ class ExportProfileView(QWidget):
         self._sort_asc = True
         self._restoring_columns = False
         self._vp_filter_installed = False
-        # Bulk selection: data indices into _all_rows (stable — _all_rows is
+        # Bulk selection: data indices into _all_rows (stable - _all_rows is
         # only ever replaced wholesale by _load_rows, never re-ordered).
         # _check_anchor + _check_range_select drive shift-click ranges the same
         # way DownloadsModel.toggle_check does.
@@ -694,7 +694,7 @@ class ExportProfileView(QWidget):
         "Optional": 78,
         "Edits": 58,
     }
-    # Where the Edits (save_edits) column sits — CreateCollectionView inserts
+    # Where the Edits (save_edits) column sits - CreateCollectionView inserts
     # Phase/Update before it and overrides this.
     _EDITS_COL = _COL_EDITS
 
@@ -856,7 +856,7 @@ class ExportProfileView(QWidget):
     def _checked_rows(self) -> list:
         """The ticked rows, in ``_all_rows`` order. Ticks survive search and
         filter changes (Downloads parity), so this can include rows that are
-        currently hidden — the button labels carry the count to make that
+        currently hidden - the button labels carry the count to make that
         visible before the user acts."""
         return [self._all_rows[i] for i in sorted(self._checked)
                 if 0 <= i < len(self._all_rows)]
@@ -929,7 +929,7 @@ class ExportProfileView(QWidget):
         notes, disabled = self._bulk_source_notes(rows)
 
         def _unanimous(key: str, default: str = "") -> str:
-            """The value all rows share, else "" — a mixed selection starts the
+            """The value all rows share, else "" - a mixed selection starts the
             field blank rather than silently adopting one row's value."""
             vals = {r.get(key, default) or "" for r in rows}
             return vals.pop() if len(vals) == 1 else ""
@@ -1151,7 +1151,7 @@ class ExportProfileView(QWidget):
 
             # Selection tick. Deliberately NOT ItemIsUserCheckable: Qt paints
             # the indicator for any item carrying CheckStateRole, and leaving
-            # the flag off means Qt never toggles it behind our back — every
+            # the flag off means Qt never toggles it behind our back - every
             # change goes through _toggle_check, which owns the shift anchor.
             chk = QTableWidgetItem()
             chk.setFlags(Qt.ItemIsEnabled)
@@ -1239,7 +1239,7 @@ class ExportProfileView(QWidget):
         """Why *row* may not be bundled, or "" when bundling is fine.
 
         A personal ``.amethyst`` export is a backup of the user's own setup, so
-        anything may be packed into it. Publishing is different — see the
+        anything may be packed into it. Publishing is different - see the
         override in CreateCollectionView.
         """
         return ""
@@ -1334,10 +1334,10 @@ class ExportProfileView(QWidget):
         # picker must not silently change the file_id (port of _apply_versions).
         cur_label = row["ver_label"]
         # A real label parses as "<file id> <sep> <version>"; anything else
-        # (the "—" dash, a bare id) is a placeholder we may fill in.
+        # (the "-" dash, a bare id) is a placeholder we may fill in.
         is_placeholder = not profile_export.split_ver_label(cur_label)[0]
         if is_placeholder:
-            # Match by parsed file id, not label prefix — labels use the
+            # Match by parsed file id, not label prefix - labels use the
             # em-dash VER_LABEL_SEP, so a "id -" string match never hits.
             preferred = int(row.get("file_id") or 0)
             matched = next(
@@ -1379,7 +1379,7 @@ class ExportProfileView(QWidget):
         if isinstance(ver_btn, QPushButton):
             ver_btn.setText(row.get("ver_label", "-"))
         # Source flips to/from "bundle" swap the Edits cell between the
-        # checkbox and the dash. Identity match — == would deep-compare dicts
+        # checkbox and the dash. Identity match - == would deep-compare dicts
         # and can hit a structural duplicate.
         data_idx = next(
             (i for i, r in enumerate(self._all_rows) if r is row), None)
@@ -1537,7 +1537,7 @@ class ExportProfileView(QWidget):
             daemon=True, name="export-package").start()
 
     def _snapshot_rows(self) -> list:
-        """A detached copy of the export rows for a worker thread — the table
+        """A detached copy of the export rows for a worker thread - the table
         stays interactive during packing, so workers must not read the live
         dicts the UI is still mutating."""
         return [dict(r) for r in self._all_rows]
@@ -1566,7 +1566,7 @@ class ExportProfileView(QWidget):
 
             # Local file edits → binary patches applied over the pristine
             # download on import (diffing extracts archives, so it can take a
-            # moment — announce it on the indeterminate bar).
+            # moment - announce it on the indeterminate bar).
             scratch: list = []
             try:
                 if any(r.get("save_edits") for r in rows):

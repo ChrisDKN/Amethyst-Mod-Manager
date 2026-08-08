@@ -61,7 +61,7 @@ _SYSTEM_UUIDS: frozenset[str] = frozenset({
 
 # Folder names of base-game modules inside paks (Mods/<Folder>/ or
 # Public/<Folder>/).  A pak that only writes into these folders is a pure
-# override — the game loads it automatically, it needs no load-order entry.
+# override - the game loads it automatically, it needs no load-order entry.
 # Mirrors BG3 Mod Manager's IgnoredMods.json.
 _BUILTIN_FOLDERS: frozenset[str] = frozenset({
     "gustav", "gustavdev", "gustavx", "shared", "shareddev", "engine", "game",
@@ -71,17 +71,17 @@ _BUILTIN_FOLDERS: frozenset[str] = frozenset({
 })
 
 # Builtin paths that don't count as "overriding base-game data" (BG3MM's
-# IgnoreBuiltinPath) — custom UI mods legitimately add new files here.
+# IgnoreBuiltinPath) - custom UI mods legitimately add new files here.
 _BUILTIN_IGNORE_PATH = "game/gui/assets"
 
 _MOD_FOLDER_PATH_RE = re.compile(r"^(mods|public)/([^/]+)/(.+)$")
 
-# Campaign / adventure base-game entry — varies by patch.  Values taken from
+# Campaign / adventure base-game entry - varies by patch.  Values taken from
 # the BG3MM tag that shipped for each patch:
 #   Patch 8  → GustavX (BG3MM master)
-#   Patch 7  → GustavDev (BG3MM 1.0.11.1 — MAIN_CAMPAIGN_UUID)
+#   Patch 7  → GustavDev (BG3MM 1.0.11.1 - MAIN_CAMPAIGN_UUID)
 #   Patch 6  → Gustav (BG3MM 1.0.10.0)
-# Version64 for patch 6/7 is a 1.0.0.0 placeholder — the engine doesn't
+# Version64 for patch 6/7 is a 1.0.0.0 placeholder - the engine doesn't
 # reject "low" campaign versions, so we don't need to read it from the
 # installed Gustav.pak.
 _GUSTAV_X = {
@@ -111,7 +111,7 @@ _GUSTAV_CLASSIC = {
     "Version64":     "36028797018963968",
 }
 
-# Patch 8 modsettings.lsx template — LSX version stamp 4/8/0/100.
+# Patch 8 modsettings.lsx template - LSX version stamp 4/8/0/100.
 _MODSETTINGS_HEADER_P8 = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <save>
@@ -123,7 +123,7 @@ _MODSETTINGS_HEADER_P8 = """\
           <children>
 """
 
-# Patch 7 modsettings.lsx template — LSX version stamp 4/7/1/3 (from
+# Patch 7 modsettings.lsx template - LSX version stamp 4/7/1/3 (from
 # BG3MM 1.0.11.1, the last release targeting patch 7).  Same structure
 # as patch 8 otherwise (no ModOrder block).
 _MODSETTINGS_HEADER_P7 = """\
@@ -146,7 +146,7 @@ _MODSETTINGS_FOOTER_P7 = """\
 </save>
 """
 
-# Patch 6 modsettings.lsx template — includes a ModOrder node and
+# Patch 6 modsettings.lsx template - includes a ModOrder node and
 # uses the LSX version stamp shipped by BG3MM 1.0.10.0 (the last release
 # targeting patch 6): major=4, minor=0, revision=9, build=331.
 _MODSETTINGS_HEADER_P6 = """\
@@ -174,7 +174,7 @@ _MODSETTINGS_FOOTER_P6 = """\
 </save>
 """
 
-# Patch 7/8 mod entry — uses PublishHandle + Version64
+# Patch 7/8 mod entry - uses PublishHandle + Version64
 _MOD_ENTRY_TEMPLATE_P7 = """\
             <node id="ModuleShortDesc">
               <attribute id="Folder" type="LSString" value="{Folder}"/>
@@ -186,7 +186,7 @@ _MOD_ENTRY_TEMPLATE_P7 = """\
             </node>
 """
 
-# Patch 6 mod entry — no PublishHandle; UUID is FixedString instead of guid.
+# Patch 6 mod entry - no PublishHandle; UUID is FixedString instead of guid.
 # Based verbatim on BG3MM 1.0.10.0's XML_MODULE_SHORT_DESC (the last BG3MM
 # release that targeted patch 6).
 _MOD_ENTRY_TEMPLATE_P6 = """\
@@ -220,17 +220,17 @@ class BG3ModInfo:
     version64: str
     md5: str = ""
     publish_handle: str = "0"
-    # Legacy "Version" attribute — same 64-bit packed layout as Version64,
+    # Legacy "Version" attribute - same 64-bit packed layout as Version64,
     # apart from two historic 1.0.0.0 encodings (see _version64_or_default).
     version: str = ""
-    # ModuleInfo "Type" attribute — "Adventure" marks a custom campaign that
+    # ModuleInfo "Type" attribute - "Adventure" marks a custom campaign that
     # should replace GustavX as the top modsettings entry.
     mod_type: str = ""
     # UUIDs of mods this mod depends on
     dependencies: list[str] = field(default_factory=list)
     # The mod-list name (staging folder name) this came from
     source_mod: str = ""
-    # True when the pak only overrides base-game module folders — the game
+    # True when the pak only overrides base-game module folders - the game
     # loads it automatically; it must not get a load-order entry.
     is_override_only: bool = False
     # True when the pak ships a ScriptExtender/Config.json with RequiredVersion.
@@ -371,15 +371,15 @@ def scan_mod_paks(
     meta.lsx from each and collect the metadata.  If a mod folder contains
     multiple .pak files, each one that has a meta.lsx is recorded.
 
-    *no_metadata* — optional list; enabled mods that contain at least one .pak
+    *no_metadata* - optional list; enabled mods that contain at least one .pak
     but yielded no usable meta.lsx are appended (with the reason) for the
     caller to surface as a diagnostic.
 
-    *excluded* — optional {mod_name: {rel_path_lower, ...}} of files the user
+    *excluded* - optional {mod_name: {rel_path_lower, ...}} of files the user
     excluded in the Mod Files tab; those paks are not deployed, so they must
     not get a modsettings entry either.
 
-    *extra_dirs* — {mod_name: folder} for pseudo-mods outside *staging_root*
+    *extra_dirs* - {mod_name: folder} for pseudo-mods outside *staging_root*
     (the overwrite folder). Duplicate UUIDs: last scanned wins, and callers pass
     *enabled_mods* lowest-priority-first, so that matches what deploy picks.
     """
@@ -410,7 +410,7 @@ def scan_mod_paks(
                 continue
             if info.uuid in _SYSTEM_UUIDS:
                 # Override of a base-game module (e.g. a party-size mod's
-                # Mods/GustavX/meta.lsx copy, or a vanilla pak replacement) —
+                # Mods/GustavX/meta.lsx copy, or a vanilla pak replacement) -
                 # never emit a base module as a user mod entry.
                 got_meta = True
                 continue
@@ -469,7 +469,7 @@ def resolve_load_order(
 ) -> list[BG3ModInfo]:
     """Return BG3ModInfo entries in dependency-correct load order.
 
-    The user's modlist order is respected as much as possible — the resolver
+    The user's modlist order is respected as much as possible - the resolver
     only reorders when a dependency must be loaded before a dependent.
 
     Algorithm (mirrors BG3 Mod Manager):
@@ -478,7 +478,7 @@ def resolve_load_order(
     """
     # Build a lookup: source_mod name → list of BG3ModInfo.
     # A single staging folder can contain many .pak files (e.g. load-order
-    # divider packs with 30+ paks), each with its own UUID/meta.lsx — they
+    # divider packs with 30+ paks), each with its own UUID/meta.lsx - they
     # all need to be emitted into modsettings.lsx.
     by_source: dict[str, list[BG3ModInfo]] = {}
     for info in mod_infos.values():
@@ -558,7 +558,7 @@ def _version64_or_default(info: BG3ModInfo) -> str:
 
 
 def _campaign_dict(patch_version: int, campaign: BG3ModInfo | None) -> dict[str, str]:
-    """Return the campaign entry dict — an Adventure mod or the stock one."""
+    """Return the campaign entry dict - an Adventure mod or the stock one."""
     if campaign is None:
         return _campaign_entry(patch_version)
     return {
@@ -578,7 +578,7 @@ def build_modsettings_xml(
 ) -> str:
     """Build the full modsettings.lsx XML string for the given patch.
 
-    *campaign* — optional Adventure mod that replaces the stock campaign
+    *campaign* - optional Adventure mod that replaces the stock campaign
     entry at the top (custom campaigns).  None keeps GustavX/GustavDev/Gustav.
     """
     if patch_version <= 6:
@@ -666,7 +666,7 @@ def _apply_manifest_pak_order(
     ``manifest_load_order`` in order. Manifest entries point at pak files via
     their ``id`` field. Paks present on disk but missing from the manifest
     (user-added patches, mods installed outside the collection) are appended
-    at the end — that maps to "top of modlist.txt" = highest priority for
+    at the end - that maps to "top of modlist.txt" = highest priority for
     overrides, which matches how this manager treats user-added content.
 
     Returns BG3ModInfo entries in lowest-priority-first order (ready for
@@ -745,27 +745,27 @@ def write_modsettings(
 ) -> int:
     """End-to-end: scan paks, resolve order, write modsettings.lsx.
 
-    *script_extender_dll* — optional path to the game's ``bin/DWrite.dll``.
+    *script_extender_dll* - optional path to the game's ``bin/DWrite.dll``.
     When given and missing on disk, a warning is logged for every mod whose
     pak declares a Script Extender requirement.
 
-    *game_data_path* — optional path to the game's ``Data/`` directory.
+    *game_data_path* - optional path to the game's ``Data/`` directory.
     When provided, .pak files there are scanned so that base-game / DLC /
     patch module UUIDs are recognised during the dependency check and don't
     produce false "not installed" warnings.
 
-    *patch_version* — 6, 7, or 8.  Controls the modsettings.lsx schema:
+    *patch_version* - 6, 7, or 8.  Controls the modsettings.lsx schema:
       - 8: GustavX campaign, Mods node only, Version64 + PublishHandle
       - 7: Gustav campaign, Mods node only, Version64 + PublishHandle
       - 6: Gustav campaign, ModOrder + Mods nodes, 32-bit Version
 
-    *manifest_load_order* — optional list of entries from a collection
+    *manifest_load_order* - optional list of entries from a collection
     manifest's ``loadOrder`` array. When provided, paks are emitted in the
-    manifest's exact order (curators interleave paks from different mods —
-    e.g. load-order divider packs — which the default folder-walk order
+    manifest's exact order (curators interleave paks from different mods -
+    e.g. load-order divider packs - which the default folder-walk order
     destroys). Paks installed but not in the manifest are appended.
 
-    *overwrite_root* — paks the in-game mod manager wrote there deploy at the
+    *overwrite_root* - paks the in-game mod manager wrote there deploy at the
     highest priority, so they need load-order entries too (else they never load).
 
     Returns the number of mod entries written (excluding the campaign entry).
@@ -779,7 +779,7 @@ def write_modsettings(
     enabled = list(reversed(enabled))
     extra_dirs: dict[str, Path] = {}
     if overwrite_root is not None and overwrite_root.is_dir():
-        # Overwrite outranks every staged mod — append it last (= highest).
+        # Overwrite outranks every staged mod - append it last (= highest).
         enabled.append(ModEntry(name=_OVERWRITE_NAME, enabled=True, locked=False))
         extra_dirs[_OVERWRITE_NAME] = overwrite_root
 
@@ -801,7 +801,7 @@ def write_modsettings(
             _log(f"    - {desc}")
 
     if not mod_infos:
-        _log("No mod metadata found — writing vanilla modsettings.lsx.")
+        _log("No mod metadata found - writing vanilla modsettings.lsx.")
         xml = build_modsettings_xml([], patch_version=patch_version)
         modsettings_path.parent.mkdir(parents=True, exist_ok=True)
         modsettings_path.write_text(xml, encoding="utf-8")
@@ -818,13 +818,13 @@ def write_modsettings(
              f"missing): {', '.join(se_mods)}")
 
     # Pure override paks (only touch base-game module folders) are loaded by
-    # the game automatically and must stay out of the load order — same as
+    # the game automatically and must stay out of the load order - same as
     # BG3 Mod Manager's "Overrides" section.
     override_only = sorted((i for i in mod_infos.values() if i.is_override_only),
                            key=lambda i: i.name)
     eligible = {u: i for u, i in mod_infos.items() if not i.is_override_only}
     if override_only:
-        _log(f"  {len(override_only)} pak(s) only override base-game files — "
+        _log(f"  {len(override_only)} pak(s) only override base-game files - "
              "loaded automatically, left out of the load order:")
         for i in override_only:
             _log(f"    - {i.name} ({i.source_mod})")
@@ -844,7 +844,7 @@ def write_modsettings(
         campaign_mod = adventures[-1]  # highest priority wins
         if len(adventures) > 1:
             _log("  WARNING: multiple Adventure (custom campaign) mods "
-                 f"installed: {', '.join(m.name for m in adventures)} — "
+                 f"installed: {', '.join(m.name for m in adventures)} - "
                  f"using '{campaign_mod.name}'.")
         ordered = [m for m in ordered if m.uuid != campaign_mod.uuid]
         _log(f"  Adventure mod '{campaign_mod.name}' set as the campaign "

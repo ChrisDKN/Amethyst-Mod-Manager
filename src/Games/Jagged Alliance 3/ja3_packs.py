@@ -4,7 +4,7 @@ Route loose .hpk map/pack files into the game install Packs/ tree.
 
 Most JA3 mods install into the prefix AppData Mods/ folder (handled by the
 normal deploy).  A few ship a loose ``<something>.hpk`` (NOT ``ModContent.hpk``)
-that must replace a vanilla pack inside the game install — usually
+that must replace a vanilla pack inside the game install - usually
 ``Packs/Maps/<name>.hpk``.  These overwrite vanilla files, so the originals are
 backed up on deploy and put back on restore.
 
@@ -43,7 +43,7 @@ def _iter_loose_hpks(filemap_path: Path, staging: Path):
     """Yield (mod_name, rel_str, src_path) for every routable loose .hpk.
 
     "Loose" here means a .hpk that is not ModContent.hpk; its position inside
-    the mod folder is irrelevant — what matters is that it matches a vanilla
+    the mod folder is irrelevant - what matters is that it matches a vanilla
     pack by basename (checked by the caller).
     """
     if not filemap_path.is_file():
@@ -91,7 +91,7 @@ def deploy_packs(
         if vanilla is None:
             _log(
                 f"  WARN: '{name}' ({mod_name}) has no matching vanilla pack "
-                f"under {_PACKS_DIR}/ — skipped (place it manually)."
+                f"under {_PACKS_DIR}/ - skipped (place it manually)."
             )
             continue
         # Back up the vanilla file (mirrored under game_root) before replacing.

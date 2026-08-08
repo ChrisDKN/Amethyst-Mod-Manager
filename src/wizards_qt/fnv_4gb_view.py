@@ -1,4 +1,4 @@
-"""FNV 4GB Patch wizard — Qt port of wizards/fnv_4gb_patch.py.
+"""FNV 4GB Patch wizard - Qt port of wizards/fnv_4gb_patch.py.
 
 Single page: hashes FalloutNV.exe (worker), reports its patch state, and
 offers Apply (large-address-aware + NVSE-loader byte patches, original kept
@@ -37,7 +37,7 @@ class Fnv4GbView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("4GB Patch — {0}").format(game.name))
+                         title=self.tr("4GB Patch - {0}").format(game.name))
         self._game_root = game.get_game_path()
         self._busy = False
 
@@ -55,7 +55,7 @@ class Fnv4GbView(WizardViewBase):
     def _build_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Fallout New Vegas 4GB Patch"))
         self._make_note(lay, (
-            self.tr('Patches FalloutNV.exe so the game can use 4 GB of memory\nand loads NVSE automatically at startup.\n\nUnder Proton this mostly silences in-game warnings from mods\nthat check for the patch, but it is safe and recommended.\n\nWhile "Apply the 4GB patch automatically" is enabled in\nConfigure Game (the default), deploy applies the patch and\nrestore reverts it — disable that option to manage the patch\nmanually here.\n\nThe original exe is kept as {0}.').format(BACKUP_NAME)))
+            self.tr('Patches FalloutNV.exe so the game can use 4 GB of memory\nand loads NVSE automatically at startup.\n\nUnder Proton this mostly silences in-game warnings from mods\nthat check for the patch, but it is safe and recommended.\n\nWhile "Apply the 4GB patch automatically" is enabled in\nConfigure Game (the default), deploy applies the patch and\nrestore reverts it - disable that option to manage the patch\nmanually here.\n\nThe original exe is kept as {0}.').format(BACKUP_NAME)))
         lay.addSpacing(8)
         self._exe_status = self._make_status(lay)
         self._backup_status = self._make_status(lay)
@@ -111,7 +111,7 @@ class Fnv4GbView(WizardViewBase):
                 variant = info['variant']
                 safe_emit(self._exe_status_sig,
                           self.tr("Unpatched {0} detected ({1} "
-                          "version) — ready to patch.").format(EXE_NAME, variant), "")
+                          "version) - ready to patch.").format(EXE_NAME, variant), "")
             else:
                 exe_hash = info['hash']
                 safe_emit(self._exe_status_sig,
@@ -138,10 +138,10 @@ class Fnv4GbView(WizardViewBase):
         self._set_buttons(False, False)
         # Patching creates FalloutNV_backup.exe in the game root. If a profile
         # is deployed, that file is absent from the deploy snapshot, so the
-        # next restore would sweep it into overwrite/ as a runtime file —
+        # next restore would sweep it into overwrite/ as a runtime file -
         # restore the modlist first, patch the vanilla root, then redeploy.
         if getattr(self._game, "get_deploy_active", lambda: False)():
-            self._log("4GB patch wizard: modlist is deployed — restoring "
+            self._log("4GB patch wizard: modlist is deployed - restoring "
                       "before patching (redeploys afterwards).")
 
             def _restore_failed():
@@ -201,7 +201,7 @@ class Fnv4GbView(WizardViewBase):
                 restore_backup(game_root)
                 self._log(f"4GB patch wizard: restored {EXE_NAME} from {BACKUP_NAME}.")
                 if getattr(self._game, "auto_4gb_patch", False):
-                    self._log("4GB patch wizard: note — automatic patching is "
+                    self._log("4GB patch wizard: note - automatic patching is "
                               "enabled, so the next deploy will re-apply the "
                               "patch (disable it in Configure Game to manage "
                               "the patch manually).")

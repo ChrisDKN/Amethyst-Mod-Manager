@@ -3,7 +3,7 @@
 #
 # Prerequisites:
 #   - Flatpak installed. flatpak-builder is provided by the org.flatpak.Builder
-#     flatpak (installed automatically when missing — no sudo or rootfs writes).
+#     flatpak (installed automatically when missing - no sudo or rootfs writes).
 #     Useful on SteamOS where the rootfs is read-only.
 #   - KDE runtime + PySide BaseApp (auto-installed by --install-deps-from=flathub):
 #       flatpak install flathub org.kde.Platform//6.9 org.kde.Sdk//6.9 io.qt.PySide.BaseApp//6.9
@@ -83,7 +83,7 @@ if [ "$BUNDLE_MODE" = true ]; then
   echo ""
   echo "=== Bundle created: ${BUNDLE_FILE} ==="
   echo "Install with: flatpak install --user ${BUNDLE_FILE}"
-  # Bundle installs do NOT pull the app's related refs — the 32-bit compat
+  # Bundle installs do NOT pull the app's related refs - the 32-bit compat
   # extensions the manifest declares must be installed separately (the app
   # also self-heals this at startup via Utils/flatpak_i386.py).
   echo "Then install 32-bit support (bundle installs skip related refs):"

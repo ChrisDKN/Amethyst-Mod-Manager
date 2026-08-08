@@ -3,14 +3,14 @@
 UE4SS's BPModLoaderMod enumerates the hardcoded ``Content/Paks/LogicMods``
 directory and, for every ``.pak`` it finds, derives an asset path of
 ``/Game/Mods/<pak-filename-stem>/ModActor`` which it then loads from the asset
-registry and spawns via ``World:SpawnActor``. It never mounts anything — the
+registry and spawns via ``World:SpawnActor``. It never mounts anything - the
 engine's own recursive scan of ``Content/Paks`` does that.
 
 The consequence is an asymmetry that makes this detection worth doing:
 
 * A blueprint mod dropped in ``~mods`` still mounts, and its assets are still
   loadable, but nothing ever spawns the ModActor because the spawn list comes
-  exclusively from the ``LogicMods`` listing. The mod silently does nothing —
+  exclusively from the ``LogicMods`` listing. The mod silently does nothing -
   no crash, no error, not even a log line.
 * An asset replacer dropped in ``LogicMods`` still works, because replacers
   win by colliding with vanilla asset paths and mounting alone is enough.
@@ -37,7 +37,7 @@ from Utils.ue_pak_reader import read_ue_archive_file_list
 # IoStore mod ships all three sharing a filename stem; splitting them (pak in
 # LogicMods, bulk data in ~mods) would break the mod outright.
 GROUP_EXTENSIONS = (".pak", ".utoc", ".ucas")
-# .ucas holds only bulk data — no names — so it is never worth opening.
+# .ucas holds only bulk data - no names - so it is never worth opening.
 PROBE_EXTENSIONS = (".pak", ".utoc")
 
 # ``Mods/<Name>/<something>ModActor<something>`` anywhere in the archive.
@@ -126,7 +126,7 @@ def is_logic_mod(
 ) -> bool:
     """True when this stem group is a UE4SS blueprint mod.
 
-    Probes the group's ``.pak`` and ``.utoc`` members — an IoStore mod's ``.pak``
+    Probes the group's ``.pak`` and ``.utoc`` members - an IoStore mod's ``.pak``
     is often a stub with no index while the ModActor lives in the ``.utoc``, so
     either member vouching for the group is enough.
 
@@ -148,7 +148,7 @@ def is_logic_mod(
         if log_fn is not None and mod_name is not None and mod_name != stem:
             log_fn(
                 f"LogicMods detect: '{norm}' contains Mods/{mod_name}/ModActor "
-                f"but the archive stem is '{stem}' — UE4SS builds the asset "
+                f"but the archive stem is '{stem}' - UE4SS builds the asset "
                 f"path from the filename, so this mod will not load until the "
                 f"file is renamed to '{mod_name}{name_lower[len(stem):]}'."
             )
@@ -167,7 +167,7 @@ def logic_mod_entries(
     pipeline works on, where ``staged_rel`` is the raw on-disk path relative to
     ``<staging_root>/<mod_name>``.
 
-    Groups already living under a ``LogicMods`` folder are skipped — they need
+    Groups already living under a ``LogicMods`` folder are skipped - they need
     no help and the author's intent wins. Everything else that positively
     matches is returned; anything unreadable or unmatched is simply absent, so
     the caller's existing rules still decide.

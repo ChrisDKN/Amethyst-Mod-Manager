@@ -1,11 +1,11 @@
-"""View Requirements panel — two side-by-side lists showing which mods the
+"""View Requirements panel - two side-by-side lists showing which mods the
 selected mod requires ("Requires", purple) and which installed mods require it
 ("Required by", blue). Opens as a plugins-panel-scoped tab and follows the
 modlist selection while open (the window suppresses conflict highlights and
 tints the related rows with the same two colours instead).
 
 Entirely offline: it reads the full requirements list the update checker stores
-in each mod's meta.ini (`nexusRequirements`, "modId:name" pairs) — no API calls.
+in each mod's meta.ini (`nexusRequirements`, "modId:name" pairs) - no API calls.
 Requirements that aren't installed are shown dimmed with the Nexus mod name.
 """
 
@@ -61,19 +61,19 @@ class RequirementsView(QWidget):
         self._on_close = on_close or (lambda: None)
         # Called after every rebuild so the window can re-tint the modlist.
         self._on_data_changed = on_data_changed or (lambda: None)
-        # on_focus_changed(visible: bool) — fired when this scoped tab is shown
+        # on_focus_changed(visible: bool) - fired when this scoped tab is shown
         # or hidden (the user switches to/from another tab in the same panel).
         # The window uses it to enable requirement highlights only while the
         # tab is actually on screen, restoring conflict highlights otherwise.
         self._on_focus_changed = on_focus_changed or (lambda _v: None)
-        # on_view_missing(names: list[str]) — opens the Missing Requirements
+        # on_view_missing(names: list[str]) - opens the Missing Requirements
         # panel for the current selection (the window filters to mods that
         # actually have missing requirements).
         self._on_view_missing = on_view_missing or (lambda _n: None)
 
         # Selected mod folder names (multiple pool their requirements together).
         self.current_mods: list[str] = []
-        # Installed mod FOLDER names related to the selection — the window reads
+        # Installed mod FOLDER names related to the selection - the window reads
         # these to drive the purple/blue modlist highlights.
         self.installed_requires: set[str] = set()
         self.installed_required_by: set[str] = set()
@@ -160,7 +160,7 @@ class RequirementsView(QWidget):
     def show_mods(self, mod_names):
         """Retarget the panel to the selected mods (empty = nothing selected).
         Several mods pool their requirements together. The rebuild is deferred
-        off the selection handler's stack — same pattern as the Mod Files tab."""
+        off the selection handler's stack - same pattern as the Mod Files tab."""
         self.current_mods = list(mod_names or ())
         self._request_repopulate()
 
@@ -204,9 +204,9 @@ class RequirementsView(QWidget):
 
         names = list(self.current_mods)
         if len(names) == 1:
-            title = self.tr("Requirements — {0}").format(names[0])
+            title = self.tr("Requirements - {0}").format(names[0])
         elif names:
-            title = self.tr("Requirements — {0} mods").format(len(names))
+            title = self.tr("Requirements - {0} mods").format(len(names))
         else:
             title = self.tr("Requirements")
         self._title.setText(title)
@@ -220,7 +220,7 @@ class RequirementsView(QWidget):
         from Nexus.nexus_meta import read_meta, scan_installed_mods, parse_req_pairs
         selected_set = set(names)
         metas = [read_meta(staging / n / "meta.ini") for n in names]
-        # Only Nexus mods carry requirement data — filter out the rest but keep
+        # Only Nexus mods carry requirement data - filter out the rest but keep
         # going as long as at least one selected mod is Nexus-backed.
         nexus_metas = [m for m in metas if m.mod_id > 0]
         if not nexus_metas:
@@ -229,7 +229,7 @@ class RequirementsView(QWidget):
         self._set_hint(None)
 
         # The Missing Requirements button is only useful when the selection
-        # actually has stored missing requirements — enable it accordingly.
+        # actually has stored missing requirements - enable it accordingly.
         has_missing = any(m.missing_requirements for m in nexus_metas)
         self._missing_btn.setEnabled(has_missing)
         self._missing_btn.setToolTip(
@@ -251,7 +251,7 @@ class RequirementsView(QWidget):
         seen_req: set[int] = set()
         for m in nexus_metas:
             for rid, rname in parse_req_pairs(m.nexus_requirements):
-                # External requirements (id 0 — off-Nexus tools like SKSE/ENB/
+                # External requirements (id 0 - off-Nexus tools like SKSE/ENB/
                 # Nemesis) aren't actionable here (no folder to map, nothing to
                 # install), so they're left out of the list entirely.
                 if rid <= 0:
@@ -260,7 +260,7 @@ class RequirementsView(QWidget):
                     continue
                 seen_req.add(rid)
                 # A selected mod that another selected mod requires isn't an
-                # external dependency to show — it's already in the anchor set.
+                # external dependency to show - it's already in the anchor set.
                 if rid in selected_ids:
                     continue
                 if rid in by_id:
@@ -295,7 +295,7 @@ class RequirementsView(QWidget):
                 self.installed_required_by.add(m.mod_name)
         if self._required_by_list.count() == 0:
             # Distinguish "no dependents" from "no other mod has been checked
-            # yet" — otherwise "(none)" would be misleading before any check.
+            # yet" - otherwise "(none)" would be misleading before any check.
             self._add_row(
                 self._required_by_list,
                 self.tr("(none)") if have_data
@@ -313,7 +313,7 @@ class RequirementsView(QWidget):
 
     def _set_hint(self, text: str | None):
         """Show a hint instead of the lists (or the lists when *text* is None).
-        Highlights are already cleared by the reset at the top of _repopulate —
+        Highlights are already cleared by the reset at the top of _repopulate -
         the on_data_changed callback pushes the (empty) sets to the window."""
         if text is None:
             self._status.setVisible(False)

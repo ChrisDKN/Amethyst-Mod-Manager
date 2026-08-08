@@ -1,9 +1,9 @@
-"""Restore backup overlay — lists a profile's backups (snapshots of
+"""Restore backup overlay - lists a profile's backups (snapshots of
 modlist.txt / plugins.txt / state JSON) so the user can restore one, mark it
 "kept", create a fresh backup, or remove one.
 
 The list is split into two sections: user-made backups (created via the
-New backup button, or automated ones marked Keep — never pruned, no limit)
+New backup button, or automated ones marked Keep - never pruned, no limit)
 and automated backups (created before every deploy, pruned to the newest 20).
 
 Opens as a plugins-panel-scoped tab (covers the whole plugins panel while the
@@ -11,7 +11,7 @@ modlist stays live). Qt port of the Tk gui/backup_restore_dialog.py; reuses the
 neutral backup logic in Utils.profile_backup verbatim.
 
 Backup operations are fast local file copies, so everything runs synchronously
-on the UI thread — no worker/Signal marshalling needed.
+on the UI thread - no worker/Signal marshalling needed.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class BackupRestoreView(QWidget):
         # Toolbar: title + Close.
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Restore backup — {0}").format(self._profile_name))
+        title = QLabel(self.tr("Restore backup - {0}").format(self._profile_name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -81,7 +81,7 @@ class BackupRestoreView(QWidget):
         info.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; padding:8px 12px 4px 12px;")
         v.addWidget(info)
 
-        # Backup list — rows carry a rich card widget (see _make_card).
+        # Backup list - rows carry a rich card widget (see _make_card).
         self._list = QListWidget()
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
         self._list.setSpacing(6)
@@ -204,7 +204,7 @@ class BackupRestoreView(QWidget):
             g.addWidget(badge, 0, 1, Qt.AlignRight)
         g.setColumnStretch(0, 1)
 
-        # Row 1: date subline — only when a label has taken the title's place.
+        # Row 1: date subline - only when a label has taken the title's place.
         row = 1
         if label:
             sub = QLabel(date_str)
@@ -256,7 +256,7 @@ class BackupRestoreView(QWidget):
     def _on_create(self):
         try:
             create_backup(self._profile_dir, log_fn=self._log, manual=True)
-        except Exception as exc:  # noqa: BLE001 — surface, don't crash the tab
+        except Exception as exc:  # noqa: BLE001 - surface, don't crash the tab
             self._log(f"[backup] create failed: {exc}")
         self._reload_list()
 

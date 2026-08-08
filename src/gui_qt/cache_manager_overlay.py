@@ -1,11 +1,11 @@
-"""Cache manager — borderless in-window overlay (Qt port of Tk
+"""Cache manager - borderless in-window overlay (Qt port of Tk
 gui/cache_manager_overlay.py).
 
 A per-game download-cache browser: a scrollable list of each game's cache with
 its size, plus (kept from the old Qt stub) a "leftover temp folders" row for
 orphaned ``modmgr_*`` dirs. Select rows and Clear Selected / Clear All.
 
-A dimmed borderless child of ``host.window()`` (NOT a top-level — gaming mode
+A dimmed borderless child of ``host.window()`` (NOT a top-level - gaming mode
 opens top-levels behind the app), matching gui_qt/list_picker_overlay.py and
 gui_qt/confirm_overlay.py. Size scans + clears run on daemon threads and marshal
 back to the UI thread via Signals (workers never touch widgets).
@@ -26,7 +26,7 @@ from gui_qt.theme_qt import active_palette, _c
 from gui_qt.confirm_overlay import ConfirmOverlay
 from Utils.config_paths import get_download_cache_dir
 
-# Sentinel key (in the checkbox / size-label dicts) for the orphaned-temp row —
+# Sentinel key (in the checkbox / size-label dicts) for the orphaned-temp row -
 # not a real per-game cache name, so it can't collide with one.
 _ORPHANS = "\x00__orphans__"
 
@@ -62,7 +62,7 @@ class CacheManagerOverlay(OverlayBase):
         self._orphans_ready.connect(self._on_orphans)
         self._clear_done.connect(self._on_clear_done)
 
-        # Only style the card itself — the buttons inherit the global QSS
+        # Only style the card itself - the buttons inherit the global QSS
         # #DangerButton/#FormButton/#PrimaryButton rules (all with min-height:30
         # so the action-bar buttons stay the same size). A local #DangerButton
         # override here previously made "Clear All" a different height.
@@ -75,7 +75,7 @@ class CacheManagerOverlay(OverlayBase):
         self._build_actions(outer)
 
         self._present()
-        # Even the cheap cache-root listdir can stall on a cold/network disk —
+        # Even the cheap cache-root listdir can stall on a cold/network disk -
         # defer it a tick so the overlay paints instantly. Everything costlier
         # (sizes, the staging-root orphan sweep) runs on the scan thread.
         self._total_lbl.setText(self.tr("Total: calculating…"))
@@ -186,7 +186,7 @@ class CacheManagerOverlay(OverlayBase):
         self._start_size_scan()
 
     def _repaint(self):
-        """Per-game rows only — one listdir of the cache root, no tree walks.
+        """Per-game rows only - one listdir of the cache root, no tree walks.
 
         The leftover-temp row needs a sweep of every staging root, so it's
         appended later by :meth:`_on_orphans` off the scan thread.
@@ -233,7 +233,7 @@ class CacheManagerOverlay(OverlayBase):
         name_lbl = QLabel(label_text)
         name_lbl.setStyleSheet(f"color:{color}; font-size:13px;")
         h.addWidget(name_lbl, 1)
-        size_lbl = QLabel("—")
+        size_lbl = QLabel("-")
         size_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:12px;")
         size_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         size_lbl.setMinimumWidth(80)
@@ -243,7 +243,7 @@ class CacheManagerOverlay(OverlayBase):
 
     # ---- size scan (daemon -> Signal) --------------------------------------
     def _start_size_scan(self):
-        """Size the per-game caches, then sweep for orphans — two emits, so the
+        """Size the per-game caches, then sweep for orphans - two emits, so the
         (fast) cache sizes land without waiting on the (slower) staging walk."""
         names = [k for k in self._size_lbls if k != _ORPHANS]
 

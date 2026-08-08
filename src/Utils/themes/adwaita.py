@@ -11,7 +11,7 @@ NAME = "Adwaita"
 CTK_APPEARANCE = "light"
 
 PALETTE: dict[str, str | tuple] = {
-    # Backgrounds — Breeze "window" / "view" / "button" greys.
+    # Backgrounds - Breeze "window" / "view" / "button" greys.
     "BG_DEEP":       "#fafafb",   # window background
     "BG_PANEL":      "#ebebed",   # raised panel
     "BG_HEADER":     "#fafafb",   # toolbar / header / button base
@@ -24,12 +24,12 @@ PALETTE: dict[str, str | tuple] = {
     "BG_SELECT":     "#3584e4",   # Breeze selection blue
     "BG_HOVER_ROW":  "#ffffff",
 
-    # Accents — Breeze blue.
+    # Accents - Breeze blue.
     "ACCENT":        "#3584e4",
     "ACCENT_HOV":    "#1c71d8",
     "TEXT_ON_ACCENT":"#ffffff",
 
-    # Text — Breeze foreground greys.
+    # Text - Breeze foreground greys.
     "TEXT_MAIN":     "#262626",
     "TEXT_DIM":      "#5e5c64",
     "TEXT_MUTED":    "#77767b",
@@ -44,12 +44,12 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_ERR_BRIGHT":  "#e01b24",
     "TEXT_WARN_BRIGHT": "#e5a50a",
 
-    # Borders — subtle Breeze separators.
+    # Borders - subtle Breeze separators.
     "BORDER":        "#c0bfbc",
     "BORDER_DIM":    "#d5d4d0",
     "BORDER_FAINT":  "#e4e3e2",
 
-    # Buttons — reds
+    # Buttons - reds
     "RED_BTN":       "#e01b24",
     "RED_HOV":       "#c01c28",
     "BTN_DANGER":        "#e01b24",
@@ -61,7 +61,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#a51d2d",
     "BTN_CANCEL_HOV":    "#8c1a24",
 
-    # Buttons — greens
+    # Buttons - greens
     "BTN_SUCCESS":          "#26a269",
     "BTN_SUCCESS_HOV":      "#229360",
     "BTN_SUCCESS_ALT":      "#1d7d52",
@@ -69,7 +69,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#15583a",
     "BTN_SUCCESS_DEEP_HOV": "#114930",
 
-    # Buttons — oranges
+    # Buttons - oranges
     "BTN_WARN":          "#e5a50a",
     "BTN_WARN_HOV":      "#ce9309",
     "BTN_WARN_DEEP":     "#ad7c08",
@@ -79,7 +79,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#c47e00",
     "BTN_WARN_ORANGE_HOV":"#a86b00",
 
-    # Buttons — blues
+    # Buttons - blues
     "BTN_INFO":          "#3584e4",
     "BTN_INFO_HOV":      "#1c71d8",
     "BTN_INFO_DEEP":     "#1961bd",
@@ -87,13 +87,13 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#4a565d",
     "BTN_NEUTRAL_HOV":   "#506069",
 
-    # Buttons — greys
+    # Buttons - greys
     "BTN_GREY":        "#d5d4d0",
     "BTN_GREY_HOV":    "#d9d8d4",
     "BTN_GREY_ALT":    "#c0bfbc",
     "BTN_GREY_ALT_HOV":"#c7c6c4",
 
-    # Buttons — purples
+    # Buttons - purples
     "BTN_PURPLE":     "#9141ac",
     "BTN_PURPLE_HOV": "#813d9c",
 
@@ -196,7 +196,7 @@ PALETTE: dict[str, str | tuple] = {
     "REQ_HL_REQUIRES":    "#9141ac",   # mods the selection requires (purple)
     "REQ_HL_REQUIRED_BY": "#1961bd",   # mods that require the selection (blue)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#def5e5", "FRAMEWORK_INSTALLED_FG": "#1a7d3a",
     "FRAMEWORK_STAGED_BG":    "#fdf5e6", "FRAMEWORK_STAGED_FG":    "#856404",
     "FRAMEWORK_DISABLED_BG":  "#eef4fa", "FRAMEWORK_DISABLED_FG":  "#1961bd",

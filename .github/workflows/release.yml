@@ -16,7 +16,7 @@ on:
       publish_live_channel:
         description: >-
           Publish this build to the LIVE remote (gh-pages) on the chosen
-          channel WITHOUT creating a GitHub Release — for rehearsing a stable
+          channel WITHOUT creating a GitHub Release - for rehearsing a stable
           release against real clients before tagging. Only remote-enrolled
           installs see it; GitHub-release update paths are untouched. Undo
           with the Rollback workflow. Ignored when dry_run_pages is set.
@@ -39,7 +39,7 @@ jobs:
     # export commits (required for the bundle's embedded --gpg-keys to verify).
     secrets: inherit
     with:
-      # A Pages dry-run only needs the Flatpak repo artifact — skip the
+      # A Pages dry-run only needs the Flatpak repo artifact - skip the
       # AppImage build to save CI time. Real runs build both.
       build_appimage: ${{ !inputs.dry_run_pages }}
       build_flatpak: true
@@ -50,7 +50,7 @@ jobs:
 
   # ────────────────────────────────────────────────────────────────────
   # Publish a GitHub Release with the AppImage and Flatpak bundle.
-  # Runs only on tag pushes — workflow_dispatch runs still upload
+  # Runs only on tag pushes - workflow_dispatch runs still upload
   # artifacts to the run page but skip this job.
   # ────────────────────────────────────────────────────────────────────
   release:
@@ -139,7 +139,7 @@ jobs:
 
       # When publishing a new beta, remove older prereleases (and their
       # tags) so only the latest beta is visible on the releases page.
-      # Each beta keeps its own unique tag at publish time — the auto
+      # Each beta keeps its own unique tag at publish time - the auto
       # updater only needs the new tag to exist.
       - name: Delete previous beta releases
         if: contains(github.ref_name, '-')
@@ -166,7 +166,7 @@ jobs:
   # ────────────────────────────────────────────────────────────────────
   # Publish the OSTree repo to GitHub Pages (the hosted Flatpak remote).
   #
-  # The gh-pages branch holds the ACCUMULATED repo across all releases —
+  # The gh-pages branch holds the ACCUMULATED repo across all releases -
   # OSTree is incremental, so we must merge this build's objects into the
   # existing repo (never rebuild from scratch) to keep delta updates working.
   #
@@ -254,7 +254,7 @@ jobs:
           # loses the empty parts of the OSTree layout (refs/remotes,
           # refs/mirrors, state, tmp). ostree then dies with
           # "opendir(refs/remotes): No such file or directory" on the second
-          # publish. Recreate them unconditionally — mkdir -p is idempotent.
+          # publish. Recreate them unconditionally - mkdir -p is idempotent.
           mkdir -p site/repo/objects \
                    site/repo/refs/heads site/repo/refs/mirrors \
                    site/repo/refs/remotes site/repo/state \
@@ -277,7 +277,7 @@ jobs:
           # Pipe the (multi-line, armored) key from an env var, NOT inline
           # interpolation, so newlines survive intact.
           printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
-          # Confirm the signing key is actually present before we rely on it —
+          # Confirm the signing key is actually present before we rely on it -
           # a silent import failure would otherwise ship an UNSIGNED repo.
           gpg --list-secret-keys "$GPG_KEY_ID" >/dev/null
           echo "sign=--gpg-sign=${GPG_KEY_ID}" >> "$GITHUB_OUTPUT"
@@ -290,14 +290,14 @@ jobs:
           SIGN='${{ steps.gpg.outputs.sign }}'
           REF="app/${APP_ID}/x86_64/${BRANCH}"
           # Commit subject = the version. Warehouse's "Change Version" picker
-          # (and `ostree log`) shows subject + hash + date per commit — the
+          # (and `ostree log`) shows subject + hash + date per commit - the
           # default "Export <app-id>" subject tells users nothing.
           if [ '${{ steps.mode.outputs.dry }}' = 'true' ]; then
             SUBJECT="dry-run ${GITHUB_SHA:0:7}"
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             SUBJECT="${GITHUB_REF_NAME#v}"
           else
-            # Live-channel rehearsal: no tag, so the ref name is a branch —
+            # Live-channel rehearsal: no tag, so the ref name is a branch -
             # read the app version out of the built commit itself instead.
             SRC=$(ostree --repo=newrepo rev-parse "$REF")
             SUBJECT=$(ostree --repo=newrepo cat "$SRC" \
@@ -357,7 +357,7 @@ jobs:
           ${GPGLINE}
           EOF
           # One-command install files: `flatpak install --user <url>.flatpakref`
-          # adds the remote (GPG key embedded) AND installs the app — no
+          # adds the remote (GPG key embedded) AND installs the app - no
           # separate remote-add. Also double-clickable in GNOME Software /
           # Discover. One file per branch, written only when that branch
           # actually exists in the repo (a ref file pointing at a missing
@@ -386,7 +386,7 @@ jobs:
 
       # Sanity-check the repo locally before pushing: pull the just-committed
       # ref into a throwaway repo. If OSTree can't read it back, the publish is
-      # broken regardless of what Pages later serves — fail loudly here.
+      # broken regardless of what Pages later serves - fail loudly here.
       - name: Verify repo integrity
         run: |
           set -euo pipefail
@@ -397,7 +397,7 @@ jobs:
             echo "ref $REF present"
           done
           ostree --repo=site/repo fsck --quiet
-          echo "OSTree repo OK — all published refs present, fsck clean."
+          echo "OSTree repo OK - all published refs present, fsck clean."
 
       - name: Push Pages branch
         env:
@@ -429,7 +429,7 @@ jobs:
             if [ '${{ steps.mode.outputs.dry }}' = 'true' ]; then
               echo "### 🧪 Flatpak remote DRY RUN"
               echo ""
-              echo "Published to branch \`gh-pages-dryrun\` — the live \`gh-pages\` remote was **not** touched."
+              echo "Published to branch \`gh-pages-dryrun\` - the live \`gh-pages\` remote was **not** touched."
               echo ""
               echo "**Verified:** OSTree repo builds, merges the app ref, regenerates summary + deltas, fsck-clean, and pushes successfully."
               echo ""

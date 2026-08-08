@@ -1,8 +1,8 @@
 """Eye button pinned to the left of a tree's column header that pops the tab's
-filters as a menu — one submenu per filter category.
+filters as a menu - one submenu per filter category.
 
 The modlist and plugins views grow their own button (theirs also carries column
-show/hide); the simpler tabs — Mod Files, Text Files, Saves, Data, Downloads —
+show/hide); the simpler tabs - Mod Files, Text Files, Saves, Data, Downloads -
 share this one. It is purely a shortcut onto the tab's FilterSidePanel: the host
 supplies
 

@@ -1,4 +1,4 @@
-"""Read-only Overwrite-log viewer — borderless in-window overlay.
+"""Read-only Overwrite-log viewer - borderless in-window overlay.
 
 Shows the files swept into the deploy target's ``overwrite/`` per restore, newest
 restore first, parsed from ``.mm_overwrite_log.txt``. Qt port of

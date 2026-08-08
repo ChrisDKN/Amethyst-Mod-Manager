@@ -1,4 +1,4 @@
-"""Pure column-sort helpers for the Qt plugins panel — no Qt imports, fully
+"""Pure column-sort helpers for the Qt plugins panel - no Qt imports, fully
 headless-testable.
 
 Unlike the modlist there are no separators to anchor, so a column sort is a
@@ -19,7 +19,7 @@ from gui_qt.plugin_state import (
 # Sortable-column keys (persisted to the ini by column NAME via column_state).
 SORT_KEYS = ("name", "flags", "priority", "index")
 
-# Flag weights, most-problematic first — ascending puts flagged plugins on top
+# Flag weights, most-problematic first - ascending puts flagged plugins on top
 # (modlist parity).
 _FLAG_WEIGHTS = (
     (PF_MISSING, 256), (PF_UL_CYCLE, 128), (PF_LATE, 64), (PF_VMM, 32),
@@ -73,7 +73,7 @@ def sort_key_fn(key: str, ctx: dict):
 def build_display(natural: list, key: str | None, ascending: bool,
                   ctx: dict) -> list:
     """Derive the display order from the natural order. Returns a NEW list
-    holding the SAME PluginRow objects — or the natural list ITSELF when the
+    holding the SAME PluginRow objects - or the natural list ITSELF when the
     result would be the load order anyway (no sort, or P ascending). Callers
     rely on that identity to tell "display == load order" apart, which is what
     keeps drag-reorder available under a P-ascending sort."""

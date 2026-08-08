@@ -161,8 +161,8 @@ class CreateCollectionView(ExportProfileView):
     # the user's own collections, for the upload-target picker → UI thread.
     _targets_ready = Signal(object)
 
-    # A Nexus collection has no disabled state — build_collection_manifest
-    # drops disabled rows outright — so default them to "ignore" and let the
+    # A Nexus collection has no disabled state - build_collection_manifest
+    # drops disabled rows outright - so default them to "ignore" and let the
     # table say so, instead of listing them as exportable and warning later.
     _IGNORE_DISABLED_ROWS = True
 
@@ -497,7 +497,7 @@ class CreateCollectionView(ExportProfileView):
         """Mods users can download themselves must not be bundled.
 
         Bundling ships the files inside the collection, so doing it to a mod
-        that has a Nexus page is redistributing someone else's work — Nexus's
+        that has a Nexus page is redistributing someone else's work - Nexus's
         own guidance is that anything qualifying as a "mod" belongs on a mod
         page and gets *linked* from the collection. Bundling stays available
         for generated output, config files and unpublished work, and local
@@ -712,7 +712,7 @@ class CreateCollectionView(ExportProfileView):
 
     def _on_save_path_picked(self, path):
         # The export starts here (after the async file picker), not at the
-        # Export… click — locking the buttons at the click would leave them
+        # Export… click - locking the buttons at the click would leave them
         # dead if the user cancels the picker.
         if path:
             self._set_busy(True)
@@ -772,7 +772,7 @@ class CreateCollectionView(ExportProfileView):
 
         The build phases count mods; packing and uploading count bytes, so the
         card has to switch units or a 500 MB upload reads as a raw integer.
-        Matched on the label because that is all the progress signal carries —
+        Matched on the label because that is all the progress signal carries -
         both sides translate the same source string, so it stays correct."""
         return {self.tr("Writing collection archive…"),
                 self.tr("Uploading archive…")}
@@ -847,7 +847,7 @@ class CreateCollectionView(ExportProfileView):
             # Fall back to this profile's upload record ONLY while the target
             # picker is empty (fetch failed / offline), so revision continuity
             # survives without the account list. Once the picker has targets,
-            # a live recorded collection is in it and preselected — so "Create
+            # a live recorded collection is in it and preselected - so "Create
             # new collection" is an explicit user choice. Overriding it with
             # the record would not just force a revision: the revision path
             # sends the typed name through editCollection and would RENAME the
@@ -892,7 +892,7 @@ class CreateCollectionView(ExportProfileView):
                        rows=None, info=None):
         """Worker thread: pack to a scratch .7z, PUT it, run the mutation.
 
-        *rows* and *info* are snapshots taken on the UI thread — the view
+        *rows* and *info* are snapshots taken on the UI thread - the view
         stays live during an upload, so reading ``self._all_rows`` or
         ``self._pending_info`` here would race with edits (and a second
         export/upload replacing ``_pending_info`` would register this upload

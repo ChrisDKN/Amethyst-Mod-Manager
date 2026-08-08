@@ -60,7 +60,7 @@ class Starfield(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
-            # Starfield no longer has a dedicated Nexus xEdit build — it uses
+            # Starfield no longer has a dedicated Nexus xEdit build - it uses
             # the Discord-released xEdit build (xSFEdit) exclusively.
             *self._xedit_wizard_tools(
                 build="SF1Edit", id_suffix="starfield",
@@ -112,7 +112,7 @@ class Starfield(Fallout_3):
             self._saves_routing_rule([".sfs"]),
         ]
 
-    # Plugins.txt lives at AppData/Local/Starfield/Plugins.txt (capital P) —
+    # Plugins.txt lives at AppData/Local/Starfield/Plugins.txt (capital P) -
     # same pattern as Oblivion. The class default drives plugins_txt_filename.
     _PLUGINS_TXT_FILENAME = "Plugins.txt"
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Starfield")
@@ -122,7 +122,7 @@ class Starfield(Fallout_3):
     _ARCHIVE_INI_FILENAME = "Starfield.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "StarfieldPrefs.ini"
     _CUSTOM_INI_FILENAME = "StarfieldCustom.ini"
-    # BA2-based — no dummy BSA.
+    # BA2-based - no dummy BSA.
     _invalidation_bsa_name = None
     _invalidation_bsa_version = None
     _archive_list_needs_mod_bsas = False
@@ -147,7 +147,7 @@ class Starfield(Fallout_3):
             return
         custom_inis = self._starfield_custom_ini_paths()
         if not custom_inis:
-            _log("  WARN: Prefix path not set — skipping archive invalidation.")
+            _log("  WARN: Prefix path not set - skipping archive invalidation.")
             return
         for ini in custom_inis:
             ini.parent.mkdir(parents=True, exist_ok=True)
@@ -186,7 +186,7 @@ class Starfield(Fallout_3):
 
         Starfield silently drops every plugin appearing after a Blueprint
         (or BlueprintShips) plugin in Plugins.txt, so the prefix-side file
-        must omit them entirely — matching libloadorder's behavior. The
+        must omit them entirely - matching libloadorder's behavior. The
         profile's plugins.txt is left untouched so blueprints stay visible
         in the load-order UI.
         """
@@ -196,16 +196,16 @@ class Starfield(Fallout_3):
         _log = log_fn
         target = self._plugins_txt_target()
         if target is None:
-            _log("  WARN: Prefix path not set — skipping Plugins.txt write.")
+            _log("  WARN: Prefix path not set - skipping Plugins.txt write.")
             return
 
         source = self.get_profile_root() / "profiles" / profile / "plugins.txt"
         if not source.is_file():
-            _log(f"  WARN: plugins.txt not found at {source} — skipping write.")
+            _log(f"  WARN: plugins.txt not found at {source} - skipping write.")
             return
 
         if self._game_path is None:
-            _log("  WARN: Game path not set — skipping Plugins.txt write.")
+            _log("  WARN: Game path not set - skipping Plugins.txt write.")
             return
         data_dir = self._game_path / "Data"
 

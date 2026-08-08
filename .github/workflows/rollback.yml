@@ -1,7 +1,7 @@
 name: Rollback Flatpak Remote
 
 # Manually roll a channel of the hosted Flatpak remote back to a previous
-# commit — for pulling a broken release. OSTree remotes are commit chains, so
+# commit - for pulling a broken release. OSTree remotes are commit chains, so
 # "removing" a version means: (1) republish the last good commit as the NEW
 # branch head (clients follow the head, so everyone auto-"updates" back to the
 # good build), and (2) optionally prune the broken commit's objects so it also
@@ -52,7 +52,7 @@ jobs:
 
       - name: Restore OSTree empty dirs
         run: |
-          # Git doesn't store empty dirs — same skeleton fix as publish-pages.
+          # Git doesn't store empty dirs - same skeleton fix as publish-pages.
           mkdir -p site/repo/objects \
                    site/repo/refs/heads site/repo/refs/mirrors \
                    site/repo/refs/remotes site/repo/state \
@@ -82,17 +82,17 @@ jobs:
 
           TARGET='${{ inputs.commit }}'
           if [ -z "$TARGET" ]; then
-            # Default: the head's parent — undo the most recent publish.
+            # Default: the head's parent - undo the most recent publish.
             TARGET=$(ostree --repo=site/repo log "$REF" \
                      | awk '/^commit /{print $2}' | sed -n 2p)
             if [ -z "$TARGET" ]; then
-              echo "::error::$REF has no parent commit to roll back to —" \
+              echo "::error::$REF has no parent commit to roll back to -" \
                    "pass an explicit target commit."
               exit 1
             fi
           fi
           if [ "$TARGET" = "$BROKEN" ]; then
-            echo "::error::Target equals the current head — nothing to do."
+            echo "::error::Target equals the current head - nothing to do."
             exit 1
           fi
           # The target must exist locally (prune may have removed old parents).

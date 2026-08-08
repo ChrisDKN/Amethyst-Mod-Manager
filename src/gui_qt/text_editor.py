@@ -161,7 +161,7 @@ class TextEditor(QWidget):
         self._find.returnPressed.connect(self._find_next)
         hb.addWidget(self._find)
         from gui_qt.icons import icon_rotated
-        # White chevrons — the default blue arrow was hard to see on the blue
+        # White chevrons - the default blue arrow was hard to see on the blue
         # button. Buttons stay blue (default).
         arrow_clr = "#ffffff"
         self._prev_btn = QPushButton()

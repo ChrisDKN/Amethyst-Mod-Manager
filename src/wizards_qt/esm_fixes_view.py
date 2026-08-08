@@ -1,4 +1,4 @@
-"""Ultimate Edition ESM Fixes wizard — patches the vanilla .esm masters with
+"""Ultimate Edition ESM Fixes wizard - patches the vanilla .esm masters with
 community bugfixes via the same native Linux MPI installer the TTW wizard
 uses (no Proton).
 
@@ -56,9 +56,9 @@ class ESMFixesView(WizardViewBase):
                  show_header: bool = True, auto_continue: bool = False,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Ultimate Edition ESM Fixes — {0}").format(game.name),
+                         title=self.tr("Ultimate Edition ESM Fixes - {0}").format(game.name),
                          show_header=show_header)
-        # auto_continue: hands-free mode (curated-profile wizard, premium) —
+        # auto_continue: hands-free mode (curated-profile wizard, premium) -
         # every successful step advances itself; failures still stop.
         self._auto_continue = bool(auto_continue)
         self._exe = find_ttw_installer(game)
@@ -170,7 +170,7 @@ class ESMFixesView(WizardViewBase):
         page, lay = self._step_page(
             self.tr("The ESM Fixes output is already installed"))
         note = QLabel(
-            self.tr("The '{0}' mod is already in your mod list — there is "
+            self.tr("The '{0}' mod is already in your mod list - there is "
                     "nothing to re-apply, so you can simply close this wizard."
                     "\n\nRebuild from scratch restores the game to vanilla and "
                     "runs the patcher again (needs the .mpi package).")
@@ -206,7 +206,7 @@ class ESMFixesView(WizardViewBase):
             self.tr("Ultimate Edition ESM Fixes patches the vanilla .esm "
             "masters (FalloutNV + all DLC) with community bugfixes, and the "
             "result is added as a mod.\n\nDownload the 'Ultimate Edition ESM "
-            "Fixes Remastered' main file from Nexus — the .mpi package inside "
+            "Fixes Remastered' main file from Nexus - the .mpi package inside "
             "the archive is detected automatically.")))
         nexus = QPushButton(self.tr("Open Nexus page"))
         nexus.setCursor(Qt.PointingHandCursor)
@@ -255,7 +255,7 @@ class ESMFixesView(WizardViewBase):
         browse.clicked.connect(browse_cmd)
         hh.addWidget(browse)
         rl.addWidget(header)
-        val = QLabel(str(value) if value else self.tr("— not set —"))
+        val = QLabel(str(value) if value else self.tr("- not set -"))
         val.setWordWrap(True)
         val.setStyleSheet(self._dim if value else f"color:{RED};")
         rl.addWidget(val)
@@ -304,7 +304,7 @@ class ESMFixesView(WizardViewBase):
                 if archive is None:
                     safe_emit(self._detect_status_sig,
                               self.tr("Archive not found in your download "
-                              "folders — download it from Nexus, then click "
+                              "folders - download it from Nexus, then click "
                               "Detect again (or Choose file…)."), RED)
                     safe_emit(self._mpi_ready_sig, None)
                     safe_emit(self._auto_kick_sig)
@@ -331,7 +331,7 @@ class ESMFixesView(WizardViewBase):
     def _on_mpi_ready(self, mpi):
         if mpi is None:
             return
-        self._auto_fetch_cancel.set()    # package secured — stop the fetch
+        self._auto_fetch_cancel.set()    # package secured - stop the fetch
         self._mpi_path = Path(mpi)
         self._mpi_label.setText(str(self._mpi_path))
         self._mpi_label.setStyleSheet(self._dim)
@@ -381,12 +381,12 @@ class ESMFixesView(WizardViewBase):
             label="Ultimate Edition ESM Fixes",
             on_download_started=lambda: safe_emit(
                 self._detect_status_sig,
-                self.tr("Premium account — downloading the ESM Fixes "
+                self.tr("Premium account - downloading the ESM Fixes "
                         "package from Nexus…"), ""),
             on_progress=_progress,
             on_waiting=lambda: safe_emit(
                 self._detect_status_sig,
-                self.tr("Archive not found — download it from Nexus (button "
+                self.tr("Archive not found - download it from Nexus (button "
                         "above). It will be picked up automatically as soon "
                         "as the download finishes."), ""),
             log_fn=_wlog)
@@ -512,7 +512,7 @@ class ESMFixesView(WizardViewBase):
         ok, fnv_root = restore_to_vanilla(game, self._profile, log_fn=_rlog)
         if not ok:
             safe_emit(self._run_status_sig2,
-                      self.tr("Restore failed — see the log. Fix the issue (or "
+                      self.tr("Restore failed - see the log. Fix the issue (or "
                       "restore manually via the Restore button) and retry."),
                       RED)
             safe_emit(self._run_done_sig)
@@ -532,13 +532,13 @@ class ESMFixesView(WizardViewBase):
                                            fnv_required_esms(game))
         if fnv_missing:
             detail = ", ".join(fnv_missing)
-            _rlog(f"missing vanilla esms after restore — {detail}")
+            _rlog(f"missing vanilla esms after restore - {detail}")
             safe_emit(self._run_log_sig,
                       self.tr("ERROR: missing vanilla plugin files:\n{0}").format(
                           detail))
             safe_emit(self._run_status_sig2,
                       self.tr("Missing vanilla plugin files even after restoring "
-                      "to vanilla — these were never backed up.\nIn Steam, "
+                      "to vanilla - these were never backed up.\nIn Steam, "
                       "right-click the game → Properties → Installed Files → "
                       "Verify integrity of game files, then retry.\n\n{0}")
                       .format(detail), RED)
@@ -553,7 +553,7 @@ class ESMFixesView(WizardViewBase):
                 safe_emit(self._run_log_sig,
                           self.tr("WARNING: FalloutNV.exe is 4GB-patched. The "
                           "installer verifies the game exe and may refuse to "
-                          "run — if it fails below, restore the original exe "
+                          "run - if it fails below, restore the original exe "
                           "via the 4GB Patch wizard, run this again, then "
                           "re-apply the 4GB patch."))
         except Exception:
@@ -603,7 +603,7 @@ class ESMFixesView(WizardViewBase):
             return
 
         safe_emit(self._run_status_sig2,
-                  self.tr("Patching complete — registering mod…"), GREEN)
+                  self.tr("Patching complete - registering mod…"), GREEN)
         self._log("ESM Fixes Wizard: patching complete.")
         try:
             register_output(game, log_fn=_rlog)

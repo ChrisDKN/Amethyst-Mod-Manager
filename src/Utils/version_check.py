@@ -41,7 +41,7 @@ def is_appimage() -> bool:
 def is_flatpak() -> bool:
     """Return True if we are running as the Amethyst flatpak.
 
-    NB: match FLATPAK_ID against OUR id, not "/.flatpak-info exists" —
+    NB: match FLATPAK_ID against OUR id, not "/.flatpak-info exists" -
     running from source inside another flatpak (e.g. a flatpak VS Code
     terminal) sandboxes us under that host app, so the file test would
     wrongly steer from-source sessions to the flatpak update path.
@@ -81,7 +81,7 @@ def _fetch_latest_version(
 
     With allow_prerelease=False, queries /releases/latest (stable-only).
     With allow_prerelease=True, lists recent releases and picks the highest non-draft
-    by SemVer comparison — which may be either a stable or a pre-release.
+    by SemVer comparison - which may be either a stable or a pre-release.
 
     Uses ETag caching + a 1-hour throttle. Pass force=True to bypass the
     throttle (e.g. when the user manually toggles the pre-release channel).
@@ -182,7 +182,7 @@ def run_installer(allow_prerelease: bool = False):
     log_path = os.path.join(config_dir, "amethyst-update.log")
 
     # $APPIMAGE (set by the AppImage runtime) is where the user actually keeps
-    # the app — an AppImage manager like GearLever may have moved/renamed it
+    # the app - an AppImage manager like GearLever may have moved/renamed it
     # (GH#361: updating always wrote a second copy to ~/Applications, giving
     # two app-drawer entries). Pass it to the installer as --dest so the
     # update replaces that file in place, and relaunch from the same path.
@@ -216,7 +216,7 @@ def run_installer(allow_prerelease: bool = False):
     # (the command above nohups it), so a missed var poisons the NEW process:
     # a leftover MOD_MANAGER_GAMES pointing at the old mount made game_loader
     # scan the dying mount and every handler fail with ENOENT (GH#340). Use the
-    # shared list — a local copy here is exactly how that drift happened.
+    # shared list - a local copy here is exactly how that drift happened.
     from Utils.appimage_env import strip_appimage_vars
     clean_env = strip_appimage_vars(os.environ.copy())
 
@@ -284,7 +284,7 @@ def run_flatpak_installer(latest_tag: str) -> bool:
     # --directory=/ avoids the portal failing on the app's sandbox-only cwd.
     host = "flatpak-spawn --host --directory=/"
     _q_bundle = shlex.quote(bundle_path)
-    # Install into whichever installation already holds us — a hardcoded --user
+    # Install into whichever installation already holds us - a hardcoded --user
     # would fork a second copy alongside a system-wide install.
     scope = _install_scope()
     cmd = (
@@ -318,7 +318,7 @@ def run_flatpak_installer(latest_tag: str) -> bool:
 # Software / Discover surface the update natively. These helpers (a) tell
 # whether we're already tracking the remote, (b) enrol a bundle-installed user
 # onto it, and (c) trigger an update. All host calls go via `flatpak-spawn
-# --host` — our manifest grants `--talk-name=org.freedesktop.Flatpak`.
+# --host` - our manifest grants `--talk-name=org.freedesktop.Flatpak`.
 
 
 def _host_flatpak(*args: str, timeout: int = 60):
@@ -332,7 +332,7 @@ def _host_flatpak(*args: str, timeout: int = 60):
         return None
     try:
         # --directory=/ is REQUIRED: the portal spawns the host command in the
-        # caller's cwd, and the app runs from /app/share/amethyst-mod-manager —
+        # caller's cwd, and the app runs from /app/share/amethyst-mod-manager -
         # a sandbox-only path. Without it every call fails with "Portal call
         # failed: Failed to change to directory" (same fix as proton_tools).
         return subprocess.run(
@@ -351,7 +351,7 @@ def _install_scope() -> str:
 
     `flatpak remote-add` / `install` default to --system when run without a
     scope flag (which is what the documented remote-add one-liner does), so a
-    system-wide install with a system-wide remote is a perfectly normal setup —
+    system-wide install with a system-wide remote is a perfectly normal setup -
     but every remote query has to be made in the SAME scope or flatpak answers
     "Remote not found in the user installation" and we misread that as "channel
     not published". Parsed from `flatpak info`'s "Installation:" line; defaults
@@ -402,7 +402,7 @@ def _remote_for_our_url() -> tuple[str, str] | None:
 
     Queries BOTH scopes and includes --show-disabled: bundle-created origins
     are flagged `no-enumerate` (and can be disabled by a duplicate-URL clash),
-    so a plain `flatpak remotes` hides them. Scope also matters — a user bundle
+    so a plain `flatpak remotes` hides them. Scope also matters - a user bundle
     install lands in the --user list, which the default (system) query omits,
     and a `flatpak remote-add` without a scope flag lands in --system.
     """
@@ -470,7 +470,7 @@ def polish_flatpak_origin() -> None:
     is absent, already enumerable, or the host can't be reached.
 
     Deliberately limited to --user remotes: `remote-modify --system` writes to
-    /var/lib/flatpak and needs polkit, and this runs unattended at startup — a
+    /var/lib/flatpak and needs polkit, and this runs unattended at startup - a
     surprise auth prompt every launch would be far worse than a cosmetic
     Discover label. System remotes added from our .flatpakrepo are enumerable
     anyway, so there is nothing to heal there.
@@ -510,7 +510,7 @@ def flatpak_remote_branch_available(branch: str) -> bool:
 def _installed_flatpak_state() -> tuple[str, str] | None:
     """(branch, commit) of the installed app, or None if undeterminable.
 
-    Scope-free `flatpak info` — the app exists in exactly one installation and
+    Scope-free `flatpak info` - the app exists in exactly one installation and
     hardcoding --user made this return None for system-wide installs.
     """
     cp = _host_flatpak("info", _APP_ID)
@@ -532,7 +532,7 @@ def flatpak_remote_update_ready(branch: str) -> bool | None:
 
     True  → remote head differs from the installed commit, or the installed
             branch differs from the requested channel (a switch is wanted).
-    False → remote is reachable and we're already current — nothing to offer,
+    False → remote is reachable and we're already current - nothing to offer,
             even if GitHub Releases claims a newer tag (Pages publish lag).
     None  → couldn't determine (host unreachable etc.); caller falls back to
             the GitHub-only decision.
@@ -575,15 +575,15 @@ def _launch_remote_reinstall(branch: str) -> str:
     # --directory=/ avoids the portal failing on the app's sandbox-only cwd.
     host = "flatpak-spawn --host --directory=/"
     ref = f"{_APP_ID}/x86_64/{branch}"
-    # Target the actual configured remote for our URL — a --repo-url bundle
+    # Target the actual configured remote for our URL - a --repo-url bundle
     # install named it "<app>-origin". After enroll's own remote-add this
     # resolves to that same name; for an update it's whatever the
     # user has. Reinstall pins the branch (handles same-branch update AND
-    # channel switch — `flatpak update` won't cross branches).
+    # channel switch - `flatpak update` won't cross branches).
     #
     # The scope must be the remote's own: --user against a system-wide remote
     # fails with "Remote not found in the user installation". A --system
-    # reinstall goes through polkit, so the desktop's auth agent prompts — that
+    # reinstall goes through polkit, so the desktop's auth agent prompts - that
     # is fine here because this only ever runs from an explicit Update click.
     remote, scope = _effective_remote()
     cmd = (
@@ -615,10 +615,10 @@ def enroll_flatpak_remote(*, allow_prerelease: bool = False) -> str:
     --if-not-exists) so we can probe the requested channel before committing;
     the reinstall+relaunch then runs detached with a 2s delay so we exit first.
 
-    Returns "launched" (child started — caller should close the app),
+    Returns "launched" (child started - caller should close the app),
     "no-branch" (remote reachable but the requested channel isn't published
     yet, e.g. beta before the first beta release), or "unavailable" (host
-    flatpak unreachable). GPG verification stays on — the .flatpakrepo the
+    flatpak unreachable). GPG verification stays on - the .flatpakrepo the
     remote-add consumes carries the signing key.
     """
     import shutil
@@ -646,9 +646,9 @@ def enroll_flatpak_remote(*, allow_prerelease: bool = False) -> str:
 def update_flatpak_from_remote(*, allow_prerelease: bool = False) -> str:
     """Update (or branch-switch) the app from the hosted remote.
 
-    Returns "launched" (reinstall started — caller should close the app),
+    Returns "launched" (reinstall started - caller should close the app),
     "no-branch" (the requested channel isn't published on the remote, so the
-    detached install would fail silently — surface it instead), or
+    detached install would fail silently - surface it instead), or
     "unavailable" (host flatpak unreachable).
     """
     import shutil

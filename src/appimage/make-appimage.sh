@@ -8,7 +8,7 @@
 #
 # Runs in the ghcr.io/pkgforge-dev/archlinux container (see
 # .github/workflows/build.yml). For local testing, run the manual
-# "Test Build" workflow on GitHub and download the artifact instead —
+# "Test Build" workflow on GitHub and download the artifact instead -
 # there is no local staging mode anymore.
 set -euo pipefail
 
@@ -59,24 +59,24 @@ if [ -n "$BSDTAR_BIN" ]; then
     chmod +x "$AUX_DIR/bin/bsdtar"
 fi
 
-# Desktop / icon — quick-sharun reads these via env vars.
+# Desktop / icon - quick-sharun reads these via env vars.
 ASSETS_DIR="${WORK_DIR}/assets"
 mkdir -p "$ASSETS_DIR"
 cp "${SCRIPT_DIR}/mod-manager.desktop" "$ASSETS_DIR/mod-manager.desktop"
 cp "${SCRIPT_DIR}/mod-manager.png"     "$ASSETS_DIR/mod-manager.png"
 
 # ── Locate the libloot extension (built by the separate CI job or by
-# running src/LOOT/rebuild_libloot.sh locally — either way it lands at
+# running src/LOOT/rebuild_libloot.sh locally - either way it lands at
 # the src/ root, where `import loot` finds it).
 LIBLOOT_SO="$(find "${PROJECT_DIR}" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' 2>/dev/null | head -1 || true)"
 if [ -z "$LIBLOOT_SO" ]; then
-    echo "WARN: no libloot .so found in src/ — the AppImage will lack LOOT support" >&2
+    echo "WARN: no libloot .so found in src/ - the AppImage will lack LOOT support" >&2
 fi
 
 # ── quick-sharun env ─────────────────────────────────────────────────
 # DEPLOY_PYTHON=1   pulls /usr/bin/python3 + stdlib + site-packages (PySide6)
 # DEPLOY_QT=1       Qt plugin deployment. NOTE: quick-sharun's auto-detection
-#                   does NOT fire for PySide6 — it dlopens Qt at runtime so
+#                   does NOT fire for PySide6 - it dlopens Qt at runtime so
 #                   libQt6Core never enters the wrapper's ldd trace. We force
 #                   it here AND hand quick-sharun the Qt libs/plugins directly
 #                   (see the resolution block before the quick-sharun call).
@@ -87,7 +87,7 @@ fi
 #                   ALWAYS_SOFTWARE=1 here: it writes a dlopen blocklist
 #                   (libGLX_mesa.so* etc.) into the AppImage's .env that stops
 #                   glvnd finding ANY driver, so Qt hits qFatal("Could not
-#                   initialize GLX") and the GL probe aborts — no 3D preview
+#                   initialize GLX") and the GL probe aborts - no 3D preview
 #                   anywhere. Hosts where the host-driver mix truly fails are
 #                   caught gracefully by gui_qt/gl_support.py's child probe.
 # ANYLINUX_LIB=1    builds anylinux.so (LD_PRELOAD env-scrubber for child procs)
@@ -104,7 +104,7 @@ export ANYLINUX_LIB=1
 if [ -f "$HOME/sdk/include/dlfcn.h" ]; then
     export C_INCLUDE_PATH="$HOME/sdk/include${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
 elif [ ! -f /usr/include/dlfcn.h ]; then
-    echo "  NOTE: ~/sdk/include not found and /usr/include/dlfcn.h missing — disabling anylinux.so." >&2
+    echo "  NOTE: ~/sdk/include not found and /usr/include/dlfcn.h missing - disabling anylinux.so." >&2
     export ANYLINUX_LIB=0
 fi
 
@@ -155,13 +155,13 @@ pacman -U --noconfirm --overwrite '*' --nodeps "$PKG_FILE"
 # ── Resolve the system Qt6 libs for PySide6 ──────────────────────────
 # PySide6 dlopens Qt at runtime from its own extension modules, so
 # quick-sharun's ldd trace of the (shell → python3) wrapper never sees
-# libQt6Gui.so and skips its Qt-plugin deployment entirely — the AppImage
+# libQt6Gui.so and skips its Qt-plugin deployment entirely - the AppImage
 # then dies with "Could not find the Qt platform plugin 'xcb'".
 #
 # The fix is just to get the Qt LIBS into the arg list: once libQt6Gui.so
 # is traced, quick-sharun's own handler globs and deploys the plugin dirs
 # (platforms/imageformats/styles/wayland/xcbglintegrations), and libQt6-
-# Network.so pulls tls/. We do NOT pass the individual plugin .so files —
+# Network.so pulls tls/. We do NOT pass the individual plugin .so files -
 # that just doubled the (expensive) per-file ldd work in quick-sharun's
 # dependency-collection pass, making the build take many extra minutes.
 #
@@ -181,11 +181,11 @@ done
 rm -f "$QT_PLUGIN_DIR/platformthemes/libqgtk3.so"
 
 _qt_args=()
-# Core Qt libs PySide6 needs — Gui triggers the plugin-deployment block,
+# Core Qt libs PySide6 needs - Gui triggers the plugin-deployment block,
 # Network triggers tls/. XcbQpa (X11) and WaylandClient are the platform
 # abstraction libs the platform plugins link; quick-sharun traces them
 # transitively but listing them removes any doubt. OpenGL + OpenGLWidgets:
-# QOpenGLWidget (nif viewer) lives in libQt6OpenGLWidgets — without it the
+# QOpenGLWidget (nif viewer) lives in libQt6OpenGLWidgets - without it the
 # loader falls back to the host's /usr/lib copy and dies on Qt_6_PRIVATE_API.
 for _l in libQt6Core libQt6Gui libQt6Widgets libQt6DBus libQt6Network \
           libQt6XcbQpa libQt6WaylandClient libQt6OpenGL libQt6OpenGLWidgets; do
@@ -217,7 +217,7 @@ for _root in \
         _pyside_libs+=("$_so")
     done
 done
-# Both core libs are mandatory — fail loudly if either is missing rather
+# Both core libs are mandatory - fail loudly if either is missing rather
 # than shipping an AppImage that ImportErrors on the user's machine.
 case "$_seen_names" in *libshiboken6.*) : ;; *)
     echo "ERROR: libshiboken6 not found (searched $_pyside_dir, $_site_dir/shiboken6, /usr/lib)" >&2
@@ -233,11 +233,11 @@ echo "=== Running quick-sharun ==="
 # quick-sharun's per-binary ldd trace never sees their DT_NEEDED entries
 # and silently drops the underlying libs. Each line below covers a stdlib
 # ext we actually import (directly or transitively):
-#   libssl/libcrypto -> _ssl.so      (HTTPS — Nexus, GitHub, updates)
+#   libssl/libcrypto -> _ssl.so      (HTTPS - Nexus, GitHub, updates)
 #   libuuid          -> _uuid.so     (uuid.uuid4 used by Nexus SSO)
 #   libmpdec         -> _decimal.so  (transitive deps may import decimal)
 # The Qt libs/plugins in $_qt_args are dlopened by PySide6 for the same
-# reason — see the resolution block above.
+# reason - see the resolution block above.
 quick-sharun \
     /usr/bin/mod-manager               \
     /usr/share/amethyst-mod-manager    \
@@ -251,7 +251,7 @@ quick-sharun \
     "${_pyside_libs[@]}"               \
     $( [ -f "$AUX_DIR/bin/bsdtar" ] && printf %s "$AUX_DIR/bin/bsdtar" )
 
-# Rewrite the wrapper's /usr/share path to "$APPDIR"/share — quick-sharun's
+# Rewrite the wrapper's /usr/share path to "$APPDIR"/share - quick-sharun's
 # built-in /usr → "$APPDIR" rewrite only fires for dotnet scripts, so plain
 # shell wrappers need this manual step.
 sed -i -e 's|/usr/share|"$APPDIR"/share|g' "$APPDIR/bin/mod-manager"
@@ -273,7 +273,7 @@ install -Dm644 "${ASSETS_DIR}/mod-manager.png" \
 
 # ── Build the AppImage ───────────────────────────────────────────────
 echo "=== Building AppImage ==="
-# OUTNAME: appimagetool reads this from the env — naming the output here
+# OUTNAME: appimagetool reads this from the env - naming the output here
 # (instead of renaming afterwards) keeps the generated .zsync consistent
 # with the final filename.
 # UPINFO: embedded update info + .zsync generation. Set explicitly so the

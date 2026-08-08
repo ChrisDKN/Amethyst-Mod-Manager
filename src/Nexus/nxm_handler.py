@@ -1,6 +1,6 @@
 """
 nxm_handler.py
-NXM protocol handler — parses ``nxm://`` links and registers the app
+NXM protocol handler - parses ``nxm://`` links and registers the app
 as a handler on Linux via XDG and .desktop files.
 
 NXM link formats
@@ -51,7 +51,7 @@ def nxm_log(message: str) -> None:
     """Log an NXM-flow message to the GUI panel AND to logs/nxm.log.
 
     The browser-spawned ``--nxm`` handoff process has no GUI, so plain
-    app_log() calls made there vanish — the file is the only trace of why
+    app_log() calls made there vanish - the file is the only trace of why
     a "Download with Manager" click did or didn't reach the running
     instance. Timestamp + pid let the sender and receiver sides of one
     click be correlated across the two processes.
@@ -97,7 +97,7 @@ def _resolve_socket_path() -> Path:
     return Path(f"/tmp/amethyst-mod-manager-{uid}.sock")
 
 
-# Our Flatpak app id — hard-coded so a *native/AppImage* sender can still try
+# Our Flatpak app id - hard-coded so a *native/AppImage* sender can still try
 # the Flatpak per-app runtime dir (the host sees it at the same path) even
 # though FLATPAK_ID isn't in its environment.
 _FLATPAK_APP_ID = "io.github.Amethyst.ModManager"
@@ -108,7 +108,7 @@ def _home_socket_path() -> Path:
 
     Under Flatpak both /tmp and XDG_RUNTIME_DIR are private to the sandbox, so
     a Flatpak instance and a native/AppImage instance can never meet on either
-    — a click routed to the wrong install variant then opens a second window
+    - a click routed to the wrong install variant then opens a second window
     instead of handing the link off. The real home IS shared (the sandbox has
     --filesystem=home and HOME is not redirected), so a socket here is the one
     path every install variant can reach.
@@ -120,7 +120,7 @@ def _home_socket_path() -> Path:
 # Every socket path the app *might* use across launch contexts.
 #
 # The single-instance handoff fails when the browser-spawned `--nxm` process
-# resolves a different socket path than the long-running instance — which
+# resolves a different socket path than the long-running instance - which
 # happens whenever the two launches see different environments (e.g. a Flatpak
 # browser, or a browser launched without XDG_RUNTIME_DIR) or the two processes
 # are different install variants (Flatpak vs AppImage/native). To make handoff
@@ -164,7 +164,7 @@ def _candidate_socket_paths() -> list[Path]:
 
 
 _SOCKET_PATH = _resolve_socket_path()
-# The env-independent /tmp fallback — always bound by the server in addition to
+# The env-independent /tmp fallback - always bound by the server in addition to
 # _SOCKET_PATH so that a sender which lost XDG_RUNTIME_DIR can still reach us.
 _FALLBACK_SOCKET_PATH = Path(f"/tmp/amethyst-mod-manager-{os.getuid()}.sock")
 
@@ -376,7 +376,7 @@ class NxmHandler:
 
     @staticmethod
     def _flatpak_desktop_path() -> Path:
-        """Flatpak exports dir — visible to Flatpak-sandboxed browsers."""
+        """Flatpak exports dir - visible to Flatpak-sandboxed browsers."""
         return (
             Path.home()
             / ".local" / "share" / "flatpak" / "exports" / "share"
@@ -395,7 +395,7 @@ class NxmHandler:
         # Host ~/.local/share/applications (non-flatpak + flatpak host write)
         paths.append(Path.home() / ".local" / "share" / "applications" / _DESKTOP_FILE_NAME)
 
-        # XDG_DATA_HOME override (only meaningful outside flatpak — inside
+        # XDG_DATA_HOME override (only meaningful outside flatpak - inside
         # flatpak this is redirected into the sandbox)
         xdg = os.environ.get("XDG_DATA_HOME")
         if xdg:
@@ -419,7 +419,7 @@ class NxmHandler:
         Remove every NXM .desktop file we might have written previously,
         from both flatpak and non-flatpak locations, and clear the xdg-mime
         default association. Safe to call before register() so a freshly
-        launched instance always takes over the handler cleanly — otherwise
+        launched instance always takes over the handler cleanly - otherwise
         a stale .desktop from another install can hijack nxm:// links into
         a different (possibly not-running) instance of the manager.
         """
@@ -433,7 +433,7 @@ class NxmHandler:
 
         # Strip the association from all mimeapps.list files (including
         # DE-specific ones like kde-mimeapps.list).  We remove *any* handler
-        # for nxm://, not just ours — this clears entries set by Firefox, the
+        # for nxm://, not just ours - this clears entries set by Firefox, the
         # desktop environment, etc. that would otherwise shadow our registration.
         cls._remove_mimeapps_association(ours_only=False)
 
@@ -464,7 +464,7 @@ class NxmHandler:
         if appimage:
             return f'{cls._quote_if_needed(appimage)} --nxm %u'
 
-        # Running from source — use python + gui.py
+        # Running from source - use python + gui.py
         script = str(Path(sys.argv[0]).resolve())
         exe = sys.executable
         return f'{cls._quote_if_needed(exe)} {cls._quote_if_needed(script)} --nxm %u'
@@ -476,7 +476,7 @@ class NxmHandler:
         We write to ~/.config/mimeapps.list (the user's canonical one) and,
         if already present, also update the legacy ~/.local/share/applications
         one so both are in sync.  We also include DE-specific variants
-        (e.g. kde-mimeapps.list) since xdg-open checks those first — a
+        (e.g. kde-mimeapps.list) since xdg-open checks those first - a
         handler registered there by Firefox/the DE will shadow ours.
 
         Every $XDG_CURRENT_DESKTOP token is included so the cleanup path
@@ -488,7 +488,7 @@ class NxmHandler:
         cfg_base = Path(xdg_cfg) if xdg_cfg else Path.home() / ".config"
         paths.append(cfg_base / "mimeapps.list")
 
-        # DE-specific mimeapps.list — xdg-open checks every
+        # DE-specific mimeapps.list - xdg-open checks every
         # $XDG_CURRENT_DESKTOP variant before the generic one, so a handler
         # registered there shadows ~/.config/mimeapps.list.
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
@@ -513,7 +513,7 @@ class NxmHandler:
         canonical = cls._mimeapps_paths()[0]
         for path in cls._mimeapps_paths():
             try:
-                # Never *create* a DE-specific mimeapps.list — most desktops
+                # Never *create* a DE-specific mimeapps.list - most desktops
                 # (Hyprland, XFCE, sway, …) never ship one and conjuring it
                 # surprises users (#187). Patch it only where the DE already
                 # maintains it (e.g. kde-mimeapps.list on KDE).
@@ -521,7 +521,7 @@ class NxmHandler:
                     continue
 
                 if not path.parent.exists():
-                    # Only touch mimeapps.list in dirs that already exist —
+                    # Only touch mimeapps.list in dirs that already exist -
                     # we don't want to create ~/.local/share/applications
                     # just to drop a mimeapps.list into it.
                     if path == canonical:
@@ -586,7 +586,7 @@ class NxmHandler:
                 new_lines.append(section)
                 new_lines.append(f"{key}={value}")
             elif not key_set[section]:
-                # Section exists but key missing — insert the key at the end
+                # Section exists but key missing - insert the key at the end
                 # of that section.
                 insert_at = len(new_lines)
                 in_section = False
@@ -620,7 +620,7 @@ class NxmHandler:
         if in_flatpak:
             if shutil.which("flatpak-spawn"):
                 return ["flatpak-spawn", "--host", "--directory=/", tool]
-            nxm_log(f"{tool}: flatpak-spawn unavailable — cannot reach host tool from sandbox")
+            nxm_log(f"{tool}: flatpak-spawn unavailable - cannot reach host tool from sandbox")
             return None
         if shutil.which(tool):
             return [tool]
@@ -636,7 +636,7 @@ class NxmHandler:
         """
         Register the handler via ``gio mime`` as well. Many GTK/GNOME tools
         and some browsers (incl. Brave on certain Arch setups) consult gio
-        rather than xdg-mime directly. Best-effort — silent on failure.
+        rather than xdg-mime directly. Best-effort - silent on failure.
         """
         base = cls._host_cmd(in_flatpak, "gio")
         if base is None:
@@ -648,7 +648,7 @@ class NxmHandler:
                 capture_output=True,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
-                nxm_log("gio not installed on host — skipping gio mime registration")
+                nxm_log("gio not installed on host - skipping gio mime registration")
                 return
             nxm_log("Registered nxm:// handler via gio mime")
         except OSError as exc:
@@ -673,7 +673,7 @@ class NxmHandler:
                 capture_output=True,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
-                nxm_log("xdg-settings not installed on host — skipping registration")
+                nxm_log("xdg-settings not installed on host - skipping registration")
                 return
             nxm_log("Registered nxm:// handler via xdg-settings")
         except OSError as exc:
@@ -685,7 +685,7 @@ class NxmHandler:
 
         If *ours_only* is True, only remove lines pointing to our .desktop file.
         If False (the default, used by _scrub_all), remove **any** handler for
-        x-scheme-handler/nxm — including entries set by Firefox, the DE, etc. —
+        x-scheme-handler/nxm - including entries set by Firefox, the DE, etc. -
         so that the subsequent register() has a clean slate.
         """
         key = "x-scheme-handler/nxm"
@@ -706,7 +706,7 @@ class NxmHandler:
                     continue
                 # A DE-specific file that we (or an old Amethyst) created can
                 # end up holding nothing but empty section headers once the
-                # nxm entry is gone — delete it outright rather than leave a
+                # nxm entry is gone - delete it outright rather than leave a
                 # husk the desktop never shipped (#187).
                 meaningless = all(
                     not s or (s.startswith("[") and s.endswith("]"))
@@ -771,7 +771,7 @@ class NxmHandler:
         in_flatpak = Path("/.flatpak-info").exists()
         xdg_mime_cmd = cls._host_cmd(in_flatpak, "xdg-mime")
         if xdg_mime_cmd is None:
-            nxm_log("xdg-mime not available — nxm:// handler not registered")
+            nxm_log("xdg-mime not available - nxm:// handler not registered")
             return False
 
         try:
@@ -782,7 +782,7 @@ class NxmHandler:
                 capture_output=True,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
-                nxm_log("xdg-mime not installed on host — nxm:// handler not registered")
+                nxm_log("xdg-mime not installed on host - nxm:// handler not registered")
                 return False
             if result.returncode != 0:
                 nxm_log(f"xdg-mime default failed: {result.stderr.decode(errors='replace').strip()}")
@@ -794,7 +794,7 @@ class NxmHandler:
 
         # On some distros (e.g. CachyOS / minimal Arch setups without a full
         # desktop environment) xdg-open runs in "generic" mode and ignores
-        # xdg-mime, cycling through a hardcoded browser list instead — which
+        # xdg-mime, cycling through a hardcoded browser list instead - which
         # produces "xdg-open: no method available for opening 'nxm://...'"
         # when the user's browser (Brave, etc.) isn't in that list. To cover
         # that case we *also* write the association directly to
@@ -819,7 +819,7 @@ class NxmHandler:
                     )
                     if in_flatpak and cls._is_host_tool_missing(result.returncode):
                         if not host_missing_logged:
-                            nxm_log("update-desktop-database not installed on host — desktop database not refreshed")
+                            nxm_log("update-desktop-database not installed on host - desktop database not refreshed")
                             host_missing_logged = True
                         continue
                     if result.returncode != 0:
@@ -837,7 +837,7 @@ class NxmHandler:
         """Query what the system NOW resolves for nxm:// and log it.
 
         Registration can 'succeed' while a DE-specific mimeapps.list or a
-        stale desktop cache still routes nxm:// elsewhere — this readback is
+        stale desktop cache still routes nxm:// elsewhere - this readback is
         the ground truth for diagnosing 'button does nothing' reports.
         """
         base = cls._host_cmd(in_flatpak, "xdg-mime")
@@ -906,7 +906,7 @@ class NxmIPC:
     _servers: dict[Path, socket.socket] = {}
     _threads: list[threading.Thread] = []
     _callback: Optional[Callable[[str], None]] = None
-    # Serializes ensure_bound() against itself and shutdown() — ensure_bound
+    # Serializes ensure_bound() against itself and shutdown() - ensure_bound
     # runs on a worker thread while shutdown comes from the UI thread.
     _lock = threading.Lock()
 
@@ -917,7 +917,7 @@ class NxmIPC:
 
         Tries every candidate socket path (env-derived + the home and /tmp
         fallbacks) so the handoff still works when the browser-spawned process
-        resolves a different path than the long-running instance — including a
+        resolves a different path than the long-running instance - including a
         *different install variant* (Flatpak vs AppImage/native). Returns True
         as soon as one delivery succeeds, False if no instance was reachable
         on any path.
@@ -940,12 +940,12 @@ class NxmIPC:
                 return True
             except socket.timeout as exc:
                 # An instance is listening but didn't answer in time (busy /
-                # backlog full). Do NOT delete the socket — it is live, and
+                # backlog full). Do NOT delete the socket - it is live, and
                 # unlinking it would permanently orphan the running instance:
                 # every later click would open a new window.
                 tried.append(f"{path} (timeout: {exc})")
             except ConnectionRefusedError as exc:
-                # Nobody is listening on this inode — genuinely stale leftover
+                # Nobody is listening on this inode - genuinely stale leftover
                 # from a crashed instance. Safe to clean up.
                 tried.append(f"{path} ({exc})")
                 try:
@@ -953,7 +953,7 @@ class NxmIPC:
                 except OSError:
                     pass
             except OSError as exc:
-                # Permission problems, vanished mid-connect, etc. — leave the
+                # Permission problems, vanished mid-connect, etc. - leave the
                 # file alone; we can't tell whether it belongs to a live
                 # instance.
                 tried.append(f"{path} ({exc})")
@@ -962,7 +962,7 @@ class NxmIPC:
             "NXM handoff: no running instance reachable "
             f"(FLATPAK_ID={os.environ.get('FLATPAK_ID', '')!r}, "
             f"XDG_RUNTIME_DIR={os.environ.get('XDG_RUNTIME_DIR', '')!r}) "
-            f"— tried {tried} — opening new window"
+            f"- tried {tried} - opening new window"
         )
         return False
 
@@ -1015,15 +1015,15 @@ class NxmIPC:
         Never steals a live socket: if another running instance answers on
         the path, that instance keeps it. (Blindly unlinking here is what used
         to orphan the first instance whenever a second full instance launched
-        — after which no click could reach either.)
+        - after which no click could reach either.)
         """
         try:
             if path.exists():
                 if cls._is_live(path):
                     nxm_log(
-                        f"NXM IPC: {path} is held by another live instance — leaving it")
+                        f"NXM IPC: {path} is held by another live instance - leaving it")
                     return False
-                path.unlink(missing_ok=True)  # dead leftover — safe to replace
+                path.unlink(missing_ok=True)  # dead leftover - safe to replace
             path.parent.mkdir(parents=True, exist_ok=True)
             srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             srv.bind(str(path))
@@ -1071,7 +1071,7 @@ class NxmIPC:
 
         Another instance (an older build blindly unlinks our paths on its own
         startup/shutdown) or a /tmp cleaner can remove our socket files while
-        we run — after that, no sender can reach us and every 'Download with
+        we run - after that, no sender can reach us and every 'Download with
         Mod Manager' click opens a new window. Re-bind any of our paths whose
         socket file has vanished, and pick up paths that a now-exited instance
         used to hold. Safe to call from a worker thread; no-op if the server
@@ -1088,11 +1088,11 @@ class NxmIPC:
             for path in cls._bind_targets():
                 srv = cls._servers.get(path)
                 if srv is not None and path.exists():
-                    continue  # bound and still on disk — healthy
+                    continue  # bound and still on disk - healthy
                 if srv is None and path.exists() and cls._is_live(path):
                     continue  # another live instance legitimately holds it
                 if srv is not None:
-                    # Our socket file vanished — the fd is orphaned (clients
+                    # Our socket file vanished - the fd is orphaned (clients
                     # connect by path, not inode). Drop it and bind fresh.
                     # shutdown() first: close() alone doesn't release the
                     # listener while the accept thread is blocked in accept().
@@ -1114,7 +1114,7 @@ class NxmIPC:
     def shutdown(cls) -> None:
         """Close every IPC socket we bound and remove only OUR socket files.
 
-        Never unlink a path another instance holds — that would orphan a
+        Never unlink a path another instance holds - that would orphan a
         still-running instance and route every future click to a new window.
         """
         with cls._lock:
@@ -1139,7 +1139,7 @@ class NxmIPC:
             cls._threads = []
             for path in servers:
                 # With our server gone, a live answer on the path means
-                # another instance has re-bound it — leave their file alone.
+                # another instance has re-bound it - leave their file alone.
                 if not cls._is_live(path):
                     try:
                         path.unlink(missing_ok=True)

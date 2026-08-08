@@ -1,4 +1,4 @@
-"""Theme editor — a full-screen tab for authoring custom colour themes.
+"""Theme editor - a full-screen tab for authoring custom colour themes.
 
 Opened from Settings ▸ User Interface ("Edit / Create Theme…") via
 ``app._open_theme_editor_tab`` → ``DetachableTabWidget.open_tab(..., key=
@@ -14,7 +14,7 @@ unless "Advanced" is ticked, which reveals and unlocks every individual key.
 The app itself is never live-restyled: ~72 widgets snapshot the palette at
 build time and set inline stylesheets, so a partial live re-style looked broken
 (some elements updated, others didn't). Instead the theme is applied on a full
-app restart — the top bar has a **Restart to apply** button, and Save offers
+app restart - the top bar has a **Restart to apply** button, and Save offers
 the same. To still see choices before committing, the editor is split: colour
 swatches on the left, and a sandboxed dummy preview (``ThemePreviewPanel``) on
 the right that re-renders the working palette after every pick without
@@ -87,7 +87,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "Border"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Border (dim)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Border (faint)"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons — Red"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons - Red"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Danger"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Danger hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Danger (alt)"),
@@ -98,14 +98,14 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "Cancel hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Red (legacy)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Red hover (legacy)"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons — Green"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons - Green"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Success"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Success hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Success (alt)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Success alt hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Success (deep)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Success deep hover"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons — Orange"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons - Orange"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Warning"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Warning hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Warning (deep)"),
@@ -114,19 +114,19 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "Warning brown hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Warning (orange)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Warning orange hover"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons — Blue"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons - Blue"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Info"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Info hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Info (deep)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Info deep hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Neutral"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Neutral hover"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons — Grey"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons - Grey"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Grey"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Grey hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Grey (alt)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Grey alt hover"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons — Purple"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Buttons - Purple"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Purple"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Purple hover"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Tree tags"),
@@ -191,9 +191,9 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "File anchor"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Drag selection outline"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict highlights"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict row — winning"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict row — overridden"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict row — anchor"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict row - winning"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict row - overridden"),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Conflict row - anchor"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Framework detection"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Installed (bg)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Installed (text)"),
@@ -210,7 +210,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "Root Folder band (text)"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Checkboxes"),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Checkbox fill (checked)"),
-    QT_TRANSLATE_NOOP("ThemeEditorView", "Window, panels, list rows and input fields — the app's surfaces."),
+    QT_TRANSLATE_NOOP("ThemeEditorView", "Window, panels, list rows and input fields - the app's surfaces."),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Label and list text throughout the app, plus success/warning/error text."),
     QT_TRANSLATE_NOOP("ThemeEditorView", "The highlight colour: links, dropdown arrows and accented controls."),
     QT_TRANSLATE_NOOP("ThemeEditorView", "Lines and frames around panels, lists and inputs."),
@@ -247,7 +247,7 @@ class ThemeEditorView(QWidget):
         self._names = load_display_names()
         self._advanced = False
         # id of the theme currently being edited (None until Save As on a
-        # built-in; a custom id once loaded/saved) — controls Save vs Save As.
+        # built-in; a custom id once loaded/saved) - controls Save vs Save As.
         self._editing_id: str | None = None
         self._working: dict = {}                 # palette being edited
         self._swatches: dict[str, QPushButton] = {}
@@ -372,7 +372,7 @@ class ThemeEditorView(QWidget):
     def _load_theme(self, theme_id: str):
         """Seed the working palette from *theme_id* and rebuild the swatch grid."""
         # Start from the canonical full key set (dark) so a theme saved before a
-        # new palette key existed still exposes that key for editing — otherwise
+        # new palette key existed still exposes that key for editing - otherwise
         # grouped_for_palette() filters out any group whose keys are absent from
         # the loaded palette (e.g. the Framework detection section on an older
         # custom theme). The selected theme's own values then override the seed.
@@ -541,7 +541,7 @@ class ThemeEditorView(QWidget):
         return new_id
 
     def _restart_to_apply(self):
-        """Apply the palette CURRENTLY on screen and restart — no name prompt.
+        """Apply the palette CURRENTLY on screen and restart - no name prompt.
 
         Whatever colours are shown are written verbatim and made the active
         theme, so "Restart to apply" always applies exactly what you're editing:

@@ -1,4 +1,4 @@
-"""Add-Game view — a reflowing card grid for selecting/adding games.
+"""Add-Game view - a reflowing card grid for selecting/adding games.
 
 Qt port of gui/game_picker_dialog.py (v1 scope). Each card shows the game's
 square logo, its name, and a button: "Select" (green) if the game is already
@@ -11,8 +11,8 @@ the games they actually own. A "Show only installed" checkbox hides the bottom
 section entirely.
 
 The view embeds as a detachable tab. It calls back:
-    on_select(game_name)  — a configured game was picked (switch to it)
-    on_add(game_name)     — an unconfigured game was picked (start configure)
+    on_select(game_name)  - a configured game was picked (switch to it)
+    on_add(game_name)     - an unconfigured game was picked (start configure)
 """
 
 from __future__ import annotations
@@ -147,7 +147,7 @@ class AddGameView(QWidget):
         self._populate()
 
     def on_image_downloaded(self, game_id: str) -> None:
-        """Worker-thread callback from download_missing_custom_game_images —
+        """Worker-thread callback from download_missing_custom_game_images -
         marshal to the GUI thread to refresh the matching card's logo."""
         from gui_qt.safe_emit import safe_emit
         safe_emit(self._image_ready, game_id)
@@ -186,7 +186,7 @@ class AddGameView(QWidget):
 
         # Scroll area holding the grid. Cards reflow to fit the width, so the
         # horizontal scrollbar is never needed (it only appears when the grid is
-        # momentarily wider than the viewport — disable it outright).
+        # momentarily wider than the viewport - disable it outright).
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.NoFrame)
@@ -255,7 +255,7 @@ class AddGameView(QWidget):
         """Runs in a worker thread. Detects installed games via Steam + Heroic.
 
         Builds a one-pass InstalledIndex (Steam manifests + Heroic configs are
-        each read once), then matches every game against it in memory — the
+        each read once), then matches every game against it in memory - the
         old per-game finder calls re-enumerated the disk for each of the ~100
         games, which took minutes on slow media. Emits _installed_scanned with
         the set of matching game names. Never touches Qt widgets directly
@@ -298,7 +298,7 @@ class AddGameView(QWidget):
                 if found:
                     installed.add(name)
             _log(f"scanned {len(self._games)} games in "
-                 f"{time.monotonic() - t0:.2f}s — {len(installed)} installed")
+                 f"{time.monotonic() - t0:.2f}s - {len(installed)} installed")
         except Exception as exc:
             import traceback
             _log(f"scan aborted unexpectedly: {exc}\n{traceback.format_exc()}")
@@ -352,7 +352,7 @@ class AddGameView(QWidget):
         show_only_installed = self._installed_cb.isChecked()
 
         if not scanned:
-            # Scan not finished yet — render everything flat (no headers).
+            # Scan not finished yet - render everything flat (no headers).
             row = self._add_card_run(matching, cols, 0)
         else:
             installed = [c for c in matching if c._name in self._installed_game_names]

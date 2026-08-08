@@ -1,4 +1,4 @@
-"""Modlist model — QAbstractTableModel over the ModEntry list.
+"""Modlist model - QAbstractTableModel over the ModEntry list.
 
 Columns: Mod Name, Category, Flags, Conflicts, Installed, Version, Author,
 Priority, Size (the checkbox is painted into column 0 by the delegate). Fed by
@@ -76,10 +76,10 @@ _MIME = "application/x-amethyst-modrows"
 
 class ModListModel(QAbstractTableModel):
     # Mods were enabled/disabled and modlist.txt saved. Payload is
-    # list[(mod_name, now_enabled)] — the window syncs plugins.txt to it
+    # list[(mod_name, now_enabled)] - the window syncs plugins.txt to it
     # (Tk parity: _sync_plugins_for_toggle).
     enabled_changed = Signal(object)
-    # modlist.txt write failed — the window surfaces a toast (console print
+    # modlist.txt write failed - the window surfaces a toast (console print
     # alone loses the user's reorder/toggle silently).
     save_failed = Signal(str)
 
@@ -89,7 +89,7 @@ class ModListModel(QAbstractTableModel):
                  conflicts: dict[str, int] | None = None):
         super().__init__()
         # Source of truth: entries in natural modlist.txt order (boundaries
-        # included). _entries is the DISPLAY list — when no column sort is
+        # included). _entries is the DISPLAY list - when no column sort is
         # active it IS _natural (same object); a sort derives a permutation
         # (plus the divider row in reverse-priority mode). Both hold the same
         # ModEntry objects, so per-entry edits need no translation; save()
@@ -104,7 +104,7 @@ class ModListModel(QAbstractTableModel):
         # Active column sort ("name"/"category"/…/"priority") + direction.
         self._sort_key: str | None = None
         self._sort_ascending: bool = True
-        # True while the "hide separators" filter is active — makes a column
+        # True while the "hide separators" filter is active - makes a column
         # sort flatten all mods into one list instead of sorting within each
         # separator group (which would leave mods clustered under the hidden
         # separators). Set by the app when the filter state changes.
@@ -115,13 +115,13 @@ class ModListModel(QAbstractTableModel):
         self._versions = versions or {}
         self._installed = installed or {}
         self._categories: dict[str, str] = {}
-        # Nexus uploader per mod (meta.ini uploadedBy — Author column).
+        # Nexus uploader per mod (meta.ini uploadedBy - Author column).
         self._authors: dict[str, str] = {}
-        # Nexus summary per mod — backs the name-column hover tooltip only
+        # Nexus summary per mod - backs the name-column hover tooltip only
         # (no column of its own). Populated with the other meta on reload.
         self._descriptions: dict[str, str] = {}
-        # Formatted mod folder sizes ("12 MB"). Computed lazily — only when the
-        # Size column is visible — so a default-hidden Size costs no disk walk.
+        # Formatted mod folder sizes ("12 MB"). Computed lazily - only when the
+        # Size column is visible - so a default-hidden Size costs no disk walk.
         self._sizes: dict[str, str] = {}
         # Raw byte counts backing the Size column sort.
         self._size_bytes: dict[str, int] = {}
@@ -146,14 +146,14 @@ class ModListModel(QAbstractTableModel):
         # every plugin reload from meta.ini fomodPendingDeps. See FLAG_RERUN_FOMOD.
         self._rerun_fomod_mods: set[str] = set()
         # Highlight state: mod names tinted green (wins over selection) / red
-        # (loses to selection), and a set of "anchor" mods (orange) — the mod a
+        # (loses to selection), and a set of "anchor" mods (orange) - the mod a
         # selected plugin belongs to. Driven by the view's cross-panel wiring.
         self._hl_higher: set[str] = set()
         self._hl_lower: set[str] = set()
         self._hl_anchor: set[str] = set()
         # Requirement highlights (View Requirements tab): mods the selection
         # requires (purple) / mods that require the selection (blue). Mutually
-        # exclusive with the conflict sets — every set_highlights call replaces
+        # exclusive with the conflict sets - every set_highlights call replaces
         # all five, so whichever mode is active empties the other.
         self._hl_requires: set[str] = set()
         self._hl_required_by: set[str] = set()
@@ -170,12 +170,12 @@ class ModListModel(QAbstractTableModel):
         # `..._separator` name (matches the Tk / profile_state storage key).
         self._sep_colors: dict[str, str] = {}
         # Custom deployment overrides ({"path","raw","mode","merge"}), keyed by
-        # the internal name — drives the path badge painted on the separator.
+        # the internal name - drives the path badge painted on the separator.
         self._sep_deploy: dict[str, dict] = {}
         # Per-row memo for _separator_highlight (block walk is O(block size)
         # and data() asks per paint). Cleared on highlight/collapse/entry edits.
         self._sep_hl_cache: dict[int, int] = {}
-        # File counts for the pinned Overwrite / Root Folder boundary rows —
+        # File counts for the pinned Overwrite / Root Folder boundary rows -
         # they own a folder rather than a block of mods, so the "(N)" they show
         # counts files on disk. Filled by an async walk (see the app's
         # _refresh_boundary_counts); empty until it lands.
@@ -320,7 +320,7 @@ class ModListModel(QAbstractTableModel):
     def set_sizes(self, sizes: dict[str, str],
                   size_bytes: dict[str, int] | None = None) -> None:
         """Set formatted mod sizes (Size column) + raw bytes (Size sort).
-        Repaints just that column — used when the user enables Size from the
+        Repaints just that column - used when the user enables Size from the
         column menu after first load."""
         self._sizes = sizes or {}
         if size_bytes is not None:
@@ -353,20 +353,20 @@ class ModListModel(QAbstractTableModel):
         self._emit_flags_changed()
 
     def set_prertx_mods(self, mods: set[str]) -> None:
-        """Set which mods contain pre-RTX (natives/x64) files — the info icon
+        """Set which mods contain pre-RTX (natives/x64) files - the info icon
         (filemap-derived overlay)."""
         self._prertx_mods = set(mods or ())
         self._emit_flags_changed()
 
     def set_root_rule_mods(self, mods: set[str]) -> None:
-        """Set which mods own files with a custom root-routing rule — the root
+        """Set which mods own files with a custom root-routing rule - the root
         icon (filemap-derived overlay)."""
         self._root_rule_mods = set(mods or ())
         self._emit_flags_changed()
 
     def set_rerun_fomod_mods(self, mods: set[str]) -> None:
         """Set which mods have a recorded FOMOD fileDependency plugin now present
-        in the load order — the rerun-FOMOD icon (live overlay, recomputed on
+        in the load order - the rerun-FOMOD icon (live overlay, recomputed on
         each plugin reload). See FLAG_RERUN_FOMOD."""
         self._rerun_fomod_mods = set(mods or ())
         self._emit_flags_changed()
@@ -384,7 +384,7 @@ class ModListModel(QAbstractTableModel):
                             uuid_conflicts: "dict[str, int] | None" = None) -> None:
         """Apply everything a filemap rebuild produces for this model in ONE
         dataChanged pass. Equivalent to set_conflicts + set_prertx_mods +
-        set_root_rule_mods, but those each emit a full-table dataChanged —
+        set_root_rule_mods, but those each emit a full-table dataChanged -
         three repaint/relayout storms per rebuild on a big modlist."""
         self._conflicts = conflicts or {}
         self._bsa_conflicts = bsa_conflicts or {}
@@ -417,7 +417,7 @@ class ModListModel(QAbstractTableModel):
 
     def set_bsa_conflicts(self, bsa_conflicts: dict[str, int]) -> None:
         """Update ONLY the BSA conflict codes, leaving loose conflicts + flags
-        untouched. Used when a plugin toggle/reorder changes BSA load order —
+        untouched. Used when a plugin toggle/reorder changes BSA load order -
         the filemap/loose conflicts are unaffected, so only the BSA icons need
         repainting (Tk parity: recompute_bsa_conflicts)."""
         self._bsa_conflicts = bsa_conflicts or {}
@@ -434,9 +434,9 @@ class ModListModel(QAbstractTableModel):
 
     def _separator_highlight(self, row: int, e) -> int:
         """A separator is tinted ONLY when collapsed AND one of its child mods is
-        a highlight partner (Tk parity — an expanded block tints the child mod
+        a highlight partner (Tk parity - an expanded block tints the child mod
         directly instead). anchor(2) > higher(1) > lower(-1).
-        Cached per row — data() asks for this on every paint, and the block walk
+        Cached per row - data() asks for this on every paint, and the block walk
         is O(block size). Invalidated on highlight/collapse/entry changes."""
         cached = self._sep_hl_cache.get(row)
         if cached is not None:
@@ -447,7 +447,7 @@ class ModListModel(QAbstractTableModel):
 
     def _separator_highlight_compute(self, row: int, e) -> int:
         # [Overwrite] is a boundary separator but DOES light up (green) when it
-        # wins over the selection — same as Tk. Root Folder never highlights.
+        # wins over the selection - same as Tk. Root Folder never highlights.
         if e.name == OVERWRITE_NAME:
             if e.name in self._hl_anchor:
                 return 2
@@ -492,7 +492,7 @@ class ModListModel(QAbstractTableModel):
 
         Diff-aware: a no-op refresh (e.g. the per-rebuild self-highlight
         reapply with unchanged partners) emits nothing, and a real change
-        repaints only the span of rows whose tint flipped — a full-table
+        repaints only the span of rows whose tint flipped - a full-table
         HighlightRole dataChanged costs ~50-150 ms on a 550-row modlist and
         this runs after every conflict rebuild."""
         higher = set(higher or ())
@@ -518,7 +518,7 @@ class ModListModel(QAbstractTableModel):
         if not self._entries:
             return
         # Rows to repaint: mods whose membership flipped + collapsed separators
-        # (their tint summarises hidden children; expanded ones never tint —
+        # (their tint summarises hidden children; expanded ones never tint -
         # except Overwrite, which is covered by the name check).
         rows = [i for i, e in enumerate(self._entries)
                 if e.name in changed
@@ -539,12 +539,12 @@ class ModListModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             # TkStyleHeader paints the label itself (elided clear of the sort
-            # triangle) — it suppresses the native text for the chrome pass.
+            # triangle) - it suppresses the native text for the chrome pass.
             if getattr(self, "_suppress_header_text", False):
                 return ""
             # The Name column hosts the column-menu button at its left edge;
             # pad the (left-aligned) label so it isn't drawn under the button.
-            # Display-only + TRANSLATED — persistence still keys off the
+            # Display-only + TRANSLATED - persistence still keys off the
             # canonical (untranslated) COLUMNS names elsewhere.
             label = self.tr(COLUMNS[section])
             if section == COL_NAME:
@@ -566,7 +566,7 @@ class ModListModel(QAbstractTableModel):
             below = sum(1 for x in self._entries[row:] if not x.is_separator)
             return below - 1
         # Non-priority sort: the number reflects the NATURAL position (Tk
-        # parity — sorting by name doesn't renumber priorities).
+        # parity - sorting by name doesn't renumber priorities).
         try:
             ni = next(i for i, x in enumerate(self._natural) if x is e)
         except StopIteration:
@@ -715,7 +715,7 @@ class ModListModel(QAbstractTableModel):
             e.enabled = enabled
             changed.append((e.name, enabled))
             changed_rows.append(r)
-        # One dataChanged per contiguous run, not per row — Enable/Disable-All
+        # One dataChanged per contiguous run, not per row - Enable/Disable-All
         # on a large modlist would otherwise trigger a repaint per mod.
         changed_rows.sort()
         run_start = prev = None
@@ -819,7 +819,7 @@ class ModListModel(QAbstractTableModel):
 
     def set_sep_lock_range(self, row_a: int, row_b: int, locked: bool) -> dict[str, bool]:
         """Set the lock state of every (lockable) separator between *row_a* and
-        *row_b* inclusive — used by shift-click range selection on the lock
+        *row_b* inclusive - used by shift-click range selection on the lock
         boxes. Pinned/boundary separators in the range are skipped."""
         lo, hi = sorted((row_a, row_b))
         lo = max(0, lo)
@@ -880,13 +880,13 @@ class ModListModel(QAbstractTableModel):
         """Rows to hide: mods that fall under a collapsed separator (up to the
         next separator). Separators themselves are never hidden.
 
-        The Overwrite / Root Folder boundaries never collapse their block — they
+        The Overwrite / Root Folder boundaries never collapse their block - they
         aren't user-collapsible (Tk excludes them from the toggle set), so a
         stale '[Overwrite]' in the persisted collapsed set must NOT hide the
         ungrouped mods that sit between Overwrite and the first real separator.
 
         While the 'hide separators' filter is active the separators aren't shown
-        at all, so their collapse state is meaningless — every mod stays visible
+        at all, so their collapse state is meaningless - every mod stays visible
         (a collapsed separator must not swallow its mods behind a hidden header).
         """
         if self._separators_hidden:
@@ -902,7 +902,7 @@ class ModListModel(QAbstractTableModel):
         return hidden
 
     def sep_block_rows(self, sep_row: int) -> range:
-        """Row range [sep_row+1, next-separator) — the mods a separator owns."""
+        """Row range [sep_row+1, next-separator) - the mods a separator owns."""
         end = sep_row + 1
         while end < len(self._entries) and not self._entries[end].is_separator:
             end += 1
@@ -910,7 +910,7 @@ class ModListModel(QAbstractTableModel):
 
     def sep_block_priority_range(self, sep_row: int) -> str:
         """Priority range of the mods a separator owns, for the collapsed-
-        separator Priority column (Tk parity — e.g. "0 - 20", or "5" when the
+        separator Priority column (Tk parity - e.g. "0 - 20", or "5" when the
         block holds a single mod). Empty when the block has no mods."""
         prios = [
             self._priority_for_row(r)
@@ -925,7 +925,7 @@ class ModListModel(QAbstractTableModel):
 
     def sep_block_summary(self, block) -> tuple[int, set, set, set]:
         """(flag bits, loose codes, BSA codes, UUID codes) for the
-        mods at *block* display rows — the collapsed-separator icon summary.
+        mods at *block* display rows - the collapsed-separator icon summary.
         Walks the dicts directly: the delegate asks per paint, and two
         data()/QModelIndex round-trips per row add up on big blocks."""
         bits = 0
@@ -955,23 +955,23 @@ class ModListModel(QAbstractTableModel):
         stripped before writing. Fires on_saved(edit_ctx) so the view can
         rebuild. edit_ctx tells the app what kind of edit this save carries
         so it can take a cheaper path than the full conflict rebuild:
-          ("move", moved_names, crossed_names) — pure reorder (drag /
+          ("move", moved_names, crossed_names) - pure reorder (drag /
             set_priority / move-to-separator / sort-selection)
-          ("toggle", [(name, enabled), ...])   — enable/disable only
-          None — anything else (or an unclassifiable edit) → full rebuild."""
+          ("toggle", [(name, enabled), ...])   - enable/disable only
+          None - anything else (or an unclassifiable edit) → full rebuild."""
         if self.modlist_path is None:
             return
         # Every structural edit (drag, remove, add-separator, set_priority…)
-        # funnels through here — row→block mapping may have changed.
+        # funnels through here - row→block mapping may have changed.
         self._sep_hl_cache.clear()
         from Utils.modlist import read_modlist, write_modlist, modlist_lock
         from Utils.perftrace import span
-        # ALWAYS write the natural order — the display list may be a sorted /
+        # ALWAYS write the natural order - the display list may be a sorted /
         # inverted permutation (and contains the divider in reverse mode).
         body = [e for e in self._natural if e.name not in _PINNED_NAMES]
         try:
-            # This model can be a stale snapshot — a background install writes
-            # its new entry before our _reload_modlist lands — so writing body
+            # This model can be a stale snapshot - a background install writes
+            # its new entry before our _reload_modlist lands - so writing body
             # verbatim would erase it. Take prepend_mod's lock and keep any
             # on-disk mod we've never seen; entries known at load but gone from
             # body were removed by the user and stay removed.
@@ -1050,7 +1050,7 @@ class ModListModel(QAbstractTableModel):
         ref = self._entries[row]
         if self.reverse_mode_active:
             # Inverted display reverses group/mod order, so a natural-order
-            # insert mis-anchors — resolve in display space and uninvert
+            # insert mis-anchors - resolve in display space and uninvert
             # (Tk _add_separator_inverted).
             self._natural = insert_separator_display(self._entries, row,
                                                      above, sep)
@@ -1075,7 +1075,7 @@ class ModListModel(QAbstractTableModel):
 
     def insert_mod(self, row: int, name: str, above: bool = False) -> None:
         """Insert an (enabled) mod entry named *name* relative to *row*. Used by
-        'Create empty mod below' — the folder/meta.ini are created by the caller."""
+        'Create empty mod below' - the folder/meta.ini are created by the caller."""
         entry = ModEntry(name, True, False, False)
         if self._entries is self._natural:
             at = row if above else row + 1
@@ -1095,7 +1095,7 @@ class ModListModel(QAbstractTableModel):
     def insert_mod_at_body_edge(self, top: bool, name: str) -> None:
         """Insert an (enabled) mod at the top or bottom of the natural body,
         just inside the boundary separators. Used by the boundary rows' 'Create
-        an empty mod below' — normal mode drops it below Overwrite (top of the
+        an empty mod below' - normal mode drops it below Overwrite (top of the
         body), reverse-priority mode below Root Folder (bottom of the body)."""
         entry = ModEntry(name, True, False, False)
         # Natural layout is normally [Overwrite] + body + [Root Folder]; drop the
@@ -1120,7 +1120,7 @@ class ModListModel(QAbstractTableModel):
 
     def remove_row(self, row: int, save: bool = True) -> None:
         """Drop *row*. Pass save=False when removing several rows in a loop and
-        call save() once at the end — save() fires on_saved() which kicks off a
+        call save() once at the end - save() fires on_saved() which kicks off a
         full conflict/filemap rebuild, so per-row saving rebuilds N times."""
         e = self._entries[row]
         if e.name in _PINNED_NAMES or (not e.is_separator and e.locked):
@@ -1174,7 +1174,7 @@ class ModListModel(QAbstractTableModel):
         split that block from the top. Dragging UP it lands EXACTLY at the drop
         point: the gap above the mod under the cursor is already a valid group
         start, so the separator sits there and absorbs that mod (and the rest of
-        the block below it) — nothing above the drop point moves. Forward-snapping
+        the block below it) - nothing above the drop point moves. Forward-snapping
         an upward drop is wrong: it would either run back into the source
         separator (a no-op) or swallow the whole preceding block."""
         n = len(self._entries)
@@ -1200,12 +1200,12 @@ class ModListModel(QAbstractTableModel):
 
         crossed = the union over moved mods of every OTHER mod whose priority
         order relative to that mod flipped. Handles non-contiguous moved sets
-        (sort-selection) — non-moved pairs never flip, so only pairs involving
+        (sort-selection) - non-moved pairs never flip, so only pairs involving
         a moved mod are tested. The union may over-report for multi-mod moves
-        (a partner of one moved mod crossed only by another) — that costs an
+        (a partner of one moved mod crossed only by another) - that costs an
         unnecessary rebuild, never a wrong skip. Returns None (= caller must
-        rebuild) if a moved name is missing from either order — the edit
-        wasn't the pure reorder this reasoning assumes — or if the pairwise
+        rebuild) if a moved name is missing from either order - the edit
+        wasn't the pure reorder this reasoning assumes - or if the pairwise
         sweep would be too big to run on the UI thread."""
         if not moved_names:
             return ([], [])
@@ -1230,7 +1230,7 @@ class ModListModel(QAbstractTableModel):
         view animates and keeps selection/scroll (unlike a full reset).
 
         Natural-order only: while a column sort is active the display is a
-        permutation and row moves are meaningless here — the drag path clears
+        permutation and row moves are meaningless here - the drag path clears
         a non-priority sort first, and reverse-priority drags go through
         move_block_display()."""
         if not src_rows or self._entries is not self._natural:
@@ -1239,7 +1239,7 @@ class ModListModel(QAbstractTableModel):
         first, last = src_rows[0], src_rows[-1]
         # Pinned rows never move: boundary separators (Overwrite/Root Folder)
         # and locked MODS. NB a regular separator reads back as locked=True
-        # (the '-' prefix convention in read_modlist) yet is still movable — so
+        # (the '-' prefix convention in read_modlist) yet is still movable - so
         # the lock guard applies to mods only, plus the boundary names.
         for r in src_rows:
             e = self._entries[r]
@@ -1253,7 +1253,7 @@ class ModListModel(QAbstractTableModel):
             return False
         # Mods may be dragged freely into or out of a locked separator's block
         # (locking now only means the separator carries its block when the
-        # SEPARATOR itself is dragged — it no longer traps loose mods).
+        # SEPARATOR itself is dragged - it no longer traps loose mods).
         # Qt's beginMoveRows requires dest outside the moved range.
         if first <= dest <= last + 1:
             return False
@@ -1322,7 +1322,7 @@ class ModListModel(QAbstractTableModel):
         self.endMoveRows()
         # Uninvert the mutated display into the new natural order, then
         # re-canonicalise the display (a drop below Overwrite belongs in the
-        # float; everywhere else this is a no-op — invert∘uninvert identity).
+        # float; everywhere else this is a no-op - invert∘uninvert identity).
         self._natural = uninvert_display(self._entries)
         self._sep_hl_cache.clear()
         self._rebuild_display()

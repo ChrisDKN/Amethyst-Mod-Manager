@@ -1,4 +1,4 @@
-"""TexGen / DynDOLOD / xLODGen wizards — Qt port of wizards/dyndolod.py.
+"""TexGen / DynDOLOD / xLODGen wizards - Qt port of wizards/dyndolod.py.
 
 One view serves all three tools (``tool="texgen" | "dyndolod" | "xlodgen"``);
 TexGen and DynDOLOD ship in the same DynDOLOD archive (manual Nexus download),
@@ -6,7 +6,7 @@ xLODGen auto-downloads the latest release from GitHub.
 
 Steps (plugins-panel-scoped tab; install steps are skipped when the exe is
 already extracted under Profiles/<game>/Applications/<app_dir>/):
-  1. Download — manual Nexus page → locate in ~/Downloads → extract, OR
+  1. Download - manual Nexus page → locate in ~/Downloads → extract, OR
      (xLODGen) auto-download from GitHub with progress → extract.
   2. Deploy the modlist (explicit Deploy button after the delete-previous-
      output reminder, through QtWizardContext.run_deploy).
@@ -117,7 +117,7 @@ class DynDOLODView(QWidget):
 
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("{0} — {1}").format(self._name, self._game.name))
+        title = QLabel(self.tr("{0} - {1}").format(self._name, self._game.name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -328,7 +328,7 @@ class DynDOLODView(QWidget):
 
     def _browse_archive(self):
         from Utils.portal_filechooser import pick_file
-        # Portal callback fires on a WORKER thread — marshal via Signal.
+        # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self.tr("Select the DynDOLOD archive"), lambda *a: safe_emit(self._picked_sig, *a))
 
     def _on_picked(self, path):
@@ -436,13 +436,13 @@ class DynDOLODView(QWidget):
                 self._goto_step(_PG_PROTON)
             else:
                 self._set_status(self._deploy_status,
-                                 self.tr("Deploy failed — see log."), err_text())
+                                 self.tr("Deploy failed - see log."), err_text())
                 self._deploy_btn.setEnabled(True)
                 self._skip_btn.setEnabled(True)
 
         if not run_deploy(_done):
             self._set_status(self._deploy_status,
-                             self.tr("Could not start deploy — see log."), err_text())
+                             self.tr("Could not start deploy - see log."), err_text())
             self._deploy_btn.setEnabled(True)
             self._skip_btn.setEnabled(True)
 
@@ -518,7 +518,7 @@ class DynDOLODView(QWidget):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                        self.tr("Could not find Proton '{0}' — "
+                        self.tr("Could not find Proton '{0}' - "
                         "check that it is installed in Steam.").format(proton_name), err_text())
                     return
                 proton_script, compat_data, env = result
@@ -538,7 +538,7 @@ class DynDOLODView(QWidget):
 
                 # xEdit-based tools read the game's Installed Path from the
                 # registry, the load order from plugins.txt in AppData and
-                # the game INIs from My Games — a fresh tool prefix has none
+                # the game INIs from My Games - a fresh tool prefix has none
                 # of them (no viewsettings/WinXP seeding for these tools).
                 prepare_xedit_prefix(
                     game, compat_data, proton_script, env, log_fn=_wlog)
@@ -599,7 +599,7 @@ class DynDOLODView(QWidget):
         do_refresh = self._ran and getattr(self._ctx, "refresh_modlist", None)
         self._on_close_cb()
         if do_refresh:
-            # The tool wrote its output into staging/<Tool>_Output — re-sync
+            # The tool wrote its output into staging/<Tool>_Output - re-sync
             # the modlist so the new mod appears (mirrors Tk's
             # _reload_mod_panel).
             do_refresh()

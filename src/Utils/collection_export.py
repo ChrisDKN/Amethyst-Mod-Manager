@@ -162,12 +162,12 @@ def seed_info_from_manifest(manifest: dict) -> dict:
     "the author left this blank" from "never recorded" and keep its own default
     for the latter. Deliberately absent:
 
-    * ``author`` — the manifest names whoever authored the collection we
+    * ``author`` - the manifest names whoever authored the collection we
       installed; the form fills in the signed-in Nexus user, who is the one the
       upload will actually be attributed to.
-    * ``gameVersions`` — the form detects the version of the game as installed
+    * ``gameVersions`` - the form detects the version of the game as installed
       HERE, which is what the re-upload should advertise.
-    * ``adultContent`` — not a manifest field at all. Both we and Vortex pass it
+    * ``adultContent`` - not a manifest field at all. Both we and Vortex pass it
       as an argument to the create/revision mutation, so it lives on the server.
     """
     out: dict = {}
@@ -262,7 +262,7 @@ def validate_collection_name(name: str) -> str:
 
     Only the length limits are enforced. Vortex's *creation* dialog restricts
     new names to letters/numbers/space/hyphen, but collections made on the
-    website carry apostrophes, colons and brackets — and we auto-fill this
+    website carry apostrophes, colons and brackets - and we auto-fill this
     field from the server when targeting an existing collection, so rejecting
     those would make it impossible to upload a revision of, or rename, a
     perfectly normal collection. Anything Nexus itself refuses comes back as a
@@ -324,7 +324,7 @@ def _short_tag(name: str, mod_id: int = 0, file_id: int = 0,
 
     Installers short-circuit on the tag: Vortex's matcher treats an installed
     mod carrying the same referenceTag as already satisfying the rule, without
-    checking any other attribute. So the tag must change when the file does —
+    checking any other attribute. So the tag must change when the file does -
     keying it purely on the mod's name would make a revision that bumps a mod
     to a newer file look already-installed, and it would never be downloaded.
     """
@@ -349,7 +349,7 @@ def _read_row_meta(staging_root, name: str):
         return None
 
 
-# {(dir, mtime_ns): {file_id: archive path}} — the download cache's .fileid
+# {(dir, mtime_ns): {file_id: archive path}} - the download cache's .fileid
 # sidecars, memoized so a whole export scans each folder at most once.
 _fileid_index_cache: dict = {}
 
@@ -390,8 +390,8 @@ def _cached_archive(meta, game_name: str = "") -> "Path | None":
 
     Downloads land in a per-game subfolder (download_cache/<game>/), with the
     cache root kept as a fallback for legacy layouts. The filename recorded in
-    meta.ini can be stale — Nexus changed its download naming, or the file was
-    re-downloaded under a new name — so fall back to matching the mod's Nexus
+    meta.ini can be stale - Nexus changed its download naming, or the file was
+    re-downloaded under a new name - so fall back to matching the mod's Nexus
     file id against the ``.fileid`` sidecars written next to each download.
     """
     if meta is None:
@@ -604,7 +604,7 @@ def _module_config_for_mod(mod_name: str, profile_dir, archive):
 
     Installs mirror ``ModuleConfig.xml`` to ``<profile>/fomod/<mod>.xml``, so
     the usual path needs no archive at all. Mods installed before that existed
-    fall back to reading the archive — and the copy is then back-filled so the
+    fall back to reading the archive - and the copy is then back-filled so the
     next export works even if the archive is later deleted or renamed.
     """
     from Utils.fomod_parser import parse_module_config
@@ -615,7 +615,7 @@ def _module_config_for_mod(mod_name: str, profile_dir, archive):
         try:
             return parse_module_config(str(saved))
         except Exception:
-            pass          # corrupt copy — fall through to the archive
+            pass          # corrupt copy - fall through to the archive
 
     if archive is None:
         return None
@@ -851,7 +851,7 @@ def _conflict_mod_rules(ordered_names: list, refs: dict, staging_root,
     """Emit ``after`` rules so loose-file conflicts resolve exactly as they do
     in the modlist panel.
 
-    *ordered_names* is LOWEST-priority-first — the order the export rows carry,
+    *ordered_names* is LOWEST-priority-first - the order the export rows carry,
     which mirrors the modlist read bottom-up (the panel's top entry, the one
     that wins conflicts, comes last). For every file more than one mod
     provides, the winner is the one furthest down this list; it must load
@@ -860,7 +860,7 @@ def _conflict_mod_rules(ordered_names: list, refs: dict, staging_root,
     Rule direction matches Vortex and our own installer's topo sort
     (``collection_reset._topo_sort_collection``): ``source after reference``
     means *source* wins. Only consecutive pairs in each conflict chain are
-    emitted — the transitive order follows — which keeps the rule count near
+    emitted - the transitive order follows - which keeps the rule count near
     the number of real conflicts rather than their square.
     """
     if index_path is None:
@@ -920,19 +920,19 @@ def _load_order_block(entries: list) -> "list | None":
 
     Bethesda-style games express load order through plugins (plugins.txt +
     LOOT rules), so their manifests carry ``plugins``/``pluginRules`` instead.
-    Games without plugin files — Baldur's Gate 3 and its .pak order being the
-    motivating case — have nothing but the mod order itself, and conflict-
+    Games without plugin files - Baldur's Gate 3 and its .pak order being the
+    motivating case - have nothing but the mod order itself, and conflict-
     derived ``modRules`` barely cover it because each mod ships a uniquely
     named archive that never collides on a loose path.
 
     ``loadOrder[0]`` is the FIRST mod to load, i.e. the lowest priority /
-    bottom of the modlist — the same order the export rows are already in, and
+    bottom of the modlist - the same order the export rows are already in, and
     the contract ``collection_reset._resolve_collection_priorities`` consumes
     (it prefers this block over topo-sorting whenever entries carry a fileId).
     Entries also carry Vortex's file-based-load-order fields (id / name /
     enabled) so its BG3 extension can restore the order too.
 
-    *entries* — ``(display_name, file_id)`` in export-row order.
+    *entries* - ``(display_name, file_id)`` in export-row order.
     """
     out: list = []
     for name, file_id in entries:
@@ -970,7 +970,7 @@ def _plugin_rules_block(profile_dir, known_plugins=None) -> "dict | None":
     ``group``, ``after`` and ``before``, plus the group definitions and their
     own ``after`` ordering. Everything those two sides share round-trips.
 
-    *known_plugins* — lowercase names of the plugins the collection actually
+    *known_plugins* - lowercase names of the plugins the collection actually
     ships. Rules owned by anything else are dropped: they would reference
     plugins the installer never sees (Vortex's gamebryo generator filters the
     same way). Group definitions are always kept, since a rule may place a
@@ -1042,7 +1042,7 @@ def build_collection_manifest(rows, game, info: dict, *,
     description, installInstructions, gameVersions (list). bundle_jobs is a
     list of (src_path, arcname) for pack_collection. *scratch_out*, when
     given, receives any temp directories created here (binary-patch diffs);
-    the caller must pass them to cleanup_scratch() once packing is done — the
+    the caller must pass them to cleanup_scratch() once packing is done - the
     files have to outlive this call but must not outlive the export.
     """
     progress_cb = progress_cb or (lambda *_a: None)
@@ -1105,7 +1105,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             # Bundled mods ship as a FOLDER of loose files under bundled/,
             # exactly as Vortex writes them (modToCollection.ts copies the
             # staging folder's contents to bundled/<generatedName>/). Installers
-            # — ours included — look for that directory by fileExpression and
+            # - ours included - look for that directory by fileExpression and
             # skip the mod entirely if it isn't one, so a packed archive here
             # would silently fail to install.
             mod_dir = Path(staging_root) / name if staging_root else None
@@ -1247,7 +1247,7 @@ def build_collection_manifest(rows, game, info: dict, *,
                     if scratch_out is not None:
                         scratch_out.append(patch_root)
                 # The folder is named after the mod, which comes from Nexus
-                # metadata — strip anything that could climb out of patches/
+                # metadata - strip anything that could climb out of patches/
                 # when someone else extracts this collection.
                 patch_dir_name = _safe_archive_component(mod_entry["name"])
                 mod_patch_dir = patch_root / patch_dir_name
@@ -1263,7 +1263,7 @@ def build_collection_manifest(rows, game, info: dict, *,
         # Rule references: non-exact policies must not pin the current file
         # (the installed file may legitimately be newer). Rules are matched by
         # logicalFileName against the manifest's mod names, and only nexus
-        # sources advertise `logicalFilename` — a mod switched to
+        # sources advertise `logicalFilename` - a mod switched to
         # direct/browse/manual/bundle is listed under its folder name, so
         # keying rules on the Nexus file name would strand them.
         rule_name = mod_entry["name"]
@@ -1473,6 +1473,6 @@ def export_collection(out_path, rows, game, info: dict, *,
                                 progress_cb=progress_cb, log_fn=log_fn)
         return final, warnings
     finally:
-        # Owned here so the scratch survives packing but never outlives it —
+        # Owned here so the scratch survives packing but never outlives it -
         # including when the build produced no patches at all, or raised.
         cleanup_scratch(scratch)

@@ -16,8 +16,8 @@ def create_profile_structure(game: BaseGame) -> None:
     Create the standard profile folder structure for a game if it doesn't exist.
 
     Profiles/<game.name>/
-      mods/           — staging area for installed mods
-      overwrite/      — MO2-compatible catch-all for game/tool-generated files
+      mods/           - staging area for installed mods
+      overwrite/      - MO2-compatible catch-all for game/tool-generated files
       profiles/
         Profile 1/
           modlist.txt
@@ -29,19 +29,19 @@ def create_profile_structure(game: BaseGame) -> None:
     game_profile_root = game.get_profile_root()
     mods_dir = game.get_mod_staging_path()
 
-    # mods/        — staging area for installed mods
+    # mods/        - staging area for installed mods
     mods_dir.mkdir(parents=True, exist_ok=True)
 
-    # overwrite/   — MO2-compatible catch-all for files written by the game/tools
+    # overwrite/   - MO2-compatible catch-all for files written by the game/tools
     (game_profile_root / "overwrite").mkdir(parents=True, exist_ok=True)
 
-    # Root_Folder/ — files here are deployed to the game's root directory
+    # Root_Folder/ - files here are deployed to the game's root directory
     (game_profile_root / "Root_Folder").mkdir(parents=True, exist_ok=True)
 
-    # Applications/ — exe files (and shortcuts) to run via Proton
+    # Applications/ - exe files (and shortcuts) to run via Proton
     (game_profile_root / "Applications").mkdir(parents=True, exist_ok=True)
 
-    # profiles/default/  — default profile with empty mod/plugin lists
+    # profiles/default/  - default profile with empty mod/plugin lists
     profile_dir = game_profile_root / "profiles" / "default"
     profile_dir.mkdir(parents=True, exist_ok=True)
     (profile_dir / "plugins.txt").touch()

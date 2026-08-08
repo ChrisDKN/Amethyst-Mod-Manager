@@ -180,7 +180,7 @@ class PathTreeModel(QAbstractItemModel):
 
 class PathTreeDelegate(QStyledItemDelegate):
     """Name-only delegate: arrow.png/right.png indicator + per-depth indent +
-    elided text — same look as the Mod Files / Text Files name column.
+    elided text - same look as the Mod Files / Text Files name column.
     A node's ``source`` is drawn dim and right-aligned when set."""
 
     def __init__(self, view, parent=None):

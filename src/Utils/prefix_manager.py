@@ -29,7 +29,7 @@ WINE_PREFIX_TOOLS = {
 
 def fmt_size(n_bytes: int) -> str:
     if n_bytes <= 0:
-        return "—"
+        return "-"
     for unit, threshold in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
         if n_bytes >= threshold:
             return f"{n_bytes / threshold:.1f} {unit}"
@@ -95,7 +95,7 @@ def scan_root_for_prefixes(root: Path, game: str) -> list[PrefixEntry]:
     if not root.is_dir():
         return out
     # os.walk so we can prune: never descend into a discovered prefix dir
-    # (they hold a full Wine prefix tree — searching inside is pointless).
+    # (they hold a full Wine prefix tree - searching inside is pointless).
     for dirpath, dirnames, _files in os.walk(root):
         found = [d for d in dirnames if d.startswith("prefix_")]
         for d in found:
@@ -125,7 +125,7 @@ def scan_root_for_prefixes(root: Path, game: str) -> list[PrefixEntry]:
 def enumerate_prefixes(games_by_name=None) -> list[PrefixEntry]:
     """Discover every tool prefix across all games, profiles and shared dirs.
 
-    *games_by_name* — optional ``{name: BaseGame}`` mapping used to scan
+    *games_by_name* - optional ``{name: BaseGame}`` mapping used to scan
     custom staging roots living outside Profiles/ (each GUI passes its own
     game registry).
     """

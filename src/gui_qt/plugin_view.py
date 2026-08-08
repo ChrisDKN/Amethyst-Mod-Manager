@@ -85,7 +85,7 @@ _COL_TO_SORTKEY = {
 _SORTKEY_TO_COL = {k: c for c, k in _COL_TO_SORTKEY.items()}
 
 # The order columns (P / Index) are a 2-click toggle between the load order and
-# its reverse — modlist Priority-column parity. Ascending is what the panel
+# its reverse - modlist Priority-column parity. Ascending is what the panel
 # already shows, so applying it on the first click would read as a dead click;
 # one click flips the list, the next returns to the load order (sort cleared).
 # Name/Flags keep the modlist's asc → desc → clear cycle.
@@ -220,7 +220,7 @@ class PluginDelegate(QStyledItemDelegate):
 
     @staticmethod
     def _flag_items(bits):
-        """Ordered flag glyphs in the Tk draw order — (kind, bit, icon_name):
+        """Ordered flag glyphs in the Tk draw order - (kind, bit, icon_name):
         warning icons, the userlist dot, the ESL 'L' badge, then LOOT/dirty/tags.
         Shared by _paint_flags and _hit_flag_bit so hover and hit-test agree."""
         items = []
@@ -239,7 +239,7 @@ class PluginDelegate(QStyledItemDelegate):
         return items
 
     def _paint_flags(self, p, r, bits):
-        # (There is no master indicator — Tk doesn't show one; masters are
+        # (There is no master indicator - Tk doesn't show one; masters are
         # implied by extension.)
         items = self._flag_items(bits)
         if not items:
@@ -400,7 +400,7 @@ class PluginView(QTreeView):
         self._plugin_owner: dict = {}
         self._search_hidden: set[int] = set()
         self._filter_hidden: set[int] = set()
-        # Delta cache for _apply_hidden — row indices go stale on structural
+        # Delta cache for _apply_hidden - row indices go stale on structural
         # changes, so drop it there (same scheme as the modlist view).
         self._applied_hidden: set[int] | None = None
 
@@ -427,7 +427,7 @@ class PluginView(QTreeView):
         h = TkStyleHeader(self, COL_MINS, COL_DEFAULTS)
         self.setHeader(h)
         # QTreeView.setHeader() resets clickable to follow setSortingEnabled
-        # (off — we drive the sort by hand), so re-enable it AFTER installing or
+        # (off - we drive the sort by hand), so re-enable it AFTER installing or
         # sectionClicked never fires.
         h.setSectionsClickable(True)
         h.setMinimumSectionSize(min(COL_MINS.values()))
@@ -435,7 +435,7 @@ class PluginView(QTreeView):
         # Column sorting is driven by hand (NOT setSortingEnabled): the model
         # keeps the load order as its natural list and derives a sorted DISPLAY
         # list from it, so sorting never rewrites plugins.txt. The native
-        # indicator stays hidden — TkStyleHeader paints a triangle on every
+        # indicator stays hidden - TkStyleHeader paints a triangle on every
         # sortable column via sort_triangle_spec; setSortIndicator still tracks
         # the state for persistence.
         h.setSortIndicatorShown(False)
@@ -598,7 +598,7 @@ class PluginView(QTreeView):
             a.toggled.connect(lambda checked, k=key: self._on_quick_filter(k, checked))
             filters.addAction(a)
         menu.addMenu(filters)
-        # Same escape hatch the Filters panel header offers — reachable without
+        # Same escape hatch the Filters panel header offers - reachable without
         # opening the panel. Greyed while nothing is filtered.
         clear = QAction(self.tr("Clear all filters"), menu)
         clear.setEnabled(callable(self.filters_active) and self.filters_active())
@@ -651,7 +651,7 @@ class PluginView(QTreeView):
         widths = {COLUMNS[c]: self.columnWidth(c) for c in range(len(COLUMNS))}
         order = [COLUMNS[h.logicalIndex(v)] for v in range(len(COLUMNS))]
         hidden = {COLUMNS[c] for c in range(len(COLUMNS)) if self.isColumnHidden(c)}
-        # Lock's label is "" — skip it from name-keyed persistence (would collide
+        # Lock's label is "" - skip it from name-keyed persistence (would collide
         # with an empty order token); its visibility never changes anyway.
         widths.pop("", None)
         hidden.discard("")
@@ -686,7 +686,7 @@ class PluginView(QTreeView):
                     cur = h.visualIndex(name_to_col[name])
                     if cur != -1 and cur != visual:
                         h.moveSection(cur, visual)
-            # Restore the live sort. The model is empty at this point — the
+            # Restore the live sort. The model is empty at this point - the
             # first set_rows() re-derives the display with this sort.
             col = name_to_col.get(st["sort_col"])
             key = _COL_TO_SORTKEY.get(col) if col is not None else None
@@ -752,7 +752,7 @@ class PluginView(QTreeView):
     # ---- persistent marker-strip overlays (Tk parity) --------------------
     def refresh_missing_marker(self) -> None:
         """Repaint the persistent red marker-strip ticks for every plugin that
-        has missing masters (PF_MISSING flag). Selection-independent — mirrors
+        has missing masters (PF_MISSING flag). Selection-independent - mirrors
         the Tk marker strip's top-priority 'missing masters' band. Call after
         the model's rows change (reload)."""
         sb = getattr(self, "_marker_strip", None)
@@ -795,7 +795,7 @@ class PluginView(QTreeView):
                                 bsa_lower: set, owner: dict,
                                 bsa_index_path=None):
         """Highlight plugins from a modlist selection (Tk parity):
-          - orange (anchor): plugins of the selected mod(s) — unconditional.
+          - orange (anchor): plugins of the selected mod(s) - unconditional.
           - green/red: plugins of mods in a *BSA* conflict with the selection,
             and ONLY plugins that actually own a BSA. Loose-file conflicts do
             NOT colour plugins (a standalone plugin loads no archive contents).
@@ -827,7 +827,7 @@ class PluginView(QTreeView):
     def _bsa_owning_plugins(self, mods: set, mod_to_plugins: dict,
                             bsa_index_path) -> set:
         """{plugin filename(lower)} for plugins in *mods* that own a BSA via
-        basename match — reuses the backend's _bsa_owning_plugin (Tk parity)."""
+        basename match - reuses the backend's _bsa_owning_plugin (Tk parity)."""
         if not mods or bsa_index_path is None:
             return set()
         try:
@@ -885,7 +885,7 @@ class PluginView(QTreeView):
             if key and not m.display_is_natural:
                 # Display rows aren't load-order rows under a column sort, so a
                 # drag would move the wrong plugins. Modlist parity: clear the
-                # sort first (the list snaps back to load order), then drag —
+                # sort first (the list snaps back to load order), then drag -
                 # re-anchoring the press to the row's new position. P ascending
                 # already IS the load order, so it drags without clearing.
                 pressed = (m.row(self._press_row)

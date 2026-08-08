@@ -7,13 +7,13 @@ HIDDEN otherwise. The only greyed items are the ones still awaiting a Qt backend
 (BOS-SP / overlapping-plugins / LOOT links), and even those appear only when
 their Tk show-condition passes.
 
-Vanilla (base-game) plugins are always-on and can't be toggled — right-clicking a
+Vanilla (base-game) plugins are always-on and can't be toggled - right-clicking a
 vanilla-only selection shows NO menu (Tk parity: it filters to non-vanilla rows and
 returns early if none remain).
 
 Core items wired: Enable / Disable (single + multi), the ESL flag toggle
 (single + multi), and the userlist items (Add to userlist / Add to group /
-Remove from userlist / Show cycle / Show userlist rules — via view callbacks
+Remove from userlist / Show cycle / Show userlist rules - via view callbacks
 set by app._reload_plugins). The rest are gated greyed stubs.
 """
 
@@ -44,13 +44,13 @@ def show_context_menu(view, global_pos, index):
 
 
 def build_context_menu(view, index):
-    """Construct (but don't exec) the context QMenu — split out so headless tests
+    """Construct (but don't exec) the context QMenu - split out so headless tests
     can inspect the actions. Returns None if there's no menu (e.g. vanilla-only)."""
     model = view.model()
     if not index.isValid():
         return None
 
-    # Selected rows, filtered to non-vanilla ("toggleable") — Tk hides the whole
+    # Selected rows, filtered to non-vanilla ("toggleable") - Tk hides the whole
     # menu when nothing toggleable is selected.
     sel_rows = sorted({i.row() for i in view.selectionModel().selectedRows()
                        or view.selectionModel().selectedIndexes()})
@@ -121,7 +121,7 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
         act(_mt("Enable plugin"), lambda: _set_enabled(view, toggleable, True))
         act(_mt("Disable plugin"), lambda: _set_enabled(view, toggleable, False))
 
-    # ---- Disable — BOS/SkyPatcher patch replaces it (stub) ----------------
+    # ---- Disable - BOS/SkyPatcher patch replaces it (stub) ----------------
     # Tk: gated on _bos_sp_plugins detection. Qt has no BOS/SP backend yet, so
     # _bos_sp_kind()/_bos_sp_rows() return empty → hidden until that lands.
     if multi:
@@ -134,7 +134,7 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
         if kind:
             label = {"bos": "BOS", "sp": "SkyPatcher",
                      "both": "BOS+SkyPatcher"}.get(kind, kind)
-            stub(_mtf("Disable — {0} patch replaces it", label))
+            stub(_mtf("Disable - {0} patch replaces it", label))
 
     # ---- ESL flag toggle --------------------------------------------------
     if getattr(game, "supports_esl_flag", False):
@@ -186,7 +186,7 @@ def _build_plugin_menu(view, model, row, toggleable, multi,
         else:
             stub(_mt("Show overlapping plugins…"))
 
-    # ---- LOOT masterlist location links (stub — _loot_info not in Qt) -----
+    # ---- LOOT masterlist location links (stub - _loot_info not in Qt) -----
     if not multi:
         for text in _loot_locations(view, model.row(row).name):
             stub(text)
@@ -216,8 +216,8 @@ def _build_esl_items(view, model, esl_rows, multi, act, stub):
             act(_mt("Mark as Light (ESL)"),
                 lambda: _toggle_esl(view, [i], True))
         else:
-            # Present but greyed — matches Tk's disabled "not ESL-safe" entry.
-            stub(_mt("Not ESL-safe (per LOOT — compact in xEdit first)"))
+            # Present but greyed - matches Tk's disabled "not ESL-safe" entry.
+            stub(_mt("Not ESL-safe (per LOOT - compact in xEdit first)"))
         return
 
     # Multi.
@@ -236,7 +236,7 @@ def _build_esl_items(view, model, esl_rows, multi, act, stub):
         act(_mtf("Mark selected as Light (ESL) ({0})", len(not_esl)) + suffix,
             lambda: _toggle_esl(view, not_esl, True))
     elif ineligible:
-        stub(_mtf("Mark as Light (ESL) — none eligible "
+        stub(_mtf("Mark as Light (ESL) - none eligible "
                   "({0} need xEdit compact)", ineligible))
     if already_esl:
         act(_mtf("Remove ESL flag from selected ({0})", len(already_esl)),
@@ -319,7 +319,7 @@ def _loot_locations(view, name: str) -> list:
     return []
 
 
-# lupdate extraction anchors — every _mt/_mtf label above, translated at
+# lupdate extraction anchors - every _mt/_mtf label above, translated at
 # runtime via QCoreApplication.translate("PluginMenu", …) which lupdate
 # cannot see through.
 _TR_MARKERS = (
@@ -330,13 +330,13 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("PluginMenu", "Disable plugin"),
     QT_TRANSLATE_NOOP("PluginMenu", "Disable selected ({0})"),
     QT_TRANSLATE_NOOP("PluginMenu", "Disable {0} BOS/SP-patched (safe to disable)"),
-    QT_TRANSLATE_NOOP("PluginMenu", "Disable — {0} patch replaces it"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Disable - {0} patch replaces it"),
     QT_TRANSLATE_NOOP("PluginMenu", "Enable plugin"),
     QT_TRANSLATE_NOOP("PluginMenu", "Enable selected ({0})"),
     QT_TRANSLATE_NOOP("PluginMenu", "Mark as Light (ESL)"),
-    QT_TRANSLATE_NOOP("PluginMenu", "Mark as Light (ESL) — none eligible "),
+    QT_TRANSLATE_NOOP("PluginMenu", "Mark as Light (ESL) - none eligible "),
     QT_TRANSLATE_NOOP("PluginMenu", "Mark selected as Light (ESL) ({0})"),
-    QT_TRANSLATE_NOOP("PluginMenu", "Not ESL-safe (per LOOT — compact in xEdit first)"),
+    QT_TRANSLATE_NOOP("PluginMenu", "Not ESL-safe (per LOOT - compact in xEdit first)"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove ESL flag (un-light)"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove ESL flag from selected ({0})"),
     QT_TRANSLATE_NOOP("PluginMenu", "Remove from userlist"),

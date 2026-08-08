@@ -1,4 +1,4 @@
-"""In-window overlay shown when a Nexus mod has more than one MAIN file — the
+"""In-window overlay shown when a Nexus mod has more than one MAIN file - the
 user picks which one to install. NOT a separate window: on Steam Deck gaming mode
 a top-level window (even a QDialog) can open behind the app, so this is a
 borderless child widget that covers the host with a dimmed backdrop and a centered
@@ -35,7 +35,7 @@ def _fmt_size_bytes(b: int) -> str:
 
 # Categories offered in the install picker (MAIN first … MISCELLANEOUS last,
 # matching the section order on the Nexus site's Files tab).
-# OLD_VERSION / ARCHIVED / REMOVED are intentionally excluded — superseded or
+# OLD_VERSION / ARCHIVED / REMOVED are intentionally excluded - superseded or
 # deleted archives, not standalone installs.
 _INSTALL_CATEGORIES = {"MAIN": 0, "UPDATE": 1, "OPTIONAL": 2, "MISCELLANEOUS": 3}
 # UI strings marked for extraction with QT_TRANSLATE_NOOP (module-level, so no
@@ -56,7 +56,7 @@ _HEADER_ROLE = Qt.UserRole + 1
 
 def _plain_text(html_or_bbcode: str) -> str:
     """Reduce a Nexus file description (HTML and/or BBCode) to readable plain
-    text — the pane shows text only, so strip markup rather than render it."""
+    text - the pane shows text only, so strip markup rather than render it."""
     s = html_or_bbcode or ""
     s = s.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
     s = re.sub(r"<[^>]+>", "", s)                 # HTML tags
@@ -146,7 +146,7 @@ class NexusFileChooser(QWidget):
             sz = _fmt_size_bytes(size)
             if sz:
                 bits.append(sz)
-            detail = "   —   ".join(bits)
+            detail = "   -   ".join(bits)
             item = QListWidgetItem(f"{name}\n{detail}" if detail else name)
             item.setData(Qt.UserRole, f)
             self._list.addItem(item)
@@ -196,7 +196,7 @@ class NexusFileChooser(QWidget):
         """Append a non-selectable section-header row.
 
         The row text is drawn by a QLabel via setItemWidget rather than the
-        item's own text — the QListWidget::item stylesheet hard-sets `color`,
+        item's own text - the QListWidget::item stylesheet hard-sets `color`,
         which overrides QListWidgetItem.setForeground, so an item-level colour
         would be ignored. A child QLabel is styled independently."""
         item = QListWidgetItem("")

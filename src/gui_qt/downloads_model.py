@@ -1,10 +1,10 @@
-"""Qt model for the Downloads tab — a flat table of DownloadEntry rows (archives
+"""Qt model for the Downloads tab - a flat table of DownloadEntry rows (archives
 + synthetic section headers, grouped by source folder). Columns:
 
-  0 check    — selection checkbox (archives only)
-  1 name     — archive filename / section label
-  2 size     — human size (archives only)
-  3 install  — Install / Reinstall button (painted by the delegate)
+  0 check    - selection checkbox (archives only)
+  1 name     - archive filename / section label
+  2 size     - human size (archives only)
+  3 install  - Install / Reinstall button (painted by the delegate)
 
 Selection is tracked by Path in `checked` so it survives rescans/filtering
 (Tk parity). Installed detection (Install vs Reinstall) comes from an

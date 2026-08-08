@@ -1,9 +1,9 @@
-"""Quick Update — resolve the latest name-matched Nexus file for each
+"""Quick Update - resolve the latest name-matched Nexus file for each
 update-flagged mod (tkinter-free, shared by the Qt and Tk front-ends).
 
 "Quick Update" auto-installs the newest file whose name still matches the
 installed one (the non-orange file in Change Version). Mods whose latest file
-is NOT a name match are skipped — the user updates those manually via Change
+is NOT a name match are skipped - the user updates those manually via Change
 Version. This module holds only the pure resolve/skip logic; the front-end
 owns the download + install pipeline and all UI.
 """
@@ -26,7 +26,7 @@ def resolve_quick_update_target(api, staging_root: Path, mod_name: str,
     Mirrors Tk ``_quick_update_mods._resolve_one`` exactly:
     - no meta.ini / unreadable / no mod_id  → skipped
     - the latest file isn't a name match (or is the installed one) → skipped
-      ("no name-matched update — use Change Version")
+      ("no name-matched update - use Change Version")
     """
     meta_path = Path(staging_root) / mod_name / "meta.ini"
     if not meta_path.is_file():
@@ -44,6 +44,6 @@ def resolve_quick_update_target(api, staging_root: Path, mod_name: str,
         return ("skipped", f"could not fetch file list ({exc})")
     fid, _old = resolve_latest_name_match(files, meta.file_id, mod_name)
     if fid <= 0 or fid == meta.file_id:
-        return ("skipped", "no name-matched update — use Change Version")
+        return ("skipped", "no name-matched update - use Change Version")
     file_info = next((f for f in files if f.file_id == fid), None)
     return ("queued", (mod_name, game_domain, meta, fid, file_info))

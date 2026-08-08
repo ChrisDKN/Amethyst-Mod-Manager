@@ -1,6 +1,6 @@
 """
 parallaxr.py
-Linux wrapper for ParallaxR — runs the Windows ParallaxR parallax-texture
+Linux wrapper for ParallaxR - runs the Windows ParallaxR parallax-texture
 pipeline on Linux via Wine/Proton.
 
 Steps: BSA extract → loose copy → exclusions → filter pairs → height maps →
@@ -66,7 +66,7 @@ def _build_wine_overlay(proton_files_dir: Path, patched_ucrtbase: Path) -> Path:
             shutil.copy2(str(src), str(bin_dir / name))
             (bin_dir / name).chmod(0o755)
 
-    # Copy ntdll.so (must be a real file — same reason as above)
+    # Copy ntdll.so (must be a real file - same reason as above)
     ntdll_src = proton_wine_unix / "ntdll.so"
     if ntdll_src.is_file():
         shutil.copy2(str(ntdll_src), str(wine_unix / "ntdll.so"))
@@ -398,7 +398,7 @@ def run_parallaxr(
     if work_output.exists():
         shutil.rmtree(work_output, ignore_errors=True)
 
-    # Remove overlay — only needed during the run
+    # Remove overlay - only needed during the run
     shutil.rmtree(str(overlay), ignore_errors=True)
 
     # Clean up env override

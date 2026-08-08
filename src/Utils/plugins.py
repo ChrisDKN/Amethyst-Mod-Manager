@@ -4,12 +4,12 @@ Read and write a plugins.txt file.
 
 Two formats are supported:
 
-  star_prefix=True (MO2-style — Fallout 4, Skyrim SE, Starfield, …):
-    *PluginName.esp   — enabled plugin
-    PluginName.esp    — disabled plugin (no prefix)
+  star_prefix=True (MO2-style - Fallout 4, Skyrim SE, Starfield, …):
+    *PluginName.esp   - enabled plugin
+    PluginName.esp    - disabled plugin (no prefix)
 
-  star_prefix=False (legacy engine — Fallout 3, Fallout NV, Oblivion, Skyrim LE):
-    PluginName.esp    — enabled plugin
+  star_prefix=False (legacy engine - Fallout 3, Fallout NV, Oblivion, Skyrim LE):
+    PluginName.esp    - enabled plugin
     (disabled plugins are omitted from the file entirely)
 
   loadorder.txt (sibling file) stores the full known plugin set as bare
@@ -72,7 +72,7 @@ def _read_text_game_compat(path: Path) -> str:
 
     The game rewrites plugins.txt in Windows-1252 (loadorder.txt is UTF-8);
     we historically wrote UTF-8. ASCII content is byte-identical in both, so
-    try UTF-8 first and fall back to cp1252 — a game-rewritten file with a
+    try UTF-8 first and fall back to cp1252 - a game-rewritten file with a
     non-ASCII plugin name must never crash the loader.
     """
     raw = path.read_bytes()
@@ -84,7 +84,7 @@ def _read_text_game_compat(path: Path) -> str:
 
 def _plugins_txt_encoding(text: str) -> str:
     """Encoding for a plugins.txt payload: cp1252 when the engine can read it
-    (Bethesda engines parse plugins.txt as Windows-1252 — MO2/Vortex/LOOT write
+    (Bethesda engines parse plugins.txt as Windows-1252 - MO2/Vortex/LOOT write
     it that way), UTF-8 as a lossless fallback for names cp1252 can't hold."""
     try:
         text.encode("cp1252")
@@ -102,7 +102,7 @@ def read_plugins(path: Path, star_prefix: bool = True) -> list[PluginEntry]:
       '*Name' = enabled; bare 'Name' = disabled.
     When star_prefix is False (legacy engine / Oblivion Remastered):
       All listed plugins are enabled. Disabled plugins are not present
-      in the file — callers that need the full plugin set (to recover
+      in the file - callers that need the full plugin set (to recover
       disabled state) should cross-reference loadorder.txt.
     """
     if not path.is_file():
@@ -206,7 +206,7 @@ def deploy_plugins_copy(directory: Path, filename: str, content: str, log_fn=Non
     try:
         if target.exists() or target.is_symlink():
             target.unlink()
-        # The engine parses plugins.txt as Windows-1252 — write the copy it
+        # The engine parses plugins.txt as Windows-1252 - write the copy it
         # actually reads in that encoding whenever the content allows it.
         target.write_text(content, encoding=_plugins_txt_encoding(content))
         _log(f"  Wrote {filename} → {target}")
@@ -319,7 +319,7 @@ def prune_plugins_from_filemap(
                     in_filemap.add(rel_path.lower())
 
     # Also keep plugins that exist as vanilla files in the game's Data/ dir.
-    # Prefer Data_Core/ when it exists — after deployment Data/ contains
+    # Prefer Data_Core/ when it exists - after deployment Data/ contains
     # hard-linked mod files, so Data_Core/ is the reliable source of truth
     # for what plugins are truly vanilla.
     in_data_dir: set[str] = set()
@@ -381,7 +381,7 @@ def sync_plugins_from_filemap(
             rel_path, mod_name = line.split("\t", 1)
             rel_path = rel_path.replace("\\", "/")
             if "/" in rel_path:
-                # Plugin is inside a subfolder — not a root-level plugin file
+                # Plugin is inside a subfolder - not a root-level plugin file
                 continue
             filename = rel_path
             if (Path(filename).suffix.lower() in exts_lower

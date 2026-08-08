@@ -1,10 +1,10 @@
 """Toolkit-neutral read/write of the download-locations settings.
 
-Both the Tk app and the Qt app read/write the SAME file —
-``~/.config/AmethystModManager/download_locations.json`` — so the Downloads tab
+Both the Tk app and the Qt app read/write the SAME file -
+``~/.config/AmethystModManager/download_locations.json`` - so the Downloads tab
 in either toolkit stays backward-compatible. Moved out of the Tk-only
 ``gui/download_locations_overlay.py`` (which keeps the Tk overlay class and
-re-imports these). Pure stdlib + Utils.* — no GUI toolkit.
+re-imports these). Pure stdlib + Utils.* - no GUI toolkit.
 
 Format (object form; a legacy bare list of paths is auto-read + upgraded):
     {"extras": [paths], "default_disabled": bool, "cache_disabled": bool}
@@ -82,7 +82,7 @@ def is_cache_default_disabled() -> bool:
 def get_effective_download_locations() -> list[Path]:
     """All folders to scan: default Downloads (unless disabled) + extras,
     de-duplicated by resolved path. (Does NOT include the per-game cache, which
-    needs a game name — see downloads_core.scan_download_dirs.)"""
+    needs a game name - see downloads_core.scan_download_dirs.)"""
     dirs: list[Path] = []
     seen: set[Path] = set()
     if not is_default_downloads_disabled():

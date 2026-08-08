@@ -59,7 +59,7 @@ class SkyrimVR(Fallout_3):
             ),
             WizardTool(
                 id="run_skygen_skyrimvr",
-                label="SkyGen — Patch Generator",
+                label="SkyGen - Patch Generator",
                 description="Scan your load order for BOS / SkyPatcher patch coverage and generate new patches.",
                 dialog_class_path="wizards.skygen.SkyGenWizard",
                 extra={"_full_width_overlay": True},
@@ -122,7 +122,7 @@ class SkyrimVR(Fallout_3):
     _MYGAMES_SUBPATH_GOG = None
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
-    # Runs on the SSE engine fork — same reasoning as SkyrimSE (no dummy BSA).
+    # Runs on the SSE engine fork - same reasoning as SkyrimSE (no dummy BSA).
     _invalidation_bsa_name = None
     _invalidation_bsa_version = None
 

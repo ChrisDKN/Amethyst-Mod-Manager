@@ -17,7 +17,7 @@ from Utils.atomic_write import write_atomic_text
 
 
 # ---------------------------------------------------------------------------
-# Emergency cleanup — remove hardlinked / symlinked mod files
+# Emergency cleanup - remove hardlinked / symlinked mod files
 # ---------------------------------------------------------------------------
 
 def remove_deployed_files(game_dir: Path, log_fn=None) -> int:
@@ -29,8 +29,8 @@ def remove_deployed_files(game_dir: Path, log_fn=None) -> int:
     own restore cannot run (e.g. the profile was deleted or the modlist is
     missing).  It works by detecting files that were placed by the deploy step:
 
-    * **Symlinks** — trivially identifiable; always removed.
-    * **Hardlinks** — identified by ``st_nlink > 1``: the file has more than
+    * **Symlinks** - trivially identifiable; always removed.
+    * **Hardlinks** - identified by ``st_nlink > 1``: the file has more than
       one directory entry pointing at it, meaning the mod staging copy and the
       game-folder copy share the same inode.  A vanilla file that was never
       hardlinked will have ``st_nlink == 1``.
@@ -199,7 +199,7 @@ def apply_wine_dll_overrides(
     _filetime_hex = format(int((_unix_ts + 11644473600) * 1e7), "x")
 
     if section_start is None:
-        # Section doesn't exist — append it at the end
+        # Section doesn't exist - append it at the end
         _log(r"[Software\\Wine\\DllOverrides] not found; appending to user.reg.")
         if lines and not lines[-1].endswith("\n"):
             lines.append("\n")
@@ -210,7 +210,7 @@ def apply_wine_dll_overrides(
             lines.append(f'"{dll}"="{value}"\n')
             _log(f"  DLL override set: {dll} = {value}")
     else:
-        # Section exists — find existing keys and add/update
+        # Section exists - find existing keys and add/update
         body_start = section_start + 1
         body_end = section_end if section_end is not None else len(lines)
         key_lines = lines[body_start:body_end]
@@ -247,21 +247,21 @@ def apply_wine_dll_overrides(
                     break
             if found_at is not None:
                 if key_lines[found_at] == expected_line:
-                    pass  # correct value, correct position — nothing to do
+                    pass  # correct value, correct position - nothing to do
                 else:
-                    # Value is wrong — update in place (position is already sorted)
+                    # Value is wrong - update in place (position is already sorted)
                     key_lines[found_at] = expected_line
                     changed = True
                     _log(f"  DLL override updated: {dll} = {value}")
             else:
-                # New entry — insert in sorted position (matching winecfg)
+                # New entry - insert in sorted position (matching winecfg)
                 pos = _sorted_insert_pos(expected_line)
                 key_lines.insert(pos, expected_line)
                 changed = True
                 _log(f"  DLL override set: {dll} = {value}")
 
         if not changed:
-            # All overrides already present with the correct values — leave
+            # All overrides already present with the correct values - leave
             # user.reg completely untouched so Wine's own state is preserved.
             _log("  DLL overrides already set correctly; skipping write.")
             return
@@ -353,7 +353,7 @@ def remove_wine_dll_overrides(
         new_key_lines.append(kline)
 
     if removed_count == 0:
-        return  # nothing actually changed — leave user.reg untouched
+        return  # nothing actually changed - leave user.reg untouched
 
     # Fix up the section header and #time= timestamps to use the formats
     # Wine expects: decimal Unix seconds for the header, hex Windows FILETIME

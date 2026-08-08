@@ -8,7 +8,7 @@ off the UI thread by `ThumbnailLoader` and delivered back via a Qt signal (keyed
 mod_id), with a small in-memory LRU cache shared across the browser (mirrors the Tk
 `IMG_CACHE_MAX`).
 
-All displayed fields come from the single GraphQL list call (NexusModInfo) — no
+All displayed fields come from the single GraphQL list call (NexusModInfo) - no
 extra per-card API request, so the card is rate-limit-free.
 """
 
@@ -125,7 +125,7 @@ def _fmt_date(s: str) -> str:
 
 def _cover_scale(img: QImage, w: int, h: int) -> QImage:
     """Center-crop *img* to the w:h aspect ratio, then scale to (w, h).
-    Works on QImage (not QPixmap) so it can run on the fetch worker —
+    Works on QImage (not QPixmap) so it can run on the fetch worker -
     QPixmap is documented GUI-thread-only."""
     if img.isNull():
         return img
@@ -146,12 +146,12 @@ def _cover_scale(img: QImage, w: int, h: int) -> QImage:
 class ThumbnailLoader(QObject):
     """Fetches thumbnails off the UI thread; emits `loaded(mod_id, QPixmap)`
     on the UI thread. Caches scaled pixmaps in an LRU dict (cover-cropped to the
-    card image size). *crop_w*/*crop_h* set the target cover size — default is the
+    card image size). *crop_w*/*crop_h* set the target cover size - default is the
     mod card (300×150 landscape); the collections browser passes a portrait size."""
 
     loaded = Signal(int, object)         # (mod_id, QPixmap)
     # Fetch worker → GUI thread: the decoded + cropped QImage. The QPixmap
-    # conversion happens in the slot — QPixmap is GUI-thread-only.
+    # conversion happens in the slot - QPixmap is GUI-thread-only.
     _img_ready = Signal(int, str, object)
 
     def __init__(self, parent=None, crop_w: int = CARD_W, crop_h: int = IMG_H):
@@ -256,9 +256,9 @@ class _TwoLineLabel(QLabel):
 
 class NexusModCard(QFrame):
     """One mod in the grid. *entry* is a NexusModInfo. Callbacks:
-        on_view(entry)     — open the mod's Nexus page
-        on_install(entry)  — download + install
-        on_context(entry, global_pos) — show a right-click menu (optional)
+        on_view(entry)     - open the mod's Nexus page
+        on_install(entry)  - download + install
+        on_context(entry, global_pos) - show a right-click menu (optional)
     """
 
     def __init__(self, entry, on_view, on_install, on_context=None,
@@ -328,7 +328,7 @@ class NexusModCard(QFrame):
             dates.setStyleSheet(f"color:{dim}; font-size:10px;")
             bl.addWidget(dates)
 
-        # Description (the summary) — fills the remaining space, length-capped
+        # Description (the summary) - fills the remaining space, length-capped
         # (Nexus-style) with the full text word-wrapped in the tooltip.
         _summary = (entry.summary or "").strip()
         desc = QLabel(cap_summary(_summary))
@@ -385,7 +385,7 @@ class NexusModCard(QFrame):
         self._apply_install_style()
 
     def set_watching(self, watching: bool) -> None:
-        """A non-premium install is waiting for this mod's browser download —
+        """A non-premium install is waiting for this mod's browser download -
         the Install button becomes a red Cancel (the click toggles the watch)."""
         if bool(watching) == self._watching:
             return
@@ -401,7 +401,7 @@ class NexusModCard(QFrame):
                 f" border:none; border-radius:4px; padding:5px 0;}}"
                 f"QPushButton:hover{{background:{danger};}}")
         elif self._installed:
-            # Reinstall — orange (BTN_WARN), like the Downloads tab.
+            # Reinstall - orange (BTN_WARN), like the Downloads tab.
             warn = _c(self._pal, "BTN_WARN")
             self._install_btn.setText(self.tr("Redownload") if self._download_only
                                       else self.tr("Reinstall"))
@@ -410,7 +410,7 @@ class NexusModCard(QFrame):
                 f" border:none; border-radius:4px; padding:5px 0;}}"
                 f"QPushButton:hover{{background:{warn};}}")
         else:
-            # Install — clear the inline style so the green #GameSelectBtn QSS shows.
+            # Install - clear the inline style so the green #GameSelectBtn QSS shows.
             self._install_btn.setText(self.tr("Download") if self._download_only
                                       else self.tr("Install"))
             self._install_btn.setStyleSheet("")

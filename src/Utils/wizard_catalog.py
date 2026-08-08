@@ -36,14 +36,14 @@ _CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
     (("bodyslide", "outfitstudio", "outfit_studio"), "Body and Outfits"),
     # Animation and physics
     (("pandora",), "Animation and Physics"),
-    # RSuite (experimental) — checked before LOD so these don't fall into it
+    # RSuite (experimental) - checked before LOD so these don't fall into it
     (("vramr", "bendr", "parallaxr"), "RSuite (experimental)"),
     # DynDOLOD (LOD & textures)
     (("texgen", "dyndolod", "xlodgen"), "DynDOLOD"),
     # xEdit
     #   xEdit ships under many build names (SSEEdit, FO4Edit, FNVEdit, TES5Edit,
     #   SF1Edit, …) whose wizard ids share the "<build>edit_<suffix>" shape, so
-    #   match the generic "edit_" infix to catch the whole family — not just
+    #   match the generic "edit_" infix to catch the whole family - not just
     #   SSEEdit.  Trailing "_" keeps it from matching unrelated ids like
     #   "editor"/"credits".  Checked before Patchers so the xEdit family lands
     #   in its own category for every game.

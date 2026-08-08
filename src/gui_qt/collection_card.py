@@ -2,7 +2,7 @@
 
 Collection tile images are PORTRAIT, so the card is portrait: a tall cover on
 top, then name, author, a fixed-height clipped DESCRIPTION (the Tk card hides the
-summary as a tooltip — here it's visible, clipped so every card is the same height
+summary as a tooltip - here it's visible, clipped so every card is the same height
 and the grid stays uniform), a stats bar, and a single View button (the install /
 detail flow is a separate feature).
 
@@ -85,7 +85,7 @@ class CollectionCard(QWidget):
             author.setMaximumWidth(CARD_W - 22)
             bl.addWidget(author)
 
-        # Description (summary) — length-capped (Nexus-style) so it never spills
+        # Description (summary) - length-capped (Nexus-style) so it never spills
         # past the fixed-height box; full text word-wrapped in the tooltip.
         summary = (entry.summary or "").strip()
         desc = QLabel(cap_summary(summary, limit=110))
@@ -110,7 +110,7 @@ class CollectionCard(QWidget):
             f" border-top:1px solid {_c(p,'BORDER')}; padding-top:5px;")
         bl.addWidget(stats)
 
-        # Single View button (view-only — install/detail is a later feature).
+        # Single View button (view-only - install/detail is a later feature).
         view = QPushButton(self.tr("View"))
         view.setObjectName("GameAddBtn")          # blue accent
         view.setCursor(Qt.PointingHandCursor)

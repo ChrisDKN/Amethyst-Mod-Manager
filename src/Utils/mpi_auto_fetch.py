@@ -4,12 +4,12 @@ download folders, this fetches it hands-free instead of making the user press
 "Detect again".
 
 Premium Nexus accounts download the pinned (mod_id, file_id) directly through
-the API (NexusDownloader — cache-aware, writes the .fileid sidecar). Everyone
+the API (NexusDownloader - cache-aware, writes the .fileid sidecar). Everyone
 else falls back to watching the download folders: the wizard opens the Nexus
 page as before, and the archive is picked up automatically the moment the
 browser download completes (partial/in-flight files are never accepted).
 
-All callbacks fire on the WORKER thread — Qt callers must marshal (safe_emit).
+All callbacks fire on the WORKER thread - Qt callers must marshal (safe_emit).
 """
 
 from __future__ import annotations
@@ -57,14 +57,14 @@ def start_auto_fetch(
     """Start the acquire worker; returns the (daemon) thread.
 
     *api* is a NexusAPI or None (not logged in). Premium accounts download
-    (mod_id, file_id) directly — ``on_download_started`` fires first, then
+    (mod_id, file_id) directly - ``on_download_started`` fires first, then
     ``on_progress(done, total)`` while streaming; otherwise ``on_waiting``
     fires once and the download folders are polled until a COMPLETE matching
     archive appears. Either way ``on_archive(path)`` fires exactly once with
     the finished archive. Set *cancel* to stop (aborts an in-flight premium
     download too).
 
-    ``find_archive_fn`` is the wizard's existing keyword scan — the watcher's
+    ``find_archive_fn`` is the wizard's existing keyword scan - the watcher's
     fallback when there is no API to supply the exact file name/size.
     """
     name = label or f"{game_domain}/{mod_id}/{file_id}"
@@ -79,7 +79,7 @@ def start_auto_fetch(
 
         if premium and not cancel.is_set():
             on_download_started()
-            log_fn(f"premium account — downloading '{name}' from Nexus…")
+            log_fn(f"premium account - downloading '{name}' from Nexus…")
             result = None
             try:
                 from Nexus.nexus_download import NexusDownloader
@@ -138,7 +138,7 @@ def start_auto_fetch(
             except Exception:
                 pass
             return None
-        # No API: keyword scan + "looks finished" guards — non-empty, no
+        # No API: keyword scan + "looks finished" guards - non-empty, no
         # browser temp sibling, size stable across two consecutive polls
         # (browsers pre-allocate/grow the final-named file while writing).
         try:

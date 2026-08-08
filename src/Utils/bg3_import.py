@@ -8,7 +8,7 @@ scanned out of the staged mods.
 BG3MM/modsettings.lsx is lowest-priority-first; our modlist.txt is
 highest-priority-first, so the matched run is reversed when written.
 
-No tkinter or Qt imports — the Qt/Tk views only handle file-picking and the
+No tkinter or Qt imports - the Qt/Tk views only handle file-picking and the
 preview textbox; all the parsing/matching/planning lives here so it can be
 unit-tested headlessly.
 """
@@ -129,7 +129,7 @@ def plan_reorder(
     position among them; a folder with no pak UUID falls back to a
     case-insensitive Name match.  Installed mods absent from the JSON are placed
     above the imported run, UNTOUCHED (enabled state is left exactly as it was).
-    A BG3MM/Vortex order export only lists pak-module UUIDs it tracks — script
+    A BG3MM/Vortex order export only lists pak-module UUIDs it tracks - script
     extender/native-loader/config installs never have a pak at all, and some
     override-only paks are excluded too, so "absent from the JSON" carries no
     information about the user's intent and must not be treated as "disable
@@ -177,7 +177,7 @@ def plan_reorder(
 
     new_entries: list[ModEntry] = list(separators)
     for n in extra:
-        # Not in the JSON — keep its current enabled/disabled state as-is;
+        # Not in the JSON - keep its current enabled/disabled state as-is;
         # the JSON has no opinion on it (see plan_reorder docstring).
         new_entries.append(mods[n])
     for n in reversed(ordered_names):

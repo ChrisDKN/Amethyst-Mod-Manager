@@ -31,7 +31,7 @@ _BACKUP_FILES = [
     "plugins.txt",
     "userlist.yaml",
     "profile_state.json",
-    # Legacy individual files — kept so old backups can still be restored
+    # Legacy individual files - kept so old backups can still be restored
     "collapsed_seps.json",
     "plugin_locks.json",
     "separator_locks.json",

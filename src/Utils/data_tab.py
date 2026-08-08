@@ -1,15 +1,15 @@
 """Toolkit-neutral logic for the Data tab (Tk + Qt share this).
 
 The Data tab shows the MERGED deployment layout: every file from filemap.txt as a
-folder tree, with the winning mod per file and conflict highlighting — "what
+folder tree, with the winning mod per file and conflict highlighting - "what
 actually lands in the game folder". The intricate bit is resolving each filemap
 entry to its real deploy destination (UE5 rule resolution + custom routing rules
 with include_siblings / flatten / prefix+root hiding). That logic is lifted almost
 verbatim from the Tk ModFiles… er, Data mixin (gui/plugin_panel_data.py) so the Qt
-Data tab stays in lockstep. Pure stdlib + Utils.*/Games.* — no GUI toolkit.
+Data tab stays in lockstep. Pure stdlib + Utils.*/Games.* - no GUI toolkit.
 
 Conflict data (contested keys + filemap winner) is provided by
-Utils.mod_files.build_conflict_cache — reused, not duplicated here.
+Utils.mod_files.build_conflict_cache - reused, not duplicated here.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 
 def deploys_to_subfolder(game) -> bool:
     """True when mods deploy into a SUBFOLDER of the game root (Skyrim's Data/,
-    Morrowind's Data Files/) — the Data tab shows that subfolder, so files that
+    Morrowind's Data Files/) - the Data tab shows that subfolder, so files that
     deploy to the game root fall outside its scope and must be hidden. False
     for root-deployed games (deploy dir == game root, e.g. Witcher 3), where
     root-bound files land inside the shown tree. Falls back to the mods_dir
@@ -44,7 +44,7 @@ def parse_filemap(filemap_path: Path) -> list[tuple[str, str]]:
     entries: list[tuple[str, str]] = []
     try:
         # surrogateescape: filemap.txt rel paths derive from on-disk filenames
-        # whose non-UTF-8 bytes decode to surrogate code points — a plain utf-8
+        # whose non-UTF-8 bytes decode to surrogate code points - a plain utf-8
         # read raises on them.
         with filemap_path.open(encoding="utf-8", errors="surrogateescape") as f:
             for line in f:
@@ -106,7 +106,7 @@ def load_data_entries(game, filemap_path: Path,
     # deploy VERBATIM to the game root. For a root-deployed game that root IS
     # the tree the Data tab shows, so merge them all in. For subfolder-deploy
     # games (Skyrim's Data/, Morrowind's Data Files/) only the entries UNDER
-    # the deploy subfolder land inside the shown tree — keep those with the
+    # the deploy subfolder land inside the shown tree - keep those with the
     # prefix stripped ('Data Files/foo.esp' → 'foo.esp'); the rest deploy to
     # the game root and stay hidden, same as root-routed rule files. Merged
     # entries win over same-path normal entries (root deploy runs after the
@@ -135,7 +135,7 @@ def load_data_entries(game, filemap_path: Path,
 
 
 # ---------------------------------------------------------------------------
-# Deploy-destination resolution (UE5 + custom routing rules) — verbatim port of
+# Deploy-destination resolution (UE5 + custom routing rules) - verbatim port of
 # Tk _resolve_data_entries (plugin_panel_data.py:518-805).
 # ---------------------------------------------------------------------------
 def resolve_data_entries(game, entries: list[tuple[str, str]],

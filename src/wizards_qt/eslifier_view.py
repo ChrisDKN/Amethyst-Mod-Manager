@@ -1,7 +1,7 @@
-"""ESLifier wizard — Qt port of wizards/eslifier.py.
+"""ESLifier wizard - Qt port of wizards/eslifier.py.
 
 Installs ESLifier from GitHub into Applications/ESLifier/ and runs it in MO2
-mode via Proton — no deploy needed: it reads the load order straight from a
+mode via Proton - no deploy needed: it reads the load order straight from a
 prefix-free hardlinked mirror of the staging folder (see
 Utils/eslifier_tools.py).  Its output lands as the "ESLifier Output" mod.
 """
@@ -34,7 +34,7 @@ class ESLifierView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run ESLifier — {0}").format(game.name))
+                         title=self.tr("Run ESLifier - {0}").format(game.name))
         self._exe = find_eslifier_exe(game)
         self._proton_name = ""
         self._prefix_mode = ""
@@ -43,7 +43,7 @@ class ESLifierView(WizardViewBase):
             lambda t, c: self._set_status(self._dl_status, t, c)))
         self._dl_done_sig.connect(self._guard(self._on_dl_done))
 
-        # page 0: install (explicit button — Tk parity)
+        # page 0: install (explicit button - Tk parity)
         page, lay = self._step_page(self.tr("Step 1: Install ESLifier"))
         self._make_note(lay, (
             self.tr("ESLifier will be downloaded from GitHub and installed into this\n"
@@ -125,7 +125,7 @@ class ESLifierView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — "
+                              self.tr("Could not find Proton '{0}' - "
                               "check that it is installed in Steam.").format(proton_name), RED)
                     return
                 proton_script, compat_data, env = result

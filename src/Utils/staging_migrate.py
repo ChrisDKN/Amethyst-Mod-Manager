@@ -1,11 +1,11 @@
 """Move a game's staging tree when the staging root changes.
 
 Toolkit-neutral port of the Tk ``ReconfigureGamePanel._maybe_migrate_staging``
-worker (gui/add_game_dialog.py). Pure filesystem logic — the caller owns the
+worker (gui/add_game_dialog.py). Pure filesystem logic - the caller owns the
 prompt and the progress UI.
 
 Semantics (Tk parity):
-  * destination wins — a file already present at the new root is skipped;
+  * destination wins - a file already present at the new root is skipped;
   * per-file failures are logged and counted, never fatal;
   * afterwards, now-empty directories under the old root (and the old root
     itself) are pruned best-effort.

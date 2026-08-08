@@ -1,4 +1,4 @@
-"""BethINI Pie wizard — Qt port of wizards/bethini.py.
+"""BethINI Pie wizard - Qt port of wizards/bethini.py.
 
 Manual Nexus download → locate in ~/Downloads → extract to
 Profiles/<game>/Applications/BethINI Pie/ → Proton step → run.  On an
@@ -32,7 +32,7 @@ class BethiniView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run BethINI Pie — {0}").format(game.name))
+                         title=self.tr("Run BethINI Pie - {0}").format(game.name))
         self._exe = tool_exe_path(game, _EXE_NAME, _APP_DIR)
         self._proton_name = ""
         self._prefix_mode = ""
@@ -108,7 +108,7 @@ class BethiniView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — "
+                              self.tr("Could not find Proton '{0}' - "
                               "check that it is installed in Steam.").format(proton_name), RED)
                     return
                 proton_script, compat_data, env = result

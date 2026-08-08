@@ -2,7 +2,7 @@
 _mo2_dummy.py
 Build a synthetic ("dummy") Mod Organizer 2 instance so PGPatcher's
 "Conflict Resolution Mod Manager = Mod Organizer 2" mode can attribute each
-conflicting loose file back to its owning mod — giving MO2-parity per-mod
+conflicting loose file back to its owning mod - giving MO2-parity per-mod
 conflict sorting without a real MO2 / USVFS install.
 
 How PGPatcher reads an MO2 instance (from PGModManager.cpp):
@@ -17,7 +17,7 @@ How PGPatcher reads an MO2 instance (from PGModManager.cpp):
     so we copy it through verbatim.
   * Each enabled mod's folder must exist under ``mod_directory``.  Rather than
     building a symlink tree (which adds a Wine symlink-traversal failure mode),
-    we point ``mod_directory`` straight at the real staging mods folder — the
+    we point ``mod_directory`` straight at the real staging mods folder - the
     modlist names are exactly the staging subfolder names.
 
 PGPatcher still reads the files it actually patches from the deployed game Data
@@ -101,7 +101,7 @@ def build_mo2_dummy_instance(
 
     Returns ``(instance_dir, game_type)`` where ``instance_dir`` is the path to
     pass as ``mo2instancedir`` and ``game_type`` is the settings.json
-    ``params.game.type`` int (Skyrim SE=0, GOG=1, VR=2, Enderal=3) — the caller
+    ``params.game.type`` int (Skyrim SE=0, GOG=1, VR=2, Enderal=3) - the caller
     must write this so PGPatcher reads the correct game (GOG users on Heroic
     need type 1, not 0).
 

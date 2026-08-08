@@ -1,7 +1,7 @@
 name: Test Build
 
 # Manual test builds of the AppImage / Flatpak without publishing a
-# release. Artifacts land on the workflow run page — download from there.
+# release. Artifacts land on the workflow run page - download from there.
 on:
   workflow_dispatch:
     inputs:
@@ -15,7 +15,7 @@ on:
         default: both
       flatpak_channel:
         description: >-
-          OSTree branch the flatpak bundle tracks. Defaults to beta — a
+          OSTree branch the flatpak bundle tracks. Defaults to beta - a
           dispatch run has no version tag, so without this it would land on
           stable and the installed bundle would then follow the stable channel.
         type: choice

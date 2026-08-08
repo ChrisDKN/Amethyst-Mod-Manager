@@ -3,7 +3,7 @@ resident_evil_requiem.py
 Game handler for Resident Evil Requiem.
 
 Base class for RE Engine games that load loose files directly (no PAK
-archive invalidation needed) — the other handlers in RE_Engine_LooseLoading/
+archive invalidation needed) - the other handlers in RE_Engine_LooseLoading/
 subclass this one.
 
 Mod structure:
@@ -15,12 +15,12 @@ Mod structure:
   is stripped post-install so files stage without the redundant prefix.
 
   Files already in the game root (natives/, etc.) are backed up before deploy
-  and restored on remove — handled by deploy_filemap_to_root /
+  and restored on remove - handled by deploy_filemap_to_root /
   restore_filemap_from_root (same mechanism as Cyberpunk).
 
   .pak files are routed to game_root/pak_mods/ via a custom rule.
 
-  REFramework loads via dinput8.dll — the DLL override is applied to the
+  REFramework loads via dinput8.dll - the DLL override is applied to the
   Proton prefix on every deploy.
 """
 
@@ -202,7 +202,7 @@ class ResidentEvilRequiem(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir so custom-routed
+        # Separator overrides - loaded from the real profile_dir so custom-routed
         # files honour a separator's File Transfer Method (shared-staging safe).
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []

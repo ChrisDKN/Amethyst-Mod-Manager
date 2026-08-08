@@ -1,4 +1,4 @@
-"""Bundle Options view — pick which options of a RE/Fluffy bundle mod are active.
+"""Bundle Options view - pick which options of a RE/Fluffy bundle mod are active.
 
 Opens as a plugins-panel-scoped tab (covers the whole plugins panel), the Qt port
 of Tk's gui/dialogs.py BundleOptionsPanel. A bundle installs as ONE mod whose
@@ -6,9 +6,9 @@ meta.ini carries a [Bundle] spec; the original option folders live untouched und
 ``<mod>/.mm_bundle/``. This view edits a deep copy of the spec's selection/order and,
 on Save, hands the new spec back so the app can re-materialise + rebuild the filemap.
 
-Select-one groups render as exclusive radios; independent ("Optional — any") groups
+Select-one groups render as exclusive radios; independent ("Optional - any") groups
 as checkboxes with ▲/▼ reorder buttons. When two selected options write the same
-file, the one LOWER in the list wins (applied last) — reorder to change that. An
+file, the one LOWER in the list wins (applied last) - reorder to change that. An
 option whose files are entirely shadowed by another selected option is marked
 "(overridden)" in red. Checking an option auto-turns-off any other selected option
 with an identical file set ("your click wins"). Hovering an option shows its
@@ -38,7 +38,7 @@ from Utils.re_bundle import (
 _HELP_TEXT = (
     "Choose which options are active. “Select one” groups allow a single "
     "choice; optional add-ons can be combined.\n"
-    "When optional add-ons overlap, the one lower in the list wins — use "
+    "When optional add-ons overlap, the one lower in the list wins - use "
     "▲/▼ to reorder.  Checking an add-on turns off any lower one it fully "
     "replaces, so your choice wins."
 )
@@ -139,7 +139,7 @@ class BundleOptionsView(QWidget):
         # Header bar: title + ✕ Close (same red close button as ChangeVersionView).
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Bundle Options — {0}").format(self._mod_name))
+        title = QLabel(self.tr("Bundle Options - {0}").format(self._mod_name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -219,7 +219,7 @@ class BundleOptionsView(QWidget):
             gl = QLabel(group.name)
             gl.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; margin-top:10px;")
             col.addWidget(gl)
-            sub = QLabel(self.tr("Select one") if group.select_one else self.tr("Optional — any"))
+            sub = QLabel(self.tr("Select one") if group.select_one else self.tr("Optional - any"))
             sub.setStyleSheet(f"color:{_c(p,'TEXT_DIM')};")
             col.addWidget(sub)
 
@@ -354,7 +354,7 @@ class BundleOptionsView(QWidget):
     def _promote_option(self, folder: str) -> None:
         """Make the just-checked *folder* win: turn off any other selected
         independent option whose deployable file set is IDENTICAL to *folder*'s
-        (a true alternative — the two write exactly the same files). Subset/
+        (a true alternative - the two write exactly the same files). Subset/
         superset pairs are left alone; _recompute_conflicts marks whatever ends
         up fully shadowed."""
         files = self._opt_files.get(folder, set())

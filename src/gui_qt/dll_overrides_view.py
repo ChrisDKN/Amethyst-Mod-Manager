@@ -1,11 +1,11 @@
-"""Wine DLL Overrides — a modlist-scoped tab to manage per-game Wine DLL load
+"""Wine DLL Overrides - a modlist-scoped tab to manage per-game Wine DLL load
 orders. Qt port of the Tk ``gui/wine_dll_overrides_panel.py``, with an
 improvement: the Tk panel hardcodes ``native,builtin`` for every DLL, whereas
 this offers a PER-DLL load-order picker (native / builtin / native,builtin /
 builtin,native / disabled).
 
 The persistence reuses the neutral ``Utils.wine_dll_config`` +
-``Utils.deploy_wine_dll`` helpers unchanged — those already write whatever value
+``Utils.deploy_wine_dll`` helpers unchanged - those already write whatever value
 string they're given, so per-order flexibility is a pure UI change. Overrides are
 saved to config and applied to the prefix's ``user.reg`` on "Save & Apply".
 """
@@ -100,7 +100,7 @@ class DllOverridesView(QWidget):
         bar = QWidget(); bar.setObjectName("DllTitleBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 12, 8)
         gname = getattr(self._game, "name", "") or ""
-        title = QLabel(self.tr("Wine DLL Overrides — {0}").format(gname))
+        title = QLabel(self.tr("Wine DLL Overrides - {0}").format(gname))
         title.setObjectName("DllTitle")
         hb.addWidget(title); hb.addStretch(1)
         close = danger_close_button()
@@ -215,7 +215,7 @@ class DllOverridesView(QWidget):
         if not raw:
             return
         if not _NAME_RE.fullmatch(raw):
-            self._log("Wine DLL Overrides: invalid DLL name — only letters, "
+            self._log("Wine DLL Overrides: invalid DLL name - only letters, "
                       "digits, underscores, dots and hyphens are allowed.")
             self._notify(self.tr("Invalid DLL name."), "warning")
             return
@@ -253,13 +253,13 @@ class DllOverridesView(QWidget):
         except Exception:
             prefix = None
         if prefix is None or not prefix.is_dir():
-            self._log("Wine DLL Overrides: no Proton prefix configured — "
+            self._log("Wine DLL Overrides: no Proton prefix configured - "
                       "overrides saved but not applied.")
             self._notify(self.tr("Overrides saved (no prefix to apply to)."), "info")
             self._initial_dlls = set(self._overrides.keys())
             return
 
-        # Apply/remove on a daemon worker (edits user.reg — never block the UI).
+        # Apply/remove on a daemon worker (edits user.reg - never block the UI).
         overrides_copy = dict(self._overrides)
         removed_copy = set(removed)
 

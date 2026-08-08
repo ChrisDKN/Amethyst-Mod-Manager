@@ -1,6 +1,6 @@
-"""Qt Text Files tab — lists config/text files from mods, profile, game folder and
+"""Qt Text Files tab - lists config/text files from mods, profile, game folder and
 My Games, grouped by source. Reuses Utils.text_files for discovery + content
-search. Built lazily (only scans when the sub-tab is shown — the recursive game /
+search. Built lazily (only scans when the sub-tab is shown - the recursive game /
 My-Games scans are expensive). Clicking a file opens the scoped text editor.
 """
 
@@ -156,7 +156,7 @@ class TextFilesView(QWidget):
                 entries = tf.discover_text_files(
                     game, profile_dir, filemap_path, staging_root)
                 # A new scan invalidates the content-match set (paths may have
-                # changed) — recompute it here, still off the UI thread.
+                # changed) - recompute it here, still off the UI thread.
                 matches = (tf.content_search(entries, keyword)
                            if keyword else None)
             except Exception:
@@ -257,7 +257,7 @@ class TextFilesView(QWidget):
 
     def _build_tree(self, entries) -> _TextNode:
         """Build a source → folder → file tree. Each source is a top-level node;
-        files nest into their real folder hierarchy (collapsible — a profile can
+        files nest into their real folder hierarchy (collapsible - a profile can
         have thousands of files)."""
         labels = dict(tf.SOURCE_LABELS)
         root = _TextNode("", is_dir=True)
@@ -339,7 +339,7 @@ class TextFilesView(QWidget):
         if not keyword:
             self.clear_content_search()
             return
-        # Reading every file's text is slow — run it off the UI thread and
+        # Reading every file's text is slow - run it off the UI thread and
         # marshal the match set back via the same _scan_ready path (a scan
         # generation guards against a profile/game switch mid-search).
         self._content_keyword = keyword

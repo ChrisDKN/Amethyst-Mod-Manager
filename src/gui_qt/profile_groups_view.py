@@ -1,6 +1,6 @@
-"""Profile Groups — a modlist-scoped tab for creating and managing groups
+"""Profile Groups - a modlist-scoped tab for creating and managing groups
 (named, ordered combinations of profiles that deploy together as one merged
-profile — see Utils/profile_groups.py).
+profile - see Utils/profile_groups.py).
 
 Layout: a list of existing groups (expandable member panel with priority
 reorder / add / remove), then a create panel: group name + an ordered member
@@ -118,7 +118,7 @@ class ProfileGroupsView(QWidget):
             return []
 
     def _eligible_members(self) -> list[str]:
-        """Profile-specific, non-group profiles — valid group members."""
+        """Profile-specific, non-group profiles - valid group members."""
         out = []
         for name in self._profile_names():
             d = self._profiles_dir() / name
@@ -179,7 +179,7 @@ class ProfileGroupsView(QWidget):
                 "Group members need profile-specific mods so the group only "
                 "sees mods deliberately added to them. Convert copies a "
                 "profile's mods into its own folder (hardlinked where "
-                "possible — no extra disk on the same filesystem); the "
+                "possible - no extra disk on the same filesystem); the "
                 "shared pool and other profiles are untouched."))
             hint.setObjectName("PGHint"); hint.setWordWrap(True)
             self._body_layout.insertWidget(idx, hint); idx += 1
@@ -237,7 +237,7 @@ class ProfileGroupsView(QWidget):
             lbl.setStyleSheet(f"color:{_c(p, 'TEXT_MAIN')};")
             row.addWidget(lbl, 1)
             # White-tinted arrow.png chevrons (the glyph font has no ▲/▼ here
-            # — same icon pair the text editor / bundle options use).
+            # - same icon pair the text editor / bundle options use).
             up = QPushButton(); up.setFixedSize(26, 24)
             up.setIcon(icon_rotated("arrow.png", 180, 12, "#ffffff"))
             up.setToolTip(self.tr("Move up"))
@@ -298,7 +298,7 @@ class ProfileGroupsView(QWidget):
         self._create_order = [n for n in self._create_order if n in eligible]
         if not eligible:
             hint = QLabel(self.tr(
-                "No eligible member profiles yet — create a profile with "
+                "No eligible member profiles yet - create a profile with "
                 "profile-specific mods, or convert one below."))
             hint.setObjectName("PGHint"); hint.setWordWrap(True)
             pl.addWidget(hint)
@@ -390,14 +390,14 @@ class ProfileGroupsView(QWidget):
         the game dir dangling)."""
         if getattr(self._window, "_deploy_running", False) \
                 or getattr(self._window, "_install_running", False):
-            self._notify(self.tr("An install or deploy is in progress — try "
+            self._notify(self.tr("An install or deploy is in progress - try "
                                  "again shortly."), "warning")
             return True
         try:
             if self._game.get_deploy_active() \
                     and self._game.get_last_deployed_profile() == group_name:
                 self._notify(self.tr(
-                    "'{0}' is currently deployed — restore the game first, "
+                    "'{0}' is currently deployed - restore the game first, "
                     "then edit the group.").format(group_name), "warning")
                 return True
         except Exception:
@@ -418,7 +418,7 @@ class ProfileGroupsView(QWidget):
             return
         # Several members with a same-named profile-specific INI: ask whose
         # copy the group inherits before creating (the group then owns its
-        # copies — they're copied, not linked).
+        # copies - they're copied, not linked).
         try:
             contributors, conflicts = pg.profile_ini_conflicts(
                 self._game, self._profiles_dir(), list(self._create_order))
@@ -496,7 +496,7 @@ class ProfileGroupsView(QWidget):
         ConfirmOverlay.show_over(
             self._overlay_host(), self.tr("Remove Group"),
             self.tr("Remove the profile group '{0}'?\n\nOnly the group itself "
-                    "is deleted — its member profiles and their mods are "
+                    "is deleted - its member profiles and their mods are "
                     "untouched. The game will be restored first if this group "
                     "is deployed.").format(name),
             on_done=done, confirm_label=self.tr("Remove"))
@@ -542,11 +542,11 @@ class ProfileGroupsView(QWidget):
         if self._converting is not None:
             return
         # The convert worker copies the staging tree the deploy/install flows
-        # read — refuse when busy, and hold _deploy_running for the duration
+        # read - refuse when busy, and hold _deploy_running for the duration
         # so auto-deploy/installs queue instead of racing a half-copied tree.
         if getattr(self._window, "_deploy_running", False) \
                 or getattr(self._window, "_install_running", False):
-            self._notify(self.tr("An install or deploy is in progress — try "
+            self._notify(self.tr("An install or deploy is in progress - try "
                                  "again shortly."), "warning")
             return
         from gui_qt.confirm_overlay import ConfirmOverlay
@@ -586,10 +586,10 @@ class ProfileGroupsView(QWidget):
         self._window._deploy_running = False
         self._populate()
         if ok:
-            self._notify(self.tr("Profile '{0}' converted — it can now join "
+            self._notify(self.tr("Profile '{0}' converted - it can now join "
                                  "groups.").format(name), "info")
             if name == self._current_profile:
-                # The active profile's staging location changed — reload.
+                # The active profile's staging location changed - reload.
                 try:
                     self._window._gs.reassert_active_profile()
                     self._window._reload_modlist()
@@ -597,7 +597,7 @@ class ProfileGroupsView(QWidget):
                     pass
             self._on_groups_changed()
         else:
-            self._notify(self.tr("Convert of '{0}' failed — see the log.")
+            self._notify(self.tr("Convert of '{0}' failed - see the log.")
                          .format(name), "error")
 
     # -- misc ---------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 Reads the archive's table-of-contents (Utils.bsa_reader for BSA/BA2,
 Utils.ue_pak_reader for Unreal .pak/.utoc, Utils.pak_reader for Baldur's
-Gate 3 LSPK .pak — the two .pak formats are told apart by magic, not by
+Gate 3 LSPK .pak - the two .pak formats are told apart by magic, not by
 extension; TOC only, no file-data decompression) and shows
 the internal file structure as a read-only tree. Uses the same visual recipe as the Mod Files / Text Files
 trees (QTreeView, no native branch decoration, TkStyleHeader-less single
@@ -15,7 +15,7 @@ the archive-conflict winner map), contested files are coloured green (this
 mod's copy wins) or red (another mod's archive wins) using the same tones
 as the Show Conflicts tab; folders roll up their children's states (yellow
 = contains both winners and losers) so collapsed branches stay visible.
-The lookup runs on a daemon thread — the tree shows immediately, tints
+The lookup runs on a daemon thread - the tree shows immediately, tints
 arrive when ready.
 """
 

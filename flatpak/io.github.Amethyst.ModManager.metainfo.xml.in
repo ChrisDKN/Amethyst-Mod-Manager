@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  AppStream metainfo — read by Discover / GNOME Software / Warehouse to show
+  AppStream metainfo - read by Discover / GNOME Software / Warehouse to show
   the app's name, description, and (crucially) its version + release history.
 
   The releases list is STAMPED AT BUILD TIME from src/version.py by the
@@ -37,7 +37,7 @@
   <content_rating type="oars-1.1" />
 
   <releases>
-    <!-- Stamped at build time from src/version.py — do not hand-edit. -->
+    <!-- Stamped at build time from src/version.py - do not hand-edit. -->
     <release version="@VERSION@" date="@DATE@"/>
   </releases>
 </component>

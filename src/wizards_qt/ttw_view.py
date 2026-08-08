@@ -1,4 +1,4 @@
-"""Tale of Two Wastelands installer wizard — Qt port of wizards/ttw.py.
+"""Tale of Two Wastelands installer wizard - Qt port of wizards/ttw.py.
 
 Installs TTW on Fallout New Vegas via the native Linux MPI installer (no
 Proton).  Flow: download the binary → confirm FNV/FO3 paths + pick the .mpi
@@ -47,7 +47,7 @@ class TTWView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Install Tale of Two Wastelands — {0}").format(game.name))
+                         title=self.tr("Install Tale of Two Wastelands - {0}").format(game.name))
         self._exe = find_ttw_installer(game)
         self._mpi_path: "Path | None" = None
         self._fo3_path: "Path | None" = find_fo3_install()
@@ -139,7 +139,7 @@ class TTWView(WizardViewBase):
     def _build_already_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Tale of Two Wastelands is already installed"))
         note = QLabel(
-            self.tr("The '{0}' mod is already in your mod list, so the ~18 GB build can be skipped.\n\n• Re-apply setup only — re-runs the profile INI + FalloutCustom.ini setup without rebuilding (fast).\n\n• Rebuild from scratch — restores to vanilla and runs the full installer again (needs the .mpi + both games).").format(OUTPUT_NAME))
+            self.tr("The '{0}' mod is already in your mod list, so the ~18 GB build can be skipped.\n\n• Re-apply setup only - re-runs the profile INI + FalloutCustom.ini setup without rebuilding (fast).\n\n• Rebuild from scratch - restores to vanilla and runs the full installer again (needs the .mpi + both games).").format(OUTPUT_NAME))
         note.setWordWrap(True)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
@@ -173,7 +173,7 @@ class TTWView(WizardViewBase):
             self.tr("TTW merges assets from both Fallout 3 and Fallout New Vegas, so "
             "both games must be installed. Confirm the folders below, then "
             "select the TTW .mpi package.\n\n"
-            "Get the latest TTW .mpi from mod.pub (free account required) — "
+            "Get the latest TTW .mpi from mod.pub (free account required) - "
             "extract the download and the .mpi is inside.")))
         modpub = QPushButton(self.tr("Open mod.pub TTW page"))
         modpub.setCursor(Qt.PointingHandCursor)
@@ -217,7 +217,7 @@ class TTWView(WizardViewBase):
         browse.clicked.connect(browse_cmd)
         hh.addWidget(browse)
         rl.addWidget(header)
-        val = QLabel(str(value) if value else self.tr("— not set —"))
+        val = QLabel(str(value) if value else self.tr("- not set -"))
         val.setWordWrap(True)
         val.setStyleSheet(self._dim if value else f"color:{RED};")
         rl.addWidget(val)
@@ -269,7 +269,7 @@ class TTWView(WizardViewBase):
     def _build_ttw_run_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Step 3: Building Tale of Two Wastelands"))
         self._make_note(lay, (
-            self.tr("The game is first restored to a vanilla state, then the installer\nmerges Fallout 3 and Fallout New Vegas assets. This produces ~18 GB of output and can take a long while — please leave it running.\nOutput is written directly into your mod list as the '{0}' mod.").format(OUTPUT_NAME)))
+            self.tr("The game is first restored to a vanilla state, then the installer\nmerges Fallout 3 and Fallout New Vegas assets. This produces ~18 GB of output and can take a long while - please leave it running.\nOutput is written directly into your mod list as the '{0}' mod.").format(OUTPUT_NAME)))
         self._run_status = self._make_status(lay)
         p = active_palette()
         self._run_output = QPlainTextEdit()
@@ -313,7 +313,7 @@ class TTWView(WizardViewBase):
         ok, fnv_root = restore_to_vanilla(game, self._profile, log_fn=_rlog)
         if not ok:
             safe_emit(self._run_status_sig2,
-                      self.tr("Restore failed — see the log. Fix the issue (or "
+                      self.tr("Restore failed - see the log. Fix the issue (or "
                       "restore manually via the Restore button) and retry."),
                       RED)
             safe_emit(self._run_done_sig)
@@ -341,13 +341,13 @@ class TTWView(WizardViewBase):
                 parts.append(self.tr("Fallout 3: {0}").format(
                     ", ".join(fo3_missing)))
             detail = "\n".join(parts)
-            _rlog(f"missing vanilla esms after restore — {detail}")
+            _rlog(f"missing vanilla esms after restore - {detail}")
             safe_emit(self._run_log_sig,
                       self.tr("ERROR: missing vanilla plugin files:\n{0}").format(
                           detail))
             safe_emit(self._run_status_sig2,
                       self.tr("Missing vanilla plugin files even after restoring "
-                      "to vanilla — these were never backed up.\nIn Steam, "
+                      "to vanilla - these were never backed up.\nIn Steam, "
                       "right-click each game → Properties → Installed Files → "
                       "Verify integrity of game files, then retry.\n\n{0}")
                       .format(detail), RED)
@@ -399,7 +399,7 @@ class TTWView(WizardViewBase):
             return
 
         safe_emit(self._run_status_sig2,
-                  self.tr("Install complete — registering mod…"), GREEN)
+                  self.tr("Install complete - registering mod…"), GREEN)
         self._log("TTW Wizard: install complete.")
         try:
             register_output(game, dest, log_fn=_rlog)
@@ -453,7 +453,7 @@ class TTWView(WizardViewBase):
         safe_emit(self._run_status_sig2,
                   done_msg + self.tr("\n\nTTW needs several supporting mods "
                   "(script extender plugins, patches, etc.). These are flagged "
-                  "on the TTW mod via the red 'missing requirements' marker — "
+                  "on the TTW mod via the red 'missing requirements' marker - "
                   "click it to install them, then deploy."), GREEN)
         safe_emit(self._run_done_sig)
 

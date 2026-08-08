@@ -1,4 +1,4 @@
-"""run_in_worker — start a daemon thread that computes a result and hands it
+"""run_in_worker - start a daemon thread that computes a result and hands it
 back to the UI thread via a Signal.
 
 The standard pattern in gui_qt is: nested ``worker()`` → ``threading.Thread``
@@ -26,7 +26,7 @@ def run_in_worker(fn, done_sig=None, *, name: str | None = None,
     """Run ``fn()`` on a daemon thread, then ``safe_emit(done_sig, result)``.
 
     *done_sig* may be None for fire-and-forget work (errors still get
-    logged). If *fn* raises, *error_result* is emitted instead — pass
+    logged). If *fn* raises, *error_result* is emitted instead - pass
     ``NO_EMIT`` to skip the emit on failure. With ``unpack=True`` a tuple
     result is splatted across a multi-argument Signal.
     """

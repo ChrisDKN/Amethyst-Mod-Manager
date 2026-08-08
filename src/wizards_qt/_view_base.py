@@ -15,7 +15,7 @@ Standards baked in (see memory feedback notes):
     worker signals are dropped by the `_closing` guards;
   * `ctx.refresh_modlist` runs on the GUI thread only, and only when the
     view marked `_ran = True`;
-  * no hardcoded font-size — headers use font-weight only.
+  * no hardcoded font-size - headers use font-weight only.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 # Back-compat status-text colours re-exported for the many wizard views that do
 # ``from wizards_qt._view_base import GREEN, RED``. Prefer ok_text()/err_text()
-# in new code — these module constants resolve once at import from the active
+# in new code - these module constants resolve once at import from the active
 # theme, which is fine for wizards (created after the theme is applied).
 GREEN = ok_text()
 RED = err_text()
@@ -64,7 +64,7 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
     browser download completes (mirrors the ESM Fixes / BSA Decompressor
     hands-free flow in Utils.mpi_auto_fetch).
 
-    All callbacks fire on the WORKER thread — pass safe_emit lambdas:
+    All callbacks fire on the WORKER thread - pass safe_emit lambdas:
     ``status_cb(text, color)`` updates the download-page status,
     ``gate_cb(enabled)`` gates the page's manual Next button (disabled while
     a premium download streams, so a partial file can't be picked up by the
@@ -83,7 +83,7 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
 
     def _find():
         # Watch-mode fallback (no API): only accept archives that appeared
-        # after the wizard opened — a stale keyword match in Downloads must
+        # after the wizard opened - a stale keyword match in Downloads must
         # not hijack the flow (the locate page still offers it manually).
         p = find_archive(get_downloads_dir(), list(keywords))
         if p is None:
@@ -108,7 +108,7 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
     def _started():
         gate_cb(False)
         status_cb(tr("WizardViewBase",
-                     "Premium account — downloading {0} from Nexus…")
+                     "Premium account - downloading {0} from Nexus…")
                   .format(label), "")
 
     def _waiting():
@@ -186,7 +186,7 @@ class WizardViewBase(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
 
-        # show_header=False embeds this view inside another wizard's page —
+        # show_header=False embeds this view inside another wizard's page -
         # the host provides the title bar / close, so skip building ours.
         if show_header:
             bar = QWidget(); bar.setObjectName("HeaderBar")
@@ -318,7 +318,7 @@ class WizardViewBase(QWidget):
         api_fn = getattr(self._ctx, "nexus_api", None)
         if api_fn is not None:
             try:
-                api = api_fn()      # GUI thread — the app's shared resolver
+                api = api_fn()      # GUI thread - the app's shared resolver
             except Exception:
                 api = None
         self._auto_fetch_pages = tuple(pages)
@@ -342,7 +342,7 @@ class WizardViewBase(QWidget):
     def _on_auto_dl_archive(self, path):
         self._on_auto_dl_gate(True)
         path = Path(path)
-        # Only auto-advance while still on the download/locate steps — a user
+        # Only auto-advance while still on the download/locate steps - a user
         # who already located an archive manually keeps their choice.
         if self._stack.currentIndex() not in self._auto_fetch_pages:
             return
@@ -414,7 +414,7 @@ class WizardViewBase(QWidget):
 
     def _browse_archive(self):
         from Utils.portal_filechooser import pick_file
-        # Portal callback fires on a WORKER thread — marshal via Signal.
+        # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self._locate_pick_title,
                   lambda p: safe_emit(self._picked_sig, p))
 
@@ -430,7 +430,7 @@ class WizardViewBase(QWidget):
         if self._locate_next_btn is not None:
             self._locate_next_btn.setEnabled(True)
         else:
-            # Fire only while still on the locate page — the hands-free fetch
+            # Fire only while still on the locate page - the hands-free fetch
             # may have advanced the wizard while this timer was pending.
             QTimer.singleShot(300, self._guard(
                 lambda: self._locate_on_ready(path)
@@ -604,7 +604,7 @@ class WizardViewBase(QWidget):
                       isolated_prefix_dir_fn=None,
                       title: str | None = None,
                       missing_text: str = ""):
-        """(Re)build the Proton step on entry — the exe may only exist after
+        """(Re)build the Proton step on entry - the exe may only exist after
         an earlier extract step. on_chosen(proton_name, prefix_mode)."""
         if title is None:
             title = self.tr("Choose Proton Version")
@@ -650,12 +650,12 @@ class WizardViewBase(QWidget):
                 self._set_status(status_lbl, self.tr("Deploy complete."), ok_text())
                 on_ok()
             else:
-                self._set_status(status_lbl, self.tr("Deploy failed — see log."), err_text())
+                self._set_status(status_lbl, self.tr("Deploy failed - see log."), err_text())
                 if on_fail is not None:
                     on_fail()
 
         if not run_deploy(_done):
-            self._set_status(status_lbl, self.tr("Could not start deploy — see log."), err_text())
+            self._set_status(status_lbl, self.tr("Could not start deploy - see log."), err_text())
             if on_fail is not None:
                 on_fail()
             return False
@@ -678,12 +678,12 @@ class WizardViewBase(QWidget):
             if ok:
                 on_ok()
             else:
-                self._set_status(status_lbl, self.tr("Restore failed — see log."), err_text())
+                self._set_status(status_lbl, self.tr("Restore failed - see log."), err_text())
                 if on_fail is not None:
                     on_fail()
 
         if not run_restore(_done):
-            self._set_status(status_lbl, self.tr("Could not start restore — see log."), err_text())
+            self._set_status(status_lbl, self.tr("Could not start restore - see log."), err_text())
             if on_fail is not None:
                 on_fail()
             return False

@@ -1,4 +1,4 @@
-"""CollapsibleSection — a titled panel whose body folds behind a ▸/▾ header.
+"""CollapsibleSection - a titled panel whose body folds behind a ▸/▾ header.
 
 Looks like the QGroupBox sections used by the Settings / Define-Custom-Game
 views (1px border, rounded, panel background) but the whole body hides until
@@ -8,7 +8,7 @@ nor leaves room for an arrow in the title-in-margin styling.
 
 The host view's stylesheet must style ``#CollapsibleSection`` (the frame) and
 ``QToolButton#SectionToggle`` (the header). The header arrow uses the app's
-right.png/arrow.png icons tinted DROPDOWN_ARROW — the same pair the modlist
+right.png/arrow.png icons tinted DROPDOWN_ARROW - the same pair the modlist
 separators and tree delegates use.
 
 No animation: sections live inside widgetResizable scroll areas, where a plain
@@ -39,7 +39,7 @@ class CollapsibleSection(QFrame):
         super().__init__(parent)
         self.setObjectName("CollapsibleSection")
         self._title = title
-        # Explicit state — body.isVisible() is False whenever an ancestor is
+        # Explicit state - body.isVisible() is False whenever an ancestor is
         # hidden (e.g. before the view is shown), so it can't back is_expanded.
         self._expanded = False
 

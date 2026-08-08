@@ -11,7 +11,7 @@ Fork: https://github.com/ChrisDKN/BodySlide-and-Outfit-Studio-Appimage
 
 We ship the **portable tarball**, not the AppImage. The tarball is a plain
 relocatable directory with its own bundled loader and libc, so it needs no
-FUSE mount and — unlike an AppImage — runs unchanged inside our own flatpak
+FUSE mount and - unlike an AppImage - runs unchanged inside our own flatpak
 sandbox, with no flatpak-spawn --host hop. The tarball also carries a launcher
 script per program (``<root>/BodySlide``, ``<root>/OutfitStudio``) that sets up
 sharun, PATH and BSOS_BINDIR.
@@ -23,7 +23,7 @@ ProjectUtil::GetDataDir):
                          raw index). An unknown value is ignored by the tool
                          rather than silently selecting the wrong game.
   BSOS_GAME_DATA_PATH    the deployed Data folder.
-  BSOS_OUTPUT_DATA_PATH  where built meshes are written — the output-capture
+  BSOS_OUTPUT_DATA_PATH  where built meshes are written - the output-capture
                          mod in staging, so the build lands in the mod list
                          instead of loose in the game folder.
   BSOS_APPDIR            writable data dir holding Config.xml / *.xml / logs.
@@ -31,7 +31,7 @@ ProjectUtil::GetDataDir):
 Slider data is NOT passed in: with BSOS_APPDIR holding no SliderSets folder,
 the fork's GetProjectPath() falls back to <GameData>/CalienteTools/BodySlide,
 which is exactly where deployed BodySlide mods land. That is why BSOS_APPDIR
-must stay free of a SliderSets directory — its presence would make the tool
+must stay free of a SliderSets directory - its presence would make the tool
 treat the data dir as the project dir and list nothing.
 """
 
@@ -59,7 +59,7 @@ TOOLS: dict[str, tuple[str, str, str]] = {
     "outfitstudio": ("Outfit Studio", "OutfitStudio", "OutfitStudio_files"),
 }
 
-# Seeded into a per-profile BSOS_APPDIR on first use — see seed_data_dir().
+# Seeded into a per-profile BSOS_APPDIR on first use - see seed_data_dir().
 _SEED_XML = ("Config.xml", "BodySlide.xml", "OutfitStudio.xml",
              "BuildSelection.xml", "RefTemplates.xml")
 _SEED_LINKS = ("res", "lang")
@@ -214,7 +214,7 @@ def safe_name(raw: str) -> str:
 def target_game(game: "BaseGame") -> str | None:
     """The GameUtil::TargetGames name for *game*, or None when unsupported.
 
-    Reuses the Proton wizard's mapping table — its tag strings are exactly the
+    Reuses the Proton wizard's mapping table - its tag strings are exactly the
     names the fork matches BSOS_TARGET_GAME against.
     """
     from Utils.bodyslide_tools import bodyslide_game
@@ -240,7 +240,7 @@ def seed_data_dir(app_dir: Path, root: Path,
     The tarball's own launcher only defaults BSOS_APPDIR to the tarball root,
     which is already populated; it does nothing when a caller points the
     variable elsewhere. But the programs resolve res/ and lang/ RELATIVE TO
-    the data dir — wx loads res/xrc/BodySlide.xrc from there — so an
+    the data dir - wx loads res/xrc/BodySlide.xrc from there - so an
     un-seeded data dir fails at startup with "Cannot open resources file".
     The AppImage's AppRun does this seeding; for the tarball it is ours to do.
 
@@ -296,7 +296,7 @@ def build_env(game: "BaseGame", profile: str, output_dir: Path, *,
     # never exist, but a stray one is cheap to catch and impossible to debug
     # from the UI, so say so in the log rather than silently listing nothing.
     if (app_dir / "SliderSets").is_dir():
-        log_fn(f"WARNING: {app_dir}/SliderSets exists — outfit discovery will "
+        log_fn(f"WARNING: {app_dir}/SliderSets exists - outfit discovery will "
                "use that folder instead of the deployed Data folder.")
     env["BSOS_APPDIR"] = str(app_dir)
 
@@ -330,7 +330,7 @@ def run_logged(program: str, env: dict, *,
                label: str = "BodySlide") -> int:
     """Run the tarball launcher for *program*, streaming output to *log_fn*.
 
-    Blocks until the tool exits — call from a worker thread. No flatpak-spawn
+    Blocks until the tool exits - call from a worker thread. No flatpak-spawn
     hop: the bundle carries its own loader and libc, so it runs inside our
     sandbox as-is.
     """
@@ -350,7 +350,7 @@ def run_logged(program: str, env: dict, *,
             universal_newlines=True,
         )
     except OSError as exc:
-        log_fn(f"{label}: failed to launch — {exc}")
+        log_fn(f"{label}: failed to launch - {exc}")
         raise
 
     assert proc.stdout is not None

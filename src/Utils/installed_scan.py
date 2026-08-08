@@ -5,14 +5,14 @@ One-pass installed-game detection for the Add Game picker.
 The picker needs an installed/not-installed verdict for every known game
 (~60-100 with synced custom handlers). The individual finders in
 steam_finder/heroic_finder re-enumerate the disk on every call, so calling
-them per game made the scan O(picker games x installed games) — minutes on
+them per game made the scan O(picker games x installed games) - minutes on
 slow media. Worst offender: the Heroic GOG fallback re-walked entire game
 installs recursively for every handler exe that didn't match.
 
 InstalledIndex touches each data source once and answers game_installed()
 from memory:
   - Steam: appmanifest_*.acf parsed once per library, plus a memoized
-    directory-listing cache over steamapps/common — each directory is
+    directory-listing cache over steamapps/common - each directory is
     scandir'd at most once across the whole scan, no matter how many games
     probe it.
   - Heroic: Epic/GOG/sideload manifests parsed once. GOG entries with no
@@ -338,7 +338,7 @@ class InstalledIndex:
                 if self._exe_in_dir(game_dir, exe):
                     return True
 
-        # Declared app names are authoritative for Heroic — when set, the exe
+        # Declared app names are authoritative for Heroic - when set, the exe
         # scan is skipped: generic launcher names collide across games
         # (FalloutLauncher.exe = both Fallout 3 GOTY and classic Fallout).
         heroic_names = list(getattr(game, "heroic_app_names", []) or [])

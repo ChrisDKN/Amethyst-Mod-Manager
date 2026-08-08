@@ -215,7 +215,7 @@ class OblivionRemastered(UE5Game):
 
     @property
     def _ue5_post_passthrough_rules(self) -> list[UE5Rule]:
-        # Trailing UE5 fallbacks (same as Ue5CustomGame's defaults) — applied
+        # Trailing UE5 fallbacks (same as Ue5CustomGame's defaults) - applied
         # before the custom_routing_rules - Used to apply the ue4ss base structure
         return [
             UE5Rule(
@@ -281,7 +281,7 @@ class OblivionRemastered(UE5Game):
             return
         source = self.get_profile_root() / "profiles" / profile / "plugins.txt"
         if not source.is_file():
-            _log(f"  WARN: plugins.txt not found at {source} — skipping deploy.")
+            _log(f"  WARN: plugins.txt not found at {source} - skipping deploy.")
             return
         from Utils.plugins import deploy_plugins_copy
         content = source.read_text(encoding="utf-8")

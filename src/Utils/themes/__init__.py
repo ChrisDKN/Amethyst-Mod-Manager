@@ -1,5 +1,5 @@
 """
-Theme palettes — one file per theme.
+Theme palettes - one file per theme.
 
 Adding a new theme:
     1. Copy an existing file (dark.py / light.py) to e.g. `solarized.py`.
@@ -8,8 +8,8 @@ Adding a new theme:
     4. The theme is auto-discovered at startup; no other code changes needed.
 
 Each theme module must export:
-    NAME:    str                              — human-readable label (shown in Settings dropdown)
-    PALETTE: dict[str, str | tuple]           — every color constant the app uses
+    NAME:    str                              - human-readable label (shown in Settings dropdown)
+    PALETTE: dict[str, str | tuple]           - every color constant the app uses
 """
 
 from __future__ import annotations

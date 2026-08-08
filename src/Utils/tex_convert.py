@@ -6,7 +6,7 @@ Pre-RTX games (RE7, RE2, RE3 before RTX update) use `.tex.10` with a 28-byte hea
 Post-RTX uses `.tex.34` with a 36-byte header (8 extra bytes, swapped mipCount/imgCount
 fields, mipCount stored as mipCount*16).
 
-The pixel data is identical — only the header and mip offset table change.
+The pixel data is identical - only the header and mip offset table change.
 """
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ def convert_tex_v10_to_v34(
         mip_count * 16,      # mipCount * 16
         tex_type,
         unk6, unk7, flags,
-        0,                   # unknown8 — zero
+        0,                   # unknown8 - zero
     )
 
     # Build new mip headers

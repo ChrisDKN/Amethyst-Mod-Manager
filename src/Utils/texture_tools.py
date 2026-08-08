@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-# (key, label, description) — VRAMr's optimisation presets.
+# (key, label, description) - VRAMr's optimisation presets.
 VRAMR_PRESETS = [
-    ("hq",          "High Quality",  "2K / 2K / 1K / 1K  — 4K modlist downscaled to 2K"),
-    ("quality",     "Quality",       "2K / 1K / 1K / 1K  — Balance of quality & savings"),
-    ("optimum",     "Optimum",       "2K / 1K / 512 / 512 — Good starting point"),
-    ("performance", "Performance",   "2K / 512 / 512 / 512 — Big gains, lower close-up"),
-    ("vanilla",     "Vanilla",       "512 / 512 / 512 / 512 — Just run the game"),
+    ("hq",          "High Quality",  "2K / 2K / 1K / 1K  - 4K modlist downscaled to 2K"),
+    ("quality",     "Quality",       "2K / 1K / 1K / 1K  - Balance of quality & savings"),
+    ("optimum",     "Optimum",       "2K / 1K / 512 / 512 - Good starting point"),
+    ("performance", "Performance",   "2K / 512 / 512 / 512 - Big gains, lower close-up"),
+    ("vanilla",     "Vanilla",       "512 / 512 / 512 / 512 - Just run the game"),
 ]
 
 

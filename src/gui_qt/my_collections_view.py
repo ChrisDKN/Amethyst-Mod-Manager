@@ -212,7 +212,7 @@ class MyCollectionsView(QWidget):
         pv.addSpacing(6)
 
         # Tile image preview. The API has no way to SET one (editCollection
-        # carries no image argument and no media mutation exists — verified by
+        # carries no image argument and no media mutation exists - verified by
         # schema introspection; the website uses its own internal uploader),
         # so this is read-only with a pointer to where changing it happens.
         self._detail_image = QLabel()
@@ -327,7 +327,7 @@ class MyCollectionsView(QWidget):
         self._category.blockSignals(False)
         # The list normally arrives AFTER the first row was auto-selected, so
         # that selection's _select_category ran against an empty combo and did
-        # nothing — re-apply it now.
+        # nothing - re-apply it now.
         self._select_category(getattr(self._selected, "category_id", 0) or 0)
 
     def _select_category(self, category_id: int):

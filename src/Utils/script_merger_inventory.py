@@ -2,7 +2,7 @@
 
 Script Merger records every merge it creates in MergeInventory.xml next to
 its own exe (Applications/ScriptMerger/).  That file is the merger's ONLY
-record of existing merges — the merged files in the game folder are just
+record of existing merges - the merged files in the game folder are just
 output, never rescanned.  On every launch the merger validates each entry
 and offers to delete entries whose merged file or source-mod files are
 missing from the deployed game folder, so running it while the source mods
@@ -18,7 +18,7 @@ This module pairs the inventory with the Merged_Mods staging mod:
   disabled wipes the app-dir records as collateral, so prior snapshot
   entries are kept as long as their merged output still exists in staging.
 - ``restore_inventory``: before a merger launch, copy the profile's
-  snapshot back into the app dir.  This also makes merges per-profile —
+  snapshot back into the app dir.  This also makes merges per-profile -
   the app dir is shared across profiles, the snapshot is not.
 - ``missing_merge_sources``: parse the inventory and report merges whose
   source mods (or the merged mod itself) are not currently deployed, so
@@ -120,7 +120,7 @@ def snapshot_inventory(game: "BaseGame", log_fn=None,
     exists in the staged Merged_Mods.  Records come from the app-dir
     inventory, plus prior snapshot entries the merger dropped whose source
     mods were not deployed this run (*keep_keys*, from
-    :func:`collateral_keys` captured before launch — the merger drops these
+    :func:`collateral_keys` captured before launch - the merger drops these
     as collateral even though the merged files survive in staging).  A
     prior record the merger dropped that is NOT in *keep_keys* was deleted
     by the user; its orphaned staged file is removed so it stops deploying.
@@ -142,7 +142,7 @@ def snapshot_inventory(game: "BaseGame", log_fn=None,
     # Bring over prior-snapshot records the merger no longer has, but only
     # collateral-wipe casualties (their source mods were not deployed this
     # run, so *keep_keys* lists them).  A prior record that IS absent from
-    # keep_keys was deleted by the user in the merger — drop it, and remove
+    # keep_keys was deleted by the user in the merger - drop it, and remove
     # its now-orphaned merged file from staging so it stops deploying.
     # Dedup by path+bundle key; the app-dir entry wins (newer hashes).
     seen = {_merge_key(m) for m in root.findall("Merge")}
@@ -158,7 +158,7 @@ def snapshot_inventory(game: "BaseGame", log_fn=None,
                 if key in seen:
                     continue
                 if key in keep_keys:
-                    root.append(merge)            # collateral — keep
+                    root.append(merge)            # collateral - keep
                 else:
                     staged = _staged_merged_file(dest.parent, merge)
                     if staged.is_file():
@@ -166,7 +166,7 @@ def snapshot_inventory(game: "BaseGame", log_fn=None,
                         pruned_files += 1
 
     # Enforce the invariant: no record without its staged merged output
-    # (covers crashed-run half-states — files deleted, records unsaved).
+    # (covers crashed-run half-states - files deleted, records unsaved).
     dropped = 0
     for merge in list(root.findall("Merge")):
         if not _staged_merged_file(dest.parent, merge).is_file():
@@ -244,7 +244,7 @@ def purge_merges(game: "BaseGame", log_fn=None) -> None:
 def missing_merge_sources(game: "BaseGame") -> list[tuple[str, list[str]]]:
     """Merges in the app-dir inventory whose mods are not deployed.
 
-    Returns ``[(merge relative path, [missing mod folder names])]`` — each
+    Returns ``[(merge relative path, [missing mod folder names])]`` - each
     entry is a merge Script Merger would offer to delete on next launch.
     Mod names are checked as folder names under the game's mods dir,
     case-insensitively (the merger runs under Wine and matches either way).

@@ -1,4 +1,4 @@
-"""Separator Settings overlay — per-separator colour + deployment override.
+"""Separator Settings overlay - per-separator colour + deployment override.
 
 Opens as a plugins-panel-scoped tab (covers the whole plugins panel, like Change
 Version). Qt port of the Tk gui/dialogs.py SepSettingsPanel, merged with the
@@ -6,13 +6,13 @@ SepColorPanel colour picker: the separator colour is edited here instead of via 
 separate "Change separator color" menu item.
 
 Persistence is neutral (Utils.profile_state read/write helpers), keyed by the
-separator's internal `..._separator` name — the same shape the Tk app writes, so
+separator's internal `..._separator` name - the same shape the Tk app writes, so
 existing data round-trips and the deploy pipeline (Utils.deploy_shared) picks the
 paths up unchanged.
 
 on_save(color: str | None, deploy: dict | None) is called on Save:
-  color  — "#rrggbb" or None (reset to default / no colour)
-  deploy — {"path","raw","mode","merge"} or None (no override)
+  color  - "#rrggbb" or None (reset to default / no colour)
+  deploy - {"path","raw","mode","merge"} or None (no override)
 on_close() is called on Cancel, Save, or the ✕ button.
 """
 
@@ -87,7 +87,7 @@ class SeparatorSettingsView(QWidget):
         title_bar.setStyleSheet(f"background:{bg_header};")
         tb = QHBoxLayout(title_bar)
         tb.setContentsMargins(12, 0, 4, 0)
-        title = QLabel(self.tr("Separator Settings — {0}").format(self._display_name()))
+        title = QLabel(self.tr("Separator Settings - {0}").format(self._display_name()))
         title.setStyleSheet(f"color:{text_main}; font-weight:bold;")
         tb.addWidget(title, 1)
         close_btn = danger_close_button(pal=p)

@@ -39,8 +39,8 @@ _PAUSED_COLLECTIONS: "set[str]" = set()
 class _RevisionCombo(QComboBox):
     """A QComboBox whose popup is HARD-capped in height + scrolls, so a collection
     with hundreds of revisions never opens a full-screen-tall list. Capping the
-    view alone isn't enough — the popup CONTAINER (view.window()) sizes to content
-    — so we clamp it after Qt lays it out AND re-anchor it just below the button
+    view alone isn't enough - the popup CONTAINER (view.window()) sizes to content
+    - so we clamp it after Qt lays it out AND re-anchor it just below the button
     (a very tall popup gets centred on the cursor by default)."""
 
     _MAX_POPUP_H = 340        # ~14 rows
@@ -104,7 +104,7 @@ class CollectionDetailView(QWidget):
         self._domain = (getattr(game, "nexus_game_domain", "")
                         or getattr(collection, "game_domain", "") or "")
         self._mods = []
-        self._offsite: list[tuple[str, str]] = []   # (name, url) — manual downloads
+        self._offsite: list[tuple[str, str]] = []   # (name, url) - manual downloads
         self._total_size = 0                        # collection totalSize+assetsSizeBytes
         self._dl_path = ""                          # collection-archive download link
         # Local-manifest import: populate from a parsed manifest dict instead of the
@@ -119,13 +119,13 @@ class CollectionDetailView(QWidget):
         self._fetched_manifest: "dict | None" = None
         self._fetched_manifest_rev: "int | None" = None
         # Imports normally force a NEW profile (a .amethyst bundle carries profile
-        # state — plugins/saves — that can't be safely merged). A code import has
+        # state - plugins/saves - that can't be safely merged). A code import has
         # no bundle, so the caller may pass allow_append=True to permit appending
         # into an existing profile.
         self._recommend_new_profile = bool(local_manifest) and not allow_append
         self._opt_boxes: list[tuple[QCheckBox, int]] = []   # (checkbox, file_id)
         self._revision_number = revision_number    # None = latest published
-        # A ctor-requested revision (e.g. Open Current) — the FIRST fetch is still
+        # A ctor-requested revision (e.g. Open Current) - the FIRST fetch is still
         # done at "latest" so the revisions list + dropdown populate, then we
         # switch to this one.
         self._pending_initial_rev = revision_number
@@ -183,7 +183,7 @@ class CollectionDetailView(QWidget):
             self.tr("Total size: {0}  |  {1} mods").format(fmt_size(total_size), len(mods)))
         self._fill_table()
         self._fill_optional()
-        # Optional flags already came straight from the manifest — no override.
+        # Optional flags already came straight from the manifest - no override.
         self._on_manifest_ready((self._detail_token, offsite, None))
 
     # -- construction -------------------------------------------------------
@@ -230,7 +230,7 @@ class CollectionDetailView(QWidget):
         hb.addWidget(self._size_lbl)
         root.addWidget(bar)
 
-        # Body: left (table / off-site — vertically resizable) | right (optional /
+        # Body: left (table / off-site - vertically resizable) | right (optional /
         # actions).
         body = QSplitter(Qt.Horizontal)
 
@@ -266,7 +266,7 @@ class CollectionDetailView(QWidget):
         lv.addWidget(self._table, 1)
         left.addWidget(table_wrap)
 
-        # (yellow) off-site section — hidden until the manifest lands. A separate
+        # (yellow) off-site section - hidden until the manifest lands. A separate
         # splitter pane so the divider above it can resize the two vertically.
         self._offsite_panel = QFrame()
         self._offsite_panel.setObjectName("OffsitePanel")
@@ -427,7 +427,7 @@ class CollectionDetailView(QWidget):
         except Exception:
             pass
         # `revisions` is populated only on the latest fetch (empty on a specific
-        # revision fetch) — don't clobber the stored list.
+        # revision fetch) - don't clobber the stored list.
         if revisions:
             self._revisions_list = list(revisions)
             self._populate_revision_dropdown()
@@ -451,7 +451,7 @@ class CollectionDetailView(QWidget):
             self.tr("Total size: {0}  |  {1} mods").format(fmt_size(total_size), mod_count))
         self._fill_table()
         self._fill_optional()
-        # Now lazily fetch the manifest (for off-site) — cache-first.
+        # Now lazily fetch the manifest (for off-site) - cache-first.
         rev = (self._revision_number if self._revision_number is not None
                else self._latest_published_rev(self._revisions_list))
         self._start_manifest_fetch(dl_path, rev)
@@ -459,7 +459,7 @@ class CollectionDetailView(QWidget):
     # -- revision picker ----------------------------------------------------
     def _installed_revision(self):
         """The revisionNumber currently installed for this collection (from the
-        profile that has it), or None. Small file reads — UI thread is fine."""
+        profile that has it), or None. Small file reads - UI thread is fine."""
         slug = getattr(self._collection, "slug", "") or ""
         if not slug or self._game is None:
             return None
@@ -493,7 +493,7 @@ class CollectionDetailView(QWidget):
         """True if this collection's install is paused (in-memory registry or the
         persisted ``collection_install_paused`` flag on its profile).
 
-        Either source only counts when the collection's profile still exists — a
+        Either source only counts when the collection's profile still exists - a
         deleted/imported-then-removed profile leaves a stale slug in the in-memory
         registry, which would otherwise flip the button to "Resume Install" and
         error on click. When the profile is gone we discard the stale slug so the
@@ -501,7 +501,7 @@ class CollectionDetailView(QWidget):
         slug = getattr(self._collection, "slug", "") or ""
         _pname, pdir = self._collection_profile()
         if pdir is None or not pdir.is_dir():
-            # Profile no longer exists — any paused state is meaningless.
+            # Profile no longer exists - any paused state is meaningless.
             if slug:
                 _PAUSED_COLLECTIONS.discard(slug)
             return False
@@ -514,7 +514,7 @@ class CollectionDetailView(QWidget):
             return False
 
     def _resolved_viewing_revision(self):
-        """The revision the user is currently viewing — the explicit dropdown
+        """The revision the user is currently viewing - the explicit dropdown
         selection, else the highest published revision. None if not loaded yet."""
         if self._revision_number is not None:
             try:
@@ -627,9 +627,9 @@ class CollectionDetailView(QWidget):
 
     @staticmethod
     def _display_name(m) -> str:
-        """The name to show for a collection mod. Prefer ``file_name`` — the
+        """The name to show for a collection mod. Prefer ``file_name`` - the
         per-file GraphQL ``file.name`` (e.g. "3c - Terran Armada - 256 Textures")
-        — which is distinct per file. ``mod_name`` is ``file.mod.name``, the
+        - which is distinct per file. ``mod_name`` is ``file.mod.name``, the
         SHARED mod-page name, so several files from one page look identical
         (GH #282). ``file_name`` is always a display-quality label here (not an
         archive filename); fall back to ``mod_name`` only if it's empty."""
@@ -643,7 +643,7 @@ class CollectionDetailView(QWidget):
             self._set_cell(r, 0, self._display_name(m))
             self._set_cell(r, 1, m.mod_author or "")
             self._set_cell(r, 2, m.version or "")
-            # Size — humanized text, numeric sort via the raw bytes in UserRole.
+            # Size - humanized text, numeric sort via the raw bytes in UserRole.
             size_item = _SizeItem(fmt_size(m.size_bytes))
             size_item.setData(Qt.UserRole, int(m.size_bytes or 0))
             self._table.setItem(r, _COL_SIZE, size_item)
@@ -678,7 +678,7 @@ class CollectionDetailView(QWidget):
             self._opt_layout.insertWidget(0, lbl)
             return
         # Selections saved by the last install of this collection (Tk parity:
-        # pre_skipped_fids) — only consulted for boxes not shown this session.
+        # pre_skipped_fids) - only consulted for boxes not shown this session.
         saved_skipped = self._saved_skipped_fids()
         for i, m in enumerate(optionals):
             name = self._display_name(m)
@@ -761,7 +761,7 @@ class CollectionDetailView(QWidget):
                 # GraphQL page names (files from one mod page all look alike);
                 # log it so that looks like a fetch failure, not a naming bug.
                 self._log(
-                    f"Collection: manifest empty for {slug!r} rev={rev} — "
+                    f"Collection: manifest empty for {slug!r} rev={rev} - "
                     f"per-file names not applied (using mod-page names).")
             safe_emit(self._manifest_ready, (token, offsite, manifest))
 
@@ -776,15 +776,15 @@ class CollectionDetailView(QWidget):
         The GraphQL mod list is unreliable in two ways this repairs:
           * it sometimes marks non-optional mods as optional; and
           * its per-file name comes from ``file.mod.name``, which is the SHARED
-            mod-page name — so every file from one page shows the same text
+            mod-page name - so every file from one page shows the same text
             (the six identical "…Textures" rows). Worse, when GraphQL can't
             resolve ``file.mod`` (adult/moderated/partial responses) it returns
             ``modId=0`` and an EMPTY name; that's the intermittent case where
             names never de-duplicate.
 
         The manifest's ``name`` is the clean per-file label (its
-        ``logicalFilename`` is the archive-derived one, occasionally uglier —
-        e.g. hyphens collapsed to spaces — so it's only a fallback). We apply it
+        ``logicalFilename`` is the archive-derived one, occasionally uglier -
+        e.g. hyphens collapsed to spaces - so it's only a fallback). We apply it
         whenever the current name is ambiguous: empty, or shared by >1 file in
         this collection. Unique, non-empty GraphQL names are left untouched."""
         info: "dict[int, tuple[bool, str]]" = {}   # file_id → (optional, name)
@@ -831,7 +831,7 @@ class CollectionDetailView(QWidget):
             return
         p = active_palette()
         self._offsite_title.setText(
-            self.tr("Off-site mods ({0}) — download manually:").format(len(offsite)))
+            self.tr("Off-site mods ({0}) - download manually:").format(len(offsite)))
         # Clear prior rows (keep the trailing stretch).
         while self._offsite_layout.count() > 1:
             it = self._offsite_layout.takeAt(0)
@@ -883,7 +883,7 @@ class CollectionDetailView(QWidget):
                 if not (getattr(m, "optional", False) and m.file_id in skipped_fids)]
 
     def skipped_optional_mods(self, skipped_fids):
-        """The full mod objects for the unticked optionals — the orchestrator
+        """The full mod objects for the unticked optionals - the orchestrator
         removes these from an existing profile on continue/append/update."""
         return [m for m in self._mods
                 if getattr(m, "optional", False) and m.file_id in skipped_fids]

@@ -1,4 +1,4 @@
-"""Wrye Bash wizard — Qt port of wizards/wrye_bash.py (registered by every
+"""Wrye Bash wizard - Qt port of wizards/wrye_bash.py (registered by every
 Bethesda game).
 
 Auto-downloads the latest Standalone Executable release from GitHub,
@@ -39,7 +39,7 @@ class WryeBashView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Run Wrye Bash — {0}").format(game.name))
+                         title=self.tr("Run Wrye Bash - {0}").format(game.name))
         self._exe = tool_exe_path(game, _EXE_NAME, _APP_DIR)
         self._proton_name = ""
         self._prefix_mode = ""
@@ -117,7 +117,7 @@ class WryeBashView(WizardViewBase):
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     safe_emit(self._run_status_sig,
-                              self.tr("Could not find Proton '{0}' — "
+                              self.tr("Could not find Proton '{0}' - "
                               "check that it is installed in Steam.").format(
                                   proton_name), RED)
                     return

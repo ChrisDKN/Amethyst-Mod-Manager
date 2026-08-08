@@ -1,6 +1,6 @@
 """
 app_log.py
-Global app log — forwards messages to the GUI log panel when set.
+Global app log - forwards messages to the GUI log panel when set.
 
 The main app calls set_app_log(log_fn, after_fn) after building the status bar.
 Nexus/Utils code calls app_log(msg) so messages appear in the application log panel.

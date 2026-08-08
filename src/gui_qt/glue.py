@@ -15,14 +15,14 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
                  file_pickers=None) -> list[str]:
     """Wire every glue point. Returns a list of human-readable status lines.
 
-    *log* — callable(str) appending to the log surface (main thread).
-    *parent_window* — the QMainWindow, for modal parenting.
-    *ask_choice* / *warn* — optional real handlers (stubs used if omitted).
-    *file_pickers* — optional dict(folder/file/files/save) of QFileDialog impls.
+    *log* - callable(str) appending to the log surface (main thread).
+    *parent_window* - the QMainWindow, for modal parenting.
+    *ask_choice* / *warn* - optional real handlers (stubs used if omitted).
+    *file_pickers* - optional dict(folder/file/files/save) of QFileDialog impls.
     """
     done: list[str] = []
 
-    # 1. app_log — backend logs from any thread; drain on the Qt main thread.
+    # 1. app_log - backend logs from any thread; drain on the Qt main thread.
     try:
         from Utils.app_log import set_app_log
         set_app_log(log, lambda ms, cb: QTimer.singleShot(ms, cb))
@@ -43,7 +43,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"dispatcher FAILED: {e!r}")
 
-    # 3. ui_hooks — ask_choice / warn.
+    # 3. ui_hooks - ask_choice / warn.
     try:
         from Utils import ui_hooks
         if ask_choice is None:
@@ -60,7 +60,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"ui_hooks FAILED: {e!r}")
 
-    # 4. screen probe — Qt owns DPI/scale via QScreen.
+    # 4. screen probe - Qt owns DPI/scale via QScreen.
     try:
         from Utils.ui_config import set_screen_probe
 
@@ -74,7 +74,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"screen_probe FAILED: {e!r}")
 
-    # 5. theme override resolver — same gui.themes.<mode> source as Tk.
+    # 5. theme override resolver - same gui.themes.<mode> source as Tk.
     try:
         from Utils.ui_config import set_theme_override_resolver
 
@@ -89,7 +89,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     except Exception as e:
         done.append(f"theme_resolver FAILED: {e!r}")
 
-    # 6. toolkit file pickers (QFileDialog) — last-resort behind portal/zenity.
+    # 6. toolkit file pickers (QFileDialog) - last-resort behind portal/zenity.
     try:
         from Utils.portal_filechooser import set_toolkit_pickers
         fp = file_pickers or {}

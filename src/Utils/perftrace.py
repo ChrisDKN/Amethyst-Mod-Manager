@@ -1,4 +1,4 @@
-"""Lightweight timing instrumentation — env-gated, prints to stderr.
+"""Lightweight timing instrumentation - env-gated, prints to stderr.
 
 Purpose
 -------
@@ -34,7 +34,7 @@ Usage
       [PERF] modlist._redraw            42.7 ms   (n=1)
 
   Sub-threshold spans are silent but still counted toward the summary.
-- Press **F11** in the app to dump a summary table sorted by total time spent —
+- Press **F11** in the app to dump a summary table sorted by total time spent -
   this is the "where did the session's time go" view. **Shift+F11** resets the
   counters so you can profile a single action in isolation:
       1. Shift+F11   -> zero the stats
@@ -150,7 +150,7 @@ def reset() -> None:
     """Clear all accumulated stats (Shift+F11)."""
     _STATS.clear()
     if is_enabled():
-        print("[PERF] stats reset — do the slow action, then press F11 for the table.",
+        print("[PERF] stats reset - do the slow action, then press F11 for the table.",
               file=sys.stderr)
         sys.stderr.flush()
 
@@ -185,6 +185,6 @@ def install(root) -> None:
         root.bind_all("<Shift-F11>", lambda _e: reset(), add="+")
     except Exception:
         pass
-    print(f"[PERF] perftrace enabled — live-prints spans >{_threshold_s() * 1000:.0f}ms; "
+    print(f"[PERF] perftrace enabled - live-prints spans >{_threshold_s() * 1000:.0f}ms; "
           "F11 = summary table, Shift+F11 = reset counters.", file=sys.stderr)
     sys.stderr.flush()

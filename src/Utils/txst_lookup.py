@@ -10,7 +10,7 @@ such meshes untextured, so this module recovers the mapping:
 
 Scope: the plugins shipped alongside the mesh (small files). Vanilla masters
 are skipped by a size cap, so overrides that live in Skyrim.esm stay
-unresolved — rare for the armour-pack case this exists for.
+unresolved - rare for the armour-pack case this exists for.
 """
 from __future__ import annotations
 

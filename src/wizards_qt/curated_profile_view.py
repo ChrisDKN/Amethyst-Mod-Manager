@@ -1,4 +1,4 @@
-"""Curated-profile wizard — installs a prebuilt .amethyst modlist hosted on the
+"""Curated-profile wizard - installs a prebuilt .amethyst modlist hosted on the
 GitHub ``Resources`` branch (e.g. "Install Viva New Vegas" for Fallout New
 Vegas), reusing the normal Profile ▸ Import pipeline for the actual install.
 
@@ -23,7 +23,7 @@ patched only after the masters are done. For the same reason, entering the
 ESM step first restores FalloutNV_backup.exe if the user had already patched
 the exe before running this wizard (the final step re-patches it). The patch
 applies automatically via Utils.fnv4gb_tools (already-patched / unrecognised
-exes just report and continue — a failure never blocks finishing the wizard).
+exes just report and continue - a failure never blocks finishing the wizard).
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ class CuratedProfileView(WizardViewBase):
                  fnv_4gb_step: bool = False,
                  info_url: str = "", **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Install {0} — {1}").format(
+                         title=self.tr("Install {0} - {1}").format(
                              display_name, game.name))
         self._repo_path = profile_repo_path
         self._display_name = display_name
@@ -74,7 +74,7 @@ class CuratedProfileView(WizardViewBase):
         self._esm_prep_started = False
         self._bsa_view = None
         # Hands-free mode: premium accounts (checked during the fetch step)
-        # auto-advance every successful step — including the embedded
+        # auto-advance every successful step - including the embedded
         # ESM/BSA sub-wizards, whose archives download automatically.
         self._napi = None
         self._auto = False
@@ -84,7 +84,7 @@ class CuratedProfileView(WizardViewBase):
         self._wait_timer.timeout.connect(self._guard(self._wait_tick))
         self._bundle_path: "Path | None" = None
         self._manifest: dict | None = None
-        # Profile at open — the import completing switches the active profile,
+        # Profile at open - the import completing switches the active profile,
         # which is how the Continue gate spots an unfinished import.
         self._profile_at_open = getattr(ctx, "profile_name", None) or "default"
         self._continue_warned = False
@@ -115,7 +115,7 @@ class CuratedProfileView(WizardViewBase):
         self._make_note(lay, (
             self.tr("This wizard downloads the curated '{0}' profile and opens "
                     "the profile importer, which installs the modlist into a "
-                    "NEW profile.\n\nThe mods are downloaded from Nexus Mods — "
+                    "NEW profile.\n\nThe mods are downloaded from Nexus Mods - "
                     "log in first (Nexus ▸ Login to Nexus) if you haven't.")
             .format(self._display_name)))
         if self._info_url:
@@ -134,7 +134,7 @@ class CuratedProfileView(WizardViewBase):
             self._make_note(lay, (
                 self.tr("Patches the vanilla .esm masters with community "
                         "bugfixes after the modlist is installed. It is too "
-                        "large to bundle, so it runs as an extra step — needs "
+                        "large to bundle, so it runs as an extra step - needs "
                         "the 'Ultimate Edition ESM Fixes Remastered' download "
                         "from Nexus.")))
         self._bsa_chk = None
@@ -148,7 +148,7 @@ class CuratedProfileView(WizardViewBase):
             self._make_note(lay, (
                 self.tr("Rebuilds the vanilla BSA archives without compression "
                         "for faster loading, added as a mod after the modlist "
-                        "is installed — needs the 'FNV BSA Decompressor' "
+                        "is installed - needs the 'FNV BSA Decompressor' "
                         "download from Nexus. Can also be run later via its "
                         "own wizard.")))
         if self._fnv_4gb_step:
@@ -201,7 +201,7 @@ class CuratedProfileView(WizardViewBase):
 
     def _check_premium(self):
         """Resolve the shared Nexus API (GUI thread) and learn premium status
-        off-thread — premium turns on hands-free auto-advance."""
+        off-thread - premium turns on hands-free auto-advance."""
         if self._premium_checked:
             return
         self._premium_checked = True
@@ -232,7 +232,7 @@ class CuratedProfileView(WizardViewBase):
     def _update_wait_auto_note(self):
         if self._auto and self._stack.currentIndex() == _PG_WAIT:
             self._set_status(self._wait_status,
-                             self.tr("Premium account — the wizard continues "
+                             self.tr("Premium account - the wizard continues "
                                      "automatically when the import "
                                      "completes."))
 
@@ -274,7 +274,7 @@ class CuratedProfileView(WizardViewBase):
             self.tr("Finish the install in the Import tab: choose the profile "
                     "name and press Install. The mods are downloaded from "
                     "Nexus, which can take a while.\n\nWhen it completes, the "
-                    "app switches to the new profile — then come back here and "
+                    "app switches to the new profile - then come back here and "
                     "press Continue.")))
         self._wait_status = self._make_status(lay)
         lay.addStretch(1)
@@ -301,7 +301,7 @@ class CuratedProfileView(WizardViewBase):
                 and not self._continue_warned):
             self._continue_warned = True
             self._set_status(self._wait_status,
-                             self.tr("The active profile hasn't changed — the "
+                             self.tr("The active profile hasn't changed - the "
                                      "import doesn't look finished. Complete it "
                                      "in the Import tab first, or press "
                                      "Continue again to proceed anyway."), RED)
@@ -310,7 +310,7 @@ class CuratedProfileView(WizardViewBase):
 
     def _wait_tick(self):
         """Hands-free mode: the import switching the active profile is the
-        completion signal — continue without a Continue press."""
+        completion signal - continue without a Continue press."""
         if not self._auto or self._stack.currentIndex() != _PG_WAIT:
             return
         if self._current_profile() != self._profile_at_open:
@@ -327,7 +327,7 @@ class CuratedProfileView(WizardViewBase):
     def _start_esm_prep(self):
         """The ESM Fixes installer checksum-checks FalloutNV.exe and may refuse
         a 4GB-patched one. If the user already applied the patch before running
-        this wizard, restore the original exe first — the final 4GB step
+        this wizard, restore the original exe first - the final 4GB step
         re-patches it (which is why this only runs when that step is enabled)."""
         if self._esm_prep_started or not self._fnv_4gb_step:
             self._enter_esm_step()
@@ -348,13 +348,13 @@ class CuratedProfileView(WizardViewBase):
                     if info["state"] == "patched":
                         if info["backup_exists"]:
                             restore_backup(game_root)
-                            _wlog(f"{EXE_NAME} was already 4GB patched — "
+                            _wlog(f"{EXE_NAME} was already 4GB patched - "
                                   f"restored the original from {BACKUP_NAME} "
                                   "for the ESM Fixes installer (it is "
                                   "re-patched at the end).")
                         else:
                             _wlog(f"{EXE_NAME} is 4GB patched but "
-                                  f"{BACKUP_NAME} is missing — cannot restore; "
+                                  f"{BACKUP_NAME} is missing - cannot restore; "
                                   "the ESM Fixes installer may refuse to run. "
                                   "Verify game files to get a clean exe.")
             except Exception as exc:
@@ -464,7 +464,7 @@ class CuratedProfileView(WizardViewBase):
             try:
                 if game_root is None or not game_root.is_dir():
                     safe_emit(self._gb_status_sig,
-                              self.tr("Game path is not configured — skipping "
+                              self.tr("Game path is not configured - skipping "
                                       "the 4GB patch."), RED)
                     return
                 state = inspect_exe(game_root)["state"]
@@ -476,13 +476,13 @@ class CuratedProfileView(WizardViewBase):
                     return
                 if state == "missing":
                     safe_emit(self._gb_status_sig,
-                              self.tr("{0} not found in the game folder — "
+                              self.tr("{0} not found in the game folder - "
                                       "skipping the 4GB patch.")
                               .format(EXE_NAME), RED)
                     return
                 if state != "patchable":
                     safe_emit(self._gb_status_sig,
-                              self.tr("Unrecognised {0} version — skipping. "
+                              self.tr("Unrecognised {0} version - skipping. "
                                       "Verify game files in Steam/Heroic, then "
                                       "run the 4GB Patch wizard manually.")
                               .format(EXE_NAME), RED)
@@ -494,13 +494,13 @@ class CuratedProfileView(WizardViewBase):
                 _wlog(f"patched {EXE_NAME} ({variant} version), original "
                       f"saved as {BACKUP_NAME}.")
                 safe_emit(self._gb_status_sig,
-                          self.tr("Patched {0} ({1} version) — original kept "
+                          self.tr("Patched {0} ({1} version) - original kept "
                                   "as {2}.").format(EXE_NAME, variant,
                                                     BACKUP_NAME), GREEN)
             except Exception as exc:
                 _wlog(f"4GB patch failed: {exc}")
                 safe_emit(self._gb_status_sig,
-                          self.tr("Patch failed: {0} — you can run the 4GB "
+                          self.tr("Patch failed: {0} - you can run the 4GB "
                                   "Patch wizard manually later.").format(exc),
                           RED)
             finally:

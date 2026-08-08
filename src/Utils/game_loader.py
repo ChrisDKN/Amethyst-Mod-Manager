@@ -94,7 +94,7 @@ def _find_games_dir(exclude: Path | None = None) -> Path | None:
         except Exception:
             pass
 
-    # 0b. Games.base_game is in Games/ — its __file__'s parent IS the Games dir (works if we imported it)
+    # 0b. Games.base_game is in Games/ - its __file__'s parent IS the Games dir (works if we imported it)
     try:
         mod = sys.modules.get(BaseGame.__module__)
         if mod is not None:
@@ -232,7 +232,7 @@ def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame]) -> int:
             continue
         n_files += 1
 
-        # Key on folder AND stem — a bare stem collides in sys.modules when two
+        # Key on folder AND stem - a bare stem collides in sys.modules when two
         # game folders ship a same-named handler file, silently dropping one.
         _folder = re.sub(r"\W", "_", py_file.parent.name)
         module_name = f"Games._loaded_{_folder}_{py_file.stem}"
@@ -246,7 +246,7 @@ def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame]) -> int:
         except Exception as exc:
             # The module itself failed to import (bad/moved import, syntax error,
             # missing dependency). This is the case that made a game silently
-            # vanish from the UI — users read that as "my game (and mods) got
+            # vanish from the UI - users read that as "my game (and mods) got
             # deleted" though mods live untouched in ~/.config and Profiles/.
             # Record it so the GUI can warn, and echo to stderr (captured by the
             # AppImage error log) for diagnosis.
@@ -259,12 +259,12 @@ def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame]) -> int:
             if not issubclass(cls, BaseGame):
                 continue
             # Abstract bases (e.g. UE5Game) are imported by concrete handlers and
-            # show up here too — they can't and shouldn't be instantiated.
+            # show up here too - they can't and shouldn't be instantiated.
             if inspect.isabstract(cls):
                 continue
             # Strict __module__ match: classes IMPORTED into this file (e.g.
             # Fallout_3 in every Bethesda subclass file) carry their defining
-            # module's name and are instantiated when THEIR file loads — the
+            # module's name and are instantiated when THEIR file loads - the
             # old membership fallback constructed each base once per sibling
             # file (~13 Fallout_3 load_paths() runs per discovery).
             if cls.__module__ != module_name:
@@ -302,7 +302,7 @@ def discover_games() -> dict[str, BaseGame]:
     if games_dir is not None:
         n_files = _scan_games_dir(games_dir, games)
 
-        # EVERY handler failing is never 50 broken handlers — it's a bad root
+        # EVERY handler failing is never 50 broken handlers - it's a bad root
         # (a dying AppImage mount that was still listable when we globbed it,
         # GH#340). Drop that root and retry once from the next candidate rather
         # than starting the app with no games at all.
@@ -310,7 +310,7 @@ def discover_games() -> dict[str, BaseGame]:
             try:
                 print(
                     f"[game_loader] all {n_files} handlers failed under "
-                    f"{games_dir} — retrying from another location",
+                    f"{games_dir} - retrying from another location",
                     file=sys.stderr,
                 )
             except Exception:

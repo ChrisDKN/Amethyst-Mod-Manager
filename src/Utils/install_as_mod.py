@@ -39,9 +39,9 @@ def register_as_mod_neutral(
 
     Writes meta.ini with rootFolder=*root_folder* and prepends the mod to
     *modlist_path* (defaults to the ACTIVE profile's ``modlist.txt``).
-    Does NO UI refresh — callers that have a panel/app refresh it themselves.
+    Does NO UI refresh - callers that have a panel/app refresh it themselves.
 
-    *archive* is optional — pass ``None`` for payloads built directly in the
+    *archive* is optional - pass ``None`` for payloads built directly in the
     staging folder, leaving ``installation_file`` blank. Returns the staging
     mod directory. Call from a worker thread.
     """
@@ -66,7 +66,7 @@ def register_as_mod_neutral(
         # Register into the ACTIVE profile's modlist. Hardcoding profiles/default
         # here put wizard installs in the WRONG modlist whenever another profile
         # was active: the mod then reached the active modlist only via the
-        # refresh's sync_modlist_with_mods_folder — as a DISABLED entry — and a
+        # refresh's sync_modlist_with_mods_folder - as a DISABLED entry - and a
         # disabled root-flagged mod is skipped by collect_root_flagged_mods, so
         # the index rescan stripped its Data/ prefix (SKSE wizard → Scripts/
         # deployed to the game root once the user enabled it).
@@ -150,7 +150,7 @@ def index_installed_mod(
         mod_dir = staging / mod_name
         if not mod_dir.is_dir():
             return
-        # Delegate to rescan_mods_in_index — the SAME helper the Install Mod
+        # Delegate to rescan_mods_in_index - the SAME helper the Install Mod
         # path (_update_indexes) and a full Refresh (rebuild_mod_index) use, so
         # the single-mod entry is written with identical strip-prefix /
         # extension / per-mod / root-folder rules. A raw _scan_dir +
@@ -166,7 +166,7 @@ def index_installed_mod(
                 root_mods = {mod_name}
         except Exception:
             root_mods = None
-        # Per-mod strip prefixes come from the active profile (best-effort —
+        # Per-mod strip prefixes come from the active profile (best-effort -
         # an unset/missing profile just yields no per-mod overrides).
         try:
             profile_dir = getattr(game, "_active_profile_dir", None)

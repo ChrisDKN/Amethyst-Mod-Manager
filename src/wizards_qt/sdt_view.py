@@ -1,4 +1,4 @@
-"""SSE Display Tweaks config editor — Qt port of wizards/sse_display_tweaks.py.
+"""SSE Display Tweaks config editor - Qt port of wizards/sse_display_tweaks.py.
 
 A modlist-panel-scoped tab: a scrollable grid form of every SSEDisplayTweaks.ini
 setting with a per-key enable checkbox, a typed value control (bool → two
@@ -39,7 +39,7 @@ class SDTView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("SSE Display Tweaks — {0}").format(game.name))
+                         title=self.tr("SSE Display Tweaks - {0}").format(game.name))
         # (section,key) -> (enable_chk, getter()->str, setter(str))
         self._rows: dict = {}
         self._stack.addWidget(self._build_form())

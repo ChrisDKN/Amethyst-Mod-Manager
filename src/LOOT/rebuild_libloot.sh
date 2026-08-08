@@ -86,7 +86,7 @@ fi
 VENV_PYTHON="${VENV_DIR}/bin/python"
 VENV_PIP="${VENV_DIR}/bin/pip"
 echo "=== Ensuring .venv has maturin ==="
-# libloot is an independent maturin project — the app's requirements
+# libloot is an independent maturin project - the app's requirements
 # (PySide6 etc.) are not needed to build it.
 "$VENV_PIP" install -q maturin
 echo ""

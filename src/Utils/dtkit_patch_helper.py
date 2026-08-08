@@ -92,7 +92,7 @@ def run_dtkit_patch_proton(
         return False
 
     # Flatpak without the Compat.i386 extension: wine would die with the
-    # cryptic "/lib/ld-linux.so.2: could not open" — fail with the fix instead.
+    # cryptic "/lib/ld-linux.so.2: could not open" - fail with the fix instead.
     from Utils.flatpak_i386 import preflight_i386_error
     i386_err = preflight_i386_error(proton_script)
     if i386_err:

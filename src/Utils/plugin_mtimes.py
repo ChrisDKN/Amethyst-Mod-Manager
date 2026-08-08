@@ -3,7 +3,7 @@ plugin_mtimes.py
 Stamp ascending mtimes on deployed plugins to enforce timestamp load order.
 
 Oblivion, Fallout 3 and Fallout NV order plugins by the mtime of the files
-in Data/ — plugins.txt only selects the active set. Tools like Wrye Bash
+in Data/ - plugins.txt only selects the active set. Tools like Wrye Bash
 display that mtime order, so without stamping the panel's order is never
 the one the game (or WB) actually uses. Earlier in the list = older mtime,
 1-second spacing, same scheme as morrowind_ini.py.
@@ -79,7 +79,7 @@ def stamp_plugin_load_order(
         return 0
 
     # Skip when the deployed mtimes are already strictly ascending in the
-    # desired order — keeps repeated saves from rewriting timestamps.
+    # desired order - keeps repeated saves from rewriting timestamps.
     try:
         mtimes = [p.stat().st_mtime for _n, p in present]
         if all(b > a for a, b in zip(mtimes, mtimes[1:])):

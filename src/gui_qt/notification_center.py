@@ -17,7 +17,7 @@ from gui_qt.theme_qt import active_palette, _c
 
 MAX_ENTRIES = 100
 
-# Per-state severity colours — same palette keys as the toast dot QSS.
+# Per-state severity colours - same palette keys as the toast dot QSS.
 _STATE_COLOR_KEYS = {
     "info": "ACCENT",
     "success": "TEXT_OK_BRIGHT",

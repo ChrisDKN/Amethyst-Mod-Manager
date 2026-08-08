@@ -1,4 +1,4 @@
-"""Install-name patterns editor — a modlist-panel-scoped tab.
+"""Install-name patterns editor - a modlist-panel-scoped tab.
 
 Opened from Settings ▸ General ("Edit custom install-name rules…", app.py
 `_open_install_name_patterns_tab`) via `open_scoped_tab(..., key="install_name_patterns")`,
@@ -11,7 +11,7 @@ hatch for when Nexus changes its download-name format again: rather than shippin
 a code change, a user adds a rule here.
 
 Each rule is `re.sub(search, replace, stem)`. Rules persist to amethyst.ini
-through `Utils.ui_config.load/save_install_name_patterns` on every change — no
+through `Utils.ui_config.load/save_install_name_patterns` on every change - no
 Save button, matching the rest of the Qt Settings tab. A live "Test" box shows
 the result of running the current rules against a sample filename so a user can
 verify a regex before relying on it.
@@ -31,7 +31,7 @@ from gui_qt.theme_qt import active_palette, _c
 from Utils import ui_config as uc
 
 
-# Generic placeholder for the Test box — a made-up mod name in the current Nexus
+# Generic placeholder for the Test box - a made-up mod name in the current Nexus
 # "<name> <id> <version> <timestamp> <slug>" format, so it exercises the default
 # rules without naming a real mod. (Fields: name / id / version / timestamp / slug.)
 _EXAMPLE_FILENAME = "Example Mod Name 100000 1 2026-01-01T00-00Z AbCdEf01g"
@@ -85,7 +85,7 @@ class _RuleRow(QWidget):
         self.replace.textChanged.connect(lambda _t: self._view._on_rule_changed())
         row.addWidget(self.replace, 2)
 
-        # Per-row reset — only for built-in default rows (those with a known id).
+        # Per-row reset - only for built-in default rows (those with a known id).
         if self._id and parent_view._has_default(self._id):
             reset = QPushButton("↺")
             reset.setFixedWidth(30)
@@ -188,7 +188,7 @@ class InstallNamePatternsView(QWidget):
         self._custom_hdr = QLabel(self.tr("Custom rules"))
         self._custom_hdr.setObjectName("SectionHdr")
 
-        self._empty_lbl = QLabel(self.tr("No rules yet — add one below."))
+        self._empty_lbl = QLabel(self.tr("No rules yet - add one below."))
         self._empty_lbl.setObjectName("Help")
         self._rules_v.addWidget(self._empty_lbl)
 
@@ -290,7 +290,7 @@ class InstallNamePatternsView(QWidget):
     def _relayout(self) -> None:
         """Re-order the rules list as [Built-in header] built-in rows /
         [Custom header] custom rows, showing each header only when its section
-        is non-empty. Detach every managed widget first, then re-add in order —
+        is non-empty. Detach every managed widget first, then re-add in order -
         cheap for the handful of rows involved."""
         for w in (self._builtin_hdr, self._custom_hdr, self._empty_lbl, *self._rows):
             self._rules_v.removeWidget(w)
@@ -306,7 +306,7 @@ class InstallNamePatternsView(QWidget):
             self._builtin_hdr.setVisible(False)
 
         # Show the "Custom rules" header only when a custom row exists, so a new
-        # custom row lands under its own heading (not under the mod.io row) —
+        # custom row lands under its own heading (not under the mod.io row) -
         # but no empty header hangs when there are none.
         if customs:
             self._rules_v.addWidget(self._custom_hdr)
@@ -368,7 +368,7 @@ class InstallNamePatternsView(QWidget):
         """Preview the name the installer would derive from the test filename.
 
         Runs the REAL pipeline (``mod_name_utils._suggest_mod_names``), not just
-        the visible regex rows — so it accounts for the duplicate-download suffix
+        the visible regex rows - so it accounts for the duplicate-download suffix
         strip ("(2)"), the built-in heuristic parsers, and the fact that edits
         are already saved (each change persists before this runs). This keeps the
         preview honest: what it shows is what an install produces."""
@@ -404,7 +404,7 @@ class InstallNamePatternsView(QWidget):
                 has_bad = True
         if has_bad:
             self._test_out.setText(
-                self.tr("Result: {0}   (a rule has an invalid regex — skipped)")
+                self.tr("Result: {0}   (a rule has an invalid regex - skipped)")
                 .format(result))
         else:
             self._test_out.setText(self.tr("Result: {0}").format(result))

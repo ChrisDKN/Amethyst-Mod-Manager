@@ -1,5 +1,5 @@
 """
-Amethyst — the modern signature theme.
+Amethyst - the modern signature theme.
 
 A cool near-black neutral base (zinc family) with a violet accent, chosen to
 finally match the app's name. Aims for a contemporary "Linear / Vercel" feel:
@@ -8,7 +8,7 @@ button colours drawn from the Tailwind palette for consistency.
 
 Every key here must also exist in every other theme file. If you add a new
 constant, add it to every theme or the app will break when that theme is
-selected. (This file was produced by copying dark.py and retuning values only —
+selected. (This file was produced by copying dark.py and retuning values only -
 no keys added or removed.)
 """
 
@@ -22,7 +22,7 @@ CTK_APPEARANCE = "dark"
 #   base     #0e0e11 … #26262d   (cool near-black zinc surfaces)
 
 PALETTE: dict[str, str | tuple] = {
-    # Backgrounds — cool near-black zinc surfaces, softly layered.
+    # Backgrounds - cool near-black zinc surfaces, softly layered.
     "BG_DEEP":       "#0e0e11",   # window background
     "BG_PANEL":      "#16161a",   # raised panel
     "BG_HEADER":     "#1b1b20",   # toolbar / header / button base
@@ -35,12 +35,12 @@ PALETTE: dict[str, str | tuple] = {
     "BG_SELECT":     "#6d28d9",   # violet selection (white text reads on it)
     "BG_HOVER_ROW":  "#26262d",
 
-    # Accents — amethyst violet.
+    # Accents - amethyst violet.
     "ACCENT":        "#8b5cf6",
     "ACCENT_HOV":    "#a78bfa",
     "TEXT_ON_ACCENT":"#ffffff",
 
-    # Text — crisp zinc greys (not pure white, easier on the eyes).
+    # Text - crisp zinc greys (not pure white, easier on the eyes).
     "TEXT_MAIN":     "#e4e4e7",
     "TEXT_DIM":      "#7c7c88",
     "TEXT_MUTED":    "#a1a1aa",
@@ -55,12 +55,12 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_ERR_BRIGHT":  "#fca5a5",
     "TEXT_WARN_BRIGHT": "#fcd34d",
 
-    # Borders — subtle, low-contrast separators (modern faint-line look).
+    # Borders - subtle, low-contrast separators (modern faint-line look).
     "BORDER":        "#2a2a31",
     "BORDER_DIM":    "#35353d",
     "BORDER_FAINT":  "#45454f",
 
-    # Buttons — reds
+    # Buttons - reds
     "RED_BTN":       "#dc2626",
     "RED_HOV":       "#ef4444",
     "BTN_DANGER":        "#dc2626",
@@ -72,7 +72,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_CANCEL":        "#b91c1c",
     "BTN_CANCEL_HOV":    "#991b1b",
 
-    # Buttons — greens
+    # Buttons - greens
     "BTN_SUCCESS":          "#16a34a",
     "BTN_SUCCESS_HOV":      "#22c55e",
     "BTN_SUCCESS_ALT":      "#15803d",
@@ -80,7 +80,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_SUCCESS_DEEP":     "#166534",
     "BTN_SUCCESS_DEEP_HOV": "#15803d",
 
-    # Buttons — oranges
+    # Buttons - oranges
     "BTN_WARN":          "#d97706",
     "BTN_WARN_HOV":      "#f59e0b",
     "BTN_WARN_DEEP":     "#92400e",
@@ -90,7 +90,7 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_WARN_ORANGE":   "#ea580c",
     "BTN_WARN_ORANGE_HOV":"#f97316",
 
-    # Buttons — blues
+    # Buttons - blues
     "BTN_INFO":          "#2563eb",
     "BTN_INFO_HOV":      "#3b82f6",
     "BTN_INFO_DEEP":     "#1d4ed8",
@@ -98,13 +98,13 @@ PALETTE: dict[str, str | tuple] = {
     "BTN_NEUTRAL":       "#4f46e5",
     "BTN_NEUTRAL_HOV":   "#6366f1",
 
-    # Buttons — greys
+    # Buttons - greys
     "BTN_GREY":        "#2e2e35",
     "BTN_GREY_HOV":    "#3a3a42",
     "BTN_GREY_ALT":    "#27272d",
     "BTN_GREY_ALT_HOV":"#35353d",
 
-    # Buttons — purples
+    # Buttons - purples
     "BTN_PURPLE":     "#7c3aed",
     "BTN_PURPLE_HOV": "#8b5cf6",
 
@@ -167,7 +167,7 @@ PALETTE: dict[str, str | tuple] = {
     "TEXT_CARD_MED": "#e4e4e7",
     "TEXT_TREE_FG":  "#4ade80",
 
-    # CTk light/dark tuples — CustomTkinter picks one based on appearance mode.
+    # CTk light/dark tuples - CustomTkinter picks one based on appearance mode.
     "CTK_TEXT":       ("#000000", "#FFFFFF"),
     "CTK_FOOTER_FG":  ("#EBECF0", "#1b1b20"),
     "CTK_FOOTER_HOV": ("#DFE1E5", "#26262d"),
@@ -205,7 +205,7 @@ PALETTE: dict[str, str | tuple] = {
     "CONFLICT_HL_LOSE":   "#dc2626",   # this mod beats selection (red)
     "CONFLICT_HL_ANCHOR": "#ea580c",   # plugin-selected / anchor mod (orange)
 
-    # Framework-status banner rows (Plugins tab) — per install state
+    # Framework-status banner rows (Plugins tab) - per install state
     "FRAMEWORK_INSTALLED_BG": "#14311c", "FRAMEWORK_INSTALLED_FG": "#bbf7d0",
     "FRAMEWORK_STAGED_BG":    "#422006", "FRAMEWORK_STAGED_FG":    "#fed7aa",
     "FRAMEWORK_DISABLED_BG":  "#172033", "FRAMEWORK_DISABLED_FG":  "#bfdbfe",

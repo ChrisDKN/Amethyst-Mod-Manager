@@ -1,11 +1,11 @@
-"""Borderless in-window overlay to manage download scan locations — toggle the
+"""Borderless in-window overlay to manage download scan locations - toggle the
 default Downloads folder, toggle the per-game cache, and add/remove extra
 folders. Reads/writes the same Utils.download_locations settings as the Tk app
 (backward compatible). ``on_done(True)`` on Save, ``on_done(False)`` on
 cancel / Esc / backdrop click.
 
 Dimmed child overlay via gui_qt/overlay_base.py (replaces the old QDialog
-version — gaming-mode opens top-level windows behind the app).
+version - gaming-mode opens top-level windows behind the app).
 """
 
 from __future__ import annotations

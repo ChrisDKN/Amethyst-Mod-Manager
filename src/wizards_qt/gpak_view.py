@@ -1,4 +1,4 @@
-"""Mewgenics GPAK wizard — Qt port of wizards/mewgenics_gpak.py.
+"""Mewgenics GPAK wizard - Qt port of wizards/mewgenics_gpak.py.
 
 Two actions against the game root: unpack resources.gpak → Unpacked/, or
 repack Unpacked/ → resources.gpak.  Work runs on daemon threads with output
@@ -34,7 +34,7 @@ class GpakView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("GPAK tools — {0}").format(game.name))
+                         title=self.tr("GPAK tools - {0}").format(game.name))
         self._game_root = game.get_game_path()
         self._running = False
 

@@ -194,7 +194,7 @@ class SlayTheSpire2(BaseGame):
             restored = restore_data_core(plugins_dir, core_dir=core_dir, overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log)
             _log(f"  Restored {restored} file(s). {core}/ removed.")
         else:
-            _log(f"Restore: no {core}/ found — nothing to restore.")
+            _log(f"Restore: no {core}/ found - nothing to restore.")
 
         moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
         if moved:

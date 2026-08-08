@@ -9,7 +9,7 @@ Pandora ships as a regular mod, so its exe lives under the mod staging folder.
 It runs in a wizard-tool Wine prefix (see exe_launch.resolve_tool_prefix) with
 the .NET 10 desktop runtime installed into that prefix.
 
-install_net10 / run_pandora are blocking — call them from a worker thread.
+install_net10 / run_pandora are blocking - call them from a worker thread.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def find_pandora_exe(game: "BaseGame") -> Path | None:
     """Search the mod staging directory for Pandora Behaviour Engine+.exe.
 
     Uses the memory-cached modindex (with a disk-walk fallback) so gating the
-    wizard stays fast on large modlists — see Utils.wizard_gates.find_staged_exe.
+    wizard stays fast on large modlists - see Utils.wizard_gates.find_staged_exe.
     """
     from Utils.wizard_gates import find_staged_exe
     return find_staged_exe(game, EXE_NAME)
@@ -70,13 +70,13 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
                 compat_data: Path, env: dict,
                 log_fn=_noop, on_started=None) -> int:
     """Launch Pandora via Proton and wait for it to exit. Returns the exit
-    code (stderr is logged). Blocking — call from a worker thread.
+    code (stderr is logged). Blocking - call from a worker thread.
 
     *on_started* fires once the process has spawned (the UI can enable its
     Done button while Pandora runs). Shuts the prefix wineserver down after
     exit. When the winetricks-style marker is in *env* (Proton-step checkbox,
     via resolve_tool_prefix) the launch bypasses the proton script and runs
-    plain Wine the way winetricks does — handled here rather than through
+    plain Wine the way winetricks does - handled here rather than through
     run_tool_logged's delegation because the rebuilt environment must get
     Pandora's .NET/renderer tweaks re-applied; prefix prep (registry seed,
     Settings.json) still happens the same way.
@@ -102,7 +102,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     )
 
     # The output folder (<staging>/Pandora_output) is configured by rewriting
-    # Pandora's Settings.json inside the prefix — newer Pandora builds ignore
+    # Pandora's Settings.json inside the prefix - newer Pandora builds ignore
     # the --output: CLI flag.
     _bootstrap_pandora_settings(
         getattr(game, "game_id", None),
@@ -123,7 +123,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     # WPF rendering over DXVK produces a double title bar / frame glitch in
     # Proton. Forcing the WineD3D GDI renderer bypasses the Vulkan path
     # entirely and gives a single, properly-decorated window.
-    # PROTON_USE_WINED3D is required — WINE_D3D_CONFIG only takes effect when
+    # PROTON_USE_WINED3D is required - WINE_D3D_CONFIG only takes effect when
     # WineD3D (not DXVK) is actually handling the d3d calls.
     env["PROTON_USE_WINED3D"] = "1"
     env["WINE_D3D_CONFIG"] = "renderer=gdi"

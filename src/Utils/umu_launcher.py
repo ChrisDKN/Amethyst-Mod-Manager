@@ -4,7 +4,7 @@ A Steam-less machine (Heroic/Lutris/GOG only, GH#320) cannot run a raw
 ``python3 proton <verb>``: there is no Steam runtime behind it, so Wine starts
 bare and dies in a wall of missing-FreeType errors. ``proton_run_command``
 already reroutes those launches through ``umu-run``, which starts Proton inside
-the Steam Linux Runtime container with no Steam client at all — but only if the
+the Steam Linux Runtime container with no Steam client at all - but only if the
 box happens to have a umu from Heroic, Lutris or Faugus. When it doesn't, every
 Proton path dead-ends on :data:`~Utils.steam_finder.STEAMLESS_NO_UMU_MESSAGE`
 and the user is told to go install another launcher.
@@ -12,7 +12,7 @@ and the user is told to go install another launcher.
 umu ships as a single ~410 KB zipapp with a ``#!/usr/bin/env python3`` shebang,
 so we can just fetch it the way we already fetch winetricks and cabextract:
 into ``~/.config/AmethystModManager/tools/``, never into the AppImage/Flatpak
-bundle. Bundling would be worse on every axis — it needs a *host* python3
+bundle. Bundling would be worse on every axis - it needs a *host* python3
 anyway (we strip the bundle's loader env before every Proton call), its real
 payload is the ~1 GB Steam Linux Runtime it downloads on first run regardless,
 under Flatpak it must live on host-visible disk to be executed via
@@ -122,7 +122,7 @@ def _fetch_latest() -> "tuple[str, str] | None":
 def _extract_zipapp(tar_bytes: bytes, dest: Path) -> bool:
     """Write the single ``umu-run`` member of *tar_bytes* to *dest*.
 
-    Pulls the one member out by name rather than calling ``extractall`` — a
+    Pulls the one member out by name rather than calling ``extractall`` - a
     tarball off the network must never be allowed to choose its own paths.
     Written to a temp file and renamed, so a copy that is currently executing
     keeps its own inode and a failed write can't leave a truncated launcher.
@@ -158,7 +158,7 @@ def _extract_zipapp(tar_bytes: bytes, dest: Path) -> bool:
 def install_umu_run(log_fn: "LogFn | None" = None) -> bool:
     """Download the latest umu-run zipapp into the tools folder.
 
-    Blocking (small — ~0.4 MB); call from a worker thread. Returns True when a
+    Blocking (small - ~0.4 MB); call from a worker thread. Returns True when a
     usable launcher is in place afterwards.
     """
     log = _log_fn(log_fn)
@@ -204,7 +204,7 @@ def _update_due() -> bool:
 def maybe_update_umu_run(log_fn: "LogFn | None" = None) -> None:
     """Refresh our copy in the background, at most once a week.
 
-    Only ever touches a launcher we installed ourselves — a umu belonging to
+    Only ever touches a launcher we installed ourselves - a umu belonging to
     Heroic, Lutris or the distro package is that owner's to update. Runs
     detached so a launch never waits on GitHub.
     """
@@ -230,7 +230,7 @@ def ensure_umu_run(log_fn: "LogFn | None" = None) -> "Path | None":
     from Utils.steam_finder import steam_client_installed
 
     if steam_client_installed():
-        # Steam's runtime is there — proton_run_command uses the proton script
+        # Steam's runtime is there - proton_run_command uses the proton script
         # directly and never needs umu.
         return None
 
@@ -247,7 +247,7 @@ def ensure_umu_run(log_fn: "LogFn | None" = None) -> "Path | None":
         _attempted = True
 
     log = _log_fn(log_fn)
-    log("no Steam client and no umu-run on this system — fetching a copy so "
+    log("no Steam client and no umu-run on this system - fetching a copy so "
         "Proton can run inside the Steam Linux Runtime.")
     if not install_umu_run(log):
         return None

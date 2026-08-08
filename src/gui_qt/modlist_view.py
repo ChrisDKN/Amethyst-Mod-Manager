@@ -1,4 +1,4 @@
-"""Modlist view — QTreeView + ModListModel + ModRowDelegate.
+"""Modlist view - QTreeView + ModListModel + ModRowDelegate.
 
 Internal-move drag-reorder (model.beginMoveRows preserves selection/scroll);
 TkStyleHeader owns column resizing; column state persists via column_state.
@@ -133,7 +133,7 @@ class ModListView(QTreeView):
         self._filter_hidden: set[int] = set()
         self._search_hidden: set[int] = set()
         self._searching: bool = False
-        # Last hidden-row set actually applied via setRowHidden — lets
+        # Last hidden-row set actually applied via setRowHidden - lets
         # apply_collapse touch only the delta. Row indices go stale on any
         # structural change, so drop the cache there.
         self._applied_hidden: set[int] | None = None
@@ -143,13 +143,13 @@ class ModListView(QTreeView):
         for sig in (model.modelReset, model.rowsInserted, model.rowsRemoved,
                     model.rowsMoved, model.layoutChanged):
             sig.connect(_drop_applied)
-        # A sort rebuild reorders rows in place (layoutChanged) — separator
+        # A sort rebuild reorders rows in place (layoutChanged) - separator
         # spanning + collapse hiding are row-indexed, so re-apply both.
         # Connected AFTER _drop_applied so the hidden-set cache is clear first.
         model.layoutChanged.connect(self._on_model_layout_changed)
         model.modelReset.connect(self._on_model_layout_changed)
         # A fast-path insert (add_separator/insert_mod) emits rowsInserted, not
-        # layoutChanged — re-apply spanning so a new separator's lock box jumps
+        # layoutChanged - re-apply spanning so a new separator's lock box jumps
         # to the far right immediately instead of only after the next move.
         model.rowsInserted.connect(self._on_model_layout_changed)
         self.doubleClicked.connect(self._on_double_click)
@@ -173,7 +173,7 @@ class ModListView(QTreeView):
         # Sticky separator header: the separator governing the topmost visible
         # rows stays pinned to the viewport top while its group scrolls under
         # it. Pixel-scrolling blits the viewport, which would smear the pinned
-        # band — repaint the top strip on every scroll step.
+        # band - repaint the top strip on every scroll step.
         self._sticky_press: int | None = None
         sb = self.verticalScrollBar()
         self._last_vscroll = sb.value()
@@ -190,7 +190,7 @@ class ModListView(QTreeView):
         reposition_marker_strip(self)
 
     def _on_model_layout_changed(self, *_a):
-        """Row order changed in place (sort applied/cleared/re-derived) — the
+        """Row order changed in place (sort applied/cleared/re-derived) - the
         spanning + hidden-row state is row-indexed and must be re-applied."""
         self._apply_separator_spanning()
         self.apply_collapse()
@@ -243,16 +243,16 @@ class ModListView(QTreeView):
         h = TkStyleHeader(self, COL_MINS, COL_DEFAULTS)
         self.setHeader(h)
         # QTreeView.setHeader() re-configures the header and resets clickable
-        # to follow setSortingEnabled (off — we drive the sort by hand), so
+        # to follow setSortingEnabled (off - we drive the sort by hand), so
         # re-enable it AFTER installing or sectionClicked never fires.
         h.setSectionsClickable(True)
         h.setMinimumSectionSize(min(COL_MINS.values()))
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        # Column sorting is driven by hand (NOT setSortingEnabled — Qt's model
+        # Column sorting is driven by hand (NOT setSortingEnabled - Qt's model
         # sort can't express the Tk semantics: separators anchored, mods
         # sorted within their group, reverse-priority layout). Header clicks
         # cycle the sort; the model derives the display order. The native
-        # indicator stays hidden — TkStyleHeader paints a triangle on EVERY
+        # indicator stays hidden - TkStyleHeader paints a triangle on EVERY
         # sortable column (accent-blue on the active one) via
         # sort_triangle_spec below; setSortIndicator still tracks the state
         # for persistence.
@@ -340,7 +340,7 @@ class ModListView(QTreeView):
             a.setChecked(not self.isColumnHidden(col))
             a.toggled.connect(lambda checked, c=col: self._set_column_visible(c, checked))
             menu.addAction(a)
-        # Quick modlist filters — a faster way to apply the "By status" filters
+        # Quick modlist filters - a faster way to apply the "By status" filters
         # from the Filters panel. These drive the same filter state, so the
         # panel checkboxes stay in sync (the window wires on_quick_filter).
         menu.addSeparator()
@@ -349,7 +349,7 @@ class ModListView(QTreeView):
             ("filter_show_disabled", self.tr("Disabled")),
             ("filter_hide_separators", self.tr("Hide separators")),
             # Already translated under FilterSidePanel (it's a STATUS_FILTERS
-            # label) — reuse that entry rather than minting a ModListView copy.
+            # label) - reuse that entry rather than minting a ModListView copy.
             ("filter_has_updates",
              QCoreApplication.translate("FilterSidePanel", "Mods with updates")),
         ):
@@ -368,7 +368,7 @@ class ModListView(QTreeView):
             self._add_quick_filter_action(
                 more, key, QCoreApplication.translate("FilterSidePanel", label))
         menu.addMenu(more)
-        # Same escape hatch the Filters panel header offers — reachable without
+        # Same escape hatch the Filters panel header offers - reachable without
         # opening the panel. Greyed while nothing is filtered.
         clear = QAction(self.tr("Clear all filters"), menu)
         clear.setEnabled(callable(self.filters_active) and self.filters_active())
@@ -412,7 +412,7 @@ class ModListView(QTreeView):
             return
         h = self.header()
         if h.visualIndex(COL_NAME) != 0:
-            # A move displaced Name from position 0 — snap it back.
+            # A move displaced Name from position 0 - snap it back.
             self._pinning_name = True
             h.moveSection(h.visualIndex(COL_NAME), 0)
             self._pinning_name = False
@@ -450,7 +450,7 @@ class ModListView(QTreeView):
 
     def apply_collapse(self):
         """Hide rows under a collapsed separator, the filter panel, OR the search
-        box. When a search is active it OVERRIDES collapse (Tk parity — a match
+        box. When a search is active it OVERRIDES collapse (Tk parity - a match
         inside a collapsed separator is still revealed); the filter still applies.
         """
         flt = self._filter_hidden
@@ -460,7 +460,7 @@ class ModListView(QTreeView):
             hidden = srch | flt
         else:
             hidden = self.model().hidden_rows() | flt
-        # Only touch rows whose visibility actually changes — setRowHidden is
+        # Only touch rows whose visibility actually changes - setRowHidden is
         # per-row layout work, and this runs per search keystroke.
         prev = getattr(self, "_applied_hidden", None)
         root = self.rootIndex()
@@ -626,7 +626,7 @@ class ModListView(QTreeView):
         if sep is None:
             return None
         # A separator hidden by the filter panel ("Hide separators", or a
-        # filter that dropped its whole block) must not pin a band — it would
+        # filter that dropped its whole block) must not pin a band - it would
         # paint over the first visible mod row.
         if self.isRowHidden(sep, self.rootIndex()):
             return None
@@ -801,7 +801,7 @@ class ModListView(QTreeView):
         return higher, lower
 
     def bsa_conflict_partners(self, names: set[str]) -> tuple[set[str], set[str]]:
-        """Like conflict_partners but BSA-only — used to colour plugins (Tk only
+        """Like conflict_partners but BSA-only - used to colour plugins (Tk only
         tints plugins for BSA conflicts, never loose-file ones)."""
         bov = getattr(self, "_bsa_overrides", {})
         bob = getattr(self, "_bsa_overridden_by", {})
@@ -817,7 +817,7 @@ class ModListView(QTreeView):
     def _refresh_self_highlights(self):
         """Recompute green/red tints from the current mod selection."""
         # View Requirements mode: the purple/blue requirement tints own the
-        # modlist — don't let a conflict rebuild stomp them (the window sets
+        # modlist - don't let a conflict rebuild stomp them (the window sets
         # this while that tab is open).
         if getattr(self, "suppress_conflict_highlights", False):
             return
@@ -860,8 +860,8 @@ class ModListView(QTreeView):
         if not e.is_separator and e.locked:
             return None
         # Only a LOCKED separator carries its whole block (Tk parity: collapse
-        # affects visibility, never the drag payload). An unlocked separator —
-        # collapsed or not — moves alone: it just re-marks where a group
+        # affects visibility, never the drag payload). An unlocked separator -
+        # collapsed or not - moves alone: it just re-marks where a group
         # begins, and membership recomputes from the drop position.
         if e.is_separator and m.is_sep_locked(e.display_name):
             return [row] + list(m.sep_block_rows(row))
@@ -877,7 +877,7 @@ class ModListView(QTreeView):
 
     def mousePressEvent(self, event):
         # A press on the sticky separator band must not reach the row painted
-        # underneath it — consume it and remember the band's row for release.
+        # underneath it - consume it and remember the band's row for release.
         if not self._drag_active:
             info = self._sticky_sep_info()
             if info is not None and info[1].contains(event.position().toPoint()):
@@ -903,7 +903,7 @@ class ModListView(QTreeView):
             self._press_pos = event.position().toPoint()
             # A real (collapsible) separator is never selectable: clicking one
             # only expands/collapses it (handled by the delegate on release).
-            # Skip the base press so Qt doesn't change the selection — but keep
+            # Skip the base press so Qt doesn't change the selection - but keep
             # _press_row/_press_pos above so a press-and-drag still reorders it.
             if idx.isValid():
                 e = self.model().entry(idx.row())
@@ -1112,7 +1112,7 @@ class ModListView(QTreeView):
         #     (top==bottom==0). vis[] includes such rows (it only excludes
         #     collapse-hidden ones), so when Root Folder is scrolled below the
         #     fold, its rect.bottom()==0 made "y >= last.bottom()" true for any
-        #     y — forcing the slot onto the boundary every move. That was the
+        #     y - forcing the slot onto the boundary every move. That was the
         #     random flicker.
         #  2) Consecutive row rects can leave a 1px seam; requiring
         #     top() <= y < bottom() would miss a y in the seam.
@@ -1164,8 +1164,8 @@ class ModListView(QTreeView):
         dest = self._drop_slot
         src = self._drag_rows
         m = self.model()
-        # Tk parity: every drag — a mod, a lone separator, or a locked
-        # separator carrying its block — drops exactly at the released slot,
+        # Tk parity: every drag - a mod, a lone separator, or a locked
+        # separator carrying its block - drops exactly at the released slot,
         # even mid-group (the host group splits there and its remaining mods
         # fall under the dragged block). Only the Overwrite/Root boundaries
         # clamp (movable_span in _update_drop_slot / move_block).
@@ -1251,7 +1251,7 @@ class ModListView(QTreeView):
         # Only act when the bar can actually move that direction. At the very
         # bottom (or top) setValue() clamps to a no-op, but re-running
         # _update_drop_slot + repaint every tick against a static viewport lets
-        # sub-pixel mouse jitter oscillate the drop slot — the indicator
+        # sub-pixel mouse jitter oscillate the drop slot - the indicator
         # flickers near the Root Folder boundary. Skip the churn when pinned.
         at_edge = (step < 0 and bar.value() <= bar.minimum()) or \
                   (step > 0 and bar.value() >= bar.maximum())
@@ -1262,7 +1262,7 @@ class ModListView(QTreeView):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        # Sticky separator band (hidden during a drag — it would cover the
+        # Sticky separator band (hidden during a drag - it would cover the
         # drop zone while autoscrolling toward the top). An external archive
         # drag (Downloads tab) paints the same indicator.
         dragging = self._drag_active or self._extern_drop
@@ -1277,7 +1277,7 @@ class ModListView(QTreeView):
         # anchoring the line to the boundary row's top() flickers: during
         # autoscroll the boundary rect can be measured mid-layout, so the same
         # slot paints at two heights on consecutive frames. Anchor those to the
-        # previous movable row's bottom instead — one stable y for the gap.
+        # previous movable row's bottom instead - one stable y for the gap.
         from gui_qt.modlist_model import _PINNED_NAMES
         on_boundary = (0 <= self._drop_slot < n
                        and m.entry(self._drop_slot).name in _PINNED_NAMES)
@@ -1343,7 +1343,7 @@ class ModListView(QTreeView):
             if name in name_to_col:
                 self.setColumnHidden(name_to_col[name], True)
         # A column added after the state was saved (absent from the persisted
-        # order) keeps its first-run default — otherwise e.g. the new Author
+        # order) keeps its first-run default - otherwise e.g. the new Author
         # column would pop up visible for every existing user.
         for col in _FIRST_RUN_HIDDEN:
             if st["order"] and COLUMNS[col] not in st["order"]:
@@ -1358,7 +1358,7 @@ class ModListView(QTreeView):
             col = name_to_col[st["sort_col"]]
             order = Qt.AscendingOrder if st["ascending"] else Qt.DescendingOrder
             self.header().setSortIndicator(col, order)
-            # Restore the live sort. The model is empty at this point — the
+            # Restore the live sort. The model is empty at this point - the
             # first set_entries() re-derives the display with this sort.
             key = _COL_TO_SORTKEY.get(col)
             if key:

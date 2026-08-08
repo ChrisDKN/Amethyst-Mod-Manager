@@ -54,7 +54,7 @@ def _report(where: str) -> None:
 
 def guard_virtuals(cls: type, **fallbacks) -> None:
     """Wrap *cls*'s Qt virtuals as name=fallback (a value, or a callable
-    returning one) — the fallback is what Qt gets if the override raises.
+    returning one) - the fallback is what Qt gets if the override raises.
     It must match the virtual's C++ return type: handing shiboken a None it
     can't convert raises inside the virtual again, which is the very thing
     being guarded against."""

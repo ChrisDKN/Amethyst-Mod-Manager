@@ -16,7 +16,7 @@ under the per-user data folder:
         packages/core/override/chargenmorphcfg.xml   generated char-gen registry
 
 Binaries (patched DAOrigins.exe, DXVK, DAFIX, *.dll/.asi) live in the *game
-install* directory under ``bin_ship/`` — NOT the data folder.
+install* directory under ``bin_ship/`` - NOT the data folder.
 
 This handler deploys loose overrides + AddIns/Offers into the data folder
 (which lives inside the Proton prefix), routes ``bin_ship/`` files to the game
@@ -25,7 +25,7 @@ chargenmorphcfg.xml at deploy time (undone on restore).
 
 Note: DAO is commonly run via a non-Steam shortcut (custom appid) or a
 GOG/loose install, so the data path cannot be derived from a fixed Steam
-appid — the prefix path is user-configurable, with a best-effort search.
+appid - the prefix path is user-configurable, with a best-effort search.
 """
 
 from pathlib import Path
@@ -50,8 +50,8 @@ _PREFIX_DAO_SUBPATH = Path(
 
 # Mod-managed subfolders within the DAO data folder. These are the ONLY
 # folders the manager ever moves/clears during deploy/restore. The game's own
-# files — Settings/ (AddIns.xml, INIs, Profile.dap), Logs/, and the vanilla
-# packages/core/data — must never be touched.
+# files - Settings/ (AddIns.xml, INIs, Profile.dap), Logs/, and the vanilla
+# packages/core/data - must never be touched.
 _MANAGED_SUBDIRS = (
     Path("packages/core/override"),
     Path("AddIns"),
@@ -147,7 +147,7 @@ class DragonAgeOrigins(BaseGame):
         #     deploying each mod's fragment makes them fight (chargen breaks).
         #     We instead merge them all into ONE file at the override root in
         #     deploy Step 5 (read from staging, so exclusion here is fine).
-        #   - Manifest.xml: NOT excluded — filed under addins/<uid>/ and the
+        #   - Manifest.xml: NOT excluded - filed under addins/<uid>/ and the
         #     game expects it there; registry XML is built from staging anyway.
         #   - *.txt: readme clutter, safe to drop.
         return {"chargenmorphcfg.xml", "*.txt"}
@@ -224,10 +224,10 @@ class DragonAgeOrigins(BaseGame):
                profile: str = "default", progress_fn=None) -> None:
         """Deploy staged DAO mods into the data folder.
 
-        Workflow (Phase 1 — overrides + AddIns/Offers + bin_ship routing):
+        Workflow (Phase 1 - overrides + AddIns/Offers + bin_ship routing):
           1. Route bin_ship/ files to the game install root (custom rule)
           2. Back up ONLY the managed subfolders (override, AddIns, Offers)
-             — each to its own <subdir>_Core. The game's Settings/, Logs/ and
+             - each to its own <subdir>_Core. The game's Settings/, Logs/ and
              vanilla packages/core/data are never touched.
           3. Link mod files from filemap.txt into the data root (filemap paths
              are data-root-relative so they land in the right subfolders)
@@ -269,7 +269,7 @@ class DragonAgeOrigins(BaseGame):
         profile_dir = self.get_profile_root() / "profiles" / profile
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
-        # Separator overrides — loaded from the real profile_dir and passed
+        # Separator overrides - loaded from the real profile_dir and passed
         # explicitly so shared-staging layouts get the right link modes.
         _sep_deploy = load_separator_deploy_paths(profile_dir)
         _sep_entries = read_modlist(profile_dir / "modlist.txt") if _sep_deploy else []
@@ -388,7 +388,7 @@ class DragonAgeOrigins(BaseGame):
 
         # Filemap-driven cleanup. DAO mods deploy as bare, mod-relative paths
         # under the data root (e.g. "50 Tactics Slots/exptable.gda"), so we
-        # cannot rely on the managed-subfolder backups alone — we must remove
+        # cannot rely on the managed-subfolder backups alone - we must remove
         # exactly what the filemap says was deployed, wherever it landed.
         removed = self._remove_deployed_files(data_root, log_fn=_log)
         _log(f"  Removed {removed} deployed file(s) from the data folder.")
@@ -399,7 +399,7 @@ class DragonAgeOrigins(BaseGame):
         overwrite_dir = self.get_effective_overwrite_path()
         # modindex.bin lives in the profile root (next to filemap.txt), NOT
         # under overwrite/. We restore per-subfolder, so overwrite_dir is a
-        # sub-path of overwrite/ — pass index_path explicitly so the rescued-
+        # sub-path of overwrite/ - pass index_path explicitly so the rescued-
         # files index update doesn't land in overwrite/<sub>/modindex.bin.
         index_path = self.get_effective_filemap_path().parent / "modindex.bin"
         for sub in _MANAGED_SUBDIRS:
@@ -448,7 +448,7 @@ class DragonAgeOrigins(BaseGame):
         _log = log_fn or (lambda _: None)
         filemap = self.get_effective_filemap_path()
         if not filemap.is_file():
-            _log("  No filemap found — nothing to remove.")
+            _log("  No filemap found - nothing to remove.")
             return 0
         removed = 0
         try:

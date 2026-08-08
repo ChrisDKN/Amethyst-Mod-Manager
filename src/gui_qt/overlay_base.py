@@ -1,7 +1,7 @@
-"""OverlayBase — shared skeleton for the borderless in-window overlays.
+"""OverlayBase - shared skeleton for the borderless in-window overlays.
 
 Every overlay is a dimmed CHILD widget over the main window (NOT a top-level
-window — gaming-mode opens top-levels behind the app) with a centred card.
+window - gaming-mode opens top-levels behind the app) with a centred card.
 Before this base class each ``*_overlay.py`` re-implemented the same backdrop,
 card frame, Esc handling, host-resize tracking and finish-once lifecycle;
 subclasses now only build the card's content.
@@ -68,7 +68,7 @@ class OverlayBase(QWidget):
         return card, v
 
     def _present(self):
-        """Show the overlay — call at the end of the subclass __init__."""
+        """Show the overlay - call at the end of the subclass __init__."""
         self._host.installEventFilter(self)
         self._reposition()
         self.show()

@@ -6,10 +6,10 @@ register it at position 0 of SArchiveList, and let the engine's normal archive
 priority take care of overriding vanilla BSA assets with loose files.
 
 Exposed:
-  write_dummy_bsa(path, version)            — write the empty archive bytes
-  ensure_in_archive_list(list_str, name)    — return list with `name` first
-  remove_from_archive_list(list_str, name)  — return list without `name`
-  BSA_VERSION_OBLIVION / _FO3_FNV_SKYRIM / _SSE  — per-game version bytes
+  write_dummy_bsa(path, version)            - write the empty archive bytes
+  ensure_in_archive_list(list_str, name)    - return list with `name` first
+  remove_from_archive_list(list_str, name)  - return list without `name`
+  BSA_VERSION_OBLIVION / _FO3_FNV_SKYRIM / _SSE  - per-game version bytes
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def _gen_hash(file_name: str) -> int:
         elif ext_str == b"wav":
             hash_val |= 0x80000000
 
-        # Middle portion in the C source: [fileNameLowerU+1, extU-2) — i.e.
+        # Middle portion in the C source: [fileNameLowerU+1, extU-2) - i.e.
         # lowered[1 : dot-2], NOT stem[1:-2]. (The end pointer is two before
         # the dot, but the start pointer is one *past* the very first byte.)
         middle_end = dot - 2 if dot >= 2 else 1

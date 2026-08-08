@@ -1,7 +1,7 @@
 """Toolkit-neutral automatic (premium) Nexus collection install (no Tk / no Qt).
 
-A faithful port of ``gui/collections_dialog.py:_run_install`` — the premium
-download→install pipeline — with the Tk widget calls replaced by a callback
+A faithful port of ``gui/collections_dialog.py:_run_install`` - the premium
+download→install pipeline - with the Tk widget calls replaced by a callback
 interface and the Tk-only ``install_mod_from_archive`` replaced by the neutral
 ``Utils.mod_install.install_collection_archive``. The heavy backend
 (``fomod_installer``/``bain_installer``/``nexus_download``/``collection_reset``/
@@ -144,17 +144,17 @@ class CollectionInstallCallbacks:
     on_progress: Callable[["float | None"], None] = _noop  # 0..1 or None=hide
     on_agg_download: Callable[[int, int, float], None] = _noop  # bytes cur,total,MB/s
     on_display_total: Callable[[int], None] = _noop     # true collection size (bytes)
-    # RED — active downloads
+    # RED - active downloads
     on_dl_mod_start: Callable[[int, str, int], None] = _noop   # file_id,name,size
     on_dl_mod_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot
     on_dl_mod_finish: Callable[[int], None] = _noop            # file_id
-    # GREEN — extracting/queued
+    # GREEN - extracting/queued
     on_extract_queue: Callable[[int, str], None] = _noop       # file_id,name
     on_extract_add: Callable[[int, str], None] = _noop
     on_extract_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot (tot 0 = busy)
     on_extract_remove: Callable[[int], None] = _noop
     on_row_installed: Callable[[int], None] = _noop            # file_id landed
-    # manual (non-premium) mode — current-mod card payload dict
+    # manual (non-premium) mode - current-mod card payload dict
     on_manual_mod: Callable[[dict], None] = _noop
     # logging / lifecycle
     on_log: Callable[[str], None] = _noop
@@ -171,7 +171,7 @@ class CollectionInstallControl:
     cancel: threading.Event = field(default_factory=threading.Event)
     pause: threading.Event = field(default_factory=threading.Event)
     stop: threading.Event = field(default_factory=threading.Event)  # set by BOTH pause & cancel
-    # manual mode — user actions from the overlay: a str path (Select File…)
+    # manual mode - user actions from the overlay: a str path (Select File…)
     # or None (Skip, honored for optional mods only). Mirrors Tk's
     # _manual_file_queue.
     manual_queue: _queue.Queue = field(default_factory=_queue.Queue)
@@ -189,7 +189,7 @@ def cleanup_cancelled_install(game, profile_dir: "Path | None", *,
 
     ``delete_profile`` must be True ONLY when the cancelled install created
     the profile itself (a fresh new-profile install). Continue/append/resume/
-    update installs target a pre-existing profile — deleting it would destroy
+    update installs target a pre-existing profile - deleting it would destroy
     the user's mods and settings (GH#278)."""
     import shutil
     if profile_dir is not None and Path(profile_dir).is_dir() and game is not None \
@@ -267,17 +267,17 @@ def run_collection_install(
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
 
-    Faithful port of ``CollectionsDialog._run_install`` — see module docstring.
+    Faithful port of ``CollectionsDialog._run_install`` - see module docstring.
     ``overwrite_existing``: None=new-profile install (the wired v1 path); a bool
     selects the append path (ported but not yet exercised by the Qt caller).
     ``append_card_info``: display fields for the collection (NexusCollection as
-    a dict) — on append runs the manifest is recorded to
+    a dict) - on append runs the manifest is recorded to
     ``<profile>/installed_collections/<slug>.json`` (instead of clobbering the
     profile's primary ``collection.json``) so the Collections browser can list
     and cleanly remove appended collections. Written up-front, so a cancelled
     or paused append still leaves the record and Remove cleans up the partial
     install.
-    ``update_context``: when set (a collection UPDATE — continue semantics, so
+    ``update_context``: when set (a collection UPDATE - continue semantics, so
     ``overwrite_existing`` stays None), the Step-3 modlist write uses the
     order-preserving ``_reconcile_update_modlist`` (snapshot + schema-neighbour
     insertion, run BEFORE Step 3b like Tk) instead of the new-profile write,
@@ -288,7 +288,7 @@ def run_collection_install(
     each archive in a browser (or picks it / skips via ``control.manual_queue``)
     and the same install consumers take it from there.
     ``download_only``: fetch every manifest archive into the download cache and
-    install NOTHING — no extraction, staging or profile writes. ``profile_dir``
+    install NOTHING - no extraction, staging or profile writes. ``profile_dir``
     is then None and the run ends once the download pipeline drains.
     ``local_bundle_zip``: the ``.amethyst`` file behind a local-manifest import.
     There is no cached collection archive for those, so Step 3b reads the
@@ -343,7 +343,7 @@ def run_collection_install(
         _set_status("Downloading collection manifest…")
         try:
             # Cache-first (reads/keeps <slug>_rev<rev>.7z in the download cache)
-            # — the detail view usually cached it already, so a flaky CDN at
+            # - the detail view usually cached it already, so a flaky CDN at
             # install time doesn't cost us the manifest.
             from Utils.collection_manifest import load_collection_manifest
             collection_schema = load_collection_manifest(
@@ -356,7 +356,7 @@ def run_collection_install(
             log(f"Collection install: could not download collection.json: {exc}")
     if not collection_schema and not _is_append_run and profile_dir is not None:
         # Last resort (continue/update runs): the profile's saved manifest from
-        # the original install. Never on append — that file belongs to the
+        # the original install. Never on append - that file belongs to the
         # profile's primary collection, not the one being appended.
         _saved = profile_dir / "collection.json"
         if _saved.is_file():
@@ -366,14 +366,14 @@ def run_collection_install(
             except Exception:
                 collection_schema = {}
     if not collection_schema:
-        log("WARNING: collection manifest unavailable — install order falls "
+        log("WARNING: collection manifest unavailable - install order falls "
             "back to GraphQL and FOMOD/BAIN choices canNOT be auto-applied "
             "(installers will prompt at the end)")
 
     if download_only:
         pass            # no profile to record the manifest into
     elif _is_append_run:
-        # Append: record under installed_collections/ — do NOT clobber the
+        # Append: record under installed_collections/ - do NOT clobber the
         # profile's primary collection.json (the update path diffs against it).
         from Utils.installed_collections import record_appended_collection
         record_appended_collection(
@@ -396,7 +396,7 @@ def run_collection_install(
     schema_file_id_to_install_type: dict[int, str] = {}
     schema_file_id_to_category: dict[int, str] = {}
     schema_file_id_to_phase: dict[int, int] = {}
-    # source.fileSize / source.md5 / mods[].domainName — the GraphQL mod list
+    # source.fileSize / source.md5 / mods[].domainName - the GraphQL mod list
     # omits these for cross-domain entries (e.g. a Skyrim SE mod referenced by
     # an Enderal SE collection), so manual mode matches against the manifest
     # values first (Tk parity: collections_dialog.py schema_file_id_to_size/…).
@@ -405,7 +405,7 @@ def run_collection_install(
     schema_file_id_to_domain: dict[int, str] = {}
     # mods-array index (collection.json install order). NOT the same as
     # schema_file_id_to_pos, which is the REVERSED priority rank (0 = top of
-    # modlist) — manual mode prompts in the order the author listed the mods.
+    # modlist) - manual mode prompts in the order the author listed the mods.
     schema_file_id_to_arrayidx: dict[int, int] = {}
     fomod_by_file_id: dict[int, dict] = {}
     bain_by_file_id: dict[int, dict] = {}
@@ -466,7 +466,7 @@ def run_collection_install(
                 schema_file_id_to_phase[fid] = 0
             choices = schema_mod.get("choices") or {}
             _ctype = choices.get("type") or ""
-            # Vortex manifests carry no "type" key — a bare {"options": [...]}
+            # Vortex manifests carry no "type" key - a bare {"options": [...]}
             # (see any published collection.json) is the FOMOD replay format.
             if _ctype == "fomod" or (not _ctype and choices.get("options")):
                 fomod_by_file_id[fid] = _fomod_choices_from_collection(choices)
@@ -568,7 +568,7 @@ def run_collection_install(
                 # Name fallback: only for legacy installs with no id match. A
                 # cleaned title ("HSMarkarth - The Warrens - AE" → "HSMarkarth -
                 # The Warrens") can collide with a DIFFERENT mod's folder, so
-                # never remove a folder that carries another mod's file_id —
+                # never remove a folder that carries another mod's file_id -
                 # removing an optional must never take out another mod.
                 for candidate in _name_candidates(mod):
                     key = candidate.lower()
@@ -579,7 +579,7 @@ def run_collection_install(
                     if _cand_fid and _cand_fid != mod.file_id:
                         log(f"Collection install: NOT removing '{cand_folder}' as "
                             f"the unticked optional '{mod.mod_name}' "
-                            f"(file_id={mod.file_id}) — folder belongs to "
+                            f"(file_id={mod.file_id}) - folder belongs to "
                             f"file_id={_cand_fid}")
                         continue
                     folder_name = cand_folder
@@ -620,7 +620,7 @@ def run_collection_install(
                               "status": status, "detail": detail}
 
     # Bundle-source entries ship inside the collection archive and have no Nexus
-    # file ID — Step 2c installs + counts them (or, for local .amethyst imports,
+    # file ID - Step 2c installs + counts them (or, for local .amethyst imports,
     # the post-install bundle extraction does). Counting them "skipped" here
     # reported perfectly-installed bundled mods as skipped in the final summary.
     _schema_bundle_names = {
@@ -635,7 +635,7 @@ def run_collection_install(
                     or (mod.mod_name or "").strip().lower() in _schema_bundle_names):
                 _record_outcome(mod, "bundled")
                 continue
-            log(f"Collection install: skipping '{mod.mod_name}' — no file ID")
+            log(f"Collection install: skipping '{mod.mod_name}' - no file ID")
             _record_outcome(mod, "no_file_id")
             skipped += 1
             continue
@@ -648,7 +648,7 @@ def run_collection_install(
                     break
         if existing_folder:
             log(f"Collection install: '{mod.mod_name}' already installed as "
-                f"'{existing_folder}' — skipping")
+                f"'{existing_folder}' - skipping")
             _record_outcome(mod, "existing", existing_folder)
             if not skip_existing:
                 install_order.append((_sort_key(mod), existing_folder))
@@ -658,7 +658,7 @@ def run_collection_install(
             to_download.append(mod)
 
     # Mods classified as already-present/skipped BEFORE the pipeline. Status
-    # and progress always count the whole collection — "Downloaded X/546" —
+    # and progress always count the whole collection - "Downloaded X/546" -
     # never just the to-download subset (Tk parity: _pre_done + count / total).
     _pre_done = installed + skipped
 
@@ -668,7 +668,7 @@ def run_collection_install(
     _col_cfg = load_collection_settings()
     _DL_WORKERS = _col_cfg["max_concurrent"]
     _INSTALL_WORKERS = _col_cfg.get("max_extract_workers", 4)
-    # Archive-clear settings, read ONCE — _maybe_delete_archive used to re-parse
+    # Archive-clear settings, read ONCE - _maybe_delete_archive used to re-parse
     # the settings INI per mod while holding _install_lock, serialising the
     # install consumers on file I/O for nothing (settings don't change mid-run).
     _col_force_clear_cfg = bool(_col_cfg.get("clear_archive_after_install", False))
@@ -697,7 +697,7 @@ def run_collection_install(
     # workers can deposit a finished archive without blocking even when every
     # install worker is busy extracting. Downloaded archives live on disk; queue
     # items are cheap (mod, result) tuples, and _mem_budget still caps concurrent
-    # extraction — so a generous queue lets the 8 download slots stay saturated
+    # extraction - so a generous queue lets the 8 download slots stay saturated
     # (matching Tk's observed behaviour) instead of stalling in bursts. Was
     # max(_INSTALL_WORKERS + 1, 5), which blocked producers once installs (slow
     # per-archive 7z spawns for many tiny mods) fell behind.
@@ -706,10 +706,10 @@ def run_collection_install(
     import os as _os_col
     _COL_TIMING = bool(_os_col.environ.get("MM_COL_TIMING"))
     # Wall-clock run start. _maybe_delete_archive only ever deletes archives
-    # whose mtime is at/after this — i.e. fetched DURING this run. An archive
+    # whose mtime is at/after this - i.e. fetched DURING this run. An archive
     # that predates the run was detected on disk (another manager's download
     # folder, an earlier manual download, a previous run's cache) and must
-    # survive 'Clear archive after install' — the manager didn't download it.
+    # survive 'Clear archive after install' - the manager didn't download it.
     import time as _wall_time
     _run_started_ts = _wall_time.time()
 
@@ -772,7 +772,7 @@ def run_collection_install(
     # ``(priority, seq, payload)``; priority = archive size in bytes (smallest
     # first), seq is a monotonic tiebreaker so the payload tuples are never
     # compared. DONE sentinels use +inf priority so they sort AFTER all real
-    # work — a consumer never exits while a smaller item is still queued.
+    # work - a consumer never exits while a smaller item is still queued.
     _install_queue: _queue.PriorityQueue = _queue.PriorityQueue(
         maxsize=_PIPELINE_QUEUE_SIZE)
     _iq_seq = _itertools.count()
@@ -829,7 +829,7 @@ def run_collection_install(
                 pmeta.category_id = mod.category_id
             if getattr(mod, "category_name", ""):
                 pmeta.category_name = mod.category_name
-            # Manifest category name (details.category) — the only source, as
+            # Manifest category name (details.category) - the only source, as
             # the GraphQL mod list omits categories. Applied when the mod
             # object itself carries none.
             _schema_cat = schema_file_id_to_category.get(mod.file_id, "")
@@ -864,7 +864,7 @@ def run_collection_install(
                 expected_md5=(schema_file_id_to_md5.get(mod.file_id, "")
                               or (getattr(mod, "md5", "") or "").strip().lower()))
             if _ext_found and _ext_complete:
-                log(f"Collection install: '{mod.mod_name}' found in {_ext_dir} — "
+                log(f"Collection install: '{mod.mod_name}' found in {_ext_dir} - "
                     "using local copy, skipping download")
                 with _install_lock:
                     _external_archive_paths.add(str(_ext_found))
@@ -879,7 +879,7 @@ def run_collection_install(
         needed) or the mod's signed CDN links, fetched AHEAD of the download so
         the download worker starts transferring with zero link-fetch latency.
         Returns a ``(kind, payload)`` tuple: ("cached", DownloadResult) or
-        ("links", links|None). Never raises — a link-fetch failure yields
+        ("links", links|None). Never raises - a link-fetch failure yields
         ("links", None) and download_file re-fetches (surfacing the error)."""
         mod_domain = (getattr(mod, "domain_name", "") or "").strip() or game_domain
         if _col_stop.is_set():
@@ -892,7 +892,7 @@ def run_collection_install(
                 game_domain=mod_domain, mod_id=mod.mod_id, file_id=mod.file_id)
         except Exception as exc:
             log(f"Collection install: link prefetch failed for '{mod.mod_name}' "
-                f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc} — will "
+                f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc} - will "
                 "retry the fetch inline")
             links = None
         return ("links", links)
@@ -950,7 +950,7 @@ def run_collection_install(
 
         # Stage 1 (_fetch_link_one) already handled the cached-archive scan and
         # link prefetch. A ("cached", result) payload means the archive is on
-        # disk — skip the download entirely; ("links", links) feeds the signed
+        # disk - skip the download entirely; ("links", links) feeds the signed
         # CDN links straight into download_file so it doesn't re-fetch. A bare
         # None (e.g. non-pipelined caller) falls back to download_file's own
         # cache check + link fetch.
@@ -977,7 +977,7 @@ def run_collection_install(
                 f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc}\n{_tb.format_exc()}")
 
         # From here on the counters and the install-queue handoff MUST fire
-        # exactly once per mod no matter what the UI callbacks do — an escaped
+        # exactly once per mod no matter what the UI callbacks do - an escaped
         # exception would kill this download worker and wedge the whole
         # pipeline (fetchers block on the bounded ready queue, run_pipelined
         # never returns, Cancel can't unblock it).
@@ -1001,7 +1001,7 @@ def run_collection_install(
         try:
             _set_status(_status_line(_pre_done + done, _pre_done + _inst_done))
             cb.on_dl_mod_finish(mod.file_id)
-            # No extract queue in download_only — nothing is ever extracted.
+            # No extract queue in download_only - nothing is ever extracted.
             if result and result.success and result.file_path and not download_only:
                 cb.on_extract_queue(mod.file_id,
                                     mod.mod_name or mod.file_name or "")
@@ -1018,7 +1018,7 @@ def run_collection_install(
             _blocked = _time_mod.monotonic() - _t_put
             if _blocked > 0.05:
                 log(f"[timing] download worker blocked {_blocked:.2f}s on install "
-                    f"queue for '{mod.mod_name}' (queue full — install is the "
+                    f"queue for '{mod.mod_name}' (queue full - install is the "
                     f"bottleneck)")
         else:
             _enqueue_install(mod, result, effective_domain)
@@ -1111,7 +1111,7 @@ def run_collection_install(
 
         # Paused/cancelled mid-extraction: the temp files are already removed by
         # prepare_archive; KEEP the downloaded archive so resume can reuse it, and
-        # skip the "produced NO staged files — dropped" warning (that's for a real
+        # skip the "produced NO staged files - dropped" warning (that's for a real
         # structural failure, not a user pause).
         if not folder_name and _col_stop.is_set():
             with _install_lock:
@@ -1126,13 +1126,13 @@ def run_collection_install(
                 _record_outcome(mod, "installed", folder_name)
                 _install_counters["installed"] += 1
             else:
-                # install_collection_archive returned falsy — the mod extracted
+                # install_collection_archive returned falsy - the mod extracted
                 # but nothing was staged (structure not recognised / all files
                 # filtered out). This is the silent-drop path behind "N mods
                 # missing"; log it prominently for the end-of-install summary.
                 log(f"Collection install: '{mod.mod_name}' produced NO staged "
                     f"files (mod_id={mod.mod_id}, file_id={mod.file_id}, "
-                    f"archive={Path(archive_path).name}) — dropped.")
+                    f"archive={Path(archive_path).name}) - dropped.")
                 _record_outcome(mod, "stage_empty",
                                 f"archive={Path(archive_path).name}")
                 _install_counters["skipped"] += 1
@@ -1160,7 +1160,7 @@ def run_collection_install(
         if manual_mode:
             # Tk manual parity: always delete after a successful install unless
             # it was a FOMOD and the user keeps FOMOD archives (the user just
-            # downloaded it by hand — leaving it behind clutters ~/Downloads).
+            # downloaded it by hand - leaving it behind clutters ~/Downloads).
             _should_clear = not (was_fomod and _keep_fomod_archives_cfg)
         if not (_archive_use_count[archive_path] == 0 and _should_clear
                 and archive_path not in _external_archive_paths):
@@ -1168,7 +1168,7 @@ def run_collection_install(
         try:
             _pre_existing = Path(archive_path).stat().st_mtime < _run_started_ts
         except OSError:
-            _pre_existing = True  # can't prove we downloaded it — keep it
+            _pre_existing = True  # can't prove we downloaded it - keep it
         if _pre_existing:
             log(f"Collection install: kept pre-existing archive "
                 f"'{Path(archive_path).name}' (not downloaded by this run)")
@@ -1224,9 +1224,9 @@ def run_collection_install(
                 write_plugins(profile_dir / "plugins.txt", _pre_plugins, star_prefix=_star_pre)
                 write_loadorder(profile_dir / "loadorder.txt", _pre_plugins)
                 log(f"Collection install: wrote preliminary plugins.txt "
-                    f"({len(_pre_plugins)} plugin(s)) — {label}.")
+                    f"({len(_pre_plugins)} plugin(s)) - {label}.")
         except Exception as _pre_exc:
-            log(f"Collection install: preliminary plugins.txt skipped — {_pre_exc}")
+            log(f"Collection install: preliminary plugins.txt skipped - {_pre_exc}")
 
     # ---- manual (non-premium) producer --------------------------------
     # Port of Tk _run_manual_install's sequential prompt+poll loop; the
@@ -1269,7 +1269,7 @@ def run_collection_install(
                         break
         except Exception as exc:
             log(f"Manual install: file lookup failed for mod {_mid} "
-                f"file {mod.file_id} — {exc}")
+                f"file {mod.file_id} - {exc}")
         _manual_real_file[mod.file_id] = (real_name, real_size)
         return real_name, real_size
 
@@ -1284,7 +1284,7 @@ def run_collection_install(
                      or _real_size)
         _exp_md5 = (schema_file_id_to_md5.get(mod.file_id, "")
                     or (getattr(mod, "md5", "") or "").strip().lower())
-        # Match on the real upload's display stem when known — the manifest
+        # Match on the real upload's display stem when known - the manifest
         # name may be a mod-page or staging-folder label that shares no stem
         # with the archive the browser actually saves.
         _match_name = (_clean_nexus_stem(
@@ -1376,7 +1376,7 @@ def run_collection_install(
             with _install_lock:
                 # Counted but NOT marked external → deleted after install IF
                 # it appeared during this run (fresh hand-download; Tk manual
-                # parity — declutters ~/Downloads). Archives that predate the
+                # parity - declutters ~/Downloads). Archives that predate the
                 # run are kept by _maybe_delete_archive's mtime guard.
                 _akey = str(archive)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
@@ -1387,7 +1387,7 @@ def run_collection_install(
     # ---- launch pipeline ---------------------------------------------
     if to_download:
         if manual_mode:
-            _set_status(f"Waiting for manual downloads — {_dl_total} mod(s)…")
+            _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
             _set_status(f"Downloading {_dl_total} mod(s)…" if download_only
                         else f"Downloading & installing {_dl_total} mod(s)…")
@@ -1395,7 +1395,7 @@ def run_collection_install(
         if not manual_mode:
             # Download strictly smallest→largest: all workers pull from the head
             # of the size-sorted list, so quick mods land first and the big
-            # archives come last. Deliberate Qt change — Tk honoured the
+            # archives come last. Deliberate Qt change - Tk honoured the
             # `download_order` setting (default "largest" = largest-first); Qt
             # ignores that legacy key and always goes smallest-first. (Was a
             # double-ended scheduler that dedicated one worker to the
@@ -1406,7 +1406,7 @@ def run_collection_install(
 
         # Each download fetches its own signed CDN link lazily inside
         # download_file (exactly one get_download_links call per mod actually
-        # downloaded — cached mods cost nothing).
+        # downloaded - cached mods cost nothing).
 
         _consumer_threads: list[threading.Thread] = []
         for _ci in range(_INSTALL_WORKERS):
@@ -1417,7 +1417,7 @@ def run_collection_install(
 
         if manual_mode:
             # Prompt order: phase first, then the author's mods-array order
-            # within a phase — the order a human reads the collection page.
+            # within a phase - the order a human reads the collection page.
             to_download.sort(
                 key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
                                schema_file_id_to_arrayidx.get(
@@ -1435,7 +1435,7 @@ def run_collection_install(
             #
             # link_workers: for tiny archives the download finishes in ~100ms but
             # a get_download_links round-trip is ~150ms, so a single fetch stream
-            # can't keep 8 download slots fed — throughput ends up capped by the
+            # can't keep 8 download slots fed - throughput ends up capped by the
             # fetch rate (2 fetchers ≈ 13 links/sec observed). Match the fetch
             # pool to the download width so link fetches, not downloads, stop
             # being the bottleneck; Nexus premium rate limits (~2.5k/hr) leave
@@ -1472,16 +1472,16 @@ def run_collection_install(
         _downloaded = _install_counters["downloaded"]
         skipped += _install_counters["skipped"]     # failed/stopped downloads
         log(f"Collection download: {_downloaded} archive(s) downloaded, "
-            f"{skipped} skipped, {total} total — nothing installed "
+            f"{skipped} skipped, {total} total - nothing installed "
             f"(Download only).")
         if _col_cancel.is_set():
             cb.on_cancelled(None)
             return
         # Pause can't be resumed here (a resume point needs a profile), so report
         # it as stopped-early rather than letting it read as a complete run.
-        _set_status(f"Stopped — downloaded {_downloaded}/{total}."
+        _set_status(f"Stopped - downloaded {_downloaded}/{total}."
                     if _col_pause.is_set()
-                    else f"Downloaded {_downloaded}/{total} — nothing installed.")
+                    else f"Downloaded {_downloaded}/{total} - nothing installed.")
         cb.on_done(_downloaded, skipped, total, "")
         return
 
@@ -1490,7 +1490,7 @@ def run_collection_install(
 
     # rebuild mod index once for all newly installed mods.
     # NB: use the *canonical* game attrs (mod_folder_strip_prefixes /
-    # mod_install_extensions) + per-mod strip prefixes + root-flag set — the
+    # mod_install_extensions) + per-mod strip prefixes + root-flag set - the
     # same params deploy_pipeline's rescan/build_filemap uses. Reading the
     # non-existent strip_prefixes / install_extensions attrs would return None
     # → an UNSTRIPPED index (Bethesda appends index as "Data/…"), so appended
@@ -1498,8 +1498,8 @@ def run_collection_install(
     #
     # The index MUST land where build_filemap / the conflict rebuild reads it:
     # next to the EFFECTIVE filemap (get_effective_filemap_path().parent), NOT
-    # profile_dir. For a normal (shared-mods) append target those two differ —
-    # the shared game root vs <profile_dir> — so writing to profile_dir left the
+    # profile_dir. For a normal (shared-mods) append target those two differ -
+    # the shared game root vs <profile_dir> - so writing to profile_dir left the
     # appended mods invisible to the reload (no root flags, no conflicts, no
     # plugins) until Refresh. Only profile-specific-mods profiles (fresh
     # collection installs) coincide, which masked the bug. Mirrors
@@ -1553,7 +1553,7 @@ def run_collection_install(
 
     # Step 3: write modlist.txt.
     #   * update_context set → order-preserving update reconcile. Runs HERE,
-    #     BEFORE Step 3b (Tk parity) — Step 3b prepends bundled folders straight
+    #     BEFORE Step 3b (Tk parity) - Step 3b prepends bundled folders straight
     #     into modlist.txt, so reconciling after it would wipe any bundled
     #     folder that has no schema entry (not in the snapshot or install_order).
     #   * new-profile path → fresh write.
@@ -1585,13 +1585,13 @@ def run_collection_install(
             log(f"Collection install: Step 3b failed: {exc}")
 
     # Bundled folders are copied straight into staging by Steps 2c/3b, which run
-    # AFTER the index rebuild above — so they have no modindex.bin entry, and
+    # AFTER the index rebuild above - so they have no modindex.bin entry, and
     # build_filemap deploys NOTHING for a mod it can't find in the index (it
     # warns "has NO index entry"). The mod is staged and in modlist.txt, so it
     # looks installed while contributing no files: bundled DynDOLOD/Pandora
     # output silently loses to the animation mods it is supposed to overwrite,
     # and the game reports missing behaviours. Index them here rather than
-    # rebuilding the whole staging tree again — this is the same subset rescan
+    # rebuilding the whole staging tree again - this is the same subset rescan
     # the root-flag toggle uses.
     if _bundled_folders and not _col_pause.is_set():
         try:
@@ -1622,12 +1622,12 @@ def run_collection_install(
                 + (" …" if len(_uniq) > 5 else ""))
         except Exception as exc:
             log(f"Collection install: could not index bundled folders ({exc}) "
-                "— run Refresh if bundled content does not deploy")
+                "- run Refresh if bundled content does not deploy")
 
     # Step 3c: build filemap.txt BEFORE the LOOT sort in Step 4.
     #   LOOT resolves each plugin to the copy of its *winning* enabled mod via
     #   filemap.txt (LOOT/loot_sorter._read_filemap_winners) so it reads the
-    #   correct header (masters/ESL flags) — the same file that would deploy.
+    #   correct header (masters/ESL flags) - the same file that would deploy.
     #   Without a fresh filemap it falls back to an arbitrary staging tree walk
     #   and can sort against the wrong copy, producing an order that differs
     #   from a post-deploy manual sort. The profile's active dir is already
@@ -1648,7 +1648,7 @@ def run_collection_install(
             game, profile_dir, plugins_path, collection_schema,
             overwrite_existing, _is_append_run, log, _set_status)
 
-    # Final reconciliation — new-profile path only. Update runs were already
+    # Final reconciliation - new-profile path only. Update runs were already
     # reconciled at Step 3 (order-preserving), append runs by
     # _append_reconcile_modlist; re-sorting here would shove the user's
     # existing mods around (Tk parity: skipped for update + append).
@@ -1672,7 +1672,7 @@ def run_collection_install(
         except Exception as exc:
             log(f"Collection install: reconcile modlist failed: {exc}")
 
-    # Share-code extras — must run AFTER the reconcile passes above (the final
+    # Share-code extras - must run AFTER the reconcile passes above (the final
     # reconcile force-enables every entry and would shove freshly-inserted
     # separators, which have no install_order key, to the bottom).
     if modlist_path.is_file() and not _col_pause.is_set():
@@ -1723,10 +1723,10 @@ def run_collection_install(
                 log(f"⚠ Collection install: {len(_missing)} mod(s) did NOT install "
                     f"and are missing from the profile:")
                 for _nm, _mid, _fid, _st, _dt in _missing:
-                    log(f"    • {_nm} (mod_id={_mid}, file_id={_fid}) — "
+                    log(f"    • {_nm} (mod_id={_mid}, file_id={_fid}) - "
                         f"{_st}{(': ' + _dt) if _dt else ''}")
                 _set_status(f"Done, but {len(_missing)} mod(s) failed to install "
-                            "— see log.")
+                            "- see log.")
         except Exception as _ver_exc:
             log(f"Collection install: verification summary failed: {_ver_exc}")
 
@@ -1798,7 +1798,7 @@ def _process_deferred(
             else:
                 log(f"Collection install: deferred mod '{mod.mod_name}' produced "
                     f"NO staged files (mod_id={getattr(mod,'mod_id',0)}, "
-                    f"file_id={mod.file_id}) — dropped.")
+                    f"file_id={mod.file_id}) - dropped.")
                 _install_counters["skipped"] += 1
         if folder and mod.file_id:
             cb.on_row_installed(mod.file_id)
@@ -1835,7 +1835,7 @@ def _process_deferred(
             with _install_lock:
                 _maybe_delete_archive(_archive, True)
 
-    # Deferred FOMODs — write prelim plugins.txt first, then per-phase.
+    # Deferred FOMODs - write prelim plugins.txt first, then per-phase.
     if _fomod_deferred and not _col_stop.is_set():
         _write_preliminary_plugins_txt("pre-FOMOD")
         _fomod_deferred.sort(key=lambda t: (
@@ -2053,13 +2053,13 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             # Drop manifest plugins whose file was never installed. A collection's
             # ``plugins`` array covers ALL its mods including optional ones the
             # user skipped (e.g. GTS's 119 Anniversary-Edition patch mods), and
-            # Vortex only lists plugins that exist on disk — writing the array
+            # Vortex only lists plugins that exist on disk - writing the array
             # verbatim leaves phantom plugins.txt entries that inflate the
             # regular-slot count and that the panel's prune refuses to bulk-remove
             # (> _PRUNE_MAX). Keep = deployed per the filemap / vanilla+CC /
             # on disk at a staged-mod root, overwrite or Data. Skip the filter
             # when both scans come back empty (no filemap AND wrong/empty staging
-            # path) — a miss means nothing then.
+            # path) - a miss means nothing then.
             on_disk = _on_disk_plugin_names(game)
             if deployed or on_disk:
                 kept: list[PluginEntry] = []
@@ -2080,7 +2080,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             # Recover plugins staged by the collection's mods but absent from the
             # manifest's ``plugins`` array (FOMOD-conditional / unlisted plugins).
             # These are read from the filemap built in Step 3c so the LOOT sort
-            # covers the SAME set as a later manual sort — otherwise they're
+            # covers the SAME set as a later manual sort - otherwise they're
             # dropped and the manual sort re-inserts them (the "400+ moved" bug).
             for low, orig in deployed.items():
                 if low in author_lower or low in vanilla_map:
@@ -2120,7 +2120,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         for n in loot_result.sorted_names]
                     log(f"Collection install: LOOT sort produced {len(final_entries)} plugin(s).")
                 except Exception as loot_exc:
-                    log(f"Collection install: LOOT sort failed — {loot_exc}; "
+                    log(f"Collection install: LOOT sort failed - {loot_exc}; "
                         "falling back to flat list.")
             if not final_entries:
                 _ext_order = {".esm": 0, ".esp": 1, ".esl": 2}
@@ -2163,7 +2163,7 @@ def _filemap_deployed_plugins(game, profile_dir) -> "dict[str, str]":
     that its mods actually ship (FOMOD-conditional plugins, plugins bundled in a
     mod but omitted from the author's list). Those show up in the panel/manual
     sort via this same filemap recovery, so the install-time LOOT sort must feed
-    them in too — otherwise they're dropped from plugins.txt and a later manual
+    them in too - otherwise they're dropped from plugins.txt and a later manual
     sort re-inserts them, reporting hundreds of "moved" plugins.
     """
     staging = (game.get_effective_mod_staging_path()
@@ -2199,7 +2199,7 @@ def _on_disk_plugin_names(game) -> "set[str]":
     """Lowercase filenames of plugin files present on disk outside the filemap:
     each staged mod's root, overwrite/ (+ overwrite/Data) and the game Data dir
     (+ its _Core swap-deploy variant). Complements _filemap_deployed_plugins as
-    evidence that a manifest-listed plugin was actually installed — the filemap
+    evidence that a manifest-listed plugin was actually installed - the filemap
     is only rebuilt at Step 3c when LOOT is enabled, so it can be missing or
     stale here. Mod roots only (no recursion): a plugin nested deeper that still
     deploys top-level always appears in a fresh filemap, and load_plugins'
@@ -2243,7 +2243,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                             schema_mods, download_link_path, revision_number,
                             collection_slug, staging_lower_map, install_order, log,
                             _set_status) -> "tuple[int, int, list[str]]":
-    """Returns ``(installed, skipped, folders)`` — skipped counts bundled assets
+    """Returns ``(installed, skipped, folders)`` - skipped counts bundled assets
     missing from the archive or that failed to copy (Tk counted these in the
     final "(N skipped)" summary). *folders* is every staging folder this touched,
     so the caller can get them into the mod index: they land AFTER the index
@@ -2277,7 +2277,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                 if _cj_path.is_file():
                     cj_full = json.loads(_cj_path.read_text(encoding="utf-8"))
             except Exception as exc:
-                log(f"Collection install: cached archive extract failed ({exc}) — re-downloading")
+                log(f"Collection install: cached archive extract failed ({exc}) - re-downloading")
                 cj_full = {}
         if not cj_full:
             _set_status(f"Downloading collection archive for "
@@ -2300,7 +2300,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     continue
                 mod_name_clean = re.sub(r"[^\w\s\-]", "", bm_name).strip().replace(" ", "_") or file_expr
                 if mod_name_clean.lower() in {k.lower() for k in staging_lower_map}:
-                    log(f"Collection install: bundled '{bm_name}' already installed — skipping")
+                    log(f"Collection install: bundled '{bm_name}' already installed - skipping")
                     existing = staging_lower_map.get(mod_name_clean.lower(), mod_name_clean)
                     install_order.append((-1, existing))
                     touched.append(existing)
@@ -2310,7 +2310,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                              or _bundled_meta_map.get(bm_name.lower()))
                 if _meta_hit:
                     log(f"Collection install: bundled '{bm_name}' already installed "
-                        f"as '{_meta_hit}' — skipping")
+                        f"as '{_meta_hit}' - skipping")
                     install_order.append((-1, _meta_hit))
                     touched.append(_meta_hit)
                     installed += 1
@@ -2403,7 +2403,7 @@ def _ensure_collection_archive_extracted(game, api, collection_slug,
     archive_path = cache_dir / f"{slug}_rev{rev}.7z"
     if not archive_path.is_file():
         if not download_link_path:
-            log(f"Collection archive: not at {archive_path} and no link — skipping")
+            log(f"Collection archive: not at {archive_path} and no link - skipping")
             return None
         log(f"Collection archive: not cached, downloading to {archive_path}")
         _fetch_dir = Path(_tf.mkdtemp(prefix="amethyst_bundle_fetch_", dir=str(cache_dir)))
@@ -2430,7 +2430,7 @@ def _ensure_collection_archive_extracted(game, api, collection_slug,
 def _extract_local_bundle_patches(game, bundle_zip, log) -> "Path | None":
     """Extract a local ``.amethyst``'s ``patches/`` members into a temp dir
     usable as a Step-3b archive root, or None when it has none. The zip's
-    other members (mods/, overwrite/, profile/) are deliberately left alone —
+    other members (mods/, overwrite/, profile/) are deliberately left alone -
     ``install_local_bundle`` extracts those after the install run.
     Caller rmtree's the returned dir."""
     import shutil as _shutil
@@ -2474,7 +2474,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                                     collection_slug, revision_number, log
                                     ) -> "list[str]":
     """Install the archive's bundled/ folders; returns the staging folders used
-    (the caller must get them into the mod index — see _install_bundled_assets)."""
+    (the caller must get them into the mod index - see _install_bundled_assets)."""
     import re as _re
     import shutil as _shutil
     import configparser as _cpi
@@ -2595,7 +2595,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
     try:
         from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
     except Exception as exc:
-        log(f"Collection INI tweaks: INI helpers unavailable ({exc}) — skipped")
+        log(f"Collection INI tweaks: INI helpers unavailable ({exc}) - skipped")
         return
     prefix_ini_dir = None
     get_mygames = getattr(game, "_mygames_path", None)
@@ -2615,7 +2615,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
             ini_target_dir.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
             log(f"Collection INI tweaks: could not resolve profile 'ini files' "
-                f"folder ({exc}) — using profile root")
+                f"folder ({exc}) - using profile root")
             ini_target_dir = profile_dir
     if not getattr(game, "profile_ini_files", False):
         try:
@@ -2640,7 +2640,7 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
     collection archive. Runs after modlist is written, before LOOT. Returns the
     bundled staging folders, which the caller must add to the mod index.
 
-    A local ``.amethyst`` import has no cached collection archive — its binary
+    A local ``.amethyst`` import has no cached collection archive - its binary
     patches come out of the bundle zip itself (*local_bundle_zip*); the zip's
     bundled mods/profile files are handled by the caller afterwards."""
     import shutil as _shutil
@@ -2676,7 +2676,7 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
 
 
 # ---------------------------------------------------------------------------
-# Append reconcile (ported; used only on the append path — not yet wired by Qt).
+# Append reconcile (ported; used only on the append path - not yet wired by Qt).
 # ---------------------------------------------------------------------------
 def _append_reconcile_modlist(modlist_path, install_order, pre_existing, log):
     """Re-apply the collection's load order but only reposition mods newly
@@ -2716,7 +2716,7 @@ def _reconcile_update_modlist(modlist_path, install_order, update_context, log):
     ``CollectionsDialog._reconcile_update_modlist``."""
     snapshot: "list[ModEntry]" = list(update_context.get("snapshot") or [])
 
-    # Existing snapshot folder names (non-separator) — the mods staying put.
+    # Existing snapshot folder names (non-separator) - the mods staying put.
     snapshot_folder_lower: set[str] = {
         e.name.lower() for e in snapshot if not e.is_separator
     }
@@ -2777,7 +2777,7 @@ def _reconcile_update_modlist(modlist_path, install_order, update_context, log):
     for folder in reversed(unplaced):
         result.insert(0, ModEntry(name=folder, enabled=True, locked=False))
 
-    # Force-enable every mod entry we're writing — update never leaves a mod
+    # Force-enable every mod entry we're writing - update never leaves a mod
     # disabled. Separators keep their locked/enabled state.
     for e in result:
         if not e.is_separator:

@@ -16,10 +16,10 @@ the MO2 ``[General]`` section format::
 
 This module provides:
 
-- **NexusModMeta** — data class holding per-mod Nexus info
-- **read_meta** / **write_meta** — I/O helpers (non-destructive: preserves
+- **NexusModMeta** - data class holding per-mod Nexus info
+- **read_meta** / **write_meta** - I/O helpers (non-destructive: preserves
   existing ``meta.ini`` content when writing)
-- **scan_installed_mods** — walk a staging root and collect all mods that
+- **scan_installed_mods** - walk a staging root and collect all mods that
   have Nexus metadata (``modid`` > 0)
 """
 
@@ -185,7 +185,7 @@ _BOOL_FIELDS = {
 # Parsed meta.ini cache, keyed by path with the file's mtime as validity.
 # Several hot paths parse the SAME metas back-to-back on every reload /
 # profile switch (the modlist meta worker, the filemap build's root-flag
-# collect, flag refreshes) — hundreds of configparser runs each. A write
+# collect, flag refreshes) - hundreds of configparser runs each. A write
 # bumps the mtime, so the entry self-invalidates. A COPY is returned/stored:
 # callers mutate the result before write_meta, which must never leak into
 # the cached instance (all fields are scalars, so a shallow copy is enough).
@@ -246,7 +246,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     """
     Write (or update) Nexus metadata into a ``meta.ini`` file.
 
-    Existing content is preserved — only the keys we manage are touched.
+    Existing content is preserved - only the keys we manage are touched.
     """
     cp = configparser.ConfigParser()
     # Preserve existing content (e.g. FOMOD flags, notes, etc.)
@@ -262,7 +262,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             continue
         if attr in _BOOL_FIELDS:
             # Never clobber an existing True flag with False for state set by
-            # the installer (FOMOD, collection bundle/patch markers) — those
+            # the installer (FOMOD, collection bundle/patch markers) - those
             # come from a one-shot install step and should survive callers
             # that construct fresh ``NexusModMeta`` objects without them.
             if attr in (
@@ -280,7 +280,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
                 continue
             # Same for the FOMOD pending-deps list: written by the FOMOD
             # installer only. A fresh NexusModMeta from an unrelated update
-            # (endorse toggle, update check) must not wipe it — the installer
+            # (endorse toggle, update check) must not wipe it - the installer
             # clears it explicitly (removing the ini key) when a rerun finds no
             # unselected deps, so it never needs to write an empty value here.
             if attr == "fomod_pending_deps" and not value:
@@ -454,7 +454,7 @@ _root_flag_cache: dict[str, tuple[float, bool]] = {}
 def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
                               log_fn=None) -> set[str]:
     """Return the set of mods in *modlist_path* whose meta.ini sets
-    rootFolder=true — DISABLED mods included. Malformed meta.ini files are
+    rootFolder=true - DISABLED mods included. Malformed meta.ini files are
     logged (if *log_fn* is provided) and skipped. Per-file results are
     mtime-cached.
 
@@ -463,9 +463,9 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
     keep their Data/ prefix unstripped) independent of its enabled state.
     Skipping disabled entries meant a root mod that was disabled during a
     Refresh had its index entry rebuilt STRIPPED; enabling it later (no
-    rescan on toggle) root-deployed the stripped paths — e.g. a freshly
+    rescan on toggle) root-deployed the stripped paths - e.g. a freshly
     wizard-installed SKSE put Scripts/ in the game root instead of Data/.
-    For build_filemap the extra names are harmless — it only tests membership
+    For build_filemap the extra names are harmless - it only tests membership
     for mods already in the enabled iteration."""
     from Utils.modlist import read_modlist
 
@@ -578,9 +578,9 @@ def resolve_nexus_meta_for_archive(
     """
     Try to identify a Nexus mod from an archive using:
 
-      1. **Filename parsing** — extract mod_id from the Nexus-style filename
+      1. **Filename parsing** - extract mod_id from the Nexus-style filename
          suffix, then query the API for full details.
-      2. **MD5 hash lookup** — hash the archive and query
+      2. **MD5 hash lookup** - hash the archive and query
          ``GET /games/{domain}/mods/md5_search/{hash}``.
 
     Returns a :class:`NexusModMeta` if identified, or ``None``.
@@ -602,8 +602,8 @@ def resolve_nexus_meta_for_archive(
         _log(f"Nexus: Detected mod ID {fn_info.mod_id} from filename.")
 
         if api is None:
-            # Offline — save what we can from the filename alone.
-            _log("Nexus: Not connected — saving mod ID and install date from filename.")
+            # Offline - save what we can from the filename alone.
+            _log("Nexus: Not connected - saving mod ID and install date from filename.")
             now = datetime.now(timezone.utc)
             date_version = now.strftime("d%Y.%-m.%-d.0")
             return NexusModMeta(
@@ -710,12 +710,12 @@ def resolve_nexus_meta_for_archive(
                 file_category=file_data.get("category_name", ""),
                 nexus_url=f"https://www.nexusmods.com/{game_domain}/mods/{mod_data.get('mod_id', 0)}",
             )
-            _log(f"Nexus: MD5 match — '{meta.nexus_name}' "
+            _log(f"Nexus: MD5 match - '{meta.nexus_name}' "
                  f"(mod {meta.mod_id}, file {meta.file_id}).")
             return meta
         else:
-            _log("Nexus: No MD5 match found — this file may not be from Nexus.")
+            _log("Nexus: No MD5 match found - this file may not be from Nexus.")
     except Exception as exc:
-        _log(f"Nexus: MD5 lookup failed — {exc}")
+        _log(f"Nexus: MD5 lookup failed - {exc}")
 
     return None

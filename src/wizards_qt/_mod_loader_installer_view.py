@@ -48,7 +48,7 @@ class ModLoaderInstallerView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Install {0} — {1}").format(
+                         title=self.tr("Install {0} - {1}").format(
                              self.TOOL_LABEL, game.name))
         self._game_root = game.get_game_path()
         self._extracted_paths: list[Path] = []
@@ -194,7 +194,7 @@ class ModLoaderInstallerView(WizardViewBase):
                 allow_runner_fallback=True)
             if result is None:
                 raise RuntimeError(self.tr(
-                    "Could not find Proton — check that the prefix is configured."))
+                    "Could not find Proton - check that the prefix is configured."))
             proton_script, _compat_data, env = result
 
             self._log(f"{self.TOOL_LABEL} Wizard: launching {exe} via Proton")

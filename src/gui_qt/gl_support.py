@@ -2,7 +2,7 @@
 
 A single QOpenGLWidget anywhere in a top-level window switches that window's
 whole backing store to GL composition. When the GL path is broken, the result
-is not a failed widget — it is a *black window*, because every non-native
+is not a failed widget - it is a *black window*, because every non-native
 child is composited through a surface that never presents (GH#350). Nothing
 downstream can recover from that, so the check has to happen before the first
 QOpenGLWidget is ever created.
@@ -15,14 +15,14 @@ Two things can break it:
   import from the *host* while ``libQt6Widgets``/``libQt6Core`` stayed
   bundled. Both export ``Qt_6_PRIVATE_API``, so it loaded without complaint
   and then disagreed about widget internals. Elsewhere the host has no copy,
-  the import fails cleanly, and nothing breaks — which is why this only ever
+  the import fails cleanly, and nothing breaks - which is why this only ever
   reproduced on Arch derivatives.
 * **No usable GL driver.** Bare VMs, remote sessions, a container without
   ``/dev/dri`` and without llvmpipe.
 
 The probe itself runs in a **child process**, and that is not optional: when
 GLX cannot supply an FBConfig for the requested format, Qt does not return an
-error — ``QOpenGLContext::create()`` reaches ``qFatal("Could not initialize
+error - ``QOpenGLContext::create()`` reaches ``qFatal("Could not initialize
 GLX")`` and aborts the process from C, where no Python ``try`` can intercept
 it. Probing in-process therefore killed the very app the check exists to
 protect (it aborted the AppImage smoke test under Xvfb on the first run after
@@ -39,7 +39,7 @@ import subprocess
 import sys
 import threading
 
-# (ok, reason) — computed once, after QApplication exists. The lock matters: the
+# (ok, reason) - computed once, after QApplication exists. The lock matters: the
 # startup warmup asks from a worker thread while the user may be opening a mesh
 # on the GUI thread, and two probes would mean two child processes.
 _status: tuple[bool, str] | None = None
@@ -85,7 +85,7 @@ def _env_disabled() -> bool:
 
 
 def _env_forced() -> bool:
-    """AMM_FORCE_GL=1 — trust the machine over our probe.
+    """AMM_FORCE_GL=1 - trust the machine over our probe.
 
     The checks below are conservative: they can refuse a GL stack that would
     in fact have worked (an odd offscreen-surface config, say). That costs a
@@ -99,7 +99,7 @@ def _own_appdir() -> str:
 
     APPDIR leaks into the environment of anything launched from another
     AppImage (an AppImage code editor's terminal, say), so its mere presence
-    proves nothing — only trust it when this very file lives inside it.
+    proves nothing - only trust it when this very file lives inside it.
     """
     appdir = os.environ.get("APPDIR", "")
     if not appdir:
@@ -136,7 +136,7 @@ def _foreign_gl_libs() -> list[str]:
 
 
 # Run in a child interpreter by _probe_context(). Creates exactly the context
-# the viewport will ask for (3.3 core — the shaders are GLSL 330) and reports
+# the viewport will ask for (3.3 core - the shaders are GLSL 330) and reports
 # through the exit code, because anything it prints may be drowned out by Qt's
 # own warnings. A qFatal in here takes the child down and nothing else.
 _PROBE_SRC = r'''
@@ -178,7 +178,7 @@ _PROBE_CODES = {
 
 
 def _probe_context() -> tuple[bool, str]:
-    """Create a throwaway offscreen GL context — in a child process — to see if
+    """Create a throwaway offscreen GL context - in a child process - to see if
     the driver works.
 
     Anything other than a clean exit 0 means "no": a non-zero code from the
@@ -209,7 +209,7 @@ def _probe_context() -> tuple[bool, str]:
     if proc.returncode == 0:
         return True, ""
     if proc.returncode < 0:
-        # Killed by a signal — qFatal("Could not initialize GLX") and friends.
+        # Killed by a signal - qFatal("Could not initialize GLX") and friends.
         detail = (proc.stderr or b"").decode("utf-8", "replace").strip()
         last = detail.splitlines()[-1] if detail else ""
         why = f"the OpenGL driver aborted the probe (signal {-proc.returncode})"
@@ -223,7 +223,7 @@ def gl_status() -> tuple[bool, str]:
 
     Blocks for as long as the child probe takes, so the GUI thread should only
     ask when it is already committed to building a viewport (nif_preview does).
-    Everything speculative — the startup warmup — asks from a worker thread
+    Everything speculative - the startup warmup - asks from a worker thread
     after calling prime_platform(), and takes whatever is cached afterwards.
     """
     global _status
@@ -261,7 +261,7 @@ def _compute_status() -> tuple[bool, str]:
     foreign = _foreign_gl_libs()
     if foreign:
         return False, ("Qt OpenGL libraries loaded from outside the AppImage "
-                       f"({', '.join(foreign)}) — mixing them with the bundled "
+                       f"({', '.join(foreign)}) - mixing them with the bundled "
                        "Qt renders the window black")
     try:
         return _probe_context()

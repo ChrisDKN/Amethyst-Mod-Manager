@@ -1,12 +1,12 @@
-"""Script Extender installer — Qt port of wizards/script_extender.py.
+"""Script Extender installer - Qt port of wizards/script_extender.py.
 
 One view serves every registration (SKSE64, F4SE, NVSE, FOSE, SFSE, xOBSE,
 SKSE VR …), parameterized via WizardTool.extra:
-  github_api_url      — auto-fetch the latest release from the GitHub API
-  direct_download_url — direct archive URL (no page)
-  download_url        — manual fallback page opened in the browser
-  archive_keywords    — substrings to match the asset / Downloads archive
-  versions            — optional list of {label, description, github_api_url,
+  github_api_url      - auto-fetch the latest release from the GitHub API
+  direct_download_url - direct archive URL (no page)
+  download_url        - manual fallback page opened in the browser
+  archive_keywords    - substrings to match the asset / Downloads archive
+  versions            - optional list of {label, description, github_api_url,
                         direct_download_url, download_url, archive_keywords}
                         shown as a pick-one first step (Skyrim SE's 3 builds)
 
@@ -70,7 +70,7 @@ class ScriptExtenderView(QWidget):
         self._archive_path: Path | None = None
         self._install_ok = False       # extraction succeeded
         self._installed_mode = ""      # mode of the successful install
-        self._closing = False          # teardown started — drop late signals
+        self._closing = False          # teardown started - drop late signals
 
         def _guard(fn):
             return lambda *a: None if self._closing else fn(*a)
@@ -106,7 +106,7 @@ class ScriptExtenderView(QWidget):
 
         bar = QWidget(); bar.setObjectName("HeaderBar")
         hb = QHBoxLayout(bar); hb.setContentsMargins(12, 8, 8, 8); hb.setSpacing(8)
-        title = QLabel(self.tr("Install Script Extender — {0}").format(self._game.name))
+        title = QLabel(self.tr("Install Script Extender - {0}").format(self._game.name))
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
@@ -189,7 +189,7 @@ class ScriptExtenderView(QWidget):
     # ---- page 0: version select ----------------------------------------------
     def _build_page_versions(self) -> QWidget:
         page, lay = self._page(self.tr("Choose a Version"))
-        note = QLabel(self.tr("Multiple builds are available for this game — pick the "
+        note = QLabel(self.tr("Multiple builds are available for this game - pick the "
                       "one that matches your game version."))
         note.setWordWrap(True); note.setAlignment(Qt.AlignHCenter)
         note.setStyleSheet(self._dim)
@@ -327,7 +327,7 @@ class ScriptExtenderView(QWidget):
         note.setWordWrap(True); note.setAlignment(Qt.AlignHCenter)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
-        # Always built — with a `versions` config the URL is only known after
+        # Always built - with a `versions` config the URL is only known after
         # the user picks one, so the handler reads it live (no-op when empty).
         open_btn = self._primary(self.tr("Open Download Page"))
         open_btn.clicked.connect(self._open_download_page)
@@ -387,14 +387,14 @@ class ScriptExtenderView(QWidget):
             self._set_lbl(self._locate_status,
                           self.tr("No archive matching '{0}' was found in your "
                           "Downloads folder.\nDownload it first, then Try "
-                          "Again — or Browse… to pick the file.").format(kw),
+                          "Again - or Browse… to pick the file.").format(kw),
                           err_text())
             self._locate_next_btn.setEnabled(False)
 
     # ---- browse (shared) -----------------------------------------------------------
     def _browse_archive(self):
         from Utils.portal_filechooser import pick_file
-        # Portal callback fires on a WORKER thread — marshal via Signal.
+        # Portal callback fires on a WORKER thread - marshal via Signal.
         pick_file(self.tr("Select the script extender archive"),
                   lambda path: safe_emit(self._picked_sig, path))
 
@@ -468,7 +468,7 @@ class ScriptExtenderView(QWidget):
         self._done_btn.setEnabled(True)
         if ok:
             self._install_ok = True
-            # A managed-mod install changed modlist.txt — reload it now, on
+            # A managed-mod install changed modlist.txt - reload it now, on
             # the GUI thread (never from the worker).
             if self._installed_mode == "mod":
                 refresh = getattr(self._ctx, "refresh_modlist", None)

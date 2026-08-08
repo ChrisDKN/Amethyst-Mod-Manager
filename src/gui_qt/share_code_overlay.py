@@ -1,10 +1,10 @@
 """Borderless in-window overlays for the profile share-code feature.
 
-``ShareCodeExportOverlay`` — shows a generated share code in a read-only, word-
+``ShareCodeExportOverlay`` - shows a generated share code in a read-only, word-
 wrapped text box with a "Copy to clipboard" button (the code is copied to the
 clipboard automatically on open too).
 
-``ShareCodeImportOverlay`` — a multi-line paste box; ``on_done(code)`` on Import
+``ShareCodeImportOverlay`` - a multi-line paste box; ``on_done(code)`` on Import
 or ``on_done(None)`` on Cancel / Esc / backdrop click.
 
 Both are child overlays via gui_qt/overlay_base.py, sharing a small local base
@@ -110,7 +110,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
     """A multi-line paste box for importing a share code. ``on_done(code)`` on
     Import, ``on_done(None)`` on Cancel / Esc / backdrop click.
 
-    *initial_code* prefills the box — used when the code came from somewhere in
+    *initial_code* prefills the box - used when the code came from somewhere in
     the app (a code clicked in the wiki tab) rather than the user's clipboard.
     The overlay is still shown, so the preview says what is about to be
     imported before anything is built."""
@@ -124,18 +124,18 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
             "else's load order.")))
 
         self._area = self._text_area(read_only=False)
-        self._area.setPlaceholderText("AMMCODE1:…")  # i18n: skip — share-code format token
+        self._area.setPlaceholderText("AMMCODE1:…")  # i18n: skip - share-code format token
         self._v.addWidget(self._area, 1)
 
-        # Live preview of the decoded code — profile / game / mod count / size /
-        # export date — so the user sees what they're importing before committing.
+        # Live preview of the decoded code - profile / game / mod count / size /
+        # export date - so the user sees what they're importing before committing.
         self._preview = self._sub("")
         self._v.addWidget(self._preview)
         self._area.textChanged.connect(self._update_preview)
         if initial_code:
             self._area.setPlainText(initial_code)
 
-        # Offer to paste the clipboard contents in one tap — pointless once the
+        # Offer to paste the clipboard contents in one tap - pointless once the
         # box is already filled in.
         cb = QGuiApplication.clipboard()
         clip = cb.text() if cb is not None else ""
@@ -192,7 +192,7 @@ class ShareCodeImportOverlay(_CodeOverlayBase):
         exported = (info.get("exported") or "")[:10]
         if exported:
             parts.append(self.tr("exported {0}").format(exported))
-        self._preview.setText("  —  ".join(parts))
+        self._preview.setText("  -  ".join(parts))
 
     def _confirm(self):
         text = self._area.toPlainText().strip()
@@ -266,7 +266,7 @@ class CustomGameImportOverlay(_CodeOverlayBase):
             "game's setup. You still need to give it a unique name.")))
 
         self._area = self._text_area(read_only=False)
-        self._area.setPlaceholderText("AMMGAME1:…")  # i18n: skip — share-code format token
+        self._area.setPlaceholderText("AMMGAME1:…")  # i18n: skip - share-code format token
         self._v.addWidget(self._area, 1)
 
         self._preview = self._sub("")
@@ -325,7 +325,7 @@ class CustomGameImportOverlay(_CodeOverlayBase):
         dep = (defn.get("deploy_type") or "").strip()
         if dep:
             parts.append(self.tr("{0} deploy").format(dep))
-        self._preview.setText("  —  ".join(parts))
+        self._preview.setText("  -  ".join(parts))
 
     def _confirm(self):
         if self._defn is not None:

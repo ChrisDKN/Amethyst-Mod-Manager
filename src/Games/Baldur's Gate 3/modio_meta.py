@@ -7,7 +7,7 @@ result into the mod's ``meta.ini`` so the update checker can use it later.
 How it works (all confirmed against a real mod.io pak):
 
   1. The extracted ``.pak`` in the staging folder carries, in its
-     ``meta.lsx`` ``ModuleInfo`` node, a ``PublishHandle`` — the mod.io
+     ``meta.lsx`` ``ModuleInfo`` node, a ``PublishHandle`` - the mod.io
      **numeric mod id** (0 for vanilla dependency modules / non-mod.io paks).
   2. The original downloaded archive is the ``.zip`` mod.io hashed, so its
      md5 matches the ``filehash.md5`` of exactly one released file.  Matching
@@ -173,21 +173,21 @@ def resolve_modio_meta(
     _log = log_fn or (lambda m: None)
 
     if not api_key:
-        _log("mod.io: no API key configured — skipping.")
+        _log("mod.io: no API key configured - skipping.")
         return None
 
     mod_id, pak_name, pak_path = read_publish_handle_from_staging(staging_dir)
     if mod_id <= 0:
-        _log("mod.io: no PublishHandle in pak — not a mod.io mod.")
+        _log("mod.io: no PublishHandle in pak - not a mod.io mod.")
         return None
-    _log(f"mod.io: PublishHandle {mod_id} ('{pak_name}') — querying files...")
+    _log(f"mod.io: PublishHandle {mod_id} ('{pak_name}') - querying files...")
 
     modio_api = _load_sibling("modio_api")
     try:
         api = modio_api.ModioAPI(api_key)
         files = api.get_mod_files(mod_id)
     except Exception as e:
-        _log(f"mod.io: file lookup failed — {e}")
+        _log(f"mod.io: file lookup failed - {e}")
         return None
 
     if not files:
@@ -220,7 +220,7 @@ def resolve_modio_meta(
                     matched = f
                     break
         except OSError as e:
-            _log(f"mod.io: could not hash archive — {e}")
+            _log(f"mod.io: could not hash archive - {e}")
 
     # --- Strategy 2: unpacked pak size matches filesize_uncompressed ---------
     if matched is None and pak_path is not None:

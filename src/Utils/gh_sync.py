@@ -7,14 +7,14 @@ Tkinter-free port of the old ``gui.py`` ``_sync_custom_handlers`` /
 ``_sync_plugins`` startup helpers, with two Qt-era differences:
 
 * Custom handlers are all fetched from the flat ``Custom Handlers/`` root
-  folder — the versioned ``X.Y/`` subfolder walking (``1.3`` etc.) is gone
+  folder - the versioned ``X.Y/`` subfolder walking (``1.3`` etc.) is gone
   because those subfolders were removed from the repo.
 * Plugins are fetched from ``Plugins/v2`` (Qt-compatible) instead of the
   ``Plugins`` root, which still holds the Tkinter-only versions.
 
 Both functions run their network + disk work on a daemon thread and swallow
 all errors so a startup sync never blocks or crashes the UI. An optional
-``on_changed`` callback fires (on the worker thread — marshal to the GUI
+``on_changed`` callback fires (on the worker thread - marshal to the GUI
 thread yourself) when at least one file was written.
 """
 
@@ -72,7 +72,7 @@ def _safe_filename(name: str) -> "str | None":
     """Validate a repo-listed file name as a bare path component, or None.
 
     The name comes from the GitHub API response and is joined onto a local
-    directory (and, for plugins, imported) — reject anything that could
+    directory (and, for plugins, imported) - reject anything that could
     escape the destination folder.
     """
     if not name or "/" in name or "\\" in name or ".." in name:
@@ -165,22 +165,22 @@ def force_update_handler(candidates,
                          on_done: Optional[Callable[[str], None]] = None) -> None:
     """Force re-download a single custom handler .json from the Resources
     branch, bypassing the fetch-cache throttle (a manual "Force update
-    handler" press — so it also ignores dev mode, like sync_languages
+    handler" press - so it also ignores dev mode, like sync_languages
     force=True).
 
     *candidates* is a sequence of possible file names inside the repo's
     ``Custom Handlers/`` folder, tried in order against a fresh listing
-    (normally ``[basename of _source_file, "<game_id>.json"]`` — repo
+    (normally ``[basename of _source_file, "<game_id>.json"]`` - repo
     handlers are named ``<game_id>.json``, but a local edit re-saves under
     the game_id so the two can differ).
 
-    Runs on a daemon thread. ``on_done`` fires on the worker thread —
-    marshal to the GUI thread yourself — with one of:
+    Runs on a daemon thread. ``on_done`` fires on the worker thread -
+    marshal to the GUI thread yourself - with one of:
 
-    * ``"updated"``   — a newer definition was downloaded and written
-    * ``"unchanged"`` — the repo copy already matches the local file
-    * ``"missing"``   — no candidate exists on the Resources branch
-    * ``"failed"``    — network error or the repo copy isn't valid JSON
+    * ``"updated"``   - a newer definition was downloaded and written
+    * ``"unchanged"`` - the repo copy already matches the local file
+    * ``"missing"``   - no candidate exists on the Resources branch
+    * ``"failed"``    - network error or the repo copy isn't valid JSON
     """
 
     def _do():
@@ -286,7 +286,7 @@ def sync_languages(on_changed: Optional[Callable[[], None]] = None,
     Resources branch ``Localisation/`` folder into the config languages/ dir.
 
     Mirrors sync_custom_handlers/sync_plugins: runs on a daemon thread, swallows
-    all errors, only fires ``on_changed`` (on the worker thread — marshal it
+    all errors, only fires ``on_changed`` (on the worker thread - marshal it
     yourself) when at least one .qm was written.
 
     ``force=True`` (a manual "Sync language files" press) bypasses the dev-mode
@@ -356,7 +356,7 @@ def sync_ludusavi_manifest(on_changed: Optional[Callable[[], None]] = None,
 
     The download is rejected unless it parses as JSON, declares a schema
     version this build understands, and is not older than what we already use
-    — a corrupt or rolled-back publish must never replace working data.
+    - a corrupt or rolled-back publish must never replace working data.
 
     Checked daily (``force=True`` for a manual press bypasses the throttle and
     the dev-mode skip). ``on_changed`` fires on the worker thread.

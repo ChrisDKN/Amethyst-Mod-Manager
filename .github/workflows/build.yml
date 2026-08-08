@@ -1,6 +1,6 @@
 name: Build Artifacts
 
-# Reusable build workflow — called by release.yml (tag publish) and
+# Reusable build workflow - called by release.yml (tag publish) and
 # test-build.yml (manual test builds). Produces the AppImage and/or
 # Flatpak bundle as run artifacts; publishing is the caller's job.
 on:
@@ -17,7 +17,7 @@ on:
       flatpak_channel:
         description: >-
           Explicit OSTree branch (stable/beta) for the flatpak. Empty = derive
-          from the tag name (v*-* ⇒ beta, else stable) — right for tag pushes,
+          from the tag name (v*-* ⇒ beta, else stable) - right for tag pushes,
           wrong for dispatch runs whose ref is a branch name.
         type: string
         default: ""
@@ -74,7 +74,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # libloot for Python 3.12 — needed by the Flatpak (KDE 6.9 runtime
+  # libloot for Python 3.12 - needed by the Flatpak (KDE 6.9 runtime
   # ships Python 3.12). Built on a plain Ubuntu runner with
   # actions/setup-python because the Flathub container has no usable
   # package manager and the Arch container ships Python 3.14.
@@ -131,7 +131,7 @@ jobs:
 
       # anylinux-setup-action downloads three helper scripts from
       # raw.githubusercontent.com using `wget --retry-connrefused`, which does
-      # NOT retry on HTTP errors — a transient 429 (Too Many Requests) from
+      # NOT retry on HTTP errors - a transient 429 (Too Many Requests) from
       # GitHub's raw host aborts the whole build. Its URLs are env-overridable
       # but its downloader is wget, which rejects file:// URLs ("Unsupported
       # scheme"), so we can't point it at local copies. Instead: fetch the
@@ -211,13 +211,13 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          # pyside6: the Qt GUI — installed as a system package (not pip)
+          # pyside6: the Qt GUI - installed as a system package (not pip)
           # so quick-sharun traces the shared Qt libs and deploys their
           # plugins. qt6-wayland: explicit because pyside6 doesn't hard-
           # depend on it and quick-sharun only deploys wayland plugin dirs
           # that exist on disk.
           # qt6-imageformats: provides the extra image-format plugins that
-          # qt6-base omits — critically libqwebp.so. Nexus Mods serves its
+          # qt6-base omits - critically libqwebp.so. Nexus Mods serves its
           # mod/collection thumbnails as WebP, so without this plugin
           # QImage.fromData() returns null and the browser cards render
           # blank. quick-sharun only deploys imageformats/*.so that exist
@@ -240,7 +240,7 @@ jobs:
         run: |
           # icu-mini: ICU is qt6-base's largest dependency; libxml2-mini:
           # small, still a transitive dep. qt6-base-mini: debloated qt6-base
-          # (provides/replaces the full package pyside6 pulled in above) —
+          # (provides/replaces the full package pyside6 pulled in above) -
           # same variant upstream pkgforge Qt AppImages ship.
           get-debloated-pkgs \
               icu-mini \
@@ -282,7 +282,7 @@ jobs:
       # quick-sharun --test runs the AppImage under xvfb-run for 12s and fails
       # if it exits early. app_bootstrap dup2()s fd 2 into the config dir's
       # run-qt-stderr.log the moment it starts, so a startup failure here shows
-      # up as a completely blank CI log — AMM_STDERR_TEED tells that capture to
+      # up as a completely blank CI log - AMM_STDERR_TEED tells that capture to
       # stand down and leave fd 2 pointing at the job log.
       - name: Smoke test AppImage
         env:
@@ -297,7 +297,7 @@ jobs:
         run: |
           cfg="${XDG_CONFIG_HOME:-$HOME/.config}/AmethystModManager"
           echo "=== $cfg ==="
-          ls -laR "$cfg" 2>/dev/null || echo "(no config dir — app never started)"
+          ls -laR "$cfg" 2>/dev/null || echo "(no config dir - app never started)"
           for f in "$cfg"/run-qt-stderr.log "$cfg"/run-qt-stderr.log.old \
                    "$cfg"/logs/*.log; do
               [ -f "$f" ] || continue
@@ -308,8 +308,8 @@ jobs:
       # Bisect the failure in the same run: GL is the only startup path that
       # changed between the last green build (beta.8, which forced xcb_egl and
       # did not bundle libQt6OpenGLWidgets) and this one. If the app survives
-      # with the OpenGL widget path switched off, the fault is in the GL stack —
-      # the probe in gui_qt/gl_support.py or the startup warmup widget — not in
+      # with the OpenGL widget path switched off, the fault is in the GL stack -
+      # the probe in gui_qt/gl_support.py or the startup warmup widget - not in
       # the bundle at large. Informational: the job stays red either way.
       - name: Smoke test AppImage (GL disabled)
         if: failure()
@@ -349,7 +349,7 @@ jobs:
       # Sign the export commits at BUILD time (the action passes --gpg-sign to
       # flatpak-builder). Without this the bundle's commit is unsigned, and a
       # bundle that embeds --gpg-keys then FAILS to install ("GPG verification
-      # enabled, but no signatures found") — verification is all-or-nothing.
+      # enabled, but no signatures found") - verification is all-or-nothing.
       - name: Import GPG signing key
         if: env.HAVE_GPG == 'true'
         env:
@@ -364,7 +364,7 @@ jobs:
       # Decide the OSTree branch this build publishes to. Tag pushes of the
       # form vX.Y.Z-... (a hyphen ⇒ prerelease) go to `beta`; everything else
       # (stable tags, manual test builds) goes to `stable`. This lets the
-      # hosted remote carry both channels natively — no tag parsing in the app.
+      # hosted remote carry both channels natively - no tag parsing in the app.
       - name: Resolve flatpak branch
         id: branch
         shell: bash
@@ -384,7 +384,7 @@ jobs:
       # Build via the flathub action (it registers the flathub remote, handles
       # the container quirks, and caches the builder). We use its native inputs
       # to (a) stamp the OSTree branch (stable/beta) and (b) keep the exported
-      # repo/ dir — so we no longer hand-roll flatpak-builder and re-introduce
+      # repo/ dir - so we no longer hand-roll flatpak-builder and re-introduce
       # the "No remote refs found for flathub" failure. The bundle is built in
       # the next step instead (the action doesn't expose --repo-url).
       - name: Build Flatpak (repo)
@@ -403,7 +403,7 @@ jobs:
       # the hosted remote as the app's origin, so bundle users get native
       # `flatpak update` / Discover updates from day one (no enroll button).
       # --gpg-keys embeds the public signing key so install + future updates
-      # are signature-verified — but ONLY when this build actually signed its
+      # are signature-verified - but ONLY when this build actually signed its
       # commits (embedding a key while the commit is unsigned makes the bundle
       # UNINSTALLABLE: "GPG verification enabled, but no signatures found").
       - name: Bundle (auto-enrolling remote)
@@ -417,7 +417,7 @@ jobs:
             gpg --export "$GPG_KEY_ID" > amethyst.gpg
             GPGOPT="--gpg-keys=amethyst.gpg"
           else
-            echo "Unsigned build — bundle will not embed a verification key."
+            echo "Unsigned build - bundle will not embed a verification key."
           fi
           flatpak build-bundle repo AmethystModManager.flatpak \
             io.github.Amethyst.ModManager '${{ steps.branch.outputs.name }}' \
@@ -431,7 +431,7 @@ jobs:
           path: AmethystModManager.flatpak
           if-no-files-found: error
 
-      # The raw OSTree repo for this build — consumed by release.yml's
+      # The raw OSTree repo for this build - consumed by release.yml's
       # publish-pages job, which merges it into the accumulated gh-pages repo.
       - uses: actions/upload-artifact@v4
         with:

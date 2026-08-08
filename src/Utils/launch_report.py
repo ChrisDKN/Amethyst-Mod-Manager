@@ -1,15 +1,15 @@
 """Tracks whether a Play click actually got a process running.
 
-A launch can fail in a dozen places — no Proton found, no
+A launch can fail in a dozen places - no Proton found, no
 Steam/Heroic/Lutris/Faugus route matched, the xdg-open handler chain
 exhausted, the spawned process dying
-instantly — and several of them only find out from a watcher thread long after
+instantly - and several of them only find out from a watcher thread long after
 the launch call returned. Rather than thread a callback through every one of
 those paths, the Play handler opens a report for the duration of the launch:
 the spawn helpers record into the report bound to the calling thread, and late
 failures reach the same object through the reference their watcher captured.
 
-Nothing here is Play-specific except who opens the report — with no report
+Nothing here is Play-specific except who opens the report - with no report
 bound (tool launches, wizards, CLI) every call is a no-op.
 """
 

@@ -1,10 +1,10 @@
-"""Toolkit-neutral full mod removal — delete a mod's deployed files + staging
+"""Toolkit-neutral full mod removal - delete a mod's deployed files + staging
 folder + index/BSA entries + its plugins from plugins.txt/loadorder.txt.
 
 Ported from the Tk ModListPanel._remove_mod / _remove_plugins_for_mods so the Qt
 remove does the SAME complete cleanup (not just dropping the modlist line, which
 leaves the files on disk → the mod still reads as installed in the Downloads tab,
-and its files stay deployed). Pure stdlib + Utils.* — no GUI toolkit.
+and its files stay deployed). Pure stdlib + Utils.* - no GUI toolkit.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
       3. delete the staging folders,
       4. drop them from modindex.bin + bsa_index.bin.
 
-    Does NOT touch modlist.txt — the caller removes the rows from the model
+    Does NOT touch modlist.txt - the caller removes the rows from the model
     (which saves the modlist). Mirrors Tk _remove_mod.
     """
     log = log_fn or (lambda _m: None)
@@ -34,7 +34,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
         return
     index_path = staging_root.parent / "modindex.bin"
 
-    # 1. Undeploy deployed files first — but only when a deployment is
+    # 1. Undeploy deployed files first - but only when a deployment is
     #    actually active: after a restore the game folder holds the REAL
     #    game files, and a mod that shadows vanilla names (e.g. a patched
     #    FalloutNV.esm) would otherwise delete them.  undeploy_mod_files
@@ -58,7 +58,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
         except Exception as exc:
             log(f"undeploy during remove failed: {exc}")
     else:
-        log("no deployment is active — skipping undeploy of removed mod(s).")
+        log("no deployment is active - skipping undeploy of removed mod(s).")
 
     # 2. Remove the mods' plugins from plugins.txt / loadorder.txt.
     try:
@@ -67,7 +67,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None) -> N
         log(f"plugin cleanup during remove failed: {exc}")
 
     # 3. Delete staging folders. A symlinked mod dir (Profile Group link
-    #    farm) is unlinked, never rmtree'd — rmtree on a dir symlink raises,
+    #    farm) is unlinked, never rmtree'd - rmtree on a dir symlink raises,
     #    and following it would delete the member profile's real files.
     for name in mod_names:
         folder = staging_root / name
@@ -113,7 +113,7 @@ def _remove_plugins_for_mods(game, profile_dir: Path, staging_root: Path,
                     to_remove.add(f.name.lower())
             # Rule-routing games (Oblivion Remastered): nested plugins that
             # deploy to the top of the data dir were synced into plugins.txt
-            # too — strip those names as well.
+            # too - strip those names as well.
             try:
                 from Utils.game_helpers import routed_mod_plugin_names
                 for n in routed_mod_plugin_names(game, folder):

@@ -4,7 +4,7 @@ Helpers for launching host-system programs (xdg-open etc.) safely from
 a polluted shell environment.
 
 Inside an AppImage, anylinux.so (LD_PRELOAD-injected by quick-sharun) hooks
-execve and scrubs AppDir-pointing env vars from child processes — so we
+execve and scrubs AppDir-pointing env vars from child processes - so we
 don't need to do anything special there. sharun also doesn't use
 LD_LIBRARY_PATH; it invokes the dynamic linker with --library-path.
 
@@ -34,12 +34,12 @@ def host_env() -> dict[str, str]:
     Inside an AppImage, anylinux.so (LD_PRELOAD'd by quick-sharun) already
     drops some AppDir-pointing vars on execve, but it doesn't know about our
     custom ones (MOD_MANAGER_GAMES, FONTCONFIG_FILE) or about /tmp/.mount_*
-    fragments inside PATH / XDG_DATA_DIRS — and it isn't built at all on some
+    fragments inside PATH / XDG_DATA_DIRS - and it isn't built at all on some
     build hosts (ANYLINUX_LIB=0). So we strip in Python too.
 
     Deliberately unconditional (unlike ``protontricks.strip_appimage_env``):
     outside an AppImage this also defends against stale env in shells the
-    user opened *from* a previous AppImage launch — `$PATH` still has
+    user opened *from* a previous AppImage launch - `$PATH` still has
     `/tmp/.mount_<dead>/bin` in it, etc. The var list lives in
     :mod:`Utils.appimage_env` (single source of truth).
     """
@@ -71,7 +71,7 @@ def xdg_download_dir() -> Path:
             raw = line.split("=", 1)[1].strip().strip('"')
             raw = raw.replace("$HOME", str(home))
             # A value of just "$HOME/" means the dir is disabled per the
-            # xdg-user-dirs spec — use the fallback instead.
+            # xdg-user-dirs spec - use the fallback instead.
             if raw and Path(raw) != home:
                 return Path(raw)
             break
@@ -91,13 +91,13 @@ def spawn_watched(
 
     Public so other launchers (Utils/exe_launch.launch_via_steam) can reuse the
     Flatpak-safe CWD handling and exit-code watching instead of calling
-    ``subprocess.Popen`` directly — a bare Popen of ``flatpak-spawn --host …``
+    ``subprocess.Popen`` directly - a bare Popen of ``flatpak-spawn --host …``
     succeeds even when the *host* command it forwards to is missing or fails,
     which silently swallows launch errors.
 
     *log_success* also logs the rc=0 hand-off. A clean exit of e.g.
-    ``xdg-open steam://…`` only proves the URL was handed to a handler — the
-    launcher can still silently drop it — so game-launch chains record the
+    ``xdg-open steam://…`` only proves the URL was handed to a handler - the
+    launcher can still silently drop it - so game-launch chains record the
     hand-off to make "our side worked, launcher ignored it" diagnosable from
     a user's session log.
     """
@@ -107,7 +107,7 @@ def spawn_watched(
     # to start with "Failed to change to directory".
     cwd = os.path.expanduser("~") if os.path.isdir(os.path.expanduser("~")) else "/"
     # A fallback chain hops threads (the next candidate is tried from _watch),
-    # so carry the launch report across explicitly — see Utils/launch_report.
+    # so carry the launch report across explicitly - see Utils/launch_report.
     from Utils import launch_report
     rep = launch_report.current()
     try:
@@ -176,9 +176,9 @@ def open_url(url: str, log_fn: Callable[[str], None] | None = None) -> None:
 
     Inside a Flatpak sandbox `xdg-open` from the runtime usually can't reach
     the host's browser. Try, in order:
-      1. `flatpak-spawn --host xdg-open <url>` — runs xdg-open on the host.
-      2. `gio open <url>` — uses the OpenURI portal from inside the sandbox.
-      3. bare `xdg-open <url>` — last resort.
+      1. `flatpak-spawn --host xdg-open <url>` - runs xdg-open on the host.
+      2. `gio open <url>` - uses the OpenURI portal from inside the sandbox.
+      3. bare `xdg-open <url>` - last resort.
     Each step's failure is logged and triggers the next.
     """
     if not _in_flatpak():

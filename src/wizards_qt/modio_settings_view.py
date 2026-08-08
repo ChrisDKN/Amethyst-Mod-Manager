@@ -1,4 +1,4 @@
-"""mod.io API key wizard (Baldur's Gate 3) — Qt port of wizards/modio_settings.py.
+"""mod.io API key wizard (Baldur's Gate 3) - Qt port of wizards/modio_settings.py.
 
 Paste the free read-only mod.io API key, test it against the API and store
 it (system keyring / encrypted file).  The mod.io logic lives in the BG3

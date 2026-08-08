@@ -2,7 +2,7 @@
 resident_evil_village.py
 Game handler for Resident Evil Village (RE8).
 
-Base class for RE Engine games that use PAK archive invalidation — the other
+Base class for RE Engine games that use PAK archive invalidation - the other
 handlers in RE_Engine_Invalidation/ subclass this one.
 
 Mod structure:
@@ -292,7 +292,7 @@ class ResidentEvilVillage(BaseGame):
         per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
 
         if (self._rt_path_remap or self._rt_ext_remap) and self._is_non_rt_branch():
-            _log(f"  Steam beta branch '{self._NON_RT_BETA_KEY}' detected — "
+            _log(f"  Steam beta branch '{self._NON_RT_BETA_KEY}' detected - "
                  "legacy build: keeping natives/x64 paths and .tex.10 textures.")
 
         _log("Step 1: Deploying mod files to game root, backing up overwritten vanilla files ...")
@@ -370,7 +370,7 @@ class ResidentEvilVillage(BaseGame):
             hashes: set[tuple[int, int]] = {hash_filepath(_remap_path(p)) for p in placed_lower}
             pak_files = find_pak_files(self._game_path)
             if not pak_files:
-                _log("  [WARN] No re_chunk_000.pak found — PAK patching skipped.")
+                _log("  [WARN] No re_chunk_000.pak found - PAK patching skipped.")
             else:
                 total_patched = 0
                 for pak in pak_files:
@@ -389,7 +389,7 @@ class ResidentEvilVillage(BaseGame):
                         "  or if the RE Engine path format needs adjustment."
                     )
                 else:
-                    _log(f"  PAK patching complete — {total_patched} total entr{'y' if total_patched == 1 else 'ies'} invalidated.")
+                    _log(f"  PAK patching complete - {total_patched} total entr{'y' if total_patched == 1 else 'ies'} invalidated.")
 
         _log(f"Deploy complete. {linked_mod} mod file(s) deployed.")
 
@@ -406,7 +406,7 @@ class ResidentEvilVillage(BaseGame):
 
         # Restore PAK entries from every profile's pak_patches/ backups.
         # Deploy writes backups under whichever profile was active, so restore
-        # must scan all profiles — looking only in default/ would permanently
+        # must scan all profiles - looking only in default/ would permanently
         # strand zeroed entries patched under a non-default profile.
         _log("Restore: restoring PAK entries from backups ...")
         restored_entries = 0
@@ -438,7 +438,7 @@ class ResidentEvilVillage(BaseGame):
             _log("  No PAK backups found (nothing to restore).")
 
         # NB the game-root manifest (.mm_pak_restore.json) is intentionally
-        # kept — it is an append-only ledger of every entry the manager has
+        # kept - it is an append-only ledger of every entry the manager has
         # ever invalidated, so the "Repair PAK files" wizard can always re-heal
         # the PAKs even if a future deploy/restore leaves them stranded.
 

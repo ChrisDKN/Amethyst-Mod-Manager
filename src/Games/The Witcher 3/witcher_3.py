@@ -73,12 +73,12 @@ def _merge_tree_into(src: Path, dest: Path) -> int:
 # Folder names that act as containers in the game root or in mod archives.
 # These are skipped during segment scanning so that the actual mod-name
 # segment (modFoo / dlcFoo) can be found deeper in the path.
-#   "mods"  — game-root container and common archive wrapper
-#   "dlc"   — game-root container (may appear before dlcFoo folders)
-#   "dlcs"  — alternative plural container name
+#   "mods"  - game-root container and common archive wrapper
+#   "dlc"   - game-root container (may appear before dlcFoo folders)
+#   "dlcs"  - alternative plural container name
 _SKIP_SEGMENTS = frozenset({"mods", "dlc", "dlcs"})
 
-# Top-level game-root folders that are NOT prefixed — they should be deployed
+# Top-level game-root folders that are NOT prefixed - they should be deployed
 # directly at the game root with their own folder name preserved.
 # When one of these is found (possibly buried under an archive wrapper like
 # "Full/" or "Lite/"), everything from that segment onward is kept and
@@ -100,8 +100,8 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
     is found regardless of how many wrapper folders the archive contains.
 
     Returns:
-      dest_prefix — game-root-relative destination directory (empty = root)
-      final_rel   — staged_rel starting from the qualifying segment, so the
+      dest_prefix - game-root-relative destination directory (empty = root)
+      final_rel   - staged_rel starting from the qualifying segment, so the
                     modname folder lands directly inside mods/ or dlc/
 
     Examples:
@@ -121,7 +121,7 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
     for i, seg in enumerate(segments[:-1]):
         low = seg.lower()
         if low in _SKIP_SEGMENTS:
-            continue          # known container — look deeper
+            continue          # known container - look deeper
         if low in _ROOT_SEGMENTS:
             return "", "/".join(segments[i:])   # e.g. bin/... at game root
         if low.startswith("mod"):
@@ -129,7 +129,7 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
         if low.startswith("dlc"):
             return "dlc", "/".join(segments[i:])
 
-    # No recognised folder found — deploy to game root as-is
+    # No recognised folder found - deploy to game root as-is
     return "", norm
 
 
@@ -176,7 +176,7 @@ class Witcher3(BaseGame):
 
     @property
     def mod_install_prefix(self) -> str:
-        """No install-time prefix — routing is resolved at deploy time."""
+        """No install-time prefix - routing is resolved at deploy time."""
         return ""
 
     @property
@@ -309,7 +309,7 @@ class Witcher3(BaseGame):
         # Track files placed in THIS deploy run so that duplicate filemap
         # entries routing to the same destination don't back each other up.
         # (e.g. Full/mods/modBrutalBlood/… and Lite/mods/modBrutalBlood/…
-        # both route to mods/modBrutalBlood/… — the second placement must not
+        # both route to mods/modBrutalBlood/… - the second placement must not
         # treat the first hardlink as a vanilla file.)
         _placed_this_run: set[str] = set()
 
@@ -364,7 +364,7 @@ class Witcher3(BaseGame):
                     )
 
                 # If this logical destination was already placed in this deploy
-                # run, skip it entirely — a later same-dest entry (e.g. a
+                # run, skip it entirely - a later same-dest entry (e.g. a
                 # lowercase "content/" folder that's the mod-author's vanilla
                 # backup sitting next to an uppercase "Content/" mod folder)
                 # must NOT overwrite the already-placed modded file.
@@ -390,7 +390,7 @@ class Witcher3(BaseGame):
                 # Skip if:
                 #  - it's a symlink (our own previous deploy)
                 #  - it's already listed in the prior manifest (previous deploy
-                #    that wasn't restored — hardlinks look like regular files)
+                #    that wasn't restored - hardlinks look like regular files)
                 #  - its inode matches the source (hardlink from a previous
                 #    deploy not captured by the manifest)
                 if actual_dest.is_file() and not actual_dest.is_symlink() and not in_custom_dir:
@@ -467,13 +467,13 @@ class Witcher3(BaseGame):
         rather than raw staging paths.  We therefore have to reverse the
         routing to find the file in staging:
 
-          1. Overwrite dir — check first, always wins.
+          1. Overwrite dir - check first, always wins.
           2. Direct match under staging/<mod>/  (handles mods whose archive
              already has the right structure, e.g. mods/modFoo/content/…).
-          3. Strip leading dest-prefix ("mods/", "dlc/") and try again —
+          3. Strip leading dest-prefix ("mods/", "dlc/") and try again -
              covers mods where the archive root IS the mod-name folder,
              e.g. staging contains modFoo/content/… directly.
-          4. One-level deep search in staging/<mod>/ — covers mods whose
+          4. One-level deep search in staging/<mod>/ - covers mods whose
              archive wraps the mod-name folder in an extra directory,
              e.g. TrueFires_v1.01_part_1/modFoo/content/…
           5. Per-mod strip prefixes (user-configured overrides).
@@ -501,11 +501,11 @@ class Witcher3(BaseGame):
             if src is not None:
                 return src
 
-        # 4. One-level deep scan — the archive may have an extra wrapper folder
+        # 4. One-level deep scan - the archive may have an extra wrapper folder
         #    (e.g. TrueFires_v1.01_part_1/, Full/, Lite/) between the staging
         #    root and the mod content.  Try both:
-        #      a) inner (dest-prefix stripped) — e.g. modFoo/content/x inside Full/
-        #      b) norm  (full routed path)     — e.g. mods/modFoo/content/x inside Full/
+        #      a) inner (dest-prefix stripped) - e.g. modFoo/content/x inside Full/
+        #      b) norm  (full routed path)     - e.g. mods/modFoo/content/x inside Full/
         #    The second form handles archives like Full/mods/modFoo/content/x
         #    where the mods/ container is inside the wrapper directory.
         try:
@@ -622,7 +622,7 @@ class Witcher3(BaseGame):
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
 
         if not manifest_path.is_file():
-            _log("Restore: no deployed manifest found — nothing to remove.")
+            _log("Restore: no deployed manifest found - nothing to remove.")
         else:
             lines = [
                 ln.strip()

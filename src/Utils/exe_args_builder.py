@@ -49,7 +49,7 @@ class _ExeProfile(NamedTuple):
 
 # ---------------------------------------------------------------------------
 # Known tool profiles
-# Add new executables here — one entry per exe name (case-sensitive).
+# Add new executables here - one entry per exe name (case-sensitive).
 # ---------------------------------------------------------------------------
 
 _DATA_PROFILE = _ExeProfile(game_flag="-d:", game_path_suffix="Data", output_flag="-o:")
@@ -95,7 +95,7 @@ EXE_SKIP: frozenset[str] = frozenset({
 # bundled inside mod tool archives but are never meant to be launched
 # directly by the user.  Custom EXEs added via '+ Add custom EXE…'
 # always bypass this filter.  Extend this list here in source when new
-# noise exes are identified — the change ships with the application.
+# noise exes are identified - the change ships with the application.
 EXE_FILTER_DEFAULTS: frozenset[str] = frozenset({
     # DirectXTex utilities (ship with many texture tools / Creation Kit)
     "texconv.exe",
@@ -177,7 +177,7 @@ EXE_FILTER_DEFAULTS: frozenset[str] = frozenset({
     "xlodgen.exe",
     
 
-    # Bethesda script extender loaders — users should launch the game via
+    # Bethesda script extender loaders - users should launch the game via
     # Steam (with the extender wired up through launch options / proxy),
     # not by running these EXEs directly through the mod manager.
     "skse_loader.exe",          # Skyrim (Oldrim) SKSE
@@ -193,14 +193,14 @@ EXE_FILTER_DEFAULTS: frozenset[str] = frozenset({
     
     "synthesis.exe", # Only works via the wizard menu
 
-    # ReSaver (Fallout 4 / Skyrim save editor) — only ReSavor.bat should be
+    # ReSaver (Fallout 4 / Skyrim save editor) - only ReSavor.bat should be
     # launched.  The folder also ships an older ReSaver.bat/.exe and a raw
     # ReSavor.exe, none of which should appear in the dropdown.
     "resaver.bat",
     "resaver.exe",
     "resavor.exe",
 
-    # Bundled JRE binaries (ReSaver and other Java tools ship a private jre/) —
+    # Bundled JRE binaries (ReSaver and other Java tools ship a private jre/) -
     # never launched directly by the user.
     "jabswitch.exe",
     "java.exe",
@@ -226,7 +226,7 @@ EXE_FILTER_DEFAULTS: frozenset[str] = frozenset({
 # PGPatcher settings.json bootstrap
 # ---------------------------------------------------------------------------
 
-# Default settings template — all values except game.dir and output.dir are
+# Default settings template - all values except game.dir and output.dir are
 # fixed defaults.  Only generated when cfg/settings.json does not exist yet.
 _PGPATCHER_SETTINGS_TEMPLATE: dict = {
     "params": {
@@ -319,7 +319,7 @@ def _bootstrap_pgpatcher_settings(
 
     When update=False (default): only seeds the file if it does not exist yet.
     When update=True: always overwrites game.dir and output.dir, preserving all
-    other user-configured keys — used at launch time so profile switches are
+    other user-configured keys - used at launch time so profile switches are
     reflected correctly (all profiles share the same PGPatcher config file).
 
     - exe_path   : full path to PGPatcher.exe
@@ -338,7 +338,7 @@ def _bootstrap_pgpatcher_settings(
     settings_file = cfg_dir / "settings.json"
 
     if settings_file.exists() and not update:
-        return  # already seeded — runtime launch will keep it up to date
+        return  # already seeded - runtime launch will keep it up to date
 
     # Ensure the output mod folder exists so PGPatcher can write there
     output_mod_dir = output_mod if output_mod is not None else staging_path / "PGPatcher_output"

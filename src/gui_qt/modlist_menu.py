@@ -1,7 +1,7 @@
 """Right-click context menu for the modlist.
 
 Mirrors the Tk menu (gui/modlist_panel.py `_populate_context_menu`) for all three
-target types — normal mods, separators, and the Overwrite folder. Each item is
+target types - normal mods, separators, and the Overwrite folder. Each item is
 SHOWN only when its Tk condition holds and HIDDEN otherwise (Tk omits items; it
 never disables them). Any remaining greyed items are the handful still awaiting a
 Qt backend, and even those appear only when their Tk show-condition passes.
@@ -22,7 +22,7 @@ from gui_qt.modlist_model import COL_NAME
 from gui_qt.text_input_overlay import TextInputOverlay
 
 # Display-only shortcut hints shown right-aligned in the context menu. These MUST
-# match the real window-level QShortcut bindings in gui_qt/shortcuts.py — they are
+# match the real window-level QShortcut bindings in gui_qt/shortcuts.py - they are
 # not registered as accelerators here, only rendered as menu text.
 _SC_RENAME = "F2"
 _SC_REMOVE = "Del"
@@ -52,14 +52,14 @@ def show_context_menu(view, global_pos, index):
 
 
 def build_context_menu(view, index):
-    """Construct (but don't exec) the context QMenu for *index* — split out so
+    """Construct (but don't exec) the context QMenu for *index* - split out so
     headless tests can inspect the actions. Returns None if there's no menu."""
     model = view.model()
     if not index.isValid():
         return None
     row = index.row()
     entry = model.entry(row)
-    # Fresh meta.ini memo per build — the gate helpers re-read the same metas
+    # Fresh meta.ini memo per build - the gate helpers re-read the same metas
     # many times per selected mod (see _read_mod_meta).
     view._menu_meta_cache = {}
 
@@ -108,14 +108,14 @@ def build_context_menu(view, index):
         return act(label, lambda: None, enabled=False)
 
     def submenu(label, items, enabled=True, scroll_cap=0):
-        """Add a nested QMenu. *items* is a list of (text, slot) pairs — one
+        """Add a nested QMenu. *items* is a list of (text, slot) pairs - one
         action each. Used for Copy/Move to profile (the profile list nests as a
         submenu instead of opening a picker window).
 
         *scroll_cap* > 0 caps the visible height at that many rows: past the cap
         the submenu holds a single QWidgetAction wrapping a scrollable list
         instead of plain actions (used by Move to separator). QMenu's own
-        scroller can't do this — it only engages when the popup exceeds the
+        scroller can't do this - it only engages when the popup exceeds the
         SCREEN height, and a max-height-constrained QMenu just clips and
         mis-positions."""
         # `label` is already translated by the caller.
@@ -141,10 +141,10 @@ def build_context_menu(view, index):
 
     if entry.is_separator and entry.name in _boundary_names():
         # The synthetic Overwrite / Root Folder rows share a small menu:
-        #   Open folder — both (they resolve to a real on-disk folder)
-        #   Log         — both (files swept in on restore; Root Folder gets its
+        #   Open folder - both (they resolve to a real on-disk folder)
+        #   Log         - both (files swept in on restore; Root Folder gets its
         #                 own .mm_overwrite_log.txt written by _move_runtime_files)
-        #   Show Conflicts — Overwrite only (Root Folder has no conflict data)
+        #   Show Conflicts - Overwrite only (Root Folder has no conflict data)
         from Utils.filemap import OVERWRITE_NAME, ROOT_FOLDER_NAME
         if multi_mods or multi_seps:
             return None
@@ -155,7 +155,7 @@ def build_context_menu(view, index):
             enabled=has_game)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
             act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
-        # Create an empty mod below — lives on the Overwrite row in normal mode
+        # Create an empty mod below - lives on the Overwrite row in normal mode
         # and the Root Folder row in reverse-priority mode, so it stays usable
         # even when the modlist has no mods to right-click.
         reverse = model.reverse_mode_active
@@ -206,7 +206,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         n = len(sel_mods)
         _names = [model.entry(r).name for r in sel_mods]
         _staging_ok = getattr(view, "staging_dir", None) is not None
-        # Group: files — Root Folder toggles gate on the non-empty subset each
+        # Group: files - Root Folder toggles gate on the non-empty subset each
         # applies to (Tk root_folder_enable_multi / _disable_multi).
         if _staging_ok:
             _rf_disable = [nm for nm in _names if _is_root_folder(view, nm)]
@@ -218,7 +218,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                 act(_mtf("Enable Root Folder install ({0})", len(_rf_enable)),
                     lambda ns=_rf_enable: _toggle_root_folder(view, ns, True))
         divider()
-        # Group: Nexus — each item shows only when it has valid targets (Tk).
+        # Group: Nexus - each item shows only when it has valid targets (Tk).
         _endorse_multi = [nm for nm in _names
                           if _has_nexus_id(view, nm) and not _is_endorsed(view, nm)]
         _abstain_multi = [nm for nm in _names
@@ -306,15 +306,15 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     _staging_ok = getattr(view, "staging_dir", None) is not None
     # Group 1: manage
     act(_mt("Open folder"), lambda: _open_folder(view, model, row))
-    # Bundle options… — shown only when the mod carries a RE/Fluffy bundle spec.
+    # Bundle options… - shown only when the mod carries a RE/Fluffy bundle spec.
     if _has_bundle_spec(view, name):
         act(_mt("Bundle options…"), lambda: _open_bundle(view, name))
     if _staging_ok:
         act(_mt("Create empty mod below"), lambda: _create_empty_mod(view, model, row))
-    # Reinstall Mod — from the recorded archive when it's still on disk (Tk:
+    # Reinstall Mod - from the recorded archive when it's still on disk (Tk:
     # ctx_meta present + _find_installation_archive), reinstalling into the same
     # folder (silent Replace-All). When the archive is gone but the mod carries
-    # a Nexus mod/file id, offer 'Reinstall (Redownload)' instead — the handler
+    # a Nexus mod/file id, offer 'Reinstall (Redownload)' instead - the handler
     # redownloads from Nexus (premium) or opens the files page (non-premium).
     if _installation_archive(view, name) is not None:
         act(_mt("Reinstall Mod"), lambda: _reinstall(view, [name]))
@@ -329,7 +329,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         act(_mt("Disable Root Folder install") if _is_rf else _mt("Enable Root Folder install"),
             lambda: _toggle_root_folder(view, [name], not _is_rf))
     divider()
-    # Group 3: Nexus / online & updates — each item shows only when applicable.
+    # Group 3: Nexus / online & updates - each item shows only when applicable.
     # The endorse/version/check/track/open-on-Nexus items nest under a
     # "Nexus Actions" submenu; the rest stay inline.
     _endorsed = _is_endorsed(view, name)
@@ -393,7 +393,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
 
 def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):
     """Fill *sub* with a single QWidgetAction wrapping a search box over a
-    QListWidget showing *items* — visible height capped at *scroll_cap* rows,
+    QListWidget showing *items* - visible height capped at *scroll_cap* rows,
     real scrollbar past that, and typing in the box filters the rows. Enter
     picks the highlighted (else first visible) row; clicking a row or pressing
     Enter closes the whole menu and runs its slot."""
@@ -486,7 +486,7 @@ def _fill_scroll_submenu(root_menu, sub, items, scroll_cap):
             return False
 
     edit.installEventFilter(_ArrowFwd(edit))
-    # QMenu doesn't focus embedded widgets on its own — grab it post-show so
+    # QMenu doesn't focus embedded widgets on its own - grab it post-show so
     # typing filters immediately (singleShot: the menu isn't visible yet inside
     # aboutToShow, and setFocus on a hidden widget is dropped).
     sub.aboutToShow.connect(lambda: QTimer.singleShot(0, edit.setFocus))
@@ -573,7 +573,7 @@ def _has_missing_reqs(view, name: str) -> bool:
 
     Fallback: a mod whose every missing requirement is individually ignored
     (meta.ini ignoredRequirements) has no ⚠ flag, but the panel must stay
-    reachable so the ignores can be unticked — keep the menu item when the meta
+    reachable so the ignores can be unticked - keep the menu item when the meta
     carries per-requirement ignores."""
     try:
         model = view.model()
@@ -746,7 +746,7 @@ def _separator_choices(model):
 
 
 def _separator_submenu_items(view, model, mod_rows):
-    """(display, slot) pairs for the Move-to-separator submenu — one entry per
+    """(display, slot) pairs for the Move-to-separator submenu - one entry per
     non-boundary separator, sorted A→Z by display name (the natural list order
     isn't useful in a menu). Separator display names are DATA, not translated."""
     choices = sorted(_separator_choices(model), key=lambda c: c[0].casefold())
@@ -770,7 +770,7 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     moved_names = {model.entry(r).name for r in rows}
     moved = [model.entry(r) for r in rows]           # preserve selection order
     old_order = [e.name for e in model.natural_entries() if not e.is_separator]
-    # Body = the NATURAL order minus the moved mods — the display may be a
+    # Body = the NATURAL order minus the moved mods - the display may be a
     # sorted/inverted permutation and must never be persisted as the new order.
     body = [e for e in model.natural_entries()
             if e.name not in _PINNED_NAMES and e.name not in moved_names]
@@ -780,7 +780,7 @@ def _move_to_separator(view, model, mod_rows, sep_name):
         return
     body[sep_idx + 1:sep_idx + 1] = moved
     model.set_entries(body)
-    # Pure reorder — hand the app a "move" ctx so a repositioning that crossed
+    # Pure reorder - hand the app a "move" ctx so a repositioning that crossed
     # no conflicting mod skips the conflict rebuild (see app._on_modlist_saved).
     new_order = [e.name for e in model.natural_entries() if not e.is_separator]
     ctx = model._move_ctx(old_order, new_order, [e.name for e in moved])
@@ -794,7 +794,7 @@ def _move_to_separator(view, model, mod_rows, sep_name):
 def _other_profiles(view):
     """Profile names for this game, excluding the current one and Profile
     Groups ([] if none). Groups are excluded as TARGETS: 'copy into a group'
-    is ill-defined (which member would own it?) — copy into a member and the
+    is ill-defined (which member would own it?) - copy into a member and the
     group reconciles it in."""
     game = getattr(view, "game", None)
     pdir = getattr(view, "profile_dir", None)
@@ -830,7 +830,7 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool):
 
 def _copy_to_profile(view, names, enabled_map, target_profile, move):
     """Delegate the copy/move to the window (needs game, worker thread, collision
-    overlay, and — for move — remove_mods + reload)."""
+    overlay, and - for move - remove_mods + reload)."""
     cb = getattr(view, "on_copy_to_profile", None)
     if cb is not None and names and target_profile:
         cb(list(names), dict(enabled_map), target_profile, move)
@@ -969,7 +969,7 @@ def _has_nexus_id(view, name) -> bool:
 
 
 def _endorse(view, names, endorse: bool):
-    """Endorse/abstain the mods — delegated to the window (needs the shared
+    """Endorse/abstain the mods - delegated to the window (needs the shared
     Nexus API + a worker thread; see app._on_modlist_endorse)."""
     cb = getattr(view, "on_endorse", None)
     if cb is not None and names:
@@ -977,7 +977,7 @@ def _endorse(view, names, endorse: bool):
 
 
 def _track(view, names):
-    """Start tracking the mods on Nexus — delegated to the window (needs the
+    """Start tracking the mods on Nexus - delegated to the window (needs the
     shared Nexus API + a worker thread; see app._on_modlist_track)."""
     cb = getattr(view, "on_track", None)
     if cb is not None and names:
@@ -1121,7 +1121,7 @@ def _sort_selected_alphabetically(view, model, mod_rows):
             continue
         body.append(next(it) if id(e) in sel_ids else e)
     model.set_entries(body)
-    # Pure (non-contiguous) reorder — _move_ctx handles per-mod crossings, so
+    # Pure (non-contiguous) reorder - _move_ctx handles per-mod crossings, so
     # a sort that flipped no conflicting pair skips the conflict rebuild.
     new_order = [e.name for e in model.natural_entries() if not e.is_separator]
     ctx = model._move_ctx(old_order, new_order, [e.name for e in sel])
@@ -1140,7 +1140,7 @@ def _create_empty_mod(view, model, row):
 
 def _create_empty_mod_at_boundary(view, model, top):
     """As _create_empty_mod, but insert at the top (below Overwrite) or bottom
-    (below Root Folder) of the body — used from the boundary rows so it works
+    (below Root Folder) of the body - used from the boundary rows so it works
     even when the modlist is empty."""
     _create_empty_mod_prompt(view, model,
                              lambda name: model.insert_mod_at_body_edge(top, name))
@@ -1187,7 +1187,7 @@ def _create_empty_mod_prompt(view, model, insert):
 
 
 def _show_overwrite_log(view, boundary_name=None):
-    """Show the read-only restore-log overlay — files swept into the deploy
+    """Show the read-only restore-log overlay - files swept into the deploy
     target on restore, parsed from OVERWRITE_LOG_NAME. Overwrite reads
     game.get_effective_overwrite_path(); Root Folder reads
     game.get_effective_root_folder_path() (standard-deployed games sweep
@@ -1225,7 +1225,7 @@ def _rename(view, model, row):
         if new is None or not new.strip() or new.strip() == e.display_name:
             return
         if e.is_separator:
-            # No folder on disk — a pure modlist.txt edit is the whole rename.
+            # No folder on disk - a pure modlist.txt edit is the whole rename.
             # Migrate the separator's colour + deploy override to the new name
             # so they follow it (Tk parity), then persist via the window
             # callback.
@@ -1243,7 +1243,7 @@ def _rename(view, model, row):
         if callable(cb):
             cb(e.name, new.strip())
 
-    # Separators have no folder (and so no meta.ini) — only mods get the
+    # Separators have no folder (and so no meta.ini) - only mods get the
     # suggested-name dropdown.
     suggestions = [] if e.is_separator else _name_suggestions(view, e.name)
     TextInputOverlay.show_over(view, _mt("Rename"), _mt("New name:"), _named,
@@ -1363,8 +1363,8 @@ def _run_remove(view, game, profile_dir, names, owners) -> list:
 def _remove(view, model, row):
     """Fully remove a mod: undeploy its files, delete its staging folder, drop
     its index/BSA/plugins entries, then remove the modlist row. (Not just the
-    list line — that left the files on disk so the mod still read as installed.)
-    On a Profile Group the mod is removed from the OWNING MEMBER profile too —
+    list line - that left the files on disk so the mod still read as installed.)
+    On a Profile Group the mod is removed from the OWNING MEMBER profile too -
     the confirm names it."""
     e = model.entry(row)
     if e is None or e.is_separator:
@@ -1374,7 +1374,7 @@ def _remove(view, model, row):
     # from the member profile itself.
     locked = _locked_group_mods(view, [e.name])
     if locked:
-        _notify(view, _mt("'{0}' belongs to the locked profile '{1}' — switch "
+        _notify(view, _mt("'{0}' belongs to the locked profile '{1}' - switch "
                           "to that profile to remove it, or unlock it.")
                 .format(e.display_name, locked[e.name]))
         return
@@ -1397,7 +1397,7 @@ def _remove(view, model, row):
         owner = owners.get(e.name)
         where = (f"the member profile '{owner}' and this group" if owner
                  else "this group")
-        msg = (f"Remove '{e.display_name}'?\n\nThis is a profile group — the "
+        msg = (f"Remove '{e.display_name}'?\n\nThis is a profile group - the "
                f"mod is removed from {where}, deleting its folder. This "
                f"cannot be undone.")
     else:
@@ -1499,12 +1499,12 @@ def _remove_mods_multi(view, model, mod_rows):
             and not e.is_separator and not e.locked]
     if not rows:
         return
-    # Drop mods owned by a LOCKED member profile — they stay removable from
+    # Drop mods owned by a LOCKED member profile - they stay removable from
     # that profile itself, just not through the group.
     locked = _locked_group_mods(view, [model.entry(r).name for r in rows])
     if locked:
         rows = [r for r in rows if model.entry(r).name not in locked]
-        _notify(view, _mt("{0} mod(s) skipped — they belong to locked "
+        _notify(view, _mt("{0} mod(s) skipped - they belong to locked "
                           "profile(s): {1}.")
                 .format(len(locked), ", ".join(sorted(set(locked.values())))))
         if not rows:
@@ -1529,7 +1529,7 @@ def _remove_mods_multi(view, model, mod_rows):
 
     if owners is not None:
         members = sorted({m for m in owners.values() if m})
-        msg = (f"Remove {len(names)} mod(s)?\n\nThis is a profile group — "
+        msg = (f"Remove {len(names)} mod(s)?\n\nThis is a profile group - "
                f"the mods are removed from their member profile(s) "
                f"({', '.join(members) if members else 'none found'}) and "
                "this group, deleting their folders. This cannot be undone.")
@@ -1541,7 +1541,7 @@ def _remove_mods_multi(view, model, mod_rows):
 
 # lupdate extraction anchors: every _mt/_mtf label above is translated at
 # runtime via QCoreApplication.translate("ModListMenu", …), which lupdate
-# cannot see through — so each literal is registered here explicitly.
+# cannot see through - so each literal is registered here explicitly.
 _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Abstain from Endorsement"),
     QT_TRANSLATE_NOOP("ModListMenu", "Abstain selected ({0})"),
@@ -1572,9 +1572,9 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse Mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse selected ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "'{0}' belongs to the locked profile "
-                      "'{1}' — switch to that profile to remove it, or "
+                      "'{1}' - switch to that profile to remove it, or "
                       "unlock it."),
-    QT_TRANSLATE_NOOP("ModListMenu", "{0} mod(s) skipped — they belong to "
+    QT_TRANSLATE_NOOP("ModListMenu", "{0} mod(s) skipped - they belong to "
                       "locked profile(s): {1}."),
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Lock Separators"),

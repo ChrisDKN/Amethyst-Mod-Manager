@@ -1,22 +1,22 @@
 """Collection install progress overlay (Qt).
 
-A borderless in-window overlay (NOT a top-level QDialog — gaming-mode opens
+A borderless in-window overlay (NOT a top-level QDialog - gaming-mode opens
 top-levels behind the app), shown while an automatic collection install runs.
 Layout mirrors the user's sketch:
 
-  * TOP  — aggregate download bar + "X / Y GB (nn%) — S MB/s".
-  * RED  — "Downloading" list: a FIXED POOL of rows (name + thin bar), reused.
-  * GREEN— "Installing / Extracting" list: a FIXED POOL of rows (name + thin
+  * TOP  - aggregate download bar + "X / Y GB (nn%) - S MB/s".
+  * RED  - "Downloading" list: a FIXED POOL of rows (name + thin bar), reused.
+  * GREEN- "Installing / Extracting" list: a FIXED POOL of rows (name + thin
            bar, real extraction %) for active installs + one text label for
            overflow-active and queued names.
-  * BLUE — Pause + Cancel buttons.
+  * BLUE - Pause + Cancel buttons.
 
-IMPORTANT — why no per-mod widget creation: creating a QWidget/QLabel and only
+IMPORTANT - why no per-mod widget creation: creating a QWidget/QLabel and only
 parenting it afterwards makes it briefly a TOP-LEVEL WINDOW (Qt realises a native
 handle on show/polish). Under a collection install that flashed a blank window
 per mod AND made kwin balloon to GBs of surface cache (freezing the desktop). So
 this overlay builds ALL its widgets ONCE and only updates their text/values in
-place — zero widgets are created after ``_build``.
+place - zero widgets are created after ``_build``.
 
 The overlay ONLY renders. The app owns the worker + control Events and connects
 its Signals to these slots; every slot runs on the UI thread. Pause/Cancel invoke
@@ -196,7 +196,7 @@ class CollectionInstallOverlay(QWidget):
         lists = QHBoxLayout()
         lists.setSpacing(10)
 
-        # RED — a FIXED pool of download-row widgets (built once, parented now).
+        # RED - a FIXED pool of download-row widgets (built once, parented now).
         dl_frame, dl_v = self._panel(self.tr("Downloading"), "#c86464")
         self._dl_rows: list[_DownloadRow] = []
         for _ in range(_DL_SLOTS):
@@ -208,7 +208,7 @@ class CollectionInstallOverlay(QWidget):
         dl_v.addWidget(self._dl_overflow)
         dl_v.addStretch(1)
 
-        # GREEN — a FIXED pool of bar rows for active extractions (same widget as
+        # GREEN - a FIXED pool of bar rows for active extractions (same widget as
         # the download rows) + ONE text label for overflow-active/queued names.
         ex_frame, ex_v = self._panel(self.tr("Installing / Extracting"), _GREEN_TONE)
         self._ex_rows: list[_DownloadRow] = []
@@ -273,7 +273,7 @@ class CollectionInstallOverlay(QWidget):
         if self._on_cancel is not None:
             self._on_cancel()
 
-    # ---- progress slots (UI thread only) — NO widget creation -------------
+    # ---- progress slots (UI thread only) - NO widget creation -------------
     def set_status(self, text: str):
         self._status_lbl.setText(text or "")
 
@@ -300,19 +300,19 @@ class CollectionInstallOverlay(QWidget):
             shown_cur = int(frac * shown_tot)
             self._agg_lbl.setText(
                 f"{_fmt_gb(shown_cur)} / {_fmt_gb(shown_tot)}  ({pct}%)"
-                + (f"  —  {mbps:.1f} MB/s" if mbps > 0 else ""))
+                + (f"  -  {mbps:.1f} MB/s" if mbps > 0 else ""))
         else:
             self._agg_bar.setRange(0, 0)
             self._agg_lbl.setText(self.tr("Downloading…"))
 
-    # RED — assign a pool slot per download; overflow is a count, not widgets.
+    # RED - assign a pool slot per download; overflow is a count, not widgets.
     def dl_start(self, file_id: int, name: str, size: int):
         if file_id in self._dl_slot_of:
             return
         free = next((i for i in range(_DL_SLOTS) if i not in self._dl_slot_of.values()),
                     None)
         if free is None:
-            # All slots busy — track as overflow (count only).
+            # All slots busy - track as overflow (count only).
             self._dl_slot_of[file_id] = -1
             self._update_dl_overflow()
             return
@@ -336,7 +336,7 @@ class CollectionInstallOverlay(QWidget):
         extra = sum(1 for v in self._dl_slot_of.values() if v == -1)
         self._dl_overflow.setText(self.tr("+ {0} more downloading…").format(extra) if extra else "")
 
-    # GREEN — assign a pool slot per active extraction; overflow-active and
+    # GREEN - assign a pool slot per active extraction; overflow-active and
     # queued names go in the text label (no widget creation).
     def extract_queue(self, file_id: int, name: str):
         self._extract_queued[file_id] = name
@@ -367,7 +367,7 @@ class CollectionInstallOverlay(QWidget):
         slot = self._ex_slot_of.pop(file_id, None)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].clear()
-            # Promote an overflow-active extraction into the freed slot — unlike
+            # Promote an overflow-active extraction into the freed slot - unlike
             # the download pool we still know its name, so it gains a bar.
             promo = next((f for f, s in self._ex_slot_of.items() if s == -1), None)
             if promo is not None:
@@ -383,12 +383,12 @@ class CollectionInstallOverlay(QWidget):
         from html import escape
         lines = []
         for fid, name in self._extract_active.items():
-            if self._ex_slot_of.get(fid, -1) == -1:   # no bar row — text line
+            if self._ex_slot_of.get(fid, -1) == -1:   # no bar row - text line
                 lines.append(
                     f"<div style='color:{self._c('TEXT_MAIN')}'>{escape(name)}</div>")
         for name in self._extract_queued.values():
             lines.append(
-                f"<div style='color:{_QUEUED_TONE}'>{escape(name)} {self.tr('— Queued')}</div>")
+                f"<div style='color:{_QUEUED_TONE}'>{escape(name)} {self.tr('- Queued')}</div>")
         self._ex_label.setText("".join(lines))
 
     # ---- lifecycle --------------------------------------------------------

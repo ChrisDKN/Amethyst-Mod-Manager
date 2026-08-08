@@ -3,7 +3,7 @@ dfu_mods_json.py
 Load-order sync for Daggerfall Unity's Mods.json.
 
 DFU discovers .dfmod files by scanning StreamingAssets/Mods recursively and
-assigns each one a LoadPriority from the scan order — which is filesystem
+assigns each one a LoadPriority from the scan order - which is filesystem
 order, not anything the user chose.  It then overlays whatever is stored in
 <PersistentDataPath>/Mods/GameData/Mods.json, reading back only Title,
 Enabled and LoadPriority per entry and matching on Title.  Higher LoadPriority
@@ -33,7 +33,7 @@ from pathlib import Path
 # user's own file back.  A zero-byte backup means "there was no file here".
 BACKUP_SUFFIX = ".amm-backup"
 
-# Cap the best-effort bundle scan — DREAM and friends ship multi-hundred-MB
+# Cap the best-effort bundle scan - DREAM and friends ship multi-hundred-MB
 # .dfmod files and the manifest, when it is findable at all, sits near the top.
 _SCAN_LIMIT = 32 * 1024 * 1024
 _SCAN_CHUNK = 1 * 1024 * 1024
@@ -135,13 +135,13 @@ def _ensure_backup(path: Path, log_fn) -> None:
 def sync_mods_json(game_path: Path, ordered: list[Path], log_fn=None) -> int:
     """Write Amethyst's load order into Mods.json; returns entries written.
 
-    *ordered* is the deployed .dfmod paths in Amethyst priority order —
+    *ordered* is the deployed .dfmod paths in Amethyst priority order -
     index 0 is the top of the mod list and must end up with the highest
     DFU LoadPriority.
     """
     _log = log_fn or _noop
     if os.environ.get("AMM_DFU_MODS_JSON") == "0":
-        _log("  Mods.json sync disabled (AMM_DFU_MODS_JSON=0) — "
+        _log("  Mods.json sync disabled (AMM_DFU_MODS_JSON=0) - "
              "set the load order in DFU's Mod Loader.")
         return 0
 
@@ -184,7 +184,7 @@ def sync_mods_json(game_path: Path, ordered: list[Path], log_fn=None) -> int:
         _log(f"  Left {len(preserved)} entry(s) not managed by Amethyst untouched.")
     if untitled:
         _log("  No ModTitle found for: " + ", ".join(untitled) +
-             " — these ship no .dfmod.json manifest, so DFU will keep its own "
+             " - these ship no .dfmod.json manifest, so DFU will keep its own "
              "load position for them. Order them in DFU's Mod Loader.")
     return total
 

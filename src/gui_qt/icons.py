@@ -1,4 +1,4 @@
-"""Qt icon loading — reuses the existing PNG assets in src/icons/.
+"""Qt icon loading - reuses the existing PNG assets in src/icons/.
 
 The Tk app loads these via gui.theme.load_icon (→ CTkImage). The Qt app loads
 the same files into QIcon. Icons are cached by (name, size).
@@ -10,7 +10,7 @@ from pathlib import Path
 from PySide6.QtGui import QIcon, QPixmap, QTransform, QPainter, QColor
 from PySide6.QtCore import QSize, Qt
 
-# src/icons/ — same dir the Tk app uses (gui/ is a sibling of icons/).
+# src/icons/ - same dir the Tk app uses (gui/ is a sibling of icons/).
 _ICONS_DIR = Path(__file__).resolve().parent.parent / "icons"
 
 _cache: dict[tuple[str, int], QIcon] = {}

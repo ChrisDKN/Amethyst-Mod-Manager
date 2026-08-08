@@ -1,14 +1,14 @@
 """
 ue_pak_reader.py
 List asset paths inside Unreal Engine .pak and IoStore .utoc archives
-(table-of-contents only — no file data is ever decompressed).
+(table-of-contents only - no file data is ever decompressed).
 
-.pak — the index at the tail of the archive stores every entry's path as a
+.pak - the index at the tail of the archive stores every entry's path as a
 plaintext string (all pak versions, v1 through v11). The footer is located
 (magic 0x5A6F12E1 within the last few KB) and the index parsed:
 
   * v1–v9 store one full path FString per entry, relative to the index's
-    mount point — read each string, skip the version-dependent FPakEntry
+    mount point - read each string, skip the version-dependent FPakEntry
     struct behind it, prepend the mount point.
   * v10/v11 replaced that with a path-hash index plus a "full directory
     index" (directory-name → file-name string maps); the primary index
@@ -16,21 +16,21 @@ plaintext string (all pak versions, v1 through v11). The footer is located
 
 If structured parsing fails (unknown future version, corrupt index), a
 regex plaintext scan of the index region recovers whatever asset paths it
-can — the approach the Nexus Mods App uses for its pak conflict diagnostic,
+can - the approach the Nexus Mods App uses for its pak conflict diagnostic,
 restricted here to the index region so multi-GB paks cost only one small
 read instead of a whole-file scan. An AES-encrypted index (bEncryptedIndex
-in the footer) yields an empty result — paths are not recoverable without
+in the footer) yields an empty result - paths are not recoverable without
 the game's key.
 
-.utoc — IoStore containers store their directory index as a structured
+.utoc - IoStore containers store their directory index as a structured
 tree (FIoDirectoryIndexResource): directory/file entries referencing a
 string table of individual path *segments*. A plaintext scan would only
 recover basenames, so the header and directory index are parsed properly
 and full paths reconstructed. When the directory index is missing or
-AES-encrypted (common — e.g. Marvel Rivals), the parser falls back to the
+AES-encrypted (common - e.g. Marvel Rivals), the parser falls back to the
 unencrypted FIoChunkId table: chunk ids are deterministic hashes of the
 package path plus a chunk-type byte, so identical ``chunkid:...`` keys
-across two mods still mean "same package" and conflicts are still caught —
+across two mods still mean "same package" and conflicts are still caught -
 they just display as opaque ids instead of readable paths.
 
 Companion .ucas files hold only bulk data (no names) and are not scanned.
@@ -58,7 +58,7 @@ _PAK_MAGIC = struct.pack("<I", 0x5A6F12E1)  # FPakInfo::PakFile_Magic
 # Footer size varies by pak version (44 bytes at v1 up to ~230 at v11 with
 # encryption guid + compression method names). One 4 KB tail read covers all.
 _PAK_FOOTER_WINDOW = 4096
-# Sanity cap on the index region read — real mod pak indexes are KB-scale.
+# Sanity cap on the index region read - real mod pak indexes are KB-scale.
 _MAX_INDEX_BYTES = 256 * 1024 * 1024
 
 _UTOC_MAGIC = b"-==--==--==--==-"
@@ -151,7 +151,7 @@ def _read_pak(pak_path: Path) -> list[str]:
             return []
         # bEncryptedIndex sits immediately before the magic from v4 on.
         if version >= 4 and pos >= 1 and tail[pos - 1] == 1:
-            return []  # AES-encrypted index — nothing recoverable
+            return []  # AES-encrypted index - nothing recoverable
         # Read from the primary index through EOF: v10/v11 paks store the
         # full directory index (the part holding path strings) *after* the
         # primary index, before the footer, so index_size alone would miss it.
@@ -164,7 +164,7 @@ def _read_pak(pak_path: Path) -> list[str]:
         else:
             # UE 4.22 ("v8a") serialises FPakEntry's compression-method
             # index as u8; 4.23+ ("v8b") widened it to u32. Both stamp
-            # version 8 — they differ only in footer length (4 vs 5
+            # version 8 - they differ only in footer length (4 vs 5
             # compression-name slots of 32 bytes after the 44 fixed bytes).
             comp_u8 = version == 8 and (window - pos) <= 188
             paths = _parse_pak_index_legacy(blob[:index_size], version, comp_u8)
@@ -172,7 +172,7 @@ def _read_pak(pak_path: Path) -> list[str]:
             return paths
     except (struct.error, ValueError, OverflowError, MemoryError, IndexError):
         pass
-    # Unknown/corrupt index layout — plaintext scan recovers what it can.
+    # Unknown/corrupt index layout - plaintext scan recovers what it can.
     return _extract_paths(blob)
 
 
@@ -202,7 +202,7 @@ def _skip_pak_entry(blob: bytes, o: int, version: int, comp_u8: bool) -> int:
     # Offset(i64) Size(i64) UncompressedSize(i64)
     o += 24
     # CompressionMethod: i32 enum up to v7; from v8 an index into the
-    # footer's method-name list — u8 in UE 4.22 (v8a), u32 from 4.23 (v8b+).
+    # footer's method-name list - u8 in UE 4.22 (v8a), u32 from 4.23 (v8b+).
     if comp_u8:
         compression = blob[o]
         o += 1
@@ -227,8 +227,8 @@ def _parse_pak_index_v10(blob: bytes, index_offset: int) -> list[str]:
     """Parse a v10/v11 primary index + full directory index.
 
     ``blob`` starts at the primary index (absolute file offset
-    ``index_offset``) and extends to EOF. The full directory index — the
-    section holding the path strings — is written after the primary index
+    ``index_offset``) and extends to EOF. The full directory index - the
+    section holding the path strings - is written after the primary index
     and path-hash index, so it is inside the blob; its absolute offset from
     the primary index header is rebased into blob coordinates.
     """
@@ -339,7 +339,7 @@ def _read_utoc(utoc_path: Path) -> list[str]:
             if paths:
                 return paths
 
-        # No readable directory index — fall back to package chunk ids.
+        # No readable directory index - fall back to package chunk ids.
         f.seek(chunk_ids_offset)
         raw = f.read(entry_count * 12)
     result: set[str] = set()
@@ -370,7 +370,7 @@ def _parse_directory_index(blob: bytes) -> list[str]:
     """Rebuild full paths from an FIoDirectoryIndexResource buffer.
 
     Layout: FString mount point, then arrays of directory entries
-    (name, first_child, next_sibling, first_file — u32 string-table /
+    (name, first_child, next_sibling, first_file - u32 string-table /
     entry indices, ~0 = none), file entries (name, next_file, user_data)
     and finally the string table of path segments.
     """

@@ -1,14 +1,14 @@
 """Toolkit-neutral helpers for a Nexus collection's manifest (collection.json).
 
 The GraphQL ``get_collection_detail`` call gives the mod list + optional flags but
-NOT off-site info or the authoritative load order — those live in the collection
+NOT off-site info or the authoritative load order - those live in the collection
 archive's ``collection.json``. Fetching it means downloading + extracting the
 (large) ``.7z``, so it is cached per game at
 ``<download-cache>/<slug>_rev<rev>.7z`` and read from cache when present.
 
 Extracted from the Tk ``gui/collections_dialog.py`` (the cache-read-or-fetch block
 and the off-site loop) so the Qt collection panel + the reset-load-order menu can
-reuse it. Pure I/O — no GUI imports.
+reuse it. Pure I/O - no GUI imports.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def fmt_size(n_bytes: int) -> str:
     """Human-readable file size (ported from collections_dialog._fmt_size)."""
     n_bytes = int(n_bytes or 0)
     if n_bytes <= 0:
-        return "—"
+        return "-"
     for unit, threshold in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
         if n_bytes >= threshold:
             return f"{n_bytes / threshold:.1f} {unit}"
@@ -74,7 +74,7 @@ def _read_manifest_from_cache(cache_path: Path, log_fn=None) -> dict:
                     log(f"Collection: loaded {cache_path.name} from cache")
                     return cj if isinstance(cj, dict) else {}
     except Exception as exc:
-        log(f"Collection: cached archive read failed ({exc}) — re-downloading")
+        log(f"Collection: cached archive read failed ({exc}) - re-downloading")
     return {}
 
 

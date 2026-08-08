@@ -2,7 +2,7 @@
 heroic_appnames.py
 Central registry of Heroic (Epic/GOG) app names, keyed by internal game_id.
 
-BaseGame.heroic_app_names resolves from here — handlers no longer declare
+BaseGame.heroic_app_names resolves from here - handlers no longer declare
 app names themselves.  Because the key is the game_id, entries work for any
 handler class (no inheritance leaks to subclasses) and equally for custom
 games, whose definitions carry a game_id of their own.
@@ -13,12 +13,12 @@ across games (e.g. FalloutLauncher.exe ships with both Fallout 3 GOTY and
 classic Fallout on GOG), so an exe match can resolve to the wrong title.
 
 Identifiers per store:
-  - Epic (Legendary): the appName string — a codename like 'Jaguar' for
+  - Epic (Legendary): the appName string - a codename like 'Jaguar' for
     older catalog entries, a 32-char hex id for newer ones.
   - GOG: the numeric product id as a string.  List the *installable game*
     id; store "pack" products aren't what Heroic installs.
 
-Looking up ids without installing the game — use the helper, which searches
+Looking up ids without installing the game - use the helper, which searches
 Heroic's local library plus both store catalogues and prints a ready-to-paste
 entry for this file:
 

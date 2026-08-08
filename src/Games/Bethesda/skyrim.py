@@ -48,7 +48,7 @@ class Skyrim(Fallout_3):
             ),
             WizardTool(
                 id="run_skygen_skyrim",
-                label="SkyGen — Patch Generator",
+                label="SkyGen - Patch Generator",
                 description="Scan your load order for BOS / SkyPatcher patch coverage and generate new patches.",
                 dialog_class_path="wizards.skygen.SkyGenWizard",
                 extra={"_full_width_overlay": True},

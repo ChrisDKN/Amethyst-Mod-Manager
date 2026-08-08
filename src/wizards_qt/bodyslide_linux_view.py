@@ -43,7 +43,7 @@ class BodySlideLinuxView(WizardViewBase):
                  *, tool: str = "bodyslide", **_extra):
         self._name, self._program, self._output_default = TOOLS[tool]
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("{0} (Linux) — {1}").format(
+                         title=self.tr("{0} (Linux) - {1}").format(
                              self._name, game.name))
         self._output_mod_name = self._output_default
         self._latest: tuple[str, str] | None = None
@@ -73,7 +73,7 @@ class BodySlideLinuxView(WizardViewBase):
                                     .format(self._name))
         self._make_note(lay, self.tr(
             "A native Linux build of BodySlide and Outfit Studio, shared by "
-            "every game.\n\nNo Proton prefix is used — the game, its Data "
+            "every game.\n\nNo Proton prefix is used - the game, its Data "
             "folder and the output folder are passed to the tool directly."))
 
         self._inst_status = self._make_status(lay)
@@ -137,11 +137,11 @@ class BodySlideLinuxView(WizardViewBase):
                 self._set_status(
                     self._inst_status,
                     self.tr("Installed: {0}. Could not reach GitHub to check "
-                            "for updates — see log.").format(have))
+                            "for updates - see log.").format(have))
             else:
                 self._set_status(
                     self._inst_status,
-                    self.tr("Could not reach GitHub to fetch the release — "
+                    self.tr("Could not reach GitHub to fetch the release - "
                             "see log."), err_text())
             return
 
@@ -155,7 +155,7 @@ class BodySlideLinuxView(WizardViewBase):
         elif have != tag:
             self._inst_btn.setText(self.tr("Update to {0}").format(tag))
             self._set_status(self._inst_status,
-                             self.tr("Installed: {0} — {1} is available.")
+                             self.tr("Installed: {0} - {1} is available.")
                              .format(have, tag))
         else:
             self._inst_btn.setText(self.tr("Reinstall {0}").format(tag))
@@ -221,7 +221,7 @@ class BodySlideLinuxView(WizardViewBase):
         if ok:
             self._goto_step(_PG_DEPLOY)
         else:
-            # A failed update leaves the previous install intact — let the
+            # A failed update leaves the previous install intact - let the
             # user carry on with it rather than trapping them on this page.
             self._inst_next_btn.setEnabled(is_installed())
 
@@ -273,7 +273,7 @@ class BodySlideLinuxView(WizardViewBase):
         try:
             ensure_output_mod(self._game, self._profile(),
                               self._output_mod_name)
-            self._ran = True       # modlist gained a mod — refresh on close
+            self._ran = True       # modlist gained a mod - refresh on close
         except OSError as exc:
             self._log_tool(f"could not create '{self._output_mod_name}': {exc}")
 
@@ -359,13 +359,13 @@ class BodySlideLinuxView(WizardViewBase):
 
         data_path = game.get_mod_data_path()
         if data_path is None or not data_path.is_dir():
-            self._log_tool("no deployed Data folder — deploy your modlist "
+            self._log_tool("no deployed Data folder - deploy your modlist "
                            "before building.")
             return
         found = slider_data_root(data_path)
         if found is None:
             self._log_tool("no SliderSets folder in the deployed Data folder "
-                           "— the outfit list will be empty until a BodySlide "
+                           "- the outfit list will be empty until a BodySlide "
                            "mod (CBBE, BHUNP, …) is deployed.")
             return
         try:

@@ -8,15 +8,15 @@ profile_settings.is_group == True and an ordered group_members list (index 0
 = highest priority). Its ``mods/`` is a PER-MOD-DIRECTORY SYMLINK FARM: one
 relative link per merged mod pointing at the owning member's real mod folder.
 Because every consumer resolves mod files as ``<staging root>/<mod name>``,
-dir-level links keep that invariant intact — filemap/index, deploy/undeploy,
+dir-level links keep that invariant intact - filemap/index, deploy/undeploy,
 plugin sync, conflicts, Mod Files and LOOT treat a group like any profile.
 The group owns a real overwrite/, Root_Folder/, filemap.txt and indexes.
 Members must themselves be profile-specific (a shared-pool member's modlist
-carries the whole synced pool — see Utils/profile_convert.py to convert).
+carries the whole synced pool - see Utils/profile_convert.py to convert).
 
-Merge semantics — "adopt once, reconcile thereafter":
+Merge semantics - "adopt once, reconcile thereafter":
   - Identity = Nexus mod ID + version-stripped install name (one Nexus page
-    can host several DISTINCT files under one mod ID — see
+    can host several DISTINCT files under one mod ID - see
     _mod_identity_and_version), else folder name; persisted per entry in
     "group_identity_map" so champion folder renames (and identity flips)
     rename the group entry IN PLACE, keeping its position.
@@ -26,8 +26,8 @@ Merge semantics — "adopt once, reconcile thereafter":
     state is authoritative and never re-flipped by member changes.
   - Vanished mods drop (entry, link, index, state, plugins); new member mods
     append at the END. A REAL (non-link) folder in the group's mods/ is a
-    group-LOCAL mod — wizard output installed while the group was active
-    (SMAPI, generated patches) — kept as-is with its index entry; group
+    group-LOCAL mod - wizard output installed while the group was active
+    (SMAPI, generated patches) - kept as-is with its index entry; group
     removal deletes it like a normal profile's mod. Member separators import once (a name several members
     use is qualified per source profile so each member's section survives,
     with colour/lock/collapse/deploy state carried over); the group owns its
@@ -43,7 +43,7 @@ Merge semantics — "adopt once, reconcile thereafter":
 
 materialize_group() is idempotent and O(mod count); it runs only on switch
 to the group, Refresh, deploy start, group edits, and install/remove into an
-active group — never on ordinary reloads.
+active group - never on ordinary reloads.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def staging_walk_roots(staging_root: Path) -> list[Path]:
     itself plus each top-level symlink's resolved target. os.walk never
     descends into symlinked dirs, so walking a group's link farm directly
     finds no files; nested (archive) symlinks stay unfollowed. Identity for
-    ordinary staging folders — safe to use unconditionally. Walking a single
+    ordinary staging folders - safe to use unconditionally. Walking a single
     mod dir needs nothing (os.walk follows the top path itself)."""
     roots = [staging_root]
     try:
@@ -206,7 +206,7 @@ def entry_owner_profile(group_dir: Path, entry_name: str
 
 def profile_is_locked(profile_dir: Path) -> bool:
     """True when a profile is lock-protected (Profile Settings lock, or the
-    original default) — same rule the Profile Settings rows use."""
+    original default) - same rule the Profile Settings rows use."""
     pset = read_profile_settings(profile_dir, None)
     return bool(pset.get("profile_locked") or pset.get("original_default"))
 
@@ -235,8 +235,8 @@ def _members_providing(group_dir: Path, name: str) -> list[str]:
 
 
 def locked_owners(group_dir: Path, mod_names: list[str]) -> dict[str, str]:
-    """{mod_name: locked member} for entries whose files live in — or are also
-    provided by — a LOCKED member. Removing through the group would delete
+    """{mod_name: locked member} for entries whose files live in - or are also
+    provided by - a LOCKED member. Removing through the group would delete
     that profile's mod, which is exactly what the lock protects against."""
     profiles_dir = group_dir.parent
     blocked: dict[str, str] = {}
@@ -252,7 +252,7 @@ def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
     if not getattr(game, "profile_groups_supported", True):
         raise GroupValidationError(
             f"Profile Groups aren't supported for {getattr(game, 'name', 'this game')} "
-            "— its mod-merging logic doesn't have the per-mod/enabled-state "
+            "- its mod-merging logic doesn't have the per-mod/enabled-state "
             "concept the group merge depends on."
         )
     member_dir = profiles_dir / member_name
@@ -260,7 +260,7 @@ def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
         raise GroupValidationError(f"Profile '{member_name}' does not exist.")
     if is_group(member_dir):
         raise GroupValidationError(
-            f"'{member_name}' is itself a Profile Group — groups cannot be nested."
+            f"'{member_name}' is itself a Profile Group - groups cannot be nested."
         )
     if not profile_uses_specific_mods(member_dir):
         raise GroupValidationError(
@@ -278,10 +278,10 @@ def create_group(game, group_name: str, members: list[str], *,
     """Create a Profile Group named *group_name* combining *members* (priority
     order, index 0 = highest) and materialize it. Raises GroupValidationError.
 
-    *ini_source* — when several members provide a same-named profile INI (see
+    *ini_source* - when several members provide a same-named profile INI (see
     profile_ini_conflicts), the member whose copy wins; default is the
     highest-priority contributor.
-    *overwrite_excluded* — members whose overwrite/Root_Folder files should
+    *overwrite_excluded* - members whose overwrite/Root_Folder files should
     NOT be merged into the group (creation-time choice; default = none, i.e.
     every member's files are adopted)."""
     profiles_dir = _profiles_root(game)
@@ -445,7 +445,7 @@ _VERSION_TOKEN_RE = re.compile(
 
 
 def _stripped_mod_name(folder: str) -> str:
-    """Folder name with trailing version tokens removed, casefolded — the
+    """Folder name with trailing version tokens removed, casefolded - the
     stable part of a Nexus-file-derived install name across versions."""
     s = folder.casefold().strip()
     while True:
@@ -460,7 +460,7 @@ def _mod_identity_and_version(member_mods_dir: Path, folder: str) -> "tuple[str,
     """Dedup identity + version for one member's mod folder.
 
     Nexus mods key on ``nexus:<mod_id>:<version-stripped folder name>``:
-    the mod ID alone is NOT enough — one Nexus page can host several
+    the mod ID alone is NOT enough - one Nexus page can host several
     DISTINCT files (Stardew Valley Expanded and Frontier Farm share
     modid 3753), and file_id can't help because different VERSIONS of the
     same file also differ in file_id. The version-stripped install name
@@ -498,7 +498,7 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
     for member_name in members:
         member_dir = profiles_dir / member_name
         if not member_dir.is_dir():
-            log_fn(f"Profile Group: member '{member_name}' no longer exists — skipping.")
+            log_fn(f"Profile Group: member '{member_name}' no longer exists - skipping.")
             continue
         entries = read_modlist(member_dir / "modlist.txt")
         if entries:
@@ -519,14 +519,14 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
             base = key
             if key in seen_in_member:
                 # ONE profile listing the same mod twice is a deliberate
-                # duplicate — Change Version ▸ Keep leaves the old version
+                # duplicate - Change Version ▸ Keep leaves the old version
                 # beside the new one, and that profile shows both rows on its
                 # own, so the group must too. Dedup is for the SAME mod
                 # installed in DIFFERENT members; collapsing here would make
                 # one of the two silently vanish from the group.
                 key = f"{key}#{e.name}"
                 log_fn(f"Profile Group: '{member_name}' lists '{e.name}' and "
-                       f"'{seen_in_member[base]}' as the same mod — keeping "
+                       f"'{seen_in_member[base]}' as the same mod - keeping "
                        f"both as separate group entries.")
             seen_in_member[base] = e.name
             base_of[key] = base
@@ -582,10 +582,10 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
             reason = "member priority order"
         log_fn(f"Profile Group: {', '.join(sorted(names))} are the same Nexus "
                f"mod (id {key.split(':', 2)[1]}) under different names across "
-               f"members — using '{winner_member}'s copy ({reason}).")
+               f"members - using '{winner_member}'s copy ({reason}).")
 
     # Same folder name in several members with no Nexus ID: indistinguishable,
-    # collapses to one entry — right for a shared dep installed per profile,
+    # collapses to one entry - right for a shared dep installed per profile,
     # wrong for different mods sharing a generic name. Never silent.
     for key, listers in members_by_key.items():
         if key.startswith("nexus:") or len(listers) <= 1:
@@ -593,14 +593,14 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
         folder = key.split(":", 1)[1]
         winner_member = owner_by_key[key][0]
         log_fn(f"Profile Group: '{folder}' exists in {', '.join(listers)} with "
-               f"no Nexus ID to tell the copies apart — merged as ONE mod "
+               f"no Nexus ID to tell the copies apart - merged as ONE mod "
                f"using '{winner_member}'s copy. If these are different mods, "
                f"rename one folder so both can deploy.")
 
     # Pass 2: walk members in priority order, placing each identity at its
     # owner's exact (member, folder) slot.
     # Separator names shared by several members are qualified per source
-    # profile rather than deduped — see _section_name. Pre-count so a name
+    # profile rather than deduped - see _section_name. Pre-count so a name
     # only one member uses stays clean, and seed `taken` with every literal
     # name so a generated one can never shadow a real one.
     sep_counts: dict[str, int] = {}
@@ -634,12 +634,12 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
                 continue
             # Two DIFFERENT identities can carry the same folder name across
             # members (generic name, distinct Nexus ids). Only one folder of
-            # a given name can exist in the link farm / modlist — first
+            # a given name can exist in the link farm / modlist - first
             # (highest-priority) identity wins, the collision is reported.
             if e.name in seen_folders:
                 log_fn(f"Profile Group: '{member_name}/{e.name}' collides "
                        f"with another member's different mod of the same "
-                       f"folder name — only the higher-priority one is "
+                       f"folder name - only the higher-priority one is "
                        f"merged (rename one of the folders to include both).")
                 continue
             seen_keys.add(key)
@@ -656,7 +656,7 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
 def _section_name(entry: ModEntry, member: str, counts: dict[str, int],
                   taken: set[str]) -> str:
     """Imported-separator name: unchanged when unique, qualified with the
-    source profile ("User Interface (QoL)") when several members share it —
+    source profile ("User Interface (QoL)") when several members share it -
     merged mods keep member-block order, so a single shared header would
     strand later members' mods under the wrong section. Numeric suffix only
     if the qualified name is somehow taken too."""
@@ -686,7 +686,7 @@ def _merge_plugins(profiles_dir: Path, members: list[str], star_prefix: bool):
             continue
         loadorder = read_loadorder(member_dir / "loadorder.txt")
         plugins = read_plugins(member_dir / "plugins.txt", star_prefix=star_prefix)
-        # Keyed lowercase — loadorder.txt and plugins.txt can disagree on case.
+        # Keyed lowercase - loadorder.txt and plugins.txt can disagree on case.
         enabled_by_name = {p.name.lower(): p.enabled for p in plugins}
         # loadorder.txt is the superset (vanilla + disabled-only entries on
         # legacy engines); walk it first, then plugins.txt-only stragglers.
@@ -729,7 +729,7 @@ def _merge_plugins(profiles_dir: Path, members: list[str], star_prefix: bool):
 # ---------------------------------------------------------------------------
 
 def _entry_fingerprint(index_entry) -> "str | None":
-    """Stable content fingerprint of one mod's (normal, root) index entry —
+    """Stable content fingerprint of one mod's (normal, root) index entry -
     used to detect that a member's copy changed on disk (update-in-place)
     since the group's own index last scanned it."""
     if index_entry is None:
@@ -769,7 +769,7 @@ def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
             for entry in it:
                 existing[entry.name] = entry
     except OSError as exc:
-        log_fn(f"Profile Group: could not read {group_mods} ({exc}) — "
+        log_fn(f"Profile Group: could not read {group_mods} ({exc}) - "
                f"links left unchanged.")
         return changed, removed
 
@@ -787,7 +787,7 @@ def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
             # A real folder with no modlist entry: freshly installed (the
             # modlist sync adopts it right after materialize) or stray.
             log_fn(f"Profile Group: '{name}' is a real folder with no group "
-                   f"entry — left for the modlist sync to adopt.")
+                   f"entry - left for the modlist sync to adopt.")
 
     for name, (member, folder) in owners.items():
         want = _desired_link_target(profiles_dir, group_mods, member, folder)
@@ -802,7 +802,7 @@ def _sync_link_farm(group_dir: Path, owners: dict[str, tuple[str, str]],
                 except OSError:
                     pass
             else:
-                # Real dir under an entry name — reported above; never replace.
+                # Real dir under an entry name - reported above; never replace.
                 continue
         try:
             os.symlink(want, str(link))
@@ -843,7 +843,7 @@ def _rescan_profile_mods(game, profile_dir: Path, mod_names: list[str],
             log_fn=log_fn,
         )
     except Exception as exc:
-        log_fn(f"Profile Group: index update failed ({exc}) — a Refresh will "
+        log_fn(f"Profile Group: index update failed ({exc}) - a Refresh will "
                f"rebuild it.")
     archive_exts = frozenset(getattr(game, "archive_extensions", frozenset()) or frozenset())
     if archive_exts:
@@ -961,10 +961,10 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 if e.is_separator:
                     final.append(e)
                     continue
-                # A REAL (non-link) folder is a group-LOCAL mod — wizard
+                # A REAL (non-link) folder is a group-LOCAL mod - wizard
                 # output installed while the group was active (SMAPI, script
                 # extenders, generated patches). It belongs to the group
-                # itself: keep it exactly as-is. Checked FIRST — a member
+                # itself: keep it exactly as-is. Checked FIRST - a member
                 # record must never claim a local dir via the name fallback.
                 p = group_mods / e.name
                 if p.is_dir() and not p.is_symlink():
@@ -979,7 +979,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                     continue
                 if rec["folder"] != e.name and rec["folder"] in taken:
                     # Champion flipped to a folder name another entry already
-                    # claims — unrepresentable in a name-keyed farm; drop.
+                    # claims - unrepresentable in a name-keyed farm; drop.
                     drops.append(e.name)
                     continue
                 seen_keys.add(rec["key"])
@@ -1006,7 +1006,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                 if rec["folder"] in taken:
                     _log(f"Profile Group: new arrival '{rec['folder']}' from "
                          f"'{rec['member']}' collides with an existing group "
-                         f"entry of the same folder name — skipped (rename "
+                         f"entry of the same folder name - skipped (rename "
                          f"one of the folders to include both).")
                     continue
                 seen_keys.add(rec["key"])
@@ -1030,7 +1030,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
             if new_block:
                 final[:0] = new_block
 
-            # 1. Plugin removal FIRST — dropped mods' plugins resolve from the
+            # 1. Plugin removal FIRST - dropped mods' plugins resolve from the
             # group's still-present index entries / links. Renames are NOT
             # dropped here: a drop+re-add cycle would reset the group's own
             # plugin enabled state. Their plugins are diffed after the rescan
@@ -1103,7 +1103,7 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None) -> None:
                         if fp is not None and name is not None:
                             fingerprints[name] = fp
             # Only record a fingerprint when the group index really holds the
-            # entry — a failed rescan must retry next time, not read as done.
+            # entry - a failed rescan must retry next time, not read as done.
             if to_rescan:
                 try:
                     from Utils.filemap import read_mod_index
@@ -1169,7 +1169,7 @@ def _stale_group_entries(group_dir: Path,
     index entry changed since the group last scanned them (fingerprints come
     from the MEMBER's modindex.bin, so in-place updates are caught without
     walking any tree), the refreshed fingerprint map, and member folders with
-    no index entry at all — those get the member index healed, else every
+    no index entry at all - those get the member index healed, else every
     materialize would rescan them forever."""
     from Utils.filemap import read_mod_index
     stored = _read_index_fingerprints(group_dir)
@@ -1192,7 +1192,7 @@ def _stale_group_entries(group_dir: Path,
             member_indexes[member] = midx
         fp = _entry_fingerprint(midx.get(folder))
         if fp is None:
-            # Member copy unindexed — scan through the link to stay correct,
+            # Member copy unindexed - scan through the link to stay correct,
             # and heal the member's own index so this converges.
             stale.append(name)
             unindexed.setdefault(member, []).append(folder)
@@ -1246,7 +1246,7 @@ def _adopt_separator_state(group_dir: Path, profiles_dir: Path,
                            seps: list[dict]) -> None:
     """First materialize only: carry each imported separator's colour/lock/
     collapse/deploy-path state from its source member onto its (possibly
-    qualified) group name — all four maps key on the separator name."""
+    qualified) group name - all four maps key on the separator name."""
     if not seps:
         return
     from Utils.profile_state import (
@@ -1301,7 +1301,7 @@ _PROFILE_INI_SUBDIR = "ini files"
 def _game_supports_profile_inis(game) -> bool:
     # profile_ini_files is a PATHS extra (paths.json, per-profile overridable
     # via profile_overridable_paths_extras + the profile_settings override the
-    # Bethesda family applies in _apply_profile_path_overrides) — NOT a
+    # Bethesda family applies in _apply_profile_path_overrides) - NOT a
     # game_settings.json key.
     return "profile_ini_files" in tuple(
         getattr(game, "profile_overridable_paths_extras", ()) or ())
@@ -1309,7 +1309,7 @@ def _game_supports_profile_inis(game) -> bool:
 
 def _member_uses_profile_inis(game, member_dir: Path) -> bool:
     """The member's EFFECTIVE profile_ini_files value: its own profile_settings
-    override when present, else the game's GLOBAL paths.json value (read raw —
+    override when present, else the game's GLOBAL paths.json value (read raw -
     the game object's live property reflects the ACTIVE profile's overlay,
     which may not be this member)."""
     pset = read_profile_settings(member_dir, None)
@@ -1352,7 +1352,7 @@ def profile_ini_contributors(game, profiles_dir: Path,
 def profile_ini_conflicts(game, profiles_dir: Path,
                           members: list[str]) -> "tuple[list[str], list[str]]":
     """(contributors, conflicting_filenames): INI names (case-insensitive)
-    that more than one contributing member provides — the UI prompts which
+    that more than one contributing member provides - the UI prompts which
     profile's copy the group should use before creating it."""
     contributors = profile_ini_contributors(game, profiles_dir, members)
     seen: dict[str, str] = {}
@@ -1375,13 +1375,13 @@ def profile_ini_conflicts(game, profiles_dir: Path,
 
 def _adopt_profile_inis(game, group_dir: Path, profiles_dir: Path,
                         members: list[str], log_fn) -> None:
-    """COPY contributing members' profile INIs into the group (never link —
+    """COPY contributing members' profile INIs into the group (never link -
     tools rewrite INIs in place, which would write through into the member)
     and switch the group's profile_ini_files flag on.
 
     Adopt-once PER FILE ("group_adopted_inis"), evaluated every materialize:
-    late-gained member INIs still adopt, while a file the group ever owned —
-    including one the user deleted — is never re-copied. Conflicts resolve
+    late-gained member INIs still adopt, while a file the group ever owned -
+    including one the user deleted - is never re-copied. Conflicts resolve
     via 'group_ini_source', else member priority. A group whose flag was
     explicitly switched OFF is left alone."""
     contributors = profile_ini_contributors(game, profiles_dir, members)
@@ -1402,7 +1402,7 @@ def _adopt_profile_inis(game, group_dir: Path, profiles_dir: Path,
     dest = group_dir / _PROFILE_INI_SUBDIR
     dest.mkdir(exist_ok=True)
     # Files already in the group (pre-feature manual copies, etc.) count as
-    # adopted — never overwrite them.
+    # adopted - never overwrite them.
     try:
         for f in dest.iterdir():
             if f.is_file():
@@ -1437,7 +1437,7 @@ def _adopt_profile_inis(game, group_dir: Path, profiles_dir: Path,
     for m in copied_from.values():
         by_member[m] = by_member.get(m, 0) + 1
     log_fn(f"Profile Group: adopted {len(copied_from)} profile INI file(s) "
-           f"({', '.join(f'{n} from {m}' for m, n in by_member.items())}) — "
+           f"({', '.join(f'{n} from {m}' for m, n in by_member.items())}) - "
            f"profile-specific INIs enabled for the group.")
 
 
@@ -1468,7 +1468,7 @@ def runtime_dir_contributors(profiles_dir: Path,
 def _adopt_runtime_dirs(group_dir: Path, profiles_dir: Path,
                         members: list[str], log_fn) -> None:
     """COPY members' overwrite/ + Root_Folder/ contents into the group's own
-    dirs (never link — overwrite holds runtime-rewritten files, and a link
+    dirs (never link - overwrite holds runtime-rewritten files, and a link
     would write through into the member).
 
     Adopt-once PER FILE ("group_adopted_runtime"), evaluated every
@@ -1488,7 +1488,7 @@ def _adopt_runtime_dirs(group_dir: Path, profiles_dir: Path,
     by_member: dict[str, int] = {}
     for sub in _RUNTIME_DIRS:
         dest_root = group_dir / sub
-        # Files already in the group count as owned — never overwrite them.
+        # Files already in the group count as owned - never overwrite them.
         if dest_root.is_dir():
             for dp, _dns, fns in os.walk(dest_root):
                 base = os.path.relpath(dp, dest_root)
@@ -1589,8 +1589,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
 
 def remove_member_mod(game, member_dir: Path, folder: str, *,
                       log_fn=None) -> None:
-    """Delete ONE member profile's copy of a mod — files, plugins, modlist row,
-    index rows — without touching the group.
+    """Delete ONE member profile's copy of a mod - files, plugins, modlist row,
+    index rows - without touching the group.
 
     For when the group has already moved on from that folder: a Change Version
     update whose reconcile renamed the group entry to the newly installed
@@ -1611,7 +1611,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
     second lister would otherwise resurrect it next materialize), then the
     group link/index/adopted state. delete_member_copies=False = DETACH
     (move-to-owning-member): members keep their files, so a locked member
-    doesn't block it. Does NOT touch the group's modlist.txt — the caller
+    doesn't block it. Does NOT touch the group's modlist.txt - the caller
     removes the rows (remove_mods contract) for the names RETURNED."""
     log = log_fn or app_log
     if game is None or not mod_names:
@@ -1621,7 +1621,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
         if blocked:
             for _n, _m in blocked.items():
                 log(f"Profile Group: '{_n}' belongs to the LOCKED profile "
-                    f"'{_m}' — not removed. Switch to that profile to remove "
+                    f"'{_m}' - not removed. Switch to that profile to remove "
                     f"it there, or unlock it.")
             mod_names = [n for n in mod_names if n not in blocked]
             if not mod_names:
@@ -1652,7 +1652,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             except Exception as exc:
                 log(f"undeploy during group remove failed: {exc}")
         else:
-            log("no deployment is active — skipping undeploy of removed mod(s).")
+            log("no deployment is active - skipping undeploy of removed mod(s).")
 
         # 2. Group-side plugin cleanup (resolves via group index/links).
         try:
@@ -1671,11 +1671,11 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                 if owner is None:
                     _p = staging / name
                     if _p.is_dir() and not _p.is_symlink():
-                        log(f"Profile Group: '{name}' is a group-local mod — "
+                        log(f"Profile Group: '{name}' is a group-local mod - "
                             f"removing it from the group only.")
                     else:
                         log(f"Profile Group: no owning member found for "
-                            f"'{name}' — removing the group entry only.")
+                            f"'{name}' - removing the group entry only.")
                     continue
                 key = identity_map.get(name, f"name:{name}")
                 removed_pairs = {owner}
@@ -1692,7 +1692,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                         if k == key and (member, e.name) not in removed_pairs:
                             removed_pairs.add((member, e.name))
                             log(f"Profile Group: '{member}/{e.name}' is the "
-                                f"same mod — removed as well.")
+                                f"same mod - removed as well.")
                             _member_side_remove(game, profiles_dir, member,
                                                 e.name, log)
 

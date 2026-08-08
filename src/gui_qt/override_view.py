@@ -1,4 +1,4 @@
-"""Qt Overrides tab (BG3) — override paks that deploy to the game's Mods
+"""Qt Overrides tab (BG3) - override paks that deploy to the game's Mods
 folder but never enter modsettings.lsx: paks with no meta.lsx, or whose meta
 only overwrites Larian built-in module folders. Rows are checkable; unchecking
 adds the pak to excluded_mod_files (same mechanism as the Mod Files tab's
@@ -202,7 +202,7 @@ class OverridesView(QWidget):
         self.modlist_path: Path | None = None
         self._dirty = True
         self._is_visible = False
-        self.on_select_mod = None   # callback(mod_name | None) — highlight
+        self.on_select_mod = None   # callback(mod_name | None) - highlight
         self._build()
         self._rows_ready.connect(self._on_rows_ready)
 

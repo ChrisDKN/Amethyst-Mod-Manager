@@ -5,10 +5,10 @@ Pure-Python BA2 (Bethesda Archive 2) extractor for Fallout 4.
 Handles both GNRL (general files) and DX10 (DDS textures), using zlib
 decompression where applicable.  DX10 reassembly synthesises a standard
 DDS header from the per-record metadata (height, width, mip count, DXGI
-format) and concatenates the per-mip chunks into the body — yielding a
+format) and concatenates the per-mip chunks into the body - yielding a
 loadable .dds file on disk.
 
-Sister to ba2_writer (which currently only emits GNRL — DX10 packing
+Sister to ba2_writer (which currently only emits GNRL - DX10 packing
 needs DDS-header introspection that we don't do yet).  Both share the
 ``ba2_hash`` and filtering policy from bsa_writer / ba2_writer.
 
@@ -17,10 +17,10 @@ paths, written under *dest_dir* preserving the archive's stored folder
 structure.
 
 References:
-    * Empirical inspection of vanilla FO4 BA2s — verified header fields
+    * Empirical inspection of vanilla FO4 BA2s - verified header fields
       and chunk layout against HorseArmor (GNRL), DLCworkshop03 -
       Textures (DX10), and DLCNukaWorld - Voices_en (GNRL).
-    * bsa_reader._read_ba2 in this repo — the read-list path we extend
+    * bsa_reader._read_ba2 in this repo - the read-list path we extend
       here.
     * Microsoft DDS specification (DDS_HEADER, DDS_HEADER_DXT10).
 """
@@ -50,7 +50,7 @@ class Ba2ExtractError(Exception):
 #     DDS_HEADER_DXT10  (if DX10 needed)     20 bytes
 #     pixel data (concatenated chunk bytes)
 #
-# We always emit the DXT10 extension header — it's 20 bytes of overhead but
+# We always emit the DXT10 extension header - it's 20 bytes of overhead but
 # it lets every DXGI format round-trip, including the post-DXT5 ones (BC7,
 # R8G8B8A8_UNORM, etc.) that the legacy DDS_HEADER alone can't express.
 # Tools that read DDS (DirectXTex, NVTT, GIMP+plugin, every Bethesda tool)
@@ -65,7 +65,7 @@ class Ba2ExtractError(Exception):
 #   - dxt10.dimension = 3 (TEXTURE2D)
 #   - dxt10.misc = 0 (or 4 for cubemap; we set 4 if num_mips==0xff and
 #     unk16 hints at cubemap, but BA2 doesn't cleanly disambiguate, so
-#     we default to non-cube — vanilla BA2s don't ship cubemaps in DX10
+#     we default to non-cube - vanilla BA2s don't ship cubemaps in DX10
 #     records anyway in the samples we surveyed).
 # ---------------------------------------------------------------------------
 
@@ -348,7 +348,7 @@ def _read_gnrl(f, rec: dict) -> bytes:
     """Read one GNRL file's bytes, decompressing if needed."""
     f.seek(rec["data_offset"])
     if rec["packed_size"] == 0:
-        # Uncompressed — read unpacked_size bytes verbatim.
+        # Uncompressed - read unpacked_size bytes verbatim.
         return f.read(rec["unpacked_size"])
     body = f.read(rec["packed_size"])
     return zlib.decompress(body)

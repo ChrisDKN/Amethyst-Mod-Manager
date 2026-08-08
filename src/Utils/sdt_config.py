@@ -332,7 +332,7 @@ _SCHEMA_BY_ID = {s.id: s for s in SCHEMA}
 
 _SECTION_RE = re.compile(r"^\s*\[([^\]]+)\]\s*$")
 # A setting line: an optional single '#' (disabled) immediately followed by the
-# key — no space between. This distinguishes a commented-out setting
+# key - no space between. This distinguishes a commented-out setting
 # ('#Key=value') from prose comment lines ('## ...', '#  ComboKey=1 and ...'),
 # which always put whitespace after the '#'.
 _SETTING_RE = re.compile(r"^(\s*)(#?)([A-Za-z][A-Za-z0-9_]*)\s*=(.*)$")
@@ -415,7 +415,7 @@ def render_ini(base_text: str,
             idx = section_last_idx.get(sec)
             block: list[str] = []
             if idx is None:
-                # Section missing entirely — add a header at the end.
+                # Section missing entirely - add a header at the end.
                 block.append("")
                 block.append(f"[{sec}]")
                 idx = len(lines) - 1

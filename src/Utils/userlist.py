@@ -1,5 +1,5 @@
 """
-LOOT userlist.yaml backend — parsing, writing, cycle analysis, and mutations.
+LOOT userlist.yaml backend - parsing, writing, cycle analysis, and mutations.
 
 Neutral (GUI-free) port of the static/instance helpers from
 gui/plugin_panel_userlist_cycle.py so the Qt GUI (and tests) can share them.
@@ -40,7 +40,7 @@ def parse_userlist(path: Path) -> dict:
         if not block:
             return
         entry: dict = {}
-        # name — first line is "  - name: 'Foo.esp'" or "- name: 'Foo.esp'"
+        # name - first line is "  - name: 'Foo.esp'" or "- name: 'Foo.esp'"
         m = re.match(r"^[\s\-]*name:\s*['\"]?(.*?)['\"]?\s*$", block[0])
         if m:
             entry["name"] = m.group(1)
@@ -65,7 +65,7 @@ def parse_userlist(path: Path) -> dict:
                     continue
                 if in_list:
                     if re.match(r"^\s+\w[\w_]*\s*:", line):
-                        # A new key at the same or lower indent — end of this list
+                        # A new key at the same or lower indent - end of this list
                         in_list = False
                     else:
                         item_m = re.match(r"^\s*-\s*['\"]?(.*?)['\"]?\s*$", line)
@@ -148,7 +148,7 @@ def write_userlist(path: Path, data: dict) -> None:
     if lines:
         write_atomic_text(path, "\n".join(lines) + "\n")
     else:
-        # Nothing left — remove the file so libloot doesn't choke on an empty document
+        # Nothing left - remove the file so libloot doesn't choke on an empty document
         path.unlink(missing_ok=True)
 
 
@@ -167,9 +167,9 @@ def analyze_userlist_cycles(data: dict) -> dict:
 
     Returns a dict:
       {
-        "plugins":    set[str] — every plugin in any cycle (lowercased),
-        "components": dict[str, frozenset[str]] — plugin → SCC membership,
-        "edges":      dict[(u, v), list[dict]] — structured reasons.
+        "plugins":    set[str] - every plugin in any cycle (lowercased),
+        "components": dict[str, frozenset[str]] - plugin → SCC membership,
+        "edges":      dict[(u, v), list[dict]] - structured reasons.
       }
     Each edge reason is a dict like:
       {"kind": "plugin", "text": str,
@@ -227,7 +227,7 @@ def analyze_userlist_cycles(data: dict) -> dict:
                 "target": other,
             })
 
-    # Group-level rules — expand each group-after into plugin-plugin edges.
+    # Group-level rules - expand each group-after into plugin-plugin edges.
     group_members: dict[str, list[str]] = {}
     for entry in plugins:
         name = (entry.get("name") or "").lower()
@@ -307,7 +307,7 @@ def analyze_userlist_cycles(data: dict) -> dict:
                 if indices[nxt] < low[node]:
                     low[node] = indices[nxt]
 
-    # Only keep edges that are fully inside a cycle — irrelevant edges would
+    # Only keep edges that are fully inside a cycle - irrelevant edges would
     # clutter the cycle view.
     cycle_edges: dict[tuple[str, str], list[dict]] = {}
     for (u, v), reasons in edges.items():
@@ -424,7 +424,7 @@ def flip_plugin_rule(data: dict, owner: str, field_name: str, target: str) -> bo
         cur = entry.get(field_name, []) or []
         new_cur = [t for t in cur if t.lower() != target_lower]
         if len(new_cur) == len(cur):
-            continue  # target not actually present — nothing to flip
+            continue  # target not actually present - nothing to flip
         if new_cur:
             entry[field_name] = new_cur
         else:
@@ -443,7 +443,7 @@ def build_cycle_scope_data(data: dict, scope: frozenset[str],
 
     Port of the compute half of Tk _refresh_cycle_overlay_data: every rule
     between scope plugins (cyclic or not), which edges are still cyclic, and
-    which plugin rules would — flipped in isolation — resolve every cycle.
+    which plugin rules would - flipped in isolation - resolve every cycle.
 
     Returns {"scope_edges", "cyclic_edges", "fixable_reasons", "is_broken"}.
     """
@@ -484,7 +484,7 @@ def build_cycle_scope_data(data: dict, scope: frozenset[str],
                 "target": other,
                 "id": (name, "before", ol),
             })
-    # Group rules — informational only. Any group→group rule where both ends
+    # Group rules - informational only. Any group→group rule where both ends
     # include at least one scope plugin shows up here.
     group_members: dict[str, list[str]] = {}
     for entry in data.get("plugins", []):
@@ -513,7 +513,7 @@ def build_cycle_scope_data(data: dict, scope: frozenset[str],
 
     # Mark which edges still form part of a cycle so the view can annotate
     # them. Edge (u, v) is cyclic iff u and v share an SCC AND that SCC has
-    # size ≥ 2 (or a self-loop — guaranteed by analyzer).
+    # size ≥ 2 (or a self-loop - guaranteed by analyzer).
     cyclic_edges: set[tuple[str, str]] = set()
     for (u, v) in scope_edges:
         cu = cycle_components.get(u)
@@ -527,7 +527,7 @@ def build_cycle_scope_data(data: dict, scope: frozenset[str],
     # cycle inside the scope. These get highlighted as single-flip fixes.
     fixable_reasons: set[tuple[str, str, str]] = set()
     if is_broken:
-        # Collect unique plugin rules from cyclic edges — flipping a
+        # Collect unique plugin rules from cyclic edges - flipping a
         # non-cyclic rule can't break a cycle that doesn't touch it.
         seen: set[tuple[str, str, str]] = set()
         for edge in cyclic_edges:
@@ -556,7 +556,7 @@ def build_cycle_scope_data(data: dict, scope: frozenset[str],
 def set_plugin_rules(data: dict, plugin_name: str,
                      after: list[str], before: list[str]) -> None:
     """Replace plugin_name's entry with the given before/after lists (inline
-    'Add to userlist' panel semantics — Tk _ul_save). Keeps the existing
+    'Add to userlist' panel semantics - Tk _ul_save). Keeps the existing
     group, defaulting to 'default'."""
     existing = next(
         (e for e in data["plugins"] if e.get("name", "").lower() == plugin_name.lower()),
@@ -603,7 +603,7 @@ def remove_plugins(data: dict, plugin_names: list[str]) -> None:
 def save_plugin_rules_merged(data: dict, plugin_name: str,
                              rules: list[list[str]]) -> None:
     """Replace plugin_name's before/after lists from [[rel, target], ...]
-    (Plugin Rules view semantics — Tk LootPluginRulesOverlay._save_current).
+    (Plugin Rules view semantics - Tk LootPluginRulesOverlay._save_current).
     Merges into the existing entry to preserve extra fields; drops the entry
     entirely when nothing meaningful remains."""
     existing = next(

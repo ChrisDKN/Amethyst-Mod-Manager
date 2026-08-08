@@ -1,6 +1,6 @@
 """Toolkit-neutral UI interaction hooks.
 
-The backend sometimes needs to interact with the user mid-operation — ask a
+The backend sometimes needs to interact with the user mid-operation - ask a
 multiple-choice question, or surface a warning. It must not import the GUI
 toolkit to do so (so it stays headless-safe and portable across Tk/Qt).
 
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-# Navigation sentinels — see module docstring.
+# Navigation sentinels - see module docstring.
 BACK = object()
 USE_DEFAULTS = object()
 
@@ -67,7 +67,7 @@ def ask_choice(title: str, prompt: str, options: "list[str]",
     """
     if _choice_handler is None:
         if log_fn:
-            log_fn("  [ui_hooks] no choice handler registered — keeping defaults.")
+            log_fn("  [ui_hooks] no choice handler registered - keeping defaults.")
         return None
     return _choice_handler(
         title=title, prompt=prompt, options=options,

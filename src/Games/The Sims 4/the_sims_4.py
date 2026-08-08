@@ -7,7 +7,7 @@ Mod structure:
     drive_c/users/steamuser/Documents/Electronic Arts/The Sims 4/Mods/
   Staged mods live in Profiles/The Sims 4/mods/
 
-  Only .package/.ts4script and Tray files are deployed — other files
+  Only .package/.ts4script and Tray files are deployed - other files
   (readmes, images, etc.) are excluded via mod_install_extensions.
 
   Tray content (households, lots, rooms shared as .trayitem sets) is routed
@@ -28,7 +28,7 @@ _MODS_SUBPATH = Path(
     "drive_c/users/steamuser/Documents/Electronic Arts/The Sims 4/Mods"
 )
 
-# Sibling of Mods/ — the game reads shared households/lots/rooms from here.
+# Sibling of Mods/ - the game reads shared households/lots/rooms from here.
 _TRAY_SUBPATH = _MODS_SUBPATH.parent / "Tray"
 
 # Tray file extensions; the game only reads these from Tray/, never Mods/.

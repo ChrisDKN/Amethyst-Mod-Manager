@@ -10,7 +10,7 @@ package; the non-Flatpak flavors share the XDG locations.
 Prefixes are umu-managed: WINEPREFIX is the per-game ``prefix`` path
 itself (drive_c at the root, umu adds a ``pfx -> .`` self-symlink on
 first run and creates the ``steamuser`` account), so the existing Proton
-machinery handles them. There is no marker file inside the prefix —
+machinery handles them. There is no marker file inside the prefix -
 identity comes from games.json membership or the configured default
 prefix directory. Proton runners referenced by name live in Steam's
 compatibilitytools.d (Faugus downloads them there itself).
@@ -77,7 +77,7 @@ def _faugus_root_candidates() -> list[FaugusRoot]:
         pass
 
     candidates += [
-        # Native / AppImage — respects XDG_DATA_HOME / XDG_CONFIG_HOME
+        # Native / AppImage - respects XDG_DATA_HOME / XDG_CONFIG_HOME
         FaugusRoot(_XDG_DATA / "faugus-launcher",
                    _XDG_CONFIG / "faugus-launcher", is_flatpak=False),
         FaugusRoot(_HOME / ".local" / "share" / "faugus-launcher",
@@ -112,7 +112,7 @@ def _maybe_log_faugus_data_missing() -> None:
         from Utils.app_log import app_log
         app_log(
             "Faugus Launcher appears to be installed but no Faugus data "
-            "directory was located — set a custom Faugus data path in the "
+            "directory was located - set a custom Faugus data path in the "
             "app's settings if Faugus-managed games aren't detected"
         )
     except Exception:
@@ -217,7 +217,7 @@ def find_faugus_game_info_by_exe(exe_name: str) -> "tuple[Path, Path | None, str
 
     Matches *exe_name* against each game's configured ``path`` (tail-segment
     match, case-insensitive). Returns (install_path, prefix_path | None,
-    gameid), or None. The prefix is only returned once it exists on disk —
+    gameid), or None. The prefix is only returned once it exists on disk -
     Faugus records it at add time but umu creates it on first run.
     """
     rel_parts = _split_exe_rel_parts(exe_name)
@@ -260,7 +260,7 @@ def find_faugus_gameids_by_exes(exe_names) -> list[str]:
 
 def find_faugus_launch_info(gameids: list) -> "tuple[str, bool] | None":
     """(gameid, faugus_is_flatpak) for the first game matching any of
-    *gameids* — used to build a ``faugus-launcher --game <id>`` launch."""
+    *gameids* - used to build a ``faugus-launcher --game <id>`` launch."""
     wanted = {str(g).lower() for g in gameids if g}
     if not wanted:
         return None
@@ -346,7 +346,7 @@ def find_faugus_proton_name_for_prefix(prefix_path: "str | Path") -> str | None:
 
     Returns None when the runner isn't a Proton build we can resolve
     ("Steam", "Linux-Native", the sniper runtime, the system CachyOS build,
-    or no runner at all) — callers fall back to config_info / newest
+    or no runner at all) - callers fall back to config_info / newest
     installed Proton in that case.
     """
     runner = _runner_for_prefix(prefix_path)
@@ -359,7 +359,7 @@ def _match_latest_runner(name: str, installed_names: list) -> str | None:
     """Resolve a '<family> Latest' runner name against installed Proton dirs.
 
     Pure string matching: strips the ' Latest' suffix, alnum-normalizes, and
-    also tries the reversed two-word spelling ('Proton-GE' vs 'GE-Proton' —
+    also tries the reversed two-word spelling ('Proton-GE' vs 'GE-Proton' -
     Faugus renamed its families at some point). *installed_names* is expected
     newest-first (list_installed_proton order); first prefix-match wins.
     """
@@ -385,9 +385,9 @@ def _match_latest_runner(name: str, installed_names: list) -> str | None:
 def find_faugus_proton_for_prefix(prefix_path: "str | Path") -> Path | None:
     """Proton script for the runner Faugus has configured for *prefix_path*.
 
-    Exact (normalized) directory-name match first — the '<family> Latest'
+    Exact (normalized) directory-name match first - the '<family> Latest'
     names are literal directory names Faugus creates in compatibilitytools.d
-    — then a family fallback so an older Faugus spelling still finds the
+    - then a family fallback so an older Faugus spelling still finds the
     newest installed build of that family. None when nothing matches (the
     callers' own fallback chain continues).
     """

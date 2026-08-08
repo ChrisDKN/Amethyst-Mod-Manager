@@ -2,7 +2,7 @@
 deploy_shared.py
 Shared primitives used by the deploy_* mode modules.
 
-Extracted from deploy.py during the 2026-04 refactor. No behaviour changes —
+Extracted from deploy.py during the 2026-04 refactor. No behaviour changes -
 the original deploy.py re-exports everything here via `from ... import *`.
 """
 
@@ -33,7 +33,7 @@ def _mkdir_leaves(dirs: "set[str]") -> None:
     if not dirs:
         return
     # A dir is redundant if any of its ancestor-or-self chain members
-    # (besides itself) is also in *dirs* as a deeper path — equivalently,
+    # (besides itself) is also in *dirs* as a deeper path - equivalently,
     # any ancestor of a deeper dir is redundant. Build the set of all
     # strict ancestors of every dir, then keep only dirs not in that set.
     redundant: set[str] = set()
@@ -68,7 +68,7 @@ def _map_batched(fn, items: list, chunk: int = 2048) -> list:
 
     ThreadPoolExecutor.map creates one future per item (its chunksize
     argument only applies to process pools), and at ~30µs of dispatch
-    overhead per future that swamps a ~10µs syscall — 125k items cost
+    overhead per future that swamps a ~10µs syscall - 125k items cost
     seconds of pure overhead.  Slicing the list so each worker runs a plain
     loop over a chunk keeps the parallelism while paying dispatch once per
     chunk.  Preserves item order.
@@ -118,7 +118,7 @@ def expand_separator_deploy_paths(
     """Convert sep_paths → {mod_name: Path} using modlist order.
 
     Only mods whose separator has a non-empty path override are included.
-    entries — list[ModEntry] from read_modlist()
+    entries - list[ModEntry] from read_modlist()
     """
     result: dict[str, Path] = {}
     current_override: Path | None = None
@@ -140,7 +140,7 @@ def expand_separator_raw_deploy(
 
     When raw deploy is on, deployment rules (routing, strip) are ignored and
     files are placed as-is relative to the custom deploy directory.
-    entries — list[ModEntry] from read_modlist()
+    entries - list[ModEntry] from read_modlist()
     """
     result: set[str] = set()
     current_raw = False
@@ -224,7 +224,7 @@ def _reconstruct_custom_deploy_list(
         log_fn(f"  WARN: could not read filemap for cleanup fallback: {exc}")
         return []
     if result:
-        log_fn(f"  custom_deploy_log.txt missing — reconstructed {len(result)} entry/entries from filemap.")
+        log_fn(f"  custom_deploy_log.txt missing - reconstructed {len(result)} entry/entries from filemap.")
     return result
 
 
@@ -284,7 +284,7 @@ def cleanup_custom_deploy_dirs(
     removed = 0
     skipped_unknown = 0
     dirs_to_prune: set[Path] = set()
-    # Seed stop_dirs with the user-configured custom deploy roots — those are
+    # Seed stop_dirs with the user-configured custom deploy roots - those are
     # always-existing parents we must never remove. Subfolders we created
     # underneath them are fair game for empty-dir pruning so the destination
     # is left clean.
@@ -300,7 +300,7 @@ def cleanup_custom_deploy_dirs(
 
     import stat as _stat
     for abs_str, src_str in file_list:
-        # Entries are absolute filesystem paths by design — only reject ``..``
+        # Entries are absolute filesystem paths by design - only reject ``..``
         # segments, not the leading ``/``.
         _norm = abs_str.replace("\\", "/")
         if ".." in _norm.split("/"):
@@ -320,7 +320,7 @@ def cleanup_custom_deploy_dirs(
             # In fallback mode we have no proof this regular file came from
             # our deploy. Only delete if it shares an inode with the staging
             # source (i.e. it's a hardlink we created). Otherwise leave it
-            # alone — it may be a pre-existing vanilla file that the original
+            # alone - it may be a pre-existing vanilla file that the original
             # deploy failed to back up.
             same_inode = False
             if src_str:
@@ -334,7 +334,7 @@ def cleanup_custom_deploy_dirs(
                     pass
             if not same_inode:
                 skipped_unknown += 1
-                _log(f"  Skipped (no backup, not a known link) — {target}")
+                _log(f"  Skipped (no backup, not a known link) - {target}")
                 continue
 
         try:
@@ -367,7 +367,7 @@ def cleanup_custom_deploy_dirs(
     if skipped_unknown:
         _log(
             f"  Skipped {skipped_unknown} pre-existing file(s) at custom deploy "
-            f"location(s) — no backup found, left untouched to avoid data loss."
+            f"location(s) - no backup found, left untouched to avoid data loss."
         )
     return removed
 
@@ -380,7 +380,7 @@ def restore_custom_deploy_backup_for_path(
     """Restore backed-up originals whose location is under custom_path.
 
     Called when a separator with a custom deploy location is removed while the
-    game is still deployed — the backup files for that location must be put back
+    game is still deployed - the backup files for that location must be put back
     immediately rather than waiting for the next full restore.
 
     Also removes the corresponding entries from custom_deploy_log.txt so that
@@ -417,7 +417,7 @@ def restore_custom_deploy_backup_for_path(
             continue
         rel = bak_src.relative_to(backup_dir)
         if any(part.endswith(_MOVE_TMP_SUFFIX) for part in rel.parts):
-            continue  # interrupted-move partial — cleaned with the subtree below
+            continue  # interrupted-move partial - cleaned with the subtree below
         orig = Path("/") / rel
         try:
             _move_crash_safe(bak_src, orig)
@@ -511,7 +511,7 @@ def _restore_backup_dir(
     restored = 0
     _bak_files: list[Path] = []
     for _dp, _dns, _fns in os.walk(str(backup_dir)):
-        # Interrupted cross-device moves leave *.mm_tmp partials — never
+        # Interrupted cross-device moves leave *.mm_tmp partials - never
         # restore those; drop them so they don't survive into the next deploy.
         for _dn in [d for d in _dns if d.endswith(_MOVE_TMP_SUFFIX)]:
             _dns.remove(_dn)
@@ -525,7 +525,7 @@ def _restore_backup_dir(
         rel = bak_src.relative_to(backup_dir)
         orig = target_root / rel
         if check_traversal and not _path_under_root(orig, target_root):
-            _log(f"  SKIP: path traversal blocked — {rel}")
+            _log(f"  SKIP: path traversal blocked - {rel}")
             continue
         try:
             _move_crash_safe(bak_src, orig)
@@ -553,7 +553,7 @@ def expand_separator_merge_dirs(
     """Return the set of mod names whose separator has 'merge folders' enabled.
 
     When merge is on, the wholesale-folder-replace pass in deploy_filemap is
-    skipped for that mod's top-level folders — files are still backed up and
+    skipped for that mod's top-level folders - files are still backed up and
     deployed individually, so file-level overwrites are still reversible.
     """
     result: set[str] = set()
@@ -602,19 +602,19 @@ class CustomRule:
 
     Matching is by extension, leading folder name, or both (both must match).
 
-    dest       — path relative to the game install root (e.g. "pak_mods", "")
-    extensions — lowercase file extensions to match (e.g. [".pak"]).
+    dest       - path relative to the game install root (e.g. "pak_mods", "")
+    extensions - lowercase file extensions to match (e.g. [".pak"]).
                  Empty list means no extension filter.
-    folders    — path-segment names to match (e.g. ["natives"]).  Matching is
+    folders    - path-segment names to match (e.g. ["natives"]).  Matching is
                  case-insensitive, but the casing spelled here is the canonical
                  one: a matched folder deploys under this spelling no matter
                  what casing the mod shipped, so ``~Mods`` and ``~mods`` can't
                  become two folders on a case-sensitive filesystem.
                  Empty list means no folder filter.
-    loose_only — when True, the rule only matches files that are not inside
+    loose_only - when True, the rule only matches files that are not inside
                  any folder (i.e. files at the mod root with no directory
                  components in their relative path).  Default False.
-    companion_extensions — lowercase file extensions (e.g. [".ini"]) whose
+    companion_extensions - lowercase file extensions (e.g. [".ini"]) whose
                  owners ride along with a primary match.  When this rule
                  matches a file, any sibling in the same folder with the same
                  basename stem and one of these extensions is also routed to
@@ -622,11 +622,11 @@ class CustomRule:
                  plugins where "Foo.asi" and "Foo.ini" must both live at the
                  game root even though the ``.ini`` extension is too generic
                  to route unconditionally.
-    flatten    — when True, folder matches drop all directory components
+    flatten    - when True, folder matches drop all directory components
                  below the matched folder so the file lands flat under
                  ``dest``.  Default False (preserve subfolders, the historical
                  behaviour).
-    include_siblings — when True, a single match drags the *containing
+    include_siblings - when True, a single match drags the *containing
                  folder* of the matched file along with it: every sibling
                  file under that folder (from the same mod) is routed to
                  ``dest`` too, preserving its path relative to the
@@ -635,7 +635,7 @@ class CustomRule:
                  ``dest`` so files stay grouped.  Useful for mods like
                  ``PD2-AdvancedCrosshairs/mod.txt`` where matching
                  ``mod.txt`` should also bring the whole mod folder along.
-    to_prefix  — when True, ``dest`` is resolved relative to the game's
+    to_prefix  - when True, ``dest`` is resolved relative to the game's
                  Proton/Wine prefix root (the ``pfx/`` directory) instead
                  of the game install root.  Use for files that belong
                  inside the virtual Windows filesystem (e.g.
@@ -643,11 +643,11 @@ class CustomRule:
                  caller to pass ``prefix_root`` to ``deploy_custom_rules``;
                  rules with ``to_prefix=True`` are skipped when no prefix
                  is available.
-    mirror_dests — additional destination dirs (resolved under the same
+    mirror_dests - additional destination dirs (resolved under the same
                  base as ``dest``) that every matched file is also placed
                  into.  Used for Steam/GOG dual My Games folders where the
                  same save must land in both variants.
-    exclude_extensions — lowercase file extensions this rule must NOT claim,
+    exclude_extensions - lowercase file extensions this rule must NOT claim,
                  even when the folder/filename criteria match.  Used by BG3's
                  ``mods`` folder rule so loose files under Mods/ route to the
                  game Data dir while ``Mods/Foo.pak`` stays with the normal
@@ -682,7 +682,7 @@ class RestoreWhitelistRule:
     ``path`` and protect the whole subtree; ``filenames`` and ``extensions``
     match files directly at ``path`` only.  ``folders``/``filenames`` accept
     fnmatch globs (``ego_dlc*``, ``*.log``).  Only runtime-generated files are
-    protected — deployed mod files are still removed by restore.
+    protected - deployed mod files are still removed by restore.
     """
     path: str = ""
     extensions: list[str] = field(default_factory=list)
@@ -736,7 +736,7 @@ def build_restore_whitelist_matcher(rules, rel_prefix: str = ""):
             if full.startswith(rel_prefix):
                 dir_prefixes.append(full[len(rel_prefix):])
             elif rel_prefix.startswith(full):
-                # Protected folder contains the walk root — protect everything.
+                # Protected folder contains the walk root - protect everything.
                 dir_prefixes.append("")
         for fname in getattr(rule, "filenames", None) or []:
             fname = fname.strip().lower()
@@ -811,10 +811,10 @@ def _default_core(deploy_dir: Path) -> Path:
 
 
 # Errnos that mean "hardlink can't work here" rather than a real failure:
-#   EXDEV  — src and dst on different filesystems (SD card, external drive)
-#   EPERM  — filesystem doesn't support hardlinks (exFAT, some FUSE mounts)
-#   ENOTSUP/EOPNOTSUPP — explicit "operation not supported" from the FS
-#   EMLINK — link count exceeded (rare, but unrecoverable for hardlink)
+#   EXDEV  - src and dst on different filesystems (SD card, external drive)
+#   EPERM  - filesystem doesn't support hardlinks (exFAT, some FUSE mounts)
+#   ENOTSUP/EOPNOTSUPP - explicit "operation not supported" from the FS
+#   EMLINK - link count exceeded (rare, but unrecoverable for hardlink)
 # On any of these we fall back to symlink, then copy.
 _HARDLINK_FALLBACK_ERRNOS = frozenset(
     e for e in (
@@ -827,8 +827,8 @@ _HARDLINK_FALLBACK_ERRNOS = frozenset(
 )
 
 # Errnos that mean "symlink can't work here" rather than a real failure:
-#   EPERM  — filesystem doesn't support symlinks (exFAT, FAT32, most CIFS)
-#   ENOSYS/ENOTSUP/EOPNOTSUPP — explicit "operation not supported" from the FS
+#   EPERM  - filesystem doesn't support symlinks (exFAT, FAT32, most CIFS)
+#   ENOSYS/ENOTSUP/EOPNOTSUPP - explicit "operation not supported" from the FS
 # On any of these we fall back to copy. EEXIST and friends still raise.
 _SYMLINK_FALLBACK_ERRNOS = frozenset(
     e for e in (
@@ -893,7 +893,7 @@ def _transfer(src: Path, dst: Path, mode: LinkMode) -> None:
             if exc.errno not in _HARDLINK_FALLBACK_ERRNOS:
                 raise
             _notify_hardlink_fallback(exc)
-        # Cross-FS or unsupported — try symlink, then copy.
+        # Cross-FS or unsupported - try symlink, then copy.
         try:
             os.symlink(src, dst)
             return
@@ -914,13 +914,13 @@ def _transfer(src: Path, dst: Path, mode: LinkMode) -> None:
 
 
 # Suffix for in-flight cross-device move targets. A crash mid-copy leaves
-# only a *.mm_tmp leftover, never a partial file/folder at the real path —
+# only a *.mm_tmp leftover, never a partial file/folder at the real path -
 # restore walkers skip and clean these.
 _MOVE_TMP_SUFFIX = ".mm_tmp"
 
 # Sibling-name infix for restore's deferred delete (see deploy_standard):
 # "Data" is renamed to "Data.mm_trash-<time_ns>" and deleted in a background
-# thread.  Every game-root walker must skip these dirs — they can hold
+# thread.  Every game-root walker must skip these dirs - they can hold
 # thousands of files mid-delete, which would poison the deploy snapshot or
 # trip _move_runtime_files' low-overlap safety net.
 _TRASH_INFIX = ".mm_trash-"
@@ -931,7 +931,7 @@ def _move_crash_safe(src: "Path | str", dst: "Path | str") -> None:
 
     Same-device moves are a single atomic rename. Cross-device (EXDEV), the
     data is copied to a sibling ``<name>.mm_tmp`` first, renamed into place,
-    and only then is the source deleted — shutil.move's copy-then-delete can
+    and only then is the source deleted - shutil.move's copy-then-delete can
     leave a partial copy at the destination that a later restore would trust.
     """
     src_str, dst_str = str(src), str(dst)
@@ -979,7 +979,7 @@ def _clear_dir(directory: Path) -> int:
     if not directory.is_dir():
         return 0
     # Single bottom-up walk: unlink files (counting as we go) and rmdir the
-    # emptied subdirs — os.walk classifies entries via readdir d_type, so
+    # emptied subdirs - os.walk classifies entries via readdir d_type, so
     # there is no stat per entry, and no second walk just to get the count.
     count = 0
     for dp, dns, fns in os.walk(str(directory), topdown=False):
@@ -991,7 +991,7 @@ def _clear_dir(directory: Path) -> int:
             try:
                 os.rmdir(sub)
             except NotADirectoryError:
-                # Symlink to a dir — walk lists it in dns but never descends.
+                # Symlink to a dir - walk lists it in dns but never descends.
                 os.unlink(sub)
     return count
 
@@ -1013,7 +1013,7 @@ def set_deploy_excluded_raw(value: "dict[str, set[str]] | None") -> None:
 
 
 def _build_mod_index_deploy(mod_root: "Path", mod_name: str):
-    """_build_mod_index minus the deploy-scoped excluded keys — deploy_filemap
+    """_build_mod_index minus the deploy-scoped excluded keys - deploy_filemap
     reads these maps directly, so a miss must fall through to _resolve_source."""
     built = _build_mod_index(mod_root)
     exc = _DEPLOY_EXCLUDED_RAW.get(mod_name)
@@ -1130,7 +1130,7 @@ def _do_link(src: str, dst: str, mode: LinkMode) -> OSError | None:
 def _do_link_ex(src: str, dst: str, mode: LinkMode) -> tuple["LinkMode | None", OSError | None]:
     """Like _do_link but also reports the mode that actually succeeded.
 
-    Returns (effective_mode, None) on success — effective_mode reflects the
+    Returns (effective_mode, None) on success - effective_mode reflects the
     real transfer used after any hardlink → symlink → copy fallback, so the
     caller can report a per-mode breakdown. Returns (None, OSError) on failure.
     """
@@ -1175,10 +1175,10 @@ def _restore_from_log(
 ) -> int:
     """Shared restore logic: read log, delete placed files, restore backups.
 
-    log_path    — file listing relative paths (one per line) that were deployed
-    target_root — directory the files were deployed into
-    backup_dir  — directory holding backed-up originals (or None)
-    prune_dirs  — if True, remove empty directories left behind
+    log_path    - file listing relative paths (one per line) that were deployed
+    target_root - directory the files were deployed into
+    backup_dir  - directory holding backed-up originals (or None)
+    prune_dirs  - if True, remove empty directories left behind
 
     Returns the number of files removed from target_root.
     """
@@ -1200,7 +1200,7 @@ def _restore_from_log(
     for rel_str in placed:
         dst = target_root / rel_str
         if not _path_under_root(dst, target_root):
-            _log(f"  SKIP: path traversal blocked — {rel_str}")
+            _log(f"  SKIP: path traversal blocked - {rel_str}")
             continue
         safe_targets.append(_target_str + "/" + rel_str)
 
@@ -1255,7 +1255,7 @@ def _wrapper_chains(
     Returns [(chain_rel, names_lower), ...] where the first entry is always
     ("", <entry names at mod root>) and each further entry is a wrapper chain
     like "Data" or "Data/oblivion" (actual on-disk casing) with the lowercase
-    entry names directly inside it.  A couple of scandir calls per mod — no
+    entry names directly inside it.  A couple of scandir calls per mod - no
     tree walk.
     """
     out: list[tuple[str, set[str]]] = []
@@ -1297,22 +1297,22 @@ def _prebuild_mod_indexes(
     """Pre-build per-mod file indexes for all mods referenced in the filemap.
 
     Fast path: synthesize on-disk paths from ``<index_dir>/modindex.bin``
-    (already built by filemap.py) — no filesystem walk.  The index stores
+    (already built by filemap.py) - no filesystem walk.  The index stores
     *stripped* rel paths, so when strip prefixes are in play the actual file
     may sit behind a wrapper folder (e.g. Data/); those wrapper chains are
     rediscovered with a couple of scandir calls per mod and each entry is
     mapped back to its physical location by checking its first path segment
     against the cached directory listings.
 
-    index_dir — the directory holding filemap.txt + modindex.bin, i.e. the
+    index_dir - the directory holding filemap.txt + modindex.bin, i.e. the
     STAGING PARENT (callers pass ``filemap_path.parent``). For shared-mods
-    profiles that is ``Profiles/<game>/`` — NEVER the per-profile folder
+    profiles that is ``Profiles/<game>/`` - NEVER the per-profile folder
     (``profiles/<name>/``): all shared profiles use the one shared mods/
     folder, so a single modindex.bin next to it is valid for every profile.
     (Only profile-specific-mods profiles keep their filemap + index inside
     the profile dir, and there staging parent == profile dir anyway.) The
     parameter was previously named ``profile_dir``, which wrongly suggested
-    the per-profile folder — the Tk-era install path wrote a stray
+    the per-profile folder - the Tk-era install path wrote a stray
     ``profiles/<name>/modindex.bin`` because of exactly that confusion.
 
     Slow path: os.walk each mod folder (index missing/stale, or per-mod
@@ -1363,7 +1363,7 @@ def _prebuild_mod_indexes(
 
         chains = _wrapper_chains(mr_str, strip_set) if strip_set else []
         if len(chains) <= 1:
-            # No wrapper folders on disk — nothing was stripped for this mod,
+            # No wrapper folders on disk - nothing was stripped for this mod,
             # so the index rel paths are the on-disk paths.
             #
             # For [Overwrite] specifically, verify each synthesized path exists.
@@ -1371,7 +1371,7 @@ def _prebuild_mod_indexes(
             # STALE rels for files no longer in overwrite/ (folder cleared,
             # profile switch, manual delete). Without this check the synthesized
             # path is trusted verbatim and deploy_filemap symlinks to a source
-            # that isn't there — producing a DANGLING symlink in the game folder
+            # that isn't there - producing a DANGLING symlink in the game folder
             # (the "ghost [Overwrite] file deploys as a dead link" bug). A miss
             # here correctly falls through to _resolve_source, which returns None
             # and the entry is skipped. overwrite/ is small (runtime files only)
@@ -1402,7 +1402,7 @@ def _prebuild_mod_indexes(
                             if ((c.lower() + "/" + rel_lower) if c
                                 else rel_lower) not in _exc]
                 if not hits:
-                    continue  # stale entry — per-file fallback handles it
+                    continue  # stale entry - per-file fallback handles it
                 if len(hits) == 1:
                     chain = hits[0]
                     built[rel_lower] = (
@@ -1410,7 +1410,7 @@ def _prebuild_mod_indexes(
                         else mr_str + "/" + rel_str
                     )
                     continue
-                # Same first segment exists at multiple wrapper levels —
+                # Same first segment exists at multiple wrapper levels -
                 # verify which physical file is real.
                 for chain in hits:
                     cand = (
@@ -1450,7 +1450,7 @@ def _pick_case_variant(variants: "list[str]", requested: str, parent_str: str,
        their engine skeleton via ``filemap_casing_pins`` (e.g. Cyberpunk's
        lowercase ``archive/pc/mod``) get a deterministic vanilla pick here
        regardless of what else is on disk.
-    2. The variant that already contains the next path segment — merge into
+    2. The variant that already contains the next path segment - merge into
        the chain that exists.
     3. The most-lowercase name (vanilla game trees on Linux ship lowercase),
        then lexicographic.
@@ -1475,7 +1475,7 @@ def _dir_case_listing(dir_str: str,
 
     Values are a plain str normally; a list when case-variant duplicate dirs
     exist (resolved via _pick_case_variant at lookup time).  Symlinked dirs
-    are included — a game folder reached through a symlink must still
+    are included - a game folder reached through a symlink must still
     case-match, else deploy creates a parallel wrong-case tree beside it.
     """
     listing = cache.get(dir_str)
@@ -1506,7 +1506,7 @@ def _log_case_collisions(dir_listing_cache: dict, log_fn) -> None:
     resolution (e.g. a stray ``archive/PC`` beside the game's ``archive/pc``,
     typically left by a manual mod install).  Deploy picks one chain
     deterministically, but files someone placed in the losing variant are
-    invisible to the game — worth surfacing so users can merge/remove them.
+    invisible to the game - worth surfacing so users can merge/remove them.
     """
     for parent, listing in dir_listing_cache.items():
         for variants in listing.values():
@@ -1514,7 +1514,7 @@ def _log_case_collisions(dir_listing_cache: dict, log_fn) -> None:
                 log_fn(
                     f"  WARN: duplicate folders differing only by case in "
                     f"{parent}: " + ", ".join(sorted(variants)) +
-                    " — deploying into one of them; files in the other are "
+                    " - deploying into one of them; files in the other are "
                     "ignored by the game and may need manual clean-up."
                 )
 
@@ -1532,7 +1532,7 @@ def _resolve_root_path(base: Path, rel: Path,
     repeated scandir calls across many files with the same directory
     structure (shared shape with _resolve_root_path_str).
 
-    core_base — optional sibling backup dir (e.g. Data_Core/) consulted when
+    core_base - optional sibling backup dir (e.g. Data_Core/) consulted when
     a segment isn't found in *base*.  This preserves vanilla folder casing
     (e.g. ``Scripts/``) even when *base* is empty at deploy time.
     """
@@ -1555,23 +1555,23 @@ def _resolve_root_path_str(base_str: str, rel_str: str,
     and caches the fully-resolved directory path so files sharing the same
     parent directory skip all resolution after the first.
 
-    dir_listing_cache — maps dir_path_str → {lower_name: actual_name(s)}
+    dir_listing_cache - maps dir_path_str → {lower_name: actual_name(s)}
     (see _dir_case_listing; a list value marks case-variant duplicate dirs)
-    resolved_dir_cache — maps (base_str + "\\0" + dir_parts_lower) → resolved_dir_str.
+    resolved_dir_cache - maps (base_str + "\\0" + dir_parts_lower) → resolved_dir_str.
     The base is part of the key so one cache can safely serve resolutions
     under several roots (deploy dir, per-separator custom dirs, game root).
     """
     # Split rel_str into directory part and filename
     slash_pos = rel_str.rfind("/")
     if slash_pos < 0:
-        # No directory component — file directly under base
+        # No directory component - file directly under base
         return base_str + "/" + rel_str
 
     dir_part = rel_str[:slash_pos]
     filename = rel_str[slash_pos + 1:]
     dir_lower = dir_part.lower()
 
-    # Check resolved dir cache first — covers the common case where many
+    # Check resolved dir cache first - covers the common case where many
     # files share the same directory.
     cache_key = base_str + "\x00" + dir_lower
     if resolved_dir_cache is not None:
@@ -1594,7 +1594,7 @@ def _resolve_root_path_str(base_str: str, rel_str: str,
                 core_current, dir_listing_cache).get(part_lower)
             matched_parent = core_current
         if matched is not None and type(matched) is not str:
-            # Case-variant duplicate dirs on disk — deterministic pick,
+            # Case-variant duplicate dirs on disk - deterministic pick,
             # preferring the chain the next segment already lives in.
             nxt = parts[i + 1].lower() if i + 1 < len(parts) else None
             matched = _pick_case_variant(
@@ -1655,7 +1655,7 @@ def _write_deploy_snapshot(
     see the restored vanilla as a brand-new file and wrongly sweep it into
     overwrite/.  Recording symlinks keeps every deploy-time path "known".
 
-    exclude_dirs — dir paths (case-insensitive, relative to game_root) to skip;
+    exclude_dirs - dir paths (case-insensitive, relative to game_root) to skip;
     standard games pass their deploy subfolder so its files stay on the
     Data_Core path.  Nested paths like "BepInEx/plugins" are supported.
     """
@@ -1703,7 +1703,7 @@ def _write_deploy_snapshot(
 def _load_deploy_snapshot(snapshot_path: Path) -> set[str]:
     """Return a set of lowercased relative paths from a deploy snapshot file.
 
-    Returns an empty set if the file is missing or unreadable — callers treat
+    Returns an empty set if the file is missing or unreadable - callers treat
     this as "no snapshot available" and skip runtime-file detection.
     """
     if not snapshot_path.is_file():
@@ -1753,7 +1753,7 @@ def _append_overwrite_log(dest_dir: Path, rels: "list[str]", log_fn=None) -> Non
     Best-effort: OSErrors are swallowed so logging can never break a restore."""
     log_path = dest_dir / OVERWRITE_LOG_NAME
     ts = _time.strftime("%Y-%m-%d %H:%M:%S")
-    header = f"# {ts} — {len(rels)} file(s) moved on restore"
+    header = f"# {ts} - {len(rels)} file(s) moved on restore"
     section = "\n".join([header, *sorted(rels)]) + "\n\n"
     try:
         try:
@@ -1795,10 +1795,10 @@ def _move_runtime_files(
     With a v3 snapshot, empty directories created since deploy are also
     removed (they hold no files, so the move alone never touches them).
 
-    exclude_dirs — must match the value passed to _write_deploy_snapshot so the
+    exclude_dirs - must match the value passed to _write_deploy_snapshot so the
     excluded subtree is never treated as runtime-generated.
 
-    restore_whitelist — optional matcher from build_restore_whitelist_matcher
+    restore_whitelist - optional matcher from build_restore_whitelist_matcher
     (over lowercased game_root-relative paths); matching files are left in
     the game folder instead of being moved.
 
@@ -1812,7 +1812,7 @@ def _move_runtime_files(
     _log = _safe_log(log_fn)
     known = _load_deploy_snapshot(snapshot_path)
     if not known:
-        _log("  WARN: deploy snapshot empty or unreadable — skipping runtime file detection.")
+        _log("  WARN: deploy snapshot empty or unreadable - skipping runtime file detection.")
         return 0
 
     excluded = _normalize_exclude_dirs(exclude_dirs)
@@ -1827,7 +1827,7 @@ def _move_runtime_files(
     # classed as runtime-generated and moved to overwrite/ (wiping the game
     # folder).  Compare the on-disk files against the snapshot first: if the
     # overlap is implausibly low for a non-empty game root, the snapshot does
-    # not describe this directory — bail out rather than destroy the install.
+    # not describe this directory - bail out rather than destroy the install.
     candidate_rels: list[str] = []
     dir_rels: list[str] = []
     matched_known = 0
@@ -1868,7 +1868,7 @@ def _move_runtime_files(
             and matched_known / total_files < _MIN_OVERLAP):
         _log(
             "  WARN: deploy snapshot does not match the current game folder "
-            f"({matched_known}/{total_files} files known) — the game path or "
+            f"({matched_known}/{total_files} files known) - the game path or "
             "sub-folder setting may have changed since deploy. Skipping "
             "runtime-file move to avoid wiping the game folder into overwrite/. "
             "Restore from a matching configuration if mod files remain."
@@ -1888,7 +1888,7 @@ def _move_runtime_files(
         src_path = game_root_str + "/" + rel
         dst = overwrite_str + "/" + rel
         if os.path.exists(dst):
-            _log(f"  WARN: overwrite/{rel} already exists — skipping.")
+            _log(f"  WARN: overwrite/{rel} already exists - skipping.")
             continue
         dst_dir = os.path.dirname(dst)
         if dst_dir not in made_dirs:
@@ -1904,7 +1904,7 @@ def _move_runtime_files(
 
     # Sweep runtime-created directories that hold no files at restore time.
     # Such dirs are invisible to the file move above (snapshot and move are
-    # file-based) and, left in place, block the bottom-up ancestor prune —
+    # file-based) and, left in place, block the bottom-up ancestor prune -
     # e.g. an empty Nautilus RestrictedIDs/ keeping the whole BepInEx/ chain
     # alive after restore.  Only v3 snapshots record dirs; on an older
     # snapshot known_dirs is None and the sweep is skipped (a vanilla-shipped
@@ -1917,7 +1917,7 @@ def _move_runtime_files(
                 continue
             if restore_whitelist is not None and restore_whitelist(
                     rel.replace("\\", "/").lower()):
-                continue  # dir sits in a whitelisted runtime area — leave it
+                continue  # dir sits in a whitelisted runtime area - leave it
             try:
                 os.rmdir(game_root_str + "/" + rel)  # only succeeds if empty
             except OSError:
@@ -1952,7 +1952,7 @@ def _path_under_root(path: Path, root: Path) -> bool:
 
     Checks the unresolved path first so that symlinks whose targets live
     outside root (e.g. symlinks into staging) are not incorrectly blocked.
-    Any ``..`` component below root is rejected outright — relative_to()
+    Any ``..`` component below root is rejected outright - relative_to()
     never collapses ``..``, so "root/a/../../x" would otherwise pass the
     prefix check while actually pointing outside root.
     """
@@ -1979,7 +1979,7 @@ def _get_staging_source_path(
 
     Tries rel_str directly, then strip_prefix/rel_str for each prefix (e.g.
     mods/ModName/Data/Plugin.esp when rel_str is Plugin.esp and strip has "data").
-    index_cache, when given, memoizes the per-mod file index across calls —
+    index_cache, when given, memoizes the per-mod file index across calls -
     building it walks the whole mod folder, far too expensive to repeat per file.
     """
     if not mod_root.is_dir():

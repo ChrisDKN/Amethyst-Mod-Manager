@@ -1,7 +1,7 @@
 """Shared filter side panel for the Qt UI.
 
 A single reusable widget every panel (modlist, plugins, data) docks on its left
-edge — mirroring the Tk inline filter side panel. It's driven by a *spec* so each
+edge - mirroring the Tk inline filter side panel. It's driven by a *spec* so each
 host supplies its own sections/checkboxes; the panel emits a flat state dict
 (key -> tri-state int 0/1/2, plus the dynamic category/filetype include/exclude
 frozensets) whenever anything changes.

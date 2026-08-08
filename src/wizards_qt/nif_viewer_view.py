@@ -1,7 +1,7 @@
-"""NIF Viewer — browse every mesh in the profile and the vanilla game, and
+"""NIF Viewer - browse every mesh in the profile and the vanilla game, and
 preview it in 3D.
 
-Left: a unified meshes/… tree from Utils.mesh_catalog — every copy from mods,
+Left: a unified meshes/… tree from Utils.mesh_catalog - every copy from mods,
 the data folder and BSA/BA2 archives, contested paths expanding into one row
 per copy with the game's winner tinted green. Right: the gui_qt.nif_preview
 viewport, fed raw bytes. Scans and tree builds run off-thread behind a
@@ -93,9 +93,9 @@ class NifViewerView(QWidget):
         hb.setContentsMargins(12, 8, 8, 8)
         enable_height_for_width(bar)
 
-        title = (self.tr("NIF Viewer — {0} ▸ {1}").format(game.name, self._mod)
+        title = (self.tr("NIF Viewer - {0} ▸ {1}").format(game.name, self._mod)
                  if self._mod else
-                 self.tr("NIF Viewer — {0}").format(game.name))
+                 self.tr("NIF Viewer - {0}").format(game.name))
         head = ElidingLabel(title, max_width=340)
         head.setStyleSheet(f"color:{_c(pal,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(head)
@@ -227,7 +227,7 @@ class NifViewerView(QWidget):
 
     def event(self, e):
         # close_tab deleteLater()s THIS host; the embedded preview never gets
-        # its own DeferredDelete, so relay it — GL textures must be freed while
+        # its own DeferredDelete, so relay it - GL textures must be freed while
         # their context lives (orphaned ones segfault in GC: stale context
         # deref in QOpenGLTexture's destructor).
         if e.type() == QEvent.DeferredDelete:
@@ -300,12 +300,12 @@ class NifViewerView(QWidget):
         self._count.setText(self.tr("{0} meshes").format(f"{count:,}"))
         # A scoped open lands on one mod's handful of meshes: expand so they
         # are on screen instead of hidden under a collapsed 'meshes' root.
-        # (expandAll is ~1 s on the full 22.7k-path vanilla tree — hence the cap.)
+        # (expandAll is ~1 s on the full 22.7k-path vanilla tree - hence the cap.)
         if self._mod and 0 < count <= _AUTO_EXPAND_MAX:
             self._tree.expandAll()
 
     def _expand_all(self):
-        # ~1 s on a full vanilla Skyrim tree (22.7k paths) — busy cursor so an
+        # ~1 s on a full vanilla Skyrim tree (22.7k paths) - busy cursor so an
         # explicit button press does not read as a hang.
         self._with_wait_cursor(self._tree.expandAll)
 
@@ -326,7 +326,7 @@ class NifViewerView(QWidget):
         if node is None:
             return
         # A contested mesh row both expands (revealing its other copies) and
-        # previews the winning one — the two are not in conflict.
+        # previews the winning one - the two are not in conflict.
         if self._model.rowCount(index) > 0:
             self._tree.setExpanded(index, not self._tree.isExpanded(index))
         if node.payload is not None:
@@ -395,7 +395,7 @@ class NifViewerView(QWidget):
 # ---- helpers ---------------------------------------------------------------
 
 def _paths_for(game, profile: str):
-    """(staging, profile_dir, modlist, data_dir) — same shape as game_state."""
+    """(staging, profile_dir, modlist, data_dir) - same shape as game_state."""
     staging = profile_dir = modlist = data = None
     try:
         p = game.get_effective_mod_staging_path()
@@ -454,7 +454,7 @@ def _build_catalog_tree(entries: list, query: str, source: str,
         groups = {k: g for k, g in groups.items()
                   if any(e.mod == mod for e in g)}
     if query:
-        # Match the path OR any provider, and keep the WHOLE group — a mod-name
+        # Match the path OR any provider, and keep the WHOLE group - a mod-name
         # search is only useful next to the copies that mod competes with.
         groups = {k: g for k, g in groups.items()
                   if query in k

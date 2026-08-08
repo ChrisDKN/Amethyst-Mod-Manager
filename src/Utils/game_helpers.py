@@ -18,7 +18,7 @@ from Utils.profile_state import (
     write_profile_settings,
 )
 
-# Game handlers — populated by _load_games() when first called
+# Game handlers - populated by _load_games() when first called
 _GAMES: dict[str, BaseGame] = {}
 
 
@@ -90,13 +90,13 @@ def game_data_subpath(game) -> str:
 def plugins_routing_ctx(game) -> "tuple | None":
     """(resolve_fn, data_rel_lower) for games that route staged files through
     deploy rules (UE5-style ``_resolve_entry``) AND load plugins from a folder
-    BELOW the deploy root — e.g. Oblivion Remastered's
+    BELOW the deploy root - e.g. Oblivion Remastered's
     ``Content/Dev/ObvData/Data``. None for every other game.
 
     Such games can ship a plugin anywhere inside a mod (nested under a wrapper
     like ``OblivionRemastered/Content/Dev/ObvData/Data/x.esp``) and the deploy
     rules still place it in the plugins dir, so "plugin at the mod root" is the
-    wrong test for what belongs in plugins.txt — the routed destination is.
+    wrong test for what belongs in plugins.txt - the routed destination is.
     """
     resolve = getattr(game, "_resolve_entry", None)
     if resolve is None:
@@ -143,8 +143,8 @@ def routed_mod_plugin_names(game, mod_dir: Path) -> list[str]:
     is the top level of the game's plugins data dir. [] for games without
     routing rules (plugins_routing_ctx is None) or on any error.
 
-    Used by plugins.txt sync (enable/disable/remove) so nested plugins —
-    which DO deploy into the data dir — get the same plugins.txt treatment
+    Used by plugins.txt sync (enable/disable/remove) so nested plugins -
+    which DO deploy into the data dir - get the same plugins.txt treatment
     as mod-root ones."""
     ctx = plugins_routing_ctx(game)
     if ctx is None:
@@ -177,7 +177,7 @@ def _vanilla_plugins_for_game(game) -> dict[str, str]:
     ccc_name = getattr(game, "vanilla_ccc_filename", None)
 
     # Base, DLC, and CC entries are only treated as vanilla if the file is
-    # present in the Data folder — users may not own every DLC/expansion, and
+    # present in the Data folder - users may not own every DLC/expansion, and
     # vanilla lists include plugins from future expansions (e.g. Starfield's
     # SFBGS* placeholders). We scan the live folder without subtracting another
     # profile's deployment: vanilla names are a fixed list and CC names come
@@ -337,10 +337,10 @@ def _create_profile(
 
     if not profile_specific_mods and default_dir.is_dir():
         # Non-specific profiles share the mods folder, so a brand-new one should
-        # be a 1:1 clone of default — modlist, plugins, loadorder, loot.json,
+        # be a 1:1 clone of default - modlist, plugins, loadorder, loot.json,
         # userlist.yaml, fomod selections, ini files, profile_state.json all
         # carry over so it deploys identically out of the gate. Exclude backups/
-        # (default's deploy/restore snapshots — profile-specific and large;
+        # (default's deploy/restore snapshots - profile-specific and large;
         # a fresh profile has nothing to restore). If profile_dir already exists
         # (re-create), fall through to the touch()-based init below.
         if not profile_dir.exists():
@@ -352,7 +352,7 @@ def _create_profile(
             shutil.copytree(default_dir, profile_dir, copy_function=shutil.copy2,
                             ignore=_skip_backups, dirs_exist_ok=False)
             # A clone is never the (locked, un-removable) original default, and
-            # must not inherit its lock — scrub those flags from the copied
+            # must not inherit its lock - scrub those flags from the copied
             # profile_settings while keeping the rest (e.g. collection_url).
             settings = read_profile_settings(profile_dir, None)
             for k in ("original_default", "profile_locked", "profile_specific_mods"):
@@ -364,7 +364,7 @@ def _create_profile(
     plugins = profile_dir / "plugins.txt"
     if not plugins.exists():
         if profile_specific_mods:
-            # Profile-specific mods start empty, so its plugin list must too —
+            # Profile-specific mods start empty, so its plugin list must too -
             # the shared default plugins reference mods this profile won't have.
             plugins.touch()
         else:
@@ -378,7 +378,7 @@ def _create_profile(
     modlist = profile_dir / "modlist.txt"
     if not modlist.exists():
         if profile_specific_mods:
-            # Profile-specific mods folder starts empty — don't inherit the
+            # Profile-specific mods folder starts empty - don't inherit the
             # default modlist which references the shared mods directory.
             modlist.touch()
         else:

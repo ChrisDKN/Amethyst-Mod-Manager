@@ -151,7 +151,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="amethyst",
-        description="Amethyst Mod Manager — CLI",
+        description="Amethyst Mod Manager - CLI",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

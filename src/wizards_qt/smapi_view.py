@@ -1,7 +1,7 @@
 """Qt view: Install SMAPI (mod loader) for Stardew Valley.
 
 Downloads the latest SMAPI installer zip from GitHub, then installs it with no
-user input — the payload is unpacked natively and the launcher swap applied by
+user input - the payload is unpacked natively and the launcher swap applied by
 ``Utils.smapi_installer`` (see that module for why we don't run SMAPI's own
 interactive .NET installer in a terminal).
 
@@ -44,7 +44,7 @@ class SmapiView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=self.tr("Install SMAPI — {0}").format(game.name))
+                         title=self.tr("Install SMAPI - {0}").format(game.name))
 
         self._installed_mode = ""
 
@@ -106,7 +106,7 @@ class SmapiView(WizardViewBase):
         lay.addWidget(self._dl_bar)
         lay.addWidget(self._build_mode_box())
         self._make_note(lay,
-                        self.tr("SMAPI is installed automatically — no terminal "
+                        self.tr("SMAPI is installed automatically - no terminal "
                         "window and no prompts to answer."))
         lay.addStretch(1)
         row = QWidget()
@@ -176,7 +176,7 @@ class SmapiView(WizardViewBase):
                   lambda p: safe_emit(self._picked_sig, p))
 
     def _on_picked(self, path):
-        """Base portal-picker override — this view has no locate page, so the
+        """Base portal-picker override - this view has no locate page, so the
         pick lands on the SMAPI handler (the base connection stays guarded)."""
         self._on_smapi_picked(path)
 
@@ -213,7 +213,7 @@ class SmapiView(WizardViewBase):
         if self._installed_mode == "game":
             # A game-folder install swaps the REAL launcher, so revert to
             # vanilla through the app's restore machinery (deploy mutex +
-            # progress popup) and abort when it can't run — never patch a
+            # progress popup) and abort when it can't run - never patch a
             # still-deployed root (the swap would post-date the snapshot and
             # be swept into overwrite/ on the next restore).
             self._run_ctx_restore(self._run_status,
@@ -257,7 +257,7 @@ class SmapiView(WizardViewBase):
     def _on_install_done(self, ok: bool):
         self._install_bar.setVisible(False)
         self._done_btn.setEnabled(True)
-        # A managed-mod install changed modlist.txt — the base _finish()
+        # A managed-mod install changed modlist.txt - the base _finish()
         # reloads it on the GUI thread when _ran is set.
         if ok and self._installed_mode == "mod":
             self._ran = True

@@ -67,7 +67,7 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
     # Tool wizards that run a tool installed as a mod (Pandora, BodySlide, …)
     # leave an isolated Wine prefix (prefix_<ProtonName>/) inside that mod's
     # staging folder. Those prefixes contain dosdevices/com1..6 symlinks which
-    # Wine reports as being on mount '\\.\com1' — relpath then crashes ESLifier
+    # Wine reports as being on mount '\\.\com1' - relpath then crashes ESLifier
     # with "path is on mount '\\.\com1', start on mount 'Z:'".
     #
     # Build a hardlinked mirror of the staging folder that omits every
@@ -191,7 +191,7 @@ def mirror_tree(src: Path, dst: Path, skipped: list[str]) -> None:
             target = dst / entry.name
             # Prefer a hardlink (cheapest, shares inode). If that fails
             # (cross-device, link count, …), fall back to an absolute symlink
-            # to the real file — still no data copied. A file symlink can't
+            # to the real file - still no data copied. A file symlink can't
             # lead Wine's os.walk into a prefix_* dir because those are
             # pruned at the directory level above, so this stays safe against
             # the com1 crash.

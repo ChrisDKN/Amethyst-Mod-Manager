@@ -1,7 +1,7 @@
-"""Nexus Collections browser — a full detachable tab.
+"""Nexus Collections browser - a full detachable tab.
 
 Like the Nexus mods browser (gui_qt/nexus_browser_view.py) but simpler: no
-category side-panel — just a top toolbar, a middle card grid, and a bottom bar
+category side-panel - just a top toolbar, a middle card grid, and a bottom bar
 (search + pagination). Cards are VIEW-ONLY this pass (open the collection's Nexus
 page); the install/detail flow is a separate feature.
 
@@ -75,7 +75,7 @@ class CollectionsBrowserView(QWidget):
         self._cols = 0
         self._fetch_token = 0           # guards against stale async results
 
-        # Collection tiles are PORTRAIT — crop to the portrait cover size.
+        # Collection tiles are PORTRAIT - crop to the portrait cover size.
         self._thumbs = ThumbnailLoader(self, crop_w=IMG_W, crop_h=IMG_H)
         self._thumbs.loaded.connect(self._on_thumb)
         self._results_ready.connect(self._on_results)
@@ -136,7 +136,7 @@ class CollectionsBrowserView(QWidget):
         self._scroll.setFrameShape(QFrame.NoFrame)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        # "Collections appended to this profile" — records from the current
+        # "Collections appended to this profile" - records from the current
         # profile's installed_collections/ folder; hidden when there are none.
         self._appended_host = QWidget()
         av = QVBoxLayout(self._appended_host)

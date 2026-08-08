@@ -1,4 +1,4 @@
-"""Delegate for the Downloads list — modlist-style blue checkbox, bold section
+"""Delegate for the Downloads list - modlist-style blue checkbox, bold section
 headers, right-aligned size, and an Install/Reinstall button per archive row
 (painted + hit-tested here). Visual language matches the other Qt tabs.
 """
@@ -27,7 +27,7 @@ class DownloadsDelegate(QStyledItemDelegate):
         super().__init__(parent or view)
         self._view = view
         self.on_install = None       # callback(path) when an Install button hit
-        self.on_toggle_section = None  # callback(header_row) — select-all toggle
+        self.on_toggle_section = None  # callback(header_row) - select-all toggle
         p = active_palette()
         self.c_text = qc(p, "TEXT_MAIN")
         self.c_dim = qc(p, "TEXT_DIM")
@@ -62,7 +62,7 @@ class DownloadsDelegate(QStyledItemDelegate):
                 p.drawText(r.adjusted(8, 0, -4, 0),
                            Qt.AlignVCenter | Qt.AlignLeft, e.section_name)
             elif col == COL_INSTALL:
-                # "Select all" — a blue button, same size/position as the per-row
+                # "Select all" - a blue button, same size/position as the per-row
                 # Install button so it reads as a clear action.
                 rect = self._button_rect(r)
                 p.setRenderHint(p.RenderHint.Antialiasing, True)
@@ -148,7 +148,7 @@ class DownloadsDelegate(QStyledItemDelegate):
                 return True
             return False
         # Checkbox OR name click toggles selection (no drag/reorder here, so the
-        # whole name is a select target — user request).
+        # whole name is a select target - user request).
         if col in (COL_CHECK, COL_NAME):
             model.toggle_check(index.row(), shift=shift)
             return True

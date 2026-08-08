@@ -7,20 +7,20 @@ GitHub wikis are separate git repositories and are NOT exposed through the
 REST contents API, so this module uses the two public surfaces that do work
 without auth:
 
-* ``/wiki/_pages`` — an HTML index of every page. Scraped for (slug, title)
+* ``/wiki/_pages`` - an HTML index of every page. Scraped for (slug, title)
   pairs in the order GitHub lists them. This is plain github.com HTML, not the
   REST API, so it does not consume the 60 requests/hour unauthenticated quota.
-* ``raw.githubusercontent.com/wiki/<owner>/<repo>/<slug>.md`` — the raw
+* ``raw.githubusercontent.com/wiki/<owner>/<repo>/<slug>.md`` - the raw
   markdown source of a page, ``_Sidebar.md`` included.
 
 The navigation shown in the app is the wiki's own ``_Sidebar.md`` when it has
-one — same grouping, order and wording as github.com — with ``_pages`` used to
+one - same grouping, order and wording as github.com - with ``_pages`` used to
 append anything the sidebar does not link to, and as the whole list if there is
 no sidebar.
 
 Everything goes through :mod:`Utils.gh_cache`, which adds ETag conditional
 requests (a 304 is free) plus a per-URL throttle, and keeps the last body on
-disk — so repeat visits are cheap and the wiki stays readable offline once a
+disk - so repeat visits are cheap and the wiki stays readable offline once a
 page has been viewed.
 
 All functions return ``None``/empty rather than raising: a wiki that cannot be
@@ -51,7 +51,7 @@ _PAGE_INTERVAL = 300.0
 _SIDEBAR_INTERVAL = 300.0
 _IMAGE_INTERVAL = 30 * 24 * 3600.0
 
-# <a href="/owner/repo/wiki/<slug>">Title</a> — the shape of every entry in
+# <a href="/owner/repo/wiki/<slug>">Title</a> - the shape of every entry in
 # the _pages index. Slugs are already percent-encoded in the href.
 _ANCHOR_RE = re.compile(
     r'<a[^>]+href="/' + re.escape(WIKI_REPO) + r'/wiki/([^"/#?]+)"[^>]*>([^<]*)</a>'
@@ -63,7 +63,7 @@ _RESERVED_SLUGS = frozenset({
 })
 
 # Hosts an <img> in a wiki page may be fetched from. Wiki content is authored
-# on GitHub, but it is still remote text driving network requests — keep it
+# on GitHub, but it is still remote text driving network requests - keep it
 # from pointing the manager at arbitrary third-party hosts.
 _IMAGE_HOSTS = frozenset({
     "github.com",
@@ -94,16 +94,16 @@ _SIDEBAR_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
 _SIDEBAR_HEADING_RE = re.compile(r"^#{1,6}\s+(.*)$")
 _MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(\s*<?([^)\s>]*)>?(?:\s+\"[^\"]*\")?\s*\)")
 _EMPHASIS_EDGE_RE = re.compile(r"^(?:\*{1,3}|_{1,3}|`)+|(?:\*{1,3}|_{1,3}|`)+$")
-#: A horizontal rule / decorative divider — nothing to show in a list.
+#: A horizontal rule / decorative divider - nothing to show in a list.
 _RULE_LINE_RE = re.compile(r"^[-*_ ]+$")
 
-# [[Target]] / [[Label|Target]] — MediaWiki-style links GitHub renders but
+# [[Target]] / [[Label|Target]] - MediaWiki-style links GitHub renders but
 # markdown does not.
 _WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]")
 
 # <img ...> tags and the two attributes worth keeping off them.
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*?/?>", re.IGNORECASE)
-#: An <img> that is the whole line — how GitHub records a pasted screenshot.
+#: An <img> that is the whole line - how GitHub records a pasted screenshot.
 _LONE_IMG_LINE_RE = re.compile(r"^\s*<img\b[^>]*?/?>\s*$", re.IGNORECASE)
 _IMG_SRC_RE = re.compile(r"\bsrc\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))",
                          re.IGNORECASE)
@@ -127,7 +127,7 @@ _EMPHASIS_RES = (
     (re.compile(r"</?(?:i|em)\s*>", re.IGNORECASE), "*"),
     (re.compile(r"</?code\s*>", re.IGNORECASE), "`"),
 )
-#: Wrappers that only exist to group/position content — each becomes a break.
+#: Wrappers that only exist to group/position content - each becomes a break.
 _BLOCK_TAG_RE = re.compile(
     r"</?(?:p|div|center|span|section|details|summary|blockquote)\b[^>]*>",
     re.IGNORECASE)
@@ -141,7 +141,7 @@ _HTML_BLOCK_START_RE = re.compile(
     r"|picture|video|figure|figcaption|b|i|em|strong|code|kbd|sub|sup)\b",
     re.IGNORECASE)
 _CENTERED_RE = re.compile(r"align\s*=\s*[\"']?center", re.IGNORECASE)
-#: A <table> block, left as HTML — Qt imports those into real tables. It ends
+#: A <table> block, left as HTML - Qt imports those into real tables. It ends
 #: at </table> rather than at a blank line, since long tables often have both.
 _TABLE_RE = re.compile(r"^\s{0,3}<table\b", re.IGNORECASE)
 _TABLE_END_RE = re.compile(r"</table\s*>", re.IGNORECASE)
@@ -155,14 +155,14 @@ CENTER_MARK = "⁢"
 
 #: URL scheme the profile share codes printed in wiki pages are rewritten to,
 #: so the viewer can offer to import one on a click. The link target is an
-#: index into the list :func:`to_display_markdown` fills in — a code is a
+#: index into the list :func:`to_display_markdown` fills in - a code is a
 #: kilobyte of base64, far too long to carry in a link.
 SHARE_CODE_SCHEME = "ammshare"
 
 #: A share code as it appears in a page: the ``AMMCODE<n>:`` tag from
 #: :mod:`Utils.profile_export` followed by its urlsafe-base64 payload. The
 #: length floor keeps a bare mention of the format from matching, and the
-#: optional backticks let an inline-code span be swallowed whole — a markdown
+#: optional backticks let an inline-code span be swallowed whole - a markdown
 #: link inside one would render as its own literal text.
 _SHARE_CODE_RE = re.compile(r"AMMCODE\d+:[A-Za-z0-9_-]{24,}={0,2}")
 _SHARE_CODE_INLINE_RE = re.compile("`?(" + _SHARE_CODE_RE.pattern + ")`?")
@@ -232,7 +232,7 @@ def fetch_sidebar(*, force: bool = False) -> Optional[str]:
 
 
 def _label(text: str) -> str:
-    """Reduce one sidebar cell to plain text — tags, emphasis and entities out."""
+    """Reduce one sidebar cell to plain text - tags, emphasis and entities out."""
     text = _ANY_TAG_RE.sub("", text).strip()
     text = _EMPHASIS_EDGE_RE.sub("", text).strip()
     return html.unescape(text)
@@ -244,7 +244,7 @@ def parse_sidebar(text: Optional[str]) -> List[Tuple[str, str, Optional[str]]]:
     A bullet or heading holding a wiki link becomes a page row keeping the
     sidebar's own wording; any other non-blank line becomes a header row, which
     is how the sidebar's ``**Getting started**``-style group titles survive.
-    Lines whose only link points off the wiki — the GitHub/Nexus footer — are
+    Lines whose only link points off the wiki - the GitHub/Nexus footer - are
     dropped, since this list navigates pages.
     """
     if not text:
@@ -281,7 +281,7 @@ def nav_rows(*, force: bool = False) -> List[Tuple[str, str, Optional[str]]]:
     The wiki's own sidebar when it has one, otherwise the flat ``_pages``
     index. Either way every page ends up reachable: pages the sidebar does not
     link to are appended under a :data:`SIDEBAR_OTHER` header, so a page added
-    on GitHub — or one the sidebar links to under a mistyped slug — never goes
+    on GitHub - or one the sidebar links to under a mistyped slug - never goes
     missing from the app.
     """
     rows = parse_sidebar(fetch_sidebar(force=force))
@@ -345,7 +345,7 @@ def resolve_link(href: str) -> Optional[str]:
             return None
         candidate = parsed.path[len(prefix):]
     elif parsed.scheme:
-        # mailto:, file:, anything else — not a wiki page.
+        # mailto:, file:, anything else - not a wiki page.
         return None
     else:
         candidate = parsed.path
@@ -386,7 +386,7 @@ def _img_markdown(tag: str) -> str:
 def _code_link(code: str, codes: List[str]) -> str:
     """Register *code* and return the markdown link standing in for it.
 
-    The label is the code itself, truncated — no words, since this module is
+    The label is the code itself, truncated - no words, since this module is
     not translated and the viewer supplies the wording around it.
     """
     codes.append(code)
@@ -406,7 +406,7 @@ def _rewrite_code_fence(chunk: str, codes: Optional[List[str]]) -> str:
     """Turn a fenced block that is nothing but a share code into a link.
 
     Only that shape is touched: a link inside a fence renders as its own
-    literal text, so the fence has to go — and a fence carrying anything else
+    literal text, so the fence has to go - and a fence carrying anything else
     is a genuine code sample that must survive verbatim.
     """
     if codes is None or "AMMCODE" not in chunk:
@@ -423,8 +423,8 @@ def _rewrite_code_fence(chunk: str, codes: Optional[List[str]]) -> str:
 def _split_fences(text: str) -> List[Tuple[bool, str]]:
     """Split *text* into (is_code, chunk) runs, ``is_code`` for fenced blocks.
 
-    Everything the display rewrite does — dropping comments, converting wiki
-    links, promoting images — must leave fenced code samples byte-identical.
+    Everything the display rewrite does - dropping comments, converting wiki
+    links, promoting images - must leave fenced code samples byte-identical.
     """
     chunks: List[Tuple[bool, str]] = []
     buf: List[str] = []
@@ -526,7 +526,7 @@ def _rewrite_prose(text: str, codes: Optional[List[str]] = None) -> str:
             continue
         if _LONE_IMG_LINE_RE.match(line):
             # Blank lines around it so the image can never be absorbed into an
-            # adjacent paragraph — the whole point of promoting it to markdown.
+            # adjacent paragraph - the whole point of promoting it to markdown.
             out.extend(["", _img_markdown(stripped), ""])
             continue
         if _HTML_BLOCK_START_RE.match(line):
@@ -556,14 +556,14 @@ def to_display_markdown(text: str,
       text, so a commented-out screenshot showed up as stray ``-->`` prose.
     * ``[[Page]]`` / ``[[Label|Page]]`` wiki links become ordinary markdown
       links so they are clickable instead of showing as literal brackets.
-    * An ``<img>`` tag alone on its line — how GitHub records a pasted
-      screenshot — is rewritten as a native ``![alt](src)`` image. Left as
+    * An ``<img>`` tag alone on its line - how GitHub records a pasted
+      screenshot - is rewritten as a native ``![alt](src)`` image. Left as
       HTML it reaches Qt's importer as an opaque fragment and gets welded to a
       neighbouring paragraph instead of standing on its own; dropping the
       tag's ``width``/``height`` also lets the viewer scale wide screenshots
       down rather than forcing horizontal scrolling.
-    * Blocks of hand-written HTML — the ``<p align="center">`` header on this
-      wiki's Home page — are converted to markdown for the same reason, with
+    * Blocks of hand-written HTML - the ``<p align="center">`` header on this
+      wiki's Home page - are converted to markdown for the same reason, with
       ``align="center"`` recorded as a :data:`CENTER_MARK` for the viewer.
 
     ``<table>`` is the single exception, passed through as HTML: Qt imports it
