@@ -459,36 +459,44 @@ class CreateCollectionView(ExportProfileView):
         root.addWidget(content, 1)
 
     # -- phase column -------------------------------------------------------
-    def _rebuild_table(self):
-        super()._rebuild_table()
+    def _create_row_cells(self, vi: int) -> dict:
+        w = super()._create_row_cells(vi)
         t = self._table
-        pos = {id(r): i for i, r in enumerate(self._all_rows)}
-        for i, row in enumerate(self._rows):
-            data_idx = pos[id(row)]
-            spin = _NoScrollSpinBox()
-            spin.setRange(0, 99)
-            spin.setValue(int(row.get("phase") or 0))
-            spin.setFixedWidth(56)
-            spin.setAlignment(Qt.AlignCenter)
-            spin.valueChanged.connect(
-                lambda val, di=data_idx: self._set_phase(di, val))
-            wrap = QWidget()
-            lay = QHBoxLayout(wrap)
-            lay.setContentsMargins(0, 0, 0, 0)
-            lay.setAlignment(Qt.AlignCenter)
-            lay.addWidget(spin)
-            t.setCellWidget(i, _COL_PHASE, wrap)
+        di = lambda: self._vis_data_idx[vi]
+        spin = _NoScrollSpinBox()
+        spin.setRange(0, 99)
+        spin.setFixedWidth(56)
+        spin.setAlignment(Qt.AlignCenter)
+        spin.valueChanged.connect(lambda val: self._set_phase(di(), val))
+        wrap = QWidget()
+        lay = QHBoxLayout(wrap)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setAlignment(Qt.AlignCenter)
+        lay.addWidget(spin)
+        t.setCellWidget(vi, _COL_PHASE, wrap)
 
-            policy = row.get("update_policy", "exact")
-            pol_btn = QPushButton(self.tr(_POLICY_LABELS.get(policy, "Exact")))
-            pol_btn.setCursor(Qt.PointingHandCursor)
-            # Sized for the widest label so no cell ever clips its text.
-            pol_btn.setMinimumWidth(self._policy_btn_width(pol_btn))
-            pol_btn.setToolTip(self.tr(
-                "What installers download when a newer file exists."))
-            pol_btn.clicked.connect(
-                lambda _=False, di=data_idx, b=pol_btn: self._pick_policy(di, b))
-            t.setCellWidget(i, _COL_POLICY, pol_btn)
+        pol_btn = QPushButton()
+        pol_btn.setCursor(Qt.PointingHandCursor)
+        # Sized for the widest label so no cell ever clips its text.
+        pol_btn.setMinimumWidth(self._policy_btn_width(pol_btn))
+        pol_btn.setToolTip(self.tr(
+            "What installers download when a newer file exists."))
+        pol_btn.clicked.connect(lambda _=False: self._pick_policy(di()))
+        t.setCellWidget(vi, _COL_POLICY, pol_btn)
+
+        w["phase_spin"] = spin
+        w["policy_btn"] = pol_btn
+        return w
+
+    def _update_row_cells(self, vi: int, row: dict):
+        super()._update_row_cells(vi, row)
+        w = self._row_pool[vi]
+        spin = w["phase_spin"]
+        spin.blockSignals(True)
+        spin.setValue(int(row.get("phase") or 0))
+        spin.blockSignals(False)
+        policy = row.get("update_policy", "exact")
+        w["policy_btn"].setText(self.tr(_POLICY_LABELS.get(policy, "Exact")))
 
     def _set_phase(self, data_idx: int, value: int):
         self._all_rows[data_idx]["phase"] = int(value)
@@ -601,14 +609,14 @@ class CreateCollectionView(ExportProfileView):
                      for lbl in _POLICY_LABELS.values())
         return widest + 28
 
-    def _pick_policy(self, data_idx: int, btn: QPushButton):
+    def _pick_policy(self, data_idx: int):
         row = self._all_rows[data_idx]
 
         def _picked(policy):
             if policy not in _POLICY_ORDER:
                 return
             row["update_policy"] = policy
-            btn.setText(self.tr(_POLICY_LABELS[policy]))
+            self._refresh_visible_row(data_idx)
 
         _PolicyOverlay(self.window(), row["name"],
                        row.get("update_policy", "exact"), _picked)

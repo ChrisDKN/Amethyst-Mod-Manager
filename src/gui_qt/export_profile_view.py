@@ -538,6 +538,16 @@ class ExportProfileView(QWidget):
 
         self._all_rows: list[dict] = []
         self._rows: list[dict] = []   # filtered/sorted view
+        # Widget reuse across rebuilds - see _rebuild_table. _row_items[i] /
+        # _row_pool[i] hold visible row i's QTableWidgetItems / cell widgets;
+        # _vis_data_idx[i] is the _all_rows index shown there, resolved by the
+        # pooled widgets' handlers at click time.
+        self._row_items: list[dict] = []
+        self._row_pool: list[dict] = []
+        self._vis_data_idx: list[int] = []
+        self._fill_timer = QTimer(self)
+        self._fill_timer.setSingleShot(True)
+        self._fill_timer.timeout.connect(self._fill_more_rows)
         self._search_text = ""
         self._hide_no_fileid = False
         self._sort_col = _COL_NAME
@@ -1139,91 +1149,176 @@ class ExportProfileView(QWidget):
         # Counts/labels track the tick set, which survives filtering.
         self._update_bulk_actions()
 
+    # A rebuild used to recreate every cell widget (~6 per row), which made
+    # each sort/filter/search a multi-hundred-ms stall at 150 mods. Widgets are
+    # now created once per visible row position and only restyled on rebuilds:
+    # items for every row and the first _FILL_SYNC rows' widgets are built
+    # synchronously, the rest stream in per event-loop tick, so the tab and
+    # every re-sort render immediately.
+    _FILL_SYNC = 48
+    _FILL_CHUNK = 32
+
     def _rebuild_table(self):
         t = self._table
-        t.setRowCount(0)
-        t.setRowCount(len(self._rows))
+        n = len(self._rows)
         # Identity-keyed position map - list.index() would deep-compare dicts
         # per row (O(n²)) and pick the wrong row for structural duplicates.
         pos = {id(r): i for i, r in enumerate(self._all_rows)}
-        for i, row in enumerate(self._rows):
-            data_idx = pos[id(row)]
+        self._vis_data_idx = [pos[id(r)] for r in self._rows]
+        t.setUpdatesEnabled(False)
+        try:
+            if n != t.rowCount():
+                # Shrinking destroys the dropped rows' items + cell widgets,
+                # so the pools must forget them too.
+                t.setRowCount(n)
+                if n < len(self._row_items):
+                    del self._row_items[n:]
+                if n < len(self._row_pool):
+                    del self._row_pool[n:]
+            while len(self._row_items) < n:
+                self._row_items.append(
+                    self._create_row_items(len(self._row_items)))
+            for i, row in enumerate(self._rows):
+                self._update_row_items(i, row)
+            filled = len(self._row_pool)
+            for i in range(filled):
+                self._update_row_cells(i, self._rows[i])
+            for i in range(filled, min(filled + self._FILL_SYNC, n)):
+                self._row_pool.append(self._create_row_cells(i))
+                self._update_row_cells(i, self._rows[i])
+        finally:
+            t.setUpdatesEnabled(True)
+        if len(self._row_pool) < n:
+            self._fill_timer.start(0)
 
-            # Selection tick. Deliberately NOT ItemIsUserCheckable: Qt paints
-            # the indicator for any item carrying CheckStateRole, and leaving
-            # the flag off means Qt never toggles it behind our back - every
-            # change goes through _toggle_check, which owns the shift anchor.
-            chk = QTableWidgetItem()
-            chk.setFlags(Qt.ItemIsEnabled)
-            chk.setTextAlignment(Qt.AlignCenter)
-            chk.setCheckState(Qt.Checked if data_idx in self._checked
-                              else Qt.Unchecked)
-            t.setItem(i, _COL_CHECK, chk)
-
-            name_item = QTableWidgetItem(row["name"])
-            name_item.setFlags(Qt.ItemIsEnabled)
-            t.setItem(i, _COL_NAME, name_item)
-
-            src = row.get("source", "nexus")
-            src_btn = QPushButton(self.tr(_SOURCE_LABELS.get(src, "Nexus")))
-            src_btn.setCursor(Qt.PointingHandCursor)
-            src_btn.setStyleSheet(_source_button_qss(src))
-            src_btn.clicked.connect(lambda _=False, di=data_idx: self._pick_source(di))
-            t.setCellWidget(i, _COL_SOURCE, src_btn)
-
-            ver_btn = QPushButton(row.get("ver_label", "-"))
-            ver_btn.setCursor(Qt.PointingHandCursor)
-            ver_btn.clicked.connect(lambda _=False, di=data_idx: self._pick_version(di))
-            t.setCellWidget(i, _COL_VERSION, ver_btn)
-
-            if row.get("has_fomod"):
-                fomod_chk = self._center_checkbox(
-                    row.get("fomod_export", True),
-                    lambda ch, di=data_idx: self._set_fomod(di, ch))
-                t.setCellWidget(i, _COL_FOMOD, fomod_chk)
-            else:
-                dash = QTableWidgetItem("-")
-                dash.setFlags(Qt.ItemIsEnabled)
-                dash.setTextAlignment(Qt.AlignCenter)
-                t.setItem(i, _COL_FOMOD, dash)
-
-            opt_chk = self._center_checkbox(
-                row.get("optional", False),
-                lambda ch, di=data_idx: self._set_optional(di, ch))
-            t.setCellWidget(i, _COL_OPTIONAL, opt_chk)
-
-            self._build_edits_cell(i, data_idx, row)
-
-    def _build_edits_cell(self, vis_idx: int, data_idx: int, row: dict):
-        """The Edits column cell: a save-edits toggle, or a dash for bundled
-        mods (their files ship as-is, so edits are already included)."""
+    def _fill_more_rows(self):
+        """Create the next chunk of pooled cell widgets (deferred first build)."""
         t = self._table
-        if row.get("source") == "bundle":
-            t.removeCellWidget(vis_idx, self._EDITS_COL)
-            dash = QTableWidgetItem("-")
+        n = len(self._rows)
+        start = len(self._row_pool)
+        if start >= n:
+            return
+        t.setUpdatesEnabled(False)
+        try:
+            for i in range(start, min(start + self._FILL_CHUNK, n)):
+                self._row_pool.append(self._create_row_cells(i))
+                self._update_row_cells(i, self._rows[i])
+        finally:
+            t.setUpdatesEnabled(True)
+        if len(self._row_pool) < n:
+            self._fill_timer.start(0)
+
+    def _create_row_items(self, vi: int) -> dict:
+        """Create visible row *vi*'s QTableWidgetItems (once per position)."""
+        t = self._table
+        # Selection tick. Deliberately NOT ItemIsUserCheckable: Qt paints
+        # the indicator for any item carrying CheckStateRole, and leaving
+        # the flag off means Qt never toggles it behind our back - every
+        # change goes through _toggle_check, which owns the shift anchor.
+        chk = QTableWidgetItem()
+        chk.setFlags(Qt.ItemIsEnabled)
+        chk.setTextAlignment(Qt.AlignCenter)
+        t.setItem(vi, _COL_CHECK, chk)
+
+        name_item = QTableWidgetItem()
+        name_item.setFlags(Qt.ItemIsEnabled)
+        t.setItem(vi, _COL_NAME, name_item)
+
+        # Dash items sit UNDER the fomod/edits checkbox cell widgets; when a
+        # row has no toggle there, the widget is hidden and the dash shows.
+        dashes = {}
+        for col_key, col in (("fomod_dash", _COL_FOMOD),
+                             ("edits_dash", self._EDITS_COL)):
+            dash = QTableWidgetItem()
             dash.setFlags(Qt.ItemIsEnabled)
             dash.setTextAlignment(Qt.AlignCenter)
-            t.setItem(vis_idx, self._EDITS_COL, dash)
-        else:
-            t.takeItem(vis_idx, self._EDITS_COL)
-            edits_chk = self._center_checkbox(
-                row.get("save_edits", False),
-                lambda ch, di=data_idx: self._set_save_edits(di, ch))
-            edits_chk.setToolTip(self.tr(
-                "Ship your local changes to this mod's files as binary "
-                "patches, so users get the mod exactly as you have it."))
-            t.setCellWidget(vis_idx, self._EDITS_COL, edits_chk)
+            t.setItem(vi, col, dash)
+            dashes[col_key] = dash
+        return {"check": chk, "name": name_item, **dashes}
 
-    def _center_checkbox(self, checked: bool, on_toggle) -> QWidget:
+    def _update_row_items(self, vi: int, row: dict):
+        """Restyle row *vi*'s items for the data row now shown there."""
+        w = self._row_items[vi]
+        data_idx = self._vis_data_idx[vi]
+        w["check"].setCheckState(Qt.Checked if data_idx in self._checked
+                                 else Qt.Unchecked)
+        w["name"].setText(row["name"])
+        w["fomod_dash"].setText("" if row.get("has_fomod") else "-")
+        w["edits_dash"].setText("-" if row.get("source") == "bundle" else "")
+
+    def _create_row_cells(self, vi: int) -> dict:
+        """Create visible row *vi*'s cell widgets (once per position)."""
+        t = self._table
+        # Handlers resolve which data row sits at this position at CLICK time,
+        # so rebuilds only have to update _vis_data_idx, never reconnect.
+        di = lambda: self._vis_data_idx[vi]
+
+        src_btn = QPushButton()
+        src_btn.setCursor(Qt.PointingHandCursor)
+        src_btn.clicked.connect(lambda _=False: self._pick_source(di()))
+        t.setCellWidget(vi, _COL_SOURCE, src_btn)
+
+        ver_btn = QPushButton()
+        ver_btn.setCursor(Qt.PointingHandCursor)
+        ver_btn.clicked.connect(lambda _=False: self._pick_version(di()))
+        t.setCellWidget(vi, _COL_VERSION, ver_btn)
+
+        fomod_wrap = self._center_checkbox(
+            lambda ch: self._set_fomod(di(), ch))
+        t.setCellWidget(vi, _COL_FOMOD, fomod_wrap)
+
+        opt_wrap = self._center_checkbox(
+            lambda ch: self._set_optional(di(), ch))
+        t.setCellWidget(vi, _COL_OPTIONAL, opt_wrap)
+
+        edits_wrap = self._center_checkbox(
+            lambda ch: self._set_save_edits(di(), ch))
+        edits_wrap._chk.setToolTip(self.tr(
+            "Ship your local changes to this mod's files as binary "
+            "patches, so users get the mod exactly as you have it."))
+        t.setCellWidget(vi, self._EDITS_COL, edits_wrap)
+
+        return {"src": src_btn, "ver": ver_btn, "fomod_wrap": fomod_wrap,
+                "opt_wrap": opt_wrap, "edits_wrap": edits_wrap}
+
+    def _update_row_cells(self, vi: int, row: dict):
+        """Restyle row *vi*'s cell widgets for the data row now shown there."""
+        w = self._row_pool[vi]
+        src = row.get("source", "nexus")
+        btn = w["src"]
+        btn.setText(self.tr(_SOURCE_LABELS.get(src, "Nexus")))
+        # Re-applying a per-widget stylesheet forces a repolish; skip it when
+        # the source (and so the colour) hasn't changed.
+        if getattr(btn, "_amm_src", None) != src:
+            btn.setStyleSheet(_source_button_qss(src))
+            btn._amm_src = src
+        w["ver"].setText(row.get("ver_label", "-"))
+        self._set_check_cell(w["fomod_wrap"], bool(row.get("has_fomod")),
+                             bool(row.get("fomod_export", True)))
+        self._set_check_cell(w["opt_wrap"], True,
+                             bool(row.get("optional", False)))
+        self._set_check_cell(w["edits_wrap"], src != "bundle",
+                             bool(row.get("save_edits", False)))
+
+    def _center_checkbox(self, on_toggle) -> QWidget:
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setAlignment(Qt.AlignCenter)
         chk = QCheckBox()
-        chk.setChecked(checked)
         chk.toggled.connect(on_toggle)
         lay.addWidget(chk)
+        wrap._chk = chk
         return wrap
+
+    @staticmethod
+    def _set_check_cell(wrap: QWidget, shown: bool, checked: bool):
+        """Set a pooled checkbox cell's state without firing its handler."""
+        chk = wrap._chk
+        chk.blockSignals(True)
+        chk.setChecked(checked)
+        chk.blockSignals(False)
+        wrap.setVisible(shown)
 
     # -- cell actions -------------------------------------------------------
     def _set_optional(self, data_idx: int, checked: bool):
@@ -1366,25 +1461,15 @@ class ExportProfileView(QWidget):
     def _refresh_visible_row(self, data_idx: int):
         """Update the on-screen widgets for one data row if it's currently visible."""
         row = self._all_rows[data_idx]
-        try:
-            vis_idx = self._rows.index(row)
-        except ValueError:
+        # Identity match - == would deep-compare dicts and can hit a
+        # structural duplicate.
+        vis_idx = next((i for i, r in enumerate(self._rows) if r is row), None)
+        if vis_idx is None:
             return
-        src_btn = self._table.cellWidget(vis_idx, _COL_SOURCE)
-        if isinstance(src_btn, QPushButton):
-            src = row.get("source", "nexus")
-            src_btn.setText(self.tr(_SOURCE_LABELS.get(src, "Nexus")))
-            src_btn.setStyleSheet(_source_button_qss(src))
-        ver_btn = self._table.cellWidget(vis_idx, _COL_VERSION)
-        if isinstance(ver_btn, QPushButton):
-            ver_btn.setText(row.get("ver_label", "-"))
-        # Source flips to/from "bundle" swap the Edits cell between the
-        # checkbox and the dash. Identity match - == would deep-compare dicts
-        # and can hit a structural duplicate.
-        data_idx = next(
-            (i for i, r in enumerate(self._all_rows) if r is row), None)
-        if data_idx is not None:
-            self._build_edits_cell(vis_idx, data_idx, row)
+        if vis_idx < len(self._row_items):
+            self._update_row_items(vis_idx, row)
+        if vis_idx < len(self._row_pool):
+            self._update_row_cells(vis_idx, row)
 
     # -- search / filter toggles --------------------------------------------
     def _on_search(self, text: str):

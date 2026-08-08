@@ -59,7 +59,7 @@ from Utils.config_paths import get_fomod_selections_path, get_bain_selections_pa
 # hyphen have been written at different times (and are sitting in users' saved
 # workshop settings), so PARSING must accept either while new labels use one.
 VER_LABEL_SEP = " - "
-_VER_LABEL_RE = re.compile(r"^\s*(\d+)\s+[--]\s+(.*)$")
+_VER_LABEL_RE = re.compile(r"^\s*(\d+)\s+[-—]\s+(.*)$")
 
 
 def split_ver_label(label: str) -> "tuple[int, str]":
