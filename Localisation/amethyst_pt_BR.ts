@@ -1344,7 +1344,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Required</source>
-        <translation>Exigido</translation>
+        <translation>Obrigatório</translation>
     </message>
     <message>
         <source>Expected file: {0}</source>
@@ -2246,7 +2246,7 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>Required Top-Level Folders</source>
-        <translation>Pastas de nível superior exigidas</translation>
+        <translation>Pastas de nível superior obrigatórias</translation>
     </message>
     <message>
         <source>Comma-separated folder names a mod must contain at its root. If none match, the user is prompted to set a data directory.</source>
@@ -2254,11 +2254,11 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>Required File Types</source>
-        <translation>Tipos de arquivos exigidos</translation>
+        <translation>Tipos de arquivos obrigatórios</translation>
     </message>
     <message>
         <source>Comma-separated file extensions a mod must contain at its root. e.g. .esp, .esm — works standalone or as a fallback after Required Top-Level Folders.</source>
-        <translation>Extensões de arquivos separadas por vírgulas que um mod deve conter em sua raiz. Por exemplo: .esp, .esm — funciona de forma independente ou como alternativa após as pastas de nível superior exigidas.</translation>
+        <translation>Extensões de arquivos separadas por vírgulas que um mod deve conter em sua raiz. Por exemplo: .esp, .esm — funciona de forma independente ou como alternativa após as pastas de nível superior obrigatórias.</translation>
     </message>
     <message>
         <source>Strip Prefixes (post-install)</source>
@@ -2266,7 +2266,7 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>Like Strip Prefixes but applied after Required Top-Level Folders validation. e.g. reframework</source>
-        <translation>Semelhante a Remover prefixos, mas aplicado após a validação das Pastas de nível superior exigidas. Por exemplo: reframework</translation>
+        <translation>Semelhante a Remover prefixos, mas aplicado após a validação das Pastas de nível superior obrigatórias. Por exemplo: reframework</translation>
     </message>
     <message>
         <source>Conflict Ignore Filenames</source>
@@ -2278,11 +2278,11 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>Auto Strip Until Required</source>
-        <translation>Remover automaticamente até a pasta exigida</translation>
+        <translation>Remover automaticamente até a pasta obrigatória</translation>
     </message>
     <message>
         <source>When enabled and Required Top-Level Folders is set, strip leading path segments automatically instead of prompting the user.</source>
-        <translation>Quando essa opção estiver ativada e a configuração "Pastas de nível superior exigidas" estiver definida, os segmentos iniciais do caminho serão removidos automaticamente, sem solicitar a confirmação do usuário.</translation>
+        <translation>Quando essa opção estiver ativada e a configuração "Pastas de nível superior obrigatórias" estiver definida, os segmentos iniciais do caminho serão removidos automaticamente, sem solicitar a confirmação do usuário.</translation>
     </message>
     <message>
         <source>Install As-Is If No Match</source>
@@ -2290,7 +2290,7 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>When enabled, if both Required Top-Level Folders and Required File Types checks fail, the mod is installed as-is without showing the prefix dialog.</source>
-        <translation>Quando ativado, se ambas as verificações de Pastas de nível superior exigidas e Tipos de arquivos exigidos falharem, o mod será instalado como está, sem exibir a caixa de diálogo de prefixo.</translation>
+        <translation>Quando ativado, se ambas as verificações de Pastas de nível superior obrigatórias e Tipos de arquivos obrigatórios falharem, o mod será instalado como está, sem exibir a caixa de diálogo de prefixo.</translation>
     </message>
     <message>
         <source>Restore Before Deploy</source>
@@ -8495,7 +8495,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
         <source>Blocked — required by other plugins ({0})</source>
-        <translation>Bloqueado — exigido por outros plugins ({0})</translation>
+        <translation>Bloqueado — requerido por outros plugins ({0})</translation>
     </message>
     <message>
         <source>Audit complete — {0} plugins, {1} safe to disable.</source>
@@ -12103,7 +12103,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Required mod</source>
-        <translation>Mod exigido</translation>
+        <translation>Mod obrigatório</translation>
     </message>
     <message>
         <source>Optional mod</source>
@@ -12327,7 +12327,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Popup/overlay backgrounds and coloured info rows (required/optional mods, cards).</source>
-        <translation>Fundo popup/overlay e linhas de informação coloridas (mods exigidos / opcionais, cartões).</translation>
+        <translation>Fundo popup/overlay e linhas de informação coloridas (mods obrigatórios / opcionais, cartões).</translation>
     </message>
     <message>
         <source>Small status pills and badges (queued, download progress, error/success).</source>
@@ -12678,7 +12678,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Required mod</source>
-        <translation>Mod exigido</translation>
+        <translation>Mod obrigatório</translation>
     </message>
     <message>
         <source>Optional mod</source>
