@@ -49,7 +49,12 @@ from Utils.filemap import (
 )
 from Utils.modlist import read_modlist
 
-_BSA_INDEX_VERSION = 1
+# v2 invalidates every v1 index on disk. v1 could be left holding zero mods by
+# the update_bsa_index bug below (installing an archive-less mod into a profile
+# that had no index yet wrote an authoritative-looking "nothing has a BSA"),
+# and an empty index is indistinguishable from a legitimately archive-less
+# profile - so the only way to heal the poisoned ones is to force a rescan.
+_BSA_INDEX_VERSION = 2
 
 # Thread pool for parallel BSA scanning. BSA parsing is largely CPU-bound
 # (struct unpacking under the GIL), so more than ~4 workers adds context-
@@ -301,16 +306,17 @@ def update_bsa_index(
     mod_dir: Path | str,
     archive_extensions: frozenset[str],
 ) -> None:
-    """Add or replace a single mod's BSA entries in the index.
+    """Add or replace a single mod's BSA entries in the index; no-op if absent/corrupt.
 
-    Call this after installing a mod. If the index file exists but fails
-    to parse, this is a no-op (better to leave a stale full-rebuild for
-    the modlist panel than to wipe every other mod's cached entries).
+    Call this after installing a mod. A missing or unparseable index is left
+    alone for the modlist panel to rebuild - writing one mod's result into a
+    fresh index would claim every OTHER mod has no archives, and since an empty
+    index reads as a valid answer nothing would ever rescan them.
     """
     loaded = _load_bsa_index(index_path)
-    if loaded is _BSA_INDEX_CORRUPT:
+    if loaded is None or loaded is _BSA_INDEX_CORRUPT:
         return
-    index = loaded if isinstance(loaded, dict) else {}
+    index = loaded
     _, archives, _ = _scan_mod_bsas(mod_name, str(mod_dir), archive_extensions)
     if archives:
         index[mod_name] = archives

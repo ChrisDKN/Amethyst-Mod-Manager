@@ -424,14 +424,21 @@ class GameState:
         if staging is None or ml is None or not ml.is_file():
             return empty
         try:
-            from Utils.bsa_filemap import build_bsa_conflicts, rebuild_bsa_index
+            from Utils.bsa_filemap import (
+                build_bsa_conflicts, read_bsa_index, rebuild_bsa_index,
+            )
             from Utils.plugins import read_loadorder
         except Exception:
             return empty
         out_dir = staging.parent
         bsa_index = out_dir / "bsa_index.bin"
         try:
-            if not bsa_index.is_file():
+            # Gate on whether the index PARSES, not on whether the file exists.
+            # An index that is missing, corrupt, or written by an older version
+            # all mean "nothing usable has been scanned" - existence alone left
+            # a bad index (e.g. an older version's empty one) stuck forever,
+            # silently reporting zero archive conflicts for every mod.
+            if read_bsa_index(bsa_index) is None:
                 rebuild_bsa_index(bsa_index, staging, exts, log_fn=log,
                                   follow_toplevel_links_under=g.get_profile_root() / "profiles")
             pdir = self.profile_dir()
