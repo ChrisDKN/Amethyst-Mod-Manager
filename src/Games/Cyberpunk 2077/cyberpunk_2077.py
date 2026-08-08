@@ -5,8 +5,17 @@ Game handler for Cyberpunk 2077.
 Mod structure:
   Mods install directly into the game root (archive/, bin/, r6/, red4ext/, etc.)
   Staged mods live in Profiles/Cyberpunk 2077/mods/
+
+Archive load order:
+  REDengine loads archive/pc/mod ASCII-alphabetically and the FIRST loaded
+  archive wins conflicts (opposite of Bethesda).  An optional modlist.txt in
+  that folder overrides the alphabetical order, so deploy writes one from the
+  profile's mod priority (highest-priority mod first).  AMM_CP2077_ARCHIVE_MODLIST=0
+  disables the writer.
 """
 
+import os
+import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame, MODERN_DIRECTX_DEPS
@@ -17,6 +26,7 @@ from Utils.deploy import (
     deploy_filemap_to_root,
     load_per_mod_strip_prefixes,
     load_separator_deploy_paths,
+    expand_separator_deploy_paths,
     expand_separator_link_modes,
     expand_separator_raw_deploy,
     restore_custom_rules,
@@ -269,7 +279,131 @@ class Cyberpunk2077(BaseGame):
                                                log_fn=_log,
                                                progress_fn=progress_fn,
                                                exclude=custom_exclude or None)
+
+        if os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") != "0":
+            try:
+                # Raw-deploy mods and custom-location separator mods never
+                # land in archive/pc/mod — keep them out of the load order.
+                _excl: set[str] = set(per_mod_raw or ())
+                if _sep_deploy:
+                    _excl |= set(expand_separator_deploy_paths(
+                        _sep_deploy, _sep_entries))
+                self._write_archive_modlist(
+                    filemap, game_root, profile_dir,
+                    exclude_mods=_excl or None, log_fn=_log)
+            except Exception as exc:
+                _log(f"WARN: archive modlist.txt not written: {exc}")
+
         _log(f"Deploy complete. {linked_mod} mod file(s) placed in game root.")
+
+    # -----------------------------------------------------------------------
+    # Archive load order (archive/pc/mod/modlist.txt)
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _archive_modlist_dest(game_root: Path) -> Path:
+        return game_root / "archive" / "pc" / "mod" / "modlist.txt"
+
+    def _ordered_mod_archives(self, filemap: Path, profile_dir: Path,
+                              exclude_mods: "set[str] | None" = None) -> list[str]:
+        """Deployed .archive filenames in game load order (winner first).
+
+        The game loads modlist.txt top to bottom and the first archive that
+        touches a resource wins, so the order is Overwrite first (it beats
+        everything in the filemap merge), then mods by profile priority
+        (modlist index 0 = highest).  Only flat archive/pc/mod entries count —
+        subfolders there aren't reliably scanned by the engine.  exclude_mods
+        (raw-deploy / custom-location separator mods) never land in
+        archive/pc/mod, so their archives are dropped entirely.
+        """
+        from Utils.data_tab import parse_filemap
+
+        mods = [e.name for e in read_modlist(profile_dir / "modlist.txt")
+                if e.enabled and not e.is_separator]
+        # "[Overwrite]" is filemap.OVERWRITE_NAME; -1 ranks it above index 0.
+        rank = {name: i for i, name in enumerate(mods)}
+        rank["[Overwrite]"] = -1
+        unranked = len(mods)
+
+        prefix = "archive/pc/mod/"
+        excluded = exclude_mods or set()
+        best: dict[str, tuple[int, str]] = {}  # filename_lower → (rank, filename)
+        for rel, mod in parse_filemap(filemap):
+            rl = rel.lower()
+            if not rl.endswith(".archive") or mod in excluded:
+                continue
+            if "/" not in rel:
+                # Loose archive — routed to archive/pc/mod by the custom rule.
+                name = rel
+            elif rl.startswith(prefix) and "/" not in rel[len(prefix):]:
+                name = rel[len(prefix):]
+            else:
+                continue
+            r = rank.get(mod, unranked)
+            cur = best.get(name.lower())
+            if cur is None or r < cur[0]:
+                best[name.lower()] = (r, name)
+        return [name for _r, name in
+                sorted(best.values(), key=lambda t: (t[0], t[1]))]
+
+    def _write_archive_modlist(self, filemap: Path, game_root: Path,
+                               profile_dir: Path,
+                               exclude_mods: "set[str] | None" = None,
+                               log_fn=None) -> None:
+        """Write archive/pc/mod/modlist.txt from the profile's mod priority.
+
+        A modlist.txt we didn't write (hand-made, or deployed by a mod) is
+        backed up next to the filemap before being replaced, and put back by
+        _cleanup_archive_modlist on restore.  The sidecar state file marks
+        ownership: while it exists, the deployed modlist.txt is ours.
+        """
+        _log = log_fn or (lambda _m: None)
+        dest = self._archive_modlist_dest(game_root)
+        state = filemap.parent / "archive_modlist.state"
+        backup = filemap.parent / "archive_modlist_backup.txt"
+
+        names = self._ordered_mod_archives(filemap, profile_dir, exclude_mods)
+
+        if dest.is_file():
+            ours = state.is_file() and dest.read_bytes() == state.read_bytes()
+            if not ours and not backup.is_file():
+                shutil.copy2(dest, backup)
+                _log("Archive load order: existing modlist.txt backed up "
+                     "(restored when mods are removed).")
+            # Unlink rather than overwrite: the file may be a hardlink to a
+            # mod's staged copy, and writing through it would corrupt staging.
+            dest.unlink()
+
+        if not names:
+            state.unlink(missing_ok=True)
+            if backup.is_file():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(backup), str(dest))
+            return
+
+        # CRLF: the game is a Windows binary; MO2 writes the file the same way.
+        content = ("\r\n".join(names) + "\r\n").encode("utf-8")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(content)
+        state.write_bytes(content)
+        _log(f"Archive load order: wrote modlist.txt with {len(names)} "
+             "archive(s) — highest-priority mod loads first (first wins).")
+
+    def _cleanup_archive_modlist(self, filemap: Path, game_root: Path,
+                                 log_fn=None) -> None:
+        """Remove our modlist.txt on restore and put back any backed-up one."""
+        _log = log_fn or (lambda _m: None)
+        dest = self._archive_modlist_dest(game_root)
+        state = filemap.parent / "archive_modlist.state"
+        backup = filemap.parent / "archive_modlist_backup.txt"
+        if state.is_file():
+            if dest.is_file():
+                dest.unlink()
+            state.unlink()
+        if backup.is_file():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(backup), str(dest))
+            _log("Archive load order: original modlist.txt restored.")
 
     def _deployed_redmods(self) -> list[str]:
         """Names of REDmods deployed in the game root (mods/<name>/info.json)."""
@@ -349,4 +483,10 @@ class Cyberpunk2077(BaseGame):
         removed = restore_filemap_from_root(
             filemap, game_root, log_fn=_log,
             restore_whitelist=self.restore_whitelist_matcher())
+
+        try:
+            self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
+        except Exception as exc:
+            _log(f"WARN: archive modlist.txt cleanup failed: {exc}")
+
         _log(f"Restore complete. {removed} mod file(s) removed from game root.")
