@@ -63,7 +63,7 @@
     <message>
         <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager.
 Mods are matched to your installed mods by UUID.</source>
-        <translation>Escolha um arquivo modlist.json (ou um arquivo .json de ordem salva exportado) no BG3 Mod Manager.
+        <translation>Escolha um modlist.json (ou um .json de ordem salva exportado) do BG3 Mod Manager.
 Os mods são associados aos mods instalados por meio do UUID.</translation>
     </message>
     <message>
@@ -2358,7 +2358,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>The .exe location from the game's root folder. e.g. bin/bg3.exe for BG3 or SkyrimSELauncher.exe for Skyrim SE</source>
-        <translation>A localização do arquivo .exe na pasta raiz do jogo. Por exemplo, bin/bg3.exe para o BG3 ou SkyrimSELauncher.exe para o Skyrim SE</translation>
+        <translation>A localização do .exe na pasta raiz do jogo. Por exemplo, bin/bg3.exe para o BG3 ou SkyrimSELauncher.exe para o Skyrim SE</translation>
     </message>
     <message>
         <source>Deploy Method</source>
@@ -4335,7 +4335,7 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Unpack resources.gpak</source>
-        <translation>Descompactar o arquivo resources.gpak</translation>
+        <translation>Descompactar resources.gpak</translation>
     </message>
     <message>
         <source>Repack Unpacked folder</source>
@@ -4527,11 +4527,11 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Step 4: Create MSCFolder.txt</source>
-        <translation>Passo 4: Criar o arquivo MSCFolder.txt</translation>
+        <translation>Passo 4: Criar MSCFolder.txt</translation>
     </message>
     <message>
         <source>Writing MSCFolder.txt…</source>
-        <translation>Gravando o arquivo MSCFolder.txt…</translation>
+        <translation>Gravando MSCFolder.txt…</translation>
     </message>
     <message>
         <source>Game path not configured.</source>
@@ -4893,7 +4893,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
         <source>Run an .exe in this prefix…</source>
-        <translation>Execute um arquivo .exe com este prefixo…</translation>
+        <translation>Execute um .exe neste prefixo…</translation>
     </message>
     <message>
         <source>Open wine registry</source>
@@ -6517,7 +6517,7 @@ Fazer deploy mesmo assim?</translation>
     </message>
     <message>
         <source>Rule {0} '{1}' {2} not found in userlist.yaml.</source>
-        <translation>Regra {0} '{1}' {2} não foi encontrado no arquivo userlist.yaml.</translation>
+        <translation>Regra {0} '{1}' {2} não encontrada em userlist.yaml.</translation>
     </message>
     <message>
         <source>Flipped: {0} now '{1}' {2}</source>
@@ -10706,7 +10706,7 @@ Amethyst-Mod-Manager/amethyst</translation>
     </message>
     <message>
         <source>Folder containing Heroic's config.json. Blank = auto-detect (Flatpak and native locations).</source>
-        <translation>Pasta que contém o arquivo config.json do Heroic. Vazio = detecção automática (locais do Flatpak e nativos).</translation>
+        <translation>Pasta que contém o config.json do Heroic. Vazio = detecção automática (locais do Flatpak e nativos).</translation>
     </message>
     <message>
         <source>Lutris Data Location</source>
@@ -10734,7 +10734,7 @@ Amethyst-Mod-Manager/amethyst</translation>
     </message>
     <message>
         <source>Folder containing Faugus Launcher's games.json. Blank = auto-detect (Flatpak and native locations).</source>
-        <translation>Pasta contendo os jogos de Faugus Launcher. Json. Em branco = auto-detecção (Flatpak e locais nativos).</translation>
+        <translation>Pasta que contém o games.json do Faugus Launcher. Vazio = detecção automática (locais do Flatpak e nativos).</translation>
     </message>
     <message>
         <source>Faugus AppImage</source>
@@ -10746,7 +10746,7 @@ Amethyst-Mod-Manager/amethyst</translation>
     </message>
     <message>
         <source>Path to libraryfolders.vdf (or its folder). Blank = auto-detect (standard, Flatpak and Snap locations).</source>
-        <translation>Caminho para o arquivo libraryfolders.vdf (ou sua pasta). Em branco = detecção automática (locais padrão, do Flatpak e do Snap).</translation>
+        <translation>Caminho para libraryfolders.vdf (ou sua pasta). Em branco = detecção automática (locais padrão, do Flatpak e do Snap).</translation>
     </message>
     <message>
         <source>Advanced</source>
@@ -11267,7 +11267,7 @@ Clique em "Instalar" para começar.</translation>
 
 • Apenas reaplicar a configuração — reexecuta a configuração do perfil INI + FalloutCustom.ini sem recompilar (rápido).
 
-• Recompilar do zero — restaura para a versão original e executa o instalador completo novamente (requer o arquivo .mpi + os dois jogos).</translation>
+• Recompilar do zero — restaura para a versão original e executa o instalador completo novamente (requer o .mpi + os dois jogos).</translation>
     </message>
     <message>
         <source>Re-apply setup only</source>
