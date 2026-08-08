@@ -87,20 +87,13 @@ def _is_separator(name: str) -> bool:
     return name.endswith(_SEPARATOR_SUFFIX)
 
 
-def read_modlist(modlist_path: Path) -> list[ModEntry]:
+def parse_modlist_text(text: str) -> list[ModEntry]:
     """
-    Parse modlist.txt and return entries in file order (index 0 = highest priority).
-    Lines that are blank or don't start with +/-/* are skipped.
+    Parse modlist.txt content and return entries in order (index 0 = highest
+    priority). Lines that are blank or don't start with +/-/* are skipped.
     """
     entries: list[ModEntry] = []
-    if not modlist_path.is_file():
-        return entries
-    # surrogateescape: imported MO2 modlists can carry non-UTF-8 (e.g. cp1252)
-    # bytes in mod names; a strict read would raise on every profile load.
-    # Only line endings are stripped - mod folder names may legitimately
-    # start/end with spaces and must round-trip unchanged.
-    for line in modlist_path.read_text(
-            encoding="utf-8", errors="surrogateescape").splitlines():
+    for line in text.splitlines():
         line = line.rstrip("\r\n")
         if not line:
             continue
@@ -123,6 +116,21 @@ def read_modlist(modlist_path: Path) -> list[ModEntry]:
                                     is_separator=False))
         # else: ignore unknown lines
     return entries
+
+
+def read_modlist(modlist_path: Path) -> list[ModEntry]:
+    """
+    Parse modlist.txt and return entries in file order (index 0 = highest priority).
+    Lines that are blank or don't start with +/-/* are skipped.
+    """
+    if not modlist_path.is_file():
+        return []
+    # surrogateescape: imported MO2 modlists can carry non-UTF-8 (e.g. cp1252)
+    # bytes in mod names; a strict read would raise on every profile load.
+    # Only line endings are stripped - mod folder names may legitimately
+    # start/end with spaces and must round-trip unchanged.
+    return parse_modlist_text(modlist_path.read_text(
+        encoding="utf-8", errors="surrogateescape"))
 
 
 def write_modlist(modlist_path: Path, entries: list[ModEntry]) -> None:

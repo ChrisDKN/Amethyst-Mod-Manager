@@ -1573,14 +1573,16 @@ def run_collection_install(
         _append_reconcile_modlist(modlist_path, install_order, _append_pre_existing, log)
 
     # Step 3b: bundled folders + binary patches + INI tweaks (before LOOT).
+    _amethyst_state = None
     if with_bundled and not _col_pause.is_set() and overwrite_existing is None:
         try:
-            _bundled_folders.extend(
-                _run_step3b(game, api, profile_dir, staging_path,
-                            collection_schema, download_link_path,
-                            collection_slug, revision_number,
-                            _install_results, log,
-                            local_bundle_zip=local_bundle_zip) or [])
+            _step3b_bundled, _amethyst_state = _run_step3b(
+                game, api, profile_dir, staging_path,
+                collection_schema, download_link_path,
+                collection_slug, revision_number,
+                _install_results, log,
+                local_bundle_zip=local_bundle_zip)
+            _bundled_folders.extend(_step3b_bundled or [])
         except Exception as exc:
             log(f"Collection install: Step 3b failed: {exc}")
 
@@ -1593,33 +1595,36 @@ def run_collection_install(
     # and the game reports missing behaviours. Index them here rather than
     # rebuilding the whole staging tree again - this is the same subset rescan
     # the root-flag toggle uses.
+    def _rescan_staged_subset(mod_names, what):
+        from Utils.filemap import rescan_mods_in_index
+        from Utils.deploy import load_per_mod_strip_prefixes
+        from Nexus.nexus_meta import collect_root_flagged_mods
+        _staging = game.get_effective_mod_staging_path()
+        try:
+            _index_dir = game.get_effective_filemap_path().parent
+        except Exception:
+            _index_dir = profile_dir
+        try:
+            _rf_mods = collect_root_flagged_mods(modlist_path, _staging,
+                                                 log_fn=log)
+        except Exception:
+            _rf_mods = set()
+        _uniq = list(dict.fromkeys(mod_names))
+        rescan_mods_in_index(
+            _index_dir / "modindex.bin", _staging, _uniq,
+            strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
+            per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
+            allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
+            root_folder_mods=set(_rf_mods or ()) or None,
+            normalize_folder_case=getattr(game, "normalize_folder_case", True),
+            log_fn=log)
+        log(f"Collection install: indexed {len(_uniq)} {what}: "
+            f"{', '.join(_uniq[:5])}" + (" …" if len(_uniq) > 5 else ""))
+
     if _bundled_folders and not _col_pause.is_set():
         try:
-            from Utils.filemap import rescan_mods_in_index
-            from Utils.deploy import load_per_mod_strip_prefixes
-            from Nexus.nexus_meta import collect_root_flagged_mods
-            _staging = game.get_effective_mod_staging_path()
-            try:
-                _index_dir = game.get_effective_filemap_path().parent
-            except Exception:
-                _index_dir = profile_dir
-            try:
-                _rf_mods = collect_root_flagged_mods(modlist_path, _staging,
-                                                     log_fn=log)
-            except Exception:
-                _rf_mods = set()
-            _uniq = list(dict.fromkeys(_bundled_folders))
-            rescan_mods_in_index(
-                _index_dir / "modindex.bin", _staging, _uniq,
-                strip_prefixes=set(getattr(game, "mod_folder_strip_prefixes", None) or ()) or None,
-                per_mod_strip_prefixes=load_per_mod_strip_prefixes(profile_dir),
-                allowed_extensions=set(getattr(game, "mod_install_extensions", None) or ()) or None,
-                root_folder_mods=set(_rf_mods or ()) or None,
-                normalize_folder_case=getattr(game, "normalize_folder_case", True),
-                log_fn=log)
-            log(f"Collection install: indexed {len(_uniq)} bundled folder(s) "
-                f"so they deploy: {', '.join(_uniq[:5])}"
-                + (" …" if len(_uniq) > 5 else ""))
+            _rescan_staged_subset(_bundled_folders,
+                                  "bundled folder(s) so they deploy")
         except Exception as exc:
             log(f"Collection install: could not index bundled folders ({exc}) "
                 "- run Refresh if bundled content does not deploy")
@@ -1642,11 +1647,13 @@ def run_collection_install(
         except Exception as exc:
             log(f"Collection install: filemap rebuild before LOOT failed: {exc}")
 
-    # Step 4: write plugins.txt / loadorder.txt from collection.json
+    # Step 4: write plugins.txt / loadorder.txt from collection.json (or the
+    # archive's exact exported order, which also skips the LOOT sort).
     if not _col_pause.is_set():
         _write_collection_plugins(
             game, profile_dir, plugins_path, collection_schema,
-            overwrite_existing, _is_append_run, log, _set_status)
+            overwrite_existing, _is_append_run, log, _set_status,
+            amethyst_state=_amethyst_state)
 
     # Final reconciliation - new-profile path only. Update runs were already
     # reconciled at Step 3 (order-preserving), append runs by
@@ -1687,6 +1694,31 @@ def run_collection_install(
                 profile_dir, modlist_path, collection_schema, log)
         except Exception as exc:
             log(f"Collection install: apply separators failed: {exc}")
+
+    # Amethyst profile fidelity: an archive exported by our Create Collection
+    # carries the source profile's exact modlist + portable state in Amethyst/
+    # (read out of the extracted archive in Step 3b). Applied LAST - it is the
+    # authored order, so it overrides the reconcile/rule-derived one - and only
+    # on fresh installs: update/append runs must keep the user's own
+    # arrangement (same philosophy as _reconcile_update_modlist).
+    if (_amethyst_state and modlist_path.is_file() and not _col_pause.is_set()
+            and overwrite_existing is None and update_context is None
+            and not _is_append_run):
+        try:
+            _strip_changed = _apply_amethyst_profile_state(
+                profile_dir, modlist_path, _amethyst_state, log)
+            if _strip_changed:
+                # Strip prefixes are baked into modindex.bin at rebuild time -
+                # mods whose prefixes just changed need their entries redone or
+                # the next deploy uses the un-stripped paths.
+                try:
+                    _rescan_staged_subset(
+                        _strip_changed, "mod(s) with imported strip prefixes")
+                except Exception as exc:
+                    log(f"Collection install: strip-prefix rescan failed "
+                        f"({exc}) - run Refresh before deploying")
+        except Exception as exc:
+            log(f"Collection install: Amethyst profile state failed: {exc}")
 
     # Restore the original profile dir
     try:
@@ -2009,10 +2041,13 @@ def _apply_manifest_separators(profile_dir, modlist_path, collection_schema, log
                                      is_separator=True))
         existing.add(name.lower())
         added += 1
+        # State keys use the DISPLAY name - that is what the modlist UI
+        # reads (modlist_model keys _sep_locks/_sep_colors by display_name).
+        disp = name[:-len("_separator")]
         if sep.get("color"):
-            colors[name] = str(sep["color"])
+            colors[disp] = str(sep["color"])
         if sep.get("locked"):
-            locks[name] = True
+            locks[disp] = True
     if not added:
         return
     write_modlist(modlist_path, entries)
@@ -2033,8 +2068,298 @@ def _apply_manifest_separators(profile_dir, modlist_path, collection_schema, log
     log(f"Collection install: inserted {added} separator(s) from manifest.")
 
 
+def _read_amethyst_export_data(archive_root, log) -> "dict | None":
+    """Read the archive's ``Amethyst/`` profile-fidelity folder (written by
+    collection_export._amethyst_state_jobs). Returns ``{modlist_text,
+    profile_state, bundles, format}`` or None when absent (Vortex-authored
+    collections). Files are additive across formats, so a newer format is
+    still read - unknown content is simply ignored."""
+    adir = archive_root / "Amethyst"
+    modlist_file = adir / "modlist.txt"
+    if not modlist_file.is_file():
+        return None
+    data: dict = {
+        "modlist_text": modlist_file.read_text(encoding="utf-8",
+                                               errors="surrogateescape"),
+        "profile_state": {},
+        "bundles": {},
+        "format": 1,
+    }
+    try:
+        exp = json.loads((adir / "export.json").read_text(encoding="utf-8"))
+        data["format"] = int(exp.get("format") or 1)
+        bundles = exp.get("bundles")
+        if isinstance(bundles, dict):
+            data["bundles"] = {str(k): str(v) for k, v in bundles.items()}
+    except Exception:
+        pass
+    ps_file = adir / "profile_state.json"
+    if ps_file.is_file():
+        try:
+            raw = json.loads(ps_file.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                data["profile_state"] = raw
+        except Exception as exc:
+            log(f"Collection install: Amethyst profile_state unreadable: {exc}")
+    # Kept as bytes: the game rewrites plugins.txt in cp1252, and read_plugins'
+    # encoding fallback needs the raw file, not a lossy decode.
+    for key, fname in (("plugins_bytes", "plugins.txt"),
+                       ("loadorder_bytes", "loadorder.txt"),
+                       ("userlist_bytes", "userlist.yaml")):
+        f = adir / fname
+        if f.is_file():
+            try:
+                data[key] = f.read_bytes()
+            except OSError as exc:
+                log(f"Collection install: Amethyst {fname} unreadable: {exc}")
+    log(f"Collection install: archive carries Amethyst profile data "
+        f"(format {data['format']})")
+    return data
+
+
+def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
+                                  log) -> "list[str]":
+    """Apply an Amethyst-authored collection's exact modlist (order, separators,
+    enabled state) and portable profile_state on top of the finished install.
+    Caller gates to fresh installs. Entries naming mods that never got installed
+    (deselected optionals, disabled-at-export mods) are skipped; installed mods
+    the modlist doesn't know are kept below the ordered block. Returns installed
+    mods whose strip prefixes changed (the caller must subset-rescan them)."""
+    from Utils.modlist import modlist_lock, parse_modlist_text
+
+    authored = parse_modlist_text(data.get("modlist_text") or "")
+    bundles: dict = data.get("bundles") or {}
+    renames: dict[str, str] = {}      # authored name -> installed folder name
+    final_entries: list = []
+    if authored:
+        with modlist_lock(modlist_path):
+            existing = read_modlist(modlist_path)
+            by_lower = {e.name.lower(): e for e in existing
+                        if not e.is_separator}
+            consumed: set[int] = set()
+            ordered: list = []
+            sep_names: set[str] = set()
+            skipped = 0
+            for a in authored:
+                if a.is_separator:
+                    if a.name.lower() in sep_names:
+                        continue
+                    sep_names.add(a.name.lower())
+                    ordered.append(ModEntry(name=a.name, enabled=True,
+                                            locked=True, is_separator=True))
+                    continue
+                target = by_lower.get(a.name.lower())
+                if target is None:
+                    arc = bundles.get(a.name)
+                    if arc:
+                        # The bundled/ folder is staged under a cleaned name -
+                        # same transform as _install_bundled_from_extracted.
+                        clean = (re.sub(r"[^\w\s\-]", "", str(arc)).strip()
+                                 .replace(" ", "_") or str(arc))
+                        target = by_lower.get(clean.lower())
+                if target is None or id(target) in consumed:
+                    skipped += 1
+                    continue
+                consumed.add(id(target))
+                renames[a.name] = target.name
+                ordered.append(ModEntry(name=target.name, enabled=a.enabled,
+                                        locked=a.locked))
+            leftovers = [
+                e for e in existing
+                if id(e) not in consumed
+                and not (e.is_separator and e.name.lower() in sep_names)]
+            final_entries = ordered + leftovers
+            write_modlist(modlist_path, final_entries)
+            log(f"Collection install: applied exported load order - "
+                f"{len(ordered)} entries, {skipped} skipped (not installed), "
+                f"{len(leftovers)} unlisted kept below")
+    else:
+        final_entries = read_modlist(modlist_path)
+
+    # LOOT user rules, verbatim. Step 4's _apply_collection_groups already
+    # merged the manifest's pluginRules into userlist.yaml, but those rules
+    # were DERIVED from this file at export - the original is the superset
+    # (custom groups, rules on plugins outside the collection), so it wins.
+    userlist_bytes = data.get("userlist_bytes")
+    if userlist_bytes:
+        try:
+            (Path(profile_dir) / "userlist.yaml").write_bytes(userlist_bytes)
+            log("Collection install: wrote exported userlist.yaml (LOOT rules)")
+        except OSError as exc:
+            log(f"Collection install: userlist.yaml not applied: {exc}")
+
+    state = data.get("profile_state") or {}
+    if not isinstance(state, dict) or not state:
+        return []
+    installed_lower = {e.name.lower() for e in final_entries
+                       if not e.is_separator}
+    # Separator state (locks/colors/collapsed/deploy paths) is keyed by DISPLAY
+    # name in profile_state ("Movement", not "Movement_separator") - that is
+    # what the modlist UI reads and writes. Accept both spellings when
+    # filtering so hand-edited or older state still comes through.
+    seps_lower = set()
+    for e in final_entries:
+        if e.is_separator:
+            seps_lower.add(e.name.lower())
+            seps_lower.add(e.display_name.lower())
+
+    def _mod_dict(raw) -> dict:
+        """Filter a mod-keyed dict to installed mods, remapping authored
+        (pre-bundle-rename) names to their installed folder names."""
+        out: dict = {}
+        if not isinstance(raw, dict):
+            return out
+        for k, v in raw.items():
+            name = renames.get(str(k), str(k))
+            if name.lower() in installed_lower:
+                out[name] = v
+        return out
+
+    def _sep_dict(raw) -> dict:
+        if not isinstance(raw, dict):
+            return {}
+        return {str(k): v for k, v in raw.items()
+                if str(k).lower() in seps_lower}
+
+    from Utils import profile_state as _ps
+
+    strip_changed: list[str] = []
+    try:
+        incoming = _mod_dict(state.get("mod_strip_prefixes"))
+        if incoming:
+            cur = _ps.read_mod_strip_prefixes(profile_dir)
+            for name, val in incoming.items():
+                new = [str(x) for x in (val or [])]
+                if cur.get(name) != new:
+                    cur[name] = new
+                    strip_changed.append(name)
+            if strip_changed:
+                _ps.write_mod_strip_prefixes(profile_dir, cur)
+    except Exception as exc:
+        log(f"Collection install: strip prefixes not applied: {exc}")
+
+    applied: list[str] = ["mod_strip_prefixes"] if strip_changed else []
+
+    def _merge_dict(key, read_fn, write_fn, mapper):
+        try:
+            incoming = mapper(state.get(key))
+            if not incoming:
+                return
+            cur = read_fn(profile_dir)
+            cur.update(incoming)
+            write_fn(profile_dir, cur)
+            applied.append(key)
+        except Exception as exc:
+            log(f"Collection install: {key} not applied: {exc}")
+
+    _merge_dict("separator_locks",
+                _ps.read_separator_locks, _ps.write_separator_locks, _sep_dict)
+    _merge_dict("separator_colors",
+                _ps.read_separator_colors, _ps.write_separator_colors, _sep_dict)
+    _merge_dict("separator_deploy_paths",
+                _ps.read_separator_deploy_paths,
+                _ps.write_separator_deploy_paths, _sep_dict)
+    _merge_dict("disabled_plugins",
+                _ps.read_disabled_plugins, _ps.write_disabled_plugins, _mod_dict)
+    _merge_dict("excluded_mod_files",
+                _ps.read_excluded_mod_files, _ps.write_excluded_mod_files,
+                _mod_dict)
+    _merge_dict("root_mod_files",
+                _ps.read_root_mod_files, _ps.write_root_mod_files, _mod_dict)
+    _merge_dict("mod_notes",
+                _ps.read_mod_notes, _ps.write_mod_notes, _mod_dict)
+    _merge_dict("plugin_locks",
+                _ps.read_plugin_locks, _ps.write_plugin_locks,
+                lambda raw: dict(raw) if isinstance(raw, dict) else {})
+
+    try:
+        raw = state.get("collapsed_seps")
+        if isinstance(raw, list) and raw:
+            vals = {str(x) for x in raw if str(x).lower() in seps_lower}
+            if vals:
+                _ps.write_collapsed_seps(
+                    profile_dir, set(_ps.read_collapsed_seps(profile_dir)) | vals)
+                applied.append("collapsed_seps")
+    except Exception as exc:
+        log(f"Collection install: collapsed_seps not applied: {exc}")
+    try:
+        raw = state.get("ignored_missing_requirements")
+        if isinstance(raw, list) and raw:
+            _ps.write_ignored_missing_requirements(
+                profile_dir,
+                set(_ps.read_ignored_missing_requirements(profile_dir))
+                | {str(x) for x in raw})
+            applied.append("ignored_missing_requirements")
+    except Exception as exc:
+        log(f"Collection install: ignored requirements not applied: {exc}")
+
+    if applied:
+        log(f"Collection install: merged exported profile state "
+            f"({', '.join(applied)})")
+    return strip_changed
+
+
+def _entries_from_amethyst_plugins(amethyst_state, author_entries, vanilla_map,
+                                   star_prefix, log) -> "list[PluginEntry]":
+    """Order the install's plugin set by the exported profile's exact
+    plugins.txt/loadorder.txt (Amethyst/ folder). Returns [] when the archive
+    carries no plugin files or they don't parse - the caller falls back to the
+    LOOT sort. Only ORDER and enabled state come from the export; the plugin
+    SET stays the one this install actually produced (deselected optionals are
+    already filtered out of *author_entries*, conditional plugins recovered
+    from the filemap ride along at the end in their current order)."""
+    import tempfile as _tf
+    from Utils.plugins import read_loadorder, read_plugins
+    plugins_bytes = (amethyst_state or {}).get("plugins_bytes")
+    if not plugins_bytes:
+        return []
+    lo_names: list[str] = []
+    with _tf.TemporaryDirectory() as td:
+        pp = Path(td) / "plugins.txt"
+        pp.write_bytes(plugins_bytes)
+        authored = read_plugins(pp, star_prefix=star_prefix)
+        lo_bytes = amethyst_state.get("loadorder_bytes")
+        if lo_bytes:
+            lp = Path(td) / "loadorder.txt"
+            lp.write_bytes(lo_bytes)
+            lo_names = read_loadorder(lp)
+    if not authored and not lo_names:
+        return []
+    enabled_map = {e.name.lower(): e.enabled for e in authored}
+    if not star_prefix:
+        # Legacy format: plugins.txt lists only ENABLED plugins; a plugin in
+        # loadorder.txt but absent from plugins.txt is installed-but-disabled.
+        for n in lo_names:
+            enabled_map.setdefault(n.lower(), False)
+    # loadorder.txt is the full order including vanilla masters; plugins.txt
+    # order is the fallback when it wasn't exported.
+    order_names = lo_names or [e.name for e in authored]
+    order_map = {n.lower(): i for i, n in enumerate(order_names)}
+    author_lower = {e.name.lower() for e in author_entries}
+    _ext_order = {".esm": 0, ".esp": 1, ".esl": 2}
+    vanilla_prepend = [
+        PluginEntry(name=orig, enabled=True)
+        for low, orig in sorted(
+            vanilla_map.items(),
+            key=lambda kv: (_ext_order.get(Path(kv[0]).suffix, 9), kv[0]))
+        if low not in author_lower]
+    candidates = vanilla_prepend + author_entries
+    unknown_base = len(order_map)
+    keyed: list = []
+    for i, e in enumerate(candidates):
+        low = e.name.lower()
+        # Vanilla masters stay force-enabled; everything else takes the
+        # exported enabled state when the export knows the plugin.
+        if low not in vanilla_map and low in enabled_map:
+            e = PluginEntry(name=e.name, enabled=enabled_map[low])
+        keyed.append((order_map.get(low, unknown_base + i), i, e))
+    keyed.sort(key=lambda t: (t[0], t[1]))
+    return [t[2] for t in keyed]
+
+
 def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema,
-                              overwrite_existing, _is_append_run, log, _set_status):
+                              overwrite_existing, _is_append_run, log, _set_status,
+                              amethyst_state=None):
     from Utils.game_helpers import _vanilla_plugins_for_game
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
     if schema_plugins and overwrite_existing is None:
@@ -2089,8 +2414,25 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                 author_lower.add(low)
             _apply_collection_groups(profile_dir, collection_schema, log)
             final_entries: list[PluginEntry] = []
+            star_prefix = getattr(game, "plugins_use_star_prefix", True)
+            if amethyst_state:
+                # An Amethyst-authored archive carries the exact exported
+                # plugin order - apply it and skip the LOOT sort (LOOT would
+                # re-sort away the author's manual tweaks).
+                try:
+                    final_entries = _entries_from_amethyst_plugins(
+                        amethyst_state, author_entries, vanilla_map,
+                        star_prefix, log)
+                    if final_entries:
+                        log(f"Collection install: applied exported plugin "
+                            f"order ({len(final_entries)} plugin(s)) - "
+                            "LOOT sort skipped.")
+                except Exception as exc:
+                    log(f"Collection install: exported plugin order failed "
+                        f"({exc}) - falling back to LOOT.")
+                    final_entries = []
             loot_enabled = getattr(game, "loot_sort_enabled", False)
-            if loot_enabled and _loot_available():
+            if not final_entries and loot_enabled and _loot_available():
                 try:
                     _set_status("Running LOOT sort to apply collection load order…")
                     from LOOT.loot_sorter import sort_plugins as _loot_sort
@@ -2131,7 +2473,6 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         key=lambda kv: (_ext_order.get(Path(kv[0]).suffix, 9), kv[0]))
                     if low not in author_lower]
                 final_entries = vanilla_prefix + author_entries
-            star_prefix = getattr(game, "plugins_use_star_prefix", True)
             write_plugins(plugins_path,
                           [e for e in final_entries if e.name.lower() not in vanilla_lower],
                           star_prefix=star_prefix)
@@ -2635,10 +2976,13 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
-                install_results, log, *, local_bundle_zip="") -> "list[str]":
+                install_results, log, *, local_bundle_zip=""
+                ) -> "tuple[list[str], dict | None]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
-    collection archive. Runs after modlist is written, before LOOT. Returns the
-    bundled staging folders, which the caller must add to the mod index.
+    collection archive. Runs after modlist is written, before LOOT. Returns
+    ``(bundled_folders, amethyst_state)``: the bundled staging folders (the
+    caller must add them to the mod index) and the archive's ``Amethyst/``
+    profile-fidelity data (None when absent - Vortex-authored collections).
 
     A local ``.amethyst`` import has no cached collection archive - its binary
     patches come out of the bundle zip itself (*local_bundle_zip*); the zip's
@@ -2650,9 +2994,10 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
         archive_root = _extract_local_bundle_patches(
             game, local_bundle_zip, log)
     if archive_root is None:
-        return []
+        return [], None
     modlist_path = profile_dir / "modlist.txt"
     bundled: list[str] = []
+    amethyst_state = None
     try:
         try:
             bundled = _install_bundled_from_extracted(
@@ -2670,9 +3015,13 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
             _apply_collection_ini_tweaks(archive_root, profile_dir, game, log)
         except Exception as exc:
             log(f"Collection install: INI tweaks step failed: {exc}")
+        try:
+            amethyst_state = _read_amethyst_export_data(archive_root, log)
+        except Exception as exc:
+            log(f"Collection install: Amethyst state read failed: {exc}")
     finally:
         _shutil.rmtree(archive_root, ignore_errors=True)
-    return bundled
+    return bundled, amethyst_state
 
 
 # ---------------------------------------------------------------------------

@@ -828,9 +828,13 @@ def _separator_blocks(entries, kept_names: set, profile_dir) -> list[dict]:
         name = getattr(entry, "name", None) or str(entry)
         if getattr(entry, "is_separator", False):
             current = {"name": name, "mods": []}
-            if colors.get(name):
-                current["color"] = colors[name]
-            if locks.get(name):
+            # Separator state is keyed by DISPLAY name (no _separator suffix)
+            # in profile_state - the full name is only a fallback.
+            disp = getattr(entry, "display_name", name)
+            color = colors.get(disp) or colors.get(name)
+            if color:
+                current["color"] = color
+            if locks.get(disp) or locks.get(name):
                 current["locked"] = True
             blocks.append(current)
         elif current is not None and name in kept_names:

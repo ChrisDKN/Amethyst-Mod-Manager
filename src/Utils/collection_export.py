@@ -5,8 +5,11 @@ Build a Vortex/Nexus-compatible collection archive (.7z) from export rows.
 The manifest format mirrors real Vortex collections (see a published
 collection.json): top-level ``info`` / ``mods`` / ``modRules`` /
 ``plugins`` / ``pluginRules`` / ``collectionConfig``. The archive layout is
-``collection.json`` + ``bundled/<archive>`` for bundle-source mods. Our own
-collection installer consumes exactly this shape, so exports round-trip.
+``collection.json`` + ``bundled/<archive>`` for bundle-source mods, plus an
+``Amethyst/`` folder carrying the source profile's exact modlist + portable
+state (ignored by Vortex, applied by our installer - see
+_amethyst_state_jobs). Our own collection installer consumes exactly this
+shape, so exports round-trip.
 
 Rows come from ``profile_export.load_rows`` plus the per-row UI flags
 (source / direct_url / optional / fomod_export). All functions are
@@ -846,6 +849,100 @@ def _ini_tweak_jobs(game_name: str, profile_dir,
     return jobs
 
 
+# ---------------------------------------------------------------------------
+# Amethyst profile fidelity (Amethyst/ folder in the archive)
+# ---------------------------------------------------------------------------
+
+# Archive folder carrying the exact source profile: modlist.txt (order,
+# separators, enabled state) + a filtered profile_state.json. Vortex copies it
+# into its collection meta-mod's staging folder and never deploys or parses it
+# (the "collection" modtype has no deploy path), so to Vortex users it is
+# inert; our installer applies it so an Amethyst→Amethyst round trip keeps the
+# exact load order instead of the modRules-derived one.
+AMETHYST_STATE_DIR = "Amethyst"
+AMETHYST_STATE_FORMAT = 1
+
+# profile_state.json keys that make sense on another machine. Everything else
+# (custom_exes, profile_settings, …) is machine- or install-specific: a stale
+# collection_url would corrupt the recipient's upload-target detection, and
+# exe paths point at the author's disk.
+PORTABLE_PROFILE_STATE_KEYS = (
+    "collapsed_seps",
+    "separator_locks",
+    "separator_colors",
+    "separator_deploy_paths",
+    "mod_strip_prefixes",
+    "plugin_locks",
+    "disabled_plugins",
+    "excluded_mod_files",
+    "root_mod_files",
+    "mod_notes",
+    "ignored_missing_requirements",
+)
+
+
+def _amethyst_state_jobs(profile_dir, bundle_folders: dict,
+                         scratch_out) -> "list[tuple[Path, str]]":
+    """Archive jobs for the ``Amethyst/`` profile-fidelity folder.
+
+    *bundle_folders* maps a bundled row's profile folder name to its
+    ``bundled/`` archive folder, so the installer can match the author's
+    modlist entry to the (renamed) staged bundle folder. Files are snapshotted
+    into a scratch dir (registered in *scratch_out*) so a profile edit between
+    manifest build and packing can't tear the export.
+    """
+    if not profile_dir:
+        return []
+    modlist_src = Path(profile_dir) / "modlist.txt"
+    if not modlist_src.is_file():
+        return []
+    modlist_text = modlist_src.read_text(encoding="utf-8",
+                                         errors="surrogateescape")
+    if not modlist_text.strip():
+        return []
+
+    from Utils.profile_state import read_profile_state
+    state = read_profile_state(Path(profile_dir))
+    portable = {k: state[k] for k in PORTABLE_PROFILE_STATE_KEYS
+                if state.get(k)}
+
+    scratch = Path(tempfile.mkdtemp(prefix="amethyst_colstate_",
+                                    dir=str(get_download_cache_dir())))
+    if scratch_out is not None:
+        scratch_out.append(scratch)
+    jobs: list = []
+
+    ml_path = scratch / "modlist.txt"
+    ml_path.write_text(modlist_text, encoding="utf-8",
+                       errors="surrogateescape")
+    jobs.append((ml_path, f"{AMETHYST_STATE_DIR}/modlist.txt"))
+
+    if portable:
+        ps_path = scratch / "profile_state.json"
+        ps_path.write_text(json.dumps(portable, indent=1), encoding="utf-8")
+        jobs.append((ps_path, f"{AMETHYST_STATE_DIR}/profile_state.json"))
+
+    # Exact plugin order + LOOT user rules: byte-for-byte copies (plugins.txt
+    # can be cp1252 - the installer's read_plugins handles either encoding).
+    # The installer applies this order and SKIPS its LOOT sort when present;
+    # userlist.yaml replaces the lossy manifest-pluginRules merge (it is the
+    # file those rules were derived from).
+    for fname in ("plugins.txt", "loadorder.txt", "userlist.yaml"):
+        src = Path(profile_dir) / fname
+        if src.is_file():
+            dst = scratch / fname
+            dst.write_bytes(src.read_bytes())
+            jobs.append((dst, f"{AMETHYST_STATE_DIR}/{fname}"))
+
+    exp_path = scratch / "export.json"
+    exp_path.write_text(json.dumps({
+        "format": AMETHYST_STATE_FORMAT,
+        "bundles": dict(bundle_folders or {}),
+    }, indent=1), encoding="utf-8")
+    jobs.append((exp_path, f"{AMETHYST_STATE_DIR}/export.json"))
+    return jobs
+
+
 def _conflict_mod_rules(ordered_names: list, refs: dict, staging_root,
                         index_path=None) -> list:
     """Emit ``after`` rules so loose-file conflicts resolve exactly as they do
@@ -1057,6 +1154,7 @@ def build_collection_manifest(rows, game, info: dict, *,
     refs: dict = {}            # mod name -> modRules reference dict
     ordered_names: list = []   # exported, enabled mod names (priority order)
     load_order_entries: list = []   # (manifest name, file_id), same order
+    bundle_folders: dict = {}  # bundled row name -> bundled/ archive folder
 
     active = [r for r in rows if r.get("source") != "ignore"]
     skipped_disabled = [r["name"] for r in active if r.get("enabled") is False]
@@ -1130,6 +1228,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             if not member_count:
                 warnings.append(f"'{name}': no files to bundle - skipped.")
                 continue
+            bundle_folders[name] = bundle_folder
             # No md5 for bundled files: installers re-compress them, so a hash
             # taken here would never match (Vortex omits it for the same
             # reason - modToCollection.ts).
@@ -1316,6 +1415,12 @@ def build_collection_manifest(rows, game, info: dict, *,
 
     if info.get("includeIniTweaks"):
         bundle_jobs.extend(_ini_tweak_jobs(game_name, profile_dir, warnings))
+
+    try:
+        bundle_jobs.extend(
+            _amethyst_state_jobs(profile_dir, bundle_folders, scratch_out))
+    except Exception as exc:
+        warnings.append(f"Profile load order / state not included: {exc}")
 
     return manifest, bundle_jobs, warnings
 
