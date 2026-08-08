@@ -243,7 +243,7 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     </message>
     <message>
         <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
-        <translation>Arquivo não encontrado em suas pastas de download - baixá-lo do Nexus, em seguida, clique em Detectar novamente (ou escolher o arquivo ...).</translation>
+        <translation>Arquivo não encontrado em suas pastas de download — baixe-o do Nexus, em seguida clique em Detectar novamente (ou Escolher arquivo…).</translation>
     </message>
     <message>
         <source>Extracting the .mpi package from {0}…</source>
@@ -259,7 +259,7 @@ Baixe o arquivo principal 'FNV BSA Descompressor' do Nexus, o pacote .mpi dentro
     </message>
     <message>
         <source>Downloading the BSA Decompressor package from Nexus… {0}%</source>
-        <translation>Baixando o pacote BSA Descompressor do Nexus... {0}%</translation>
+        <translation>Baixando o pacote BSA Decompressor do Nexus… {0}%</translation>
     </message>
     <message>
         <source>Premium account — downloading the BSA Decompressor package from Nexus…</source>
@@ -671,7 +671,7 @@ Nenhum prefixo Proton é usado — o jogo, sua pasta de dados e a pasta de saíd
         <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
 
 Built meshes are written to the output mod below, which is added to your mod list.</source>
-        <translation>{0} lê seus controles deslizantes e formas da pasta de dados implantada, então implante seu modlist primeiro.
+        <translation>{0} lê seus controles deslizantes e formas da pasta Data com deploy feito; faça deploy da sua lista de mods primeiro.
 
 Malhas construídas são escritas no mod de saída abaixo, que é adicionado à sua lista de mods.</translation>
     </message>
@@ -1088,7 +1088,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Downloaded — install it from the Downloads tab.</source>
-        <translation>Transferido, instalá-lo da aba Downloads.</translation>
+        <translation>Baixado — instale na aba Downloads.</translation>
     </message>
     <message>
         <source>Installing — the list will refresh when it finishes.</source>
@@ -2183,7 +2183,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>{0} deploy</source>
-        <translation>{0} implante</translation>
+        <translation>{0} deploy</translation>
     </message>
 </context>
 <context>
@@ -2502,7 +2502,7 @@ Quando terminar, o aplicativo muda para o novo perfil, então volte aqui e press
     </message>
     <message>
         <source>Deployment</source>
-        <translation>Implantação</translation>
+        <translation>Deployment</translation>
     </message>
     <message>
         <source>Store &amp; Artwork</source>
@@ -3279,7 +3279,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Archive not found in your download folders — download it from Nexus, then click Detect again (or Choose file…).</source>
-        <translation>Arquivo não encontrado em suas pastas de download - baixá-lo do Nexus, em seguida, clique em Detectar novamente (ou escolher o arquivo ...).</translation>
+        <translation>Arquivo não encontrado em suas pastas de download — baixe-o do Nexus, em seguida clique em Detectar novamente (ou Escolher arquivo…).</translation>
     </message>
     <message>
         <source>Extracting the .mpi package from {0}…</source>
@@ -3295,7 +3295,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus, o pa
     </message>
     <message>
         <source>Downloading the ESM Fixes package from Nexus… {0}%</source>
-        <translation>Baixando o pacote ESM Fixes do Nexus... {0}%</translation>
+        <translation>Baixando o pacote ESM Fixes do Nexus… {0}%</translation>
     </message>
     <message>
         <source>Premium account — downloading the ESM Fixes package from Nexus…</source>
@@ -3574,11 +3574,11 @@ Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é exe
     </message>
     <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session — no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
-        <translation>Execute este exe com vinho nu contra o mesmo prefixo em vez de uma sessão de Proton - nenhum cliente do Steam anexar, então Steam Input mantém os controles de desktop (trackpad / teclado na tela). O prefixo ainda é criado e atualizado através de Proton. Env vars em Opções de Lançamento ainda se aplicam; invólucros e% comando% são ignorados neste modo.</translation>
+        <translation>Execute este exe com Wine nu contra o mesmo prefixo em vez de uma sessão de Proton — nenhum cliente do Steam anexado, então o Steam Input mantém os controles de desktop (trackpad / teclado na tela). O prefixo ainda é criado e atualizado através de Proton. Variáveis de ambiente em Opções de Lançamento ainda se aplicam; wrappers e %command% são ignorados neste modo.</translation>
     </message>
     <message>
         <source>Launch with plain Wine (winetricks-style)</source>
-        <translation>Lançamento com vinho simples (estilo Winetricks)</translation>
+        <translation>Iniciar com Wine simples (estilo winetricks)</translation>
     </message>
     <message>
         <source>Run EXE in prefix…</source>
@@ -4173,10 +4173,10 @@ e carrega NVSE automaticamente na inicialização.
 Sob Proton, isso silencia principalmente os avisos dos mods.
 Aquele cheque para o patch, mas é seguro e recomendado.
 
-Enquanto "Aplicar o patch 4GB automaticamente" é ativado em
-Configure o jogo (o padrão), implante aplica o patch e
-A restauração reverte - desativa essa opção para gerenciar o patch
-Aqui, manualmente.
+Enquanto "Aplicar o patch 4GB automaticamente" está ativado em
+Configurar jogo (padrão), fazer deploy aplica o patch e
+a restauração reverte — desative essa opção para gerenciar o patch
+aqui manualmente.
 
 O exe original é mantido como {0}.</translation>
     </message>
@@ -4591,19 +4591,19 @@ Pode já ter sido modificado. Verifique os arquivos do jogo no Steam/Heroic para
     </message>
     <message>
         <source>Check the executables to add to the Run menu. These run from their location in the game folder - including files deployed there by mods.</source>
-        <translation>Verifique os executáveis para adicionar ao menu Executar. Estes são de sua localização na pasta de jogo, incluindo arquivos implantados lá por mods.</translation>
+        <translation>Verifique os executáveis para adicionar ao menu Executar. Estes rodam a partir da pasta do jogo — incluindo arquivos com deploy feito lá por mods.</translation>
     </message>
     <message>
         <source>Amethyst could not launch {0}.
 
 Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
-        <translation>Ametista não pôde lançar {0}.
+        <translation>O Amethyst não pôde iniciar {0}.
 
-Pressione Implantar para aplicar seus mods, em seguida, iniciar o jogo a partir de Steam, Heroic, Lutris ou Faugus em vez - os mods implantados permanecer ativo no entanto o jogo é iniciado.</translation>
+Pressione Deploy para aplicar seus mods e, em seguida, inicie o jogo pelo Steam, Heroic, Lutris ou Faugus — os mods com deploy feito permanecem ativos independentemente de como o jogo é iniciado.</translation>
     </message>
     <message>
         <source>A mod install is in progress - deploy again when it finishes.</source>
-        <translation>Um mod install está em andamento - implante novamente quando terminar.</translation>
+        <translation>Uma instalação de mod está em andamento — faça deploy novamente quando terminar.</translation>
     </message>
     <message>
         <source>A deploy is in progress - try again shortly.</source>
@@ -4639,11 +4639,11 @@ Pressione Implantar para aplicar seus mods, em seguida, iniciar o jogo a partir 
     </message>
     <message>
         <source>Downloaded '{0}' - install it from the Downloads tab.</source>
-        <translation>Transferido para "{0}" - instale na aba Downloads.</translation>
+        <translation>Baixado '{0}' — instale na aba Downloads.</translation>
     </message>
     <message>
         <source>Downloaded {0} archives - install them from the Downloads tab.</source>
-        <translation>Transferidos arquivos {0} - instalá-los da aba Downloads.</translation>
+        <translation>{0} arquivo(s) baixado(s) — instale-os na aba Downloads.</translation>
     </message>
     <message>
         <source>Install queued - {0} will install after the current {1} finishes.</source>
@@ -4681,9 +4681,9 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
 
 {0}
 
-As unidades NTFS e exFAT têm garantias de escrita fracas no Linux: uma impura desmontagem, perda de energia, ou um Windows de dupla inicialização com a inicialização rápida habilitada pode silenciosamente truncar arquivos para 0 KB - incluindo arquivos de mod implantados e sua biblioteca de encenação de mod.
+As unidades NTFS e exFAT têm garantias de escrita fracas no Linux: uma desmontagem incorreta, perda de energia ou um Windows em dual boot com Inicialização Rápida ativada pode truncar arquivos silenciosamente para 0 KB — incluindo arquivos de mod com deploy feito e sua biblioteca de staging de mods.
 
-Um sistema de arquivos Linux (ext4/btrfs) é recomendado tanto para o jogo quanto para a pasta de encenação mod.
+Um sistema de arquivos Linux (ext4/btrfs) é recomendado tanto para o jogo quanto para a pasta de staging de mods.
 
 Se você continuar, este aviso não será mostrado novamente para {1} a menos que os drives mudem.</translation>
     </message>
@@ -5541,11 +5541,11 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
         <source>Downloaded - no game selected; see Downloads tab.</source>
-        <translation>Transferido - nenhum jogo selecionado; veja a aba Downloads.</translation>
+        <translation>Baixado — nenhum jogo selecionado; veja a aba Downloads.</translation>
     </message>
     <message>
         <source>A deploy or removal is already running - try again when it finishes.</source>
-        <translation>Um implante ou remoção já está em execução - tente novamente quando terminar.</translation>
+        <translation>Um deploy ou remoção já está em execução — tente novamente quando terminar.</translation>
     </message>
     <message>
         <source>A collection install is running - try again when it finishes.</source>
@@ -5557,7 +5557,7 @@ Deseja remover a entrada da coleção anexada?</translation>
 Their files are deleted from the staging folder - this cannot be undone.</source>
         <translation>Remover '{0}' e seu mod(s) {1} deste perfil?
 
-Seus arquivos são apagados da pasta de encenação - isso não pode ser desfeito.</translation>
+Seus arquivos são apagados da pasta de staging — isso não pode ser desfeito.</translation>
     </message>
     <message>
         <source>Could not remove '{0}' - see the log.</source>
@@ -5597,7 +5597,7 @@ Seus arquivos são apagados da pasta de encenação - isso não pode ser desfeit
     </message>
     <message>
         <source>Downloaded {0}/{1} - nothing installed.</source>
-        <translation>Transferido {0}/{1} - nada instalado.</translation>
+        <translation>Baixado {0}/{1} — nada instalado.</translation>
     </message>
     <message>
         <source>Collection downloaded - {0}/{1} archive(s). Install them from the Downloads tab.</source>
@@ -5661,31 +5661,31 @@ Fazer uma atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Reinstalling {0} mod(s), redownloading {1}; {2} skipped.</source>
-        <translation>Reinstalando mod(s) {0}, redownloading {1}; {2} pulou.</translation>
+        <translation>Reinstalando {0} mod(s), baixando novamente {1}; {2} ignorado(s).</translation>
     </message>
     <message>
         <source>Reinstall - redownloading {0} mod(s)…</source>
-        <translation>Reinstalar - redownload {0} mod(s)…</translation>
+        <translation>Reinstalar — baixando novamente {0} mod(s)…</translation>
     </message>
     <message>
         <source>Premium required to redownload. Opened {0} download page(s) - they'll land in the Downloads tab.</source>
-        <translation>Premiado para redownload. Opened {0} Download pages - eles vão pousar na aba Downloads.</translation>
+        <translation>Premium necessário para baixar novamente. {0} página(s) de download aberta(s) — aparecerão na aba Downloads.</translation>
     </message>
     <message>
         <source>Premium required to redownload. Opened {0} download page(s) - they'll reinstall automatically once downloaded.</source>
-        <translation>Premiado para redownload. Páginas de download abertas do {0} - eles vão reinstalar automaticamente uma vez baixado.</translation>
+        <translation>Premium necessário para baixar novamente. {0} página(s) de download aberta(s) — serão reinstalados automaticamente após o download.</translation>
     </message>
     <message>
         <source>Reinstall: {0} mod(s) couldn't be redownloaded - see the log.</source>
-        <translation>Reinstalar: {0} mod(s) não pode ser redownload - ver o registro.</translation>
+        <translation>Reinstalar: {0} mod(s) não pôde(ram) ser baixado(s) novamente — veja o registro.</translation>
     </message>
     <message>
         <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
-        <translation>Redownloaded {0} mod(s); {1} falhou - veja o registro.</translation>
+        <translation>Baixado(s) novamente {0} mod(s); {1} falhou(aram) — veja o registro.</translation>
     </message>
     <message>
         <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
-        <translation>Redownloaded {0} mod(s) - reinstalá-los da aba Downloads.</translation>
+        <translation>Baixado(s) novamente {0} mod(s) — reinstale-os na aba Downloads.</translation>
     </message>
     <message>
         <source>Quick Update - checking {0} mod(s)…</source>
@@ -7142,7 +7142,7 @@ Gostaria de lidar com o mod existente?</translation>
     <name>ModListView</name>
     <message>
         <source>Show / Hide columns</source>
-        <translation>Mostrar Esconder colunas</translation>
+        <translation>Mostrar / Ocultar colunas</translation>
     </message>
     <message>
         <source>Enabled</source>
@@ -7734,7 +7734,7 @@ Por dia: {1}</translation>
     </message>
     <message>
         <source>Redownload</source>
-        <translation>Redownload</translation>
+        <translation>Baixar novamente</translation>
     </message>
     <message>
         <source>Reinstall</source>
@@ -8122,11 +8122,11 @@ Cada jogo tem sua própria subpasta.</translation>
 Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</source>
         <translation>Sem bloqueios nos mods habilitados.
 
-Sobrepor paks (sem meta.lsx, ou apenas substituir os módulos do jogo) implantar na pasta Mods do jogo, mas não são parte da ordem de carga.</translation>
+Sobrepor paks (sem meta.lsx, ou apenas substituir os módulos do jogo) recebem deploy na pasta Mods do jogo, mas não fazem parte da ordem de carregamento.</translation>
     </message>
     <message>
         <source>Override paks - {0} deployed to the game's Mods folder, not in the load order</source>
-        <translation>Substituir paks - {0} implantado na pasta Mods do jogo, não na ordem de carga</translation>
+        <translation>Substituir paks — {0} com deploy feito na pasta Mods do jogo, fora da ordem de carregamento</translation>
     </message>
 </context>
 <context>
@@ -8797,7 +8797,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     <name>PluginView</name>
     <message>
         <source>Show / Hide columns</source>
-        <translation>Mostrar Esconder colunas</translation>
+        <translation>Mostrar / Ocultar colunas</translation>
     </message>
     <message>
         <source>Filters</source>
@@ -8983,7 +8983,7 @@ Arraste um plugin do painel esquerdo para adicionar uma regra.</translation>
     </message>
     <message>
         <source>An install or deploy is in progress — try again shortly.</source>
-        <translation>Uma instalação ou implantação está em andamento. Tente novamente em breve.</translation>
+        <translation>Uma instalação ou deploy está em andamento — tente novamente em breve.</translation>
     </message>
     <message>
         <source>'{0}' is currently deployed — restore the game first, then edit the group.</source>
@@ -9154,7 +9154,7 @@ Instale uma versão Proton no Steam (ou com Heroic's Wine Manager), e então rea
     </message>
     <message>
         <source>Launch with plain Wine (winetricks-style)</source>
-        <translation>Lançamento com vinho simples (estilo Winetricks)</translation>
+        <translation>Iniciar com Wine simples (estilo winetricks)</translation>
     </message>
     <message>
         <source>Use Winetricks style launch</source>
@@ -9968,7 +9968,7 @@ Escolha "Manter" se esta for uma variante opcional/alternativa, e não uma subst
     </message>
     <message>
         <source>… only the first {0} entries are shown</source>
-        <translation>... apenas as primeiras entradas {0} são mostradas</translation>
+        <translation>… apenas as primeiras {0} entradas são exibidas</translation>
     </message>
     <message>
         <source>(empty)</source>
@@ -10618,7 +10618,7 @@ Junte seus conflitos, feche e clique em "Feito".</translation>
     </message>
     <message>
         <source>Downloads are saved to the cache but not installed. Applies to nxm:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
-        <translation>Os downloads são salvos no cache, mas não instalados. Aplica-se aos links nxm://, o navegador Nexus, alterar versão, instalação de coleção, downloads de requisitos e atualização/reinstalação de redownloads - seus botões de instalação tornam-se download. Instale-os você mesmo na guia Downloads ou no botão Instalar Mod.</translation>
+        <translation>Os downloads são salvos no cache, mas não instalados. Aplica-se a links nxm://, o navegador Nexus, Alterar versão, instalações de coleção, downloads de requisitos e baixar novamente em atualizações/reinstalações — os botões Instalar tornam-se Baixar. Instale-os na aba Downloads ou pelo botão Instalar mod.</translation>
     </message>
     <message>
         <source>Extraction</source>
@@ -11010,7 +11010,7 @@ Mod de saída: {2}
     <message>
         <source>Downloaded SMAPI {0}: {1}
 Choose the install destination, then click Next.</source>
-        <translation>Transferido SMAPI {0}: {1}
+        <translation>Baixado SMAPI {0}: {1}
 Escolha o destino da instalação e clique em Próximo.</translation>
     </message>
     <message>
@@ -12940,7 +12940,7 @@ Pressione Refresh para tentar novamente.</translation>
     </message>
     <message>
         <source>Downloaded: {0}</source>
-        <translation>Transferido: {0}</translation>
+        <translation>Baixado: {0}</translation>
     </message>
     <message>
         <source>Locate the Archive</source>
@@ -13170,7 +13170,7 @@ Ele contém o xFOEdit (Fallout), o xSFEdit (Starfield) e o xTESEdit (Elder Scrol
     </message>
     <message>
         <source>Downloaded: {0}</source>
-        <translation>Transferido: {0}</translation>
+        <translation>Baixado: {0}</translation>
     </message>
     <message>
         <source>Step 2: Locate the Archive</source>
