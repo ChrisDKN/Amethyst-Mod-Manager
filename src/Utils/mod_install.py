@@ -779,6 +779,44 @@ def _debackslash_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     return moved
 
 
+def _fix_perms_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
+    """Restore owner access on extracted entries the archive stored as mode 000.
+
+    An archive packed on Windows can still carry a Unix permission attribute
+    (7z reports ``Attributes = A ----------``), and 7z applies it faithfully -
+    so every file lands with NO permission bits and the next step, staging the
+    file list, dies with "Permission denied" on the first read. An archive's
+    Unix bits are meaningless for Windows game data anyway, so force owner
+    read/write on files and read/write/execute on directories, leaving every
+    other bit (notably the execute bits Linux-native mods rely on) untouched.
+    Top-down so a mode-000 directory is made traversable BEFORE we walk into
+    it. Symlinks are skipped (their own mode is always 0777). Returns the
+    number of entries fixed - 0, one stat per entry, in the common case.
+    """
+    def _ensure(path: str, want: int) -> int:
+        try:
+            mode = os.stat(path, follow_symlinks=False).st_mode & 0o7777
+        except OSError:
+            return 0
+        if mode & want == want:
+            return 0
+        try:
+            os.chmod(path, mode | want)
+        except OSError:
+            return 0
+        return 1
+
+    fixed = _ensure(extract_dir, 0o700)
+    for dirpath, dirnames, filenames in os.walk(extract_dir, topdown=True):
+        for name in dirnames:
+            fixed += _ensure(os.path.join(dirpath, name), 0o700)
+        for name in filenames:
+            fixed += _ensure(os.path.join(dirpath, name), 0o600)
+    if fixed and log_fn is not None:
+        log_fn(f"Repaired unreadable permissions on {fixed} extracted entries.")
+    return fixed
+
+
 def _fix_nonutf8_names_extracted_tree(extract_dir: str, log_fn: LogFn) -> int:
     """Repair extracted file/dir names that are not valid UTF-8.
 
@@ -835,6 +873,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         try:
             with tarfile.open(archive_path, "r:*") as tf:
                 tf.extractall(dest_dir, filter="data")
+            # tarfile's "data" filter keeps member modes (masked to 0755), so a
+            # mode-000 member stays unreadable here too.
+            _fix_perms_extracted_tree(dest_dir, log_fn)
             log_fn("Extracted with tarfile.")
             return True
         except Exception as exc:
@@ -843,6 +884,9 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             # fall through to the generic extractors
 
     def _ok() -> bool:
+        # Archives can carry a mode-000 Unix attribute; clear it FIRST or the
+        # repair sweeps below (and staging) can't even read the tree.
+        _fix_perms_extracted_tree(dest_dir, log_fn)
         # Native extractors (7z/bsdtar) and Python zipfile reproduce Windows
         # backslash member names as literal flat filenames; repair them into a
         # real tree so staging can resolve the paths (fixes "nothing staged").
