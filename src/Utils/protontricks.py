@@ -68,6 +68,22 @@ def dotnet_dep_key(version: str) -> str:
     return f"dotnet{version}_windowsdesktop"
 
 
+def winetricks_verb_dep_key(verb: str) -> str:
+    """Marker key for a generic winetricks verb (e.g. 'fontsmooth=rgb' → 'wt_fontsmooth_rgb')."""
+    return "wt_" + re.sub(r"\W+", "_", verb).strip("_")
+
+
+# Marker key → the Utils.prefix_health component token that can confirm it by
+# reading the prefix. Deliberately mapped HERE rather than in prefix_health, so
+# the import stays one-way (protontricks → prefix_health, never the reverse)
+# and is_dep_installed can never recurse into itself.
+_DETECTABLE_DEPS: dict[str, str] = {
+    VCREDIST_DEP_KEY: "vcredist",
+    D3D_DEP_KEY: "d3dcompiler_47",
+    winetricks_verb_dep_key("lavfilters"): "lavfilters",
+}
+
+
 def _deps_file(prefix_path: Path) -> Path:
     return prefix_path.parent / _DEPS_FILE
 
@@ -81,7 +97,31 @@ def read_installed_deps(prefix_path: Path) -> list[str]:
 
 
 def is_dep_installed(prefix_path: Path, key: str) -> bool:
-    return key in read_installed_deps(prefix_path)
+    """True when *key* is recorded in amethyst_deps.json OR really in the prefix.
+
+    The marker only exists for prefixes Amethyst itself provisioned, and only
+    since the marker was introduced. Prefixes built by hand with winetricks /
+    protontricks, or by another manager, would otherwise be re-installed on
+    every add-game and save. For the components we can positively identify on
+    disk, fall back to reading the prefix (see Utils.prefix_health).
+
+    Read-only by design: a predicate must not write into the user's prefix.
+    Self-healing the marker here would create amethyst_deps.json outside
+    Heroic/Lutris/Faugus prefixes (``_deps_file`` is the prefix's *sibling*),
+    destroy the file's "did Amethyst install this?" meaning, and race the
+    background dependency worker through an unlocked read-modify-write.
+    """
+    if key in read_installed_deps(prefix_path):
+        return True
+    token = _DETECTABLE_DEPS.get(key)
+    if token is None:
+        return False
+    try:
+        from Utils.prefix_health import detect_component
+        # `is True` keeps "cannot tell" (None) behaving as before: install it.
+        return detect_component(token, Path(prefix_path)) is True
+    except Exception:
+        return False        # detection must never break an installer path
 
 
 def mark_dep_installed(prefix_path: Path, key: str) -> None:
@@ -368,11 +408,6 @@ def _install_via_protontricks(
     except Exception as exc:
         log_fn(f"{component} error: {exc}")
         return False
-
-
-def winetricks_verb_dep_key(verb: str) -> str:
-    """Marker key for a generic winetricks verb (e.g. 'fontsmooth=rgb' → 'wt_fontsmooth_rgb')."""
-    return "wt_" + re.sub(r"\W+", "_", verb).strip("_")
 
 
 def install_winetricks_verb(

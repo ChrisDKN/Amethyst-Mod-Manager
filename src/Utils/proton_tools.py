@@ -458,7 +458,7 @@ def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
     The verb runs a Windows installer under Wine - allow it longer than the
     300 s default the DLL-drop verbs get."""
     from Utils.protontricks import install_winetricks_verb
-    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=60)
+    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=600)
 
 
 def install_dotnet(game, version: str, log_fn: LogFn = _noop) -> bool:

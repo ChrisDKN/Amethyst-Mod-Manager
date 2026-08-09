@@ -416,6 +416,7 @@ class MainWindow(QMainWindow):
         self._confirm_cet.connect(self._on_confirm_cet_ui)
         self._confirm_windows_fs.connect(self._on_confirm_windows_fs_ui)
         self._proton_busy = False
+        self._proton_done_cb = None     # one-shot completion hook (health check)
         self._proton_done.connect(self._on_proton_done)
         # Game-scoped panel views (lazily built; closed on game change).
         self._profile_settings_view = None
@@ -2254,6 +2255,7 @@ class MainWindow(QMainWindow):
                 None,
                 (self.tr("Open wine registry"), self._proton_regedit),
                 (self.tr("Wine DLL overrides"), self._proton_dll_overrides),
+                (self.tr("Prefix health check…"), self._proton_health_check),
                 None,
                 (self.tr("Install VC++ Redistributable"), self._proton_install_vcredist),
                 (self.tr("Install d3dcompiler_47"), self._proton_install_d3dcompiler),
@@ -9132,6 +9134,17 @@ class MainWindow(QMainWindow):
             view, self.tr("Wine DLL overrides"), self._modlist_panel_stack,
             key="dll_overrides")
 
+    def _proton_health_check(self):
+        """Report what this game's prefix actually contains (deps, registry).
+
+        Which rows appear is driven by the handler's auto_install_deps and
+        synthesis_registry_name, so no game is special-cased here."""
+        game = self._proton_game()
+        if game is None:
+            return
+        from gui_qt.prefix_health_overlay import PrefixHealthOverlay
+        PrefixHealthOverlay.show_over(self, game, window=self)
+
     def _proton_winetricks(self):
         game = self._proton_game()
         if game is None:
@@ -9202,16 +9215,22 @@ class MainWindow(QMainWindow):
             self.tr("Installing .NET {0}").format(version),
             lambda plog: install_dotnet(self._gs.game, version, log_fn=plog))
 
-    def _run_proton_installer(self, title: str, worker_fn):
+    def _run_proton_installer(self, title: str, worker_fn, on_done=None) -> bool:
         """Run a blocking Proton installer (*worker_fn(log_fn) -> bool*) on a
         worker thread, showing the indeterminate progress popup + a toast on
-        completion. Serialized: refuses a second installer while one runs."""
+        completion. Serialized: refuses a second installer while one runs.
+
+        Returns True when the installer was started, False when it was refused
+        - callers that drive their own UI (the prefix health overlay) need to
+        know the difference. *on_done(success)* is invoked from the completion
+        slot, i.e. on the GUI thread, so it may touch widgets."""
         game = self._proton_game()
         if game is None:
-            return
+            return False
         if self._proton_busy:
             self._notify(self.tr("A Proton installer is already running."), "warning")
-            return
+            return False
+        self._proton_done_cb = on_done
         self._proton_busy = True
         self._op_title = title
         self._ensure_feedback()
@@ -9229,6 +9248,7 @@ class MainWindow(QMainWindow):
             self._proton_done.emit(title, ok)
 
         threading.Thread(target=_run, daemon=True).start()
+        return True
 
     def _on_proton_done(self, title: str, success: bool):
         self._proton_busy = False
@@ -9238,6 +9258,14 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("{0} - done.").format(title), "success")
         else:
             self._notify(self.tr("{0} - failed (see log).").format(title), "error")
+        # Pop before calling: a callback that starts another installer must not
+        # inherit this one's completion hook.
+        cb, self._proton_done_cb = self._proton_done_cb, None
+        if cb is not None:
+            try:
+                cb(success)
+            except Exception as exc:
+                self._append_log(f"Proton Tools: completion callback failed: {exc}")
 
     # ---- Wizard tools ------------------------------------------------------
     def _rebuild_wizard_menu(self):

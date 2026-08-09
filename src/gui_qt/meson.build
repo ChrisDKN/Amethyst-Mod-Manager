@@ -98,6 +98,7 @@ py.install_sources(
   'plugin_sort.py',
   'plugin_state.py',
   'plugin_view.py',
+  'prefix_health_overlay.py',
   'prefix_manager_view.py',
   'profile_groups_view.py',
   'profile_settings_view.py',
