@@ -9,6 +9,9 @@ the first time they are opened, not up front. Selecting a Bethesda save fills
 the details pane (gui_qt.save_preview) from a worker, with a generation
 counter dropping results whose row is no longer selected. Search and Filters
 hide rows in place, so an expanded folder keeps its listing.
+
+Read-only apart from the right-click menu (delete a save, copy/move one into a
+profile saves folder) and the footer's Export/Import.
 """
 
 from __future__ import annotations
@@ -261,6 +264,8 @@ class SavesView(QWidget):
             self._tree.setColumnWidth(col, wdt)
         self._name_min = col_mins[_COL_NAME]
         self._tree.viewport().installEventFilter(self)
+        self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._on_context_menu)
         self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         self._tree.itemSelectionChanged.connect(self._on_selection_changed)
         # Click anywhere on a row to expand/collapse, like a modlist separator
@@ -747,6 +752,205 @@ class SavesView(QWidget):
             return
         target = path if path.is_dir() else path.parent
         xdg_open(target, self._log)
+
+    # ---- right-click menu -------------------------------------------------
+    def _location_roots(self) -> set:
+        """Realpaths of the save locations themselves (not their contents)."""
+        return {os.path.realpath(loc["path"]) for loc in self._scanned}
+
+    def _profile_targets(self) -> list:
+        """(profile, saves folder) for every profile, when the game keeps
+        profile-specific saves.
+
+        Empty otherwise: with the feature off nothing links to that folder, so
+        moving a save into it would just hide it from the game."""
+        game = self._game
+        if game is None or not getattr(game, "profile_saves", False):
+            return []
+        getter = getattr(game, "_profile_saves_dir", None)
+        if getter is None:
+            return []
+        from Utils.game_helpers import _profiles_for_game
+        targets = []
+        for name in _profiles_for_game(getattr(game, "name", "")):
+            try:
+                targets.append((name, Path(getter(name))))
+            except Exception:
+                continue
+        return targets
+
+    def _on_context_menu(self, pos):
+        item = self._tree.itemAt(pos)
+        if item is None:
+            return
+        # Right-clicking a row acts on it, as in the plugins panel.
+        if item is not self._tree.currentItem():
+            self._tree.setCurrentItem(item)
+        menu = self._build_context_menu(item)
+        if menu is not None:
+            menu.exec(self._tree.viewport().mapToGlobal(pos))
+
+    def _menu_action(self, menu, label, slot, enabled=True):
+        """Add one item. triggered() passes a `checked` bool that would
+        otherwise clobber a slot's captured defaults -swallow it."""
+        from PySide6.QtGui import QAction
+        action = QAction(label, menu)
+        action.triggered.connect(lambda _checked=False, _s=slot: _s())
+        action.setEnabled(enabled)
+        menu.addAction(action)
+        return action
+
+    def _build_context_menu(self, item):
+        """Menu for one row, or None when the row has nothing to act on."""
+        from PySide6.QtWidgets import QMenu
+        raw = item.data(0, _PATH_ROLE)
+        if item.data(0, _INFO_ROLE) or not raw:
+            return None
+        path = Path(raw)
+        # A location row stands for the whole save folder: the footer's
+        # Export/Import own that, and deleting it would take the folder itself.
+        is_location = os.path.realpath(path) in self._location_roots()
+
+        menu = QMenu(self._tree)
+        self._menu_action(
+            menu,
+            self.tr("Open folder") if item.data(0, _DIR_ROLE) or is_location
+            else self.tr("Open containing folder"),
+            self.open_folder)
+
+        targets = [] if is_location else self._profile_targets()
+        if targets:
+            menu.addSeparator()
+            # PySide frees a submenu as soon as its Python wrapper goes out of
+            # scope, even though the parent menu still lists the action -so the
+            # menu keeps them itself.
+            menu._submenus = [self._add_profile_items(menu, path, targets, False),
+                              self._add_profile_items(menu, path, targets, True)]
+        if not is_location:
+            menu.addSeparator()
+            self._menu_action(menu, self.tr("Delete…"),
+                              lambda: self._confirm_delete(path),
+                              enabled=not self._busy)
+        return menu
+
+    def _add_profile_items(self, menu, path, targets, move: bool):
+        """Copy/Move-to-profile-saves item -a submenu once there are several
+        profiles, since which one to land in is then a real question. Returns
+        the submenu, for the caller to keep alive."""
+        label = self.tr("Move to profile saves") if move \
+            else self.tr("Copy to profile saves")
+        if len(targets) == 1:
+            name, folder = targets[0]
+            self._menu_action(
+                menu, self.tr("{0} ({1})").format(label, name),
+                lambda: self._start_entry_transfer(path, folder, name, move),
+                enabled=self._can_transfer_to(path, folder))
+            return None
+        from PySide6.QtWidgets import QMenu
+        sub = QMenu(label, menu)
+        menu.addMenu(sub)
+        for name, folder in targets:
+            text = self.tr("{0} (current)").format(name) \
+                if name == self._profile_name else name
+            self._menu_action(
+                sub, text,
+                lambda f=folder, n=name: self._start_entry_transfer(path, f, n, move),
+                enabled=self._can_transfer_to(path, folder))
+        return sub
+
+    def _can_transfer_to(self, path: Path, folder: Path) -> bool:
+        """False for the folder the save already sits in -with profile saves
+        deployed the game's save location IS that folder, so most rows are
+        already there and the item would be a no-op."""
+        if self._busy:
+            return False
+        try:
+            return os.path.realpath(path.parent) != os.path.realpath(folder)
+        except OSError:
+            return True
+
+    def _start_entry_transfer(self, path: Path, dest_dir: Path, profile: str,
+                              move: bool):
+        """Copy/move one save into a profile saves folder, asking first when
+        that would replace a save already there."""
+        if self._busy:
+            return
+        dest = Path(dest_dir) / path.name
+        if dest.exists() or dest.is_symlink():
+            from gui_qt.confirm_overlay import ConfirmOverlay
+            ConfirmOverlay.show_over(
+                self,
+                self.tr("Replace {0}?").format(path.name),
+                self.tr("{0} already exists in the {1} saves folder:\n{2}\n\n"
+                        "It is replaced by the one you picked.").format(
+                    path.name, profile, dest_dir),
+                lambda ok: self._do_entry_transfer(path, dest_dir, profile,
+                                                   move, True) if ok else None,
+                confirm_label=self.tr("Replace"))
+            return
+        self._do_entry_transfer(path, dest_dir, profile, move, False)
+
+    def _do_entry_transfer(self, path: Path, dest_dir: Path, profile: str,
+                           move: bool, overwrite: bool):
+        self._set_busy(True)
+        self.notify.emit(self.tr("Moving {0}…").format(path.name) if move
+                         else self.tr("Copying {0}…").format(path.name), "info")
+        run_in_worker(
+            lambda: self._entry_transfer_worker(path, Path(dest_dir), profile,
+                                                move, overwrite),
+            self.transfer_done, name="saves-entry-transfer", unpack=True,
+            error_result=(False, self.tr("Could not move the save.") if move
+                          else self.tr("Could not copy the save.")))
+
+    def _entry_transfer_worker(self, src: Path, dest_dir: Path, profile: str,
+                               move: bool, overwrite: bool) -> tuple[bool, str]:
+        from Utils.save_transfer import SaveTransferError, transfer_save_entry
+        try:
+            count, size, dest = transfer_save_entry(
+                src, dest_dir, move=move, overwrite=overwrite,
+                progress_fn=self._progress)
+        except SaveTransferError as exc:
+            return False, str(exc)
+        except OSError as exc:
+            return False, self.tr("Transfer failed: {0}").format(exc)
+        self._log(f"[saves] {'moved' if move else 'copied'} {src} → {dest} "
+                  f"({count} file(s), {fmt_size(size)})")
+        template = self.tr("Moved {0} ({1}) to the {2} saves folder.") if move \
+            else self.tr("Copied {0} ({1}) to the {2} saves folder.")
+        return True, template.format(src.name, fmt_size(size), profile)
+
+    def _confirm_delete(self, path: Path):
+        if self._busy:
+            return
+        if path.is_dir() and not path.is_symlink():
+            body = self.tr("Delete the folder {0} and everything in it?\n{1}\n\n"
+                           "This cannot be undone.").format(path.name, path)
+        else:
+            body = self.tr("Delete {0}?\n{1}\n\nThis cannot be undone.").format(
+                path.name, path)
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Delete save?"), body,
+            lambda ok: self._do_delete(path) if ok else None,
+            confirm_label=self.tr("Delete"))
+
+    def _do_delete(self, path: Path):
+        self._set_busy(True)
+        self.notify.emit(self.tr("Deleting {0}…").format(path.name), "info")
+        run_in_worker(lambda: self._delete_worker(path), self.transfer_done,
+                      name="saves-delete", unpack=True,
+                      error_result=(False, self.tr("Could not delete the save.")))
+
+    def _delete_worker(self, path: Path) -> tuple[bool, str]:
+        from Utils.save_transfer import SaveTransferError, delete_save_entry
+        try:
+            count, size = delete_save_entry(path)
+        except SaveTransferError as exc:
+            return False, str(exc)
+        except OSError as exc:
+            return False, self.tr("Delete failed: {0}").format(exc)
+        self._log(f"[saves] deleted {path} ({count} file(s), {fmt_size(size)})")
+        return True, self.tr("Deleted {0} ({1}).").format(path.name, fmt_size(size))
 
     # ---- export / import --------------------------------------------------
     def _target_loc(self) -> "dict | None":

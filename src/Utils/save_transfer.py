@@ -1,10 +1,14 @@
-"""Zip export / import of a game's save folder. Toolkit-neutral.
+"""Zip export / import of a game's save folder, plus single-save file ops.
+Toolkit-neutral.
 
 Archives are flat-rooted (names relative to the save folder), so one is
 portable between machines whose prefixes live in different places. Import
 refuses any member that would escape the destination. ``progress_fn(done,
 total, phase)`` counts bytes, not files -one 30 MB save dwarfs a hundred
 small ones.
+
+``transfer_save_entry`` / ``delete_save_entry`` back the Saves tab's
+right-click actions and work on ONE save (a file, or a folder of them).
 """
 
 from __future__ import annotations
@@ -235,3 +239,180 @@ def import_saves(src_zip: Path, location: Path, progress_fn=None,
     if progress_fn is not None:
         progress_fn(total, total, "")
     return len(members), total, moved
+
+
+# ---- single-save copy / move / delete ------------------------------------
+# The Saves tab's right-click actions. Everything above moves a whole save
+# folder through a zip; these act on one entry inside one.
+
+
+def _prune_links(dirpath: str, dirnames: list) -> None:
+    """Drop symlinked subfolders from a walk -a save dir can link out to /."""
+    dirnames[:] = [d for d in dirnames
+                   if not os.path.islink(os.path.join(dirpath, d))]
+
+
+def _entry_files(entry: Path) -> "list[tuple[Path, str, int]]":
+    """(absolute path, name relative to *entry*, size) for one file or folder.
+
+    A symlink counts as itself, never as what it points at."""
+    entry = Path(entry)
+    if entry.is_symlink() or not entry.is_dir():
+        try:
+            size = entry.lstat().st_size
+        except OSError:
+            size = 0
+        return [(entry, entry.name, size)]
+    out: list[tuple[Path, str, int]] = []
+    for dirpath, dirnames, filenames in os.walk(entry, followlinks=False):
+        _prune_links(dirpath, dirnames)
+        for name in filenames:
+            full = Path(dirpath) / name
+            try:
+                size = full.lstat().st_size
+            except OSError:
+                continue
+            out.append((full, str(full.relative_to(entry)), size))
+    return out
+
+
+def _remove_entry(path: Path) -> None:
+    """Delete a file, symlink or folder; a missing path is not an error."""
+    path = Path(path)
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path, ignore_errors=False)
+    else:
+        path.unlink(missing_ok=True)
+
+
+def _copy_one(src: Path, dest: Path) -> None:
+    """Copy a file, or recreate a symlink as a symlink rather than its target."""
+    try:
+        if src.is_symlink():
+            dest.unlink(missing_ok=True)
+            os.symlink(os.readlink(src), dest)
+        else:
+            shutil.copy2(src, dest)
+    except OSError as exc:
+        raise SaveTransferError(f"Could not copy {src.name}: {exc}") from exc
+
+
+def _copy_entry(src: Path, dest: Path, total: int, progress_fn=None) -> None:
+    """Copy one file/folder to *dest*, counting bytes for *progress_fn*."""
+    if src.is_symlink() or not src.is_dir():
+        if progress_fn is not None:
+            progress_fn(0, total, src.name)
+        _copy_one(src, dest)
+        return
+    dest.mkdir(parents=True, exist_ok=True)
+    done = 0
+    for dirpath, dirnames, filenames in os.walk(src, followlinks=False):
+        _prune_links(dirpath, dirnames)
+        rel = os.path.relpath(dirpath, src)
+        # Empty subfolders are part of the save's shape -make them too.
+        here = dest if rel == "." else dest / rel
+        here.mkdir(parents=True, exist_ok=True)
+        for name in filenames:
+            full = Path(dirpath) / name
+            if progress_fn is not None:
+                progress_fn(done, total, name)
+            _copy_one(full, here / name)
+            try:
+                done += full.lstat().st_size
+            except OSError:
+                pass
+
+
+def _same_filesystem(src: Path, dest_dir: Path) -> bool:
+    """Whether *src* can be renamed into *dest_dir* instead of copied."""
+    try:
+        return src.lstat().st_dev == dest_dir.stat().st_dev
+    except OSError:
+        return False
+
+
+def _stash(dest: Path) -> Path:
+    """Rename an existing destination aside, so a failed overwrite can undo."""
+    stash = dest.with_name(f"{dest.name}.replaced{os.getpid()}")
+    n = 1
+    while stash.exists() or stash.is_symlink():
+        n += 1
+        stash = dest.with_name(f"{dest.name}.replaced{os.getpid()}-{n}")
+    os.replace(dest, stash)
+    return stash
+
+
+def transfer_save_entry(src: Path, dest_dir: Path, move: bool = False,
+                        overwrite: bool = False,
+                        progress_fn=None) -> "tuple[int, int, Path]":
+    """Copy -or *move* -one save file/folder into *dest_dir*.
+
+    Returns (files, bytes, destination). An entry of the same name is only
+    touched with *overwrite*, and even then it is renamed aside until the
+    transfer has succeeded: a half-copied save must never be all that is left.
+    """
+    src = Path(src)
+    dest_dir = Path(dest_dir)
+    if not src.exists() and not src.is_symlink():
+        raise SaveTransferError(f"Not found: {src.name}")
+    if os.path.realpath(src.parent) == os.path.realpath(dest_dir):
+        raise SaveTransferError(f"{src.name} is already in that folder.")
+    dest = dest_dir / src.name
+    if src.is_dir() and not src.is_symlink():
+        # A folder cannot be copied into its own subtree -that recurses.
+        root = Path(os.path.realpath(src))
+        target = Path(os.path.realpath(dest_dir))
+        if target == root or root in target.parents:
+            raise SaveTransferError(f"Cannot put {src.name} inside itself.")
+    replacing = dest.exists() or dest.is_symlink()
+    if replacing and not overwrite:
+        raise SaveTransferError(f"{dest.name} already exists in that folder.")
+
+    files = _entry_files(src)
+    total = sum(size for _f, _n, size in files)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    rename = move and _same_filesystem(src, dest_dir)
+    if not rename:
+        free = _free_space(dest_dir)
+        if free is not None and total + _FREE_SPACE_MARGIN > free:
+            raise SaveTransferError(
+                f"Not enough free space: {src.name} needs "
+                f"{total // 1024 ** 2} MB but only {free // 1024 ** 2} MB "
+                f"is available.")
+
+    stash = _stash(dest) if replacing else None
+    try:
+        if rename:
+            os.replace(src, dest)
+        else:
+            _copy_entry(src, dest, total, progress_fn)
+            if move:
+                _remove_entry(src)
+    except BaseException:
+        # Bin whatever landed, then put the replaced entry back.
+        try:
+            _remove_entry(dest)
+        except OSError:
+            pass
+        if stash is not None:
+            os.replace(stash, dest)
+        raise
+    if stash is not None:
+        _remove_entry(stash)
+    if progress_fn is not None:
+        progress_fn(total, total, "")
+    return len(files), total, dest
+
+
+def delete_save_entry(path: Path) -> "tuple[int, int]":
+    """Delete one save file or folder, returning (files, bytes) removed."""
+    path = Path(path)
+    if not path.exists() and not path.is_symlink():
+        raise SaveTransferError(f"Not found: {path.name}")
+    files = _entry_files(path)
+    total = sum(size for _f, _n, size in files)
+    try:
+        _remove_entry(path)
+    except OSError as exc:
+        raise SaveTransferError(f"Could not delete {path.name}: {exc}") from exc
+    return len(files), total
