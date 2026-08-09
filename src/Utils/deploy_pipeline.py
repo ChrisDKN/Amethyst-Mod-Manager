@@ -759,6 +759,26 @@ def run_deploy_pipeline(
             if rf_count:
                 log_fn(f"Root-flagged mods: {rf_count} file(s) deployed to game root.")
 
+            # Case-alias symlinks (GH#374): satisfy the engine's
+            # case-mismatched lookups via Wine's exact-case fast path.
+            # Before the snapshot refresh so root-level aliases are recorded
+            # as deploy-time state, never runtime files.  With the setting
+            # off, deploy removes existing aliases so toggling it cleans up
+            # without waiting for a restore.
+            alias_dirs = getattr(game, "case_alias_dirs", None)
+            if alias_dirs:
+                from Utils.deploy_shared import (deploy_case_alias_links,
+                                                 remove_case_alias_links)
+                try:
+                    if getattr(game, "case_alias_links", True):
+                        deploy_case_alias_links(Path(game_root), alias_dirs,
+                                                log_fn=log_fn)
+                    else:
+                        remove_case_alias_links(Path(game_root), alias_dirs,
+                                                log_fn=log_fn)
+                except Exception as exc:
+                    log_fn(f"  WARN: case-alias symlinks failed: {exc}")
+
             snapshot_path = (
                 game.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
             )

@@ -700,6 +700,31 @@ class BaseGame(ABC):
         return {}
 
     @property
+    def case_alias_dirs(self) -> "list[str]":
+        """
+        Game-root-relative directories to mirror with case-variant symlink
+        aliases (``data -> Data``) at the end of every deploy.
+
+        Windows engines resolve paths case-insensitively and some request
+        folders in a different casing than they ship on disk (Creation
+        Engine asks for ``data\\<plugin>.ini`` and ``Data\\TEXTURES\\...``).
+        On Linux every such miss makes Wine fall back to scanning the whole
+        directory per lookup - measured at ~50 s of a 165 s Skyrim SE load
+        (GH#374).  An alias symlink spelled the way the engine asks turns
+        the miss into an exact-case hit; because different requests use
+        CONTRADICTORY casings, aliases are the only single-disk-state fix
+        (renaming or force_lower just moves which requests pay).
+
+        For each listed directory the deploy creates sibling symlinks for
+        the all-lowercase and ALL-UPPERCASE spellings of its final segment;
+        a trailing ``/*`` aliases every subdirectory (``"Data/*"``).  Real
+        entries are never replaced.  Handlers that override this must also
+        call ``remove_case_alias_links`` in their restore() so the aliases
+        leave with the deploy.  Empty by default.
+        """
+        return []
+
+    @property
     def mod_staging_requires_subdir(self) -> bool:
         """
         When True, each mod's staging folder must contain a named subdirectory
@@ -1765,6 +1790,19 @@ class BaseGame(ABC):
     def archive_invalidation(self, value: bool) -> None:
         data = self._load_settings()
         data["archive_invalidation"] = bool(value)
+        self._save_settings(data)
+
+    @property
+    def case_alias_links(self) -> bool:
+        """If True (default), deploy creates the case-variant symlink aliases
+        named by ``case_alias_dirs`` (GH#374 Wine load-time fix); if False,
+        deploy removes any existing aliases instead."""
+        return self._load_settings().get("case_alias_links", True)
+
+    @case_alias_links.setter
+    def case_alias_links(self, value: bool) -> None:
+        data = self._load_settings()
+        data["case_alias_links"] = bool(value)
         self._save_settings(data)
 
     def _migrate_old_config(self) -> None:

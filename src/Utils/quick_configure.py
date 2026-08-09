@@ -96,6 +96,13 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
                    "Automatic archive invalidation (prefer loose files over BSAs)",
                    val, apply)
 
+    if getattr(game, "case_alias_dirs", None):
+        val, apply = _toggle_attr(game, "case_alias_links", True)
+        add_toggle("case_alias_links",
+                   "Create case-alias symlinks on deploy (major load-time "
+                   "speedup under Proton)",
+                   val, apply)
+
     # profile_ini_files / profile_saves only manage per-profile INI/save
     # symlinks at deploy time - they don't change mod staging, the deploy
     # target, or the plugin list, so no reload is needed (matches the full

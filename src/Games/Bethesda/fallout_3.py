@@ -14,7 +14,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool, MODERN_DIRECTX_DEPS
 from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
-from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core
+from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
@@ -122,6 +122,14 @@ class Fallout_3(BaseGame):
     @property
     def plugin_extensions(self) -> list[str]:
         return [".esp", ".esl", ".esm"]
+
+    @property
+    def case_alias_dirs(self) -> "list[str]":
+        # The Creation Engine requests lowercase ``data\<plugin>.ini`` (once
+        # per engine INI setting) and uppercase ``Data\TEXTURES\...`` (terrain
+        # LOD / PBR), and NIF-embedded asset paths are lowercase - each miss
+        # costs Wine a full directory scan. Every Data subdir is aliased to prevent this:
+        return ["Data", "Data/*"]
 
     @property
     def steam_id(self) -> str:
@@ -1591,6 +1599,10 @@ class Fallout_3(BaseGame):
             raise RuntimeError("Game path is not configured.")
 
         data_dir = self._game_path / "Data"
+
+        _log("Restore: removing case-alias symlinks ...")
+        remove_case_alias_links(self._game_path, self.case_alias_dirs,
+                                log_fn=_log)
 
         _log("Restore: reverting archive invalidation ...")
         self.revert_archive_invalidation(_log)

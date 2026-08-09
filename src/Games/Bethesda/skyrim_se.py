@@ -11,7 +11,7 @@ from pathlib import Path
 
 from Games.Bethesda.fallout_3 import Fallout_3
 from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
-from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, restore_data_core, move_to_core
+from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, restore_data_core, move_to_core, remove_case_alias_links
 from Utils.modlist import read_modlist
 
 
@@ -568,6 +568,10 @@ class SkyrimSE(Fallout_3):
         data_dir      = self._game_path / "Data"
         staging       = self.get_effective_mod_staging_path()
         overwrite_dir = self.get_effective_overwrite_path()
+
+        _log("Restore: removing case-alias symlinks ...")
+        remove_case_alias_links(self._game_path, self.case_alias_dirs,
+                                log_fn=_log)
 
         _log("Restore: removing plugins.txt symlink ...")
         self._remove_plugins_txt_symlink(_log)

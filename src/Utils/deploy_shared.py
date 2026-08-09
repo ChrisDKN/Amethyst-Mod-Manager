@@ -1943,6 +1943,130 @@ def _move_runtime_files(
     return moved
 
 
+def _expand_case_alias_dirs(game_root: Path, alias_dirs):
+    """Yield the real directories named by *alias_dirs* entries.
+
+    A trailing ``/*`` expands to every real subdirectory of the base dir.
+    Symlinked dirs are excluded in both forms so aliases never alias each
+    other (an alias-of-an-alias, or re-aliasing on a second pass).
+    """
+    for rel in alias_dirs or ():
+        rel = rel.replace("\\", "/").strip("/")
+        if rel.endswith("/*"):
+            base = game_root / rel[:-2]
+            try:
+                with os.scandir(base) as it:
+                    for entry in it:
+                        if entry.is_dir(follow_symlinks=False):
+                            yield base / entry.name
+            except OSError:
+                pass
+        else:
+            real = game_root / rel
+            if real.is_dir() and not real.is_symlink():
+                yield real
+
+
+def deploy_case_alias_links(game_root: Path, alias_dirs, log_fn=None) -> int:
+    """Create case-variant symlink aliases for *alias_dirs* under game_root.
+
+    alias_dirs - game-root-relative directory paths (e.g. ["Data",
+    "Data/Textures"]); a trailing ``/*`` aliases every subdirectory
+    (``"Data/*"``).  For each real dir, sibling symlinks named with the
+    lowercase and UPPERCASE spellings of its final segment are created
+    pointing at the real name (``data -> Data``), so Wine's exact-case stat
+    fast path satisfies the engine's case-mismatched requests without a
+    per-lookup directory scan (GH#374 - measured ~50 s of Skyrim SE load).
+
+    Idempotent: correct aliases are kept, stale alias symlinks are
+    re-pointed, and a real file/dir occupying an alias name is never touched
+    (which also covers case-insensitive filesystems, where the alias name IS
+    the real directory).  Aliases whose real dir has since disappeared are
+    pruned - an incremental redeploy skips the restore that would otherwise
+    clear them, so a removed mod's alias would dangle until the next full
+    restore.  Runs before the deploy snapshot so root-level aliases are
+    recorded as deploy-time state; `remove_case_alias_links` is the
+    restore-side counterpart.  Returns the number of aliases created or
+    re-pointed.
+    """
+    _log = _safe_log(log_fn)
+    created = 0
+    for real in _expand_case_alias_dirs(game_root, alias_dirs):
+        for variant in {real.name.lower(), real.name.upper()} - {real.name}:
+            alias = real.parent / variant
+            try:
+                if os.path.lexists(alias):
+                    if not alias.is_symlink():
+                        continue
+                    if os.readlink(alias) == real.name:
+                        continue
+                    alias.unlink()
+                os.symlink(real.name, alias)
+                created += 1
+            except OSError as exc:
+                _log(f"  WARN: case alias {variant!r} -> {real.name!r}: {exc}")
+    pruned = 0
+    for parent in _case_alias_parent_dirs(game_root, alias_dirs):
+        try:
+            with os.scandir(parent) as it:
+                entries = [e.name for e in it if e.is_symlink()]
+        except OSError:
+            continue
+        for name in entries:
+            alias = parent / name
+            try:
+                target = os.readlink(alias)
+                # Only case-alias-shaped links (sibling name differing by
+                # case alone) whose real dir is gone - never foreign
+                # symlinks such as root-flagged mod files.
+                if ("/" not in target and target != name
+                        and target.lower() == name.lower()
+                        and not (parent / target).is_dir()):
+                    alias.unlink()
+                    pruned += 1
+            except OSError:
+                pass
+    if created or pruned:
+        _log(f"  Case aliases: {created} symlink(s) created, {pruned} stale pruned.")
+    return created
+
+
+def _case_alias_parent_dirs(game_root: Path, alias_dirs):
+    """Yield the unique parent directories that hold aliases for *alias_dirs*."""
+    seen = set()
+    for rel in alias_dirs or ():
+        rel = rel.replace("\\", "/").strip("/")
+        parent = game_root / rel[:-2] if rel.endswith("/*") \
+            else (game_root / rel).parent
+        if parent not in seen and parent.is_dir():
+            seen.add(parent)
+            yield parent
+
+
+def remove_case_alias_links(game_root: Path, alias_dirs, log_fn=None) -> int:
+    """Remove alias symlinks created by `deploy_case_alias_links`.
+
+    Called from handlers' restore() so the game folder returns to true
+    vanilla.  Only removes symlinks whose target is the sibling real name -
+    real entries and foreign symlinks are never touched.  Returns the number
+    removed.
+    """
+    _log = _safe_log(log_fn)
+    removed = 0
+    for real in _expand_case_alias_dirs(game_root, alias_dirs):
+        for variant in {real.name.lower(), real.name.upper()} - {real.name}:
+            alias = real.parent / variant
+            try:
+                if alias.is_symlink() and os.readlink(alias) == real.name:
+                    alias.unlink()
+                    removed += 1
+            except OSError as exc:
+                _log(f"  WARN: case alias cleanup {variant!r}: {exc}")
+    if removed:
+        _log(f"  Case aliases: {removed} symlink(s) removed.")
+    return removed
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -2098,6 +2222,8 @@ __all__ = [
     "expand_separator_merge_dirs",
     "cleanup_custom_deploy_dirs",
     "restore_custom_deploy_backup_for_path",
+    "deploy_case_alias_links",
+    "remove_case_alias_links",
     # Private helpers (re-exported via façade for back-compat)
     "_mkdir_leaves",
     "_deploy_workers",

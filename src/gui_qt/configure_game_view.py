@@ -462,6 +462,10 @@ class ConfigureGameView(QWidget):
         add_check("archive_invalidation",
                   self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
                   hasattr(self._game, "archive_invalidation_enabled"))
+        add_check("case_alias_links",
+                  self.tr("Create case-alias symlinks on deploy (major load-time "
+                          "speedup under Proton)"),
+                  bool(getattr(self._game, "case_alias_dirs", None)))
         add_check("profile_ini_files",
                   self.tr("Use profile-specific INI files"),
                   hasattr(self._game, "profile_ini_files"))
@@ -545,6 +549,7 @@ class ConfigureGameView(QWidget):
             self._set_check("auto_deploy", getattr(g, "auto_deploy", False))
             self._set_check("archive_invalidation",
                             getattr(g, "archive_invalidation", True))
+            self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
             self._set_check("profile_ini_files", getattr(g, "profile_ini_files", False))
             self._set_check("profile_saves", getattr(g, "profile_saves", False))
             self._set_check("prefix_numbering", getattr(g, "prefix_numbering", True))
@@ -566,6 +571,7 @@ class ConfigureGameView(QWidget):
             self._set_check("auto_4gb_patch", True)
             self._set_check("auto_deploy", False)
             self._set_check("archive_invalidation", True)
+            self._set_check("case_alias_links", True)
             self._set_check("profile_ini_files", False)
             self._set_check("profile_saves", False)
             self._set_check("prefix_numbering", True)
@@ -1259,6 +1265,8 @@ class ConfigureGameView(QWidget):
             g.auto_deploy = self._opt_checks["auto_deploy"].isChecked()
         if "archive_invalidation" in self._opt_checks:
             g.archive_invalidation = self._opt_checks["archive_invalidation"].isChecked()
+        if "case_alias_links" in self._opt_checks:
+            g.case_alias_links = self._opt_checks["case_alias_links"].isChecked()
         if hasattr(g, "set_profile_ini_files") and "profile_ini_files" in self._opt_checks:
             g.set_profile_ini_files(self._opt_checks["profile_ini_files"].isChecked())
         if hasattr(g, "set_profile_saves") and "profile_saves" in self._opt_checks:
