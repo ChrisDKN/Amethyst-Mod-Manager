@@ -455,19 +455,26 @@ def _module_config_bytes(archive: Path) -> "bytes | None":
     """Read fomod/ModuleConfig.xml straight out of a .zip/.7z/.rar, or None."""
     suffix = archive.suffix.lower()
     xml_bytes = None
+    # A successful listing that finds NO config is a definitive answer; only
+    # a reader that errored (or an unreadable member) warrants the slow path.
+    absent = False
     try:
         if suffix == ".zip":
             with zipfile.ZipFile(archive) as zf:
-                for name in zf.namelist():
-                    if _FOMOD_XML_RE.search(name):
-                        xml_bytes = zf.read(name)
-                        break
+                target = next((n for n in zf.namelist()
+                               if _FOMOD_XML_RE.search(n)), None)
+                if target is None:
+                    absent = True
+                else:
+                    xml_bytes = zf.read(target)
         elif suffix == ".7z":
             import py7zr
             with py7zr.SevenZipFile(str(archive), mode="r") as arc:
                 target = next((n for n in arc.getnames()
                                if _FOMOD_XML_RE.search(n)), None)
-                if target:
+                if target is None:
+                    absent = True
+                else:
                     arc.reset()
                     with tempfile.TemporaryDirectory() as td:
                         arc.extract(path=td, targets=[target])
@@ -475,18 +482,46 @@ def _module_config_bytes(archive: Path) -> "bytes | None":
                         if fp.is_file():
                             xml_bytes = fp.read_bytes()
         else:  # .rar and friends - only if rarfile is importable
-            try:
-                import rarfile
-                with rarfile.RarFile(str(archive)) as rf:
-                    for name in rf.namelist():
-                        if _FOMOD_XML_RE.search(name.replace("\\", "/")):
-                            xml_bytes = rf.read(name)
-                            break
-            except Exception:
-                return None
+            import rarfile
+            with rarfile.RarFile(str(archive)) as rf:
+                target = next((n for n in rf.namelist()
+                               if _FOMOD_XML_RE.search(n.replace("\\", "/"))),
+                              None)
+                if target is None:
+                    absent = True
+                else:
+                    xml_bytes = rf.read(target)
     except Exception:
+        xml_bytes = None
+    if xml_bytes:
+        return xml_bytes
+    if absent:
         return None
-    return xml_bytes or None
+    return _module_config_bytes_slow(archive)
+
+
+def _module_config_bytes_slow(archive: Path) -> "bytes | None":
+    """Full-extract fallback for :func:`_module_config_bytes`.
+
+    The targeted readers above can fail on archives the install pipeline
+    handles fine - py7zr can't decompress BCJ2-filtered .7z at all - so
+    extract the whole archive through the same waterfall installs use and
+    read the config from disk.
+    """
+    import shutil
+    tmp = Path(tempfile.mkdtemp(prefix="amethyst_fomodcfg_"))
+    try:
+        if not _extract_archive_to(archive, tmp):
+            return None
+        for fp in tmp.rglob("*"):
+            if fp.is_file() and _FOMOD_XML_RE.search(
+                    fp.relative_to(tmp).as_posix()):
+                return fp.read_bytes()
+        return None
+    except OSError:
+        return None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _extract_module_config_to(archive: Path, dest: Path) -> bool:
@@ -774,25 +809,34 @@ def _crc32_hex(data: bytes) -> str:
 
 
 def _extract_archive_to(archive: Path, dest: Path) -> bool:
-    """Extract a mod archive into *dest*; False when the format is unsupported."""
-    suffix = archive.suffix.lower()
+    """Extract a mod archive into *dest*; False when nothing could read it.
+
+    Uses the install pipeline's extractor waterfall (native 7z → bsdtar →
+    py7zr → zipfile/tarfile): py7zr alone cannot decompress BCJ2-filtered
+    .7z - 7-Zip's default for DLL-heavy mods (e.g. Engine Fixes) - which
+    silently dropped every such mod's file edits from exports.
+    """
     try:
-        if suffix == ".zip":
-            with zipfile.ZipFile(archive) as zf:
-                zf.extractall(dest)
-        elif suffix == ".7z":
-            import py7zr
-            with py7zr.SevenZipFile(str(archive), mode="r") as arc:
-                arc.extractall(path=str(dest))
-        elif suffix == ".rar":
+        from Utils.app_log import app_log as _log
+    except Exception:
+        def _log(_m):
+            return None
+    try:
+        from Utils.mod_install import _extract_archive
+        if _extract_archive(str(archive), str(dest), _log):
+            return True
+    except Exception:
+        pass
+    # Last resort for .rar when no native extractor is on PATH.
+    if archive.suffix.lower() == ".rar":
+        try:
             import rarfile
             with rarfile.RarFile(str(archive)) as rf:
                 rf.extractall(str(dest))
-        else:
+            return True
+        except Exception:
             return False
-    except Exception:
-        return False
-    return True
+    return False
 
 
 def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
