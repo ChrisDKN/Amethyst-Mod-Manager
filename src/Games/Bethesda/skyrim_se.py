@@ -166,6 +166,7 @@ class SkyrimSE(Fallout_3):
             "localmapmenu": "LocalMapMenu",
             "icondisplayextension.swf": "IconDisplayExtension.swf",
             "icondisplayextensionart.swf": "IconDisplayExtensionArt.swf",
+            "data" : "Data",
         }
 
     @property
