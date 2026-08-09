@@ -115,6 +115,39 @@ def _write_sidecar_file_id(archive: Path, file_id: int) -> None:
         pass
 
 
+def ingest_archive_to_cache(path: Path, game_name: str,
+                            file_id: int) -> "Path | None":
+    """Copy a browser-downloaded archive into the per-game download cache.
+
+    Free-account redownloads land wherever the browser saves; cache lookups
+    (meta filename or .fileid sidecar) only scan the cache dirs, so the file
+    is copied in and stamped with its sidecar. The source is left where the
+    user put it. Returns the cached path, or None on failure. A source
+    already inside the destination folder is only stamped, never copied.
+    """
+    import shutil
+    from Utils.config_paths import get_download_cache_dir_for_game
+    src = Path(path)
+    try:
+        if not src.is_file():
+            return None
+        dest_dir = get_download_cache_dir_for_game(game_name or "")
+        dest = dest_dir / src.name
+        if src.parent.resolve() != dest_dir.resolve():
+            same = dest.is_file() and dest.stat().st_size == src.stat().st_size
+            if not same:
+                # Stage under a temp name: other threads scan the cache dirs
+                # with size heuristics, so the file must appear complete.
+                tmp = dest.with_name(dest.name + ".ingest-tmp")
+                shutil.copy2(src, tmp)
+                os.replace(tmp, dest)
+        if file_id:
+            _write_sidecar_file_id(dest, int(file_id))
+    except OSError:
+        return None
+    return dest
+
+
 # -- md5 cache ---------------------------------------------------------------
 # Hashing a multi-GB archive is slow, so we cache results in a single JSON
 # file inside the app's download cache directory.  Entries are keyed by the

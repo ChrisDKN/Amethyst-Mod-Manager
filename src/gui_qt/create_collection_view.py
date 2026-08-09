@@ -165,6 +165,10 @@ class CreateCollectionView(ExportProfileView):
     # drops disabled rows outright - so default them to "ignore" and let the
     # table say so, instead of listing them as exportable and warning later.
     _IGNORE_DISABLED_ROWS = True
+    # Collection FOMOD choices are mapped through the archive's
+    # ModuleConfig.xml when no profile copy exists - include that in the
+    # missing-archive preflight.
+    _ARCHIVE_PREFLIGHT_FOMOD = True
 
     def __init__(self, window, game, api, log_fn=None):
         self._pending_info: dict = {}
@@ -697,7 +701,9 @@ class CreateCollectionView(ExportProfileView):
             return
         self._pending_info = info
         self._autosave_settings()
+        self._archive_preflight(lambda: self._open_collection_picker(info))
 
+    def _open_collection_picker(self, info: dict):
         safe_name = "".join(
             c if c.isalnum() or c in " -_" else "_" for c in info["name"]).strip()
         default_name = f"{safe_name or 'collection'}.7z"
@@ -864,6 +870,14 @@ class CreateCollectionView(ExportProfileView):
             collection_id = int(record.get("collection_id") or 0)
             target_slug = record.get("slug", "") or ""
             target_name = record.get("name", "") or ""
+        self._archive_preflight(
+            lambda: self._confirm_upload(info, collection_id, target_slug,
+                                         target_name))
+
+    def _confirm_upload(self, info: dict, collection_id: int,
+                        target_slug: str, target_name: str):
+        """Second half of :meth:`_on_upload`, resumed after the
+        missing-archive preflight."""
         if collection_id:
             body = self.tr(
                 "Upload a new revision of '{0}' (collection #{1})?\n\n"

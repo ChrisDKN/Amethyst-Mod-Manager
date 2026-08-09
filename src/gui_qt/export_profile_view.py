@@ -521,12 +521,19 @@ class ExportProfileView(QWidget):
     # UI thread, which applies the sizes to _all_rows (the worker must never
     # mutate rows the UI thread reads/sorts) and then starts the packaging.
     _sizes_ready = Signal(str, object)
+    # (report, proceed) from the archive-preflight worker → UI thread.
+    _archive_check_done = Signal(object, object)
 
     # Default disabled mods to "ignore"? Off here: the ``.amethyst`` manifest
     # carries ``enabled: false`` through to the importer, so a disabled mod is
     # exportable. Nexus collections have no disabled state and drop those rows,
     # so CreateCollectionView turns this on.
     _IGNORE_DISABLED_ROWS = False
+    # Does the export need the archive for FOMOD choices? Off here: `.amethyst`
+    # embeds the raw selection sidecar, no installer config required. Collection
+    # exports map choices through fomod/ModuleConfig.xml, so the subclass turns
+    # this on.
+    _ARCHIVE_PREFLIGHT_FOMOD = False
 
     def __init__(self, window, game, api, log_fn=None):
         super().__init__()
@@ -571,6 +578,7 @@ class ExportProfileView(QWidget):
         self._export_progress.connect(self._on_export_progress)
         self._save_path_picked.connect(self._on_save_path_picked)
         self._sizes_ready.connect(self._on_sizes_ready)
+        self._archive_check_done.connect(self._on_archive_check_done)
         self._build()
         self._load_rows()
         self._apply_filter()
@@ -1541,7 +1549,7 @@ class ExportProfileView(QWidget):
 
             def _confirmed(ok: bool):
                 if ok:
-                    self._open_export_picker()
+                    self._archive_preflight(self._open_export_picker)
 
             count = len(redistributable)
             body = self.tr(
@@ -1557,7 +1565,41 @@ class ExportProfileView(QWidget):
                            list_items=redistributable)
             return
 
-        self._open_export_picker()
+        self._archive_preflight(self._open_export_picker)
+
+    # -- missing-archive preflight ------------------------------------------
+    def _archive_preflight(self, proceed):
+        """Check for export features whose original archive is gone from the
+        download cache, offering a redownload before continuing. *proceed*
+        resumes the export flow (possibly from an overlay callback)."""
+        rows = self._snapshot_rows()
+        game = self._game
+
+        def _worker():
+            try:
+                from Utils.collection_export import missing_archive_report
+                report = missing_archive_report(
+                    rows, game,
+                    check_fomod=self._ARCHIVE_PREFLIGHT_FOMOD,
+                    include_disabled=not self._IGNORE_DISABLED_ROWS)
+            except Exception as exc:
+                self._log(f"[export] archive preflight failed: {exc}")
+                report = []
+            safe_emit(self._archive_check_done, report, proceed)
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="export-archive-preflight").start()
+
+    def _on_archive_check_done(self, report, proceed):
+        if not report:
+            proceed()
+            return
+        from gui_qt.missing_archives_overlay import MissingArchivesOverlay
+        MissingArchivesOverlay.show_over(
+            self.window(), report, api=self._api,
+            game_name=self._game.name if self._game else "",
+            log_fn=self._log,
+            on_done=lambda ok: proceed() if ok else None)
 
     def _open_export_picker(self):
         """Ask for the output path, then export. Split out of :meth:`_on_export`

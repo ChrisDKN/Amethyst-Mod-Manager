@@ -59,6 +59,7 @@ py.install_sources(
   'loading_overlay.py',
   'marker_strip.py',
   'mewgenics_deploy_overlay.py',
+  'missing_archives_overlay.py',
   'missing_reqs_view.py',
   'mod_exists_overlay.py',
   'mod_files_delegate.py',

@@ -651,6 +651,88 @@ def _load_fomod_selections(row: dict, game_name: str, profile_dir) -> "dict | No
 
 
 # ---------------------------------------------------------------------------
+# Pre-export archive check
+# ---------------------------------------------------------------------------
+
+ARCHIVE_NEED_EDITS = "edits"       # save_edits diffs against the archive
+ARCHIVE_NEED_CHOICES = "choices"   # FOMOD config only exists in the archive
+
+
+def missing_archive_report(rows, game, *, check_fomod=True,
+                           include_disabled=False) -> list:
+    """Rows whose export needs the mod's original archive, which is missing.
+
+    Two export features read the pristine download: file-edit binary patches
+    (``save_edits`` diffs the staged files against it) and - for collection
+    exports - FOMOD choice recovery when no installer config is mirrored in
+    the profile. Both degrade to a warning today; this report lets the UI
+    offer a redownload first.
+
+    Each entry: ``{name, needs, mod_id, file_id, game_domain, file_name,
+    size_bytes, downloadable}``. ``needs`` holds :data:`ARCHIVE_NEED_EDITS` /
+    :data:`ARCHIVE_NEED_CHOICES`; ``downloadable`` means the meta pins the
+    installed Nexus mod/file pair so the exact archive can be fetched again.
+    Ids come from meta.ini, NOT the row - the row's file id follows the
+    version picker, but patches and choices must match the INSTALLED file.
+
+    ``check_fomod`` is off for `.amethyst` exports (they embed the raw
+    selection sidecar, no config needed); ``include_disabled`` is on for them
+    (disabled rows still export, unlike collections, which drop them).
+    """
+    staging_root = game.get_effective_mod_staging_path() if game else None
+    profile_dir = getattr(game, "_active_profile_dir", None) if game else None
+    game_name = getattr(game, "name", "") or ""
+    game_domain = getattr(game, "nexus_game_domain", "") or ""
+
+    report: list = []
+    for row in rows:
+        source = row.get("source", "nexus")
+        if source in ("bundle", "ignore"):
+            continue          # bundles ship the edited files verbatim
+        if not include_disabled and row.get("enabled") is False:
+            continue
+        name = row["name"]
+        mod_dir = Path(staging_root) / name if staging_root else None
+        wants_edits = bool(row.get("save_edits")
+                           and mod_dir and mod_dir.is_dir())
+        wants_choices = bool(check_fomod and row.get("has_fomod")
+                             and row.get("fomod_export", True)
+                             and not row.get("has_bain"))
+        if not wants_edits and not wants_choices:
+            continue
+
+        meta = _read_row_meta(staging_root, name)
+        if _cached_archive(meta, game_name) is not None:
+            continue
+
+        needs = []
+        if wants_edits:
+            needs.append(ARCHIVE_NEED_EDITS)
+        if wants_choices:
+            selections = _load_fomod_selections(row, game_name, profile_dir)
+            if (selections
+                    and _module_config_for_mod(name, profile_dir, None) is None):
+                needs.append(ARCHIVE_NEED_CHOICES)
+        if not needs:
+            continue
+
+        mod_id = int(getattr(meta, "mod_id", 0) or 0) or int(row.get("mod_id") or 0)
+        file_id = int(getattr(meta, "file_id", 0) or 0)
+        domain = (getattr(meta, "game_domain", "") or "").strip() or game_domain
+        report.append({
+            "name": name,
+            "needs": needs,
+            "mod_id": mod_id,
+            "file_id": file_id,
+            "game_domain": domain,
+            "file_name": (getattr(meta, "installation_file", "") or "").strip(),
+            "size_bytes": int(getattr(meta, "file_size", 0) or 0),
+            "downloadable": bool(mod_id and file_id and domain),
+        })
+    return report
+
+
+# ---------------------------------------------------------------------------
 # Mod rules from filemap conflicts
 # ---------------------------------------------------------------------------
 
