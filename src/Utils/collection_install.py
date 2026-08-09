@@ -1585,6 +1585,11 @@ def run_collection_install(
             _bundled_folders.extend(_step3b_bundled or [])
         except Exception as exc:
             log(f"Collection install: Step 3b failed: {exc}")
+    if _amethyst_state and not _col_pause.is_set():
+        try:
+            _persist_amethyst_stash(profile_dir, _amethyst_state, log)
+        except Exception as exc:
+            log(f"Collection install: could not save Amethyst snapshot: {exc}")
 
     # Bundled folders are copied straight into staging by Steps 2c/3b, which run
     # AFTER the index rebuild above - so they have no modindex.bin entry, and
@@ -1705,8 +1710,9 @@ def run_collection_install(
             and overwrite_existing is None and update_context is None
             and not _is_append_run):
         try:
-            _strip_changed = _apply_amethyst_profile_state(
+            _am_stats = _apply_amethyst_profile_state(
                 profile_dir, modlist_path, _amethyst_state, log)
+            _strip_changed = (_am_stats or {}).get("strip_changed") or []
             if _strip_changed:
                 # Strip prefixes are baked into modindex.bin at rebuild time -
                 # mods whose prefixes just changed need their entries redone or
@@ -2118,19 +2124,23 @@ def _read_amethyst_export_data(archive_root, log) -> "dict | None":
 
 
 def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
-                                  log) -> "list[str]":
+                                  log) -> dict:
     """Apply an Amethyst-authored collection's exact modlist (order, separators,
     enabled state) and portable profile_state on top of the finished install.
-    Caller gates to fresh installs. Entries naming mods that never got installed
+    Caller gates to fresh installs (Reset Load Order reuses it on an existing
+    profile - same semantics). Entries naming mods that never got installed
     (deselected optionals, disabled-at-export mods) are skipped; installed mods
-    the modlist doesn't know are kept below the ordered block. Returns installed
-    mods whose strip prefixes changed (the caller must subset-rescan them)."""
+    the modlist doesn't know are kept below the ordered block. Returns
+    ``{strip_changed, ordered, leftovers, skipped}`` - *strip_changed* lists
+    installed mods whose strip prefixes changed (the caller must subset-rescan
+    them); the counts cover mods only, not separators."""
     from Utils.modlist import modlist_lock, parse_modlist_text
 
     authored = parse_modlist_text(data.get("modlist_text") or "")
     bundles: dict = data.get("bundles") or {}
     renames: dict[str, str] = {}      # authored name -> installed folder name
     final_entries: list = []
+    stats = {"strip_changed": [], "ordered": 0, "leftovers": 0, "skipped": 0}
     if authored:
         with modlist_lock(modlist_path):
             existing = read_modlist(modlist_path)
@@ -2170,6 +2180,10 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
                 and not (e.is_separator and e.name.lower() in sep_names)]
             final_entries = ordered + leftovers
             write_modlist(modlist_path, final_entries)
+            stats["ordered"] = sum(1 for e in ordered if not e.is_separator)
+            stats["leftovers"] = sum(1 for e in leftovers
+                                     if not e.is_separator)
+            stats["skipped"] = skipped
             log(f"Collection install: applied exported load order - "
                 f"{len(ordered)} entries, {skipped} skipped (not installed), "
                 f"{len(leftovers)} unlisted kept below")
@@ -2190,7 +2204,7 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
 
     state = data.get("profile_state") or {}
     if not isinstance(state, dict) or not state:
-        return []
+        return stats
     installed_lower = {e.name.lower() for e in final_entries
                        if not e.is_separator}
     # Separator state (locks/colors/collapsed/deploy paths) is keyed by DISPLAY
@@ -2296,7 +2310,145 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
     if applied:
         log(f"Collection install: merged exported profile state "
             f"({', '.join(applied)})")
-    return strip_changed
+    stats["strip_changed"] = strip_changed
+    return stats
+
+
+def _persist_amethyst_stash(profile_dir, data, log) -> None:
+    """Persist the archive's Amethyst/ data as ``<profile>/Amethyst/`` so Reset
+    Load Order restores the exact exported profile offline - no archive
+    re-extract (or redownload) needed. Same layout the ``.amethyst`` import
+    snapshots via ``collection_export.write_amethyst_stash``."""
+    stash = Path(profile_dir) / "Amethyst"
+    stash.mkdir(parents=True, exist_ok=True)
+    (stash / "modlist.txt").write_text(
+        data.get("modlist_text") or "", encoding="utf-8",
+        errors="surrogateescape")
+    for key, fname in (("plugins_bytes", "plugins.txt"),
+                       ("loadorder_bytes", "loadorder.txt"),
+                       ("userlist_bytes", "userlist.yaml")):
+        b = data.get(key)
+        if b:
+            (stash / fname).write_bytes(b)
+    ps = data.get("profile_state")
+    if ps:
+        (stash / "profile_state.json").write_text(
+            json.dumps(ps, indent=1), encoding="utf-8")
+    (stash / "export.json").write_text(json.dumps({
+        "format": data.get("format", 1),
+        "bundles": data.get("bundles") or {},
+    }, indent=1), encoding="utf-8")
+    log("Collection install: saved Amethyst/ order snapshot to the profile")
+
+
+def _extract_amethyst_members(archive_path, cache_dir, log) -> "dict | None":
+    """Extract ONLY the Amethyst/ members of a cached collection .7z and read
+    them. Returns None when the archive has no Amethyst folder (Vortex-authored
+    or pre-feature export). Far cheaper than a full extractall - the archive
+    can be multi-GB of bundled tool output."""
+    import shutil as _shutil
+    import tempfile as _tf
+    import py7zr
+    tmp = Path(_tf.mkdtemp(prefix="amethyst_reset_", dir=str(cache_dir)))
+    try:
+        with py7zr.SevenZipFile(str(archive_path), mode="r") as arc:
+            targets = [n for n in arc.getnames()
+                       if n == "Amethyst" or n.startswith("Amethyst/")]
+            if not targets:
+                return None
+            arc.reset()
+            arc.extract(path=str(tmp), targets=targets)
+        return _read_amethyst_export_data(tmp, log)
+    except Exception as exc:
+        log(f"Reset load order: could not read Amethyst data from "
+            f"{archive_path.name}: {exc}")
+        return None
+    finally:
+        _shutil.rmtree(tmp, ignore_errors=True)
+
+
+def load_amethyst_reset_data(game, slug, *, profile_dir=None,
+                             revision_hint=None, domain="",
+                             api_provider=None, log=None) -> "dict | None":
+    """Amethyst profile-fidelity data for Reset Load Order.
+
+    Checks the profile's own ``Amethyst/`` snapshot first (written by every
+    collection install and ``.amethyst`` import - this is the only source for
+    imported profiles, which have no slug). Then a cached ``<slug>_rev<N>.7z``
+    (preferring *revision_hint*, else the newest cached revision), extracting
+    only its Amethyst/ folder. On a cache miss it calls *api_provider*
+    (lazily, so no auth work happens when a local source hits) and redownloads
+    the archive via the collection's download link. Returns None when the
+    collection carries no Amethyst data - the caller falls back to the
+    manifest-based reset.
+    """
+    import shutil as _shutil
+    log = log or (lambda *_a: None)
+    if profile_dir is not None:
+        try:
+            data = _read_amethyst_export_data(Path(profile_dir), log)
+        except Exception:
+            data = None
+        if data is not None:
+            log("Reset load order: using the profile's Amethyst snapshot")
+            return data
+    slug = (slug or "").strip()
+    if not slug:
+        return None
+    cache_dir = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
+    best = None
+    best_rev = -1
+    try:
+        for p in cache_dir.glob(f"{slug}_rev*.7z"):
+            m = re.fullmatch(re.escape(slug) + r"_rev(\d+)\.7z", p.name)
+            rev = int(m.group(1)) if m else -1
+            if revision_hint is not None and rev == int(revision_hint):
+                best, best_rev = p, rev
+                break
+            if rev > best_rev:
+                best, best_rev = p, rev
+    except OSError:
+        pass
+    if best is not None:
+        data = _extract_amethyst_members(best, cache_dir, log)
+        if data is not None:
+            log(f"Reset load order: using Amethyst data from cached "
+                f"{best.name}")
+            return data
+        # The cached archive predates the Amethyst folder (or is
+        # Vortex-authored) - redownloading the same revision can't help.
+        return None
+    if api_provider is None:
+        return None
+    try:
+        api = api_provider()
+    except Exception as exc:
+        log(f"Reset load order: Nexus API unavailable: {exc}")
+        return None
+    if api is None:
+        return None
+    try:
+        (_name, _sz, _cnt, _mods, dl_path, revs,
+         _card) = api.get_collection_detail(slug, domain, revision_hint)
+    except Exception as exc:
+        log(f"Reset load order: collection lookup failed: {exc}")
+        return None
+    rev = revision_hint
+    if rev is None:
+        try:
+            pub = [int(r.get("revisionNumber") or 0) for r in (revs or [])
+                   if (r.get("revisionStatus") or "").lower() == "published"]
+            rev = max(pub) if pub else None
+        except Exception:
+            rev = None
+    root = _ensure_collection_archive_extracted(
+        game, api, slug, rev, dl_path or "", log)
+    if root is None:
+        return None
+    try:
+        return _read_amethyst_export_data(root, log)
+    finally:
+        _shutil.rmtree(root, ignore_errors=True)
 
 
 def _entries_from_amethyst_plugins(amethyst_state, author_entries, vanilla_map,

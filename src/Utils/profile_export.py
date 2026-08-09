@@ -713,6 +713,17 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
             wrote_profile = True
         if wrote_profile:
             log(f"Import: restored profile state files into {profile_dir}")
+            # Snapshot the pristine authored order files NOW - the reconcile
+            # below drops modlist rows for off-site mods that aren't installed
+            # yet, and Reset Load Order needs the full original to put them
+            # back in place once the user installs them.
+            try:
+                from Utils.collection_export import write_amethyst_stash
+                if write_amethyst_stash(profile_dir, log_fn=log):
+                    log("Import: saved Amethyst/ order snapshot "
+                        "(Reset Load Order restores from it).")
+            except Exception as exc:
+                log(f"Import: order snapshot failed: {exc}")
 
     # (3) Reconcile the modlist against what's actually on disk: the bundled
     # modlist.txt lists mods that were NOT exported (disabled leftovers from the

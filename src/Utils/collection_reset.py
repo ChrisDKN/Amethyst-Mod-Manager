@@ -427,7 +427,8 @@ def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn)
 # ---------------------------------------------------------------------------
 
 def reset_collection_load_order(profile_dir: Path, manifest: dict,
-                                log_fn=None, game=None) -> dict:
+                                log_fn=None, game=None,
+                                amethyst_state=None) -> dict:
     """Re-apply *manifest*'s intended order to the profile's modlist.txt +
     plugins.txt + loadorder.txt + userlist.yaml.
 
@@ -440,10 +441,21 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
     ``_write_collection_plugins`` (build filemap → recover staged-but-unlisted
     plugins → LOOT sort) so the reset matches a subsequent manual sort instead of
     dropping unlisted plugins and writing the raw manifest order.
+
+    *amethyst_state* (from ``collection_install.load_amethyst_reset_data``)
+    switches the reset to the EXACT exported profile: the archived modlist.txt
+    replaces the fileId/priority rebuild (unmatched mods go BELOW the authored
+    block, matching the install), the archived plugins.txt/loadorder.txt order
+    replaces the LOOT sort, and userlist.yaml lands verbatim. The result dict
+    then carries ``"amethyst": True``.
     """
     log = log_fn or (lambda _m: None)
     if not manifest:
         return {"error": "no_manifest"}
+
+    if amethyst_state and amethyst_state.get("modlist_text"):
+        return _reset_from_amethyst(profile_dir, manifest, amethyst_state,
+                                    game, log)
 
     fid_to_pos = _resolve_collection_priorities(manifest)
 
@@ -567,3 +579,41 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
         _apply_collection_groups(profile_dir, manifest, log)
 
     return {"ordered": len(ordered), "unordered": len(unordered)}
+
+
+def _reset_from_amethyst(profile_dir: Path, manifest: dict, amethyst_state,
+                         game, log) -> dict:
+    """Reset to the EXACT exported profile carried in the collection archive's
+    Amethyst/ folder: modlist (order/separators/enabled + portable state +
+    userlist.yaml) via the install-path apply, plugins via the install path's
+    exported-order write (LOOT skipped)."""
+    from Utils.collection_install import (
+        _apply_amethyst_profile_state, _write_collection_plugins)
+
+    stats = _apply_amethyst_profile_state(
+        profile_dir, profile_dir / "modlist.txt", amethyst_state, log)
+
+    if manifest.get("plugins") and game is not None:
+        try:
+            # Filemap rebuild feeds the phantom-plugin filter and the
+            # staged-but-unlisted recovery in _write_collection_plugins (the
+            # LOOT sort itself is skipped by the exported order).
+            try:
+                from Utils.deploy_pipeline import _build_filemap_for_game
+                _build_filemap_for_game(game, profile_dir.name, log_fn=log)
+            except Exception as exc:
+                log(f"Reset load order: filemap rebuild failed: {exc}")
+            _write_collection_plugins(
+                game, profile_dir, profile_dir / "plugins.txt", manifest,
+                overwrite_existing=None, _is_append_run=False,
+                log=log, _set_status=lambda _m: None,
+                amethyst_state=amethyst_state)
+            from Utils.plugins import invalidate_plugins_cache
+            invalidate_plugins_cache(profile_dir / "plugins.txt")
+            invalidate_plugins_cache(profile_dir / "loadorder.txt")
+        except Exception as exc:
+            log(f"Reset load order: failed to write plugins.txt: {exc}")
+
+    return {"ordered": stats.get("ordered", 0),
+            "unordered": stats.get("leftovers", 0),
+            "amethyst": True}

@@ -4927,7 +4927,13 @@ class MainWindow(QMainWindow):
         pdir = self._gs.profile_dir()
         from Utils.game_helpers import get_collection_url_from_profile
         url = get_collection_url_from_profile(pdir) if pdir is not None else None
-        if not url:
+        # Imported .amethyst profiles have no collection URL, but they DO have
+        # the saved manifest + the Amethyst/ order snapshot - that pair is
+        # enough to reset (off-site mods installed later land back in place).
+        has_snapshot = (pdir is not None
+                        and (pdir / "Amethyst" / "modlist.txt").is_file()
+                        and (pdir / "collection.json").is_file())
+        if not url and not has_snapshot:
             self._notify(self.tr("The active profile isn't a collection profile."),
                          "warning")
             return
@@ -4936,21 +4942,28 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Resetting collection load order…"), "info")
         domain = getattr(game, "nexus_game_domain", "") or ""
         game_name = getattr(game, "name", "") or ""
-        # slug from the stored URL: …/collections/<slug>[/revisions/N]
+        # slug + optional revision from the stored URL:
+        # …/collections/<slug>[/revisions/N]
         slug = ""
+        rev_hint = None
         try:
-            after = url.split("/collections/", 1)[1]
+            after = (url or "").split("/collections/", 1)[1]
             slug = after.split("/", 1)[0]
+            if "/revisions/" in after:
+                rev_hint = int(
+                    after.split("/revisions/", 1)[1].split("/", 1)[0])
         except Exception:
-            slug = ""
+            rev_hint = None
 
         import threading, json
 
         def worker():
             res = {"error": "unknown"}
             try:
+                from Utils.collection_install import load_amethyst_reset_data
                 from Utils.collection_manifest import load_collection_manifest
                 from Utils.collection_reset import reset_collection_load_order
+                _log = lambda m: self._op_log.emit(str(m))
                 # Prefer the profile's already-saved collection.json (offline).
                 manifest = {}
                 saved = pdir / "collection.json"
@@ -4975,14 +4988,25 @@ class MainWindow(QMainWindow):
                             rev = None
                         manifest = load_collection_manifest(
                             api, game_name, slug, rev, dl_path,
-                            log_fn=lambda m: self._op_log.emit(str(m)))
+                            log_fn=_log)
                 if not manifest:
                     res = {"error": "no_manifest"}
                 else:
+                    # Amethyst-authored collections carry the exact exported
+                    # profile in the archive - cached copy first, redownload
+                    # if it isn't cached anymore. None → manifest-based reset.
+                    amethyst = None
+                    try:
+                        amethyst = load_amethyst_reset_data(
+                            game, slug, profile_dir=pdir,
+                            revision_hint=rev_hint, domain=domain,
+                            api_provider=self._ensure_nexus_api, log=_log)
+                    except Exception as exc:
+                        _log(f"Reset load order: Amethyst data unavailable "
+                             f"({exc}) - using the manifest")
                     res = reset_collection_load_order(
-                        pdir, manifest,
-                        log_fn=lambda m: self._op_log.emit(str(m)),
-                        game=game)
+                        pdir, manifest, log_fn=_log, game=game,
+                        amethyst_state=amethyst)
             except Exception as exc:
                 self._op_log.emit(f"Reset load order failed: {exc}")
                 res = {"error": str(exc)}
@@ -4997,10 +5021,13 @@ class MainWindow(QMainWindow):
             reason = (res or {}).get("error", "unknown") if isinstance(res, dict) else "unknown"
             self._notify(self.tr("Load order reset failed: {0}").format(reason), "warning")
             return
+        _extra = ""
+        if res.get("unordered"):
+            _extra = (f", {res['unordered']} kept below."
+                      if res.get("amethyst") else f", {res['unordered']} at top.")
         self._notify(
-            f"Load order reset - {res.get('ordered', 0)} mods ordered"
-            + (f", {res['unordered']} at top."
-               if res.get("unordered") else "."), "info")
+            f"Load order reset - {res.get('ordered', 0)} mods ordered{_extra or '.'}",
+            "info")
         self._reload_modlist()
 
     # ---- Nexus login (header menu ▸ Login to Nexus) ------------------------

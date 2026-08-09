@@ -1007,6 +1007,41 @@ PORTABLE_PROFILE_STATE_KEYS = (
 )
 
 
+def write_amethyst_stash(profile_dir, log_fn=None, bundles=None) -> bool:
+    """Snapshot the profile's exact load-order files into ``<profile>/Amethyst/``.
+
+    Same content selection as the archive's Amethyst/ folder: modlist.txt +
+    plugins.txt/loadorder.txt/userlist.yaml verbatim, profile_state filtered to
+    the portable keys, and a format/bundles export.json. The ``.amethyst``
+    import writes this BEFORE the modlist sync drops rows for off-site mods
+    that aren't installed yet - it is the pristine copy Reset Load Order
+    restores from once those mods arrive. Returns False when the profile has
+    no modlist to snapshot."""
+    profile_dir = Path(profile_dir)
+    src_modlist = profile_dir / "modlist.txt"
+    if not src_modlist.is_file():
+        return False
+    from Utils.profile_state import read_profile_state
+    stash = profile_dir / AMETHYST_STATE_DIR
+    stash.mkdir(parents=True, exist_ok=True)
+    (stash / "modlist.txt").write_bytes(src_modlist.read_bytes())
+    for fname in ("plugins.txt", "loadorder.txt", "userlist.yaml"):
+        src = profile_dir / fname
+        if src.is_file():
+            (stash / fname).write_bytes(src.read_bytes())
+    state = read_profile_state(profile_dir)
+    portable = {k: state[k] for k in PORTABLE_PROFILE_STATE_KEYS
+                if state.get(k)}
+    if portable:
+        (stash / "profile_state.json").write_text(
+            json.dumps(portable, indent=1), encoding="utf-8")
+    (stash / "export.json").write_text(json.dumps({
+        "format": AMETHYST_STATE_FORMAT,
+        "bundles": dict(bundles or {}),
+    }, indent=1), encoding="utf-8")
+    return True
+
+
 def _amethyst_state_jobs(profile_dir, bundle_folders: dict,
                          scratch_out) -> "list[tuple[Path, str]]":
     """Archive jobs for the ``Amethyst/`` profile-fidelity folder.
