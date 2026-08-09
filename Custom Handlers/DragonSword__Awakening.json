@@ -1,0 +1,114 @@
+{
+  "name": "DragonSword : Awakening",
+  "game_id": "DragonSword__Awakening",
+  "exe_name": "DS/Binaries/Win64/DSClient-Win64-Shipping.exe",
+  "deploy_type": "ue5",
+  "mod_data_path": "DS",
+  "steam_id": "4570720",
+  "nexus_game_domain": "dragonswordawakening",
+  "image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4570720/96a897e98f4472e656fbe6681191b3066cab6056/header.jpg",
+  "mod_folder_strip_prefixes": [
+    "DS",
+    "Content",
+    "Paks",
+    "Binaries",
+    "Win64",
+    "ue4ss",
+    "Mods"
+  ],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*read*.txt"
+  ],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dwmapi": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Binaries/Win64",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss",
+      "folders": [
+        "Mods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "scripts"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "folders": [
+        "dlls"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "filenames": [
+        "mods.txt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Unused",
+      "extensions": [
+        ".txt"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "UE4SS": "Binaries/Win64/dwmapi.dll"
+  },
+  "version": 1,
+  "editable": false
+}
