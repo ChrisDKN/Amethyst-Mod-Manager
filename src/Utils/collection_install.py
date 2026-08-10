@@ -2159,14 +2159,15 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
                                             locked=True, is_separator=True))
                     continue
                 target = by_lower.get(a.name.lower())
-                if target is None:
-                    arc = bundles.get(a.name)
-                    if arc:
-                        # The bundled/ folder is staged under a cleaned name -
-                        # same transform as _install_bundled_from_extracted.
-                        clean = (re.sub(r"[^\w\s\-]", "", str(arc)).strip()
-                                 .replace(" ", "_") or str(arc))
+                if target is None and a.name in bundles:
+                    for cand in (bundles.get(a.name), a.name):
+                        if not cand:
+                            continue
+                        clean = (re.sub(r"[^\w\s\-]", "", str(cand)).strip()
+                                 .replace(" ", "_") or str(cand))
                         target = by_lower.get(clean.lower())
+                        if target is not None:
+                            break
                 if target is None or id(target) in consumed:
                     skipped += 1
                     continue
