@@ -96,7 +96,7 @@ Os mods são associados aos mods instalados pelo UUID.</translation>
     </message>
     <message>
         <source>Apply Order</source>
-        <translation>Aplicar ordem de carregamento</translation>
+        <translation>Aplicar ordem</translation>
     </message>
     <message>
         <source>Reading order and scanning installed mods…</source>
@@ -585,7 +585,7 @@ Ajuste as configurações do INI, feche-o e clique em Concluído.</translation>
     </message>
     <message>
         <source>Step 3: Run {0}</source>
-        <translation>Passo 3: Execute {0}</translation>
+        <translation>Passo 3: Executar {0}</translation>
     </message>
     <message>
         <source>Step 1: Install {0} for Linux</source>
@@ -601,7 +601,7 @@ Nenhum prefixo Proton é usado — o jogo, sua pasta Data e a pasta de saída s�
     </message>
     <message>
         <source>Download</source>
-        <translation>Baixe</translation>
+        <translation>Baixar</translation>
     </message>
     <message>
         <source>Next →</source>
@@ -625,7 +625,7 @@ Nenhum prefixo Proton é usado — o jogo, sua pasta Data e a pasta de saída s�
     </message>
     <message>
         <source>Download {0}</source>
-        <translation>Baixe {0}</translation>
+        <translation>Baixar {0}</translation>
     </message>
     <message>
         <source>Latest release: {0}.</source>
@@ -722,7 +722,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
         <source>Step 3: Run {0}</source>
-        <translation>Passo 3: Execute {0}</translation>
+        <translation>Passo 3: Executar {0}</translation>
     </message>
     <message>
         <source>Step 1: Deploy Modlist</source>
@@ -1080,7 +1080,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Download</source>
-        <translation>Baixe</translation>
+        <translation>Baixar</translation>
     </message>
     <message>
         <source>View</source>
@@ -1222,7 +1222,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Off-site mods ({0}) — download manually:</source>
-        <translation>Mods externos ({0}) — faça o download manualmente:</translation>
+        <translation>Mods externos ({0}) — baixe manualmente:</translation>
     </message>
     <message>
         <source>Open</source>
@@ -1593,7 +1593,7 @@ O cache MD5 é preservado. Os arquivos serão baixados novamente conforme necess
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
-        <translation>Invalidação automática de arquivos (preferir arquivos soltos em vez de BSAs)</translation>
+        <translation>Invalidação automática de BSA (preferir arquivos soltos em vez de BSAs)</translation>
     </message>
     <message>
         <source>Use profile-specific INI files</source>
@@ -2183,7 +2183,7 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>{0} deploy</source>
-        <translation>{0} deploy</translation>
+        <translation>Deploy {0}</translation>
     </message>
 </context>
 <context>
@@ -3027,7 +3027,7 @@ Reinicie o wizard e instale primeiro o {1}.</translation>
     </message>
     <message>
         <source>Step 6: Run {0}</source>
-        <translation>Passo 6: Execute o comando `{0}`</translation>
+        <translation>Passo 6: Executar {0}</translation>
     </message>
     <message>
         <source>Done</source>
@@ -3531,7 +3531,7 @@ Host: run with your system's java (no Proton). Set the Java command in Launch Op
 Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' — anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
         <translation>Como fazer isso?
 Host: execute com o java do seu sistema (sem Proton). Defina o comando Java em Opções de Lançamento, por exemplo 'java -jar% command%' (% command% é o caminho do jar).
-Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é executado automaticamente como 'java.exe -jar &lt;jar&gt;' — qualquer coisa que você colocar em Opções de Lançamento / Lançamento argumentos é adicionado como bandeiras extras. Que prefixo segue a versão Proton abaixo ('Game default' = prefixo do jogo; uma versão específica = um prefixo isolado ao lado do frasco).</translation>
+Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é executado automaticamente como 'java.exe -jar &lt;jar&gt;' — qualquer coisa que você colocar em Opções de Lançamento / Lançamento argumentos é adicionado como flags adicionais. Que prefixo segue a versão Proton abaixo ('Game default' = prefixo do jogo; uma versão específica = um prefixo isolado ao lado do frasco).</translation>
     </message>
     <message>
         <source>Host (system java)</source>
@@ -3978,15 +3978,15 @@ Clique em Concluído para limpar os arquivos extraídos e fechar.</translation>
     </message>
     <message>
         <source>Winning conflicts</source>
-        <translation>Vencendo conflitos</translation>
+        <translation>Conflitos vencedores</translation>
     </message>
     <message>
         <source>Losing conflicts</source>
-        <translation>Perdendo conflitos</translation>
+        <translation>Conflitos perdedores</translation>
     </message>
     <message>
         <source>Winning &amp; losing conflicts</source>
-        <translation>Vencendo &amp; perdendo conflitos</translation>
+        <translation>Conflitos vencedores &amp; perdedores</translation>
     </message>
     <message>
         <source>Fully conflicted mods</source>
@@ -5010,7 +5010,7 @@ Se você continuar, este aviso não será mostrado novamente para {1} a menos qu
     </message>
     <message>
         <source>Automatic archive invalidation (prefer loose files over BSAs)</source>
-        <translation>Invalidação automática de arquivos (preferir arquivos soltos em vez de BSAs)</translation>
+        <translation>Invalidação automática de BSA (preferir arquivos soltos em vez de BSAs)</translation>
     </message>
     <message>
         <source>Use profile-specific INI files</source>
@@ -5294,7 +5294,7 @@ Deseja remover a entrada da coleção anexada?</translation>
     </message>
     <message>
         <source>Restoring bundled mods + profile files…</source>
-        <translation>Restaurando mods empacotados + arquivos de perfil…</translation>
+        <translation>Restaurando mods do pacote + arquivos de perfil…</translation>
     </message>
     <message>
         <source>…and {0} more</source>
@@ -6350,15 +6350,15 @@ Executar Atualização rápida em todos eles agora?</translation>
     </message>
     <message>
         <source>Winning conflicts</source>
-        <translation>Vencendo conflitos</translation>
+        <translation>Conflitos vencedores</translation>
     </message>
     <message>
         <source>Losing conflicts</source>
-        <translation>Perdendo conflitos</translation>
+        <translation>Conflitos perdedores</translation>
     </message>
     <message>
         <source>Winning &amp; losing</source>
-        <translation>Vencendo &amp; perdendo</translation>
+        <translation>Vencedores &amp; perdedores</translation>
     </message>
     <message>
         <source>Fully conflicted</source>
@@ -7108,7 +7108,7 @@ Como você gostaria de lidar com o mod existente?</translation>
     </message>
     <message>
         <source>Flags</source>
-        <translation>Bandeiras</translation>
+        <translation>Flags</translation>
     </message>
     <message>
         <source>Conflicts</source>
@@ -7303,7 +7303,7 @@ Clique em Concluído para fechar.</translation>
     </message>
     <message>
         <source>This mod is a collection bundled mod</source>
-        <translation>Este mod é uma coleção de mod</translation>
+        <translation>Este mod faz parte de uma coleção</translation>
     </message>
     <message>
         <source>This mod has diff patches applied by the collection install</source>
@@ -7323,7 +7323,7 @@ Clique em Concluído para fechar.</translation>
     </message>
     <message>
         <source>This mod contains files that route to the game root</source>
-        <translation>Este mod contém arquivos que vão para a raiz do jogo</translation>
+        <translation>Este mod contém arquivos que são encaminhados para a raiz do jogo</translation>
     </message>
     <message>
         <source>Loose file conflict - Winning</source>
@@ -7602,7 +7602,7 @@ ou em um arquivo criptografado quando não houver chaveiro disponível).</transl
     </message>
     <message>
         <source>Download</source>
-        <translation>Baixe</translation>
+        <translation>Baixar</translation>
     </message>
     <message>
         <source>Cancel download detection</source>
@@ -7618,7 +7618,7 @@ ou em um arquivo criptografado quando não houver chaveiro disponível).</transl
     </message>
     <message>
         <source>Untrack</source>
-        <translation>Desmarcar</translation>
+        <translation>Parar de rastrear</translation>
     </message>
     <message>
         <source>Track Mod</source>
@@ -8651,7 +8651,7 @@ Verifique novamente para confirmar.</translation>
     <name>PluginMenu</name>
     <message>
         <source> ({0} ineligible skipped)</source>
-        <translation> (O {0}, por não ser elegível, foi ignorado)</translation>
+        <translation> ({0} não elegíveis ignorados)</translation>
     </message>
     <message>
         <source>Add selected to group…</source>
@@ -8742,7 +8742,7 @@ Verifique novamente para confirmar.</translation>
     </message>
     <message>
         <source>Flags</source>
-        <translation>Bandeiras</translation>
+        <translation>Flags</translation>
     </message>
     <message>
         <source>P</source>
@@ -9234,7 +9234,7 @@ tiver problemas — ele é recriado automaticamente no próximo passo.</translat
     </message>
     <message>
         <source>If the game won't load (black screen) after removing mods, the PAK archives may still have invalidated entries. This restores the original PAK data from the failsafe manifest in the game root.</source>
-        <translation>Se o jogo não carregar (tela preta) após a remoção dos mods, os arquivos PAK ainda podem conter entradas invalidadas. Isso restaura os dados PAK originais a partir do manifesto de segurança na raiz do jogo.</translation>
+        <translation>Se o jogo não carregar (tela preta) após a remoção dos mods, os arquivos PAK ainda podem conter entradas invalidadas. Isso restaura os dados PAK originais a partir do manifesto de restauração na raiz do jogo.</translation>
     </message>
     <message>
         <source>Game root: {0}</source>
@@ -10437,7 +10437,7 @@ Resolva seus conflitos, feche-o e clique em Concluído.</translation>
     </message>
     <message>
         <source>Hide BSA/BA2 archive conflict flags (also skips that conflict scan for a small speed-up).</source>
-        <translation>Ocultar os indicadores de conflito de arquivos BSA/BA2 (também ignora essa verificação de conflitos, com um pequeno ganho de velocidade).</translation>
+        <translation>Ocultar os flags de conflito de arquivos BSA/BA2 (também ignora essa verificação de conflitos, com um pequeno ganho de velocidade).</translation>
     </message>
     <message>
         <source>Theme</source>
@@ -11528,11 +11528,11 @@ O TTW precisa de vários mods de suporte (plugins de script extender, patches, e
     </message>
     <message>
         <source>Processes normal maps: BSA extract → filter → parallax prep → bend normals → BC7 compress</source>
-        <translation>Processa mapas normais: extrato BSA → filtro → preparação paralaxe → normal de dobra → compressão BC7</translation>
+        <translation>Processa normal maps: extração BSA → filtro → preparação de parallax → bend normals → compressão BC7</translation>
     </message>
     <message>
         <source>Processes parallax textures: BSA extract → filter pairs → height maps → output QC</source>
-        <translation>Processa texturas paraláxicas: extrato BSA → pares de filtro → mapas de altura → saída QC</translation>
+        <translation>Processa texturas de parallax: extração BSA → pares filtrados → mapas de altura → saída QC</translation>
     </message>
     <message>
         <source>Run {0} — {1}</source>
@@ -12011,7 +12011,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Flag tone</source>
-        <translation>Tom de indicador</translation>
+        <translation>Tom de flag</translation>
     </message>
     <message>
         <source>Scrollbars</source>
@@ -12119,11 +12119,11 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Badge red</source>
-        <translation>Distintivo vermelho</translation>
+        <translation>Badge vermelho</translation>
     </message>
     <message>
         <source>Badge green</source>
-        <translation>Distintivo verde</translation>
+        <translation>Badge verde</translation>
     </message>
     <message>
         <source>Success (solid)</source>
@@ -12223,11 +12223,11 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Staged (bg)</source>
-        <translation>Preparado (fundo)</translation>
+        <translation>Em staging (fundo)</translation>
     </message>
     <message>
         <source>Staged (text)</source>
-        <translation>Preparado (texto)</translation>
+        <translation>Em staging (texto)</translation>
     </message>
     <message>
         <source>Disabled (bg)</source>
@@ -12319,7 +12319,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Shared accent tones reused by flags, icons and small highlights.</source>
-        <translation>Tons de destaque compartilhados reutilizados por indicadores, ícones e pequenos realces.</translation>
+        <translation>Tons de destaque compartilhados reutilizados por flags, ícones e pequenos realces.</translation>
     </message>
     <message>
         <source>The scrollbar track and thumb.</source>
@@ -12343,7 +12343,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>The framework-status banner above the Plugins list (installed / staged / disabled / missing).</source>
-        <translation>O banner de status do framework acima da lista de Plugins (instalado / preparado / desativado / ausente).</translation>
+        <translation>O banner de status do framework acima da lista de Plugins (instalado / em staging / desativado / ausente).</translation>
     </message>
     <message>
         <source>The pinned Overwrite and Root Folder bands at the top of the modlist.</source>
@@ -12686,7 +12686,7 @@ ou use "Procurar" para selecioná-lo manualmente.</translation>
     </message>
     <message>
         <source>Status badges</source>
-        <translation>Emblemas de status</translation>
+        <translation>Badges de status</translation>
     </message>
     <message>
         <source>Deployed</source>
@@ -13606,11 +13606,11 @@ Quando você o fechar, suas alterações serão restauradas automaticamente.</tr
     <name>widget</name>
     <message>
         <source>Male</source>
-        <translation>Homem</translation>
+        <translation>Masculino</translation>
     </message>
     <message>
         <source>Female</source>
-        <translation>Mulher</translation>
+        <translation>Feminino</translation>
     </message>
 </context>
 </TS>
