@@ -124,21 +124,28 @@ class Fallout_3(BaseGame):
         return [".esp", ".esl", ".esm"]
 
     @property
+    # The game constantly asks to open Data/Data on load, which normally does not exist.
+    # This causes wine to do a full directory scan each time which causes slower loading times
+    # We create an empty stub of this folder to avoid this issue.
     def probe_stub_dirs(self) -> "list[str]":
-        # The engine prepends "Data\" to paths that already start with it,
-        # so it probes Data\Data tens of thousands of times per load and
-        # every miss scans all ~550 Data entries to prove absence. An empty
-        # stub makes the miss free: measured on Skyrim SE, directory-entry
-        # visits over a load fell 33.4M -> 1.9M (GH#374).
         return ["Data/Data"]
 
     @property
+    # Similar to above, The game asks to see these folders but if the casing on disk does not match what was asked for
+    # then wine will also do a full directory scan, We create these folders with the correct casing to avoid this issue.
     def case_alias_dirs(self) -> "list[str]":
-        # The Creation Engine requests lowercase ``data\<plugin>.ini`` (once
-        # per engine INI setting) and uppercase ``Data\TEXTURES\...`` (terrain
-        # LOD / PBR), and NIF-embedded asset paths are lowercase - each miss
-        # costs Wine a full directory scan. Every Data subdir is aliased to prevent this:
-        return ["Data", "Data/*"]
+        return [
+                "Data", 
+                "Data/Textures", 
+                "Data/Meshes",
+                "Data/Sound",
+                "Data/Interface",
+                "Data/Scripts",
+                "Data/Music",
+                "Data/Strings",
+                "Data/Grass",
+                "Data/Data",
+            ]
 
     @property
     def steam_id(self) -> str:
