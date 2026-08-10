@@ -22,6 +22,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
     QPushButton, QScrollArea, QFrame, QRadioButton, QCheckBox, QButtonGroup,
+    QComboBox,
 )
 
 from gui_qt.theme_qt import active_palette, _c
@@ -83,9 +84,11 @@ def _faugus_available(game) -> bool:
 class _ScanSignals(QObject):
     # Scan results carry everything the worker discovered so the worker thread
     # never writes view attributes directly (the slots run on the GUI thread).
-    game_found = Signal(object, str, object, object, object, object)
-    # ^ (path|None, source, prefix|None, lutris_slug|None, heroic_app|None,
-    #    faugus_gameid|None)
+    game_found = Signal(object, bool)
+    # ^ (candidates: list of {source, path, prefix, id} dicts - one per
+    #    launcher the game was detected on, in detection-priority order -
+    #    and auto_apply: False for the candidates-only rescan that fills the
+    #    launcher dropdown of an already-configured game)
     drive_scan_found = Signal(object)       # (path|None) - full-drive Scan button
     prefix_found = Signal(object, object, object)
     # ^ (path|None, lutris_slug|None, faugus_gameid|None)
@@ -121,6 +124,9 @@ class ConfigureGameView(QWidget):
         self._found_lutris_slug: str | None = None
         self._found_heroic_app: str | None = None
         self._found_faugus_gameid: str | None = None
+        # Dropdown choices when the game is installed via more than one
+        # launcher: {source, path, prefix, id} dicts, aligned with the combo.
+        self._install_choices: list[dict] = []
         self._custom_staging: Path | None = None
         self._custom_saves: Path | None = None
 
@@ -317,6 +323,21 @@ class ConfigureGameView(QWidget):
         v.addWidget(self._section_header(self.tr("Game Installation Folder")))
         self._game_status = self._status(self.tr("Scanning Steam libraries…"), "TEXT_WARN")
         v.addWidget(self._game_status)
+        # Launcher picker - hidden unless the scan detects the game in more
+        # than one place (e.g. both a Heroic and a Lutris install).
+        self._install_row = QWidget()
+        pick = QHBoxLayout(self._install_row)
+        pick.setContentsMargins(0, 0, 0, 0)
+        pick.setSpacing(6)
+        pick.addWidget(QLabel(self.tr("Detected installs:")))
+        self._install_combo = QComboBox()
+        self._install_combo.setSizeAdjustPolicy(
+            QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self._install_combo.setMinimumContentsLength(24)
+        self._install_combo.activated.connect(self._guard(self._on_install_combo))
+        pick.addWidget(self._install_combo, 1)
+        self._install_row.hide()
+        v.addWidget(self._install_row)
         self._game_edit = self._path_edit()
         self._game_edit.editingFinished.connect(self._on_game_typed)
         v.addWidget(self._game_edit)
@@ -558,6 +579,10 @@ class ConfigureGameView(QWidget):
                     rb.setChecked(True)
             self._select_plugins_txt_default()
             self._save_btn.setEnabled(True)
+            # Candidates-only rescan: fills the launcher dropdown so the user
+            # can switch to another detected install without touching the
+            # configured path until they pick one.
+            self._start_game_scan(auto_apply=False)
         else:
             self._rb_symlink.setChecked(rec_is_symlink := (
                 getattr(g, "default_deploy_mode", "symlink") == "symlink"))
@@ -774,6 +799,7 @@ class ConfigureGameView(QWidget):
         self._game_status.setText(msg)
         self._game_status.setStyleSheet(f"color:{self._c(tone)};")
         self._save_btn.setEnabled(True)
+        self._sync_install_combo(path)
 
     def _set_prefix(self, path: Path, configured=False):
         self._found_prefix = path
@@ -800,6 +826,7 @@ class ConfigureGameView(QWidget):
                 self._game_status.setText(self.tr("Executable found."))
                 self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
             self._save_btn.setEnabled(True)
+            self._sync_install_combo(path)
 
     def _on_prefix_typed(self):
         text = self._prefix_edit.text().strip()
@@ -919,20 +946,29 @@ class ConfigureGameView(QWidget):
         self._start_game_scan()
 
     # ---- auto-detection (worker thread → signals) -------------------------
-    def _start_game_scan(self):
-        self._game_status.setText(self.tr("Scanning Steam libraries…"))
-        self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
-        threading.Thread(target=self._game_scan_worker, daemon=True).start()
+    def _start_game_scan(self, auto_apply=True):
+        """Scan every launcher for the game. With *auto_apply* the first hit
+        is written into the fields (fresh-game flow); without it the results
+        only feed the launcher dropdown (configured-game flow)."""
+        if auto_apply:
+            self._game_status.setText(self.tr("Scanning Steam libraries…"))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        threading.Thread(target=self._game_scan_worker, args=(auto_apply,),
+                         daemon=True).start()
 
-    def _game_scan_worker(self):
+    def _game_scan_worker(self, auto_apply=True):
         from Utils.app_log import app_log
         g = self._game
-        found = None
-        source = "steam"
-        found_prefix = None
-        lutris_slug = None
-        heroic_app = None
-        faugus_gameid = None
+        # One candidate per launcher the game is detected on, in the same
+        # priority order the old first-hit scan used (Heroic > Lutris >
+        # Faugus > Steam), so candidates[0] is what that scan would have
+        # returned.
+        candidates: list[dict] = []
+
+        def _add(source, path, prefix, launcher_id):
+            candidates.append({"source": source, "path": path,
+                               "prefix": prefix, "id": launcher_id})
+
         game_name = getattr(g, "name", repr(g))
         app_log(f"[Configure Game] Auto-detecting: {game_name}")
         try:
@@ -952,89 +988,78 @@ class ConfigureGameView(QWidget):
                 app_log(f"[Configure Game] Checking Heroic app names: {heroic_names}")
                 info = find_heroic_game_info_by_app_names(heroic_names)
                 if info:
-                    found, found_prefix, heroic_app = info
-                    source = "heroic"
+                    _add("heroic", info[0], info[1], info[2])
                     app_log(f"[Configure Game] Found via Heroic app name "
-                            f"({heroic_app}): {found}")
+                            f"({info[2]}): {info[0]}")
             else:
                 app_log(f"[Configure Game] Checking Heroic (exe names: {exe_names})")
                 for exe in exe_names:
                     info = find_heroic_game_info_by_exe(exe)
                     if info:
-                        found, found_prefix, heroic_app = info
-                        source = "heroic"
-                        app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {found}")
+                        _add("heroic", info[0], info[1], info[2])
+                        app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {info[0]}")
                         break
-            if not found:
-                from Utils.lutris_finder import find_lutris_game_info_by_exe
-                app_log(f"[Configure Game] Checking Lutris (exe names: {exe_names})")
+            from Utils.lutris_finder import find_lutris_game_info_by_exe
+            app_log(f"[Configure Game] Checking Lutris (exe names: {exe_names})")
+            for exe in exe_names:
+                info = find_lutris_game_info_by_exe(exe)
+                if info:
+                    _add("lutris", info[0], info[1], info[2])
+                    app_log(f"[Configure Game] Found via Lutris ({exe}): {info[0]}")
+                    break
+            from Utils.faugus_finder import find_faugus_game_info_by_exe
+            app_log(f"[Configure Game] Checking Faugus (exe names: {exe_names})")
+            for exe in exe_names:
+                info = find_faugus_game_info_by_exe(exe)
+                if info:
+                    _add("faugus", info[0], info[1], info[2])
+                    app_log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
+                    break
+            libs = find_steam_libraries()
+            app_log(f"[Configure Game] Steam libraries found: "
+                    f"{libs if libs else 'none'}")
+            found = None
+            sid = getattr(g, "steam_id", None)
+            if sid:
+                app_log(f"[Configure Game] Checking Steam manifest "
+                        f"(app ID: {sid}, exes: {exe_names})")
                 for exe in exe_names:
-                    info = find_lutris_game_info_by_exe(exe)
-                    if info:
-                        found, found_prefix, lutris_slug = info
-                        source = "lutris"
-                        app_log(f"[Configure Game] Found via Lutris ({exe}): {found}")
+                    found = find_game_by_steam_id(libs, sid, exe)
+                    if found:
+                        app_log(f"[Configure Game] Found via Steam manifest "
+                                f"({exe}): {found}")
                         break
+            else:
+                app_log("[Configure Game] No Steam app ID configured for this game")
             if not found:
-                from Utils.faugus_finder import find_faugus_game_info_by_exe
-                app_log(f"[Configure Game] Checking Faugus (exe names: {exe_names})")
+                app_log("[Configure Game] Falling back to exe scan across Steam libraries")
                 for exe in exe_names:
-                    info = find_faugus_game_info_by_exe(exe)
-                    if info:
-                        found, found_prefix, faugus_gameid = info
-                        source = "faugus"
-                        app_log(f"[Configure Game] Found via Faugus ({exe}): {found}")
+                    found = find_game_in_libraries(libs, exe)
+                    if found:
+                        app_log(f"[Configure Game] Found via Steam exe scan "
+                                f"({exe}): {found}")
                         break
-            if not found:
-                libs = find_steam_libraries()
-                app_log(f"[Configure Game] Steam libraries found: "
-                        f"{libs if libs else 'none'}")
-                sid = getattr(g, "steam_id", None)
-                if sid:
-                    app_log(f"[Configure Game] Checking Steam manifest "
-                            f"(app ID: {sid}, exes: {exe_names})")
-                    for exe in exe_names:
-                        found = find_game_by_steam_id(libs, sid, exe)
-                        if found:
-                            app_log(f"[Configure Game] Found via Steam manifest "
-                                    f"({exe}): {found}")
-                            break
                 else:
-                    app_log("[Configure Game] No Steam app ID configured for this game")
-                if not found:
-                    app_log("[Configure Game] Falling back to exe scan across Steam libraries")
-                    for exe in exe_names:
-                        found = find_game_in_libraries(libs, exe)
-                        if found:
-                            app_log(f"[Configure Game] Found via Steam exe scan "
-                                    f"({exe}): {found}")
-                            break
-                    else:
-                        app_log(f"[Configure Game] Not found via Steam exe scan "
-                                f"(tried: {exe_names})")
+                    app_log(f"[Configure Game] Not found via Steam exe scan "
+                            f"(tried: {exe_names})")
+            if found:
+                # No prefix here: the Steam compatdata lookup needs the game
+                # path to pick the right library, so it runs as a follow-up
+                # scan once this candidate is applied.
+                _add("steam", found, None, None)
         except Exception as exc:
             import traceback
             app_log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
-            found = None
-        if not found:
+        if not candidates:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
-        safe_emit(self._sig.game_found, found, source, found_prefix,
-                  lutris_slug, heroic_app, faugus_gameid)
+        safe_emit(self._sig.game_found, candidates, auto_apply)
 
-    def _on_game_found(self, found, source, prefix, lutris_slug, heroic_app,
-                       faugus_gameid):
-        if lutris_slug:
-            self._found_lutris_slug = lutris_slug
-        if heroic_app:
-            self._found_heroic_app = heroic_app
-        if faugus_gameid:
-            self._found_faugus_gameid = faugus_gameid
-        if found:
-            self._set_game(Path(found), source=source)
-            if prefix is not None:
-                self._set_prefix(Path(prefix))
-            elif self._has_prefix_src:
-                self._start_prefix_scan()
+    def _on_game_found(self, candidates, auto_apply):
+        self._populate_install_choices(candidates)
+        if not auto_apply:
+            return
+        if candidates:
+            self._apply_install_choice(candidates[0])
         elif getattr(self._game, "auto_drive_scan", False):
             # Store-less games (manual downloads) can never be found by the
             # library scan - the drive scan IS their auto-detection.
@@ -1043,6 +1068,64 @@ class ConfigureGameView(QWidget):
             self._game_status.setText(
                 self.tr("Not found automatically. Browse manually to locate the game folder."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
+    # ---- launcher dropdown -------------------------------------------------
+    def _populate_install_choices(self, candidates):
+        """Fill the launcher dropdown with every detected install, plus the
+        current path when detection didn't produce it. Shown only when that
+        leaves the user an actual choice (>= 2 entries)."""
+        choices = []
+        cur = self._found_path
+        if cur is not None and not any(Path(c["path"]) == Path(cur)
+                                       for c in candidates):
+            choices.append({"source": "current", "path": cur,
+                            "prefix": self._found_prefix, "id": None})
+        choices.extend(candidates)
+        self._install_choices = choices
+        names = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
+                 "faugus": "Faugus"}
+        combo = self._install_combo
+        combo.clear()
+        for i, c in enumerate(choices):
+            label = (self.tr("Current: {0}").format(c["path"])
+                     if c["source"] == "current"
+                     else f"{names.get(c['source'], c['source'])} - {c['path']}")
+            combo.addItem(label)
+            combo.setItemData(i, str(c["path"]), Qt.ToolTipRole)
+        self._install_row.setVisible(len(choices) >= 2)
+        self._sync_install_combo(cur)
+
+    def _sync_install_combo(self, path):
+        """Point the dropdown at the choice matching *path* (or nothing)."""
+        combo = getattr(self, "_install_combo", None)
+        if combo is None or not self._install_choices:
+            return
+        for i, c in enumerate(self._install_choices):
+            if path is not None and Path(c["path"]) == Path(path):
+                combo.setCurrentIndex(i)
+                return
+        combo.setCurrentIndex(-1)
+
+    def _on_install_combo(self, index):
+        if 0 <= index < len(self._install_choices):
+            self._apply_install_choice(self._install_choices[index])
+
+    def _apply_install_choice(self, c):
+        """Write one scan candidate into the path fields + launcher-id state.
+        The ids are mutually exclusive - switching launchers must not leak the
+        previous selection's id into the save."""
+        source = c["source"]
+        self._found_heroic_app = c["id"] if source == "heroic" else None
+        self._found_lutris_slug = c["id"] if source == "lutris" else None
+        self._found_faugus_gameid = c["id"] if source == "faugus" else None
+        if source == "current":
+            self._set_game(Path(c["path"]), configured=True)
+        else:
+            self._set_game(Path(c["path"]), source=source)
+        if c["prefix"] is not None:
+            self._set_prefix(Path(c["prefix"]), configured=(source == "current"))
+        elif self._has_prefix_src:
+            self._start_prefix_scan()
 
     # ---- full-drive Scan button -------------------------------------------
     def _start_drive_scan(self):
