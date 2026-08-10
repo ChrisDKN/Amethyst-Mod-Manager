@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Callable
 from PySide6.QtWidgets import QToolButton, QMenu
 from PySide6.QtGui import QActionGroup
-from PySide6.QtCore import Qt, QSize, QEvent, QObject
+from PySide6.QtCore import Qt, QSize, QEvent, QObject, Signal
 
 
 class SplitPressHighlighter(QObject):
@@ -66,10 +66,15 @@ class _StayOpenMenu(QMenu):
 
 
 class SelectorButton(QToolButton):
+    # Fired whenever the face changes (selection, item icons, item list). A
+    # responsive top bar re-runs its width budget on it - a longer game or
+    # profile name may not fit where the previous one did.
+    face_changed = Signal()
+
     def __init__(self, *, items=None, current=None, actions=None,
                  on_select: "Callable[[str], None] | None" = None,
                  prefix="", min_width=170, icon=None, icon_px=18,
-                 item_icons=None, parent=None):
+                 item_icons=None, icon_provider=None, parent=None):
         """*items*   - list of selectable labels.
         *current*   - initially selected label (defaults to items[0]).
         *actions*   - list of (label, callback) pinned below a separator.
@@ -81,6 +86,10 @@ class SelectorButton(QToolButton):
         *item_icons* - {label: QIcon} shown next to each menu entry, and on the
                       button face beside the current label (text stays). Only
                       used in text mode (ignored when *icon* replaces the text).
+        *icon_provider* - called with a label to supply its item icon on demand
+                      (return None for "no icon"). Fills the gaps in
+                      *item_icons* at rebuild, so callers that only ever pass an
+                      item LIST still get icons.
         """
         super().__init__(parent)
         self._items: list[str] = list(items or [])
@@ -89,7 +98,17 @@ class SelectorButton(QToolButton):
         self._prefix = prefix
         self._icon = icon
         self._item_icons: dict = dict(item_icons or {})
+        self._icon_provider = icon_provider
         self._item_icon_px = icon_px
+        # Narrow-bar compaction (see set_label_width / set_icon_only) and the
+        # width measurements it runs on.
+        self._min_width = min_width
+        self._label_cap: int | None = None
+        self._icon_only = False
+        self._chrome_px: int | None = None
+        self._chrome_dirty = False
+        self._icon_w: int | None = None
+        self._measuring = False
         self._current = current or (self._items[0] if self._items else "")
         self._highlighted: str | None = None   # green "active/deployed" item
         self._item_separators: set = set()     # labels with a separator before
@@ -193,17 +212,162 @@ class SelectorButton(QToolButton):
             self._highlighted = label
             self._rebuild()
 
+    # -- responsive width (narrow top bar) ----------------------------------
+    # The top bar hands out its width in stages: a selector's label is elided
+    # (set_label_width) before the action buttons lose their own labels, and the
+    # game selector falls back to its logo (set_icon_only) before that. See
+    # MainWindow._sync_header_compact.
+
+    def full_text(self) -> str:
+        """The unelided button label (prefix + current item)."""
+        return self.tr("{0}{1}").format(self._prefix, self._current or "-")
+
+    def natural_width(self) -> int:
+        """Layout width with the full label - its minimum width floors it."""
+        return max(self._min_width,
+                   self._text_chrome()
+                   + self.fontMetrics().horizontalAdvance(self.full_text()))
+
+    def current_width(self) -> int:
+        """Layout width in the present state (full / elided / icon-only)."""
+        return max(self.minimumWidth(), self.sizeHint().width())
+
+    def icon_width(self) -> int:
+        """Layout width in icon-only mode; 0 when the current item has no icon
+        to fall back on (collapsing it would leave a blank button)."""
+        if self._icon is not None or self._item_icons.get(self._current) is None:
+            return 0
+        if self._icon_w is None:
+            self._text_chrome()     # cache the text metrics while we still can
+            # Only exact with the icon-only QSS applied (different paddings), so
+            # measure through a real flip instead of adding the theme up by hand.
+            self._measuring = True
+            prev, self._icon_only = self._icon_only, True
+            self._apply_face()
+            self._icon_w = self.sizeHint().width()
+            self._icon_only = prev
+            self._apply_face()
+            self._measuring = False
+        return self._icon_w
+
+    def is_icon_only(self) -> bool:
+        return self._icon_only
+
+    def set_label_width(self, px: int | None) -> None:
+        """Cap the button at *px*, eliding the label to fit; None restores it."""
+        if px is not None:
+            px = max(px, 48)
+        if px == self._label_cap:
+            return
+        self._label_cap = px
+        self._apply_face()
+
+    def set_icon_only(self, on: bool) -> None:
+        """Show the current item's icon INSTEAD of its label. Ignored when that
+        item has no icon."""
+        on = bool(on) and self._item_icons.get(self._current) is not None
+        if on == self._icon_only:
+            return
+        if on:
+            self._text_chrome()     # measurable in text mode only
+        self._icon_only = on
+        self._apply_face()
+
+    def _text_chrome(self) -> int:
+        """Width the button needs BEYOND its label: paddings, border and the
+        split arrow section. Read back off a live sizeHint (the numbers live in
+        the theme's QSS) and cached until the font or style changes."""
+        if self._icon_only:
+            # Not measurable in icon-only mode (different paddings, no label) -
+            # the cached value from text mode is the best we have.
+            return self._chrome_px or 0
+        if self._chrome_px is None or self._chrome_dirty:
+            self.ensurePolished()
+            self._chrome_px = max(
+                0, self.sizeHint().width()
+                - self.fontMetrics().horizontalAdvance(self.text()))
+            self._chrome_dirty = False
+        return self._chrome_px
+
+    def _apply_face(self) -> None:
+        """Put the current compaction state on the button face."""
+        if self._icon is not None:
+            return              # fixed-icon selector - its face never changes
+        full = self.full_text()
+        face = self._item_icons.get(self._current)
+        if self._icon_only and face is not None:
+            self.setIcon(face)
+            self.setIconSize(QSize(self._item_icon_px, self._item_icon_px))
+            self.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            # Same QSS hook the action buttons use for their icon-only mode:
+            # drops the label padding, keeps the arrow section.
+            self.setProperty("compact", True)
+            self.setToolTip(full)
+            self._repolish()
+            self._pin_minimum()
+            return
+        # The current item's icon is drawn ourselves in paintEvent (to the left
+        # of the still-centred text). Keep the QToolButton in text-only mode so
+        # Qt centres the label; its built-in icon slot would left-align the
+        # icon+text group instead.
+        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.setProperty("compact", False)
+        cap = self._label_cap
+        if cap is None:
+            # No trailing glyph - the split-button's arrow section shows it now.
+            self.setText(full)
+            self.setMinimumWidth(self._min_width)
+            self.setToolTip("")
+            self._repolish()
+            return
+        # Drop the prefix before eliding the name itself: "Gate_To_Sovn…" says
+        # more in the same pixels than "Profile: Gate_To…".
+        room = max(0, cap - self._text_chrome())
+        fm = self.fontMetrics()
+        if fm.horizontalAdvance(full) <= room:
+            text = full
+        else:
+            name = self._current or "-"
+            text = (name if fm.horizontalAdvance(name) <= room
+                    else fm.elidedText(name, Qt.ElideRight, room))
+        self.setText(text)
+        self.setToolTip("" if text == full else full)
+        self._repolish()
+        self._pin_minimum()
+
+    def _pin_minimum(self) -> None:
+        """Floor the compacted button at exactly what it now needs. Left at the
+        full min_width the layout couldn't shrink it at all; left at 0 it
+        becomes the one elastic item in the bar and gets squeezed to nothing
+        once everything else is collapsed too."""
+        self.setMinimumWidth(0)         # drop the old floor before re-reading
+        self.setMinimumWidth(self.sizeHint().width())
+
+    def _repolish(self) -> None:
+        self.style().unpolish(self); self.style().polish(self)
+
+    def changeEvent(self, e):               # noqa: N802
+        # Font or theme change → the cached widths no longer describe the
+        # button. (Skipped mid-measure: _apply_face repolishes as it flips.)
+        # getattr: Qt can deliver this before __init__ has set the fields.
+        if (e.type() in (QEvent.FontChange, QEvent.StyleChange,
+                         QEvent.ApplicationFontChange)
+                and not getattr(self, "_measuring", True)):
+            self._chrome_dirty = True
+            self._icon_w = None
+        super().changeEvent(e)
+
     # -- internals ----------------------------------------------------------
     def _rebuild(self):
-        if self._icon is None:
-            label = self._current or "-"
-            # No trailing glyph - the split-button's arrow section shows it now.
-            self.setText(self.tr("{0}{1}").format(self._prefix, label))
-            # The current item's icon is drawn ourselves in paintEvent (to the
-            # left of the still-centred text). Keep the QToolButton in text-only
-            # mode so Qt centres the label; using its built-in icon slot would
-            # left-align the icon+text group instead.
-            self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        if self._icon_provider is not None:
+            for label in self._items:
+                if label not in self._item_icons:
+                    ic = self._icon_provider(label)
+                    if ic is not None:
+                        self._item_icons[label] = ic
+        # A new current item can be wider/narrower, or lose its icon entirely.
+        self._icon_w = None
+        self._apply_face()
         # Tint the button green (via the `deployed` property) when the current
         # selection IS the highlighted/active item; QSS reads the property.
         self.setProperty("deployed", self._highlighted is not None
@@ -240,6 +404,7 @@ class SelectorButton(QToolButton):
         if self._items and self._actions:
             self._menu.addSeparator()
         self._add_actions(self._menu, self._actions)
+        self.face_changed.emit()
 
     def _add_actions(self, menu, actions):
         """Append pinned action entries to *menu*. Each entry is (label, cb) or
@@ -306,8 +471,8 @@ class SelectorButton(QToolButton):
         # the button edge) keeps the icon clear of the rounded corner, and it
         # is skipped when a long label leaves no room, instead of clipping.
         super().paintEvent(event)
-        if self._icon is not None:
-            return
+        if self._icon is not None or self._icon_only:
+            return      # icon-only modes: Qt already painted the icon itself
         face = self._item_icons.get(self._current)
         if face is None:
             return
