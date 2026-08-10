@@ -39,7 +39,7 @@
     </message>
     <message>
         <source>Not Installed</source>
-        <translation>Não instalado</translation>
+        <translation>Não Instalado</translation>
     </message>
 </context>
 <context>
@@ -96,7 +96,7 @@ Os mods são associados aos mods instalados pelo UUID.</translation>
     </message>
     <message>
         <source>Apply Order</source>
-        <translation>Aplicar ordem</translation>
+        <translation>Aplicar Ordem</translation>
     </message>
     <message>
         <source>Reading order and scanning installed mods…</source>
@@ -118,7 +118,7 @@ Os mods são associados aos mods instalados pelo UUID.</translation>
         <source>The modlist has been reordered to match the BG3MM order.
 Deploy to push the new load order to the game.</source>
         <translation>A lista de mods foi reorganizada para corresponder à ordem do BG3MM.
-Faça o deploy para enviar a nova ordem de carregamento ao jogo.</translation>
+Faça o deploy para aplicar a nova ordem de carregamento ao jogo.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -312,7 +312,7 @@ Baixe o arquivo principal 'FNV BSA Decompressor' do Nexus — o pacote .mpi dent
     <message>
         <source>The game is first restored to a vanilla state, then the installer rebuilds the vanilla BSA archives without compression. This can take a while — please leave it running.
 Output is written directly into your mod list as the '{0}' mod.</source>
-        <translation>O jogo é primeiro restaurado para um estado vanilla; em seguida, o instalador reconstrói os arquivos BSA vanilla sem compressão. Isso pode demorar um pouco — por favor, deixe em execução.
+        <translation>O jogo é primeiro restaurado para um estado vanilla, em seguida o instalador reconstrói os arquivos BSA vanilla sem compressão. Isso pode demorar um pouco — por favor, deixe em execução.
 A saída é escrita diretamente na sua lista de mods como o mod '{0}'.</translation>
     </message>
     <message>
@@ -671,7 +671,7 @@ Nenhum prefixo Proton é usado — o jogo, sua pasta Data e a pasta de saída s�
         <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
 
 Built meshes are written to the output mod below, which is added to your mod list.</source>
-        <translation>{0} lê seus controles deslizantes e formas da pasta Data com deploy feito, então faça o deploy da sua lista de mods primeiro.
+        <translation>{0} lê seus sliders e formas da pasta Data com deploy feito, então faça o deploy da sua lista de mods primeiro.
 
 As malhas geradas são gravadas no mod de saída abaixo, que é adicionado à sua lista de mods.</translation>
     </message>
@@ -2274,7 +2274,7 @@ Quando terminar, o aplicativo muda para o novo perfil — então volte aqui e pr
     </message>
     <message>
         <source>Comma-separated filenames excluded from conflict detection. Supports glob patterns: *.&lt;ext&gt; matches any file with that extension, &lt;name&gt;.* matches that name with any extension. e.g. modinfo.ini, manifest.json, *.txt, LICENCE.*</source>
-        <translation>Nomes de arquivos separados por vírgulas excluídos da detecção de conflitos. Suporta padrões glob: *.&lt;ext&gt; corresponde a qualquer arquivo com essa extensão; &lt;name&gt;.* corresponde a esse nome com qualquer extensão. Por exemplo: modinfo.ini, manifest.json, *.txt, LICENCE.*</translation>
+        <translation>Nomes de arquivos separados por vírgulas excluídos da detecção de conflitos. Suporta padrões glob: *.&lt;ext&gt; corresponde a qualquer arquivo com essa extensão, &lt;name&gt;.* corresponde a esse nome com qualquer extensão. Por exemplo: modinfo.ini, manifest.json, *.txt, LICENCE.*</translation>
     </message>
     <message>
         <source>Auto Strip Until Required</source>
@@ -3345,7 +3345,7 @@ Baixe o arquivo principal 'Ultimate Edition ESM Fixes Remastered' do Nexus — o
     <message>
         <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
 Output is written directly into your mod list as the '{0}' mod.</source>
-        <translation>O jogo é primeiro restaurado para um estado vanilla; em seguida, o instalador aplica patch nos masters vanilla .esm com bugfixes comunitários.
+        <translation>O jogo é primeiro restaurado para um estado vanilla, em seguida o instalador aplica patch nos masters vanilla .esm com bugfixes comunitários.
 A saída é escrita diretamente na sua lista de mods como o mod '{0}'.</translation>
     </message>
     <message>
@@ -3529,9 +3529,9 @@ As alterações entram em vigor na próxima inicialização. Se uma variável im
         <source>How to run this .jar:
 Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
 Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' — anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
-        <translation>Como fazer isso?
-Host: execute com o java do seu sistema (sem Proton). Defina o comando Java em Opções de Lançamento, por exemplo 'java -jar% command%' (% command% é o caminho do jar).
-Prefixo protão: clique em 'Instalar Java no prefixo' uma vez, então ele é executado automaticamente como 'java.exe -jar &lt;jar&gt;' — qualquer coisa que você colocar em Opções de Lançamento / Lançamento argumentos é adicionado como flags adicionais. Que prefixo segue a versão Proton abaixo ('Game default' = prefixo do jogo; uma versão específica = um prefixo isolado ao lado do frasco).</translation>
+        <translation>Como executar este .jar:
+Host: execute com o java do seu sistema (sem Proton). Defina o comando Java em Opções de Lançamento, por exemplo 'java -jar %command%' (%command% é o caminho do jar).
+Prefixo Proton: clique em 'Instalar Java no prefixo' uma vez, em seguida ele é executado automaticamente como 'java.exe -jar &lt;jar&gt;' — qualquer coisa que você colocar em Opções de Lançamento / Argumentos de lançamento é adicionado como flags adicionais. Qual prefixo é usado segue a versão Proton abaixo ('Game default' = prefixo do jogo; uma versão específica = um prefixo isolado ao lado do jar).</translation>
     </message>
     <message>
         <source>Host (system java)</source>
@@ -8435,7 +8435,7 @@ Feche-o quando terminar e clique em Concluído.</translation>
     </message>
     <message>
         <source>Scan Load Order</source>
-        <translation>Verificar ordem de carregamento</translation>
+        <translation>Verificar Ordem de Carregamento</translation>
     </message>
     <message>
         <source>Audits your active load order to find patched plugins that can be safely disabled (their patches still apply at runtime), and flags those blocked by new records or by other plugins depending on them.</source>
@@ -9455,7 +9455,7 @@ Você pode pular este passo.</translation>
         <source>d3dcompiler_47 will be installed into the Proton prefix for this game (via protontricks if available, otherwise bundled winetricks).
 
 This may take up to a minute.</source>
-        <translation>O d3dcompiler_47 será instalado no prefixo do Proton para este jogo (por meio do protontricks, se disponível; caso contrário, pelo winetricks integrado).
+        <translation>O d3dcompiler_47 será instalado no prefixo do Proton para este jogo (por meio do protontricks, se disponível, caso contrário, pelo winetricks integrado).
 
 Isso pode levar até um minuto.</translation>
     </message>
@@ -11286,7 +11286,7 @@ Clique em Instalar para começar.</translation>
 Get the latest TTW .mpi from mod.pub (free account required) — extract the download and the .mpi is inside.</source>
         <translation>O TTW combina recursos do Fallout 3 e do Fallout New Vegas, portanto ambos os jogos devem estar instalados. Confirme as pastas abaixo e, em seguida, selecione o pacote .mpi do TTW.
 
-Baixe o TTW .mpi mais recente no mod.pub (é necessária uma conta gratuita) — extraia o download; o .mpi está dentro.</translation>
+Baixe o TTW .mpi mais recente no mod.pub (é necessária uma conta gratuita) — extraia o download e o .mpi está dentro.</translation>
     </message>
     <message>
         <source>Open mod.pub TTW page</source>
@@ -11364,7 +11364,7 @@ Baixe o TTW .mpi mais recente no mod.pub (é necessária uma conta gratuita) —
         <source>The game is first restored to a vanilla state, then the installer
 merges Fallout 3 and Fallout New Vegas assets. This produces ~18 GB of output and can take a long while — please leave it running.
 Output is written directly into your mod list as the '{0}' mod.</source>
-        <translation>O jogo é primeiro restaurado para um estado vanilla; em seguida, o instalador
+        <translation>O jogo é primeiro restaurado para um estado vanilla, em seguida o instalador
 combina os recursos do Fallout 3 e do Fallout New Vegas. Isso gera ~18 GB de saída e pode demorar bastante — por favor, deixe em execução.
 A saída é escrita diretamente na sua lista de mods como o mod '{0}'.</translation>
     </message>
