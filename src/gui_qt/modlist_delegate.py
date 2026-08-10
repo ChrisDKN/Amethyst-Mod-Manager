@@ -143,6 +143,15 @@ _UUID_CONFLICT_TIPS = {
     for c in (1, -1, 2, 3)
 }
 
+def _lin(c: float) -> float:
+    """sRGB channel -> linear light. Module level on purpose: pyside6-lupdate
+    loses class context for the REST OF THE FILE when a def sits inside a block
+    (try/if/for) in a MODULE-LEVEL function - self.tr() strings then extract
+    with an empty <name/> context and can never be translated. (The same
+    nesting inside a method is fine - the class context is already open.)"""
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
 def _contrasting_text_color(hex_bg: str) -> str:
     """'#111111' or '#eeeeee' based on the luminance of *hex_bg* so separator
     text stays readable on a custom colour. Inlined from gui.theme (which pulls
@@ -150,9 +159,6 @@ def _contrasting_text_color(hex_bg: str) -> str:
     try:
         hex_bg = hex_bg.lstrip("#")
         r, g, b = (int(hex_bg[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
-
-        def _lin(c: float) -> float:
-            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
         lum = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
         return "#111111" if lum > 0.179 else "#eeeeee"
     except Exception:

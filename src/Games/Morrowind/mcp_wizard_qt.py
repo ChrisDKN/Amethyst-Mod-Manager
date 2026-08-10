@@ -36,7 +36,7 @@ class MCPView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=f"Install MCP - {game.name}")
+                         title=self.tr("Install MCP - {0}").format(game.name))
         self._game_root = game.get_game_path()
 
         self._extract_status_sig2.connect(self._guard(
@@ -45,26 +45,26 @@ class MCPView(WizardViewBase):
             lambda: self._extract_next_btn.setEnabled(True)))
 
         self._stack.addWidget(self._build_manual_download_page(
-            "Step 1: Download Morrowind Code Patch",
-            "Click the button below to open the Morrowind Code Patch\n"
-            "download page on Nexus Mods.\n\n"
-            "Download the archive, then click Next.",
+            self.tr("Step 1: Download Morrowind Code Patch"),
+            self.tr("Click the button below to open the Morrowind Code Patch\n"
+                    "download page on Nexus Mods.\n\n"
+                    "Download the archive, then click Next."),
             _NEXUS_URL,
             lambda: self._goto_step(_PG_LOCATE)))
         self._stack.addWidget(self._build_locate_page(
-            "Step 2: Locate the Archive", with_next=True))
+            self.tr("Step 2: Locate the Archive"), with_next=True))
         # page 2: extract (status + Next)
-        page, lay = self._step_page("Step 3: Extract Files")
+        page, lay = self._step_page(self.tr("Step 3: Extract Files"))
         self._extract_status = self._make_status(lay)
         lay.addStretch(1)
-        self._extract_next_btn = self._accent_btn("Next →")
+        self._extract_next_btn = self._accent_btn(self.tr("Next →"))
         self._extract_next_btn.setEnabled(False)
         self._extract_next_btn.clicked.connect(lambda: self._goto_step(_PG_RUN))
         lay.addWidget(self._extract_next_btn, 0, Qt.AlignHCenter)
         self._stack.addWidget(page)
         # page 3: run
         self._stack.addWidget(self._build_run_page(
-            "Step 4: Run Morrowind Code Patch"))
+            self.tr("Step 4: Run Morrowind Code Patch")))
 
         # If the exe is already present, skip download/extract.
         if self._game_root is not None and (self._game_root / _PATCH_EXE).is_file():
@@ -73,7 +73,10 @@ class MCPView(WizardViewBase):
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
             self._nexus_auto_fetch(
                 url=_NEXUS_URL, file_id=_NEXUS_FILE_ID,
-                keywords=_ARCHIVE_KEYWORDS, label="Morrowind Code Patch",
+                keywords=_ARCHIVE_KEYWORDS,
+                # Product name, substituted into already-translated shells like
+                # "Downloading {0} from Nexus…" - it must not translate.
+                label="Morrowind Code Patch",  # i18n: skip - product name
                 pages=(_PG_DOWNLOAD, _PG_LOCATE),
                 on_archive=lambda _p: self._goto_step(_PG_EXTRACT))
 
@@ -81,21 +84,22 @@ class MCPView(WizardViewBase):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_LOCATE:
             self._enter_locate(
-                _ARCHIVE_KEYWORDS, "Select the Morrowind Code Patch archive",
-                "Archive not found in Downloads.\n"
-                "Make sure you downloaded it, then press Try Again,\n"
-                "or use Browse to select it manually.",
+                _ARCHIVE_KEYWORDS,
+                self.tr("Select the Morrowind Code Patch archive"),
+                self.tr("Archive not found in Downloads.\n"
+                        "Make sure you downloaded it, then press Try Again,\n"
+                        "or use Browse to select it manually."),
                 lambda _p: self._goto_step(_PG_EXTRACT))
         elif idx == _PG_EXTRACT:
             self._set_status(self._extract_status,
-                             "Extracting archive to game folder…")
+                             self.tr("Extracting archive to game folder…"))
             threading.Thread(target=self._do_extract, daemon=True,
                              name="mcp-extract").start()
         elif idx == _PG_RUN:
             self._set_status(self._run_status,
-                             f"Running {_PATCH_EXE} via Proton…\n"
-                             "Apply your desired patches, then come back and "
-                             "click Done.")
+                             self.tr("Running {0} via Proton…\n"
+                                     "Apply your desired patches, then come "
+                                     "back and click Done.").format(_PATCH_EXE))
             threading.Thread(target=self._do_run, daemon=True,
                              name="mcp-run").start()
 
@@ -103,10 +107,10 @@ class MCPView(WizardViewBase):
         from Utils.wizard_archives import extract_archive
         try:
             if self._game_root is None:
-                raise RuntimeError("Game path is not configured.")
+                raise RuntimeError(self.tr("Game path is not configured."))
             archive = self._archive_path
             if archive is None or not archive.is_file():
-                raise RuntimeError("Archive not found.")
+                raise RuntimeError(self.tr("Archive not found."))
 
             self._log(f"MCP Wizard: extracting {archive.name} → {self._game_root}")
             paths = extract_archive(archive, self._game_root)
@@ -120,10 +124,12 @@ class MCPView(WizardViewBase):
                 self._log(f"MCP Wizard: could not delete archive: {exc}")
 
             safe_emit(self._extract_status_sig2,
-                      f"Extracted {file_count} file(s) to game folder.\n\n"
-                      "Click Next to run the patcher.", GREEN)
+                      self.tr("Extracted {0} file(s) to game folder.\n\n"
+                              "Click Next to run the patcher.")
+                      .format(file_count), GREEN)
         except Exception as exc:
-            safe_emit(self._extract_status_sig2, f"Error: {exc}", RED)
+            safe_emit(self._extract_status_sig2,
+                      self.tr("Error: {0}").format(exc), RED)
             self._log(f"MCP Wizard extract error: {exc}")
         finally:
             safe_emit(self._extract_next_sig)
@@ -134,17 +140,18 @@ class MCPView(WizardViewBase):
         from Utils.steam_finder import proton_run_command
         try:
             if self._game_root is None:
-                raise RuntimeError("Game path is not configured.")
+                raise RuntimeError(self.tr("Game path is not configured."))
             patch_exe = self._game_root / _PATCH_EXE
             if not patch_exe.is_file():
-                raise RuntimeError(f"{_PATCH_EXE} not found in game folder.")
+                raise RuntimeError(
+                    self.tr("{0} not found in game folder.").format(_PATCH_EXE))
 
             result = get_game_prefix_env(
                 self._game, log_fn=lambda m: self._log(f"MCP Wizard: {m}"),
                 allow_runner_fallback=True)
             if result is None:
-                raise RuntimeError(
-                    "Could not determine Proton version for this game.")
+                raise RuntimeError(self.tr(
+                    "Could not determine Proton version for this game."))
             proton_script, _compat_data, env = result
 
             self._log(f"MCP Wizard: launching {patch_exe} via Proton")
@@ -163,14 +170,17 @@ class MCPView(WizardViewBase):
             if proc.returncode != 0:
                 stderr = (proc.stderr.read() or b"").decode(errors="replace").strip()
                 raise RuntimeError(
-                    f"{_PATCH_EXE} exited with code {proc.returncode}.\n{stderr}")
+                    self.tr("{0} exited with code {1}.\n{2}")
+                    .format(_PATCH_EXE, proc.returncode, stderr))
             self._log("MCP Wizard: patcher completed.")
             safe_emit(self._run_status_sig,
-                      "Morrowind Code Patch finished.\n\nClick Done to close.",
+                      self.tr("Morrowind Code Patch finished.\n\n"
+                              "Click Done to close."),
                       GREEN)
             safe_emit(self._run_finished_sig)
         except Exception as exc:
-            safe_emit(self._run_status_sig, f"Error: {exc}", RED)
+            safe_emit(self._run_status_sig,
+                      self.tr("Error: {0}").format(exc), RED)
             self._log(f"MCP Wizard run error: {exc}")
             safe_emit(self._run_started_sig)   # enable Done to close
 

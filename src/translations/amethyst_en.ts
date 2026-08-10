@@ -2,24 +2,6 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en" sourcelanguage="en">
 <context>
-    <name />
-    <message>
-        <source>WizardViewBase</source>
-        <comment>Downloading {0} from Nexus… {1}%</comment>
-        <translation>WizardViewBase</translation>
-    </message>
-    <message>
-        <source>WizardViewBase</source>
-        <comment>Premium account - downloading {0} from Nexus…</comment>
-        <translation>WizardViewBase</translation>
-    </message>
-    <message>
-        <source>WizardViewBase</source>
-        <comment>The archive is picked up automatically once the download finishes.</comment>
-        <translation>WizardViewBase</translation>
-    </message>
-</context>
-<context>
     <name>AddGameView</name>
     <message>
         <source>Select a game to add</source>
@@ -1596,6 +1578,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Automatic archive invalidation (prefer loose files over BSAs)</translation>
     </message>
     <message>
+        <source>Create case-alias symlinks on deploy (Faster load times)</source>
+        <translation>Create case-alias symlinks on deploy (Faster load times)</translation>
+    </message>
+    <message>
         <source>Use profile-specific INI files</source>
         <translation>Use profile-specific INI files</translation>
     </message>
@@ -1826,6 +1812,313 @@ Vanilla game files are kept. This cannot be undone.</translation>
     <message>
         <source>Continue Install</source>
         <translation>Continue Install</translation>
+    </message>
+</context>
+<context>
+    <name>CreateCollectionView</name>
+    <message>
+        <source>Exact</source>
+        <translation>Exact</translation>
+    </message>
+    <message>
+        <source>Prefer</source>
+        <translation>Prefer</translation>
+    </message>
+    <message>
+        <source>Latest</source>
+        <translation>Latest</translation>
+    </message>
+    <message>
+        <source>Create new collection</source>
+        <translation>Create new collection</translation>
+    </message>
+    <message>
+        <source>{0}  (rev {1})</source>
+        <translation>{0}  (rev {1})</translation>
+    </message>
+    <message>
+        <source>Upload revision</source>
+        <translation>Upload revision</translation>
+    </message>
+    <message>
+        <source>Uploads a new draft revision of '{0}'.</source>
+        <translation>Uploads a new draft revision of '{0}'.</translation>
+    </message>
+    <message>
+        <source>Upload to Nexus</source>
+        <translation>Upload to Nexus</translation>
+    </message>
+    <message>
+        <source>Creates a new draft collection on your account.</source>
+        <translation>Creates a new draft collection on your account.</translation>
+    </message>
+    <message>
+        <source>Create Collection</source>
+        <translation>Create Collection</translation>
+    </message>
+    <message>
+        <source>e.g. My Survival Overhaul</source>
+        <translation>e.g. My Survival Overhaul</translation>
+    </message>
+    <message>
+        <source>Your Nexus username</source>
+        <translation>Your Nexus username</translation>
+    </message>
+    <message>
+        <source>Game version(s), comma separated - optional</source>
+        <translation>Game version(s), comma separated - optional</translation>
+    </message>
+    <message>
+        <source>Short description - optional</source>
+        <translation>Short description - optional</translation>
+    </message>
+    <message>
+        <source>Install instructions shown before install - optional</source>
+        <translation>Install instructions shown before install - optional</translation>
+    </message>
+    <message>
+        <source>Upload target</source>
+        <translation>Upload target</translation>
+    </message>
+    <message>
+        <source>Collection name</source>
+        <translation>Collection name</translation>
+    </message>
+    <message>
+        <source>Author</source>
+        <translation>Author</translation>
+    </message>
+    <message>
+        <source>Game versions</source>
+        <translation>Game versions</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Description</translation>
+    </message>
+    <message>
+        <source>Install instructions</source>
+        <translation>Install instructions</translation>
+    </message>
+    <message>
+        <source>Suggest a new profile on install</source>
+        <translation>Suggest a new profile on install</translation>
+    </message>
+    <message>
+        <source>When enabled, installers (Amethyst and Vortex) recommend installing this collection into a fresh profile.</source>
+        <translation>When enabled, installers (Amethyst and Vortex) recommend installing this collection into a fresh profile.</translation>
+    </message>
+    <message>
+        <source>Contains adult content</source>
+        <translation>Contains adult content</translation>
+    </message>
+    <message>
+        <source>Flags the collection as adult on Nexus.</source>
+        <translation>Flags the collection as adult on Nexus.</translation>
+    </message>
+    <message>
+        <source>Exclude plugin rules</source>
+        <translation>Exclude plugin rules</translation>
+    </message>
+    <message>
+        <source>Installers skip this collection's LOOT plugin rules.</source>
+        <translation>Installers skip this collection's LOOT plugin rules.</translation>
+    </message>
+    <message>
+        <source>Include profile INI files</source>
+        <translation>Include profile INI files</translation>
+    </message>
+    <message>
+        <source>Ships the profile's game INI files (ini files/) as INI tweaks that installers merge into the player's settings.</source>
+        <translation>Ships the profile's game INI files (ini files/) as INI tweaks that installers merge into the player's settings.</translation>
+    </message>
+    <message>
+        <source>Include profile INI files ({0})</source>
+        <translation>Include profile INI files ({0})</translation>
+    </message>
+    <message>
+        <source>Ships the profile's game INI files as INI tweaks. These are complete files, so they also carry display settings specific to your machine (resolution, gamma, shadow distance) and will overwrite the installing user's.</source>
+        <translation>Ships the profile's game INI files as INI tweaks. These are complete files, so they also carry display settings specific to your machine (resolution, gamma, shadow distance) and will overwrite the installing user's.</translation>
+    </message>
+    <message>
+        <source>No game INI files found in this profile's 'ini files' folder.</source>
+        <translation>No game INI files found in this profile's 'ini files' folder.</translation>
+    </message>
+    <message>
+        <source>Export…</source>
+        <translation>Export…</translation>
+    </message>
+    <message>
+        <source>Mod Name</source>
+        <translation>Mod Name</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>Source</translation>
+    </message>
+    <message>
+        <source>Preferred Version</source>
+        <translation>Preferred Version</translation>
+    </message>
+    <message>
+        <source>Fomod</source>
+        <translation>Fomod</translation>
+    </message>
+    <message>
+        <source>Optional</source>
+        <translation>Optional</translation>
+    </message>
+    <message>
+        <source>Phase</source>
+        <translation>Phase</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>Edits</translation>
+    </message>
+    <message>
+        <source>What installers download when a newer file exists.</source>
+        <translation>What installers download when a newer file exists.</translation>
+    </message>
+    <message>
+        <source>Not allowed: this mod is on Nexus, so users download it themselves. Use the Edits column to ship your changes.</source>
+        <translation>Not allowed: this mod is on Nexus, so users download it themselves. Use the Edits column to ship your changes.</translation>
+    </message>
+    <message>
+        <source>An author name is required.</source>
+        <translation>An author name is required.</translation>
+    </message>
+    <message>
+        <source>This profile has no mods to put in a collection.</source>
+        <translation>This profile has no mods to put in a collection.</translation>
+    </message>
+    <message>
+        <source>{0} Nexus mod(s) are missing a File ID and must be set first.</source>
+        <translation>{0} Nexus mod(s) are missing a File ID and must be set first.</translation>
+    </message>
+    <message>
+        <source>Browse-source mod(s) need a URL: {0}</source>
+        <translation>Browse-source mod(s) need a URL: {0}</translation>
+    </message>
+    <message>
+        <source>Manual-source mod(s) need instructions or a URL: {0}</source>
+        <translation>Manual-source mod(s) need instructions or a URL: {0}</translation>
+    </message>
+    <message>
+        <source>No mods to export.</source>
+        <translation>No mods to export.</translation>
+    </message>
+    <message>
+        <source>Export Collection</source>
+        <translation>Export Collection</translation>
+    </message>
+    <message>
+        <source>Nexus Collection (*.7z)</source>
+        <translation>Nexus Collection (*.7z)</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>All files</translation>
+    </message>
+    <message>
+        <source>{0} warning(s) - see log.</source>
+        <translation>{0} warning(s) - see log.</translation>
+    </message>
+    <message>
+        <source>Reading mod metadata…</source>
+        <translation>Reading mod metadata…</translation>
+    </message>
+    <message>
+        <source>Hashing archives…</source>
+        <translation>Hashing archives…</translation>
+    </message>
+    <message>
+        <source>Packing bundled mods…</source>
+        <translation>Packing bundled mods…</translation>
+    </message>
+    <message>
+        <source>Diffing edited files…</source>
+        <translation>Diffing edited files…</translation>
+    </message>
+    <message>
+        <source>Writing collection archive…</source>
+        <translation>Writing collection archive…</translation>
+    </message>
+    <message>
+        <source>Exporting…</source>
+        <translation>Exporting…</translation>
+    </message>
+    <message>
+        <source>Uploading archive…</source>
+        <translation>Uploading archive…</translation>
+    </message>
+    <message>
+        <source>Exporting collection</source>
+        <translation>Exporting collection</translation>
+    </message>
+    <message>
+        <source>Collection exported to {0}</source>
+        <translation>Collection exported to {0}</translation>
+    </message>
+    <message>
+        <source>Export failed: {0}</source>
+        <translation>Export failed: {0}</translation>
+    </message>
+    <message>
+        <source>No mods to upload.</source>
+        <translation>No mods to upload.</translation>
+    </message>
+    <message>
+        <source>Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO.</source>
+        <translation>Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO.</translation>
+    </message>
+    <message>
+        <source>Upload a new revision of '{0}' (collection #{1})?
+
+The revision is created as a draft - publish it from Nexus ▸ Collections ▸ My collections when ready. If that collection was deleted, a new draft collection is created instead.</source>
+        <translation>Upload a new revision of '{0}' (collection #{1})?
+
+The revision is created as a draft - publish it from Nexus ▸ Collections ▸ My collections when ready. If that collection was deleted, a new draft collection is created instead.</translation>
+    </message>
+    <message>
+        <source>Create a new draft collection '{0}' on your Nexus account?
+
+Nothing is published: the draft is only visible to you until you publish it from Nexus ▸ Collections ▸ My collections.</source>
+        <translation>Create a new draft collection '{0}' on your Nexus account?
+
+Nothing is published: the draft is only visible to you until you publish it from Nexus ▸ Collections ▸ My collections.</translation>
+    </message>
+    <message>
+        <source>Preparing upload…</source>
+        <translation>Preparing upload…</translation>
+    </message>
+    <message>
+        <source>Upload collection</source>
+        <translation>Upload collection</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Registering collection…</source>
+        <translation>Registering collection…</translation>
+    </message>
+    <message>
+        <source>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</source>
+        <translation>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</translation>
+    </message>
+    <message>
+        <source>Upload failed: {0}</source>
+        <translation>Upload failed: {0}</translation>
     </message>
 </context>
 <context>
@@ -3656,6 +3949,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Direct</translation>
     </message>
     <message>
+        <source>Browse</source>
+        <translation>Browse</translation>
+    </message>
+    <message>
+        <source>Manual</source>
+        <translation>Manual</translation>
+    </message>
+    <message>
         <source>Bundle</source>
         <translation>Bundle</translation>
     </message>
@@ -3682,6 +3983,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Only mods without a File ID</source>
         <translation>Only mods without a File ID</translation>
+    </message>
+    <message>
+        <source>Change Source</source>
+        <translation>Change Source</translation>
+    </message>
+    <message>
+        <source>Make Optional</source>
+        <translation>Make Optional</translation>
     </message>
     <message>
         <source>Save settings</source>
@@ -3714,6 +4023,62 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Optional</source>
         <translation>Optional</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>Edits</translation>
+    </message>
+    <message>
+        <source>Change Source ({0})</source>
+        <translation>Change Source ({0})</translation>
+    </message>
+    <message>
+        <source>Clear Optional ({0})</source>
+        <translation>Clear Optional ({0})</translation>
+    </message>
+    <message>
+        <source>Make Optional ({0})</source>
+        <translation>Make Optional ({0})</translation>
+    </message>
+    <message>
+        <source>{0} of {1} selected mods are on Nexus and will be left unchanged.</source>
+        <translation>{0} of {1} selected mods are on Nexus and will be left unchanged.</translation>
+    </message>
+    <message>
+        <source>{0} of {1} selected mods have no Nexus File ID yet - set one on each before exporting.</source>
+        <translation>{0} of {1} selected mods have no Nexus File ID yet - set one on each before exporting.</translation>
+    </message>
+    <message>
+        <source>The same URL and instructions are applied to all {0} selected mods.</source>
+        <translation>The same URL and instructions are applied to all {0} selected mods.</translation>
+    </message>
+    <message>
+        <source>{0} mods</source>
+        <translation>{0} mods</translation>
+    </message>
+    <message>
+        <source>Source set on {0} mod(s); {1} left unchanged (on Nexus).</source>
+        <translation>Source set on {0} mod(s); {1} left unchanged (on Nexus).</translation>
+    </message>
+    <message>
+        <source>Source set on {0} mod(s).</source>
+        <translation>Source set on {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>Marked {0} mod(s) optional.</source>
+        <translation>Marked {0} mod(s) optional.</translation>
+    </message>
+    <message>
+        <source>Cleared optional on {0} mod(s).</source>
+        <translation>Cleared optional on {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>Ship your local changes to this mod's files as binary patches, so users get the mod exactly as you have it.</source>
+        <translation>Ship your local changes to this mod's files as binary patches, so users get the mod exactly as you have it.</translation>
+    </message>
+    <message>
+        <source>Could not load versions from Nexus.</source>
+        <translation>Could not load versions from Nexus.</translation>
     </message>
     <message>
         <source>Nothing to save.</source>
@@ -3768,6 +4133,22 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>{0} Nexus {1} {2} missing a File ID and must be set before exporting.</translation>
     </message>
     <message>
+        <source>{0} bundled mod(s) below are available on Nexus, so their files will be packed into this export rather than downloaded on import.
+
+That is fine for your own backup. Do not share or upload the file in this state - set those mods to Nexus and use Edits to carry your local changes.</source>
+        <translation>{0} bundled mod(s) below are available on Nexus, so their files will be packed into this export rather than downloaded on import.
+
+That is fine for your own backup. Do not share or upload the file in this state - set those mods to Nexus and use Edits to carry your local changes.</translation>
+    </message>
+    <message>
+        <source>Bundled Nexus mods</source>
+        <translation>Bundled Nexus mods</translation>
+    </message>
+    <message>
+        <source>Export anyway</source>
+        <translation>Export anyway</translation>
+    </message>
+    <message>
         <source>Export Amethyst Manifest</source>
         <translation>Export Amethyst Manifest</translation>
     </message>
@@ -3784,6 +4165,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Preparing export…</translation>
     </message>
     <message>
+        <source>Building file-edit patches…</source>
+        <translation>Building file-edit patches…</translation>
+    </message>
+    <message>
         <source>Packing mod: {0}</source>
         <translation>Packing mod: {0}</translation>
     </message>
@@ -3794,6 +4179,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Packing profile files…</source>
         <translation>Packing profile files…</translation>
+    </message>
+    <message>
+        <source>Packing file-edit patches…</source>
+        <translation>Packing file-edit patches…</translation>
     </message>
     <message>
         <source>Packing…</source>
@@ -4517,6 +4906,264 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     <message>
         <source>Loading…</source>
         <translation>Loading…</translation>
+    </message>
+</context>
+<context>
+    <name>MCPView</name>
+    <message>
+        <source>Install MCP - {0}</source>
+        <translation>Install MCP - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download Morrowind Code Patch</source>
+        <translation>Step 1: Download Morrowind Code Patch</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the Morrowind Code Patch
+download page on Nexus Mods.
+
+Download the archive, then click Next.</source>
+        <translation>Click the button below to open the Morrowind Code Patch
+download page on Nexus Mods.
+
+Download the archive, then click Next.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Step 2: Locate the Archive</translation>
+    </message>
+    <message>
+        <source>Step 3: Extract Files</source>
+        <translation>Step 3: Extract Files</translation>
+    </message>
+    <message>
+        <source>Next →</source>
+        <translation>Next →</translation>
+    </message>
+    <message>
+        <source>Step 4: Run Morrowind Code Patch</source>
+        <translation>Step 4: Run Morrowind Code Patch</translation>
+    </message>
+    <message>
+        <source>Select the Morrowind Code Patch archive</source>
+        <translation>Select the Morrowind Code Patch archive</translation>
+    </message>
+    <message>
+        <source>Archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>Archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</translation>
+    </message>
+    <message>
+        <source>Extracting archive to game folder…</source>
+        <translation>Extracting archive to game folder…</translation>
+    </message>
+    <message>
+        <source>Running {0} via Proton…
+Apply your desired patches, then come back and click Done.</source>
+        <translation>Running {0} via Proton…
+Apply your desired patches, then come back and click Done.</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Game path is not configured.</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>Archive not found.</translation>
+    </message>
+    <message>
+        <source>Extracted {0} file(s) to game folder.
+
+Click Next to run the patcher.</source>
+        <translation>Extracted {0} file(s) to game folder.
+
+Click Next to run the patcher.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>{0} not found in game folder.</source>
+        <translation>{0} not found in game folder.</translation>
+    </message>
+    <message>
+        <source>Could not determine Proton version for this game.</source>
+        <translation>Could not determine Proton version for this game.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}.
+{2}</source>
+        <translation>{0} exited with code {1}.
+{2}</translation>
+    </message>
+    <message>
+        <source>Morrowind Code Patch finished.
+
+Click Done to close.</source>
+        <translation>Morrowind Code Patch finished.
+
+Click Done to close.</translation>
+    </message>
+</context>
+<context>
+    <name>MGEXEView</name>
+    <message>
+        <source>Install MGE XE - {0}</source>
+        <translation>Install MGE XE - {0}</translation>
+    </message>
+    <message>
+        <source>Step 1: Download MGE XE</source>
+        <translation>Step 1: Download MGE XE</translation>
+    </message>
+    <message>
+        <source>Click the button below to open the MGE XE download page on Nexus Mods.
+
+Download either the Installer or the Manual Install archive, then click Next.</source>
+        <translation>Click the button below to open the MGE XE download page on Nexus Mods.
+
+Download either the Installer or the Manual Install archive, then click Next.</translation>
+    </message>
+    <message>
+        <source>Step 2: Locate the Archive</source>
+        <translation>Step 2: Locate the Archive</translation>
+    </message>
+    <message>
+        <source>Install MGE XE</source>
+        <translation>Install MGE XE</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message>
+        <source>Step 3: Choose Destination</source>
+        <translation>Step 3: Choose Destination</translation>
+    </message>
+    <message>
+        <source>Choose where to install the MGE XE files. Installing as a managed mod lets you toggle and reorder it like any other mod; the Root_Folder staging deploys the files straight to the game root.</source>
+        <translation>Choose where to install the MGE XE files. Installing as a managed mod lets you toggle and reorder it like any other mod; the Root_Folder staging deploys the files straight to the game root.</translation>
+    </message>
+    <message>
+        <source>Install destination</source>
+        <translation>Install destination</translation>
+    </message>
+    <message>
+        <source>Root_Folder (staging)</source>
+        <translation>Root_Folder (staging)</translation>
+    </message>
+    <message>
+        <source>As a managed mod (root-flagged)</source>
+        <translation>As a managed mod (root-flagged)</translation>
+    </message>
+    <message>
+        <source>Mod name</source>
+        <translation>Mod name</translation>
+    </message>
+    <message>
+        <source>Install →</source>
+        <translation>Install →</translation>
+    </message>
+    <message>
+        <source>Select the MGE XE archive</source>
+        <translation>Select the MGE XE archive</translation>
+    </message>
+    <message>
+        <source>MGE XE archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</source>
+        <translation>MGE XE archive not found in Downloads.
+Make sure you downloaded it, then press Try Again,
+or use Browse to select it manually.</translation>
+    </message>
+    <message>
+        <source>Extracting archive to game folder…</source>
+        <translation>Extracting archive to game folder…</translation>
+    </message>
+    <message>
+        <source>Extracting archive…</source>
+        <translation>Extracting archive…</translation>
+    </message>
+    <message>
+        <source>Game path is not configured.</source>
+        <translation>Game path is not configured.</translation>
+    </message>
+    <message>
+        <source>Archive not found.</source>
+        <translation>Archive not found.</translation>
+    </message>
+    <message>
+        <source>Installer exe not found in game folder after extraction.
+Expected a file starting with '{0}' (.exe).</source>
+        <translation>Installer exe not found in game folder after extraction.
+Expected a file starting with '{0}' (.exe).</translation>
+    </message>
+    <message>
+        <source>Running {0} via Proton…
+Follow the installer steps, then come back and click Done.</source>
+        <translation>Running {0} via Proton…
+Follow the installer steps, then come back and click Done.</translation>
+    </message>
+    <message>
+        <source>MGE XE installer finished.
+
+Click Done to close.</source>
+        <translation>MGE XE installer finished.
+
+Click Done to close.</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>Installing MGE XE as mod '{0}'…</source>
+        <translation>Installing MGE XE as mod '{0}'…</translation>
+    </message>
+    <message>
+        <source>Extracting archive to Root_Folder…</source>
+        <translation>Extracting archive to Root_Folder…</translation>
+    </message>
+    <message>
+        <source>MGE XE installed as mod '{0}'.
+{1} file(s) staged.
+
+Deploy to apply it.
+
+Click Done to close.</source>
+        <translation>MGE XE installed as mod '{0}'.
+{1} file(s) staged.
+
+Deploy to apply it.
+
+Click Done to close.</translation>
+    </message>
+    <message>
+        <source>MGE XE installed to Root_Folder!
+{0} file(s) extracted.
+
+Deploy to apply it.
+
+Click Done to close.</source>
+        <translation>MGE XE installed to Root_Folder!
+{0} file(s) extracted.
+
+Deploy to apply it.
+
+Click Done to close.</translation>
+    </message>
+    <message>
+        <source>Could not determine Proton version for this game.</source>
+        <translation>Could not determine Proton version for this game.</translation>
+    </message>
+    <message>
+        <source>{0} exited with code {1}.
+{2}</source>
+        <translation>{0} exited with code {1}.
+{2}</translation>
     </message>
 </context>
 <context>
@@ -5492,6 +6139,14 @@ Remove the appended-collection entry?</translation>
         <translation>Quick Update</translation>
     </message>
     <message>
+        <source>Apply the 4GB patch automatically on deploy</source>
+        <translation>Apply the 4GB patch automatically on deploy</translation>
+    </message>
+    <message>
+        <source>Create case-alias symlinks on deploy (Faster load times)</source>
+        <translation>Create case-alias symlinks on deploy (Faster load times)</translation>
+    </message>
+    <message>
         <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
         <translation>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</translation>
     </message>
@@ -5510,6 +6165,18 @@ Remove the appended-collection entry?</translation>
     <message>
         <source>Could not read {0} from {1}</source>
         <translation>Could not read {0} from {1}</translation>
+    </message>
+    <message>
+        <source>Prefix health check…</source>
+        <translation>Prefix health check…</translation>
+    </message>
+    <message>
+        <source>Create collection…</source>
+        <translation>Create collection…</translation>
+    </message>
+    <message>
+        <source>My collections…</source>
+        <translation>My collections…</translation>
     </message>
     <message>
         <source>Handler update failed - check your connection.</source>
@@ -5874,6 +6541,14 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>No downloadable files for that mod.</source>
         <translation>No downloadable files for that mod.</translation>
+    </message>
+    <message>
+        <source>Create Collection</source>
+        <translation>Create Collection</translation>
+    </message>
+    <message>
+        <source>My Collections</source>
+        <translation>My Collections</translation>
     </message>
     <message>
         <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
@@ -6711,6 +7386,93 @@ Update this whenever you change your mod list.</translation>
     </message>
 </context>
 <context>
+    <name>MissingArchivesOverlay</name>
+    <message>
+        <source>Original archives needed</source>
+        <translation>Original archives needed</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) use export features that read their original download archive (file edits become patches against it; installer choices are mapped through its FOMOD config), but the archive is no longer in the download cache.
+
+Download fetches the exact installed file again - automatically with a premium account, via each file's download page otherwise. Continuing without leaves those edits or choices out of the export.</source>
+        <translation>{0} mod(s) use export features that read their original download archive (file edits become patches against it; installer choices are mapped through its FOMOD config), but the archive is no longer in the download cache.
+
+Download fetches the exact installed file again - automatically with a premium account, via each file's download page otherwise. Continuing without leaves those edits or choices out of the export.</translation>
+    </message>
+    <message>
+        <source>file edits</source>
+        <translation>file edits</translation>
+    </message>
+    <message>
+        <source>installer choices</source>
+        <translation>installer choices</translation>
+    </message>
+    <message>
+        <source> (can't redownload: no Nexus file id)</source>
+        <translation> (can't redownload: no Nexus file id)</translation>
+    </message>
+    <message>
+        <source>Open Download Page</source>
+        <translation>Open Download Page</translation>
+    </message>
+    <message>
+        <source>Skip this mod</source>
+        <translation>Skip this mod</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Continue without</source>
+        <translation>Continue without</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Downloading '{2}'… {3} / {4}</source>
+        <translation>({0}/{1}) Downloading '{2}'… {3} / {4}</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Fetching '{2}'…</source>
+        <translation>({0}/{1}) Fetching '{2}'…</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Waiting for the browser download of '{2}'…</source>
+        <translation>({0}/{1}) Waiting for the browser download of '{2}'…</translation>
+    </message>
+    <message>
+        <source>({0}/{1}) Waiting for the browser download of '{2}'… {3} / {4}</source>
+        <translation>({0}/{1}) Waiting for the browser download of '{2}'… {3} / {4}</translation>
+    </message>
+    <message>
+        <source>Checking account…</source>
+        <translation>Checking account…</translation>
+    </message>
+    <message>
+        <source> - downloaded ✓</source>
+        <translation> - downloaded ✓</translation>
+    </message>
+    <message>
+        <source> - failed ✗</source>
+        <translation> - failed ✗</translation>
+    </message>
+    <message>
+        <source>{0} archive(s) downloaded, {1} could not be fetched - their edits or installer choices will be left out.</source>
+        <translation>{0} archive(s) downloaded, {1} could not be fetched - their edits or installer choices will be left out.</translation>
+    </message>
+    <message>
+        <source>Continue anyway</source>
+        <translation>Continue anyway</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Retry</translation>
+    </message>
+</context>
+<context>
     <name>MissingReqsView</name>
     <message>
         <source>Missing requirements - {0}</source>
@@ -7051,6 +7813,10 @@ How would you like to handle the existing mod?</translation>
         <translation>Rename separator</translation>
     </message>
     <message>
+        <source>Search…</source>
+        <translation>Search…</translation>
+    </message>
+    <message>
         <source>Separator name:</source>
         <translation>Separator name:</translation>
     </message>
@@ -7366,6 +8132,14 @@ Click Done to close.</translation>
         <source>UUID Conflict</source>
         <translation>UUID Conflict</translation>
     </message>
+    <message>
+        <source>A plugin an installed FOMOD option requires left the load order ({0}) - click to re-run the FOMOD installer</source>
+        <translation>A plugin an installed FOMOD option requires left the load order ({0}) - click to re-run the FOMOD installer</translation>
+    </message>
+    <message>
+        <source>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</source>
+        <translation>A FOMOD option you didn't select is now relevant ({0} is in the load order) - click to re-run the FOMOD installer</translation>
+    </message>
 </context>
 <context>
     <name>ModeOverlay</name>
@@ -7494,6 +8268,276 @@ or an encrypted file when no keyring is available).</translation>
     <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>MyCollectionsView</name>
+    <message>
+        <source>Listed</source>
+        <translation>Listed</translation>
+    </message>
+    <message>
+        <source>Unlisted</source>
+        <translation>Unlisted</translation>
+    </message>
+    <message>
+        <source>Under moderation</source>
+        <translation>Under moderation</translation>
+    </message>
+    <message>
+        <source>Discarded</source>
+        <translation>Discarded</translation>
+    </message>
+    <message>
+        <source>My Collections</source>
+        <translation>My Collections</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ Close</translation>
+    </message>
+    <message>
+        <source>Collection</source>
+        <translation>Collection</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Game</translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>Revision</source>
+        <translation>Revision</translation>
+    </message>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
+    </message>
+    <message>
+        <source>Select a collection</source>
+        <translation>Select a collection</translation>
+    </message>
+    <message>
+        <source>One-line summary</source>
+        <translation>One-line summary</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Summary</source>
+        <translation>Summary</translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation>Category</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Description</translation>
+    </message>
+    <message>
+        <source>Save changes</source>
+        <translation>Save changes</translation>
+    </message>
+    <message>
+        <source>Revision changelog</source>
+        <translation>Revision changelog</translation>
+    </message>
+    <message>
+        <source>What changed in this revision - optional</source>
+        <translation>What changed in this revision - optional</translation>
+    </message>
+    <message>
+        <source>Save changelog</source>
+        <translation>Save changelog</translation>
+    </message>
+    <message>
+        <source>Publish draft revision</source>
+        <translation>Publish draft revision</translation>
+    </message>
+    <message>
+        <source>Install collection</source>
+        <translation>Install collection</translation>
+    </message>
+    <message>
+        <source>Unlist</source>
+        <translation>Unlist</translation>
+    </message>
+    <message>
+        <source>Open on Nexus</source>
+        <translation>Open on Nexus</translation>
+    </message>
+    <message>
+        <source>Log in to Nexus to manage your collections.</source>
+        <translation>Log in to Nexus to manage your collections.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Loading…</translation>
+    </message>
+    <message>
+        <source>(no category)</source>
+        <translation>(no category)</translation>
+    </message>
+    <message>
+        <source>Could not load collections: {0}</source>
+        <translation>Could not load collections: {0}</translation>
+    </message>
+    <message>
+        <source>You have no collections yet. Use Nexus ▸ Collections ▸ Create collection… to upload one.</source>
+        <translation>You have no collections yet. Use Nexus ▸ Collections ▸ Create collection… to upload one.</translation>
+    </message>
+    <message>
+        <source>{0} (draft)</source>
+        <translation>{0} (draft)</translation>
+    </message>
+    <message>
+        <source>Revision {0} is an unpublished draft ({1} mods). Publish it to make it the version users install.</source>
+        <translation>Revision {0} is an unpublished draft ({1} mods). Publish it to make it the version users install.</translation>
+    </message>
+    <message>
+        <source>Publish revision {0}</source>
+        <translation>Publish revision {0}</translation>
+    </message>
+    <message>
+        <source>Revision {0} is live. Upload a new revision from Create Collection to publish an update.</source>
+        <translation>Revision {0} is live. Upload a new revision from Create Collection to publish an update.</translation>
+    </message>
+    <message>
+        <source>No revisions yet.</source>
+        <translation>No revisions yet.</translation>
+    </message>
+    <message>
+        <source>No draft to publish</source>
+        <translation>No draft to publish</translation>
+    </message>
+    <message>
+        <source>List publicly</source>
+        <translation>List publicly</translation>
+    </message>
+    <message>
+        <source>This collection has no revisions yet.</source>
+        <translation>This collection has no revisions yet.</translation>
+    </message>
+    <message>
+        <source>Install draft revision {0}</source>
+        <translation>Install draft revision {0}</translation>
+    </message>
+    <message>
+        <source>Installs your unpublished draft so you can test it.</source>
+        <translation>Installs your unpublished draft so you can test it.</translation>
+    </message>
+    <message>
+        <source>Install revision {0}</source>
+        <translation>Install revision {0}</translation>
+    </message>
+    <message>
+        <source>Opens this collection's install page.</source>
+        <translation>Opens this collection's install page.</translation>
+    </message>
+    <message>
+        <source>No image yet. Collection images are set on the Nexus site (Open on Nexus).</source>
+        <translation>No image yet. Collection images are set on the Nexus site (Open on Nexus).</translation>
+    </message>
+    <message>
+        <source>Loading image…</source>
+        <translation>Loading image…</translation>
+    </message>
+    <message>
+        <source>Could not load the image.</source>
+        <translation>Could not load the image.</translation>
+    </message>
+    <message>
+        <source>Change the image on the Nexus site (Open on Nexus).</source>
+        <translation>Change the image on the Nexus site (Open on Nexus).</translation>
+    </message>
+    <message>
+        <source>Failed: {0}</source>
+        <translation>Failed: {0}</translation>
+    </message>
+    <message>
+        <source>Nothing to save.</source>
+        <translation>Nothing to save.</translation>
+    </message>
+    <message>
+        <source>Saved '{0}'</source>
+        <translation>Saved '{0}'</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the edit (see log).</source>
+        <translation>Nexus rejected the edit (see log).</translation>
+    </message>
+    <message>
+        <source>Saving…</source>
+        <translation>Saving…</translation>
+    </message>
+    <message>
+        <source>Changelog saved for revision {0}</source>
+        <translation>Changelog saved for revision {0}</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the changelog (see log).</source>
+        <translation>Nexus rejected the changelog (see log).</translation>
+    </message>
+    <message>
+        <source>Saving changelog…</source>
+        <translation>Saving changelog…</translation>
+    </message>
+    <message>
+        <source>Published revision {0}</source>
+        <translation>Published revision {0}</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the publish (see log).</source>
+        <translation>Nexus rejected the publish (see log).</translation>
+    </message>
+    <message>
+        <source>Publishing…</source>
+        <translation>Publishing…</translation>
+    </message>
+    <message>
+        <source>'{0}' is now listed</source>
+        <translation>'{0}' is now listed</translation>
+    </message>
+    <message>
+        <source>'{0}' is now unlisted</source>
+        <translation>'{0}' is now unlisted</translation>
+    </message>
+    <message>
+        <source>Nexus rejected the change (see log).</source>
+        <translation>Nexus rejected the change (see log).</translation>
+    </message>
+    <message>
+        <source>Updating visibility…</source>
+        <translation>Updating visibility…</translation>
+    </message>
+    <message>
+        <source>No configured game selected.</source>
+        <translation>No configured game selected.</translation>
+    </message>
+    <message>
+        <source>'{0}' is for {1}, but the selected game is {2}. Switch games first, then install.</source>
+        <translation>'{0}' is for {1}, but the selected game is {2}. Switch games first, then install.</translation>
+    </message>
+    <message>
+        <source>Install is unavailable in this build.</source>
+        <translation>Install is unavailable in this build.</translation>
+    </message>
+</context>
+<context>
+    <name>NameSuggestions</name>
+    <message>
+        <source>Suggested names</source>
+        <translation>Suggested names</translation>
     </message>
 </context>
 <context>
@@ -8809,6 +9853,97 @@ Drag a plugin from the left pane to add a rule.</translation>
     </message>
 </context>
 <context>
+    <name>PrefixHealthOverlay</name>
+    <message>
+        <source>Prefix health check - {0}</source>
+        <translation>Prefix health check - {0}</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>Re-check</translation>
+    </message>
+    <message>
+        <source>Fix</source>
+        <translation>Fix</translation>
+    </message>
+    <message>
+        <source>Proton prefix</source>
+        <translation>Proton prefix</translation>
+    </message>
+    <message>
+        <source>Prefix structure</source>
+        <translation>Prefix structure</translation>
+    </message>
+    <message>
+        <source>Prefix runner</source>
+        <translation>Prefix runner</translation>
+    </message>
+    <message>
+        <source>Steam first-launch setup</source>
+        <translation>Steam first-launch setup</translation>
+    </message>
+    <message>
+        <source>Game INI files</source>
+        <translation>Game INI files</translation>
+    </message>
+    <message>
+        <source>Proton build</source>
+        <translation>Proton build</translation>
+    </message>
+    <message>
+        <source>Proton / prefix version</source>
+        <translation>Proton / prefix version</translation>
+    </message>
+    <message>
+        <source>VC++ Redistributable (x64)</source>
+        <translation>VC++ Redistributable (x64)</translation>
+    </message>
+    <message>
+        <source>d3dcompiler_47 (shader compiler)</source>
+        <translation>d3dcompiler_47 (shader compiler)</translation>
+    </message>
+    <message>
+        <source>LAV Filters (DirectShow codecs)</source>
+        <translation>LAV Filters (DirectShow codecs)</translation>
+    </message>
+    <message>
+        <source>Game path in prefix registry</source>
+        <translation>Game path in prefix registry</translation>
+    </message>
+    <message>
+        <source>No prefix configured</source>
+        <translation>No prefix configured</translation>
+    </message>
+    <message>
+        <source>Everything looks healthy.</source>
+        <translation>Everything looks healthy.</translation>
+    </message>
+    <message>
+        <source>{0} item(s) need attention.</source>
+        <translation>{0} item(s) need attention.</translation>
+    </message>
+    <message>
+        <source>Checking prefix…</source>
+        <translation>Checking prefix…</translation>
+    </message>
+    <message>
+        <source>Fixing {0}</source>
+        <translation>Fixing {0}</translation>
+    </message>
+    <message>
+        <source>Fixing {0}… (details in the log)</source>
+        <translation>Fixing {0}… (details in the log)</translation>
+    </message>
+    <message>
+        <source>Another Proton installer is running - try again shortly.</source>
+        <translation>Another Proton installer is running - try again shortly.</translation>
+    </message>
+    <message>
+        <source>A fix is running - please wait for it to finish.</source>
+        <translation>A fix is running - please wait for it to finish.</translation>
+    </message>
+</context>
+<context>
     <name>PrefixManagerView</name>
     <message>
         <source>Manage Prefixes</source>
@@ -9833,12 +10968,20 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>Name</translation>
     </message>
     <message>
+        <source>File type</source>
+        <translation>File type</translation>
+    </message>
+    <message>
         <source>Size</source>
         <translation>Size</translation>
     </message>
     <message>
         <source>Modified</source>
         <translation>Modified</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Folder</translation>
     </message>
     <message>
         <source>No configured game selected.</source>
@@ -9859,6 +11002,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>{0}   ({1})</source>
         <translation>{0}   ({1})</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
     </message>
     <message>
         <source>(not created yet -the game saves here)</source>
@@ -9887,6 +11034,124 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>Reading save…</source>
         <translation>Reading save…</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Open folder</translation>
+    </message>
+    <message>
+        <source>Open containing folder</source>
+        <translation>Open containing folder</translation>
+    </message>
+    <message>
+        <source>Delete…</source>
+        <translation>Delete…</translation>
+    </message>
+    <message>
+        <source>Move to profile saves</source>
+        <translation>Move to profile saves</translation>
+    </message>
+    <message>
+        <source>Copy to profile saves</source>
+        <translation>Copy to profile saves</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>{0} (current)</source>
+        <translation>{0} (current)</translation>
+    </message>
+    <message>
+        <source>Replace {0}?</source>
+        <translation>Replace {0}?</translation>
+    </message>
+    <message>
+        <source>{0} already exists in the {1} saves folder:
+{2}
+
+It is replaced by the one you picked.</source>
+        <translation>{0} already exists in the {1} saves folder:
+{2}
+
+It is replaced by the one you picked.</translation>
+    </message>
+    <message>
+        <source>Replace</source>
+        <translation>Replace</translation>
+    </message>
+    <message>
+        <source>Moving {0}…</source>
+        <translation>Moving {0}…</translation>
+    </message>
+    <message>
+        <source>Copying {0}…</source>
+        <translation>Copying {0}…</translation>
+    </message>
+    <message>
+        <source>Could not move the save.</source>
+        <translation>Could not move the save.</translation>
+    </message>
+    <message>
+        <source>Could not copy the save.</source>
+        <translation>Could not copy the save.</translation>
+    </message>
+    <message>
+        <source>Transfer failed: {0}</source>
+        <translation>Transfer failed: {0}</translation>
+    </message>
+    <message>
+        <source>Moved {0} ({1}) to the {2} saves folder.</source>
+        <translation>Moved {0} ({1}) to the {2} saves folder.</translation>
+    </message>
+    <message>
+        <source>Copied {0} ({1}) to the {2} saves folder.</source>
+        <translation>Copied {0} ({1}) to the {2} saves folder.</translation>
+    </message>
+    <message>
+        <source>Delete the folder {0} and everything in it?
+{1}
+
+This cannot be undone.</source>
+        <translation>Delete the folder {0} and everything in it?
+{1}
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+        <source>Delete {0}?
+{1}
+
+This cannot be undone.</source>
+        <translation>Delete {0}?
+{1}
+
+This cannot be undone.</translation>
+    </message>
+    <message>
+        <source>Delete save?</source>
+        <translation>Delete save?</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Deleting {0}…</source>
+        <translation>Deleting {0}…</translation>
+    </message>
+    <message>
+        <source>Could not delete the save.</source>
+        <translation>Could not delete the save.</translation>
+    </message>
+    <message>
+        <source>Delete failed: {0}</source>
+        <translation>Delete failed: {0}</translation>
+    </message>
+    <message>
+        <source>Deleted {0} ({1}).</source>
+        <translation>Deleted {0} ({1}).</translation>
     </message>
     <message>
         <source>Export saves</source>
@@ -12935,6 +14200,18 @@ Press Refresh to try again.</translation>
         <translation>Done</translation>
     </message>
     <message>
+        <source>Downloading {0} from Nexus… {1}%</source>
+        <translation>Downloading {0} from Nexus… {1}%</translation>
+    </message>
+    <message>
+        <source>Premium account - downloading {0} from Nexus…</source>
+        <translation>Premium account - downloading {0} from Nexus…</translation>
+    </message>
+    <message>
+        <source>The archive is picked up automatically once the download finishes.</source>
+        <translation>The archive is picked up automatically once the download finishes.</translation>
+    </message>
+    <message>
         <source>Open Download Page</source>
         <translation>Open Download Page</translation>
     </message>
@@ -13442,6 +14719,49 @@ When you close it, your changes are restored automatically.</translation>
     </message>
 </context>
 <context>
+    <name>_PolicyOverlay</name>
+    <message>
+        <source>Update policy - {0}</source>
+        <translation>Update policy - {0}</translation>
+    </message>
+    <message>
+        <source>What installers download when a newer file exists:</source>
+        <translation>What installers download when a newer file exists:</translation>
+    </message>
+    <message>
+        <source>Exact only</source>
+        <translation>Exact only</translation>
+    </message>
+    <message>
+        <source>Always install this exact file</source>
+        <translation>Always install this exact file</translation>
+    </message>
+    <message>
+        <source>Prefer exact</source>
+        <translation>Prefer exact</translation>
+    </message>
+    <message>
+        <source>This file while it exists, otherwise the newest</source>
+        <translation>This file while it exists, otherwise the newest</translation>
+    </message>
+    <message>
+        <source>Latest</source>
+        <translation>Latest</translation>
+    </message>
+    <message>
+        <source>Always install the newest file</source>
+        <translation>Always install the newest file</translation>
+    </message>
+    <message>
+        <source>{0}   - {1}</source>
+        <translation>{0}   - {1}</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Apply</translation>
+    </message>
+</context>
+<context>
     <name>_PreviewPane</name>
     <message>
         <source>Preview</source>
@@ -13450,6 +14770,49 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>No preview</source>
         <translation>No preview</translation>
+    </message>
+</context>
+<context>
+    <name>_PublishOverlay</name>
+    <message>
+        <source>Publish revision {0}</source>
+        <translation>Publish revision {0}</translation>
+    </message>
+    <message>
+        <source>'{0}' - {1} mod(s).
+
+Publishing makes this revision the one users install. It cannot be un-published, only retracted.</source>
+        <translation>'{0}' - {1} mod(s).
+
+Publishing makes this revision the one users install. It cannot be un-published, only retracted.</translation>
+    </message>
+    <message>
+        <source>Listed</source>
+        <translation>Listed</translation>
+    </message>
+    <message>
+        <source>Public - appears in collection search</source>
+        <translation>Public - appears in collection search</translation>
+    </message>
+    <message>
+        <source>Unlisted</source>
+        <translation>Unlisted</translation>
+    </message>
+    <message>
+        <source>Only reachable by direct link</source>
+        <translation>Only reachable by direct link</translation>
+    </message>
+    <message>
+        <source>{0}   - {1}</source>
+        <translation>{0}   - {1}</translation>
+    </message>
+    <message>
+        <source>Contains adult content</source>
+        <translation>Contains adult content</translation>
+    </message>
+    <message>
+        <source>Publish</source>
+        <translation>Publish</translation>
     </message>
 </context>
 <context>
@@ -13518,6 +14881,22 @@ When you close it, your changes are restored automatically.</translation>
         <translation>Include mod in the output (e.g. DynDOLOD output)</translation>
     </message>
     <message>
+        <source>Browse page</source>
+        <translation>Browse page</translation>
+    </message>
+    <message>
+        <source>User downloads from a web page (e.g. Patreon)</source>
+        <translation>User downloads from a web page (e.g. Patreon)</translation>
+    </message>
+    <message>
+        <source>Manual</source>
+        <translation>Manual</translation>
+    </message>
+    <message>
+        <source>User obtains the file; instructions are shown</source>
+        <translation>User obtains the file; instructions are shown</translation>
+    </message>
+    <message>
         <source>Ignore</source>
         <translation>Ignore</translation>
     </message>
@@ -13530,12 +14909,24 @@ When you close it, your changes are restored automatically.</translation>
         <translation>{0}   - {1}</translation>
     </message>
     <message>
+        <source>Bundled files are distributed with the collection itself. Only bundle content you have the right to share - generated output (DynDOLOD, Synthesis), config files, or your own work.</source>
+        <translation>Bundled files are distributed with the collection itself. Only bundle content you have the right to share - generated output (DynDOLOD, Synthesis), config files, or your own work.</translation>
+    </message>
+    <message>
         <source>Download URL:</source>
         <translation>Download URL:</translation>
     </message>
     <message>
         <source>https://…</source>
         <translation>https://…</translation>
+    </message>
+    <message>
+        <source>Instructions shown to the user:</source>
+        <translation>Instructions shown to the user:</translation>
+    </message>
+    <message>
+        <source>e.g. Download the 2K version from the linked page</source>
+        <translation>e.g. Download the 2K version from the linked page</translation>
     </message>
     <message>
         <source>Apply</source>
@@ -13551,6 +14942,10 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Preferred version (file id - version):</source>
         <translation>Preferred version (file id - version):</translation>
+    </message>
+    <message>
+        <source>Fetching versions from Nexus…</source>
+        <translation>Fetching versions from Nexus…</translation>
     </message>
     <message>
         <source>Select</source>
@@ -13593,10 +14988,6 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Apply this variable at startup</source>
         <translation>Apply this variable at startup</translation>
-    </message>
-    <message>
-        <source>VARIABLE_NAME</source>
-        <translation>VARIABLE_NAME</translation>
     </message>
     <message>
         <source>value</source>

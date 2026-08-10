@@ -4,7 +4,7 @@ The app uses Qt's own translation system rather than gettext: user-facing
 strings are wrapped in ``self.tr("...")`` (or ``QCoreApplication.translate``),
 extracted with ``pyside6-lupdate`` into ``translations/amethyst_<code>.ts``,
 translated (Qt Linguist or any XML editor), then compiled to ``.qm`` with
-``pyside6-lrelease``. See ``tools/i18n_update.sh`` for the extract/compile step.
+``pyside6-lrelease``. See ``tools/i18n/i18n_update.sh`` for the extract/compile step.
 
 Translation files are loaded from TWO locations, config-folder-wins:
 

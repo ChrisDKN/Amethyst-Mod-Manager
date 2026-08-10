@@ -45,7 +45,7 @@ from Utils import ui_config as uc
 # and section descriptions all live as plain strings in theme_editor_groups
 # (a Qt-free data module). Marking the literals here puts them in the
 # ThemeEditorView context so the self.tr() calls in _rebuild_body() resolve
-# them at render time. Regenerate with tools/i18n_update.sh after editing
+# them at render time. Regenerate with tools/i18n/i18n_update.sh after editing
 # GROUPS / GROUP_DESCRIPTIONS.
 _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ThemeEditorView", "Backgrounds"),

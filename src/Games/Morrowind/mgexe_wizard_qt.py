@@ -46,7 +46,7 @@ class MGEXEView(WizardViewBase):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
-                         title=f"Install MGE XE - {game.name}")
+                         title=self.tr("Install MGE XE - {0}").format(game.name))
         self._game_root = game.get_game_path()
         self._is_installer = False
         self._dest_mode = "root"          # manual variant: "root" | "mod"
@@ -56,20 +56,20 @@ class MGEXEView(WizardViewBase):
         self._install_done_sig.connect(self._guard(self._on_install_done))
 
         self._stack.addWidget(self._build_manual_download_page(
-            "Step 1: Download MGE XE",
-            "Click the button below to open the MGE XE download page on Nexus "
-            "Mods.\n\nDownload either the Installer or the Manual Install "
-            "archive, then click Next.",
+            self.tr("Step 1: Download MGE XE"),
+            self.tr("Click the button below to open the MGE XE download page on "
+                    "Nexus Mods.\n\nDownload either the Installer or the Manual "
+                    "Install archive, then click Next."),
             _NEXUS_URL,
             lambda: self._goto_step(_PG_LOCATE)))
         self._stack.addWidget(self._build_locate_page(
-            "Step 2: Locate the Archive", with_next=True))
+            self.tr("Step 2: Locate the Archive"), with_next=True))
         self._stack.addWidget(self._build_dest_page())
         # last page: install (status + Done)
-        page, lay = self._step_page("Install MGE XE")
+        page, lay = self._step_page(self.tr("Install MGE XE"))
         self._install_status = self._make_status(lay)
         lay.addStretch(1)
-        self._done_btn = self._green_btn("Done")
+        self._done_btn = self._green_btn(self.tr("Done"))
         self._done_btn.setEnabled(False)
         self._done_btn.clicked.connect(self._finish)
         lay.addWidget(self._done_btn, 0, Qt.AlignHCenter)
@@ -77,29 +77,33 @@ class MGEXEView(WizardViewBase):
         self._stack.setCurrentIndex(_PG_DOWNLOAD)
         self._nexus_auto_fetch(
             url=_NEXUS_URL, file_id=_NEXUS_FILE_ID,
-            keywords=_KEYWORDS_COMMON, label="MGE XE",
+            keywords=_KEYWORDS_COMMON,
+            # The label is the product name, substituted into already-translated
+            # shells like "Downloading {0} from Nexus…" - it must not translate.
+            label="MGE XE",  # i18n: skip - product name
             pages=(_PG_DOWNLOAD, _PG_LOCATE),
             on_archive=self._on_archive_ready)
 
     # ---- destination page (manual variant only) -----------------------------
     def _build_dest_page(self) -> QWidget:
         p = active_palette()
-        page, lay = self._step_page("Step 3: Choose Destination")
+        page, lay = self._step_page(self.tr("Step 3: Choose Destination"))
         self._make_note(
             lay,
-            "Choose where to install the MGE XE files. Installing as a managed "
-            "mod lets you toggle and reorder it like any other mod; the "
-            "Root_Folder staging deploys the files straight to the game root.")
+            self.tr("Choose where to install the MGE XE files. Installing as a "
+                    "managed mod lets you toggle and reorder it like any other "
+                    "mod; the Root_Folder staging deploys the files straight to "
+                    "the game root."))
 
         box = QFrame()
         box.setStyleSheet(f"QFrame{{background:{_c(p,'BG_PANEL')}; border-radius:6px;}}")
         bv = QVBoxLayout(box); bv.setContentsMargins(12, 10, 12, 10); bv.setSpacing(4)
-        head = QLabel("Install destination")
+        head = QLabel(self.tr("Install destination"))
         head.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         bv.addWidget(head)
         self._dest_group = QButtonGroup(self)
-        for val, label in (("root", "Root_Folder (staging)"),
-                           ("mod", "As a managed mod (root-flagged)")):
+        for val, label in (("root", self.tr("Root_Folder (staging)")),
+                           ("mod", self.tr("As a managed mod (root-flagged)"))):
             rb = QRadioButton(label)
             rb.setProperty("dest", val)
             if val == self._dest_mode:
@@ -110,7 +114,7 @@ class MGEXEView(WizardViewBase):
 
         mod_row = QWidget()
         mh = QHBoxLayout(mod_row); mh.setContentsMargins(0, 4, 0, 0); mh.setSpacing(8)
-        self._mod_name_lbl = QLabel("Mod name")
+        self._mod_name_lbl = QLabel(self.tr("Mod name"))
         self._mod_name_lbl.setStyleSheet(self._dim)
         mh.addWidget(self._mod_name_lbl)
         self._mod_name_edit = QLineEdit(_MOD_FALLBACK_NAME)
@@ -119,7 +123,7 @@ class MGEXEView(WizardViewBase):
         lay.addWidget(box)
 
         lay.addStretch(1)
-        nxt = self._accent_btn("Install →")
+        nxt = self._accent_btn(self.tr("Install →"))
         nxt.clicked.connect(lambda: self._goto_step(_PG_INSTALL))
         lay.addWidget(nxt, 0, Qt.AlignHCenter)
         return page
@@ -138,20 +142,21 @@ class MGEXEView(WizardViewBase):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_LOCATE:
             self._enter_locate(
-                _KEYWORDS_COMMON, "Select the MGE XE archive",
-                "MGE XE archive not found in Downloads.\n"
-                "Make sure you downloaded it, then press Try Again,\n"
-                "or use Browse to select it manually.",
+                _KEYWORDS_COMMON, self.tr("Select the MGE XE archive"),
+                self.tr("MGE XE archive not found in Downloads.\n"
+                        "Make sure you downloaded it, then press Try Again,\n"
+                        "or use Browse to select it manually."),
                 self._on_archive_ready)
         elif idx == _PG_DEST:
             self._sync_mod_name_state()
         elif idx == _PG_INSTALL:
             if self._is_installer:
                 self._set_status(self._install_status,
-                                 "Extracting archive to game folder…")
+                                 self.tr("Extracting archive to game folder…"))
             else:
                 self._dest_mode = self._selected_dest()
-                self._set_status(self._install_status, "Extracting archive…")
+                self._set_status(self._install_status,
+                                 self.tr("Extracting archive…"))
             threading.Thread(target=self._do_install, daemon=True,
                              name="mgexe-install").start()
 
@@ -172,13 +177,13 @@ class MGEXEView(WizardViewBase):
         from Utils.wizard_archives import extract_archive
         try:
             if self._game_root is None:
-                raise RuntimeError("Game path is not configured.")
+                raise RuntimeError(self.tr("Game path is not configured."))
             archive = self._archive_path
             if archive is None or not archive.is_file():
-                raise RuntimeError("Archive not found.")
+                raise RuntimeError(self.tr("Archive not found."))
 
             safe_emit(self._install_status_sig,
-                      "Extracting archive to game folder…", "")
+                      self.tr("Extracting archive to game folder…"), "")
             self._log(f"MGE XE Wizard: extracting {archive.name} → {self._game_root}")
             paths = extract_archive(archive, self._game_root)
             file_count = len([p for p in paths if p.is_file()])
@@ -197,22 +202,24 @@ class MGEXEView(WizardViewBase):
                  and p.name.upper().startswith(_INSTALLER_EXE_PREFIX)
                  and p.suffix.lower() == ".exe"), None)
             if installer_exe is None:
-                raise RuntimeError(
-                    "Installer exe not found in game folder after "
-                    f"extraction.\nExpected a file starting with "
-                    f"'{_INSTALLER_EXE_PREFIX}' (.exe).")
+                raise RuntimeError(self.tr(
+                    "Installer exe not found in game folder after extraction.\n"
+                    "Expected a file starting with '{0}' (.exe).")
+                    .format(_INSTALLER_EXE_PREFIX))
             safe_emit(self._install_status_sig,
-                      f"Running {installer_exe.name} via Proton…\n"
-                      "Follow the installer steps, then come back and "
-                      "click Done.", "")
+                      self.tr("Running {0} via Proton…\n"
+                              "Follow the installer steps, then come back and "
+                              "click Done.").format(installer_exe.name), "")
             self._run_exe(installer_exe)
             self._log("MGE XE Wizard: installer completed.")
             safe_emit(self._install_status_sig,
-                      "MGE XE installer finished.\n\nClick Done to close.",
+                      self.tr("MGE XE installer finished.\n\n"
+                              "Click Done to close."),
                       GREEN)
             safe_emit(self._install_done_sig)
         except Exception as exc:
-            safe_emit(self._install_status_sig, f"Error: {exc}", RED)
+            safe_emit(self._install_status_sig,
+                      self.tr("Error: {0}").format(exc), RED)
             self._log(f"MGE XE Wizard error: {exc}")
             safe_emit(self._install_done_sig)
 
@@ -221,15 +228,16 @@ class MGEXEView(WizardViewBase):
         try:
             archive = self._archive_path
             if archive is None or not archive.is_file():
-                raise RuntimeError("Archive not found.")
+                raise RuntimeError(self.tr("Archive not found."))
             mode = self._dest_mode
             if mode == "mod":
                 name = self._mod_name_edit.text().strip() or _MOD_FALLBACK_NAME
                 safe_emit(self._install_status_sig,
-                          f"Installing MGE XE as mod '{name}'…", "")
+                          self.tr("Installing MGE XE as mod '{0}'…")
+                          .format(name), "")
             else:
                 safe_emit(self._install_status_sig,
-                          "Extracting archive to Root_Folder…", "")
+                          self.tr("Extracting archive to Root_Folder…"), "")
 
             dest_label, file_count, mod_name = install_archive_payload(
                 self._game, archive, mode,
@@ -238,17 +246,20 @@ class MGEXEView(WizardViewBase):
             self._ran = True
 
             if mode == "mod":
-                msg = (f"MGE XE installed as mod '{mod_name}'.\n"
-                       f"{file_count} file(s) staged.\n\n"
-                       "Deploy to apply it.\n\nClick Done to close.")
+                msg = self.tr("MGE XE installed as mod '{0}'.\n"
+                              "{1} file(s) staged.\n\n"
+                              "Deploy to apply it.\n\nClick Done to close.") \
+                    .format(mod_name, file_count)
             else:
-                msg = ("MGE XE installed to Root_Folder!\n"
-                       f"{file_count} file(s) extracted.\n\n"
-                       "Deploy to apply it.\n\nClick Done to close.")
+                msg = self.tr("MGE XE installed to Root_Folder!\n"
+                              "{0} file(s) extracted.\n\n"
+                              "Deploy to apply it.\n\nClick Done to close.") \
+                    .format(file_count)
             safe_emit(self._install_status_sig, msg, GREEN)
             safe_emit(self._install_done_sig)
         except Exception as exc:
-            safe_emit(self._install_status_sig, f"Error: {exc}", RED)
+            safe_emit(self._install_status_sig,
+                      self.tr("Error: {0}").format(exc), RED)
             self._log(f"MGE XE Wizard error: {exc}")
             safe_emit(self._install_done_sig)
 
@@ -269,7 +280,8 @@ class MGEXEView(WizardViewBase):
             self._game, log_fn=lambda m: self._log(f"MGE XE Wizard: {m}"),
             allow_runner_fallback=True)
         if result is None:
-            raise RuntimeError("Could not determine Proton version for this game.")
+            raise RuntimeError(
+                self.tr("Could not determine Proton version for this game."))
         proton_script, _compat_data, env = result
         self._log(f"MGE XE Wizard: launching {exe} via Proton")
         proc = subprocess.Popen(
@@ -285,4 +297,5 @@ class MGEXEView(WizardViewBase):
         if proc.returncode != 0:
             stderr = (proc.stderr.read() or b"").decode(errors="replace").strip()
             raise RuntimeError(
-                f"{exe.name} exited with code {proc.returncode}.\n{stderr}")
+                self.tr("{0} exited with code {1}.\n{2}")
+                .format(exe.name, proc.returncode, stderr))

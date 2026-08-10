@@ -77,7 +77,10 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
     game_domain, mod_id = parsed
     from Utils.mpi_auto_fetch import start_auto_fetch
     from Utils.wizard_archives import find_archive, get_downloads_dir
-    tr = QCoreApplication.translate
+    # NOTE: call QCoreApplication.translate() spelled out - pyside6-lupdate
+    # matches that literal name. Behind a local alias it falls back to the
+    # QObject.tr(source, disambiguation) signature and mis-extracts the
+    # context as the source string.
     last_pct = [-1]
     armed_at = time.time()
 
@@ -102,20 +105,22 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
         if pct == last_pct[0]:
             return
         last_pct[0] = pct
-        status_cb(tr("WizardViewBase",
-                     "Downloading {0} from Nexus… {1}%").format(label, pct), "")
+        status_cb(QCoreApplication.translate(
+            "WizardViewBase",
+            "Downloading {0} from Nexus… {1}%").format(label, pct), "")
 
     def _started():
         gate_cb(False)
-        status_cb(tr("WizardViewBase",
-                     "Premium account - downloading {0} from Nexus…")
-                  .format(label), "")
+        status_cb(QCoreApplication.translate(
+            "WizardViewBase",
+            "Premium account - downloading {0} from Nexus…").format(label), "")
 
     def _waiting():
         gate_cb(True)
-        status_cb(tr("WizardViewBase",
-                     "The archive is picked up automatically once the "
-                     "download finishes."), "")
+        status_cb(QCoreApplication.translate(
+            "WizardViewBase",
+            "The archive is picked up automatically once the "
+            "download finishes."), "")
 
     start_auto_fetch(
         api=api,
