@@ -12,7 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QRect, QSize, QTimer
-from PySide6.QtGui import QTextCursor, QTextCharFormat, QColor, QFont, QPainter
+from PySide6.QtGui import (
+    QTextCursor, QTextCharFormat, QColor, QFont, QPainter, QShortcut,
+    QKeySequence,
+)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPlainTextEdit, QLineEdit,
     QPushButton, QTextEdit,
@@ -185,6 +188,7 @@ class TextEditor(QWidget):
         hb.addWidget(self._revert_btn)
         self._save_btn = QPushButton(self.tr("Save"))
         self._save_btn.setObjectName("PrimaryButton")
+        self._save_btn.setToolTip(self.tr("Save (Ctrl+S)"))
         self._save_btn.clicked.connect(self.save)
         hb.addWidget(self._save_btn)
         v.addWidget(header)
@@ -204,6 +208,10 @@ class TextEditor(QWidget):
         self._hl_format.setBackground(qc(p, "ACCENT"))
         self._hl_format.setForeground(qc(p, "TEXT_ON_ACCENT"))
 
+        self._save_sc = QShortcut(QKeySequence.Save, self)
+        self._save_sc.setContext(Qt.WidgetWithChildrenShortcut)
+        self._save_sc.activated.connect(self._save_shortcut)
+
     # -- load / save --------------------------------------------------------
     def load_file(self, path: Path, display_name: str = ""):
         """Swap the edited file in place (reuse-one-editor)."""
@@ -221,6 +229,11 @@ class TextEditor(QWidget):
         self._edit.setPlainText(self._original)
         self._edit.blockSignals(False)
         self._set_dirty(False)
+
+    def _save_shortcut(self):
+        # Don't rewrite an unchanged file - it would bump the mtime for nothing.
+        if self._dirty:
+            self.save()
 
     def save(self):
         try:
