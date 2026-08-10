@@ -105,6 +105,8 @@ class MyCollectionsView(QWidget):
     _categories_ready = Signal(object)   # [(id, name), …]
     _image_ready = Signal(str, object)   # (url, image bytes | None) → UI thread
 
+    _ID_PANEL_W = 340                    # image / name / summary / category
+
     def __init__(self, window, api, log_fn=None):
         super().__init__()
         self._window = window
@@ -194,22 +196,25 @@ class MyCollectionsView(QWidget):
         self._table.itemSelectionChanged.connect(self._on_selection_changed)
         ch.addWidget(self._table, 1)
 
-        panel = QWidget()
-        panel.setObjectName("MCSidePanel")
-        panel.setFixedWidth(340)
-        pv = QVBoxLayout(panel)
-        pv.setContentsMargins(12, 10, 12, 10)
-        pv.setSpacing(4)
+        # Identity panel: what the collection IS (image, name, summary,
+        # category). Split out from the actions panel so the image and the
+        # description/changelog boxes both get room to breathe.
+        id_panel = QWidget()
+        id_panel.setObjectName("MCSidePanel")
+        id_panel.setFixedWidth(self._ID_PANEL_W)
+        iv = QVBoxLayout(id_panel)
+        iv.setContentsMargins(12, 10, 12, 10)
+        iv.setSpacing(4)
 
         self._detail_title = QLabel(self.tr("Select a collection"))
         self._detail_title.setStyleSheet("font-weight: 600; font-size: 14px;")
         self._detail_title.setWordWrap(True)
-        pv.addWidget(self._detail_title)
+        iv.addWidget(self._detail_title)
         self._detail_hint = QLabel("")
         self._detail_hint.setObjectName("MCHint")
         self._detail_hint.setWordWrap(True)
-        pv.addWidget(self._detail_hint)
-        pv.addSpacing(6)
+        iv.addWidget(self._detail_hint)
+        iv.addSpacing(6)
 
         # Tile image preview. The API has no way to SET one (editCollection
         # carries no image argument and no media mutation exists - verified by
@@ -218,27 +223,38 @@ class MyCollectionsView(QWidget):
         self._detail_image = QLabel()
         self._detail_image.setAlignment(Qt.AlignCenter)
         self._detail_image.setVisible(False)
-        pv.addWidget(self._detail_image)
+        iv.addWidget(self._detail_image)
         self._image_note = QLabel("")
         self._image_note.setObjectName("MCHint")
         self._image_note.setWordWrap(True)
         self._image_note.setVisible(False)
-        pv.addWidget(self._image_note)
-        pv.addSpacing(6)
+        iv.addWidget(self._image_note)
+        iv.addSpacing(6)
 
         self._name = QLineEdit()
         self._summary = QLineEdit()
         self._summary.setPlaceholderText(self.tr("One-line summary"))
-        self._description = QPlainTextEdit()
-        self._description.setFixedHeight(90)
         self._category = QComboBox()
         for label, widget in ((self.tr("Name"), self._name),
                               (self.tr("Summary"), self._summary),
-                              (self.tr("Category"), self._category),
-                              (self.tr("Description"), self._description)):
-            pv.addWidget(QLabel(label))
-            pv.addWidget(widget)
-            pv.addSpacing(2)
+                              (self.tr("Category"), self._category)):
+            iv.addWidget(QLabel(label))
+            iv.addWidget(widget)
+            iv.addSpacing(2)
+        iv.addStretch(1)
+
+        panel = QWidget()
+        panel.setObjectName("MCSidePanel")
+        panel.setFixedWidth(340)
+        pv = QVBoxLayout(panel)
+        pv.setContentsMargins(12, 10, 12, 10)
+        pv.setSpacing(4)
+
+        pv.addWidget(QLabel(self.tr("Description")))
+        self._description = QPlainTextEdit()
+        self._description.setMinimumHeight(120)
+        pv.addWidget(self._description, 3)
+        pv.addSpacing(2)
 
         self._save_btn = QPushButton(self.tr("Save changes"))
         self._save_btn.setObjectName("FormButton")
@@ -249,16 +265,16 @@ class MyCollectionsView(QWidget):
 
         pv.addWidget(QLabel(self.tr("Revision changelog")))
         self._changelog = QPlainTextEdit()
-        self._changelog.setFixedHeight(70)
+        self._changelog.setMinimumHeight(90)
         self._changelog.setPlaceholderText(
             self.tr("What changed in this revision - optional"))
-        pv.addWidget(self._changelog)
+        pv.addWidget(self._changelog, 2)
         self._changelog_btn = QPushButton(self.tr("Save changelog"))
         self._changelog_btn.setObjectName("FormButton")
         self._changelog_btn.setCursor(Qt.PointingHandCursor)
         self._changelog_btn.clicked.connect(self._on_save_changelog)
         pv.addWidget(self._changelog_btn)
-        pv.addStretch(1)
+        pv.addSpacing(8)
 
         self._publish_btn = QPushButton(self.tr("Publish draft revision"))
         self._publish_btn.setObjectName("PrimaryButton")
@@ -286,6 +302,7 @@ class MyCollectionsView(QWidget):
         row.addWidget(self._open_btn, 1)
         pv.addLayout(row)
 
+        ch.addWidget(id_panel)
         ch.addWidget(panel)
         root.addWidget(content, 1)
         self._set_detail_enabled(False)
@@ -463,7 +480,8 @@ class MyCollectionsView(QWidget):
                     "Opens this collection's install page."))
 
     # -- tile image preview -------------------------------------------------
-    _IMG_MAX_W, _IMG_MAX_H = 316, 200   # panel inner width / height cap
+    _IMG_MAX_W = _ID_PANEL_W - 24       # identity-panel inner width
+    _IMG_MAX_H = 260                    # height cap
 
     def _show_image(self, col):
         """Show the selection's tile image: cache hit → apply, else fetch."""
