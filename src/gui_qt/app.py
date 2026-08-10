@@ -6438,7 +6438,9 @@ class MainWindow(QMainWindow):
             return
         names = [target] if isinstance(target, str) else list(target or ())
         from Nexus.nexus_meta import read_meta
-        from gui_qt.modlist_data import _parse_missing_req_pairs
+        from gui_qt.modlist_data import (
+            _apply_req_substitutions, _parse_missing_req_pairs)
+        subs_cache: dict = {}
         # meta.ini keeps the FULL seeded requirement list on purpose (so a
         # requirement reappears if its mod is later removed) - filter out the
         # ones already installed here, exactly like the ⚠ flag pass does.
@@ -6449,16 +6451,24 @@ class MainWindow(QMainWindow):
         specs = []
         for name in names:
             meta = read_meta(staging / name / "meta.ini")
+            mod_domain = (getattr(meta, "game_domain", "") or domain)
             raw = getattr(meta, "missing_requirements", "") or ""
-            ids = {mid for mid, _ in _parse_missing_req_pairs(raw)}
+            # Requirement substitutions (e.g. Nemesis → Pandora) are applied on
+            # read too, so a meta.ini stamped before the rule existed still
+            # offers the replacement rather than the mod we're steering away from.
+            sub_dom = mod_domain.strip().lower()
+            ids = {mid for mid, _ in _apply_req_substitutions(
+                _parse_missing_req_pairs(raw), sub_dom, subs_cache)}
             ids -= installed_ids
             if not ids:
                 continue
-            ignored_ids = {mid for mid, _ in _parse_missing_req_pairs(
-                getattr(meta, "ignored_requirements", "") or "")}
+            ignored_ids = {mid for mid, _ in _apply_req_substitutions(
+                _parse_missing_req_pairs(
+                    getattr(meta, "ignored_requirements", "") or ""),
+                sub_dom, subs_cache)}
             specs.append({"mod_name": name,
                           "mod_id": int(getattr(meta, "mod_id", 0) or 0),
-                          "domain": getattr(meta, "game_domain", "") or domain,
+                          "domain": mod_domain,
                           "missing_ids": ids,
                           "ignored_ids": ignored_ids & ids})
         if not specs:

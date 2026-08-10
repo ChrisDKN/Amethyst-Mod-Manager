@@ -1,5 +1,6 @@
 #Used to filter false positives in missing requirements by modid. Often mods have requirements of external tools or redundant mods that are picked up by the update checker, this filters them out.
 #Ids separated by # makes the script check for other mods first for example 33746#92109 Dynamic animation replacer is satisfied if Open animation replacer is installed
+#Ids separated by > swap a requirement for a different mod, for example 60033>133232 reports Pandora instead of Nemesis (which does not run under Proton). An optional |Name after the id sets the name shown until the mod page is read.
 #This list is saved to .config and can be added to manually. The saved list is appended to with updates so no redownloading of the mod manager is required
 
 skyrimspecialedition:30379
@@ -12,6 +13,7 @@ skyrimspecialedition:30457
 skyrimspecialedition:201
 skyrimspecialedition:106441
 skyrimspecialedition:60033#133232
+skyrimspecialedition:60033>133232|Pandora Behaviour Engine+
 
 fallout4:2737
 fallout4:42147

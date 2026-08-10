@@ -48,6 +48,37 @@ def _parse_missing_req_pairs(raw: str) -> list[tuple[int, str]]:
     return pairs
 
 
+def _apply_req_substitutions(pairs: list[tuple[int, str]], domain: str,
+                             cache: dict) -> list[tuple[int, str]]:
+    """Rewrite requirement pairs through the filter file's substitution rules
+    (e.g. Nemesis 60033 → Pandora 133232), deduping the result.
+
+    meta.ini values stamped before a rule existed still name the old mod, so the
+    flag pass and the Missing Requirements panel remap on read; the next
+    requirements check rewrites the stored value for good. Rules come from the
+    local filter cache only (no network) and are memoised per domain."""
+    if domain not in cache:
+        try:
+            from Nexus.nexus_requirements import load_requirement_substitutions
+            cache[domain] = load_requirement_substitutions(domain)
+        except Exception:
+            cache[domain] = {}
+    subs = cache[domain]
+    if not subs:
+        return pairs
+    out: list[tuple[int, str]] = []
+    seen: set[int] = set()
+    for mid, name in pairs:
+        repl = subs.get(mid)
+        if repl is not None:
+            mid, name = repl[0], (repl[1] or name)
+        if mid in seen:
+            continue
+        seen.add(mid)
+        out.append((mid, name))
+    return out
+
+
 def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                           ignored_reqs: frozenset[str] = frozenset(),
                           profile_dir: "Path | None" = None,
@@ -86,6 +117,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     # requirements (e.g. the TTW installer) still surface.
     installed_ids: set[int] = set()
     raw_missing_pairs: dict[str, list[tuple[int, str]]] = {}
+    # domain → substitution rules, filled on first use (see _apply_req_substitutions)
+    subs_cache: dict[str, dict[int, tuple[int, str]]] = {}
 
     try:
         from Nexus.nexus_meta import read_meta
@@ -157,12 +190,17 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         if getattr(meta, "mod_id", 0):
             installed_ids.add(int(meta.mod_id))
         if getattr(meta, "missing_requirements", "") and e.name not in ignored_reqs:
-            pairs = _parse_missing_req_pairs(meta.missing_requirements)
+            dom = (getattr(meta, "game_domain", "") or "").strip().lower()
+            pairs = _apply_req_substitutions(
+                _parse_missing_req_pairs(meta.missing_requirements),
+                dom, subs_cache)
             # Per-requirement ignores (meta.ini ignoredRequirements): those ids
             # never raise the ⚠ flag, but stay in missing_requirements so the
             # Missing Requirements panel still lists them (un-ignorable there).
-            ign_ids = {mid for mid, _ in _parse_missing_req_pairs(
-                getattr(meta, "ignored_requirements", "") or "")}
+            ign_ids = {mid for mid, _ in _apply_req_substitutions(
+                _parse_missing_req_pairs(
+                    getattr(meta, "ignored_requirements", "") or ""),
+                dom, subs_cache)}
             if ign_ids:
                 pairs = [pr for pr in pairs if pr[0] not in ign_ids]
             if pairs:
