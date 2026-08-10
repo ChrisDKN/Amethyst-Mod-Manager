@@ -34,6 +34,10 @@ def find_eslifier_exe(game: "BaseGame") -> Path | None:
     return tool_exe_path(game, EXE_NAME, APP_DIR)
 
 
+def _safe_profile_name(profile: str) -> str:
+    return "".join(c if c.isalnum() or c in "-_" else "_" for c in profile)
+
+
 def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
                    log_fn: Callable[[str], None] = _noop) -> "Path | None":
     """Write/merge ESLifier_Data/settings.json next to the exe and return the
@@ -42,6 +46,15 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
     All paths are stored as Wine (Z:\\) paths because ESLifier walks and
     opens them from inside the Proton prefix. Existing user-tweaked keys are
     preserved; only the path/mode keys we manage are overwritten.
+
+    ESLifier 0.16+ dropped the explicit MO2-mode path keys: it now takes an
+    MO2 instance folder (``mo2_base_path``) plus a profile name and derives
+    the mods folder, overwrite folder, modlist.txt and plugins.txt itself
+    from ``ModOrganizer.ini``. We fabricate a minimal fake instance inside
+    ESLifier_Data whose ini points the mods folder at the prefix-free scan
+    mirror and whose single profile holds the filtered modlist plus a copy
+    of the real plugins.txt. The pre-0.16 keys are still written alongside
+    so an already-installed older ESLifier keeps working.
     """
     from Utils.wine_paths import to_wine_path
 
@@ -77,10 +90,44 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
     scan_root = build_mods_mirror(staging, profile, settings_dir, log_fn)
     scan_mirror = scan_root if scan_root != staging else None
 
-    # Belt and braces: also hand ESLifier a modlist copy with prefix mods
-    # removed (cheap, and keeps its enabled set in sync with the mirror).
+    # Fake MO2 instance for ESLifier 0.16+. It lists <profiles_dir>/ to
+    # populate its profile dropdown and reads modlist.txt/plugins.txt from
+    # <profiles_dir>/<profile>/, so the instance needs exactly one profile
+    # folder carrying both files. ESLifier only ever reads them, so plain
+    # copies are safe.
+    instance_dir = settings_dir / f"mo2_instance_{_safe_profile_name(profile)}"
+    fake_profile_dir = instance_dir / "profiles" / profile
+    fake_profile_dir.mkdir(parents=True, exist_ok=True)
+
+    # Hand ESLifier a modlist copy with prefix mods removed (keeps its
+    # enabled set in sync with the mirror). Pre-0.16 versions read it via
+    # the mo2_modlist_txt_path key; 0.16+ finds it in the fake profile.
     modlist_for_eslifier = write_filtered_modlist(
-        modlist_txt, staging, settings_dir / "modlist.txt", log_fn
+        modlist_txt, staging, fake_profile_dir / "modlist.txt", log_fn
+    )
+    if modlist_for_eslifier != fake_profile_dir / "modlist.txt":
+        # Filtering failed - fall back to an unfiltered copy so ESLifier's
+        # profile validation (modlist.txt must exist) still passes.
+        try:
+            shutil.copyfile(modlist_txt, fake_profile_dir / "modlist.txt")
+        except OSError as exc:
+            log_fn(f"could not copy modlist.txt into the fake MO2 profile ({exc})")
+
+    if plugins_txt.is_file():
+        try:
+            shutil.copyfile(plugins_txt, fake_profile_dir / "plugins.txt")
+        except OSError as exc:
+            log_fn(f"could not copy plugins.txt into the fake MO2 profile ({exc})")
+
+    # ESLifier reads these three paths from the ini (configparser,
+    # interpolation disabled); anything else in a real ModOrganizer.ini is
+    # ignored, so this minimal [Settings] section is a complete instance.
+    (instance_dir / "ModOrganizer.ini").write_text(
+        "[Settings]\n"
+        f"mod_directory={to_wine_path(scan_root, pfx)}\n"
+        f"overwrite_directory={to_wine_path(overwrite, pfx)}\n"
+        f"profiles_directory={to_wine_path(instance_dir / 'profiles', pfx)}\n",
+        encoding="utf-8",
     )
 
     existing: dict = {}
@@ -93,6 +140,13 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
             existing = {}
 
     existing.update({
+        # ESLifier 0.16+ keys. On load it migrates a present mo2_mode=True to
+        # mod_manager_mode=2, so writing both stays consistent.
+        "mod_manager_mode":     2,
+        "mo2_base_path":        to_wine_path(instance_dir, pfx),
+        "mo2_profile":          profile,
+        "mo2_profiles_dir":     to_wine_path(instance_dir / "profiles", pfx),
+        # Pre-0.16 keys, kept for already-installed older ESLifiers.
         "mo2_mode": True,
         # In MO2 mode "skyrim_folder_path" is actually the MO2 mods folder.
         # Point it at the prefix-free mirror so ESLifier never walks into a
@@ -110,6 +164,7 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
         encoding="utf-8",
     )
     log_fn(f"wrote settings → {settings_file}")
+    log_fn(f"  MO2 instance: {instance_dir}")
     log_fn(f"  scan folder:  {scan_root}")
     log_fn(f"  output:       {staging}")
     log_fn(f"  overwrite:    {overwrite}")
@@ -135,8 +190,7 @@ def build_mods_mirror(staging: Path, profile: str, settings_dir: Path,
     :func:`mirror_tree` falls back to a symlink on failure. Rebuilt from
     scratch each run so it always reflects the current load order.
     """
-    safe_profile = "".join(c if c.isalnum() or c in "-_" else "_" for c in profile)
-    mirror = settings_dir / f"scan_{safe_profile}"
+    mirror = settings_dir / f"scan_{_safe_profile_name(profile)}"
 
     try:
         if mirror.exists():
