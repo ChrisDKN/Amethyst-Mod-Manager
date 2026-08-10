@@ -14,7 +14,7 @@ from pathlib import Path
 
 from Games.base_game import BaseGame, WizardTool, MODERN_DIRECTX_DEPS
 from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
-from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links
+from Utils.deploy import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links, remove_probe_stub_dirs
 from Utils.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
@@ -122,6 +122,15 @@ class Fallout_3(BaseGame):
     @property
     def plugin_extensions(self) -> list[str]:
         return [".esp", ".esl", ".esm"]
+
+    @property
+    def probe_stub_dirs(self) -> "list[str]":
+        # The engine prepends "Data\" to paths that already start with it,
+        # so it probes Data\Data tens of thousands of times per load and
+        # every miss scans all ~550 Data entries to prove absence. An empty
+        # stub makes the miss free: measured on Skyrim SE, directory-entry
+        # visits over a load fell 33.4M -> 1.9M (GH#374).
+        return ["Data/Data"]
 
     @property
     def case_alias_dirs(self) -> "list[str]":
@@ -1603,6 +1612,8 @@ class Fallout_3(BaseGame):
         _log("Restore: removing case-alias symlinks ...")
         remove_case_alias_links(self._game_path, self.case_alias_dirs,
                                 log_fn=_log)
+        remove_probe_stub_dirs(self._game_path, self.probe_stub_dirs,
+                               log_fn=_log)
 
         _log("Restore: reverting archive invalidation ...")
         self.revert_archive_invalidation(_log)

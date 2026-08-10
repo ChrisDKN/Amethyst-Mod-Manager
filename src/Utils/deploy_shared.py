@@ -2031,6 +2031,61 @@ def deploy_case_alias_links(game_root: Path, alias_dirs, log_fn=None) -> int:
     return created
 
 
+def create_probe_stub_dirs(game_root: Path, stub_dirs, log_fn=None) -> int:
+    """Create empty stub directories for paths the engine probes but that
+    never exist (GH#374).
+
+    The Creation Engine repeatedly prepends ``Data\\`` to paths that already
+    start with it, producing tens of thousands of lookups for
+    ``Data\\Data\\...``.  Every one of those misses makes Wine scan the whole
+    Data directory (~550 entries) just to prove the name is absent -
+    measured at 31.4M of the load's 33.4M total directory-entry visits.
+    An empty stub turns each miss into an exact hit on a directory with
+    nothing in it, which costs nothing to scan: entry visits dropped to
+    1.9M (-94%) and the load got measurably faster.
+
+    Stubs are created before the case-alias step so the alias pass gives
+    them their case variants too (the engine asks in lowercase).  Returns
+    the number created.
+    """
+    _log = _safe_log(log_fn)
+    created = 0
+    for rel in stub_dirs or ():
+        target = game_root / rel.replace("\\", "/").strip("/")
+        if target.is_dir():
+            continue
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            created += 1
+        except OSError as exc:
+            _log(f"  WARN: probe stub {rel!r}: {exc}")
+    if created:
+        _log(f"  Probe stubs: {created} empty dir(s) created.")
+    return created
+
+
+def remove_probe_stub_dirs(game_root: Path, stub_dirs, log_fn=None) -> int:
+    """Remove stub directories created by `create_probe_stub_dirs`.
+
+    Only ever removes an EMPTY directory, so a stub that has since been
+    filled (a mod deploying real content there) is left alone.  Parents are
+    not touched.  Returns the number removed.
+    """
+    _log = _safe_log(log_fn)
+    removed = 0
+    for rel in stub_dirs or ():
+        target = game_root / rel.replace("\\", "/").strip("/")
+        try:
+            if target.is_dir() and not target.is_symlink():
+                target.rmdir()          # raises if non-empty - intended
+                removed += 1
+        except OSError:
+            pass
+    if removed:
+        _log(f"  Probe stubs: {removed} empty dir(s) removed.")
+    return removed
+
+
 def _case_alias_parent_dirs(game_root: Path, alias_dirs):
     """Yield the unique parent directories that hold aliases for *alias_dirs*."""
     seen = set()
@@ -2224,6 +2279,8 @@ __all__ = [
     "restore_custom_deploy_backup_for_path",
     "deploy_case_alias_links",
     "remove_case_alias_links",
+    "create_probe_stub_dirs",
+    "remove_probe_stub_dirs",
     # Private helpers (re-exported via façade for back-compat)
     "_mkdir_leaves",
     "_deploy_workers",

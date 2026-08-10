@@ -700,6 +700,25 @@ class BaseGame(ABC):
         return {}
 
     @property
+    def probe_stub_dirs(self) -> "list[str]":
+        """
+        Game-root-relative directories to create EMPTY at deploy time
+        because the engine repeatedly looks for them and they never exist.
+
+        A lookup that misses costs Wine a full scan of the parent directory
+        to prove the name is absent; an empty stub turns that into an exact
+        hit on a directory with nothing to scan.  Measured on Skyrim SE
+        (GH#374): the engine probes ``Data\\Data`` ~57k times per load, which
+        was 31.4M of the load's 33.4M directory-entry visits - stubbing it
+        cut entry visits by 94%.
+
+        Created before the ``case_alias_dirs`` pass so the stub gets its
+        case variants too, removed on restore only while still empty, and
+        gated on the same ``case_alias_links`` setting.  Empty by default.
+        """
+        return []
+
+    @property
     def case_alias_dirs(self) -> "list[str]":
         """
         Game-root-relative directories to mirror with case-variant symlink
