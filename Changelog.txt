@@ -3,6 +3,7 @@
 - Added the ability to create, edit and upload collections to Nexus
 - Added an option to deploy Bethesda games with case alias symlinks to improve loading times (on by default)
 - Added a prefix health check option to display any missing dependancies
+- Added right click options to files in the saves tab
 ### Changes
 - The move to separator menu can now be searched if the list of separators is long enough
 ### Bug Fixes
