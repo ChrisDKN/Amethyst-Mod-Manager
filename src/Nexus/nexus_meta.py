@@ -415,6 +415,18 @@ def build_meta_from_download(
     return meta
 
 
+def has_reinstall_carryover(installed: "NexusModMeta | None") -> bool:
+    """True when an installed meta carries anything merge_reinstall_metadata
+    would preserve. Reinstall callers must NOT hand _write_install_meta a
+    prebuilt meta otherwise: an identity-less prebuilt short-circuits its
+    filename/MD5 Nexus lookup, so a mod that was never identified at install
+    time would stay unidentified forever."""
+    return installed is not None and bool(
+        getattr(installed, "mod_id", 0)
+        or getattr(installed, "root_folder", False)
+        or getattr(installed, "from_collection", ""))
+
+
 def merge_reinstall_metadata(
     refreshed: "NexusModMeta | None",
     installed: "NexusModMeta | None",
@@ -424,7 +436,9 @@ def merge_reinstall_metadata(
     API/download metadata remains authoritative when available.  A local
     reinstall can reuse stable package identity from the installed metadata,
     while install-layout and collection ownership must survive either path.
-    Transient update-check and user-state fields are deliberately excluded.
+    Transient update-check state is deliberately excluded (re-derived by the
+    next check), as is from_collection_patched (a plain reinstall does NOT
+    reapply a collection's BSDIFF patches, so the badge would lie).
     """
     meta = copy.copy(refreshed) if refreshed is not None else NexusModMeta()
     if installed is None:
@@ -449,8 +463,19 @@ def merge_reinstall_metadata(
         if not getattr(meta, field_name):
             setattr(meta, field_name, getattr(installed, field_name))
 
+    # Layout + ownership come from the INSTALLED meta unconditionally - a
+    # fresh API/download meta can never know them (build_meta_from_download
+    # leaves them at defaults), and losing root_folder flattens a root
+    # package's Data/ tree on reinstall (the bug this merge exists to fix).
     meta.root_folder = installed.root_folder
     meta.from_collection = installed.from_collection
+    meta.from_collection_bundled = installed.from_collection_bundled
+    # A dismissed update nag survives reinstalling the SAME file - the update
+    # checker un-ignores by itself when a version STRICTLY NEWER than
+    # ignored_version appears (nexus_update_checker), so this can't hide a
+    # genuinely new update.
+    meta.ignore_update = installed.ignore_update
+    meta.ignored_version = installed.ignored_version
     return meta
 
 

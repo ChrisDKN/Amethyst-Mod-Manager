@@ -5404,7 +5404,8 @@ class MainWindow(QMainWindow):
         paths: list[str] = []
         redownload: list[tuple] = []     # (..., filename, installed_meta)
         missing: list[str] = []          # no archive AND no Nexus info to redownload
-        from Nexus.nexus_meta import merge_reinstall_metadata
+        from Nexus.nexus_meta import (has_reinstall_carryover,
+                                      merge_reinstall_metadata)
         for nm in names:
             meta = _read_mod_meta(self._modlist_view, nm)
             arc = _installation_archive(self._modlist_view, nm)
@@ -5412,7 +5413,13 @@ class MainWindow(QMainWindow):
                 archive_path = str(arc)
                 paths.append(archive_path)
                 preferred[archive_path] = nm
-                if meta is not None:
+                # Only prebuild a meta when there is something to carry over
+                # (identity / root_folder / collection ownership). EVERY
+                # installed mod has a meta.ini, and a prebuilt meta makes
+                # _write_install_meta skip its filename/MD5 Nexus lookup - so
+                # passing a thin one through would leave a never-identified
+                # mod unidentified forever.
+                if has_reinstall_carryover(meta):
                     metas[archive_path] = merge_reinstall_metadata(None, meta)
                 continue
             # Archive gone - fall back to a Nexus redownload if this mod carries
@@ -5663,7 +5670,8 @@ class MainWindow(QMainWindow):
         `enriched` = [(mod_name, domain, mod_id, file_id, NexusModFile-like,
         installed_meta), …]."""
         from Nexus.manual_download_watch import start_manual_install
-        from Nexus.nexus_meta import merge_reinstall_metadata
+        from Nexus.nexus_meta import (has_reinstall_carryover,
+                                      merge_reinstall_metadata)
         from Utils.xdg import open_url
         from gui_qt.safe_emit import safe_emit
 
@@ -5679,7 +5687,12 @@ class MainWindow(QMainWindow):
                            _installed=installed_meta):
                 if not self._claim_app_manual_watch(_mid, _key):
                     return
-                meta = merge_reinstall_metadata(meta, _installed)
+                # Merge only when there IS something to merge - the downstream
+                # `meta is not None` guard must stay meaningful so a watcher
+                # that built no meta still gets _write_install_meta's
+                # filename/MD5 lookup instead of an empty prebuilt meta.
+                if meta is not None or has_reinstall_carryover(_installed):
+                    meta = merge_reinstall_metadata(meta, _installed)
                 safe_emit(self._reinstall_manual_found,
                           _nm, str(path), meta, _key)
 
