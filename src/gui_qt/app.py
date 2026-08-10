@@ -111,7 +111,7 @@ _QUICK_CONFIGURE_TR = (
     QT_TRANSLATE_NOOP("MainWindow", "Apply the 4GB patch automatically on deploy"),
     QT_TRANSLATE_NOOP("MainWindow", "Auto deploy (on enable/disable/reorder)"),
     QT_TRANSLATE_NOOP("MainWindow", "Automatic archive invalidation (prefer loose files over BSAs)"),
-    QT_TRANSLATE_NOOP("MainWindow", "Create case-alias symlinks on deploy (major load-time speedup under Proton)"),
+    QT_TRANSLATE_NOOP("MainWindow", "Create case-alias symlinks on deploy (Faster load times)"),
     QT_TRANSLATE_NOOP("MainWindow", "Use profile-specific INI files"),
     QT_TRANSLATE_NOOP("MainWindow", "Use profile-specific saves"),
     QT_TRANSLATE_NOOP("MainWindow", "Prepend load-order numbers to mod folders"),

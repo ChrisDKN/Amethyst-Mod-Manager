@@ -99,8 +99,7 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
     if getattr(game, "case_alias_dirs", None):
         val, apply = _toggle_attr(game, "case_alias_links", True)
         add_toggle("case_alias_links",
-                   "Create case-alias symlinks on deploy (major load-time "
-                   "speedup under Proton)",
+                   "Create case-alias symlinks on deploy (Faster Load times)",
                    val, apply)
 
     # profile_ini_files / profile_saves only manage per-profile INI/save

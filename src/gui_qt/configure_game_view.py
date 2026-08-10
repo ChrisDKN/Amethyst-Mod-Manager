@@ -463,8 +463,7 @@ class ConfigureGameView(QWidget):
                   self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
                   hasattr(self._game, "archive_invalidation_enabled"))
         add_check("case_alias_links",
-                  self.tr("Create case-alias symlinks on deploy (major load-time "
-                          "speedup under Proton)"),
+                  self.tr("Create case-alias symlinks on deploy (Faster load times)"),
                   bool(getattr(self._game, "case_alias_dirs", None)))
         add_check("profile_ini_files",
                   self.tr("Use profile-specific INI files"),
