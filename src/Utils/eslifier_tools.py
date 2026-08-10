@@ -2,10 +2,11 @@
 GUI-neutral core of the ESLifier wizard.
 
 Moved out of wizards/eslifier.py (which imports customtkinter) so the Qt
-wizard view can share it: the settings.json writer (MO2 mode, Wine paths),
-the hardlinked prefix-free staging mirror ESLifier scans (its os.walk +
+wizard view can share it: the settings.json writer (MO2 mode, Wine paths)
+and the hardlinked prefix-free staging mirror ESLifier scans (its os.walk +
 relpath crashes on Wine-prefix ``\\.\\com1`` dosdevices symlinks left inside
-tool-as-mod folders), and the filtered modlist copy.
+tool-as-mod folders).  The fake MO2 instance ESLifier 0.16+ reads is
+fabricated by ``Utils.mo2_stub``.
 """
 
 from __future__ import annotations
@@ -56,6 +57,9 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
     of the real plugins.txt. The pre-0.16 keys are still written alongside
     so an already-installed older ESLifier keeps working.
     """
+    from Utils.mo2_stub import (
+        disable_wine_incompatible_names, drop_prefix_mods, write_mo2_stub,
+    )
     from Utils.wine_paths import to_wine_path
 
     game.set_active_profile_dir(
@@ -94,41 +98,31 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
     # populate its profile dropdown and reads modlist.txt/plugins.txt from
     # <profiles_dir>/<profile>/, so the instance needs exactly one profile
     # folder carrying both files. ESLifier only ever reads them, so plain
-    # copies are safe.
+    # copies are safe. Its configparser (interpolation off) reads just the
+    # mod_directory / overwrite_directory / profiles_directory keys and
+    # ignores everything else the stub writes. The stub's modlist drops
+    # prefix-carrying mods (keeps ESLifier's enabled set in sync with the
+    # mirror); pre-0.16 versions read the same copy via mo2_modlist_txt_path.
     instance_dir = settings_dir / f"mo2_instance_{_safe_profile_name(profile)}"
-    fake_profile_dir = instance_dir / "profiles" / profile
-    fake_profile_dir.mkdir(parents=True, exist_ok=True)
-
-    # Hand ESLifier a modlist copy with prefix mods removed (keeps its
-    # enabled set in sync with the mirror). Pre-0.16 versions read it via
-    # the mo2_modlist_txt_path key; 0.16+ finds it in the fake profile.
-    modlist_for_eslifier = write_filtered_modlist(
-        modlist_txt, staging, fake_profile_dir / "modlist.txt", log_fn
-    )
-    if modlist_for_eslifier != fake_profile_dir / "modlist.txt":
-        # Filtering failed - fall back to an unfiltered copy so ESLifier's
-        # profile validation (modlist.txt must exist) still passes.
-        try:
-            shutil.copyfile(modlist_txt, fake_profile_dir / "modlist.txt")
-        except OSError as exc:
-            log_fn(f"could not copy modlist.txt into the fake MO2 profile ({exc})")
-
-    if plugins_txt.is_file():
-        try:
-            shutil.copyfile(plugins_txt, fake_profile_dir / "plugins.txt")
-        except OSError as exc:
-            log_fn(f"could not copy plugins.txt into the fake MO2 profile ({exc})")
-
-    # ESLifier reads these three paths from the ini (configparser,
-    # interpolation disabled); anything else in a real ModOrganizer.ini is
-    # ignored, so this minimal [Settings] section is a complete instance.
-    (instance_dir / "ModOrganizer.ini").write_text(
-        "[Settings]\n"
-        f"mod_directory={to_wine_path(scan_root, pfx)}\n"
-        f"overwrite_directory={to_wine_path(overwrite, pfx)}\n"
-        f"profiles_directory={to_wine_path(instance_dir / 'profiles', pfx)}\n",
-        encoding="utf-8",
-    )
+    modlist_for_eslifier = instance_dir / "profiles" / profile / "modlist.txt"
+    try:
+        write_mo2_stub(
+            instance_dir,
+            prefix=pfx,
+            mod_directory=scan_root,
+            profile_name=profile,
+            modlist_src=modlist_txt,
+            overwrite_dir=overwrite,
+            plugins_txt=plugins_txt,
+            modlist_transforms=[
+                drop_prefix_mods(staging),
+                disable_wine_incompatible_names(),
+            ],
+            log_fn=log_fn,
+        )
+    except (OSError, RuntimeError) as exc:
+        log_fn(f"could not build the fake MO2 instance ({exc})")
+        modlist_for_eslifier = modlist_txt
 
     existing: dict = {}
     if settings_file.is_file():
@@ -170,8 +164,6 @@ def write_settings(game: "BaseGame", exe: Path, pfx: Path, profile: str,
     log_fn(f"  overwrite:    {overwrite}")
     log_fn(f"  plugins.txt:  {plugins_txt}")
     log_fn(f"  modlist.txt:  {modlist_for_eslifier}")
-    if not plugins_txt.is_file():
-        log_fn(f"  WARN: plugins.txt not found at {plugins_txt}")
     return scan_mirror
 
 
@@ -273,49 +265,3 @@ def cleanup_scan_mirror(mirror: "Path | None",
         pass
 
 
-def write_filtered_modlist(modlist_txt: Path, staging: Path, dest: Path,
-                           log_fn: Callable[[str], None] = _noop) -> Path:
-    """Write a copy of *modlist.txt* with enabled mods that contain a Wine
-    prefix (``prefix_*/``) removed, and return *dest*.
-
-    Returns the original ``modlist_txt`` unchanged if it can't be read.
-    Lines are otherwise preserved verbatim so ESLifier sees the same load
-    order, minus the mods that would crash its os.walk.
-    """
-    try:
-        lines = modlist_txt.read_text(encoding="utf-8").splitlines(keepends=True)
-    except OSError as exc:
-        log_fn(f"could not read modlist.txt ({exc}); using original.")
-        return modlist_txt
-
-    def _has_prefix_dir(mod_name: str) -> bool:
-        mod_dir = staging / mod_name
-        try:
-            return any(
-                e.is_dir() and e.name.startswith("prefix_")
-                for e in mod_dir.iterdir()
-            )
-        except OSError:
-            return False
-
-    kept: list[str] = []
-    removed: list[str] = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith(("+", "*")) and not stripped.endswith("_separator"):
-            mod_name = stripped[1:].strip()
-            if mod_name and _has_prefix_dir(mod_name):
-                removed.append(mod_name)
-                continue
-        kept.append(line)
-
-    try:
-        dest.write_text("".join(kept), encoding="utf-8")
-    except OSError as exc:
-        log_fn(f"could not write filtered modlist ({exc}); using original.")
-        return modlist_txt
-
-    if removed:
-        log_fn(f"excluded {len(removed)} mod(s) with a Wine prefix from the "
-               "scan: " + ", ".join(removed))
-    return dest

@@ -1,27 +1,28 @@
 """
-_mo2_dummy.py
 Build a synthetic ("dummy") Mod Organizer 2 instance so PGPatcher's
 "Conflict Resolution Mod Manager = Mod Organizer 2" mode can attribute each
 conflicting loose file back to its owning mod - giving MO2-parity per-mod
 conflict sorting without a real MO2 / USVFS install.
 
 How PGPatcher reads an MO2 instance (from PGModManager.cpp):
-  * ``modorganizer.ini`` in the instance dir is parsed for ``gameName=``,
+  * ``ModOrganizer.ini`` in the instance dir is parsed for ``gameName=``,
     ``selected_profile=``, ``gamePath=`` and the ``base_directory`` /
-    ``mod_directory`` / ``profiles_directory`` keys.  ``mod_directory`` and
-    ``profiles_directory`` default to ``<base>/mods`` and ``<base>/profiles``
-    when omitted, so we only need ``base_directory``.
-  * ``profiles/<selected_profile>/modlist.txt`` is walked TOP→BOTTOM.  Our
-    manager already uses MO2's exact on-disk format and ordering (top line =
-    highest priority, ``+`` / ``-`` / ``*`` / ``#`` / ``*_separator`` markers),
-    so we copy it through verbatim.
+    ``mod_directory`` / ``profiles_directory`` keys.
+  * ``profiles/<selected_profile>/modlist.txt`` is walked TOP -> BOTTOM.  Our
+    manager already uses MO2's exact on-disk format and ordering, so it is
+    copied through (minus Wine-unaddressable trailing-dot/space mod names,
+    which would abort PGPatcher's whole run).
   * Each enabled mod's folder must exist under ``mod_directory``.  Rather than
     building a symlink tree (which adds a Wine symlink-traversal failure mode),
-    we point ``mod_directory`` straight at the real staging mods folder - the
+    ``mod_directory`` points straight at the real staging mods folder - the
     modlist names are exactly the staging subfolder names.
 
+The instance fabrication itself lives in ``Utils.mo2_stub``; this module adds
+the PGPatcher-specific parts (game identity / Steam-vs-GOG detection and the
+settings.json ``game.type`` int).
+
 PGPatcher still reads the files it actually patches from the deployed game Data
-folder; the dummy only supplies the file→mod map, so a normal deploy is still
+folder; the dummy only supplies the file -> mod map, so a normal deploy is still
 required.  Launch PGPatcher with ``--ignore-mo2vfscheck`` since no USVFS layer
 is present.
 """
@@ -34,7 +35,11 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-from Utils.wine_paths import to_wine_path as _to_wine_path
+from Utils.mo2_stub import (
+    Mo2GameInfo,
+    disable_wine_incompatible_names,
+    write_mo2_stub,
+)
 
 DUMMY_DIRNAME = "amm_mo2_dummy"
 _PROFILE_NAME = "Default"
@@ -109,15 +114,8 @@ def build_mo2_dummy_instance(
     (the tool prefix).  ``game_prefix`` is the *game's* prefix, inspected for
     Steam-vs-GOG detection (its AppData folders reflect what the user actually
     plays); defaults to ``prefix`` when not given.
-
-    - Writes ``modorganizer.ini`` with Wine Z: paths and ``mod_directory``
-      pointed straight at the real staging mods folder.
-    - Copies the active profile's modlist.txt into ``profiles/Default/``
-      verbatim (already MO2-format).
     """
     instance_dir = get_dummy_instance_dir(applications_dir)
-    profile_dir = instance_dir / "profiles" / _PROFILE_NAME
-    profile_dir.mkdir(parents=True, exist_ok=True)
 
     # Self-heal: earlier versions built a mods/ symlink tree here; we now point
     # mod_directory straight at staging, so drop the stale symlink dir.
@@ -126,42 +124,6 @@ def build_mo2_dummy_instance(
         import shutil
         shutil.rmtree(legacy_mods, ignore_errors=True)
 
-    game_path = game.get_game_path()
-    staging = game.get_effective_mod_staging_path()
-    src_modlist = game.get_profile_root() / "profiles" / profile / "modlist.txt"
-
-    if not src_modlist.is_file():
-        raise RuntimeError(f"modlist.txt not found for profile '{profile}': {src_modlist}")
-
-    # --- modlist.txt: copy through, our format == MO2's on-disk format ---
-    # One exception: a mod folder whose name ends in '.' or ' ' cannot be
-    # addressed under Wine (Windows path normalisation strips trailing dots and
-    # spaces), so PGPatcher's filesystem::exists() check fails and it aborts the
-    # WHOLE run with "modlist.txt does not reflect the contents of the mods
-    # folder".  Disable those entries (flip '+' → '-') so PGPatcher skips them.
-    # They're unaddressable to any Wine tool anyway, and typically BSA-only mods
-    # that PGPatcher doesn't need to read loose files from.
-    skipped: list[str] = []
-    out_lines: list[str] = []
-    for line in src_modlist.read_text(encoding="utf-8").splitlines():
-        if line.startswith("+"):
-            name = line[1:]
-            if name.endswith(".") or name.endswith(" "):
-                out_lines.append("-" + name)
-                skipped.append(name)
-                continue
-        out_lines.append(line)
-    (profile_dir / "modlist.txt").write_text("\n".join(out_lines) + "\n", encoding="utf-8")
-
-    if skipped:
-        log_fn(
-            "MO2 dummy: disabled "
-            + str(len(skipped))
-            + " mod(s) with Wine-incompatible names (trailing dot/space): "
-            + ", ".join(repr(s) for s in skipped)
-        )
-
-    # --- modorganizer.ini ---
     game_id = getattr(game, "game_id", "") or ""
     game_name, game_edition, game_type = _GAME_INFO_BY_ID.get(
         game_id, ("Skyrim Special Edition", "Steam", 0)
@@ -172,22 +134,14 @@ def build_mo2_dummy_instance(
         game_name, game_edition, game_type = gog_info
         log_fn("MO2 dummy: detected GOG edition (game.type=1)")
 
-    base_wine = _to_wine_path(instance_dir, prefix)
-    mod_wine = _to_wine_path(staging, prefix)
-    game_wine = _to_wine_path(game_path, prefix) if game_path else ""
-
-    ini = (
-        "[General]\n"
-        f"gameName={game_name}\n"
-        f"selected_profile=@ByteArray({_PROFILE_NAME})\n"
-        f"gamePath=@ByteArray({game_wine})\n"
-        f"game_edition={game_edition}\n"
-        "\n"
-        "[Settings]\n"
-        f"base_directory={base_wine}\n"
-        f"mod_directory={mod_wine}\n"
+    write_mo2_stub(
+        instance_dir,
+        prefix=prefix,
+        mod_directory=game.get_effective_mod_staging_path(),
+        profile_name=_PROFILE_NAME,
+        modlist_src=game.get_profile_root() / "profiles" / profile / "modlist.txt",
+        game_info=Mo2GameInfo(game_name, game_edition, game.get_game_path()),
+        modlist_transforms=[disable_wine_incompatible_names()],
+        log_fn=log_fn,
     )
-    (instance_dir / "modorganizer.ini").write_text(ini, encoding="utf-8")
-
-    log_fn(f"MO2 dummy: built instance at {instance_dir} (mods → {staging})")
     return instance_dir, game_type

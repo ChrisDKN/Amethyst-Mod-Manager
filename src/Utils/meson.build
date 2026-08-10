@@ -92,6 +92,7 @@ py.install_sources(
   'lutris_finder.py',
   'mesh_catalog.py',
   'mo2_dummy.py',
+  'mo2_stub.py',
   'mod_copy.py',
   'mod_files.py',
   'mod_files_versions.py',
