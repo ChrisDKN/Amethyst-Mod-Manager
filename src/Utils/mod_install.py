@@ -660,6 +660,15 @@ def _is_small_fs(path: str, limit_gib: int = 8) -> bool:
         return False
 
 
+def _same_fs(a: str, b: str) -> bool:
+    """True if *a* and *b* are on the same filesystem, or it can't be told
+    (retrying an extraction there would be pointless either way)."""
+    try:
+        return os.stat(a).st_dev == os.stat(b).st_dev
+    except OSError:
+        return True
+
+
 def _free_bytes(path: str) -> int:
     try:
         st = os.statvfs(path)
@@ -718,6 +727,56 @@ def _log_extract_location(extract_dir: Path, log_fn: LogFn) -> None:
         log_fn(f"Extracting to {extract_dir} ({loc}, {free_gb:.1f} GB free)")
     except OSError:
         log_fn(f"Extracting to {extract_dir}")
+
+
+def _extract_with_disk_retry(archive_path: str, staging_root: Path,
+                             log_fn: LogFn, cancel: "threading.Event | None" = None,
+                             progress_cb=None
+                             ) -> "tuple[bool, Path, int, list[str]]":
+    """Extract *archive_path* into a fresh temp dir under a parent with room
+    (:func:`_choose_extract_parent`), retrying ONCE next to the staging folder
+    when the first attempt fails disk-full on a DIFFERENT filesystem. The size
+    probe can undershoot (solid .7z below the probe threshold falls back to
+    ×15) and a RAM-backed /tmp caps out with EDQUOT - the retry gate compares
+    st_dev rather than guessing "ramdisk" from total fs size, which broke on
+    ≥16 GB RAM machines whose half-RAM tmpfs exceeds any size cutoff.
+
+    Returns ``(extracted, extract_dir, tmp_reserved, errors)``; the caller
+    owns the directory and the /tmp reservation."""
+    parent, tmp_reserved = _choose_extract_parent(archive_path, staging_root,
+                                                  log_fn)
+    extract_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
+                                        dir=str(parent) if parent else None))
+    _log_extract_location(extract_dir, log_fn)
+    errors: list[str] = []
+    extracted = _extract_archive(archive_path, str(extract_dir), log_fn,
+                                 cancel=cancel, error_sink=errors,
+                                 progress_cb=progress_cb)
+    if (not extracted and (cancel is None or not cancel.is_set())
+            and any(_is_disk_full_error(e) for e in errors)):
+        disk_parent = staging_root.parent if staging_root else None
+        new_dir = None
+        if disk_parent is not None:
+            try:
+                disk_parent.mkdir(parents=True, exist_ok=True)
+                if not _same_fs(str(extract_dir), str(disk_parent)):
+                    new_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
+                                                    dir=str(disk_parent)))
+            except OSError:
+                new_dir = None
+        if new_dir is not None:
+            log_fn("Extraction ran out of space in the temp folder - "
+                   "retrying next to the staging folder…")
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            _release_tmp_reservation(tmp_reserved)
+            tmp_reserved = 0
+            extract_dir = new_dir
+            _log_extract_location(extract_dir, log_fn)
+            extracted = _extract_archive(archive_path, str(extract_dir),
+                                         log_fn, cancel=cancel,
+                                         error_sink=errors,
+                                         progress_cb=progress_cb)
+    return extracted, extract_dir, tmp_reserved, errors
 
 
 # ---------------------------------------------------------------- extraction
@@ -1260,42 +1319,9 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
 
     # Pick a temp parent big enough - /tmp is a RAM-backed tmpfs on the Deck, so
     # a large mod must extract to the staging disk instead (Tk parity).
-    parent, tmp_reserved = _choose_extract_parent(str(archive),
-                                                  Path(staging_root), log_fn)
-    extract_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
-                                        dir=str(parent) if parent else None))
-    _log_extract_location(extract_dir, log_fn)
-    extract_errors: list[str] = []
-    extracted = _extract_archive(str(archive), str(extract_dir), log_fn,
-                                 cancel=cancel, error_sink=extract_errors,
-                                 progress_cb=_extract_progress)
-    if not extracted and (cancel is None or not cancel.is_set()):
-        # The size estimate can undershoot (a solid .7z with no `7z` binary to
-        # probe falls back to 15× compressed - extreme texture packs reach 30×),
-        # so the pre-check can pass and the extraction still fill a small
-        # RAM-backed /tmp. Retry ONCE on the staging disk - Tk parity
-        # (gui/install_mod.py's disk-full reroute).
-        disk_parent = Path(staging_root).parent
-        if (any(_is_disk_full_error(e) for e in extract_errors)
-                and _is_small_fs(str(extract_dir))
-                and not _is_small_fs(str(disk_parent))):
-            log_fn("Extraction filled the temp ramdisk - retrying on disk…")
-            try:
-                disk_parent.mkdir(parents=True, exist_ok=True)
-                new_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
-                                                dir=str(disk_parent)))
-            except OSError:
-                new_dir = None
-            if new_dir is not None:
-                shutil.rmtree(extract_dir, ignore_errors=True)
-                _release_tmp_reservation(tmp_reserved)
-                tmp_reserved = 0
-                extract_dir = new_dir
-                _log_extract_location(extract_dir, log_fn)
-                extracted = _extract_archive(str(archive), str(extract_dir),
-                                             log_fn, cancel=cancel,
-                                             error_sink=extract_errors,
-                                             progress_cb=_extract_progress)
+    extracted, extract_dir, tmp_reserved, extract_errors = \
+        _extract_with_disk_retry(str(archive), Path(staging_root), log_fn,
+                                 cancel=cancel, progress_cb=_extract_progress)
     if not extracted:
         if cancel is not None and cancel.is_set():
             log_fn("Install: extraction cancelled - removing temp files.")
@@ -1319,13 +1345,19 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     fomod_wrapper = _find_fomod_archive(extract_dir)
     if fomod_wrapper is not None:
         log_fn(f"Archive contains a .fomod wrapper - extracting {fomod_wrapper.name}…")
-        inner_dir = Path(tempfile.mkdtemp(prefix="mm_install_",
-                                          dir=str(extract_dir.parent)))
         _p(0, 0, "Extracting")   # back to indeterminate for the second pass
-        if _extract_archive(str(fomod_wrapper), str(inner_dir), log_fn,
-                            cancel=cancel, progress_cb=_extract_progress):
+        # The wrapper doubles peak usage (outer + inner trees exist at once),
+        # so the inner pass gets its own probe/reservation and disk-full retry
+        # instead of blindly landing in the outer dir's parent.
+        inner_ok, inner_dir, inner_reserved, _inner_errors = \
+            _extract_with_disk_retry(str(fomod_wrapper), Path(staging_root),
+                                     log_fn, cancel=cancel,
+                                     progress_cb=_extract_progress)
+        if inner_ok:
             shutil.rmtree(extract_dir, ignore_errors=True)
+            _release_tmp_reservation(tmp_reserved)
             extract_dir = inner_dir
+            tmp_reserved = inner_reserved
         else:
             if cancel is not None and cancel.is_set():
                 log_fn("Install: extraction cancelled - removing temp files.")
@@ -1334,6 +1366,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             shutil.rmtree(inner_dir, ignore_errors=True)
             shutil.rmtree(extract_dir, ignore_errors=True)
             _release_tmp_reservation(tmp_reserved)
+            _release_tmp_reservation(inner_reserved)
             return None
 
     src_root = _single_root_unwrap(extract_dir)
