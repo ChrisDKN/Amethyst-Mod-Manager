@@ -415,6 +415,45 @@ def build_meta_from_download(
     return meta
 
 
+def merge_reinstall_metadata(
+    refreshed: "NexusModMeta | None",
+    installed: "NexusModMeta | None",
+) -> NexusModMeta:
+    """Build metadata for reinstalling the same installed archive.
+
+    API/download metadata remains authoritative when available.  A local
+    reinstall can reuse stable package identity from the installed metadata,
+    while install-layout and collection ownership must survive either path.
+    Transient update-check and user-state fields are deliberately excluded.
+    """
+    meta = copy.copy(refreshed) if refreshed is not None else NexusModMeta()
+    if installed is None:
+        return meta
+
+    stable_identity = (
+        "game_domain",
+        "mod_id",
+        "file_id",
+        "version",
+        "author",
+        "uploaded_by",
+        "nexus_name",
+        "nexus_file_name",
+        "nexus_url",
+        "description",
+        "category_id",
+        "category_name",
+        "file_category",
+    )
+    for field_name in stable_identity:
+        if not getattr(meta, field_name):
+            setattr(meta, field_name, getattr(installed, field_name))
+
+    meta.root_folder = installed.root_folder
+    meta.from_collection = installed.from_collection
+    return meta
+
+
 # ---------------------------------------------------------------------------
 # Scanning
 # ---------------------------------------------------------------------------
