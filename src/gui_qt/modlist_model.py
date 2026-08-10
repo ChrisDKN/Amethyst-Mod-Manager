@@ -1099,7 +1099,13 @@ class ModListModel(QAbstractTableModel):
         ni = self._natural_row_of(ref)
         if ni < 0:
             return
-        self._natural.insert(ni if above else ni + 1, entry)
+        if self.reverse_mode_active:
+            # Inverted display: visually below *ref* = BEFORE it in natural
+            # order (and vice versa) - mirror add_separator's reverse branch.
+            at = ni + 1 if above else ni
+        else:
+            at = ni if above else ni + 1
+        self._natural.insert(at, entry)
         self._rebuild_display()
         self.save()
 

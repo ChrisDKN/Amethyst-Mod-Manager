@@ -768,7 +768,11 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     if not rows:
         return
     moved_names = {model.entry(r).name for r in rows}
-    moved = [model.entry(r) for r in rows]           # preserve selection order
+    # Take the block in NATURAL order, not display order - the display may be
+    # an inverted/sorted permutation (reverse-priority mode reverses it), and
+    # splicing a display-ordered block into the natural list flips the mods'
+    # relative priorities (GH#380).
+    moved = [e for e in model.natural_entries() if e.name in moved_names]
     old_order = [e.name for e in model.natural_entries() if not e.is_separator]
     # Body = the NATURAL order minus the moved mods - the display may be a
     # sorted/inverted permutation and must never be persisted as the new order.
@@ -816,6 +820,12 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool):
     Each entry copies/moves *names* to that profile (Tk lists the profiles as a
     submenu rather than opening a picker window)."""
     model = view.model()
+    # The copy worker registers the block in the target modlist assuming
+    # highest-priority-first (app._run_copy_to_profile prepends it as one
+    # unit) - reorder the display-ordered selection into NATURAL order so a
+    # reverse-priority (or column-sorted) view doesn't flip the block.
+    nat = {e.name: i for i, e in enumerate(model.natural_entries())}
+    names = sorted(names, key=lambda n: nat.get(n, len(nat)))
     enabled_map = {}
     for r in mod_rows:
         e = model.entry(r)
