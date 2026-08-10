@@ -47,7 +47,11 @@ _PREVIEW_H = 230
 # Expand-arrow size -same as the Data / Mod Files / Text Files delegates.
 _ARROW_SZ = 20
 
-_COL_NAME, _COL_SIZE, _COL_DATE = 0, 1, 2
+_COL_NAME, _COL_TYPE, _COL_SIZE, _COL_DATE = 0, 1, 2, 3
+
+# Row groups, pinned above one another whatever the sort column is: locations,
+# then folders, then files, with notice rows ("(empty)", "…") always last.
+_GRP_LOCATION, _GRP_DIR, _GRP_FILE, _GRP_INFO = 0, 1, 2, 3
 
 # Payload roles on tree items.
 _PATH_ROLE = Qt.UserRole + 1     # the path a row points at
@@ -73,6 +77,53 @@ def _spacer_icon():
 def _ext_of(name: str) -> str:
     """Filter key for a file name: its lowercased extension, or "(none)"."""
     return Path(name).suffix.lower() or "(none)"
+
+
+class _SaveItem(QTreeWidgetItem):
+    """A row that sorts on its real values -bytes and mtime, not the formatted
+    text, and file type by extension.
+
+    Built detached and added in bulk: with sorting enabled Qt places an item the
+    moment it gets a parent, so a row parented before its text is set would sort
+    as an empty row."""
+
+    def __init__(self, group: int, name: str = "", ext: str = "",
+                 size: int = 0, mtime: float = 0.0, order: int = 0):
+        super().__init__()
+        self._group = group
+        self._sort_name = name.casefold()
+        self._ext = ext
+        self._size = size
+        self._mtime = mtime
+        self._order = order
+
+    def _key(self, column: int):
+        if column == _COL_TYPE:
+            # Extensionless files group at the END -"(none)" would otherwise
+            # sort ahead of every real extension on the punctuation.
+            return (self._ext if self._ext != "(none)" else "￿",
+                    self._sort_name)
+        if column == _COL_SIZE:
+            return (self._size, self._sort_name)
+        if column == _COL_DATE:
+            return (self._mtime, self._sort_name)
+        return (self._sort_name,)
+
+    def __lt__(self, other):
+        tree = self.treeWidget()
+        if tree is None or not isinstance(other, _SaveItem):
+            return super().__lt__(other)
+        # Qt sorts descending by swapping the operands, so anything held in a
+        # fixed position has to flip with the direction to stay put.
+        desc = tree.header().sortIndicatorOrder() == Qt.DescendingOrder
+        if self._group != other._group:
+            return self._group > other._group if desc \
+                else self._group < other._group
+        if self._group == _GRP_LOCATION:
+            # Location rows are the resolver's own order (profile saves first),
+            # not data to sort -the sort applies to the saves inside them.
+            return self._order > other._order if desc else self._order < other._order
+        return self._key(tree.sortColumn()) < other._key(tree.sortColumn())
 
 
 def _list_dir(path, log=None, patterns=()) -> tuple[list, bool]:
@@ -214,9 +265,19 @@ class SavesView(QWidget):
         self.mark_dirty()
 
     def set_visible_tab(self, visible: bool):
+        was_visible = self._is_visible
         self._is_visible = visible
         if visible and self._dirty:
             self.refresh()
+        # The details pane is wide (screenshot + plugin list). Left mounted
+        # while this tab is hidden it still pins the whole panel's minimum
+        # width -a QStackedWidget sizes to its largest page, showing or not.
+        # So drop it on the way out and re-parse on the way back in.
+        if not visible and was_visible:
+            self._preview_gen += 1      # kill any parse still in flight
+            self._hide_preview()
+        elif visible and not was_visible:
+            self._preview_for(self.selected_path())
 
     def mark_dirty(self):
         self._dirty = True
@@ -237,8 +298,9 @@ class SavesView(QWidget):
         v.addWidget(self._info)
 
         self._tree = QTreeWidget()
-        self._tree.setColumnCount(3)
-        self._tree.setHeaderLabels([self.tr("Name"), self.tr("Size"), self.tr("Modified")])
+        self._tree.setColumnCount(4)
+        self._tree.setHeaderLabels([self.tr("Name"), self.tr("File type"),
+                                    self.tr("Size"), self.tr("Modified")])
         self._tree.setRootIsDecorated(False)   # we draw our own arrow
         self._tree.setIndentation(_ARROW_SZ + 4)
         self._tree.setUniformRowHeights(True)
@@ -254,8 +316,9 @@ class SavesView(QWidget):
         fm = self._tree.fontMetrics()
         date_w = fm.horizontalAdvance(time.strftime(_DATE_FMT, time.localtime())) + 24
         size_w = fm.horizontalAdvance("1000.0 MB") + 24
-        col_mins = {_COL_NAME: 140, _COL_SIZE: 60, _COL_DATE: 90}
-        col_defaults = {_COL_SIZE: size_w, _COL_DATE: date_w}
+        type_w = fm.horizontalAdvance(self.tr("Folder") + "MMM") + 24
+        col_mins = {_COL_NAME: 140, _COL_TYPE: 60, _COL_SIZE: 60, _COL_DATE: 90}
+        col_defaults = {_COL_TYPE: type_w, _COL_SIZE: size_w, _COL_DATE: date_w}
         hdr = TkStyleHeader(self._tree, col_mins, col_defaults)
         self._tree.setHeader(hdr)
         hdr.setMinimumSectionSize(min(col_mins.values()))
@@ -263,6 +326,14 @@ class SavesView(QWidget):
         for col, wdt in col_defaults.items():
             self._tree.setColumnWidth(col, wdt)
         self._name_min = col_mins[_COL_NAME]
+        # Sorting: file type first, so saves of a kind sit together (a Bethesda
+        # folder interleaves .ess/.skse/.bak per save otherwise). Click a header
+        # to re-sort; Qt drives it, sizes and dates compare as numbers via
+        # _SaveItem. Enabled AFTER setHeader() -that call resets the header's
+        # clickable flag to follow the sorting state.
+        self._tree.setSortingEnabled(True)
+        self._tree.sortByColumn(_COL_TYPE, Qt.AscendingOrder)
+        hdr.setSortIndicatorShown(True)
         self._tree.viewport().installEventFilter(self)
         self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self._tree.customContextMenuRequested.connect(self._on_context_menu)
@@ -310,7 +381,9 @@ class SavesView(QWidget):
         vp = self._tree.viewport().width()
         if vp <= 0:
             return
-        target = vp - self._tree.columnWidth(_COL_SIZE) - self._tree.columnWidth(_COL_DATE)
+        target = (vp - self._tree.columnWidth(_COL_TYPE)
+                  - self._tree.columnWidth(_COL_SIZE)
+                  - self._tree.columnWidth(_COL_DATE))
         if target >= self._name_min and target != self._tree.columnWidth(_COL_NAME):
             self._tree.header().resizeSection(_COL_NAME, target)
 
@@ -406,10 +479,7 @@ class SavesView(QWidget):
         item.setData(0, _LOADED_ROLE, True)
         # Placeholder so the row doesn't snap shut while the folder is read.
         item.takeChildren()
-        busy = QTreeWidgetItem(item)
-        busy.setText(0, self.tr("Reading…"))
-        busy.setForeground(0, self._brush(_c(active_palette(), "TEXT_DIM")))
-        busy.setData(0, _INFO_ROLE, True)
+        item.addChild(self._notice_row(self.tr("Reading…")))
 
         token, self._next_token = self._next_token, self._next_token + 1
         self._pending[token] = item
@@ -463,17 +533,39 @@ class SavesView(QWidget):
             return self.tr("{0}   [in prefix]").format(path)
         return path
 
+    def _type_text(self, name: str, is_dir: bool) -> str:
+        """File-type cell: "Folder", the bare extension, or "File" for none."""
+        if is_dir:
+            return self.tr("Folder")
+        ext = _ext_of(name)
+        return self.tr("File") if ext == "(none)" else ext[1:].upper()
+
+    def _add_rows(self, parent, items):
+        """Add finished rows in one go and sort them into the current order."""
+        if not items:
+            return
+        col = self._tree.sortColumn()
+        order = self._tree.header().sortIndicatorOrder()
+        if parent is None:
+            self._tree.addTopLevelItems(items)
+            self._tree.sortItems(col if col >= 0 else _COL_TYPE, order)
+        else:
+            parent.addChildren(items)
+            parent.sortChildren(col if col >= 0 else _COL_TYPE, order)
+
     def _add_entry_rows(self, parent, loc):
         """File/folder rows for one folder, under *parent* (None = top level)."""
         p = active_palette()
-        make = (lambda: QTreeWidgetItem(self._tree)) if parent is None \
-            else (lambda: QTreeWidgetItem(parent))
         arrow = icon("right.png", _ARROW_SZ, color=_c(p, "DROPDOWN_ARROW"))
+        items = []
         for name, is_dir, size, mtime in loc["entries"]:
-            row = make()
-            row.setText(0, name + ("/" if is_dir else ""))
-            row.setText(1, fmt_size(size))
-            row.setText(2, time.strftime(_DATE_FMT, time.localtime(mtime)))
+            ext = _ext_of(name)
+            row = _SaveItem(_GRP_DIR if is_dir else _GRP_FILE, name,
+                            "" if is_dir else ext, size, mtime)
+            row.setText(_COL_NAME, name + ("/" if is_dir else ""))
+            row.setText(_COL_TYPE, self._type_text(name, is_dir))
+            row.setText(_COL_SIZE, fmt_size(size))
+            row.setText(_COL_DATE, time.strftime(_DATE_FMT, time.localtime(mtime)))
             row.setData(0, _PATH_ROLE, str(Path(loc["path"]) / name))
             if is_dir:
                 # Claim an arrow before the folder is read -children only
@@ -484,15 +576,12 @@ class SavesView(QWidget):
             else:
                 # Same-size blank, so file names line up with folder names.
                 row.setIcon(0, _spacer_icon())
-                ext = _ext_of(name)
                 self._ext_counts[ext] = self._ext_counts.get(ext, 0) + 1
+            items.append(row)
         if loc["truncated"]:
-            row = make()
-            row.setText(0, self.tr("… only the first {0} entries are shown")
-                        .format(_MAX_ENTRIES))
-            row.setForeground(0, self._brush(_c(p, "TEXT_DIM")))
-            row.setIcon(0, _spacer_icon())
-            row.setData(0, _INFO_ROLE, True)
+            items.append(self._notice_row(
+                self.tr("… only the first {0} entries are shown")
+                .format(_MAX_ENTRIES)))
         if not loc["entries"]:
             if not loc.get("exists", True):
                 text = self.tr("(not created yet -the game saves here)")
@@ -503,11 +592,17 @@ class SavesView(QWidget):
                     ", ".join(loc["patterns"]))
             else:
                 text = self.tr("(empty)")
-            row = make()
-            row.setText(0, text)
-            row.setForeground(0, self._brush(_c(p, "TEXT_DIM")))
-            row.setIcon(0, _spacer_icon())
-            row.setData(0, _INFO_ROLE, True)
+            items.append(self._notice_row(text))
+        self._add_rows(parent, items)
+
+    def _notice_row(self, text: str):
+        """A dimmed, unfilterable "(empty)"/truncation row, sorted last."""
+        row = _SaveItem(_GRP_INFO, text)
+        row.setText(_COL_NAME, text)
+        row.setForeground(0, self._brush(_c(active_palette(), "TEXT_DIM")))
+        row.setIcon(0, _spacer_icon())
+        row.setData(0, _INFO_ROLE, True)
+        return row
 
     def _clear_tree(self):
         """Empty the tree and invalidate any folder listing still in flight."""
@@ -542,16 +637,20 @@ class SavesView(QWidget):
         # Several: one expandable row each.
 
         total_files = total_bytes = 0
-        for loc in locations:
+        for idx, loc in enumerate(locations):
             if single:
                 self._add_entry_rows(None, loc)
             else:
-                top = QTreeWidgetItem(self._tree)
-                top.setText(0, self._location_label(loc))
-                top.setText(1, fmt_size(loc["total"]))
+                label = self._location_label(loc)
+                top = _SaveItem(_GRP_LOCATION, label, "", loc["total"], order=idx)
+                top.setText(_COL_NAME, label)
+                top.setText(_COL_SIZE, fmt_size(loc["total"]))
                 top.setToolTip(0, str(loc["path"]))
                 top.setData(0, _PATH_ROLE, str(loc["path"]))
                 top.setForeground(0, self._brush(_c(p, "ACCENT")))
+                # Parented BEFORE its children: a detached item has no tree to
+                # read the sort column from, so its rows would sort by text.
+                self._add_rows(None, [top])
                 self._add_entry_rows(top, loc)
                 top.setExpanded(True)
                 self._sync_arrow(top)
@@ -723,6 +822,11 @@ class SavesView(QWidget):
     def _hide_preview(self):
         self._preview.clear()
         self._preview.setVisible(False)
+        # By the time the tab is switched away we are already off-screen, and a
+        # hidden splitter never processes the hide's layout request -so its old,
+        # wide minimum would stay cached and keep pinning the panel. refresh()
+        # recomputes it now.
+        self._split.refresh()
 
     def _remember_preview_height(self, *_args):
         """Keep a dragged pane height for the next save the user clicks."""
@@ -759,13 +863,16 @@ class SavesView(QWidget):
         return {os.path.realpath(loc["path"]) for loc in self._scanned}
 
     def _profile_targets(self) -> list:
-        """(profile, saves folder) for every profile, when the game keeps
+        """(profile, saves folder) for every profile of a game that can keep
         profile-specific saves.
 
-        Empty otherwise: with the feature off nothing links to that folder, so
-        moving a save into it would just hide it from the game."""
+        Offered whether or not the setting is currently on, here or in the
+        destination profile: parking a save in a profile folder ahead of turning
+        the option on is a normal thing to want. The folder is created by the
+        transfer if it is not there yet. Empty only for games that cannot keep
+        profile saves at all -that folder would never be read."""
         game = self._game
-        if game is None or not getattr(game, "profile_saves", False):
+        if game is None or not getattr(game, "supports_profile_saves", True):
             return []
         getter = getattr(game, "_profile_saves_dir", None)
         if getter is None:
