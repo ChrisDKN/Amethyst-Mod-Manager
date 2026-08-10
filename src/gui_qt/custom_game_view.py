@@ -16,7 +16,7 @@ from __future__ import annotations
 import io
 import threading
 
-from PySide6.QtCore import Qt, Signal, QObject, QT_TRANSLATE_NOOP
+from PySide6.QtCore import Qt, Signal, QObject, QT_TRANSLATE_NOOP, QCoreApplication
 from PySide6.QtGui import QFont
 
 from gui_qt.wheel_guard import no_wheel
@@ -66,6 +66,18 @@ _DEPLOY_OPTIONS = [
      "Binaries/Win64/, DLLs → Binaries/Win64/. Same routing as Hogwarts "
      "Legacy / Oblivion Remastered."),
 ]
+
+_DEPLOY_LABEL_BY_VALUE = {value: label for label, value, _ in _DEPLOY_OPTIONS}
+
+
+def deploy_type_display(deploy_type: str) -> str:
+    """Localized deploy-type label for UI display."""
+    value = (deploy_type or "").strip().lower()
+    label = _DEPLOY_LABEL_BY_VALUE.get(value)
+    if label is None:
+        return value
+    return QCoreApplication.translate("CustomGameView", label)
+
 
 # Display-label ↔ stored-value mapping for the filemap_casing dropdown. Labels
 # translated at display time; the combo carries `value` as item-data so the
