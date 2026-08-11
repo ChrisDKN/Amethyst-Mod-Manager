@@ -57,6 +57,16 @@ class Subnautica(BaseGame):
     def set_heroic_app_name(self, app_name: str | None) -> None:
         self._saved_heroic_app_name = app_name or None
         self.save_paths()
+    
+    @property
+    def conflict_ignore_filenames(self) -> set[str]:
+        return {
+            "*.md",
+            "icon.png",
+            "manifest.json",
+            "LocalizationExample.zip",
+            "*read*.txt"
+            }
 
     @property
     def nexus_game_domain(self) -> str:
@@ -409,16 +419,6 @@ class Valheim(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "valheim"
-
-    @property
-    def conflict_ignore_filenames(self) -> set[str]:
-        return {
-            "*.md",
-            "icon.png",
-            "manifest.json",
-            "LocalizationExample.zip",
-            "*read*.txt"
-            }
 
     @property
     def default_deploy_mode(self) -> str:

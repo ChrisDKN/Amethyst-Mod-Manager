@@ -338,6 +338,9 @@ class MainWindow(QMainWindow):
     # Thunderstore ror2mm:// link received from a second instance (worker
     # thread → UI thread). Shares the NXM IPC socket; routed by scheme.
     _ror2mm_received = Signal(str)
+    # Thunderstore resolve worker → UI thread: (Ror2mmLink, ResolveResult,
+    # packages) - the dependency confirmation modal is shown from here.
+    _ror2mm_resolved = Signal(object)
     # Thunderstore download worker → UI thread:
     # (ThunderstoreDownloadResult, Ror2mmLink, version_info, dl_key).
     _ror2mm_download_done = Signal(object)
@@ -654,6 +657,7 @@ class MainWindow(QMainWindow):
         self._nxm_received.connect(self._receive_nxm)
         self._nxm_download_done.connect(self._on_nxm_download_done)
         self._ror2mm_received.connect(self._receive_ror2mm)
+        self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
         self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
@@ -3539,7 +3543,104 @@ class MainWindow(QMainWindow):
             return
 
         self._append_log(
-            f"[thunderstore] downloading {link.full_name} "
+            f"[thunderstore] resolving {link.full_name} "
+            f"for '{self._gs.game_name}'…")
+        self._notify(self.tr("Checking Thunderstore dependencies…"), "info")
+
+        import threading
+
+        def _resolve_worker():
+            from Thunderstore.thunderstore_requirements import (
+                filter_already_installed, resolve_dependencies)
+            from Utils.mod_copy import resolve_target_staging
+            from gui_qt.safe_emit import safe_emit
+
+            # Resolve the transitive dependency graph. Thunderstore pins exact
+            # versions on every package, so this is precise rather than the
+            # best-effort matching the Nexus requirements code has to do.
+            try:
+                res = resolve_dependencies(link)
+            except Exception as exc:
+                self._op_log.emit(
+                    f"[thunderstore] dependency resolution failed ({exc}) - "
+                    "installing the requested mod only")
+                res = None
+
+            wanted = list(res.packages) if res is not None else []
+            skipped = []
+            if res is not None:
+                for missing in res.failed:
+                    self._op_log.emit(
+                        f"[thunderstore] could not look up {missing} - skipped")
+                if res.truncated:
+                    self._op_log.emit(
+                        "[thunderstore] dependency graph too large - "
+                        "only the first packages were resolved")
+                try:
+                    staging = Path(resolve_target_staging(
+                        self._gs.game, Path(self._gs.profile_dir())))
+                    wanted, skipped = filter_already_installed(wanted, staging)
+                except Exception as exc:
+                    self._op_log.emit(
+                        f"[thunderstore] could not check installed mods ({exc})"
+                        " - installing everything")
+            for pkg in skipped:
+                self._op_log.emit(
+                    f"[thunderstore] {pkg.package_id} already installed - skipped")
+
+            safe_emit(self._ror2mm_resolved, (link, res, wanted))
+
+        threading.Thread(target=_resolve_worker, daemon=True,
+                         name="ror2mm-resolve").start()
+
+    def _on_ror2mm_resolved(self, payload):
+        """UI thread: the dependency graph is known - confirm, then download.
+
+        Dependencies are never installed silently: when the graph pulls in
+        anything beyond the requested mod the user gets a modal listing every
+        package with a per-item checkbox, so installing extras is opt-out.
+        """
+        link, res, wanted = payload
+
+        root = None
+        deps = []
+        for pkg in wanted:
+            if pkg.is_root:
+                root = pkg
+            else:
+                deps.append(pkg)
+
+        if root is None or not deps:
+            # Nothing extra to install (or resolution failed) - go straight to
+            # the download with whatever we have.
+            self._start_ror2mm_downloads(link, wanted)
+            return
+
+        conflicts = list(getattr(res, "conflicts", []) or [])
+
+        def _decided(chosen):
+            if chosen is None:
+                self._append_log(
+                    f"[thunderstore] install of {link.full_name} cancelled")
+                self._notify(self.tr("Install cancelled."), "info")
+                return
+            dropped = len(deps) - (len(chosen) - 1)
+            if dropped > 0:
+                self._append_log(
+                    f"[thunderstore] {dropped} dependenc"
+                    f"{'y' if dropped == 1 else 'ies'} skipped by the user - "
+                    "the mod may not work without them")
+            self._start_ror2mm_downloads(link, chosen)
+
+        from gui_qt.thunderstore_deps_overlay import ThunderstoreDepsOverlay
+        ThunderstoreDepsOverlay.show_over(
+            self, root=root, dependencies=deps, conflicts=conflicts,
+            on_done=_decided)
+
+    def _start_ror2mm_downloads(self, link, packages):
+        """Download every package the user accepted, dependencies first."""
+        self._append_log(
+            f"[thunderstore] downloading {len(packages) or 1} package(s) "
             f"into '{self._gs.game_name}'…")
         self._notify(self.tr("Downloading mod from Thunderstore…"), "info")
         dl_key = self._new_dl_key()
@@ -3548,68 +3649,102 @@ class MainWindow(QMainWindow):
         import threading
 
         def _worker():
-            from Thunderstore.thunderstore_download import (
-                download_package, fetch_version_info)
+            from Thunderstore.ror2mm_handler import Ror2mmLink
+            from Thunderstore.thunderstore_download import download_package
             from Utils.config_paths import get_download_cache_dir_for_game
             from gui_qt.safe_emit import safe_emit
 
-            # Version detail gives size + dependencies + description for the
-            # meta.ini. Best-effort: the download itself needs only the link.
-            info = None
-            try:
-                info = fetch_version_info(link)
-            except Exception as exc:
-                self._op_log.emit(
-                    f"[thunderstore] could not fetch package info ({exc}) - "
-                    "meta partial")
-            expected = 0
-            if isinstance(info, dict):
-                try:
-                    expected = int(info.get("size") or 0)
-                except (TypeError, ValueError):
-                    expected = 0
-
             dest = get_download_cache_dir_for_game(self._gs.game_name or "")
-            label = f"{link.full_name}.zip"
-            result = download_package(
-                link, dest_dir=dest, expected_size=expected,
-                progress_cb=lambda d, t: safe_emit(
-                    self._req_install_prog, dl_key, label, int(d), int(t)))
-            safe_emit(self._ror2mm_download_done, (result, link, info, dl_key))
+            downloads = []      # (result, Ror2mmLink, info-dict)
+
+            wanted = list(packages)
+            if not wanted:
+                # Resolution failed entirely - fall back to the single package
+                # the link asked for so a transient API error still installs.
+                wanted = [None]
+
+            total = len(wanted)
+            for idx, pkg in enumerate(wanted, 1):
+                if pkg is None:
+                    sub_link, expected, info = link, 0, None
+                else:
+                    sub_link = Ror2mmLink(
+                        namespace=pkg.namespace, name=pkg.name,
+                        version=pkg.version, host=link.host)
+                    expected = pkg.file_size
+                    info = {
+                        "full_version_name": pkg.full_name,
+                        "download_url": pkg.download_url,
+                        "description": pkg.description,
+                        "website_url": pkg.website_url,
+                        "icon_url": pkg.icon_url,
+                        "size": pkg.file_size,
+                        "dependencies": pkg.dependencies,
+                    }
+                label = f"{sub_link.full_name}.zip"
+                if total > 1:
+                    self._op_log.emit(
+                        f"[thunderstore] downloading ({idx}/{total}) {label}")
+                result = download_package(
+                    sub_link, dest_dir=dest, expected_size=expected,
+                    progress_cb=lambda d, t, _l=label: safe_emit(
+                        self._req_install_prog, dl_key, _l, int(d), int(t)))
+                downloads.append((result, sub_link, info))
+
+            safe_emit(self._ror2mm_download_done, (downloads, link, dl_key))
 
         threading.Thread(target=_worker, daemon=True,
                          name="ror2mm-download").start()
 
     def _on_ror2mm_download_done(self, payload):
-        """UI thread: a Thunderstore download finished - install it."""
-        result, link, info, dl_key = payload
+        """UI thread: the Thunderstore downloads finished - install them.
+
+        *payload* carries every package in the resolved graph, ordered
+        dependencies-first, so installing the list in order satisfies each
+        mod's requirements before it lands.
+        """
+        downloads, link, dl_key = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this card
-        if not (result.success and result.file_path):
-            self._append_log(f"[thunderstore] download failed - {result.error}")
+
+        good = [(r, l, i) for (r, l, i) in downloads if r.success and r.file_path]
+        for result, sub_link, _info in downloads:
+            if not (result.success and result.file_path):
+                self._append_log(
+                    f"[thunderstore] download failed for {sub_link.full_name} "
+                    f"- {result.error}")
+
+        if not good:
+            err = downloads[0][0].error if downloads else "no packages resolved"
             self._notify(
-                self.tr("Thunderstore download failed - {0}").format(result.error),
-                "error")
+                self.tr("Thunderstore download failed - {0}").format(err), "error")
             return
 
         game = self._gs.game
         if game is None or not game.is_configured():
             self._append_log(
-                f"[thunderstore] downloaded {result.file_name} - no configured "
+                f"[thunderstore] downloaded {len(good)} archive(s) - no configured "
                 "game selected; install manually from Downloads.")
             self._notify(
                 self.tr("Downloaded - no game selected; see Downloads tab."),
                 "warning")
             return
 
-        path = str(result.file_path)
-        # Stamp the [thunderstore] meta.ini section once the mod folder exists.
-        # The installer only knows how to write the Nexus [General] section, so
-        # this runs as a post-install step; write_meta preserves [General].
+        deps = len(good) - 1
+        if deps > 0:
+            self._append_log(
+                f"[thunderstore] installing {link.full_name} "
+                f"with {deps} dependenc{'y' if deps == 1 else 'ies'}")
+
+        paths = [str(r.file_path) for (r, _l, _i) in good]
+        # Stamp every installed package's [thunderstore] section once the batch
+        # completes. The installer only writes the Nexus [General] section, so
+        # this is a post-install step; write_meta preserves [General].
         # on_all_done is invoked as cb(ok, total, names) - see _install_all_done_cb.
         def _stamp(ok, total, names):
-            self._stamp_thunderstore_meta(link, info, names)
+            for _r, sub_link, info in good:
+                self._stamp_thunderstore_meta(sub_link, info, names)
 
-        self._deliver_download([path], on_all_done=_stamp)
+        self._deliver_download(paths, on_all_done=_stamp)
 
     def _stamp_thunderstore_meta(self, link, info, installed_names=None):
         """Write the [thunderstore] meta.ini section for a just-installed mod.
@@ -3643,16 +3778,28 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
 
-            # The batch installed exactly one archive, so a single reported
-            # name is the folder we want; fall back to the package's own names.
+            # Match THIS package to its own folder. A dependency batch installs
+            # several mods at once, so the reported name list cannot be indexed
+            # blindly - a folder is only accepted if it belongs to this package
+            # (exact archive name, or the package id with any version suffix).
             target = None
-            names = [n for n in (installed_names or []) if n]
-            for cand in names + [link.full_name,
-                                 f"{link.namespace}-{link.name}", link.name]:
+            prefix = f"{link.namespace}-{link.name}-".lower()
+            names = [str(n) for n in (installed_names or []) if n]
+            candidates = [n for n in names
+                          if n.lower() == link.full_name.lower()
+                          or n.lower().startswith(prefix)]
+            for cand in candidates + [link.full_name,
+                                      f"{link.namespace}-{link.name}", link.name]:
                 probe = staging / str(cand)
                 if probe.is_dir():
                     target = probe
                     break
+            if target is None and len(names) == 1:
+                # Single-mod install: the one reported name is unambiguous even
+                # if the installer renamed it away from the package name.
+                probe = staging / names[0]
+                if probe.is_dir():
+                    target = probe
             if target is None:
                 self._append_log(
                     f"[thunderstore] installed folder for {link.full_name} not "
