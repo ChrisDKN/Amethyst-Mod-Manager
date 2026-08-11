@@ -65,7 +65,9 @@ class Subnautica(BaseGame):
             "icon.png",
             "manifest.json",
             "LocalizationExample.zip",
-            "*read*.txt"
+            "*read*.txt",
+            "changelog*.txt",
+            "steam_appid.txt",
             }
 
     @property
@@ -75,11 +77,16 @@ class Subnautica(BaseGame):
     @property
     def thunderstore_community(self) -> str:
         return "subnautica"
+    
+    @property
+    def extra_mod_folder_strip_prefixes(self) -> set[str]:
+        """Per-game wrapper folders to strip on top of the shared BepInEx set."""
+        return set()
 
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
-        return {"plugins", "bepinex", "BepInExPack_Valheim"}
-    
+        return {"plugins", "bepinex", "BepInExPack"} | self.extra_mod_folder_strip_prefixes
+
     @property
     def mods_dir(self) -> str:
         return "BepInEx/plugins"
@@ -128,7 +135,11 @@ class Subnautica(BaseGame):
                 "core",
                 "patchers",
                 "plugins",
+                "monomod",
             ], flatten=True, loose_only=True),
+            CustomRule(dest="BepInEx/monomod", extensions=[
+                ".mm.dll"
+            ], loose_only=True),
             CustomRule(dest="BepInEx/plugins", folders=[
                 "Tobey"
             ], flatten=True, loose_only=True),
@@ -441,6 +452,10 @@ class Valheim(Subnautica):
         return "valheim"
 
     @property
+    def extra_mod_folder_strip_prefixes(self) -> set[str]:
+        return {"BepInExPack_Valheim"}
+
+    @property
     def default_deploy_mode(self) -> str:
         return "symlink"
 
@@ -507,3 +522,93 @@ class HNSS(Subnautica):
     @property
     def default_deploy_mode(self) -> str:
         return "symlink"
+
+class Peak(Subnautica):
+    @property
+    def name(self) -> str:
+        return "Peak"
+
+    @property
+    def game_id(self) -> str:
+        return "peak"
+
+    @property
+    def exe_name(self) -> str:
+        return "PEAK.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "3527290"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return "peak"
+
+    @property
+    def thunderstore_community(self) -> str:
+        return "peak"
+
+    @property
+    def extra_mod_folder_strip_prefixes(self) -> set[str]:
+        return {"BepInExPack_Peak"}
+
+class ROR2(Subnautica):
+    @property
+    def name(self) -> str:
+        return "Risk of Rain 2"
+
+    @property
+    def game_id(self) -> str:
+        return "riskofrain2"
+
+    @property
+    def exe_name(self) -> str:
+        return "Risk of Rain 2.exe"
+
+    @property
+    def steam_id(self) -> str:
+        return "632360"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        # Thunderstore-only game. MUST be overridden to "" - without it the
+        # class inherits Subnautica's domain and the Nexus browser would list
+        # Subnautica mods for Risk of Rain 2.
+        return ""
+
+    @property
+    def thunderstore_community(self) -> str:
+        return "riskofrain2"
+
+class Inscryption(Subnautica):
+    @property
+    def name(self) -> str:
+        return "Inscryption"
+
+    @property
+    def game_id(self) -> str:
+        return "inscryption"
+
+    @property
+    def exe_name(self) -> str:
+        return "Inscryption.exe"
+
+    @property
+    def exe_name_alts(self) -> list[str]:
+        return ["Inscryption.x86_64"]
+
+    @property
+    def steam_id(self) -> str:
+        return "1092790"
+
+    @property
+    def nexus_game_domain(self) -> str:
+        return ""
+
+    @property
+    def thunderstore_community(self) -> str:
+        return "inscryption"
+
+    @property
+    def extra_mod_folder_strip_prefixes(self) -> set[str]:
+        return {"BepInExPack_Inscryption"}
