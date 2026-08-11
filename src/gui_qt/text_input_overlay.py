@@ -29,6 +29,9 @@ def tr_name_source(label: str) -> str:
         "Cleaned filename": _t("NameSuggestions", "Cleaned filename"),
         "Alternative": _t("NameSuggestions", "Alternative"),
         "Original filename": _t("NameSuggestions", "Original filename"),
+        "Thunderstore mod name": _t("NameSuggestions", "Thunderstore mod name"),
+        "Thunderstore team and name": _t("NameSuggestions",
+                                         "Thunderstore team and name"),
     }.get(label, label)
 
 

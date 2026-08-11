@@ -481,6 +481,8 @@ SRC_INSTALLED = "Previously installed"
 SRC_CLEANED = "Cleaned filename"
 SRC_ALTERNATIVE = "Alternative"
 SRC_ORIGINAL = "Original filename"
+SRC_THUNDERSTORE = "Thunderstore mod name"
+SRC_THUNDERSTORE_TEAM = "Thunderstore team and name"
 
 
 # Only KNOWN archive extensions are stripped - a blind "drop the last dotted
@@ -576,6 +578,30 @@ def sibling_version_name(staging_root, mod_name: str, meta) -> str:
     return ""
 
 
+def thunderstore_name_candidates(ts_meta) -> list[tuple[str, str]]:
+    """``[(name, source_label), …]`` naming candidates from Thunderstore metadata.
+
+    Thunderstore's ``name`` IS the display name - the API exposes no prettier
+    title, and underscores are how the site spells spaces
+    (``Base_Deconstruct_Fix``). So the package name comes first, a
+    de-underscored variant second (nicer in the modlist), then the
+    team-qualified form for disambiguating same-named packages.
+    """
+    if ts_meta is None or not getattr(ts_meta, "package_id", ""):
+        return []
+    name = (getattr(ts_meta, "name", "") or "").strip()
+    namespace = (getattr(ts_meta, "namespace", "") or "").strip()
+    out: list[tuple[str, str]] = []
+    if name:
+        out.append((name, SRC_THUNDERSTORE))
+        spaced = name.replace("_", " ").strip()
+        if spaced and spaced != name:
+            out.append((spaced, SRC_THUNDERSTORE))
+    if namespace and name:
+        out.append((f"{namespace}-{name}", SRC_THUNDERSTORE_TEAM))
+    return out
+
+
 def suggest_names_for_staged_mod(staging_root, mod_name: str
                                  ) -> list[tuple[str, str]]:
     """Rename candidates for an installed mod, read from its meta.ini."""
@@ -584,13 +610,37 @@ def suggest_names_for_staged_mod(staging_root, mod_name: str
     meta_path = staging_root / mod_name / "meta.ini"
     if not meta_path.is_file():
         return []
+    # Thunderstore candidates come first when the mod has a [thunderstore]
+    # section: for those mods the package name is the authoritative one, and
+    # the Nexus-derived suggestions are just archive-stem guesses.
+    ts_out: list[tuple[str, str]] = []
+    try:
+        from Thunderstore.thunderstore_meta import read_meta as ts_read
+        ts_out = thunderstore_name_candidates(ts_read(meta_path))
+    except Exception:
+        ts_out = []
     try:
         from Nexus.nexus_meta import read_meta
         meta = read_meta(meta_path)
     except Exception:
-        return []
-    return name_suggestions(
-        meta,
-        previous_name=sibling_version_name(staging_root, mod_name, meta),
-        exclude=mod_name,
-    )
+        meta = None
+    nexus_out = []
+    if meta is not None:
+        nexus_out = name_suggestions(
+            meta,
+            previous_name=sibling_version_name(staging_root, mod_name, meta),
+            exclude=mod_name,
+        )
+    # Merge, de-duplicating on the sanitised name and dropping the current
+    # folder name (same rules name_suggestions applies internally).
+    out: list[tuple[str, str]] = []
+    seen = {mod_name.strip().lower()}
+    for raw, label in list(ts_out) + list(nexus_out):
+        if not raw or not raw.strip():
+            continue
+        clean = sanitize_mod_folder_name(raw.strip())
+        if not clean or clean.lower() in seen:
+            continue
+        seen.add(clean.lower())
+        out.append((clean, label))
+    return out

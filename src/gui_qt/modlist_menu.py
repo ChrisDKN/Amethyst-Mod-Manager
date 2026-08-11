@@ -352,6 +352,18 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             (_mt("Open on Nexus"), lambda: _open_on_nexus(view, name)))
     if _nexus_items:
         submenu(_mt("Nexus Actions"), _nexus_items)
+    # Thunderstore mods get their own submenu, mirroring "Nexus Actions".
+    # A mod can legitimately carry both sections (same mod mirrored on both
+    # stores), so this is independent of the Nexus block above.
+    if _is_thunderstore_mod(view, name):
+        submenu(_mt("Thunderstore Actions"), [
+            (_mt("Change Version"),
+             lambda: _thunderstore_change_version(view, name)),
+            (_mt("Check Updates"),
+             lambda: _thunderstore_check_updates(view, [name])),
+            (_mt("Open on Thunderstore"),
+             lambda: _open_on_thunderstore(view, name)),
+        ])
     if _modio_url(view, name):
         act(_mt("Open on mod.io"), lambda: _open_on_modio(view, name))
     if _has_update_flag(view, name):
@@ -739,6 +751,93 @@ def _open_on_modio(view, name: str):
         open_url(url)
     except Exception:
         pass
+
+
+# ---- Thunderstore ----------------------------------------------------------
+def _thunderstore_meta(view, name: str):
+    """The mod's parsed [thunderstore] metadata, or None when it isn't one."""
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return None
+    meta_path = staging / name / "meta.ini"
+    if not meta_path.is_file():
+        return None
+    try:
+        from Thunderstore.thunderstore_meta import read_meta
+        meta = read_meta(meta_path)
+    except Exception:
+        return None
+    return meta if meta.package_id else None
+
+
+def _is_thunderstore_mod(view, name: str) -> bool:
+    return _thunderstore_meta(view, name) is not None
+
+
+def _thunderstore_url(view, name: str) -> str:
+    """The mod's Thunderstore page URL ("" if it isn't a Thunderstore mod).
+
+    Only the community-scoped ``/c/{community}/p/{ns}/{name}/`` form actually
+    resolves - the bare ``/package/{ns}/{name}/`` URL the API reports as
+    ``package_url`` 404s in a browser (verified 2026-08-11). So a mod whose
+    community was never recorded returns "" here, and the caller resolves it
+    from the API instead of opening a dead link.
+    """
+    meta = _thunderstore_meta(view, name)
+    if meta is None:
+        return ""
+    community = (meta.community or "").strip()
+    if not community:
+        return ""
+    return (f"https://thunderstore.io/c/{community}/p/"
+            f"{meta.namespace}/{meta.name}/")
+
+
+def _open_on_thunderstore(view, name: str):
+    """Open the mod's Thunderstore page, resolving its community if needed."""
+    url = _thunderstore_url(view, name)
+    if not url:
+        # No community stored (installed before it was recorded, or the stamp
+        # failed): look it up now and remember it, so the next click is instant.
+        meta = _thunderstore_meta(view, name)
+        if meta is None:
+            return
+        try:
+            from Thunderstore.ror2mm_handler import Ror2mmLink
+            from Thunderstore.thunderstore_download import resolve_communities
+            from Thunderstore.thunderstore_meta import write_meta
+            slugs = resolve_communities(Ror2mmLink(
+                namespace=meta.namespace, name=meta.name,
+                version=meta.version or "0.0.0"))
+            if not slugs:
+                return
+            meta.community = slugs[0]
+            staging = getattr(view, "staging_dir", None)
+            if staging is not None:
+                write_meta(staging / name / "meta.ini", meta)
+            url = (f"https://thunderstore.io/c/{meta.community}/p/"
+                   f"{meta.namespace}/{meta.name}/")
+        except Exception:
+            return
+    try:
+        from Utils.xdg import open_url
+        open_url(url)
+    except Exception:
+        pass
+
+
+def _thunderstore_change_version(view, name: str):
+    """Open the Thunderstore version picker (host installs the callback)."""
+    cb = getattr(view, "on_thunderstore_change_version", None)
+    if cb is not None and name:
+        cb(name)
+
+
+def _thunderstore_check_updates(view, names):
+    """Run a Thunderstore-only update check over *names*."""
+    cb = getattr(view, "on_thunderstore_check_updates", None)
+    if cb is not None and names:
+        cb(set(names))
 
 
 # ---- Move to separator -----------------------------------------------------
@@ -1612,6 +1711,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on Nexus ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open on mod.io"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Open on Thunderstore"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Thunderstore Actions"),
     QT_TRANSLATE_NOOP("ModListMenu", "Quick Update"),
     QT_TRANSLATE_NOOP("ModListMenu", "Quick Update ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Reinstall ({0})"),

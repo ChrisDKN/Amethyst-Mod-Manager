@@ -127,6 +127,7 @@ py.install_sources(
   'theme_preview.py',
   'theme_qt.py',
   'thunderstore_deps_overlay.py',
+  'thunderstore_version_view.py',
   'tri_state_checkbox.py',
   'update_overlay.py',
   'userlist_bars.py',

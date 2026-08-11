@@ -1293,7 +1293,13 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if preferred_name:
         mod_name = preferred_name
     else:
-        nexus_name = _nexus_file_display_name(prebuilt_meta, game)
+        # Thunderstore archives are named "{team}-{Package}-{version}.zip", so
+        # the archive stem makes an ugly folder ("Subnautica_Modding-QModManager
+        # -4.4.3"). The package's own name IS its display name, so prefer it.
+        # This is only a DEFAULT - the Mod-Already-Exists dialog still applies,
+        # unlike preferred_name which forces a silent replace.
+        ts_name = _thunderstore_display_name(archive)
+        nexus_name = ts_name or _nexus_file_display_name(prebuilt_meta, game)
         if not nexus_name:
             # Not supplied by the caller - try a live lookup ourselves. Reuse the
             # resolved meta downstream so the MD5 hash isn't recomputed later.
@@ -1303,7 +1309,9 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     prebuilt_meta = resolved
                 nexus_name = _nexus_file_display_name(resolved, game)
         mod_name = nexus_name or _clean_mod_name(archive.stem, game)
-        if nexus_name:
+        if ts_name:
+            log_fn(f"Naming mod folder from Thunderstore: '{mod_name}'.")
+        elif nexus_name:
             log_fn(f"Naming mod folder from Nexus: '{mod_name}'.")
 
     def _p(done, total, phase=None):
@@ -2602,6 +2610,43 @@ def _nexus_file_display_name(meta, game) -> str:
         import re
         cleaned = re.sub(r'[<>:"/\\|?*]', "_", raw).rstrip(". ")
     return cleaned.strip()
+
+
+def _thunderstore_display_name(archive: Path) -> str:
+    """Package name from a Thunderstore archive filename, or "".
+
+    Thunderstore serves every package as ``{team}-{Package}-{version}.zip`` and
+    the downloader keeps that name, so the folder would otherwise be the whole
+    triple. The package name is Thunderstore's display name (the API exposes no
+    prettier title), so it is what the folder should be called.
+
+    Only accepts a strict ``{ns}-{name}-{numeric.version}`` stem plus a
+    ``manifest.json`` inside the zip, so an unrelated hyphenated archive that
+    merely looks similar is never renamed.
+    """
+    stem = archive.stem
+    parts = stem.rsplit("-", 2)
+    if len(parts) != 3:
+        return ""
+    _ns, name, version = parts
+    if not name or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        return ""
+    # A Thunderstore package always ships a manifest.json at the zip root.
+    try:
+        if not zipfile.is_zipfile(archive):
+            return ""
+        with zipfile.ZipFile(archive) as zf:
+            names = zf.namelist()
+        if not any(n.lower() == "manifest.json"
+                   or n.lower().endswith("/manifest.json") for n in names):
+            return ""
+    except Exception:
+        return ""
+    try:
+        from Utils.mod_name_utils import sanitize_mod_folder_name
+        return (sanitize_mod_folder_name(name) or "").strip()
+    except Exception:
+        return name.strip()
 
 
 def _resolve_nexus_meta_for_naming(archive: Path, game, log_fn: LogFn):

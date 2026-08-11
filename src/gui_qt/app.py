@@ -344,6 +344,8 @@ class MainWindow(QMainWindow):
     # Thunderstore download worker → UI thread:
     # (ThunderstoreDownloadResult, Ror2mmLink, version_info, dl_key).
     _ror2mm_download_done = Signal(object)
+    # Thunderstore-only update check worker → UI thread: (results, toast, subset).
+    _ts_updates_ready = Signal(object)
 
     _PLAY_BAR_W = 380       # play-bar (header right) fixed width
     _BTN_H = 42          # consistent height for all header buttons (~30% bigger)
@@ -659,6 +661,7 @@ class MainWindow(QMainWindow):
         self._ror2mm_received.connect(self._receive_ror2mm)
         self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
         self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
+        self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
         # Silently sync custom handlers + Qt wizard plugins from the Resources
@@ -3746,6 +3749,132 @@ class MainWindow(QMainWindow):
 
         self._deliver_download(paths, on_all_done=_stamp)
 
+    def _thunderstore_staging(self):
+        """Staging root for the current profile, or None."""
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            return None
+        try:
+            from Utils.mod_copy import resolve_target_staging
+            return Path(resolve_target_staging(
+                game, Path(self._gs.profile_dir())))
+        except Exception:
+            return None
+
+    def _open_thunderstore_version_tab(self, mod_name: str):
+        """Open the Thunderstore version picker as a plugins-panel tab.
+
+        Separate from the Nexus Change Version tab: that view is built around
+        the Nexus API (per-file model, premium/free split, expiring links),
+        none of which Thunderstore has.
+        """
+        from Thunderstore.thunderstore_meta import read_meta
+        staging = self._thunderstore_staging()
+        if staging is None:
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        try:
+            meta = read_meta(staging / mod_name / "meta.ini")
+        except Exception as exc:
+            self._append_log(f"[thunderstore] could not read {mod_name}: {exc}")
+            return
+        if not meta.package_id:
+            self._notify(
+                self.tr("'{0}' isn't a Thunderstore mod.").format(mod_name),
+                "warning")
+            return
+
+        if self._tabs.has_key("thunderstore_version"):
+            self._tabs.close_tab("thunderstore_version")
+
+        def _install(namespace: str, name: str, version: str):
+            self._process_ror2mm_link(
+                f"ror2mm://v1/install/thunderstore.io/"
+                f"{namespace}/{name}/{version}/")
+
+        from gui_qt.thunderstore_version_view import ThunderstoreVersionView
+        view = ThunderstoreVersionView(
+            mod_name, meta,
+            install_fn=_install,
+            on_close=self._close_thunderstore_version_tab,
+            log_fn=self._append_log)
+        self._tabs.open_scoped_tab(
+            view, self.tr("Change Version"), self._plugins_panel_stack,
+            key="thunderstore_version")
+
+    def _close_thunderstore_version_tab(self):
+        """Close the Thunderstore version tab and refresh the modlist flags."""
+        if self._tabs.has_key("thunderstore_version"):
+            self._tabs.close_tab("thunderstore_version")
+        if getattr(self, "_install_running", False):
+            return
+        self._refresh_modlist_flags()
+
+    def _check_thunderstore_updates(self, names=None):
+        """Thunderstore-only update check (right-click subset or all).
+
+        Separate from the combined Check Updates so a Thunderstore mod can be
+        checked without touching the Nexus/mod.io paths.
+        """
+        staging = self._thunderstore_staging()
+        if staging is None:
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        subset = set(names) if names else None
+        n = len(subset) if subset else self.tr("all")
+        toast = self._notify(
+            self.tr("Checking Thunderstore for updates ({0})…").format(n),
+            "info", sticky=True)
+
+        import threading
+
+        def _worker():
+            from Thunderstore.thunderstore_update_checker import (
+                check_for_updates)
+            from gui_qt.safe_emit import safe_emit
+            try:
+                res = check_for_updates(
+                    staging, only_names=subset,
+                    progress_cb=lambda m: self._op_log.emit(
+                        f"[thunderstore] {m}"))
+            except Exception as exc:
+                self._op_log.emit(
+                    f"[thunderstore] update check failed: {exc}")
+                res = None
+            safe_emit(self._ts_updates_ready, (res, toast, subset))
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="ts-check-updates").start()
+
+    def _on_thunderstore_updates_ready(self, payload):
+        """UI thread: a Thunderstore-only update check finished."""
+        res, toast, subset = payload
+
+        def _finish(text, state):
+            if toast is not None:
+                toast.dismiss(text, state=state)
+            else:
+                self._notify(text, state)
+
+        if res is None:
+            _finish(self.tr("Thunderstore update check failed - see the log."),
+                    "error")
+            return
+        updates = [u for u in res if getattr(u, "has_update", False)
+                   and not getattr(u, "unknown", False)]
+        unknown = [u for u in res if getattr(u, "unknown", False)]
+        if updates:
+            parts = [self.tr("{0} update(s) available").format(len(updates))]
+            if unknown:
+                parts.append(self.tr("{0} unknown").format(len(unknown)))
+            _finish(", ".join(parts) + ".", "warning")
+        elif unknown:
+            _finish(self.tr("{0} package(s) could not be checked.")
+                    .format(len(unknown)), "warning")
+        else:
+            _finish(self.tr("All Thunderstore mods are up to date."), "info")
+        self._refresh_modlist_flags(subset)
+
     def _update_thunderstore_mod(self, mod_name: str):
         """Update-flag click on a Thunderstore mod → confirm, then reinstall it
         at the latest version.
@@ -3833,16 +3962,20 @@ class MainWindow(QMainWindow):
 
             # Match THIS package to its own folder. A dependency batch installs
             # several mods at once, so the reported name list cannot be indexed
-            # blindly - a folder is only accepted if it belongs to this package
-            # (exact archive name, or the package id with any version suffix).
+            # blindly - a folder is only accepted if it belongs to this package.
+            # Installs are normally named after the package alone (see
+            # _thunderstore_display_name), but a folder may also carry the
+            # team prefix and/or the version, so all three forms are accepted.
             target = None
             prefix = f"{link.namespace}-{link.name}-".lower()
             names = [str(n) for n in (installed_names or []) if n]
             candidates = [n for n in names
-                          if n.lower() == link.full_name.lower()
+                          if n.lower() in (link.full_name.lower(),
+                                           link.name.lower(),
+                                           f"{link.namespace}-{link.name}".lower())
                           or n.lower().startswith(prefix)]
-            for cand in candidates + [link.full_name,
-                                      f"{link.namespace}-{link.name}", link.name]:
+            for cand in candidates + [link.name, link.full_name,
+                                      f"{link.namespace}-{link.name}"]:
                 probe = staging / str(cand)
                 if probe.is_dir():
                     target = probe
@@ -13387,6 +13520,11 @@ class MainWindow(QMainWindow):
         # Change Version: right-click item + clicking the update flag icon.
         self._modlist_view.on_change_version = self._open_change_version_tab
         self._modlist_view.on_bundle_options = self._open_bundle_tab
+        # Thunderstore Actions submenu (its own store, so its own callbacks).
+        self._modlist_view.on_thunderstore_change_version = (
+            self._open_thunderstore_version_tab)
+        self._modlist_view.on_thunderstore_check_updates = (
+            self._check_thunderstore_updates)
         self._modlist_view.on_flag_clicked = self._on_modlist_flag_clicked
         # Missing Requirements: right-click item + clicking the ⚠ flag icon.
         self._modlist_view.on_missing_reqs = self._open_missing_reqs_tab

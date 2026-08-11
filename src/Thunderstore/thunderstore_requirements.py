@@ -252,7 +252,7 @@ def resolve_dependencies(link, *, host: str = "thunderstore.io",
 
 
 def filter_already_installed(packages, staging_root: Path,
-                             ) -> tuple[list, list]:
+                             keep_root: bool = True) -> tuple[list, list]:
     """
     Split *packages* into (to_install, already_present).
 
@@ -264,6 +264,13 @@ def filter_already_installed(packages, staging_root: Path,
     Folders installed from an archive (no Thunderstore metadata) are also
     matched by folder name, so a manually-installed dependency is not
     duplicated.
+
+    *keep_root* (default) exempts the package the user actually asked for
+    (``depth == 0``) from all of this: an explicit install must always run.
+    Without it, re-installing the current version would do nothing at all, and
+    picking an OLDER version in the Change Version tab would silently drop the
+    requested mod and install only its dependencies - the newer installed copy
+    reads as "already satisfied".
     """
     from Thunderstore.thunderstore_meta import read_meta
 
@@ -291,6 +298,11 @@ def filter_already_installed(packages, staging_root: Path,
     to_install: list = []
     present: list = []
     for pkg in packages:
+        # The explicitly requested package is never "already installed" - the
+        # user asked for THIS version (reinstall, upgrade or downgrade).
+        if keep_root and getattr(pkg, "is_root", False):
+            to_install.append(pkg)
+            continue
         have = installed.get(pkg.package_id)
         if have:
             hv, wv = _parse_version(have), _parse_version(pkg.version)

@@ -890,9 +890,15 @@ class ModListView(QTreeView):
             if idx.isValid():
                 e = self.model().entry(idx.row())
                 if not e.is_separator:
+                    # Store-specific pages win over the Nexus fallback: a mod
+                    # installed from Thunderstore/mod.io has no Nexus page, and
+                    # a mod carrying both should open where it came from.
                     from gui_qt.modlist_menu import (
-                        _modio_url, _open_on_modio, _open_on_nexus)
-                    if _modio_url(self, e.name):
+                        _is_thunderstore_mod, _modio_url, _open_on_modio,
+                        _open_on_nexus, _open_on_thunderstore)
+                    if _is_thunderstore_mod(self, e.name):
+                        _open_on_thunderstore(self, e.name)
+                    elif _modio_url(self, e.name):
                         _open_on_modio(self, e.name)
                     else:
                         _open_on_nexus(self, e.name)
