@@ -52,6 +52,8 @@ _FLAG_ICONS = [
     (FLAG_ROOT_RULE, "root.png"),
 ]
 
+_MONO_FLAG_ICONS = {"root.png", "eye2_white.png"}
+
 # The info-icon flags, in precedence order (Tk: pre-RTX wins, else collection).
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
 # The root-icon flags - only one root.png ever paints.
@@ -206,6 +208,7 @@ class ModRowDelegate(QStyledItemDelegate):
         self.c_tick = qc_contrast(p, "CHECK_FILL")   # tick reads on the checkbox fill
         self.c_border = qc(p, "BORDER")
         self.c_arrow = _c(p, "DROPDOWN_ARROW")   # separator collapse arrow tint
+        self.c_flag_tint = "#" + _c(p, "TEXT_MAIN").lstrip("#")
         self.c_lock = qc(p, "TEXT_WARN")
         self.c_win = qc(p, "TEXT_OK_BRIGHT")
         self.c_lose = qc(p, "TEXT_ERR_BRIGHT")
@@ -590,7 +593,11 @@ class ModRowDelegate(QStyledItemDelegate):
         return out
 
     def _flag_icons(self, bits):
-        return [name for _bit, name in self._effective_flag_bits(bits)]
+        """Icon names for the Flags cell. Mono white glyphs get the theme's
+        text colour appended as a "#rrggbb" tint so they stay visible on light
+        themes (_paint_icons splits it back off)."""
+        return [name + self.c_flag_tint if name in _MONO_FLAG_ICONS else name
+                for _bit, name in self._effective_flag_bits(bits)]
 
     def _hit_flag_bit(self, pos, r, bits):
         """Which FLAG_* bit's icon (if any) is under *pos* within the Flags cell
