@@ -720,7 +720,8 @@ def run_deploy_pipeline(
                 _run_game_deploy()
         finally:
             set_deploy_excluded_raw(None)
-            snapshot_requested = game.end_deferred_runtime_snapshot()
+            (generic_snapshot_requested,
+             direct_snapshot_requests) = game.end_deferred_runtime_snapshot()
 
         pfx = game.get_prefix_path()
         if pfx and pfx.is_dir():
@@ -789,19 +790,33 @@ def run_deploy_pipeline(
                 except Exception as exc:
                     log_fn(f"  WARN: Wine path-lookup optimisation failed: {exc}")
 
+        # Write runtime snapshots now that every game-root mutation has landed.
+        # Direct requests carry their own roots and destinations, so flush them
+        # even when the pipeline's generic game_root value is unavailable.
+        snapshot_requests = list(direct_snapshot_requests)
+        try:
             snapshot_path = (
                 game.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
             )
-            # Write the (single) runtime snapshot now that root files landed.
-            # `snapshot_requested` covers standard games whose handler call was
-            # deferred above; the is_file() check keeps the refresh for games
-            # that write the snapshot directly inside deploy (Witcher 3, UE5,
-            # game-root mode) exactly as before.
-            if snapshot_requested or snapshot_path.is_file():
-                try:
-                    game.snapshot_root_for_runtime_capture(log_fn=log_fn)
-                except Exception as exc:
-                    log_fn(f"WARN: could not refresh deploy snapshot: {exc}")
+            # BaseGame requests use the handler-derived default path/exclusions.
+            # The existing-file check preserves refresh behavior for older state.
+            if generic_snapshot_requested or (
+                    game_root and snapshot_path.is_file()):
+                generic_root = game.get_game_path()
+                if generic_root:
+                    snapshot_requests.insert(0, (
+                        Path(generic_root), snapshot_path, log_fn,
+                        game.runtime_snapshot_exclude_dirs(),
+                    ))
+        except Exception as exc:
+            log_fn(f"WARN: could not prepare generic deploy snapshot: {exc}")
+        try:
+            from Utils.deploy_shared import _flush_deferred_deploy_snapshots
+            # Direct requests follow the generic one in the collection, so an
+            # explicit handler request wins if both target the same path.
+            _flush_deferred_deploy_snapshots(snapshot_requests)
+        except Exception as exc:
+            log_fn(f"WARN: could not refresh deploy snapshot: {exc}")
 
         # Launcher swap last so SE/SKSE/etc. dlls are present first.
         if hasattr(game, "swap_launcher"):

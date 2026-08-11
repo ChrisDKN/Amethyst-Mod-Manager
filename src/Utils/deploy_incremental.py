@@ -31,7 +31,6 @@ State on disk (all in the profile root, beside filemap.txt):
 
 from __future__ import annotations
 
-import concurrent.futures
 import errno
 import os
 import stat as _stat_m
@@ -45,8 +44,8 @@ from Utils.deploy_shared import (
     _OVERWRITE_NAME,
     _append_overwrite_log,
     _default_core,
-    _deploy_workers,
     _do_link_ex,
+    _iter_map_batched,
     _map_batched,
     _mkdir_leaves,
     _move_crash_safe,
@@ -489,27 +488,30 @@ def apply_incremental(
         return rel_lower, actual, None, line
 
     if link_specs:
-        with concurrent.futures.ThreadPoolExecutor(
-                max_workers=_deploy_workers()) as pool:
-            for rel_lower, actual, err, line in pool.map(_do_one, link_specs):
-                done += 1
-                if err is not None:
-                    dst_err, exc = err
-                    if getattr(exc, "errno", None) == errno.ENOSPC:
-                        pool.shutdown(wait=True, cancel_futures=True)
-                        _log(f"  ERROR: game drive is full - aborting deploy "
-                             f"(failed at {dst_err}). Free up space, then run "
-                             f"Restore and deploy again.")
-                        raise OSError(errno.ENOSPC,
-                                      f"Game drive full while deploying {dst_err}")
-                    _log(f"  WARN: could not transfer {dst_err}: {exc}")
-                    continue
-                placed_relinked.add(rel_lower)
-                linked += 1
-                if line is not None:
-                    stats_new[rel_lower] = line
-                if progress_fn is not None and (done % 200 == 0 or done == total_ops):
-                    progress_fn(done, total_ops)
+        def _link_fatal(result) -> bool:
+            err = result[2]
+            return (err is not None
+                    and getattr(err[1], "errno", None) == errno.ENOSPC)
+
+        for rel_lower, actual, err, line in _iter_map_batched(
+                _do_one, link_specs, stop_on=_link_fatal):
+            done += 1
+            if err is not None:
+                dst_err, exc = err
+                if getattr(exc, "errno", None) == errno.ENOSPC:
+                    _log(f"  ERROR: game drive is full - aborting deploy "
+                         f"(failed at {dst_err}). Free up space, then run "
+                         f"Restore and deploy again.")
+                    raise OSError(errno.ENOSPC,
+                                  f"Game drive full while deploying {dst_err}")
+                _log(f"  WARN: could not transfer {dst_err}: {exc}")
+                continue
+            placed_relinked.add(rel_lower)
+            linked += 1
+            if line is not None:
+                stats_new[rel_lower] = line
+            if progress_fn is not None and (done % 200 == 0 or done == total_ops):
+                progress_fn(done, total_ops)
 
     def _do_refill(item):
         cp, dst = item
@@ -517,21 +519,22 @@ def apply_incremental(
         return dst, actual, err
 
     if refill_tasks:
-        with concurrent.futures.ThreadPoolExecutor(
-                max_workers=_deploy_workers()) as pool:
-            for dst, actual, err in pool.map(_do_refill, refill_tasks):
-                done += 1
-                if err is not None:
-                    if getattr(err, "errno", None) == errno.ENOSPC:
-                        pool.shutdown(wait=True, cancel_futures=True)
-                        raise OSError(errno.ENOSPC,
-                                      f"Game drive full while deploying {dst}")
-                    _log(f"  WARN: could not restore vanilla {dst}: {err}")
-                    continue
-                if actual is LinkMode.SYMLINK:
-                    vanilla_added.append(dst[plen:])
-                if progress_fn is not None and (done % 200 == 0 or done == total_ops):
-                    progress_fn(done, total_ops)
+        def _refill_fatal(result) -> bool:
+            return getattr(result[2], "errno", None) == errno.ENOSPC
+
+        for dst, actual, err in _iter_map_batched(
+                _do_refill, refill_tasks, stop_on=_refill_fatal):
+            done += 1
+            if err is not None:
+                if getattr(err, "errno", None) == errno.ENOSPC:
+                    raise OSError(errno.ENOSPC,
+                                  f"Game drive full while deploying {dst}")
+                _log(f"  WARN: could not restore vanilla {dst}: {err}")
+                continue
+            if actual is LinkMode.SYMLINK:
+                vanilla_added.append(dst[plen:])
+            if progress_fn is not None and (done % 200 == 0 or done == total_ops):
+                progress_fn(done, total_ops)
 
     # Prune directories emptied by the removals (deepest first; rmdir only
     # succeeds on empty dirs, so refilled/live paths are naturally kept).

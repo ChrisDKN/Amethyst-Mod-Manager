@@ -1549,13 +1549,20 @@ class BaseGame(ABC):
         per deploy instead of two (and chained handler deploys coalesce)."""
         self._defer_runtime_snapshot = True
         self._deferred_snapshot_requested = False
+        # Some game handlers and deploy_filemap_to_root call the low-level
+        # snapshot writer directly. Defer those too so the shared pipeline can
+        # coalesce every request into the same final game-root walk.
+        from Utils.deploy_shared import _begin_deferred_deploy_snapshots
+        _begin_deferred_deploy_snapshots()
 
-    def end_deferred_runtime_snapshot(self) -> bool:
-        """End the deferral window; True if a snapshot was requested during it."""
+    def end_deferred_runtime_snapshot(self) -> "tuple[bool, list[tuple]]":
+        """End deferral and return (generic_requested, direct_requests)."""
+        from Utils.deploy_shared import _end_deferred_deploy_snapshots
+        direct_requests = _end_deferred_deploy_snapshots()
         requested = getattr(self, "_deferred_snapshot_requested", False)
         self._defer_runtime_snapshot = False
         self._deferred_snapshot_requested = False
-        return requested
+        return requested, direct_requests
 
     def snapshot_root_for_runtime_capture(self, exclude_dirs=None, log_fn=None) -> None:
         """Snapshot the game root at deploy time for later runtime capture.

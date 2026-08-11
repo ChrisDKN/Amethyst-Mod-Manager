@@ -2,12 +2,12 @@
 deploy_game_root.py
 Game-root filemap deployment (Cyberpunk, Witcher 3, RE games, Darktide).
 
-Extracted from deploy.py during the 2026-04 refactor. No behaviour changes.
+Originally extracted from deploy.py during the 2026-04 refactor, with
+behaviour preserved at the time of extraction.
 """
 
 from __future__ import annotations
 
-import concurrent.futures
 import os
 import shutil
 from pathlib import Path
@@ -17,8 +17,8 @@ from Utils.deploy_shared import (
     LinkMode,
     _FILEMAP_SNAPSHOT_NAME,
     _OVERWRITE_NAME,
-    _deploy_workers,
     _do_link,
+    _iter_map_batched,
     _log_case_collisions,
     _mkdir_leaves,
     _move_crash_safe,
@@ -262,17 +262,16 @@ def deploy_filemap_to_root(
         src, dst, rel_lower, rel_str = item
         return rel_lower, rel_str, _do_link(src, dst, mode)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-        for rel_lower, rel_str, exc in pool.map(_do_transfer, tasks):
-            done_count += 1
-            if exc is None:
-                linked += 1
-                placed_lower.add(rel_lower)
-                placed_log.append(rel_str.replace("\\", "/"))
-            else:
-                _log(f"  WARN: could not transfer {rel_str}: {exc}")
-            if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
-                progress_fn(done_count, total)
+    for rel_lower, rel_str, exc in _iter_map_batched(_do_transfer, tasks):
+        done_count += 1
+        if exc is None:
+            linked += 1
+            placed_lower.add(rel_lower)
+            placed_log.append(rel_str.replace("\\", "/"))
+        else:
+            _log(f"  WARN: could not transfer {rel_str}: {exc}")
+        if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
+            progress_fn(done_count, total)
 
     # Write the deployment log so restore knows what to remove.
     log_path.parent.mkdir(parents=True, exist_ok=True)

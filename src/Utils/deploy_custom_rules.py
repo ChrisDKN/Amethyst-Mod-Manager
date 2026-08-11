@@ -2,7 +2,8 @@
 deploy_custom_rules.py
 Custom routing rules (flexible file routing used by Bethesda + others).
 
-Extracted from deploy.py during the 2026-04 refactor. No behaviour changes.
+Originally extracted from deploy.py during the 2026-04 refactor, with
+behaviour preserved at the time of extraction.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from Utils.deploy_shared import (
     LinkMode,
     _deploy_workers,
     _do_link,
+    _iter_map_batched,
     _mkdir_leaves,
     _move_crash_safe,
     _prune_empty_dirs,
@@ -783,16 +785,15 @@ def deploy_custom_rules(
         return None, (dst_s, err)
 
     done_count = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-        for result, err in pool.map(_do_custom, transfer_tasks):
-            done_count += 1
-            if result is not None:
-                placed_abs.append(result)
-            elif err is not None:
-                dst_err, exc = err
-                _log(f"  WARN: could not transfer {dst_err}: {exc}")
-            if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
-                progress_fn(done_count, total)
+    for result, err in _iter_map_batched(_do_custom, transfer_tasks):
+        done_count += 1
+        if result is not None:
+            placed_abs.append(result)
+        elif err is not None:
+            dst_err, exc = err
+            _log(f"  WARN: could not transfer {dst_err}: {exc}")
+        if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
+            progress_fn(done_count, total)
 
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     try:

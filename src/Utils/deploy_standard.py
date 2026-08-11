@@ -2,12 +2,12 @@
 deploy_standard.py
 Standard-mode deployment (Data/ games: Bethesda, Stardew, Sims 4, OpenMW).
 
-Extracted from deploy.py during the 2026-04 refactor. No behaviour changes.
+Originally extracted from deploy.py during the 2026-04 refactor, with
+behaviour preserved at the time of extraction.
 """
 
 from __future__ import annotations
 
-import concurrent.futures
 import errno
 import os
 import re as _re
@@ -23,10 +23,10 @@ from Utils.deploy_shared import (
     LinkMode,
     _OVERWRITE_NAME,
     _default_core,
-    _deploy_workers,
     _do_link_ex,
     _get_staging_source_path,
     _append_overwrite_log,
+    _iter_map_batched,
     _log_case_collisions,
     _map_batched,
     _mkdir_leaves,
@@ -991,30 +991,34 @@ def deploy_filemap(
     mode_counts: dict[LinkMode, int] = {}
     _stats_entries: list[str] = []
     _t_transfer = _time.perf_counter()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-        for result, actual, err, stats_line in pool.map(_do_transfer, tasks):
-            done_count += 1
-            if result is not None:
-                placed_lower.add(result)
-                linked += 1
-                if actual is not None:
-                    mode_counts[actual] = mode_counts.get(actual, 0) + 1
-                if stats_line is not None:
-                    _stats_entries.append(stats_line)
-            elif err is not None:
-                dst_err, exc = err
-                if getattr(exc, "errno", None) == errno.ENOSPC:
-                    # Drive full - stop immediately instead of spamming a
-                    # WARN per remaining file and "succeeding" half-deployed.
-                    pool.shutdown(wait=True, cancel_futures=True)
-                    _log(f"  ERROR: game drive is full - aborting deploy "
-                         f"(failed at {dst_err}). Free up space, then run "
-                         f"Restore and deploy again.")
-                    raise OSError(errno.ENOSPC,
-                                  f"Game drive full while deploying {dst_err}")
-                _log(f"  WARN: could not transfer {dst_err}: {exc}")
-            if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
-                progress_fn(done_count, total)
+    def _transfer_fatal(result) -> bool:
+        err = result[2]
+        return (err is not None
+                and getattr(err[1], "errno", None) == errno.ENOSPC)
+
+    for result, actual, err, stats_line in _iter_map_batched(
+            _do_transfer, tasks, stop_on=_transfer_fatal):
+        done_count += 1
+        if result is not None:
+            placed_lower.add(result)
+            linked += 1
+            if actual is not None:
+                mode_counts[actual] = mode_counts.get(actual, 0) + 1
+            if stats_line is not None:
+                _stats_entries.append(stats_line)
+        elif err is not None:
+            dst_err, exc = err
+            if getattr(exc, "errno", None) == errno.ENOSPC:
+                # Drive full - stop immediately instead of spamming a
+                # WARN per remaining file and "succeeding" half-deployed.
+                _log(f"  ERROR: game drive is full - aborting deploy "
+                     f"(failed at {dst_err}). Free up space, then run "
+                     f"Restore and deploy again.")
+                raise OSError(errno.ENOSPC,
+                              f"Game drive full while deploying {dst_err}")
+            _log(f"  WARN: could not transfer {dst_err}: {exc}")
+        if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
+            progress_fn(done_count, total)
     print(f"  [TIMER] deploy_filemap - transfer {total} files: {_time.perf_counter() - _t_transfer:.3f}s")
 
     _report_mode_breakdown(_log, mode_counts, mode)
@@ -1143,25 +1147,27 @@ def deploy_core(
     # need recording (restore's core_lower/inode checks already cover them).
     _vanilla_symlinked: list[str] = []
     _t_core_transfer = _time.perf_counter()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-        for actual, dst_str, exc in pool.map(_do_core, resolved_tasks):
-            done_count += 1
-            if actual is not None:
-                linked += 1
-                mode_counts[actual] = mode_counts.get(actual, 0) + 1
-                if actual == LinkMode.SYMLINK:
-                    _vanilla_symlinked.append(dst_str[_deploy_plen:])
-            else:
-                if getattr(exc, "errno", None) == errno.ENOSPC:
-                    pool.shutdown(wait=True, cancel_futures=True)
-                    _log(f"  ERROR: game drive is full - aborting deploy "
-                         f"(failed at {dst_str}). Free up space, then run "
-                         f"Restore and deploy again.")
-                    raise OSError(errno.ENOSPC,
-                                  f"Game drive full while deploying {dst_str}")
-                _log(f"  WARN: could not transfer {dst_str}: {exc}")
-            if progress_fn is not None:
-                progress_fn(done_count, total)
+    def _core_fatal(result) -> bool:
+        return getattr(result[2], "errno", None) == errno.ENOSPC
+
+    for actual, dst_str, exc in _iter_map_batched(
+            _do_core, resolved_tasks, stop_on=_core_fatal):
+        done_count += 1
+        if actual is not None:
+            linked += 1
+            mode_counts[actual] = mode_counts.get(actual, 0) + 1
+            if actual == LinkMode.SYMLINK:
+                _vanilla_symlinked.append(dst_str[_deploy_plen:])
+        else:
+            if getattr(exc, "errno", None) == errno.ENOSPC:
+                _log(f"  ERROR: game drive is full - aborting deploy "
+                     f"(failed at {dst_str}). Free up space, then run "
+                     f"Restore and deploy again.")
+                raise OSError(errno.ENOSPC,
+                              f"Game drive full while deploying {dst_str}")
+            _log(f"  WARN: could not transfer {dst_str}: {exc}")
+        if progress_fn is not None:
+            progress_fn(done_count, total)
     print(f"  [TIMER] deploy_core - transfer {total} files: {_time.perf_counter() - _t_core_transfer:.3f}s")
 
     # The manifest must land in the profile root (beside filemap.txt) where
@@ -1248,12 +1254,10 @@ def restore_data_core(
     # didn't run, fall back to a dedicated count walk below".
     restored = -1
     if overwrite_dir is not None and deploy_dir.is_dir():
-        # Build core_lower using os.walk - avoids per-file stat() from rglob+is_file.
-        # Also capture (st_ino, st_size, st_mtime_ns) so we can detect when a
-        # deployed vanilla file has been replaced by an external tool (e.g.
-        # xEdit Quick Auto Clean writes a fresh file over the deployed symlink
-        # or hardlink).  An "original" deploy shares the core inode (hardlink)
-        # or matches size+mtime (copy).  A replaced file fails both checks.
+        # Build core_lower/core_path using os.walk. Core metadata is loaded
+        # lazily below only for a single-link vanilla-path candidate: normal
+        # hardlinks/symlinks never need it, so eagerly lstat-ing every vanilla
+        # file made an ordinary restore pay for thousands of unused syscalls.
         _t_rescue_start = _time.perf_counter()
 
         def _lstat_or_none(p: str) -> "os.stat_result | None":
@@ -1267,19 +1271,12 @@ def restore_data_core(
         core_lower: set[str] = set()
         core_stat: dict[str, tuple[int, int, int]] = {}
         core_path: dict[str, str] = {}
-        # Collect core paths first, then stat them in parallel - one lstat per
-        # vanilla file is the bulk of this walk's cost.
-        _core_files: list[str] = []
         for _dp, _dns, _fns in os.walk(_core_str):
             for _fn in _fns:
-                _core_files.append(_dp + "/" + _fn)
-        _core_stats = _map_batched(_lstat_or_none, _core_files)
-        for _cp, _cs in zip(_core_files, _core_stats):
-            _rel = _cp[_core_plen:].lower()
-            core_lower.add(_rel)
-            core_path[_rel] = _cp
-            if _cs is not None:
-                core_stat[_rel] = (_cs.st_ino, _cs.st_size, _cs.st_mtime_ns)
+                _cp = _dp + "/" + _fn
+                _rel = _cp[_core_plen:].lower()
+                core_lower.add(_rel)
+                core_path[_rel] = _cp
         filemap_path = overwrite_dir.parent / "filemap.txt"
         filemap_lower: set[str] = set()
         filemap_rel_to_mod: dict[str, str] = {}
@@ -1320,23 +1317,32 @@ def restore_data_core(
                     _rel_norm = _rel_str.replace("\\", "/").lower()
                     if _rel_norm.startswith(_deploy_prefix):
                         filemap_root_lower.add(_rel_norm[len(_deploy_prefix):])
-        # Build a set of every file known to any mod in the index (all profiles,
-        # all mods, enabled or disabled).  Runtime-created files won't appear here,
-        # so any hit means "this is a mod file, don't rescue it".
+        # Sets of every file known to any mod in the index (all profiles, all
+        # mods, enabled or disabled). They are populated on the first ambiguous
+        # single-link candidate instead of sweeping the entire index on every
+        # restore; normal hardlink/symlink deploys commonly never need them.
         modindex_lower: set[str] = set()
         modindex_rel_to_mods: dict[str, list[str]] = {}
-        try:
-            from Utils.filemap import read_mod_index
-            _index = read_mod_index(overwrite_dir.parent / "modindex.bin")
-            if _index:
-                for _mod_name, (_normal, _root) in _index.items():
-                    if _mod_name == _OVERWRITE_NAME:
-                        continue
-                    for rel_key in _normal.keys():
-                        modindex_lower.add(rel_key)
-                        modindex_rel_to_mods.setdefault(rel_key, []).append(_mod_name)
-        except Exception as exc:
-            _log(f"  WARN: could not read mod index for rescue check - {exc}")
+        _modindex_loaded = False
+
+        def _ensure_modindex() -> None:
+            nonlocal _modindex_loaded
+            if _modindex_loaded:
+                return
+            _modindex_loaded = True
+            try:
+                from Utils.filemap import read_mod_index
+                _index = read_mod_index(overwrite_dir.parent / "modindex.bin")
+                if _index:
+                    for _mod_name, (_normal, _root) in _index.items():
+                        if _mod_name == _OVERWRITE_NAME:
+                            continue
+                        for rel_key in _normal.keys():
+                            modindex_lower.add(rel_key)
+                            modindex_rel_to_mods.setdefault(rel_key, []).append(
+                                _mod_name)
+            except Exception as exc:
+                _log(f"  WARN: could not read mod index for rescue check - {exc}")
         # Vanilla files deployed as symlinks into core_dir.  If such a file was
         # edited in place by an external tool (xEdit), the tool may have
         # destroyed core_dir's copy via the symlink, so it won't be in
@@ -1427,9 +1433,13 @@ def restore_data_core(
                 # Only adopt the base name when it's a plugin we recognise
                 # (mod-owned or vanilla) - otherwise leave the temp alone
                 # for the normal runtime-file handling.
-                if (_base_lower in filemap_lower or _base_lower in modindex_lower
-                        or _base_lower in core_lower
-                        or _base_lower in vanilla_symlinked):
+                _base_known = (_base_lower in filemap_lower
+                               or _base_lower in core_lower
+                               or _base_lower in vanilla_symlinked)
+                if not _base_known:
+                    _ensure_modindex()
+                    _base_known = _base_lower in modindex_lower
+                if _base_known:
                     _base_dst = _deploy_str + "/" + _base_rel
                     try:
                         # Complete the deferred rename. os.replace
@@ -1463,6 +1473,14 @@ def restore_data_core(
                 # edited file so the rmtree+rename below restores the
                 # edited vanilla plugin back into Data/.
                 _cs = core_stat.get(rel_lower)
+                if _cs is None:
+                    _core_src = core_path.get(rel_lower)
+                    _raw_cs = (_lstat_or_none(_core_src)
+                               if _core_src is not None else None)
+                    if _raw_cs is not None:
+                        _cs = (_raw_cs.st_ino, _raw_cs.st_size,
+                               _raw_cs.st_mtime_ns)
+                        core_stat[rel_lower] = _cs
                 if _cs is not None:
                     _core_ino, _core_sz, _core_mt = _cs
                     if (st.st_ino == _core_ino or
@@ -1530,6 +1548,7 @@ def restore_data_core(
                 continue
             # Check if we would skip as a known mod file
             in_filemap = rel_lower in filemap_lower
+            _ensure_modindex()
             in_modindex = rel_lower in modindex_lower
             if in_filemap or in_modindex:
                 # xEdit orphan check: if staging source is missing, rescue the

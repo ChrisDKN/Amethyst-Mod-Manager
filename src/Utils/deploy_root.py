@@ -2,7 +2,8 @@
 deploy_root.py
 Root-folder deployment (BepInEx, UE5, Mewgenics, Bannerlord, KCD2, BG3).
 
-Extracted from deploy.py during the 2026-04 refactor. No behaviour changes.
+Originally extracted from deploy.py during the 2026-04 refactor, with
+behaviour preserved at the time of extraction.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from Utils.deploy_shared import (
     LinkMode,
     _deploy_workers,
     _do_link_ex,
+    _iter_map_batched,
     _mkdir_leaves,
     _move_crash_safe,
     _path_under_root,
@@ -141,12 +143,11 @@ def deploy_root_folder(
         _actual, err = _do_link_ex(str(src), str(dst), mode)
         return rel_posix, err
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-        for rel_posix, err in pool.map(_do_root, tasks):
-            if err is None:
-                placed.append(rel_posix)
-            else:
-                _log(f"  WARN: could not transfer root file {rel_posix}: {err}")
+    for rel_posix, err in _iter_map_batched(_do_root, tasks):
+        if err is None:
+            placed.append(rel_posix)
+        else:
+            _log(f"  WARN: could not transfer root file {rel_posix}: {err}")
 
     # Re-write the log with what actually landed.
     _write_log(placed)
@@ -335,12 +336,11 @@ def deploy_root_flagged_mods(
         _actual, err = _do_link_ex(str(src), str(dst), mode)
         return rel_posix, err
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-        for rel_posix, err in pool.map(_do_flagged, tasks):
-            if err is None:
-                placed.append(rel_posix)
-            else:
-                _log(f"  WARN: could not transfer root-flagged file {rel_posix}: {err}")
+    for rel_posix, err in _iter_map_batched(_do_flagged, tasks):
+        if err is None:
+            placed.append(rel_posix)
+        else:
+            _log(f"  WARN: could not transfer root-flagged file {rel_posix}: {err}")
 
     # Re-write the log with what actually landed.
     _write_log(placed)

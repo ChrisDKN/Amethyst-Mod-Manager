@@ -12,6 +12,7 @@ import concurrent.futures
 import errno
 import os
 import shutil
+import threading
 import time as _time
 from contextlib import contextmanager as _contextmanager
 from dataclasses import dataclass, field
@@ -88,6 +89,52 @@ def _map_batched(fn, items: list, chunk: int = 2048) -> list:
         for part in pool.map(_run, slices):
             out.extend(part)
     return out
+
+
+def _iter_map_batched(fn, items: list, chunk: int = 256, stop_on=None):
+    """Yield a parallel map while creating one Future per *chunk*.
+
+    This is the streaming counterpart to :func:`_map_batched`, intended for
+    file transfers where callers need to process errors/progress as results
+    arrive.  Keeping transfer chunks smaller than the cheap-syscall helper's
+    default limits how much work can still be in flight after a fatal error,
+    while avoiding one Future allocation per deployed file. If ``stop_on``
+    returns True for a result, workers stop between items and that result is
+    still yielded so the caller can raise or report it.
+    """
+    if not items:
+        return
+    workers = min(_deploy_workers(), len(items))
+    # Keep at least one chunk per worker for small/medium deployments; cap
+    # large chunks so fatal errors do not leave too much sequential work in
+    # each already-running worker.
+    chunk = min(chunk, max(1, (len(items) + workers - 1) // workers))
+    slices = [items[i:i + chunk] for i in range(0, len(items), chunk)]
+    stop_event = threading.Event() if stop_on is not None else None
+
+    def _run(sl: list) -> list:
+        results = []
+        for item in sl:
+            if stop_event is not None and stop_event.is_set():
+                break
+            result = fn(item)
+            results.append(result)
+            if stop_on is not None and stop_on(result):
+                stop_event.set()
+                break
+        return results
+
+    pool = concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(workers, len(slices))
+    )
+    try:
+        for part in pool.map(_run, slices):
+            yield from part
+    finally:
+        # A caller may abort while consuming a chunk (ENOSPC, cancellation,
+        # etc.). The stop event halts active chunk loops between items; this
+        # shutdown also drops chunk futures that have not started.
+        pool.shutdown(wait=True, cancel_futures=True)
 
 
 @_contextmanager
@@ -1619,6 +1666,50 @@ def _resolve_root_path_str(base_str: str, rel_str: str,
 # identify runtime-generated files (files that appeared after deploy).
 _FILEMAP_SNAPSHOT_NAME = "deploy_snapshot.txt"
 
+# run_deploy_pipeline coalesces snapshot requests from handlers and low-level
+# game-root deploy helpers into one final walk after Root_Folder files land.
+# Deploys are serialized by the application. Requests live here only during
+# game.deploy(); _end_deferred_deploy_snapshots transfers ownership to the
+# pipeline and clears this process-local state immediately.
+_DEPLOY_SNAPSHOT_DEFERRED = False
+_DEPLOY_SNAPSHOT_PENDING: dict[str, tuple] = {}
+
+
+def _begin_deferred_deploy_snapshots() -> None:
+    """Defer direct :func:`_write_deploy_snapshot` calls for one deploy."""
+    global _DEPLOY_SNAPSHOT_DEFERRED, _DEPLOY_SNAPSHOT_PENDING
+    _DEPLOY_SNAPSHOT_DEFERRED = True
+    _DEPLOY_SNAPSHOT_PENDING = {}
+
+
+def _end_deferred_deploy_snapshots() -> list[tuple]:
+    """End deferral and transfer pending direct requests to the caller.
+
+    Module state is cleared before returning, so a failed deploy cannot retain
+    paths or logging callbacks for a later deploy to accidentally reuse.
+    """
+    global _DEPLOY_SNAPSHOT_DEFERRED, _DEPLOY_SNAPSHOT_PENDING
+    pending = list(_DEPLOY_SNAPSHOT_PENDING.values())
+    _DEPLOY_SNAPSHOT_DEFERRED = False
+    _DEPLOY_SNAPSHOT_PENDING = {}
+    return pending
+
+
+def _flush_deferred_deploy_snapshots(requests) -> int:
+    """Write pipeline-owned direct snapshot requests; return the count handled.
+
+    Each request retains its original root, destination and exclusions. Multiple
+    calls targeting the same snapshot path are deduplicated during deferral;
+    distinct restore consumers each receive their own snapshot.
+    """
+    by_path = {str(request[1]): request for request in requests}
+    handled = 0
+    for game_root, snapshot_path, log_fn, exclude_dirs in by_path.values():
+        _write_deploy_snapshot(game_root, snapshot_path, log_fn=log_fn,
+                               exclude_dirs=exclude_dirs)
+        handled += 1
+    return handled
+
 
 def _normalize_exclude_dirs(exclude_dirs):
     """Return a set of lowercased, forward-slash relative dir paths, or None.
@@ -1659,6 +1750,16 @@ def _write_deploy_snapshot(
     standard games pass their deploy subfolder so its files stay on the
     Data_Core path.  Nested paths like "BepInEx/plugins" are supported.
     """
+    global _DEPLOY_SNAPSHOT_PENDING
+    if _DEPLOY_SNAPSHOT_DEFERRED:
+        # Path-keyed storage preserves distinct restore consumers while
+        # coalescing repeated requests for the same snapshot destination.
+        _DEPLOY_SNAPSHOT_PENDING[str(snapshot_path)] = (
+            game_root, snapshot_path, log_fn,
+            tuple(exclude_dirs) if exclude_dirs else None,
+        )
+        return 0
+
     _log = _safe_log(log_fn)
     excluded = _normalize_exclude_dirs(exclude_dirs)
     count = 0
@@ -2284,6 +2385,7 @@ __all__ = [
     # Private helpers (re-exported via façade for back-compat)
     "_mkdir_leaves",
     "_deploy_workers",
+    "_iter_map_batched",
     "_timer",
     "_prune_empty_dirs",
     "_restore_backup_dir",
@@ -2300,6 +2402,9 @@ __all__ = [
     "_resolve_root_path_str",
     "_log_case_collisions",
     "_FILEMAP_SNAPSHOT_NAME",
+    "_begin_deferred_deploy_snapshots",
+    "_end_deferred_deploy_snapshots",
+    "_flush_deferred_deploy_snapshots",
     "_write_deploy_snapshot",
     "_load_deploy_snapshot",
     "_move_runtime_files",
