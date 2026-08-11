@@ -4,11 +4,21 @@
 - Added an option to deploy Bethesda games with case alias symlinks to improve loading times (on by default)
 - Added a prefix health check option to display any missing dependancies
 - Added right click options to files in the saves tab
+- Added a ctrl+s shortcut for saving while in the text editor
 ### Changes
 - The move to separator menu can now be searched if the list of separators is long enough
+- Changed the root folder icon and made it more visible with light themes
+- Added a gradient to separators for better visibility
+- If a game is installed on multiple launchers, you can now quickly swap between them in the game config
 ### Bug Fixes
 - Fixed deploy for users who have the non RT versions of Resident Evil games installed
 - Fixed archives not installing that have a unix permission attribute of zero
+- Fixed Daggerfall Unity mods.json not being written correctly
+- Fixed some issues with reverse priority when moving mods between separators and profiles
+- Fixed eslifer config to work with the latest versions
+- Fixed buttons in the top bar collapsing too aggressively when shrinking the window
+- Fixed scrollbars not being affected by the selected theme
+- Fixed html files used by PrismaUI not deploying
 
 ---
 
