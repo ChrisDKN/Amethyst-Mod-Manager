@@ -228,7 +228,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         _nexus_multi = [nm for nm in _names if _has_nexus_page(view, nm)]
         _reqs_multi = [nm for nm in _names if _has_missing_reqs(view, nm)]
         _qu = [nm for nm in _names if _has_update_flag(view, nm)]
-        # Reinstall: archive on disk OR redownloadable from Nexus (mod/file id).
+        # Reinstall: archive on disk OR redownloadable from Nexus/Thunderstore.
         _reinstall_multi = [nm for nm in _names
                             if _installation_archive(view, nm) is not None
                             or _can_redownload(view, nm)]
@@ -314,8 +314,9 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     # Reinstall Mod - from the recorded archive when it's still on disk (Tk:
     # ctx_meta present + _find_installation_archive), reinstalling into the same
     # folder (silent Replace-All). When the archive is gone but the mod carries
-    # a Nexus mod/file id, offer 'Reinstall (Redownload)' instead - the handler
-    # redownloads from Nexus (premium) or opens the files page (non-premium).
+    # a Nexus mod/file id or Thunderstore package identity, offer 'Reinstall
+    # (Redownload)' instead. Nexus keeps its premium/manual-browser behaviour;
+    # Thunderstore downloads are public and direct.
     if _installation_archive(view, name) is not None:
         act(_mt("Reinstall Mod"), lambda: _reinstall(view, [name]))
     elif _can_redownload(view, name):
@@ -994,8 +995,20 @@ def _installation_archive(view, name: str):
     item. Searches the user's Downloads dir + the game's configured caches +
     any extra download locations, matching the Tk lookup."""
     meta = _read_mod_meta(view, name)
-    filename = getattr(meta, "installation_file", "") if meta is not None else ""
-    if not filename:
+    filenames = []
+    nexus_filename = (
+        getattr(meta, "installation_file", "") if meta is not None else "")
+    if nexus_filename:
+        filenames.append(nexus_filename)
+    ts_meta = _thunderstore_meta(view, name)
+    if ts_meta is not None and ts_meta.namespace and ts_meta.name \
+            and ts_meta.version:
+        ts_full_name = (ts_meta.full_name or
+                        f"{ts_meta.namespace}-{ts_meta.name}-{ts_meta.version}")
+        ts_filename = f"{ts_full_name}.zip"
+        if ts_filename not in filenames:
+            filenames.append(ts_filename)
+    if not filenames:
         return None
     import os
     from pathlib import Path
@@ -1014,31 +1027,35 @@ def _installation_archive(view, name: str):
     except Exception:
         return None
     for d in search_dirs:
-        cand = Path(d) / filename
-        if cand.is_file():
-            return cand
+        for filename in filenames:
+            cand = Path(d) / filename
+            if cand.is_file():
+                return cand
     return None
 
 
 def _can_redownload(view, name: str) -> bool:
-    """True if the mod carries a Nexus mod id + file id (and a resolvable game
-    domain) in its meta.ini, so its install archive can be redownloaded from
-    Nexus even when the on-disk archive is gone. Gates the 'Reinstall
-    (Redownload)' menu item (the handler premium-gates / falls back to the
-    browser)."""
+    """Whether a missing install archive can be fetched from a recorded store.
+
+    Nexus requires mod/file ids plus a game domain. Thunderstore packages are
+    public and need only their namespace, name and exact installed version.
+    """
     meta = _read_mod_meta(view, name)
-    if meta is None:
-        return False
-    if int(getattr(meta, "mod_id", 0) or 0) <= 0:
-        return False
-    if int(getattr(meta, "file_id", 0) or 0) <= 0:
-        return False
-    from Nexus.nexus_meta import normalise_game_domain
-    domain = normalise_game_domain(getattr(meta, "game_domain", "") or "")
-    if not domain:
-        game = getattr(view, "game", None)
-        domain = getattr(game, "nexus_game_domain", "") or ""
-    return bool(domain)
+    if meta is not None:
+        mod_id = int(getattr(meta, "mod_id", 0) or 0)
+        file_id = int(getattr(meta, "file_id", 0) or 0)
+        if mod_id > 0 and file_id > 0:
+            from Nexus.nexus_meta import normalise_game_domain
+            domain = normalise_game_domain(
+                getattr(meta, "game_domain", "") or "")
+            if not domain:
+                game = getattr(view, "game", None)
+                domain = getattr(game, "nexus_game_domain", "") or ""
+            if domain:
+                return True
+    ts_meta = _thunderstore_meta(view, name)
+    return bool(ts_meta is not None and ts_meta.namespace and ts_meta.name
+                and ts_meta.version)
 
 
 # ---- Root Folder install toggle -------------------------------------------

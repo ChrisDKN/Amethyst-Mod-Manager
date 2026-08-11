@@ -36,6 +36,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Utils.app_log import app_log
+from Utils.atomic_write import atomic_writer
+from Utils.meta_lock import locked_meta_write
 from Utils.pak_reader import extract_meta_lsx
 
 _SECTION = "General"
@@ -251,6 +253,7 @@ def resolve_modio_meta(
 # meta.ini I/O
 # ---------------------------------------------------------------------------
 
+@locked_meta_write
 def write_modio_meta(meta_ini_path: Path, meta: ModioMeta) -> None:
     """Write mod.io keys into meta.ini, preserving all existing content."""
     # interpolation=None so a literal '%' in a name/version isn't treated as a
@@ -274,7 +277,7 @@ def write_modio_meta(meta_ini_path: Path, meta: ModioMeta) -> None:
         cp.set(_SECTION, _KEY_INSTALLED, meta.installed)
 
     meta_ini_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(meta_ini_path, "w", encoding="utf-8") as f:
+    with atomic_writer(meta_ini_path) as f:
         cp.write(f)
     app_log(f"mod.io: wrote meta.ini for mod {meta.mod_id} (file {meta.file_id})")
 

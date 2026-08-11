@@ -35,6 +35,8 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from Utils.app_log import app_log
+from Utils.atomic_write import atomic_writer
+from Utils.meta_lock import locked_meta_write
 
 
 @dataclass
@@ -244,6 +246,7 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
     return meta
 
 
+@locked_meta_write
 def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     """
     Write (or update) Nexus metadata into a ``meta.ini`` file.
@@ -310,7 +313,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
 
     meta_ini_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(meta_ini_path, "w", encoding="utf-8") as f:
+    with atomic_writer(meta_ini_path) as f:
         cp.write(f)
 
     app_log(f"Wrote meta.ini: {meta_ini_path}")
@@ -325,6 +328,7 @@ def set_meta_key(meta_ini_path: Path, ini_key: str, value: str) -> None:
     set_meta_keys(meta_ini_path, {ini_key: value})
 
 
+@locked_meta_write
 def set_meta_keys(meta_ini_path: Path, values: dict) -> None:
     """Set several keys in a meta.ini's [General] section in ONE write, leaving
     the rest untouched. A value of ``None`` REMOVES that key."""
@@ -342,10 +346,11 @@ def set_meta_keys(meta_ini_path: Path, values: dict) -> None:
             cp.remove_option(_SECTION, ini_key)
         else:
             cp.set(_SECTION, ini_key, str(value).replace("%", "%%"))
-    with open(meta_ini_path, "w", encoding="utf-8") as f:
+    with atomic_writer(meta_ini_path) as f:
         cp.write(f)
 
 
+@locked_meta_write
 def ensure_installed_stamp(meta_ini_path: Path) -> bool:
     """
     If ``installed`` is missing from meta.ini, backfill it from the file's mtime
@@ -363,7 +368,7 @@ def ensure_installed_stamp(meta_ini_path: Path) -> bool:
     mtime = meta_ini_path.stat().st_mtime
     dt = datetime.fromtimestamp(mtime)
     cp.set(_SECTION, "installed", dt.strftime("%Y-%m-%dT%H:%M:%S"))
-    with open(meta_ini_path, "w", encoding="utf-8") as f:
+    with atomic_writer(meta_ini_path) as f:
         cp.write(f)
     return True
 

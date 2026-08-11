@@ -117,8 +117,8 @@ class ModListModel(QAbstractTableModel):
         self._categories: dict[str, str] = {}
         # Nexus uploader per mod (meta.ini uploadedBy - Author column).
         self._authors: dict[str, str] = {}
-        # Nexus summary per mod - backs the name-column hover tooltip only
-        # (no column of its own). Populated with the other meta on reload.
+        # Preferred store summary per mod (Nexus, then Thunderstore fallback) -
+        # backs the name-column hover tooltip only (no column of its own).
         self._descriptions: dict[str, str] = {}
         # Formatted mod folder sizes ("12 MB"). Computed lazily - only when the
         # Size column is visible - so a default-hidden Size costs no disk walk.
@@ -756,7 +756,7 @@ class ModListModel(QAbstractTableModel):
                 if not e.is_separator and e.enabled}
 
     def description(self, name: str) -> str:
-        """Nexus summary for *name* (name-column hover tooltip), or "" if none."""
+        """Preferred store summary for the name-column tooltip, or ""."""
         return self._descriptions.get(name, "")
 
     # ---- separators -------------------------------------------------------

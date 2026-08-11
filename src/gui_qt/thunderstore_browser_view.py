@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, QTimer, Signal, QEvent
 from PySide6.QtWidgets import (
@@ -35,8 +35,8 @@ from PySide6.QtWidgets import (
 )
 
 from Thunderstore.thunderstore_api import (
-    ORDERINGS, PAGE_SIZE, fetch_filters, fetch_latest_version, fetch_listing,
-    package_url, total_pages)
+    ORDERINGS, fetch_filters, fetch_latest_version, fetch_listing, package_url,
+    total_pages)
 from gui_qt.flow_layout import FlowLayout
 from gui_qt.nexus_mod_card import CARD_W, NexusModCard, ThumbnailLoader
 from gui_qt.safe_emit import safe_emit
@@ -45,6 +45,7 @@ from gui_qt.theme_qt import active_palette, _c
 from gui_qt.worker import run_in_worker
 
 _ALL_SECTIONS = "All sections"
+_DEFAULT_ORDERING = ("Most downloaded", "most-downloaded")
 
 
 def _synth_id(namespace: str, name: str) -> int:
@@ -138,7 +139,7 @@ class ThunderstoreBrowserView(QWidget):
 
         # state
         self._page = 0                  # 0-based (the API is 1-based)
-        self._ordering = ORDERINGS[0][1]
+        self._ordering = _DEFAULT_ORDERING[1]
         self._section = ""              # section uuid ("" = all)
         self._sections: list = []       # [(uuid, name, slug, priority)]
         self._query = ""
@@ -235,7 +236,8 @@ class ThunderstoreBrowserView(QWidget):
         tb.addWidget(self._section_sel)
 
         self._sort_sel = SelectorButton(
-            items=[lbl for lbl, _v in ORDERINGS], current=ORDERINGS[0][0],
+            items=[lbl for lbl, _v in ORDERINGS],
+            current=_DEFAULT_ORDERING[0],
             prefix=self.tr("Sort: "), min_width=190, on_select=self._on_sort)
         tb.addWidget(self._sort_sel)
 
@@ -395,8 +397,6 @@ class ThunderstoreBrowserView(QWidget):
         if community != self._community:
             return          # a retarget landed first
         self._filters_loaded = True
-        p = active_palette()
-
         # Sections dropdown.
         self._sections = list(getattr(filters, "sections", []) or [])
         labels = [_ALL_SECTIONS] + [s[1] for s in self._sections]
@@ -417,7 +417,8 @@ class ThunderstoreBrowserView(QWidget):
         from gui_qt.tri_state_checkbox import TriStateCheckBox
         self._cat_boxes = []
         for cid, cname, _slug in cats:
-            cb = TriStateCheckBox(cname, two_state=True)
+            cb = TriStateCheckBox(cname)
+            cb.setToolTip(self.tr("Click once to include, twice to exclude."))
             cb._cat_id = cid        # the API filters by id, never by slug
             cb.stateChanged.connect(self._on_category_changed)
             self._cat_layout.addWidget(cb)

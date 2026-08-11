@@ -94,7 +94,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     fomod              -> set of mod names installed via FOMOD (meta.is_fomod)
     bain               -> set of mod names installed via BAIN (meta.is_bain)
     missing_reqs       -> set of mod names with un-ignored missing requirements
-    descriptions[name] -> Nexus summary text for the name-column hover tooltip
+    descriptions[name] -> Nexus summary, falling back to the Thunderstore
+                          description, for the name-column hover tooltip
     authors[name]      -> Nexus uploader username (Author column, "" if none)
 
     *ignored_reqs* - requirement names the user has dismissed (per-profile); a
@@ -239,6 +240,20 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         try:
             from Thunderstore.thunderstore_meta import read_meta as _ts_read
             _ts = _ts_read(meta_path)
+            # Version follows the same precedence as the description: Nexus
+            # owns the existing column value when present; Thunderstore fills
+            # it for Thunderstore-only installs.
+            if e.name not in versions:
+                _ts_version = (getattr(_ts, "version", "") or "").strip()
+                if _ts_version:
+                    versions[e.name] = _ts_version
+            # A mod can carry both stores' metadata. Keep the Nexus summary as
+            # the preferred tooltip, but use Thunderstore's package description
+            # when Nexus has none (including Thunderstore-only installs).
+            if e.name not in descriptions:
+                _ts_desc = (getattr(_ts, "description", "") or "").strip()
+                if _ts_desc:
+                    descriptions[e.name] = _ts_desc
             if _ts.package_id and _ts.has_update and not _ts.ignore_update:
                 bits |= FLAG_THUNDERSTORE_UPDATE
                 updates.add(e.name)

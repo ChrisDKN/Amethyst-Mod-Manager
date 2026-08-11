@@ -95,7 +95,7 @@ package() {
     [ -f "$SRC_TREE/Changelog.txt" ] && install -Dm644 "$SRC_TREE/Changelog.txt" "$app_share/Changelog.txt"
 
     local _dir
-    for _dir in gui_qt wizards_qt Utils Games LOOT Nexus icons translations wrappers; do
+    for _dir in gui_qt wizards_qt Utils Games LOOT Nexus Thunderstore icons translations wrappers; do
         [ -d "$_src/$_dir" ] && cp -r "$_src/$_dir" "$app_share/$_dir"
     done
 

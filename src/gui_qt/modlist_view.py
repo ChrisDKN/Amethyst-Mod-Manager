@@ -1005,7 +1005,8 @@ class ModListView(QTreeView):
         self._press_row = -1
         super().mouseReleaseEvent(event)
 
-    # Tk parity: hovering a mod's Name cell shows its Nexus summary tooltip.
+    # Hovering a mod's Name cell shows its preferred store summary tooltip
+    # (Nexus first, then Thunderstore when Nexus has no description).
     # Width-capped (Qt doesn't word-wrap plain-text tooltips, so a long
     # description is char-wrapped to keep the tip from stretching across the
     # screen) and length-capped. Gated by the show_summary_tooltips setting.
@@ -1369,4 +1370,3 @@ class ModListView(QTreeView):
             key = _COL_TO_SORTKEY.get(col)
             if key:
                 self.model().set_sort(key, st["ascending"])
-

@@ -36,11 +36,16 @@ import sys
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
 
-from Nexus.nxm_handler import nxm_log
-
 _SCHEME = "ror2mm"
 _DEFAULT_HOST = "thunderstore.io"
+_ALLOWED_HOSTS = frozenset({_DEFAULT_HOST})
 _DESKTOP_FILE_NAME = "amethystmodmanager-ror2mm.desktop"
+
+
+def _handler_log(message: str) -> None:
+    """Log protocol-handler activity without importing Nexus for URL parsing."""
+    from Nexus.nxm_handler import nxm_log
+    nxm_log(message)
 
 
 @dataclass
@@ -64,6 +69,13 @@ class Ror2mmLink:
     host: str = _DEFAULT_HOST
     community: str = ""
     raw: str = ""
+
+    def __post_init__(self) -> None:
+        self.host = (self.host or "").strip().lower()
+        if self.host not in _ALLOWED_HOSTS:
+            raise ValueError(
+                f"Unsupported Thunderstore host {self.host!r}; expected "
+                f"{_DEFAULT_HOST!r}")
 
     # v1/install/thunderstore.io/Subnautica_Modding/BepInExPack/5.4.2305/
     #
@@ -236,9 +248,9 @@ class Ror2mmHandler:
                 path.write_text(cls._desktop_contents(), encoding="utf-8")
                 os.chmod(path, 0o755)
                 written = True
-                nxm_log(f"Wrote ror2mm .desktop: {path}")
+                _handler_log(f"Wrote ror2mm .desktop: {path}")
             except OSError as exc:
-                nxm_log(f"Could not write ror2mm .desktop {path}: {exc}")
+                _handler_log(f"Could not write ror2mm .desktop {path}: {exc}")
 
         if not written:
             return False
@@ -259,10 +271,10 @@ class Ror2mmHandler:
                  f"x-scheme-handler/{cls._SCHEME}"],
                 check=False, capture_output=True, timeout=15)
         except (OSError, subprocess.SubprocessError) as exc:
-            nxm_log(f"xdg-mime registration for ror2mm:// failed: {exc}")
+            _handler_log(f"xdg-mime registration for ror2mm:// failed: {exc}")
 
         cls._write_mimeapps_association()
-        nxm_log("Registered ror2mm:// handler")
+        _handler_log("Registered ror2mm:// handler")
         return True
 
     @classmethod
@@ -286,9 +298,9 @@ class Ror2mmHandler:
                 updated = cls._patch_mimeapps_content(existing)
                 if updated != existing:
                     path.write_text(updated, encoding="utf-8")
-                    nxm_log(f"Updated ror2mm:// association in {path}")
+                    _handler_log(f"Updated ror2mm:// association in {path}")
             except OSError as exc:
-                nxm_log(f"Could not update {path}: {exc}")
+                _handler_log(f"Could not update {path}: {exc}")
 
     @classmethod
     def _patch_mimeapps_content(cls, content: str) -> str:

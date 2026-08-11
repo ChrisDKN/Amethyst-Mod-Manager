@@ -45,6 +45,8 @@ from datetime import datetime
 from pathlib import Path
 
 from Utils.app_log import app_log
+from Utils.atomic_write import atomic_writer
+from Utils.meta_lock import locked_meta_write
 
 SECTION = "thunderstore"
 
@@ -195,6 +197,7 @@ def read_meta(meta_ini_path: Path) -> ThunderstoreModMeta:
     return meta
 
 
+@locked_meta_write
 def write_meta(meta_ini_path: Path, meta: ThunderstoreModMeta) -> None:
     """Write Thunderstore metadata into a ``meta.ini`` [thunderstore] section.
 
@@ -229,7 +232,7 @@ def write_meta(meta_ini_path: Path, meta: ThunderstoreModMeta) -> None:
         cp.set(SECTION, ini_key, str(value).replace("%", "%%"))
 
     meta_ini_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(meta_ini_path, "w", encoding="utf-8") as f:
+    with atomic_writer(meta_ini_path) as f:
         cp.write(f)
 
     app_log(f"Wrote thunderstore meta.ini: {meta_ini_path}")

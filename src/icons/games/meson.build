@@ -30,6 +30,7 @@ py.install_sources(
   'Mount___Blade_II__Bannerlord.png',
   'Oblivion.png',
   'oblivion_remastered.png',
+  'peak.png',
   'pragmata.png',
   'red_dead_redemption_2.png',
   'resident_evil_2.png',

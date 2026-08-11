@@ -20,6 +20,7 @@
 - **Mo2 style interface** - If it's not broke, don't fix it
 - **Install Nexus Collections** - Handles fast mod installs, Collection load orders, applies fomod options and mod diff patches automatically.
 - **In app Nexus Browser** - View and install mods straight into the manager, from the manager
+- **In app Thunderstore Browser** - View and install mods for Thunderstore supported games
 - **Loot support** - Libloot is built into the application and optimised for fast plugin sorting
 - **Update checking** - Quickly check all mods for Nexus updates. Bg3 mods installed via mod.io can also be checked for updates
 - **Multi game support** - Bethesda, RE Engine (including pak invalidation), Bg3, CP2077 and a lot more. Designed to make adding game support easy

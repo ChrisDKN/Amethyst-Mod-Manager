@@ -1490,6 +1490,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed.</translati
         <translation>Scanning Steam libraries…</translation>
     </message>
     <message>
+        <source>Detected installs:</source>
+        <translation>Detected installs:</translation>
+    </message>
+    <message>
         <source>Browse manually…</source>
         <translation>Browse manually…</translation>
     </message>
@@ -1668,6 +1672,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Not found automatically. Browse manually to locate the game folder.</source>
         <translation>Not found automatically. Browse manually to locate the game folder.</translation>
+    </message>
+    <message>
+        <source>Current: {0}</source>
+        <translation>Current: {0}</translation>
     </message>
     <message>
         <source>No executable name configured for this game.</source>
@@ -2522,6 +2530,22 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Uppercase everything</translation>
     </message>
     <message>
+        <source>Additional Nexus Domains</source>
+        <translation>Additional Nexus Domains</translation>
+    </message>
+    <message>
+        <source>Comma-separated extra Nexus domain slugs whose mods are compatible with this game.</source>
+        <translation>Comma-separated extra Nexus domain slugs whose mods are compatible with this game.</translation>
+    </message>
+    <message>
+        <source>Thunderstore Community</source>
+        <translation>Thunderstore Community</translation>
+    </message>
+    <message>
+        <source>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</source>
+        <translation>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</translation>
+    </message>
+    <message>
         <source>Strip Prefixes</source>
         <translation>Strip Prefixes</translation>
     </message>
@@ -2808,6 +2832,14 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Nexus Mods Domain</source>
         <translation>Nexus Mods Domain</translation>
+    </message>
+    <message>
+        <source>e.g. skyrimspecialedition, skyrim</source>
+        <translation>e.g. skyrimspecialedition, skyrim</translation>
+    </message>
+    <message>
+        <source>e.g. lethal-company</source>
+        <translation>e.g. lethal-company</translation>
     </message>
     <message>
         <source>Banner Image URL</source>
@@ -6159,10 +6191,6 @@ Remove the appended-collection entry?</translation>
         <translation>Environment Variables</translation>
     </message>
     <message>
-        <source>Could not read {0} from {1}: {2}</source>
-        <translation>Could not read {0} from {1}: {2}</translation>
-    </message>
-    <message>
         <source>Could not read {0} from {1}</source>
         <translation>Could not read {0} from {1}</translation>
     </message>
@@ -6941,6 +6969,134 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Install cancelled.</source>
         <translation>Install cancelled.</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Loading…</translation>
+    </message>
+    <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
+        <source>Browse Thunderstore</source>
+        <translation>Browse Thunderstore</translation>
+    </message>
+    <message>
+        <source>Open game on Thunderstore</source>
+        <translation>Open game on Thunderstore</translation>
+    </message>
+    <message>
+        <source>Received a malformed Thunderstore link.</source>
+        <translation>Received a malformed Thunderstore link.</translation>
+    </message>
+    <message>
+        <source>Select and configure a game before installing Thunderstore mods.</source>
+        <translation>Select and configure a game before installing Thunderstore mods.</translation>
+    </message>
+    <message>
+        <source>Checking Thunderstore dependencies…</source>
+        <translation>Checking Thunderstore dependencies…</translation>
+    </message>
+    <message>
+        <source>Downloading mod from Thunderstore…</source>
+        <translation>Downloading mod from Thunderstore…</translation>
+    </message>
+    <message>
+        <source>Thunderstore download failed - {0}</source>
+        <translation>Thunderstore download failed - {0}</translation>
+    </message>
+    <message>
+        <source>'{0}' isn't a Thunderstore mod.</source>
+        <translation>'{0}' isn't a Thunderstore mod.</translation>
+    </message>
+    <message>
+        <source>all</source>
+        <translation>all</translation>
+    </message>
+    <message>
+        <source>Checking Thunderstore for updates ({0})…</source>
+        <translation>Checking Thunderstore for updates ({0})…</translation>
+    </message>
+    <message>
+        <source>Thunderstore update check failed - see the log.</source>
+        <translation>Thunderstore update check failed - see the log.</translation>
+    </message>
+    <message>
+        <source>{0} update(s) available</source>
+        <translation>{0} update(s) available</translation>
+    </message>
+    <message>
+        <source>{0} unknown</source>
+        <translation>{0} unknown</translation>
+    </message>
+    <message>
+        <source>{0} package(s) could not be checked.</source>
+        <translation>{0} package(s) could not be checked.</translation>
+    </message>
+    <message>
+        <source>All Thunderstore mods are up to date.</source>
+        <translation>All Thunderstore mods are up to date.</translation>
+    </message>
+    <message>
+        <source>This mod has no Thunderstore metadata.</source>
+        <translation>This mod has no Thunderstore metadata.</translation>
+    </message>
+    <message>
+        <source>Run Check Updates first to find the latest version.</source>
+        <translation>Run Check Updates first to find the latest version.</translation>
+    </message>
+    <message>
+        <source>Update mod</source>
+        <translation>Update mod</translation>
+    </message>
+    <message>
+        <source>Update {0} from {1} to {2}?</source>
+        <translation>Update {0} from {1} to {2}?</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
+        <source>'{0}' has no Thunderstore page.</source>
+        <translation>'{0}' has no Thunderstore page.</translation>
+    </message>
+    <message>
+        <source>{0} did not launch</source>
+        <translation>{0} did not launch</translation>
+    </message>
+    <message>
+        <source>{0} is running - launch again when it finishes.</source>
+        <translation>{0} is running - launch again when it finishes.</translation>
+    </message>
+    <message>
+        <source>Launching {0}…</source>
+        <translation>Launching {0}…</translation>
+    </message>
+    <message>
+        <source>Opening {0}…</source>
+        <translation>Opening {0}…</translation>
+    </message>
+    <message>
+        <source>{0} started</source>
+        <translation>{0} started</translation>
+    </message>
+    <message>
+        <source>Deploying, then launching {0}…</source>
+        <translation>Deploying, then launching {0}…</translation>
+    </message>
+    <message>
+        <source>{0} is running - deploy again when it finishes.</source>
+        <translation>{0} is running - deploy again when it finishes.</translation>
+    </message>
+    <message>
+        <source>{0} is running - restore again when it finishes.</source>
+        <translation>{0} is running - restore again when it finishes.</translation>
+    </message>
+    <message>
+        <source>Deploy failed - launch cancelled</source>
+        <translation>Deploy failed - launch cancelled</translation>
     </message>
     <message>
         <source>Install</source>
@@ -7761,6 +7917,14 @@ How would you like to handle the existing mod?</translation>
         <translation>Open on mod.io</translation>
     </message>
     <message>
+        <source>Open on Thunderstore</source>
+        <translation>Open on Thunderstore</translation>
+    </message>
+    <message>
+        <source>Thunderstore Actions</source>
+        <translation>Thunderstore Actions</translation>
+    </message>
+    <message>
         <source>Quick Update</source>
         <translation>Quick Update</translation>
     </message>
@@ -8063,6 +8227,10 @@ Click Done to close.</translation>
     <message>
         <source>Update available on mod.io</source>
         <translation>Update available on mod.io</translation>
+    </message>
+    <message>
+        <source>Update available on Thunderstore</source>
+        <translation>Update available on Thunderstore</translation>
     </message>
     <message>
         <source>Endorsed</source>
@@ -8572,6 +8740,14 @@ or an encrypted file when no keyring is available).</translation>
     <message>
         <source>☰ Categories</source>
         <translation>☰ Categories</translation>
+    </message>
+    <message>
+        <source>Domain: </source>
+        <translation>Domain: </translation>
+    </message>
+    <message>
+        <source>Choose which compatible Nexus game to browse.</source>
+        <translation>Choose which compatible Nexus game to browse.</translation>
     </message>
     <message>
         <source>Custom…</source>
@@ -12753,6 +12929,10 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
         <source>Save</source>
         <translation>Save</translation>
     </message>
+    <message>
+        <source>Save (Ctrl+S)</source>
+        <translation>Save (Ctrl+S)</translation>
+    </message>
 </context>
 <context>
     <name>TextFilesModel</name>
@@ -12845,12 +13025,32 @@ Deploy your modlist first, then click Run.</translation>
         <translation>Step 5: Run {0}</translation>
     </message>
     <message>
+        <source>Prefer discrete GPU (hybrid systems)</source>
+        <translation>Prefer discrete GPU (hybrid systems)</translation>
+    </message>
+    <message>
+        <source>Runs the texture encoder through Proton/DXVK and exposes the discrete GPU as adapter 0. This may use more power.</source>
+        <translation>Runs the texture encoder through Proton/DXVK and exposes the discrete GPU as adapter 0. This may use more power.</translation>
+    </message>
+    <message>
+        <source>VRAMr and BENDr use texconv's GPU BC7 encoder when DirectCompute is available; otherwise texconv falls back to its CPU encoder.</source>
+        <translation>VRAMr and BENDr use texconv's GPU BC7 encoder when DirectCompute is available; otherwise texconv falls back to its CPU encoder.</translation>
+    </message>
+    <message>
         <source>Output: {0}</source>
         <translation>Output: {0}</translation>
     </message>
     <message>
         <source>▶  Run {0}</source>
         <translation>▶  Run {0}</translation>
+    </message>
+    <message>
+        <source>■  Stop</source>
+        <translation>■  Stop</translation>
+    </message>
+    <message>
+        <source>Stop the running tool and discard its partial output.</source>
+        <translation>Stop the running tool and discard its partial output.</translation>
     </message>
     <message>
         <source>Done</source>
@@ -12867,6 +13067,14 @@ or use Browse to select it manually.</source>
         <translation>{0} archive not found in Downloads.
 Make sure you downloaded it, then press Try Again,
 or use Browse to select it manually.</translation>
+    </message>
+    <message>
+        <source>Stopping…</source>
+        <translation>Stopping…</translation>
+    </message>
+    <message>
+        <source>Stopping {0}…</source>
+        <translation>Stopping {0}…</translation>
     </message>
     <message>
         <source>{0} not found. Please restart the wizard.</source>
@@ -12887,6 +13095,10 @@ or use Browse to select it manually.</translation>
     <message>
         <source>{0} complete! Output is ready as a mod.</source>
         <translation>{0} complete! Output is ready as a mod.</translation>
+    </message>
+    <message>
+        <source>{0} stopped. Partial output discarded.</source>
+        <translation>{0} stopped. Partial output discarded.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -13965,6 +14177,175 @@ or use Browse to select it manually.</translation>
     <message>
         <source>Text &amp; tones</source>
         <translation>Text &amp; tones</translation>
+    </message>
+</context>
+<context>
+    <name>ThunderstoreBrowserView</name>
+    <message>
+        <source>☰ Categories</source>
+        <translation>☰ Categories</translation>
+    </message>
+    <message>
+        <source>Section: </source>
+        <translation>Section: </translation>
+    </message>
+    <message>
+        <source>Sort: </source>
+        <translation>Sort: </translation>
+    </message>
+    <message>
+        <source>Deprecated</source>
+        <translation>Deprecated</translation>
+    </message>
+    <message>
+        <source>NSFW</source>
+        <translation>NSFW</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>Categories</source>
+        <translation>Categories</translation>
+    </message>
+    <message>
+        <source>Search mods…</source>
+        <translation>Search mods…</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Clear</translation>
+    </message>
+    <message>
+        <source>◂ Prev</source>
+        <translation>◂ Prev</translation>
+    </message>
+    <message>
+        <source>Next ▸</source>
+        <translation>Next ▸</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>Page</translation>
+    </message>
+    <message>
+        <source>No categories</source>
+        <translation>No categories</translation>
+    </message>
+    <message>
+        <source>Click once to include, twice to exclude.</source>
+        <translation>Click once to include, twice to exclude.</translation>
+    </message>
+    <message>
+        <source>No Thunderstore community.</source>
+        <translation>No Thunderstore community.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s)</source>
+        <translation>{0} mod(s)</translation>
+    </message>
+    <message>
+        <source>/ {0}</source>
+        <translation>/ {0}</translation>
+    </message>
+    <message>
+        <source>Loading…</source>
+        <translation>Loading…</translation>
+    </message>
+    <message>
+        <source>Open on Thunderstore</source>
+        <translation>Open on Thunderstore</translation>
+    </message>
+    <message>
+        <source>Mods by {0}</source>
+        <translation>Mods by {0}</translation>
+    </message>
+</context>
+<context>
+    <name>ThunderstoreDepsOverlay</name>
+    <message>
+        <source>Install dependencies?</source>
+        <translation>Install dependencies?</translation>
+    </message>
+    <message>
+        <source>{0} needs {1} other mod(s). They will be installed first.</source>
+        <translation>{0} needs {1} other mod(s). They will be installed first.</translation>
+    </message>
+    <message>
+        <source>requested</source>
+        <translation>requested</translation>
+    </message>
+    <message>
+        <source>required at {0} - installing {1}</source>
+        <translation>required at {0} - installing {1}</translation>
+    </message>
+    <message>
+        <source>Skip all</source>
+        <translation>Skip all</translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation>Select all</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+    <message>
+        <source>{0} of {1} dependencies selected - {2} to download</source>
+        <translation>{0} of {1} dependencies selected - {2} to download</translation>
+    </message>
+</context>
+<context>
+    <name>ThunderstoreVersionView</name>
+    <message>
+        <source>Change Version - {0}</source>
+        <translation>Change Version - {0}</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Loading versions…</source>
+        <translation>Loading versions…</translation>
+    </message>
+    <message>
+        <source>Could not load versions for {0}.</source>
+        <translation>Could not load versions for {0}.</translation>
+    </message>
+    <message>
+        <source>{0} version(s) - installed: {1}</source>
+        <translation>{0} version(s) - installed: {1}</translation>
+    </message>
+    <message>
+        <source>unknown</source>
+        <translation>unknown</translation>
+    </message>
+    <message>
+        <source>installed</source>
+        <translation>installed</translation>
+    </message>
+    <message>
+        <source>{0} downloads</source>
+        <translation>{0} downloads</translation>
+    </message>
+    <message>
+        <source>Reinstall</source>
+        <translation>Reinstall</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
     </message>
 </context>
 <context>

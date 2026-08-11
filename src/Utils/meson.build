@@ -91,6 +91,7 @@ py.install_sources(
   'ludusavi_manifest.py',
   'lutris_finder.py',
   'mesh_catalog.py',
+  'meta_lock.py',
   'mo2_dummy.py',
   'mo2_stub.py',
   'mod_copy.py',
