@@ -11,7 +11,7 @@ Colours come from the active palette so themes carry over.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QRect, QSize, QEvent, QT_TRANSLATE_NOOP
-from PySide6.QtGui import QColor, QFont, QPen, QBrush
+from PySide6.QtGui import QColor, QFont, QPen, QBrush, QLinearGradient
 from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
 from gui_qt.theme_qt import active_palette, _c, qc, qc_contrast
@@ -164,6 +164,23 @@ def _contrasting_text_color(hex_bg: str) -> str:
     except Exception:
         return "#eeeeee"
 
+_SEP_GRAD_LIGHT = 110
+_SEP_GRAD_DARK = 107
+
+def _sep_gradient(base: QColor, r) -> QLinearGradient:
+    """Top-to-bottom gradient derived from *base*, spanning the row rect *r*.
+
+    Dark bands lighten toward the bottom and light bands darken, so the effect
+    stays visible whichever end of the luminance range the colour sits at."""
+    g = QLinearGradient(0, r.top(), 0, r.bottom())
+    if base.lightness() < 128:
+        g.setColorAt(0.0, base.darker(_SEP_GRAD_DARK))
+        g.setColorAt(1.0, base.lighter(_SEP_GRAD_LIGHT))
+    else:
+        g.setColorAt(0.0, base.lighter(_SEP_GRAD_LIGHT))
+        g.setColorAt(1.0, base.darker(_SEP_GRAD_DARK))
+    return g
+
 
 # Row metrics - ~10% larger than the Tk baseline (30px) for readability.
 ROW_H = 33
@@ -263,14 +280,14 @@ class ModRowDelegate(QStyledItemDelegate):
             elif sep_hl == -1:
                 p.fillRect(r, self.c_hl_lower)
             elif e.name == OVERWRITE_NAME:
-                p.fillRect(r, self.c_overwrite_bg)
+                p.fillRect(r, _sep_gradient(self.c_overwrite_bg, r))
             elif e.name == ROOT_FOLDER_NAME:
-                p.fillRect(r, self.c_root_bg)
+                p.fillRect(r, _sep_gradient(self.c_root_bg, r))
             elif custom:
-                p.fillRect(r, QColor(custom))
+                p.fillRect(r, _sep_gradient(QColor(custom), r))
                 sep_text = QColor(_contrasting_text_color(custom))
             else:
-                p.fillRect(r, self.c_sep_bg)
+                p.fillRect(r, _sep_gradient(self.c_sep_bg, r))
             if index.column() == COL_NAME:
                 self._paint_separator(p, r, e, index, sep_text)
             p.restore()
