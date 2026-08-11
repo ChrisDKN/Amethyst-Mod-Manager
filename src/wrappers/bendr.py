@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 import pty
 import select
@@ -30,7 +31,11 @@ from typing import Callable
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\[[?][0-9;]*[A-Za-z]|\x1b[A-Za-z]|\r")
 
 from Utils.config_paths import get_wine_prefixes_dir
-from Utils.steam_finder import find_wine
+from Utils.texture_tools import TextureToolCancelled
+from wrappers._proton_texture import (
+    prepare_proton_texture_runner,
+    run_proton_texture_tool,
+)
 
 
 # ── Wine helpers ───────────────────────────────────────────────────────────
@@ -189,8 +194,11 @@ def run_bendr(
     bat_dir: Path,
     game_data_dir: Path,
     output_dir: Path,
+    prefer_discrete_gpu: bool = False,
     log_fn: Callable[[str], None] | None = None,
     progress_fn: Callable[[int], None] | None = None,
+    *,
+    cancel_evt: "threading.Event | None" = None,
 ) -> None:
     """
     Run the BENDr normal-map pipeline.
@@ -203,10 +211,15 @@ def run_bendr(
         The game's Data directory (where .bsa files and textures/ live).
     output_dir : Path
         Where BENDr should write its output (becomes a mod in the staging area).
+    prefer_discrete_gpu : bool
+        On hybrid-GPU systems, expose the discrete GPU as adapter 0 to DXVK.
     log_fn : callable
         Receives log lines; defaults to print().
     progress_fn : callable
         Receives integer 0-100 progress updates.
+    cancel_evt : threading.Event
+        When set, the running step's process group is killed and
+        ``TextureToolCancelled`` is raised.
     """
     _log = log_fn or print
     _progress = progress_fn or (lambda _: None)
@@ -224,14 +237,28 @@ def run_bendr(
     if not game_data_dir.is_dir():
         raise FileNotFoundError(f"Game Data directory not found: {game_data_dir}")
 
-    # Discover Wine
-    _log("BENDr: Locating Proton/Wine...")
-    wine, _ = find_wine()
-    prefix = str(get_wine_prefixes_dir() / "bendr")
-    Path(prefix).mkdir(parents=True, exist_ok=True)
-    _log(f"  Wine: {wine}")
-    _ensure_utf8_prefix(wine, prefix)
+    # Use Proton itself rather than its bare Wine binary. Proton installs and
+    # activates DXVK in the isolated prefix, which is what lets texconv's BC7
+    # DirectCompute encoder reach the GPU instead of silently falling back to
+    # the CPU codec.
+    bendr_exe = _tool("BENDr.exe")
+    texconv_exe = _tool("texconv.exe")
+
+    _log("BENDr: Preparing Proton/DXVK...")
+    runner = prepare_proton_texture_runner(
+        Path(bendr_exe),
+        "bendr",
+        _log,
+        prefer_discrete_gpu=prefer_discrete_gpu,
+    )
     _progress(5)
+
+    def _run_required(exe: str, args: list[str], label: str) -> None:
+        rc = run_proton_texture_tool(
+            runner, exe, args, _log, label=label, cancel_evt=cancel_evt,
+        )
+        if rc != 0:
+            raise RuntimeError(f"{label} failed with exit code {rc}")
 
     # Prepare output directory
     if output_dir.exists():
@@ -260,7 +287,7 @@ def run_bendr(
     w_output    = _linux_to_wine(work_output)
     w_logfiles  = _linux_to_wine(work_logfiles)
     w_exclusions = _linux_to_wine(tools_dir / "Exclusions.mod")
-    w_texconv    = _linux_to_wine(tools_dir / "texconv.exe")
+    w_texconv    = _linux_to_wine(texconv_exe)
 
     # BENDr v3.0331+ simplified workflow (see BENDr.bat). PrepParallax,
     # AlphaNormalSQL and the separate BC7 pass are gone - BENDr.exe now bends
@@ -268,49 +295,54 @@ def run_bendr(
 
     # ── Step 1: BSA extraction (normals + parallax only)
     _file_log("Extracting BSA Archives...")
-    _wine_run(wine, prefix, _tool("ExtractBSA.exe"), [
+    _run_required(_tool("ExtractBSA.exe"), [
         "--source", w_game + "\\*.bsa",
         "--dest", w_output,
         "--logfile", w_logfiles,
         "--filter", "*_n.dds", "*_p.dds",
-    ], log_fn=_log, label="Step 1/5: BSA Extraction")
+    ], "Step 1/5: BSA Extraction")
     _progress(25)
 
     # ── Step 2: Loose file copy (normals + parallax only)
     _file_log("Copying Loose Normal/Parallax Textures...")
-    _wine_run(wine, prefix, _tool("LooseCopy.exe"), [
+    _run_required(_tool("LooseCopy.exe"), [
         "--source", w_game + "\\textures",
         "--dest", w_output + "\\textures",
         "--logfile", w_logfiles,
         "--filter", "*_n.dds", "*_p.dds",
-    ], log_fn=_log, label="Step 2/5: Loose File Copy")
+    ], "Step 2/5: Loose File Copy")
     _progress(38)
 
     # ── Step 3: Exclusions
     _file_log("Processing Exclusions...")
-    _wine_run(wine, prefix, _tool("Exclusions.exe"), [
+    _run_required(_tool("Exclusions.exe"), [
         "--Exclude", w_exclusions,
         "--Dest", w_output,
         "--Logfile", w_logfiles,
-    ], log_fn=_log, label="Step 3/5: Applying Exclusions")
+    ], "Step 3/5: Applying Exclusions")
     _progress(45)
 
     # ── Step 4: Filter pairs (keeps only matched normal+parallax pairs)
     _file_log("Filtering Pairs...")
-    _wine_run(wine, prefix, _tool("BENDrFilter.exe"), [
+    _run_required(_tool("BENDrFilter.exe"), [
         "--source", w_output,
         "--logfiles", w_logfiles,
-    ], log_fn=_log, label="Step 4/5: Filtering Pairs")
+    ], "Step 4/5: Filtering Pairs")
     _progress(55)
 
     # ── Step 5: BENDr - bend the normal maps and compress via texconv
     _file_log("BENDing Normal Maps...")
-    _wine_run(wine, prefix, _tool("BENDr.exe"), [
+    _run_required(bendr_exe, [
         "--source", w_output,
         "--logfile", w_logfiles,
         "--tool", w_texconv,
-    ], log_fn=_log, label="Step 5/5: BENDr (BEND + BC7)")
+    ], "Step 5/5: BENDr (BEND + BC7)")
     _progress(95)
+
+    # Last chance to bail before the move-into-place phase - once files start
+    # being renamed into output_dir a stop would leave a half-built mod.
+    if cancel_evt is not None and cancel_evt.is_set():
+        raise TextureToolCancelled("BENDr cancelled")
 
     # ── Tidy up
     _file_log("Cleaning up...")

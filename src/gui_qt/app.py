@@ -395,6 +395,10 @@ class MainWindow(QMainWindow):
         self._init_log_file()   # one on-disk log file per session
         self._bsa_op_running = False
         self._bsa_op_done.connect(self._on_bsa_op_done)
+        # Long-running external tools (VRAMr/BENDr/ParallaxR) that read the
+        # DEPLOYED Data folder: label per holder, so two tools can't clear each
+        # other's lock. Non-empty = deploy/restore/play refuse (_tool_busy).
+        self._tool_locks: dict[str, str] = {}
         self._install_running = False
         self._pending_install_batches: list[dict] = []
         # Detached FOMOD/BAIN wizards: an open wizard is pure UI wait (no
@@ -8273,6 +8277,14 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
+        # The Play button is already disabled while a texture tool runs, but
+        # Play can also auto-deploy first - and that deploy would be refused
+        # mid-launch. Stop here with a clear reason instead.
+        if self._tool_busy:
+            self._notify(self.tr("{0} is running - launch again when it "
+                                 "finishes.").format(self._tool_busy_label()),
+                         "warning")
+            return
         import threading
         from Utils import exe_launch
         label = self._play_exe_selector.current()
@@ -8557,7 +8569,39 @@ class MainWindow(QMainWindow):
         if value:
             self._set_deploy_buttons_enabled(False)
         elif not (getattr(self, "_deploy_running", False)
-                  or getattr(self, "_install_running", False)):
+                  or getattr(self, "_install_running", False)
+                  or self._tool_busy):
+            self._set_deploy_buttons_enabled(True)
+
+    # ---- external-tool lock (VRAMr / BENDr / ParallaxR) ------------------------
+    @property
+    def _tool_busy(self) -> bool:
+        return bool(getattr(self, "_tool_locks", None))
+
+    def _tool_busy_label(self) -> str:
+        """Human name of a tool currently holding the lock (for toasts)."""
+        locks = getattr(self, "_tool_locks", None) or {}
+        return next(iter(locks.values()), "")
+
+    def _set_tool_lock(self, key: str, label: str, held: bool):
+        """Hold/release the deploy-restore lock for a long-running external
+        tool. These read the deployed Data folder for many minutes, so a deploy
+        or restore underneath them would pull the files out from under the tool
+        (and a Play would launch a half-processed game).
+
+        Keyed so concurrent tools nest correctly; releasing an unheld key is a
+        no-op, and the buttons only come back once the last holder lets go.
+        Called on the GUI thread."""
+        locks = self._tool_locks
+        if held:
+            locks[key] = label
+        else:
+            locks.pop(key, None)
+        if self._tool_busy:
+            self._set_deploy_buttons_enabled(False)
+        elif not (getattr(self, "_deploy_running", False)
+                  or getattr(self, "_install_running", False)
+                  or self._col_install_running):
             self._set_deploy_buttons_enabled(True)
 
     def _col_install_finished(self):
@@ -8610,6 +8654,15 @@ class MainWindow(QMainWindow):
             if not silent:
                 self._notify(self.tr("A mod install is in progress - deploy "
                                      "again when it finishes."), "warning")
+            return
+        # VRAMr/BENDr/ParallaxR read the deployed Data folder for the whole of
+        # their run - deploying underneath them corrupts their output.
+        if self._tool_busy:
+            self._auto_deploy_in_progress = False
+            if not silent:
+                self._notify(self.tr("{0} is running - deploy again when it "
+                                     "finishes.").format(self._tool_busy_label()),
+                             "warning")
             return
         # A detached-wizard staging job mutates the shared game (staging root +
         # active profile) - a deploy started now could resolve the wrong profile
@@ -8797,6 +8850,12 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("A mod install is in progress - try again "
                                  "when it finishes."), "warning")
             return
+        # Restoring would strip the Data folder the tool is still reading.
+        if self._tool_busy:
+            self._notify(self.tr("{0} is running - restore again when it "
+                                 "finishes.").format(self._tool_busy_label()),
+                         "warning")
+            return
         # Defer behind a detached-wizard staging job (shared game mutation) - it
         # re-runs once the staged queue drains (_on_wizard_finish_done). Coalesce
         # duplicate restore requests.
@@ -8896,7 +8955,7 @@ class MainWindow(QMainWindow):
         self._deploy_running = False
         self._op_silent = False
         if not (getattr(self, "_install_running", False)
-                or self._col_install_running):
+                or self._col_install_running or self._tool_busy):
             self._set_deploy_buttons_enabled(True)
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
@@ -9615,6 +9674,8 @@ class MainWindow(QMainWindow):
                 self._open_manifest_import(manifest, stem, bundle_zip=bundle_zip),
             current_profile=lambda: self._gs.profile or "default",
             nexus_api=self._ensure_nexus_api,
+            open_log_tab=self._open_log_tab,
+            set_tool_lock=self._set_tool_lock,
         )
         try:
             view = spec.view_factory(
@@ -9660,6 +9721,10 @@ class MainWindow(QMainWindow):
             return False
         if getattr(self, "_install_running", False) or self._col_install_running:
             return False
+        # _start_deploy refuses while a texture tool holds the lock - bail here
+        # so the on_done hook isn't left dangling for the next deploy to fire.
+        if self._tool_busy:
+            return False
         self._deploy_done_hooks.append(on_done)
         self._on_deploy()
         return True
@@ -9676,8 +9741,10 @@ class MainWindow(QMainWindow):
         if self._deploy_running:
             return False
         # Same lingering-hook hazard as _wizard_run_deploy: _on_restore
-        # refuses while an install owns the shared game.
+        # refuses while an install (or a texture tool) owns the shared game.
         if getattr(self, "_install_running", False) or self._col_install_running:
+            return False
+        if self._tool_busy:
             return False
         self._restore_done_hooks.append(on_done)
         self._on_restore()
@@ -11153,7 +11220,8 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, self._run_staged_finish)
         if hasattr(self, "_install_btn"):
             self._install_btn.setEnabled(True)
-        if not (self._deploy_running or self._col_install_running):
+        if not (self._deploy_running or self._col_install_running
+                or self._tool_busy):
             self._set_deploy_buttons_enabled(True)
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)

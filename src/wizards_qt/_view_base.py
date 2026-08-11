@@ -280,6 +280,12 @@ class WizardViewBase(QWidget):
         b.setStyleSheet(button_qss("BTN_WARN"))
         return b
 
+    def _red_btn(self, text: str) -> QPushButton:
+        b = QPushButton(text)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setStyleSheet(button_qss("BTN_DANGER"))
+        return b
+
     # ---- common page: manual download -------------------------------------------
     def _build_manual_download_page(self, heading: str, note: str,
                                     url: str, on_next,

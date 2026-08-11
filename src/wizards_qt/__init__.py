@@ -65,6 +65,13 @@ class QtWizardContext:
     nexus_api() returns the app's shared NexusAPI (or None when not logged
     in) - call it on the GUI thread; used by the MPI wizards' hands-free
     archive fetch (premium direct download / download-folder watch).
+    open_log_tab() opens (or focuses) the app's Log tab, where every wizard's
+    log_fn output already lands - the texture tools call it when they start a
+    run so their output is visible without hunting for the docked log.
+    set_tool_lock(key, label, held) holds/releases the deploy-restore lock for
+    a long-running external tool that reads the DEPLOYED Data folder: while
+    held, Deploy/Restore/Play are disabled and refuse to start. Keyed so
+    concurrent tools nest; ALWAYS release on the GUI thread in a finally.
     """
     profile_name: str = "default"
     run_deploy: Callable | None = None
@@ -74,6 +81,8 @@ class QtWizardContext:
     import_manifest: Callable | None = None
     current_profile: Callable | None = None
     nexus_api: Callable | None = None
+    open_log_tab: Callable | None = None
+    set_tool_lock: Callable | None = None
 
 
 # Deliberately dropped from the Qt app (not even shown greyed out).

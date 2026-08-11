@@ -21,12 +21,14 @@ from typing import Callable
 
 from Utils.config_paths import get_wine_prefixes_dir
 from Utils.steam_finder import find_wine
+from Utils.texture_tools import TextureToolCancelled, kill_process_group
 from wrappers.bendr import _linux_to_wine, _ensure_utf8_prefix
 
 import re
 import pty
 import select
 import subprocess
+import threading
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\[[?][0-9;]*[A-Za-z]|\x1b[A-Za-z]|\r")
 
@@ -126,10 +128,15 @@ def _wine_run_overlay(
     args: list[str],
     log_fn: Callable[[str], None],
     label: str = "",
+    cancel_evt: "threading.Event | None" = None,
 ) -> int:
     """Run a Windows .exe through Wine and stream output to log_fn.
 
     Identical to bendr._wine_run but uses the overlay wine binary path.
+
+    When *cancel_evt* is set the Wine process group is killed and
+    ``TextureToolCancelled`` is raised; the select() timeout doubles as the
+    cancel poll so a stop lands within ~0.1s even while the tool is silent.
     """
     env = os.environ.copy()
     env["WINEPREFIX"] = prefix
@@ -143,21 +150,33 @@ def _wine_run_overlay(
     env["WINEDLLPATH"] = f"{overlay_lib}/vkd3d:{overlay_lib}/wine"
 
     display = label or Path(exe).name
+    # Don't start another step if the user already pressed Stop.
+    if cancel_evt is not None and cancel_evt.is_set():
+        raise TextureToolCancelled(f"{display} cancelled")
     log_fn(f"── {display} ──")
 
     master_fd, slave_fd = pty.openpty()
+    cancelled = False
     try:
         proc = subprocess.Popen(
             [wine, exe] + args,
             stdout=slave_fd,
             stderr=slave_fd,
             env=env,
+            # Lead a new process group so a cancel can killpg the whole Wine
+            # tree (wineserver + the tool) rather than orphaning the workers.
+            start_new_session=True,
         )
         os.close(slave_fd)
         slave_fd = -1
 
         buf = b""
         while True:
+            if cancel_evt is not None and cancel_evt.is_set():
+                log_fn(f"  {display}: stopping…")
+                kill_process_group(proc, log_fn)
+                cancelled = True
+                break
             try:
                 r, _, _ = select.select([master_fd], [], [], 0.1)
             except (ValueError, OSError):
@@ -179,21 +198,24 @@ def _wine_run_overlay(
             elif proc.poll() is not None:
                 break
 
-        try:
-            while True:
-                chunk = os.read(master_fd, 4096)
-                if not chunk:
-                    break
-                buf += chunk
-        except OSError:
-            pass
-        if buf:
-            line = buf.decode("utf-8", errors="replace")
-            stripped = _ANSI_RE.sub("", line).rstrip("\r\n")
-            if stripped.strip():
-                log_fn(f"  {stripped}")
+        # A cancelled run's tail output is noise - the process group is already
+        # dead and the partial output is about to be discarded.
+        if not cancelled:
+            try:
+                while True:
+                    chunk = os.read(master_fd, 4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+            except OSError:
+                pass
+            if buf:
+                line = buf.decode("utf-8", errors="replace")
+                stripped = _ANSI_RE.sub("", line).rstrip("\r\n")
+                if stripped.strip():
+                    log_fn(f"  {stripped}")
 
-        proc.wait()
+            proc.wait()
     finally:
         try:
             os.close(master_fd)
@@ -204,6 +226,9 @@ def _wine_run_overlay(
                 os.close(slave_fd)
             except OSError:
                 pass
+
+    if cancelled:
+        raise TextureToolCancelled(f"{display} cancelled")
 
     if proc.returncode != 0:
         log_fn(f"  WARNING: {display} exited with code {proc.returncode}")
@@ -222,6 +247,8 @@ def run_parallaxr(
     output_dir: Path,
     log_fn: Callable[[str], None] | None = None,
     progress_fn: Callable[[int], None] | None = None,
+    *,
+    cancel_evt: "threading.Event | None" = None,
 ) -> None:
     """
     Run the ParallaxR texture pipeline.
@@ -238,6 +265,9 @@ def run_parallaxr(
         Receives log lines; defaults to print().
     progress_fn : callable
         Receives integer 0-100 progress updates.
+    cancel_evt : threading.Event
+        When set, the running step's process group is killed and
+        ``TextureToolCancelled`` is raised.
     """
     _log = log_fn or print
     _progress = progress_fn or (lambda _: None)
@@ -272,138 +302,143 @@ def run_parallaxr(
     _log("ParallaxR: Building Wine overlay...")
     overlay = _build_wine_overlay(proton_files_dir, patched_ucrtbase)
     wine = str(overlay / "bin" / wine_name)
-    _log(f"  Wine: {wine}")
+    try:
+        _log(f"  Wine: {wine}")
 
-    # Set WINEDLLPATH before prefix init so the wineserver starts with it.
-    # wineboot spawns a persistent wineserver whose DLL state is inherited
-    # by all later Wine processes in the same prefix.
-    overlay_lib = str(overlay / "lib")
-    os.environ["WINEDLLPATH"] = f"{overlay_lib}/vkd3d:{overlay_lib}/wine"
+        # Set WINEDLLPATH before prefix init so the wineserver starts with it.
+        # wineboot spawns a persistent wineserver whose DLL state is inherited
+        # by all later Wine processes in the same prefix.
+        overlay_lib = str(overlay / "lib")
+        os.environ["WINEDLLPATH"] = f"{overlay_lib}/vkd3d:{overlay_lib}/wine"
 
-    _ensure_utf8_prefix(wine, prefix)
-    _progress(5)
+        _ensure_utf8_prefix(wine, prefix)
+        _progress(5)
 
-    # Prepare output directory
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    work_output = output_dir / "Output"
-    work_logfiles = output_dir / "Logfiles"
-    work_output.mkdir(parents=True, exist_ok=True)
-    work_logfiles.mkdir(parents=True, exist_ok=True)
+        # Prepare output directory
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+        work_output = output_dir / "Output"
+        work_logfiles = output_dir / "Logfiles"
+        work_output.mkdir(parents=True, exist_ok=True)
+        work_logfiles.mkdir(parents=True, exist_ok=True)
 
-    # Write log header
-    log_file = work_logfiles / "ParallaxR.log"
-    with open(log_file, "w") as f:
-        f.write(f"ParallaxR Started  : {_timestamp()}\n")
-        f.write(f"GameDir            : {game_data_dir}\n")
-        f.write("Platform           : Linux (all steps via Wine)\n\n")
+        # Write log header
+        log_file = work_logfiles / "ParallaxR.log"
+        with open(log_file, "w") as f:
+            f.write(f"ParallaxR Started  : {_timestamp()}\n")
+            f.write(f"GameDir            : {game_data_dir}\n")
+            f.write("Platform           : Linux (all steps via Wine)\n\n")
 
-    def _file_log(msg: str):
-        with open(log_file, "a") as f:
-            f.write(f"{_timestamp()} {msg}\n")
+        def _file_log(msg: str):
+            with open(log_file, "a") as f:
+                f.write(f"{_timestamp()} {msg}\n")
 
-    _log(f"ParallaxR: Game Data = {game_data_dir}")
-    _log(f"ParallaxR: Output    = {output_dir}")
+        _log(f"ParallaxR: Game Data = {game_data_dir}")
+        _log(f"ParallaxR: Output    = {output_dir}")
 
-    # Wine path conversions
-    w_game       = _linux_to_wine(game_data_dir)
-    w_output     = _linux_to_wine(work_output)
-    w_logfiles   = _linux_to_wine(work_logfiles)
-    w_exclusions = _linux_to_wine(tools_dir / "Exclusions.mod")
+        # Wine path conversions
+        w_game       = _linux_to_wine(game_data_dir)
+        w_output     = _linux_to_wine(work_output)
+        w_logfiles   = _linux_to_wine(work_logfiles)
+        w_exclusions = _linux_to_wine(tools_dir / "Exclusions.mod")
 
-    # ── Step 1: BSA extraction (normals + parallax only)
-    _file_log("Extracting BSA Archives...")
-    _wine_run_overlay(wine, prefix, _tool("ExtractBSA.exe"), [
-        "--source", w_game + "\\*.bsa",
-        "--dest", w_output,
-        "--logfile", w_logfiles,
-        "--filter", "*_n.dds", "*_p.dds",
-    ], log_fn=_log, label="Step 1/6: BSA Extraction")
-    _progress(20)
+        # ── Step 1: BSA extraction (normals + parallax only)
+        _file_log("Extracting BSA Archives...")
+        _wine_run_overlay(wine, prefix, _tool("ExtractBSA.exe"), [
+            "--source", w_game + "\\*.bsa",
+            "--dest", w_output,
+            "--logfile", w_logfiles,
+            "--filter", "*_n.dds", "*_p.dds",
+        ], log_fn=_log, cancel_evt=cancel_evt, label="Step 1/6: BSA Extraction")
+        _progress(20)
 
-    # ── Step 2: Loose file copy (normals + parallax only)
-    _file_log("Copying Loose Normal/Parallax Textures...")
-    _wine_run_overlay(wine, prefix, _tool("LooseCopy.exe"), [
-        "--source", w_game + "\\textures",
-        "--dest", w_output + "\\textures",
-        "--logfile", w_logfiles,
-        "--filter", "*_n.dds", "*_p.dds",
-    ], log_fn=_log, label="Step 2/6: Loose File Copy")
-    _progress(32)
+        # ── Step 2: Loose file copy (normals + parallax only)
+        _file_log("Copying Loose Normal/Parallax Textures...")
+        _wine_run_overlay(wine, prefix, _tool("LooseCopy.exe"), [
+            "--source", w_game + "\\textures",
+            "--dest", w_output + "\\textures",
+            "--logfile", w_logfiles,
+            "--filter", "*_n.dds", "*_p.dds",
+        ], log_fn=_log, cancel_evt=cancel_evt, label="Step 2/6: Loose File Copy")
+        _progress(32)
 
-    # ── Step 3: Exclusions
-    _file_log("Processing Exclusions...")
-    _wine_run_overlay(wine, prefix, _tool("Exclusions.exe"), [
-        "--Exclude", w_exclusions,
-        "--Dest", w_output,
-        "--Logfile", w_logfiles,
-    ], log_fn=_log, label="Step 3/6: Applying Exclusions")
-    _progress(42)
+        # ── Step 3: Exclusions
+        _file_log("Processing Exclusions...")
+        _wine_run_overlay(wine, prefix, _tool("Exclusions.exe"), [
+            "--Exclude", w_exclusions,
+            "--Dest", w_output,
+            "--Logfile", w_logfiles,
+        ], log_fn=_log, cancel_evt=cancel_evt, label="Step 3/6: Applying Exclusions")
+        _progress(42)
 
-    # ── Step 4: Filter pairs (keeps only matched normal+parallax pairs)
-    _file_log("Filtering Pairs...")
-    _wine_run_overlay(wine, prefix, _tool("ParallaxRFilter.exe"), [
-        "--source", w_output,
-        "--logfiles", w_logfiles,
-    ], log_fn=_log, label="Step 4/6: Filtering Pairs")
-    _progress(55)
+        # ── Step 4: Filter pairs (keeps only matched normal+parallax pairs)
+        _file_log("Filtering Pairs...")
+        _wine_run_overlay(wine, prefix, _tool("ParallaxRFilter.exe"), [
+            "--source", w_output,
+            "--logfiles", w_logfiles,
+        ], log_fn=_log, cancel_evt=cancel_evt, label="Step 4/6: Filtering Pairs")
+        _progress(55)
 
-    # ── Step 5: Height map generation
-    _file_log("Preparing Parallax Height Maps...")
-    _wine_run_overlay(wine, prefix, _tool("HeightMap.exe"), [
-        "--Source", w_output,
-        "--Logfile", w_logfiles,
-    ], log_fn=_log, label="Step 5/6: Height Maps")
-    _progress(75)
+        # ── Step 5: Height map generation
+        _file_log("Preparing Parallax Height Maps...")
+        _wine_run_overlay(wine, prefix, _tool("HeightMap.exe"), [
+            "--Source", w_output,
+            "--Logfile", w_logfiles,
+        ], log_fn=_log, cancel_evt=cancel_evt, label="Step 5/6: Height Maps")
+        _progress(75)
 
-    # ── Step 6: Output QC
-    _file_log("Running Output QC...")
-    _wine_run_overlay(wine, prefix, _tool("OutputQC.exe"), [
-        "--source", w_output,
-        "--logfile", w_logfiles,
-    ], log_fn=_log, label="Step 6/6: Output QC")
-    _progress(88)
+        # ── Step 6: Output QC
+        _file_log("Running Output QC...")
+        _wine_run_overlay(wine, prefix, _tool("OutputQC.exe"), [
+            "--source", w_output,
+            "--logfile", w_logfiles,
+        ], log_fn=_log, cancel_evt=cancel_evt, label="Step 6/6: Output QC")
+        _progress(88)
 
-    # ── Tidy up
-    _file_log("Cleaning up...")
-    _log("ParallaxR: Cleaning up...")
+        # Last chance to bail before the move-into-place phase - once files start
+        # being renamed into output_dir a stop would leave a half-built mod.
+        if cancel_evt is not None and cancel_evt.is_set():
+            raise TextureToolCancelled("ParallaxR cancelled")
 
-    # Remove empty subdirectories inside Output
-    for root, dirs, _files in os.walk(str(work_output), topdown=False):
-        for d in dirs:
-            dp = os.path.join(root, d)
-            try:
-                os.rmdir(dp)
-            except OSError:
-                pass
+        # ── Tidy up
+        _file_log("Cleaning up...")
+        _log("ParallaxR: Cleaning up...")
 
-    # Clean up loose .png and .db files left by tools
-    for ext in ("*.png", "*.db"):
-        for f in work_output.rglob(ext):
-            try:
-                f.unlink()
-            except OSError:
-                pass
+        # Remove empty subdirectories inside Output
+        for root, dirs, _files in os.walk(str(work_output), topdown=False):
+            for d in dirs:
+                dp = os.path.join(root, d)
+                try:
+                    os.rmdir(dp)
+                except OSError:
+                    pass
 
-    # Flatten: move Output/* up into the mod folder root
-    for child in list(work_output.iterdir()):
-        dest = output_dir / child.name
-        if dest.exists():
-            if dest.is_dir():
-                shutil.rmtree(dest)
-            else:
-                dest.unlink()
-        child.rename(dest)
+        # Clean up loose .png and .db files left by tools
+        for ext in ("*.png", "*.db"):
+            for f in work_output.rglob(ext):
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
 
-    if work_output.exists():
-        shutil.rmtree(work_output, ignore_errors=True)
+        # Flatten: move Output/* up into the mod folder root
+        for child in list(work_output.iterdir()):
+            dest = output_dir / child.name
+            if dest.exists():
+                if dest.is_dir():
+                    shutil.rmtree(dest)
+                else:
+                    dest.unlink()
+            child.rename(dest)
 
-    # Remove overlay - only needed during the run
-    shutil.rmtree(str(overlay), ignore_errors=True)
+        if work_output.exists():
+            shutil.rmtree(work_output, ignore_errors=True)
 
-    # Clean up env override
-    os.environ.pop("WINEDLLPATH", None)
-
-    _file_log("ParallaxR Complete")
-    _log("ParallaxR: Complete! Output is ready as a mod.")
-    _progress(100)
+        _file_log("ParallaxR Complete")
+        _log("ParallaxR: Complete! Output is ready as a mod.")
+        _progress(100)
+    finally:
+        # The overlay is a full copy of Proton's wine tree and WINEDLLPATH is
+        # a process-wide override - a Stop (or any error) used to leak both.
+        shutil.rmtree(str(overlay), ignore_errors=True)
+        os.environ.pop("WINEDLLPATH", None)
