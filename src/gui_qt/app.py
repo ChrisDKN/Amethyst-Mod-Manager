@@ -8347,6 +8347,9 @@ class MainWindow(QMainWindow):
         self._append_log(
             f"Play: pressed - game '{game.name}', entry '{label}'"
             + ("" if exe_path is None else f" ({exe_path})"))
+        callback = game.play_button_callback
+        if callback is not None:
+            callback()
         self._start_play_toast(self.tr("Launching {0}…").format(label))
         if exe_path is not None:
             # If this exe belongs to a wizard tool (xEdit, BodySlide, Script

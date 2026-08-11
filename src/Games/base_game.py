@@ -838,6 +838,23 @@ class BaseGame(ABC):
         return None
 
     @property
+    def play_button_callback(self) -> "Callable[[], None] | None":
+        """Optional extra action to run when the Play button is pressed.
+
+        The GUI calls this synchronously before its normal deploy/launch
+        handling.  A game handler can return a bound method here to perform
+        any game-specific preparation while retaining the standard Play
+        behaviour::
+
+            @property
+            def play_button_callback(self):
+                return self.prepare_for_launch
+
+        Return None (the default) when no additional action is needed.
+        """
+        return None
+
+    @property
     def preferred_launch_exe(self) -> str:
         """
         Optional game-root-relative path to an alternative executable that
