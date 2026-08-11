@@ -2429,12 +2429,14 @@ class MainWindow(QMainWindow):
                 b._menu.aboutToShow.connect(self._sync_proton_menu)
             elif label == "Thunderstore":
                 self._thunderstore_btn = b
+            elif label == "Nexus":
+                self._nexus_btn = b
             self._action_buttons.append(b)
             h.addWidget(b)
 
-        # Gate the Thunderstore button on the current game's community. Done
-        # after the loop so the button exists; safe before the header is shown
-        # (the sync tracks intent, not isVisible()).
+        # Gate the Nexus / Thunderstore buttons on the current game's stores.
+        # Done after the loop so both buttons exist; safe before the header is
+        # shown (the sync tracks intent, not isVisible()).
         self._sync_thunderstore_button()
 
         h.addStretch(1)
@@ -10699,31 +10701,38 @@ class MainWindow(QMainWindow):
         act.setVisible("lavfilters" in deps)
 
     def _sync_thunderstore_button(self):
-        """Show the Thunderstore header button only for games that declare a
-        ``thunderstore_community``.
+        """Show each store's header button only for games that use that store.
 
-        Differs deliberately from the Nexus button, which is always visible and
-        warns on click: most games are not on Thunderstore at all, so the button
-        is hidden rather than offered as a dead end.
+        A game can be on Nexus, on Thunderstore, on both (Subnautica, Valheim)
+        or - now that Risk of Rain 2 is supported - on Thunderstore alone. A
+        button for a store the game isn't on is a dead end, so it is hidden
+        rather than left to warn on click.
 
-        The wanted state is tracked on the button (``_ts_wanted``) instead of
+        The wanted state is tracked on the button (``_store_wanted``) instead of
         read back from ``isVisible()`` - during ``_left_header()`` the widget is
         not realised yet, so isVisible() is False for every button and an
         isVisible()-based early-out would skip the initial show."""
-        b = getattr(self, "_thunderstore_btn", None)
-        if b is None:
-            return
         game = self._gs.game
-        community = ((getattr(game, "thunderstore_community", "") or "").strip()
-                     if game is not None else "")
-        want = bool(community)
-        if getattr(b, "_ts_wanted", None) == want:
-            return
-        b._ts_wanted = want
-        b.setVisible(want)
+        wanted = {
+            "_thunderstore_btn": bool(
+                (getattr(game, "thunderstore_community", "") or "").strip()
+                if game is not None else ""),
+            "_nexus_btn": bool(
+                (getattr(game, "nexus_game_domain", "") or "").strip()
+                if game is not None else ""),
+        }
+        changed = False
+        for attr, want in wanted.items():
+            b = getattr(self, attr, None)
+            if b is None or getattr(b, "_store_wanted", None) == want:
+                continue
+            b._store_wanted = want
+            b.setVisible(want)
+            changed = True
         # The bar just got wider or narrower - re-run the staged compaction
-        # (btn_room only counts visible buttons, so the stages shift).
-        if getattr(self, "_action_btn_widths", False):
+        # once for the whole batch (btn_room only counts visible buttons, so
+        # the stage thresholds shift).
+        if changed and getattr(self, "_action_btn_widths", False):
             self._sync_header_compact()
 
     def _proton_install_dotnet(self, version: str):
