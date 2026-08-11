@@ -273,6 +273,7 @@ class MainWindow(QMainWindow):
     # ui_hooks.warn from any backend thread → OK-only popup on the UI thread
     # ((title, message, card_h|None)).
     _warn_popup = Signal(str, str, object)
+    _play_toast_done = Signal(str, str)
     # Copy/Move-to-profile worker → UI thread (result dict).
     _copy_done = Signal(object)
     # Collection update: staging meta.ini scan (worker) → apply (UI).
@@ -389,6 +390,8 @@ class MainWindow(QMainWindow):
         self._op_log.connect(self._append_log)
         self._op_done.connect(self._on_op_done)
         self._warn_popup.connect(self._show_warn_popup)
+        self._play_toast_handle = None
+        self._play_toast_done.connect(self._end_play_toast)
         self._init_log_file()   # one on-disk log file per session
         self._bsa_op_running = False
         self._bsa_op_done.connect(self._on_bsa_op_done)
@@ -8213,6 +8216,35 @@ class MainWindow(QMainWindow):
         from Utils import launch_report
         launch_report.note(message)
 
+    def _start_play_toast(self, text: str):
+        """Sticky toast raised the moment Play is pressed.
+
+        Proton/Steam can take ten seconds to put a window on screen, and until
+        then nothing in the UI changes - the button looked like it had swallowed
+        the click. The toast stays up until the launch resolves (or the deploy
+        that precedes it fails), so there is always something on screen saying
+        the press was received.
+        """
+        self._end_play_toast()          # never stack two launches' toasts
+        self._play_toast_handle = self._notify(text, "info", sticky=True)
+
+    def _set_play_toast(self, text: str):
+        """Retitle the live Play toast (deploy-before-launch → launching)."""
+        handle = self._play_toast_handle
+        if handle is not None:
+            handle.set_text(text)
+
+    def _end_play_toast(self, text: str = "", state: str = "success"):
+        """Resolve the Play toast. UI thread only - worker threads emit
+        `_play_toast_done` instead. With no *text* the toast just disappears."""
+        handle, self._play_toast_handle = self._play_toast_handle, None
+        if handle is not None:
+            handle.dismiss(text or None, state if text else None)
+        elif text:
+            # The sticky toast is already gone - a watcher thread caught the
+            # game dying seconds after it started. Say so anyway.
+            self._notify(text, state)
+
     def _play_failed(self, detail: str = "", entry: str = ""):
         """Popup for a Play click that never got anything running.
 
@@ -8231,6 +8263,8 @@ class MainWindow(QMainWindow):
             "stay active however the game is started.").format(target)
         if detail:
             body += "\n\n" + self.tr("Details: {0}").format(detail)
+        self._play_toast_done.emit(
+            self.tr("{0} did not launch").format(target), "error")
         self._warn_popup.emit(self.tr("The game did not launch"), body,
                               340 if detail else 280)
 
@@ -8248,6 +8282,7 @@ class MainWindow(QMainWindow):
         self._append_log(
             f"Play: pressed - game '{game.name}', entry '{label}'"
             + ("" if exe_path is None else f" ({exe_path})"))
+        self._start_play_toast(self.tr("Launching {0}…").format(label))
         if exe_path is not None:
             # If this exe belongs to a wizard tool (xEdit, BodySlide, Script
             # Merger, …), open the wizard instead of a bare Proton launch - the
@@ -8259,6 +8294,8 @@ class MainWindow(QMainWindow):
             if tool is not None:
                 from wizards_qt import get_spec
                 if get_spec(tool.dialog_class_path) is not None:
+                    self._end_play_toast(
+                        self.tr("Opening {0}…").format(label), "info")
                     self._open_wizard_tool(tool)
                     return
             # Custom exe → Proton in the game prefix (or per-exe override).
@@ -8306,6 +8343,10 @@ class MainWindow(QMainWindow):
                             rep.mark_failed(f"{exc!r}")
                         else:
                             rep.finish()
+                            if rep.spawned:
+                                self._play_toast_done.emit(
+                                    self.tr("{0} started").format(label),
+                                    "success")
                 threading.Thread(target=_run, daemon=True).start()
 
             # Auto-detected script extenders must run against the CURRENT
@@ -8329,7 +8370,15 @@ class MainWindow(QMainWindow):
             # (final, non-coalesced) deploy succeeds.
             if can_deploy and (force_deploy
                                or exe_launch.load_deploy_on_run(game, exe_path.name)):
-                self._post_deploy_action = _launch_exe
+                self._set_play_toast(
+                    self.tr("Deploying, then launching {0}…").format(label))
+
+                def _deploy_then_launch():
+                    self._set_play_toast(
+                        self.tr("Launching {0}…").format(label))
+                    _launch_exe()
+
+                self._post_deploy_action = _deploy_then_launch
                 self._on_deploy()
             else:
                 _launch_exe()
@@ -8350,10 +8399,22 @@ class MainWindow(QMainWindow):
                         rep.mark_failed(f"{exc!r}")
                     else:
                         rep.finish()
+                        if rep.spawned:
+                            self._play_toast_done.emit(
+                                self.tr("{0} started").format(game.name),
+                                "success")
             threading.Thread(target=_run, daemon=True).start()
 
         if exe_launch.load_deploy_before_launch(game) and hasattr(game, "deploy"):
-            self._post_deploy_action = _launch
+            self._set_play_toast(
+                self.tr("Deploying, then launching {0}…").format(game.name))
+
+            def _deploy_then_launch():
+                self._set_play_toast(
+                    self.tr("Launching {0}…").format(game.name))
+                _launch()
+
+            self._post_deploy_action = _deploy_then_launch
             self._on_deploy()
         else:
             _launch()
@@ -8905,6 +8966,10 @@ class MainWindow(QMainWindow):
             elif action is not None:
                 self._append_log(
                     "Play: deploy failed - the pending launch was cancelled.")
+                # Otherwise the sticky "Deploying, then launching…" toast has
+                # nothing left to resolve it and sits there for good.
+                self._end_play_toast(
+                    self.tr("Deploy failed - launch cancelled"), "error")
             # Wizard deploy steps: one-shot completion hooks (get the outcome
             # either way so the wizard can show failure and re-enable Deploy).
             hooks, self._deploy_done_hooks = self._deploy_done_hooks, []
