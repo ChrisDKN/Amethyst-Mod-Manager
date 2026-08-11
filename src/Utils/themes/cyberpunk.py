@@ -124,7 +124,7 @@ PALETTE: dict[str, str | tuple] = {
     # Scrollbars - red thumb (matches screenshot)
     "SCROLL_BG":     "#3a1018",
     "SCROLL_TROUGH": "#120607",
-    "SCROLL_ACTIVE": "#ff003c",
+    "SCROLL_ACTIVE": "#f3e600",
 
     # Overlays / special
     "BG_OVERLAY_ERR":  "#180810",

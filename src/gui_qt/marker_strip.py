@@ -47,6 +47,7 @@ class MarkerScrollBar(QScrollBar):
         self._missing_rows: set[int] = set()   # plugins with missing masters
         self._master_rows: set[int] = set()    # masters of the selected plugin
         self._cycle_rows: set[int] = set()     # plugins with a broken cycle
+        self.setStyleSheet("QScrollBar:vertical { background: transparent; }")
 
     def set_persistent_rows(self, missing=None, master=None, cycle=None) -> None:
         """Set the persistent overlay row sets (missing masters / selected

@@ -120,6 +120,7 @@ def build_qss(pal: dict | None = None) -> str:
     # Auto-contrast text for a coloured fill: label visibility beats palette
     # choice, so button text is never editable - it's derived from the fill.
     ct = lambda k: contrast_text(_c(p, k))
+    cf = lambda k, fallback: _c(p, k) if k in p else _c(p, fallback)
     return f"""
     QWidget {{
         color: {c('TEXT_MAIN')};
@@ -295,23 +296,24 @@ def build_qss(pal: dict | None = None) -> str:
 
     /* Slim modern scrollbars - applied globally (modlist, plugins, log, …) */
     QScrollBar:vertical {{
-        background: transparent;
+        background: {cf('SCROLL_TROUGH', 'BG_MAIN')};
         width: 14px;
         margin: 0;
     }}
     QScrollBar:horizontal {{
-        background: transparent;
+        background: {cf('SCROLL_TROUGH', 'BG_MAIN')};
         height: 12px;
         margin: 0;
     }}
     QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
-        background: {c('BORDER_FAINT')};
+        background: {cf('SCROLL_BG', 'BORDER_FAINT')};
         border-radius: 5px;
         min-height: 28px;
         min-width: 28px;
         margin: 2px;
     }}
-    QScrollBar::handle:hover {{ background: {c('TEXT_DIM')}; }}
+    QScrollBar::handle:hover {{ background: {cf('SCROLL_ACTIVE', 'TEXT_DIM')}; }}
+    QScrollBar::handle:pressed {{ background: {cf('SCROLL_ACTIVE', 'TEXT_DIM')}; }}
     QScrollBar::add-line, QScrollBar::sub-line {{
         width: 0; height: 0; background: none; border: none;
     }}
