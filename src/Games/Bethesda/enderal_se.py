@@ -44,6 +44,10 @@ class EnderalSE(Fallout_3):
         return "enderalspecialedition"
 
     @property
+    def additional_nexus_domains(self) -> list[str]:
+        return ["skyrimspecialedition"]
+
+    @property
     def loot_game_type(self) -> str:
         return "SkyrimSE"
 

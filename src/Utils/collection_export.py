@@ -27,6 +27,7 @@ import zipfile
 import zlib
 from pathlib import Path
 
+from Nexus.nexus_meta import normalise_game_domain
 from Utils.config_paths import get_download_cache_dir
 
 try:
@@ -215,13 +216,20 @@ def seed_rows_from_manifest(rows, manifest: dict) -> int:
         return 0
 
     by_ids: dict = {}
+    by_legacy_ids: dict = {}
+    by_any_ids: dict[tuple[int, int], list[dict]] = {}
     by_name: dict = {}
     for mod in mods:
         source = mod.get("source") or {}
         mod_id = _manifest_int(source.get("modId"))
         file_id = _manifest_int(source.get("fileId"))
+        mod_domain = normalise_game_domain(mod.get("domainName") or "")
         if mod_id and file_id:
-            by_ids[(mod_id, file_id)] = mod
+            by_any_ids.setdefault((mod_id, file_id), []).append(mod)
+            if mod_domain:
+                by_ids[(mod_domain, mod_id, file_id)] = mod
+            else:
+                by_legacy_ids[(mod_id, file_id)] = mod
         for key in (mod.get("name"), source.get("logicalFilename"),
                     source.get("fileExpression")):
             key = (key or "").strip().lower()
@@ -230,14 +238,25 @@ def seed_rows_from_manifest(rows, manifest: dict) -> int:
 
     seeded = 0
     for row in rows:
-        mod = by_ids.get((_manifest_int(row.get("mod_id")),
-                          _manifest_int(row.get("file_id"))))
+        row_domain = normalise_game_domain(row.get("game_domain") or "")
+        row_ids = (_manifest_int(row.get("mod_id")),
+                   _manifest_int(row.get("file_id")))
+        mod = by_ids.get((row_domain, *row_ids)) if row_domain else None
+        if mod is None:
+            mod = by_legacy_ids.get(row_ids)
+        if mod is None and not row.get("game_domain"):
+            candidates = by_any_ids.get(row_ids, [])
+            if len(candidates) == 1:
+                mod = candidates[0]
         if mod is None:
             mod = by_name.get((row.get("name") or "").strip().lower())
         if mod is None:
             continue
 
         source = mod.get("source") or {}
+        if not row.get("game_domain") and mod.get("domainName"):
+            row["game_domain"] = normalise_game_domain(
+                str(mod["domainName"]))
         row["optional"] = bool(mod.get("optional"))
         try:
             row["phase"] = int(mod.get("phase") or 0)
@@ -717,7 +736,8 @@ def missing_archive_report(rows, game, *, check_fomod=True,
     staging_root = game.get_effective_mod_staging_path() if game else None
     profile_dir = getattr(game, "_active_profile_dir", None) if game else None
     game_name = getattr(game, "name", "") or ""
-    game_domain = getattr(game, "nexus_game_domain", "") or ""
+    game_domain = normalise_game_domain(
+        getattr(game, "nexus_game_domain", "") or "")
 
     report: list = []
     for row in rows:
@@ -753,7 +773,9 @@ def missing_archive_report(rows, game, *, check_fomod=True,
 
         mod_id = int(getattr(meta, "mod_id", 0) or 0) or int(row.get("mod_id") or 0)
         file_id = int(getattr(meta, "file_id", 0) or 0)
-        domain = (getattr(meta, "game_domain", "") or "").strip() or game_domain
+        domain = (normalise_game_domain(
+                      getattr(meta, "game_domain", "") or "")
+                  or game_domain)
         report.append({
             "name": name,
             "needs": needs,
@@ -1307,7 +1329,8 @@ def build_collection_manifest(rows, game, info: dict, *,
     staging_root = game.get_effective_mod_staging_path() if game else None
     profile_dir = getattr(game, "_active_profile_dir", None) if game else None
     game_name = getattr(game, "name", "") or ""
-    game_domain = getattr(game, "nexus_game_domain", "") or ""
+    game_domain = normalise_game_domain(
+        getattr(game, "nexus_game_domain", "") or "")
 
     warnings: list = []
     mods: list = []
@@ -1338,7 +1361,11 @@ def build_collection_manifest(rows, game, info: dict, *,
         row_source = row.get("source", "nexus")
         # Mods downloaded from another Nexus game domain (cross-game files,
         # "site" tools) keep their own domain in meta.
-        mod_domain = (getattr(meta, "game_domain", "") or "").strip() or game_domain
+        mod_domain = (normalise_game_domain(
+                          getattr(meta, "game_domain", "") or "")
+                      or normalise_game_domain(
+                          row.get("game_domain") or "")
+                      or game_domain)
 
         # Bundling ships the mod's files inside the collection. For anything
         # with a Nexus page that is redistributing someone else's work, so it

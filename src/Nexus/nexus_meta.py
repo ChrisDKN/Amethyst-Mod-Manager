@@ -32,7 +32,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 from Utils.app_log import app_log
 
@@ -796,3 +796,38 @@ def resolve_nexus_meta_for_archive(
         _log(f"Nexus: MD5 lookup failed - {exc}")
 
     return None
+
+
+def resolve_nexus_meta_for_archive_domains(
+    archive_path: Path,
+    game_domains: Iterable[str],
+    api: Optional[object] = None,
+    log_fn: Optional[callable] = None,
+) -> Optional[NexusModMeta]:
+    """Identify an archive across a game's primary and additional domains.
+
+    A result that identifies the exact Nexus file wins over a filename-only
+    mod-page match. If no domain can identify the file, the primary domain's
+    partial result preserves the legacy fallback behaviour.
+    """
+    domains: list[str] = []
+    seen: set[str] = set()
+    for raw in game_domains:
+        domain = normalise_game_domain(raw or "")
+        if domain and domain not in seen:
+            seen.add(domain)
+            domains.append(domain)
+    if not domains:
+        return None
+
+    partial: Optional[NexusModMeta] = None
+    for domain in domains:
+        meta = resolve_nexus_meta_for_archive(
+            archive_path, domain, api=api, log_fn=log_fn)
+        if meta is None:
+            continue
+        if meta.file_id > 0:
+            return meta
+        if partial is None:
+            partial = meta
+    return partial

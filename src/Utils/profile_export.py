@@ -19,6 +19,7 @@ A *row* is a plain dict describing one mod's export configuration::
         "version":       str,   # from meta.ini
         "category_id":   int,
         "category_name": str,
+        "game_domain":   str,   # per-mod Nexus domain from meta.ini
         "ver_label":     str,   # "fileid - version" or "-"
         "ver_options":   list,  # [{"label", "name", "size_bytes"}]
         "optional":      bool,  # user-set; defaults from meta.ini collectionOptional
@@ -48,6 +49,7 @@ import zipfile
 import shutil
 from pathlib import Path
 
+from Nexus.nexus_meta import normalise_game_domain
 from Utils.config_paths import get_fomod_selections_path, get_bain_selections_path
 
 
@@ -96,6 +98,7 @@ def load_rows(entries, game) -> list[dict]:
         version = ""
         category_id = 0
         category_name = ""
+        game_domain = ""
         size_bytes = 0
         root_folder = False
         col_optional = False
@@ -110,6 +113,7 @@ def load_rows(entries, game) -> list[dict]:
                     version = meta.version or ""
                     category_id = meta.category_id or 0
                     category_name = meta.category_name or ""
+                    game_domain = normalise_game_domain(meta.game_domain or "")
                     size_bytes = meta.file_size or 0
                     root_folder = bool(meta.root_folder)
                     col_optional = bool(meta.collection_optional)
@@ -143,6 +147,7 @@ def load_rows(entries, game) -> list[dict]:
             "version":          version,
             "category_id":      category_id,
             "category_name":    category_name,
+            "game_domain":      game_domain,
             "ver_label":        ver_label,
             "ver_options":      [{"label": ver_label, "name": "", "size_bytes": 0}],
             "optional":         col_optional,
@@ -192,6 +197,7 @@ def write_settings(out_path, rows) -> Path:
                 "direct_url": r.get("direct_url", ""),
                 "file_id":    _row_file_id(r),
                 "ver_label":  r.get("ver_label", "-"),
+                "game_domain": r.get("game_domain", ""),
                 "phase":      int(r.get("phase") or 0),
                 "update_policy": r.get("update_policy", "exact"),
                 "instructions": r.get("source_instructions", ""),
@@ -222,6 +228,11 @@ def read_settings(in_path, rows) -> None:
         row["source"] = m.get("source") or row.get("source", "nexus")
         row["direct_url"] = m.get("direct_url", "")
         row["source_instructions"] = m.get("instructions", "")
+        # Installed meta.ini is authoritative. A saved domain only repairs a
+        # row whose current metadata does not identify its Nexus game.
+        if not row.get("game_domain") and m.get("game_domain"):
+            row["game_domain"] = normalise_game_domain(
+                str(m["game_domain"]))
         try:
             row["phase"] = int(m.get("phase") or 0)
         except (TypeError, ValueError):
@@ -427,6 +438,10 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
             "source":   source,
             "optional": row["optional"],
         }
+        mod_domain = (normalise_game_domain(row.get("game_domain") or "")
+                      or normalise_game_domain(game_domain))
+        if mod_domain:
+            mod_entry["domainName"] = mod_domain
         # Carry a disabled modlist state (enabled entries stay implicit). The
         # importer stages the mod normally, then marks it disabled.
         if row.get("enabled") is False:
@@ -786,7 +801,8 @@ def build_code_manifest(entries, game, app_version: str, *,
     rows = load_rows(mod_entries, game)
     # Keep only Nexus-resolvable mods: need modId + a fileId (from meta or label).
     keep = [r for r in rows if r.get("mod_id") and _row_file_id(r)]
-    game_domain = (getattr(game, "nexus_game_domain", "") or "") if game else ""
+    game_domain = (normalise_game_domain(
+        getattr(game, "nexus_game_domain", "") or "") if game else "")
     game_name = game.name if game else None
     profile_dir = getattr(game, "_active_profile_dir", None) if game else None
     # Reverse so the emitted mods array is low-priority first (importer puts

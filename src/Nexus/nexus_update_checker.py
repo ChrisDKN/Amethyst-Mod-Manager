@@ -25,7 +25,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Nexus.nexus_api import NexusAPI, NexusAPIError, NexusModUpdateInfo
-from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, write_meta
+from Nexus.nexus_meta import (
+    NexusModMeta, normalise_game_domain, scan_installed_mods, write_meta)
 from Nexus.nexus_requirements import MissingRequirementInfo, check_requirements_from_gql
 
 ProgressCallback = Callable[[str], None]
@@ -209,6 +210,49 @@ def check_for_updates(
     enabled_only: Optional[set] = None,
     max_workers: int = 10,
 ) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
+    """Check installed mods in domain-qualified batches.
+
+    Nexus mod ids are scoped to a game. Grouping before invoking the existing
+    single-domain pipeline prevents equal numeric ids in compatible domains
+    from sharing update, file, endorsement, or requirement data.
+    """
+    _log = progress_cb or (lambda m: None)
+    installed = scan_installed_mods(staging_root)
+    selected = [m for m in installed
+                if enabled_only is None or m.mod_name in enabled_only]
+    fallback = normalise_game_domain(game_domain)
+    by_domain: dict[str, set[str]] = {}
+    for meta in selected:
+        domain = normalise_game_domain(meta.game_domain) or fallback
+        if domain:
+            by_domain.setdefault(domain, set()).add(meta.mod_name)
+    if not by_domain:
+        _log("No Nexus-sourced mods with a game domain found.")
+        return [], []
+
+    updates: list[UpdateInfo] = []
+    missing: list[MissingRequirementInfo] = []
+    for domain, names in by_domain.items():
+        if len(by_domain) > 1:
+            _log(f"Checking Nexus domain '{domain}'...")
+        domain_updates, domain_missing = _check_for_updates_one_domain(
+            api, staging_root, game_domain=domain, progress_cb=progress_cb,
+            save_results=save_results, enabled_only=names,
+            max_workers=max_workers)
+        updates.extend(domain_updates)
+        missing.extend(domain_missing)
+    return updates, missing
+
+
+def _check_for_updates_one_domain(
+    api: NexusAPI,
+    staging_root: Path,
+    game_domain: str = "",
+    progress_cb: Optional[ProgressCallback] = None,
+    save_results: bool = True,
+    enabled_only: Optional[set] = None,
+    max_workers: int = 10,
+) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
     """
     Check all Nexus-sourced mods under *staging_root* for updates and missing
     requirements in a single pass.
@@ -261,7 +305,14 @@ def check_for_updates(
         _log("No Nexus-sourced mods found.")
         return [], []
 
-    # Keep a reference to ALL installed mods before applying the enabled_only
+    # Keep only this Nexus game. A blank legacy meta belongs to the supplied
+    # primary fallback; an explicit per-mod domain is authoritative.
+    wanted_domain = normalise_game_domain(game_domain)
+    installed = [m for m in installed
+                 if (normalise_game_domain(m.game_domain) or wanted_domain)
+                 == wanted_domain]
+
+    # Keep a reference to ALL same-domain mods before applying enabled_only
     # filter - requirements checking needs the full set to build installed_mod_ids.
     all_installed = installed
 
@@ -380,7 +431,8 @@ def check_for_updates(
             endorsed_ids: set[int] = {
                 int(e.get("mod_id", 0))
                 for e in all_endorsements
-                if e.get("domain_name", "") == game_domain
+                if normalise_game_domain(e.get("domain_name", ""))
+                == normalise_game_domain(game_domain)
                 and (e.get("status", "") or "").lower() == "endorsed"
                 and int(e.get("mod_id", 0)) > 0
             }

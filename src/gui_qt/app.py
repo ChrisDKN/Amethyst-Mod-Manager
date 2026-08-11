@@ -602,9 +602,9 @@ class MainWindow(QMainWindow):
         self._copy_done.connect(self._on_copy_done)
         self._col_update_scan_done.connect(self._finish_collection_update)
         # App-level non-premium installs (reinstall / missing requirements):
-        # mod_id → (ManualDownloadWatcher, dl_key) while waiting for a browser
-        # download to land. (The Nexus browser / Change Version tabs keep
-        # their own registries.)
+        # (domain, mod_id) → (ManualDownloadWatcher, dl_key) while waiting
+        # for a browser download to land. (The Nexus browser / Change Version
+        # tabs keep their own registries.)
         self._app_manual_watchers = {}
         # Install-a-Nexus-mod-by-id (Missing Requirements) flow.
         self._req_installing = False
@@ -3443,14 +3443,6 @@ class MainWindow(QMainWindow):
 
     # ---- NXM protocol handling ("Download with Manager") -----------------
 
-    # Enderal can install Skyrim mods; Enderal SE can install Skyrim SE mods.
-    # If the user is already on Enderal(SE) and the link is for the Skyrim(SE)
-    # counterpart, stay on Enderal instead of switching away.
-    _ENDERAL_ACCEPTS = {
-        "enderal": "skyrim",
-        "enderalspecialedition": "skyrimspecialedition",
-    }
-
     def _handle_nxm_argv(self):
         """Check sys.argv for an nxm:// link and kick off a download once the
         window has finished building."""
@@ -3525,17 +3517,25 @@ class MainWindow(QMainWindow):
         self._process_nxm_link(nxm_url)
 
     def _match_game_for_domain(self, game_domain: str):
-        """Return (name, game) for the configured game matching *game_domain*,
-        honouring the Enderal→Skyrim exception if the current game already
-        accepts this domain. None if nothing configured matches."""
+        """Return the configured game that should receive *game_domain*.
+
+        The current game wins when it explicitly accepts the domain. Otherwise
+        prefer a game's primary domain before considering additional domains;
+        this keeps a Skyrim link routed to Skyrim unless the user is already on
+        a compatible game such as Enderal.
+        """
         from Utils.game_helpers import _GAMES
+        wanted = (game_domain or "").strip().lower()
         current = self._gs.game
-        current_domain = (getattr(current, "nexus_game_domain", "") or "") if current else ""
         if (current is not None and current.is_configured()
-                and self._ENDERAL_ACCEPTS.get(current_domain) == game_domain):
+                and current.accepts_nexus_domain(wanted)):
             return (self._gs.game_name, current)
         for name, game in _GAMES.items():
-            if getattr(game, "nexus_game_domain", "") == game_domain and game.is_configured():
+            primary = (getattr(game, "nexus_game_domain", "") or "").strip().lower()
+            if primary == wanted and game.is_configured():
+                return (name, game)
+        for name, game in _GAMES.items():
+            if game.is_configured() and game.accepts_nexus_domain(wanted):
                 return (name, game)
         return None
 
@@ -3572,12 +3572,12 @@ class MainWindow(QMainWindow):
             _v = getattr(self, _attr, None)
             if _v is not None:
                 try:
-                    _v.cancel_manual_watch(link.mod_id)
+                    _v.cancel_manual_watch(link.mod_id, link.game_domain)
                 except Exception:
                     pass
         # Same for a pending non-premium reinstall watch of this mod.
         try:
-            self.cancel_app_manual_watch(link.mod_id)
+            self.cancel_app_manual_watch(link.mod_id, link.game_domain)
         except Exception:
             pass
         self._append_log(
@@ -3978,8 +3978,8 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("This collection has no installable mods."), "info")
             return
         slug = getattr(collection, "slug", "") or ""
-        domain = (getattr(game, "nexus_game_domain", "")
-                  or getattr(collection, "game_domain", "") or "")
+        domain = (getattr(collection, "game_domain", "")
+                  or getattr(game, "nexus_game_domain", "") or "")
         # Off-site mods (manual downloads) from the detail view's manifest -
         # remembered so the completion handler can remind the user about them.
         offsite = list(getattr(detail_view, "_offsite", None) or [])
@@ -4450,6 +4450,7 @@ class MainWindow(QMainWindow):
                     game=game, api=api, downloader=downloader, mods=mods,
                     download_link_path=dl_path, profile_dir=profile_dir,
                     old_profile_dir=old_profile_dir, collection_slug=slug,
+                    collection_domain=info.get("domain") or "",
                     revision_number=revision_number, collection_total_size=total_size,
                     skipped_fids=skipped,
                     skipped_mods=skipped_mods, overwrite_existing=overwrite_existing,
@@ -5064,18 +5065,11 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Resetting collection load order…"), "info")
         domain = getattr(game, "nexus_game_domain", "") or ""
         game_name = getattr(game, "name", "") or ""
-        # slug + optional revision from the stored URL:
-        # …/collections/<slug>[/revisions/N]
-        slug = ""
-        rev_hint = None
-        try:
-            after = (url or "").split("/collections/", 1)[1]
-            slug = after.split("/", 1)[0]
-            if "/revisions/" in after:
-                rev_hint = int(
-                    after.split("/revisions/", 1)[1].split("/", 1)[0])
-        except Exception:
-            rev_hint = None
+        # An explicit collection URL domain is authoritative for fetching that
+        # collection; the selected game's primary remains the legacy fallback.
+        from Utils.collection_manifest import parse_collection_url
+        slug, url_domain, rev_hint = parse_collection_url(url or "")
+        domain = url_domain or domain
 
         import threading, json
 
@@ -5114,6 +5108,9 @@ class MainWindow(QMainWindow):
                 if not manifest:
                     res = {"error": "no_manifest"}
                 else:
+                    reset_domain = (((manifest.get("info") or {})
+                                     .get("domainName") or "").strip()
+                                    or domain)
                     # Amethyst-authored collections carry the exact exported
                     # profile in the archive - cached copy first, redownload
                     # if it isn't cached anymore. None → manifest-based reset.
@@ -5121,7 +5118,7 @@ class MainWindow(QMainWindow):
                     try:
                         amethyst = load_amethyst_reset_data(
                             game, slug, profile_dir=pdir,
-                            revision_hint=rev_hint, domain=domain,
+                            revision_hint=rev_hint, domain=reset_domain,
                             api_provider=self._ensure_nexus_api, log=_log)
                     except Exception as exc:
                         _log(f"Reset load order: Amethyst data unavailable "
@@ -5743,9 +5740,10 @@ class MainWindow(QMainWindow):
 
             # Helper callbacks run on the WATCHER thread - marshal via Signals.
             # (_op_log / _append_log are thread-safe.)
-            def on_archive(path, meta, _file, _nm=nm, _mid=mod_id, _key=dl_key,
+            def on_archive(path, meta, _file, _nm=nm, _domain=domain,
+                           _mid=mod_id, _key=dl_key,
                            _installed=installed_meta):
-                if not self._claim_app_manual_watch(_mid, _key):
+                if not self._claim_app_manual_watch(_mid, _domain, _key):
                     return
                 # Merge only when there IS something to merge - the downstream
                 # `meta is not None` guard must stay meaningful so a watcher
@@ -5759,8 +5757,8 @@ class MainWindow(QMainWindow):
             def on_progress(done, total, _nm=nm, _key=dl_key):
                 safe_emit(self._req_install_prog, _key, _nm, int(done), int(total))
 
-            def on_timeout(_nm=nm, _mid=mod_id, _key=dl_key):
-                if not self._claim_app_manual_watch(_mid, _key):
+            def on_timeout(_nm=nm, _domain=domain, _mid=mod_id, _key=dl_key):
+                if not self._claim_app_manual_watch(_mid, _domain, _key):
                     return
                 self._op_log.emit(
                     f"[reinstall] {_nm} - stopped waiting for a browser "
@@ -5769,7 +5767,7 @@ class MainWindow(QMainWindow):
                 # total<0 clears the card (on the UI thread via the Signal).
                 safe_emit(self._req_install_prog, _key, "", 0, -1)
 
-            self.cancel_app_manual_watch(mod_id)   # re-trigger → fresh watch
+            self.cancel_app_manual_watch(mod_id, domain)  # re-trigger → fresh watch
             watcher, already = start_manual_install(
                 api=api, game_domain=domain, mod_id=mod_id, files=[f],
                 open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
@@ -5777,7 +5775,8 @@ class MainWindow(QMainWindow):
                 log_label=nm,
                 on_archive=on_archive, on_progress=on_progress,
                 on_timeout=on_timeout)
-            self._app_manual_watchers[int(mod_id or 0)] = (watcher, dl_key)
+            watch_key = self._app_manual_watch_key(domain, mod_id)
+            self._app_manual_watchers[watch_key] = (watcher, dl_key)
             if not already:
                 opened += 1
 
@@ -5790,29 +5789,44 @@ class MainWindow(QMainWindow):
                             "downloaded."))
             self._notify(tmpl.format(opened), "info")
 
-    def cancel_app_manual_watch(self, mod_id: int):
+    @staticmethod
+    def _app_manual_watch_key(game_domain, mod_id):
+        from Nexus.nexus_meta import normalise_game_domain
+        return normalise_game_domain(game_domain), int(mod_id or 0)
+
+    def cancel_app_manual_watch(self, mod_id: int, game_domain: str = ""):
         """Stop a pending app-level browser-download watch (reinstall or
         missing-requirements install; no-op if none). Called on re-trigger,
         and by the nxm:// handler when a 'Download with Mod Manager' for the
         same mod arrives (that flow installs it, so the watch must not -
         double install)."""
-        t = self._app_manual_watchers.pop(int(mod_id or 0), None)
-        if t is not None:
+        mid = int(mod_id or 0)
+        if game_domain:
+            keys = [self._app_manual_watch_key(game_domain, mid)]
+        else:
+            # Backwards-compatible internal cleanup when the caller has no
+            # domain: stop every watch with this numeric ID.
+            keys = [key for key in self._app_manual_watchers
+                    if key[1] == mid]
+        for key in keys:
+            t = self._app_manual_watchers.pop(key, None)
+            if t is None:
+                continue
             watcher, dl_key = t
             watcher.stop()
             self._nexus_download_progress(dl_key, "", 0, -1)
 
-    def _claim_app_manual_watch(self, mod_id, dl_key) -> bool:
+    def _claim_app_manual_watch(self, mod_id, game_domain, dl_key) -> bool:
         """Claim completion of an app-level manual watch (watcher thread).
         False when the watch was already cancelled or replaced by a newer one
         for the same mod - the stale watcher must not emit its completion
         signals (double install / clobbering the new watch's progress card)."""
-        mid = int(mod_id or 0)
-        t = self._app_manual_watchers.pop(mid, None)
+        watch_key = self._app_manual_watch_key(game_domain, mod_id)
+        t = self._app_manual_watchers.pop(watch_key, None)
         if t is None:
             return False
         if t[1] != dl_key:
-            self._app_manual_watchers[mid] = t   # a newer watch owns the slot
+            self._app_manual_watchers[watch_key] = t  # newer watch owns slot
             return False
         return True
 
@@ -6523,7 +6537,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No mod staging folder for this profile."), "warning")
             return
         names = [target] if isinstance(target, str) else list(target or ())
-        from Nexus.nexus_meta import read_meta
+        from Nexus.nexus_meta import normalise_game_domain, read_meta
         from gui_qt.modlist_data import (
             _apply_req_substitutions, _parse_missing_req_pairs)
         subs_cache: dict = {}
@@ -6537,15 +6551,16 @@ class MainWindow(QMainWindow):
         specs = []
         for name in names:
             meta = read_meta(staging / name / "meta.ini")
-            mod_domain = (getattr(meta, "game_domain", "") or domain)
+            mod_domain = (normalise_game_domain(
+                getattr(meta, "game_domain", "") or "") or domain)
             raw = getattr(meta, "missing_requirements", "") or ""
             # Requirement substitutions (e.g. Nemesis → Pandora) are applied on
             # read too, so a meta.ini stamped before the rule existed still
             # offers the replacement rather than the mod we're steering away from.
             sub_dom = mod_domain.strip().lower()
             ids = {mid for mid, _ in _apply_req_substitutions(
-                _parse_missing_req_pairs(raw), sub_dom, subs_cache)}
-            ids -= installed_ids
+                _parse_missing_req_pairs(raw), sub_dom, subs_cache)
+                if (sub_dom, mid) not in installed_ids}
             if not ids:
                 continue
             ignored_ids = {mid for mid, _ in _apply_req_substitutions(
@@ -6853,7 +6868,7 @@ class MainWindow(QMainWindow):
         self._notify(msg, "info")
 
         def _worker():
-            from Nexus.nexus_meta import read_meta, write_meta
+            from Nexus.nexus_meta import normalise_game_domain, read_meta, write_meta
             ok = 0
             for nm in names:
                 meta_path = staging / nm / "meta.ini"
@@ -6863,10 +6878,12 @@ class MainWindow(QMainWindow):
                     meta = read_meta(meta_path)
                     if not meta.mod_id:
                         continue
+                    mod_domain = (normalise_game_domain(meta.game_domain)
+                                  or domain)
                     if endorse:
-                        api.endorse_mod(domain, meta.mod_id, meta.version or "")
+                        api.endorse_mod(mod_domain, meta.mod_id, meta.version or "")
                     else:
-                        api.abstain_mod(domain, meta.mod_id, meta.version or "")
+                        api.abstain_mod(mod_domain, meta.mod_id, meta.version or "")
                     meta.endorsed = endorse
                     write_meta(meta_path, meta)
                     ok += 1
@@ -6910,7 +6927,7 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Tracking {0} mod(s)…").format(len(names)), "info")
 
         def _worker():
-            from Nexus.nexus_meta import read_meta
+            from Nexus.nexus_meta import normalise_game_domain, read_meta
             ok = 0
             for nm in names:
                 meta_path = staging / nm / "meta.ini"
@@ -6920,7 +6937,9 @@ class MainWindow(QMainWindow):
                     meta = read_meta(meta_path)
                     if not meta.mod_id:
                         continue
-                    api.track_mod(domain, meta.mod_id)
+                    mod_domain = (normalise_game_domain(meta.game_domain)
+                                  or domain)
+                    api.track_mod(mod_domain, meta.mod_id)
                     ok += 1
                 except Exception as exc:
                     self._op_log.emit(f"Nexus: track failed for '{nm}': {exc}")
@@ -7365,7 +7384,7 @@ class MainWindow(QMainWindow):
 
         # Helper callbacks run on the WATCHER thread - marshal via Signals.
         def on_archive(path, meta, _file):
-            if not self._claim_app_manual_watch(mod_id, dl_key):
+            if not self._claim_app_manual_watch(mod_id, domain, dl_key):
                 return
             safe_emit(self._req_install_dl, str(path), meta, dl_key)
 
@@ -7373,13 +7392,13 @@ class MainWindow(QMainWindow):
             safe_emit(self._req_install_prog, dl_key, dl_label, int(done), int(total))
 
         def on_timeout():
-            if not self._claim_app_manual_watch(mod_id, dl_key):
+            if not self._claim_app_manual_watch(mod_id, domain, dl_key):
                 return
             self._op_log.emit(f"[nexus] stopped waiting for a browser download "
                               f"of '{dl_label}' (nothing arrived).")
             safe_emit(self._req_install_dl, None, None, dl_key)
 
-        self.cancel_app_manual_watch(mod_id)   # re-click → fresh watch
+        self.cancel_app_manual_watch(mod_id, domain)  # re-click → fresh watch
         watcher, _already = start_manual_install(
             api=self._nexus_api, game_domain=domain, mod_id=mod_id, files=[f],
             open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
@@ -7387,7 +7406,8 @@ class MainWindow(QMainWindow):
             mod_info_fallback=info,
             on_archive=on_archive, on_progress=on_progress,
             on_timeout=on_timeout)
-        self._app_manual_watchers[int(mod_id or 0)] = (watcher, dl_key)
+        watch_key = self._app_manual_watch_key(domain, mod_id)
+        self._app_manual_watchers[watch_key] = (watcher, dl_key)
         # The watch runs in the background - release the guard so the user can
         # install other missing requirements meanwhile (watches are per-mod).
         self._req_installing = False
@@ -7687,10 +7707,10 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
                          "warning")
             return
-        # Game-domain guard: v1 requires the selected game to match the manifest.
+        # The selected game may explicitly accept additional Nexus domains.
         man_domain = ((manifest.get("info") or {}).get("domainName") or "").strip()
         game_domain = (getattr(game, "nexus_game_domain", "") or "").strip()
-        if man_domain and game_domain and man_domain.lower() != game_domain.lower():
+        if man_domain and game_domain and not game.accepts_nexus_domain(man_domain):
             self._notify(
                 self.tr("This profile targets '{0}', but the selected game is '{1}'. Switch games first, then import.").format(man_domain, game_domain), "warning")
             return
@@ -13218,15 +13238,15 @@ class MainWindow(QMainWindow):
         lbl.setText(f"{enabled} / {len(mods)}")
         lbl.setToolTip(self.tr("{0} enabled of {1} mods").format(enabled, len(mods)))
 
-    def _installed_mod_ids(self) -> set[int]:
-        """The set of Nexus mod ids currently installed in the active profile's
-        staging folder (read from each mod's meta.ini). Used to prune the
-        Missing Requirements panel once a requirement is installed."""
-        ids: set[int] = set()
+    def _installed_mod_ids(self) -> set[tuple[str, int]]:
+        """Domain-qualified Nexus identities installed in the active profile."""
+        ids: set[tuple[str, int]] = set()
         staging = self._gs.staging_dir()
         if staging is None:
             return ids
-        from Nexus.nexus_meta import read_meta
+        game = self._gs.game
+        fallback = (getattr(game, "nexus_game_domain", "") or "").strip().lower()
+        from Nexus.nexus_meta import normalise_game_domain, read_meta
         for r in range(self._modlist_model.rowCount()):
             e = self._modlist_model.entry(r)
             if e is None or e.is_separator:
@@ -13235,11 +13255,13 @@ class MainWindow(QMainWindow):
             if not meta_path.is_file():
                 continue
             try:
-                mid = int(getattr(read_meta(meta_path), "mod_id", 0) or 0)
+                meta = read_meta(meta_path)
+                mid = int(getattr(meta, "mod_id", 0) or 0)
+                domain = (normalise_game_domain(meta.game_domain) or fallback)
             except Exception:
                 continue
-            if mid > 0:
-                ids.add(mid)
+            if mid > 0 and domain:
+                ids.add((domain, mid))
         return ids
 
     def _on_mods_removed(self):

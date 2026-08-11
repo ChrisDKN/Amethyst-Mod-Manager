@@ -14,7 +14,8 @@ tracked/endorsed_mods_panel.py + mod_card.py). Layout:
 
 All Nexus data + install logic comes from the toolkit-neutral Nexus/ layer; this
 file is pure Qt UI + threading. Fetches run on worker threads and marshal results
-back via signals. The active GAME determines the domain (game.nexus_game_domain).
+back via signals. The active game supplies the primary and compatible Nexus
+domains; the selector chooses which one this browser session uses.
 """
 
 from __future__ import annotations
@@ -64,7 +65,7 @@ class NexusBrowserView(QWidget):
     *game*. Optional: *install_fn(list[str])* (defaults to a no-op), *log_fn*."""
 
     _results_ready = Signal(object, str, object)   # (entries, status, token)
-    _cats_ready = Signal(object)                    # (list[NexusCategory])
+    _cats_ready = Signal(object, str)               # (list[NexusCategory], domain)
     _premium_checked = Signal(object, object)       # (entry, is_premium|None)
     _files_ready = Signal(object, object)           # (entry, list[NexusModFile])
     _manual_files_ready = Signal(object, object)    # (entry, list[NexusModFile]|None)
@@ -76,7 +77,10 @@ class NexusBrowserView(QWidget):
                  progress_fn=None, parent=None):
         super().__init__(parent)
         self._api = api
-        self._domain = domain or ""
+        domains = tuple(getattr(game, "nexus_game_domains", ()) or ())
+        self._domains = domains or tuple(
+            d for d in ((domain or "").strip().lower(),) if d)
+        self._domain = self._domains[0] if self._domains else ""
         self._game = game
         self._install_fn = install_fn or (lambda paths, metas=None: None)
         self._log = log_fn or (lambda m: None)
@@ -214,6 +218,15 @@ class NexusBrowserView(QWidget):
         self._cat_toggle.setCursor(Qt.PointingHandCursor)
         self._cat_toggle.toggled.connect(self._toggle_categories)
         tb.addWidget(self._cat_toggle)
+
+        self._domain_sel = SelectorButton(
+            items=list(self._domains), current=self._domain,
+            prefix=self.tr("Domain: "), min_width=190,
+            on_select=self._on_domain_changed)
+        self._domain_sel.setToolTip(self.tr(
+            "Choose which compatible Nexus game to browse."))
+        self._domain_sel.setVisible(len(self._domains) > 1)
+        tb.addWidget(self._domain_sel)
 
         self._section_btns: dict[str, QToolButton] = {}
         for name in SECTIONS:
@@ -448,11 +461,15 @@ class NexusBrowserView(QWidget):
         if self._cats_loaded or not self._domain:
             return
 
-        run_in_worker(lambda: self._api.get_game_categories(self._domain),
-                      self._cats_ready, name="nexus-categories",
-                      error_result=[])
+        domain = self._domain
+        run_in_worker(
+            lambda: (self._api.get_game_categories(domain), domain),
+            self._cats_ready, name="nexus-categories", unpack=True,
+            error_result=([], domain))
 
-    def _on_cats(self, cats):
+    def _on_cats(self, cats, domain: str):
+        if domain != self._domain:
+            return                       # stale result from the previous domain
         self._cats_loaded = True
         # clear existing (checks + any indent-wrapper rows + the status label)
         while self._cat_layout.count():
@@ -675,15 +692,27 @@ class NexusBrowserView(QWidget):
             self._reload()
 
     # -- fetch --------------------------------------------------------------
-    def set_game(self, game, domain):
-        """Retarget this browser at a different game (game switched while the tab
-        is open). Resets navigation + filters (categories differ per game) and
-        re-fetches categories + the Browse grid for the new domain."""
+    def _on_domain_changed(self, domain: str):
+        if (domain or "").strip().lower() == self._domain:
+            return
+        self._retarget_domain(domain)
+
+    def _retarget_domain(self, domain: str):
+        """Reset domain-scoped state and fetch the selected Nexus game."""
         # Pending browser-download watches would install into the NEW game's
         # modlist - stop them (and their progress cards) instead.
         self._cancel_manual_watches()
-        self._game = game
-        self._domain = domain or ""
+        # Thumbnail completion signals only carry a numeric mod id. Replace the
+        # loader so an in-flight image for the previous domain cannot land on a
+        # same-id card in the newly selected domain.
+        try:
+            self._thumbs.loaded.disconnect(self._on_thumb)
+        except (RuntimeError, TypeError):
+            pass
+        self._thumbs.deleteLater()
+        self._thumbs = ThumbnailLoader(self)
+        self._thumbs.loaded.connect(self._on_thumb)
+        self._domain = (domain or "").strip().lower()
         # Reset navigation + search + filter state to the new game's defaults.
         self._section = "Browse"
         self._page = 0
@@ -704,6 +733,7 @@ class NexusBrowserView(QWidget):
             self._search.blockSignals(False)
         except Exception:
             pass
+        self._reset_search_mode()
         # Force categories to reload for the new game.
         self._cats_loaded = False
         while self._cat_layout.count():
@@ -716,6 +746,17 @@ class NexusBrowserView(QWidget):
         self._update_browse_controls_visibility()
         self._load_categories()
         self._reload()
+
+    def set_game(self, game, domain):
+        """Retarget the browser after the application changes games."""
+        self._game = game
+        domains = tuple(getattr(game, "nexus_game_domains", ()) or ())
+        self._domains = domains or tuple(
+            d for d in (((domain or "").strip().lower()),) if d)
+        primary = self._domains[0] if self._domains else ""
+        self._domain_sel.set_items(list(self._domains), current=primary)
+        self._domain_sel.setVisible(len(self._domains) > 1)
+        self._retarget_domain(primary)
 
     def _reload(self):
         if not self._domain:
@@ -809,6 +850,15 @@ class NexusBrowserView(QWidget):
         if token != self._fetch_token:
             return                       # stale
         self._entries = list(entries or [])
+        # Some REST/GraphQL shapes omit the slug. Stamp the domain captured by
+        # this accepted result so later file fetches and metadata never fall
+        # back to a different selector value.
+        for entry in self._entries:
+            if not (getattr(entry, "domain_name", "") or "").strip():
+                try:
+                    entry.domain_name = self._domain
+                except Exception:
+                    pass
         self._status.setText(status)
         self._page_edit.setText(str(self._page + 1))
         self._set_loading(False)
@@ -818,6 +868,7 @@ class NexusBrowserView(QWidget):
 
     def _set_loading(self, on: bool):
         for w in (self._prev_btn, self._next_btn, self._sort_sel, self._time_sel,
+                  self._domain_sel,
                   self._page_edit, self._perpage_sel):
             w.setEnabled(not on)
         if on:
@@ -851,10 +902,12 @@ class NexusBrowserView(QWidget):
             if not staging or not Path(staging).is_dir():
                 return set()
             domain = (self._domain or "").lower()
+            primary = (getattr(game, "nexus_game_domain", "") or "").lower()
             return {
                 m.mod_id for m in scan_installed_mods(Path(staging))
                 if m.mod_id > 0
-                and (not domain or (m.game_domain or "").lower() == domain)
+                and (not domain
+                     or ((m.game_domain or "").lower() or primary) == domain)
             }
         except Exception:
             return set()
@@ -1171,10 +1224,13 @@ class NexusBrowserView(QWidget):
         watchers[mod_id] = (watcher, dl_key)
         self._set_card_watching(mod_id, True)
 
-    def cancel_manual_watch(self, mod_id: int):
+    def cancel_manual_watch(self, mod_id: int, game_domain: str = ""):
         """Stop a pending browser-download watch (no-op if none). Called on
         re-click, and by the app when an nxm:// download for the same mod
         arrives - the nxm flow installs it, so the watch must not."""
+        if (game_domain and
+                str(game_domain).strip().lower() != self._domain):
+            return
         t = self._manual_watchers.pop(int(mod_id or 0), None)
         if t is not None:
             watcher, dl_key = t

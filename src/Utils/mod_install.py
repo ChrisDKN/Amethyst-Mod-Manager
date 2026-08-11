@@ -2576,6 +2576,12 @@ def _nexus_domain_for(game) -> str:
     return getattr(game, "nexus_game_domain", None) or getattr(game, "game_id", "") or ""
 
 
+def _nexus_domains_for(game) -> tuple[str, ...]:
+    """All configured Nexus domains, with the legacy game-id fallback."""
+    domains = tuple(getattr(game, "nexus_game_domains", ()) or ())
+    return domains or tuple(d for d in (_nexus_domain_for(game),) if d)
+
+
 def _nexus_file_display_name(meta, game) -> str:
     """The sanitized per-file Nexus display name from *meta*, or "" if absent.
 
@@ -2610,11 +2616,12 @@ def _resolve_nexus_meta_for_naming(archive: Path, game, log_fn: LogFn):
         api = _build_nexus_api()
         if api is None:
             return None
-        domain = _nexus_domain_for(game)
-        if not domain:
+        domains = _nexus_domains_for(game)
+        if not domains:
             return None
-        from Nexus.nexus_meta import resolve_nexus_meta_for_archive
-        return resolve_nexus_meta_for_archive(archive, domain, api=api, log_fn=log_fn)
+        from Nexus.nexus_meta import resolve_nexus_meta_for_archive_domains
+        return resolve_nexus_meta_for_archive_domains(
+            archive, domains, api=api, log_fn=log_fn)
     except Exception as exc:
         log_fn(f"Nexus name lookup skipped ({exc}).")
         return None
@@ -2801,11 +2808,11 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         fomod_active_deps: str = "") -> None:
     try:
         from Nexus.nexus_meta import (
-            write_meta, resolve_nexus_meta_for_archive, NexusModMeta)
+            write_meta, resolve_nexus_meta_for_archive_domains, NexusModMeta)
         from datetime import datetime
         meta_path = dest_root / "meta.ini"
         meta = None
-        domain = getattr(game, "nexus_game_domain", None) or getattr(game, "game_id", "")
+        domains = _nexus_domains_for(game)
         if prebuilt_meta is not None:
             # The caller (Nexus browser) knows the real mod_id/file_id - use it
             # verbatim instead of parsing the archive filename, which can be
@@ -2817,8 +2824,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                 # MD5 reverse lookup (its Strategy 2 is skipped when api=None) -
                 # this is what the Tk installer did and the Qt port dropped.
                 api = _build_nexus_api()
-                meta = resolve_nexus_meta_for_archive(
-                    archive, domain, api=api, log_fn=log_fn)
+                meta = resolve_nexus_meta_for_archive_domains(
+                    archive, domains, api=api, log_fn=log_fn)
             except Exception:
                 meta = None
         if meta is None:
@@ -2896,8 +2903,8 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         api = _build_nexus_api()
         if api is None:
             return
-        domain = _nexus_domain_for(game)
-        if not domain:
+        fallback_domain = _nexus_domain_for(game)
+        if not fallback_domain:
             return
         try:
             from Utils.mod_copy import resolve_target_staging
@@ -2906,7 +2913,8 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
                             else Path(game.get_effective_mod_staging_path()))
         except Exception:
             return
-        from Nexus.nexus_meta import scan_installed_mods, read_meta, write_meta
+        from Nexus.nexus_meta import (
+            normalise_game_domain, scan_installed_mods, read_meta, write_meta)
         from Nexus.nexus_requirements import check_requirements_from_gql
 
         all_installed = scan_installed_mods(staging_root)
@@ -2916,41 +2924,46 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         if not these_mods:
             return
 
-        # One GraphQL request for just these mods - fetches modRequirements AND
-        # viewerEndorsed (rate-limit-free). The batch helper parses both.
-        gql_info = api.graphql_mod_update_info_batch(
-            [(domain, m.mod_id) for m in these_mods])
-        if not gql_info:
-            return
+        by_domain: dict[str, list] = {}
+        for meta in these_mods:
+            domain = (normalise_game_domain(meta.game_domain)
+                      or normalise_game_domain(fallback_domain))
+            if domain:
+                by_domain.setdefault(domain, []).append(meta)
 
-        # Reuse the update flow's data-driven checker: it cross-references the
-        # requirements against ALL installed mod ids (so already-installed
-        # dependencies aren't flagged), applies the external-tool/alternative
-        # filters, and stamps missingRequirements into meta.ini.
-        check_requirements_from_gql(
-            gql_info,
-            all_installed,
-            game_domain=domain,
-            staging_root=staging_root,
-            progress_cb=log_fn,
-            save_results=True,
-            enabled_only=names,
-            api=api,
-        )
-
-        # Endorsement: viewerEndorsed is None when unauthenticated/unknown - only
-        # touch the flag when the API returned a definite True/False.
-        for m in these_mods:
-            info = gql_info.get(m.mod_id)
-            ven = getattr(info, "viewer_endorsed", None) if info is not None else None
-            if ven is None:
+        for domain, domain_mods in by_domain.items():
+            # One GraphQL request per Nexus game. Mod ids are only unique
+            # inside a domain, so combining these batches would cross-wire ids.
+            gql_info = api.graphql_mod_update_info_batch(
+                [(domain, m.mod_id) for m in domain_mods])
+            if not gql_info:
                 continue
-            meta_path = staging_root / m.mod_name / "meta.ini"
-            if meta_path.is_file():
-                meta = read_meta(meta_path)
-                if meta.endorsed != bool(ven):
-                    meta.endorsed = bool(ven)
-                    write_meta(meta_path, meta)
+
+            domain_names = {m.mod_name for m in domain_mods}
+            check_requirements_from_gql(
+                gql_info,
+                all_installed,
+                game_domain=domain,
+                staging_root=staging_root,
+                progress_cb=log_fn,
+                save_results=True,
+                enabled_only=domain_names,
+                api=api,
+            )
+
+            # viewerEndorsed is keyed by same-domain mod id.
+            for m in domain_mods:
+                info = gql_info.get(m.mod_id)
+                ven = (getattr(info, "viewer_endorsed", None)
+                       if info is not None else None)
+                if ven is None:
+                    continue
+                meta_path = staging_root / m.mod_name / "meta.ini"
+                if meta_path.is_file():
+                    meta = read_meta(meta_path)
+                    if meta.endorsed != bool(ven):
+                        meta.endorsed = bool(ven)
+                        write_meta(meta_path, meta)
     except Exception as exc:
         log_fn(f"Nexus flag check after install skipped ({exc}).")
 

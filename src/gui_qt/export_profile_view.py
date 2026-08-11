@@ -1403,7 +1403,8 @@ class ExportProfileView(QWidget):
         Signal (never touch widgets off-thread)."""
         row = self._all_rows[data_idx]
         try:
-            result = self._api.get_mod_files(self._game_domain, row["mod_id"])
+            domain = (row.get("game_domain") or self._game_domain).strip()
+            result = self._api.get_mod_files(domain, row["mod_id"])
             files = result.files if result else []
         except Exception:
             files = []
@@ -1634,23 +1635,27 @@ class ExportProfileView(QWidget):
         # Prefetch file sizes for nexus rows that have mod_id + file_id but no
         # size yet (single batched GraphQL request - port of _prefetch_sizes).
         needs_size = [
-            (i, r["mod_id"], r["file_id"])
+            (i, (r.get("game_domain") or self._game_domain).strip(),
+             r["mod_id"], r["file_id"])
             for i, r in enumerate(self._all_rows)
             if r.get("mod_id") and r.get("file_id") and not r.get("size_bytes")
             and r.get("source", "nexus") == "nexus"
         ]
         updates: list[tuple[int, int]] = []
         if needs_size and self._api is not None:
-            pairs = [(mod_id, file_id) for _i, mod_id, file_id in needs_size]
-            try:
-                size_map = self._api.graphql_file_sizes_batch(
-                    self._game_domain, pairs)
-            except Exception:
-                size_map = {}
-            for i, mod_id, file_id in needs_size:
-                sz = size_map.get((mod_id, file_id), 0)
-                if sz:
-                    updates.append((i, sz))
+            grouped: dict[str, list[tuple[int, int, int]]] = {}
+            for i, domain, mod_id, file_id in needs_size:
+                grouped.setdefault(domain, []).append((i, mod_id, file_id))
+            for domain, rows in grouped.items():
+                pairs = [(mod_id, file_id) for _i, mod_id, file_id in rows]
+                try:
+                    size_map = self._api.graphql_file_sizes_batch(domain, pairs)
+                except Exception:
+                    size_map = {}
+                for i, mod_id, file_id in rows:
+                    sz = size_map.get((mod_id, file_id), 0)
+                    if sz:
+                        updates.append((i, sz))
         safe_emit(self._sizes_ready, out_path, updates)
 
     def _on_sizes_ready(self, out_path: str, updates):

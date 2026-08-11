@@ -101,8 +101,11 @@ class CollectionDetailView(QWidget):
         self._game = game
         self._log = log_fn or (lambda _m: None)
         self._on_install = on_install
-        self._domain = (getattr(game, "nexus_game_domain", "")
-                        or getattr(collection, "game_domain", "") or "")
+        # An explicitly opened collection (including an additional-domain NXM
+        # link) must be fetched from its own host domain. The game domain is
+        # only a fallback for cards that omit it.
+        self._domain = (getattr(collection, "game_domain", "")
+                        or getattr(game, "nexus_game_domain", "") or "")
         self._mods = []
         self._offsite: list[tuple[str, str]] = []   # (name, url) - manual downloads
         self._total_size = 0                        # collection totalSize+assetsSizeBytes

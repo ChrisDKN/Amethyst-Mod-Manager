@@ -243,8 +243,7 @@ class ChangeVersionView(QWidget):
 
     # ---- fetch ------------------------------------------------------------
     def _start_fetch(self):
-        domain = getattr(self._game, "nexus_game_domain", "") or \
-            getattr(self._meta, "game_domain", "") or ""
+        domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
         self._fetch_gen += 1
         gen = self._fetch_gen
@@ -306,8 +305,7 @@ class ChangeVersionView(QWidget):
         installed_id = int(getattr(self._meta, "file_id", 0) or 0)
         match_id, old_ids = resolve_latest_name_match(
             files, installed_id, self._mod_name)
-        domain = getattr(self._game, "nexus_game_domain", "") or \
-            getattr(self._meta, "game_domain", "") or ""
+        domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
 
         hl = _hl_colors()
@@ -442,9 +440,15 @@ class ChangeVersionView(QWidget):
             self._log(f"Nexus: could not save ignore flag - {exc}")
 
     def _domain_and_mod_id(self):
-        domain = getattr(self._game, "nexus_game_domain", "") or \
-            getattr(self._meta, "game_domain", "") or ""
+        domain = self._effective_domain()
         return domain, int(getattr(self._meta, "mod_id", 0) or 0)
+
+    def _effective_domain(self) -> str:
+        from Nexus.nexus_meta import normalise_game_domain
+        return (normalise_game_domain(
+                    getattr(self._meta, "game_domain", "") or "")
+                or normalise_game_domain(
+                    getattr(self._game, "nexus_game_domain", "") or ""))
 
     def _info_stub(self, domain, mod_id):
         """A minimal mod_info-like fallback (used only if the API lookup
@@ -632,11 +636,13 @@ class ChangeVersionView(QWidget):
             btn.setStyleSheet(button_qss("BTN_SUCCESS", padding="4px 10px"))
         self._status.setVisible(False)
 
-    def cancel_manual_watch(self, mod_id=None):
+    def cancel_manual_watch(self, mod_id=None, game_domain=""):
         """Stop the pending browser-download watch: the Install-click toggle,
         or the app when an nxm:// download for this mod arrives ('Download
         with Mod Manager' - the nxm flow installs it, so the watch must not)."""
         if self._manual_watch is None:
+            return
+        if game_domain and str(game_domain).strip().lower() != self._effective_domain():
             return
         if mod_id is not None and \
                 int(mod_id) != int(getattr(self._meta, "mod_id", 0) or 0):

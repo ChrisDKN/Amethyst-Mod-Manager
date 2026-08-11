@@ -31,7 +31,8 @@ import requests
 GameScope = Optional[str]
 
 from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
-from Nexus.nexus_meta import NexusModMeta, scan_installed_mods, write_meta
+from Nexus.nexus_meta import (
+    NexusModMeta, normalise_game_domain, scan_installed_mods, write_meta)
 from Utils.config_paths import get_requirement_external_tool_mod_ids_path
 from Utils.ca_bundle import resolve_ca_bundle
 
@@ -339,6 +340,37 @@ def check_missing_requirements(
     save_results: bool = True,
     enabled_only: Optional[set] = None,
 ) -> list[MissingRequirementInfo]:
+    """Check requirements in separate Nexus-domain batches."""
+    _log = progress_cb or (lambda m: None)
+    installed = scan_installed_mods(staging_root)
+    selected = [m for m in installed
+                if enabled_only is None or m.mod_name in enabled_only]
+    fallback = normalise_game_domain(game_domain)
+    by_domain: dict[str, set[str]] = {}
+    for meta in selected:
+        domain = normalise_game_domain(meta.game_domain) or fallback
+        if domain:
+            by_domain.setdefault(domain, set()).add(meta.mod_name)
+    if not by_domain:
+        _log("No Nexus-sourced mods with a game domain found.")
+        return []
+
+    results: list[MissingRequirementInfo] = []
+    for domain, names in by_domain.items():
+        results.extend(_check_missing_requirements_one_domain(
+            api, staging_root, game_domain=domain, progress_cb=progress_cb,
+            save_results=save_results, enabled_only=names))
+    return results
+
+
+def _check_missing_requirements_one_domain(
+    api: NexusAPI,
+    staging_root: Path,
+    game_domain: str = "",
+    progress_cb: Optional[ProgressCallback] = None,
+    save_results: bool = True,
+    enabled_only: Optional[set] = None,
+) -> list[MissingRequirementInfo]:
     """
     Check all Nexus-sourced mods under *staging_root* for missing requirements.
 
@@ -373,6 +405,12 @@ def check_missing_requirements(
         _log("No Nexus-sourced mods found.")
         return []
 
+    wanted_domain = normalise_game_domain(game_domain)
+    installed = [m for m in installed
+                 if (normalise_game_domain(m.game_domain) or wanted_domain)
+                 == wanted_domain]
+
+    all_installed = installed
     if enabled_only is not None:
         installed = [m for m in installed if m.mod_name in enabled_only]
 
@@ -389,7 +427,8 @@ def check_missing_requirements(
         return []
 
     # 2. Build set of all installed Nexus mod IDs
-    installed_mod_ids: set[int] = {m.mod_id for m in installed if m.mod_id > 0}
+    installed_mod_ids: set[int] = {
+        m.mod_id for m in all_installed if m.mod_id > 0}
 
     # External tools (never flag), requirement alternatives and requirement
     # substitutions; all three can be game-scoped
@@ -540,15 +579,26 @@ def check_requirements_from_gql(
     if not gql_info:
         return []
 
-    # All installed IDs (including disabled) so that disabled mods don't
+    # Work within one Nexus game. The update checker calls this once per
+    # domain, and the filter also protects direct callers from treating an
+    # equal id in another game as an installed dependency.
+    wanted_domain = normalise_game_domain(game_domain)
+    domain_installed = [
+        m for m in all_installed
+        if (normalise_game_domain(getattr(m, "game_domain", ""))
+            or wanted_domain) == wanted_domain
+    ]
+
+    # All same-domain installed IDs (including disabled) so disabled mods don't
     # trigger spurious "missing requirement" warnings.
-    installed_mod_ids: set[int] = {m.mod_id for m in all_installed if m.mod_id > 0}
+    installed_mod_ids: set[int] = {
+        m.mod_id for m in domain_installed if m.mod_id > 0}
 
     external_set, alternatives_dict, substitutions = _load_requirement_filter()
 
     # Build by_mod_id only for enabled mods (the ones we actually report on)
     checkable = [
-        m for m in all_installed
+        m for m in domain_installed
         if m.mod_id > 0 and (enabled_only is None or m.mod_name in enabled_only)
     ]
     by_mod_id: dict[int, list] = {}

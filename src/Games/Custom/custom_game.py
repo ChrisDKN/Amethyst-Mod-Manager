@@ -11,6 +11,7 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "mod_data_path":     "Data",       // relative path (standard only; ignored for root/ue5)
   "steam_id":          "",           // optional Steam App ID
   "nexus_game_domain": "",           // optional Nexus domain slug
+  "additional_nexus_domains": [],     // optional extra Nexus domain slugs
   "image_url":         ""            // optional banner image URL
   "editable":          true          // false = skip definition editor on reconfigure (for repo handlers)
 }
@@ -205,6 +206,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "mod_data_path": "BepInEx/plugins",
         "steam_id": "",
         "nexus_game_domain": "",
+        "additional_nexus_domains": [],
         "image_url": "",
         "mod_folder_strip_prefixes": ["BepInEx", "plugins"],
         "conflict_ignore_filenames": [],
@@ -241,6 +243,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "mod_data_path": "GAMEID",
         "steam_id": "",
         "nexus_game_domain": "",
+        "additional_nexus_domains": [],
         "image_url": "",
         "mod_folder_strip_prefixes": [
             "GAMEID", "Content", "Paks", "~mods", "Binaries", "Win64",
@@ -445,6 +448,11 @@ class StandardCustomGame(BaseGame):
     @property
     def nexus_game_domain(self) -> str:
         return self._defn.get("nexus_game_domain", "")
+
+    @property
+    def additional_nexus_domains(self) -> list[str]:
+        value = self._defn.get("additional_nexus_domains", [])
+        return list(value) if isinstance(value, (list, tuple, set)) else []
 
     @property
     def image_url(self) -> str:
@@ -846,6 +854,11 @@ class Ue5CustomGame(UE5Game):
     @property
     def nexus_game_domain(self) -> str:
         return self._defn.get("nexus_game_domain", "")
+
+    @property
+    def additional_nexus_domains(self) -> list[str]:
+        value = self._defn.get("additional_nexus_domains", [])
+        return list(value) if isinstance(value, (list, tuple, set)) else []
 
     @property
     def image_url(self) -> str:

@@ -43,6 +43,10 @@ class Enderal(Fallout_3):
         return "enderal"
 
     @property
+    def additional_nexus_domains(self) -> list[str]:
+        return ["skyrim"]
+
+    @property
     def loot_game_type(self) -> str:
         return "Skyrim"
 

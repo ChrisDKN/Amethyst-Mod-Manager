@@ -675,7 +675,7 @@ def _open_nif_viewer(view, name):
 
 
 def _mod_nexus_url(view, name: str) -> str:
-    """The mod's Nexus page URL from its meta.ini ("" if none / no staging)."""
+    """The mod's Nexus page, with the game's primary as a legacy fallback."""
     staging = getattr(view, "staging_dir", None)
     if staging is None:
         return ""
@@ -683,8 +683,16 @@ def _mod_nexus_url(view, name: str) -> str:
     if not meta_path.is_file():
         return ""
     try:
-        from Nexus.nexus_meta import read_meta
-        return read_meta(meta_path).nexus_page_url or ""
+        from Nexus.nexus_meta import normalise_game_domain, read_meta
+        meta = read_meta(meta_path)
+        domain = normalise_game_domain(meta.game_domain)
+        if not domain:
+            game = getattr(view, "game", None)
+            domain = normalise_game_domain(
+                getattr(game, "nexus_game_domain", "") or "")
+        if domain and int(getattr(meta, "mod_id", 0) or 0) > 0:
+            return f"https://www.nexusmods.com/{domain}/mods/{meta.mod_id}"
+        return meta.nexus_page_url or ""
     except Exception:
         return ""
 

@@ -1118,6 +1118,33 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def additional_nexus_domains(self) -> list[str]:
+        """Additional Nexus game domains whose mods are valid for this game.
+
+        ``nexus_game_domain`` remains the primary/default domain. Override
+        this for games such as Enderal that can also consume mods published
+        for another Nexus game.
+        """
+        return []
+
+    @property
+    def nexus_game_domains(self) -> tuple[str, ...]:
+        """Primary + additional Nexus domains, normalised and de-duplicated."""
+        result: list[str] = []
+        seen: set[str] = set()
+        extras = self.additional_nexus_domains or []
+        for raw in (self.nexus_game_domain, *extras):
+            domain = (raw or "").strip().lower()
+            if domain and domain not in seen:
+                seen.add(domain)
+                result.append(domain)
+        return tuple(result)
+
+    def accepts_nexus_domain(self, domain: str) -> bool:
+        """Whether *domain* is the game's primary or an additional domain."""
+        return (domain or "").strip().lower() in self.nexus_game_domains
+
+    @property
     def wine_dll_overrides(self) -> dict[str, str]:
         """
         Wine DLL overrides to apply to the Proton prefix on every deploy.

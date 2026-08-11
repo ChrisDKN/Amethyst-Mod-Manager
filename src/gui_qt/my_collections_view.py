@@ -704,7 +704,7 @@ class MyCollectionsView(QWidget):
             return
         game_domain = (getattr(game, "nexus_game_domain", "") or "").strip()
         if (col.game_domain and game_domain
-                and col.game_domain.lower() != game_domain.lower()):
+                and not game.accepts_nexus_domain(col.game_domain)):
             self._notify(self.tr(
                 "'{0}' is for {1}, but the selected game is {2}. Switch games "
                 "first, then install.").format(

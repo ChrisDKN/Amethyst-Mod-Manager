@@ -50,7 +50,7 @@ from Utils.ui_config import (
 from Nexus.nexus_download import (
     DownloadResult, _find_cached_archive, _clean_nexus_stem,
     delete_archive_and_sidecar, _get_downloads_dir)
-from Nexus.nexus_meta import build_meta_from_download
+from Nexus.nexus_meta import build_meta_from_download, normalise_game_domain
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +251,7 @@ def run_collection_install(
         *, game, api, downloader, mods: list, download_link_path: str,
         profile_dir: "Path | None", old_profile_dir: "Path | None",
         collection_slug: str, revision_number: "int | None" = None,
+        collection_domain: str = "",
         collection_total_size: int = 0,
         collection_schema_cache: "dict | None" = None,
         overwrite_existing: "bool | None" = None,
@@ -299,8 +300,10 @@ def run_collection_install(
     cb = callbacks or CollectionInstallCallbacks()
     ctl = control or CollectionInstallControl()
     log = cb.on_log
-    game_domain = (getattr(game, "nexus_game_domain", None)
-                   or getattr(game, "game_id", "") or "")
+    game_domain = normalise_game_domain(
+        (collection_domain or "").strip()
+        or getattr(game, "nexus_game_domain", None)
+        or getattr(game, "game_id", "") or "")
 
     _slug = collection_slug or ""
     _set_status = cb.on_status
@@ -487,14 +490,14 @@ def run_collection_install(
     # ------------------------------------------------------------------
     # Step 2 pre-scan staging for already-installed mods
     # ------------------------------------------------------------------
-    already_installed_by_ids: dict[tuple[int, int], str] = {}
-    already_installed_by_fid: dict[int, str] = {}
+    already_installed_by_ids: dict[tuple[str, int, int], str] = {}
+    already_installed_by_fid: dict[tuple[str, int], str] = {}
     staging_lower_map: dict[str, str] = {}
     # folder name (lower) -> file_id recorded in its meta.ini (0 if none). Used to
     # guard name-fallback removal of unticked optionals: a folder that carries a
     # DIFFERENT mod's file_id must never be removed just because its name matches
     # the cleaned-up title of a skipped optional (e.g. "X - AE" cleans to "X").
-    staging_folder_fid: dict[str, int] = {}
+    staging_folder_identity: dict[str, tuple[str, int, int]] = {}
 
     # download_only leaves these paths None, so the pre-scan and the
     # unticked-optional removal below are both inert.
@@ -521,24 +524,51 @@ def run_collection_install(
                 _parser.read(str(meta_ini), encoding="utf-8")
                 fid_str = _parser.get("General", "fileid", fallback="").strip()
                 mid_str = _parser.get("General", "modid", fallback="").strip()
+                meta_domain = normalise_game_domain(
+                    _parser.get("General", "gameName", fallback="")) \
+                    or normalise_game_domain(game_domain)
                 if fid_str and fid_str != "0":
                     if skip_existing and mod_dir.name.lower() not in _profile_mod_names:
                         continue
                     _fid = int(fid_str)
                     _mid = int(mid_str) if mid_str.isdigit() else 0
-                    staging_folder_fid[mod_dir.name.lower()] = _fid
+                    staging_folder_identity[mod_dir.name.lower()] = (
+                        meta_domain, _mid, _fid)
                     if _mid > 0:
-                        already_installed_by_ids[(_mid, _fid)] = mod_dir.name
+                        already_installed_by_ids[
+                            (meta_domain, _mid, _fid)] = mod_dir.name
                     else:
-                        already_installed_by_fid[_fid] = mod_dir.name
+                        already_installed_by_fid[
+                            (meta_domain, _fid)] = mod_dir.name
             except Exception:
                 pass
 
     def _match_existing(mod) -> str:
-        _mid = schema_file_id_to_mod_id.get(mod.file_id, 0) or getattr(mod, "mod_id", 0) or 0
-        if _mid > 0 and (_mid, mod.file_id) in already_installed_by_ids:
-            return already_installed_by_ids[(_mid, mod.file_id)]
-        return already_installed_by_fid.get(mod.file_id, "")
+        _mid = (schema_file_id_to_mod_id.get(mod.file_id, 0)
+                or getattr(mod, "mod_id", 0) or 0)
+        _domain = normalise_game_domain(
+            getattr(mod, "domain_name", "")
+            or schema_file_id_to_domain.get(mod.file_id, "")
+            or game_domain)
+        if _mid > 0 and (_domain, _mid, mod.file_id) in already_installed_by_ids:
+            return already_installed_by_ids[(_domain, _mid, mod.file_id)]
+        return already_installed_by_fid.get((_domain, mod.file_id), "")
+
+    def _name_match_conflicts(mod, folder_name: str) -> bool:
+        """Whether a name fallback points at a different Nexus identity."""
+        existing = staging_folder_identity.get(folder_name.lower())
+        if not existing:
+            return False
+        domain, mid, fid = existing
+        wanted_domain = normalise_game_domain(
+            getattr(mod, "domain_name", "")
+            or schema_file_id_to_domain.get(mod.file_id, "")
+            or game_domain)
+        wanted_mid = (schema_file_id_to_mod_id.get(mod.file_id, 0)
+                      or getattr(mod, "mod_id", 0) or 0)
+        if domain != wanted_domain or fid != mod.file_id:
+            return True
+        return bool(mid and wanted_mid and mid != wanted_mid)
 
     def _name_candidates(mod) -> "list[str]":
         from Utils.mod_name_utils import _suggest_mod_names
@@ -575,12 +605,13 @@ def run_collection_install(
                     if key not in staging_lower_map:
                         continue
                     cand_folder = staging_lower_map[key]
-                    _cand_fid = staging_folder_fid.get(cand_folder.lower(), 0)
-                    if _cand_fid and _cand_fid != mod.file_id:
+                    _cand_identity = staging_folder_identity.get(
+                        cand_folder.lower())
+                    if _name_match_conflicts(mod, cand_folder):
                         log(f"Collection install: NOT removing '{cand_folder}' as "
                             f"the unticked optional '{mod.mod_name}' "
                             f"(file_id={mod.file_id}) - folder belongs to "
-                            f"file_id={_cand_fid}")
+                            f"identity={_cand_identity}")
                         continue
                     folder_name = cand_folder
                     break
@@ -644,8 +675,10 @@ def run_collection_install(
             for candidate in _name_candidates(mod):
                 key = candidate.lower()
                 if key in staging_lower_map:
-                    existing_folder = staging_lower_map[key]
-                    break
+                    candidate_folder = staging_lower_map[key]
+                    if not _name_match_conflicts(mod, candidate_folder):
+                        existing_folder = candidate_folder
+                        break
         if existing_folder:
             log(f"Collection install: '{mod.mod_name}' already installed as "
                 f"'{existing_folder}' - skipping")
@@ -815,11 +848,23 @@ def run_collection_install(
             _agg_state["prev_time"] = now
         cb.on_agg_download(agg, total, _agg_state["speed"] / (1024 * 1024))
 
+    def _effective_mod_domain(mod) -> str:
+        """Per-mod domain, then collection.json recovery, then collection."""
+        return (normalise_game_domain(
+                    getattr(mod, "domain_name", "") or "")
+                or normalise_game_domain(
+                    schema_file_id_to_domain.get(mod.file_id, ""))
+                or game_domain)
+
+    def _effective_mod_id(mod) -> int:
+        """Recover a missing GraphQL mod id from collection.json."""
+        return schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+
     def _build_prebuilt_meta(mod, effective_domain):
         try:
-            _effective_mod_id = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+            effective_mod_id = _effective_mod_id(mod)
             pmeta = build_meta_from_download(
-                game_domain=effective_domain, mod_id=_effective_mod_id,
+                game_domain=effective_domain, mod_id=effective_mod_id,
                 file_id=mod.file_id, archive_name=mod.file_name or "",
                 from_collection=_slug)
             pmeta.nexus_name = mod.mod_name or ""
@@ -858,9 +903,10 @@ def run_collection_install(
         _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
                      or getattr(mod, "size_bytes", 0) or 0)
         for _ext_dir in _scan_dirs():
+            effective_mod_id = _effective_mod_id(mod)
             _ext_found, _ext_complete = _find_cached_archive(
                 _ext_dir, mod.file_name or mod.mod_name or "",
-                _exp_size, mod.mod_id, mod.file_id,
+                _exp_size, effective_mod_id, mod.file_id,
                 expected_md5=(schema_file_id_to_md5.get(mod.file_id, "")
                               or (getattr(mod, "md5", "") or "").strip().lower()))
             if _ext_found and _ext_complete:
@@ -871,7 +917,7 @@ def run_collection_install(
                 return DownloadResult(
                     success=True, file_path=_ext_found, file_name=_ext_found.name,
                     bytes_downloaded=_ext_found.stat().st_size, game_domain=mod_domain,
-                    mod_id=mod.mod_id, file_id=mod.file_id)
+                    mod_id=effective_mod_id, file_id=mod.file_id)
         return None
 
     def _fetch_link_one(mod):
@@ -881,7 +927,8 @@ def run_collection_install(
         Returns a ``(kind, payload)`` tuple: ("cached", DownloadResult) or
         ("links", links|None). Never raises - a link-fetch failure yields
         ("links", None) and download_file re-fetches (surfacing the error)."""
-        mod_domain = (getattr(mod, "domain_name", "") or "").strip() or game_domain
+        mod_domain = _effective_mod_domain(mod)
+        effective_mod_id = _effective_mod_id(mod)
         if _col_stop.is_set():
             return ("links", None)
         cached = _cached_archive_for(mod, mod_domain)
@@ -889,10 +936,11 @@ def run_collection_install(
             return ("cached", cached)
         try:
             links = api.get_download_links(
-                game_domain=mod_domain, mod_id=mod.mod_id, file_id=mod.file_id)
+                game_domain=mod_domain, mod_id=effective_mod_id,
+                file_id=mod.file_id)
         except Exception as exc:
             log(f"Collection install: link prefetch failed for '{mod.mod_name}' "
-                f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc} - will "
+                f"(mod_id={effective_mod_id}, file_id={mod.file_id}): {exc} - will "
                 "retry the fetch inline")
             links = None
         return ("links", links)
@@ -900,7 +948,8 @@ def run_collection_install(
     # ---- download producer (stage 2 of the pipeline) ------------------
     def _download_one(mod, prefetched=None):
         nonlocal _dl_done
-        mod_domain = (getattr(mod, "domain_name", "") or "").strip() or game_domain
+        mod_domain = _effective_mod_domain(mod)
+        effective_mod_id = _effective_mod_id(mod)
         # Expected archive size for cache validation / partial-download detection.
         # The GraphQL mod list omits size_bytes for cross-domain entries (e.g. a
         # Skyrim SE mod referenced by an imported/Enderal collection), so fall
@@ -965,7 +1014,8 @@ def run_collection_install(
         try:
             if result is None:
                 result = downloader.download_file(
-                    game_domain=mod_domain, mod_id=mod.mod_id, file_id=mod.file_id,
+                    game_domain=mod_domain, mod_id=effective_mod_id,
+                    file_id=mod.file_id,
                     progress_cb=_progress_cb, cancel=_col_stop,
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=_exp_size,
@@ -974,7 +1024,8 @@ def run_collection_install(
         except Exception as exc:
             import traceback as _tb
             log(f"Collection install: download exception for '{mod.mod_name}' "
-                f"(mod_id={mod.mod_id}, file_id={mod.file_id}): {exc}\n{_tb.format_exc()}")
+                f"(mod_id={effective_mod_id}, file_id={mod.file_id}): "
+                f"{exc}\n{_tb.format_exc()}")
 
         # From here on the counters and the install-queue handoff MUST fire
         # exactly once per mod no matter what the UI callbacks do - an escaped
@@ -1231,16 +1282,11 @@ def run_collection_install(
     # ---- manual (non-premium) producer --------------------------------
     # Port of Tk _run_manual_install's sequential prompt+poll loop; the
     # install side is the shared consumer pipeline above.
-    def _manual_domain(mod) -> str:
-        return ((getattr(mod, "domain_name", "") or "").strip()
-                or schema_file_id_to_domain.get(mod.file_id, "")
-                or game_domain)
-
     def _manual_url(mod) -> str:
         # Prefer collection.json's source.modId + domainName for cross-domain
         # entries so "Open Download Page" lands on the mod's real Nexus page.
-        _mid = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
-        return (f"https://www.nexusmods.com/{_manual_domain(mod)}/mods/{_mid}"
+        _mid = _effective_mod_id(mod)
+        return (f"https://www.nexusmods.com/{_effective_mod_domain(mod)}/mods/{_mid}"
                 f"?tab=files&file_id={mod.file_id}")
 
     # file_id → (real archive filename, size_bytes) from the Nexus files API.
@@ -1255,10 +1301,10 @@ def run_collection_install(
         if cached is not None:
             return cached
         real_name, real_size = "", 0
-        _mid = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+        _mid = _effective_mod_id(mod)
         try:
             if api is not None and _mid and mod.file_id:
-                files = api.get_mod_files(_manual_domain(mod), _mid)
+                files = api.get_mod_files(_effective_mod_domain(mod), _mid)
                 for f in files.files:
                     if f.file_id == mod.file_id:
                         fn = (f.file_name or "").strip()
@@ -1277,7 +1323,7 @@ def run_collection_install(
         """Poll download folders until the mod's archive appears, or the user
         picks a file / skips / pauses / cancels."""
         scan_dirs = _scan_dirs(include_all=True)
-        _eff_mod_id = schema_file_id_to_mod_id.get(mod.file_id, 0) or mod.mod_id
+        _eff_mod_id = _effective_mod_id(mod)
         _real_name, _real_size = _resolve_manual_file(mod)
         _exp_size = (schema_file_id_to_size.get(mod.file_id, 0)
                      or getattr(mod, "size_bytes", 0) or 0
@@ -1317,7 +1363,7 @@ def run_collection_install(
         nonlocal _dl_done
         _current_phase: "int | None" = None
         for i, mod in enumerate(mods_seq):
-            mod_domain = _manual_domain(mod)
+            mod_domain = _effective_mod_domain(mod)
             if _col_stop.is_set():
                 with _dl_lock:
                     _dl_done += 1
@@ -1370,7 +1416,8 @@ def run_collection_install(
             result = DownloadResult(
                 success=True, file_path=archive, file_name=archive.name,
                 bytes_downloaded=archive.stat().st_size,
-                game_domain=mod_domain, mod_id=mod.mod_id, file_id=mod.file_id)
+                game_domain=mod_domain, mod_id=_effective_mod_id(mod),
+                file_id=mod.file_id)
             with _dl_lock:
                 _dl_done += 1
             with _install_lock:

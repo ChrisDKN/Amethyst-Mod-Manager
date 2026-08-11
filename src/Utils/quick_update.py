@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from Nexus.nexus_meta import read_meta
+from Nexus.nexus_meta import normalise_game_domain, read_meta
 from Utils.mod_files_versions import resolve_latest_name_match
 
 
@@ -37,7 +37,8 @@ def resolve_quick_update_target(api, staging_root: Path, mod_name: str,
         return ("skipped", f"could not read metadata ({exc})")
     if not meta.mod_id:
         return ("skipped", "no Nexus mod id in metadata")
-    game_domain = meta.game_domain or fallback_domain
+    game_domain = (normalise_game_domain(meta.game_domain)
+                   or normalise_game_domain(fallback_domain))
     try:
         files = api.get_mod_files(game_domain, meta.mod_id).files
     except Exception as exc:

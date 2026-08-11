@@ -94,6 +94,8 @@ _TR_MARKERS = (
        "Legacy / Oblivion Remastered."),
     QT_TRANSLATE_NOOP("CustomGameView", "Most uppercase"), QT_TRANSLATE_NOOP("CustomGameView", "Most lowercase"),
     QT_TRANSLATE_NOOP("CustomGameView", "Lowercase everything"), QT_TRANSLATE_NOOP("CustomGameView", "Uppercase everything"),
+    QT_TRANSLATE_NOOP("CustomGameView", "Additional Nexus Domains"),
+    QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated extra Nexus domain slugs whose mods are compatible with this game."),
     QT_TRANSLATE_NOOP("CustomGameView", "Strip Prefixes"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated top-level folder names to strip from mod files "
        "during filemap building (case-insensitive). e.g. Data, data"),
@@ -439,6 +441,13 @@ class CustomGameView(QWidget):
             g, self.tr("Nexus Mods Domain"), self._nexus_edit,
             self.tr("The game's slug on nexusmods.com. "
                     "e.g. 'skyrimspecialedition'."))
+        self._additional_nexus_edit = self._mono_edit(
+            self.tr("e.g. skyrimspecialedition, skyrim"))
+        self._field_row(
+            g, self.tr("Additional Nexus Domains"),
+            self._additional_nexus_edit,
+            self.tr("Comma-separated extra Nexus domain slugs whose mods are "
+                    "compatible with this game."))
         self._image_edit = self._mono_edit(self.tr("https://example.com/banner.jpg"))
         self._field_row(
             g, self.tr("Banner Image URL"), self._image_edit,
@@ -1027,6 +1036,8 @@ class CustomGameView(QWidget):
         self._data_path_edit.setText(e.get("mod_data_path", ""))
         self._steam_edit.setText(e.get("steam_id", ""))
         self._nexus_edit.setText(e.get("nexus_game_domain", ""))
+        self._additional_nexus_edit.setText(
+            _set_to_str(e.get("additional_nexus_domains", [])))
         self._image_edit.setText(e.get("image_url", ""))
 
         self._adv_edits["mod_folder_strip_prefixes"].setText(
@@ -1186,6 +1197,8 @@ class CustomGameView(QWidget):
             "mod_data_path":     data_path,
             "steam_id":          self._steam_edit.text().strip(),
             "nexus_game_domain": self._nexus_edit.text().strip(),
+            "additional_nexus_domains": _str_to_list(
+                self._additional_nexus_edit.text()),
             "image_url":         image_url,
             "mod_folder_strip_prefixes":
                 _str_to_list(self._adv_edits["mod_folder_strip_prefixes"].text()),
