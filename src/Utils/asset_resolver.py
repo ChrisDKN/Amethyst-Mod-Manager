@@ -99,6 +99,7 @@ class AssetResolver:
         self._bsa_winner: dict[str, str] | None = None  # rel_key -> mod name
         self._bsa_index = None
         self._vanilla = None                            # ArchiveLookup, lazy
+        self._mod_archive_lookups: dict[Path, object] = {}
         self._stats = {"loose_mod": 0, "loose_data": 0,
                        "archive_mod": 0, "archive_data": 0, "missing": 0}
 
@@ -266,14 +267,13 @@ class AssetResolver:
             if archive is None:
                 continue
             try:
-                if archive.suffix.lower() == ".ba2":
-                    from Utils.ba2_extract import index_ba2, read_ba2_entry
-                    rec = index_ba2(archive).get(key)
-                    return read_ba2_entry(archive, rec) if rec else None
-                from Utils.bsa_extract import index_bsa, read_bsa_entry
-                info, entries = index_bsa(archive)
-                entry = entries.get(key)
-                return read_bsa_entry(archive, info, entry) if entry else None
+                lookup = self._mod_archive_lookups.get(archive)
+                if lookup is None:
+                    from Utils.archive_lookup import ArchiveLookup
+                    lookup = ArchiveLookup([archive],
+                                           keep_prefix=self.keep_prefix)
+                    self._mod_archive_lookups[archive] = lookup
+                return lookup.read(key)
             except Exception:                            # noqa: BLE001
                 return None
         return None

@@ -32,6 +32,7 @@ unmodified copy.
 from __future__ import annotations
 
 import struct
+import threading
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -726,6 +727,7 @@ class NifSpec:
 
 _SPEC: NifSpec | None = None
 _SPEC_ERROR: Exception | None = None
+_SPEC_LOCK = threading.Lock()
 
 
 def spec_path() -> Path:
@@ -740,9 +742,14 @@ def load_spec() -> NifSpec:
         return _SPEC
     if _SPEC_ERROR is not None:
         raise _SPEC_ERROR
-    try:
-        _SPEC = NifSpec()
-    except Exception as exc:                        # noqa: BLE001
-        _SPEC_ERROR = exc
-        raise
+    with _SPEC_LOCK:
+        if _SPEC is not None:
+            return _SPEC
+        if _SPEC_ERROR is not None:
+            raise _SPEC_ERROR
+        try:
+            _SPEC = NifSpec()
+        except Exception as exc:                    # noqa: BLE001
+            _SPEC_ERROR = exc
+            raise
     return _SPEC

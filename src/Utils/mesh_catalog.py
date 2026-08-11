@@ -329,14 +329,14 @@ def _data_archives(data_dir: Path, prefix: str,
                    exts: tuple[str, ...]) -> list[MeshEntry]:
     """Archived copies in the game data folder, in the order the game mounts."""
     try:
-        from Utils.archive_lookup import find_archives
-        from Utils.bsa_reader import read_bsa_file_list
+        from Utils.archive_lookup import find_archives, index_archive
     except Exception:                                    # noqa: BLE001
         return []
     out: list[MeshEntry] = []
     for archive in find_archives([data_dir]):
-        # Name-only TOC read: never decompresses, and a broken archive is [].
-        for key in read_bsa_file_list(archive):
+        # Reuse archive_lookup's path+mtime+size cache.  The old name-only
+        # reader reparsed every vanilla TOC each time the viewer opened.
+        for key in index_archive(archive):
             if key.startswith(prefix) and _ext_ok(key, exts):
                 out.append(MeshEntry(key, DATA_ARCHIVE, archive=archive))
     return out
@@ -436,16 +436,20 @@ def read_entry(entry: MeshEntry, staging: Path | None, data_dir: Path | None,
 
 def read_archive_member(archive: Path, inner_path: str) -> bytes | None:
     """One member's bytes from a BSA/BA2, without unpacking the archive."""
-    key = inner_path.replace("\\", "/").lower()
     archive = Path(archive)
     try:
-        if archive.suffix.lower() == ".ba2":
-            from Utils.ba2_extract import index_ba2, read_ba2_entry
-            rec = index_ba2(archive).get(key)
-            return read_ba2_entry(archive, rec) if rec else None
-        from Utils.bsa_extract import index_bsa, read_bsa_entry
-        info, entries = index_bsa(archive)
-        found = entries.get(key)
-        return read_bsa_entry(archive, info, found) if found else None
+        from Utils.archive_lookup import index_archive, normalise
+        # Direct access avoids rebuilding ArchiveLookup's merged map for every
+        # texture while retaining its process-wide cached archive index.
+        got = index_archive(archive).get(normalise(inner_path))
+        if got is None:
+            return None
+        kind, record = got
+        if kind == "ba2":
+            from Utils.ba2_extract import read_ba2_entry
+            return read_ba2_entry(archive, record)
+        from Utils.bsa_extract import read_bsa_entry
+        info, entry = record
+        return read_bsa_entry(archive, info, entry)
     except Exception:                                    # noqa: BLE001
         return None

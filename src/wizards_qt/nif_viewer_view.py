@@ -29,6 +29,7 @@ from gui_qt.path_tree import (
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, _c
 from gui_qt.nif_texture_sources import TextureSourceController
+from gui_qt.worker import LatestWorker
 from Utils.mesh_catalog import (
     DATA_ARCHIVE, DATA_LOOSE, DEFAULT_PREFIX, MOD_ARCHIVE, MOD_LOOSE,
     build_catalog, read_entry, source_label,
@@ -69,10 +70,14 @@ class NifViewerView(QWidget):
         self._mod = (mod or "").strip()
         self._closing = False
         self._gen = 0
+        self._tree_gen = 0
         self._open_gen = 0
         self._entries: list = []
         self._resolver = None
         self._current_entry = None
+        self._current_data = None
+        self._tree_jobs = LatestWorker("nif-catalog-tree")
+        self._mesh_reads = LatestWorker("nif-mesh-read")
 
         profile = ""
         if ctx is not None:
@@ -223,6 +228,12 @@ class NifViewerView(QWidget):
             return
         self._closing = True
         self._gen += 1            # abandon any in-flight scan
+        self._tree_gen += 1
+        self._open_gen += 1
+        self._tree_jobs.discard_pending()
+        self._mesh_reads.discard_pending()
+        self._tex_sources.cancel()
+        self._preview.cancel_load()
         self._on_close_cb()
 
     def event(self, e):
@@ -232,6 +243,7 @@ class NifViewerView(QWidget):
         # deref in QOpenGLTexture's destructor).
         if e.type() == QEvent.DeferredDelete:
             try:
+                self._preview.cancel_load()
                 self._preview._view.release_gl()
             except Exception:                            # noqa: BLE001
                 pass
@@ -275,7 +287,8 @@ class NifViewerView(QWidget):
     def _rebuild_tree(self):
         """Filter the cached catalogue and rebuild the tree off the UI thread."""
         self._debounce.stop()
-        gen = self._gen
+        self._tree_gen += 1
+        gen = self._tree_gen
         query = self._search.text().strip().lower()
         source = self._src_box.currentData() or _SRC_ALL
         overridden_only = self._only_overridden.isChecked()
@@ -291,10 +304,10 @@ class NifViewerView(QWidget):
                 root, count = Node("", is_dir=True), 0
             safe_emit(self._tree_ready, gen, root, count)
 
-        threading.Thread(target=worker, daemon=True).start()
+        self._tree_jobs.submit(worker)
 
     def _on_tree_ready(self, gen: int, root, count: int):
-        if gen != self._gen:
+        if gen != self._tree_gen:
             return
         self._model.set_root(root)
         self._count.setText(self.tr("{0} meshes").format(f"{count:,}"))
@@ -333,7 +346,8 @@ class NifViewerView(QWidget):
             self._open_entry(node.payload)
 
     # ---- preview ----------------------------------------------------------
-    def _open_entry(self, entry, tex_override=None, keep_view=False):
+    def _open_entry(self, entry, tex_override=None, keep_view=False,
+                    texture_reload=False):
         """Read THIS copy (not the winner) off-thread and hand it to the view."""
         self._open_gen += 1
         gen = self._open_gen
@@ -343,20 +357,32 @@ class NifViewerView(QWidget):
         keep = keep_view or (previous is not None
                              and previous.rel_key == entry.rel_key)
         self._current_entry = entry
-        if tex_override is None:
+        if not texture_reload:
             # Re-arm on user-driven opens only. The token is the COPY, not the
             # path: two mods' versions of one mesh can name different textures.
             self._tex_sources.arm(
                 entry,
-                lambda ov, e=entry: self._open_entry(e, tex_override=ov,
-                                                     keep_view=True))
+                lambda ov, e=entry: self._open_entry(
+                    e, tex_override=ov, keep_view=True, texture_reload=True))
+        # The archive/loose read below may take a moment.  Invalidate a prior
+        # parse now so it cannot finish under this newly-selected mesh's title.
+        self._preview.cancel_load()
         self._preview.set_title(_title_for(entry), self.tr("Reading…"))
+
+        # Texture-source changes rebuild the same mesh.  Its NIF bytes are
+        # immutable for the lifetime of this catalog, so avoid decompressing
+        # the archive member again.
+        if (texture_reload and self._current_data is not None
+                and self._current_data[0] == entry):
+            self._on_mesh_ready(gen, self._current_data[1], entry,
+                                (tex_override, keep))
+            return
 
         def worker():
             data = read_entry(entry, self._staging, self._data)
             safe_emit(self._mesh_ready, gen, data, entry, (tex_override, keep))
 
-        threading.Thread(target=worker, daemon=True).start()
+        self._mesh_reads.submit(worker)
 
     def _on_mesh_ready(self, gen: int, data, entry, load_opts=None):
         tex_override, keep_view = load_opts or (None, False)
@@ -364,9 +390,12 @@ class NifViewerView(QWidget):
             return
         title = _title_for(entry)
         if not data:
-            self._preview.set_title(title, self.tr("could not be read"))
+            status = self.tr("could not be read")
+            self._preview.set_title(title, status)
+            self._preview.clear(status)
             self._log(f"NIF Viewer: could not read {entry.rel_key}")
             return
+        self._current_data = (entry, data)
         archives = None
         archive = entry.archive
         if archive is not None:

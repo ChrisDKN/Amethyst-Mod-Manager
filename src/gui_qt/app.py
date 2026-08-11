@@ -235,6 +235,7 @@ class MainWindow(QMainWindow):
     _proton_done = Signal(str, bool)           # (title, success)
     # GL capability probe worker → UI thread (see _start_gl_warmup).
     _gl_probe_done = Signal(bool)              # (OpenGL widget path usable)
+    _nif_archive_ready = Signal(int, object, object)  # gen, bytes|None, context
     # Nexus validate() worker → UI thread (username or None).
     _nexus_validated = Signal(object)          # (username str | None)
     # LOOT Sort Plugins worker → UI thread (SortResult | None on error).
@@ -370,6 +371,10 @@ class MainWindow(QMainWindow):
         self._bsa_conflicts_ready.connect(self._on_bsa_conflicts_ready)
         self._filemap_light_done.connect(self._on_filemap_light_done)
         self._framework_statuses_ready.connect(self._on_framework_statuses)
+        self._nif_archive_ready.connect(self._on_nif_archive_ready)
+        from gui_qt.worker import LatestWorker
+        self._nif_archive_jobs = LatestWorker("nif-archive-read")
+        self._nif_open_gen = 0
         # Drops stale framework-detect results (game switched mid-compute).
         self._framework_gen = 0
         # Deploy/restore state + notification host.
@@ -766,6 +771,20 @@ class MainWindow(QMainWindow):
         import threading
         threading.Thread(target=_run, daemon=True).start()
 
+        # Oblivion-era meshes need the vendored nif.xml interpreter.  Its
+        # first parse is a few hundred milliseconds, so pay that once beside
+        # the existing GL warm-up instead of on the first selected mesh.
+        def _warm_nif_spec():
+            try:
+                from Utils.nif_xml import load_spec
+                load_spec()
+            except Exception:
+                pass
+
+        if game_id == "oblivion":
+            threading.Thread(target=_warm_nif_spec, daemon=True,
+                             name="nif-spec-warmup").start()
+
     def _on_gl_probe_done(self, ok: bool):
         """UI thread: the GL probe answered. Warm composition up only while it
         is still free to do so - see _start_gl_warmup."""
@@ -1151,10 +1170,20 @@ class MainWindow(QMainWindow):
         """Open a .nif in the 3D viewer as a modlist-panel-scoped tab (reused)."""
         from pathlib import Path as _P
         from gui_qt.nif_preview import NifPreview
+        self._nif_open_gen += 1
+        self._nif_archive_jobs.discard_pending()
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         roots = self._nif_texture_roots(_P(path))
-        archives = self._nif_archive_roots(_P(path))
         resolver = self._nif_asset_resolver()
+        # A resolver already covers every enabled mod and vanilla archive.
+        # Supplement it only with this mesh's own mod directory: that keeps
+        # sibling texture archives working for disabled mods without the old
+        # enumeration/indexing of every staged mod.
+        if resolver is not None:
+            data_dir = self._nif_game_data_dir()
+            archives = ([roots[0]] if roots and roots[0] != data_dir else [])
+        else:
+            archives = self._nif_archive_roots(_P(path))
         existing = getattr(self, "_nif_preview_widget", None)
         if existing is None or not self._tabs.has_key("mf_nif_preview"):
             existing = NifPreview(None, name, resolver=resolver,
@@ -1190,17 +1219,6 @@ class MainWindow(QMainWindow):
         from gui_qt.nif_preview import NifPreview
         archive = _P(archive_path)
         name = inner_path.replace("\\", "/").rsplit("/", 1)[-1]
-        try:
-            data = self._read_archive_member(archive, inner_path)
-        except Exception as exc:
-            self._append_log(self.tr("Could not read {0} from {1}: {2}").format(
-                inner_path, archive.name, exc))
-            return
-        if not data:
-            self._append_log(self.tr("Could not read {0} from {1}").format(
-                inner_path, archive.name))
-            return
-
         from Utils.archive_lookup import ArchiveLookup, find_archives
         from gui_qt.nif_preview import ASSET_PREFIXES
         archives = ArchiveLookup(find_archives([archive.parent]),
@@ -1216,6 +1234,48 @@ class MainWindow(QMainWindow):
         else:
             self._tabs.focus_key("mf_nif_preview")
             self._tabs.set_tab_title("mf_nif_preview", name)
+        existing.cancel_load()
+        existing.set_title(name, self.tr("Loading…"))
+
+        self._nif_open_gen += 1
+        gen = self._nif_open_gen
+        source_token = f"{archive}::{inner_path}"
+        controller = self._nif_texture_controller(resolver)
+        # Invalidate the previous mesh's provider scan and hide its picker
+        # while this archive member is still being decompressed.
+        controller.arm(source_token, lambda _override: None)
+        context = (archive, inner_path, name, resolver, archives, existing)
+
+        def worker():
+            error = ""
+            try:
+                data = self._read_archive_member(archive, inner_path)
+            except Exception as exc:                     # noqa: BLE001
+                data = None
+                error = str(exc)
+            from gui_qt.safe_emit import safe_emit
+            safe_emit(self._nif_archive_ready, gen, data, (context, error))
+
+        self._nif_archive_jobs.submit(worker)
+
+    def _on_nif_archive_ready(self, gen: int, data, payload):
+        """UI-thread continuation for an archive member read/decompression."""
+        if gen != self._nif_open_gen:
+            return
+        context, error = payload
+        archive, inner_path, name, resolver, archives, existing = context
+        if existing is not getattr(self, "_nif_preview_widget", None) \
+                or not self._tabs.has_key("mf_nif_preview"):
+            return
+        if not data:
+            message = self.tr("Could not read {0} from {1}").format(
+                inner_path, archive.name)
+            if error:
+                message += f": {error}"
+            self._append_log(message)
+            existing.set_title(name, message)
+            existing.clear(message)
+            return
 
         def _load(override=None, keep_view=False):
             # inner_path lets plugin TXST overrides apply; the ESPs sit next
@@ -1243,15 +1303,8 @@ class MainWindow(QMainWindow):
 
     def _read_archive_member(self, archive, inner_path):
         """Return one member's bytes from a BSA/BA2, or None if absent."""
-        key = inner_path.replace("\\", "/").lower()
-        if archive.suffix.lower() == ".ba2":
-            from Utils.ba2_extract import index_ba2, read_ba2_entry
-            rec = index_ba2(archive).get(key)
-            return read_ba2_entry(archive, rec) if rec else None
-        from Utils.bsa_extract import index_bsa, read_bsa_entry
-        info, entries = index_bsa(archive)
-        entry = entries.get(key)
-        return read_bsa_entry(archive, info, entry) if entry else None
+        from Utils.mesh_catalog import read_archive_member
+        return read_archive_member(archive, inner_path)
 
     def _nif_asset_resolver(self):
         """Resolver for what the GAME would load; None without a profile."""

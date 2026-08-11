@@ -11,12 +11,15 @@ given and the FIRST match wins, so callers order the list.
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 
 __all__ = ["ArchiveLookup", "find_archives", "index_archive"]
 
 # (path, mtime, size, keep_prefix) -> {rel_lower: (kind, record)}
 _INDEX_CACHE: dict[tuple, dict] = {}
+_INDEX_CACHE_LOCK = threading.Lock()
+_INDEX_BUILD_LOCKS: dict[tuple, threading.Lock] = {}
 
 
 def _cache_key(path: Path, keep_prefix: str) -> tuple | None:
@@ -32,30 +35,43 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
     key = _cache_key(path, keep_prefix)
     if key is None:
         return {}
-    got = _INDEX_CACHE.get(key)
-    if got is not None:
-        return got
+    with _INDEX_CACHE_LOCK:
+        got = _INDEX_CACHE.get(key)
+        if got is not None:
+            return got
+        # NIF catalogue, texture-provider and preview workers may all touch the
+        # same archive together.  One per-key lock prevents duplicate TOC
+        # parsing without serialising unrelated archives.
+        build_lock = _INDEX_BUILD_LOCKS.setdefault(key, threading.Lock())
 
-    out: dict = {}
-    ext = path.suffix.lower()
-    try:
-        if ext == ".ba2":
-            from Utils.ba2_extract import index_ba2
-            for rel, rec in index_ba2(path).items():
-                if not keep_prefix or rel.startswith(keep_prefix):
-                    out[rel] = ("ba2", rec)
-        else:
-            from Utils.bsa_extract import index_bsa
-            info, entries = index_bsa(path)
-            for rel, entry in entries.items():
-                if not keep_prefix or rel.startswith(keep_prefix):
-                    out[rel] = ("bsa", (info, entry))
-    except Exception:                                    # noqa: BLE001
-        # A broken or unsupported archive must not sink the whole lookup.
-        out = {}
+    with build_lock:
+        with _INDEX_CACHE_LOCK:
+            got = _INDEX_CACHE.get(key)
+            if got is not None:
+                return got
 
-    _INDEX_CACHE[key] = out
-    return out
+        out: dict = {}
+        ext = path.suffix.lower()
+        try:
+            if ext == ".ba2":
+                from Utils.ba2_extract import index_ba2
+                for rel, rec in index_ba2(path).items():
+                    if not keep_prefix or rel.startswith(keep_prefix):
+                        out[rel] = ("ba2", rec)
+            else:
+                from Utils.bsa_extract import index_bsa
+                info, entries = index_bsa(path)
+                for rel, entry in entries.items():
+                    if not keep_prefix or rel.startswith(keep_prefix):
+                        out[rel] = ("bsa", (info, entry))
+        except Exception:                                # noqa: BLE001
+            # A broken or unsupported archive must not sink the whole lookup.
+            out = {}
+
+        with _INDEX_CACHE_LOCK:
+            _INDEX_CACHE[key] = out
+            _INDEX_BUILD_LOCKS.pop(key, None)
+        return out
 
 
 def index_archive(path: Path, keep_prefix: str = "") -> dict:

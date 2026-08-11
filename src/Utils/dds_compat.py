@@ -128,7 +128,13 @@ def skip_dds_mips(data: bytes, max_dim: int) -> bytes:
         return data
 
     out = bytearray(data[:hdr_end])
-    struct.pack_into("<5I", out, 12, h, w,
-                     _mip_size(w, h, block, bpp or 0), depth, mipcount - skip)
+    # Compressed DDS files set DDSD_LINEARSIZE and store the whole top mip's
+    # byte size.  Uncompressed RGB(A) files set DDSD_PITCH and store one row's
+    # byte width instead.  Supplying the full image size as a pitch makes the
+    # rewritten header invalid and some decoders reject it outright.
+    pitch_or_linear = (_mip_size(w, h, block, 0)
+                       if block is not None else w * (bpp or 0))
+    struct.pack_into("<5I", out, 12, h, w, pitch_or_linear,
+                     depth, mipcount - skip)
     out += data[hdr_end + offset:]
     return bytes(out)

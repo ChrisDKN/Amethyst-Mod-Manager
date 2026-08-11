@@ -181,7 +181,8 @@ def _cached_parse(path: Path) -> PluginTextures | None:
 
 
 def alt_textures_for_mesh(mesh_rel: str,
-                          plugin_dirs: list[Path]) -> dict[object, list[str]]:
+                          plugin_dirs: list[Path],
+                          cancel=None) -> dict[object, list[str]]:
     """Texture-set overrides for one mesh: {3D name lower / 3D index: paths}.
 
     *mesh_rel* is the mesh path relative to the data folder (or meshes/).
@@ -194,12 +195,16 @@ def alt_textures_for_mesh(mesh_rel: str,
     plugins: list[PluginTextures] = []
     seen: set[str] = set()
     for d in plugin_dirs:
+        if cancel is not None and cancel():
+            return {}
         try:
             files = sorted(p for p in Path(d).iterdir()
                            if p.suffix.lower() in (".esp", ".esm", ".esl"))
         except OSError:
             continue
         for p in files:
+            if cancel is not None and cancel():
+                return {}
             if p.name.lower() in seen:
                 continue
             seen.add(p.name.lower())
@@ -236,13 +241,13 @@ def alt_textures_for_mesh(mesh_rel: str,
     return {}
 
 
-def apply_alt_textures(model, mesh_rel: str, plugin_dirs) -> int:
+def apply_alt_textures(model, mesh_rel: str, plugin_dirs, cancel=None) -> int:
     """Swap plugin-overridden texture sets into *model*'s shapes in place.
 
     The game replaces the mesh's whole baked set, so we do too. Returns how
     many shapes were overridden.
     """
-    over = alt_textures_for_mesh(mesh_rel, list(plugin_dirs or []))
+    over = alt_textures_for_mesh(mesh_rel, list(plugin_dirs or []), cancel)
     if not over:
         return 0
     hits = 0
