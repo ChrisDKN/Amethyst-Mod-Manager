@@ -42,6 +42,10 @@ class SettingsView(QWidget):
     # (edit, save_fn, path) result to the GUI thread before touching a widget.
     _folder_picked = Signal(object)
 
+    # Shared width for the Language / Theme combos so the buttons that follow
+    # them ("Sync language files" / "Edit / Create Theme…") align on one edge.
+    COMBO_W = 180
+
     def __init__(self, window):
         super().__init__()
         self._window = window          # main window - for _notify, threads
@@ -310,6 +314,9 @@ class SettingsView(QWidget):
         g.addWidget(QLabel(self.tr("Language")), row, 0)
         self._lang_combo = QComboBox()
         no_wheel(self._lang_combo)
+        # Fixed width shared with the Theme combo so both trailing buttons
+        # ("Sync language files" / "Edit / Create Theme…") start at the same x.
+        self._lang_combo.setFixedWidth(self.COMBO_W)
         self._lang_sync_btn = QPushButton(self.tr("Sync language files"))
         self._lang_sync_btn.setCursor(Qt.PointingHandCursor)
         self._lang_sync_btn.clicked.connect(self._on_sync_languages)
@@ -366,6 +373,7 @@ class SettingsView(QWidget):
 
         combo = QComboBox()
         no_wheel(combo)
+        combo.setFixedWidth(self.COMBO_W)
         values = [tid for tid in themes]
         for tid, disp in themes.items():
             combo.addItem(disp, tid)
