@@ -100,6 +100,7 @@ def sort_key_fn(key: str, ctx: dict):
             FLAG_MISSING_REQS, FLAG_UPDATE, FLAG_MODIO_UPDATE, FLAG_ROOT,
             FLAG_ROOT_RULE, FLAG_MODIFIED_MF, FLAG_PRERTX,
             FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_ENDORSED,
+            FLAG_THUNDERSTORE_UPDATE,
         )
         flags = ctx.get("flags") or {}
 
@@ -110,7 +111,8 @@ def sort_key_fn(key: str, ctx: dict):
                 score |= 128
             if e.locked:
                 score |= 64
-            if bits & (FLAG_UPDATE | FLAG_MODIO_UPDATE):
+            if bits & (FLAG_UPDATE | FLAG_MODIO_UPDATE
+                       | FLAG_THUNDERSTORE_UPDATE):
                 score |= 32
             if bits & (FLAG_ROOT | FLAG_ROOT_RULE):
                 score |= 16

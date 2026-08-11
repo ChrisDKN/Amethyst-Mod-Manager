@@ -3746,6 +3746,59 @@ class MainWindow(QMainWindow):
 
         self._deliver_download(paths, on_all_done=_stamp)
 
+    def _update_thunderstore_mod(self, mod_name: str):
+        """Update-flag click on a Thunderstore mod → confirm, then reinstall it
+        at the latest version.
+
+        Downloads need no key, so the newest version is fetched and installed
+        through the same ror2mm pipeline as a fresh install (which also
+        resolves any dependencies the new version added).
+        """
+        from Thunderstore.thunderstore_meta import read_meta
+        from Utils.mod_copy import resolve_target_staging
+
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        try:
+            staging = Path(resolve_target_staging(
+                game, Path(self._gs.profile_dir())))
+            meta = read_meta(staging / mod_name / "meta.ini")
+        except Exception as exc:
+            self._append_log(f"[thunderstore] could not read {mod_name}: {exc}")
+            return
+        if not meta.package_id:
+            self._notify(self.tr("This mod has no Thunderstore metadata."),
+                         "warning")
+            return
+        target = meta.latest_version or ""
+        if not target:
+            self._notify(
+                self.tr("Run Check Updates first to find the latest version."),
+                "info")
+            return
+
+        def _confirmed(ok):
+            if not ok:
+                return
+            from Thunderstore.ror2mm_handler import Ror2mmLink
+            link = Ror2mmLink(namespace=meta.namespace, name=meta.name,
+                              version=target)
+            self._append_log(
+                f"[thunderstore] updating {meta.package_id} "
+                f"{meta.version} → {target}")
+            self._process_ror2mm_link(link.raw or
+                                      f"ror2mm://v1/install/{link.host}/"
+                                      f"{link.namespace}/{link.name}/{target}/")
+
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Update mod"),
+            self.tr("Update {0} from {1} to {2}?").format(
+                meta.package_id, meta.version or "?", target),
+            _confirmed, confirm_label=self.tr("Update"), danger=False)
+
     def _stamp_thunderstore_meta(self, link, info, installed_names=None):
         """Write the [thunderstore] meta.ini section for a just-installed mod.
 
@@ -5652,10 +5705,19 @@ class MainWindow(QMainWindow):
         api = self._ensure_nexus_api() if domain else None
         have_nexus = domain and api is not None
         have_modio = _modio_key_present(game)
+        # Thunderstore needs no key or login at all - a profile of purely
+        # Thunderstore mods must still be checkable.
+        have_thunderstore = False
+        try:
+            from Thunderstore.thunderstore_update_checker import scan_installed
+            _stg = self._gs.staging_dir()
+            have_thunderstore = bool(_stg and scan_installed(Path(_stg)))
+        except Exception:
+            have_thunderstore = False
 
-        # mod.io (BG3) can run without a Nexus login. Only bail for "needs Nexus
-        # login" when there's also no mod.io key to fall back on.
-        if not have_nexus and not have_modio:
+        # mod.io (BG3) and Thunderstore can run without a Nexus login. Only bail
+        # for "needs Nexus login" when there is nothing else to fall back on.
+        if not have_nexus and not have_modio and not have_thunderstore:
             if getattr(game, "game_id", "") == "baldurs_gate_3":
                 self._notify(
                     self.tr("Log in to Nexus (Nexus ▸ Login) or set a mod.io API key "
@@ -5692,7 +5754,8 @@ class MainWindow(QMainWindow):
         def _worker():
             # Carry the checked subset (None = all) so _on_updates_ready can do a
             # scoped, filemap-free flag refresh instead of a full reload.
-            out = {"nexus": None, "modio": [], "subset": subset}
+            out = {"nexus": None, "modio": [], "thunderstore": [],
+                   "subset": subset}
             try:
                 # Run the mod.io check (BG3) in parallel with the Nexus check -
                 # they hit different APIs and write disjoint meta.ini keys.
@@ -5710,6 +5773,26 @@ class MainWindow(QMainWindow):
                         target=_modio_work, daemon=True, name="check-modio")
                     modio_thread.start()
 
+                # Thunderstore too - no key needed, and it writes only its own
+                # [thunderstore] meta.ini section, so it is safe alongside both.
+                ts_box = {"results": []}
+
+                def _ts_work():
+                    from Thunderstore.thunderstore_update_checker import (
+                        check_for_updates as ts_check)
+                    try:
+                        ts_box["results"] = ts_check(
+                            staging, only_names=subset,
+                            progress_cb=lambda m: self._op_log.emit(
+                                f"[thunderstore] {m}"))
+                    except Exception as exc:
+                        self._op_log.emit(
+                            f"[thunderstore] update check failed: {exc}")
+
+                ts_thread = threading.Thread(
+                    target=_ts_work, daemon=True, name="check-thunderstore")
+                ts_thread.start()
+
                 if have_nexus:
                     try:
                         out["nexus"] = check_for_updates(
@@ -5723,6 +5806,8 @@ class MainWindow(QMainWindow):
                 if modio_thread is not None:
                     modio_thread.join()
                     out["modio"] = modio_box["results"]
+                ts_thread.join()
+                out["thunderstore"] = ts_box["results"]
             except Exception as exc:
                 self._append_log(f"update check failed: {exc}")
                 self._updates_ready.emit(None)
@@ -5773,6 +5858,17 @@ class MainWindow(QMainWindow):
         if modio_unknown:
             parts.append(f"{len(modio_unknown)} mod.io version"
                          f"{'s' if len(modio_unknown) != 1 else ''} unknown")
+        ts_all = result.get("thunderstore") or []
+        ts_updates = [u for u in ts_all
+                      if getattr(u, "has_update", False)
+                      and not getattr(u, "unknown", False)]
+        ts_unknown = [u for u in ts_all if getattr(u, "unknown", False)]
+        if ts_updates:
+            parts.append(f"Thunderstore: {len(ts_updates)} update"
+                         f"{'s' if len(ts_updates) != 1 else ''}")
+        if ts_unknown:
+            parts.append(f"{len(ts_unknown)} Thunderstore package"
+                         f"{'s' if len(ts_unknown) != 1 else ''} unknown")
 
         if parts:
             _finish(", ".join(parts) + ".", "warning")
@@ -7799,7 +7895,7 @@ class MainWindow(QMainWindow):
         note→note editor, bundle→Bundle Options."""
         from gui_qt.modlist_data import (
             FLAG_UPDATE, FLAG_MISSING_REQS, FLAG_NOTE, FLAG_MODIO_UPDATE,
-            FLAG_BUNDLE, FLAG_RERUN_FOMOD)
+            FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE)
         e = self._modlist_model.entry(row)
         if e is None or e.is_separator:
             return
@@ -7813,6 +7909,8 @@ class MainWindow(QMainWindow):
         elif flag == FLAG_MODIO_UPDATE:
             from gui_qt.modlist_menu import _open_on_modio
             _open_on_modio(self._modlist_view, e.name)
+        elif flag == FLAG_THUNDERSTORE_UPDATE:
+            self._update_thunderstore_mod(e.name)
         elif flag == FLAG_MISSING_REQS:
             self._open_missing_reqs_tab(e.name)
         elif flag == FLAG_NOTE:

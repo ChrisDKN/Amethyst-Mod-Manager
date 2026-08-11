@@ -49,6 +49,7 @@ py.install_sources(
   'title-bar.png',
   'ui.png',
   'update_modio.png',
+  'update_thunderstore.png',
   'update.png',
   'UUID_Loser.png',
   'UUID_Partial.png',

@@ -28,6 +28,7 @@ FLAG_MODIO_UPDATE = 1 << 10  # BG3 mod.io update (modioFileId != modioLatestFile
 FLAG_PRERTX = 1 << 11      # contains pre-RTX (natives/x64) files - filemap-derived
 FLAG_ROOT_RULE = 1 << 12   # owns files with a custom root-routing rule - filemap-derived
 FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in the load order - live overlay
+FLAG_THUNDERSTORE_UPDATE = 1 << 14  # Thunderstore update ([thunderstore] hasUpdate)
 
 
 def _parse_missing_req_pairs(raw: str) -> list[tuple[int, str]]:
@@ -233,6 +234,16 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                     updates.add(e.name)
             except Exception:
                 pass
+        # Thunderstore update (its own meta.ini section, so no game gate -
+        # any BepInEx-style game can carry Thunderstore mods).
+        try:
+            from Thunderstore.thunderstore_meta import read_meta as _ts_read
+            _ts = _ts_read(meta_path)
+            if _ts.package_id and _ts.has_update and not _ts.ignore_update:
+                bits |= FLAG_THUNDERSTORE_UPDATE
+                updates.add(e.name)
+        except Exception:
+            pass
         # Per-profile user note.
         if notes.get(e.name):
             bits |= FLAG_NOTE
