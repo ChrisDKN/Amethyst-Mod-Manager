@@ -96,6 +96,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("CustomGameView", "Lowercase everything"), QT_TRANSLATE_NOOP("CustomGameView", "Uppercase everything"),
     QT_TRANSLATE_NOOP("CustomGameView", "Additional Nexus Domains"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated extra Nexus domain slugs whose mods are compatible with this game."),
+    QT_TRANSLATE_NOOP("CustomGameView", "Thunderstore Community"),
+    QT_TRANSLATE_NOOP("CustomGameView", "The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page."),
     QT_TRANSLATE_NOOP("CustomGameView", "Strip Prefixes"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated top-level folder names to strip from mod files "
        "during filemap building (case-insensitive). e.g. Data, data"),
@@ -448,6 +450,12 @@ class CustomGameView(QWidget):
             self._additional_nexus_edit,
             self.tr("Comma-separated extra Nexus domain slugs whose mods are "
                     "compatible with this game."))
+        self._thunderstore_edit = self._mono_edit(self.tr("e.g. lethal-company"))
+        self._field_row(
+            g, self.tr("Thunderstore Community"), self._thunderstore_edit,
+            self.tr("The game's community slug on thunderstore.io. "
+                    "e.g. 'lethal-company'. Leave empty if the game has no "
+                    "Thunderstore page."))
         self._image_edit = self._mono_edit(self.tr("https://example.com/banner.jpg"))
         self._field_row(
             g, self.tr("Banner Image URL"), self._image_edit,
@@ -1038,6 +1046,7 @@ class CustomGameView(QWidget):
         self._nexus_edit.setText(e.get("nexus_game_domain", ""))
         self._additional_nexus_edit.setText(
             _set_to_str(e.get("additional_nexus_domains", [])))
+        self._thunderstore_edit.setText(e.get("thunderstore_community", ""))
         self._image_edit.setText(e.get("image_url", ""))
 
         self._adv_edits["mod_folder_strip_prefixes"].setText(
@@ -1199,6 +1208,10 @@ class CustomGameView(QWidget):
             "nexus_game_domain": self._nexus_edit.text().strip(),
             "additional_nexus_domains": _str_to_list(
                 self._additional_nexus_edit.text()),
+            # Lowercased on save: community slugs are always lowercase, and a
+            # pasted "Lethal Company" would otherwise 404 silently.
+            "thunderstore_community":
+                self._thunderstore_edit.text().strip().lower(),
             "image_url":         image_url,
             "mod_folder_strip_prefixes":
                 _str_to_list(self._adv_edits["mod_folder_strip_prefixes"].text()),

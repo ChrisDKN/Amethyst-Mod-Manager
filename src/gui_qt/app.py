@@ -2373,6 +2373,15 @@ class MainWindow(QMainWindow):
                     (self.tr("Reset load order"), self._reset_collection_load_order),
                 ]),
             ]),
+            # Shown only for games declaring a thunderstore_community (see
+            # _sync_thunderstore_button) - unlike Nexus, most games aren't on
+            # Thunderstore at all, so a dead button would be noise.
+            ("Thunderstore", self.tr("Thunderstore"), "Thunderstore.png", [
+                (self.tr("Browse Thunderstore"),
+                 self._open_thunderstore_browser_tab),
+                (self.tr("Open game on Thunderstore"),
+                 self._open_game_on_thunderstore),
+            ]),
         ]:
             # Proton's logo is a mono glyph - tint it white like the Settings
             # icon so it stays visible. The others are full-colour logos.
@@ -2389,8 +2398,15 @@ class MainWindow(QMainWindow):
                 # re-evaluate their visibility each time it opens so game
                 # switches are handled for free.
                 b._menu.aboutToShow.connect(self._sync_proton_menu)
+            elif label == "Thunderstore":
+                self._thunderstore_btn = b
             self._action_buttons.append(b)
             h.addWidget(b)
+
+        # Gate the Thunderstore button on the current game's community. Done
+        # after the loop so the button exists; safe before the header is shown
+        # (the sync tracks intent, not isVisible()).
+        self._sync_thunderstore_button()
 
         h.addStretch(1)
 
@@ -2519,7 +2535,11 @@ class MainWindow(QMainWindow):
             game_icon_w = gsel.icon_width()
             game_room = (max(0, gsel.natural_width() - game_icon_w)
                          if game_icon_w else 0)
-            btn_room = sum(b._full_w - b._icon_w for b in self._action_buttons)
+            # Hidden buttons (the Thunderstore one on games without a
+            # community) save nothing by collapsing, so counting their label
+            # width here would inflate the deficit and trip the stages early.
+            btn_room = sum(b._full_w - b._icon_w
+                           for b in self._action_buttons if b.isVisible())
             # How much the bar is over budget with nothing collapsed: its
             # current hint plus everything the active stages already save.
             saved = ((gsel.natural_width() - gsel.current_width())
@@ -2582,6 +2602,7 @@ class MainWindow(QMainWindow):
         # they show the new game's mods instead of holding a stale domain. A
         # missing/empty Nexus domain closes them (nothing to show).
         self._retarget_browsers_for_game()
+        self._sync_thunderstore_button()
         # Reflect the new game's profiles + keep both game selectors in sync.
         profs = self._gs.profiles()
         if profs:
@@ -2630,6 +2651,23 @@ class MainWindow(QMainWindow):
                 view.set_game(game, domain)
             except Exception as exc:
                 self._append_log(f"[nexus] retarget failed: {exc}")
+
+        # Thunderstore keys on its own community, NOT the Nexus domain - a
+        # Thunderstore-only game has no domain and vice versa, so folding this
+        # into the loop above would close the wrong tab.
+        community = ((getattr(game, "thunderstore_community", "") or "").strip()
+                     if game else "")
+        ts_view = getattr(self, "_thunderstore_view", None)
+        if ts_view is not None:
+            if not community:
+                if self._tabs.has_key("thunderstore_browser"):
+                    self._tabs.close_tab("thunderstore_browser")
+                self._thunderstore_view = None
+            else:
+                try:
+                    ts_view.set_game(game, community)
+                except Exception as exc:
+                    self._append_log(f"[thunderstore] retarget failed: {exc}")
 
     def _clear_search_boxes(self):
         """Reset both search boxes on a game/profile switch (Tk parity - a
@@ -4250,6 +4288,68 @@ class MainWindow(QMainWindow):
         from Utils.xdg import open_url
         open_url(f"https://www.nexusmods.com/{domain}",
                  log_fn=self._append_log)
+
+    def _thunderstore_community(self) -> str:
+        """The current game's Thunderstore community slug ("" if none)."""
+        game = self._gs.game
+        if game is None:
+            return ""
+        return (getattr(game, "thunderstore_community", "") or "").strip()
+
+    def _open_game_on_thunderstore(self):
+        """Open the current game's Thunderstore community page."""
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        community = self._thunderstore_community()
+        if not community:
+            self._notify(
+                self.tr("'{0}' has no Thunderstore page.").format(game.name),
+                "warning")
+            return
+        from Thunderstore.thunderstore_api import community_url
+        from Utils.xdg import open_url
+        open_url(community_url(community), log_fn=self._append_log)
+
+    def _open_thunderstore_browser_tab(self):
+        """Open the Thunderstore browser as a detachable tab.
+
+        No login or API key needed - Thunderstore reads are public. The
+        community guard is unreachable while the header button is hidden for
+        unsupported games, but the menu action could be reached another way
+        (a detached window, a future keybinding), so keep it.
+        """
+        if self._tabs.has_key("thunderstore_browser"):
+            self._tabs.focus_key("thunderstore_browser")
+            return
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        community = self._thunderstore_community()
+        if not community:
+            self._notify(
+                self.tr("'{0}' has no Thunderstore page.").format(game.name),
+                "warning")
+            return
+
+        def _install(namespace: str, name: str, version: str):
+            # Route through the normal one-click pipeline so dependency
+            # resolution + the opt-out modal + meta stamping all apply.
+            self._process_ror2mm_link(
+                f"ror2mm://v1/install/thunderstore.io/"
+                f"{namespace}/{name}/{version}/")
+
+        from gui_qt.thunderstore_browser_view import ThunderstoreBrowserView
+        view = ThunderstoreBrowserView(community, game,
+                                       install_fn=_install,
+                                       log_fn=self._append_log)
+        self._thunderstore_view = view
+        view.destroyed.connect(
+            lambda *_: setattr(self, "_thunderstore_view", None))
+        self._tabs.open_tab(view, self.tr("Thunderstore"),
+                            key="thunderstore_browser")
 
     def _open_nexus_browser_tab(self):
         """Open the Nexus Mods browser as a detachable tab. Needs a configured
@@ -10136,6 +10236,34 @@ class MainWindow(QMainWindow):
         deps = list(getattr(game, "auto_install_deps", []) or []) if game else []
         act.setVisible("lavfilters" in deps)
 
+    def _sync_thunderstore_button(self):
+        """Show the Thunderstore header button only for games that declare a
+        ``thunderstore_community``.
+
+        Differs deliberately from the Nexus button, which is always visible and
+        warns on click: most games are not on Thunderstore at all, so the button
+        is hidden rather than offered as a dead end.
+
+        The wanted state is tracked on the button (``_ts_wanted``) instead of
+        read back from ``isVisible()`` - during ``_left_header()`` the widget is
+        not realised yet, so isVisible() is False for every button and an
+        isVisible()-based early-out would skip the initial show."""
+        b = getattr(self, "_thunderstore_btn", None)
+        if b is None:
+            return
+        game = self._gs.game
+        community = ((getattr(game, "thunderstore_community", "") or "").strip()
+                     if game is not None else "")
+        want = bool(community)
+        if getattr(b, "_ts_wanted", None) == want:
+            return
+        b._ts_wanted = want
+        b.setVisible(want)
+        # The bar just got wider or narrower - re-run the staged compaction
+        # (btn_room only counts visible buttons, so the stages shift).
+        if getattr(self, "_action_btn_widths", False):
+            self._sync_header_compact()
+
     def _proton_install_dotnet(self, version: str):
         from Utils.proton_tools import install_dotnet
         self._run_proton_installer(
@@ -13648,6 +13776,10 @@ class MainWindow(QMainWindow):
         if nv is not None:
             nv._game = self._gs.game
             nv.refresh_installed()
+        tv = getattr(self, "_thunderstore_view", None)
+        if tv is not None:
+            tv._game = self._gs.game
+            tv.refresh_installed()
 
         # Meta read + conflict rebuild, SEQUENCED. Both cold-read the same
         # per-mod meta.ini files (the meta columns here, the filemap's
@@ -15283,6 +15415,9 @@ class MainWindow(QMainWindow):
             nv = getattr(self, "_nexus_view", None)
             if nv is not None:
                 nv.refresh_installed()
+            tv = getattr(self, "_thunderstore_view", None)
+            if tv is not None:
+                tv.refresh_installed()
             # The filemap (staged/deployed file set) changed → framework states may
             # have flipped (e.g. a framework mod toggled, deployed, or removed).
             # Precomputed on the conflict worker (detect_frameworks re-reads

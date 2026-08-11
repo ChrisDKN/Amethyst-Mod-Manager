@@ -85,11 +85,9 @@ class ThunderstoreVersionView(QWidget):
         meta = self._meta
 
         def _work():
-            from Thunderstore.thunderstore_download import fetch_json
-            url = (f"https://thunderstore.io/api/cyberstorm/package/"
-                   f"{meta.namespace}/{meta.name}/versions/")
-            data = fetch_json(url)
-            safe_emit(self._versions_ready, data)
+            from Thunderstore.thunderstore_api import fetch_versions
+            safe_emit(self._versions_ready,
+                      fetch_versions(meta.namespace, meta.name))
 
         threading.Thread(target=_work, daemon=True,
                          name="ts-versions").start()

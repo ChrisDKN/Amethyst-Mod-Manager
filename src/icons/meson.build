@@ -48,6 +48,7 @@ py.install_sources(
   'tick.png',
   'title-bar.png',
   'ui.png',
+  'Thunderstore.png',
   'update_modio.png',
   'update_thunderstore.png',
   'update.png',

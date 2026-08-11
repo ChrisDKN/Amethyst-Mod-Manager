@@ -1508,6 +1508,39 @@ def save_nexus_show_adult(value: bool) -> None:
     _write_ini(parser, path)
 
 
+_THUNDERSTORE_SECTION = "thunderstore"
+
+
+def load_thunderstore_flag(key: str) -> bool:
+    """Return a persisted Thunderstore browser toggle (default False).
+
+    *key* is "show_nsfw" or "show_deprecated". Kept in its own [thunderstore]
+    section rather than reusing the Nexus show_adult key - different site,
+    different user intent.
+    """
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_THUNDERSTORE_SECTION, key, fallback=False)
+    except Exception:
+        return False
+
+
+def save_thunderstore_flag(key: str, value: bool) -> None:
+    """Persist a Thunderstore browser toggle to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _THUNDERSTORE_SECTION not in parser:
+        parser[_THUNDERSTORE_SECTION] = {}
+    parser[_THUNDERSTORE_SECTION][key] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_nexus_page_size(default: int = 30) -> int:
     """Return the persisted Nexus browser 'shown per page' setting."""
     path = get_ui_config_path()

@@ -1118,6 +1118,18 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def thunderstore_community(self) -> str:
+        """
+        Thunderstore community slug used for browse/listing API requests.
+        e.g. 'subnautica', 'lethal-company', 'hollow-knight-silksong'
+        This is the slug used in URLs like thunderstore.io/c/<community>/.
+        Note it is NOT derivable from ``nexus_game_domain`` - the two differ
+        (Nexus 'lethalcompany' vs Thunderstore 'lethal-company').
+        Return an empty string to disable Thunderstore integration for this game.
+        """
+        return ""
+
+    @property
     def additional_nexus_domains(self) -> list[str]:
         """Additional Nexus game domains whose mods are valid for this game.
 

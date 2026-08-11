@@ -892,7 +892,8 @@ class SettingsView(QWidget):
         """Relabel Install/Download on any tab open alongside Settings."""
         # _checkbox persists before calling here, so the views re-read the new value.
         w = self._window
-        for attr in ("_nexus_view", "_change_version_view", "_missing_reqs_view"):
+        for attr in ("_nexus_view", "_thunderstore_view", "_change_version_view",
+                     "_missing_reqs_view"):
             view = getattr(w, attr, None)
             if view is None:
                 continue

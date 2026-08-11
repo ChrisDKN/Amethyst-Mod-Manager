@@ -126,6 +126,7 @@ py.install_sources(
   'theme_editor_view.py',
   'theme_preview.py',
   'theme_qt.py',
+  'thunderstore_browser_view.py',
   'thunderstore_deps_overlay.py',
   'thunderstore_version_view.py',
   'tri_state_checkbox.py',

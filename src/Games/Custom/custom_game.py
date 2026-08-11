@@ -12,6 +12,7 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "steam_id":          "",           // optional Steam App ID
   "nexus_game_domain": "",           // optional Nexus domain slug
   "additional_nexus_domains": [],     // optional extra Nexus domain slugs
+  "thunderstore_community": "",      // optional Thunderstore community slug
   "image_url":         ""            // optional banner image URL
   "editable":          true          // false = skip definition editor on reconfigure (for repo handlers)
 }
@@ -207,6 +208,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "steam_id": "",
         "nexus_game_domain": "",
         "additional_nexus_domains": [],
+        "thunderstore_community": "",
         "image_url": "",
         "mod_folder_strip_prefixes": ["BepInEx", "plugins"],
         "conflict_ignore_filenames": [],
@@ -453,6 +455,10 @@ class StandardCustomGame(BaseGame):
     def additional_nexus_domains(self) -> list[str]:
         value = self._defn.get("additional_nexus_domains", [])
         return list(value) if isinstance(value, (list, tuple, set)) else []
+
+    @property
+    def thunderstore_community(self) -> str:
+        return self._defn.get("thunderstore_community", "")
 
     @property
     def image_url(self) -> str:
@@ -859,6 +865,10 @@ class Ue5CustomGame(UE5Game):
     def additional_nexus_domains(self) -> list[str]:
         value = self._defn.get("additional_nexus_domains", [])
         return list(value) if isinstance(value, (list, tuple, set)) else []
+
+    @property
+    def thunderstore_community(self) -> str:
+        return self._defn.get("thunderstore_community", "")
 
     @property
     def image_url(self) -> str:

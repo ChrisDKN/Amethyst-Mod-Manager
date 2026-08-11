@@ -73,6 +73,10 @@ class Subnautica(BaseGame):
         return "subnautica"
 
     @property
+    def thunderstore_community(self) -> str:
+        return "subnautica"
+
+    @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"plugins", "bepinex", "BepInExPack_Valheim"}
     
@@ -343,6 +347,10 @@ class Subnautica_Below_Zero(Subnautica):
     def nexus_game_domain(self) -> str:
         return "subnauticabelowzero"
 
+    @property
+    def thunderstore_community(self) -> str:
+        return "subnautica-below-zero"
+
 class TCG_Card_Shop_Simulator(Subnautica):
 
     @property
@@ -364,6 +372,10 @@ class TCG_Card_Shop_Simulator(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "tcgcardshopsimulator"
+
+    @property
+    def thunderstore_community(self) -> str:
+        return "tcg-card-shop-simulator"
 
     @property
     def default_deploy_mode(self) -> str:
@@ -392,6 +404,10 @@ class Lethal_Company(Subnautica):
         return "lethalcompany"
 
     @property
+    def thunderstore_community(self) -> str:
+        return "lethal-company"
+
+    @property
     def default_deploy_mode(self) -> str:
         return "symlink"
 
@@ -418,6 +434,10 @@ class Valheim(Subnautica):
 
     @property
     def nexus_game_domain(self) -> str:
+        return "valheim"
+
+    @property
+    def thunderstore_community(self) -> str:
         return "valheim"
 
     @property
@@ -475,6 +495,10 @@ class HNSS(Subnautica):
     @property
     def nexus_game_domain(self) -> str:
         return "hollowknightsilksong"
+
+    @property
+    def thunderstore_community(self) -> str:
+        return "hollow-knight-silksong"
     
     @property
     def exe_name_alts(self) -> list[str]:
