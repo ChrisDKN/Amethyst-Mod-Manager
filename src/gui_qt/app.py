@@ -189,6 +189,20 @@ class _HeaderBar(QWidget):
         self._on_resize()
 
 
+class _InstalledRoot:
+    """Stand-in "requested mod" row for the Thunderstore dependency modal.
+
+    A manually installed package is already on disk, so it gets the modal's
+    fixed (checkbox-less) row while only its missing dependencies are
+    selectable. The overlay reads just ``full_name`` and ``file_size``, and
+    hands the object back in its result - the caller filters it out.
+    """
+
+    def __init__(self, full_name: str):
+        self.full_name = full_name
+        self.file_size = 0
+
+
 class MainWindow(QMainWindow):
     # Carries (generation, ConflictData) from a worker thread to the UI thread
     # (queued connection - thread-safe). See _rebuild_conflicts_async.
@@ -348,6 +362,10 @@ class MainWindow(QMainWindow):
     _ror2mm_download_done = Signal(object)
     # Thunderstore-only update check worker → UI thread: (results, toast, subset).
     _ts_updates_ready = Signal(object)
+    # Manifest-identify worker → UI thread: (results|None, toast).
+    _ts_identify_ready = Signal(object)
+    # Post-install auto-identify → UI thread: [(mod_name, package_id, version)].
+    _ts_auto_identified = Signal(object)
 
     _PLAY_BAR_W = 380       # play-bar (header right) fixed width
     _BTN_H = 42          # consistent height for all header buttons (~30% bigger)
@@ -668,6 +686,8 @@ class MainWindow(QMainWindow):
         self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
         self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
         self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
+        self._ts_identify_ready.connect(self._on_thunderstore_identify_ready)
+        self._ts_auto_identified.connect(self._on_thunderstore_auto_identified)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
         # Silently sync custom handlers + Qt wizard plugins from the Resources
@@ -2387,6 +2407,9 @@ class MainWindow(QMainWindow):
                  self._open_thunderstore_browser_tab),
                 (self.tr("Open game on Thunderstore"),
                  self._open_game_on_thunderstore),
+                None,
+                (self.tr("Identify installed mods"),
+                 self._identify_thunderstore_mods),
             ]),
         ]:
             # Proton's logo is a mono glyph - tint it white like the Settings
@@ -4312,6 +4335,205 @@ class MainWindow(QMainWindow):
         from Thunderstore.thunderstore_api import community_url
         from Utils.xdg import open_url
         open_url(community_url(community), log_fn=self._append_log)
+
+    def _auto_identify_thunderstore(self, names):
+        """Stamp Thunderstore metadata on mods just installed by any path.
+
+        The ror2mm pipeline stamps its own installs, but the Downloads tab /
+        Install Mod / drag-drop paths go straight through _install_paths and
+        would otherwise leave a Thunderstore package with only a [General]
+        section - no update checking, no flag, no Actions submenu.
+
+        Cheap and silent: only folders carrying a manifest.json AND no existing
+        [thunderstore] section are looked up, so a non-Thunderstore install
+        costs one stat() and nothing else.
+        """
+        wanted = [str(n) for n in (names or []) if n]
+        if not wanted:
+            return
+        community = self._thunderstore_community()
+        if not community:
+            return
+        staging = self._thunderstore_staging()
+        if staging is None:
+            return
+
+        import threading
+
+        def _worker():
+            from Thunderstore.ror2mm_handler import Ror2mmLink
+            from Thunderstore.thunderstore_identify import (
+                identify_mod, read_manifest, stamp_identified)
+            from Thunderstore.thunderstore_meta import read_meta
+            from Thunderstore.thunderstore_requirements import (
+                filter_already_installed, resolve_dependencies)
+            from gui_qt.safe_emit import safe_emit
+            done = []
+            missing: list = []      # ResolvedPackage, deepest-first
+            seen_missing: set = set()
+            for name in wanted:
+                folder = staging / name
+                try:
+                    if not folder.is_dir():
+                        continue
+                    if read_meta(folder / "meta.ini").package_id:
+                        continue        # already stamped (ror2mm install)
+                    if read_manifest(folder) is None:
+                        continue        # not a Thunderstore package
+                    res = identify_mod(folder, community)
+                    if not (res.matched and stamp_identified(folder, res)):
+                        continue
+                    version = res.manifest.version if res.manifest else ""
+                    done.append((name, res.package_id, version))
+                    # A hand-installed package brings no dependencies with it,
+                    # so resolve its graph and collect whatever is absent. The
+                    # mod itself is already on disk - only the gaps are offered.
+                    if not version:
+                        continue
+                    graph = resolve_dependencies(Ror2mmLink(
+                        namespace=res.namespace,
+                        name=res.manifest.name, version=version))
+                    todo, _have = filter_already_installed(
+                        graph.packages, staging, keep_root=False)
+                    for pkg in todo:
+                        if pkg.is_root:
+                            continue    # the mod we just installed
+                        if pkg.package_id in seen_missing:
+                            continue
+                        seen_missing.add(pkg.package_id)
+                        missing.append(pkg)
+                except Exception as exc:
+                    self._op_log.emit(
+                        f"[thunderstore] could not identify '{name}': {exc}")
+            if done or missing:
+                safe_emit(self._ts_auto_identified, (done, missing))
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="ts-auto-identify").start()
+
+    def _on_thunderstore_auto_identified(self, payload):
+        """UI thread: an install was recognised as a Thunderstore package.
+
+        When the manifest declares dependencies that aren't installed, offer
+        them through the SAME opt-out modal a ror2mm install uses - a manually
+        installed package brings none of its requirements with it, so without
+        this the mod silently doesn't work.
+        """
+        done, missing = payload
+        for name, package_id, version in done or []:
+            self._append_log(
+                f"[thunderstore] recognised '{name}' as {package_id} {version}")
+        if done:
+            self._refresh_modlist_flags([n for n, _p, _v in done])
+        if not missing:
+            return
+
+        for pkg in missing:
+            self._append_log(
+                f"[thunderstore] missing dependency: {pkg.full_name}")
+
+        # The installed mod stands in as the modal's "requested" row: it is
+        # already on disk, so only the dependencies get checkboxes.
+        root_label = ", ".join(p for _n, p, _v in done) or self.tr("this mod")
+        root = _InstalledRoot(root_label)
+        from Thunderstore.ror2mm_handler import Ror2mmLink
+
+        def _decided(chosen):
+            if chosen is None:
+                self._append_log(
+                    "[thunderstore] dependency install declined")
+                return
+            picked = [p for p in chosen if not isinstance(p, _InstalledRoot)]
+            if not picked:
+                return
+            self._append_log(
+                f"[thunderstore] installing {len(picked)} missing "
+                "dependenc" + ("y" if len(picked) == 1 else "ies"))
+            # `picked` is non-empty, so the link is only a fallback for the
+            # empty case - point it at the first package for a sane log line.
+            first = picked[0]
+            self._start_ror2mm_downloads(
+                Ror2mmLink(namespace=first.namespace, name=first.name,
+                           version=first.version), picked)
+
+        from gui_qt.thunderstore_deps_overlay import ThunderstoreDepsOverlay
+        ThunderstoreDepsOverlay.show_over(
+            self, root=root, dependencies=missing, conflicts=[],
+            on_done=_decided)
+
+    def _identify_thunderstore_mods(self):
+        """Adopt manually-installed Thunderstore mods.
+
+        Thunderstore has no hash lookup (unlike Nexus's MD5 → mod/file id), but
+        every package ships a manifest.json that survives installation. Reading
+        it gives the exact name + version; the namespace it omits is resolved
+        from the API. Stamping the result makes update checking, the update
+        flag and the Thunderstore Actions submenu work for a hand-installed mod.
+        """
+        staging = self._thunderstore_staging()
+        if staging is None:
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        community = self._thunderstore_community()
+        toast = self._notify(self.tr("Identifying Thunderstore mods…"),
+                             "info", sticky=True)
+
+        import threading
+
+        def _worker():
+            from Thunderstore.thunderstore_identify import identify_all
+            from gui_qt.safe_emit import safe_emit
+            try:
+                results = identify_all(
+                    staging, community,
+                    progress_cb=lambda m: self._op_log.emit(
+                        f"[thunderstore] {m}"))
+            except Exception as exc:
+                self._op_log.emit(
+                    f"[thunderstore] identify failed: {exc}")
+                results = None
+            safe_emit(self._ts_identify_ready, (results, toast))
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="ts-identify").start()
+
+    def _on_thunderstore_identify_ready(self, payload):
+        """UI thread: the identify pass finished."""
+        results, toast = payload
+
+        def _finish(text, state):
+            if toast is not None:
+                toast.dismiss(text, state=state)
+            else:
+                self._notify(text, state)
+
+        if results is None:
+            _finish(self.tr("Identifying mods failed - see the log."), "error")
+            return
+        matched = [r for r in results if r.matched]
+        missed = [r for r in results if not r.matched]
+        for r in matched:
+            note = (self.tr(" (several teams publish this name)")
+                    if r.ambiguous else "")
+            self._append_log(
+                f"[thunderstore] '{r.mod_name}' → {r.package_id} "
+                f"{r.manifest.version if r.manifest else ''}{note}")
+        for r in missed:
+            self._append_log(
+                f"[thunderstore] '{r.mod_name}' not identified - {r.reason}")
+
+        if not results:
+            _finish(self.tr("No unidentified Thunderstore mods found."), "info")
+        elif matched:
+            self._refresh_modlist_flags()
+            text = self.tr("Identified {0} mod(s).").format(len(matched))
+            if missed:
+                text += " " + self.tr("{0} could not be matched.").format(
+                    len(missed))
+            _finish(text, "success")
+        else:
+            _finish(self.tr("Could not identify any of the {0} mod(s) found.")
+                    .format(len(results)), "warning")
 
     def _open_thunderstore_browser_tab(self):
         """Open the Thunderstore browser as a detachable tab.
@@ -12319,6 +12541,11 @@ class MainWindow(QMainWindow):
         self._install_place = None
         if place and names:
             self._apply_install_placement(list(names), place)
+        # Adopt any Thunderstore mod installed outside the ror2mm pipeline
+        # (Downloads tab, Install Mod button, drag-drop): those paths never
+        # reach _stamp_thunderstore_meta, so without this a hand-installed
+        # package gets only a [General] section and no update checking.
+        self._auto_identify_thunderstore(names)
         self._reload_modlist()
         # NOTE: the plugin panel is reloaded from _on_conflicts_ready, after the
         # conflict/filemap rebuild queued by _reload_modlist - NOT here. An
