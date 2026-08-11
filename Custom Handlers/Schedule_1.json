@@ -6,6 +6,7 @@
   "mod_data_path": "Mods",
   "steam_id": "3164500",
   "nexus_game_domain": "schedule1",
+  "thunderstore_community": "schedule-i",
   "image_url": "https://cdn2.steamgriddb.com/icon_thumb/60a52d6250f2541bd7a002be5c30ab40.png",
   "mod_folder_strip_prefixes": [
     "mods",
@@ -13,7 +14,10 @@
   ],
   "conflict_ignore_filenames": [
     "*.md",
-    "manifest.json"
+    "manifest.json",
+    "icon.png",
+    "LocalizationExample.zip",
+    "*read*.txt"
   ],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
@@ -45,6 +49,6 @@
     }
   ],
   "custom_frameworks": {},
-  "version": 2,
+  "version": 3,
   "editable": false
 }

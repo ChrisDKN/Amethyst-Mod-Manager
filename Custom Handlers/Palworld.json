@@ -6,6 +6,7 @@
   "mod_data_path": "Pal",
   "steam_id": "1623730",
   "nexus_game_domain": "palworld",
+  "thunderstore_community": "palworld",
   "image_url": "https://cdn2.steamgriddb.com/icon/74428c0a6c8f499e67f96908f425fdd3/32/256x256.png",
   "mod_folder_strip_prefixes": [
     "Pal",
@@ -19,7 +20,11 @@
     "*.png",
     "*.jpg",
     "*readme*.txt",
-    "*.md"
+    "*.md",
+    "icon.png",
+    "manifest.json",
+    "LocalizationExample.zip",
+    "*read*.txt"
   ],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
@@ -132,6 +137,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 5,
+  "version": 6,
   "editable": false
 }

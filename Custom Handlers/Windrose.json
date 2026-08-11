@@ -6,6 +6,7 @@
   "mod_data_path": "R5",
   "steam_id": "3041230",
   "nexus_game_domain": "windrose",
+  "thunderstore_community": "windrose",
   "image_url": "https://cdn2.steamgriddb.com/icon/8604ce40a83008d1559c856db0cc4789/32/256x256.png",
   "mod_folder_strip_prefixes": [
     "Windrose",
@@ -18,7 +19,11 @@
   ],
   "conflict_ignore_filenames": [
     "LICENSE",
-    "*.md"
+    "*.md",
+    "icon.png",
+    "manifest.json",
+    "LocalizationExample.zip",
+    "*read*.txt"
   ],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
@@ -84,6 +89,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 1,
+  "version": 2,
   "editable": false
 }
