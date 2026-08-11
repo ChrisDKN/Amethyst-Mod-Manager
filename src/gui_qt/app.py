@@ -335,6 +335,12 @@ class MainWindow(QMainWindow):
     _nxm_received = Signal(str)
     # NXM download worker → UI thread: (DownloadResult, mod_info, file_info).
     _nxm_download_done = Signal(object)
+    # Thunderstore ror2mm:// link received from a second instance (worker
+    # thread → UI thread). Shares the NXM IPC socket; routed by scheme.
+    _ror2mm_received = Signal(str)
+    # Thunderstore download worker → UI thread:
+    # (ThunderstoreDownloadResult, Ror2mmLink, version_info, dl_key).
+    _ror2mm_download_done = Signal(object)
 
     _PLAY_BAR_W = 380       # play-bar (header right) fixed width
     _BTN_H = 42          # consistent height for all header buttons (~30% bigger)
@@ -647,7 +653,10 @@ class MainWindow(QMainWindow):
         self._nxm_install_queue: list = []
         self._nxm_received.connect(self._receive_nxm)
         self._nxm_download_done.connect(self._on_nxm_download_done)
+        self._ror2mm_received.connect(self._receive_ror2mm)
+        self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
         self._handle_nxm_argv()
+        self._handle_ror2mm_argv()
         # Silently sync custom handlers + Qt wizard plugins from the Resources
         # branch on GitHub (background threads). A fresh/updated build re-fetches
         # immediately because the gh_cache is wiped when the app version changes.
@@ -3454,6 +3463,215 @@ class MainWindow(QMainWindow):
         nxm_log("Fresh instance: processing NXM link after window build")
         QTimer.singleShot(500, lambda: self._process_nxm_link(nxm_url))
 
+    def _handle_ror2mm_argv(self):
+        """Check sys.argv for a ror2mm:// link and kick off a download once the
+        window has finished building."""
+        from PySide6.QtCore import QTimer
+        from Nexus.nxm_handler import nxm_log
+        from Thunderstore.ror2mm_handler import ror2mm_url_from_argv
+        url = ror2mm_url_from_argv()
+        if not url:
+            return
+        nxm_log("Fresh instance: processing ror2mm link after window build")
+        QTimer.singleShot(500, lambda: self._process_ror2mm_link(url))
+
+    def _receive_ror2mm(self, url: str):
+        """UI thread: a ror2mm:// link arrived over IPC. Raise the window so
+        the user sees the download start."""
+        from Nexus.nxm_handler import nxm_log
+        nxm_log("ror2mm link reached UI thread of running instance")
+        self._append_log("[thunderstore] received install link from browser")
+        # Re-assert our handler registration once per session for the same
+        # reason the NXM path does: the click may have been routed here by a
+        # stale .desktop belonging to a different install variant.
+        if not getattr(self, "_ror2mm_reregistered", False):
+            self._ror2mm_reregistered = True
+            import threading
+
+            def _rereg():
+                from Thunderstore.ror2mm_handler import Ror2mmHandler
+                try:
+                    Ror2mmHandler.register()
+                except Exception as exc:
+                    nxm_log(f"ror2mm re-register after IPC receive failed: {exc}")
+
+            threading.Thread(target=_rereg, daemon=True,
+                             name="ror2mm-rereg").start()
+        try:
+            self.setWindowState(
+                self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
+            self.raise_()
+            self.activateWindow()
+        except Exception:
+            pass
+        self._process_ror2mm_link(url)
+
+    def _process_ror2mm_link(self, url: str):
+        """Handle a ror2mm:// link - download a Thunderstore package.
+
+        Unlike nxm://, the link carries no game identifier, so the package
+        installs into the CURRENTLY SELECTED game. That is a deliberate
+        product decision: clicking install while on another game's profile is
+        unlikely, and a wrong-profile install is harmless and reversible.
+        No login/API key is needed - Thunderstore downloads are public.
+        """
+        from Nexus.nxm_handler import nxm_log
+        from Thunderstore.ror2mm_handler import parse_ror2mm_url
+        nxm_log(f"Processing ror2mm link: {url}")
+
+        try:
+            link = parse_ror2mm_url(url)
+        except ValueError as exc:
+            nxm_log(f"Bad ror2mm:// URL - {exc}")
+            self._append_log(f"[thunderstore] bad ror2mm:// URL - {exc}")
+            self._notify(self.tr("Received a malformed Thunderstore link."),
+                         "warning")
+            return
+
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._append_log(
+                "[thunderstore] no configured game selected - "
+                f"cannot install {link.full_name}")
+            self._notify(
+                self.tr("Select and configure a game before installing "
+                        "Thunderstore mods."), "warning")
+            return
+
+        self._append_log(
+            f"[thunderstore] downloading {link.full_name} "
+            f"into '{self._gs.game_name}'…")
+        self._notify(self.tr("Downloading mod from Thunderstore…"), "info")
+        dl_key = self._new_dl_key()
+        self._nexus_download_progress(dl_key, "", 0, 0)   # show popup immediately
+
+        import threading
+
+        def _worker():
+            from Thunderstore.thunderstore_download import (
+                download_package, fetch_version_info)
+            from Utils.config_paths import get_download_cache_dir_for_game
+            from gui_qt.safe_emit import safe_emit
+
+            # Version detail gives size + dependencies + description for the
+            # meta.ini. Best-effort: the download itself needs only the link.
+            info = None
+            try:
+                info = fetch_version_info(link)
+            except Exception as exc:
+                self._op_log.emit(
+                    f"[thunderstore] could not fetch package info ({exc}) - "
+                    "meta partial")
+            expected = 0
+            if isinstance(info, dict):
+                try:
+                    expected = int(info.get("size") or 0)
+                except (TypeError, ValueError):
+                    expected = 0
+
+            dest = get_download_cache_dir_for_game(self._gs.game_name or "")
+            label = f"{link.full_name}.zip"
+            result = download_package(
+                link, dest_dir=dest, expected_size=expected,
+                progress_cb=lambda d, t: safe_emit(
+                    self._req_install_prog, dl_key, label, int(d), int(t)))
+            safe_emit(self._ror2mm_download_done, (result, link, info, dl_key))
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="ror2mm-download").start()
+
+    def _on_ror2mm_download_done(self, payload):
+        """UI thread: a Thunderstore download finished - install it."""
+        result, link, info, dl_key = payload
+        self._nexus_download_progress(dl_key, "", 0, -1)   # hide this card
+        if not (result.success and result.file_path):
+            self._append_log(f"[thunderstore] download failed - {result.error}")
+            self._notify(
+                self.tr("Thunderstore download failed - {0}").format(result.error),
+                "error")
+            return
+
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._append_log(
+                f"[thunderstore] downloaded {result.file_name} - no configured "
+                "game selected; install manually from Downloads.")
+            self._notify(
+                self.tr("Downloaded - no game selected; see Downloads tab."),
+                "warning")
+            return
+
+        path = str(result.file_path)
+        # Stamp the [thunderstore] meta.ini section once the mod folder exists.
+        # The installer only knows how to write the Nexus [General] section, so
+        # this runs as a post-install step; write_meta preserves [General].
+        # on_all_done is invoked as cb(ok, total, names) - see _install_all_done_cb.
+        def _stamp(ok, total, names):
+            self._stamp_thunderstore_meta(link, info, names)
+
+        self._deliver_download([path], on_all_done=_stamp)
+
+    def _stamp_thunderstore_meta(self, link, info, installed_names=None):
+        """Write the [thunderstore] meta.ini section for a just-installed mod.
+
+        *installed_names* is the name list the install batch reports - the
+        install may rename the folder (mod-name rules, an existing folder), so
+        that list is authoritative and is preferred over guessing from the
+        package name.
+        """
+        from pathlib import Path
+
+        from Thunderstore.thunderstore_meta import (
+            build_meta_from_link, read_meta, write_meta)
+        try:
+            game = self._gs.game
+            if game is None:
+                return
+            from Utils.mod_copy import resolve_target_staging
+            staging = Path(resolve_target_staging(game, Path(self._gs.profile_dir())))
+            if not staging.is_dir():
+                return
+
+            meta = build_meta_from_link(link, info)
+            # Resolve the community for the record. The link never carries it,
+            # so this is informational only - it does NOT gate the install.
+            if not meta.community:
+                try:
+                    from Thunderstore.thunderstore_download import resolve_communities
+                    slugs = resolve_communities(link)
+                    meta.community = slugs[0] if slugs else ""
+                except Exception:
+                    pass
+
+            # The batch installed exactly one archive, so a single reported
+            # name is the folder we want; fall back to the package's own names.
+            target = None
+            names = [n for n in (installed_names or []) if n]
+            for cand in names + [link.full_name,
+                                 f"{link.namespace}-{link.name}", link.name]:
+                probe = staging / str(cand)
+                if probe.is_dir():
+                    target = probe
+                    break
+            if target is None:
+                self._append_log(
+                    f"[thunderstore] installed folder for {link.full_name} not "
+                    "found - meta.ini not stamped.")
+                return
+
+            meta_path = target / "meta.ini"
+            existing = read_meta(meta_path)
+            if existing.package_id and existing.package_id != meta.package_id:
+                self._append_log(
+                    f"[thunderstore] '{target.name}' already carries metadata "
+                    f"for {existing.package_id} - not overwriting.")
+                return
+            write_meta(meta_path, meta)
+            self._append_log(
+                f"[thunderstore] stamped {meta.full_name} → {target.name}/meta.ini")
+        except Exception as exc:
+            self._append_log(f"[thunderstore] could not stamp meta.ini: {exc}")
+
     def _start_nxm_ipc(self):
         """Start the IPC server so this (running) instance receives NXM links
         handed off by later instances. The callback fires on a worker thread,
@@ -3466,7 +3684,13 @@ class MainWindow(QMainWindow):
         from gui_qt.safe_emit import safe_emit
 
         def _on_nxm(url: str):
-            safe_emit(self._nxm_received, url)
+            # One socket carries both schemes (the IPC payload is just a URL
+            # string), so route by scheme here rather than standing up a
+            # second server that would duplicate all the bind/heal logic.
+            if (url or "").lower().startswith("ror2mm://"):
+                safe_emit(self._ror2mm_received, url)
+            else:
+                safe_emit(self._nxm_received, url)
 
         NxmIPC.start_server(_on_nxm)
 
@@ -15690,9 +15914,16 @@ def run() -> int:
 
     # The browser-spawned handoff process has no GUI, so nxm_log's file sink
     # (logs/nxm.log) is the only record of this launch - log it first thing.
+    from Thunderstore.ror2mm_handler import (
+        Ror2mmHandler, ror2mm_url_from_argv)
+
     nxm_url = nxm_url_from_argv()
     if nxm_url or "--nxm" in sys.argv:
         nxm_log(f"NXM launch: argv={sys.argv[1:]}")
+
+    ror2mm_url = ror2mm_url_from_argv()
+    if ror2mm_url or "--ror2mm" in sys.argv:
+        nxm_log(f"ror2mm launch: argv={sys.argv[1:]}")
 
     # Single-instance: if launched with an nxm:// link and an instance is
     # already running, hand the link off over the IPC socket and exit - don't
@@ -15710,6 +15941,16 @@ def run() -> int:
     elif "--nxm" in sys.argv:
         nxm_log("--nxm flag present but no nxm:// URL in argv")
 
+    # Same single-instance handoff for Thunderstore links - they ride the same
+    # IPC socket (the payload is just a URL; the receiver routes by scheme).
+    if ror2mm_url:
+        if NxmIPC.send_to_running(ror2mm_url):
+            nxm_log("ror2mm link handed off to running instance - exiting")
+            return 0
+        nxm_log("No running instance - continuing into full app launch")
+    elif "--ror2mm" in sys.argv:
+        nxm_log("--ror2mm flag present but no ror2mm:// URL in argv")
+
     # Register as the nxm:// handler on every full launch (idempotent) so
     # "Download with Manager" on Nexus routes here.
     try:
@@ -15717,6 +15958,15 @@ def run() -> int:
     except Exception:
         import traceback
         nxm_log(f"NxmHandler.register() crashed:\n{traceback.format_exc()}")
+
+    # Same for ror2mm:// so Thunderstore's "Install with Mod Manager" button
+    # routes here. Independent try/except: a failure in one scheme's XDG
+    # registration must not stop the other from being registered.
+    try:
+        Ror2mmHandler.register()
+    except Exception:
+        import traceback
+        nxm_log(f"Ror2mmHandler.register() crashed:\n{traceback.format_exc()}")
 
     # Migrate/clean amethyst.ini BEFORE anything reads it (theme loader, GameState).
     # Wipes a pre-Qt ini (missing [meta] version=2) so everyone starts fresh.

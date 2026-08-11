@@ -1,6 +1,7 @@
 subdir('Games')
 subdir('LOOT')
 subdir('Nexus')
+subdir('Thunderstore')
 subdir('Utils')
 subdir('gui_qt')
 subdir('icons')
