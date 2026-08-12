@@ -122,7 +122,7 @@ def cmd_restore(games: dict, key: str):
         print(f"Error: game '{game.name}' is not configured (game path not set).", file=sys.stderr)
         sys.exit(1)
 
-    from Utils.deploy import restore_root_folder
+    from Utils.deploy import restore_root_folder_for_game
 
     game_root = game.get_game_path()
     profile_root = game.get_profile_root()
@@ -141,7 +141,10 @@ def cmd_restore(games: dict, key: str):
 
     root_folder_dir = game.get_effective_root_folder_path()
     if root_folder_dir.is_dir() and game_root:
-        restore_root_folder(root_folder_dir, game_root, log_fn=_log)
+        restore_root_folder_for_game(
+            game, root_folder_dir=root_folder_dir,
+            game_root=game_root, log_fn=_log,
+        )
 
     _log(f"Restore complete: {game.name}")
 

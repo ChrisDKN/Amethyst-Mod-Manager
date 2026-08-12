@@ -10253,7 +10253,7 @@ class MainWindow(QMainWindow):
         """Restore every configured game that has an active deployment back to
         vanilla. Ported from gui.py `_restore_all_on_close`."""
         from gui_qt.game_state import _GAMES
-        from Utils.deploy import restore_root_folder
+        from Utils.deploy import restore_root_folder_for_game
 
         games = [g for g in _GAMES.values()
                  if g.is_configured() and g.get_deploy_active()
@@ -10279,7 +10279,10 @@ class MainWindow(QMainWindow):
                         game.restore(log_fn=log_fn)
                     root_folder_dir = game.get_effective_root_folder_path()
                     if root_folder_dir.is_dir() and game_root:
-                        restore_root_folder(root_folder_dir, game_root, log_fn=log_fn)
+                        restore_root_folder_for_game(
+                            game, root_folder_dir=root_folder_dir,
+                            game_root=game_root, log_fn=log_fn,
+                        )
                     game.clear_deploy_active()
                 finally:
                     if original_profile_dir is not None:
@@ -10329,7 +10332,7 @@ class MainWindow(QMainWindow):
         profile = self._gs.profile
 
         import threading
-        from Utils.deploy import restore_root_folder
+        from Utils.deploy import restore_root_folder_for_game
 
         def worker():
             ok = True
@@ -10352,11 +10355,10 @@ class MainWindow(QMainWindow):
                             progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p))
                     rf = game.get_effective_root_folder_path()
                     if rf.is_dir() and game_root:
-                        restore_root_folder(
-                            rf, game_root,
+                        restore_root_folder_for_game(
+                            game, root_folder_dir=rf, game_root=game_root,
                             log_fn=lambda m: self._op_log.emit(str(m)),
-                            data_deploy_dirs=(game.root_restore_protect_dirs()
-                                              if hasattr(game, "root_restore_protect_dirs") else None))
+                        )
             except Exception as exc:
                 ok = False
                 self._op_log.emit(f"Restore error: {exc}")

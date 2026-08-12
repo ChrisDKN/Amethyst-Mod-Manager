@@ -19,7 +19,7 @@ from Utils.deploy import (
     deploy_root_folder,
     deploy_root_flagged_mods,
     load_per_mod_strip_prefixes,
-    restore_root_folder,
+    restore_root_folder_for_game,
 )
 from Utils.deploy_shared import _FILEMAP_SNAPSHOT_NAME
 from Utils.filemap import build_filemap
@@ -618,12 +618,15 @@ def run_deploy_pipeline(
                 log_fn(f"Restore before deploy failed: {restore_err} - continuing.")
         last_root_folder_dir = game.get_effective_root_folder_path()
         if last_root_folder_dir.is_dir() and game_root:
-            restore_root_folder(
-                last_root_folder_dir, game_root, log_fn=log_fn,
-                data_deploy_dirs=(
-                    game.root_restore_protect_dirs()
-                    if hasattr(game, "root_restore_protect_dirs") else None
-                ),
+            # The persisted root-deploy identity lets restore remove a leftover
+            # root payload under Data/ without risking the vanilla file that
+            # Data_Core may just have restored at the same path.  This runs
+            # against the last-deployed profile before switching to the target.
+            restore_root_folder_for_game(
+                game,
+                root_folder_dir=last_root_folder_dir,
+                game_root=game_root,
+                log_fn=log_fn,
             )
 
         # Switch to the target profile before filemap + deploy.

@@ -1631,14 +1631,13 @@ class ConfigureGameView(QWidget):
             except Exception:
                 pass
             try:
-                from Utils.deploy import restore_root_folder
+                from Utils.deploy import restore_root_folder_for_game
                 rf = profile_root / "Root_Folder"
                 game_root = g.get_game_path()
                 if rf.is_dir() and game_root:
-                    restore_root_folder(
-                        rf, game_root,
-                        data_deploy_dirs=(g.root_restore_protect_dirs()
-                                          if hasattr(g, "root_restore_protect_dirs") else None))
+                    restore_root_folder_for_game(
+                        g, root_folder_dir=rf, game_root=game_root,
+                    )
             except Exception:
                 pass
             keep = {"mods", "profiles", "overwrite"}

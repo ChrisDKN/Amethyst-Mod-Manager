@@ -202,14 +202,14 @@ def cleanup_cancelled_install(game, profile_dir: "Path | None", *,
         except Exception as exc:
             log_fn(f"Cancel: restore failed: {exc}")
         try:
-            from Utils.deploy import restore_root_folder
+            from Utils.deploy import restore_root_folder_for_game
             root_folder_dir = game.get_effective_root_folder_path()
             game_root = game.get_game_path()
             if root_folder_dir.is_dir() and game_root:
-                restore_root_folder(
-                    root_folder_dir, game_root,
-                    data_deploy_dirs=game.root_restore_protect_dirs()
-                    if hasattr(game, "root_restore_protect_dirs") else None,
+                restore_root_folder_for_game(
+                    game,
+                    root_folder_dir=root_folder_dir,
+                    game_root=game_root,
                 )
         except Exception as exc:
             log_fn(f"Cancel: restore_root_folder failed: {exc}")
