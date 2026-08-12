@@ -711,14 +711,15 @@ class MainWindow(QMainWindow):
         self._update_overlay = None
         self._app_update_found.connect(self._on_app_update_found)
         QTimer.singleShot(2000, self._check_for_app_update)
-        # First-run onboarding: show it (as a fullscreen tab) when the flag is
-        # unset/0 OR no games are configured (Tk parity - re-appears after the
-        # last game is removed). Deferred so the window finishes building first.
+        # First-run onboarding: show it (as a fullscreen tab) only when the flag
+        # is unset/0 AND no games are configured. Either a completed onboarding
+        # or an existing game is enough to skip it. Deferred so the window
+        # finishes building first.
         self._onboarding_view = None
         from Utils.ui_config import load_onboarding_complete
         from Utils.game_helpers import _GAMES
         configured = sum(1 for g in _GAMES.values() if g.is_configured())
-        if not load_onboarding_complete() or configured == 0:
+        if not load_onboarding_complete() and configured == 0:
             QTimer.singleShot(0, self._open_onboarding_tab)
 
         # Warn if any game handler failed to load. A broken handler used to make
