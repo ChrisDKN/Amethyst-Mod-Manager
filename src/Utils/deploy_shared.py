@@ -2044,28 +2044,78 @@ def _move_runtime_files(
     return moved
 
 
+def _resolve_nocase_dir(game_root: Path, rel: str) -> "Path | None":
+    """Resolve a game-root-relative dir path, matching each segment
+    case-insensitively against what is actually on disk.
+
+    Handler alias lists are written in conventional casing ("Data/Grass"),
+    but a mod can create the folder with any casing it likes - a grass-cache
+    generator shipped ``Data/grass`` lowercase on the measured install.  An
+    exact-spelling check silently skipped that directory, so the one folder
+    that needed an alias most never got one (it cost 773k directory-entry
+    reads per exterior cell load).  Resolve what is really there instead.
+
+    Returns the real path, or None when no segment matches or the target is
+    itself a symlink (an alias we or someone else created).
+    """
+    cur = game_root
+    for seg in rel.split("/"):
+        if not seg:
+            continue
+        cand = cur / seg
+        if cand.is_dir() and not cand.is_symlink():
+            cur = cand
+            continue
+        seg_l = seg.lower()
+        found = None
+        try:
+            with os.scandir(cur) as it:
+                for entry in it:
+                    if (entry.name.lower() == seg_l
+                            and entry.is_dir(follow_symlinks=False)):
+                        found = cur / entry.name
+                        break
+        except OSError:
+            return None
+        if found is None:
+            return None
+        cur = found
+    return cur if cur != game_root else None
+
+
 def _expand_case_alias_dirs(game_root: Path, alias_dirs):
-    """Yield the real directories named by *alias_dirs* entries.
+    """Yield ``(real_dir, extra_spelling)`` for each *alias_dirs* entry.
+
+    Entries resolve case-insensitively against the disk, so a list written
+    as "Data/Grass" still finds a folder a mod created as "grass".  In that
+    situation the listed spelling is itself an alias worth creating: the
+    engine asked for ``Data\\Grass`` on the measured install while the grass
+    cache generator had written ``grass``, and lowercase+UPPERCASE variants
+    alone do not cover a mixed-case request.  extra_spelling carries the
+    handler's spelling when it differs from the real name, else None.
 
     A trailing ``/*`` expands to every real subdirectory of the base dir.
-    Symlinked dirs are excluded in both forms so aliases never alias each
+    Symlinked dirs are excluded in all forms so aliases never alias each
     other (an alias-of-an-alias, or re-aliasing on a second pass).
     """
     for rel in alias_dirs or ():
         rel = rel.replace("\\", "/").strip("/")
         if rel.endswith("/*"):
-            base = game_root / rel[:-2]
+            base = _resolve_nocase_dir(game_root, rel[:-2])
+            if base is None:
+                continue
             try:
                 with os.scandir(base) as it:
                     for entry in it:
                         if entry.is_dir(follow_symlinks=False):
-                            yield base / entry.name
+                            yield base / entry.name, None
             except OSError:
                 pass
         else:
-            real = game_root / rel
-            if real.is_dir() and not real.is_symlink():
-                yield real
+            real = _resolve_nocase_dir(game_root, rel)
+            if real is not None:
+                wanted = rel.rsplit("/", 1)[-1]
+                yield real, (wanted if wanted != real.name else None)
 
 
 def deploy_case_alias_links(game_root: Path, alias_dirs, log_fn=None) -> int:
@@ -2092,8 +2142,11 @@ def deploy_case_alias_links(game_root: Path, alias_dirs, log_fn=None) -> int:
     """
     _log = _safe_log(log_fn)
     created = 0
-    for real in _expand_case_alias_dirs(game_root, alias_dirs):
-        for variant in {real.name.lower(), real.name.upper()} - {real.name}:
+    for real, extra in _expand_case_alias_dirs(game_root, alias_dirs):
+        variants = {real.name.lower(), real.name.upper()}
+        if extra:
+            variants.add(extra)
+        for variant in variants - {real.name}:
             alias = real.parent / variant
             try:
                 if os.path.lexists(alias):
@@ -2152,9 +2205,13 @@ def create_probe_stub_dirs(game_root: Path, stub_dirs, log_fn=None) -> int:
     _log = _safe_log(log_fn)
     created = 0
     for rel in stub_dirs or ():
-        target = game_root / rel.replace("\\", "/").strip("/")
-        if target.is_dir():
+        rel = rel.replace("\\", "/").strip("/")
+        # Case-insensitive check first: if the engine's probe target already
+        # exists under any casing, creating our own spelling beside it would
+        # add a second real directory instead of satisfying the lookup.
+        if _resolve_nocase_dir(game_root, rel) is not None:
             continue
+        target = game_root / rel
         try:
             target.mkdir(parents=True, exist_ok=True)
             created += 1
@@ -2175,11 +2232,12 @@ def remove_probe_stub_dirs(game_root: Path, stub_dirs, log_fn=None) -> int:
     _log = _safe_log(log_fn)
     removed = 0
     for rel in stub_dirs or ():
-        target = game_root / rel.replace("\\", "/").strip("/")
+        target = _resolve_nocase_dir(game_root, rel.replace("\\", "/").strip("/"))
+        if target is None:
+            continue
         try:
-            if target.is_dir() and not target.is_symlink():
-                target.rmdir()          # raises if non-empty - intended
-                removed += 1
+            target.rmdir()              # raises if non-empty - intended
+            removed += 1
         except OSError:
             pass
     if removed:
@@ -2209,8 +2267,11 @@ def remove_case_alias_links(game_root: Path, alias_dirs, log_fn=None) -> int:
     """
     _log = _safe_log(log_fn)
     removed = 0
-    for real in _expand_case_alias_dirs(game_root, alias_dirs):
-        for variant in {real.name.lower(), real.name.upper()} - {real.name}:
+    for real, extra in _expand_case_alias_dirs(game_root, alias_dirs):
+        variants = {real.name.lower(), real.name.upper()}
+        if extra:
+            variants.add(extra)
+        for variant in variants - {real.name}:
             alias = real.parent / variant
             try:
                 if alias.is_symlink() and os.readlink(alias) == real.name:
