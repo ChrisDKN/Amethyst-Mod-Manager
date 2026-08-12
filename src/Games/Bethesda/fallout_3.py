@@ -308,7 +308,7 @@ class Fallout_3(BaseGame):
                 description="Download and install FOSE into the game folder.",
                 dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
                 extra={
-                    "download_url": "https://fose.silverlock.org/download/fose_v1_2_beta2.7z",
+                    "download_url": "https://fose.silverlock.org/beta/fose_v1_3_beta2.7z",
                     "archive_keywords": ["fose"],
                 },
             ),
