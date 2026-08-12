@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
 )
 
+from gui_qt.custom_game_view import deploy_type_display
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, _c
 
@@ -322,7 +323,7 @@ class CustomGameImportOverlay(_CodeOverlayBase):
         exe = (defn.get("exe_name") or "").strip()
         if exe:
             parts.append(exe)
-        dep = (defn.get("deploy_type") or "").strip()
+        dep = deploy_type_display(defn.get("deploy_type"))
         if dep:
             parts.append(self.tr("{0} deploy").format(dep))
         self._preview.setText("  -  ".join(parts))
