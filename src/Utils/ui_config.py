@@ -675,6 +675,44 @@ def save_fs_warning_ack(game_name: str, fingerprint: str) -> None:
     _write_ini(parser, path)
 
 
+# ---------------------------------------------------------------------------
+# Fallout 3 Anniversary-Edition downgrade prompt: records the exe version the
+# user chose to "Deploy anyway" on (see Utils.fo3_version_check). Stored so the
+# prompt shows once per game, re-arming if a game update changes the exe again.
+# ---------------------------------------------------------------------------
+_FO3_DOWNGRADE_SECTION = "fo3_downgrade_ack"
+
+
+def get_fo3_downgrade_ack(game_name: str) -> str:
+    """Return the exe version the user acknowledged the FO3 downgrade prompt
+    for ("" if they never dismissed it for *game_name*)."""
+    if not game_name:
+        return ""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return ""
+    try:
+        parser = _read_ini(path)
+        return parser.get(_FO3_DOWNGRADE_SECTION, game_name, fallback="").strip()
+    except Exception:
+        return ""
+
+
+def save_fo3_downgrade_ack(game_name: str, version: str) -> None:
+    """Persist the acknowledged Fallout 3 exe version for *game_name*."""
+    if not game_name or not version:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FO3_DOWNGRADE_SECTION not in parser:
+        parser[_FO3_DOWNGRADE_SECTION] = {}
+    parser[_FO3_DOWNGRADE_SECTION][game_name] = version.replace("%", "%%")
+    _write_ini(parser, path)
+
+
 def _clamp(value: float) -> float:
     return max(_MIN_SCALE, min(_MAX_SCALE, value))
 

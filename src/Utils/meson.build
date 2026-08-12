@@ -73,6 +73,7 @@ py.install_sources(
   'flatpak_i386.py',
   'flatpak_sandbox.py',
   'fnv4gb_tools.py',
+  'fo3_version_check.py',
   'fomod_installer.py',
   'fomod_parser.py',
   'framework_detect.py',

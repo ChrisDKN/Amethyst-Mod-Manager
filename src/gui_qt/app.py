@@ -245,6 +245,9 @@ class MainWindow(QMainWindow):
     # Deploy worker asks the UI to show the Windows-filesystem (NTFS/exFAT)
     # advisory (same handshake; GH#307).
     _confirm_windows_fs = Signal(object)       # (dict with holder/event/hits/fp/game_name)
+    # Deploy worker asks the UI to show the Fallout 3 Anniversary-Edition
+    # downgrade prompt (same handshake).
+    _confirm_downgrade = Signal(object)        # (dict with holder/event/version/game)
     # Proton-tools installer worker → UI thread.
     _proton_done = Signal(str, bool)           # (title, success)
     # GL capability probe worker → UI thread (see _start_gl_warmup).
@@ -462,6 +465,7 @@ class MainWindow(QMainWindow):
         self._mod_exists.connect(self._on_mod_exists_ui)
         self._confirm_cet.connect(self._on_confirm_cet_ui)
         self._confirm_windows_fs.connect(self._on_confirm_windows_fs_ui)
+        self._confirm_downgrade.connect(self._on_confirm_downgrade_ui)
         self._proton_busy = False
         self._proton_done_cb = None     # one-shot completion hook (health check)
         self._proton_done.connect(self._on_proton_done)
@@ -9954,6 +9958,8 @@ class MainWindow(QMainWindow):
                     root_folder_enabled=rf_enabled,
                     confirm_cet=self._make_confirm_cet_cb(game),
                     confirm_windows_fs=self._make_confirm_windows_fs_cb(game),
+                    confirm_downgrade=self._make_confirm_downgrade_cb(
+                        game, silent=silent),
                     do_backup=True,
                 )
             except Exception as exc:
@@ -11582,6 +11588,105 @@ class MainWindow(QMainWindow):
             return holder["result"]
 
         return _cb
+
+    def _make_confirm_downgrade_cb(self, game, silent: bool = False):
+        """Return a confirm_downgrade() callback for run_deploy_pipeline.
+
+        Runs on the deploy WORKER thread: if this is Fallout 3 still on the
+        Anniversary exe (1.7.0.4), which FOSE cannot load, asks the UI thread
+        to show the prompt and BLOCKS on an Event until the user chooses.
+        Returns True to deploy anyway, False to cancel (the user chose to open
+        the Downgrade wizard instead).
+
+        Silent auto-deploys (mod toggles) never prompt - a blocking modal on
+        every toggle would be intrusive, and the user gets the prompt on their
+        next explicit Deploy.
+        """
+        import threading
+        from Utils.fo3_version_check import ANNIVERSARY_VERSION, needs_downgrade
+        from Utils.ui_config import get_fo3_downgrade_ack
+
+        def _cb() -> bool:
+            if silent:
+                return True
+            try:
+                if not needs_downgrade(game):
+                    return True
+                if get_fo3_downgrade_ack(game.name) == ANNIVERSARY_VERSION:
+                    return True   # user already chose "Deploy anyway" for this build
+            except Exception:
+                return True
+            holder = {"result": True}
+            ev = threading.Event()
+            self._confirm_downgrade.emit({
+                "holder": holder, "event": ev,
+                "version": ANNIVERSARY_VERSION, "game": game,
+                "game_name": game.name,
+            })
+            ev.wait()
+            return holder["result"]
+
+        return _cb
+
+    def _on_confirm_downgrade_ui(self, payload):
+        """UI thread: show the Fallout 3 Anniversary-Edition downgrade prompt;
+        unblock the worker. Confirming opens the Downgrade wizard and cancels
+        the deploy (the wizard redeploys when it closes); declining persists the
+        acknowledgement so the prompt shows once per exe build."""
+        if self._progress_popup is not None:
+            self._progress_popup.clear()
+        from gui_qt.confirm_overlay import ConfirmOverlay
+
+        def _done(open_wizard):
+            if open_wizard:
+                # Cancel this deploy - the wizard restores the modlist itself
+                # and redeploys when it closes.
+                payload["holder"]["result"] = False
+                payload["event"].set()
+                self._open_fo3_downgrade_wizard(payload["game"])
+                return
+            # "Deploy anyway": remember it so the prompt shows once per build;
+            # it re-arms if a game update changes the exe version again.
+            try:
+                from Utils.ui_config import save_fo3_downgrade_ack
+                save_fo3_downgrade_ack(payload["game_name"], payload["version"])
+            except Exception:
+                pass
+            payload["holder"]["result"] = True
+            payload["event"].set()
+
+        ConfirmOverlay.show_over(
+            self,
+            self.tr("Fallout 3 needs downgrading"),
+            self.tr(
+                "Fallout3.exe is version {0} - the Anniversary Edition "
+                "update.\n\nThe script extender (FOSE) does not work with this "
+                "version, so mods that need it will not load, no matter how "
+                "they are deployed.\n\nRun the Downgrade wizard to patch the "
+                "game back to a version FOSE supports. Your modlist is "
+                "restored before patching and redeployed afterwards."
+            ).format(payload["version"]),
+            _done,
+            confirm_label=self.tr("Open Downgrade Wizard"),
+            cancel_label=self.tr("Deploy anyway"),
+            danger=False,
+            card_h=340,
+        )
+
+    def _open_fo3_downgrade_wizard(self, game):
+        """Open the Fallout 3 Downgrade wizard from the deploy prompt."""
+        tool = None
+        try:
+            tool = next((t for t in game.wizard_tools
+                         if t.dialog_class_path ==
+                         "wizards.fallout_downgrade.FalloutDowngradeWizard"), None)
+        except Exception:
+            tool = None
+        if tool is None:
+            self._notify(self.tr("Could not open the Downgrade wizard - open it "
+                                 "from the Tools tab."), "warning")
+            return
+        self._open_wizard_tool(tool)
 
     def _on_confirm_windows_fs_ui(self, payload):
         """UI thread: show the Windows-filesystem advisory; unblock the worker.

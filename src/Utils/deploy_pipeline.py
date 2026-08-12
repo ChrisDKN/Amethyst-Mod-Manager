@@ -495,6 +495,7 @@ def run_deploy_pipeline(
     root_folder_enabled: bool = True,
     confirm_cet: Optional[Callable[[], bool]] = None,
     confirm_windows_fs: Optional[Callable[[], bool]] = None,
+    confirm_downgrade: Optional[Callable[[], bool]] = None,
     do_backup: bool = True,
     on_pre_filemap: Optional[Callable[[], None]] = None,
 ) -> bool:
@@ -514,6 +515,12 @@ def run_deploy_pipeline(
         Optional blocking advisory when deploy folders sit on a Windows
         filesystem (NTFS/exFAT - see Utils.fs_check; GH#307). Called before
         any state is touched, so returning False is a clean no-op cancel.
+        None means "always proceed".
+    confirm_downgrade
+        Optional blocking advisory when Fallout 3's exe is the Anniversary
+        build FOSE cannot load (see Utils.fo3_version_check). Called before any
+        state is touched, so returning False is a clean no-op cancel - the GUI
+        returns False when the user opts to open the Downgrade wizard instead.
         None means "always proceed".
     do_backup
         If True, run `create_backup` for the profile dir before deploy.
@@ -535,6 +542,11 @@ def run_deploy_pipeline(
     if confirm_windows_fs is not None and not confirm_windows_fs():
         log_fn("Deploy: cancelled - deploy folders are on a Windows "
                "filesystem (NTFS/exFAT) and the warning was declined.")
+        return False
+
+    if confirm_downgrade is not None and not confirm_downgrade():
+        log_fn("Deploy: cancelled - Fallout 3 is on the Anniversary Edition "
+               "exe (1.7.0.4), which the script extender cannot load.")
         return False
 
     import time as _time
