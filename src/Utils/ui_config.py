@@ -1438,6 +1438,56 @@ def save_hide_bsa_conflicts(value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_hide_kofi_button() -> bool:
+    """Return the hide_kofi_button setting (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_FILEMAP_SECTION, "hide_kofi_button", fallback=False)
+    except Exception:
+        return False
+
+
+def save_hide_kofi_button(value: bool) -> None:
+    """Persist the hide_kofi_button setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["hide_kofi_button"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
+def load_hide_endorse_button() -> bool:
+    """Return the hide_endorse_button setting (default False)."""
+    path = get_ui_config_path()
+    if not path.is_file():
+        return False
+    try:
+        parser = _read_ini(path)
+        return parser.getboolean(_FILEMAP_SECTION, "hide_endorse_button", fallback=False)
+    except Exception:
+        return False
+
+
+def save_hide_endorse_button(value: bool) -> None:
+    """Persist the hide_endorse_button setting to amethyst.ini."""
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _FILEMAP_SECTION not in parser:
+        parser[_FILEMAP_SECTION] = {}
+    parser[_FILEMAP_SECTION]["hide_endorse_button"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_rename_mod_after_install() -> bool:
     """Return the rename_mod_after_install setting (default False).
 

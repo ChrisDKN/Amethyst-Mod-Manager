@@ -16424,6 +16424,10 @@ class MainWindow(QMainWindow):
         self._endorse_amm_btn.clicked.connect(self._endorse_amm)
         h.addWidget(self._endorse_amm_btn)
 
+        # Both are opt-out via UI settings; applied here and re-applied live
+        # whenever the setting is toggled.
+        self._apply_support_button_visibility()
+
         # Nexus username at the far right; hover shows API rate-limit usage.
         from gui_qt.nexus_footer import NexusFooterLabel
         self._nexus_footer = NexusFooterLabel(lambda: getattr(self, "_nexus_api", None))
@@ -16793,6 +16797,19 @@ class MainWindow(QMainWindow):
         return "\n".join(out)
 
     # ------------------------------------------------------ social buttons
+    def _apply_support_button_visibility(self):
+        """Show/hide the Ko-Fi and Endorse buttons per the UI settings."""
+        from Utils import ui_config as uc
+        for attr, load_fn in (("_kofi_btn", uc.load_hide_kofi_button),
+                              ("_endorse_amm_btn", uc.load_hide_endorse_button)):
+            btn = getattr(self, attr, None)
+            if btn is None:
+                continue
+            try:
+                btn.setVisible(not bool(load_fn()))
+            except Exception:
+                btn.setVisible(True)
+
     def _open_github(self):
         from Utils.xdg import open_url
         open_url("https://github.com/ChrisDKN/Amethyst-Mod-Manager")
