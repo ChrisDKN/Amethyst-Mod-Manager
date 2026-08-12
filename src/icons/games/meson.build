@@ -7,6 +7,7 @@ py.install_sources(
   'devil_may_cry_5.png',
   'dragon_age_origins.png',
   'dragons_dogma_2.png',
+  'dysonsphereprogram.png'
   'enderal.png',
   'enderalse.png',
   'Fallout3GOTY.png',
@@ -34,6 +35,7 @@ py.install_sources(
   'peak.png',
   'pragmata.png',
   'red_dead_redemption_2.png',
+  'repo.png',
   'resident_evil_2.png',
   'resident_evil_3.png',
   'resident_evil_4.png',
