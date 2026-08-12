@@ -7,7 +7,7 @@ py.install_sources(
   'devil_may_cry_5.png',
   'dragon_age_origins.png',
   'dragons_dogma_2.png',
-  'dysonsphereprogram.png'
+  'dysonsphereprogram.png',
   'enderal.png',
   'enderalse.png',
   'Fallout3GOTY.png',

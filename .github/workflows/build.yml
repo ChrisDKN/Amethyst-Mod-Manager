@@ -42,8 +42,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          pacman -Syy --noconfirm
-          pacman -S --noconfirm \
+          pacman -Syu --noconfirm \
               python python-pip base-devel rust git unzip
 
       - name: Resolve libloot revision and Python ABI
