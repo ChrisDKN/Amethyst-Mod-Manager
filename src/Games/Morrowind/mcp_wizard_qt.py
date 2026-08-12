@@ -136,8 +136,11 @@ class MCPView(WizardViewBase):
 
     def _do_run(self):
         import subprocess
-        from Utils.exe_launch import get_game_prefix_env
+        from Utils.exe_launch import (
+            get_game_prefix_env, shutdown_prefix_wineserver,
+        )
         from Utils.steam_finder import proton_run_command
+        proton_script = compat_data = None
         try:
             if self._game_root is None:
                 raise RuntimeError(self.tr("Game path is not configured."))
@@ -152,7 +155,7 @@ class MCPView(WizardViewBase):
             if result is None:
                 raise RuntimeError(self.tr(
                     "Could not determine Proton version for this game."))
-            proton_script, _compat_data, env = result
+            proton_script, compat_data, env = result
 
             self._log(f"MCP Wizard: launching {patch_exe} via Proton")
             proc = subprocess.Popen(
@@ -183,6 +186,15 @@ class MCPView(WizardViewBase):
                       self.tr("Error: {0}").format(exc), RED)
             self._log(f"MCP Wizard run error: {exc}")
             safe_emit(self._run_started_sig)   # enable Done to close
+        finally:
+            # Proton sidecars (xalia.exe et al) keep the GAME prefix's
+            # wineserver alive after the patcher exits, and a live wineserver
+            # on the game prefix blocks Steam from launching the game at all.
+            # In finally: a crashed tool is when the leak is most likely.
+            if proton_script is not None and compat_data is not None:
+                shutdown_prefix_wineserver(
+                    proton_script, compat_data,
+                    log_fn=lambda m: self._log(f"MCP Wizard: {m}"))
 
     def _on_run_started(self):
         self._ran = True

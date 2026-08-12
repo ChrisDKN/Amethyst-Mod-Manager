@@ -213,6 +213,7 @@ class CreationKitView(WizardViewBase):
                 install_vcredist, is_dep_installed,
             )
             _wlog = lambda m: self._log(f"Creation Kit Wizard: {m}")
+            proton_script = compat_data = None
             try:
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog,
@@ -285,14 +286,20 @@ class CreationKitView(WizardViewBase):
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                 cwd=game_path, label="Creation Kit")
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
                 _wlog("Creation Kit closed.")
                 safe_emit(self._run_status_sig, self.tr("Creation Kit finished."), GREEN)
                 safe_emit(self._run_finished_sig)
             except Exception as exc:
                 safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), RED)
                 self._log(f"Creation Kit Wizard: launch error: {exc}")
+            finally:
+                # In finally: a tool that crashed is exactly when Proton
+                # sidecars are most likely to be left holding the prefix. The
+                # earlier shutdown above is a deliberate cold-start for CKPE's
+                # winhttp override, not a teardown - leave it in place.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True, name="ck-run").start()
 

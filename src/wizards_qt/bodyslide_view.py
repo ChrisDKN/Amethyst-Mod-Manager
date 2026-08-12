@@ -178,6 +178,7 @@ class BodySlideView(WizardViewBase):
             from Utils.steam_finder import proton_run_command
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
             gl_log = None
+            proton_script = compat_data = None
             try:
                 # Re-apply in case the user skipped deploy, and patch the
                 # deployed copy directly when deploy mode produced an
@@ -251,8 +252,6 @@ class BodySlideView(WizardViewBase):
                 else:
                     run_tool_logged(proton_script, deployed, env,
                                     log_fn=_wlog, label=name)
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
                 _wlog(f"{deployed.name} closed.")
                 safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), GREEN)
                 safe_emit(self._run_finished_sig)
@@ -260,6 +259,11 @@ class BodySlideView(WizardViewBase):
                 safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), RED)
                 self._log(f"{name} Wizard: launch error: {exc}")
             finally:
+                # In finally: a tool that crashed is exactly when Proton
+                # sidecars are most likely to be left holding the prefix.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
                 if gl_log is not None:
                     try:
                         gl_log.close()

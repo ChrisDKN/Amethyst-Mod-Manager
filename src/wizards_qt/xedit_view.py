@@ -594,6 +594,7 @@ class XEditView(QWidget):
                 finalize_xedit_saves, prepare_xedit_prefix, restore_after_xedit,
             )
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
+            proton_script = compat_data = None
             try:
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -677,6 +678,14 @@ class XEditView(QWidget):
                           self.tr("Launch error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: launch error: {exc}")
                 safe_emit(self._run_error_sig)
+            finally:
+                # Backstop only: the in-order call above must stay where it is
+                # so finalize_xedit_saves/restore_after_xedit run with the
+                # wineserver already down. This catches the error paths, where
+                # the leak is most likely; a second shutdown is a no-op.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True, name="xedit-run").start()
 
@@ -776,6 +785,7 @@ class XEditView(QWidget):
                 finalize_xedit_saves, prepare_xedit_prefix, restore_after_xedit,
             )
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
+            proton_script = compat_data = None
             try:
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -859,6 +869,14 @@ class XEditView(QWidget):
                           self.tr("QAC All error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: QAC All error: {exc}")
                 safe_emit(self._run_error_sig)
+            finally:
+                # Backstop only: the in-order call above must stay where it is
+                # so finalize_xedit_saves/restore_after_xedit run with the
+                # wineserver already down. This catches the error paths - a
+                # batch abandoned mid-plugin is the likeliest leak of all.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True, name="xedit-qac-all").start()
 

@@ -120,6 +120,7 @@ class ESLifierView(WizardViewBase):
             )
             _wlog = lambda m: self._log(f"ESLifier Wizard: {m}")
             scan_mirror = None
+            proton_script = compat_data = None
             try:
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -147,8 +148,6 @@ class ESLifierView(WizardViewBase):
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                 label="ESLifier")
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
                 _wlog("ESLifier closed.")
                 cleanup_scan_mirror(scan_mirror, log_fn=_wlog)
                 scan_mirror = None
@@ -158,6 +157,12 @@ class ESLifierView(WizardViewBase):
                 cleanup_scan_mirror(scan_mirror, log_fn=_wlog)
                 safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), RED)
                 self._log(f"ESLifier Wizard: launch error: {exc}")
+            finally:
+                # In finally: a tool that crashed is exactly when Proton
+                # sidecars are most likely to be left holding the prefix.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True, name="eslifier-run").start()
 

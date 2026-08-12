@@ -291,6 +291,7 @@ class ScriptMergerView(WizardViewBase):
                 shutdown_prefix_wineserver,
             )
             _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
+            proton_script = compat_data = None
             try:
                 result = prefix_env or resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -330,8 +331,6 @@ class ScriptMergerView(WizardViewBase):
                 safe_emit(self._run_started_sig)
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                 label="WitcherScriptMerger")
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
                 _wlog("WitcherScriptMerger closed.")
                 safe_emit(self._run_status_sig,
                           self.tr("WitcherScriptMerger closed."), GREEN)
@@ -340,6 +339,12 @@ class ScriptMergerView(WizardViewBase):
                 safe_emit(self._run_status_sig,
                           self.tr("Launch error: {0}").format(exc), RED)
                 self._log(f"Script Merger Wizard: launch error: {exc}")
+            finally:
+                # In finally: a tool that crashed is exactly when Proton
+                # sidecars are most likely to be left holding the prefix.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True, name="tw3sm-run").start()
 

@@ -128,7 +128,9 @@ class FalloutDowngradeView(WizardViewBase):
 
     def _do_run_patcher(self):
         import hashlib
-        from Utils.exe_launch import get_game_prefix_env
+        from Utils.exe_launch import (
+            get_game_prefix_env, shutdown_prefix_wineserver,
+        )
         from Utils.protontricks import run_prefix_installer
         from Utils.steam_finder import proton_run_command
 
@@ -161,18 +163,27 @@ class FalloutDowngradeView(WizardViewBase):
         # waiting forever.  The shared runner captures output in a real file,
         # gives the child /dev/null for stdin (so pause sees EOF), and kills the
         # complete Proton process group if it genuinely wedges.
-        returncode, output = run_prefix_installer(
-            # runinprefix: skips the steam.exe shim so Steam doesn't show the
-            # game as "Running" while the patcher works.
-            proton_run_command(proton_script, "runinprefix", str(patcher_exe),
-                               env=env),
-            env,
-            game_root,
-            label="Fallout 3 Anniversary Patcher",
-            log_fn=lambda m: self._log(f"Downgrade Wizard: {m}"),
-            proton_script=proton_script,
-            compat_data=compat_data,
-        )
+        try:
+            returncode, output = run_prefix_installer(
+                # runinprefix: skips the steam.exe shim so Steam doesn't show the
+                # game as "Running" while the patcher works.
+                proton_run_command(proton_script, "runinprefix", str(patcher_exe),
+                                   env=env),
+                env,
+                game_root,
+                label="Fallout 3 Anniversary Patcher",
+                log_fn=lambda m: self._log(f"Downgrade Wizard: {m}"),
+                proton_script=proton_script,
+                compat_data=compat_data,
+            )
+        finally:
+            # run_prefix_installer only shuts the wineserver down on its
+            # timeout path, so the normal-exit path still leaks Proton
+            # sidecars into the GAME prefix - which blocks Steam from
+            # launching the game. Shutting down twice is harmless.
+            shutdown_prefix_wineserver(
+                proton_script, compat_data,
+                log_fn=lambda m: self._log(f"Downgrade Wizard: {m}"))
         if output:
             self._log(f"Downgrade Wizard: Patcher output:\n{output}")
         if returncode is None:

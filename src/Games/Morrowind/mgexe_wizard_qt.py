@@ -274,7 +274,9 @@ class MGEXEView(WizardViewBase):
 
     def _run_exe(self, exe: Path):
         import subprocess
-        from Utils.exe_launch import get_game_prefix_env
+        from Utils.exe_launch import (
+            get_game_prefix_env, shutdown_prefix_wineserver,
+        )
         from Utils.steam_finder import proton_run_command
         result = get_game_prefix_env(
             self._game, log_fn=lambda m: self._log(f"MGE XE Wizard: {m}"),
@@ -282,20 +284,28 @@ class MGEXEView(WizardViewBase):
         if result is None:
             raise RuntimeError(
                 self.tr("Could not determine Proton version for this game."))
-        proton_script, _compat_data, env = result
+        proton_script, compat_data, env = result
         self._log(f"MGE XE Wizard: launching {exe} via Proton")
-        proc = subprocess.Popen(
-            # runinprefix: skips the steam.exe shim so Steam doesn't show the
-            # game as "Running" while the tool is open.
-            proton_run_command(proton_script, "runinprefix", str(exe), env=env),
-            env=env,
-            cwd=str(self._game_root),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        proc.wait()
-        if proc.returncode != 0:
-            stderr = (proc.stderr.read() or b"").decode(errors="replace").strip()
-            raise RuntimeError(
-                self.tr("{0} exited with code {1}.\n{2}")
-                .format(exe.name, proc.returncode, stderr))
+        try:
+            proc = subprocess.Popen(
+                # runinprefix: skips the steam.exe shim so Steam doesn't show the
+                # game as "Running" while the tool is open.
+                proton_run_command(proton_script, "runinprefix", str(exe), env=env),
+                env=env,
+                cwd=str(self._game_root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            proc.wait()
+            if proc.returncode != 0:
+                stderr = (proc.stderr.read() or b"").decode(errors="replace").strip()
+                raise RuntimeError(
+                    self.tr("{0} exited with code {1}.\n{2}")
+                    .format(exe.name, proc.returncode, stderr))
+        finally:
+            # Proton sidecars keep the GAME prefix's wineserver alive after the
+            # tool exits, which blocks Steam from launching the game. In
+            # finally: a crashed tool is when the leak is most likely.
+            shutdown_prefix_wineserver(
+                proton_script, compat_data,
+                log_fn=lambda m: self._log(f"MGE XE Wizard: {m}"))

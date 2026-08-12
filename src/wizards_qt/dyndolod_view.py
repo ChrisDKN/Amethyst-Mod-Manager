@@ -513,6 +513,7 @@ class DynDOLODView(QWidget):
             from Utils.wine_paths import to_wine_path
             from Utils.xedit_tools import prepare_xedit_prefix
             _wlog = lambda m: self._log(f"{name} Wizard: {m}")
+            proton_script = compat_data = None
             try:
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -550,14 +551,18 @@ class DynDOLODView(QWidget):
                     proton_script, exe, env, log_fn=_wlog,
                     extra_args=[data_arg, output_arg, "-sse"], label=name)
 
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
                 self._log(f"{name} Wizard: {exe.name} closed.")
                 safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), ok_text())
                 safe_emit(self._run_finished_sig)
             except Exception as exc:
                 safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: launch error: {exc}")
+            finally:
+                # In finally: a tool that crashed is exactly when Proton
+                # sidecars are most likely to be left holding the prefix.
+                if proton_script is not None and compat_data is not None:
+                    shutdown_prefix_wineserver(proton_script, compat_data,
+                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True,
                          name="dyndolod-run").start()

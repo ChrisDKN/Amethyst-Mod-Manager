@@ -176,8 +176,11 @@ class ModLoaderInstallerView(WizardViewBase):
     # -- run installer ------------------------------------------------------------
     def _do_run(self):
         import subprocess
-        from Utils.exe_launch import get_game_prefix_env
+        from Utils.exe_launch import (
+            get_game_prefix_env, shutdown_prefix_wineserver,
+        )
         from Utils.steam_finder import proton_run_command
+        proton_script = compat_data = None
         try:
             if self._game_root is None:
                 raise RuntimeError(self.tr("Game path is not configured."))
@@ -195,7 +198,7 @@ class ModLoaderInstallerView(WizardViewBase):
             if result is None:
                 raise RuntimeError(self.tr(
                     "Could not find Proton - check that the prefix is configured."))
-            proton_script, _compat_data, env = result
+            proton_script, compat_data, env = result
 
             self._log(f"{self.TOOL_LABEL} Wizard: launching {exe} via Proton")
             proc = subprocess.Popen(
@@ -220,6 +223,14 @@ class ModLoaderInstallerView(WizardViewBase):
             safe_emit(self._run_status_sig, self.tr("Error: {0}").format(exc), RED)
             self._log(f"{self.TOOL_LABEL} Wizard launch error: {exc}")
             safe_emit(self._run_started_sig)   # enable Done to close anyway
+        finally:
+            # Proton sidecars keep the GAME prefix's wineserver alive after the
+            # installer exits, which blocks Steam from launching the game. In
+            # finally: a crashed tool is when the leak is most likely.
+            if proton_script is not None and compat_data is not None:
+                shutdown_prefix_wineserver(
+                    proton_script, compat_data,
+                    log_fn=lambda m: self._log(f"{self.TOOL_LABEL} Wizard: {m}"))
 
     def _on_run_started(self):
         self._ran = True
