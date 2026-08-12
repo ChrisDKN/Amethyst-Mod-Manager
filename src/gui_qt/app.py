@@ -115,6 +115,7 @@ _QUICK_CONFIGURE_TR = (
     QT_TRANSLATE_NOOP("MainWindow", "Use profile-specific INI files"),
     QT_TRANSLATE_NOOP("MainWindow", "Use profile-specific saves"),
     QT_TRANSLATE_NOOP("MainWindow", "Prepend load-order numbers to mod folders"),
+    QT_TRANSLATE_NOOP("MainWindow", "Manage load order in DFU"),
     QT_TRANSLATE_NOOP("MainWindow", "Game Patch Version"),
     QT_TRANSLATE_NOOP("MainWindow", "Patch 8"),
     QT_TRANSLATE_NOOP("MainWindow", "Patch 7"),

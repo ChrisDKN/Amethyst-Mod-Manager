@@ -6,14 +6,14 @@ DFU discovers .dfmod files by scanning StreamingAssets/Mods recursively and
 assigns each one a LoadPriority from the scan order - which is filesystem
 order, not anything the user chose.  It then overlays whatever is stored in
 <PersistentDataPath>/Mods/GameData/Mods.json, reading back only Title,
-Enabled and LoadPriority per entry and matching on Title.  Higher LoadPriority
-wins an asset conflict, so Amethyst's top-of-list mod must get the *highest*
-priority.
+Enabled and LoadPriority per entry and matching on Title.  DFU displays and
+validates this order from the lowest LoadPriority to the highest, so
+Amethyst's top-to-bottom order is written with increasing priorities.
 
 Matching is by ModTitle, which lives inside the .dfmod asset bundle.  It is
 read from the sibling <name>.dfmod.json manifest when the author shipped one
-(the Mod Builder emits it alongside the bundle); otherwise the embedded
-manifest TextAsset is read from the bundle's decompressed UnityFS blocks.
+or otherwise included it in the archive; otherwise the embedded manifest
+TextAsset is read from the bundle's decompressed UnityFS blocks.
 Entries we cannot title are still written but DFU will simply not match them,
 so a miss costs ordering, never correctness.
 
@@ -36,9 +36,11 @@ from pathlib import Path
 # user's own file back.  A zero-byte backup means "there was no file here".
 BACKUP_SUFFIX = ".amm-backup"
 
-# Cap decompressed data inspected - DREAM and friends ship multi-hundred-MB
-# .dfmod files and the manifest sits near the start of the serialized bundle.
-_SCAN_LIMIT = 32 * 1024 * 1024
+# Cap raw inspection of legacy UnityRaw/UnityWeb bundles.  Modern UnityFS
+# bundles are decompressed a block at a time until the manifest is found;
+# limiting that scan used to miss valid manifests stored after the first
+# 32 MiB and caused DFU to ignore the resulting filename-as-title entry.
+_LEGACY_SCAN_LIMIT = 32 * 1024 * 1024
 _SCAN_CONTEXT = 64 * 1024
 
 _TITLE_RE = re.compile(rb'"ModTitle"\s*:\s*"((?:[^"\\]|\\.)*)"')
@@ -224,19 +226,13 @@ def _title_from_unityfs(dfmod: Path) -> str | None:
         if flags & 0x200:
             stream.seek((stream.tell() + 15) & ~15)
 
-        scanned = 0
         tail = b""
         for unpacked, packed, block_flags in blocks:
-            if scanned >= _SCAN_LIMIT:
-                break
             compressed = _read_exact(stream, packed)
             block = _decompress_unity_block(compressed, unpacked, block_flags)
-            remaining = _SCAN_LIMIT - scanned
-            block = block[:remaining]
             title = _title_from_manifest_bytes(tail + block)
             if title is not None:
                 return title
-            scanned += len(block)
             tail = (tail + block)[-_SCAN_CONTEXT:]
     return None
 
@@ -265,7 +261,7 @@ def _title_from_bundle(dfmod: Path) -> str | None:
         # validated raw scan is safe for their uncompressed variants and, on
         # failure, returning None is preferable to writing corrupt JSON.
         with dfmod.open("rb") as stream:
-            return _title_from_manifest_bytes(stream.read(_SCAN_LIMIT))
+            return _title_from_manifest_bytes(stream.read(_LEGACY_SCAN_LIMIT))
     except (ImportError, lzma.LZMAError, OSError, struct.error, ValueError):
         return None
 
@@ -302,9 +298,9 @@ def _ensure_backup(path: Path, log_fn) -> None:
 def sync_mods_json(game_path: Path, ordered: list[Path], log_fn=None) -> int:
     """Write Amethyst's load order into Mods.json; returns entries written.
 
-    *ordered* is the deployed .dfmod paths in Amethyst priority order -
-    index 0 is the top of the mod list and must end up with the highest
-    DFU LoadPriority.
+    *ordered* is the deployed .dfmod paths in Amethyst list order.  DFU sorts
+    and validates mods by ascending LoadPriority, so index 0 receives the
+    lowest priority in the managed block.
     """
     _log = log_fn or _noop
     if os.environ.get("AMM_DFU_MODS_JSON") == "0":
@@ -350,8 +346,10 @@ def sync_mods_json(game_path: Path, ordered: list[Path], log_fn=None) -> int:
                  and isinstance(entry.get("FileName"), str)
                  and entry["FileName"] not in managed
                  and (deployed is None or entry["FileName"] in deployed)]
-    # Sit the managed block above anything hand-added so a manually dropped
-    # mod can never outrank a mod the user ordered in Amethyst.
+    # Keep the managed block together after anything hand-added.  Within that
+    # block, priorities increase in Amethyst's top-to-bottom list order, which
+    # is the same convention used by DFU's own Mod Loader and dependency
+    # validator.
     base = max((e.get("LoadPriority", 0) for e in preserved
                 if isinstance(e.get("LoadPriority"), int)), default=-1) + 1
 
@@ -362,7 +360,7 @@ def sync_mods_json(game_path: Path, ordered: list[Path], log_fn=None) -> int:
             "FileName": stem,
             "Title": title,
             "Enabled": True,
-            "LoadPriority": base + (total - 1 - i),
+            "LoadPriority": base + i,
         })
 
     path.parent.mkdir(parents=True, exist_ok=True)

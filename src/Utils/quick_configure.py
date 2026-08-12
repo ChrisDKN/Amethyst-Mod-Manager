@@ -122,6 +122,13 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
         add_toggle("prefix_numbering",
                    "Prepend load-order numbers to mod folders", val, apply)
 
+    if hasattr(game, "set_manage_load_order_in_dfu"):
+        add_toggle(
+            "manage_load_order_in_dfu",
+            "Manage load order in DFU",
+            getattr(game, "manage_load_order_in_dfu", False),
+            lambda v: game.set_manage_load_order_in_dfu(v))
+
     # --- Game patch version (BG3-style) -------------------------------------
     if hasattr(game, "get_patch_version") and hasattr(game, "set_patch_version"):
         try:

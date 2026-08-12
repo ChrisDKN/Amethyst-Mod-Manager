@@ -496,6 +496,9 @@ class ConfigureGameView(QWidget):
         add_check("prefix_numbering",
                   self.tr("Prepend load-order numbers to mod folders"),
                   hasattr(self._game, "prefix_numbering"))
+        add_check("manage_load_order_in_dfu",
+                  self.tr("Manage load order in DFU"),
+                  hasattr(self._game, "set_manage_load_order_in_dfu"))
 
         # BG3 patch-version radios.
         self._patch_group = None
@@ -573,6 +576,8 @@ class ConfigureGameView(QWidget):
             self._set_check("profile_ini_files", getattr(g, "profile_ini_files", False))
             self._set_check("profile_saves", getattr(g, "profile_saves", False))
             self._set_check("prefix_numbering", getattr(g, "prefix_numbering", True))
+            self._set_check("manage_load_order_in_dfu",
+                            getattr(g, "manage_load_order_in_dfu", False))
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
@@ -599,6 +604,7 @@ class ConfigureGameView(QWidget):
             self._set_check("profile_ini_files", False)
             self._set_check("profile_saves", False)
             self._set_check("prefix_numbering", True)
+            self._set_check("manage_load_order_in_dfu", False)
             if self._patch_group is not None and hasattr(g, "get_patch_version"):
                 rb = self._patch_buttons.get(int(g.get_patch_version()))
                 if rb:
@@ -1355,6 +1361,10 @@ class ConfigureGameView(QWidget):
             g.set_profile_saves(self._opt_checks["profile_saves"].isChecked())
         if hasattr(g, "prefix_numbering") and "prefix_numbering" in self._opt_checks:
             g.prefix_numbering = self._opt_checks["prefix_numbering"].isChecked()
+        if (hasattr(g, "set_manage_load_order_in_dfu")
+                and "manage_load_order_in_dfu" in self._opt_checks):
+            g.set_manage_load_order_in_dfu(
+                self._opt_checks["manage_load_order_in_dfu"].isChecked())
         if hasattr(g, "set_patch_version") and self._patch_group is not None:
             for val, rb in self._patch_buttons.items():
                 if rb.isChecked():
