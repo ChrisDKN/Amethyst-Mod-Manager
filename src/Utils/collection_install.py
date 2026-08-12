@@ -314,6 +314,7 @@ def run_collection_install(
         append_card_info: "dict | None" = None,
         local_bundle_zip: str = "",
         preinstalled_order: "list[tuple[int, str]] | None" = None,
+        append_pre_existing: "set[str] | None" = None,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -376,7 +377,14 @@ def run_collection_install(
 
     _is_append_run = overwrite_existing is not None
     _append_pre_existing: "set[str]" = set()
-    if _is_append_run and modlist_path is not None and modlist_path.is_file():
+    if _is_append_run and append_pre_existing is not None:
+        # Snapshot taken by the caller BEFORE any pre-install pass ran. A
+        # Thunderstore import stages (and modlist-registers) its mods before
+        # this function is entered, so reading modlist.txt here would count
+        # them as pre-existing and _append_reconcile_modlist would leave them
+        # wherever they landed instead of at their authored position.
+        _append_pre_existing = {str(n).lower() for n in append_pre_existing}
+    elif _is_append_run and modlist_path is not None and modlist_path.is_file():
         try:
             _append_pre_existing = {
                 e.name.lower() for e in read_modlist(modlist_path)

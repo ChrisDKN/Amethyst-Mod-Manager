@@ -5477,6 +5477,22 @@ class MainWindow(QMainWindow):
                       if isinstance(local_manifest, dict) else [])
         self._col_ts_installed = 0
         self._col_ts_failed = 0
+        # Append mode (a share code imported into an existing profile) decides
+        # what to reposition by diffing against the mods present BEFORE the run.
+        # The Thunderstore pass registers its mods in modlist.txt as it stages
+        # them, so that snapshot has to be taken here - reading it inside the
+        # orchestrator would see them and treat them as the user's own mods,
+        # leaving them wherever they landed instead of at their code position.
+        ts_append_pre_existing = None
+        if ts_entries and overwrite_existing is not None:
+            try:
+                from Utils.modlist import read_modlist as _rm_snap
+                _ml = Path(profile_dir) / "modlist.txt"
+                ts_append_pre_existing = {
+                    e.name.lower() for e in _rm_snap(_ml)
+                    if not e.is_separator} if _ml.is_file() else set()
+            except Exception:
+                ts_append_pre_existing = None
 
         def _worker():
             from Utils.collection_install import run_collection_install
@@ -5514,6 +5530,7 @@ class MainWindow(QMainWindow):
                     append_card_info=append_card_info,
                     local_bundle_zip=info.get("bundle_zip") or "",
                     preinstalled_order=ts_order,
+                    append_pre_existing=ts_append_pre_existing,
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 import traceback
@@ -9151,7 +9168,8 @@ class MainWindow(QMainWindow):
             return
         if not code:
             self._notify(
-                self.tr("No mods with a Nexus mod + file ID to share."), "warning")
+                self.tr("No mods to share - a code carries Nexus mods with a "
+                        "mod + file ID and Thunderstore mods."), "warning")
             return
         from gui_qt.share_code_overlay import ShareCodeExportOverlay
         ShareCodeExportOverlay(self.window(), code, mod_count)

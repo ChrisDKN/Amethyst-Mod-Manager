@@ -936,9 +936,10 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 #
 # The "Export code" feature turns the same Amethyst manifest into a short text
 # string the user can paste into a chat / forum to share a modlist. It carries
-# only what a recipient can rebuild from Nexus - mods with BOTH a modId and a
-# fileId - plus embedded FOMOD/BAIN installer choices. No mod files are bundled
-# (that's what the .amethyst zip is for), so a code stays small.
+# only what a recipient can re-download - Nexus mods with BOTH a modId and a
+# fileId, and Thunderstore mods with a complete (namespace, name, version) pin -
+# plus embedded FOMOD/BAIN installer choices. No mod files are bundled (that's
+# what the .amethyst zip is for), so a code stays small.
 #
 # Load order is carried by the ORDER of the manifest's ``mods`` array (top of
 # modlist first): the collection-install pipeline that consumes an imported
@@ -953,7 +954,8 @@ def build_code_manifest(entries, game, app_version: str, *,
                         profile_name=None) -> dict:
     """Build a share-code manifest from *entries* - modlist entries (separators
     included) in ``read_modlist`` order (index 0 = HIGHEST priority = top of
-    modlist). Includes only mods with both a modId and a fileId; embeds
+    modlist). Includes mods the recipient can re-download: Nexus mods with a
+    modId + fileId, and Thunderstore mods with a complete package pin. Embeds
     FOMOD/BAIN choices, per-mod enabled state and root-deploy flags.
 
     The collection-install pipeline that consumes an imported manifest treats the
@@ -975,8 +977,14 @@ def build_code_manifest(entries, game, app_version: str, *,
       the known archive sizes)."""
     mod_entries = [e for e in entries if not getattr(e, "is_separator", False)]
     rows = load_rows(mod_entries, game)
-    # Keep only Nexus-resolvable mods: need modId + a fileId (from meta or label).
-    keep = [r for r in rows if r.get("mod_id") and _row_file_id(r)]
+    # Keep only mods the recipient can actually download: a Nexus mod needs a
+    # modId + fileId (from meta or label), a Thunderstore mod needs its full
+    # (namespace, name, version) pin. A code ships no files, so anything else
+    # would import as a name with nothing behind it.
+    keep = [r for r in rows
+            if (r.get("mod_id") and _row_file_id(r))
+            or (r.get("source") == "thunderstore" and r.get("ts_namespace")
+                and r.get("ts_name") and r.get("ts_version"))]
     game_domain = (normalise_game_domain(
         getattr(game, "nexus_game_domain", "") or "") if game else "")
     game_name = game.name if game else None
