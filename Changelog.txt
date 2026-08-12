@@ -1,6 +1,10 @@
 - v2.2.0
 ### Game Support
 - Added Peak
+- Added Risk of Rain 2
+- Added Inscryption
+- Added R.E.P.O
+- Added Dyson Sphere Program
 ### Additions
 - Added Thunderstore support including an in app Thunderstore browser for games that use it
 - Added the ability to create, edit and upload collections to Nexus
@@ -8,12 +12,14 @@
 - Added a prefix health check option to display any missing dependancies
 - Added right click options to files in the saves tab
 - Added a ctrl+s shortcut for saving while in the text editor
+- Added options to hide the Kofi and Endorse buttons on the bottom bar
 ### Changes
 - The move to separator menu can now be searched if the list of separators is long enough
 - Changed the root folder icon and made it more visible with light themes
 - Added a gradient to separators for better visibility
 - If a game is installed on multiple launchers, you can now quickly swap between them in the game config
 - Improved how games with multiple Nexus domains are handled to make them easier to add in future
+- Deploying Fallout 3 now detects if 1.7.0.4 is installed and warns that the downgrader should be run first
 ### Bug Fixes
 - Fixed deploy for users who have the non RT versions of Resident Evil games installed
 - Fixed archives not installing that have a unix permission attribute of zero
@@ -23,6 +29,7 @@
 - Fixed buttons in the top bar collapsing too aggressively when shrinking the window
 - Fixed scrollbars not being affected by the selected theme
 - Fixed html files used by PrismaUI not deploying
+- Fixed an issue where the onboarding screen could still appear even with configured games added
 
 ---
 
