@@ -62,9 +62,20 @@ def xdg_download_dir() -> Path:
     if env:
         return Path(env)
     home = Path.home()
-    cfg_base = os.environ.get("XDG_CONFIG_HOME") or (home / ".config")
-    try:
-        for line in (Path(cfg_base) / "user-dirs.dirs").read_text(encoding="utf-8").splitlines():
+    config_dirs = [Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")]
+    # Flatpak redirects XDG_CONFIG_HOME to the app-specific config directory,
+    # while the desktop's localised user-dirs file remains in ~/.config.  The
+    # app has home access, so try that host location as a secondary source.
+    host_config = home / ".config"
+    if host_config != config_dirs[0]:
+        config_dirs.append(host_config)
+    for cfg_base in config_dirs:
+        try:
+            lines = (cfg_base / "user-dirs.dirs").read_text(
+                encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
             line = line.strip()
             if not line.startswith("XDG_DOWNLOAD_DIR="):
                 continue
@@ -75,8 +86,6 @@ def xdg_download_dir() -> Path:
             if raw and Path(raw) != home:
                 return Path(raw)
             break
-    except (OSError, UnicodeDecodeError):
-        pass
     return home / "Downloads"
 
 

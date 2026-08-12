@@ -41,6 +41,7 @@ from .nxm_handler import NxmLink
 from Utils import bandwidth_limit
 from Utils.app_log import app_log
 from Utils.ca_bundle import resolve_ca_bundle
+from Utils.xdg import xdg_download_dir
 
 # Default chunk size for streaming downloads (256 KB)
 _CHUNK_SIZE = 256 * 1024
@@ -452,10 +453,7 @@ class DownloadCancelled(Exception):
 
 def _get_downloads_dir() -> Path:
     """Return the user's Downloads directory."""
-    xdg = os.environ.get("XDG_DOWNLOAD_DIR")
-    if xdg:
-        return Path(xdg)
-    return Path.home() / "Downloads"
+    return xdg_download_dir()
 
 
 class NexusDownloader:

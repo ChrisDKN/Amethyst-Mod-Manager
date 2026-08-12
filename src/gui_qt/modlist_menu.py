@@ -1010,7 +1010,6 @@ def _installation_archive(view, name: str):
             filenames.append(ts_filename)
     if not filenames:
         return None
-    import os
     from pathlib import Path
     game = getattr(view, "game", None)
     game_name = getattr(game, "name", "") or ""
@@ -1018,10 +1017,10 @@ def _installation_archive(view, name: str):
     try:
         from Utils.config_paths import list_all_cache_dirs
         from Utils.download_locations import (
-            is_default_downloads_disabled, load_extra_download_locations)
+            get_default_downloads_dir, is_default_downloads_disabled,
+            load_extra_download_locations)
         if not is_default_downloads_disabled():
-            xdg = os.environ.get("XDG_DOWNLOAD_DIR")
-            search_dirs.append(Path(xdg) if xdg else Path.home() / "Downloads")
+            search_dirs.append(get_default_downloads_dir())
         search_dirs.extend(list_all_cache_dirs(game_name))
         search_dirs.extend(Path(p) for p in load_extra_download_locations())
     except Exception:

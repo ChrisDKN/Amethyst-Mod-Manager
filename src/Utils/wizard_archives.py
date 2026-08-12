@@ -25,6 +25,8 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from Utils.xdg import xdg_download_dir
+
 try:
     import py7zr
 except ImportError:
@@ -68,10 +70,7 @@ def fetch_latest_github_asset(api_url: str, archive_keywords: list[str]) -> tupl
 # ---------------------------------------------------------------------------
 
 def get_downloads_dir() -> Path:
-    xdg = os.environ.get("XDG_DOWNLOAD_DIR")
-    if xdg:
-        return Path(xdg)
-    return Path.home() / "Downloads"
+    return xdg_download_dir()
 
 
 def is_archive(name: str) -> bool:
