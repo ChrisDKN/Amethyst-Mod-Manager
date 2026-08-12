@@ -38,6 +38,7 @@ class ThunderstoreDownloadResult:
     file_path: Optional[Path] = None
     file_name: str = ""
     error: str = ""
+    cancelled: bool = False   # stopped by the caller's cancel token, not a failure
     namespace: str = ""
     name: str = ""
     version: str = ""
@@ -86,6 +87,7 @@ def resolve_communities(link) -> list[str]:
 def download_package(link, dest_dir: Path,
                      expected_size: int = 0,
                      progress_cb: Optional[Callable[[int, int], None]] = None,
+                     cancel=None,
                      ) -> ThunderstoreDownloadResult:
     """
     Download the package zip for a parsed :class:`Ror2mmLink` into *dest_dir*.
@@ -93,6 +95,10 @@ def download_package(link, dest_dir: Path,
     The file is named ``{namespace}-{name}-{version}.zip`` to match what
     Thunderstore itself serves. *progress_cb* receives ``(done, total)`` byte
     counts; *total* is 0 when the server sends no Content-Length.
+
+    *cancel* is an ``threading.Event``-like object checked between chunks, so a
+    cancelled profile import stops inside a large package instead of only at
+    the next one. The partial ``.part`` file is removed on the way out.
     """
     result = ThunderstoreDownloadResult(
         namespace=link.namespace, name=link.name, version=link.version)
@@ -121,6 +127,12 @@ def download_package(link, dest_dir: Path,
                 progress_cb(0, total)
             with open(part_path, "wb") as fh:
                 while True:
+                    if cancel is not None and cancel.is_set():
+                        part_path.unlink(missing_ok=True)
+                        result.error = "cancelled"
+                        result.cancelled = True
+                        app_log(f"thunderstore: cancelled {link.full_name}")
+                        return result
                     chunk = resp.read(_CHUNK)
                     if not chunk:
                         break

@@ -2976,6 +2976,8 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
             if domain:
                 by_domain.setdefault(domain, []).append(meta)
 
+        from Thunderstore.thunderstore_meta import is_thunderstore_mod
+
         for domain, domain_mods in by_domain.items():
             # One GraphQL request per Nexus game. Mod ids are only unique
             # inside a domain, so combining these batches would cross-wire ids.
@@ -2984,17 +2986,28 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
             if not gql_info:
                 continue
 
-            domain_names = {m.mod_name for m in domain_mods}
-            check_requirements_from_gql(
-                gql_info,
-                all_installed,
-                game_domain=domain,
-                staging_root=staging_root,
-                progress_cb=log_fn,
-                save_results=True,
-                enabled_only=domain_names,
-                api=api,
-            )
+            # A mod that also carries Thunderstore metadata was installed from
+            # Thunderstore, whose packages pin their own dependencies - the
+            # Nexus mod page's requirements do not describe what it needs, and
+            # flagging them would report requirements that are already
+            # satisfied. Endorsement below is unaffected: endorsing a Nexus mod
+            # page is orthogonal to where the file came from.
+            # (A mod with ONLY [thunderstore] never reaches here - it has no
+            # modid, so the mod_id > 0 filter above already dropped it.)
+            domain_names = {
+                m.mod_name for m in domain_mods
+                if not is_thunderstore_mod(staging_root / m.mod_name / "meta.ini")}
+            if domain_names:
+                check_requirements_from_gql(
+                    gql_info,
+                    all_installed,
+                    game_domain=domain,
+                    staging_root=staging_root,
+                    progress_cb=log_fn,
+                    save_results=True,
+                    enabled_only=domain_names,
+                    api=api,
+                )
 
             # viewerEndorsed is keyed by same-domain mod id.
             for m in domain_mods:

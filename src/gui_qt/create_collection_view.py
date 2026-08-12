@@ -169,6 +169,11 @@ class CreateCollectionView(ExportProfileView):
     # ModuleConfig.xml when no profile copy exists - include that in the
     # missing-archive preflight.
     _ARCHIVE_PREFLIGHT_FOMOD = True
+    # A Nexus collection manifest has no way to express a Thunderstore package,
+    # so the source is neither offered nor auto-detected here - see _seed_rows,
+    # which resets any row load_rows detected before the defaults run.
+    _ALLOWED_SOURCES = ("nexus", "direct", "browse", "manual", "bundle",
+                        "ignore")
 
     def __init__(self, window, game, api, log_fn=None):
         self._pending_info: dict = {}
@@ -563,6 +568,14 @@ class CreateCollectionView(ExportProfileView):
         from Utils.collection_export import (
             read_profile_manifest, seed_info_from_manifest,
             seed_rows_from_manifest)
+        # Undo load_rows' Thunderstore detection: this format cannot express a
+        # Thunderstore package. Back on "nexus" these rows go through exactly
+        # the path they took before Thunderstore support existed -
+        # apply_source_defaults (which runs after this) bundles the ones with
+        # no Nexus ids, and the rest are caught by nexus_missing_file_ids.
+        for row in self._all_rows:
+            if row.get("source") == "thunderstore":
+                row["source"] = "nexus"
         manifest = read_profile_manifest(self._profile_dir())
         if not manifest:
             return

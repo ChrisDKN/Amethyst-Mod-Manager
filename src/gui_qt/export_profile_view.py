@@ -36,6 +36,7 @@ from Utils import profile_export
 
 _SOURCE_LABELS = {
     "nexus":  QT_TRANSLATE_NOOP("ExportProfileView", "Nexus"),
+    "thunderstore": QT_TRANSLATE_NOOP("ExportProfileView", "Thunderstore"),
     "direct": QT_TRANSLATE_NOOP("ExportProfileView", "Direct"),
     "browse": QT_TRANSLATE_NOOP("ExportProfileView", "Browse"),
     "manual": QT_TRANSLATE_NOOP("ExportProfileView", "Manual"),
@@ -45,8 +46,11 @@ _SOURCE_LABELS = {
 
 # Per-source button colours - matched to the Tk workshop (_source_btn_style):
 # Nexus orange, Direct green, Bundle purple, Ignore grey. Text is white on all.
+# Thunderstore blue is deliberately far from Nexus orange: the two stores are
+# the pair a user most needs to tell apart at a glance.
 _SOURCE_COLORS = {
     "nexus":  ("#c77a3a", "#d98c4c"),   # (base, hover)
+    "thunderstore": ("#3a6ea5", "#4a7eb5"),
     "direct": ("#5a7a5a", "#6b8b6b"),
     "browse": ("#5a6b8a", "#6b7c9b"),
     "manual": ("#8a7a4a", "#9b8b5b"),
@@ -230,20 +234,28 @@ def _card_button_bar(overlay, ok_text, on_ok, cancel_text=None):
 
 class _SourceOverlay(_CardOverlay):
     """Borderless in-window overlay: pick a mod's download source
-    (Nexus / Direct+URL / Browse / Manual / Bundle / Ignore).
+    (Nexus / Thunderstore / Direct+URL / Browse / Manual / Bundle / Ignore).
     ``on_pick(source, url, instructions)`` on Apply."""
 
     CARD_W = 480
-    CARD_H = 520
+    # Seven radio rows plus the URL + instructions fields. Sized to fit the
+    # Steam Deck's 800px-tall screen without clipping the button bar.
+    CARD_H = 570
 
     def __init__(self, host, mod_name, current_source, current_url, on_pick,
                  current_instructions: str = "", bundle_blocked_reason: str = "",
                  option_notes: dict | None = None,
-                 disabled_sources: set | None = None):
+                 disabled_sources: set | None = None,
+                 allowed_sources: "tuple | None" = None):
         """*option_notes* maps a source to a caveat shown as a ⚠ with the text
         on hover; *disabled_sources* greys a source out entirely. Both are how
         the bulk (multi-mod) path reports that a source only fits part of the
-        selection - see ExportProfileView._bulk_source_notes."""
+        selection - see ExportProfileView._bulk_source_notes.
+
+        *allowed_sources* omits a source from the card completely (not greyed -
+        absent). Publishing a Nexus collection uses it to hide Thunderstore,
+        which that format cannot express at all; see
+        ExportProfileView._ALLOWED_SOURCES."""
         super().__init__(host)
         self._on_pick = on_pick
         option_notes = dict(option_notes or {})
@@ -258,12 +270,15 @@ class _SourceOverlay(_CardOverlay):
         self._radios: dict[str, QRadioButton] = {}
         for value, label, desc in (
             ("nexus",  self.tr("Nexus Mods"), self.tr("Download mod from Nexus")),
+            ("thunderstore", self.tr("Thunderstore"), self.tr("Download package from Thunderstore")),
             ("direct", self.tr("Direct URL"), self.tr("For off-site mods")),
             ("browse", self.tr("Browse page"), self.tr("User downloads from a web page (e.g. Patreon)")),
             ("manual", self.tr("Manual"),     self.tr("User obtains the file; instructions are shown")),
             ("bundle", self.tr("Bundle"),     bundle_desc),
             ("ignore", self.tr("Ignore"),     self.tr("Exclude this mod from the export entirely")),
         ):
+            if allowed_sources is not None and value not in allowed_sources:
+                continue
             text = self.tr("{0}   - {1}").format(label, desc)
             note = option_notes.get(value, "")
             if note:
@@ -534,6 +549,12 @@ class ExportProfileView(QWidget):
     # exports map choices through fomod/ModuleConfig.xml, so the subclass turns
     # this on.
     _ARCHIVE_PREFLIGHT_FOMOD = False
+    # Sources this view may export. The ``.amethyst`` manifest can express all
+    # of them; the Nexus-collection format has no way to represent a
+    # Thunderstore package, so CreateCollectionView drops it from the list AND
+    # resets any auto-detected row (see its _seed_rows).
+    _ALLOWED_SOURCES = ("nexus", "thunderstore", "direct", "browse", "manual",
+                        "bundle", "ignore")
 
     def __init__(self, window, game, api, log_fn=None):
         super().__init__()
@@ -932,6 +953,20 @@ class ExportProfileView(QWidget):
                 "{0} of {1} selected mods have no Nexus File ID yet - set one "
                 "on each before exporting.").format(len(no_file), total)
 
+        if "thunderstore" in self._ALLOWED_SOURCES:
+            no_ts = [r for r in rows if self._thunderstore_blocked_reason(r)]
+            if no_ts:
+                if len(no_ts) == total:
+                    disabled.add("thunderstore")
+                    notes["thunderstore"] = self.tr(
+                        "None of the selected mods were installed from "
+                        "Thunderstore.")
+                else:
+                    notes["thunderstore"] = self.tr(
+                        "{0} of {1} selected mods were not installed from "
+                        "Thunderstore and will be left unchanged.").format(
+                            len(no_ts), total)
+
         if total > 1:
             shared = self.tr(
                 "The same URL and instructions are applied to all {0} selected "
@@ -963,15 +998,22 @@ class ExportProfileView(QWidget):
         _SourceOverlay(self.window(), label, current, _unanimous("direct_url"),
                        _picked,
                        current_instructions=_unanimous("source_instructions"),
-                       option_notes=notes, disabled_sources=disabled)
+                       option_notes=notes, disabled_sources=disabled,
+                       allowed_sources=self._ALLOWED_SOURCES)
 
     def _apply_bulk_source(self, source: str, url: str, instructions: str):
         changed = skipped = 0
+        ts_skipped = 0
         for row in self._checked_rows():
             # The bundle rule is per-mod, so a bulk change must not become a
             # way around it - those rows keep the source they had.
             if source == "bundle" and self._bundle_blocked_reason(row):
                 skipped += 1
+                continue
+            # Same for Thunderstore: a mod with no pin has nothing to download,
+            # so a bulk set would produce an entry the importer cannot resolve.
+            if source == "thunderstore" and self._thunderstore_blocked_reason(row):
+                ts_skipped += 1
                 continue
             row["source"] = source
             row["direct_url"] = url
@@ -979,7 +1021,12 @@ class ExportProfileView(QWidget):
             changed += 1
         # Full rebuild: source drives the Edits cell and can drive the sort.
         self._apply_filter()
-        if skipped:
+        if ts_skipped:
+            self._notify(
+                self.tr("Source set on {0} mod(s); {1} left unchanged (not "
+                        "from Thunderstore).").format(changed, ts_skipped),
+                "warning")
+        elif skipped:
             self._notify(
                 self.tr("Source set on {0} mod(s); {1} left unchanged (on "
                         "Nexus).").format(changed, skipped), "warning")
@@ -1037,7 +1084,13 @@ class ExportProfileView(QWidget):
         if col == _COL_SOURCE:
             return row.get("source", "nexus")
         if col == _COL_VERSION:
-            return row.get("file_id") or 0
+            # Thunderstore rows have no file id, so they sort by their pin -
+            # but the key must stay ONE comparable type across the whole list
+            # or a mixed profile raises TypeError mid-sort. Tuple: TS rows
+            # group after Nexus rows, each ordered within its own space.
+            if row.get("source") == "thunderstore":
+                return (1, 0, row.get("ts_version") or "")
+            return (0, row.get("file_id") or 0, "")
         if col == _COL_FOMOD:
             return (bool(row.get("has_fomod")),
                     bool(row.get("fomod_export", True)))
@@ -1300,7 +1353,12 @@ class ExportProfileView(QWidget):
         if getattr(btn, "_amm_src", None) != src:
             btn.setStyleSheet(_source_button_qss(src))
             btn._amm_src = src
-        w["ver"].setText(row.get("ver_label", "-"))
+        # A Thunderstore row's version is its package pin, not a Nexus
+        # "fileid - version" label.
+        if src == "thunderstore":
+            w["ver"].setText(row.get("ts_version") or "-")
+        else:
+            w["ver"].setText(row.get("ver_label", "-"))
         self._set_check_cell(w["fomod_wrap"], bool(row.get("has_fomod")),
                              bool(row.get("fomod_export", True)))
         self._set_check_cell(w["opt_wrap"], True,
@@ -1347,8 +1405,24 @@ class ExportProfileView(QWidget):
         """
         return ""
 
+    def _thunderstore_blocked_reason(self, row: dict) -> str:
+        """Why *row* may not use the Thunderstore source, or "" when it may.
+
+        Only a mod carrying a Thunderstore pin can be exported as one - there
+        is nothing to download otherwise.
+        """
+        if row.get("ts_namespace") and row.get("ts_name"):
+            return ""
+        return self.tr("This mod was not installed from Thunderstore.")
+
     def _pick_source(self, data_idx: int):
         row = self._all_rows[data_idx]
+        notes: dict = {}
+        disabled: set = set()
+        ts_blocked = self._thunderstore_blocked_reason(row)
+        if ts_blocked:
+            notes["thunderstore"] = ts_blocked
+            disabled.add("thunderstore")
 
         def _picked(source, url, instructions, di=data_idx):
             r = self._all_rows[di]
@@ -1360,10 +1434,22 @@ class ExportProfileView(QWidget):
         _SourceOverlay(self.window(), row["name"], row.get("source", "nexus"),
                        row.get("direct_url", ""), _picked,
                        current_instructions=row.get("source_instructions", ""),
-                       bundle_blocked_reason=self._bundle_blocked_reason(row))
+                       bundle_blocked_reason=self._bundle_blocked_reason(row),
+                       option_notes=notes, disabled_sources=disabled,
+                       allowed_sources=self._ALLOWED_SOURCES)
 
     def _pick_version(self, data_idx: int):
         row = self._all_rows[data_idx]
+        if row.get("source") == "thunderstore":
+            # Thunderstore's version list is public - no API object needed.
+            if not row.get("ts_versions_fetched") and row.get("ts_namespace"):
+                row["ts_versions_fetched"] = True
+                row["versions_fetching"] = True
+                threading.Thread(
+                    target=self._fetch_ts_versions, args=(data_idx,),
+                    daemon=True, name="export-ts-versions").start()
+            self._open_version_dialog(data_idx)
+            return
         # Lazily fetch the file list on first open (Nexus mods only). The card
         # opens straight away and is filled in by _on_versions_ready, so the
         # first open shows every version rather than just the installed one.
@@ -1378,11 +1464,32 @@ class ExportProfileView(QWidget):
 
     def _open_version_dialog(self, data_idx: int):
         row = self._all_rows[data_idx]
-        options = row.get("ver_options") or [
-            {"label": row.get("ver_label", "-"), "name": "", "size_bytes": 0}]
+        is_ts = row.get("source") == "thunderstore"
+        if is_ts:
+            current = row.get("ts_version") or "-"
+            options = row.get("ts_ver_options") or [
+                {"label": current, "name": row.get("ts_full_name", ""),
+                 "size_bytes": row.get("ts_size_bytes") or 0}]
+        else:
+            current = row.get("ver_label", "-")
+            options = row.get("ver_options") or [
+                {"label": current, "name": "", "size_bytes": 0}]
 
         def _picked(sel, di=data_idx):
             r = self._all_rows[di]
+            if r.get("source") == "thunderstore":
+                # A Thunderstore pin is (namespace, name, version) - it shares
+                # nothing with the Nexus "fileid - version" label, so leave
+                # file_id/ver_label untouched.
+                version = sel.get("label") or r.get("ts_version", "")
+                r["ts_version"] = version
+                r["ts_full_name"] = (
+                    sel.get("name")
+                    or f"{r.get('ts_namespace', '')}-{r.get('ts_name', '')}"
+                       f"-{version}")
+                r["ts_size_bytes"] = sel.get("size_bytes", 0) or 0
+                self._refresh_visible_row(di)
+                return
             r["ver_label"] = sel.get("label", r["ver_label"])
             r["size_bytes"] = sel.get("size_bytes", 0)
             try:
@@ -1393,10 +1500,39 @@ class ExportProfileView(QWidget):
             self._refresh_visible_row(di)
 
         overlay = _VersionOverlay(
-            self.window(), row["name"], options, row.get("ver_label", "-"),
+            self.window(), row["name"], options, current,
             _picked, loading=bool(row.get("versions_fetching")))
         # Remembered so an in-flight fetch can populate this very card.
         self._version_overlay = (data_idx, overlay)
+
+    def _fetch_ts_versions(self, data_idx: int):
+        """Worker thread: fetch a Thunderstore package's version list, marshal
+        back via the same Signal the Nexus fetch uses (never touch widgets
+        off-thread)."""
+        row = self._all_rows[data_idx]
+        options = []
+        try:
+            from Thunderstore.thunderstore_api import fetch_versions
+            ns = row.get("ts_namespace", "")
+            pkg = row.get("ts_name", "")
+            for v in fetch_versions(ns, pkg) or []:
+                if not isinstance(v, dict):
+                    continue
+                version = (v.get("version_number") or "").strip()
+                if not version:
+                    continue
+                try:
+                    size = int(v.get("file_size") or v.get("size") or 0)
+                except (TypeError, ValueError):
+                    size = 0
+                options.append({
+                    "label": version,
+                    "name": f"{ns}-{pkg}-{version}",
+                    "size_bytes": size,
+                })
+        except Exception:
+            options = []
+        safe_emit(self._versions_ready, data_idx, options)
 
     def _fetch_versions(self, data_idx: int):
         """Worker thread: fetch the mod's file list from Nexus, marshal back via a
@@ -1422,16 +1558,30 @@ class ExportProfileView(QWidget):
 
     def _on_versions_ready(self, data_idx: int, options):
         row = self._all_rows[data_idx]
+        is_ts = row.get("source") == "thunderstore"
         row["versions_fetching"] = False
         open_idx, overlay = getattr(self, "_version_overlay", None) or (None, None)
         showing = (overlay is not None and open_idx == data_idx
                    and not getattr(overlay, "_done", True))
         if not options:
             # Let a later open retry rather than caching the failure forever.
-            row["versions_fetched"] = False
+            if is_ts:
+                row["ts_versions_fetched"] = False
+            else:
+                row["versions_fetched"] = False
             if showing:
-                overlay.set_loading(
-                    False, self.tr("Could not load versions from Nexus."))
+                overlay.set_loading(False, self.tr(
+                    "Could not load versions from Thunderstore.") if is_ts
+                    else self.tr("Could not load versions from Nexus."))
+            return
+        if is_ts:
+            # The installed pin is already correct and the rest of this method
+            # is Nexus file-id bookkeeping, so a Thunderstore row only gains
+            # the list to choose from - never an auto-selected version.
+            row["ts_ver_options"] = options
+            if showing:
+                overlay.set_loading(False)
+                overlay.set_options(options, row.get("ts_version") or "-")
             return
         row["ver_options"] = options
         # Only auto-select if the current label is still a placeholder - opening the

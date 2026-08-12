@@ -3844,6 +3844,117 @@ class MainWindow(QMainWindow):
                     f"[thunderstore] {link.full_name} was not installed by this "
                     "batch - metadata not stamped.")
 
+    def _install_thunderstore_entries(self, entries, game, profile_dir,
+                                      control, callbacks):
+        """Download + install a profile import's Thunderstore mods.
+
+        Runs on the collection-install worker thread BEFORE the Nexus pipeline,
+        for two reasons. install_local_bundle restores the exporter's
+        modlist.txt and then drops every row whose folder is missing from disk,
+        so the mods have to be staged by then or the authored load order loses
+        them. And their priority keys have to be merged into the orchestrator's
+        install_order, which it builds as it starts.
+
+        No dependency resolution and no opt-out modal, unlike a ror2mm:// click:
+        the manifest already lists every dependency as its own entry, pinned to
+        the version the exporter had. Re-resolving could only pull in DIFFERENT
+        versions than the profile being reproduced.
+
+        Returns ``(order, installed, failures)`` - ``order`` is the
+        ``(array_index, folder)`` pairs for what actually staged.
+        """
+        from Thunderstore.ror2mm_handler import Ror2mmLink
+        from Thunderstore.thunderstore_download import (
+            download_package, fetch_version_info)
+        from Utils.config_paths import get_download_cache_dir_for_game
+        from Utils.mod_copy import resolve_target_staging
+        from Utils.mod_install import install_collection_archive
+
+        log = callbacks.on_log if callbacks is not None else self._op_log.emit
+        order: list = []
+        failures: list = []
+        installed = 0
+        total = len(entries)
+        dest = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
+        try:
+            staging_root = Path(resolve_target_staging(game, Path(profile_dir)))
+        except Exception as exc:
+            log(f"[thunderstore] no staging folder for the import: {exc}")
+            return [], 0, [(e.get("full_name", "?"), str(exc)) for e in entries]
+
+        for idx, entry in enumerate(entries, 1):
+            if control is not None and control.stop.is_set():
+                break
+            full_name = entry.get("full_name") or entry.get("name") or "?"
+            if callbacks is not None:
+                callbacks.on_status(
+                    f"Thunderstore {idx}/{total}: {full_name}")
+                callbacks.on_progress(float(idx - 1) / max(total, 1))
+            try:
+                link = Ror2mmLink(namespace=entry["namespace"],
+                                  name=entry["package"],
+                                  version=entry["version"])
+            except (ValueError, KeyError) as exc:
+                log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
+                failures.append((full_name, "bad package id"))
+                continue
+
+            result = download_package(
+                link, dest_dir=dest,
+                expected_size=int(entry.get("file_size") or 0),
+                cancel=(control.stop if control is not None else None))
+            if getattr(result, "cancelled", False):
+                break
+            if not (result.success and result.file_path):
+                log(f"[thunderstore] download failed for {full_name} "
+                    f"- {result.error}")
+                failures.append((full_name, result.error or "download failed"))
+                continue
+
+            # Best effort: the manifest carries no description/dependency list,
+            # and without them the update checker and a later dependency walk
+            # lose fidelity. A failure here still installs the mod.
+            info = None
+            try:
+                info = fetch_version_info(link)
+            except Exception:
+                info = None
+            if not isinstance(info, dict):
+                info = {"full_version_name": full_name,
+                        "download_url": link.download_url,
+                        "size": int(entry.get("file_size") or 0)}
+
+            # prebuilt_meta stays None ON PURPOSE: synthesising a NexusModMeta
+            # here would stamp a Nexus identity onto a Thunderstore mod and
+            # drag it into the missing-requirements checker (which filters on
+            # mod_id > 0). See _check_nexus_flags_after_install.
+            folder = None
+            try:
+                folder = install_collection_archive(
+                    str(result.file_path), game, Path(profile_dir),
+                    log_fn=log,
+                    preferred_name=(entry.get("logical")
+                                    or entry.get("name") or ""),
+                    prebuilt_meta=None,
+                    skip_index_update=True,
+                    cancel=(control.stop if control is not None else None))
+            except Exception as exc:
+                log(f"[thunderstore] install failed for {full_name} - {exc}")
+            if not folder:
+                failures.append((full_name, "install failed"))
+                continue
+
+            self._stamp_thunderstore_meta(link, info, folder,
+                                          staging_root=staging_root)
+            order.append((int(entry.get("array_index") or 0), folder))
+            installed += 1
+
+        if failures:
+            log(f"[thunderstore] {len(failures)} package(s) did NOT install:")
+            for name, why in failures:
+                log(f"    • {name} - {why}")
+        return order, installed, failures
+
     def _thunderstore_staging(self):
         """Staging root for the current profile, or None."""
         game = self._gs.game
@@ -4023,12 +4134,18 @@ class MainWindow(QMainWindow):
                 meta.package_id, meta.version or "?", target),
             _confirmed, confirm_label=self.tr("Update"), danger=False)
 
-    def _stamp_thunderstore_meta(self, link, info, installed_name=None):
+    def _stamp_thunderstore_meta(self, link, info, installed_name=None,
+                                 staging_root=None):
         """Write the [thunderstore] meta.ini section for a just-installed mod.
 
         *installed_name* is the folder reported for this archive by the install
         pipeline. It remains authoritative when a partial batch succeeds or the
         user renames a package during installation.
+
+        *staging_root* overrides where that folder is looked up. Required by the
+        profile-import pass: it stages into a profile the game has NOT been
+        switched to yet, so the default (the ACTIVE profile's staging) would
+        stamp a different profile's mod - or nothing at all.
         """
         from pathlib import Path
 
@@ -4038,8 +4155,12 @@ class MainWindow(QMainWindow):
             game = self._gs.game
             if game is None:
                 return
-            from Utils.mod_copy import resolve_target_staging
-            staging = Path(resolve_target_staging(game, Path(self._gs.profile_dir())))
+            if staging_root is not None:
+                staging = Path(staging_root)
+            else:
+                from Utils.mod_copy import resolve_target_staging
+                staging = Path(resolve_target_staging(
+                    game, Path(self._gs.profile_dir())))
             if not staging.is_dir():
                 return
 
@@ -4821,10 +4942,18 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
+        from Utils import profile_export
+        # Read the imported manifest BEFORE the Nexus gate: a Thunderstore-only
+        # or fully-bundled import needs no account, and the Thunderstore-only
+        # games have no Nexus domain to log in against (see manifest_needs_nexus).
+        _local_manifest_early = getattr(detail_view, "_local_manifest", None)
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."), "warning")
-            return
+            if (_local_manifest_early is None
+                    or profile_export.manifest_needs_nexus(_local_manifest_early)):
+                self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus."),
+                             "warning")
+                return
         # Latched ONCE for the whole run. Re-reading it later would let a toggle
         # mid-flight mix the two modes - worst case an Update that has already
         # removed the outgoing mods then downloads their replacements instead of
@@ -4861,7 +4990,12 @@ class MainWindow(QMainWindow):
         # excludes them) - the orchestrator removes these from an existing
         # profile on continue/append/update.
         skipped_mods = detail_view.skipped_optional_mods(skipped)
-        if not mods:
+        # A Thunderstore-only import has no Nexus mods at all, but plenty to
+        # install - the separate Thunderstore pass handles those.
+        _ts_pending = bool(
+            local_manifest is not None
+            and profile_export.thunderstore_entries(local_manifest))
+        if not mods and not _ts_pending:
             self._notify(self.tr("This collection has no installable mods."), "info")
             return
         slug = getattr(collection, "slug", "") or ""
@@ -4879,22 +5013,32 @@ class MainWindow(QMainWindow):
         def _premium_worker():
             from Utils.ui_config import (load_nexus_last_premium,
                                          save_nexus_last_premium)
-            try:
-                user = api.validate()
-                is_premium = bool(getattr(user, "is_premium", False))
+            if api is None:
+                # No account, and the gate above proved none is needed (a
+                # Thunderstore-only / bundled import). There is nothing to
+                # download from Nexus, so neither mode applies - go straight
+                # through as "not premium" rather than calling validate() on
+                # None. The manual-download producer is never reached: it only
+                # runs for mods in `mods`, which is empty of Nexus entries.
+                is_premium = False
+            else:
                 try:
-                    save_nexus_last_premium(is_premium)
-                except Exception:
-                    pass
-            except Exception as exc:
-                # GH#278: a transient validate() failure (network hiccup, rate
-                # limit) must not silently demote a premium user to manual
-                # mode - fall back to the last successfully-validated status.
-                last = load_nexus_last_premium()
-                is_premium = bool(last)
-                self._op_log.emit(
-                    f"[collection] premium check failed: {exc} - using "
-                    f"last-known status ({'premium' if is_premium else 'not premium'})")
+                    user = api.validate()
+                    is_premium = bool(getattr(user, "is_premium", False))
+                    try:
+                        save_nexus_last_premium(is_premium)
+                    except Exception:
+                        pass
+                except Exception as exc:
+                    # GH#278: a transient validate() failure (network hiccup,
+                    # rate limit) must not silently demote a premium user to
+                    # manual mode - fall back to the last validated status.
+                    last = load_nexus_last_premium()
+                    is_premium = bool(last)
+                    self._op_log.emit(
+                        f"[collection] premium check failed: {exc} - using "
+                        f"last-known status "
+                        f"({'premium' if is_premium else 'not premium'})")
             try:
                 from Utils.ui_config import load_force_manual_install
                 force_manual = bool(load_force_manual_install())
@@ -5325,6 +5469,14 @@ class MainWindow(QMainWindow):
                 on_limit_change=self._on_col_limit_changed)
 
         callbacks = self._build_collection_callbacks()
+        # Thunderstore entries from an imported manifest - installed by their
+        # own pass (see _install_thunderstore_entries), never by the Nexus
+        # orchestrator. Empty for a normal Nexus collection.
+        from Utils import profile_export as _pe_ts
+        ts_entries = (_pe_ts.thunderstore_entries(local_manifest)
+                      if isinstance(local_manifest, dict) else [])
+        self._col_ts_installed = 0
+        self._col_ts_failed = 0
 
         def _worker():
             from Utils.collection_install import run_collection_install
@@ -5332,6 +5484,21 @@ class MainWindow(QMainWindow):
             from Utils.config_paths import get_download_cache_dir_for_game
             downloader = NexusDownloader(
                 api, download_dir=get_download_cache_dir_for_game(game.name or ""))
+            # Thunderstore mods first: the bundled modlist.txt restored later
+            # drops rows whose folder isn't staged yet, and the orchestrator
+            # needs their priorities as it builds install_order.
+            ts_order = []
+            if ts_entries and not dl_only:
+                ts_order, ts_installed, ts_failed = \
+                    self._install_thunderstore_entries(
+                        ts_entries, game, profile_dir, control, callbacks)
+                self._col_ts_installed = ts_installed
+                self._col_ts_failed = len(ts_failed)
+                if control.stop.is_set():
+                    self._col_finished.emit(
+                        "cancelled",
+                        {"profile_dir": str(profile_dir) if profile_dir else ""})
+                    return
             try:
                 run_collection_install(
                     game=game, api=api, downloader=downloader, mods=mods,
@@ -5346,6 +5513,7 @@ class MainWindow(QMainWindow):
                     manual_mode=manual_mode, download_only=dl_only,
                     append_card_info=append_card_info,
                     local_bundle_zip=info.get("bundle_zip") or "",
+                    preinstalled_order=ts_order,
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 import traceback
@@ -5774,6 +5942,17 @@ class MainWindow(QMainWindow):
 
         # done
         installed, skipped_n, total, profile_name = payload
+        # Thunderstore mods were installed by their own pass, so the
+        # orchestrator never counted them - fold them in so the summary
+        # describes the whole import rather than just its Nexus half.
+        _ts_ok = int(getattr(self, "_col_ts_installed", 0) or 0)
+        _ts_bad = int(getattr(self, "_col_ts_failed", 0) or 0)
+        if _ts_ok or _ts_bad:
+            installed += _ts_ok
+            skipped_n += _ts_bad
+            total += _ts_ok + _ts_bad
+        self._col_ts_installed = 0
+        self._col_ts_failed = 0
         if not profile_name:
             # Download only: nothing installed, no profile to select.
             self._col_install_finished()
@@ -8818,11 +8997,9 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
-        api = self._ensure_nexus_api()
-        if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
-                         "warning")
-            return
+        # No Nexus gate here: whether this import needs an account depends on
+        # what is IN the manifest, which we only know once a file is picked.
+        # _on_import_file_picked checks it (profile_export.manifest_needs_nexus).
         # Native picker via the XDG portal (portal_filechooser). The callback fires
         # on a WORKER thread - QTimer.singleShot(0, …) from there never fires (no
         # event loop on that thread), so marshal to the GUI thread with a Signal
@@ -8844,11 +9021,6 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
-        api = self._ensure_nexus_api()
-        if api is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
-                         "warning")
-            return
         from Utils import profile_export
         try:
             manifest = profile_export.read_manifest(path)
@@ -8857,6 +9029,14 @@ class MainWindow(QMainWindow):
             return
         if not isinstance(manifest, dict) or not manifest.get("mods"):
             self._notify(self.tr("That file doesn't look like an Amethyst manifest."),
+                         "warning")
+            return
+        # Only a manifest with real Nexus entries needs an account: Thunderstore
+        # downloads are public, and a Thunderstore-only game (Risk of Rain 2,
+        # Inscryption) has no Nexus domain to log in against at all.
+        if (profile_export.manifest_needs_nexus(manifest)
+                and self._ensure_nexus_api() is None):
+            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
                          "warning")
             return
         bundle_zip = path if Path(path).suffix.lower() in (".amethyst", ".zip") else ""
@@ -8873,8 +9053,12 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
+        from Utils import profile_export as _pe
+        # A Thunderstore-only / fully-bundled manifest imports with no account:
+        # see _on_import_file_picked. api stays None in that case and every
+        # Nexus-touching step downstream is skipped along with it.
         api = self._ensure_nexus_api()
-        if api is None:
+        if api is None and _pe.manifest_needs_nexus(manifest):
             self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
                          "warning")
             return
@@ -8984,10 +9168,8 @@ class MainWindow(QMainWindow):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
-        if self._ensure_nexus_api() is None:
-            self._notify(self.tr("Log in first: Nexus ▸ Login to Nexus ▸ Login via SSO."),
-                         "warning")
-            return
+        # The Nexus gate moved into _got: whether an account is needed depends
+        # on what the decoded code contains (_open_manifest_import re-checks).
 
         def _got(text):
             if not text:

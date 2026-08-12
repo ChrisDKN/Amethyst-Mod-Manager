@@ -244,6 +244,55 @@ def cleanup_cancelled_install(game, profile_dir: "Path | None", *,
             log_fn(f"Cancel: failed to clear download cache: {exc}")
 
 
+def resolve_preinstalled_order(collection_schema: dict,
+                               staged: "list[tuple[int, str]]",
+                               ) -> "list[tuple[int, str]]":
+    """Map ``(mods-array index, folder)`` pairs into the install_order key space.
+
+    Mods installed outside the Nexus pipeline (currently Thunderstore) still
+    have to land at the position the manifest author gave them. They cannot use
+    their array index directly: ``_resolve_collection_priorities`` only ranks
+    entries that HAVE a fileId, so its positions are dense over the Nexus
+    entries alone (0 = top of modlist) while an array index counts every entry.
+
+    So the array is walked once, in the same reversed order the topo sort uses
+    (mods[-1] wins conflicts → position 0), and each pre-installed mod takes a
+    fractional key between its neighbouring Nexus positions. Fractions keep the
+    integer keys the Nexus mods already own untouched, and ``install_order`` is
+    only ever sorted, never indexed by key.
+
+    Returns ``(key, folder)`` pairs, empty when nothing was pre-installed.
+    """
+    if not staged:
+        return []
+    schema_mods = collection_schema.get("mods") or []
+    fid_to_pos = _resolve_collection_priorities(collection_schema)
+    by_index = {int(i): folder for i, folder in staged}
+
+    out: list = []
+    # Walk highest-priority-first, mirroring _topo_sort_collection's reversal.
+    # `last_pos` tracks the rank of the most recent Nexus entry seen, so a
+    # pre-installed mod slots just after it - i.e. exactly where the author
+    # put it relative to the mods that DO have a position.
+    last_pos = -1.0
+    run = 0
+    for idx in range(len(schema_mods) - 1, -1, -1):
+        src = (schema_mods[idx] or {}).get("source") or {}
+        fid = src.get("fileId")
+        if fid is not None and int(fid) in fid_to_pos:
+            last_pos = float(fid_to_pos[int(fid)])
+            run = 0
+            continue
+        folder = by_index.get(idx)
+        if folder is None:
+            continue
+        # Successive pre-installed mods between the same pair of Nexus mods
+        # keep their relative order via an increasing fraction.
+        run += 1
+        out.append((last_pos + run / (len(schema_mods) + 1.0), folder))
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
@@ -264,6 +313,7 @@ def run_collection_install(
         download_only: bool = False,
         append_card_info: "dict | None" = None,
         local_bundle_zip: str = "",
+        preinstalled_order: "list[tuple[int, str]] | None" = None,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -634,7 +684,16 @@ def run_collection_install(
             except Exception:
                 pass
 
-    install_order: list[tuple[int, str]] = []
+    # Keys are ints for Nexus mods and floats for pre-installed ones (see
+    # resolve_preinstalled_order); they are only ever sorted and compared.
+    install_order: list[tuple[float, str]] = []
+    # Mods already staged by a pass that runs before this one (Thunderstore
+    # imports). They are absent from `mods`, so without this they would look
+    # like unknown folders and be appended at the BOTTOM of the new profile's
+    # modlist instead of the position the manifest gave them.
+    if preinstalled_order:
+        install_order.extend(
+            resolve_preinstalled_order(collection_schema, preinstalled_order))
     to_download: list = []
 
     # Per-mod outcome tracker for the end-of-install verification summary. Maps
@@ -793,9 +852,17 @@ def run_collection_install(
 
     _install_lock = threading.Lock()
     _install_counters = {"installed": 0, "skipped": 0, "done": 0, "downloaded": 0}
-    _install_results: dict[int, str] = dict(already_installed_by_fid)
+    # Seed with the already-installed mods, keyed by file_id ALONE - that is
+    # what every reader here uses (_install_results[mod.file_id]). The two
+    # source dicts are keyed by identity tuples, (domain, file_id) and
+    # (domain, mod_id, file_id), so the file id has to be pulled out of each:
+    # copying their keys verbatim put tuples in an int-keyed dict, which
+    # matched nothing and raised "too many values to unpack" on the 3-tuple.
+    _install_results: dict[int, str] = {
+        fid: folder for (_domain, fid), folder in already_installed_by_fid.items()}
     _install_results.update(
-        {fid: folder for (_mid, fid), folder in already_installed_by_ids.items()})
+        {fid: folder
+         for (_domain, _mid, fid), folder in already_installed_by_ids.items()})
     _fomod_deferred: list = []
     _bain_deferred: list = []
 
@@ -1714,7 +1781,7 @@ def run_collection_install(
     if (install_order and modlist_path.is_file() and not _col_pause.is_set()
             and overwrite_existing is None and update_context is None):
         try:
-            _folder_to_key: dict[str, int] = {folder: key for key, folder in install_order}
+            _folder_to_key: dict[str, float] = {folder: key for key, folder in install_order}
             _existing = read_modlist(modlist_path)
             _known = [e for e in _existing if e.name in _folder_to_key]
             _unknown = [e for e in _existing if e.name not in _folder_to_key]

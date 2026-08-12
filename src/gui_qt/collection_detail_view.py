@@ -166,6 +166,19 @@ class CollectionDetailView(QWidget):
                 mods.append(_NCM(mod_name=mod_name,
                                  file_name=mod_name, source_type="bundle"))
                 continue
+            if src_type == "thunderstore":
+                # Listed so the table + size label show the whole profile, but
+                # installed by a separate pass (app._install_thunderstore_entries)
+                # - the Nexus orchestrator is keyed on integer file ids a
+                # Thunderstore package does not have. install_mods() filters
+                # these out for exactly that reason.
+                mods.append(_NCM(
+                    mod_name=mod_name,
+                    file_name=(src.get("fullName") or mod_name),
+                    size_bytes=file_size, source_type="thunderstore",
+                    version=(src.get("version") or ""),
+                    optional=bool(m.get("optional", False))))
+                continue
             if src_type in ("browse", "direct"):
                 url = src.get("url") or src.get("fileUrl") or ""
                 if url:
@@ -671,7 +684,12 @@ class CollectionDetailView(QWidget):
                 w.setParent(None)
                 w.deleteLater()
         self._opt_boxes = []
-        optionals = [m for m in self._mods if m.optional]
+        # Thunderstore entries are excluded: this checklist is keyed on Nexus
+        # file ids, so every one of them would share the key 0 - and the
+        # Thunderstore install pass does not consult the skip set anyway, so a
+        # box here would be a choice that silently does nothing.
+        optionals = [m for m in self._mods if m.optional
+                     and getattr(m, "source_type", "") != "thunderstore"]
         has_opt = bool(optionals)
         self._select_all_btn.setEnabled(has_opt)
         self._deselect_all_btn.setEnabled(has_opt)
@@ -881,15 +899,28 @@ class CollectionDetailView(QWidget):
 
     def install_mods(self, skipped_fids):
         """Return the list of NexusCollectionMods to install: every mod except
-        the unticked optionals."""
+        the unticked optionals.
+
+        Thunderstore entries are excluded: they are installed by a separate
+        pass before the orchestrator runs, which is keyed on the integer Nexus
+        file ids a Thunderstore package has none of."""
         return [m for m in self._mods
-                if not (getattr(m, "optional", False) and m.file_id in skipped_fids)]
+                if getattr(m, "source_type", "") != "thunderstore"
+                and not (getattr(m, "optional", False)
+                         and m.file_id in skipped_fids)]
+
+    def thunderstore_mods(self):
+        """The manifest's Thunderstore entries (excluded from install_mods)."""
+        return [m for m in self._mods
+                if getattr(m, "source_type", "") == "thunderstore"]
 
     def skipped_optional_mods(self, skipped_fids):
         """The full mod objects for the unticked optionals - the orchestrator
         removes these from an existing profile on continue/append/update."""
         return [m for m in self._mods
-                if getattr(m, "optional", False) and m.file_id in skipped_fids]
+                if getattr(m, "source_type", "") != "thunderstore"
+                and getattr(m, "optional", False)
+                and m.file_id in skipped_fids]
 
     @property
     def download_link_path(self):

@@ -31,11 +31,24 @@ A *row* is a plain dict describing one mod's export configuration::
         "size_bytes":    int,   # original archive size from meta.ini (0 if unknown)
         "root_folder":   bool,  # deploys to game root (meta.ini rootFolder)
         "enabled":       bool,  # modlist enabled state of the source entry
-        "source":        str,   # "nexus" | "direct" | "browse" | "manual"
-                                # | "bundle" | "ignore"; see apply_source_defaults
+        "source":        str,   # "nexus" | "thunderstore" | "direct" | "browse"
+                                # | "manual" | "bundle" | "ignore";
+                                # see apply_source_defaults
         "direct_url":    str,
         "save_edits":    bool,  # ship local file edits as binary patches
                                 # (build_patch_jobs); not set by load_rows
+
+        # Thunderstore pin, from the mod's [thunderstore] meta.ini section. Set
+        # only for mods installed from Thunderstore; a package is identified by
+        # (namespace, name, version) - there is no file-id equivalent.
+        "ts_namespace":  str,
+        "ts_name":       str,   # PACKAGE name, not the staging folder name
+        "ts_version":    str,
+        "ts_full_name":  str,   # "{namespace}-{name}-{version}"
+        "ts_community":  str,
+        "ts_size_bytes": int,
+        "ts_ver_options":    list,  # [{"label", "name", "size_bytes"}]
+        "ts_versions_fetched": bool,
     }
 """
 
@@ -91,6 +104,8 @@ def load_rows(entries, game) -> list[dict]:
     staging_root = game.get_effective_mod_staging_path() if game else None
     profile_dir = getattr(game, "_active_profile_dir", None) if game else None
 
+    from Thunderstore.thunderstore_meta import read_meta as ts_read_meta
+
     rows: list[dict] = []
     for entry in entries:
         name = getattr(entry, "name", None) or str(entry)
@@ -103,6 +118,8 @@ def load_rows(entries, game) -> list[dict]:
         root_folder = False
         col_optional = False
         col_phase = 0
+        ts_ns = ts_pkg = ts_version = ts_full = ts_community = ""
+        ts_size = 0
         if staging_root:
             meta_path = Path(staging_root) / name / "meta.ini"
             if meta_path.is_file():
@@ -118,6 +135,19 @@ def load_rows(entries, game) -> list[dict]:
                     root_folder = bool(meta.root_folder)
                     col_optional = bool(meta.collection_optional)
                     col_phase = meta.collection_phase or 0
+                except Exception:
+                    pass
+                # The same meta.ini can carry BOTH sections (a mod mirrored on
+                # Nexus and Thunderstore), so this is a second read, not an else.
+                try:
+                    tsm = ts_read_meta(meta_path)
+                    if tsm.package_id:
+                        ts_ns = tsm.namespace
+                        ts_pkg = tsm.name
+                        ts_version = tsm.version or ""
+                        ts_full = tsm.full_name or ""
+                        ts_community = tsm.community or ""
+                        ts_size = tsm.file_size or 0
                 except Exception:
                     pass
 
@@ -159,9 +189,21 @@ def load_rows(entries, game) -> list[dict]:
             "size_bytes":       size_bytes,
             "root_folder":      root_folder,
             "enabled":          bool(getattr(entry, "enabled", True)),
-            "source":           "nexus",
+            # A Thunderstore pin IS the download source, so detect it here
+            # rather than in apply_source_defaults: that helper is shared with
+            # the Nexus-collection publisher, which must never offer this
+            # source (see CreateCollectionView._seed_rows).
+            "source":           "thunderstore" if (ts_ns and ts_pkg) else "nexus",
             "direct_url":       "",
             "source_instructions": "",
+            "ts_namespace":     ts_ns,
+            "ts_name":          ts_pkg,
+            "ts_version":       ts_version,
+            "ts_full_name":     ts_full,
+            "ts_community":     ts_community,
+            "ts_size_bytes":    ts_size,
+            "ts_ver_options":   [],
+            "ts_versions_fetched": False,
         })
 
     return rows
@@ -202,6 +244,11 @@ def write_settings(out_path, rows) -> Path:
                 "update_policy": r.get("update_policy", "exact"),
                 "instructions": r.get("source_instructions", ""),
                 "save_edits": bool(r.get("save_edits", False)),
+                # Thunderstore pin: the version may be a user override from the
+                # version picker, so it has to survive a save/load round trip.
+                "ts_version":  r.get("ts_version", ""),
+                "ts_full_name": r.get("ts_full_name", ""),
+                "ts_size_bytes": int(r.get("ts_size_bytes") or 0),
             }
             for r in rows
         ],
@@ -224,8 +271,15 @@ def read_settings(in_path, rows) -> None:
             continue
         row["optional"] = bool(m.get("optional", False))
         # Keep the row's current source when the saved entry has none: a file
-        # written before sources existed must not reset a deduced one.
-        row["source"] = m.get("source") or row.get("source", "nexus")
+        # written before sources existed must not reset a deduced one. For the
+        # same reason a saved "nexus" never overrides a detected Thunderstore
+        # pin - every settings file written before Thunderstore support existed
+        # recorded "nexus" for these mods, and honouring it would silently undo
+        # the detection on every load.
+        saved_source = m.get("source") or ""
+        if saved_source == "nexus" and row.get("source") == "thunderstore":
+            saved_source = ""
+        row["source"] = saved_source or row.get("source", "nexus")
         row["direct_url"] = m.get("direct_url", "")
         row["source_instructions"] = m.get("instructions", "")
         # Installed meta.ini is authoritative. A saved domain only repairs a
@@ -240,6 +294,20 @@ def read_settings(in_path, rows) -> None:
         if m.get("update_policy") in ("exact", "prefer", "latest"):
             row["update_policy"] = m["update_policy"]
         row["save_edits"] = bool(m.get("save_edits", False))
+        # A saved Thunderstore version is a deliberate user pin from the version
+        # picker (unlike file_id, where the installed file wins), so it takes
+        # precedence over the installed meta.ini - but only on a row that really
+        # is a Thunderstore mod, so a stale entry can't invent a pin.
+        if row.get("ts_namespace") and row.get("ts_name") and m.get("ts_version"):
+            row["ts_version"] = str(m["ts_version"])
+            row["ts_full_name"] = (
+                m.get("ts_full_name")
+                or f"{row['ts_namespace']}-{row['ts_name']}-{row['ts_version']}")
+            if m.get("ts_size_bytes"):
+                try:
+                    row["ts_size_bytes"] = int(m["ts_size_bytes"])
+                except (TypeError, ValueError):
+                    pass
         # Only apply file_id / ver_label from the JSON when the mod has no file_id
         # already set from meta.ini - the installed file takes precedence.
         if not row.get("file_id"):
@@ -394,6 +462,108 @@ def redistributable_bundle_names(rows) -> list[str]:
     ]
 
 
+def _thunderstore_source(row: dict) -> dict:
+    """The manifest ``source`` object for a Thunderstore row.
+
+    Namespace, name and version are all carried explicitly rather than left to
+    be re-derived from ``fullName``: namespaces and package names contain
+    hyphens, so only ``parse_full_name``'s right-split is safe, and a manifest
+    that lost ``fullName`` must still install. ``fileSize`` is the only
+    integrity check Thunderstore offers (no hashes exist) and becomes the
+    importer's ``expected_size``.
+
+    Falls back to ``{"bundle": True}`` when the pin is incomplete - shipping the
+    files beats writing an entry no importer can resolve.
+    """
+    ns = (row.get("ts_namespace") or "").strip()
+    pkg = (row.get("ts_name") or "").strip()
+    version = (row.get("ts_version") or "").strip()
+    if not (ns and pkg and version):
+        return {"bundle": True}
+    source: dict = {
+        "type":      "thunderstore",
+        "namespace": ns,
+        "name":      pkg,
+        "version":   version,
+        "fullName":  (row.get("ts_full_name") or "").strip()
+                     or f"{ns}-{pkg}-{version}",
+        "logicalFilename": row["name"],
+    }
+    if row.get("ts_community"):
+        source["community"] = row["ts_community"]
+    if row.get("ts_size_bytes"):
+        source["fileSize"] = int(row["ts_size_bytes"])
+    return source
+
+
+def is_thunderstore_source(src: dict) -> bool:
+    """Whether a manifest ``source`` object points at a Thunderstore package."""
+    return ((src or {}).get("type") or "").strip().lower() == "thunderstore"
+
+
+def manifest_needs_nexus(manifest: dict) -> bool:
+    """Whether importing *manifest* requires a logged-in Nexus account.
+
+    Thunderstore downloads are public and bundled/off-site mods need no API at
+    all, so a profile made entirely of those imports with no login. That is not
+    an optimisation: the Thunderstore-only games (Risk of Rain 2, Inscryption)
+    have an empty ``nexus_game_domain`` by design, so requiring Nexus would
+    block the import outright.
+    """
+    for mod in manifest.get("mods") or []:
+        src = mod.get("source") or {}
+        stype = (src.get("type") or "").strip().lower()
+        if src.get("bundle") is True or stype in (
+                "bundle", "thunderstore", "browse", "direct", "manual"):
+            continue
+        return True
+    return False
+
+
+def thunderstore_entries(manifest: dict) -> list[dict]:
+    """The manifest's Thunderstore mods, in mods-array order.
+
+    Each entry carries everything the importer needs so it never has to re-walk
+    the manifest: ``array_index`` (the position in ``manifest["mods"]``, which
+    fixes the mod's priority relative to the Nexus mods), the package pin, and
+    the per-mod flags the install pass has to reapply.
+
+    Entries whose pin is incomplete are dropped - they cannot be downloaded, and
+    the exporter writes them as bundles instead.
+    """
+    out: list[dict] = []
+    for idx, mod in enumerate(manifest.get("mods") or []):
+        src = mod.get("source") or {}
+        if not is_thunderstore_source(src):
+            continue
+        ns = (src.get("namespace") or "").strip()
+        pkg = (src.get("name") or "").strip()
+        version = (src.get("version") or "").strip()
+        if not (ns and pkg and version):
+            continue
+        try:
+            file_size = int(src.get("fileSize") or 0)
+        except (TypeError, ValueError):
+            file_size = 0
+        out.append({
+            "array_index": idx,
+            "name":        mod.get("name") or "",
+            "namespace":   ns,
+            "package":     pkg,
+            "version":     version,
+            "full_name":   (src.get("fullName") or "").strip()
+                           or f"{ns}-{pkg}-{version}",
+            "community":   (src.get("community") or "").strip(),
+            "file_size":   file_size,
+            "logical":     (src.get("logicalFilename") or "").strip(),
+            "optional":    bool(mod.get("optional", False)),
+            "enabled":     mod.get("enabled", True) is not False,
+            "root_folder": ((mod.get("details") or {}).get("type") or "")
+                           .strip() == "dinput",
+        })
+    return out
+
+
 def build_manifest(rows, game_domain: str, app_version: str, *,
                    game_name=None, profile_dir=None) -> dict:
     """Build the ``manifest.json`` dict from the export *rows*. Mods with
@@ -422,6 +592,8 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
                 source["url"] = row["direct_url"]
             if row.get("source_instructions"):
                 source["instructions"] = row["source_instructions"]
+        elif row_source == "thunderstore":
+            source = _thunderstore_source(row)
         elif row_source == "bundle":
             source = {"bundle": True}
         else:
@@ -455,6 +627,10 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
         row_version = row.get("version") or ""
         if not row_version:
             row_version = split_ver_label(ver_label)[1]
+        if not row_version and row_source == "thunderstore":
+            # A Thunderstore-only mod has no [General] version - the pin is the
+            # version, and it may be a user override from the version picker.
+            row_version = row.get("ts_version") or ""
         if row_version:
             mod_entry["version"] = row_version
         cat_id = row.get("category_id") or 0
