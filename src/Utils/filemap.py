@@ -2517,6 +2517,7 @@ def build_filemap(
     log_fn: "Callable[[str], None] | None" = None,
     root_folder_mods: set[str] | None = None,
     root_mod_files: dict[str, set[str]] | None = None,
+    root_data_prefix: str | None = None,
     follow_toplevel_links_under: "Path | None" = None,
     identity_ck_prefix: str | None = None,
     conflict_extras: dict | None = None,
@@ -2565,6 +2566,12 @@ def build_filemap(
     root_mod_files - per-mod index keys routed to the game-root namespace
     (filemap_root.txt) instead of the Data one.  Exclusions win over root tags;
     whole-mod root flags make per-file tags redundant.
+
+    root_data_prefix - deploy-directory path relative to the game root (for
+    example ``"Data"`` or ``"Data Files"``).  A whole-mod root entry below
+    this prefix lands at the same final path as a normal filemap entry, so the
+    two must participate in one conflict and casing calculation even though
+    they remain in separate output files for deployment.
 
     Returns:
         (count, conflict_map, overrides, overridden_by)
@@ -2617,7 +2624,22 @@ def build_filemap(
     # tracked (retroactive-erasure semantics don't fit provider stacks); the
     # state mirrors modindex.bin, so its mtime anchors validity.
     _output_key = str(output_path)
-    _incr_on = _incremental_enabled() and conflict_key_fn is None
+    # Cross-namespace Data collisions need a combined provider stack.  Keep
+    # this uncommon root-install case on the full path until the incremental
+    # state grows an effective-destination namespace of its own.
+    _root_data_prefix = (root_data_prefix or "").replace("\\", "/").strip("/")
+    _active_root_routes = any(
+        (root_folder_mods and _name in root_folder_mods)
+        or (root_mod_files and root_mod_files.get(_name))
+        for _name in priority_order
+    )
+    if not _active_root_routes:
+        # Preserve the normal incremental path for the overwhelmingly common
+        # case where a subfolder-deploy game has no enabled root-routed files.
+        _root_data_prefix = ""
+    _root_data_prefix_l = _root_data_prefix.lower()
+    _incr_on = (_incremental_enabled() and conflict_key_fn is None
+                and not _root_data_prefix_l)
     _incr_fp: tuple = ()
     if _incr_on:
         try:
@@ -2902,6 +2924,28 @@ def build_filemap(
                 _files_count[name] = _acc
     perftrace.mark("filemap: priority merge loop", time.perf_counter() - _merge_t0)
 
+    # A root-installed mod is deployed after the normal Data filemap.  Thus a
+    # root entry ``Data/meshes/x`` and a normal entry ``meshes/x`` are a real
+    # loose-file conflict, and the root entry is the effective winner regardless
+    # of mod-list priority.  Keep both map entries (both deployment stages need
+    # them), but account for the final overwrite in conflict relationships and
+    # in the normal owner's surviving-file count.
+    if _root_data_prefix_l:
+        _pfx = _root_data_prefix_l + "/"
+        for _root_key, (_root_rel, _root_owner) in filemap_root.items():
+            if not _root_key.startswith(_pfx) or len(_root_key) <= len(_pfx):
+                continue
+            _data_key = _root_key[len(_pfx):]
+            _normal_entry = filemap.get(_data_key)
+            if _normal_entry is None:
+                continue
+            _normal_owner = _normal_entry[1]
+            if _normal_owner == _root_owner:
+                continue
+            win_count[_normal_owner] = win_count.get(_normal_owner, 0) - 1
+            overrides[_root_owner].add(_normal_owner)
+            overridden_by[_normal_owner].add(_root_owner)
+
     with perftrace.span("filemap: _compute_conflict_status"):
         conflict_map = _compute_conflict_status(
             priority_order, overrides, overridden_by, win_count, mods_with_files,
@@ -2946,7 +2990,13 @@ def build_filemap(
         _norm_normal: dict[str, dict[str, str]] = {}
         _norm_root: dict[str, dict[str, str]] = {}
         for _rk, (_rs, _mn) in filemap.items():
-            _norm_normal.setdefault(_mn, {})[_rk] = _rs
+            # Compare casing in final game-root coordinates.  Normal files are
+            # deployed below root_data_prefix while root-map files are already
+            # game-root relative.  Prefixing only for this normalization pass
+            # lets ``meshes`` and ``Data/Meshes`` share one canonical folder.
+            _effective = (f"{_root_data_prefix}/{_rs}"
+                          if _root_data_prefix else _rs)
+            _norm_normal.setdefault(_mn, {})[_rk] = _effective
         for _rk, (_rs, _mn) in filemap_root.items():
             _norm_root.setdefault(_mn, {})[_rk] = _rs
         if _strategy in (FILEMAP_CASING_FORCE_LOWER, FILEMAP_CASING_FORCE_UPPER):
@@ -2979,6 +3029,12 @@ def build_filemap(
                         _cas_drw = _drw
         for _mn, _files in _norm_normal.items():
             for _rk, _rs in _files.items():
+                if _root_data_prefix:
+                    # Remove the synthetic game-root prefix by segment count;
+                    # normalization may have changed its casing.
+                    _parts = _rs.split("/")
+                    _rs = "/".join(
+                        _parts[len(_root_data_prefix.split("/")):])
                 filemap[_rk] = (_rs, _mn)
         for _mn, _files in _norm_root.items():
             for _rk, _rs in _files.items():

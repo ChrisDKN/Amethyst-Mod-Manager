@@ -131,6 +131,31 @@ def load_data_entries(game, filemap_path: Path,
         resolved = [(p, m) for p, m in resolved
                     if p.replace("\\", "/").lower() not in shadowed]
         resolved.extend(root_entries)
+
+    # filemap.txt and filemap_root.txt are normalized before the latter's
+    # leading Data/ is stripped.  That means ``meshes/a`` and
+    # ``Data/Meshes/b`` can still arrive here with two casings for the same
+    # displayed folder.  Canonicalize once more in final Data-tree coordinates
+    # so the view (and its filters) has a single logical folder.
+    try:
+        from Utils.ui_config import load_normalize_folder_case
+        normalize = (getattr(game, "normalize_folder_case", True)
+                     and load_normalize_folder_case())
+    except Exception:
+        normalize = getattr(game, "normalize_folder_case", True)
+    if normalize and resolved:
+        try:
+            from Utils.filemap import canonicalize_dir_casing
+            paths = [p.replace("\\", "/") for p, _m in resolved]
+            canonical = canonicalize_dir_casing(
+                paths,
+                getattr(game, "filemap_casing", "upper"),
+                getattr(game, "filemap_casing_pins", None),
+            )
+            resolved = [(canonical.get(p, p), m)
+                        for p, (_old, m) in zip(paths, resolved)]
+        except Exception:
+            pass
     return resolved
 
 

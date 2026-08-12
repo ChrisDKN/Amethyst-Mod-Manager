@@ -429,6 +429,11 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
         # that excludes them (see build_filemap's conflict_extras).
         _ident_pfx = getattr(conflict_key_fn, "identity_key_prefix", None)
         _extras: dict = {}
+        try:
+            from Utils.game_helpers import game_data_subpath
+            _root_data_prefix = game_data_subpath(game) or None
+        except Exception:
+            _root_data_prefix = None
         with span("build_filemap"):
             result = build_filemap(
                 modlist_path, staging, filemap_out,
@@ -452,6 +457,7 @@ def _build_filemap_for_game(game, profile, *, log_fn: LogFn,
                 conflict_key_fn=conflict_key_fn,
                 root_folder_mods=rf_mods or None,
                 root_mod_files=rt,
+                root_data_prefix=_root_data_prefix,
                 follow_toplevel_links_under=game.get_profile_root() / "profiles",
                 identity_ck_prefix=_ident_pfx,
                 conflict_extras=_extras if _ident_pfx else None,

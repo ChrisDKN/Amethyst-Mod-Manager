@@ -8185,6 +8185,7 @@ class MainWindow(QMainWindow):
         plugin_exts = frozenset(x.lower() for x in
                                 (getattr(game, "plugin_extensions", []) or ()))
         from Utils.ue_pak_reader import UE_ARCHIVE_EXTENSIONS
+        from Utils.mod_files import conflict_root_context
         archive_exts = frozenset(
             getattr(game, "archive_extensions", frozenset()) or frozenset())
         ctx = {
@@ -8200,6 +8201,7 @@ class MainWindow(QMainWindow):
             "plugin_exts": plugin_exts,
             # UE paks resolve by (_P boost, basename) mount order.
             "archive_name_ordering": bool(archive_exts & UE_ARCHIVE_EXTENSIONS),
+            "root_ctx": conflict_root_context(game, self._gs.profile_dir()),
         }
         # Reuse one tab: rebuild it for the new mod if already open.
         if self._tabs.has_key("show_conflicts"):

@@ -121,6 +121,10 @@ class ConflictCache(NamedTuple):
     winner_root: dict[str, str]            # from filemap_root.txt
     root_mods: frozenset                   # whole-mod root-flagged
     root_tags: dict[str, frozenset]        # mod -> per-file root-tagged keys
+    # Game-root-relative path of the normal deploy directory.  Root entries
+    # below it share a final destination with Data-bound entries after this
+    # prefix is stripped (Skyrim: Data/meshes/x <-> meshes/x).
+    root_data_prefix: str = ""
     # (mod, rel_key) -> UUID for BG3 paks whose module is shipped by more than
     # one enabled mod. They contest by identity, so the path-keyed sets above
     # can't see them - the loser isn't even in filemap.txt.
@@ -153,16 +157,25 @@ class ConflictCache(NamedTuple):
     @property
     def all_contested(self) -> set[str]:
         """Contested keys across both namespaces (for views that merge them)."""
-        return self.contested | self.contested_root
+        out = self.contested | self.contested_root
+        if not self.root_data_prefix:
+            return out
+        pfx = self.root_data_prefix + "/"
+        # The Data tab strips the game Data prefix from root-map entries, so
+        # expose contested keys in that same display coordinate as well.
+        return out | {
+            k[len(pfx):] for k in self.contested_root
+            if k.startswith(pfx) and len(k) > len(pfx)
+        }
 
 
 def conflict_root_context(game, profile_dir: Path | None) -> tuple:
-    """(root_flagged_mods, root-tagged keys in index space) for the split.
+    """(root mods, root-tagged keys, Data prefix) for conflict routing.
 
     Every build_conflict_cache caller must pass this - the cache is single-slot,
     so callers that disagree thrash it (same rule as bsa_conflict_index_path)."""
     if game is None or profile_dir is None:
-        return frozenset(), {}
+        return frozenset(), {}, ""
     modlist_path = profile_dir / "modlist.txt"
     root_mods: frozenset = frozenset()
     if modlist_path.is_file():
@@ -185,7 +198,12 @@ def conflict_root_context(game, profile_dir: Path | None) -> tuple:
         }
     except Exception:
         tags = {}
-    return root_mods, tags
+    try:
+        from Utils.game_helpers import game_data_subpath
+        data_prefix = game_data_subpath(game).replace("\\", "/").strip("/").lower()
+    except Exception:
+        data_prefix = ""
+    return root_mods, tags, data_prefix
 
 
 def _pak_uuid_contests(index_path: Path, full_index: dict, disabled: set,
@@ -259,9 +277,15 @@ def build_conflict_cache(index_path: Path | None,
     sets/dicts as read-only.
     """
     global _conflict_cache
-    root_mods, root_tags = root_ctx or (frozenset(), {})
+    if root_ctx and len(root_ctx) >= 3:
+        root_mods, root_tags, root_data_prefix = root_ctx[:3]
+    else:
+        root_mods, root_tags = root_ctx or (frozenset(), {})
+        root_data_prefix = ""
+    root_data_prefix = (root_data_prefix or "").replace("\\", "/").strip("/").lower()
     if index_path is None:
-        return ConflictCache(set(), {}, set(), {}, root_mods, root_tags)
+        return ConflictCache(set(), {}, set(), {}, root_mods, root_tags,
+                             root_data_prefix)
     fm_path = index_path.parent / "filemap.txt"
     fmr_path = index_path.parent / "filemap_root.txt"
     ml_path = (profile_dir / "modlist.txt") if profile_dir is not None else None
@@ -291,6 +315,7 @@ def build_conflict_cache(index_path: Path | None,
            str(bsa_index_path) if bsa_index_path is not None else None,
            _stat_key(bsa_index_path), root_mods,
            tuple(sorted((m, v) for m, v in root_tags.items())),
+           root_data_prefix,
            tuple(str(p) for p in (pak_ctx or ())))
     with _conflict_cache_lock:
         cached = _conflict_cache
@@ -375,11 +400,30 @@ def build_conflict_cache(index_path: Path | None,
                     counts[k] = counts.get(k, 0) + 1
         contested |= {k for k, c in counts.items() if c > 1}
         contested_root |= {k for k, c in counts_root.items() if c > 1}
+        # Whole-mod root installs keep their leading Data/ segment so they can
+        # also contain game-root DLLs.  Entries below that segment nevertheless
+        # collide with ordinary Data-bound files.  Root deployment runs last,
+        # making its file the effective winner in the merged view.
+        if root_data_prefix:
+            pfx = root_data_prefix + "/"
+            for root_key in counts_root:
+                if (not root_key.startswith(pfx)
+                        or len(root_key) <= len(pfx)):
+                    continue
+                data_key = root_key[len(pfx):]
+                if counts.get(data_key, 0) <= 0:
+                    continue
+                contested.add(data_key)
+                contested_root.add(root_key)
+                root_winner = filemap_root_winner.get(root_key)
+                if root_winner is not None:
+                    filemap_winner[data_key] = root_winner
         if pak_ctx is not None:
             pak_uuid = _pak_uuid_contests(index_path, full_index, disabled,
                                           pak_ctx)
     result = ConflictCache(contested, filemap_winner, contested_root,
-                           filemap_root_winner, root_mods, root_tags, pak_uuid)
+                           filemap_root_winner, root_mods, root_tags,
+                           root_data_prefix, pak_uuid)
     with _conflict_cache_lock:
         _conflict_cache = (key, full_index, result)
     return result
