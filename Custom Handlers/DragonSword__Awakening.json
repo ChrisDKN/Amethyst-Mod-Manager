@@ -6,6 +6,8 @@
   "mod_data_path": "DS",
   "steam_id": "4570720",
   "nexus_game_domain": "dragonswordawakening",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
   "image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4570720/96a897e98f4472e656fbe6681191b3066cab6056/header.jpg",
   "mod_folder_strip_prefixes": [
     "DS",
@@ -19,7 +21,8 @@
   "conflict_ignore_filenames": [
     "LICENSE",
     "*.md",
-    "*read*.txt"
+    "*read*.txt",
+    "*.jpg"
   ],
   "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
@@ -70,9 +73,18 @@
       "flatten": true
     },
     {
+      "dest": "Binaries/Win64/ue4ss",
+      "filenames": [
+        "ue4ss.dll",
+        "ue4ss-settings.ini"
+      ]
+    },
+    {
       "dest": "Binaries/Win64/ue4ss/Mods",
       "folders": [
-        "Scripts"
+        "Scripts",
+        "dlls",
+        "shared"
       ],
       "include_siblings": true
     },
@@ -80,13 +92,6 @@
       "dest": "Binaries/Win64/ue4ss/Mods",
       "filenames": [
         "enabled.txt"
-      ],
-      "include_siblings": true
-    },
-    {
-      "dest": "Binaries/Win64/ue4ss/Mods",
-      "folders": [
-        "dlls"
       ],
       "include_siblings": true
     },
@@ -109,6 +114,6 @@
   "custom_frameworks": {
     "UE4SS": "Binaries/Win64/dwmapi.dll"
   },
-  "version": 1,
+  "version": 2,
   "editable": false
 }
