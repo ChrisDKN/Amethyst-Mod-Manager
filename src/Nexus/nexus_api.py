@@ -44,6 +44,14 @@ from version import __version__
 
 API_BASE = "https://api.nexusmods.com/v1"
 GRAPHQL_BASE = "https://api.nexusmods.com/v2/graphql"
+# The website's own mod-browser talks to this host, not GRAPHQL_BASE. Same
+# ModsFilter schema, but GRAPHQL_BASE silently no-ops the `tag` filter (parses
+# fine, matches nothing - confirmed by testing a tag id attached to a mod that
+# GRAPHQL_BASE still refused to return). Used only for the public mods-listing
+# queries (get_top_mods/search_mods*/get_trending_mods_graphql); everything
+# auth-gated (tracked/endorsed, downloads, collections, mutations) stays on
+# GRAPHQL_BASE, which is proven to work with the OAuth session.
+GRAPHQL_SEARCH_BASE = "https://api-router.nexusmods.com/graphql"
 V3_BASE = "https://api.nexusmods.com/v3"
 APP_NAME = "amethyst"
 APP_VERSION = __version__
@@ -124,6 +132,48 @@ class NexusCategory:
     category_id: int
     name: str
     parent_category: int | None = None  # None = top-level
+
+
+@dataclass
+class NexusTag:
+    """A mod tag (as offered by the site's Tags include/exclude picker)."""
+    tag_id: int
+    name: str
+    adult: bool = False
+
+
+@dataclass
+class NexusSearchFilters:
+    """Advanced ModsFilter fields layered on top of category/domain/query.
+
+    tag_includes/tag_excludes are ANDed together (a mod must carry every
+    included tag and none of the excluded ones) - each tag name becomes its
+    own ModsFilter clause since the schema has no native "one of" list op for
+    mixed EQUALS/NOT_EQUALS conditions on the same field.
+    """
+    tag_includes: tuple[str, ...] = ()
+    tag_excludes: tuple[str, ...] = ()
+    languages: tuple[str, ...] = ()   # OR'd together - a mod matching ANY selected language
+    hide_translations: bool = False   # site's "Hide translations" = exclude the Translation tag
+    min_file_size_kb: int | None = None
+    max_file_size_kb: int | None = None
+    min_downloads: int | None = None
+    max_downloads: int | None = None
+    min_endorsements: int | None = None
+    max_endorsements: int | None = None
+    adult: bool | None = None  # None = no filter, True = adult only, False = exclude adult
+    # Site's "Content Options" box, beyond adult.
+    supports_vortex: bool | None = None
+    has_updated: bool = False
+    # Site's "Search Parameters" box. title_contains overlaps with the browse
+    # bar's Name-mode search (both end up as `name` WILDCARD clauses, ANDed -
+    # narrows further rather than conflicting); description/author/uploader
+    # have no other UI path in today - not exact-match (unlike the Author-mode
+    # browse search, which is EQUALS on `uploader`).
+    title_contains: str | None = None
+    description_contains: str | None = None
+    author_contains: str | None = None
+    uploader_contains: str | None = None
 
 
 @dataclass
@@ -821,23 +871,26 @@ class NexusAPI:
 
     def _post_graphql(self, query: str, variables: dict | None = None,
                       op: str = "GraphQL",
-                      retries: int = _MAX_RETRIES) -> requests.Response:
-        """POST to the GraphQL v2 API (OAuth refresh + 429 retry); returns the raw response."""
+                      retries: int = _MAX_RETRIES,
+                      base_url: str = GRAPHQL_BASE) -> requests.Response:
+        """POST to a Nexus GraphQL endpoint (OAuth refresh + 429 retry); returns
+        the raw response. Pass base_url=GRAPHQL_SEARCH_BASE for the public
+        mods-listing queries (see the constant's docstring for why)."""
         self._refresh_oauth_if_needed()
         payload: dict[str, Any] = {"query": query}
         if variables is not None:
             payload["variables"] = variables
         for attempt in range(retries):
             try:
-                resp = self._session.post(GRAPHQL_BASE, json=payload,
+                resp = self._session.post(base_url, json=payload,
                                           timeout=self._timeout)
             except requests.ConnectionError as exc:
                 raise NexusAPIError(
-                    f"Connection failed: {exc}", url=GRAPHQL_BASE) from exc
+                    f"Connection failed: {exc}", url=base_url) from exc
             except requests.Timeout as exc:
                 raise NexusAPIError(
                     f"Request timed out after {self._timeout}s",
-                    url=GRAPHQL_BASE) from exc
+                    url=base_url) from exc
 
             self._update_rate_limits(resp)
             self._log_response("POST", op, resp)
@@ -852,7 +905,7 @@ class NexusAPI:
 
             return resp
 
-        raise RateLimitError(GRAPHQL_BASE)
+        raise RateLimitError(base_url)
 
     @property
     def rate_limits(self) -> NexusRateLimits:
@@ -1003,28 +1056,134 @@ class NexusAPI:
             ))
         return result
 
+    def get_game_tags(self, game_domain: str) -> list[NexusTag]:
+        """Return the tags offered for a game's mods (backs the Tags
+        include/exclude picker). Uses GRAPHQL_BASE, and specifically the
+        `legacyTags` query - NOT `tags`, which despite the more obvious name
+        only returns a couple dozen high-level meta tags (ids in the low
+        double digits). `legacyTags` returns the real, full vocabulary mods
+        are actually tagged with (confirmed against live per-mod `tags{}`
+        data: e.g. id 4532 "Version 1.6 Compatible" appears in both; ~140
+        entries for Stardew Valley vs. 23 from `tags`)."""
+        game_id = self._resolve_game_id(game_domain)
+        if not game_id:
+            return []
+        query = """
+        query GameLegacyTags($gameId: ID) {
+            legacyTags(gameId: $gameId) {
+                id
+                name
+            }
+        }
+        """
+        # legacyTags' gameId arg is ID, not Int (unlike tags()/modFiles()) -
+        # the server 400s on a bare int variable, so stringify it.
+        variables = {"gameId": str(game_id)}
+        try:
+            resp = self._post_graphql(query, variables, op="GraphQL gameTags")
+            if not resp.ok:
+                return []
+            data = resp.json()
+            if "errors" in data:
+                return []
+            nodes = data.get("data", {}).get("legacyTags", []) or []
+        except Exception:
+            return []
+        result: list[NexusTag] = []
+        for n in nodes:
+            try:
+                tag_id = int(n.get("id") or 0)
+            except (TypeError, ValueError):
+                tag_id = 0
+            name = (n.get("name") or "").strip()
+            if not name:
+                continue
+            result.append(NexusTag(tag_id=tag_id, name=name))
+        return result
+
     @staticmethod
+    def _advanced_filter_clauses(extra: "NexusSearchFilters | None") -> list[dict]:
+        """One ModsFilter clause dict per NexusSearchFilters condition.
+
+        Each tag name is its own clause (see NexusSearchFilters docstring for
+        why); size/downloads/endorsements are GTE/LTE on the numeric fields.
+        Multiple languages are OR'd (any match) inside one sub-clause - unlike
+        tags, a flat multi-entry `languageName` list is ANDed by the server
+        (confirmed live: two languages in one list clause matches nothing),
+        so "any of" needs an explicit op:OR the way multi-category does.
+        """
+        if not extra:
+            return []
+        clauses: list[dict] = []
+        for name in extra.tag_includes:
+            clauses.append({"tag": [{"value": name, "op": "EQUALS"}]})
+        for name in extra.tag_excludes:
+            clauses.append({"tag": [{"value": name, "op": "NOT_EQUALS"}]})
+        if extra.hide_translations:
+            clauses.append({"tag": [{"value": "Translation", "op": "NOT_EQUALS"}]})
+        if len(extra.languages) == 1:
+            clauses.append({"languageName": [{"value": extra.languages[0], "op": "EQUALS"}]})
+        elif len(extra.languages) > 1:
+            clauses.append({
+                "op": "OR",
+                "filter": [{"languageName": [{"value": lang, "op": "EQUALS"}]}
+                          for lang in extra.languages],
+            })
+        if extra.min_file_size_kb:
+            clauses.append({"fileSize": [{"value": extra.min_file_size_kb, "op": "GTE"}]})
+        if extra.max_file_size_kb:
+            clauses.append({"fileSize": [{"value": extra.max_file_size_kb, "op": "LTE"}]})
+        if extra.min_downloads:
+            clauses.append({"downloads": [{"value": extra.min_downloads, "op": "GTE"}]})
+        if extra.max_downloads:
+            clauses.append({"downloads": [{"value": extra.max_downloads, "op": "LTE"}]})
+        if extra.min_endorsements:
+            clauses.append({"endorsements": [{"value": extra.min_endorsements, "op": "GTE"}]})
+        if extra.max_endorsements:
+            clauses.append({"endorsements": [{"value": extra.max_endorsements, "op": "LTE"}]})
+        if extra.adult is not None:
+            clauses.append({"adultContent": [{"value": extra.adult}]})
+        if extra.supports_vortex is not None:
+            clauses.append({"supportsVortex": [{"value": extra.supports_vortex}]})
+        if extra.has_updated:
+            clauses.append({"hasUpdated": [{"value": True}]})
+        # WILDCARD (substring on the raw value) needs >=2 chars, same guard
+        # _search_mods_by_field uses for the browse bar's name search.
+        for field_name, value, op in (
+            ("name", extra.title_contains, "WILDCARD"),
+            ("author", extra.author_contains, "WILDCARD"),
+            ("uploader", extra.uploader_contains, "WILDCARD"),
+        ):
+            value = (value or "").strip()
+            if len(value) >= 2:
+                clauses.append({field_name: [{"value": value, "op": op}]})
+        # description has no WILDCARD op (server rejects it - MATCHES only,
+        # confirmed live); MATCHES still does substring-ish text matching.
+        desc = (extra.description_contains or "").strip()
+        if len(desc) >= 2:
+            clauses.append({"description": [{"value": desc, "op": "MATCHES"}]})
+        return clauses
+
+    @classmethod
     def _build_mods_filter(
-        game_domain: str, category_names: list[str] | None = None
+        cls, game_domain: str, category_names: list[str] | None = None,
+        extra: "NexusSearchFilters | None" = None,
     ) -> dict:
-        """Build a ModsFilter dict, optionally restricting to specific category names."""
-        base: dict = {"gameDomainName": {"value": game_domain}}
-        if not category_names:
-            return base
-        if len(category_names) == 1:
-            base["categoryName"] = {"value": category_names[0]}
-            return base
-        # Multiple categories: AND(domain, OR(cat1, cat2, ...))
-        return {
-            "op": "AND",
-            "filter": [
-                {"gameDomainName": {"value": game_domain}},
-                {
+        """Build a ModsFilter dict: gameDomainName AND category(ies) AND any
+        advanced *extra* conditions. Always returns the {op: AND, filter: […]}
+        shape (even for a single clause) so every caller can unconditionally
+        append more clauses to base_filter["filter"]."""
+        clauses: list[dict] = [{"gameDomainName": {"value": game_domain}}]
+        if category_names:
+            if len(category_names) == 1:
+                clauses.append({"categoryName": {"value": category_names[0]}})
+            else:
+                clauses.append({
                     "op": "OR",
                     "filter": [{"categoryName": {"value": n}} for n in category_names],
-                },
-            ],
-        }
+                })
+        clauses.extend(cls._advanced_filter_clauses(extra))
+        return {"op": "AND", "filter": clauses}
 
     # -- Mods ---------------------------------------------------------------
 
@@ -1093,25 +1252,17 @@ class NexusAPI:
         count: int = 20,
         offset: int = 0,
         category_names: list[str] | None = None,
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         Fetch trending mods via GraphQL: mods published in the last 7 days,
         sorted by endorsements (highest first).
         """
         seven_days_ago = int(time.time()) - (7 * 24 * 60 * 60)
-        base_filter = self._build_mods_filter(game_domain, category_names)
-        if "filter" in base_filter:
-            base_filter["filter"].append({
-                "createdAt": [{"value": str(seven_days_ago), "op": "GTE"}],
-            })
-        else:
-            base_filter = {
-                "op": "AND",
-                "filter": [
-                    base_filter,
-                    {"createdAt": [{"value": str(seven_days_ago), "op": "GTE"}]},
-                ],
-            }
+        base_filter = self._build_mods_filter(game_domain, category_names, extra=filters)
+        base_filter["filter"].append({
+            "createdAt": [{"value": str(seven_days_ago), "op": "GTE"}],
+        })
         query = """
         query TrendingMods($filter: ModsFilter, $count: Int, $offset: Int) {
             mods(
@@ -1147,7 +1298,8 @@ class NexusAPI:
         }
         try:
             resp = self._post_graphql(query, variables,
-                                      op="GraphQL trendingMods")
+                                      op="GraphQL trendingMods",
+                                      base_url=GRAPHQL_SEARCH_BASE)
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL trending query failed: {resp.status_code}",
@@ -2127,6 +2279,7 @@ class NexusAPI:
         category_names: list[str] | None = None,
         created_since_days: int | None = None,
         sort_key: str = "downloads",
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         Fetch top mods for a game via the GraphQL v2 API.
@@ -2135,21 +2288,16 @@ class NexusAPI:
         "downloads" (default), "endorsements", "createdAt", "updatedAt".
         Pass category_names to restrict results to specific categories.
         Pass created_since_days to restrict to mods uploaded within the last N days
-        (None = all time).
+        (None = all time). Pass filters for tag/language/size/downloads/
+        endorsements/adult conditions (see NexusSearchFilters).
         """
         if sort_key not in self._TOP_MODS_SORT_KEYS:
             sort_key = "downloads"
-        base_filter = self._build_mods_filter(game_domain, category_names)
+        base_filter = self._build_mods_filter(game_domain, category_names, extra=filters)
         if created_since_days is not None and created_since_days > 0:
             cutoff = int(time.time()) - (created_since_days * 24 * 60 * 60)
-            date_clause = {"createdAt": [{"value": str(cutoff), "op": "GTE"}]}
-            if "filter" in base_filter:
-                base_filter["filter"].append(date_clause)
-            else:
-                base_filter = {
-                    "op": "AND",
-                    "filter": [base_filter, date_clause],
-                }
+            base_filter["filter"].append(
+                {"createdAt": [{"value": str(cutoff), "op": "GTE"}]})
         query = f"""
         query TopMods($filter: ModsFilter, $count: Int, $offset: Int) {{
             mods(
@@ -2184,7 +2332,8 @@ class NexusAPI:
             "offset": offset,
         }
         try:
-            resp = self._post_graphql(query, variables, op="GraphQL topMods")
+            resp = self._post_graphql(query, variables, op="GraphQL topMods",
+                                      base_url=GRAPHQL_SEARCH_BASE)
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL top-mods query failed: {resp.status_code}",
@@ -2228,6 +2377,7 @@ class NexusAPI:
         self, game_domain: str, query_text: str, count: int = 10, offset: int = 0,
         category_names: list[str] | None = None,
         sort_key: str = "downloads",
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         Search mods by name for a game via the GraphQL v2 API.
@@ -2237,12 +2387,13 @@ class NexusAPI:
         """
         return self._search_mods_by_field(
             "name", game_domain, query_text, count=count, offset=offset,
-            category_names=category_names, sort_key=sort_key)
+            category_names=category_names, sort_key=sort_key, filters=filters)
 
     def search_mods_by_uploader_id(
         self, game_domain: str, uploader_id: int, count: int = 10, offset: int = 0,
         category_names: list[str] | None = None,
         sort_key: str = "downloads",
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         List a game's mods by the uploader's stable account id (GraphQL
@@ -2260,12 +2411,13 @@ class NexusAPI:
         cond = {"uploaderId": [{"value": str(uploader_id)}]}
         return self._search_mods_filtered(
             game_domain, cond, count=count, offset=offset,
-            category_names=category_names, sort_key=sort_key)
+            category_names=category_names, sort_key=sort_key, filters=filters)
 
     def search_mods_by_author(
         self, game_domain: str, author: str, count: int = 10, offset: int = 0,
         category_names: list[str] | None = None,
         sort_key: str = "downloads",
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         Search a game's mods by the uploader's display name (GraphQL `uploader`
@@ -2281,12 +2433,13 @@ class NexusAPI:
         cond = {"uploader": [{"value": author}]}
         return self._search_mods_filtered(
             game_domain, cond, count=count, offset=offset,
-            category_names=category_names, sort_key=sort_key)
+            category_names=category_names, sort_key=sort_key, filters=filters)
 
     def _search_mods_by_field(
         self, field: str, game_domain: str, value: str, count: int = 10,
         offset: int = 0, category_names: list[str] | None = None,
         sort_key: str = "downloads",
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         WILDCARD text search on a single field (used by search_mods for `name`).
@@ -2303,26 +2456,24 @@ class NexusAPI:
         return self._search_mods_filtered(
             game_domain, {field: {"value": value, "op": "WILDCARD"}},
             count=count, offset=offset, category_names=category_names,
-            sort_key=sort_key)
+            sort_key=sort_key, filters=filters)
 
     def _search_mods_filtered(
         self, game_domain: str, cond: dict, count: int = 10,
         offset: int = 0, category_names: list[str] | None = None,
         sort_key: str = "downloads",
+        filters: "NexusSearchFilters | None" = None,
     ) -> list[NexusModInfo]:
         """
         Shared GraphQL mod search: run the SearchMods query with *cond* (a
-        prebuilt ModsFilter condition) AND-ed onto the domain/category filter.
-        Keeps the query + node parsing in one place for all the search variants.
+        prebuilt ModsFilter condition) AND-ed onto the domain/category/advanced
+        filter. Keeps the query + node parsing in one place for all the search
+        variants.
         """
         if sort_key not in self._TOP_MODS_SORT_KEYS:
             sort_key = "downloads"
-        base_filter = self._build_mods_filter(game_domain, category_names)
-        if "filter" in base_filter:
-            # nested AND structure - append the condition
-            base_filter["filter"].append(cond)
-        else:
-            base_filter.update(cond)
+        base_filter = self._build_mods_filter(game_domain, category_names, extra=filters)
+        base_filter["filter"].append(cond)
         query = f"""
         query SearchMods($filter: ModsFilter, $count: Int, $offset: Int) {{
             mods(
@@ -2358,7 +2509,8 @@ class NexusAPI:
         }
         try:
             resp = self._post_graphql(query, variables,
-                                      op="GraphQL searchMods")
+                                      op="GraphQL searchMods",
+                                      base_url=GRAPHQL_SEARCH_BASE)
             if not resp.ok:
                 raise NexusAPIError(
                     f"GraphQL search query failed: {resp.status_code}",
