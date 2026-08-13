@@ -386,10 +386,9 @@ def transfer_save_entry(src: Path, dest_dir: Path, move: bool = False,
             os.replace(src, dest)
         else:
             _copy_entry(src, dest, total, progress_fn)
-            if move:
-                _remove_entry(src)
     except BaseException:
-        # Bin whatever landed, then put the replaced entry back.
+        # The destination is not complete yet: bin whatever landed, then put
+        # the replaced entry back.
         try:
             _remove_entry(dest)
         except OSError:
@@ -397,6 +396,26 @@ def transfer_save_entry(src: Path, dest_dir: Path, move: bool = False,
         if stash is not None:
             os.replace(stash, dest)
         raise
+
+    if move and not rename:
+        try:
+            _remove_entry(src)
+        except BaseException as exc:
+            # Copying has completed, so *dest* is now the only known-complete
+            # copy.  Source cleanup can fail after rmtree has already removed
+            # some files; rolling the destination back here would then lose
+            # data from both sides.  Commit the destination and report only
+            # that the source could not be fully removed.
+            if stash is not None:
+                try:
+                    _remove_entry(stash)
+                except OSError:
+                    pass
+            if isinstance(exc, OSError):
+                raise SaveTransferError(
+                    f"{src.name} was copied safely, but the original could "
+                    f"not be completely removed: {exc}") from exc
+            raise
     if stash is not None:
         _remove_entry(stash)
     if progress_fn is not None:

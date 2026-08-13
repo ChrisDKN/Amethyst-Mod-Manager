@@ -1335,8 +1335,9 @@ class ExportProfileView(QWidget):
         edits_wrap = self._center_checkbox(
             lambda ch: self._set_save_edits(di(), ch))
         edits_wrap._chk.setToolTip(self.tr(
-            "Ship your local changes to this mod's files as binary "
-            "patches, so users get the mod exactly as you have it."))
+            "Ship changes to files that also exist in the original archive "
+            "as binary patches. Locally added or deleted files cannot be "
+            "included."))
         t.setCellWidget(vi, self._EDITS_COL, edits_wrap)
 
         return {"src": src_btn, "ver": ver_btn, "fomod_wrap": fomod_wrap,

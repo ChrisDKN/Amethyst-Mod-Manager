@@ -616,10 +616,14 @@ def restore_root_folder(
         return False
 
     # Remove files we placed (parallelised - one lstat + one unlink per worker).
-    _game_root_str = str(game_root)
     safe_targets: list[tuple[str, bool, tuple[int, ...] | None]] = []
+    _restore_dir_cache: dict = {}
     for rel_str in placed:
-        dst = game_root / rel_str
+        # Deploy resolves existing directory segments case-insensitively (for
+        # example Data/Scripts into an existing Data/sCrIpTs).  Older logs
+        # retain the filemap spelling, so restore must perform the same lookup
+        # instead of probing a parallel, nonexistent path on Linux.
+        dst = _resolve_root_path(game_root, Path(rel_str), _restore_dir_cache)
         if not _path_under_root(dst, game_root):
             _log(f"  SKIP: path traversal blocked - {rel_str}")
             continue
@@ -633,7 +637,7 @@ def restore_root_folder(
             # the whole mod folder, and only the rare protected-and-owned path
             # reaches it.  Doing it here keeps the parallel unlink below to one
             # lstat + one unlink per worker and the index cache single-threaded.
-            dst_str = _game_root_str + "/" + rel_str
+            dst_str = str(dst)
             try:
                 st = os.lstat(dst_str)
             except OSError:
@@ -646,7 +650,7 @@ def restore_root_folder(
                     st.st_mtime_ns, st.st_size,
                 )
         safe_targets.append(
-            (_game_root_str + "/" + rel_str, protect, verified_identity)
+            (str(dst), protect, verified_identity)
         )
 
     def _unlink_one(item) -> int:
@@ -683,7 +687,8 @@ def restore_root_folder(
                 removed += n
 
     # Restore backed-up originals if any.
-    _restore_backup_dir(backup_dir, game_root, _log)
+    _restore_backup_dir(
+        backup_dir, game_root, _log, resolve_dir_case=True)
 
     # Remove the log.
     log_path.unlink()
@@ -705,7 +710,7 @@ def restore_root_folder(
 
     # Remove any empty subdirectories left behind inside pre-existing dirs
     # (e.g. BepInEx/patchers/Tobey/ left empty after our files were removed).
-    dirs_to_check: set[Path] = {(game_root / rel_str).parent for rel_str in placed}
+    dirs_to_check: set[Path] = {Path(path).parent for path, _p, _i in safe_targets}
     _prune_empty_dirs(dirs_to_check, stop_dirs={game_root})
 
     print(f"  [TIMER] restore_root_folder: {_time.perf_counter() - _t_root_restore:.3f}s")

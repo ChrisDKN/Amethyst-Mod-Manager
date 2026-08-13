@@ -4125,8 +4125,8 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Cleared optional on {0} mod(s).</translation>
     </message>
     <message>
-        <source>Ship your local changes to this mod's files as binary patches, so users get the mod exactly as you have it.</source>
-        <translation>Ship your local changes to this mod's files as binary patches, so users get the mod exactly as you have it.</translation>
+        <source>Ship changes to files that also exist in the original archive as binary patches. Locally added or deleted files cannot be included.</source>
+        <translation>Ship changes to files that also exist in the original archive as binary patches. Locally added or deleted files cannot be included.</translation>
     </message>
     <message>
         <source>This mod was not installed from Thunderstore.</source>

@@ -868,7 +868,8 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
     Returns ``{relative_path: source_crc}`` for every file whose staged content
     differs from the archive's - the manifest's ``patches`` map. Installers
     re-download the untouched mod and apply these patches, so only files that
-    exist in the archive can be covered.
+    exist in the archive can be covered.  Added files and possible deletions
+    are reported rather than silently omitted.
     """
     if bsdiff4 is None:
         warnings.append(
@@ -898,6 +899,8 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
             by_base.setdefault(src.name.lower(), []).append(src)
 
         patches: dict = {}
+        matched_sources: set[Path] = set()
+        added_files: list[str] = []
         for staged in sorted(mod_dir.rglob("*")):
             if not staged.is_file():
                 continue
@@ -919,7 +922,14 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
                 if len(candidates) == 1:
                     src = candidates[0]
             if src is None:
-                continue        # added by the user; can't be expressed as a patch
+                # Shipping the whole file would bypass the binary-patch
+                # redistribution boundary.  Surface it so the author can
+                # choose a bundle source (where permitted) or provide it by
+                # another mod instead.
+                added_files.append(rel)
+                continue
+
+            matched_sources.add(src)
 
             try:
                 src_bytes = src.read_bytes()
@@ -953,6 +963,24 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
             diff_path.parent.mkdir(parents=True, exist_ok=True)
             diff_path.write_bytes(diff)
             patches[rel] = _crc32_hex(src_bytes)
+
+        if added_files:
+            preview = ", ".join(added_files[:3])
+            more = (f" and {len(added_files) - 3} more"
+                    if len(added_files) > 3 else "")
+            warnings.append(
+                f"'{mod_label}': {len(added_files)} locally added file(s) "
+                f"cannot be shipped as binary patches ({preview}{more}); "
+                "users will not receive them.")
+
+        absent_count = sum(1 for src in by_path.values()
+                           if src not in matched_sources)
+        if absent_count:
+            warnings.append(
+                f"'{mod_label}': {absent_count} original-archive file(s) are "
+                "absent from the installed mod. Binary patches cannot "
+                "reproduce deletions; some may instead be unselected "
+                "installer files.")
 
         return patches
     finally:

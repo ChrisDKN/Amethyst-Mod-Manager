@@ -519,6 +519,7 @@ def _restore_backup_dir(
     label: str | None = None,
     check_traversal: bool = True,
     swallow_errors: bool = False,
+    resolve_dir_case: bool = False,
 ) -> int:
     """Move every file under *backup_dir* back into *target_root* (preserving
     relative path), then remove *backup_dir*.
@@ -547,6 +548,10 @@ def _restore_backup_dir(
         When True, catch ``OSError`` per file and log a warning rather than
         propagating.  Used by the cleanup paths that must keep going even if
         a single file can't be restored.
+    resolve_dir_case
+        Match existing destination directory names case-insensitively.  Root
+        deployment uses this on case-sensitive filesystems because deploy
+        merges into the game's existing directory casing.
 
     Returns the number of files restored.
     """
@@ -556,6 +561,7 @@ def _restore_backup_dir(
 
     tag = label if label is not None else f"{backup_dir.name}/"
     restored = 0
+    dir_cache: dict = {}
     _bak_files: list[Path] = []
     for _dp, _dns, _fns in os.walk(str(backup_dir)):
         # Interrupted cross-device moves leave *.mm_tmp partials - never
@@ -570,7 +576,8 @@ def _restore_backup_dir(
             _bak_files.append(Path(_dp) / _fn)
     for bak_src in _bak_files:
         rel = bak_src.relative_to(backup_dir)
-        orig = target_root / rel
+        orig = (_resolve_root_path(target_root, rel, dir_cache)
+                if resolve_dir_case else target_root / rel)
         if check_traversal and not _path_under_root(orig, target_root):
             _log(f"  SKIP: path traversal blocked - {rel}")
             continue
