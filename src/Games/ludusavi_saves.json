@@ -1,7 +1,7 @@
 {
  "v": 1,
- "generated": "2026-08-02",
- "etags": {"ludusavi": "546a54df0be0e3d2ac675f75ee136482cfd1f10a99d085e0b31760d0a2cefad9", "bloodshed-extra": "7e00208a78fe1ea3a8f73f45cc28996b621724ee64e358a5f3a0e2385ccd28d8"},
+ "generated": "2026-08-13",
+ "etags": {"ludusavi": "cf1d3e0017515c8f1694b528b0ce91e4a4657df2ce92ec62fe7c240877a4b6f0", "bloodshed-extra": "98c2ba85f5759d49ed83765830890105b611289c9b63f23019086fed052e9f03"},
  "games": {
   "!Anyway!": {
    "f": [
@@ -802,6 +802,12 @@
    ],
    "s": "1969080",
    "x": ["2051860", "2245640"]
+  },
+  "A Bumpy Ride": {
+   "f": [
+    ["<winLocalAppData>/ABumpyRide/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3056840"
   },
   "A Case of Distrust": {
    "f": [
@@ -2315,6 +2321,12 @@
    ],
    "s": "1210150",
    "x": ["1324660"]
+  },
+  "Agent 64: Spies Never Die": {
+   "f": [
+    ["<winDocuments>/Agent 64 Spies Never Die/Agent */main.*", "windows", ""]
+   ],
+   "s": "1574480"
   },
   "Agent Intercept": {
    "f": [
@@ -5974,6 +5986,12 @@
    "s": "1801110",
    "x": ["2875550"]
   },
+  "BOSSGAME: The Final Boss Is My Heart": {
+   "f": [
+    ["<home>/AppData/LocalLow/LilycoreGamesLLC/Bossgame", "windows", ""]
+   ],
+   "s": "2075160"
+  },
   "BOTOLO": {
    "f": [
     ["<home>/AppData/Roaming/IAN2P.IAN2P/Local Store", "windows", ""]
@@ -7099,6 +7117,13 @@
     ["<home>/AppData/LocalLow/Vodeo Games/Beast Breaker/Saves", "windows", ""]
    ]
   },
+  "Beast of Reincarnation": {
+   "f": [
+    ["<winLocalAppData>/BeastOfReincarnation/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2001760",
+   "x": ["4146830"]
+  },
   "Beastieball": {
    "f": [
     ["<winLocalAppData>/beastieball/save", "windows", ""]
@@ -7674,6 +7699,12 @@
    "f": [
     ["<base>/Data/Players/<storeUserId>.bin", "windows", ""]
    ]
+  },
+  "Big Walk": {
+   "f": [
+    ["<home>/AppData/LocalLow/House House/Big Walk/user_data/save_games", "windows", ""]
+   ],
+   "s": "1478500"
   },
   "Bigfoot": {
    "f": [
@@ -13621,6 +13652,12 @@
    ],
    "s": "1022710"
   },
+  "Conquest Dark": {
+   "f": [
+    ["<base>/SaveData.data", "windows", ""]
+   ],
+   "s": "3238670"
+  },
   "Conquest of Elysium 3": {
    "f": [
     ["<winAppData>/coe3/saves", "windows", ""]
@@ -14086,6 +14123,12 @@
     ["<home>/AppData/LocalLow/Zeboyd Games/Cosmic Star Heroine", "windows", ""]
    ],
    "s": "256460"
+  },
+  "Cosmobreeder Yiffai": {
+   "f": [
+    ["<base>/cosmo.sav", "windows", ""]
+   ],
+   "s": "3548000"
   },
   "Cosmoteer: Starship Architect & Commander": {
    "f": [
@@ -16999,6 +17042,12 @@
    ],
    "s": "3989570"
   },
+  "Death of a Wish": {
+   "f": [
+    ["<home>/AppData/LocalLow/melessthanthree/DeathOfAWish/savedGames.gd", "windows", ""]
+   ],
+   "s": "2302080"
+  },
   "Death of the Reprobate": {
    "f": [
     ["<home>/AppData/LocalLow/Joe Richardson Games/Death of the Reprobate", "windows", ""],
@@ -18439,6 +18488,13 @@
     ["<winAppData>/DinoTrauma", "windows", ""]
    ],
    "s": "2149420"
+  },
+  "Dinoblade": {
+   "f": [
+    ["<winLocalAppData>/DinobladeGame/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3440070",
+   "x": ["4106740"]
   },
   "Dinosaur": {
    "f": [
@@ -20377,6 +20433,13 @@
     ["<home>/AppData/LocalLow/Just1337/Duke of Alpha Centauri/*.json", "windows", ""]
    ],
    "s": "567580"
+  },
+  "Dumpy & Bumpy": {
+   "f": [
+    ["<home>/AppData/Local/DumpyAndBumpy", "windows", ""]
+   ],
+   "s": "1631500",
+   "x": ["1716680"]
   },
   "Dune 2000": {
    "f": [
@@ -22607,6 +22670,13 @@
    ],
    "s": "257870"
   },
+  "Esoteric Ebb": {
+   "f": [
+    ["<home>/AppData/LocalLow/Christoffer Bodegard/Esoteric Ebb/SaveFiles", "windows", ""]
+   ],
+   "s": "2057760",
+   "x": ["2128090", "2310250", "4338380", "4438390"]
+  },
   "Espresso Tycoon": {
    "f": [
     ["<home>/AppData/LocalLow/DreamWay Games/Espresso Tycoon/GameState", "windows", ""]
@@ -23599,22 +23669,6 @@
    ],
    "s": "2353280"
   },
-  "FAR: Changing Tides": {
-   "f": [
-    ["<home>/AppData/LocalLow/Okomotive/FarChangingTides", "windows", ""],
-    ["<winLocalAppData>/Packages/FrontierDevelopmentsPlc.FARChangingTidesWindowsEdi_ft442cafaz8hg/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
-   ],
-   "s": "1570010",
-   "x": ["1684390"]
-  },
-  "FAR: Lone Sails": {
-   "f": [
-    ["<home>/AppData/LocalLow/Okomotive/FarLoneSails", "windows", ""],
-    ["<root>/userdata/<storeUserId>/609320/remote", "", "steam"]
-   ],
-   "s": "609320",
-   "x": ["837840", "837841"]
-  },
   "FATE": {
    "f": [
     ["<winLocalAppData>/WildTangent/Fate/Persistent/SAVE", "windows", "gog"],
@@ -24338,6 +24392,22 @@
    ],
    "s": "3124540"
   },
+  "Far: Changing Tides": {
+   "f": [
+    ["<home>/AppData/LocalLow/Okomotive/FarChangingTides", "windows", ""],
+    ["<winLocalAppData>/Packages/FrontierDevelopmentsPlc.FARChangingTidesWindowsEdi_ft442cafaz8hg/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
+   ],
+   "s": "1570010",
+   "x": ["1684390"]
+  },
+  "Far: Lone Sails": {
+   "f": [
+    ["<home>/AppData/LocalLow/Okomotive/FarLoneSails", "windows", ""],
+    ["<root>/userdata/<storeUserId>/609320/remote", "", "steam"]
+   ],
+   "s": "609320",
+   "x": ["837840", "837841", "1390550"]
+  },
   "FarSky": {
    "f": [
     ["<home>/.FarSky/save", "linux", ""],
@@ -24859,7 +24929,8 @@
    "f": [
     ["<winLocalAppData>/FieldsOfMistria/saves", "windows", ""]
    ],
-   "s": "2142790"
+   "s": "2142790",
+   "x": ["3015670"]
   },
   "Fiend": {
    "f": [
@@ -26921,6 +26992,12 @@
    ],
    "s": "1920430",
    "x": ["2255190", "3868400", "3868660"]
+  },
+  "Funi Raccoon Game": {
+   "f": [
+    ["<xdgData>/godot/app_userdata/Funi Raccoon Game Redux/raccoon_saves", "linux", ""]
+   ],
+   "s": "3599690"
   },
   "Funko Fusion": {
    "f": [
@@ -29094,12 +29171,6 @@
     ["<home>/AppData/LocalLow/Lazy Bear Games/Graveyard Keeper", "windows", ""]
    ],
    "s": "599140"
-  },
-  "Gravi": {
-   "f": [
-    ["<base>/Gravi_Steam_v1.13b_Data/StreamingAssets/PlayerPrefs.dat", "windows", ""]
-   ],
-   "s": "247310"
   },
   "Gravitas": {
    "f": [
@@ -34559,6 +34630,13 @@
    ],
    "s": "1157740"
   },
+  "Iron Nest: Heavy Turret Simulator": {
+   "f": [
+    ["<home>/AppData/LocalLow/Iron Nest/Iron Nest_ Heavy Turret Simulator/Live", "windows", ""]
+   ],
+   "s": "2950790",
+   "x": ["4300490", "4300500"]
+  },
   "Iron Storm": {
    "f": [
     ["<base>/save", "windows", ""]
@@ -34999,6 +35077,12 @@
     ["<home>/AppData/LocalLow/Loxarc/jsp2/savedata.dat", "windows", ""]
    ],
    "s": "4193270"
+  },
+  "Japan Stigmatized Property 3": {
+   "f": [
+    ["<home>/AppData/LocalLow/Loxarc/jsp3/savedata.dat", "windows", ""]
+   ],
+   "s": "4611990"
   },
   "Japanese School Life": {
    "f": [
@@ -36077,6 +36161,13 @@
     ["<base>/Saves", "windows", ""]
    ]
   },
+  "Kill The Music": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Kill The Music", "windows", ""]
+   ],
+   "s": "3093050",
+   "x": ["3858970"]
+  },
   "Kill la Kill -IF": {
    "f": [
     ["<winLocalAppData>/KILLlaKILL_IF", "windows", ""]
@@ -36111,6 +36202,7 @@
   },
   "Killer Instinct": {
    "f": [
+    ["<root>/userdata/<storeUserId>/577940", "", "steam"],
     ["<winLocalAppData>/Packages/Microsoft.KillerInstinct-Win10_8wekyb3d8bbwe/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "577940"
@@ -36977,6 +37069,12 @@
     ["<home>/AppData/LocalLow/Jujubee/KURSK/<storeUserId>", "windows", ""]
    ],
    "s": "860620"
+  },
+  "Kusan: City of Wolves": {
+   "f": [
+    ["<home>/AppData/LocalLow/CircleFromDot/Kusan", "windows", ""]
+   ],
+   "s": "1714510"
   },
   "Kuso": {
    "f": [
@@ -38595,6 +38693,12 @@
    ],
    "s": "635940"
   },
+  "Little Comet": {
+   "f": [
+    ["<home>/AppData/LocalLow/Outgunned Games/Little Comet", "windows", ""]
+   ],
+   "s": "856100"
+  },
   "Little Doll Queen": {
    "f": [
     ["<base>/script/varo/data/*.dat", "windows", ""],
@@ -39212,6 +39316,7 @@
   },
   "Lost and Found Co.": {
    "f": [
+    ["<home>/AppData/LocalLow/BitEggInc/LostAndFoundCo/SaveSlots", "windows", ""],
     ["<home>/AppData/LocalLow/BitEggInc/LostAndFoundCo/StageState", "windows", ""],
     ["<home>/AppData/LocalLow/BitEggInc/LostAndFoundCo/save.json", "windows", ""]
    ],
@@ -41554,6 +41659,11 @@
    ],
    "s": "390330"
   },
+  "Mekkablood: Quarry Assault": {
+   "f": [
+    ["<winLocalAppData>/retrofpsgame/Saved/SaveGames", "windows", ""]
+   ]
+  },
   "Melatonin": {
    "f": [
     ["<base>/*.json", "windows", ""]
@@ -43421,7 +43531,8 @@
    "f": [
     ["<home>/AppData/LocalLow/11BitStudios/Moonlighter 2 The Endless Vault/*.bin", "windows", ""]
    ],
-   "s": "2350790"
+   "s": "2350790",
+   "x": ["3670000", "4036250", "4935250"]
   },
   "Moonring": {
    "f": [
@@ -49169,7 +49280,7 @@
     ["<home>/AppData/LocalLow/Washbear/Parkasaurus/CloudSaves", "windows", ""]
    ],
    "s": "591460",
-   "x": ["1931130"]
+   "x": ["1931130", "2388590", "2435170"]
   },
   "Parker & Lane: Criminal Justice": {
    "f": [
@@ -49320,6 +49431,13 @@
    ],
    "s": "1184370",
    "x": ["1694800", "1694801", "1816820", "1816821", "1849470", "1882540", "1889980", "1889981", "2064590", "2145870", "2266770", "2564570", "2564580", "3116830"]
+  },
+  "Pathogenic": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Pathogenic/*.json", "windows", ""],
+    ["<winAppData>/Godot/app_userdata/Pathogenic/profile_*/*.json*", "windows", ""]
+   ],
+   "s": "3808690"
   },
   "Pathologic 2": {
    "f": [
@@ -49988,7 +50106,7 @@
   },
   "Phasmophobia": {
    "f": [
-    ["<home>/AppData/LocalLow/Kinetic Games/Phasmophobia/saveData.txt", "windows", ""]
+    ["<home>/AppData/LocalLow/Kinetic Games/Phasmophobia/*.txt", "windows", ""]
    ],
    "s": "739630"
   },
@@ -52028,6 +52146,12 @@
    ],
    "s": "384180"
   },
+  "Pronoun Palace": {
+   "f": [
+    ["<xdgData>/Pronoun Palace/saves", "linux", ""]
+   ],
+   "s": "3618850"
+  },
   "Prophecy of the Shadow": {
    "f": [
     ["<base>/Prophecy of the Shadow/ProphecyoftheShadow_20231129_v1/Prophecy of the Shadow/GAME/SSI/PROPHECY/SAVE", "windows", ""]
@@ -53426,6 +53550,13 @@
    ],
    "s": "2936080"
   },
+  "ReStory: Chill Electronics Repairs": {
+   "f": [
+    ["<home>/AppData/LocalLow/Mandragora/Restory/SaveData", "windows", ""]
+   ],
+   "s": "3812600",
+   "x": ["4146670", "4146680", "5034500"]
+  },
   "ReThink": {
    "f": [
     ["<winLocalAppData>/RT_RW/Saved/SaveGames/*_RW.sav", "windows", ""],
@@ -53660,7 +53791,8 @@
    "f": [
     ["<winLocalAppData>/REANIMAL/Saved/SaveGames/<storeUserId>/*.sav", "windows", ""]
    ],
-   "s": "2129530"
+   "s": "2129530",
+   "x": ["3954470", "4019420", "4112550", "4351720", "4430060", "4733900"]
   },
   "Rebel Cops": {
    "f": [
@@ -56929,12 +57061,26 @@
    ],
    "s": "355170"
   },
+  "Sam & Max Save the World": {
+   "f": [
+    ["<base>/*.save", "", "steam"]
+   ],
+   "s": "901660",
+   "x": ["8200", "8210", "8220", "8230", "8240", "8250"]
+  },
   "Sam & Max Save the World (2020)": {
    "f": [
     ["<winDocuments>/Skunkape Games/Sam & Max Save the World", "windows", ""]
    ],
    "s": "1440440",
    "x": ["1468550"]
+  },
+  "Sam & Max: Beyond Time and Space": {
+   "f": [
+    ["<base>/*.save", "", "steam"]
+   ],
+   "s": "901663",
+   "x": ["8260", "8270", "8280", "8290", "8300"]
   },
   "Sam & Max: Beyond Time and Space (2021)": {
    "f": [
@@ -57329,6 +57475,13 @@
     ["<winLocalAppData>/Scarf/Saved/SaveGames", "windows", ""]
    ],
    "s": "645320"
+  },
+  "Scarlet Deer Inn": {
+   "f": [
+    ["<home>/AppData/LocalLow/Attu Games/Scarlet Deer Inn/SaveData/*.attu", "windows", ""]
+   ],
+   "s": "1553260",
+   "x": ["2723730", "4955870"]
   },
   "Scarlet Hollow": {
    "f": [
@@ -64440,7 +64593,7 @@
     ["<home>/AppData/LocalLow/Firefly Studios/Stronghold Crusader Definitive Edition/skirmishmasters.cfg", "windows", ""]
    ],
    "s": "3024040",
-   "x": ["3030340", "3030350", "4227730"]
+   "x": ["3030340", "3030350", "4227730", "4483530", "4483540"]
   },
   "Stronghold Legends": {
    "f": [
@@ -67098,6 +67251,16 @@
    "s": "285920",
    "x": ["331930", "917190", "1090730", "1199630", "1289390", "1475870", "1475880", "1751530"]
   },
+  "TerraTech Worlds": {
+   "f": [
+    ["<winLocalAppData>/TT2/219858/WorldSaves/*", "windows", ""],
+    ["<winLocalAppData>/TT2/219858/Profiles/*.txt", "windows", ""],
+    ["<winLocalAppData>/TT2/219858/LocalTechSnapshots/*", "windows", ""],
+    ["<winLocalAppData>/TT2/219858/Prospectors/*.txt", "windows", ""],
+    ["<winLocalAppData>/TT2/219858/*.txt", "windows", ""]
+   ],
+   "s": "2313330"
+  },
   "Terraformers": {
    "f": [
     ["<home>/AppData/LocalLow/Asteroid Lab/Terraformers/SavedGames", "windows", ""]
@@ -68727,6 +68890,12 @@
    ],
    "s": "1455630"
   },
+  "The Gap": {
+   "f": [
+    ["<winLocalAppData>/TheGap/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "1458300"
+  },
   "The Gardens Between": {
    "f": [
     ["<home>/.config/unity3d/The Voxel Agents/The Gardens Between", "linux", ""],
@@ -70038,6 +70207,12 @@
    ],
    "s": "32800"
   },
+  "The Lord of the Rings: War in the North - Legacy Edition": {
+   "f": [
+    ["<winLocalAppData>/Aspyr/War in the North/*.sav", "windows", ""]
+   ],
+   "s": "2523770"
+  },
   "The Lord of the Rings: War of the Ring": {
    "f": [
     ["<base>/Saves", "windows", ""]
@@ -70195,7 +70370,7 @@
     ["<home>/AppData/LocalLow/DarkStone Digital/The Mortuary Assistant", "windows", ""]
    ],
    "s": "1295920",
-   "x": ["2080860"]
+   "x": ["1295940", "2080860"]
   },
   "The Mound: Omen of Cthulhu": {
    "f": [
@@ -73501,7 +73676,7 @@
   },
   "Torrente 3: The Protector": {
    "f": [
-    ["<base>/datos/profiles", "windows", ""]
+    ["<base>/datos/profiles/<storeUserId>.T3", "windows", ""]
    ]
   },
   "Total Annihilation": {
@@ -74430,7 +74605,7 @@
    ],
    "s": "748300"
   },
-  "Treasure Island (2009)": {
+  "Treasure Island (2008)": {
    "f": [
     ["<winProgramData>/HMH Interactive/Treasure Island/profiles/default/save", "windows", ""]
    ]
@@ -78248,7 +78423,8 @@
    "f": [
     ["<home>/AppData/LocalLow/CayPlay/WaterparkSimulator/slots", "windows", ""]
    ],
-   "s": "3293260"
+   "s": "3293260",
+   "x": ["3730180", "4811280"]
   },
   "Wattam": {
    "f": [
