@@ -874,6 +874,18 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def direct_launch_exes(self) -> list[str]:
+        """Additional game-root executables that directly start the game.
+
+        ``exe_name`` is often a launcher (for example
+        ``SkyrimSELauncher.exe``), while the install also contains a runtime
+        binary users can select from the play dropdown. Declare those paths
+        here so the Proton launch path gives them the game verb, Steam shim and
+        app context instead of treating them as ordinary tools.
+        """
+        return []
+
+    @property
     def framework_launch_exes(self) -> dict[str, str]:
         """
         A mapping of display names to game-root-relative exe paths for

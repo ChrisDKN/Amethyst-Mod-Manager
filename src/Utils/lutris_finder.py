@@ -778,22 +778,19 @@ def umu_run_command(umu_bin: Path, *args: str,
     GAMEID); umu derives everything else itself. Inside our own Flatpak
     sandbox the launch is forwarded to the host via ``flatpak-spawn --host``
     (pressure-vessel can't nest inside a sandbox); flatpak-spawn doesn't
-    forward the environment, so the env diff vs os.environ is re-exported
-    with ``--env=`` flags - same pattern as steam_finder.proton_run_command.
+    forward the environment, so explicit and runtime environment values are
+    re-exported with ``--env=`` flags - the same policy as
+    steam_finder.proton_run_command.
 
     *host_cwd*, when given, becomes the host process's working directory
-    under flatpak-spawn (``--directory=``). Callers whose Popen cwd is a
-    host-valid path can omit it; callers running from a sandbox-only cwd
-    (e.g. the Proton-tools plumbing) must pass one or the portal fails to
-    chdir.
+    under flatpak-spawn (``--directory=``). Launch callers should pass their
+    executable directory: changing Popen's cwd only affects the sandbox-side
+    helper and does not reliably set the host command's cwd.
     """
     cmd = [str(umu_bin), *map(str, args)]
     if Path("/.flatpak-info").exists() and shutil.which("flatpak-spawn"):
-        fwd = [
-            f"--env={k}={v}"
-            for k, v in (env or {}).items()
-            if os.environ.get(k) != v
-        ]
+        from Utils.flatpak_env import flatpak_forward_env_args
+        fwd = flatpak_forward_env_args(env)
         dir_flag = [f"--directory={host_cwd}"] if host_cwd is not None else []
         cmd = ["flatpak-spawn", "--host", *dir_flag, *fwd, *cmd]
     return cmd

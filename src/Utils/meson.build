@@ -70,6 +70,7 @@ py.install_sources(
   'faugus_finder.py',
   'file_search.py',
   'filemap.py',
+  'flatpak_env.py',
   'flatpak_i386.py',
   'flatpak_sandbox.py',
   'fnv4gb_tools.py',

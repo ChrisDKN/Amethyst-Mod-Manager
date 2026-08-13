@@ -56,6 +56,10 @@ class SkyrimSE(Fallout_3):
         return "489830"
 
     @property
+    def direct_launch_exes(self) -> list[str]:
+        return ["SkyrimSE.exe"]
+
+    @property
     def nexus_game_domain(self) -> str:
         return "skyrimspecialedition"
 

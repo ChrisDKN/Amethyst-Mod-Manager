@@ -267,8 +267,10 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
     if game_path:
         env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
     if steam_id:
-        env.setdefault("SteamAppId", steam_id)
-        env.setdefault("SteamGameId", steam_id)
+        env["SteamAppId"] = steam_id
+        env["SteamGameId"] = steam_id
+        env["SteamOverlayGameId"] = steam_id
+        env["STEAM_COMPAT_APP_ID"] = steam_id
     return proton_script, env
 
 
@@ -278,9 +280,9 @@ def _host_forward(cmd: list[str], env: dict, log_fn: LogFn) -> list[str]:
     and library stack (not the flatpak runtime, which lacks them).
 
     Returns *cmd* unchanged outside the sandbox. flatpak-spawn does not inherit
-    the caller's environment, so every var *env* adds on top of the host
-    ``os.environ`` (STEAM_COMPAT_*, WINEPREFIX, …) is re-exported with
-    ``--env=`` flags. ``--directory=/`` avoids inheriting a sandbox-only cwd.
+    the caller's environment, so explicit overrides, saved user variables and
+    Proton/Wine runtime values are re-exported with ``--env=`` flags.
+    ``--directory=/`` avoids inheriting a sandbox-only cwd.
     """
     import shutil
 
@@ -295,7 +297,8 @@ def _host_forward(cmd: list[str], env: dict, log_fn: LogFn) -> list[str]:
                "flatpak-spawn is unavailable; running on the sandbox runtime, "
                "which will likely fail.")
         return cmd
-    fwd = [f"--env={k}={v}" for k, v in env.items() if os.environ.get(k) != v]
+    from Utils.flatpak_env import flatpak_forward_env_args
+    fwd = flatpak_forward_env_args(env)
     log_fn("Proton Tools: forwarding launch to the host via flatpak-spawn.")
     return ["flatpak-spawn", "--host", "--directory=/", *fwd, *cmd]
 

@@ -650,6 +650,21 @@ def effective_steam_id(game) -> str:
     return game_steam_id(game)
 
 
+def set_game_steam_context(env: dict, steam_id: str) -> None:
+    """Pin a child process to the Steam app it is about to launch.
+
+    Amethyst itself may have been started by Steam/Gaming Mode, in which case
+    its environment carries the non-Steam shortcut's IDs.  ``setdefault``
+    would preserve that unrelated context and can make SteamAPI/DLC checks in
+    the child resolve against the manager rather than the game.
+    """
+    app_id = str(steam_id)
+    env["SteamAppId"] = app_id
+    env["SteamGameId"] = app_id
+    env["SteamOverlayGameId"] = app_id
+    env["STEAM_COMPAT_APP_ID"] = app_id
+
+
 def game_is_steam_install(game) -> bool:
     """True if the game folder lives inside a Steam library (steamapps/common)."""
     game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
@@ -1274,8 +1289,10 @@ def get_tool_prefix_env(
     # keeps lsteamclient happy while leaving the desktop/OSK input profile in
     # place. The game's own launch path still sets the real AppId (where the
     # profile swap is wanted).
-    env.setdefault("SteamAppId", "0")
-    env.setdefault("SteamGameId", "0")
+    env["SteamAppId"] = "0"
+    env["SteamGameId"] = "0"
+    env["SteamOverlayGameId"] = "0"
+    env["STEAM_COMPAT_APP_ID"] = "0"
 
     if is_new:
         try:
@@ -1592,8 +1609,7 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     env["STEAM_COMPAT_DATA_PATH"] = str(compat_data)
     env["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = str(steam_root)
     if steam_id:
-        env.setdefault("SteamAppId", str(steam_id))
-        env.setdefault("SteamGameId", str(steam_id))
+        set_game_steam_context(env, steam_id)
     return proton_script, compat_data, env
 
 
@@ -2049,6 +2065,33 @@ def is_framework_launch_exe(game, exe_name: str) -> bool:
     return any(Path(rel).name.lower() == target for rel in declared.values())
 
 
+def is_game_launch_exe(game, exe_path: Path) -> bool:
+    """True when *exe_path* starts the game rather than a utility.
+
+    Besides the primary launcher and framework loaders, handlers may declare
+    direct runtime binaries such as SkyrimSE.exe.  Those binaries need the
+    Steam shim/game verb just as much as the launcher does; treating one as a
+    generic tool uses ``runinprefix`` and leaves SteamAPI partially detached.
+    """
+    if game is None:
+        return False
+    if is_framework_launch_exe(game, exe_path.name):
+        return True
+    game_exe = resolve_game_exe(game)
+    if (game_exe is not None
+            and str(exe_path).lower() == str(game_exe).lower()):
+        return True
+    game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+    if game_path is None:
+        return False
+    try:
+        declared = getattr(game, "direct_launch_exes", None) or []
+    except Exception:
+        declared = []
+    target = str(exe_path).lower()
+    return any(target == str(Path(game_path) / rel).lower() for rel in declared)
+
+
 def steam_launch_options_for_game(game, log_fn=_noop_log) -> str:
     """Steam's saved Launch Options for this game, for a launcher-less launch.
 
@@ -2297,6 +2340,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         # Bare wine invocation: WINEPREFIX + runner libs; no Steam client or
         # compat-data plumbing applies.
         env.update(lutris_env_extra)
+        for key in ("SteamAppId", "SteamGameId", "SteamOverlayGameId",
+                    "STEAM_COMPAT_APP_ID"):
+            env.pop(key, None)
     elif umu_bin is not None:
         # umu derives its own compat plumbing from WINEPREFIX + PROTONPATH;
         # deliberately no STEAM_COMPAT_* / SteamAppId here - that's what
@@ -2309,7 +2355,12 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         env["WINEPREFIX"] = str(prefix_path if lutris_is_prefix
                                 else compat_data)
         env["PROTONPATH"] = str(proton_script.parent)
-        env.setdefault("GAMEID", "umu-default")
+        # A parent Steam/Gaming Mode launch can leave an unrelated app context
+        # in Amethyst's environment. umu is deliberately Steam-independent.
+        for key in ("SteamAppId", "SteamGameId", "SteamOverlayGameId",
+                    "STEAM_COMPAT_APP_ID"):
+            env.pop(key, None)
+        env["GAMEID"] = "umu-default"
     else:
         steam_root = find_steam_root_for_proton_script(proton_script)
         if steam_root is None:
@@ -2325,11 +2376,17 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         if not proton_override_name:
             steam_id = effective_steam_id(game)
             if steam_id:
-                env.setdefault("SteamAppId", steam_id)
-                env.setdefault("SteamGameId", steam_id)
-                env.setdefault("STEAM_COMPAT_APP_ID", steam_id)
+                set_game_steam_context(env, steam_id)
+        else:
+            # An isolated tool prefix must not inherit Amethyst's Steam
+            # shortcut/game context. Keep lsteamclient neutral, matching
+            # get_tool_prefix_env's dedicated-prefix path.
+            env["SteamAppId"] = "0"
+            env["SteamGameId"] = "0"
+            env["SteamOverlayGameId"] = "0"
+            env["STEAM_COMPAT_APP_ID"] = "0"
         for key, value in steam_compat_mounts(game, exe_path).items():
-            env.setdefault(key, value)
+            env[key] = value
 
     if proton_override_name:
         # Bethesda games: mirror the wizard-prefix setup so tools in the
@@ -2395,12 +2452,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         runner_name = f"{runner_name} (umu)"
     log_fn(f"Run EXE: launching {exe_path.name} via {runner_name} ...")
 
-    game_exe = resolve_game_exe(game)
     launches_game = (
         not proton_override_name
-        and (is_framework_launch_exe(game, exe_path.name)
-             or (game_exe is not None
-                 and str(exe_path).lower() == str(game_exe).lower())))
+        and is_game_launch_exe(game, exe_path))
     # Epic builds need their EOS login arguments or they die at the main menu
     # ("Missing platform services") - Heroic passes them, so a direct launch
     # must too. Only when we ARE the launcher: mode=heroic never gets here.
@@ -2423,7 +2477,8 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
 
     # Apply launch-option env vars before building the command: when the
     # command gets wrapped in flatpak-spawn --host, proton_run_command
-    # forwards the env diff via --env= flags, so env must be final here.
+    # explicitly forwards launch/runtime values via --env= flags, so env must
+    # be final here.
     launch_opts = load_launch_options(game, exe_path.name)
     if not launch_opts and launches_game:
         launch_opts = steam_launch_options_for_game(game, log_fn)
@@ -2433,7 +2488,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
 
     if umu_bin is not None:
         from Utils.lutris_finder import umu_run_command
-        base_cmd = umu_run_command(umu_bin, str(exe_path), env=env) + extra_args
+        base_cmd = umu_run_command(
+            umu_bin, str(exe_path), env=env,
+            host_cwd=exe_path.parent) + extra_args
     else:
         # Anything that starts the game needs "waitforexitandrun" (the verb
         # Steam itself uses): it boots the steam.exe shim, without which
@@ -2450,8 +2507,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         else:
             verb = ("runinprefix"
                     if (compat_data / "pfx" / "user.reg").is_file() else "run")
-        base_cmd = proton_run_command(proton_script, verb, str(exe_path),
-                                      env=env) + extra_args
+        base_cmd = proton_run_command(
+            proton_script, verb, str(exe_path), env=env,
+            host_cwd=exe_path.parent) + extra_args
         # proton_run_command routes game launches through Steam's runtime
         # container (as Steam does). Name it in the log: a container failure
         # looks nothing like a Proton failure, and the escape hatch has to be
@@ -2476,7 +2534,9 @@ def launch_exe_via_proton(exe_path: Path, game, log_fn=_noop_log) -> None:
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
         # App context: a missing/zero SteamAppId is what DRM load errors report.
-        "SteamAppId", "STEAM_COMPAT_INSTALL_PATH", "STEAM_COMPAT_MOUNTS",
+        "SteamAppId", "SteamGameId", "SteamOverlayGameId",
+        "STEAM_COMPAT_APP_ID", "STEAM_COMPAT_INSTALL_PATH",
+        "STEAM_COMPAT_MOUNTS",
     )
     _env_summary = " ".join(
         f"{k}={env.get(k)}" for k in _env_keys if env.get(k) is not None
@@ -2579,7 +2639,8 @@ def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
             if env_updates:
                 env.update(env_updates)
         final_cmd = proton_run_command(
-            proton_script, "run", *jvm_cmd, env=env) + extra_args
+            proton_script, "run", *jvm_cmd, env=env,
+            host_cwd=jar_path.parent) + extra_args
     else:  # host
         env = strip_appimage_env(os.environ.copy())
         jar_token = str(jar_path)

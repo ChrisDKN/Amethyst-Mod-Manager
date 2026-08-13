@@ -535,8 +535,8 @@ def proton_run_command(
     flatpak), there is no ``flatpak`` CLI in the runtime - the ``flatpak run``
     must be forwarded to the host via ``flatpak-spawn --host``. flatpak-spawn
     does not forward the environment, so pass the Popen env dict as *env*:
-    every var the caller added on top of ``os.environ`` (STEAM_COMPAT_*,
-    WINEDLLOVERRIDES, …) is re-exported with ``--env=`` flags.
+    explicit overrides, saved user variables and Steam/Proton/Wine runtime
+    values are re-exported with ``--env=`` flags.
 
     *proton_script* may also be a plain ``wine``/``wine64`` binary (Lutris
     classic-wine prefixes): the caller's env must then carry WINEPREFIX. Wine
@@ -560,11 +560,8 @@ def proton_run_command(
                    ("run", "runinprefix", "waitforexitandrun")]
         cmd = [str(script), *payload]
         if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
-            fwd = [
-                f"--env={k}={v}"
-                for k, v in (env or {}).items()
-                if os.environ.get(k) != v
-            ]
+            from Utils.flatpak_env import flatpak_forward_env_args
+            fwd = flatpak_forward_env_args(env)
             cmd = ["flatpak-spawn", "--host", f"--directory={directory}",
                    *fwd, *cmd]
         return cmd
@@ -579,8 +576,8 @@ def proton_run_command(
         # PROTONPATH / GAMEID and rebuilds every STEAM_COMPAT_* var itself
         # (umu_run.py sets STEAM_COMPAT_CLIENT_INSTALL_PATH=""), so whatever
         # the caller put there is ignored and can stay in *env*. Mutates
-        # *env* (callers pass the same dict to Popen, and umu_run_command
-        # re-exports the diff under flatpak-spawn).
+            # *env* (callers pass the same dict to Popen, and umu_run_command
+            # re-exports its launch/runtime values under flatpak-spawn).
         try:
             from Utils.lutris_finder import find_umu_run, umu_run_command
             umu_bin = find_umu_run()
@@ -615,11 +612,8 @@ def proton_run_command(
         # where its runtime and libraries are the ones it expects.
         base = _wrap_in_steam_runtime(base, proton_script, args, env)
         if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
-            fwd = [
-                f"--env={k}={v}"
-                for k, v in (env or {}).items()
-                if os.environ.get(k) != v
-            ]
+            from Utils.flatpak_env import flatpak_forward_env_args
+            fwd = flatpak_forward_env_args(env)
             return ["flatpak-spawn", "--host", f"--directory={directory}",
                     *fwd, *base]
         return base
@@ -635,12 +629,10 @@ def proton_run_command(
         str(proton_script), *map(str, args),
     ]
     if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
-        fwd = [
-            f"--env={k}={v}"
-            for k, v in (env or {}).items()
-            if os.environ.get(k) != v
-        ]
-        cmd = ["flatpak-spawn", "--host", *fwd, *cmd]
+        from Utils.flatpak_env import flatpak_forward_env_args
+        fwd = flatpak_forward_env_args(env)
+        cmd = ["flatpak-spawn", "--host", f"--directory={directory}",
+               *fwd, *cmd]
     return cmd
 
 
