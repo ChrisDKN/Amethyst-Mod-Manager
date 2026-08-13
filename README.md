@@ -135,7 +135,11 @@ flatpak install --user flathub org.freedesktop.Platform.Compat.i386//24.08 org.f
 
 ## Wiki
 
-See the wiki page for a detailed guide on how to the use the mod manager and its functions
+See the [wiki](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki) page for a detailed guide on how to the use the mod manager and its functions. 
+
+The wiki is also built into the manager and can be viewed there.
+
+For building from source see the section on the wiki [here](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki#building-from-source) 
 
 ## Supporting the project
 
