@@ -466,9 +466,15 @@ class DaggerfallUnity(BaseGame):
             return
 
         log_fn("Step 4: Writing the load order to DFU's Mods.json ...")
+        mods_json = _mods_json()
+        # Parsed ModInfo lives beside the profile's modindex.bin, keyed by size
+        # and mtime, so repeat deploys skip decompressing every bundle again.
+        cache_path = (self.get_profile_root() / "profiles" / profile /
+                      mods_json.CACHE_NAME)
         try:
-            _mods_json().sync_mods_json(
-                self._game_path, self._ordered_dfmods(profile), log_fn=log_fn)
+            mods_json.sync_mods_json(
+                self._game_path, self._ordered_dfmods(profile), log_fn=log_fn,
+                cache_path=cache_path)
         except OSError as exc:
             # The load order is a convenience - never fail a deploy over it.
             log_fn(f"  Could not write Mods.json ({exc}); order mods in DFU's "
